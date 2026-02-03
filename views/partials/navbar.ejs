@@ -1,0 +1,47 @@
+<aside class="fixed top-0 left-0 h-full w-56 bg-sidebar flex flex-col z-40">
+  <!-- Logo -->
+  <div class="px-5 py-5 border-b border-sidebar-hover">
+    <a href="/" class="flex items-center gap-2">
+      <svg class="w-7 h-7 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+      <span class="text-white font-semibold text-lg tracking-tight">LeadAgent</span>
+    </a>
+  </div>
+
+  <!-- Navigation -->
+  <nav class="flex-1 px-3 py-4 space-y-1 sidebar-scroll overflow-y-auto">
+    <a href="/" class="sidebar-link <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'active' : '' %>">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+      </svg>
+      Search
+    </a>
+    <a href="/history" class="sidebar-link <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'active' : '' %>">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      History
+    </a>
+    <a href="/leads" class="sidebar-link <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'active' : '' %>">
+      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+      </svg>
+      Leads
+    </a>
+  </nav>
+
+  <!-- Bottom user area -->
+  <div class="px-4 py-4 border-t border-sidebar-hover">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-sm font-medium">
+        U
+      </div>
+      <div class="text-sm">
+        <p class="text-gray-300 font-medium leading-tight">My Account</p>
+        <p class="text-gray-500 text-xs">Free Plan</p>
+      </div>
+    </div>
+  </div>
+</aside>

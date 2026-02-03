@@ -1,0 +1,49 @@
+/* Sidebar icon style */
+.sidebar-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  color: #9ca3af;
+  font-size: 0.875rem;
+  transition: all 0.15s ease;
+}
+.sidebar-link:hover {
+  background: #2a2f2e;
+  color: #e5e7eb;
+}
+.sidebar-link.active {
+  background: #333937;
+  color: #ffffff;
+}
+
+/* Detail panel slide-in */
+.detail-panel {
+  transform: translateX(100%);
+  transition: transform 0.25s ease;
+}
+.detail-panel.open {
+  transform: translateX(0);
+}
+
+/* Table row selection */
+.result-row {
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+.result-row:hover {
+  background-color: #f9fafb;
+}
+.result-row.selected {
+  background-color: #f0fdf4;
+}
+
+/* Scrollbar styling for sidebar */
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: #333937;
+  border-radius: 2px;
+}
