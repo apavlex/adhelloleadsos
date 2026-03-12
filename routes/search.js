@@ -23,12 +23,19 @@ router.post('/', async (req, res, next) => {
     }
 
     // Run the Apify search
-    const results = await apifyService.searchGoogleMaps({
+    console.log(`[SEARCH] Starting Apify search for "${keyword}" in "${city}, ${state}"...`);
+    let results = await apifyService.searchGoogleMaps({
       keyword,
       city,
       state,
       maxResults: maxResults || 20,
     });
+    console.log(`[SEARCH] Initial search returned ${results.length} results.`);
+
+    // Enrich with socials if missing
+    console.log(`[SEARCH] Starting social enrichment pass...`);
+    results = await apifyService.enrichSocials(results);
+    console.log(`[SEARCH] Enrichment pass complete.`);
 
     // Save to database
     const searchRecord = {
@@ -41,7 +48,9 @@ router.post('/', async (req, res, next) => {
       timestamp: new Date().toISOString(),
     };
 
+    console.log(`[SEARCH] Saving search record to DB...`);
     const searchKey = await dbService.saveSearch(searchRecord);
+    console.log(`[SEARCH] Saved to DB with key: ${searchKey}`);
 
     res.render('results', {
       title: `Results: ${keyword} in ${city}, ${state}`,

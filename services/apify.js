@@ -79,5 +79,57 @@ module.exports = {
       instagram: item.instagram || (item.instagramUrl && item.instagramUrl.length > 0 ? item.instagramUrl[0] : 'N/A'),
       twitter: item.twitter || (item.twitterUrl && item.twitterUrl.length > 0 ? item.twitterUrl[0] : 'N/A'),
     }));
+  /**
+   * Enrich leads with missing social media links by crawling their websites.
+   * @param {Array} leads - Array of lead objects from the initial search
+   * @returns {Promise<Array>} Enriched array of lead objects
+   */
+  async enrichSocials(leads) {
+    const leadsToEnrich = leads.filter(l => 
+      l.website && l.website !== 'N/A' && 
+      (l.facebook === 'N/A' || l.instagram === 'N/A' || l.twitter === 'N/A')
+    );
+
+    if (leadsToEnrich.length === 0) return leads;
+
+    console.log(`Starting social enrichment for ${leadsToEnrich.length} leads...`);
+
+    const startUrls = leadsToEnrich.map(l => ({ url: l.website }));
+    
+    // Using apify/social-media-url-finder
+    const enrichmentInput = {
+      startUrls,
+      maxRequestsPerStartUrl: 5, // Shallow crawl for speed
+      deepCheck: false,
+    };
+
+    try {
+      const run = await client.actor('apify/social-media-url-finder').call(enrichmentInput);
+      const { items } = await client.dataset(run.defaultDatasetId).listItems();
+
+      console.log(`Enrichment finished. Found social data for ${items.length} websites.`);
+
+      // Map enriched data back to original leads
+      return leads.map(lead => {
+        const enriched = items.find(item => {
+          const itemUrl = item.url ? item.url.replace(/\/$/, '').toLowerCase() : '';
+          const leadUrl = lead.website ? lead.website.replace(/\/$/, '').toLowerCase() : '';
+          return itemUrl.includes(leadUrl) || leadUrl.includes(itemUrl);
+        });
+
+        if (enriched) {
+          return {
+            ...lead,
+            facebook: lead.facebook !== 'N/A' ? lead.facebook : (enriched.facebook || 'N/A'),
+            instagram: lead.instagram !== 'N/A' ? lead.instagram : (enriched.instagram || 'N/A'),
+            twitter: lead.twitter !== 'N/A' ? lead.twitter : (enriched.twitter || 'N/A'),
+          };
+        }
+        return lead;
+      });
+    } catch (error) {
+      console.error('Social enrichment failed:', error.message);
+      return leads; // Fallback to original results on error
+    }
   },
 };
