@@ -177,118 +177,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const rating = parseFloat(row.dataset.rating);
     const reviews = parseInt(row.dataset.reviews, 10);
     const url = row.dataset.url;
+    const email = row.dataset.email;
     const facebook = row.dataset.facebook;
     const instagram = row.dataset.instagram;
     const twitter = row.dataset.twitter;
     const address = row.dataset.address;
-    const status = row.dataset.status;
-    const outreachPrompt = row.dataset.outreachPrompt;
-    const updates = JSON.parse(row.dataset.updates || '[]');
+    const category = row.dataset.category;
 
-    const avatar = document.getElementById('mobilePanelAvatar');
-    if (avatar) avatar.textContent = title.charAt(0).toUpperCase();
+    // Avatar Logic (using DiceBear for variety)
+    const avatarImg = document.querySelector('#mobilePanelAvatarImg img');
+    if (avatarImg) {
+      const seed = title.replace(/\s+/g, '-').toLowerCase();
+      avatarImg.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    }
 
     const panelTitle = document.getElementById('mobilePanelTitle');
     if (panelTitle) panelTitle.textContent = title;
 
     const panelCategory = document.getElementById('mobilePanelCategory');
-    if (panelCategory) panelCategory.textContent = row.dataset.category;
+    if (panelCategory) panelCategory.textContent = category;
 
-    // Status Selector
-    const statusSelect = document.getElementById('leadStatusSelect');
-    if (statusSelect) {
-      statusSelect.value = status || 'New';
-    }
+    // Details logic
+    const ratingEl = document.getElementById('mobilePanelRating');
+    if (ratingEl) ratingEl.textContent = rating > 0 ? `${rating.toFixed(1)} Rating` : 'No Rating';
+    
+    const reviewsEl = document.getElementById('mobilePanelReviews');
+    if (reviewsEl) reviewsEl.textContent = reviews > 0 ? `${reviews}+ Reviews` : 'No Reviews';
 
-    // Outreach Prompt
-    const promptArea = document.getElementById('outreachPromptArea');
-    if (promptArea) {
-      promptArea.value = outreachPrompt || '';
-    }
+    const emailEl = document.getElementById('mobilePanelEmail');
+    if (emailEl) emailEl.textContent = (email && email !== 'N/A') ? email : 'No Email Available';
 
-    // Activity Log
-    const activityLog = document.getElementById('activityLog');
-    if (activityLog) {
-      activityLog.innerHTML = updates.length > 0 
-        ? updates.map(u => `
-            <div class="bg-white p-3 rounded-xl border border-brand-border/30 shadow-sm mb-2">
-              <div class="flex justify-between items-center mb-1">
-                <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted">${u.type.replace('_', ' ')}</span>
-                <span class="text-[9px] text-brand-muted/60">${new Date(u.timestamp).toLocaleString()}</span>
-              </div>
-              <p class="text-sm font-medium text-brand-dark">${u.value}</p>
-            </div>
-          `).join('')
-        : '<p class="text-[10px] text-brand-muted italic">No activity recorded yet.</p>';
-    }
+    const addressEl = document.getElementById('mobilePanelAddress');
+    if (addressEl) addressEl.textContent = (address && address !== 'N/A') ? address : 'Address Not Listed';
 
-    // Links & Visibility
-    const ratingRow = document.getElementById('mobilePanelRatingRow');
-    if (ratingRow) {
-      if (rating > 0) {
-        document.getElementById('mobilePanelRating').textContent = `${rating.toFixed(1)} rating (${reviews} reviews)`;
-        ratingRow.classList.remove('hidden');
-      } else {
-        ratingRow.classList.add('hidden');
-      }
-    }
-
-    const phoneRow = document.getElementById('mobilePanelPhoneRow');
-    if (phoneRow) {
-      if (phone && phone !== 'N/A') {
-        const pLink = document.getElementById('mobilePanelPhone');
-        if (pLink) {
-          pLink.textContent = phone;
-          pLink.href = `tel:${phone}`;
-          phoneRow.classList.remove('hidden');
-        }
-      } else {
-        phoneRow.classList.add('hidden');
-      }
-    }
-
-    const addressRow = document.getElementById('mobilePanelAddressRow');
-    if (addressRow) {
-      if (address && address !== 'N/A') {
-        document.getElementById('mobilePanelAddress').textContent = address;
-        addressRow.classList.remove('hidden');
-      } else {
-        addressRow.classList.add('hidden');
-      }
-    }
-
+    // Links
     const websiteBtn = document.getElementById('mobilePanelWebsiteBtn');
-    if (websiteBtn) {
-      if (website && website !== 'N/A') {
-        websiteBtn.href = website;
-        websiteBtn.classList.remove('hidden');
-      } else {
-        websiteBtn.classList.add('hidden');
-      }
-    }
+    if (websiteBtn) websiteBtn.href = (website && website !== 'N/A') ? website : '#';
+    
+    const xBtn = document.getElementById('mobilePanelXBtn');
+    if (xBtn) xBtn.href = (twitter && twitter !== 'N/A') ? twitter : '#';
 
     const mapsBtn = document.getElementById('mobilePanelMapsBtn');
-    if (mapsBtn) mapsBtn.href = url;
+    if (mapsBtn) mapsBtn.href = url || '#';
 
-    // Socials
-    const socialMappings = [
-      { key: facebook, row: 'mobilePanelFacebookRow', link: 'mobilePanelFacebook' },
-      { key: instagram, row: 'mobilePanelInstagramRow', link: 'mobilePanelInstagram' },
-      { key: twitter, row: 'mobilePanelTwitterRow', link: 'mobilePanelTwitter' }
-    ];
-
-    socialMappings.forEach(s => {
-      const row = document.getElementById(s.row);
-      const link = document.getElementById(s.link);
-      if (row && link) {
-        if (s.key && s.key !== 'N/A') {
-          link.href = s.key;
-          row.classList.remove('hidden');
-        } else {
-          row.classList.add('hidden');
-        }
-      }
-    });
+    // Badges / Tags based on category
+    const badgeContainer = document.getElementById('badgeContainer');
+    if (badgeContainer) {
+      badgeContainer.innerHTML = '';
+      const tags = [category, 'USA', 'Verified Lead'];
+      if (rating >= 4.5) tags.push('Top Rated');
+      if (reviews > 50) tags.push('Popular');
+      
+      tags.forEach(tag => {
+        const span = document.createElement('span');
+        span.className = 'px-4 py-2 rounded-xl border border-brand-border/60 text-[11px] font-bold text-brand-dark bg-white';
+        span.textContent = tag;
+        badgeContainer.appendChild(span);
+      });
+    }
   }
 
   // --- Lead Management Actions ---
