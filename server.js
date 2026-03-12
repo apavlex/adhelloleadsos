@@ -51,11 +51,11 @@ app.get('/logout', (req, res, next) => {
   });
 });
 
-// Protected Routes
-app.use('/', ensureAuthenticated, indexRoutes);
-app.use('/search', ensureAuthenticated, searchRoutes);
-app.use('/history', ensureAuthenticated, historyRoutes);
-app.use('/leads', ensureAuthenticated, leadsRoutes);
+// Protected Routes (Auth disabled for now)
+app.use('/', indexRoutes);
+app.use('/search', searchRoutes);
+app.use('/history', historyRoutes);
+app.use('/leads', leadsRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
