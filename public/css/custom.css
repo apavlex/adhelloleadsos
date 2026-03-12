@@ -135,8 +135,20 @@ table {
 }
 
 .result-row.selected {
-    background-color: rgba(253, 224, 71, 0.3) !important;
-    border-left: 4px solid var(--brand-yellow, #FDE047);
+    background-color: var(--brand-cream) !important;
+    position: relative;
+}
+
+.result-row.selected::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 10%;
+    bottom: 10%;
+    width: 4px;
+    background: #FDE047;
+    border-radius: 0 4px 4px 0;
+    box-shadow: 2px 0 10px rgba(253, 224, 71, 0.4);
 }
 
 /* Detail panel inner padding fix */
@@ -175,4 +187,33 @@ table {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 2rem;
+}
+
+/* Premium Sidebar Overrides */
+.sidebar-shadow {
+    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Custom scrollbar for sidebar */
+#mobilePanel > div::-webkit-scrollbar {
+    width: 6px;
+}
+#mobilePanel > div::-webkit-scrollbar-track {
+    background: transparent;
+}
+#mobilePanel > div::-webkit-scrollbar-thumb {
+    background: #E5E7EB;
+    border-radius: 10px;
+}
+#mobilePanel > div::-webkit-scrollbar-thumb:hover {
+    background: #D1D5DB;
+}
+
+#badgeContainer span {
+    transition: all 0.2s ease;
+    cursor: default;
+}
+#badgeContainer span:hover {
+    background: #FDE047;
+    border-color: #FDE047;
 }
