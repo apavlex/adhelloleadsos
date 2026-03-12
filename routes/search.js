@@ -17,7 +17,7 @@ router.post('/', async (req, res, next) => {
 
     if (!process.env.APIFY_API_TOKEN) {
       return res.status(500).render('error', {
-        message: 'APIFY_API_TOKEN is not configured. Add it to your Replit Secrets.',
+        message: 'APIFY_API_TOKEN is not configured. Please add it to your Cloud Run Environment Variables.',
         activePage: 'search',
       });
     }
