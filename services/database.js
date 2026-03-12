@@ -117,6 +117,14 @@ module.exports = {
     return leads;
   },
 
+  async updateLead(key, updateData) {
+    const existing = await this.getLead(key);
+    if (!existing) return null;
+    const updated = { ...existing, ...updateData };
+    await db.set(key, JSON.stringify(updated));
+    return updated;
+  },
+
   async deleteLead(key) {
     await db.delete(key);
   },

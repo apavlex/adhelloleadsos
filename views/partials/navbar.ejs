@@ -1,47 +1,81 @@
-<aside class="fixed top-0 left-0 h-full w-56 bg-sidebar flex flex-col z-40">
-  <!-- Logo -->
-  <div class="px-5 py-5 border-b border-sidebar-hover">
-    <a href="/" class="flex items-center gap-2">
-      <svg class="w-7 h-7 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
-        <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-      </svg>
-      <span class="text-white font-semibold text-lg tracking-tight">LeadAgent</span>
+<header class="sticky top-0 z-50 w-full px-6 py-4">
+  <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 backdrop-blur-md px-6 py-3 rounded-full border border-brand-border shadow-sm">
+    <!-- Logo -->
+    <a href="/" class="flex items-center gap-2 group">
+      <div class="w-10 h-10 bg-brand-yellow rounded-full flex items-center justify-center shadow-brutal group-hover:shadow-brutal-hover transition-all duration-300">
+        <svg class="w-6 h-6 text-brand-dark" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </div>
+      <span class="font-display font-extrabold text-xl tracking-tight text-brand-dark">LeadAgent</span>
     </a>
-  </div>
 
-  <!-- Navigation -->
-  <nav class="flex-1 px-3 py-4 space-y-1 sidebar-scroll overflow-y-auto">
-    <a href="/" class="sidebar-link <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'active' : '' %>">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
-      Search
-    </a>
-    <a href="/history" class="sidebar-link <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'active' : '' %>">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-      </svg>
-      History
-    </a>
-    <a href="/leads" class="sidebar-link <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'active' : '' %>">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-      </svg>
-      Leads
-    </a>
-  </nav>
+    <!-- Navigation -->
+    <nav class="hidden md:flex items-center gap-8">
+      <a href="/" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'active' : '' %>">Search</a>
+      <a href="/history" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'active' : '' %>">History</a>
+      <a href="/leads" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'active' : '' %>">Saved Leads</a>
+    </nav>
 
-  <!-- Bottom user area -->
-  <div class="px-4 py-4 border-t border-sidebar-hover">
-    <div class="flex items-center gap-3">
-      <div class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-sm font-medium">
+    <!-- User Area -->
+    <div class="flex items-center gap-4">
+      <div class="hidden sm:flex flex-col items-end">
+        <span class="text-xs font-bold text-brand-dark">My Account</span>
+        <span class="text-[10px] text-brand-muted uppercase tracking-widest font-bold">Free Plan</span>
+      </div>
+      <div class="w-10 h-10 rounded-full bg-brand-cream border border-brand-border flex items-center justify-center font-bold text-brand-dark text-sm shadow-sm md:flex hidden">
         U
       </div>
-      <div class="text-sm">
-        <p class="text-gray-300 font-medium leading-tight">My Account</p>
-        <p class="text-gray-500 text-xs">Free Plan</p>
+      <a href="/logout" class="hidden md:block text-[10px] font-bold text-brand-muted hover:text-red-500 uppercase tracking-widest transition-colors">Logout</a>
+      
+      <!-- Burger Menu (Mobile Only) -->
+      <button id="mobileMenuBtn" class="md:hidden w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream rounded-full transition-colors border border-brand-border">
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Side Nav -->
+  <div id="mobileMenu" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none">
+    <div class="absolute inset-y-0 right-0 w-72 bg-white shadow-2xl p-8 translate-x-full transition-transform duration-300 pointer-events-auto">
+      <div class="flex items-center justify-between mb-12">
+        <span class="font-display font-extrabold text-xl tracking-tight text-brand-dark">Menu</span>
+        <button id="closeMobileMenu" class="w-10 h-10 flex items-center justify-center text-brand-muted hover:text-brand-dark rounded-full transition-colors border border-brand-border">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+
+      <nav class="flex flex-col gap-6">
+        <a href="/" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">Search</span>
+        </a>
+        <a href="/history" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">History</span>
+        </a>
+        <a href="/leads" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">Saved Leads</span>
+        </a>
+        <a href="/logout" class="flex items-center gap-4 p-4 rounded-2xl border border-red-100 bg-red-50/30 text-red-500 hover:bg-red-50 transition-colors">
+          <span class="font-display font-bold text-lg">Logout</span>
+        </a>
+      </nav>
+
+      <div class="mt-12 pt-12 border-t border-brand-border">
+        <div class="flex items-center gap-4">
+          <div class="w-12 h-12 rounded-full bg-brand-cream border border-brand-border flex items-center justify-center font-bold text-brand-dark text-lg shadow-sm">
+            U
+          </div>
+          <div>
+            <div class="text-sm font-bold text-brand-dark">My Account</div>
+            <div class="text-[10px] text-brand-muted uppercase tracking-widest font-bold">Free Plan</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
-</aside>
+</header>

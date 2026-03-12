@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(PORT=3456 node:*)",
+      "Bash(curl:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)"
+    ]
+  }
+}

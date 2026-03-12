@@ -1,49 +1,178 @@
-/* Sidebar icon style */
-.sidebar-link {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.6rem 1rem;
-  border-radius: 0.5rem;
-  color: #9ca3af;
-  font-size: 0.875rem;
-  transition: all 0.15s ease;
+/* Global Styles */
+body {
+    background-color: #FAF7ED;
+    color: #111827;
+    font-family: 'Inter', ui-sans-serif, system-ui;
+    -webkit-font-smoothing: antialiased;
 }
-.sidebar-link:hover {
-  background: #2a2f2e;
-  color: #e5e7eb;
+
+h1, h2, h3, h4, .font-display {
+    font-family: 'Manrope', sans-serif;
 }
-.sidebar-link.active {
-  background: #333937;
-  color: #ffffff;
+
+/* Button Animations & Styles */
+.btn-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    border-radius: 9999px;
+    font-weight: 600;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+}
+
+.btn-pill:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 15px rgba(253, 224, 71, 0.6);
+}
+
+.btn-pill:active {
+    transform: translateY(0);
+}
+
+.btn-primary {
+    background-color: #FDE047;
+    color: #111827;
+}
+
+.btn-primary:hover {
+    background-color: #FACC15;
+}
+
+/* Navigation Styles */
+.nav-link {
+    font-weight: 600;
+    color: rgba(17, 24, 39, 0.7);
+    transition: color 0.2s ease;
+}
+
+.nav-link:hover, .nav-link.active {
+    color: #111827;
+}
+
+/* Card Styles */
+.brand-card {
+    background: white;
+    border: 1px solid rgba(17, 24, 39, 0.05);
+    border-radius: 2rem;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.brand-card:hover {
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
 }
 
 /* Detail panel slide-in */
 .detail-panel {
-  transform: translateX(100%);
-  transition: transform 0.25s ease;
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: white;
+    box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
 }
 .detail-panel.open {
-  transform: translateX(0);
+    transform: translateX(0);
 }
 
-/* Table row selection */
+/* Mobile Panel Animations & Sidebar */
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+@keyframes slideInRight {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+
+.animate-slide-up {
+    animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.lg\:animate-slide-in-right {
+    animation: slideInRight 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#mobilePanel {
+    transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 9999;
+}
+
+#mobilePanel.open {
+    display: flex !important;
+}
+
+#mobilePanel > div {
+    z-index: 10000;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Sidebar behavior on Desktop */
+@media (min-width: 1024px) {
+    #mobilePanel > div {
+        height: 100vh !important;
+        max-height: 100vh !important;
+        border-radius: 0 !important;
+        border-top-left-radius: 3rem !important;
+        border-bottom-left-radius: 3rem !important;
+    }
+}
+
+/* Table row selection & clickability */
 .result-row {
-  cursor: pointer;
-  transition: background-color 0.1s ease;
-}
-.result-row:hover {
-  background-color: #f9fafb;
-}
-.result-row.selected {
-  background-color: #f0fdf4;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 1rem;
 }
 
-/* Scrollbar styling for sidebar */
-.sidebar-scroll::-webkit-scrollbar {
-  width: 4px;
+/* Ensure the border/line areas are part of the clickable row */
+table {
+    border-collapse: separate;
+    border-spacing: 0 4px; /* Minimal gap if needed, or stick to collapse */
 }
-.sidebar-scroll::-webkit-scrollbar-thumb {
-  background: #333937;
-  border-radius: 2px;
+
+.result-row:hover {
+    background-color: rgba(253, 224, 71, 0.1) !important;
+    transform: scale(1.002);
+}
+
+.result-row.selected {
+    background-color: rgba(253, 224, 71, 0.3) !important;
+    border-left: 4px solid var(--brand-yellow, #FDE047);
+}
+
+/* Detail panel inner padding fix */
+#detailPanel {
+    padding-top: 2rem !important;
+}
+
+/* Custom width for full-wide view */
+.max-wide {
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.line-height-1 {
+    line-height: 1;
+}
+
+/* Feature Section Styles */
+.feature-icon-container {
+    width: 4.5rem;
+    height: 4.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 1.25rem;
+    margin-bottom: 2rem;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.brand-card:hover .feature-icon-container {
+    transform: scale(1.1) rotate(-5deg);
+}
+
+.grid-features {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 2rem;
 }
