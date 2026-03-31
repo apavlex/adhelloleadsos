@@ -183,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const twitter = row.dataset.twitter;
     const address = row.dataset.address;
     const category = row.dataset.category;
+    const loomUrl = row.dataset.loomUrl;
 
     // Avatar Logic (using DiceBear for variety)
     const avatarImg = document.querySelector('#mobilePanelAvatarImg img');
@@ -196,6 +197,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
+
+    // Loom URL Input
+    const loomInput = document.getElementById('loomUrlInput');
+    if (loomInput) loomInput.value = loomUrl || '';
 
     // Details logic
     const ratingEl = document.getElementById('mobilePanelRating');
@@ -287,25 +292,67 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  const generatePromptBtn = document.getElementById('generatePromptBtn');
-  if (generatePromptBtn) {
-    generatePromptBtn.addEventListener('click', async () => {
+  // --- Loom URL Auto-save ---
+  const loomInput = document.getElementById('loomUrlInput');
+  if (loomInput) {
+    // Save on blur (when user clicks out of the input box)
+    loomInput.addEventListener('blur', async () => {
       if (!currentRow) return;
       const key = currentRow.dataset.leadKey;
-      generatePromptBtn.disabled = true;
-      generatePromptBtn.textContent = 'Generating...';
+      const newLoomUrl = loomInput.value.trim();
+
+      // Only save if it actually changed
+      if (currentRow.dataset.loomUrl === newLoomUrl) return;
 
       try {
-        const res = await fetch(`/leads/${key}/generate-prompt`, { method: 'POST' });
+        const res = await fetch(`/leads/${key}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ loomUrl: newLoomUrl })
+        });
         const data = await res.json();
         if (data.success) {
-          currentRow.dataset.outreachPrompt = data.prompt;
-          document.getElementById('outreachPromptArea').value = data.prompt;
+          currentRow.dataset.loomUrl = newLoomUrl;
+          // Optionally add a tiny 'saved' toast here if needed
         }
-      } catch (err) { console.error('Prompt generation failed:', err); }
-      finally {
-        generatePromptBtn.disabled = false;
-        generatePromptBtn.textContent = 'Generate AI Prompt';
+      } catch (err) { console.error('Loom URL update failed:', err); }
+    });
+  }
+
+  // --- Generate Mailto Email Draft ---
+  const draftEmailBtn = document.getElementById('draftEmailBtn');
+  if (draftEmailBtn) {
+    draftEmailBtn.addEventListener('click', () => {
+      if (!currentRow) return;
+      
+      const title = currentRow.dataset.title || 'there';
+      const city = currentRow.dataset.city || 'your area';
+      const email = currentRow.dataset.email;
+      const loomLink = document.getElementById('loomUrlInput').value.trim();
+
+      if (!loomLink) {
+        alert("Please paste a Loom Video Link first before drafting the email.");
+        return;
+      }
+
+      const subject = encodeURIComponent(`Saw ${title}'s website - made you a quick video`);
+      const bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas that could help increase your conversions:\n\n${loomLink}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
+      
+      const body = encodeURIComponent(bodyText);
+      
+      let mailtoStr = `mailto:`;
+      if (email && email !== 'N/A') {
+        mailtoStr += encodeURIComponent(email);
+      }
+      mailtoStr += `?subject=${subject}&body=${body}`;
+
+      // Open default mail client
+      window.location.href = mailtoStr;
+
+      // Automatically update status to 'Email Sent'
+      if (statusSelect) {
+        statusSelect.value = 'Email Sent';
+        statusSelect.dispatchEvent(new Event('change'));
       }
     });
   }

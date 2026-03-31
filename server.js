@@ -29,6 +29,12 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Global middleware for templates
+app.use((req, res, next) => {
+  res.locals.user = req.user || null;
+  next();
+});
+
 // Auth Routes
 app.get('/auth/login', (req, res) => {
   res.render('login', { error: req.query.error });
@@ -52,11 +58,11 @@ app.get('/logout', (req, res, next) => {
   });
 });
 
-// Protected Routes (Auth disabled for now)
-app.use('/', indexRoutes);
-app.use('/search', searchRoutes);
-app.use('/history', historyRoutes);
-app.use('/leads', leadsRoutes);
+// Protected Routes
+app.use('/', ensureAuthenticated, indexRoutes);
+app.use('/search', ensureAuthenticated, searchRoutes);
+app.use('/history', ensureAuthenticated, historyRoutes);
+app.use('/leads', ensureAuthenticated, leadsRoutes);
 
 // Firecrawl Enrichment Route
 app.post('/enrich', async (req, res) => {

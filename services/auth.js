@@ -9,7 +9,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     },
     function(accessToken, refreshToken, profile, done) {
       const email = profile.emails[0].value;
-      // Restrict to adhello.ai domain
+      
+      // Restrict access explicitly to the @adhello.ai workspace
       if (email.endsWith('@adhello.ai')) {
         return done(null, profile);
       } else {

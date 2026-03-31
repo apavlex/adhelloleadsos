@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 40">
+  <path d="M12 2L2 22h8v16l10-20h-8l8-16z" fill="#111827" />
+  <text x="32" y="26" font-family="Arial, sans-serif" font-weight="900" font-size="24" fill="#111827" letter-spacing="-1">adhello</text>
+  <text x="120" y="26" font-family="Arial, sans-serif" font-weight="500" font-size="24" fill="#6B7280" letter-spacing="-1">leadsOS</text>
+</svg>

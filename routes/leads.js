@@ -51,6 +51,8 @@ router.post('/save', async (req, res, next) => {
       facebook: facebook || 'N/A',
       instagram: instagram || 'N/A',
       twitter: twitter || 'N/A',
+      status: 'Needs Video', // Default pipeline stage
+      loomUrl: '',
       savedAt: new Date().toISOString(),
     };
 
