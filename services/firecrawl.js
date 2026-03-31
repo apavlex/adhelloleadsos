@@ -1,8 +1,16 @@
 const FirecrawlApp = require('@mendable/firecrawl-js').default;
 
-const apiKey = process.env.FIRECRAWL_API_KEY;
-// The SDK handles falling back to process.env.FIRECRAWL_API_KEY as well
-const app = new FirecrawlApp({ apiKey: apiKey || '' });
+let appInstance = null;
+function getFirecrawlApp() {
+  if (!appInstance) {
+    const apiKey = process.env.FIRECRAWL_API_KEY;
+    if (!apiKey) {
+      throw new Error('Firecrawl API Key is missing. Please set FIRECRAWL_API_KEY in your environment variables.');
+    }
+    appInstance = new FirecrawlApp({ apiKey });
+  }
+  return appInstance;
+}
 
 // JSON schema for the data we want to extract
 const enrichSchema = {
@@ -24,17 +32,15 @@ const enrichSchema = {
  * @returns {Promise<Object>} Enriched data matching the schema.
  */
 async function enrichLead(url) {
-  if (!process.env.FIRECRAWL_API_KEY) {
-    throw new Error('Firecrawl API Key is missing. Please set FIRECRAWL_API_KEY in your environment variables.');
-  }
-
   // Ensure url is absolute
   if (url && !url.startsWith('http')) {
     url = 'https://' + url;
   }
 
   try {
-    const response = await app.scrapeUrl(url, {
+    const firecrawl = getFirecrawlApp();
+    
+    const response = await firecrawl.scrapeUrl(url, {
       formats: ['extract'],
       extract: {
         schema: enrichSchema,
