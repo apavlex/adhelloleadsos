@@ -3,6 +3,7 @@ const express = require('express');
 const path = require('path');
 const session = require('express-session');
 const { passport, ensureAuthenticated } = require('./services/auth');
+const { enrichLead } = require('./services/firecrawl');
 
 const indexRoutes = require('./routes/index');
 const searchRoutes = require('./routes/search');
@@ -56,6 +57,22 @@ app.use('/', indexRoutes);
 app.use('/search', searchRoutes);
 app.use('/history', historyRoutes);
 app.use('/leads', leadsRoutes);
+
+// Firecrawl Enrichment Route
+app.post('/enrich', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ error: 'URL is required for enrichment.' });
+    }
+    
+    const data = await enrichLead(url);
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Enrichment Server Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // Error handler
 app.use((err, req, res, next) => {
