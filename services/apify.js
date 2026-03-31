@@ -79,6 +79,7 @@ module.exports = {
       instagram: item.instagram || (item.instagramUrl && item.instagramUrl.length > 0 ? item.instagramUrl[0] : 'N/A'),
       twitter: item.twitter || (item.twitterUrl && item.twitterUrl.length > 0 ? item.twitterUrl[0] : 'N/A'),
     }));
+  },
   /**
    * Enrich leads with missing social media links by crawling their websites.
    * @param {Array} leads - Array of lead objects from the initial search
