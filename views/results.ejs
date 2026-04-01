@@ -30,7 +30,8 @@
           <button id="bulkEnrichBtn" class="btn-pill bg-brand-yellow/10 border border-brand-yellow/30 text-brand-dark hover:bg-brand-yellow px-4 py-2 text-sm font-bold shadow-sm transition-all text-brand-dark">
             ✨ Enrich Leads
           </button>
-          <button id="bulkExportBtn" class="btn-pill bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 px-4 py-2 text-sm font-bold shadow-sm">
+          <button id="bulkExportBtn" class="btn-pill bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 px-4 py-2 text-sm font-bold shadow-sm flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
             Export CSV
           </button>
           <button id="bulkSaveBtn" class="btn-pill btn-primary px-4 py-2 text-sm font-bold shadow-sm">
@@ -38,7 +39,7 @@
           </button>
         </div>
         <a href="/" id="newSearchBtn" class="btn-pill btn-primary flex">
-          <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
           New Search
@@ -69,10 +70,11 @@
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted min-w-[140px]">Phone</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Location</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Reviews</th>
+                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Opportunity</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Website</th>
                 <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Email</th>
-                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Socials</th>
-                <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-brand-muted">Save Lead</th>
+                <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted text-center">Socials</th>
+                <th class="px-6 py-4 text-right text-[10px] font-bold uppercase tracking-widest text-brand-muted">Actions</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-brand-border/50">
@@ -109,20 +111,26 @@
                   </td>
                   <td class="px-6 py-5">
                     <% if (place.totalScore) { %>
-                      <div class="flex items-center gap-1.5">
-                        <svg class="w-4 h-4 text-brand-yellow" fill="currentColor" viewBox="0 0 20 20">
-                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
-                        <span class="text-sm font-bold text-brand-dark"><%= Number(place.totalScore).toFixed(1) %></span>
-                        <span class="text-[10px] font-bold text-brand-muted">(<%= place.reviewsCount %>)</span>
+                      <div class="flex flex-col gap-1">
+                        <div class="row-stars flex items-center gap-0.5"></div>
+                        <div class="flex items-center gap-1.5">
+                          <span class="text-[11px] font-black text-brand-dark dark:text-slate-200"><%= Number(place.totalScore).toFixed(1) %></span>
+                          <span class="text-[9px] font-bold text-brand-muted/60">(<%= place.reviewsCount %>)</span>
+                        </div>
                       </div>
                     <% } else { %>
-                      <span class="text-brand-muted/40 text-sm">-</span>
+                      <span class="text-brand-muted/40 text-sm font-bold">-</span>
                     <% } %>
+                  </td>
+                  <td class="px-6 py-5">
+                    <div class="opportunity-badge flex items-center gap-2" data-score="0">
+                      <span class="w-1.5 h-1.5 rounded-full bg-slate-300 animate-pulse"></span>
+                      <span class="text-[10px] font-bold text-brand-muted uppercase tracking-wider">Calculating</span>
+                    </div>
                   </td>
                   <td class="px-6 py-5 text-sm font-medium text-brand-muted">
                     <% if (place.website && place.website !== 'N/A') { %>
-                      <a href="<%= place.website %>" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[180px] truncate" title="<%= place.website %>">
+                      <a href="<%= place.website %>" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[150px] truncate" title="<%= place.website %>">
                         <%= place.website.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '') %>
                       </a>
                     <% } else { %>
@@ -131,41 +139,42 @@
                   </td>
                   <td class="px-6 py-5 text-sm">
                     <% if (place.email && place.email !== 'N/A') { %>
-                      <a href="mailto:<%= place.email %>" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[150px] inline-block" title="<%= place.email %>">
-                        <%= place.email %>
+                      <a href="mailto:<%= place.email %>" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="<%= place.email %>">
+                          <%= place.email %>
                       </a>
                     <% } else { %>
-                      <span class="text-[10px] bg-brand-cream px-2 py-1 rounded-md border border-brand-border uppercase tracking-widest text-brand-muted/70 font-bold" title="Click Enrich Leads to attempt finding an email">No Email</span>
+                      <span class="text-[9px] bg-brand-cream/50 px-1.5 py-0.5 rounded border border-brand-border uppercase tracking-widest text-brand-muted/70 font-bold">No Email</span>
                     <% } %>
                   </td>
                   <td class="px-6 py-5">
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-center justify-center gap-2.5">
                       <% if (place.facebook && place.facebook !== 'N/A') { %>
-                        <div class="w-6 h-6 text-brand-muted" title="Facebook">
+                        <a href="<%= place.facebook %>" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook">
                           <svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>
-                        </div>
+                        </a>
                       <% } %>
                       <% if (place.instagram && place.instagram !== 'N/A') { %>
-                        <div class="w-6 h-6 text-brand-muted" title="Instagram">
+                        <a href="<%= place.instagram %>" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram">
                           <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg>
-                        </div>
-                      <% } %>
-                      <% if (place.twitter && place.twitter !== 'N/A') { %>
-                        <div class="w-6 h-6 text-brand-muted" title="Twitter / X">
-                          <svg fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>
-                        </div>
-                      <% } else if (!place.facebook && !place.instagram) { %>
-                        <span class="text-brand-muted/40 text-sm">-</span>
+                        </a>
                       <% } %>
                     </div>
                   </td>
                   <td class="px-6 py-5 text-right">
-                    <button class="bookmark-btn w-10 h-10 rounded-full inline-flex items-center justify-center border border-brand-border hover:bg-brand-yellow hover:border-brand-yellow hover:text-brand-dark transition-all duration-300 text-brand-muted ml-auto"
-                            data-index="<%= i %>" title="Save lead">
-                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
-                      </svg>
-                    </button>
+                   <div class="flex items-center justify-end gap-2">
+                       <% if (place.email && place.email !== 'N/A') { %>
+                        <button class="quick-outreach-btn w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all" 
+                          data-email="<%= place.email %>" data-company="<%= place.title %>" title="Quick Email Outreach">
+                          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                        </button>
+                      <% } %>
+                      <button class="bookmark-btn w-8 h-8 rounded-lg inline-flex items-center justify-center border border-brand-border hover:bg-brand-yellow hover:border-brand-yellow hover:text-brand-dark transition-all duration-300 text-brand-muted"
+                              data-index="<%= i %>" title="Save lead">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                          <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" />
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
               <% }) %>
@@ -192,65 +201,95 @@
     <div class="bg-white dark:bg-slate-900 w-full lg:w-[480px] rounded-t-[3rem] lg:rounded-none p-8 animate-slide-up lg:animate-slide-in-right pointer-events-auto max-h-[90vh] lg:max-h-screen overflow-y-auto shadow-2xl sidebar-shadow border-l dark:border-white/10">
       
       <!-- Top Actions & Close -->
-      <div class="flex items-center justify-between mb-8">
-        <div class="flex gap-3">
-          <a id="mobilePanelXBtn" href="#" target="_blank" class="w-10 h-10 rounded-xl border border-brand-border dark:border-white/10 flex items-center justify-center text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 transition-colors">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>
-          </a>
-          <a id="mobilePanelLinkedinBtn" href="#" target="_blank" class="w-10 h-10 rounded-xl border border-brand-border dark:border-white/10 flex items-center justify-center text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 transition-colors">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
-          </a>
+      <div class="flex items-center justify-between mb-8 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-2 z-10">
+        <div class="flex items-center gap-3">
+            <button id="prevLeadBtn" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all group">
+                <svg class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <div id="mobilePanelAvatar" class="w-14 h-14 bg-brand-yellow rounded-2xl flex items-center justify-center font-display font-black text-2xl shadow-brutal text-brand-dark">A</div>
+            <button id="nextLeadBtn" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all group">
+                <svg class="w-5 h-5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+            </button>
         </div>
-        <button id="closeMobilePanel" class="w-10 h-10 rounded-xl bg-brand-cream border border-brand-border flex items-center justify-center text-brand-muted hover:text-brand-dark transition-colors">
-          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <button id="closeMobilePanel" class="w-10 h-10 rounded-full bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all transform hover:rotate-90">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
 
       <!-- Profile Section -->
-      <div class="flex flex-col mb-10">
-        <div id="mobilePanelAvatarImg" class="w-20 h-20 rounded-2xl overflow-hidden mb-6 shadow-brutal border-2 border-white">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix" alt="Avatar" class="w-full h-full object-cover">
-        </div>
-        <h2 id="mobilePanelTitle" class="font-display font-black text-4xl text-brand-dark mb-2 tracking-tight">Company Name</h2>
-        <div id="mobilePanelCategory" class="text-sm font-bold text-brand-muted uppercase tracking-[0.2em]">Industry Category</div>
-      </div>
-
-      <!-- Detail Info Boxes -->
-      <div class="space-y-4 mb-10">
-        <div class="p-6 rounded-3xl border border-brand-border/60 bg-white shadow-sm space-y-5">
-          <div id="mobilePanelReviewsBox" class="flex items-center gap-4 group">
-            <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-500 flex items-center justify-center shrink-0">
-              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/><path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/></svg>
+      <div class="mb-10">
+        <h2 id="mobilePanelTitle" class="font-display font-black text-3xl lg:text-4xl text-brand-dark dark:text-white mb-3 leading-[1.1]">Company Name</h2>
+        <div class="flex flex-wrap items-center gap-3">
+            <span id="mobilePanelCategory" class="px-3 py-1 rounded-full bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 text-[10px] font-bold uppercase tracking-widest">Category</span>
+            <div id="mobilePanelStars" class="flex items-center gap-0.5">
+                <!-- Stars injected via JS -->
             </div>
-            <div class="flex flex-col">
-              <span id="mobilePanelRating" class="text-sm font-bold text-brand-dark">4.8 Rating</span>
-              <span id="mobilePanelReviews" class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">100+ Reviews</span>
-            </div>
-          </div>
-
-          <div id="mobilePanelEmailBox" class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-500 flex items-center justify-center shrink-0">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-            </div>
-            <div class="flex flex-col">
-              <span id="mobilePanelEmail" class="text-sm font-bold text-brand-dark truncate max-w-[280px]">contact@domain.com</span>
-              <span class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Business Email</span>
-            </div>
-          </div>
-
-          <div id="mobilePanelLocationBox" class="flex items-center gap-4">
-            <div class="w-10 h-10 rounded-xl bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            </div>
-            <div class="flex flex-col">
-              <span id="mobilePanelAddress" class="text-sm font-bold text-brand-dark line-clamp-2">Vancouver, WA, USA</span>
-              <span class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Primary Office</span>
-            </div>
-          </div>
+            <span id="mobilePanelRatingText" class="text-xs font-bold text-brand-muted">5.0 Rating</span>
         </div>
       </div>
+
+      <!-- High-Productivity Action Grid -->
+      <section class="mb-10">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center">Engagement Command Center</h3>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <!-- Phone Action Tile -->
+            <div id="mobilePanelPhoneRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <a href="#" id="mobilePanelPhoneLink" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                </a>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Call Lead</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelPhone">Phone</div>
+            </div>
+
+            <!-- Email Action Tile -->
+            <div id="mobilePanelEmailRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <button class="quick-outreach-btn w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform" id="mobilePanelEmailBtn">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                </button>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Send Email</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelEmail">No Email</div>
+            </div>
+
+            <!-- Website Action Tile -->
+            <div id="mobilePanelWebsiteRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <a href="#" id="mobilePanelWebsiteLink" target="_blank" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                </a>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Visit Site</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelWebsiteShort">Website</div>
+            </div>
+
+            <!-- Location Action Tile -->
+            <div id="mobilePanelAddressRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <a href="#" id="mobilePanelMapsLink" target="_blank" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </a>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Map View</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelAddress">Address</div>
+            </div>
+        </div>
+
+        <!-- Social Connections Grid -->
+        <div class="mt-6 p-6 bg-brand-dark text-white dark:bg-slate-800 rounded-[2.5rem] shadow-xl relative overflow-hidden">
+            <div class="absolute top-0 right-0 p-4 opacity-10">
+                <svg class="w-20 h-20" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2z"/></svg>
+            </div>
+            <div class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-5 relative z-10">Social Ecosystem</div>
+            <div class="flex items-center gap-4 relative z-10">
+                <a id="mobilePanelFacebook" href="#" target="_blank" class="hidden w-11 h-11 bg-white/10 hover:bg-[#1877F2] rounded-2xl flex items-center justify-center transition-all hover:scale-110">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>
+                </a>
+                <a id="mobilePanelInstagram" href="#" target="_blank" class="hidden w-11 h-11 bg-white/10 hover:bg-[#E4405F] rounded-2xl flex items-center justify-center transition-all hover:scale-110">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg>
+                </a>
+                <a id="mobilePanelTwitter" href="#" target="_blank" class="hidden w-11 h-11 bg-white/10 hover:bg-black rounded-2xl flex items-center justify-center transition-all hover:scale-110 border border-white/5">
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>
+                </a>
+                <div id="noSocialsMsg" class="text-xs font-medium text-white/30 italic hidden">No social profiles detected.</div>
+            </div>
+        </div>
+      </section>
 
       <!-- Description Area -->
       <div class="mb-10">
@@ -314,312 +353,6 @@
 
   <%- include('partials/footer') %>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const selectAllCheckbox = document.getElementById('selectAll');
-      const rowCheckboxes = document.querySelectorAll('.row-checkbox');
-      const bulkActions = document.getElementById('bulkActions');
-      const newSearchBtn = document.getElementById('newSearchBtn');
-      const selectedCountSpan = document.getElementById('selectedCount');
-      
-      function updateBulkActions() {
-        const selectedCount = document.querySelectorAll('.row-checkbox:checked').length;
-        if (selectedCount > 0) {
-          if (bulkActions) {
-            bulkActions.classList.remove('hidden');
-            bulkActions.classList.add('flex');
-          }
-          if (newSearchBtn) {
-            newSearchBtn.classList.add('hidden');
-            newSearchBtn.classList.remove('flex');
-          }
-          if (selectedCountSpan) {
-            selectedCountSpan.textContent = selectedCount;
-          }
-        } else {
-          if (bulkActions) {
-            bulkActions.classList.add('hidden');
-            bulkActions.classList.remove('flex');
-          }
-          if (newSearchBtn) {
-            newSearchBtn.classList.remove('hidden');
-            newSearchBtn.classList.add('flex');
-          }
-        }
-      }
-
-      if (selectAllCheckbox && rowCheckboxes.length > 0) {
-        selectAllCheckbox.addEventListener('change', (e) => {
-          rowCheckboxes.forEach(cb => {
-            cb.checked = e.target.checked;
-          });
-          updateBulkActions();
-        });
-      }
-
-      rowCheckboxes.forEach(cb => {
-        cb.addEventListener('change', () => {
-          if (selectAllCheckbox) {
-            const allChecked = document.querySelectorAll('.row-checkbox:checked').length === rowCheckboxes.length;
-            selectAllCheckbox.checked = allChecked;
-          }
-          updateBulkActions();
-        });
-      });;
-
-      const bulkEnrichBtn = document.getElementById('bulkEnrichBtn');
-      const bulkExportBtn = document.getElementById('bulkExportBtn');
-      const bulkSaveBtn = document.getElementById('bulkSaveBtn');
-
-      if (bulkEnrichBtn) {
-        bulkEnrichBtn.addEventListener('click', async () => {
-          const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-          if (checkedBoxes.length === 0) return;
-          
-          const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
-          
-          const originalText = bulkEnrichBtn.innerHTML;
-          bulkEnrichBtn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>Enriching...</span>';
-          bulkEnrichBtn.disabled = true;
-
-          for (const row of selectedRows) {
-            const url = row.dataset.website;
-            if (!url || url === 'N/A') continue;
-
-            const emailCell = row.cells[6];
-            const socialCell = row.cells[7];
-            
-            const originalEmailHtml = emailCell.innerHTML;
-            const originalSocialHtml = socialCell.innerHTML;
-            
-            socialCell.innerHTML = '<div class="flex items-center gap-2 text-brand-muted"><svg class="animate-spin h-4 w-4 text-brand-yellow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span class="text-[10px] font-bold uppercase tracking-widest">Scanning...</span></div>';
-            
-            if (!row.dataset.email || row.dataset.email === 'N/A') {
-              emailCell.innerHTML = '<span class="text-[10px] font-bold text-brand-yellow tracking-widest uppercase animate-pulse">Scanning...</span>';
-            }
-
-            try {
-              const res = await fetch('/enrich', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
-              });
-
-              if (res.ok) {
-                const result = await res.json();
-                if (result.success && result.data) {
-                  const d = result.data;
-                  if (d.facebook) row.dataset.facebook = d.facebook;
-                  if (d.instagram) row.dataset.instagram = d.instagram;
-                  if (d.twitter) row.dataset.twitter = d.twitter;
-                  if (d.linkedin) row.dataset.linkedin = d.linkedin;
-                  if (d.yelp) row.dataset.yelp = d.yelp;
-                  
-                  if (d.email) {
-                    row.dataset.email = d.email;
-                    emailCell.innerHTML = `<a href="mailto:${d.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[150px] inline-block" title="${d.email}">${d.email}</a>`;
-                  } else {
-                    if (!row.dataset.email || row.dataset.email === 'N/A') {
-                      emailCell.innerHTML = `<span class="text-[10px] tracking-widest uppercase font-bold text-brand-muted/40">NOT FOUND</span>`;
-                    } else {
-                      emailCell.innerHTML = originalEmailHtml;
-                    }
-                  }
-
-                  let socialsHtml = '<div class="flex items-center gap-3 flex-wrap">';
-                  const iconTemplate = (link, title, pathData, extraClasses = '') => {
-                    return `<a href="${link}" target="_blank" class="w-6 h-6 text-brand-dark hover:text-brand-yellow ${extraClasses} transition-all duration-300 transform hover:scale-110" title="${title}"><svg fill="currentColor" viewBox="0 0 24 24"><path d="${pathData}"/></svg></a>`;
-                  };
-
-                  if (row.dataset.facebook && row.dataset.facebook !== 'N/A') {
-                    socialsHtml += iconTemplate(row.dataset.facebook, 'Facebook', 'M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z');
-                  }
-                  if (row.dataset.instagram && row.dataset.instagram !== 'N/A') {
-                    socialsHtml += `<a href="${row.dataset.instagram}" target="_blank" class="w-6 h-6 text-brand-dark hover:text-brand-yellow transition-all duration-300 transform hover:scale-110" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
-                  }
-                  if (row.dataset.twitter && row.dataset.twitter !== 'N/A') {
-                    socialsHtml += iconTemplate(row.dataset.twitter, 'Twitter / X', 'M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z');
-                  }
-                  if (row.dataset.linkedin && row.dataset.linkedin !== 'N/A') {
-                    socialsHtml += iconTemplate(row.dataset.linkedin, 'LinkedIn', 'M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z');
-                  }
-                  if (row.dataset.yelp && row.dataset.yelp !== 'N/A') {
-                    socialsHtml += `<a href="${row.dataset.yelp}" target="_blank" class="px-2 py-0.5 rounded-md bg-[#FF1A1A] text-white text-[10px] font-bold hover:bg-black transition-all duration-300 transform hover:scale-110" title="Yelp">YELP</a>`;
-                  }
-
-                  if (socialsHtml === '<div class="flex items-center gap-3 flex-wrap">') {
-                    socialsHtml = '<span class="text-brand-muted/40 text-sm">-</span>';
-                  } else {
-                    socialsHtml += '</div>';
-                  }
-                  
-                  socialCell.innerHTML = socialsHtml;
-                } else {
-                  socialCell.innerHTML = `<div class="text-[10px] font-bold text-red-500 tracking-widest uppercase">Failed</div>`;
-                  emailCell.innerHTML = originalEmailHtml;
-                }
-              } else {
-                socialCell.innerHTML = `<div class="text-[10px] font-bold text-red-500 tracking-widest uppercase">API Error</div>`;
-                emailCell.innerHTML = originalEmailHtml;
-              }
-            } catch (err) {
-              console.error('Enrichment fetch error:', err);
-              socialCell.innerHTML = `<div class="text-[10px] font-bold text-red-500 tracking-widest uppercase">Error</div>`;
-              emailCell.innerHTML = originalEmailHtml;
-            }
-          }
-
-          bulkEnrichBtn.innerHTML = '✨ Enriched';
-          setTimeout(() => {
-            bulkEnrichBtn.innerHTML = originalText;
-            bulkEnrichBtn.disabled = false;
-          }, 3000);
-        });
-      }
-
-      if (bulkExportBtn) {
-        bulkExportBtn.addEventListener('click', () => {
-          const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-          if (checkedBoxes.length === 0) return;
-          
-          const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
-          
-          // Build CSV
-          const headers = ['Company', 'Category', 'Phone', 'Address', 'City', 'Website', 'Email', 'Rating', 'Reviews', 'Facebook', 'Instagram', 'Twitter'];
-          const rows = [headers.join(',')];
-
-          selectedRows.forEach(row => {
-            const data = [
-              `"${(row.dataset.title || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.category || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.phone || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.address || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.city || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.website || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.email || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.rating || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.reviews || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.facebook || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.instagram || '').replace(/"/g, '""')}"`,
-              `"${(row.dataset.twitter || '').replace(/"/g, '""')}"`
-            ];
-            rows.push(data.join(','));
-          });
-
-          const csvContent = rows.join('\n');
-          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.setAttribute('href', url);
-          link.setAttribute('download', 'leads_export.csv');
-          link.style.visibility = 'hidden';
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        });
-      }
-
-      if (bulkSaveBtn) {
-        bulkSaveBtn.addEventListener('click', async () => {
-          const checkedBoxes = document.querySelectorAll('.row-checkbox:checked');
-          if (checkedBoxes.length === 0) return;
-          
-          const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
-
-          const originalText = bulkSaveBtn.textContent;
-          bulkSaveBtn.textContent = 'Saving...';
-          bulkSaveBtn.disabled = true;
-
-          let savedCount = 0;
-
-          for (const row of selectedRows) {
-            const leadData = {
-              title: row.dataset.title,
-              phone: row.dataset.phone,
-              website: row.dataset.website,
-              email: row.dataset.email,
-              categoryName: row.dataset.category,
-              address: row.dataset.address,
-              city: row.dataset.city,
-              totalScore: row.dataset.rating,
-              reviewsCount: row.dataset.reviews,
-              url: row.dataset.url,
-              facebook: row.dataset.facebook,
-              instagram: row.dataset.instagram,
-              twitter: row.dataset.twitter
-            };
-
-            try {
-              const res = await fetch('/leads/save', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(leadData)
-              });
-              if (res.ok) {
-                const saveBtn = row.querySelector('.bookmark-btn');
-                if (saveBtn) {
-                  saveBtn.classList.add('bg-brand-yellow', 'border-brand-yellow', 'text-brand-dark');
-                  saveBtn.classList.remove('text-brand-muted');
-                }
-                savedCount++;
-              }
-            } catch (err) {
-              console.error('Error saving lead:', err);
-            }
-          }
-
-          bulkSaveBtn.textContent = `Saved ${savedCount}`;
-          setTimeout(() => {
-            bulkSaveBtn.textContent = originalText;
-            bulkSaveBtn.disabled = false;
-            
-            // Uncheck all after saving
-            if (selectAllCheckbox) selectAllCheckbox.checked = false;
-            rowCheckboxes.forEach(cb => cb.checked = false);
-            updateBulkActions();
-          }, 2000);
-        });
-      }
-
-      // Individual Bookmark Logic
-      const bookmarkBtns = document.querySelectorAll('.bookmark-btn');
-      bookmarkBtns.forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          e.stopPropagation();
-          const row = btn.closest('.result-row');
-          const isSaved = btn.classList.contains('bg-brand-yellow');
-          
-          if (!isSaved) {
-            // Visual toggle
-            btn.classList.add('bg-brand-yellow', 'border-brand-yellow', 'text-brand-dark');
-            btn.classList.remove('text-brand-muted', 'hover:bg-brand-yellow', 'hover:border-brand-yellow', 'hover:text-brand-dark');
-
-            const leadData = {
-              title: row.dataset.title,
-              phone: row.dataset.phone,
-              website: row.dataset.website,
-              email: row.dataset.email,
-              categoryName: row.dataset.category,
-              address: row.dataset.address,
-              city: row.dataset.city,
-              totalScore: row.dataset.rating,
-              reviewsCount: row.dataset.reviews,
-              url: row.dataset.url,
-              facebook: row.dataset.facebook,
-              instagram: row.dataset.instagram,
-              twitter: row.dataset.twitter
-            };
-
-            fetch('/leads/save', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(leadData)
-            }).catch(console.error);
-          }
-        });
-      });
-
-    });
-  </script>
+  <script src="/js/app.js"></script>
 </body>
 </html>

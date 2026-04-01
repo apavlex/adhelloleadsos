@@ -44,6 +44,10 @@ async function runDueSchedules() {
         } else if (schedule.frequency === 'monthly') {
           const nextMonth = lastRun.plus({ months: 1 }).set({ hour: sHour, minute: sMin, second: 0, millisecond: 0 });
           if (now >= nextMonth) due = true;
+        } else if (schedule.frequency === '4hours') {
+          // Due every 4 hours regardless of specific clock time
+          const nextRun = lastRun.plus({ hours: 4 });
+          if (now >= nextRun) due = true;
         }
       }
 
@@ -86,6 +90,7 @@ async function runDueSchedules() {
 }
 
 module.exports = {
+  runDueSchedules,
   init() {
     console.log('[SCHEDULER] Initializing Autopilot Heartbeat (Every hour)...');
     

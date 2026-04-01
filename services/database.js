@@ -169,4 +169,29 @@ module.exports = {
   async deleteSchedule(key) {
     await db.delete(key);
   },
+
+  // --- Site Metadata Cache (Enrichment) ---
+
+  async getSiteMetadata(url) {
+    if (!url || url === 'N/A') return null;
+    const domain = url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0].toLowerCase();
+    const key = `site_meta:${domain}`;
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  },
+
+  async saveSiteMetadata(url, metaData) {
+    if (!url || url === 'N/A') return;
+    const domain = url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0].toLowerCase();
+    const key = `site_meta:${domain}`;
+    const enriched = { 
+      ...metaData, 
+      lastEnriched: new Date().toISOString() 
+    };
+    await db.set(key, JSON.stringify(enriched));
+    return key;
+  },
 };

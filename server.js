@@ -59,6 +59,27 @@ app.get('/logout', (req, res, next) => {
   });
 });
 
+// Autopilot Heartbeat (Public but secret-protected for Google Cloud Scheduler)
+app.get('/api/cron/heartbeat', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const expectedSecret = process.env.CRON_SECRET || 'fallback-secret-for-setup-only';
+
+  if (!secret || secret !== expectedSecret) {
+    console.warn('[SECURITY] Unauthorized heartbeat attempt rejected.');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  console.log('[API-CRON] External heartbeat triggered. Checking for due jobs...');
+  try {
+    // We run it as a background task to avoid timing out the scheduler request
+    // if there are many jobs to process.
+    scheduler.runDueSchedules();
+    res.json({ success: true, message: 'Heartbeat received, jobs processing in background.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Protected Routes
 app.use('/', ensureAuthenticated, indexRoutes);
 app.use('/search', ensureAuthenticated, searchRoutes);

@@ -1,4 +1,120 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
+
+  const calculateOpportunityScore = (lead) => {
+    let score = 0;
+    const website = lead.website && lead.website !== 'N/A';
+    const email = lead.email && lead.email !== 'N/A';
+    const reviews = parseInt(lead.reviews) || 0;
+    const rating = parseFloat(lead.rating) || 0;
+    const hasFB = lead.facebook && lead.facebook !== 'N/A';
+    const hasIG = lead.instagram && lead.instagram !== 'N/A';
+
+    // Logic: Agencies want leads with gaps
+    if (!website) score += 2; // High priority: No website detected
+    if (website && (!hasFB || !hasIG)) score += 1; // Good priority: Website but missing social presence
+    if (reviews < 20) score += 1; // Good priority: Low reputation/social proof
+    if (rating > 4.2 && reviews > 0) score += 1; // High quality business, but maybe needs better marketing
+    if (email) score += 1; // bonus: easy to contact
+    
+    return Math.min(score, 5);
+  };
+
+  const getScoreBadge = (score) => {
+    if (score >= 4) return `<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black border border-amber-200">GOLD OPPORTUNITY</span>`;
+    if (score >= 3) return `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[9px] font-black border border-slate-200">SILVER LEAD</span>`;
+    return `<span class="px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 text-[9px] font-black border border-orange-100">BRONZE</span>`;
+  };
+
+  const updateOpportunityBadges = () => {
+    document.querySelectorAll('.result-row').forEach(row => {
+      const badgeContainer = row.querySelector('.opportunity-badge');
+      if (badgeContainer) {
+        const score = calculateOpportunityScore(row.dataset);
+        badgeContainer.innerHTML = getScoreBadge(score);
+        badgeContainer.dataset.score = score;
+      }
+    });
+  };
+
+  // Initial calculation
+  updateOpportunityBadges();
+
+  // Export CSV Logic
+  const bulkExportBtn = document.getElementById('bulkExportBtn');
+  if (bulkExportBtn) {
+    bulkExportBtn.addEventListener('click', () => {
+      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
+      const leadsToExport = [];
+      
+      if (selectedCheckboxes.length > 0) {
+        selectedCheckboxes.forEach(cb => {
+          const row = cb.closest('.result-row');
+          if (row) leadsToExport.push(row.dataset);
+        });
+      } else {
+        // Export all if none selected
+        document.querySelectorAll('.result-row').forEach(row => {
+          leadsToExport.push(row.dataset);
+        });
+      }
+
+      if (leadsToExport.length === 0) return alert('No leads found to export.');
+
+      const headers = ['Company', 'Category', 'Phone', 'Website', 'Email', 'Address', 'Rating', 'Reviews', 'Facebook', 'Instagram', 'Twitter', 'Opportunity Score'];
+      const rows = leadsToExport.map(l => [
+        `"${l.title}"`,
+        `"${l.category}"`,
+        `"${l.phone}"`,
+        `"${l.website}"`,
+        `"${l.email}"`,
+        `"${l.address}"`,
+        l.rating,
+        l.reviews,
+        `"${l.facebook}"`,
+        `"${l.instagram}"`,
+        `"${l.twitter}"`,
+        calculateOpportunityScore(l)
+      ]);
+
+      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.setAttribute('download', `AdHello_Leads_${new Date().toISOString().split('T')[0]}.csv`);
+      link.click();
+    });
+  }
+
+  // Quick outreach logic
+  document.addEventListener('click', (e) => {
+    const outreachBtn = e.target.closest('.quick-outreach-btn');
+    if (outreachBtn) {
+      const email = outreachBtn.dataset.email;
+      const company = outreachBtn.dataset.company;
+      
+      const templates = [
+        {
+          name: 'Social Media Audit',
+          subject: `Helping ${company} with social media growth`,
+          body: `Hi team at ${company},\n\nI was looking at your Google Maps profile and noticed you're doing great work! I also saw that you might not be fully utilizing Instagram/Facebook yet.\n\nI'd love to show you how adding a few posts a week can drive 20% more calls. Are you open to a 5-minute chat?\n\nBest regards.`
+        },
+        {
+          name: 'Website Refresh',
+          subject: `Quick question about ${company}'s website`,
+          body: `Hi there,\n\nI just found ${company} on Google Maps. I noticed your website could use a modern refresh to help convert more visitors into customers.\n\nI've put together a few ideas specifically for your business. Would you like to see them?\n\nCheers.`
+        }
+      ];
+
+      // Simple prompt for now - could be a modal
+      const choice = confirm(`Choose a template for ${company}:\n\nOK: Social Media Audit\nCancel: Website Refresh`);
+      const template = choice ? templates[0] : templates[1];
+      
+      const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(template.subject)}&body=${encodeURIComponent(template.body)}`;
+      window.location.href = mailtoUrl;
+    }
+  });
+
   // --- Theme Toggle Logic (Centralized) ---
   const themeToggleBars = document.querySelectorAll('#themeToggleBtn');
   
@@ -44,21 +160,29 @@ document.addEventListener('DOMContentLoaded', () => {
   if (modeRunNow && modeSchedule && searchModeInput) {
     modeRunNow.addEventListener('click', () => {
       searchModeInput.value = 'run';
-      modeRunNow.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
-      modeSchedule.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
-      if (autopilotSettings) autopilotSettings.classList.add('hidden');
+      modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
+      modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      
+      if (autopilotSettings) {
+        autopilotSettings.classList.add('max-h-0', 'opacity-0', 'pointer-events-none');
+        autopilotSettings.classList.remove('max-h-[200px]', 'opacity-100', 'pointer-events-auto');
+      }
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Find Leads<svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Find Leads<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
 
     modeSchedule.addEventListener('click', () => {
       searchModeInput.value = 'schedule';
-      modeSchedule.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
-      modeRunNow.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
-      if (autopilotSettings) autopilotSettings.classList.remove('hidden');
+      modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
+      modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      
+      if (autopilotSettings) {
+        autopilotSettings.classList.remove('max-h-0', 'opacity-0', 'pointer-events-none');
+        autopilotSettings.classList.add('max-h-[200px]', 'opacity-100', 'pointer-events-auto');
+      }
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Start Autopilot<svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Start Autopilot<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
   }
@@ -116,10 +240,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- Detail panel & rows ---
-  const mobilePanel = document.getElementById('mobilePanel');
-  const closeMobileBtn = document.getElementById('closeMobilePanel');
-  const rows = document.querySelectorAll('.result-row');
-  let currentRow = null;
+    const mobilePanel = document.getElementById('mobilePanel');
+    const closeMobileBtn = document.getElementById('closeMobilePanel');
+    const prevLeadBtn = document.getElementById('prevLeadBtn');
+    const nextLeadBtn = document.getElementById('nextLeadBtn');
+    let rows = document.querySelectorAll('.result-row');
+    let currentRow = null;
+    let currentIndex = -1;
 
   // Determine page type
   const isLeadsPage = !!document.getElementById('mobilePanelRemoveBtn');
@@ -167,6 +294,12 @@ document.addEventListener('DOMContentLoaded', () => {
         row.classList.add('selected');
         
         currentRow = row;
+        currentIndex = Array.from(rows).indexOf(row);
+
+        // Update nav button visibility/state
+        if (prevLeadBtn) prevLeadBtn.style.opacity = currentIndex > 0 ? '1' : '0.3';
+        if (nextLeadBtn) nextLeadBtn.style.opacity = currentIndex < rows.length - 1 ? '1' : '0.3';
+
         populatePanel(row);
 
         // Update panel save button state (results page)
@@ -218,6 +351,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Navigation Arrows
+    if (prevLeadBtn) {
+        prevLeadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentIndex > 0) {
+                const prevRow = rows[currentIndex - 1];
+                prevRow.click();
+            }
+        });
+    }
+
+    if (nextLeadBtn) {
+        nextLeadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (currentIndex < rows.length - 1) {
+                const nextRow = rows[currentIndex + 1];
+                nextRow.click();
+            }
+        });
+    }
+
     // Close mobile panel on backdrop click
     mobilePanel.addEventListener('click', (e) => {
         if (e.target === mobilePanel) {
@@ -228,6 +382,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = '';
             rows.forEach((r) => r.classList.remove('selected'));
             currentRow = null;
+            currentIndex = -1;
         }
     });
   }
@@ -237,8 +392,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const title = row.dataset.title;
     const phone = row.dataset.phone;
     const website = row.dataset.website;
-    const rating = parseFloat(row.dataset.rating);
-    const reviews = parseInt(row.dataset.reviews, 10);
+    const rating = parseFloat(row.dataset.rating) || 0;
+    const reviews = parseInt(row.dataset.reviews, 10) || 0;
     const url = row.dataset.url;
     const email = row.dataset.email;
     const facebook = row.dataset.facebook;
@@ -248,11 +403,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const category = row.dataset.category;
     const loomUrl = row.dataset.loomUrl;
 
-    // Avatar Logic (using DiceBear for variety)
-    const avatarImg = document.querySelector('#mobilePanelAvatarImg img');
-    if (avatarImg) {
-      const seed = title.replace(/\s+/g, '-').toLowerCase();
-      avatarImg.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${seed}`;
+    // Avatar Logic (using Initial)
+    const mobileAvatar = document.getElementById('mobilePanelAvatar');
+    if (mobileAvatar) {
+        mobileAvatar.textContent = title.charAt(0).toUpperCase();
     }
 
     const panelTitle = document.getElementById('mobilePanelTitle');
@@ -261,49 +415,172 @@ document.addEventListener('DOMContentLoaded', () => {
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
 
-    // Loom URL Input
+    // Stars & Rating
+    renderStars(rating, reviews);
+
+    // Phone logic
+    const phoneEl = document.getElementById('mobilePanelPhone');
+    const phoneLink = document.getElementById('mobilePanelPhoneLink');
+    if (phoneEl) phoneEl.textContent = (phone && phone !== 'N/A') ? phone : 'No Phone';
+    if (phoneLink) {
+        if (phone && phone !== 'N/A') {
+            phoneLink.href = `tel:${phone.replace(/\D/g, '')}`;
+            phoneLink.classList.remove('opacity-20', 'pointer-events-none');
+        } else {
+            phoneLink.href = '#';
+            phoneLink.classList.add('opacity-20', 'pointer-events-none');
+        }
+    }
+
+    // Email logic
+    const emailEl = document.getElementById('mobilePanelEmail');
+    const emailBtn = document.getElementById('mobilePanelEmailBtn');
+    if (emailEl) emailEl.textContent = (email && email !== 'N/A') ? email : 'No Email Found';
+    if (emailBtn) {
+        if (email && email !== 'N/A') {
+            emailBtn.onclick = () => window.location.href = `mailto:${email}`;
+            emailBtn.classList.remove('opacity-20', 'pointer-events-none');
+        } else {
+            emailBtn.onclick = null;
+            emailBtn.classList.add('opacity-20', 'pointer-events-none');
+        }
+    }
+
+    // Website logic
+    const websiteShort = document.getElementById('mobilePanelWebsiteShort');
+    const websiteLink = document.getElementById('mobilePanelWebsiteLink');
+    if (websiteShort) {
+        try {
+            const domain = new URL(website.startsWith('http') ? website : `https://${website}`).hostname.replace('www.', '');
+            websiteShort.textContent = domain;
+        } catch (e) {
+            websiteShort.textContent = (website && website !== 'N/A') ? website : 'No Website';
+        }
+    }
+    if (websiteLink) {
+        if (website && website !== 'N/A') {
+            websiteLink.href = website.startsWith('http') ? website : `https://${website}`;
+            websiteLink.classList.remove('opacity-20', 'pointer-events-none');
+        } else {
+            websiteLink.href = '#';
+            websiteLink.classList.add('opacity-20', 'pointer-events-none');
+        }
+    }
+
+    // Address & Maps logic
+    const addressEl = document.getElementById('mobilePanelAddress');
+    const mapsLink = document.getElementById('mobilePanelMapsLink');
+    if (addressEl) addressEl.textContent = (address && address !== 'N/A') ? address : 'Location Hidden';
+    if (mapsLink) {
+        if (address && address !== 'N/A') {
+            mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ' ' + title)}`;
+            mapsLink.classList.remove('opacity-20', 'pointer-events-none');
+        } else {
+            mapsLink.href = '#';
+            mapsLink.classList.add('opacity-20', 'pointer-events-none');
+        }
+    }
+
+    // Socials grid logic
+    const fbLink = document.getElementById('mobilePanelFacebook');
+    const igLink = document.getElementById('mobilePanelInstagram');
+    const twLink = document.getElementById('mobilePanelTwitter');
+    const noSocialsMsg = document.getElementById('noSocialsMsg');
+
+    let socialCount = 0;
+    const updateSocial = (el, link) => {
+        if (!el) return;
+        if (link && link !== 'N/A' && link !== 'undefined') {
+            el.href = link.startsWith('http') ? link : `https://${link}`;
+            el.classList.remove('hidden');
+            socialCount++;
+        } else {
+            el.classList.add('hidden');
+        }
+    };
+
+    updateSocial(fbLink, facebook);
+    updateSocial(igLink, instagram);
+    updateSocial(twLink, twitter);
+
+    if (noSocialsMsg) {
+        if (socialCount === 0) noSocialsMsg.classList.remove('hidden');
+        else noSocialsMsg.classList.add('hidden');
+    }
+
+    // Loom URL Input (if exists)
     const loomInput = document.getElementById('loomUrlInput');
     if (loomInput) loomInput.value = loomUrl || '';
-
-    // Details logic
-    const ratingEl = document.getElementById('mobilePanelRating');
-    if (ratingEl) ratingEl.textContent = rating > 0 ? `${rating.toFixed(1)} Rating` : 'No Rating';
-    
-    const reviewsEl = document.getElementById('mobilePanelReviews');
-    if (reviewsEl) reviewsEl.textContent = reviews > 0 ? `${reviews}+ Reviews` : 'No Reviews';
-
-    const emailEl = document.getElementById('mobilePanelEmail');
-    if (emailEl) emailEl.textContent = (email && email !== 'N/A') ? email : 'No Email Available';
-
-    const addressEl = document.getElementById('mobilePanelAddress');
-    if (addressEl) addressEl.textContent = (address && address !== 'N/A') ? address : 'Address Not Listed';
-
-    // Links
-    const websiteBtn = document.getElementById('mobilePanelWebsiteBtn');
-    if (websiteBtn) websiteBtn.href = (website && website !== 'N/A') ? website : '#';
-    
-    const xBtn = document.getElementById('mobilePanelXBtn');
-    if (xBtn) xBtn.href = (twitter && twitter !== 'N/A') ? twitter : '#';
-
-    const mapsBtn = document.getElementById('mobilePanelMapsBtn');
-    if (mapsBtn) mapsBtn.href = url || '#';
 
     // Badges / Tags based on category
     const badgeContainer = document.getElementById('badgeContainer');
     if (badgeContainer) {
       badgeContainer.innerHTML = '';
-      const tags = [category, 'USA', 'Verified Lead'];
+      const tags = [category || 'Local Business', 'Verified Lead'];
       if (rating >= 4.5) tags.push('Top Rated');
       if (reviews > 50) tags.push('Popular');
       
       tags.forEach(tag => {
         const span = document.createElement('span');
-        span.className = 'px-4 py-2 rounded-xl border border-brand-border/60 text-[11px] font-bold text-brand-dark bg-white';
+        span.className = 'px-3 py-1.5 rounded-xl border border-brand-border/40 text-[10px] font-black uppercase tracking-widest text-brand-dark bg-white shadow-sm';
         span.textContent = tag;
         badgeContainer.appendChild(span);
       });
     }
   }
+
+  function renderStars(rating, reviews, containerId = 'mobilePanelStars', textId = 'mobilePanelRatingText') {
+    const starsContainer = document.getElementById(containerId);
+    const ratingText = document.getElementById(textId);
+    
+    if (!starsContainer) return;
+
+    starsContainer.innerHTML = '';
+    const fullStars = Math.floor(rating);
+    const hasHalf = rating % 1 >= 0.5;
+
+    for (let i = 0; i < 5; i++) {
+        const star = document.createElement('svg');
+        star.setAttribute('class', `w-3.5 h-3.5 ${i < fullStars ? 'text-brand-yellow' : (i === fullStars && hasHalf ? 'text-brand-yellow' : 'text-brand-muted/20')}`);
+        star.setAttribute('fill', 'currentColor');
+        star.setAttribute('viewBox', '0 0 20 20');
+        star.innerHTML = '<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />';
+        starsContainer.appendChild(star);
+    }
+
+    if (ratingText) {
+        if (reviews !== undefined) {
+            ratingText.textContent = rating > 0 ? `${rating.toFixed(1)} (${reviews} reviews)` : 'No Rating';
+        } else {
+            ratingText.textContent = rating > 0 ? rating.toFixed(1) : '-';
+        }
+    }
+  }
+
+  // --- Initialize Table Row Stars ---
+  const applyTableStars = () => {
+    document.querySelectorAll('.result-row').forEach(row => {
+      const rating = parseFloat(row.dataset.rating);
+      const reviews = parseInt(row.dataset.reviews);
+      const starContainer = row.querySelector('.row-stars');
+      if (starContainer && !isNaN(rating)) {
+        // Clear previous and render
+        starContainer.innerHTML = '';
+        const fullStars = Math.floor(rating);
+        const hasHalf = rating % 1 >= 0.5;
+        for (let i = 0; i < 5; i++) {
+          const star = document.createElement('svg');
+          star.setAttribute('class', `w-2.5 h-2.5 ${i < fullStars ? 'text-brand-yellow' : (i === fullStars && hasHalf ? 'text-brand-yellow' : 'text-brand-muted/10')}`);
+          star.setAttribute('fill', 'currentColor');
+          star.setAttribute('viewBox', '0 0 20 20');
+          star.innerHTML = '<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />';
+          starContainer.appendChild(star);
+        }
+      }
+    });
+  };
+
+  applyTableStars();
 
   // --- Lead Management Actions ---
   const statusSelect = document.getElementById('leadStatusSelect');
@@ -680,7 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkActionBar = document.getElementById('bulkActionBar');
   const selectedCountCircle = document.getElementById('selectedCountCircle');
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
-  const bulkExportBtn = document.getElementById('bulkExportBtn');
+  // bulkExportBtn is now defined at the top of DOMContentLoaded
   const bulkEnhanceBtn = document.getElementById('bulkEnhanceBtn');
 
   let selectedKeys = new Set();
@@ -771,39 +1048,167 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Bulk Enhance (Firecrawl)
-  if (bulkEnhanceBtn) {
-    bulkEnhanceBtn.addEventListener('click', async () => {
-      if (selectedKeys.size === 0) return;
+  // Bulk Save (to saved leads)
+  const bulkSaveBtn = document.getElementById('bulkSaveBtn');
+  if (bulkSaveBtn) {
+    bulkSaveBtn.addEventListener('click', async () => {
+      const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
+      if (checkedBoxes.length === 0) return;
       
-      const keys = Array.from(selectedKeys);
-      const originalHTML = bulkEnhanceBtn.innerHTML;
-      bulkEnhanceBtn.disabled = true;
-      
-      let processed = 0;
-      const total = keys.length;
+      const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
 
-      for (const key of keys) {
-        processed++;
-        bulkEnhanceBtn.innerHTML = `
-          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
-          <span class="text-[10px] font-black uppercase tracking-widest">${processed}/${total}</span>
-        `;
+      const originalText = bulkSaveBtn.textContent;
+      bulkSaveBtn.textContent = 'Saving...';
+      bulkSaveBtn.disabled = true;
+
+      let savedCount = 0;
+
+      for (const row of selectedRows) {
+        if (savedLeads.has(row.dataset.title)) continue;
+
+        const leadData = {
+          title: row.dataset.title,
+          phone: row.dataset.phone,
+          website: row.dataset.website,
+          email: row.dataset.email,
+          categoryName: row.dataset.category,
+          address: row.dataset.address,
+          city: row.dataset.city,
+          totalScore: parseFloat(row.dataset.rating),
+          reviewsCount: parseInt(row.dataset.reviews),
+          url: row.dataset.url,
+          facebook: row.dataset.facebook,
+          instagram: row.dataset.instagram,
+          twitter: row.dataset.twitter
+        };
 
         try {
-          await fetch(`/leads/${key}/enhance`, { method: 'POST' });
+          const res = await fetch('/leads/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(leadData)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            savedLeads.set(row.dataset.title.trim(), data.key);
+            row.dataset.leadKey = data.key;
+            const bookmarkBtn = row.querySelector('.bookmark-btn');
+            if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
+            savedCount++;
+          }
         } catch (err) {
-          console.error(`Failed to enhance lead ${key}:`, err);
+          console.error('Error saving lead:', err);
         }
       }
 
-      bulkEnhanceBtn.innerHTML = originalHTML;
-      bulkEnhanceBtn.disabled = false;
-      alert(`Bulk enhancement complete for ${total} leads! Updating view...`);
-      window.location.reload();
+      bulkSaveBtn.textContent = `Saved ${savedCount}`;
+      setTimeout(() => {
+        bulkSaveBtn.textContent = originalText;
+        bulkSaveBtn.disabled = false;
+        
+        // Optional: Uncheck all after saving
+        // if (selectAllLeads) selectAllLeads.checked = false;
+        // checkedBoxes.forEach(cb => cb.checked = false);
+        // updateBulkActionBar();
+      }, 2000);
+    });
+  }
+
+  // Bulk Enhance (Firecrawl) - Improved with in-place updates
+  if (bulkEnhanceBtn) {
+    bulkEnhanceBtn.addEventListener('click', async () => {
+      const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
+      if (checkedBoxes.length === 0) return;
+      
+      const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
+      
+      const originalText = bulkEnhanceBtn.innerHTML;
+      bulkEnhanceBtn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Enriching...</span>';
+      bulkEnhanceBtn.disabled = true;
+
+      for (const row of selectedRows) {
+        const url = row.dataset.website;
+        if (!url || url === 'N/A') continue;
+
+        // Find cells by their semantic content or indices (Company, Phone, Location, Reviews, Opportunity, Website, Email, Socials)
+        // In Search Results: index 7 is Email, 8 is Socials
+        // In Saved Leads: index 4 is Website? No, let's use class selectors if possible or search for children.
+        const cells = row.cells;
+        let emailCell, socialCell;
+        
+        // Find Email cell (look for mailto or 'No Email')
+        for (let cell of cells) {
+            if (cell.querySelector('a[href^="mailto:"]') || cell.textContent.includes('No Email')) {
+                emailCell = cell;
+            }
+            if (cell.querySelector('svg') && (cell.querySelector('a[title="Facebook"]') || cell.querySelector('a[title="Instagram"]'))) {
+                socialCell = cell;
+            }
+        }
+        
+        if (!emailCell || !socialCell) continue;
+
+        const originalEmailHtml = emailCell.innerHTML;
+        const originalSocialHtml = socialCell.innerHTML;
+        
+        socialCell.innerHTML = '<div class="flex items-center gap-2 text-brand-muted"><svg class="animate-spin h-3 w-3 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span class="text-[9px] font-bold uppercase tracking-widest">Scanning...</span></div>';
+        
+        if (!row.dataset.email || row.dataset.email === 'N/A') {
+          emailCell.innerHTML = '<span class="text-[9px] font-bold text-brand-yellow tracking-widest uppercase animate-pulse">Scanning...</span>';
+        }
+
+        try {
+          const res = await fetch('/enrich', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url })
+          });
+
+          if (res.ok) {
+            const result = await res.json();
+            if (result.success && result.data) {
+              const d = result.data;
+              if (d.facebook) row.dataset.facebook = d.facebook;
+              if (d.instagram) row.dataset.instagram = d.instagram;
+              if (d.twitter) row.dataset.twitter = d.twitter;
+              
+              if (d.email) {
+                row.dataset.email = d.email;
+                emailCell.innerHTML = `<a href="mailto:${d.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${d.email}">${d.email}</a>`;
+              } else {
+                emailCell.innerHTML = originalEmailHtml;
+              }
+
+              // Update Social Icons
+              let socialsHtml = '<div class="flex items-center justify-center gap-2.5">';
+              if (row.dataset.facebook && row.dataset.facebook !== 'N/A') {
+                socialsHtml += `<a href="${row.dataset.facebook}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
+              }
+              if (row.dataset.instagram && row.dataset.instagram !== 'N/A') {
+                socialsHtml += `<a href="${row.dataset.instagram}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
+              }
+              socialsHtml += '</div>';
+              socialCell.innerHTML = socialsHtml;
+            } else {
+              socialCell.innerHTML = originalSocialHtml;
+              emailCell.innerHTML = originalEmailHtml;
+            }
+          } else {
+            socialCell.innerHTML = originalSocialHtml;
+            emailCell.innerHTML = originalEmailHtml;
+          }
+        } catch (err) {
+          console.error('Enrichment error:', err);
+          socialCell.innerHTML = originalSocialHtml;
+          emailCell.innerHTML = originalEmailHtml;
+        }
+      }
+
+      bulkEnhanceBtn.innerHTML = '✨ Enriched';
+      setTimeout(() => {
+        bulkEnhanceBtn.innerHTML = originalText;
+        bulkEnhanceBtn.disabled = false;
+      }, 3000);
     });
   }
 

@@ -1,5 +1,5 @@
 const firecrawl = require('./firecrawl');
-const apify = require('./apify');
+const dbService = require('./database');
 
 /**
  * High-quality multi-stage enrichment that combines Apify and Firecrawl.
@@ -9,11 +9,10 @@ module.exports = {
   async enrichLeads(leads) {
     console.log(`[ENRICHER] Starting deep enrichment for ${leads.length} leads...`);
 
-    // 1. Firecrawl Deep Hunt (Exclusively using Firecrawl for high-quality extraction)
     const enrichedLeads = [...leads]; 
+    const concurrency = 5; // Enrich 5 leads at a time
 
-    // 2. Deep Email Hunt (Focused on leads still missing email or socials)
-    // We only want to run firecrawl on leads that have a website but NO email or NO socials
+    // 1. Filter leads that actually need enrichment
     const leadsInNeed = enrichedLeads.filter(l => 
       l.website && l.website !== 'N/A' && 
       (l.email === 'N/A' || l.facebook === 'N/A' || l.instagram === 'N/A')
@@ -24,27 +23,69 @@ module.exports = {
       return enrichedLeads;
     }
 
-    console.log(`[ENRICHER] Found ${leadsInNeed.length} leads requiring deep enrichment. Starting Firecrawl...`);
+    console.log(`[ENRICHER] Found ${leadsInNeed.length} potential leads for deep enrichment.`);
 
-    // To prevent hitting Firecrawl rate limits too hard, we do them in small batches or one by one
-    // for a better success rate.
-    for (let lead of enrichedLeads) {
-      if (lead.website && lead.website !== 'N/A' && (lead.email === 'N/A' || lead.facebook === 'N/A' || lead.instagram === 'N/A')) {
+    // 2. First Pass: Cache Lookup (Deduplicated)
+    // To avoid multiple DB calls for the same domain in one search
+    const domainCache = new Map();
+
+    for (let lead of leadsInNeed) {
+      if (!domainCache.has(lead.website)) {
+        const cached = await dbService.getSiteMetadata(lead.website);
+        if (cached) {
+          domainCache.set(lead.website, cached);
+          console.log(`[ENRICHER] Found cached data for: ${lead.website}`);
+        }
+      }
+      
+      // Apply cache if found
+      const cachedData = domainCache.get(lead.website);
+      if (cachedData) {
+        if (lead.email === 'N/A' && cachedData.email) lead.email = cachedData.email;
+        if (lead.facebook === 'N/A' && cachedData.facebook) lead.facebook = cachedData.facebook;
+        if (lead.instagram === 'N/A' && cachedData.instagram) lead.instagram = cachedData.instagram;
+        if (lead.twitter === 'N/A' && cachedData.twitter) lead.twitter = cachedData.twitter;
+        if (!lead.linkedin && cachedData.linkedin) lead.linkedin = cachedData.linkedin;
+      }
+    }
+
+    // 3. Second Pass: Firecrawl for leads still missing data
+    const stillInNeed = enrichedLeads.filter(l => 
+      l.website && l.website !== 'N/A' && 
+      (l.email === 'N/A' || l.facebook === 'N/A' || l.instagram === 'N/A')
+    );
+
+    if (stillInNeed.length === 0) {
+      console.log('[ENRICHER] All leads resolved via cache.');
+      return enrichedLeads;
+    }
+
+    console.log(`[ENRICHER] ${stillInNeed.length} leads still need Firecrawl. Processing in batches of ${concurrency}...`);
+
+    // Process in batches to avoid API rate limits while staying fast
+    for (let i = 0; i < stillInNeed.length; i += concurrency) {
+      const batch = stillInNeed.slice(i, i + concurrency);
+      
+      await Promise.all(batch.map(async (lead) => {
         try {
-          console.log(`[ENRICHER] Hunting data for: ${lead.title} (${lead.website})`);
+          console.log(`[ENRICHER] [BATCH] Hunting data for: ${lead.title} (${lead.website})`);
           const deepData = await firecrawl.enrichLead(lead.website);
           
-          if (deepData) {
+          if (deepData && Object.keys(deepData).length > 0) {
+            // Update the lead object
             if (lead.email === 'N/A' && deepData.email) lead.email = deepData.email;
             if (lead.facebook === 'N/A' && deepData.facebook) lead.facebook = deepData.facebook;
             if (lead.instagram === 'N/A' && deepData.instagram) lead.instagram = deepData.instagram;
             if (lead.twitter === 'N/A' && deepData.twitter) lead.twitter = deepData.twitter;
             if (!lead.linkedin && deepData.linkedin) lead.linkedin = deepData.linkedin;
+
+            // Save to site cache for future searches
+            await dbService.saveSiteMetadata(lead.website, deepData);
           }
         } catch (err) {
-          console.error(`[ENRICHER] Firecrawl enrichment failed for ${lead.title}:`, err.message);
+          console.error(`[ENRICHER] [BATCH] Firecrawl failed for ${lead.title}:`, err.message);
         }
-      }
+      }));
     }
 
     console.log('[ENRICHER] Deep enrichment pass complete.');
