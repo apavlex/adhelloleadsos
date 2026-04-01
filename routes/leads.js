@@ -17,6 +17,21 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+// GET /leads/inbound — show leads from adhello.ai
+router.get('/inbound', async (req, res, next) => {
+  try {
+    const allLeads = await dbService.getAllLeads();
+    const leads = allLeads.filter(l => l.source && l.source.startsWith('adhello_'));
+    res.render('inbound', {
+      title: 'Inbound Leads',
+      activePage: 'inbound',
+      leads,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /leads/saved — return all saved lead titles+keys for client-side bookmark state
 router.get('/saved', async (req, res, next) => {
   try {
