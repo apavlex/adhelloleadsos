@@ -86,9 +86,33 @@ module.exports = {
   // --- Leads (bookmarked businesses) ---
 
   async saveLead(leadData) {
+    // If an email exists, check for an existing lead first to merge
+    if (leadData.email) {
+      const existing = await this.findLeadByEmail(leadData.email);
+      if (existing) {
+        return await this.updateLead(existing.key, leadData);
+      }
+    }
+
     const key = `lead:${Date.now()}`;
-    await db.set(key, JSON.stringify(leadData));
+    const newLead = { 
+      ...leadData, 
+      createdAt: new Date().toISOString(),
+      status: leadData.status || 'Lead Captured',
+      logs: [{ 
+        type: 'creation', 
+        message: `Lead created from ${leadData.source || 'ingest'}`, 
+        timestamp: new Date().toISOString() 
+      }]
+    };
+    await db.set(key, JSON.stringify(newLead));
     return key;
+  },
+
+  async findLeadByEmail(email) {
+    if (!email) return null;
+    const leads = await this.getAllLeads();
+    return leads.find(l => l.email && l.email.toLowerCase() === email.toLowerCase()) || null;
   },
 
   async getLead(key) {
@@ -120,7 +144,19 @@ module.exports = {
   async updateLead(key, updateData) {
     const existing = await this.getLead(key);
     if (!existing) return null;
-    const updated = { ...existing, ...updateData };
+    
+    // Merge arrays (chatHistory, logs) instead of overwriting
+    const chatHistory = [...(existing.chatHistory || []), ...(updateData.chatHistory || [])];
+    const logs = [...(existing.logs || []), ...(updateData.logs || [])];
+    
+    const updated = { 
+      ...existing, 
+      ...updateData,
+      chatHistory: chatHistory.length > 0 ? chatHistory : existing.chatHistory,
+      logs: logs.length > 0 ? logs : existing.logs,
+      updatedAt: new Date().toISOString()
+    };
+    
     await db.set(key, JSON.stringify(updated));
     return updated;
   },
@@ -193,5 +229,31 @@ module.exports = {
     };
     await db.set(key, JSON.stringify(enriched));
     return key;
+  },
+
+  // --- Analytics (Visits) ---
+
+  async saveVisit(visitData) {
+    const timestamp = Date.now();
+    const key = `visit:${timestamp}`;
+    await db.set(key, JSON.stringify({ 
+      ...visitData, 
+      timestamp 
+    }));
+    return key;
+  },
+
+  async getAllVisits() {
+    const keys = await db.list('visit:');
+    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const visits = [];
+    for (const key of keyList) {
+      const data = await db.get(key);
+      if (data) {
+        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+        visits.push(parsed);
+      }
+    }
+    return visits.sort((a, b) => b.timestamp - a.timestamp);
   },
 };

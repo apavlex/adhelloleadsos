@@ -666,6 +666,69 @@ document.addEventListener('DOMContentLoaded', () => {
             auditContainer.innerHTML = '';
         }
     }
+
+    // Chat History Section (Dynamic)
+    const chatHistoryRaw = row.dataset.chatHistory;
+    const chatContainer = document.getElementById('chatLogContainer');
+    
+    if (chatContainer) {
+        if (chatHistoryRaw && chatHistoryRaw !== 'null') {
+            try {
+                const history = chatHistoryRaw; // Assuming it's a string for now, or could be parsed if JSON
+                let chatHtml = '';
+                
+                // Simple parsing for "Name: Message" format or similar
+                const lines = history.split('\n');
+                lines.forEach(line => {
+                    if (!line.trim()) return;
+                    const isBot = line.toLowerCase().startsWith('bot:') || line.toLowerCase().startsWith('coach:');
+                    const isUser = line.toLowerCase().startsWith('user:') || line.toLowerCase().startsWith('me:');
+                    const text = line.includes(':') ? line.split(':').slice(1).join(':').trim() : line;
+                    
+                    if (isBot) {
+                        chatHtml += `
+                            <div class="flex flex-col items-start mb-3">
+                                <div class="bg-brand-yellow/10 text-brand-dark dark:text-white text-[11px] font-bold p-3 rounded-2xl rounded-tl-none border border-brand-yellow/20 max-w-[85%]">
+                                    ${text}
+                                </div>
+                                <span class="text-[8px] font-black uppercase tracking-widest text-brand-yellow/60 mt-1 ml-1">GROWTH COACH</span>
+                            </div>
+                        `;
+                    } else if (isUser) {
+                        chatHtml += `
+                            <div class="flex flex-col items-end mb-3">
+                                <div class="bg-brand-cream dark:bg-white/5 text-brand-dark dark:text-slate-300 text-[11px] font-medium p-3 rounded-2xl rounded-tr-none border border-brand-border/10 max-w-[85%]">
+                                    ${text}
+                                </div>
+                                <span class="text-[8px] font-black uppercase tracking-widest text-brand-muted/60 mt-1 mr-1">PROSPECT</span>
+                            </div>
+                        `;
+                    } else {
+                        // Fallback for generic lines
+                        chatHtml += `<div class="text-[10px] text-brand-muted mb-2 italic px-2">${line}</div>`;
+                    }
+                });
+
+                chatContainer.innerHTML = `
+                    <div class="flex items-center gap-2 mb-4 px-1">
+                        <div class="w-1.5 h-4 bg-brand-yellow rounded-full"></div>
+                        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">Growth Coach Log</h3>
+                    </div>
+                    <div class="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                        ${chatHtml}
+                    </div>
+                `;
+                chatContainer.classList.remove('hidden');
+            } catch (e) {
+                console.error('Chat Parse Error:', e);
+                chatContainer.classList.add('hidden');
+            }
+        } else {
+            chatContainer.classList.add('hidden');
+            chatContainer.innerHTML = '';
+        }
+    }
+
     if (mapsLink) {
         if (address && address !== 'N/A') {
             mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ' ' + title)}`;

@@ -110,7 +110,8 @@
                     data-geo-gaps="<%= lead.geoGaps %>"
                     data-audit-summary="<%= lead.auditSummary %>"
                     data-source="<%= lead.source || 'manual' %>"
-                    data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'>
+                    data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'
+                    data-chat-history='<%= JSON.stringify(lead.chatHistory || null).replace(/'/g, "&apos;") %>'>
                   <td class="pl-8 pr-4 py-6">
                     <div class="flex items-center">
                       <input type="checkbox" class="lead-checkbox w-4 h-4 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>">
@@ -368,6 +369,9 @@
 
       <!-- Audit Intelligence Container (Dynamic) -->
       <section id="auditInsightsContainer" class="hidden mb-6"></section>
+
+      <!-- Chat History Container (Dynamic) -->
+      <section id="chatLogContainer" class="hidden mb-10"></section>
 
       <!-- Technical Health Check -->
       <section class="mb-10">

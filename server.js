@@ -11,6 +11,7 @@ const searchRoutes = require('./routes/search');
 const historyRoutes = require('./routes/history');
 const leadsRoutes = require('./routes/leads');
 const apiRoutes = require('./routes/api');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -86,6 +87,7 @@ app.use('/', ensureAuthenticated, indexRoutes);
 app.use('/search', ensureAuthenticated, searchRoutes);
 app.use('/history', ensureAuthenticated, historyRoutes);
 app.use('/leads', ensureAuthenticated, leadsRoutes);
+app.use('/analytics', ensureAuthenticated, analyticsRoutes);
 
 // Public API Routes (Security handled within router)
 app.use('/api', apiRoutes);

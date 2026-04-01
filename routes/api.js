@@ -24,69 +24,119 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       title, 
       website, 
       email, 
+      phone,
       totalScore,
       auditData,
-      phone,
-      address,
+      adBriefData,
+      chatHistory,
+      source,
+      message,
       city,
-      state,
-      categoryName
+      state
     } = req.body;
 
-    if (!title) {
-      return res.status(400).json({ error: 'Business title is required.' });
+    if (!title && !email) {
+      return res.status(400).json({ error: 'Business title or Email is required.' });
     }
 
+    // Prepare lead data for merge/save
     const leadData = {
-      title,
+      title: title || 'New Lead',
       website: website || 'N/A',
       email: email || 'N/A',
       phone: phone || 'N/A',
-      address: address || 'N/A',
       city: city || '',
       state: state || '',
-      categoryName: categoryName || 'Audit Lead',
+      source: source || 'adhello_audit',
       totalScore: parseFloat(totalScore) || 0,
-      auditData: auditData || null, // Stores { mobileScore, leadsScore, aiReadyScore, summary }
-      status: 'Discovery Done', // New leads from audit are automatically in Discovery Done
-      source: 'adhello_audit',
-      savedAt: new Date().toISOString(),
-      updates: [{
-        type: 'status_change',
-        value: 'Discovery Done',
-        timestamp: new Date().toISOString(),
-        note: 'Lead ingested via AdHello Audit'
-      }]
+      auditData: auditData || null,
+      adBriefData: adBriefData || null,
+      chatHistory: chatHistory || [],
+      lastActivity: new Date().toISOString()
     };
 
-    const key = await dbService.saveLead(leadData);
+    // Auto-status mapping
+    if (source === 'adhello_chatbot') leadData.status = 'Lead Captured';
+    if (source === 'adhello_audit') leadData.status = 'Discovery Done';
+    if (source === 'adhello_brief') leadData.status = 'Strategy Created';
+
+    // Add activity log
+    leadData.logs = [{
+      type: 'ingest',
+      source: source || 'external',
+      message: message || `Data received via ${source || 'AdHello'}`,
+      timestamp: new Date().toISOString()
+    }];
+
+    // Save/Merge via DB Service
+    const leadKey = await dbService.saveLead(leadData);
     
-    // Background enrichment
-    if (website && website !== 'N/A') {
+    // Background enrichment if new or missing data
+    if (leadData.website && leadData.website !== 'N/A') {
       setImmediate(async () => {
         try {
-          console.log(`[API-INGEST] Triggering auto-enrichment for ${website}...`);
-          const enrichment = await enrichLead(website);
+          const enrichment = await enrichLead(leadData.website);
           if (enrichment) {
-            await dbService.updateLead(key, { 
-              ...enrichment, 
-              // Don't overwrite existing audit data if enrichment returns less
-            });
+            await dbService.updateLead(leadKey, enrichment);
           }
         } catch (e) {
-          console.error(`[API-INGEST] Auto-enrichment failed for ${key}:`, e.message);
+          console.error(`[API-INGEST] Auto-enrichment failed for ${leadKey}:`, e.message);
         }
       });
     }
 
     res.json({ 
       success: true, 
-      key, 
-      message: 'Lead ingested successfully. Background enrichment triggered.',
+      key: leadKey, 
+      message: 'Lead data ingested successfully.',
       lead: leadData
     });
   } catch (err) {
     next(err);
+  }
+});
+
+/**
+ * POST /api/track
+ * Receives pings from adhello.ai to track traffic
+ */
+router.post('/track', async (req, res) => {
+  try {
+    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const { path, referrer, userAgent } = req.body;
+    
+    // Default to 'Inland Empire, CA' placeholder if IP lookup fails or is local
+    let location = { city: 'Unknown', region: 'Unknown', country: 'Unknown' };
+    
+    if (ip && ip !== '127.0.0.1' && ip !== '::1') {
+      try {
+        const geoRes = await fetch(`http://ip-api.com/json/${ip.split(',')[0]}`);
+        const geoData = await geoRes.json();
+        if (geoData.status === 'success') {
+          location = {
+            city: geoData.city,
+            region: geoData.regionName,
+            country: geoData.country
+          };
+        }
+      } catch (e) {
+        console.error('[ANALYTICS] IP lookup failed:', e.message);
+      }
+    }
+
+    const visitData = {
+      ip: ip.split(',')[0],
+      path: path || '/',
+      referrer: referrer || 'direct',
+      userAgent: userAgent || 'unknown',
+      ...location
+    };
+
+    await dbService.saveVisit(visitData);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[ANALYTICS] Tracking error:', err.message);
+    res.status(500).json({ error: err.message });
   }
 });
 
