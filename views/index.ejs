@@ -88,31 +88,33 @@
                 </span>
               </button>
             </div>
-            
-            <!-- Autopilot Integrated Pockets (Revealed when active) -->
-            <div id="frequencyPocket" class="hidden opacity-0 w-0 lg:flex flex-col items-start min-w-0 hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-500 overflow-hidden group/freq">
-                <div class="w-px h-8 bg-brand-border/20 self-center mx-2 hidden lg:block"></div>
-                <div class="px-4 py-3 flex flex-col items-start w-full">
+          </div>
+
+          <!-- Autopilot Settings Row (New) -->
+          <div id="autopilotSettings" class="hidden overflow-hidden border-t border-brand-border/10 dark:border-white/5 transition-all duration-500">
+            <div class="flex items-center gap-8 px-6 py-4">
+                <div id="frequencyPocket" class="flex flex-col items-start group/freq">
                     <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/freq:text-brand-yellow transition-colors whitespace-nowrap">Frequency</label>
-                    <select name="frequency" class="bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-base cursor-pointer p-0 w-full">
+                    <select name="frequency" class="bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-base cursor-pointer p-0">
                         <option value="4hours">Every 4 Hours</option>
                         <option value="daily">Daily</option>
                         <option value="weekly">Weekly</option>
                         <option value="monthly">Monthly</option>
                     </select>
                 </div>
-            </div>
 
-            <div id="timePocket" class="hidden opacity-0 w-0 lg:flex flex-col items-start min-w-0 hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-500 overflow-hidden group/time">
-                <div class="w-px h-8 bg-brand-border/20 self-center mx-2 hidden lg:block"></div>
-                <div class="px-4 py-3 flex flex-col items-start w-full">
+                <div class="w-px h-8 bg-brand-border/10"></div>
+
+                <div id="timePocket" class="flex flex-col items-start group/time">
                     <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/time:text-brand-yellow transition-colors whitespace-nowrap">Time of Day</label>
-                    <div class="flex items-center gap-1 w-full">
+                    <div class="flex items-center gap-2">
                         <input type="time" name="scheduledTime" value="09:00"
                             class="bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-base p-0 w-full min-w-[70px]">
                         <svg class="w-3.5 h-3.5 text-brand-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                 </div>
+                
+                <div class="ml-auto text-[10px] font-black uppercase tracking-widest text-brand-muted/40 italic">Scheduled Automations</div>
             </div>
           </div>
         </form>

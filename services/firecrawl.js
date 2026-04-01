@@ -26,7 +26,7 @@ const enrichSchema = {
     has_schema_markup: { type: "boolean", description: "True if JSON-LD or Microdata schema markup is present." },
     has_chatbot: { type: "boolean", description: "True if a chatbot (Intercom, Drift, etc.) is detected." },
     has_click_to_call: { type: "boolean", description: "True if phone numbers are properly 'tel:' linked." },
-    is_mobile_friendly: { type: "boolean", description: "True if the site appears responsive and mobile-optimized." },
+    is_mobile_friendly: { type: "boolean", description: "True if the site is responsive. Look for a viewport meta tag and flexible layouts that adapt to smaller screens." },
     is_outdated: { type: "boolean", description: "True if the design looks like it was built more than 5-10 years ago." },
     visual_modernity_score: { type: "number", description: "A score from 1-10 on how modern and professional the UI looks." },
     aeo_score: { type: "number", description: "A score from 1-5 on how well-structured the content is for Answer Engines (AEO)." },
@@ -55,7 +55,7 @@ async function enrichLead(url) {
       formats: ['extract'],
       extract: {
         schema: enrichSchema,
-        prompt: "Extract social media, contact info, and perform a brief GEO/AEO/Modernity audit. Focus on missing Schema, outdated design, mobile-friendliness, and lead-capture features (chatbot/click-to-call)."
+        systemPrompt: "You are a professional business auditor. Extract exactly what is asked in the schema. Focusing on missing contact info and technical gaps."
       }
     });
 
@@ -84,7 +84,7 @@ async function searchBusiness(query) {
         formats: ['extract'],
         extract: {
           schema: enrichSchema,
-          prompt: "Extract official website and social media links for this business."
+          systemPrompt: "Find the official business website and all relevant social media profiles."
         }
       }
     });

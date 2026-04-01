@@ -52,9 +52,7 @@
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
             War Room
         </button>
-      </div>
-
-      <!-- Table View Section -->
+      </div>      <!-- Table View Section -->
       <div id="tableView" class="brand-card overflow-hidden w-full dark:bg-slate-900 dark:border-white/10">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
@@ -219,6 +217,47 @@
             </tbody>
           </table>
         </div>
+      </div>
+
+      <!-- Kanban View Section (Hidden by default) -->
+      <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar">
+          <div class="flex gap-6 min-w-max">
+              <!-- Kanban Column: Research -->
+              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Needs Video">
+                  <div class="flex items-center justify-between px-2 mb-2">
+                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-muted">Lead Research</h3>
+                      <span class="px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted column-count">0</span>
+                  </div>
+                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/30"></div>
+              </div>
+
+              <!-- Kanban Column: Enriched -->
+              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Enriched">
+                  <div class="flex items-center justify-between px-2 mb-2">
+                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-cyan-500">Discovery Done</h3>
+                      <span class="px-2 py-0.5 rounded-full bg-cyan-500/10 text-[10px] font-bold text-cyan-500 column-count">0</span>
+                  </div>
+                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-cyan-500/5 dark:bg-cyan-500/5 rounded-3xl border border-dashed border-cyan-500/20"></div>
+              </div>
+
+              <!-- Kanban Column: Outreach Ongoing -->
+              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Action Ongoing">
+                  <div class="flex items-center justify-between px-2 mb-2">
+                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-yellow">Engagement</h3>
+                      <span class="px-2 py-0.5 rounded-full bg-brand-yellow/10 text-[10px] font-bold text-brand-yellow column-count">0</span>
+                  </div>
+                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-brand-yellow/5 dark:bg-brand-yellow/5 rounded-3xl border border-dashed border-brand-yellow/20"></div>
+              </div>
+
+              <!-- Kanban Column: Finished -->
+              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Finished">
+                  <div class="flex items-center justify-between px-2 mb-2">
+                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-emerald-500">Outcomes</h3>
+                      <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-[10px] font-bold text-emerald-500 column-count">0</span>
+                  </div>
+                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-emerald-500/5 dark:bg-emerald-500/5 rounded-3xl border border-dashed border-emerald-500/20"></div>
+              </div>
+          </div>
       </div>
 
       <!-- Bulk Action Bar -->
@@ -479,50 +518,6 @@
       </div>
     </div>
   </div>
-
-      <!-- Kanban View Section (Hidden by default) -->
-    <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar">
-        <div class="flex gap-6 min-w-max">
-            <!-- Kanban Column: New -->
-            <div class="kanban-column w-80 flex flex-col gap-4" data-status="Needs Video">
-                <div class="flex items-center justify-between px-2 mb-2">
-                    <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-muted">Lead Research</h3>
-                    <span class="px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted column-count">0</span>
-                </div>
-                <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/30"></div>
-            </div>
-
-            <!-- Kanban Column: Audited -->
-            <div class="kanban-column w-80 flex flex-col gap-4" data-status="Enriched">
-                <div class="flex items-center justify-between px-2 mb-2">
-                    <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-yellow">Discovery Done</h3>
-                    <span class="px-2 py-0.5 rounded-full bg-brand-yellow/10 text-[10px] font-bold text-brand-yellow column-count">0</span>
-                </div>
-                <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-brand-yellow/5 dark:bg-brand-yellow/5 rounded-3xl border border-dashed border-brand-yellow/20"></div>
-            </div>
-
-            <!-- Kanban Column: Contacted -->
-            <div class="kanban-column w-80 flex flex-col gap-4" data-status="Email Sent">
-                <div class="flex items-center justify-between px-2 mb-2">
-                    <h3 class="text-xs font-black uppercase tracking-[0.2em] text-rose-500">Outreach Sent</h3>
-                    <span class="px-2 py-0.5 rounded-full bg-rose-500/10 text-[10px] font-bold text-rose-500 column-count">0</span>
-                </div>
-                <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-rose-500/5 dark:bg-rose-500/5 rounded-3xl border border-dashed border-rose-500/20"></div>
-            </div>
-
-            <!-- Kanban Column: Meeting Set -->
-            <div class="kanban-column w-80 flex flex-col gap-4" data-status="Meeting Booked">
-                <div class="flex items-center justify-between px-2 mb-2">
-                    <h3 class="text-xs font-black uppercase tracking-[0.2em] text-green-500">High Interest</h3>
-                    <span class="px-2 py-0.5 rounded-full bg-green-500/10 text-[10px] font-bold text-green-500 column-count">0</span>
-                </div>
-                <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-green-500/5 dark:bg-green-500/5 rounded-3xl border border-dashed border-green-500/20"></div>
-            </div>
-        </div>
-    </div>
-
-  </div>
-
   <!-- The War Room: Batch Outreach Modal -->
   <div id="warRoomModal" class="fixed inset-0 z-[300] hidden overflow-hidden">
     <div class="absolute inset-0 bg-brand-dark/90 backdrop-blur-md transition-opacity"></div>

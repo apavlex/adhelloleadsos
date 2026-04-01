@@ -32,31 +32,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const website = lead.website && lead.website !== 'N/A';
     const reviews = parseInt(lead.reviews || lead.reviewsCount) || 0;
     const rating = parseFloat(lead.rating || lead.totalScore) || 0;
-    const hasFB = lead.facebook && lead.facebook !== 'N/A';
-    const hasIG = lead.instagram && lead.instagram !== 'N/A';
+    const hasFB = (lead.facebook && lead.facebook !== 'N/A') || (lead.facebook_url && lead.facebook_url !== 'N/A');
+    const hasIG = (lead.instagram && lead.instagram !== 'N/A') || (lead.instagram_url && lead.instagram_url !== 'N/A');
     
-    // New Audit Signals
-    const isOutdated = lead.isOutdated === 'true' || lead.is_outdated === true;
-    const noMobile = lead.isMobileFriendly === 'false' || lead.is_mobile_friendly === false;
-    const noSchema = lead.hasSchemaMarkup === 'false' || lead.has_schema_markup === false;
-    const noChatbot = lead.hasChatbot === 'false' || lead.has_chatbot === false;
-    const noClickToCall = lead.hasClickToCall === 'false' || lead.has_click_to_call === false;
-    const aeoScore = parseInt(lead.aeoScore || lead.aeo_score) || 3;
+    // New Audit Signals - Support both JS bools and HTML strings
+    const isOutdated = lead.isOutdated === 'true' || lead.isOutdated === true;
+    const noMobile = lead.isMobileFriendly === 'false' || lead.isMobileFriendly === false;
+    const noSchema = lead.hasSchemaMarkup === 'false' || lead.hasSchemaMarkup === false;
+    const noChatbot = lead.hasChatbot === 'false' || lead.hasChatbot === false;
+    const noClickToCall = lead.hasClickToCall === 'false' || lead.hasClickToCall === false;
+    const aeoScore = parseInt(lead.aeoScore || 0);
 
     // Logic: Agencies want leads with GAPS (weighted for high opportunity)
-    if (!website) score += 4; // Critical: Needs a site
-    if (isOutdated) score += 2.5; // High: Redesign opportunity
-    if (noMobile) score += 3.0; // High: Technical fix
-    if (noSchema) score += 2.0; // High: GEO/AEO optimization
-    if (aeoScore < 3) score += 1.5; // Med: AEO content gap
-    if (reviews < 10) score += 1.5; // Med: Reputation gap (Low reviews = High opportunity)
-    if (rating < 4.0 && reviews > 0) score += 1.5; // Med: Quality gap
-    if (website && (!hasFB || !hasIG)) score += 1.0; // Med: Social gap
-    if (noChatbot) score += 1.5; // Med: Conversion gap
-    if (noClickToCall) score += 1.5; // Med: Conversion gap
+    if (!website) score += 4.5;
+    else {
+        if (isOutdated) score += 2.5;
+        if (noMobile) score += 3.0;
+        if (noSchema) score += 2.0;
+        if (noChatbot) score += 1.5;
+        if (noClickToCall) score += 1.5;
+        if (aeoScore > 0 && aeoScore < 3) score += 1.5;
+        if (!hasFB || !hasIG) score += 1.0;
+    }
     
-    // Competitive Leverage: High opportunity if a competitor is "beating" them
-    if (lead.competitorName && lead.competitorName !== 'N/A') score += 1.0;
+    if (reviews > 0 && reviews < 20) score += 1.5;
+    if (rating > 0 && rating < 4.2) score += 1.5;
     
     return Math.min(10, score);
   };
@@ -67,19 +67,23 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const score = calculateOpportunityScore(l);
     
-    // Core Score Badge
-    let scoreColor = 'bg-slate-100 text-slate-600 border-slate-200';
-    if (score >= 8) scoreColor = 'bg-rose-100 text-rose-700 border-rose-200';
-    else if (score >= 5) scoreColor = 'bg-amber-100 text-amber-700 border-amber-200';
+    // Core Score Label
+    let label = 'Low Opportunity';
+    let scoreColor = 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5';
     
-    badges.push(`<span class="px-2 py-0.5 rounded-md ${scoreColor} text-[9px] font-black border uppercase tracking-tighter">Score: ${score}</span>`);
+    if (score >= 7) {
+        label = 'High Opportunity';
+        scoreColor = 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20';
+    } else if (score >= 4) {
+        label = 'Medium Opportunity';
+        scoreColor = 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-brand-yellow/10 dark:text-brand-yellow dark:border-brand-yellow/20';
+    }
+    
+    badges.push(`<span class="px-2 py-0.5 rounded-md ${scoreColor} text-[9px] font-black border uppercase tracking-tighter shadow-sm">${label}</span>`);
 
-    // Specific Gap Badges (Show top 2-3 to avoid clutter)
-    if (l.website === 'N/A' || !l.website) badges.push(`<span class="px-2 py-0.5 rounded-md bg-red-50 text-red-600 border-red-100 text-[9px] font-bold border uppercase">No Site</span>`);
-    if (l.isOutdated === 'true' || l.is_outdated === true) badges.push(`<span class="px-2 py-0.5 rounded-md bg-orange-50 text-orange-600 border-orange-100 text-[9px] font-bold border uppercase">Outdated</span>`);
-    if (l.isMobileFriendly === 'false' || l.is_mobile_friendly === false) badges.push(`<span class="px-2 py-0.5 rounded-md bg-purple-50 text-purple-600 border-purple-100 text-[9px] font-bold border uppercase">Mobile Gap</span>`);
-    if (l.hasSchemaMarkup === 'false' || l.has_schema_markup === false) badges.push(`<span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border-blue-100 text-[9px] font-bold border uppercase">Needs GEO</span>`);
-    if (parseInt(l.reviews) < 20) badges.push(`<span class="px-2 py-0.5 rounded-md bg-yellow-50 text-yellow-700 border-yellow-100 text-[9px] font-bold border uppercase tracking-tighter">Reputation</span>`);
+    // Specific Gap Badges (Secondary)
+    if (l.isMobileFriendly === 'false') badges.push(`<span class="px-2 py-0.5 rounded-md bg-purple-50 text-purple-600 border-purple-100 text-[9px] font-bold border uppercase dark:bg-purple-500/5 dark:border-purple-500/10">Mobile Gap</span>`);
+    if (l.hasSchemaMarkup === 'false') badges.push(`<span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border-blue-100 text-[9px] font-bold border uppercase dark:bg-blue-500/5 dark:border-blue-500/10">Needs GEO</span>`);
     
     return `<div class="flex flex-wrap gap-1 items-center justify-center">${badges.slice(0, 3).join('')}</div>`;
   };
@@ -247,18 +251,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (modeRunNow && modeSchedule && searchModeInput) {
+    const autopilotSettings = document.getElementById('autopilotSettings');
+    
     modeRunNow.addEventListener('click', () => {
       searchModeInput.value = 'run';
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
       
-      // Hide pockets
-      [frequencyPocket, timePocket].forEach(p => {
-        if (p) {
-          p.classList.add('opacity-0', 'w-0');
-          setTimeout(() => p.classList.add('hidden'), 500);
-        }
-      });
+      if (autopilotSettings) {
+          autopilotSettings.classList.add('hidden');
+      }
 
       if (searchBtnLabel) {
         searchBtnLabel.innerHTML = 'Find Leads<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
@@ -270,13 +272,9 @@ document.addEventListener('DOMContentLoaded', () => {
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
       
-      // Show pockets
-      [frequencyPocket, timePocket].forEach(p => {
-        if (p) {
-          p.classList.remove('hidden');
-          setTimeout(() => p.classList.remove('opacity-0', 'w-0'), 10);
-        }
-      });
+      if (autopilotSettings) {
+          autopilotSettings.classList.remove('hidden');
+      }
 
       if (searchBtnLabel) {
         searchBtnLabel.innerHTML = 'Start Autopilot ⚡<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
@@ -486,23 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sticky Title Scroll Logic
     const panelContent = mobilePanel.querySelector('div.overflow-y-auto');
     if (panelContent) {
-        panelContent.addEventListener('scroll', () => {
-            const stickyTitle = document.getElementById('stickyPanelTitle');
-            const mainTitle = document.getElementById('mobilePanelTitle');
-            if (stickyTitle && mainTitle) {
-                const mainTitleRect = mainTitle.getBoundingClientRect();
-                const containerRect = panelContent.getBoundingClientRect();
-                
-                // Show sticky title when main title scrolls past the top header
-                if (mainTitleRect.bottom < containerRect.top + 60) {
-                    stickyTitle.classList.remove('opacity-0', 'pointer-events-none');
-                    stickyTitle.classList.add('opacity-100');
-                } else {
-                    stickyTitle.classList.remove('opacity-100');
-                    stickyTitle.classList.add('opacity-0', 'pointer-events-none');
-                }
-            }
-        });
+        // Scroll logic removed - title is now always visible
     }
   }
 
@@ -522,22 +504,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const category = row.dataset.category;
     const loomUrl = row.dataset.loomUrl;
 
-    // Avatar Logic (using Initial)
+    // Avatar & Sticky Title Logic
     const mobileAvatar = document.getElementById('mobilePanelAvatar');
+    const stickyPanelTitle = document.getElementById('stickyPanelTitle');
     if (mobileAvatar) {
-        mobileAvatar.textContent = title.charAt(0).toUpperCase();
+        mobileAvatar.textContent = (title || 'A').charAt(0).toUpperCase();
+    }
+    if (stickyPanelTitle) {
+        stickyPanelTitle.textContent = title || 'Company Details';
     }
 
     const panelTitle = document.getElementById('mobilePanelTitle');
     if (panelTitle) panelTitle.textContent = title;
 
-    const stickyPanelTitle = document.getElementById('stickyPanelTitle');
-    if (stickyPanelTitle) {
-      stickyPanelTitle.textContent = title;
-      // Reset state when populating new lead
-      stickyPanelTitle.classList.replace('opacity-100', 'opacity-0');
-      stickyPanelTitle.classList.add('pointer-events-none');
-    }
+
 
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
@@ -663,14 +643,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const auditSummary = document.getElementById('mobilePanelAuditSummary');
     if (auditStatus && auditSummary) {
         const score = calculateOpportunityScore(row.dataset);
-        let statusText = 'Low Opportunity';
-        let statusColor = 'text-green-500';
-        if (score >= 7) { statusText = 'Critical Opportunity'; statusColor = 'text-red-500'; }
-        else if (score >= 4) { statusText = 'High Opportunity'; statusColor = 'text-amber-500'; }
+        if (score >= 7) { 
+            statusText = 'High Opportunity'; 
+            statusColor = 'text-rose-500'; 
+        } else if (score >= 4) { 
+            statusText = 'Medium Opportunity'; 
+            statusColor = 'text-amber-500'; 
+        } else {
+            statusText = 'Low Opportunity';
+            statusColor = 'text-brand-muted';
+        }
         
         auditStatus.textContent = statusText;
         auditStatus.className = `text-[10px] font-black uppercase tracking-widest ${statusColor}`;
-        auditSummary.textContent = row.dataset.auditSummary || (website === 'N/A' || !website ? 'This business lacks a digital footprint and is invisible to AI search engines.' : 'Analyzing website structure and GEO/AEO readiness...');
+        
+        // Dynamic summary generation if deep audit hasn't filled it yet
+        let dynamicSummary = row.dataset.auditSummary;
+        if (!dynamicSummary || dynamicSummary === 'Analyzing website structure and GEO/AEO readiness...') {
+            const gaps = [];
+            if (!website || website === 'N/A') gaps.push('no website');
+            if (row.dataset.hasChatbot === 'false' || row.dataset.has_chatbot === false) gaps.push('no chatbot');
+            if (row.dataset.isMobileFriendly === 'false' || row.dataset.is_mobile_friendly === false) gaps.push('technical SEO issues');
+            if (row.dataset.hasClickToCall === 'false' || row.dataset.has_click_to_call === false) gaps.push('broken click-to-call');
+            
+            if (gaps.length > 0) {
+                dynamicSummary = `High-value lead because of ${gaps.join(', ')}. Perfect candidate for a technical layout overhaul and conversion optimization.`;
+            } else {
+                dynamicSummary = 'Solid digital presence found. Focus on high-level strategy and scaling existing performance.';
+            }
+        }
+        auditSummary.textContent = dynamicSummary;
     }
 
     // Competitor Comparison Logic
@@ -746,22 +748,10 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Initialize Table Row Stars ---
   const applyTableStars = () => {
     document.querySelectorAll('.result-row').forEach(row => {
-      const rating = parseFloat(row.dataset.rating);
-      const reviews = parseInt(row.dataset.reviews);
+      const rating = parseFloat(row.dataset.rating) || 0;
       const starContainer = row.querySelector('.row-stars');
-      if (starContainer && !isNaN(rating)) {
-        // Clear previous and render
-        starContainer.innerHTML = '';
-        const fullStars = Math.floor(rating);
-        const hasHalf = rating % 1 >= 0.5;
-        for (let i = 0; i < 5; i++) {
-          const star = document.createElement('svg');
-          star.setAttribute('class', `w-2.5 h-2.5 ${i < fullStars ? 'text-brand-yellow' : (i === fullStars && hasHalf ? 'text-brand-yellow' : 'text-brand-muted/10')}`);
-          star.setAttribute('fill', 'currentColor');
-          star.setAttribute('viewBox', '0 0 20 20');
-          star.innerHTML = '<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />';
-          starContainer.appendChild(star);
-        }
+      if (starContainer) {
+        renderStarsInElement(starContainer, rating);
       }
     });
   };
@@ -1599,11 +1589,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Clear and re-populate columns
     columns.forEach(col => {
         col.innerHTML = '';
-        const status = col.parentElement.dataset.status;
+        const targetStatus = col.parentElement.dataset.status;
         let count = 0;
 
         allRows.forEach(row => {
-            if (row.dataset.status === status) {
+            const leadStatus = row.dataset.status || 'Needs Video';
+            let shouldInclude = false;
+
+            if (targetStatus === 'Needs Video' && leadStatus === 'Needs Video') shouldInclude = true;
+            if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
+            if (targetStatus === 'Action Ongoing' && ['Video Recorded', 'Called Lead', 'Email Sent', 'Follow-up'].includes(leadStatus)) shouldInclude = true;
+            if (targetStatus === 'Finished' && ['Closed - Won', 'Closed - Lost'].includes(leadStatus)) shouldInclude = true;
+
+            if (shouldInclude) {
                 const card = createKanbanCard(row);
                 col.appendChild(card);
                 count++;
@@ -1620,10 +1618,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 ghostClass: 'opacity-50',
                 onEnd: async (evt) => {
                     const item = evt.item;
-                    const newStatus = evt.to.parentElement.dataset.status;
+                    const targetColStatus = evt.to.parentElement.dataset.status;
                     const leadKey = item.dataset.leadKey;
                     
                     if (leadKey) {
+                        // Determine the specific status to save
+                        let newStatus = targetColStatus;
+                        if (targetColStatus === 'Action Ongoing') newStatus = 'Follow-up';
+                        if (targetColStatus === 'Finished') newStatus = 'Closed - Won';
+
                         try {
                             const res = await fetch(`/leads/${leadKey}/update`, {
                                 method: 'POST',
@@ -1634,7 +1637,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.success) {
                                 // Update original row dataset
                                 const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
-                                if (originalRow) originalRow.dataset.status = newStatus;
+                                if (originalRow) {
+                                    originalRow.dataset.status = newStatus;
+                                    // Also update the status badge in the table view if visible
+                                    const statusBadge = originalRow.querySelector('td:nth-last-child(2) span');
+                                    if (statusBadge) statusBadge.textContent = newStatus;
+                                }
                                 updateColumnCounts();
                             }
                         } catch (err) { console.error('Failed to update status:', err); }
@@ -1655,16 +1663,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const website = row.dataset.website;
     
     card.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center justify-between mb-3">
             <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${row.dataset.category}</span>
-            <div class="flex items-center gap-1">
-                <svg class="w-2.5 h-2.5 text-brand-yellow" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                <span class="text-[10px] font-bold text-brand-dark dark:text-white">${rating}</span>
+            <div class="flex items-center gap-1 kanban-stars-${row.dataset.leadKey}">
+                <!-- Stars rendered via JS -->
             </div>
         </div>
         <h4 class="text-sm font-black text-brand-dark dark:text-white mb-1 truncate">${title}</h4>
-        <div class="text-[10px] text-brand-muted font-bold truncate">${website}</div>
+        <div class="text-[10px] text-brand-muted font-bold truncate mb-3">${website}</div>
+        <div class="row-opportunity-label-${row.dataset.leadKey}">
+            <!-- Opportunity Label Rendered via JS -->
+        </div>
     `;
+    
+    // Render stars and labels into the card
+    setTimeout(() => {
+        const starContainer = card.querySelector(`.kanban-stars-${row.dataset.leadKey}`);
+        const oppContainer = card.querySelector(`.row-opportunity-label-${row.dataset.leadKey}`);
+        if (starContainer) renderStarsInElement(starContainer, parseFloat(rating) || 0);
+        if (oppContainer) oppContainer.innerHTML = renderOpportunityBadges(row);
+    }, 0);
     
     card.onclick = () => selectRow(row);
     return card;
@@ -1722,7 +1740,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const competitor = row.dataset.competitorName;
     const compGap = row.dataset.competitorGap;
 
-    // Detect Gaps
+    const rating = row.dataset.rating || 0;
+    
     const gaps = [];
     if (row.dataset.isMobileFriendly === 'false') gaps.push("isn't mobile-friendly");
     if (row.dataset.hasChatbot === 'false') gaps.push("lacks lead-capture");
@@ -1735,8 +1754,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     card.innerHTML = `
         <div class="flex items-center justify-between">
-            <h4 class="text-white font-black text-xl truncate pr-4">${title}</h4>
-            <div class="px-2 py-1 bg-brand-yellow/10 rounded-lg border border-brand-yellow/30 text-[10px] font-black text-brand-yellow">READY</div>
+            <div class="flex flex-col gap-1 min-w-0">
+                <h4 class="text-white font-black text-xl truncate pr-4">${title}</h4>
+                <div class="flex items-center gap-1.5 war-room-stars-${row.dataset.leadKey}">
+                    <!-- Stars rendered via JS -->
+                    <span class="text-[10px] font-bold text-white/40">${rating}</span>
+                </div>
+            </div>
+            <div class="px-2 py-1 bg-brand-yellow/10 rounded-lg border border-brand-yellow/30 text-[10px] font-black text-brand-yellow shrink-0">READY</div>
         </div>
         <div class="flex flex-wrap gap-2">
             ${gaps.map(g => `<span class="px-2 py-1 bg-rose-500/10 text-rose-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-rose-500/20">${g}</span>`).join('')}
@@ -1748,6 +1773,11 @@ document.addEventListener('DOMContentLoaded', () => {
              Review & Lead Audit
         </button>
     `;
+    
+    setTimeout(() => {
+        const starContainer = card.querySelector(`.war-room-stars-${row.dataset.leadKey}`);
+        if (starContainer) renderStarsInElement(starContainer, parseFloat(rating) || 0);
+    }, 0);
     return card;
   }
 
