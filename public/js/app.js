@@ -91,8 +91,39 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  // Initial calculation
+  // Initial calculation and automatic sorting
   updateOpportunityBadges();
+  
+  const sortLeadsByOpportunity = (isAscending = false) => {
+    const tableBody = document.querySelector('tbody');
+    if (!tableBody) return;
+    const rows = Array.from(tableBody.querySelectorAll('.result-row'));
+    
+    rows.sort((a, b) => {
+      const scoreA = parseFloat(a.querySelector('.opportunity-badge')?.dataset.score) || calculateOpportunityScore(a.dataset);
+      const scoreB = parseFloat(b.querySelector('.opportunity-badge')?.dataset.score) || calculateOpportunityScore(b.dataset);
+      return isAscending ? scoreA - scoreB : scoreB - scoreA;
+    });
+    
+    rows.forEach(row => tableBody.appendChild(row));
+  };
+
+  // Auto-sort by High Opportunity immediately after calculation
+  sortLeadsByOpportunity(false);
+
+  // Attach Sort Listener
+  const sortOppBtn = document.getElementById('sortOpportunity');
+  if (sortOppBtn) {
+    let asc = false;
+    sortOppBtn.addEventListener('click', () => {
+      asc = !asc;
+      sortLeadsByOpportunity(asc);
+      // Update icon direction
+      const svg = sortOppBtn.querySelector('svg');
+      if (svg) svg.style.transform = asc ? 'rotate(180deg)' : 'rotate(0deg)';
+      sortOppBtn.classList.add('text-brand-dark');
+    });
+  }
 
   // Export CSV Logic
   const bulkExportBtn = document.getElementById('bulkExportBtn');
@@ -824,11 +855,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const subject = encodeURIComponent(`Question regarding ${title}'s online presence`);
       
+      const gaps = [];
+      if (currentRow.dataset.isMobileFriendly === 'false' || currentRow.dataset.is_mobile_friendly === false) gaps.push("isn't mobile-friendly");
+      if (currentRow.dataset.hasChatbot === 'false' || currentRow.dataset.has_chatbot === false) gaps.push("lacks a conversion chatbot");
+      if (currentRow.dataset.hasSchemaMarkup === 'false' || currentRow.dataset.has_schema_markup === false) gaps.push("is missing Google Schema markup for local SEO");
+      if (currentRow.dataset.hasClickToCall === 'false' || currentRow.dataset.has_click_to_call === false) gaps.push("has a broken click-to-call link");
+      if (currentRow.dataset.isOutdated === 'true' || currentRow.dataset.is_outdated === true) gaps.push("looks a bit outdated compared to competitors");
+
+      let gapText = "";
+      if (gaps.length > 0) {
+        gapText = `I noticed a few specific technical gaps: your site ${gaps.slice(0, -1).join(', ')}${gaps.length > 1 ? ' and ' : ''}${gaps[gaps.length-1]}. These are likely slowing down your growth and making you invisible to modern AI search engines.`;
+      } else {
+        gapText = `I noticed a few technical gaps and conversion opportunities that might be slowing down your growth.`;
+      }
+
       let bodyText = "";
       if (loomLink) {
-        bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas that could help increase your conversions:\n\n${loomLink}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
+        bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas and technical fixes that could help increase your conversions:\n\n${loomLink}\n\n${gapText}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
       } else {
-        bodyText = `Hey ${title} team,\n\nI was looking for local businesses in ${city} and spent some time on your website. I noticed a few technical gaps and conversion opportunities that might be slowing down your growth.\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat this week?\n\nBest,\n[Your Name]`;
+        bodyText = `Hey ${title} team,\n\nI was looking for local businesses in ${city} and spent some time on your website. ${gapText}\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat this week?\n\nBest,\n[Your Name]`;
       }
       
       const body = encodeURIComponent(bodyText);
@@ -1300,7 +1345,13 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkEnhanceBtn.classList.add('loading', 'animate-magic');
       bulkEnhanceBtn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-3.5 w-3.5 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Enchanting Leads...</span>';
 
-      for (const row of selectedRows) {
+      // Limit to 20 leads as per user request
+      const leadsToProcess = selectedRows.slice(0, 20);
+      if (selectedRows.length > 20) {
+          console.warn('Bulk audit limited to first 20 selected leads.');
+      }
+
+      for (const row of leadsToProcess) {
         const url = row.dataset.website;
         if (!url || url === 'N/A') continue;
 
@@ -1411,6 +1462,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
       updateProcessingStatus(false);
       bulkEnhanceBtn.innerHTML = '✨ Leads Enchanted';
+      
+      // Auto-re-sort after enhancement to move highest quality leads to top
+      sortLeadsByOpportunity(false);
+
       setTimeout(() => {
         bulkEnhanceBtn.classList.remove('loading', 'animate-magic');
         bulkEnhanceBtn.innerHTML = originalText;
