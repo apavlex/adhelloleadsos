@@ -309,3 +309,58 @@ table {
     border-radius: 2rem;
   }
 }
+
+/* Notification Bell & Processing Indicator */
+.processing-ring {
+    position: absolute;
+    inset: -4px;
+    border: 2px solid transparent;
+    border-top-color: var(--brand-yellow);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.processing-active .processing-ring {
+    opacity: 1;
+}
+
+.bell-icon-wrapper {
+    position: relative;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.bell-icon-wrapper.has-notification::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 8px;
+    height: 8px;
+    background-color: #EF4444; /* Red dot */
+    border-radius: 50%;
+    border: 2px solid var(--brand-card-bg);
+}
+
+.bell-shake {
+    animation: bell-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+}
+
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@keyframes bell-shake {
+    0%, 100% { transform: rotate(0); }
+    20% { transform: rotate(15deg); }
+    40% { transform: rotate(-15deg); }
+    60% { transform: rotate(10deg); }
+    80% { transform: rotate(-10deg); }
+}
+
+@keyframes sparkle {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.2); }
+}

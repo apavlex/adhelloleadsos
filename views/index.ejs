@@ -23,7 +23,7 @@
       </h1>
       
       <p class="max-w-2xl mx-auto text-lg text-brand-muted font-medium mb-12">
-        Hunt high-quality business data with the <span class="text-brand-dark dark:text-white font-bold">Agency OS</span> enrichment engine. Scrape phone numbers, social profiles, and websites automatically <span class="text-brand-dark dark:text-white font-bold">every 4 hours</span>.
+        Hunt high-quality business data with the <span class="text-brand-dark dark:text-white font-bold">| Leads</span> enrichment engine. Scrape phone numbers, social profiles, and websites automatically <span class="text-brand-dark dark:text-white font-bold">every 4 hours</span>.
       </p>
 
       <!-- Search Container -->
@@ -31,7 +31,7 @@
       <div class="max-w-5xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-2 rounded-[2.5rem] border border-white/20 dark:border-white/5 shadow-2xl relative z-10 transition-all duration-500 overflow-hidden" id="searchContainer">
         <form action="/search" method="POST" id="searchForm">
           <!-- Main Search Row -->
-          <div class="flex flex-col lg:flex-row items-center gap-1">
+          <div class="flex flex-col lg:flex-row items-center gap-2 lg:gap-4 px-2">
             <div class="flex-1 px-5 py-3 flex flex-col items-start min-w-[200px] hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-300 group">
               <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover:text-brand-yellow transition-colors">Business Keyword</label>
               <input type="text" name="keyword" required placeholder="e.g. Plumber, Dentist"
@@ -40,20 +40,20 @@
             
             <div class="hidden lg:block w-px h-8 bg-brand-border/20 mx-4"></div>
             
-            <div class="flex-1 px-5 py-3 flex flex-col items-start min-w-[150px] hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-300 group">
+            <div class="flex-1 px-5 py-3 flex flex-col items-start min-w-[180px] hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-300 group">
               <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover:text-brand-yellow transition-colors">Location</label>
               <div class="flex items-center w-full">
                 <input type="text" name="city" required placeholder="City"
                   class="flex-1 bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold placeholder:text-brand-dark/20 text-lg p-0">
-                <span class="text-brand-muted mx-1 text-lg">,</span>
+                <span class="text-brand-muted mx-2 text-lg">,</span>
                 <input type="text" name="state" required placeholder="TX" max="2"
-                  class="w-10 bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold placeholder:text-brand-dark/20 text-lg p-0 uppercase">
+                  class="w-12 bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold placeholder:text-brand-dark/20 text-lg p-0 uppercase text-center">
               </div>
             </div>
 
             <div class="hidden lg:block w-px h-8 bg-brand-border/20 mx-4"></div>
 
-            <div class="flex-[0.4] px-5 py-3 flex flex-col items-start min-w-[100px] hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-300 group">
+            <div class="flex-[0.4] px-5 py-3 flex flex-col items-start min-w-[120px] hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-300 group">
               <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover:text-brand-yellow transition-colors">Leads Qty</label>
               <input type="number" name="maxResults" value="20" min="1" max="100"
                 class="w-full bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-lg p-0">

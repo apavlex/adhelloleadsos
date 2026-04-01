@@ -1,6 +1,30 @@
 document.addEventListener('DOMContentLoaded', () => {
   // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
 
+  // --- Background Processing Indicators ---
+  let activeProcessingCount = 0;
+  const processingIndicator = document.getElementById('processingIndicator');
+
+  const updateProcessingStatus = (isActive) => {
+    if (!processingIndicator) return;
+    activeProcessingCount = isActive ? activeProcessingCount + 1 : Math.max(0, activeProcessingCount - 1);
+    
+    if (activeProcessingCount > 0) {
+      processingIndicator.classList.add('processing-active');
+    } else {
+      processingIndicator.classList.remove('processing-active');
+      notifyProcessingDone();
+    }
+  };
+
+  const notifyProcessingDone = () => {
+    if (!processingIndicator) return;
+    processingIndicator.classList.add('bell-shake');
+    setTimeout(() => {
+      processingIndicator.classList.remove('bell-shake');
+    }, 1000);
+  };
+
   const calculateOpportunityScore = (lead) => {
     let score = 0;
     const website = lead.website && lead.website !== 'N/A';
@@ -779,6 +803,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const originalHTML = deepEnhanceBtn.innerHTML;
       
+      updateProcessingStatus(true);
       deepEnhanceBtn.classList.add('loading', 'animate-magic');
       deepEnhanceBtn.innerHTML = `
         <svg class="w-4 h-4 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24">
@@ -817,20 +842,22 @@ document.addEventListener('DOMContentLoaded', () => {
           // Refresh Panel UI
           populatePanel(currentRow);
           
-          // Flash success state
           deepEnhanceBtn.innerHTML = '✨ Success! Data Found';
+          updateProcessingStatus(false);
           setTimeout(() => {
              deepEnhanceBtn.classList.remove('loading', 'animate-magic');
              deepEnhanceBtn.innerHTML = originalHTML;
           }, 3000);
         } else {
           alert(data.error || "No additional contact data discovered yet.");
+          updateProcessingStatus(false);
           deepEnhanceBtn.classList.remove('loading', 'animate-magic');
           deepEnhanceBtn.innerHTML = originalHTML;
         }
       } catch (err) {
         console.error('Enhancement failed:', err);
         alert("Enhancement failed. Please try again later.");
+        updateProcessingStatus(false);
         deepEnhanceBtn.classList.remove('loading', 'animate-magic');
         deepEnhanceBtn.innerHTML = originalHTML;
       }
@@ -1209,6 +1236,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
       
       const originalText = bulkEnhanceBtn.innerHTML;
+      updateProcessingStatus(true);
       bulkEnhanceBtn.classList.add('loading', 'animate-magic');
       bulkEnhanceBtn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-3.5 w-3.5 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Enchanting Leads...</span>';
 
@@ -1321,6 +1349,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      updateProcessingStatus(false);
       bulkEnhanceBtn.innerHTML = '✨ Leads Enchanted';
       setTimeout(() => {
         bulkEnhanceBtn.classList.remove('loading', 'animate-magic');
