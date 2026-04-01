@@ -259,14 +259,28 @@ module.exports = {
   async getAllVisits() {
     const keys = await db.list('visit:');
     const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const sortedKeys = keyList.sort((a, b) => {
+      const tsA = parseInt(a.split(':')[1]);
+      const tsB = parseInt(b.split(':')[1]);
+      return tsB - tsA;
+    });
+    
     const visits = [];
-    for (const key of keyList) {
+    for (const key of sortedKeys) {
       const data = await db.get(key);
       if (data) {
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-        visits.push(parsed);
+        // Support Replit DB v3 format
+        const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+        if (raw) {
+          try {
+            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            visits.push(parsed);
+          } catch (e) {
+            console.error(`Error parsing visit ${key}:`, e.message);
+          }
+        }
       }
     }
-    return visits.sort((a, b) => b.timestamp - a.timestamp);
+    return visits;
   },
 };
