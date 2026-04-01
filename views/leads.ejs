@@ -51,7 +51,7 @@
             </thead>
             <tbody class="divide-y divide-brand-border/50">
               <% leads.forEach((lead, i) => { %>
-                <tr class="result-row group"
+                <tr class="result-row"
                     data-index="<%= i %>"
                     data-lead-key="<%= lead.key %>"
                     data-title="<%= lead.title %>"
@@ -226,34 +226,36 @@
 
   <!-- Mobile Detail Panel / Desktop Sidebar -->
   <div id="mobilePanel" class="fixed inset-0 z-[100] bg-brand-dark/60 backdrop-blur-md hidden flex flex-col justify-end lg:flex-row lg:justify-end items-center lg:items-stretch opacity-0 transition-opacity duration-300 pointer-events-none">
-    <div class="bg-white dark:bg-slate-900 w-full lg:w-[480px] rounded-t-[3rem] lg:rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto max-h-[92vh] lg:max-h-screen overflow-y-auto shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
+    <div class="bg-white dark:bg-slate-900 w-full h-full lg:h-screen lg:w-[480px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto overflow-y-auto shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
       
       <!-- Close/Handle -->
-      <div class="flex items-center justify-between mb-8 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-2 z-10">
-        <div class="flex items-center gap-3">
-            <button id="prevLeadBtn" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all group">
+      <div class="flex items-center justify-between mb-8 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-2 z-10 px-1">
+        <div class="flex items-center gap-3 flex-1 min-w-0 mr-4">
+            <button id="prevLeadBtn" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all group shrink-0">
                 <svg class="w-5 h-5 group-hover:-translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
             </button>
-            <div id="mobilePanelAvatar" class="w-14 h-14 bg-brand-yellow rounded-2xl flex items-center justify-center font-display font-black text-2xl shadow-brutal text-brand-dark">A</div>
-            <button id="nextLeadBtn" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all group">
+            <div id="mobilePanelAvatar" class="w-14 h-14 bg-brand-yellow rounded-2xl flex items-center justify-center font-display font-black text-2xl shadow-brutal text-brand-dark shrink-0">A</div>
+            <span id="stickyPanelTitle" class="text-sm font-black text-brand-dark dark:text-white truncate opacity-0 transition-all duration-300 pointer-events-none"></span>
+            <button id="nextLeadBtn" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all group shrink-0">
                 <svg class="w-5 h-5 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
             </button>
         </div>
-        <button id="closeMobilePanel" class="w-10 h-10 rounded-full bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all transform hover:rotate-90">
+        <button id="closeMobilePanel" class="w-10 h-10 rounded-full bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white transition-all transform hover:rotate-90 shrink-0">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
 
       <div class="mb-8">
         <div class="flex flex-col gap-1 mb-4">
-          <h2 id="mobilePanelTitle" class="font-display font-black text-3xl lg:text-4xl text-brand-dark dark:text-white leading-[1.1]">Company Name</h2>
-          <div class="flex flex-wrap items-center gap-3">
-              <span id="mobilePanelCategory" class="px-3 py-1 rounded-full bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Category</span>
+        <div class="flex flex-col gap-1 mb-4">
+          <div class="flex flex-wrap items-center gap-3 mb-2">
               <div class="flex items-center gap-2 bg-brand-cream/50 dark:bg-white/5 px-3 py-1 rounded-full border border-brand-border/20">
                 <div id="mobilePanelStars" class="flex items-center gap-0.5"></div>
                 <span id="mobilePanelRatingText" class="text-[10px] font-black text-brand-dark dark:text-slate-300">5.0</span>
               </div>
+              <span id="mobilePanelCategory" class="px-3 py-1 rounded-full bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 text-[10px] font-bold uppercase tracking-widest whitespace-nowrap">Category</span>
           </div>
+          <h2 id="mobilePanelTitle" class="font-display font-black text-3xl lg:text-4xl text-brand-dark dark:text-white leading-[1.1]">Company Name</h2>
         </div>
 
         <!-- Quick Contact Info -->
@@ -322,6 +324,49 @@
         </div>
       </section>
 
+      <!-- Engagement Command Center (Moved here under Technical Health Check) -->
+      <section class="mb-10">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center border-t border-brand-border/10 pt-6">Engagement Command Center</h3>
+        
+        <div class="grid grid-cols-2 gap-4">
+            <!-- Phone Action Tile -->
+            <div id="mobilePanelPhoneRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <a href="#" id="mobilePanelPhoneLink" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                </a>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Call Lead</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelPhone">Phone</div>
+            </div>
+
+            <!-- Email Action Tile -->
+            <div id="mobilePanelEmailRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <button class="quick-outreach-btn w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform" id="mobilePanelEmailBtn">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                </button>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Send Email</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelEmail">No Email</div>
+            </div>
+
+            <!-- Website Action Tile -->
+            <div id="mobilePanelWebsiteRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <a href="#" id="mobilePanelWebsiteLink" target="_blank" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                </a>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Visit Site</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelWebsiteShort">Website</div>
+            </div>
+
+            <!-- Location Action Tile -->
+            <a href="#" id="mobilePanelMapsLink" target="_blank" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </div>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Map View</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelAddress">Address</div>
+            </a>
+        </div>
+      </section>
+
       <!-- Action Section: Status & Video -->
       <section class="space-y-4 mb-10">
         <div class="p-6 bg-brand-cream/50 dark:bg-slate-800/50 rounded-3xl border border-brand-border/40 dark:border-white/5 shadow-sm">
@@ -330,6 +375,7 @@
                 <select id="leadStatusSelect" class="w-full bg-white dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-bold text-sm shadow-sm ring-1 ring-brand-border/50 dark:ring-white/10 focus:ring-2 focus:ring-brand-yellow appearance-none transition-all dark:text-white">
                     <option value="Needs Video">Needs Video</option>
                     <option value="Video Recorded">Video Recorded</option>
+                    <option value="Called Lead">Called Lead</option>
                     <option value="Email Sent">Email Sent</option>
                     <option value="Follow-up">Follow-up</option>
                     <option value="Closed - Won">Closed - Won</option>
@@ -365,50 +411,6 @@
         </div>
       </section>
 
-      <!-- High-Productivity Action Grid -->
-      <section class="mb-10">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center">Engagement Command Center</h3>
-        
-        <div class="grid grid-cols-2 gap-4">
-            <!-- Phone Action Tile -->
-            <div id="mobilePanelPhoneRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <a href="#" id="mobilePanelPhoneLink" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                </a>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Call Lead</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelPhone">Phone</div>
-            </div>
-
-            <!-- Email Action Tile -->
-            <div id="mobilePanelEmailRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <button class="quick-outreach-btn w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform" id="mobilePanelEmailBtn">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                </button>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Send Email</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelEmail">No Email</div>
-            </div>
-
-            <!-- Website Action Tile -->
-            <div id="mobilePanelWebsiteRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <a href="#" id="mobilePanelWebsiteLink" target="_blank" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-                </a>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Visit Site</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelWebsiteShort">Website</div>
-            </div>
-
-            <!-- Location Action Tile -->
-            <div id="mobilePanelAddressRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <a href="#" id="mobilePanelMapsLink" target="_blank" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </a>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Map View</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelAddress">Address</div>
-            </div>
-        </div>
-
-      </section>
-
       <!-- Activity Timeline -->
       <section class="mb-12">
         <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1">Activity & History</h3>
@@ -425,10 +427,6 @@
 
       <!-- Final Actions -->
       <div class="space-y-4 pt-6 border-t border-brand-border/20 dark:border-white/5">
-        <a id="mobilePanelMapsBtn" href="#" target="_blank" class="w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-5 text-sm font-bold flex items-center justify-center gap-3 dark:text-white">
-            <svg class="w-5 h-5 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-            View on Google Maps
-        </a>
         <button id="mobilePanelRemoveBtn" class="w-full text-center py-4 text-xs font-black uppercase tracking-[0.2em] text-red-500 hover:text-red-600 transition-colors">Discard this Lead</button>
       </div>
     </div>

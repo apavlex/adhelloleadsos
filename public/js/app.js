@@ -11,8 +11,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (activeProcessingCount > 0) {
       processingIndicator.classList.add('processing-active');
+      processingIndicator.classList.add('animate-pulse');
     } else {
       processingIndicator.classList.remove('processing-active');
+      processingIndicator.classList.remove('animate-pulse');
       notifyProcessingDone();
     }
   };
@@ -28,9 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const calculateOpportunityScore = (lead) => {
     let score = 0;
     const website = lead.website && lead.website !== 'N/A';
-    const email = lead.email && lead.email !== 'N/A';
-    const reviews = parseInt(lead.reviews) || 0;
-    const rating = parseFloat(lead.rating) || 0;
+    const reviews = parseInt(lead.reviews || lead.reviewsCount) || 0;
+    const rating = parseFloat(lead.rating || lead.totalScore) || 0;
     const hasFB = lead.facebook && lead.facebook !== 'N/A';
     const hasIG = lead.instagram && lead.instagram !== 'N/A';
     
@@ -42,18 +43,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const noClickToCall = lead.hasClickToCall === 'false' || lead.has_click_to_call === false;
     const aeoScore = parseInt(lead.aeoScore || lead.aeo_score) || 3;
 
-    // Logic: Agencies want leads with GAPS
-    if (!website) score += 3; // Critical: Needs a site
-    if (isOutdated) score += 2; // High: Redesign opportunity
-    if (noMobile) score += 2; // High: Technical fix
-    if (noSchema) score += 1.5; // High: GEO/AEO optimization
-    if (aeoScore < 3) score += 1; // Med: AEO content gap
-    if (reviews < 20) score += 1; // Med: Reputation gap
-    if (rating < 4.2 && reviews > 0) score += 1; // Med: Quality gap
-    if (website && (!hasFB || !hasIG)) score += 1; // Med: Social gap
-    if (noChatbot || noClickToCall) score += 0.5; // Low: Conversion gap
+    // Logic: Agencies want leads with GAPS (weighted for high opportunity)
+    if (!website) score += 4; // Critical: Needs a site
+    if (isOutdated) score += 2.5; // High: Redesign opportunity
+    if (noMobile) score += 3.0; // High: Technical fix
+    if (noSchema) score += 2.0; // High: GEO/AEO optimization
+    if (aeoScore < 3) score += 1.5; // Med: AEO content gap
+    if (reviews < 10) score += 1.5; // Med: Reputation gap (Low reviews = High opportunity)
+    if (rating < 4.0 && reviews > 0) score += 1.5; // Med: Quality gap
+    if (website && (!hasFB || !hasIG)) score += 1.0; // Med: Social gap
+    if (noChatbot) score += 1.5; // Med: Conversion gap
+    if (noClickToCall) score += 1.5; // Med: Conversion gap
     
-    return Math.min(Math.round(score), 10);
+    return Math.min(10, score);
   };
 
   const renderOpportunityBadges = (row) => {
@@ -437,6 +439,28 @@ document.addEventListener('DOMContentLoaded', () => {
             currentIndex = -1;
         }
     });
+
+    // Sticky Title Scroll Logic
+    const panelContent = mobilePanel.querySelector('div.overflow-y-auto');
+    if (panelContent) {
+        panelContent.addEventListener('scroll', () => {
+            const stickyTitle = document.getElementById('stickyPanelTitle');
+            const mainTitle = document.getElementById('mobilePanelTitle');
+            if (stickyTitle && mainTitle) {
+                const mainTitleRect = mainTitle.getBoundingClientRect();
+                const containerRect = panelContent.getBoundingClientRect();
+                
+                // Show sticky title when main title scrolls past the top header
+                if (mainTitleRect.bottom < containerRect.top + 60) {
+                    stickyTitle.classList.remove('opacity-0', 'pointer-events-none');
+                    stickyTitle.classList.add('opacity-100');
+                } else {
+                    stickyTitle.classList.remove('opacity-100');
+                    stickyTitle.classList.add('opacity-0', 'pointer-events-none');
+                }
+            }
+        });
+    }
   }
 
   // --- Populate panel from row data ---
@@ -463,6 +487,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const panelTitle = document.getElementById('mobilePanelTitle');
     if (panelTitle) panelTitle.textContent = title;
+
+    const stickyPanelTitle = document.getElementById('stickyPanelTitle');
+    if (stickyPanelTitle) {
+      stickyPanelTitle.textContent = title;
+      // Reset state when populating new lead
+      stickyPanelTitle.classList.replace('opacity-100', 'opacity-0');
+      stickyPanelTitle.classList.add('pointer-events-none');
+    }
 
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
@@ -590,8 +622,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const score = calculateOpportunityScore(row.dataset);
         let statusText = 'Low Opportunity';
         let statusColor = 'text-green-500';
-        if (score >= 8) { statusText = 'Critical Opportunity'; statusColor = 'text-red-500'; }
-        else if (score >= 5) { statusText = 'High Opportunity'; statusColor = 'text-amber-500'; }
+        if (score >= 7) { statusText = 'Critical Opportunity'; statusColor = 'text-red-500'; }
+        else if (score >= 4) { statusText = 'High Opportunity'; statusColor = 'text-amber-500'; }
         
         auditStatus.textContent = statusText;
         auditStatus.className = `text-[10px] font-black uppercase tracking-widest ${statusColor}`;
@@ -624,29 +656,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderStars(rating, reviews, containerId = 'mobilePanelStars', textId = 'mobilePanelRatingText') {
     const starsContainer = document.getElementById(containerId);
+    if (starsContainer) {
+        renderStarsInElement(starsContainer, rating);
+    }
     const ratingText = document.getElementById(textId);
-    
-    if (!starsContainer) return;
+    if (ratingText) {
+        if (reviews !== undefined) {
+            ratingText.textContent = rating > 0 ? `${Number(rating).toFixed(1)} (${reviews} reviews)` : 'No Rating';
+        } else {
+            ratingText.textContent = rating > 0 ? Number(rating).toFixed(1) : '-';
+        }
+    }
+  }
 
-    starsContainer.innerHTML = '';
+  function renderStarsInElement(element, rating) {
+    if (!element) return;
+    element.innerHTML = '';
     const fullStars = Math.floor(rating);
     const hasHalf = rating % 1 >= 0.5;
 
     for (let i = 0; i < 5; i++) {
         const star = document.createElement('svg');
-        star.setAttribute('class', `w-3.5 h-3.5 ${i < fullStars ? 'text-brand-yellow' : (i === fullStars && hasHalf ? 'text-brand-yellow' : 'text-brand-muted/20')}`);
+        star.setAttribute('class', `w-3 h-3 ${i < fullStars ? 'text-brand-yellow' : (i === fullStars && hasHalf ? 'text-brand-yellow' : 'text-brand-muted/20')}`);
         star.setAttribute('fill', 'currentColor');
         star.setAttribute('viewBox', '0 0 20 20');
         star.innerHTML = '<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />';
-        starsContainer.appendChild(star);
-    }
-
-    if (ratingText) {
-        if (reviews !== undefined) {
-            ratingText.textContent = rating > 0 ? `${rating.toFixed(1)} (${reviews} reviews)` : 'No Rating';
-        } else {
-            ratingText.textContent = rating > 0 ? rating.toFixed(1) : '-';
-        }
+        element.appendChild(star);
     }
   }
 
@@ -705,11 +740,29 @@ document.addEventListener('DOMContentLoaded', () => {
   if (addNoteBtn) {
     addNoteBtn.addEventListener('click', async () => {
       if (!currentRow) return;
-      const key = currentRow.dataset.leadKey;
-      const content = document.getElementById('noteInput').value;
+      
+      const noteInput = document.getElementById('noteInput');
+      const content = noteInput.value.trim();
       if (!content) return;
 
+      const originalBtnText = addNoteBtn.innerHTML;
+      addNoteBtn.disabled = true;
+      addNoteBtn.innerHTML = '<svg class="animate-spin h-4 w-4 text-white dark:text-brand-dark mx-auto" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+
       try {
+        let key = currentRow.dataset.leadKey;
+        
+        // If lead isn't saved yet, save it first to get a key
+        if (!key) {
+           await saveLead(currentRow);
+           key = currentRow.dataset.leadKey;
+           // If it still fails to save, stop
+           if (!key) {
+             alert("Could not save lead to add note. Please try saving it manually first.");
+             throw new Error("Lead save failed before note addition");
+           }
+        }
+
         const res = await fetch(`/leads/${key}/notes`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -718,10 +771,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (data.success) {
           currentRow.dataset.updates = JSON.stringify(data.updates);
-          document.getElementById('noteInput').value = '';
+          noteInput.value = '';
           populatePanel(currentRow);
         }
-      } catch (err) { console.error('Note addition failed:', err); }
+      } catch (err) { 
+        console.error('Note addition failed:', err);
+        alert("Failed to add note. Please ensure the lead is saved.");
+      } finally {
+        addNoteBtn.disabled = false;
+        addNoteBtn.innerHTML = originalBtnText;
+      }
     });
   }
 
@@ -761,15 +820,16 @@ document.addEventListener('DOMContentLoaded', () => {
       const title = currentRow.dataset.title || 'there';
       const city = currentRow.dataset.city || 'your area';
       const email = currentRow.dataset.email;
-      const loomLink = document.getElementById('loomUrlInput').value.trim();
+      const loomLink = document.getElementById('loomUrlInput') ? document.getElementById('loomUrlInput').value.trim() : '';
 
-      if (!loomLink) {
-        alert("Please paste a Loom Video Link first before drafting the email.");
-        return;
+      const subject = encodeURIComponent(`Question regarding ${title}'s online presence`);
+      
+      let bodyText = "";
+      if (loomLink) {
+        bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas that could help increase your conversions:\n\n${loomLink}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
+      } else {
+        bodyText = `Hey ${title} team,\n\nI was looking for local businesses in ${city} and spent some time on your website. I noticed a few technical gaps and conversion opportunities that might be slowing down your growth.\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat this week?\n\nBest,\n[Your Name]`;
       }
-
-      const subject = encodeURIComponent(`Saw ${title}'s website - made you a quick video`);
-      const bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas that could help increase your conversions:\n\n${loomLink}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
       
       const body = encodeURIComponent(bodyText);
       
@@ -1431,4 +1491,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, 200);
   });
+
+  // Initial render of stars in the table
+  applyTableStars();
 });

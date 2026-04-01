@@ -49,7 +49,7 @@ async function enrichLead(url) {
   try {
     const firecrawl = getFirecrawlApp();
     
-    const response = await firecrawl.scrapeUrl(url, {
+    const response = await firecrawl.scrape(url, {
       formats: ['extract'],
       extract: {
         schema: enrichSchema,
