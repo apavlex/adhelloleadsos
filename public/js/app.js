@@ -187,19 +187,19 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const templates = [
         {
-          name: 'Social Media Audit',
-          subject: `Helping ${company} with social media growth`,
-          body: `Hi team at ${company},\n\nI was looking at your Google Maps profile and noticed you're doing great work! I also saw that you might not be fully utilizing Instagram/Facebook yet.\n\nI'd love to show you how adding a few posts a week can drive 20% more calls. Are you open to a 5-minute chat?\n\nBest regards.`
+          name: 'Free AI Site Audit',
+          subject: `${company}: Your AI Search Readiness Report`,
+          body: `Hi there at ${company},\n\nI just ran a quick AI scan of your online presence and noticed some opportunities to improve your visibility in AI Search (ChatGPT, Perplexity, and Google AI Overviews).\n\nI'd love to help you bridge this gap. You can run a full, live audit of your website here to see exactly what improvements are needed:\nhttps://adhello.ai/#site-audit\n\nWould you be open to a 5-minute chat about the results?\n\nBest regards.`
         },
         {
-          name: 'Website Refresh',
-          subject: `Quick question about ${company}'s website`,
-          body: `Hi there,\n\nI just found ${company} on Google Maps. I noticed your website could use a modern refresh to help convert more visitors into customers.\n\nI've put together a few ideas specifically for your business. Would you like to see them?\n\nCheers.`
+          name: 'Social Media Growth',
+          subject: `${company}: Social Media Visibility Opportunity`,
+          body: `Hi team at ${company},\n\nI was looking at your business profile and noticed you're doing great work! However, you might not be fully capturing leads from Instagram and Facebook yet.\n\nOur AI systems can automate your growth and drive 20% more calls. Check out how we do it here:\nhttps://adhello.ai\n\nAre you open to a brief chat this week?\n\nBest regards.`
         }
       ];
 
       // Simple prompt for now - could be a modal
-      const choice = confirm(`Choose a template for ${company}:\n\nOK: Social Media Audit\nCancel: Website Refresh`);
+      const choice = confirm(`Choose a template for ${company}:\n\nOK: Free AI Site Audit (Recommended)\nCancel: Social Media Growth`);
       const template = choice ? templates[0] : templates[1];
       
       const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(template.subject)}&body=${encodeURIComponent(template.body)}`;
