@@ -108,7 +108,9 @@
                     data-visual-modernity-score="<%= lead.visualModernityScore %>"
                     data-aeo-score="<%= lead.aeoScore %>"
                     data-geo-gaps="<%= lead.geoGaps %>"
-                    data-audit-summary="<%= lead.auditSummary %>">
+                    data-audit-summary="<%= lead.auditSummary %>"
+                    data-source="<%= lead.source || 'manual' %>"
+                    data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'>
                   <td class="pl-8 pr-4 py-6">
                     <div class="flex items-center">
                       <input type="checkbox" class="lead-checkbox w-4 h-4 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>">
@@ -135,33 +137,9 @@
                   </td>
                   <td class="px-6 py-6 text-sm font-medium text-brand-muted">
                     <% if (lead.website && lead.website !== 'N/A') { %>
-                      <div class="relative group">
-                        <a href="<%= lead.website %>" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[150px] truncate" title="<%= lead.website %>" data-url="<%= lead.website %>">
-                            <%= lead.website.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '') %>
-                        </a>
-                        
-                        <!-- AI Website Preview Tooltip -->
-                        <div class="website-preview invisible group-hover:visible opacity-0 group-hover:opacity-100 absolute bottom-full left-1/2 -translate-x-1/2 mb-4 w-[380px] bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl border border-brand-border/20 dark:border-white/10 p-4 transition-all duration-300 z-[60] pointer-events-none scale-95 group-hover:scale-100 origin-bottom">
-                            <div class="flex flex-col gap-3">
-                                <div class="flex items-center gap-3 p-3 bg-brand-yellow/5 dark:bg-brand-yellow/10 rounded-2xl border border-brand-yellow/20">
-                                    <div class="w-8 h-8 rounded-xl bg-brand-yellow flex items-center justify-center text-brand-dark">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0 text-left">
-                                        <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">AI Audit Summary</div>
-                                        <div class="text-[11px] font-bold text-brand-dark dark:text-white leading-tight truncate audit-summary-text">Run enhancement to unlock audit...</div>
-                                    </div>
-                                </div>
-                                <div class="w-full aspect-video rounded-xl bg-brand-cream dark:bg-slate-800 overflow-hidden relative border border-brand-border/10">
-                                    <iframe src="about:blank" data-src="<%= lead.website %>" class="w-[1280px] h-[720px] scale-[0.27] origin-top-left border-none opacity-0 transition-opacity duration-700"></iframe>
-                                    <div class="absolute inset-0 flex items-center justify-center bg-brand-cream/80 dark:bg-slate-800/80 backdrop-blur-sm iframe-loader">
-                                        <div class="w-6 h-6 border-2 border-brand-yellow border-t-transparent rounded-full animate-spin"></div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white dark:bg-slate-900 border-r border-b border-brand-border/20 dark:border-white/10 rotate-45"></div>
-                        </div>
-                      </div>
+                      <a href="<%= lead.website %>" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[150px] truncate" title="<%= lead.website %>" data-url="<%= lead.website %>">
+                          <%= lead.website.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '') %>
+                      </a>
                     <% } else { %>
                       <span class="text-brand-muted/40 font-bold text-sm">-</span>
                     <% } %>
@@ -387,6 +365,9 @@
             </div>
         </div>
       </section>
+
+      <!-- Audit Intelligence Container (Dynamic) -->
+      <section id="auditInsightsContainer" class="hidden mb-6"></section>
 
       <!-- Technical Health Check -->
       <section class="mb-10">

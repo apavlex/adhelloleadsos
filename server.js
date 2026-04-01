@@ -10,6 +10,7 @@ const indexRoutes = require('./routes/index');
 const searchRoutes = require('./routes/search');
 const historyRoutes = require('./routes/history');
 const leadsRoutes = require('./routes/leads');
+const apiRoutes = require('./routes/api');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -85,6 +86,9 @@ app.use('/', ensureAuthenticated, indexRoutes);
 app.use('/search', ensureAuthenticated, searchRoutes);
 app.use('/history', ensureAuthenticated, historyRoutes);
 app.use('/leads', ensureAuthenticated, leadsRoutes);
+
+// Public API Routes (Security handled within router)
+app.use('/api', apiRoutes);
 
 // Firecrawl Enrichment Route
 app.post('/enrich', async (req, res) => {

@@ -600,6 +600,72 @@ document.addEventListener('DOMContentLoaded', () => {
     const addressEl = document.getElementById('mobilePanelAddress');
     const mapsLink = document.getElementById('mobilePanelMapsLink');
     if (addressEl) addressEl.textContent = (address && address !== 'N/A') ? address : 'Location Hidden';
+
+    // Audit Report Insights Section (Dynamic)
+    const auditDataRaw = row.dataset.auditData;
+    const source = row.dataset.source;
+    const auditContainer = document.getElementById('auditInsightsContainer');
+    
+    if (auditContainer) {
+        if (source === 'adhello_audit' && auditDataRaw && auditDataRaw !== 'null') {
+            try {
+                const audit = JSON.parse(auditDataRaw);
+                auditContainer.innerHTML = `
+                    <div class="p-6 bg-brand-yellow/5 dark:bg-brand-yellow/10 rounded-[2.5rem] border border-brand-yellow/20 relative overflow-hidden group/audit">
+                        <div class="absolute -right-4 -top-4 w-20 h-20 bg-brand-yellow/10 rounded-full blur-2xl group-hover/audit:bg-brand-yellow/20 transition-all"></div>
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-3 mb-5">
+                                <div class="w-8 h-8 rounded-xl bg-brand-yellow flex items-center justify-center text-brand-dark shadow-lg shadow-brand-yellow/20">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                                </div>
+                                <div>
+                                    <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-yellow mb-0.5">AdHello Audit Intelligence</h4>
+                                    <p class="text-xs font-black text-brand-dark dark:text-white">External Report Data</p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-3 mb-5">
+                                <div class="p-3 bg-white dark:bg-slate-900/50 rounded-2xl border border-brand-border/10 text-center shadow-sm">
+                                    <div class="text-[8px] font-black text-brand-muted uppercase tracking-tighter mb-1">Mobile</div>
+                                    <div class="text-sm font-black text-brand-dark dark:text-white">${audit.mobileScore || '0'}%</div>
+                                    <div class="w-full bg-brand-border/10 h-1 mt-2 rounded-full overflow-hidden">
+                                        <div class="bg-brand-yellow h-full" style="width: ${audit.mobileScore || '0'}%"></div>
+                                    </div>
+                                </div>
+                                <div class="p-3 bg-white dark:bg-slate-900/50 rounded-2xl border border-brand-border/10 text-center shadow-sm">
+                                    <div class="text-[8px] font-black text-brand-muted uppercase tracking-tighter mb-1">Leads</div>
+                                    <div class="text-sm font-black text-brand-dark dark:text-white">${audit.leadsScore || '0'}%</div>
+                                    <div class="w-full bg-brand-border/10 h-1 mt-2 rounded-full overflow-hidden">
+                                        <div class="bg-brand-yellow h-full" style="width: ${audit.leadsScore || '0'}%"></div>
+                                    </div>
+                                </div>
+                                <div class="p-3 bg-white dark:bg-slate-900/50 rounded-2xl border border-brand-border/10 text-center shadow-sm">
+                                    <div class="text-[8px] font-black text-brand-muted uppercase tracking-tighter mb-1">AI Ready</div>
+                                    <div class="text-sm font-black text-brand-dark dark:text-white">${audit.aiReadyScore || '0'}%</div>
+                                    <div class="w-full bg-brand-border/10 h-1 mt-2 rounded-full overflow-hidden">
+                                        <div class="bg-brand-yellow h-full" style="width: ${audit.aiReadyScore || '0'}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            ${audit.summary ? `
+                                <div class="p-4 bg-brand-yellow/5 dark:bg-white/5 rounded-2xl text-[11px] leading-relaxed text-brand-muted dark:text-slate-300 font-medium italic border-l-4 border-brand-yellow/50">
+                                    "${audit.summary}"
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                `;
+                auditContainer.classList.remove('hidden');
+            } catch (e) {
+                console.error('Audit Parse Error:', e);
+                auditContainer.classList.add('hidden');
+            }
+        } else {
+            auditContainer.classList.add('hidden');
+            auditContainer.innerHTML = '';
+        }
+    }
     if (mapsLink) {
         if (address && address !== 'N/A') {
             mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ' ' + title)}`;
@@ -1525,65 +1591,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- Website Preview Hover Logic (Global) ---
-  const websitePreview = document.getElementById('websitePreview');
-  const previewIframe = document.getElementById('previewIframe');
-  const previewUrlText = document.getElementById('previewUrlText');
-  const previewLoading = document.getElementById('previewLoading');
-  const previewNewTabBtn = document.getElementById('previewNewTabBtn');
+  // --- Website Preview Hover Logic Removed ---
 
-  let previewTimeout;
-
-  document.addEventListener('mouseover', (e) => {
-    const link = e.target.closest('.website-link');
-    if (!link) return;
-
-    const url = link.getAttribute('data-url');
-    if (!url || !websitePreview) return;
-    
-    if (previewNewTabBtn) previewNewTabBtn.href = url;
-    if (previewTimeout) clearTimeout(previewTimeout);
-
-    previewTimeout = setTimeout(() => {
-      const rect = link.getBoundingClientRect();
-      let top = rect.top + window.scrollY;
-      let left = rect.left + (rect.width / 2);
-      let translateY = '-100%';
-      let marginTop = '-15px';
-
-      if (rect.top < 350) {
-        top = rect.bottom + window.scrollY;
-        translateY = '0';
-        marginTop = '15px';
-      }
-
-      if (left < 200) left = 200;
-      if (window.innerWidth - left < 200) left = window.innerWidth - 200;
-
-      websitePreview.style.top = `${top}px`;
-      websitePreview.style.left = `${left}px`;
-      websitePreview.style.transform = `translate(-50%, ${translateY})`;
-      websitePreview.style.marginTop = marginTop;
-      
-      if (previewUrlText) previewUrlText.textContent = url;
-      if (previewIframe) {
-        previewIframe.src = 'about:blank';
-        if (previewLoading) previewLoading.style.display = 'flex';
-        websitePreview.classList.remove('hidden');
-        setTimeout(() => {
-          websitePreview.classList.remove('opacity-0');
-          websitePreview.classList.add('opacity-100');
-        }, 10);
-
-        setTimeout(() => {
-            previewIframe.src = url;
-            previewIframe.onload = () => {
-                if (previewLoading) previewLoading.style.display = 'none';
-            };
-        }, 50);
-      }
-    }, 400);
-  });
 
   // --- Kanban View & Batch Outreach Logic ---
   
@@ -1814,20 +1823,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return card;
   }
 
-
-  document.addEventListener('mouseout', (e) => {
-    const link = e.target.closest('.website-link');
-    if (!link || !websitePreview) return;
-    clearTimeout(previewTimeout);
-    websitePreview.classList.remove('opacity-100');
-    websitePreview.classList.add('opacity-0');
-    setTimeout(() => {
-      if (websitePreview.classList.contains('opacity-0')) {
-        websitePreview.classList.add('hidden');
-        if (previewIframe) previewIframe.src = 'about:blank';
-      }
-    }, 200);
-  });
 
   // Initial render of stars in the table
   applyTableStars();
