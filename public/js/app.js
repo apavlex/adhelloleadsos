@@ -9,30 +9,58 @@ document.addEventListener('DOMContentLoaded', () => {
     const rating = parseFloat(lead.rating) || 0;
     const hasFB = lead.facebook && lead.facebook !== 'N/A';
     const hasIG = lead.instagram && lead.instagram !== 'N/A';
-
-    // Logic: Agencies want leads with gaps
-    if (!website) score += 2; // High priority: No website detected
-    if (website && (!hasFB || !hasIG)) score += 1; // Good priority: Website but missing social presence
-    if (reviews < 20) score += 1; // Good priority: Low reputation/social proof
-    if (rating > 4.2 && reviews > 0) score += 1; // High quality business, but maybe needs better marketing
-    if (email) score += 1; // bonus: easy to contact
     
-    return Math.min(score, 5);
+    // New Audit Signals
+    const isOutdated = lead.isOutdated === 'true' || lead.is_outdated === true;
+    const noMobile = lead.isMobileFriendly === 'false' || lead.is_mobile_friendly === false;
+    const noSchema = lead.hasSchemaMarkup === 'false' || lead.has_schema_markup === false;
+    const noChatbot = lead.hasChatbot === 'false' || lead.has_chatbot === false;
+    const noClickToCall = lead.hasClickToCall === 'false' || lead.has_click_to_call === false;
+    const aeoScore = parseInt(lead.aeoScore || lead.aeo_score) || 3;
+
+    // Logic: Agencies want leads with GAPS
+    if (!website) score += 3; // Critical: Needs a site
+    if (isOutdated) score += 2; // High: Redesign opportunity
+    if (noMobile) score += 2; // High: Technical fix
+    if (noSchema) score += 1.5; // High: GEO/AEO optimization
+    if (aeoScore < 3) score += 1; // Med: AEO content gap
+    if (reviews < 20) score += 1; // Med: Reputation gap
+    if (rating < 4.2 && reviews > 0) score += 1; // Med: Quality gap
+    if (website && (!hasFB || !hasIG)) score += 1; // Med: Social gap
+    if (noChatbot || noClickToCall) score += 0.5; // Low: Conversion gap
+    
+    return Math.min(Math.round(score), 10);
   };
 
-  const getScoreBadge = (score) => {
-    if (score >= 4) return `<span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[9px] font-black border border-amber-200">GOLD OPPORTUNITY</span>`;
-    if (score >= 3) return `<span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[9px] font-black border border-slate-200">SILVER LEAD</span>`;
-    return `<span class="px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 text-[9px] font-black border border-orange-100">BRONZE</span>`;
+  const renderOpportunityBadges = (row) => {
+    const l = row.dataset;
+    const badges = [];
+    
+    const score = calculateOpportunityScore(l);
+    
+    // Core Score Badge
+    let scoreColor = 'bg-slate-100 text-slate-600 border-slate-200';
+    if (score >= 8) scoreColor = 'bg-rose-100 text-rose-700 border-rose-200';
+    else if (score >= 5) scoreColor = 'bg-amber-100 text-amber-700 border-amber-200';
+    
+    badges.push(`<span class="px-2 py-0.5 rounded-md ${scoreColor} text-[9px] font-black border uppercase tracking-tighter">Score: ${score}</span>`);
+
+    // Specific Gap Badges (Show top 2-3 to avoid clutter)
+    if (l.website === 'N/A' || !l.website) badges.push(`<span class="px-2 py-0.5 rounded-md bg-red-50 text-red-600 border-red-100 text-[9px] font-bold border uppercase">No Site</span>`);
+    if (l.isOutdated === 'true' || l.is_outdated === true) badges.push(`<span class="px-2 py-0.5 rounded-md bg-orange-50 text-orange-600 border-orange-100 text-[9px] font-bold border uppercase">Outdated</span>`);
+    if (l.isMobileFriendly === 'false' || l.is_mobile_friendly === false) badges.push(`<span class="px-2 py-0.5 rounded-md bg-purple-50 text-purple-600 border-purple-100 text-[9px] font-bold border uppercase">Mobile Gap</span>`);
+    if (l.hasSchemaMarkup === 'false' || l.has_schema_markup === false) badges.push(`<span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border-blue-100 text-[9px] font-bold border uppercase">Needs GEO</span>`);
+    if (parseInt(l.reviews) < 20) badges.push(`<span class="px-2 py-0.5 rounded-md bg-yellow-50 text-yellow-700 border-yellow-100 text-[9px] font-bold border uppercase tracking-tighter">Reputation</span>`);
+    
+    return `<div class="flex flex-wrap gap-1 items-center justify-center">${badges.slice(0, 3).join('')}</div>`;
   };
 
   const updateOpportunityBadges = () => {
     document.querySelectorAll('.result-row').forEach(row => {
       const badgeContainer = row.querySelector('.opportunity-badge');
       if (badgeContainer) {
-        const score = calculateOpportunityScore(row.dataset);
-        badgeContainer.innerHTML = getScoreBadge(score);
-        badgeContainer.dataset.score = score;
+        badgeContainer.innerHTML = renderOpportunityBadges(row);
+        badgeContainer.dataset.score = calculateOpportunityScore(row.dataset);
       }
     });
   };
@@ -481,51 +509,92 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Socials grid logic
-    const fbLink = document.getElementById('mobilePanelFacebook');
-    const igLink = document.getElementById('mobilePanelInstagram');
-    const twLink = document.getElementById('mobilePanelTwitter');
-    const noSocialsMsg = document.getElementById('noSocialsMsg');
+    // Header Contact Info
+    const headerAddress = document.getElementById('mobilePanelHeaderAddress');
+    const headerPhone = document.getElementById('mobilePanelHeaderPhone');
+    const headerSocials = document.getElementById('mobilePanelHeaderSocials');
 
-    let socialCount = 0;
-    const updateSocial = (el, link) => {
-        if (!el) return;
-        if (link && link !== 'N/A' && link !== 'undefined') {
-            el.href = link.startsWith('http') ? link : `https://${link}`;
-            el.classList.remove('hidden');
-            socialCount++;
+    if (headerAddress) headerAddress.textContent = (address && address !== 'N/A') ? address : 'Address Not Available';
+    if (headerPhone) {
+        if (phone && phone !== 'N/A') {
+            headerPhone.textContent = phone;
+            headerPhone.href = `tel:${phone.replace(/\D/g, '')}`;
+            headerPhone.classList.remove('opacity-40', 'pointer-events-none', 'no-underline');
         } else {
-            el.classList.add('hidden');
+            headerPhone.textContent = 'No Phone Number';
+            headerPhone.href = '#';
+            headerPhone.classList.add('opacity-40', 'pointer-events-none', 'no-underline');
         }
-    };
+    }
 
-    updateSocial(fbLink, facebook);
-    updateSocial(igLink, instagram);
-    updateSocial(twLink, twitter);
+    // Header Socials Logic
+    if (headerSocials) {
+        headerSocials.innerHTML = '';
+        let socialCount = 0;
+        const socialPlatforms = [
+            { key: 'facebook', icon: '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>', color: 'hover:bg-[#1877F2]' },
+            { key: 'instagram', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg>', color: 'hover:bg-[#E4405F]' },
+            { key: 'twitter', icon: '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>', color: 'hover:bg-black' }
+        ];
 
-    if (noSocialsMsg) {
-        if (socialCount === 0) noSocialsMsg.classList.remove('hidden');
-        else noSocialsMsg.classList.add('hidden');
+        socialPlatforms.forEach(p => {
+            const link = row.dataset[p.key];
+            if (link && link !== 'N/A' && link !== 'undefined') {
+                const a = document.createElement('a');
+                a.href = link.startsWith('http') ? link : `https://${link}`;
+                a.target = '_blank';
+                a.className = `w-8 h-8 rounded-lg bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-white transition-all hover:scale-110 shadow-sm border border-brand-border/10 ${p.color}`;
+                a.innerHTML = p.icon;
+                headerSocials.appendChild(a);
+                socialCount++;
+            }
+        });
+
+        if (socialCount === 0) {
+            headerSocials.innerHTML = '<span class="text-[10px] font-bold text-brand-muted/40 uppercase tracking-widest italic">No social profiles detected</span>';
+        }
     }
 
     // Loom URL Input (if exists)
     const loomInput = document.getElementById('loomUrlInput');
     if (loomInput) loomInput.value = loomUrl || '';
 
-    // Badges / Tags based on category
-    const badgeContainer = document.getElementById('badgeContainer');
-    if (badgeContainer) {
-      badgeContainer.innerHTML = '';
-      const tags = [category || 'Local Business', 'Verified Lead'];
-      if (rating >= 4.5) tags.push('Top Rated');
-      if (reviews > 50) tags.push('Popular');
-      
-      tags.forEach(tag => {
-        const span = document.createElement('span');
-        span.className = 'px-3 py-1.5 rounded-xl border border-brand-border/40 text-[10px] font-black uppercase tracking-widest text-brand-dark bg-white shadow-sm';
-        span.textContent = tag;
-        badgeContainer.appendChild(span);
-      });
+    // Logic for Audit Insight Box in Panel (if exists)
+    const auditStatus = document.getElementById('mobilePanelAuditStatus');
+    const auditSummary = document.getElementById('mobilePanelAuditSummary');
+    if (auditStatus && auditSummary) {
+        const score = calculateOpportunityScore(row.dataset);
+        let statusText = 'Low Opportunity';
+        let statusColor = 'text-green-500';
+        if (score >= 8) { statusText = 'Critical Opportunity'; statusColor = 'text-red-500'; }
+        else if (score >= 5) { statusText = 'High Opportunity'; statusColor = 'text-amber-500'; }
+        
+        auditStatus.textContent = statusText;
+        auditStatus.className = `text-[10px] font-black uppercase tracking-widest ${statusColor}`;
+        auditSummary.textContent = row.dataset.auditSummary || (website === 'N/A' || !website ? 'This business lacks a digital footprint and is invisible to AI search engines.' : 'Analyzing website structure and GEO/AEO readiness...');
+    }
+
+    // Technical Audit Tiles
+    const chatbotTile = document.getElementById('chatbotStatus');
+    const clickToCallTile = document.getElementById('clickToCallStatus');
+    const mobileFriendlyTile = document.getElementById('mobileFriendlyStatus');
+    const schemaTile = document.getElementById('schemaStatus');
+
+    if (chatbotTile) {
+        const hasChat = row.dataset.hasChatbot === 'true' || row.dataset.has_chatbot === true;
+        chatbotTile.innerHTML = hasChat ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Active</span>' : '<span class="text-red-400">Missing</span>';
+    }
+    if (clickToCallTile) {
+        const hasClick = row.dataset.hasClickToCall === 'true' || row.dataset.has_click_to_call === true;
+        clickToCallTile.innerHTML = hasClick ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Optimized</span>' : '<span class="text-red-400 font-bold underline decoration-red-400/30 underline-offset-2">Broken</span>';
+    }
+    if (mobileFriendlyTile) {
+        const isMobile = row.dataset.isMobileFriendly === 'true' || row.dataset.is_mobile_friendly === true;
+        mobileFriendlyTile.innerHTML = isMobile ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Fully Responsive</span>' : '<span class="text-red-400 font-bold underline decoration-red-400/30 underline-offset-2">Non-Responsive</span>';
+    }
+    if (schemaTile) {
+        const hasSchema = row.dataset.hasSchemaMarkup === 'true' || row.dataset.has_schema_markup === true;
+        schemaTile.innerHTML = hasSchema ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> AI Ready</span>' : '<span class="text-amber-500 font-bold underline decoration-amber-500/30 underline-offset-2 tracking-tighter">Needs GEO</span>';
     }
   }
 
@@ -703,49 +772,66 @@ document.addEventListener('DOMContentLoaded', () => {
     deepEnhanceBtn.addEventListener('click', async () => {
       if (!currentRow) return;
       const key = currentRow.dataset.leadKey;
-      const website = currentRow.dataset.website;
-
-      if (!website || website === 'N/A') {
-        alert("This lead has no website to scan.");
-        return;
-      }
+      const title = currentRow.dataset.title;
+      const city = currentRow.dataset.city;
+      const state = currentRow.dataset.state;
+      const url = currentRow.dataset.website;
 
       const originalHTML = deepEnhanceBtn.innerHTML;
-      deepEnhanceBtn.disabled = true;
+      
+      deepEnhanceBtn.classList.add('loading', 'animate-magic');
       deepEnhanceBtn.innerHTML = `
-        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <svg class="w-4 h-4 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span>Hunting Emails...</span>
+        <span class="animate-pulse">Magic Hunt in progress...</span>
       `;
 
       try {
-        const res = await fetch(`/leads/${key}/enhance`, {
-          method: 'POST'
-        });
+        let res;
+        if (key) {
+           res = await fetch(`/leads/${key}/enhance`, { method: 'POST' });
+        } else {
+           res = await fetch('/enrich', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ url, title, city, state })
+           });
+        }
+        
         const data = await res.json();
         
         if (data.success) {
-          // Update local dataset
-          if (data.lead.email && data.lead.email !== 'N/A') currentRow.dataset.email = data.lead.email;
-          if (data.lead.facebook && data.lead.facebook !== 'N/A') currentRow.dataset.facebook = data.lead.facebook;
-          if (data.lead.instagram && data.lead.instagram !== 'N/A') currentRow.dataset.instagram = data.lead.instagram;
-          if (data.lead.twitter && data.lead.twitter !== 'N/A') currentRow.dataset.twitter = data.lead.twitter;
+          const d = data.lead || data.data; // Unified data
+          if (d.website && d.website !== 'N/A') currentRow.dataset.website = d.website;
+          if (data.foundUrl) currentRow.dataset.website = data.foundUrl; // From /enrich search
           
-          currentRow.dataset.updates = JSON.stringify(data.lead.updates);
+          if (d.email && d.email !== 'N/A') currentRow.dataset.email = d.email;
+          if (d.facebook && d.facebook !== 'N/A') currentRow.dataset.facebook = d.facebook;
+          if (d.instagram && d.instagram !== 'N/A') currentRow.dataset.instagram = d.instagram;
+          if (d.twitter && d.twitter !== 'N/A') currentRow.dataset.twitter = d.twitter;
+          
+          if (d.updates) currentRow.dataset.updates = JSON.stringify(d.updates);
           
           // Refresh Panel UI
           populatePanel(currentRow);
-          alert(`Deep enhancement complete! We found new contact details for ${data.lead.title}.`);
+          
+          // Flash success state
+          deepEnhanceBtn.innerHTML = '✨ Success! Data Found';
+          setTimeout(() => {
+             deepEnhanceBtn.classList.remove('loading', 'animate-magic');
+             deepEnhanceBtn.innerHTML = originalHTML;
+          }, 3000);
         } else {
-          alert("We couldn't find any additional contact data for this website yet.");
+          alert(data.error || "No additional contact data discovered yet.");
+          deepEnhanceBtn.classList.remove('loading', 'animate-magic');
+          deepEnhanceBtn.innerHTML = originalHTML;
         }
       } catch (err) {
         console.error('Enhancement failed:', err);
-        alert("Enhancement failed. Please check your Firecrawl API key in Cloud Run.");
-      } finally {
-        deepEnhanceBtn.disabled = false;
+        alert("Enhancement failed. Please try again later.");
+        deepEnhanceBtn.classList.remove('loading', 'animate-magic');
         deepEnhanceBtn.innerHTML = originalHTML;
       }
     });
@@ -1123,8 +1209,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
       
       const originalText = bulkEnhanceBtn.innerHTML;
-      bulkEnhanceBtn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Enriching...</span>';
-      bulkEnhanceBtn.disabled = true;
+      bulkEnhanceBtn.classList.add('loading', 'animate-magic');
+      bulkEnhanceBtn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-3.5 w-3.5 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Enchanting Leads...</span>';
 
       for (const row of selectedRows) {
         const url = row.dataset.website;
@@ -1158,20 +1244,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-          const res = await fetch('/enrich', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url })
-          });
+          const key = row.dataset.leadKey;
+          const url = row.dataset.website;
+          const title = row.dataset.title;
+          const city = row.dataset.city;
+          const state = row.dataset.state;
+
+          let res;
+          if (key) {
+            // Saved lead
+            res = await fetch(`/leads/${key}/enhance`, { method: 'POST' });
+          } else {
+            // Search result (unsaved)
+            res = await fetch('/enrich', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url, title, city, state })
+            });
+          }
 
           if (res.ok) {
             const result = await res.json();
-            if (result.success && result.data) {
-              const d = result.data;
+            // Unified data location (either result.lead or result.data)
+            const d = result.lead || result.data;
+            
+            if (result.success && d) {
               if (d.facebook) row.dataset.facebook = d.facebook;
               if (d.instagram) row.dataset.instagram = d.instagram;
               if (d.twitter) row.dataset.twitter = d.twitter;
+              if (result.foundUrl) row.dataset.website = result.foundUrl; // Only for /enrich search result
+              if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
               
+              // NEW AUDIT FIELDS
+              if (d.has_schema_markup !== undefined) row.dataset.hasSchemaMarkup = d.has_schema_markup;
+              if (d.has_chatbot !== undefined) row.dataset.hasChatbot = d.has_chatbot;
+              if (d.has_click_to_call !== undefined) row.dataset.hasClickToCall = d.has_click_to_call;
+              if (d.is_mobile_friendly !== undefined) row.dataset.isMobileFriendly = d.is_mobile_friendly;
+              if (d.is_outdated !== undefined) row.dataset.isOutdated = d.is_outdated;
+              if (d.visual_modernity_score !== undefined) row.dataset.visualModernityScore = d.visual_modernity_score;
+              if (d.aeo_score !== undefined) row.dataset.aeoScore = d.aeo_score;
+              if (d.geo_gaps !== undefined) row.dataset.geoGaps = d.geo_gaps;
+              if (d.audit_summary !== undefined) row.dataset.auditSummary = d.audit_summary;
+
               if (d.email) {
                 row.dataset.email = d.email;
                 emailCell.innerHTML = `<a href="mailto:${d.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${d.email}">${d.email}</a>`;
@@ -1189,6 +1303,9 @@ document.addEventListener('DOMContentLoaded', () => {
               }
               socialsHtml += '</div>';
               socialCell.innerHTML = socialsHtml;
+              
+              // Sync panel if open
+              if (currentRow === row) populatePanel(row);
             } else {
               socialCell.innerHTML = originalSocialHtml;
               emailCell.innerHTML = originalEmailHtml;
@@ -1204,10 +1321,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      bulkEnhanceBtn.innerHTML = '✨ Enriched';
+      bulkEnhanceBtn.innerHTML = '✨ Leads Enchanted';
       setTimeout(() => {
+        bulkEnhanceBtn.classList.remove('loading', 'animate-magic');
         bulkEnhanceBtn.innerHTML = originalText;
-        bulkEnhanceBtn.disabled = false;
       }, 3000);
     });
   }

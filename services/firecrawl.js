@@ -22,7 +22,16 @@ const enrichSchema = {
     linkedin: { type: "string", description: "URL to the organization's official LinkedIn company page, if found." },
     google_places: { type: "string", description: "URL to the organization's Google Maps or Google Places listing, if found." },
     yelp: { type: "string", description: "URL to the organization's official Yelp page, if found." },
-    email: { type: "string", description: "The primary contact email address found on the website." }
+    email: { type: "string", description: "The primary contact email address found on the website." },
+    has_schema_markup: { type: "boolean", description: "True if JSON-LD or Microdata schema markup is present." },
+    has_chatbot: { type: "boolean", description: "True if a chatbot (Intercom, Drift, etc.) is detected." },
+    has_click_to_call: { type: "boolean", description: "True if phone numbers are properly 'tel:' linked." },
+    is_mobile_friendly: { type: "boolean", description: "True if the site appears responsive and mobile-optimized." },
+    is_outdated: { type: "boolean", description: "True if the design looks like it was built more than 5-10 years ago." },
+    visual_modernity_score: { type: "number", description: "A score from 1-10 on how modern and professional the UI looks." },
+    aeo_score: { type: "number", description: "A score from 1-5 on how well-structured the content is for Answer Engines (AEO)." },
+    geo_gaps: { type: "string", description: "Brief notes on missing local SEO signals or NAP inconsistencies for GEO." },
+    audit_summary: { type: "string", description: "A 1-sentence summary of the biggest opportunity for improvement." }
   }
 };
 
@@ -44,7 +53,7 @@ async function enrichLead(url) {
       formats: ['extract'],
       extract: {
         schema: enrichSchema,
-        prompt: "Extract the official social media, directory links, and support/contact email for this company from their website."
+        prompt: "Extract social media, contact info, and perform a brief GEO/AEO/Modernity audit. Focus on missing Schema, outdated design, mobile-friendliness, and lead-capture features (chatbot/click-to-call)."
       }
     });
 
@@ -59,6 +68,37 @@ async function enrichLead(url) {
   }
 }
 
+/**
+ * Searches for a business using Firecrawl Search.
+ * @param {string} query - The search query.
+ * @returns {Promise<Array>} List of search results.
+ */
+async function searchBusiness(query) {
+  try {
+    const firecrawl = getFirecrawlApp();
+    const response = await firecrawl.search(query, {
+      limit: 3,
+      scrapeOptions: {
+        formats: ['extract'],
+        extract: {
+          schema: enrichSchema,
+          prompt: "Extract official website and social media links for this business."
+        }
+      }
+    });
+
+    if (!response.success) {
+      throw new Error(`Firecrawl Search API error: ${response.error || 'Unknown error'}`);
+    }
+
+    return response.data || [];
+  } catch (error) {
+    console.error(`Error searching business for ${query}:`, error.message);
+    throw error;
+  }
+}
+
 module.exports = {
-  enrichLead
+  enrichLead,
+  searchBusiness
 };

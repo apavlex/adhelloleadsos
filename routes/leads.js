@@ -152,26 +152,44 @@ router.post('/:key/enhance', async (req, res, next) => {
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
     const lead = await dbService.getLead(fullKey);
 
-    if (!lead.website || lead.website === 'N/A') {
-      return res.status(400).json({ success: false, error: 'Lead has no website to scan.' });
+    let deepData = null;
+    
+    if (lead.website && lead.website !== 'N/A') {
+      console.log(`[ENHANCE] Triggering Firecrawl scrape for ${lead.title} (${lead.website})...`);
+      deepData = await firecrawl.enrichLead(lead.website);
+    } else {
+      console.log(`[ENHANCE] Website missing. Triggering Firecrawl search for ${lead.title}...`);
+      const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
+      const searchResults = await firecrawl.searchBusiness(searchQuery);
+      
+      if (searchResults && searchResults.length > 0) {
+        // Find the result with the most data or just the first successful extraction
+        const bestResult = searchResults.find(r => r.extract && (r.extract.email || r.extract.facebook || r.extract.instagram)) || searchResults[0];
+        deepData = bestResult.extract || {};
+        
+        // If we found a website in the search but didn't have one, save it
+        if (!lead.website || lead.website === 'N/A') {
+           const foundUrl = searchResults.find(r => r.url)?.url;
+           if (foundUrl) {
+              await dbService.updateLead(fullKey, { website: foundUrl });
+           }
+        }
+      }
     }
-
-    console.log(`[ENHANCE] Manually triggering Firecrawl hunt for ${lead.title}...`);
-    const deepData = await firecrawl.enrichLead(lead.website);
-
-    if (deepData) {
+    
+    if (deepData && Object.keys(deepData).length > 0) {
       const updates = lead.updates || [];
       const updateData = { updates };
 
-      if (lead.email === 'N/A' && deepData.email) updateData.email = deepData.email;
-      if (lead.facebook === 'N/A' && deepData.facebook) updateData.facebook = deepData.facebook;
-      if (lead.instagram === 'N/A' && deepData.instagram) updateData.instagram = deepData.instagram;
-      if (lead.twitter === 'N/A' && deepData.twitter) updateData.twitter = deepData.twitter;
+      if ((!lead.email || lead.email === 'N/A') && deepData.email) updateData.email = deepData.email;
+      if ((!lead.facebook || lead.facebook === 'N/A') && deepData.facebook) updateData.facebook = deepData.facebook;
+      if ((!lead.instagram || lead.instagram === 'N/A') && deepData.instagram) updateData.instagram = deepData.instagram;
+      if ((!lead.twitter || lead.twitter === 'N/A') && deepData.twitter) updateData.twitter = deepData.twitter;
       if (!lead.linkedin && deepData.linkedin) updateData.linkedin = deepData.linkedin;
 
       updates.push({
         type: 'enrichment',
-        value: 'Deep hunt completed via Firecrawl.',
+        value: `Deep hunt completed${(!lead.website || lead.website === 'N/A') ? ' via web search' : ''}.`,
         timestamp: new Date().toISOString()
       });
 
@@ -179,7 +197,7 @@ router.post('/:key/enhance', async (req, res, next) => {
       return res.json({ success: true, lead: updatedLead });
     }
 
-    res.json({ success: false, error: 'No new data found.' });
+    res.json({ success: false, error: 'No new contact data discovered yet.' });
   } catch (err) {
     console.error('Manual enhancement error:', err.message);
     res.status(500).json({ success: false, error: err.message });

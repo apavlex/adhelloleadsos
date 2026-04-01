@@ -1,12 +1,13 @@
 /* Global Tokens (Dynamic Theme) */
 :root {
     --brand-bg: #FAF7ED;
+    --brand-bg-login: #FDFBF7; /* Exact cream from Agency OS image */
     --brand-dark: #111827;
     --brand-muted: rgba(17, 24, 39, 0.7);
     --brand-border: rgba(17, 24, 39, 0.1);
     --brand-card-bg: #FFFFFF;
     --brand-cream: #FAF7ED;
-    --brand-yellow: #FDE047;
+    --brand-yellow: #FFD644; /* More vibrant Agency yellow */
 }
 
 /* Dark Mode Overrides - Midnight Navy Theme */
@@ -226,7 +227,48 @@ table {
   50% { opacity: 0.5; transform: scale(1.2) rotate(15deg); }
 }
 .animate-sparkle {
-  animation: sparkle 1.5s infinite;
+  animation: sparkle 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes magic {
+  0% { filter: drop-shadow(0 0 5px rgba(253, 224, 71, 0.4)); transform: scale(1); }
+  50% { filter: drop-shadow(0 0 20px rgba(253, 224, 71, 0.8)); transform: scale(1.02); }
+  100% { filter: drop-shadow(0 0 5px rgba(253, 224, 71, 0.4)); transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-magic {
+  animation: magic 2s ease-in-out infinite, pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255, 214, 68, 0.2), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite linear;
+}
+
+#bulkEnhanceBtn.loading, #deepEnhanceBtn.loading {
+    pointer-events: none;
+    position: relative;
+    overflow: hidden;
+}
+
+#bulkEnhanceBtn.loading::after, #deepEnhanceBtn.loading::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite linear;
 }
 
 #bulkActionBar {

@@ -89,13 +89,24 @@ app.use('/leads', ensureAuthenticated, leadsRoutes);
 // Firecrawl Enrichment Route
 app.post('/enrich', async (req, res) => {
   try {
-    const { url } = req.body;
-    if (!url) {
-      return res.status(400).json({ error: 'URL is required for enrichment.' });
+    const { url, title, city, state } = req.body;
+    
+    if (url && url !== 'N/A') {
+      const data = await enrichLead(url);
+      return res.json({ success: true, data });
+    } else if (title && city) {
+      console.log(`[ENRICH] No URL provided. Searching for ${title} in ${city}...`);
+      const { searchBusiness } = require('./services/firecrawl');
+      const searchQuery = `${title} business in ${city}${state ? ', ' + state : ''} official website contact`;
+      const searchResults = await searchBusiness(searchQuery);
+      
+      if (searchResults && searchResults.length > 0) {
+        const bestResult = searchResults.find(r => r.extract && (r.extract.email || r.extract.facebook || r.extract.instagram)) || searchResults[0];
+        return res.json({ success: true, data: bestResult.extract || {}, foundUrl: bestResult.url });
+      }
     }
     
-    const data = await enrichLead(url);
-    res.json({ success: true, data });
+    res.status(400).json({ success: false, error: 'Insufficient data for enrichment (need URL or Title+City).' });
   } catch (err) {
     console.error('Enrichment Server Error:', err.message);
     res.status(500).json({ success: false, error: err.message });
