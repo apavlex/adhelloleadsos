@@ -55,6 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (noChatbot) score += 1.5; // Med: Conversion gap
     if (noClickToCall) score += 1.5; // Med: Conversion gap
     
+    // Competitive Leverage: High opportunity if a competitor is "beating" them
+    if (lead.competitorName && lead.competitorName !== 'N/A') score += 1.0;
+    
     return Math.min(10, score);
   };
 
@@ -233,9 +236,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const modeRunNow = document.getElementById('modeRunNow');
   const modeSchedule = document.getElementById('modeSchedule');
   const searchModeInput = document.getElementById('searchModeInput');
-  const autopilotSettings = document.getElementById('autopilotSettings');
+  const frequencyPocket = document.getElementById('frequencyPocket');
+  const timePocket = document.getElementById('timePocket');
   const userTimezoneInput = document.getElementById('userTimezone');
-  const searchBtnLabel = btn ? btn.querySelector('span') : null;
+  const searchBtnLabel = btn ? btn.querySelector('#searchBtnText') : null;
 
   // Set user timezone on load
   if (userTimezoneInput) {
@@ -248,12 +252,16 @@ document.addEventListener('DOMContentLoaded', () => {
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
       
-      if (autopilotSettings) {
-        autopilotSettings.classList.add('max-h-0', 'opacity-0', 'pointer-events-none');
-        autopilotSettings.classList.remove('max-h-[200px]', 'opacity-100', 'pointer-events-auto');
-      }
+      // Hide pockets
+      [frequencyPocket, timePocket].forEach(p => {
+        if (p) {
+          p.classList.add('opacity-0', 'w-0');
+          setTimeout(() => p.classList.add('hidden'), 500);
+        }
+      });
+
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Find Leads<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Find Leads<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
 
@@ -262,12 +270,16 @@ document.addEventListener('DOMContentLoaded', () => {
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
       
-      if (autopilotSettings) {
-        autopilotSettings.classList.remove('max-h-0', 'opacity-0', 'pointer-events-none');
-        autopilotSettings.classList.add('max-h-[200px]', 'opacity-100', 'pointer-events-auto');
-      }
+      // Show pockets
+      [frequencyPocket, timePocket].forEach(p => {
+        if (p) {
+          p.classList.remove('hidden');
+          setTimeout(() => p.classList.remove('opacity-0', 'w-0'), 10);
+        }
+      });
+
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Start Autopilot<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Start Autopilot ⚡<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
   }
@@ -659,6 +671,21 @@ document.addEventListener('DOMContentLoaded', () => {
         auditStatus.textContent = statusText;
         auditStatus.className = `text-[10px] font-black uppercase tracking-widest ${statusColor}`;
         auditSummary.textContent = row.dataset.auditSummary || (website === 'N/A' || !website ? 'This business lacks a digital footprint and is invisible to AI search engines.' : 'Analyzing website structure and GEO/AEO readiness...');
+    }
+
+    // Competitor Comparison Logic
+    const competitorNameEl = document.getElementById('competitorName');
+    const competitorGapEl = document.getElementById('competitorGap');
+    const competitorSection = document.getElementById('competitorSection');
+
+    if (competitorSection) {
+        if (row.dataset.competitorName && row.dataset.competitorName !== 'N/A' && row.dataset.competitorName !== 'undefined') {
+            competitorSection.classList.remove('hidden');
+            if (competitorNameEl) competitorNameEl.textContent = row.dataset.competitorName;
+            if (competitorGapEl) competitorGapEl.textContent = row.dataset.competitorGap || 'General competitive gap detected.';
+        } else {
+            competitorSection.classList.add('hidden');
+        }
     }
 
     // Technical Audit Tiles
@@ -1423,6 +1450,8 @@ document.addEventListener('DOMContentLoaded', () => {
               if (d.visual_modernity_score !== undefined) row.dataset.visualModernityScore = d.visual_modernity_score;
               if (d.aeo_score !== undefined) row.dataset.aeoScore = d.aeo_score;
               if (d.geo_gaps !== undefined) row.dataset.geoGaps = d.geo_gaps;
+              if (d.competitor_name !== undefined) row.dataset.competitorName = d.competitor_name;
+              if (d.competitor_gap !== undefined) row.dataset.competitorGap = d.competitor_gap;
               if (d.audit_summary !== undefined) row.dataset.auditSummary = d.audit_summary;
 
               if (d.email) {
@@ -1532,6 +1561,196 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }, 400);
   });
+
+  // --- Kanban View & Batch Outreach Logic ---
+  
+  // View Toggle Logic
+  const showTableViewBtn = document.getElementById('showTableView');
+  const showKanbanViewBtn = document.getElementById('showKanbanView');
+  const tableView = document.getElementById('tableView');
+  const kanbanView = document.getElementById('kanbanView');
+
+  if (showTableViewBtn && showKanbanViewBtn) {
+    showTableViewBtn.addEventListener('click', () => {
+        tableView.classList.remove('hidden');
+        kanbanView.classList.add('hidden');
+        showTableViewBtn.classList.add('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        showTableViewBtn.classList.remove('text-brand-muted');
+        showKanbanViewBtn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        showKanbanViewBtn.classList.add('text-brand-muted');
+    });
+
+    showKanbanViewBtn.addEventListener('click', () => {
+        tableView.classList.add('hidden');
+        kanbanView.classList.remove('hidden');
+        showKanbanViewBtn.classList.add('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        showKanbanViewBtn.classList.remove('text-brand-muted');
+        showTableViewBtn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        showTableViewBtn.classList.add('text-brand-muted');
+        initKanban();
+    });
+  }
+
+  // Initialize Kanban Boards
+  function initKanban() {
+    const columns = document.querySelectorAll('.kanban-list');
+    const allRows = document.querySelectorAll('.result-row');
+    
+    // Clear and re-populate columns
+    columns.forEach(col => {
+        col.innerHTML = '';
+        const status = col.parentElement.dataset.status;
+        let count = 0;
+
+        allRows.forEach(row => {
+            if (row.dataset.status === status) {
+                const card = createKanbanCard(row);
+                col.appendChild(card);
+                count++;
+            }
+        });
+        const countBadge = col.parentElement.querySelector('.column-count');
+        if (countBadge) countBadge.textContent = count;
+
+        // Init Sortable
+        if (typeof Sortable !== 'undefined') {
+            Sortable.create(col, {
+                group: 'leads',
+                animation: 150,
+                ghostClass: 'opacity-50',
+                onEnd: async (evt) => {
+                    const item = evt.item;
+                    const newStatus = evt.to.parentElement.dataset.status;
+                    const leadKey = item.dataset.leadKey;
+                    
+                    if (leadKey) {
+                        try {
+                            const res = await fetch(`/leads/${leadKey}/update`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ status: newStatus })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                // Update original row dataset
+                                const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
+                                if (originalRow) originalRow.dataset.status = newStatus;
+                                updateColumnCounts();
+                            }
+                        } catch (err) { console.error('Failed to update status:', err); }
+                    }
+                }
+            });
+        }
+    });
+  }
+
+  function createKanbanCard(row) {
+    const card = document.createElement('div');
+    card.className = 'kanban-card p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-brand-border/10 cursor-grab active:cursor-grabbing hover:border-brand-yellow/50 transition-all group';
+    card.dataset.leadKey = row.dataset.leadKey;
+    
+    const title = row.dataset.title;
+    const rating = row.dataset.rating;
+    const website = row.dataset.website;
+    
+    card.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${row.dataset.category}</span>
+            <div class="flex items-center gap-1">
+                <svg class="w-2.5 h-2.5 text-brand-yellow" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                <span class="text-[10px] font-bold text-brand-dark dark:text-white">${rating}</span>
+            </div>
+        </div>
+        <h4 class="text-sm font-black text-brand-dark dark:text-white mb-1 truncate">${title}</h4>
+        <div class="text-[10px] text-brand-muted font-bold truncate">${website}</div>
+    `;
+    
+    card.onclick = () => selectRow(row);
+    return card;
+  }
+
+  function updateColumnCounts() {
+    document.querySelectorAll('.kanban-column').forEach(col => {
+        const count = col.querySelectorAll('.kanban-card').length;
+        const badge = col.querySelector('.column-count');
+        if (badge) badge.textContent = count;
+    });
+  }
+
+  // --- The War Room (Batch Outreach) ---
+  const batchOutreachBtn = document.getElementById('batchOutreachBtn');
+  const warRoomModal = document.getElementById('warRoomModal');
+  const closeWarRoom = document.getElementById('closeWarRoom');
+  const warRoomGrid = document.getElementById('warRoomGrid');
+  const warRoomTotal = document.getElementById('warRoomTotal');
+
+  if (batchOutreachBtn && warRoomModal) {
+    batchOutreachBtn.addEventListener('click', () => {
+        const selected = document.querySelectorAll('.result-row .lead-checkbox:checked');
+        if (selected.length === 0) {
+            alert('Please select at least one lead for the War Room.');
+            return;
+        }
+        renderWarRoom(selected);
+        warRoomModal.classList.remove('hidden');
+    });
+
+    closeWarRoom.addEventListener('click', () => {
+        warRoomModal.classList.add('hidden');
+    });
+  }
+
+  function renderWarRoom(selectedCheckboxes) {
+    warRoomGrid.innerHTML = '';
+    warRoomTotal.textContent = selectedCheckboxes.length;
+
+    selectedCheckboxes.forEach(cb => {
+        const row = cb.closest('.result-row');
+        const card = createWarRoomCard(row);
+        warRoomGrid.appendChild(card);
+    });
+  }
+
+  function createWarRoomCard(row) {
+    const card = document.createElement('div');
+    card.className = 'bg-white/5 border border-white/10 rounded-[2.5rem] p-6 hover:border-brand-yellow/30 transition-all flex flex-col gap-4';
+    
+    const title = row.dataset.title;
+    const city = row.dataset.city || 'your area';
+    const email = row.dataset.email;
+    const competitor = row.dataset.competitorName;
+    const compGap = row.dataset.competitorGap;
+
+    // Detect Gaps
+    const gaps = [];
+    if (row.dataset.isMobileFriendly === 'false') gaps.push("isn't mobile-friendly");
+    if (row.dataset.hasChatbot === 'false') gaps.push("lacks lead-capture");
+    if (row.dataset.hasSchemaMarkup === 'false') gaps.push("missing SEO schema");
+
+    let gapText = gaps.length > 0 ? `I noticed your site ${gaps.join(' and ')}.` : "I found some conversion gaps on your site.";
+    let compText = (competitor && competitor !== 'N/A') ? `\n\nYour competitor, ${competitor}, is currently gaining an edge because they have ${compGap || 'a more optimized presence'}.` : "";
+
+    const bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and spent some time on your website. ${gapText}${compText}\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat?\n\nBest,\n[Your Name]`;
+
+    card.innerHTML = `
+        <div class="flex items-center justify-between">
+            <h4 class="text-white font-black text-xl truncate pr-4">${title}</h4>
+            <div class="px-2 py-1 bg-brand-yellow/10 rounded-lg border border-brand-yellow/30 text-[10px] font-black text-brand-yellow">READY</div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+            ${gaps.map(g => `<span class="px-2 py-1 bg-rose-500/10 text-rose-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-rose-500/20">${g}</span>`).join('')}
+            ${competitor && competitor !== 'N/A' ? `<span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-blue-500/20">vs ${competitor}</span>` : ''}
+        </div>
+        <textarea class="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-bold text-white/70 h-40 focus:border-brand-yellow outline-none transition-all">${bodyText}</textarea>
+        <button class="w-full py-4 bg-brand-yellow text-brand-dark rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-brand-yellow/10 flex items-center justify-center gap-2" onclick="window.location.href='mailto:${email}?subject=Question regarding ${encodeURIComponent(title)}&body=${encodeURIComponent(bodyText)}'">
+             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+             Review & Lead Audit
+        </button>
+    `;
+    return card;
+  }
+
 
   document.addEventListener('mouseout', (e) => {
     const link = e.target.closest('.website-link');

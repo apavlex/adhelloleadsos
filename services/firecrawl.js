@@ -31,6 +31,8 @@ const enrichSchema = {
     visual_modernity_score: { type: "number", description: "A score from 1-10 on how modern and professional the UI looks." },
     aeo_score: { type: "number", description: "A score from 1-5 on how well-structured the content is for Answer Engines (AEO)." },
     geo_gaps: { type: "string", description: "Brief notes on missing local SEO signals or NAP inconsistencies for GEO." },
+    competitor_name: { type: "string", description: "A high-performing local competitor in the same city/niche, if found." },
+    competitor_gap: { type: "string", description: "One specific technical or conversion feature the competitor has that this business lacks (e.g., 'Modern Chatbot' or 'Schema Markup')." },
     audit_summary: { type: "string", description: "A 1-sentence summary of the biggest opportunity for improvement." }
   }
 };
