@@ -4,10 +4,11 @@ const dbService = require('../services/database');
 
 router.get('/', async (req, res) => {
   const leads = await dbService.getAllLeads();
+  const adhelloLeads = leads.filter(l => l.source && l.source.startsWith('adhello_'));
   res.render('index', {
-    title: 'Google Maps Lead Agent',
+    title: 'Leads AI Agent',
     activePage: 'search',
-    savedLeadsCount: leads.length
+    savedLeadsCount: adhelloLeads.length
   });
 });
 
