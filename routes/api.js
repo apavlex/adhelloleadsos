@@ -39,6 +39,8 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       return res.status(400).json({ error: 'Business title or Email is required.' });
     }
 
+    const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+
     // Prepare lead data for merge/save
     const leadData = {
       title: title || 'New Lead',
@@ -47,6 +49,7 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       phone: phone || 'N/A',
       city: city || '',
       state: state || '',
+      ip: clientIp,
       source: source || 'adhello_audit',
       totalScore: parseFloat(totalScore) || 0,
       auditData: auditData || null,

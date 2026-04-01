@@ -87,8 +87,14 @@ module.exports = {
 
   async saveLead(leadData) {
     // If an email exists, check for an existing lead first to merge
-    if (leadData.email) {
+    if (leadData.email && leadData.email !== 'N/A') {
       const existing = await this.findLeadByEmail(leadData.email);
+      if (existing) {
+        return await this.updateLead(existing.key, leadData);
+      }
+    } else if (leadData.ip) {
+      // Fallback to IP matching for anonymous chats/audits
+      const existing = await this.findLeadByIp(leadData.ip);
       if (existing) {
         return await this.updateLead(existing.key, leadData);
       }
@@ -110,9 +116,16 @@ module.exports = {
   },
 
   async findLeadByEmail(email) {
-    if (!email) return null;
+    if (!email || email === 'N/A') return null;
     const leads = await this.getAllLeads();
     return leads.find(l => l.email && l.email.toLowerCase() === email.toLowerCase()) || null;
+  },
+
+  async findLeadByIp(ip) {
+    if (!ip) return null;
+    const leads = await this.getAllLeads();
+    // Match only if the lead was created recently or from same source to avoid NAT over-merging
+    return leads.find(l => l.ip === ip) || null;
   },
 
   async getLead(key) {
