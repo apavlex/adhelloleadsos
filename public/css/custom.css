@@ -1,13 +1,35 @@
-/* Global Styles */
+/* Global Tokens (Dynamic Theme) */
+:root {
+    --brand-bg: #FAF7ED;
+    --brand-dark: #111827;
+    --brand-muted: rgba(17, 24, 39, 0.7);
+    --brand-border: rgba(17, 24, 39, 0.1);
+    --brand-card-bg: #FFFFFF;
+    --brand-cream: #FAF7ED;
+    --brand-yellow: #FDE047;
+}
+
+/* Dark Mode Overrides - Midnight Navy Theme */
+.dark {
+    --brand-bg: #020617; /* Slate 950 */
+    --brand-dark: #F8FAFC; /* Slate 50 */
+    --brand-muted: #94A3B8; /* Slate 400 */
+    --brand-border: rgba(255, 255, 255, 0.1);
+    --brand-card-bg: #0F172A; /* Slate 900 */
+    --brand-cream: #1E293B; /* Slate 800 - Used for hovers/inputs */
+}
+
 body {
-    background-color: #FAF7ED;
-    color: #111827;
+    background-color: var(--brand-bg);
+    color: var(--brand-dark);
     font-family: 'Inter', ui-sans-serif, system-ui;
     -webkit-font-smoothing: antialiased;
+    transition: background-color 0.4s ease, color 0.4s ease, border-color 0.4s ease;
 }
 
 h1, h2, h3, h4, .font-display {
     font-family: 'Manrope', sans-serif;
+    color: var(--brand-dark);
 }
 
 /* Button Animations & Styles */
@@ -19,7 +41,6 @@ h1, h2, h3, h4, .font-display {
     border-radius: 9999px;
     font-weight: 600;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
 }
 
 .btn-pill:hover {
@@ -32,7 +53,7 @@ h1, h2, h3, h4, .font-display {
 }
 
 .btn-primary {
-    background-color: #FDE047;
+    background-color: var(--brand-yellow);
     color: #111827;
 }
 
@@ -43,33 +64,34 @@ h1, h2, h3, h4, .font-display {
 /* Navigation Styles */
 .nav-link {
     font-weight: 600;
-    color: rgba(17, 24, 39, 0.7);
+    color: var(--brand-muted);
     transition: color 0.2s ease;
 }
 
 .nav-link:hover, .nav-link.active {
-    color: #111827;
+    color: var(--brand-dark);
 }
 
 /* Card Styles */
 .brand-card {
-    background: white;
-    border: 1px solid rgba(17, 24, 39, 0.05);
+    background: var(--brand-card-bg);
+    border: 1px solid var(--brand-border);
     border-radius: 2rem;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.4s ease, border-color 0.4s ease;
 }
 
 .brand-card:hover {
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1);
 }
 
 /* Detail panel slide-in */
 .detail-panel {
     transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    background: white;
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
+    background: var(--brand-card-bg);
     box-shadow: -10px 0 30px rgba(0, 0, 0, 0.05);
 }
+
 .detail-panel.open {
     transform: translateX(0);
 }
@@ -93,7 +115,7 @@ h1, h2, h3, h4, .font-display {
 
 #mobilePanel {
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 9999;
+    z-index: 100;
 }
 
 #mobilePanel.open {
@@ -101,8 +123,9 @@ h1, h2, h3, h4, .font-display {
 }
 
 #mobilePanel > div {
-    z-index: 10000;
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    z-index: 101;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), background-color 0.4s ease;
+    background-color: var(--brand-card-bg) !important;
 }
 
 /* Sidebar behavior on Desktop */
@@ -123,14 +146,13 @@ h1, h2, h3, h4, .font-display {
     border-radius: 1rem;
 }
 
-/* Ensure the border/line areas are part of the clickable row */
 table {
     border-collapse: separate;
-    border-spacing: 0 4px; /* Minimal gap if needed, or stick to collapse */
+    border-spacing: 0 4px;
 }
 
 .result-row:hover {
-    background-color: rgba(253, 224, 71, 0.1) !important;
+    background-color: var(--brand-cream) !important;
     transform: scale(1.002);
 }
 
@@ -146,17 +168,11 @@ table {
     top: 10%;
     bottom: 10%;
     width: 4px;
-    background: #FDE047;
+    background: var(--brand-yellow);
     border-radius: 0 4px 4px 0;
     box-shadow: 2px 0 10px rgba(253, 224, 71, 0.4);
 }
 
-/* Detail panel inner padding fix */
-#detailPanel {
-    padding-top: 2rem !important;
-}
-
-/* Custom width for full-wide view */
 .max-wide {
     max-width: 1600px;
     margin-left: auto;
@@ -189,11 +205,6 @@ table {
     gap: 2rem;
 }
 
-/* Premium Sidebar Overrides */
-.sidebar-shadow {
-    box-shadow: -20px 0 60px rgba(0, 0, 0, 0.08) !important;
-}
-
 /* Custom scrollbar for sidebar */
 #mobilePanel > div::-webkit-scrollbar {
     width: 6px;
@@ -202,18 +213,27 @@ table {
     background: transparent;
 }
 #mobilePanel > div::-webkit-scrollbar-thumb {
-    background: #E5E7EB;
+    background: var(--brand-border);
     border-radius: 10px;
 }
 #mobilePanel > div::-webkit-scrollbar-thumb:hover {
-    background: #D1D5DB;
+    background: var(--brand-muted);
 }
 
-#badgeContainer span {
-    transition: all 0.2s ease;
-    cursor: default;
+/* Bulk Selection Styles & Animations */
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2) rotate(15deg); }
 }
-#badgeContainer span:hover {
-    background: #FDE047;
-    border-color: #FDE047;
+.animate-sparkle {
+  animation: sparkle 1.5s infinite;
+}
+
+#bulkActionBar {
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+.lead-checkbox:checked {
+  background-color: var(--brand-yellow);
+  border-color: var(--brand-yellow);
 }

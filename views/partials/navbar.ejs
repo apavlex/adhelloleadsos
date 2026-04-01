@@ -1,17 +1,22 @@
 <header class="sticky top-0 z-50 w-full px-6 py-4">
-  <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 backdrop-blur-md px-6 py-3 rounded-full border border-brand-border shadow-sm">
-    <!-- Logo -->
-    <a href="/" class="flex items-center gap-2 group h-10">
-      <!-- Image shown in Light Mode (contains dark text) -->
-      <img src="/images/logo-dark.svg" alt="AdHello Logo" class="h-8 w-auto block dark:hidden object-contain" />
-      <!-- Image shown in Dark Mode (contains light text) -->
-      <img src="/images/logo-light.svg" alt="AdHello Logo" class="h-8 w-auto hidden dark:block object-contain" />
+  <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-3 rounded-full border border-brand-border dark:border-white/10 shadow-sm">
+    <a href="/" class="flex items-center gap-3 group h-10">
+      <div class="flex items-center gap-3">
+        <!-- Image shown in Light Mode (contains dark text) -->
+        <img src="/images/logo-dark.png" alt="AdHello Logo" class="h-8 w-auto block dark:hidden object-contain" />
+        <!-- Image shown in Dark Mode (contains light text) -->
+        <img src="/images/logo-light.png" alt="AdHello Logo" class="h-8 w-auto hidden dark:block object-contain" />
+        
+        <div class="h-6 w-px bg-brand-border dark:bg-white/10 mx-1"></div>
+        <span class="text-lg font-display font-bold tracking-tight text-brand-dark dark:text-white pb-0.5">Leads</span>
+      </div>
     </a>
 
     <!-- Navigation -->
     <nav class="hidden md:flex items-center gap-8">
       <a href="/" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'active' : '' %>">Search</a>
       <a href="/history" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'active' : '' %>">History</a>
+      <a href="/schedules" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'schedules' ? 'active' : '' %>">Autopilot</a>
       <a href="/leads" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'active' : '' %>">Saved Leads</a>
     </nav>
 
@@ -62,10 +67,10 @@
 
   <!-- Mobile Side Nav -->
   <div id="mobileMenu" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none">
-    <div class="absolute inset-y-0 right-0 w-72 bg-white shadow-2xl p-8 translate-x-full transition-transform duration-300 pointer-events-auto">
+    <div class="absolute inset-y-0 right-0 w-72 bg-white dark:bg-slate-900 shadow-2xl p-8 translate-x-full transition-transform duration-300 pointer-events-auto">
       <div class="flex items-center justify-between mb-12">
-        <span class="font-display font-extrabold text-xl tracking-tight text-brand-dark">Menu</span>
-        <button id="closeMobileMenu" class="w-10 h-10 flex items-center justify-center text-brand-muted hover:text-brand-dark rounded-full transition-colors border border-brand-border">
+        <span class="font-display font-extrabold text-xl tracking-tight text-brand-dark dark:text-white">Menu</span>
+        <button id="closeMobileMenu" class="w-10 h-10 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white rounded-full transition-colors border border-brand-border dark:border-white/10">
           <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
@@ -73,22 +78,24 @@
       </div>
 
       <nav class="flex flex-col gap-6">
-        <a href="/" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark' : 'text-brand-muted' %>">
+        <a href="/" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
           <span class="font-display font-bold text-lg">Search</span>
         </a>
-        <a href="/history" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark' : 'text-brand-muted' %>">
+        <a href="/history" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
           <span class="font-display font-bold text-lg">History</span>
         </a>
-        <a href="/leads" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Saved Leads</span>
+        <a href="/schedules" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'schedules' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">Autopilot</span>
         </a>
+        <a href="/leads" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">Saved Leads</span>
         </a>
       </nav>
 
-      <div class="mt-12 pt-12 border-t border-brand-border">
+      <div class="mt-12 pt-12 border-t border-brand-border dark:border-white/10">
         <% if (user) { %>
           <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-full bg-brand-cream border border-brand-border flex items-center justify-center font-bold text-brand-dark text-lg shadow-sm overflow-hidden">
+            <div class="w-12 h-12 rounded-full bg-brand-cream border border-brand-border dark:border-white/10 flex items-center justify-center font-bold text-brand-dark dark:text-white text-lg shadow-sm overflow-hidden">
               <% if (user.photos && user.photos.length > 0) { %>
                 <img src="<%= user.photos[0].value %>" alt="Avatar" class="w-full h-full object-cover">
               <% } else { %>
@@ -96,17 +103,17 @@
               <% } %>
             </div>
             <div>
-              <div class="text-sm font-bold text-brand-dark"><%= user.displayName %></div>
+              <div class="text-sm font-bold text-brand-dark dark:text-white"><%= user.displayName %></div>
               <a href="/logout" class="text-[10px] text-red-500 uppercase tracking-widest font-bold mt-1 block">Log out</a>
             </div>
           </div>
         <% } else { %>
           <div class="flex items-center gap-4">
-            <div class="w-12 h-12 border border-brand-border/30 flex items-center justify-center text-brand-muted rounded-full">
+            <div class="w-12 h-12 border border-brand-border/30 dark:border-white/10 flex items-center justify-center text-brand-muted rounded-full">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" /></svg>
             </div>
             <div>
-              <div class="text-sm font-bold text-brand-dark mb-1">External Access</div>
+              <div class="text-sm font-bold text-brand-dark dark:text-white mb-1">External Access</div>
               <a href="/auth/google" class="text-[10px] text-blue-500 uppercase tracking-widest font-bold">Login to AdHello</a>
             </div>
           </div>
@@ -115,19 +122,3 @@
     </div>
   </div>
 </header>
-<script>
-  const themeToggleBtn = document.getElementById('themeToggleBtn');
-  if (themeToggleBtn) {
-    themeToggleBtn.addEventListener('click', function() {
-      // Toggle dark class
-      document.documentElement.classList.toggle('dark');
-      
-      // Save preference so it survives page reloads
-      if (document.documentElement.classList.contains('dark')) {
-        localStorage.setItem('color-theme', 'dark');
-      } else {
-        localStorage.setItem('color-theme', 'light');
-      }
-    });
-  }
-</script>

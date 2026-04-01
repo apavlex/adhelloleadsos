@@ -128,4 +128,45 @@ module.exports = {
   async deleteLead(key) {
     await db.delete(key);
   },
+
+  // --- Schedules (Autopilot) ---
+
+  async saveSchedule(scheduleData) {
+    const key = `schedule:${Date.now()}`;
+    await db.set(key, JSON.stringify({ ...scheduleData, lastRun: null }));
+    return key;
+  },
+
+  async getSchedule(key) {
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  },
+
+  async listSchedules() {
+    const keys = await db.list('schedule:');
+    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const schedules = [];
+    for (const key of keyList) {
+      const data = await this.getSchedule(key);
+      if (data) {
+        schedules.push({ key, ...data });
+      }
+    }
+    return schedules;
+  },
+
+  async updateSchedule(key, updateData) {
+    const existing = await this.getSchedule(key);
+    if (!existing) return null;
+    const updated = { ...existing, ...updateData };
+    await db.set(key, JSON.stringify(updated));
+    return updated;
+  },
+
+  async deleteSchedule(key) {
+    await db.delete(key);
+  },
 };

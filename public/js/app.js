@@ -1,4 +1,25 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // --- Theme Toggle Logic (Centralized) ---
+  const themeToggleBars = document.querySelectorAll('#themeToggleBtn');
+  
+  const setTheme = (theme) => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('color-theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('color-theme', 'light');
+    }
+    // Update logo and other theme-dependent elements if necessary
+    // (Tailwind's dark: mode handles most of this)
+  };
+
+  themeToggleBars.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const isDark = document.documentElement.classList.contains('dark');
+      setTheme(isDark ? 'light' : 'dark');
+    });
+  });
   // --- Track saved leads (title -> key mapping) ---
   const savedLeads = new Map();
 
@@ -7,21 +28,63 @@ document.addEventListener('DOMContentLoaded', () => {
   const btn = document.getElementById('searchBtn');
   const loader = document.getElementById('loadingIndicator');
 
-  if (form) {
-    form.addEventListener('submit', () => {
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = `
-          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-          </svg>
-          Searching...
-        `;
-        btn.classList.add('opacity-50', 'cursor-not-allowed');
+  // Search mode toggle logic
+  const modeRunNow = document.getElementById('modeRunNow');
+  const modeSchedule = document.getElementById('modeSchedule');
+  const searchModeInput = document.getElementById('searchModeInput');
+  const autopilotSettings = document.getElementById('autopilotSettings');
+  const userTimezoneInput = document.getElementById('userTimezone');
+  const searchBtnLabel = btn ? btn.querySelector('span') : null;
+
+  // Set user timezone on load
+  if (userTimezoneInput) {
+    userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  }
+
+  if (modeRunNow && modeSchedule && searchModeInput) {
+    modeRunNow.addEventListener('click', () => {
+      searchModeInput.value = 'run';
+      modeRunNow.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
+      modeSchedule.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      if (autopilotSettings) autopilotSettings.classList.add('hidden');
+      if (searchBtnLabel) {
+        searchBtnLabel.innerHTML = 'Find Leads<svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
-      if (loader) {
-        loader.classList.remove('hidden');
+    });
+
+    modeSchedule.addEventListener('click', () => {
+      searchModeInput.value = 'schedule';
+      modeSchedule.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
+      modeRunNow.className = 'flex-1 px-3 py-2 rounded-xl text-[10px] font-bold uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      if (autopilotSettings) autopilotSettings.classList.remove('hidden');
+      if (searchBtnLabel) {
+        searchBtnLabel.innerHTML = 'Start Autopilot<svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+      }
+    });
+  }
+
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      const isSchedule = searchModeInput && searchModeInput.value === 'schedule';
+      
+      if (!isSchedule) {
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = `
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+            </svg>
+            Searching...
+          `;
+          btn.classList.add('opacity-50', 'cursor-not-allowed');
+        }
+        if (loader) {
+          loader.classList.remove('hidden');
+        }
+      } else {
+        // If scheduling, we let the form submit normally or via fetch for better UX
+        // We will stick to normal submit for now as its easier to handle redirect
       }
     });
   }
@@ -350,9 +413,63 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = mailtoStr;
 
       // Automatically update status to 'Email Sent'
-      if (statusSelect) {
+      if (typeof statusSelect !== 'undefined' && statusSelect) {
         statusSelect.value = 'Email Sent';
         statusSelect.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+
+  // --- Manual Deep Enhance with Firecrawl ---
+  const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
+  if (deepEnhanceBtn) {
+    deepEnhanceBtn.addEventListener('click', async () => {
+      if (!currentRow) return;
+      const key = currentRow.dataset.leadKey;
+      const website = currentRow.dataset.website;
+
+      if (!website || website === 'N/A') {
+        alert("This lead has no website to scan.");
+        return;
+      }
+
+      const originalHTML = deepEnhanceBtn.innerHTML;
+      deepEnhanceBtn.disabled = true;
+      deepEnhanceBtn.innerHTML = `
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span>Hunting Emails...</span>
+      `;
+
+      try {
+        const res = await fetch(`/leads/${key}/enhance`, {
+          method: 'POST'
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          // Update local dataset
+          if (data.lead.email && data.lead.email !== 'N/A') currentRow.dataset.email = data.lead.email;
+          if (data.lead.facebook && data.lead.facebook !== 'N/A') currentRow.dataset.facebook = data.lead.facebook;
+          if (data.lead.instagram && data.lead.instagram !== 'N/A') currentRow.dataset.instagram = data.lead.instagram;
+          if (data.lead.twitter && data.lead.twitter !== 'N/A') currentRow.dataset.twitter = data.lead.twitter;
+          
+          currentRow.dataset.updates = JSON.stringify(data.lead.updates);
+          
+          // Refresh Panel UI
+          populatePanel(currentRow);
+          alert(`Deep enhancement complete! We found new contact details for ${data.lead.title}.`);
+        } else {
+          alert("We couldn't find any additional contact data for this website yet.");
+        }
+      } catch (err) {
+        console.error('Enhancement failed:', err);
+        alert("Enhancement failed. Please check your Firecrawl API key in Cloud Run.");
+      } finally {
+        deepEnhanceBtn.disabled = false;
+        deepEnhanceBtn.innerHTML = originalHTML;
       }
     });
   }
@@ -557,15 +674,210 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.textContent = 'Save Lead';
   }
 
-  // --- Select all checkbox ---
-  const selectAll = document.getElementById('selectAll');
-  if (selectAll) {
-    selectAll.addEventListener('change', (e) => {
+  // --- Bulk Selection & Actions ---
+  const selectAllLeads = document.getElementById('selectAllLeads');
+  const leadCheckboxes = document.querySelectorAll('.lead-checkbox');
+  const bulkActionBar = document.getElementById('bulkActionBar');
+  const selectedCountCircle = document.getElementById('selectedCountCircle');
+  const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
+  const bulkExportBtn = document.getElementById('bulkExportBtn');
+  const bulkEnhanceBtn = document.getElementById('bulkEnhanceBtn');
+
+  let selectedKeys = new Set();
+
+  const updateBulkActionBar = () => {
+    const count = selectedKeys.size;
+    if (selectedCountCircle) selectedCountCircle.textContent = count;
+    
+    if (count > 0) {
+      bulkActionBar.style.pointerEvents = 'auto';
+      bulkActionBar.classList.remove('opacity-0', 'translate-y-20');
+      bulkActionBar.classList.add('opacity-100', 'translate-y-0');
+    } else {
+      bulkActionBar.style.pointerEvents = 'none';
+      bulkActionBar.classList.remove('opacity-100', 'translate-y-0');
+      bulkActionBar.classList.add('opacity-0', 'translate-y-20');
+    }
+  };
+
+  if (selectAllLeads) {
+    selectAllLeads.addEventListener('change', (e) => {
       const isChecked = e.target.checked;
-      const checkboxes = document.querySelectorAll('.row-checkbox');
-      checkboxes.forEach((cb) => {
+      leadCheckboxes.forEach(cb => {
         cb.checked = isChecked;
+        const key = cb.dataset.key;
+        if (isChecked) selectedKeys.add(key);
+        else selectedKeys.delete(key);
       });
+      updateBulkActionBar();
     });
   }
+
+  leadCheckboxes.forEach(cb => {
+    cb.addEventListener('change', (e) => {
+      const key = cb.dataset.key;
+      if (e.target.checked) selectedKeys.add(key);
+      else {
+        selectedKeys.delete(key);
+        if (selectAllLeads) selectAllLeads.checked = false;
+      }
+      updateBulkActionBar();
+    });
+  });
+
+  if (cancelSelectionBtn) {
+    cancelSelectionBtn.addEventListener('click', () => {
+      selectedKeys.clear();
+      leadCheckboxes.forEach(cb => cb.checked = false);
+      if (selectAllLeads) selectAllLeads.checked = false;
+      updateBulkActionBar();
+    });
+  }
+
+  // Bulk Export (CSV)
+  if (bulkExportBtn) {
+    bulkExportBtn.addEventListener('click', () => {
+      if (selectedKeys.size === 0) return;
+      
+      const selectedRows = Array.from(leadCheckboxes)
+        .filter(cb => selectedKeys.has(cb.dataset.key))
+        .map(cb => cb.closest('.result-row'));
+
+      let csv = 'Company,Category,Address,Phone,Website,Status,Rating,Reviews\n';
+      selectedRows.forEach(row => {
+        const d = row.dataset;
+        const rowData = [
+          `"${d.title}"`,
+          `"${d.category}"`,
+          `"${d.address}"`,
+          `"${d.phone}"`,
+          `"${d.website}"`,
+          `"${d.status}"`,
+          d.rating,
+          d.reviews
+        ];
+        csv += rowData.join(',') + '\n';
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.setAttribute('hidden', '');
+      a.setAttribute('href', url);
+      a.setAttribute('download', `leads_export_${new Date().getTime()}.csv`);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    });
+  }
+
+  // Bulk Enhance (Firecrawl)
+  if (bulkEnhanceBtn) {
+    bulkEnhanceBtn.addEventListener('click', async () => {
+      if (selectedKeys.size === 0) return;
+      
+      const keys = Array.from(selectedKeys);
+      const originalHTML = bulkEnhanceBtn.innerHTML;
+      bulkEnhanceBtn.disabled = true;
+      
+      let processed = 0;
+      const total = keys.length;
+
+      for (const key of keys) {
+        processed++;
+        bulkEnhanceBtn.innerHTML = `
+          <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+          </svg>
+          <span class="text-[10px] font-black uppercase tracking-widest">${processed}/${total}</span>
+        `;
+
+        try {
+          await fetch(`/leads/${key}/enhance`, { method: 'POST' });
+        } catch (err) {
+          console.error(`Failed to enhance lead ${key}:`, err);
+        }
+      }
+
+      bulkEnhanceBtn.innerHTML = originalHTML;
+      bulkEnhanceBtn.disabled = false;
+      alert(`Bulk enhancement complete for ${total} leads! Updating view...`);
+      window.location.reload();
+    });
+  }
+
+  // --- Website Preview Hover Logic (Global) ---
+  const websitePreview = document.getElementById('websitePreview');
+  const previewIframe = document.getElementById('previewIframe');
+  const previewUrlText = document.getElementById('previewUrlText');
+  const previewLoading = document.getElementById('previewLoading');
+  const previewNewTabBtn = document.getElementById('previewNewTabBtn');
+
+  let previewTimeout;
+
+  document.addEventListener('mouseover', (e) => {
+    const link = e.target.closest('.website-link');
+    if (!link) return;
+
+    const url = link.getAttribute('data-url');
+    if (!url || !websitePreview) return;
+    
+    if (previewNewTabBtn) previewNewTabBtn.href = url;
+    if (previewTimeout) clearTimeout(previewTimeout);
+
+    previewTimeout = setTimeout(() => {
+      const rect = link.getBoundingClientRect();
+      let top = rect.top + window.scrollY;
+      let left = rect.left + (rect.width / 2);
+      let translateY = '-100%';
+      let marginTop = '-15px';
+
+      if (rect.top < 350) {
+        top = rect.bottom + window.scrollY;
+        translateY = '0';
+        marginTop = '15px';
+      }
+
+      if (left < 200) left = 200;
+      if (window.innerWidth - left < 200) left = window.innerWidth - 200;
+
+      websitePreview.style.top = `${top}px`;
+      websitePreview.style.left = `${left}px`;
+      websitePreview.style.transform = `translate(-50%, ${translateY})`;
+      websitePreview.style.marginTop = marginTop;
+      
+      if (previewUrlText) previewUrlText.textContent = url;
+      if (previewIframe) {
+        previewIframe.src = 'about:blank';
+        if (previewLoading) previewLoading.style.display = 'flex';
+        websitePreview.classList.remove('hidden');
+        setTimeout(() => {
+          websitePreview.classList.remove('opacity-0');
+          websitePreview.classList.add('opacity-100');
+        }, 10);
+
+        setTimeout(() => {
+            previewIframe.src = url;
+            previewIframe.onload = () => {
+                if (previewLoading) previewLoading.style.display = 'none';
+            };
+        }, 50);
+      }
+    }, 400);
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    const link = e.target.closest('.website-link');
+    if (!link || !websitePreview) return;
+    clearTimeout(previewTimeout);
+    websitePreview.classList.remove('opacity-100');
+    websitePreview.classList.add('opacity-0');
+    setTimeout(() => {
+      if (websitePreview.classList.contains('opacity-0')) {
+        websitePreview.classList.add('hidden');
+        if (previewIframe) previewIframe.src = 'about:blank';
+      }
+    }, 200);
+  });
 });

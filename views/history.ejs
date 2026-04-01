@@ -3,15 +3,15 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-cream min-h-screen text-brand-dark">
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden transition-colors duration-400">
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-8">
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
       <div>
-        <div class="inline-flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-brand-border shadow-sm mb-4">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted">Search Records</span>
+        <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Search Records</span>
         </div>
         <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark">
           Search <span class="text-brand-muted">History</span>
@@ -29,11 +29,11 @@
     </div>
 
     <% if (searches.length > 0) { %>
-      <div class="brand-card overflow-hidden">
+      <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="bg-gray-50/50 border-b border-brand-border">
+              <tr class="bg-gray-50/50 dark:bg-white/5 border-b border-brand-border dark:border-white/10">
                 <th class="px-8 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Search Query</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Location</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Results</th>
@@ -43,7 +43,7 @@
             </thead>
             <tbody class="divide-y divide-brand-border/50">
               <% searches.forEach((search) => { %>
-                <tr class="group hover:bg-brand-cream/50 transition-colors">
+                <tr class="group hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-colors">
                   <td class="px-8 py-6">
                     <a href="/search/<%= encodeURIComponent(search.key) %>"
                        class="font-display font-bold text-brand-dark hover:text-black transition-colors">
@@ -64,7 +64,7 @@
                   <td class="px-8 py-6 text-right">
                     <div class="flex items-center justify-end gap-3">
                       <a href="/search/<%= encodeURIComponent(search.key) %>"
-                         class="btn-pill bg-white border border-brand-border px-4 py-2 text-[10px]">
+                         class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] dark:text-slate-100">
                         View
                       </a>
                       <form action="/history/<%= encodeURIComponent(search.key) %>/delete"

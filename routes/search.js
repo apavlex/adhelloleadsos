@@ -2,17 +2,35 @@ const express = require('express');
 const router = express.Router();
 const apifyService = require('../services/apify');
 const dbService = require('../services/database');
+const enricher = require('../services/enricher');
 
 // POST /search — trigger an Apify search
 router.post('/', async (req, res, next) => {
   try {
-    const { keyword, city, state, maxResults } = req.body;
+    const { keyword, city, state, maxResults, mode, frequency } = req.body;
 
     if (!keyword || !city || !state) {
       return res.status(400).render('error', {
         message: 'Keyword, City, and State are all required.',
         activePage: 'search',
       });
+    }
+
+    // --- HANDLE AUTOPILOT SCHEDULING ---
+    if (mode === 'schedule') {
+      const { scheduledTime, timezone } = req.body;
+      console.log(`[SEARCH] Saving new Autopilot schedule for "${keyword}" in "${city}" at ${scheduledTime} (${timezone})...`);
+      await dbService.saveSchedule({
+        keyword,
+        city,
+        state,
+        maxResults: parseInt(maxResults, 10) || 20,
+        frequency: frequency || 'daily',
+        scheduledTime: scheduledTime || '09:00',
+        timezone: timezone || 'UTC',
+        createdAt: new Date().toISOString()
+      });
+      return res.redirect('/schedules?success=true');
     }
 
     if (!process.env.APIFY_API_TOKEN) {
@@ -32,10 +50,10 @@ router.post('/', async (req, res, next) => {
     });
     console.log(`[SEARCH] Initial search returned ${results.length} results.`);
 
-    // Enrich with socials if missing
-    console.log(`[SEARCH] Starting social enrichment pass...`);
-    results = await apifyService.enrichSocials(results);
-    console.log(`[SEARCH] Enrichment pass complete.`);
+    // Enrich with socials and emails if missing
+    console.log(`[SEARCH] Starting deep enrichment pass...`);
+    results = await enricher.enrichLeads(results);
+    console.log(`[SEARCH] Deep enrichment pass complete.`);
 
     // Save to database
     const searchRecord = {

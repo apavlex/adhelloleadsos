@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
+const firecrawl = require('../services/firecrawl');
 
 // GET /leads — show all saved leads
 router.get('/', async (req, res, next) => {
@@ -141,6 +142,47 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
     res.json({ success: true, prompt });
   } catch (err) {
     next(err);
+  }
+});
+
+// POST /leads/:key/enhance — manual Firecrawl enrichment for a single lead
+router.post('/:key/enhance', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+
+    if (!lead.website || lead.website === 'N/A') {
+      return res.status(400).json({ success: false, error: 'Lead has no website to scan.' });
+    }
+
+    console.log(`[ENHANCE] Manually triggering Firecrawl hunt for ${lead.title}...`);
+    const deepData = await firecrawl.enrichLead(lead.website);
+
+    if (deepData) {
+      const updates = lead.updates || [];
+      const updateData = { updates };
+
+      if (lead.email === 'N/A' && deepData.email) updateData.email = deepData.email;
+      if (lead.facebook === 'N/A' && deepData.facebook) updateData.facebook = deepData.facebook;
+      if (lead.instagram === 'N/A' && deepData.instagram) updateData.instagram = deepData.instagram;
+      if (lead.twitter === 'N/A' && deepData.twitter) updateData.twitter = deepData.twitter;
+      if (!lead.linkedin && deepData.linkedin) updateData.linkedin = deepData.linkedin;
+
+      updates.push({
+        type: 'enrichment',
+        value: 'Deep hunt completed via Firecrawl.',
+        timestamp: new Date().toISOString()
+      });
+
+      const updatedLead = await dbService.updateLead(fullKey, updateData);
+      return res.json({ success: true, lead: updatedLead });
+    }
+
+    res.json({ success: false, error: 'No new data found.' });
+  } catch (err) {
+    console.error('Manual enhancement error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

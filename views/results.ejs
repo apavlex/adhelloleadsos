@@ -3,15 +3,15 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-cream min-h-screen text-brand-dark">
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden transition-colors duration-400">
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-8">
     <!-- Header Section -->
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
       <div>
-        <div class="inline-flex items-center gap-2 bg-white px-3 py-1 rounded-full border border-brand-border shadow-sm mb-4">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted">Search Results</span>
+        <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Search Results</span>
         </div>
         <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark">
           <% if (keyword) { %>
@@ -30,7 +30,7 @@
           <button id="bulkEnrichBtn" class="btn-pill bg-brand-yellow/10 border border-brand-yellow/30 text-brand-dark hover:bg-brand-yellow px-4 py-2 text-sm font-bold shadow-sm transition-all text-brand-dark">
             ✨ Enrich Leads
           </button>
-          <button id="bulkExportBtn" class="btn-pill bg-white border border-brand-border text-brand-dark hover:bg-brand-cream px-4 py-2 text-sm font-bold shadow-sm">
+          <button id="bulkExportBtn" class="btn-pill bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 px-4 py-2 text-sm font-bold shadow-sm">
             Export CSV
           </button>
           <button id="bulkSaveBtn" class="btn-pill btn-primary px-4 py-2 text-sm font-bold shadow-sm">
@@ -57,11 +57,11 @@
 
     <% if (results.length > 0) { %>
       <!-- Table Card (Full Width) -->
-      <div class="brand-card overflow-hidden w-full">
+      <div class="brand-card overflow-hidden w-full dark:bg-slate-900 dark:border-white/10">
         <div class="overflow-x-auto">
           <table class="w-full text-left border-collapse">
             <thead>
-              <tr class="bg-gray-50/50 border-b border-brand-border">
+              <tr class="bg-gray-50/50 dark:bg-white/5 border-b border-brand-border dark:border-white/10">
                 <th class="px-6 py-4 text-left w-12">
                   <input type="checkbox" id="selectAll" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow">
                 </th>
@@ -96,14 +96,14 @@
                     <input type="checkbox" class="row-checkbox rounded border-brand-border text-brand-yellow focus:ring-brand-yellow">
                   </td>
                   <td class="px-6 py-5">
-                    <div class="font-bold text-brand-dark group-hover:text-black transition-colors"><%= place.title %></div>
-                    <div class="text-[10px] font-bold text-brand-muted uppercase tracking-wider mt-0.5"><%= place.categoryName %></div>
+                    <div class="font-bold text-brand-dark group-hover:text-black transition-colors max-w-[150px] truncate" title="<%= place.title %>"><%= place.title %></div>
+                    <div class="text-[10px] font-bold text-brand-muted uppercase tracking-wider mt-0.5 max-w-[150px] truncate"><%= place.categoryName %></div>
                   </td>
                   <td class="px-6 py-5 text-sm font-medium text-brand-muted whitespace-nowrap">
                     <%= place.phone && place.phone !== 'N/A' ? place.phone : '-' %>
                   </td>
                   <td class="px-6 py-5 text-sm font-medium text-brand-muted">
-                    <div class="max-w-[200px] truncate" title="<%= place.address %>">
+                    <div class="max-w-[150px] truncate" title="<%= place.address %>">
                       <%= place.address && place.address !== 'N/A' ? place.address : '-' %>
                     </div>
                   </td>
@@ -122,8 +122,8 @@
                   </td>
                   <td class="px-6 py-5 text-sm font-medium text-brand-muted">
                     <% if (place.website && place.website !== 'N/A') { %>
-                      <a href="<%= place.website %>" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block" data-url="<%= place.website %>">
-                        <%= place.website.replace(/^https?:\/\//, '').replace(/\/$/, '') %>
+                      <a href="<%= place.website %>" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[180px] truncate" title="<%= place.website %>">
+                        <%= place.website.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '') %>
                       </a>
                     <% } else { %>
                       -
@@ -188,16 +188,16 @@
   </main>
 
   <!-- Premium Detail Sidebar / Mobile Panel -->
-  <div id="mobilePanel" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden flex flex-col justify-end lg:flex-row lg:justify-end items-center lg:items-stretch opacity-0 transition-opacity duration-300 pointer-events-none">
-    <div class="bg-white w-full lg:w-[480px] rounded-t-[3rem] lg:rounded-none p-8 animate-slide-up lg:animate-slide-in-right pointer-events-auto max-h-[90vh] lg:max-h-screen overflow-y-auto shadow-2xl sidebar-shadow">
+  <div id="mobilePanel" class="fixed inset-0 z-[100] bg-brand-dark/40 dark:bg-black/60 backdrop-blur-sm hidden flex flex-col justify-end lg:flex-row lg:justify-end items-center lg:items-stretch opacity-0 transition-opacity duration-300 pointer-events-none">
+    <div class="bg-white dark:bg-slate-900 w-full lg:w-[480px] rounded-t-[3rem] lg:rounded-none p-8 animate-slide-up lg:animate-slide-in-right pointer-events-auto max-h-[90vh] lg:max-h-screen overflow-y-auto shadow-2xl sidebar-shadow border-l dark:border-white/10">
       
       <!-- Top Actions & Close -->
       <div class="flex items-center justify-between mb-8">
         <div class="flex gap-3">
-          <a id="mobilePanelXBtn" href="#" target="_blank" class="w-10 h-10 rounded-xl border border-brand-border flex items-center justify-center text-brand-dark hover:bg-brand-cream transition-colors">
+          <a id="mobilePanelXBtn" href="#" target="_blank" class="w-10 h-10 rounded-xl border border-brand-border dark:border-white/10 flex items-center justify-center text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 transition-colors">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>
           </a>
-          <a id="mobilePanelLinkedinBtn" href="#" target="_blank" class="w-10 h-10 rounded-xl border border-brand-border flex items-center justify-center text-brand-dark hover:bg-brand-cream transition-colors">
+          <a id="mobilePanelLinkedinBtn" href="#" target="_blank" class="w-10 h-10 rounded-xl border border-brand-border dark:border-white/10 flex items-center justify-center text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 transition-colors">
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
           </a>
         </div>
@@ -365,85 +365,7 @@
           }
           updateBulkActions();
         });
-      });
-
-      // Website Preview Hover Logic
-      const websiteLinks = document.querySelectorAll('.website-link');
-      const websitePreview = document.getElementById('websitePreview');
-      const previewIframe = document.getElementById('previewIframe');
-      const previewUrlText = document.getElementById('previewUrlText');
-      const previewLoading = document.getElementById('previewLoading');
-      const previewNewTabBtn = document.getElementById('previewNewTabBtn');
-
-      let previewTimeout;
-
-      websiteLinks.forEach(link => {
-        link.addEventListener('mouseenter', (e) => {
-          const url = link.getAttribute('data-url');
-          if (!url) return;
-          
-          if (previewNewTabBtn) previewNewTabBtn.href = url;
-
-          previewTimeout = setTimeout(() => {
-            const rect = link.getBoundingClientRect();
-            
-            // Default position above the link
-            let top = rect.top;
-            let left = rect.left + (rect.width / 2);
-            let translateY = '-100%';
-            let marginTop = '-15px';
-
-            // If there's not enough room above, show it below the link
-            if (top < 320) {
-              top = rect.bottom;
-              translateY = '0';
-              marginTop = '15px';
-            }
-
-            // Boundary checks for left/right
-            if (left < 200) left = 200;
-            if (window.innerWidth - left < 200) left = window.innerWidth - 200;
-
-            websitePreview.style.top = `${top}px`;
-            websitePreview.style.left = `${left}px`;
-            websitePreview.style.transform = `translate(-50%, ${translateY})`;
-            websitePreview.style.marginTop = marginTop;
-            
-            previewUrlText.textContent = url;
-            previewIframe.src = 'about:blank'; // Reset frame
-            previewLoading.style.display = 'flex';
-            
-            websitePreview.classList.remove('hidden');
-            // Small delay to allow element to render before adding opacity for animation
-            setTimeout(() => {
-              websitePreview.classList.remove('opacity-0');
-              websitePreview.classList.add('opacity-100');
-            }, 10);
-
-            // Load iframe with URL
-            setTimeout(() => {
-               previewIframe.src = url;
-               previewIframe.onload = () => {
-                 previewLoading.style.display = 'none';
-               };
-            }, 50);
-            
-          }, 450); // Delay hover to avoid accidental popups
-        });
-
-        link.addEventListener('mouseleave', () => {
-          clearTimeout(previewTimeout);
-          websitePreview.classList.remove('opacity-100');
-          websitePreview.classList.add('opacity-0');
-          
-          setTimeout(() => {
-            if (websitePreview.classList.contains('opacity-0')) {
-              websitePreview.classList.add('hidden');
-              previewIframe.src = 'about:blank';
-            }
-          }, 200); // Wait for fade out
-        });
-      });
+      });;
 
       const bulkEnrichBtn = document.getElementById('bulkEnrichBtn');
       const bulkExportBtn = document.getElementById('bulkExportBtn');

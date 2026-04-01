@@ -4,6 +4,7 @@ const path = require('path');
 const session = require('express-session');
 const { passport, ensureAuthenticated } = require('./services/auth');
 const { enrichLead } = require('./services/firecrawl');
+const scheduler = require('./services/scheduler');
 
 const indexRoutes = require('./routes/index');
 const searchRoutes = require('./routes/search');
@@ -95,3 +96,6 @@ const server = app.listen(PORT, () => {
 
 // Allow long-running requests for Apify calls (10 minutes)
 server.setTimeout(600000);
+
+// Initialize Background Autopilot
+scheduler.init();
