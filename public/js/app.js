@@ -528,14 +528,36 @@ document.addEventListener('DOMContentLoaded', () => {
     // Phone logic
     const phoneEl = document.getElementById('mobilePanelPhone');
     const phoneLink = document.getElementById('mobilePanelPhoneLink');
-    if (phoneEl) phoneEl.textContent = (phone && phone !== 'N/A') ? phone : 'No Phone';
+    const phoneRow = document.getElementById('mobilePanelPhoneRow');
+    
+    if (phoneEl) {
+        if (phone && phone !== 'N/A') {
+            phoneEl.innerHTML = `<a href="tel:${phone.replace(/\D/g, '')}" class="hover:text-brand-yellow transition-colors">${phone}</a>`;
+        } else {
+            phoneEl.textContent = 'No Phone';
+        }
+    }
+    
     if (phoneLink) {
         if (phone && phone !== 'N/A') {
-            phoneLink.href = `tel:${phone.replace(/\D/g, '')}`;
+            const tel = `tel:${phone.replace(/\D/g, '')}`;
+            phoneLink.href = tel;
             phoneLink.classList.remove('opacity-20', 'pointer-events-none');
+            
+            // Called Lead Automation
+            const callTrigger = () => {
+                if (statusSelect) {
+                    statusSelect.value = 'Called Lead';
+                    statusSelect.dispatchEvent(new Event('change'));
+                }
+            };
+            
+            phoneLink.onclick = (e) => { e.stopPropagation(); callTrigger(); };
+            if (phoneRow) phoneRow.onclick = () => { window.location.href = tel; callTrigger(); };
         } else {
             phoneLink.href = '#';
             phoneLink.classList.add('opacity-20', 'pointer-events-none');
+            if (phoneRow) phoneRow.onclick = null;
         }
     }
 
@@ -776,9 +798,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data.success) {
           currentRow.dataset.status = newStatus;
           currentRow.dataset.updates = JSON.stringify(data.lead.updates);
+          
+          // Update table badge manually for a smooth experience
+          const statusBadge = currentRow.querySelector('td:nth-last-child(2) span') || currentRow.querySelector('span[class*="rounded-full"]');
+          if (statusBadge) {
+              statusBadge.textContent = newStatus;
+              statusBadge.className = "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20";
+          }
+          
+          // Refresh panel to sync dropdowns/updates
           populatePanel(currentRow);
-          // Update table badge (simplified)
-          window.location.reload(); // Quickest way to sync table badges for now
+          
+          // If we have a Kanban board, we might need a reload or a manual move, 
+          // but for now, we'll just allow the table/sidebar sync to be fast.
+          // window.location.reload(); 
         }
       } catch (err) { console.error('Status update failed:', err); }
     });
@@ -905,7 +938,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = mailtoStr;
 
       // Automatically update status to 'Email Sent'
-      if (typeof statusSelect !== 'undefined' && statusSelect) {
+      if (statusSelect) {
         statusSelect.value = 'Email Sent';
         statusSelect.dispatchEvent(new Event('change'));
       }
