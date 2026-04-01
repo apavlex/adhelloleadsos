@@ -105,7 +105,7 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
  */
 router.post('/track', async (req, res) => {
   try {
-    const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const ip = req.body.ip || req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     const { path, referrer, userAgent } = req.body;
     
     // Default to 'Inland Empire, CA' placeholder if IP lookup fails or is local
