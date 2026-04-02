@@ -276,7 +276,11 @@
     <% } %>
   </main>  <!-- Mobile Detail Panel / Desktop Sidebar -->
   <%- include('partials/lead_detail_panel') %>
->
+
+  <script>
+    // Inject saved leads from server to app.js context
+    window.INITIAL_SAVED_LEADS = <%- JSON.stringify(leads || []) %>;
+  </script>
   <!-- The War Room: Batch Outreach Modal -->
   <div id="warRoomModal" class="fixed inset-0 z-[300] hidden overflow-hidden">
     <div class="absolute inset-0 bg-brand-dark/90 backdrop-blur-md transition-opacity"></div>

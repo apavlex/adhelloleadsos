@@ -32,7 +32,10 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       source,
       message,
       city,
-      state
+      state,
+      industry,
+      goal,
+      vibe
     } = req.body;
 
     if (!title && !email) {
@@ -55,13 +58,17 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       auditData: auditData || null,
       adBriefData: adBriefData || null,
       chatHistory: chatHistory || [],
+      industry: industry || '',
+      goal: goal || '',
+      vibe: vibe || '',
       lastActivity: new Date().toISOString()
     };
 
     // Auto-status mapping
     if (source === 'adhello_chatbot') leadData.status = 'Lead Captured';
     if (source === 'adhello_audit') leadData.status = 'Discovery Done';
-    if (source === 'adhello_brief') leadData.status = 'Strategy Created';
+    if (source === 'adhello_strategy') leadData.status = 'Strategy Created';
+    if (source === 'adhello_brief') leadData.status = 'Sales Briefing';
 
     // Add activity log
     leadData.logs = [{

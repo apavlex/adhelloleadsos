@@ -110,7 +110,9 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[DEBUG] Running updateOpportunityBadges...');
     updateOpportunityBadges();
     sortLeadsByOpportunity(false);
-  }, 500); // 500ms delay to ensure DOM is fully ready and styles applied
+  }, 500); 
+  
+  const sortLeadsByOpportunity = (isAscending) => {
     const tableBody = document.querySelector('tbody');
     if (!tableBody) return;
     const rows = Array.from(tableBody.querySelectorAll('.result-row'));
@@ -261,8 +263,19 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   syncBookmarkIcons();
 
-  // --- Search form loading state ---
-  const form = document.getElementById('searchForm');
+  // --- Search Form Handling ---
+  const searchForm = document.getElementById('searchForm');
+  if (searchForm) {
+    searchForm.addEventListener('submit', (e) => {
+      // Show progress ring on the bell
+      updateProcessingStatus(true);
+      
+      // Also show the legacy loader if it exists
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+    });
+  }
+
   const btn = document.getElementById('searchBtn');
   const loader = document.getElementById('loadingIndicator');
 
@@ -700,6 +713,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Strategy Details Section (New)
+    const strategyContainer = document.getElementById('strategyDetails');
+    const stratIndustry = document.getElementById('strategyIndustry');
+    const stratGoal = document.getElementById('strategyGoal');
+    const stratVibe = document.getElementById('strategyVibe');
+    const industry = row.dataset.industry;
+    const goal = row.dataset.goal;
+    const vibe = row.dataset.vibe;
+
+    if (strategyContainer) {
+        if (industry || goal || vibe) {
+            if (stratIndustry) stratIndustry.textContent = industry || 'Not specified';
+            if (stratGoal) stratGoal.textContent = goal || 'Not specified';
+            if (stratVibe) stratVibe.textContent = vibe || 'Not specified';
+            strategyContainer.classList.remove('hidden');
+        } else {
+            strategyContainer.classList.add('hidden');
+        }
+    }
+
     // Chat History Section (Dynamic)
     const chatHistoryRaw = row.dataset.chatHistory;
     const chatContainer = document.getElementById('chatLogContainer');
@@ -831,26 +864,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const auditStatus = document.getElementById('mobilePanelAuditStatus');
     const auditSummary = document.getElementById('mobilePanelAuditSummary');
     if (auditStatus && auditSummary) {
-        // ... (lines omitted for brevity but I will keep the original logic and add Stitch logic after)
-    }
-
-    // Stitch AI Design Logic
-    const stitchPreviewSection = document.getElementById('stitchPreviewSection');
-    const stitchScreenshot = document.getElementById('stitchScreenshot');
-    const stitchDesignLink = document.getElementById('stitchDesignLink');
-    
-    const stitchUrl = row.dataset.stitchDesignUrl;
-    const stitchImg = row.dataset.stitchScreenshotUrl;
-    
-    if (stitchPreviewSection && stitchScreenshot && stitchDesignLink) {
-        if (stitchUrl && stitchUrl !== '' && stitchUrl !== 'null') {
-            stitchScreenshot.src = stitchImg || 'https://via.placeholder.com/400x250?text=AI+Design+Blueprint';
-            stitchDesignLink.href = stitchUrl;
-            stitchPreviewSection.classList.remove('hidden');
-        } else {
-            stitchPreviewSection.classList.add('hidden');
-        }
-    }
+        let statusText = '';
+        let statusColor = '';
         const score = calculateOpportunityScore(row.dataset);
         if (score >= 7) { 
             statusText = 'High Opportunity'; 
@@ -870,7 +885,8 @@ document.addEventListener('DOMContentLoaded', () => {
         let dynamicSummary = row.dataset.auditSummary;
         if (!dynamicSummary || dynamicSummary === 'Analyzing website structure and GEO/AEO readiness...') {
             const gaps = [];
-            if (!website || website === 'N/A') gaps.push('no website');
+            const website = row.dataset.website && row.dataset.website !== 'N/A';
+            if (!website) gaps.push('no website');
             if (row.dataset.hasChatbot === 'false' || row.dataset.has_chatbot === false) gaps.push('no chatbot');
             if (row.dataset.isMobileFriendly === 'false' || row.dataset.is_mobile_friendly === false) gaps.push('technical SEO issues');
             if (row.dataset.hasClickToCall === 'false' || row.dataset.has_click_to_call === false) gaps.push('broken click-to-call');
@@ -882,6 +898,24 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         auditSummary.textContent = dynamicSummary;
+    }
+
+    // Stitch AI Design Logic
+    const stitchPreviewSection = document.getElementById('stitchPreviewSection');
+    const stitchScreenshot = document.getElementById('stitchScreenshot');
+    const stitchDesignLink = document.getElementById('stitchDesignLink');
+    
+    const stitchUrl = row.dataset.stitchDesignUrl;
+    const stitchImg = row.dataset.stitchScreenshotUrl;
+    
+    if (stitchPreviewSection && stitchScreenshot && stitchDesignLink) {
+        if (stitchUrl && stitchUrl !== '' && stitchUrl !== 'null') {
+            stitchScreenshot.src = stitchImg || 'https://via.placeholder.com/400x250?text=AI+Design+Blueprint';
+            stitchDesignLink.href = stitchUrl;
+            stitchPreviewSection.classList.remove('hidden');
+        } else {
+            stitchPreviewSection.classList.add('hidden');
+        }
     }
 
     // Competitor Comparison Logic
@@ -923,7 +957,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderStars(rating, reviews, containerId = 'mobilePanelStars', textId = 'mobilePanelRatingText') {
+  const renderStars = (rating, reviews, containerId = 'mobilePanelStars', textId = 'mobilePanelRatingText') => {
     const starsContainer = document.getElementById(containerId);
     if (starsContainer) {
         renderStarsInElement(starsContainer, rating);
@@ -936,13 +970,13 @@ document.addEventListener('DOMContentLoaded', () => {
             ratingText.textContent = rating > 0 ? Number(rating).toFixed(1) : '-';
         }
     }
-  }
+  };
 
-  function renderStarsInElement(element, rating) {
+  const renderStarsInElement = (element, rating) => {
     if (!element) return;
     element.innerHTML = '';
     const fullStars = Math.floor(rating);
-    const hasHalf = rating % 1 >= 0.5;
+    const hasHalf = (rating % 1) >= 0.5;
 
     for (let i = 0; i < 5; i++) {
         const star = document.createElement('svg');
@@ -952,9 +986,8 @@ document.addEventListener('DOMContentLoaded', () => {
         star.innerHTML = '<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />';
         element.appendChild(star);
     }
-  }
+  };
 
-  // --- Initialize Table Row Stars ---
   const applyTableStars = () => {
     document.querySelectorAll('.result-row').forEach(row => {
       const rating = parseFloat(row.dataset.rating) || 0;
@@ -964,8 +997,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   };
-
-  applyTableStars();
 
   // --- Lead Management Actions ---
   const statusSelect = document.getElementById('leadStatusSelect');
