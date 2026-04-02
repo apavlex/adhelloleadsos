@@ -798,6 +798,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const auditStatus = document.getElementById('mobilePanelAuditStatus');
     const auditSummary = document.getElementById('mobilePanelAuditSummary');
     if (auditStatus && auditSummary) {
+        // ... (lines omitted for brevity but I will keep the original logic and add Stitch logic after)
+    }
+
+    // Stitch AI Design Logic
+    const stitchPreviewSection = document.getElementById('stitchPreviewSection');
+    const stitchScreenshot = document.getElementById('stitchScreenshot');
+    const stitchDesignLink = document.getElementById('stitchDesignLink');
+    
+    const stitchUrl = row.dataset.stitchDesignUrl;
+    const stitchImg = row.dataset.stitchScreenshotUrl;
+    
+    if (stitchPreviewSection && stitchScreenshot && stitchDesignLink) {
+        if (stitchUrl && stitchUrl !== '' && stitchUrl !== 'null') {
+            stitchScreenshot.src = stitchImg || 'https://via.placeholder.com/400x250?text=AI+Design+Blueprint';
+            stitchDesignLink.href = stitchUrl;
+            stitchPreviewSection.classList.remove('hidden');
+        } else {
+            stitchPreviewSection.classList.add('hidden');
+        }
+    }
         const score = calculateOpportunityScore(row.dataset);
         if (score >= 7) { 
             statusText = 'High Opportunity'; 

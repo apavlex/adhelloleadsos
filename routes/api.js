@@ -143,4 +143,50 @@ router.post('/track', async (req, res) => {
   }
 });
 
+/**
+ * POST /api/leads/stitch-sync
+ * Syncs AI-generated design data (Stitch) to an existing lead record
+ */
+router.post('/leads/stitch-sync', validateApiKey, async (req, res, next) => {
+  try {
+    const { website, title, stitchDesignUrl, stitchScreenshotUrl, stitchScreenId } = req.body;
+    
+    if (!website && !title) {
+        return res.status(400).json({ error: 'Missing website or business title' });
+    }
+
+    console.log(`[STITCH-SYNC] Syncing design for: ${website || title}`);
+
+    // Update existing lead with stitch design info
+    // We'll search by website URL first, then title
+    let leadKey = null;
+    const leads = await dbService.listLeads();
+    const existing = leads.find(l => 
+        (website && l.website && l.website === website) || 
+        (title && l.title && l.title.toLowerCase() === title.toLowerCase())
+    );
+
+    if (existing) {
+        leadKey = existing.key;
+        await dbService.updateLead(leadKey, {
+            stitchDesignUrl: stitchDesignUrl || null,
+            stitchScreenshotUrl: stitchScreenshotUrl || null,
+            stitchScreenId: stitchScreenId || null,
+            status: 'Design Built' // Update status to reflect design progress
+        });
+        
+        // Add activity log
+        await dbService.addLog(leadKey, {
+            type: 'stitch_sync',
+            message: `AI Design Blueprint generated: ${stitchScreenId}`,
+            timestamp: new Date().toISOString()
+        });
+    }
+
+    res.json({ success: !!leadKey, key: leadKey, message: leadKey ? 'Design synced successfully' : 'Lead not found for sync' });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
