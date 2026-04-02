@@ -314,25 +314,37 @@ table {
 .processing-ring {
     position: absolute;
     inset: -6px;
-    border: 2px solid rgba(255, 214, 68, 0.1);
-    border-top-color: var(--brand-yellow);
     border-radius: 50%;
-    animation: spin 0.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
     opacity: 0;
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    filter: drop-shadow(0 0 4px rgba(255, 214, 68, 0.3));
+    transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    background: conic-gradient(
+        from 0deg,
+        transparent 0%,
+        #00f2ff 25%,
+        #004de6 50%,
+        #8a2be2 75%,
+        var(--brand-yellow) 100%
+    );
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2.5px));
+    mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2.5px));
+    filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.4));
 }
 
 .processing-active .processing-ring {
     opacity: 1;
-    inset: -4px;
-    border-width: 2.5px;
-    filter: drop-shadow(0 0 8px rgba(255, 214, 68, 0.6));
+    inset: -5px;
+    animation: alexa-sweep 1.2s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite;
+    filter: drop-shadow(0 0 12px rgba(253, 224, 71, 0.6));
 }
 
 .bell-icon-wrapper {
     position: relative;
     transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
+}
+
+.processing-active .bell-icon-wrapper {
+    transform: scale(1.1);
 }
 
 .bell-icon-wrapper.has-notification::after {
@@ -351,9 +363,10 @@ table {
     animation: bell-shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
 }
 
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+@keyframes alexa-sweep {
+    0% { transform: rotate(0deg); filter: hue-rotate(0deg) brightness(1.2); }
+    50% { transform: rotate(180deg); filter: hue-rotate(90deg) brightness(1.5); }
+    100% { transform: rotate(360deg); filter: hue-rotate(0deg) brightness(1.2); }
 }
 
 @keyframes bell-shake {

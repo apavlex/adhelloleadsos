@@ -70,6 +70,9 @@ router.post('/', async (req, res, next) => {
     const searchKey = await dbService.saveSearch(searchRecord);
     console.log(`[SEARCH] Saved to DB with key: ${searchKey}`);
 
+    // Get all bookmarked leads to sync bookmark status on the results page
+    const savedLeads = await dbService.getAllLeads();
+
     res.render('results', {
       title: `Results: ${keyword} in ${city}, ${state}`,
       activePage: 'search',
@@ -79,6 +82,7 @@ router.post('/', async (req, res, next) => {
       maxResults,
       results,
       searchKey,
+      savedLeads,
       message: null,
     });
   } catch (err) {
@@ -116,6 +120,9 @@ router.get('/:key', async (req, res, next) => {
       });
     }
 
+    // Get all bookmarked leads to sync bookmark status on the results page
+    const savedLeads = await dbService.getAllLeads();
+
     res.render('results', {
       title: `Results: ${data.keyword} in ${data.city}, ${data.state}`,
       activePage: 'search',
@@ -125,6 +132,7 @@ router.get('/:key', async (req, res, next) => {
       maxResults: data.maxResults,
       results: data.results || [],
       searchKey: fullKey,
+      savedLeads,
       message: null,
     });
   } catch (err) {

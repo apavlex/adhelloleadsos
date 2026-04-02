@@ -7,14 +7,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateProcessingStatus = (isActive) => {
     if (!processingIndicator) return;
-    activeProcessingCount = isActive ? activeProcessingCount + 1 : Math.max(0, activeProcessingCount - 1);
+    
+    if (isActive) {
+      activeProcessingCount++;
+    } else {
+      activeProcessingCount = Math.max(0, activeProcessingCount - 1);
+    }
     
     if (activeProcessingCount > 0) {
       processingIndicator.classList.add('processing-active');
-      processingIndicator.classList.add('animate-pulse');
     } else {
       processingIndicator.classList.remove('processing-active');
-      processingIndicator.classList.remove('animate-pulse');
       notifyProcessingDone();
     }
   };
@@ -90,16 +93,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateOpportunityBadges = () => {
     document.querySelectorAll('.result-row').forEach(row => {
-      const badgeContainer = row.querySelector('.opportunity-badge');
-      if (badgeContainer) {
-        badgeContainer.innerHTML = renderOpportunityBadges(row);
-        badgeContainer.dataset.score = calculateOpportunityScore(row.dataset);
+      try {
+        const badgeContainer = row.querySelector('.opportunity-badge');
+        if (badgeContainer) {
+          badgeContainer.innerHTML = renderOpportunityBadges(row);
+          badgeContainer.dataset.score = calculateOpportunityScore(row.dataset);
+        }
+      } catch (err) {
+        console.error('Error rendering opportunity badge for row:', err);
       }
     });
   };
 
   // Initial calculation and automatic sorting
-  updateOpportunityBadges();
+  setTimeout(updateOpportunityBadges, 0);
   
   const sortLeadsByOpportunity = (isAscending = false) => {
     const tableBody = document.querySelector('tbody');
@@ -230,6 +237,27 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   // --- Track saved leads (title -> key mapping) ---
   const savedLeads = new Map();
+  if (window.INITIAL_SAVED_LEADS && Array.isArray(window.INITIAL_SAVED_LEADS)) {
+    window.INITIAL_SAVED_LEADS.forEach(l => {
+      if (l.title && l.key) {
+        savedLeads.set(l.title.trim(), l.key);
+      }
+    });
+  }
+
+  // Sync bookmark icons in table on load
+  const syncBookmarkIcons = () => {
+      document.querySelectorAll('.result-row').forEach(row => {
+          const title = row.dataset.title;
+          if (title && savedLeads.has(title.trim())) {
+              const key = savedLeads.get(title.trim());
+              row.dataset.leadKey = key;
+              const bookmarkBtn = row.querySelector('.bookmark-btn');
+              if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
+          }
+      });
+  };
+  syncBookmarkIcons();
 
   // --- Search form loading state ---
   const form = document.getElementById('searchForm');
@@ -287,16 +315,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const isSchedule = searchModeInput && searchModeInput.value === 'schedule';
       
       if (!isSchedule) {
+        // Trigger Alexa Progress Ring
+        updateProcessingStatus(true);
+        
         if (btn) {
           btn.disabled = true;
           btn.innerHTML = `
-            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 animate-spin text-brand-dark" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
-            Searching...
+            <span class="ml-2">Searching...</span>
           `;
-          btn.classList.add('opacity-50', 'cursor-not-allowed');
+          btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-pulse');
         }
         if (loader) {
           loader.classList.remove('hidden');
