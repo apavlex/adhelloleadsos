@@ -106,9 +106,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Initial calculation and automatic sorting
-  setTimeout(updateOpportunityBadges, 0);
-  
-  const sortLeadsByOpportunity = (isAscending = false) => {
+  setTimeout(() => {
+    console.log('[DEBUG] Running updateOpportunityBadges...');
+    updateOpportunityBadges();
+    sortLeadsByOpportunity(false);
+  }, 500); // 500ms delay to ensure DOM is fully ready and styles applied
     const tableBody = document.querySelector('tbody');
     if (!tableBody) return;
     const rows = Array.from(tableBody.querySelectorAll('.result-row'));
@@ -1269,7 +1271,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   });
-});
 
   // --- Remove from Leads button (leads page) ---
   const removeButtons = ['panelRemoveBtn', 'mobilePanelRemoveBtn'];
