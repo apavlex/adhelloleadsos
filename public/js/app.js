@@ -1232,38 +1232,44 @@ document.addEventListener('DOMContentLoaded', () => {
       }
   });
 
-  // --- Bookmark icons in table rows (results page) ---
-  const bookmarkBtns = document.querySelectorAll('.bookmark-btn');
-  bookmarkBtns.forEach((bookmarkBtn) => {
-    bookmarkBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      const row = bookmarkBtn.closest('.result-row');
-      if (!row) return;
+  // --- Bookmark icons in table rows (Delegated for reliability) ---
+  document.addEventListener('click', async (e) => {
+    const bookmarkBtn = e.target.closest('.bookmark-btn');
+    if (!bookmarkBtn) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const row = bookmarkBtn.closest('.result-row');
+    if (!row) return;
 
-      const title = row.dataset.title;
-      const isSaved = savedLeads.has(title);
+    const title = row.dataset.title;
+    if (!title) return;
+    
+    const isSaved = savedLeads.has(title.trim());
+    console.log(`[BOOKMARK] Action for: ${title} (Currently Saved: ${isSaved})`);
 
-      if (isSaved) {
-        await unsaveLead(row);
-        // Sync panel button if this row is currently selected
-        if (currentRow === row) {
-          panelSaveButtons.forEach(id => {
-              const b = document.getElementById(id);
-              if (b) markPanelBtnUnsaved(b);
-          });
-        }
-      } else {
-        await saveLead(row);
-        // Sync panel button if this row is currently selected
-        if (currentRow === row) {
-          panelSaveButtons.forEach(id => {
-              const b = document.getElementById(id);
-              if (b) markPanelBtnSaved(b);
-          });
-        }
+    if (isSaved) {
+      await unsaveLead(row);
+      // Sync panel button if this row is currently selected
+      if (currentRow === row) {
+        panelSaveButtons.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) markPanelBtnUnsaved(b);
+        });
       }
-    });
+    } else {
+      await saveLead(row);
+      // Sync panel button if this row is currently selected
+      if (currentRow === row) {
+        panelSaveButtons.forEach(id => {
+          const b = document.getElementById(id);
+          if (b) markPanelBtnSaved(b);
+        });
+      }
+    }
   });
+});
 
   // --- Remove from Leads button (leads page) ---
   const removeButtons = ['panelRemoveBtn', 'mobilePanelRemoveBtn'];
