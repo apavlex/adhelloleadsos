@@ -6,7 +6,7 @@ router.get('/', async (req, res) => {
   const leads = await dbService.getAllLeads();
   const adhelloLeads = leads.filter(l => l.source && l.source.startsWith('adhello_'));
   res.render('index', {
-    title: 'Leads AI Agent',
+    title: 'Agency OS | Agent',
     activePage: 'search',
     savedLeadsCount: adhelloLeads.length
   });

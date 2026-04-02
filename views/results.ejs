@@ -17,7 +17,7 @@
           <% if (keyword) { %>
             <%= keyword %> <span class="text-brand-muted">in</span> <%= city %>
           <% } else { %>
-            Lead Results
+            Agency OS Results
           <% } %>
         </h1>
         <p class="text-brand-muted font-medium mt-2">
@@ -144,11 +144,12 @@
                         <span class="text-[9px] font-black text-brand-muted uppercase tracking-widest leading-none">Vetting...</span>
                     </div>
                   </td>
-                  <td class="px-6 py-5 text-sm font-medium text-brand-muted"                    <% if (place.website && place.website !== 'N/A') { %>
+                  <td class="px-6 py-5 text-sm font-medium text-brand-muted">
+                    <% if (place.website && place.website !== 'N/A') { %>
                         <a href="<%= place.website %>" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[150px] truncate" title="<%= place.website %>">
                           <%= place.website.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '') %>
                         </a>
-                    <% } else { %>%>
+                    <% } else { %>
                       -
                     <% } %>
                   </td>
