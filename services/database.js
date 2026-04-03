@@ -283,4 +283,52 @@ module.exports = {
     }
     return visits;
   },
+
+  // --- Background Tasks / Notifications ---
+
+  async setActiveJob(jobData) {
+    const key = 'active_job';
+    await db.set(key, JSON.stringify({ 
+      ...jobData, 
+      status: 'processing',
+      startedAt: new Date().toISOString() 
+    }));
+  },
+
+  async getActiveJob() {
+    const data = await db.get('active_job');
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  },
+
+  async clearActiveJob() {
+    // Before clearing, we store it as the latest completed job for notifications
+    const active = await this.getActiveJob();
+    if (active) {
+      await db.set('latest_finished_job', JSON.stringify({
+        ...active,
+        status: 'completed',
+        finishedAt: new Date().toISOString(),
+        isRead: false
+      }));
+    }
+    await db.delete('active_job');
+  },
+
+  async getLatestFinishedJob() {
+    const data = await db.get('latest_finished_job');
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  },
+
+  async markNotificationRead() {
+    const data = await this.getLatestFinishedJob();
+    if (data) {
+      await db.set('latest_finished_job', JSON.stringify({ ...data, isRead: true }));
+    }
+  }
 };

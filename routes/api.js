@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { enrichLead } = require('../services/firecrawl');
+const { cleanBusinessName } = require('../utils/nameCleaner');
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -26,6 +27,8 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       email, 
       phone,
       totalScore,
+      auditUrl,
+      blueprintId,
       auditData,
       adBriefData,
       chatHistory,
@@ -38,15 +41,18 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       vibe
     } = req.body;
 
-    if (!title && !email) {
-      return res.status(400).json({ error: 'Business title or Email is required.' });
+    if (!title && !email && !website) {
+      return res.status(400).json({ error: 'Business title, Website, or Email is required.' });
     }
+
+    // Clean the business name if it's a domain/URL
+    const normalizedTitle = title ? cleanBusinessName(title) : (website ? cleanBusinessName(website) : 'New Lead');
 
     const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 
     // Prepare lead data for merge/save
     const leadData = {
-      title: title || 'New Lead',
+      title: normalizedTitle,
       website: website || 'N/A',
       email: email || 'N/A',
       phone: phone || 'N/A',
@@ -55,6 +61,8 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       ip: clientIp,
       source: source || 'adhello_audit',
       totalScore: parseFloat(totalScore) || 0,
+      auditUrl: auditUrl || null,
+      blueprintId: blueprintId || null,
       auditData: auditData || null,
       adBriefData: adBriefData || null,
       chatHistory: chatHistory || [],
@@ -146,6 +154,38 @@ router.post('/track', async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error('[ANALYTICS] Tracking error:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/status
+ * Returns current background job status and latest notification
+ */
+router.get('/status', async (req, res) => {
+  try {
+    const activeJob = await dbService.getActiveJob();
+    const latestFinished = await dbService.getLatestFinishedJob();
+    
+    res.json({
+      isProcessing: !!activeJob,
+      activeJob: activeJob || null,
+      notification: latestFinished || null
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/notifications/read
+ * Marks the latest notification as read
+ */
+router.post('/notifications/read', async (req, res) => {
+  try {
+    await dbService.markNotificationRead();
+    res.json({ success: true });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });

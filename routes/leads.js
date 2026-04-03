@@ -3,10 +3,13 @@ const router = express.Router();
 const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
 
-// GET /leads — show all saved leads
+// GET /leads — show all saved leads (excluding inbound AdHello leads)
 router.get('/', async (req, res, next) => {
   try {
-    const leads = await dbService.getAllLeads();
+    const allLeads = await dbService.getAllLeads();
+    // Exclude leads from adhello sources as they go to the inbound tab
+    const leads = allLeads.filter(l => !l.source || !l.source.startsWith('adhello_'));
+    
     res.render('leads', {
       title: 'Saved Leads',
       activePage: 'leads',
