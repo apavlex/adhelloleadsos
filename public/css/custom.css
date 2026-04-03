@@ -121,6 +121,8 @@ h1, h2, h3, h4, .font-display {
 
 #mobilePanel.open {
     display: flex !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
 }
 
 #mobilePanel > div {

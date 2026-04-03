@@ -10,25 +10,109 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (isActive) {
       activeProcessingCount++;
+      localStorage.setItem('is_searching', 'true');
     } else {
       activeProcessingCount = Math.max(0, activeProcessingCount - 1);
+      if (activeProcessingCount === 0) {
+        localStorage.removeItem('is_searching');
+      }
     }
     
-    if (activeProcessingCount > 0) {
+    if (activeProcessingCount > 0 || localStorage.getItem('is_searching') === 'true') {
       processingIndicator.classList.add('processing-active');
     } else {
       processingIndicator.classList.remove('processing-active');
-      notifyProcessingDone();
     }
   };
 
-  const notifyProcessingDone = () => {
-    if (!processingIndicator) return;
-    processingIndicator.classList.add('bell-shake');
-    setTimeout(() => {
-      processingIndicator.classList.remove('bell-shake');
-    }, 1000);
+  const notificationPing = document.getElementById('notificationPing');
+  const notificationDropdown = document.getElementById('notificationDropdown');
+  const notificationList = document.getElementById('notificationList');
+
+  const pollStatus = async () => {
+    try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        
+        // 1. Handle Loading Ring
+        if (data.isProcessing) {
+            processingIndicator.classList.add('processing-active');
+            localStorage.setItem('is_searching', 'true');
+        } else {
+            processingIndicator.classList.remove('processing-active');
+            localStorage.removeItem('is_searching');
+        }
+
+        // 2. Handle Notifications
+        if (data.notification && !data.notification.isRead) {
+            notificationPing.classList.remove('hidden');
+            notificationPing.classList.add('animate-ping');
+            
+            // Populate list
+            if (notificationList) {
+                const n = data.notification;
+                notificationList.innerHTML = `
+                    <div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" onclick="window.location.href='/history'">
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 rounded-full bg-brand-yellow/10 flex items-center justify-center text-brand-yellow shrink-0">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            </div>
+                            <div>
+                                <div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">Ready for Review</div>
+                                <div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">
+                                    Search for <span class="text-brand-dark dark:text-slate-200">"${n.keyword}"</span> is complete. Link to results is ready.
+                                </div>
+                                <div class="mt-2 flex items-center gap-2">
+                                    <span class="text-[9px] font-black uppercase text-brand-yellow group-hover/notif:translate-x-1 transition-transform">View Results →</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        } else {
+            notificationPing.classList.add('hidden');
+            if (notificationList) {
+                notificationList.innerHTML = `
+                    <div class="p-8 text-center text-brand-muted dark:text-slate-500 italic text-[11px]">
+                        No new notifications
+                    </div>
+                `;
+            }
+        }
+    } catch (err) {
+        console.warn('[STATUS-POLL] Failed to fetch status:', err);
+    }
   };
+
+  // Start polling
+  setInterval(pollStatus, 5000);
+  pollStatus(); // Initial call
+
+  // Bell Click Toggle
+  if (processingIndicator) {
+    processingIndicator.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const isHidden = notificationDropdown.classList.contains('hidden');
+        
+        // Toggle
+        if (isHidden) {
+            notificationDropdown.classList.remove('hidden');
+            // Mark as read
+            await fetch('/api/notifications/read', { method: 'POST' });
+            notificationPing.classList.add('hidden');
+        } else {
+            notificationDropdown.classList.add('hidden');
+        }
+    });
+  }
+
+  // Close dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (notificationDropdown && !notificationDropdown.contains(e.target)) {
+        notificationDropdown.classList.add('hidden');
+    }
+  });
 
   const calculateOpportunityScore = (lead) => {
     let score = 0;
@@ -378,16 +462,14 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileMenu.addEventListener('click', (e) => {
       if (e.target === mobileMenu) closeNav();
     });
-  }
-
-  // --- Detail panel & rows ---
-    const mobilePanel = document.getElementById('mobilePanel');
-    const closeMobileBtn = document.getElementById('closeMobilePanel');
-    const prevLeadBtn = document.getElementById('prevLeadBtn');
-    const nextLeadBtn = document.getElementById('nextLeadBtn');
-    let rows = document.querySelectorAll('.result-row');
-    let currentRow = null;
-    let currentIndex = -1;
+   // --- Detail panel & rows ---
+  const mobilePanel = document.getElementById('mobilePanel');
+  const closeMobileBtn = document.getElementById('closeMobilePanel');
+  const prevLeadBtn = document.getElementById('prevLeadBtn');
+  const nextLeadBtn = document.getElementById('nextLeadBtn');
+  let rows = document.querySelectorAll('.result-row');
+  let currentRow = null;
+  let currentIndex = -1;
 
   // Determine page type
   const isLeadsPage = !!document.getElementById('mobilePanelRemoveBtn');
@@ -403,7 +485,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         // Pre-fill bookmark icons for already-saved leads
         rows.forEach((row) => {
-          const title = row.dataset.title.trim();
+          const title = (row.dataset.title || "").trim();
           if (savedLeads.has(title)) {
             row.dataset.leadKey = savedLeads.get(title);
             const bookmarkBtn = row.querySelector('.bookmark-btn');
@@ -414,11 +496,62 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch((err) => console.error('Failed to fetch saved leads:', err));
   }
 
+  // --- Centralized Row Selection Logic ---
+  const selectRow = (row) => {
+    if (!row) return;
+
+    // Remove existing selection
+    rows.forEach((r) => r.classList.remove('selected'));
+    row.classList.add('selected');
+    
+    currentRow = row;
+    currentIndex = Array.from(rows).indexOf(row);
+
+    // Update nav button visibility/state
+    if (prevLeadBtn) prevLeadBtn.style.opacity = currentIndex > 0 ? '1' : '0.3';
+    if (nextLeadBtn) nextLeadBtn.style.opacity = currentIndex < rows.length - 1 ? '1' : '0.3';
+
+    populatePanel(row);
+
+    // Update panel save button state (results page)
+    if (isResultsPage) {
+      const mobileSaveBtn = document.getElementById('mobilePanelSaveBtn');
+      if (mobileSaveBtn) {
+        if (savedLeads.has(row.dataset.title)) {
+          markPanelBtnSaved(mobileSaveBtn);
+        } else {
+          markPanelBtnUnsaved(mobileSaveBtn);
+        }
+      }
+    }
+
+    // OPEN SIDEBAR / PANEL
+    if (mobilePanel) {
+      mobilePanel.style.display = 'flex';
+      mobilePanel.classList.remove('hidden');
+      
+      // Lock scroll
+      document.body.style.overflow = 'hidden'; 
+      
+      // Trigger entrance
+      setTimeout(() => {
+          mobilePanel.classList.add('open');
+          mobilePanel.classList.replace('opacity-0', 'opacity-100');
+          mobilePanel.style.pointerEvents = 'auto';
+          
+          const childDiv = mobilePanel.querySelector('div');
+          if (childDiv) {
+              childDiv.classList.remove('translate-y-full', 'translate-x-full');
+              childDiv.style.display = 'block';
+          }
+      }, 10);
+    }
+  };
+
   // --- Row click -> open slide-up detail panel (Universal) ---
   if (mobilePanel && rows.length > 0) {
     rows.forEach((row) => {
       row.style.cursor = 'pointer'; // Ensure it looks clickable
-      
       row.addEventListener('click', (e) => {
         // Stop if clicking specific interactive elements
         if (e.target.type === 'checkbox' || 
@@ -428,56 +561,18 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
 
-        console.log('Row clicked:', row.dataset.title);
-        
-        // Remove existing selection
-        rows.forEach((r) => r.classList.remove('selected'));
-        row.classList.add('selected');
-        
-        currentRow = row;
-        currentIndex = Array.from(rows).indexOf(row);
-
-        // Update nav button visibility/state
-        if (prevLeadBtn) prevLeadBtn.style.opacity = currentIndex > 0 ? '1' : '0.3';
-        if (nextLeadBtn) nextLeadBtn.style.opacity = currentIndex < rows.length - 1 ? '1' : '0.3';
-
-        populatePanel(row);
-
-        // Update panel save button state (results page)
-        if (isResultsPage) {
-          const mobileSaveBtn = document.getElementById('mobilePanelSaveBtn');
-          if (mobileSaveBtn) {
-            if (savedLeads.has(row.dataset.title)) {
-              markPanelBtnSaved(mobileSaveBtn);
-            } else {
-              markPanelBtnUnsaved(mobileSaveBtn);
-            }
-          }
-        }
-
-        // OPEN SIDEBAR / PANEL
-        console.log('Opening sidebar for:', row.dataset.title);
-        
-        // 1. Prepare container
-        mobilePanel.style.display = 'flex';
-        mobilePanel.classList.remove('hidden');
-        
-        // 2. Lock scroll
-        document.body.style.overflow = 'hidden'; 
-        
-        // 3. Trigger entrance with slight delay for browser paint
-        setTimeout(() => {
-            mobilePanel.classList.add('open');
-            mobilePanel.classList.replace('opacity-0', 'opacity-100');
-            mobilePanel.style.pointerEvents = 'auto';
-            
-            const childDiv = mobilePanel.querySelector('div');
-            if (childDiv) {
-                childDiv.classList.remove('translate-y-full', 'translate-x-full');
-                childDiv.style.display = 'block';
-            }
-        }, 10);
+        selectRow(row);
       });
+    });
+
+    // Specific Detail Button Trigger (Reliability)
+    document.addEventListener('click', (e) => {
+      const detailBtn = e.target.closest('.view-detail-btn');
+      if (detailBtn) {
+        e.stopPropagation();
+        const row = detailBtn.closest('.result-row');
+        if (row) selectRow(row);
+      }
     });
 
     if (closeMobileBtn) {
@@ -489,6 +584,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = '';
             rows.forEach((r) => r.classList.remove('selected'));
             currentRow = null;
+            currentIndex = -1;
         });
     }
 
@@ -498,7 +594,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (currentIndex > 0) {
                 const prevRow = rows[currentIndex - 1];
-                prevRow.click();
+                selectRow(prevRow);
             }
         });
     }
@@ -508,7 +604,7 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             if (currentIndex < rows.length - 1) {
                 const nextRow = rows[currentIndex + 1];
-                nextRow.click();
+                selectRow(nextRow);
             }
         });
     }
@@ -528,9 +624,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Sticky Title Scroll Logic
-    const panelContent = mobilePanel.querySelector('div.overflow-y-auto');
-    if (panelContent) {
-        // Scroll logic removed - title is now always visible
+    if (mobilePanel) {
+      const panelContent = mobilePanel.querySelector('div.overflow-y-auto');
+      if (panelContent) {
+          // Scroll logic removed - title is now always visible
+      }
     }
   }
 
@@ -660,14 +758,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="p-6 bg-brand-yellow/5 dark:bg-brand-yellow/10 rounded-[2.5rem] border border-brand-yellow/20 relative overflow-hidden group/audit">
                         <div class="absolute -right-4 -top-4 w-20 h-20 bg-brand-yellow/10 rounded-full blur-2xl group-hover/audit:bg-brand-yellow/20 transition-all"></div>
                         <div class="relative z-10">
-                            <div class="flex items-center gap-3 mb-5">
-                                <div class="w-8 h-8 rounded-xl bg-brand-yellow flex items-center justify-center text-brand-dark shadow-lg shadow-brand-yellow/20">
-                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                            <div class="flex items-center justify-between gap-3 mb-5">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-8 h-8 rounded-xl bg-brand-yellow flex items-center justify-center text-brand-dark shadow-lg shadow-brand-yellow/20">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                                    </div>
+                                    <div>
+                                        <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-yellow mb-0.5">AdHello Audit Intelligence</h4>
+                                        <p class="text-xs font-black text-brand-dark dark:text-white">External Report Data</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-yellow mb-0.5">AdHello Audit Intelligence</h4>
-                                    <p class="text-xs font-black text-brand-dark dark:text-white">External Report Data</p>
-                                </div>
+                                ${row.dataset.auditUrl ? `
+                                    <a href="${row.dataset.auditUrl}" target="_blank" class="px-4 py-2 bg-brand-yellow text-brand-dark rounded-xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-brand-yellow/20 flex items-center gap-2">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                        Full Report
+                                    </a>
+                                ` : ''}
                             </div>
                             
                             <div class="grid grid-cols-3 gap-3 mb-5">
@@ -1797,6 +1903,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (targetStatus === 'Needs Video' && leadStatus === 'Needs Video') shouldInclude = true;
             if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
+            if (targetStatus === 'Lead Captured' && leadStatus === 'Lead Captured') shouldInclude = true;
+            if (targetStatus === 'Blueprint Purchased' && leadStatus === 'Blueprint Purchased') shouldInclude = true;
             if (targetStatus === 'Action Ongoing' && ['Video Recorded', 'Called Lead', 'Email Sent', 'Follow-up'].includes(leadStatus)) shouldInclude = true;
             if (targetStatus === 'Finished' && ['Closed - Won', 'Closed - Lost'].includes(leadStatus)) shouldInclude = true;
 
