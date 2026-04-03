@@ -191,10 +191,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial calculation and automatic sorting
   setTimeout(() => {
-    console.log('[DEBUG] Running updateOpportunityBadges...');
+    console.log('[DEBUG] Running initial opportunity analysis...');
     updateOpportunityBadges();
     sortLeadsByOpportunity(false);
-  }, 500); 
+  }, 300); 
+
+  // Secondary backup for slower renders
+  setTimeout(updateOpportunityBadges, 1500);
   
   const sortLeadsByOpportunity = (isAscending) => {
     const tableBody = document.querySelector('tbody');
@@ -1561,48 +1564,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateBulkActionBar = () => {
     const count = selectedKeys.size;
-    if (selectedCountCircle) selectedCountCircle.textContent = count;
     
-    if (count > 0) {
-      bulkActionBar.style.pointerEvents = 'auto';
-      bulkActionBar.classList.remove('opacity-0', 'translate-y-20');
-      bulkActionBar.classList.add('opacity-100', 'translate-y-0');
-    } else {
-      bulkActionBar.style.pointerEvents = 'none';
-      bulkActionBar.classList.remove('opacity-100', 'translate-y-0');
-      bulkActionBar.classList.add('opacity-0', 'translate-y-20');
+    // Update footer bar (common in leads.ejs and added to results.ejs)
+    if (selectedCountCircle) selectedCountCircle.textContent = count;
+    if (bulkActionBar) {
+      if (count > 0) {
+        bulkActionBar.classList.remove('opacity-0', 'translate-y-20', 'pointer-events-none');
+        bulkActionBar.classList.add('opacity-100', 'translate-y-0');
+        bulkActionBar.style.pointerEvents = 'auto';
+      } else {
+        bulkActionBar.classList.add('opacity-0', 'translate-y-20', 'pointer-events-none');
+        bulkActionBar.classList.remove('opacity-100', 'translate-y-0');
+        bulkActionBar.style.pointerEvents = 'none';
+      }
+    }
+
+    // Update header bar (specific to results.ejs)
+    const headerBulkActions = document.getElementById('headerBulkActions');
+    const headerSelectedCount = document.getElementById('headerSelectedCount');
+    if (headerBulkActions) {
+      if (count > 0) {
+        headerBulkActions.classList.remove('hidden');
+        headerBulkActions.classList.add('flex');
+        if (headerSelectedCount) headerSelectedCount.textContent = count;
+      } else {
+        headerBulkActions.classList.add('hidden');
+        headerBulkActions.classList.remove('flex');
+      }
     }
   };
 
   if (selectAllLeads) {
     selectAllLeads.addEventListener('change', (e) => {
       const isChecked = e.target.checked;
-      leadCheckboxes.forEach(cb => {
+      const allCheckboxes = document.querySelectorAll('.lead-checkbox');
+      
+      allCheckboxes.forEach(cb => {
         cb.checked = isChecked;
         const key = cb.dataset.key;
-        if (isChecked) selectedKeys.add(key);
-        else selectedKeys.delete(key);
+        if (isChecked) {
+          if (key) selectedKeys.add(key);
+        } else {
+          if (key) selectedKeys.delete(key);
+        }
       });
       updateBulkActionBar();
     });
   }
 
-  leadCheckboxes.forEach(cb => {
-    cb.addEventListener('change', (e) => {
+  // Delegate checkbox clicks for better reliability
+  document.addEventListener('change', (e) => {
+    if (e.target.classList.contains('lead-checkbox')) {
+      const cb = e.target;
       const key = cb.dataset.key;
-      if (e.target.checked) selectedKeys.add(key);
-      else {
-        selectedKeys.delete(key);
+      if (cb.checked) {
+        if (key) selectedKeys.add(key);
+      } else {
+        if (key) selectedKeys.delete(key);
         if (selectAllLeads) selectAllLeads.checked = false;
       }
       updateBulkActionBar();
-    });
+    }
   });
 
   if (cancelSelectionBtn) {
     cancelSelectionBtn.addEventListener('click', () => {
       selectedKeys.clear();
-      leadCheckboxes.forEach(cb => cb.checked = false);
+      document.querySelectorAll('.lead-checkbox').forEach(cb => cb.checked = false);
       if (selectAllLeads) selectAllLeads.checked = false;
       updateBulkActionBar();
     });

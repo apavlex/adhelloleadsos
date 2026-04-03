@@ -25,22 +25,12 @@
         </p>
       </div>
       <div class="flex flex-col sm:flex-row items-center gap-4">
-        <div id="bulkActions" class="hidden items-center gap-3">
-          <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted"><span id="selectedCount" class="text-brand-dark mr-1 text-sm">0</span> selected</span>
-          <button id="bulkEnhanceBtn" class="btn-pill bg-brand-yellow/10 border border-brand-yellow/30 text-brand-dark hover:bg-brand-yellow px-4 py-2 text-sm font-bold shadow-sm transition-all text-brand-dark">
-            ✨ Enrich Leads
-          </button>
-          <button id="bulkExportBtn" class="btn-pill bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 px-4 py-2 text-sm font-bold shadow-sm flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-            Export CSV
-          </button>
-          <button id="bulkSaveBtn" class="btn-pill btn-primary px-4 py-2 text-sm font-bold shadow-sm">
-            Save Leads
-          </button>
-          <button id="batchOutreachBtn" class="btn-pill bg-rose-500/10 border border-rose-500/30 text-rose-600 hover:bg-rose-500 hover:text-white px-4 py-2 text-sm font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
-            War Room
-          </button>
+        <!-- Bulk Actions (Dynamic) -->
+        <div id="headerBulkActions" class="hidden items-center gap-3">
+          <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted"><span id="headerSelectedCount" class="text-brand-dark mr-1 text-sm font-black">0</span> selected</span>
+          <button id="headerBulkEnhanceBtn" class="btn-pill bg-brand-yellow/10 border border-brand-yellow/30 text-brand-dark hover:bg-brand-yellow px-4 py-2 text-sm font-bold shadow-sm transition-all">✨ Enrich</button>
+          <button id="headerBulkExportBtn" class="btn-pill bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 px-4 py-2 text-sm font-bold shadow-sm flex items-center gap-2">Export CSV</button>
+          <button id="headerBulkSaveBtn" class="btn-pill btn-primary px-4 py-2 text-sm font-bold shadow-sm">Save Leads</button>
         </div>
         <a href="/" id="newSearchBtn" class="btn-pill btn-primary flex">
           <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -111,7 +101,7 @@
                     data-geo-gaps=""
                     data-audit-summary="">
                   <td class="px-6 py-5">
-                    <input type="checkbox" class="row-checkbox rounded border-brand-border text-brand-yellow focus:ring-brand-yellow">
+                    <input type="checkbox" class="lead-checkbox rounded border-brand-border text-brand-yellow focus:ring-brand-yellow cursor-pointer" data-key="<%= i %>">
                   </td>
                   <td class="px-6 py-5">
                     <div class="font-bold text-brand-dark group-hover:text-black transition-colors max-w-[150px] truncate" title="<%= place.title %>"><%= place.title %></div>
@@ -210,6 +200,33 @@
         <a href="/" class="btn-pill btn-primary px-10">Try Another Search</a>
       </div>
     <% } %>
+    <%- include('partials/lead_detail_panel') %>
+    
+    <!-- Floating Bulk Actions Bar (Consistent with Saved Leads) -->
+    <div id="bulkActionBar" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-brand-dark text-white px-8 py-5 rounded-[2.5rem] shadow-2xl z-[150] flex items-center gap-8 opacity-0 translate-y-20 pointer-events-none transition-all duration-500 backdrop-blur-xl border border-white/10">
+        <div class="flex items-center gap-4 border-r border-white/10 pr-8">
+            <div id="selectedCountCircle" class="w-10 h-10 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center font-black text-sm shadow-lg">0</div>
+            <div class="text-sm font-bold text-white/90">Leads Selected</div>
+        </div>
+        
+        <div class="flex items-center gap-4">
+            <button id="bulkEnhanceBtn" class="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-brand-yellow transition-all group overflow-hidden relative">
+               <svg class="w-4 h-4 text-brand-yellow group-hover:animate-sparkle" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+               <span class="text-xs font-black uppercase tracking-widest">Enrich</span>
+            </button>
+            <button id="bulkExportBtn" class="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-400 transition-all group">
+               <svg class="w-4 h-4 text-blue-400 group-hover:translate-y-[-2px] transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
+               <span class="text-xs font-black uppercase tracking-widest">Export CSV</span>
+            </button>
+            <button id="bulkSaveBtn" class="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-brand-yellow text-brand-dark hover:scale-105 transition-all group">
+               <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
+               <span class="text-xs font-black uppercase tracking-widest">Save Leads</span>
+            </button>
+            
+            <div class="w-px h-6 bg-white/10 mx-2"></div>
+            <button id="cancelSelectionBtn" class="text-xs font-bold text-white/50 hover:text-white transition-colors uppercase tracking-widest">Cancel</button>
+        </div>
+    </div>
   </main>
 
   <%- include('partials/lead_detail_panel') %>
