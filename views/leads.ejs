@@ -9,6 +9,23 @@
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-8">
+    <% if (typeof importError !== 'undefined' && importError) { %>
+      <div class="mb-8 rounded-2xl border border-rose-200 bg-rose-50 dark:bg-rose-950/30 dark:border-rose-800 px-6 py-4">
+        <p class="text-sm font-semibold text-rose-900 dark:text-rose-100">Import failed: <%= importError %></p>
+        <a href="/leads" class="mt-2 inline-block text-xs font-black uppercase text-rose-800 dark:text-rose-200 underline">Dismiss</a>
+      </div>
+    <% } %>
+    <% if (typeof importNotice !== 'undefined' && importNotice) { %>
+      <div class="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">
+          CSV import finished:
+          <strong><%= importNotice.imported %></strong> saved
+          <% if (importNotice.skipped > 0) { %>, <strong><%= importNotice.skipped %></strong> skipped<% } %>
+          <% if (importNotice.failed > 0) { %>, <strong><%= importNotice.failed %></strong> failed<% } %>.
+        </p>
+        <a href="/leads" class="text-xs font-black uppercase text-emerald-800 dark:text-emerald-200 underline shrink-0">Dismiss</a>
+      </div>
+    <% } %>
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
       <div>
         <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
@@ -27,6 +44,16 @@
             <button id="showTableView" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all bg-brand-yellow text-brand-dark shadow-sm">Table</button>
             <button id="showKanbanView" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-brand-muted hover:text-brand-dark">Kanban</button>
         </div>
+        <form action="/leads/import" method="post" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+          <label class="relative flex-1 min-w-0 cursor-pointer group">
+            <input type="file" name="csvfile" accept=".csv,text/csv" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="CSV with columns like company_name, phone_number, company_website">
+            <span class="flex items-center justify-center gap-2 px-4 py-3 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white shadow-sm group-hover:bg-brand-cream dark:group-hover:bg-slate-800 transition-colors truncate">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" /></svg>
+              Import CSV
+            </span>
+          </label>
+          <button type="submit" class="btn-pill bg-slate-900 text-white dark:bg-white dark:text-slate-900 px-5 py-3 text-xs font-black uppercase tracking-widest shadow-sm whitespace-nowrap">Upload</button>
+        </form>
         <a href="/" class="btn-pill btn-primary">
           <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -35,6 +62,9 @@
         </a>
       </div>
     </div>
+    <p class="text-[11px] font-medium text-brand-muted/80 -mt-8 mb-10 max-w-2xl">
+      CSV import maps Agency-style exports (e.g. <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">company_name</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">company_location</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">phone_number</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">company_website</code>, emails) into saved leads. Rows with the same email merge with an existing lead.
+    </p>
 
     <% if (leads.length > 0) { %>
       <!-- Bulk Actions Bar (for Leads) -->

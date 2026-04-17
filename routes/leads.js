@@ -1,7 +1,24 @@
 const express = require('express');
+const multer = require('multer');
 const router = express.Router();
 const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
+const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
+
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 20 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const name = (file.originalname || '').toLowerCase();
+    const ok =
+      name.endsWith('.csv') ||
+      file.mimetype === 'text/csv' ||
+      file.mimetype === 'application/csv' ||
+      file.mimetype === 'application/vnd.ms-excel';
+    if (ok) cb(null, true);
+    else cb(new Error('Upload a .csv file only.'));
+  },
+});
 
 // GET /leads — show all saved leads (excluding inbound AdHello leads)
 router.get('/', async (req, res, next) => {
@@ -10,10 +27,25 @@ router.get('/', async (req, res, next) => {
     // Exclude leads from adhello sources as they go to the inbound tab
     const leads = allLeads.filter(l => !l.source || !l.source.startsWith('adhello_'));
     
+    let importNotice = null;
+    if (['imported', 'skipped', 'failed'].some((k) => req.query[k] != null && req.query[k] !== '')) {
+      importNotice = {
+        imported: Math.max(0, parseInt(req.query.imported, 10) || 0),
+        skipped: Math.max(0, parseInt(req.query.skipped, 10) || 0),
+        failed: Math.max(0, parseInt(req.query.failed, 10) || 0),
+      };
+    }
+
+    const importError = typeof req.query.importError === 'string' && req.query.importError.trim()
+      ? req.query.importError.trim()
+      : null;
+
     res.render('leads', {
       title: 'Saved Leads',
       activePage: 'leads',
       leads,
+      importNotice,
+      importError,
     });
   } catch (err) {
     next(err);
@@ -77,6 +109,56 @@ router.post('/save', async (req, res, next) => {
 
     const key = await dbService.saveLead(leadData);
     res.json({ success: true, key });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/import — bulk import from CSV (Agency OS / enrichment export shape)
+router.post('/import', (req, res, next) => {
+  upload.single('csvfile')(req, res, (err) => {
+    if (err) {
+      const wantsJson = req.get('accept') && req.get('accept').includes('application/json');
+      const msg = err instanceof multer.MulterError ? err.message : err.message || 'Upload failed';
+      if (wantsJson) {
+        return res.status(400).json({ success: false, error: msg });
+      }
+      return res.redirect(`/leads?importError=${encodeURIComponent(msg)}`);
+    }
+    next();
+  });
+}, async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      if (req.headers.accept && req.headers.accept.includes('application/json')) {
+        return res.status(400).json({ success: false, error: 'No CSV file received (field name: csvfile).' });
+      }
+      return res.redirect('/leads?imported=0&skipped=0&failed=0');
+    }
+
+    const records = parseCsvToLeadRecords(req.file.buffer, req.file.originalname || 'import.csv');
+    let imported = 0;
+    let skipped = 0;
+    let failed = 0;
+
+    for (const rec of records) {
+      if (!rec.title) {
+        skipped += 1;
+        continue;
+      }
+      try {
+        await dbService.saveLead(rec);
+        imported += 1;
+      } catch (e) {
+        console.error('[CSV import] row error:', rec.title, e.message);
+        failed += 1;
+      }
+    }
+
+    if (req.headers.accept && req.headers.accept.includes('application/json')) {
+      return res.json({ success: true, imported, skipped, failed, totalRows: records.length });
+    }
+    res.redirect(`/leads?imported=${imported}&skipped=${skipped}&failed=${failed}`);
   } catch (err) {
     next(err);
   }
