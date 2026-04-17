@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark transition-colors duration-400">
+  <%- include('partials/navbar') %>
+  <main class="max-w-3xl mx-auto px-6 pt-12 pb-24">
+    <h1 class="font-display font-extrabold text-4xl text-brand-dark dark:text-white mb-2">Workspace</h1>
+    <p class="text-brand-muted mb-8"><%= workspace && workspace.name ? workspace.name : 'Main workspace' %> · ID <code class="text-xs bg-brand-cream dark:bg-slate-800 px-2 py-0.5 rounded"><%= workspace && workspace.id ? workspace.id : 'default' %></code></p>
+
+    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
+      <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-4">Members & roles</h2>
+      <% if (workspace && workspace.members) { %>
+        <ul class="space-y-3">
+          <% Object.entries(workspace.members).forEach(([email, meta]) => { %>
+            <li class="flex flex-wrap justify-between gap-2 py-3 border-b border-brand-border/40 last:border-0">
+              <span class="font-semibold"><%= email %></span>
+              <span class="text-xs font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/15 text-amber-900 dark:text-amber-200"><%= meta.role %></span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-sm text-brand-muted">No members yet — sign in again to seed your account.</p>
+      <% } %>
+      <p class="text-xs text-brand-muted mt-6">
+        <strong class="text-brand-dark dark:text-white">SDR access</strong> — set <code class="bg-brand-cream dark:bg-slate-800 px-1 rounded">WORKSPACE_SDR_EMAILS</code> (comma-separated) to mark SDRs. SDRs only see leads assigned to them. Admins can assign from the pipeline.
+        <%= envHintSdr ? '' : ' Currently using role defaults only.' %>
+      </p>
+    </div>
+
+    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
+      <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Round-robin pool</h2>
+      <p class="text-sm text-brand-muted mb-4">Next inbound assignee cycles through admins + SDRs (used by “Round-robin assign”).</p>
+      <% if (assignPool && assignPool.length) { %>
+        <ol class="list-decimal list-inside text-sm text-brand-dark dark:text-white space-y-1">
+          <% assignPool.forEach((e) => { %><li><%= e %></li><% }) %>
+        </ol>
+      <% } else { %>
+        <p class="text-sm italic text-brand-muted">Add at least one admin or SDR member.</p>
+      <% } %>
+    </div>
+
+    <form method="post" action="/workspace/switch" class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/10 p-6">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace ID (advanced)</label>
+      <input type="text" name="workspaceId" value="<%= workspace && workspace.id ? workspace.id : 'default' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm mb-3" />
+      <button type="submit" class="text-xs font-black uppercase tracking-widest text-brand-yellow hover:underline">Switch session workspace</button>
+      <p class="text-[10px] text-brand-muted mt-2">New leads and filters use this ID. Secondary workspaces are stubbed until you add a create-UI.</p>
+    </form>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

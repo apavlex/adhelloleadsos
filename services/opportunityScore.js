@@ -35,6 +35,9 @@ function scoreLeadRecord(lead) {
   const noClickToCall = boolGap(lead, 'hasClickToCall', true);
   const aeoScore = parseInt(lead.aeoScore, 10) || 0;
 
+  const cms = String(lead.cmsPlatform || '').toLowerCase();
+  const buyingSignals = Array.isArray(lead.buyingSignals) ? lead.buyingSignals.map(String) : [];
+
   const hasAuditSignals =
     lead.isOutdated !== undefined ||
     lead.isMobileFriendly !== undefined ||
@@ -75,6 +78,19 @@ function scoreLeadRecord(lead) {
       score += 1.0;
       reasons.push('Light or missing social presence (IG/FB)');
     }
+
+    if ((cms === 'wix' || cms === 'squarespace') && noChatbot) {
+      score += 1.5;
+      reasons.push(`${cms} + no chat capture — AI receptionist / voice agent upsell`);
+    } else if ((cms === 'shopify' || cms === 'webflow') && noChatbot) {
+      score += 1.0;
+      reasons.push(`${cms} storefront/site — add conversational capture or AI SDR`);
+    }
+  }
+
+  if (buyingSignals.length > 0) {
+    score += Math.min(2, buyingSignals.length * 0.5);
+    reasons.push(`Buying signals: ${buyingSignals.slice(0, 3).join('; ')}`);
   }
 
   if (reviews > 0 && reviews < 20) {
@@ -107,6 +123,10 @@ function defaultAiTimeSaversLeads() {
   return [
     { label: 'Enrich from Saved Leads', hint: 'Fills mobile, schema, chatbot flags so scoring gets sharper.' },
     { label: 'Apify search first', hint: 'Structured Maps data beats manual lists — coach ranks by gaps automatically.' },
+    {
+      label: 'Tech + buying signals',
+      hint: 'Enrichment merges HTML tech tags (Wix/Shopify/chat widgets). Add KIE_AI_API_KEY for gap-aware outreach drafts.',
+    },
     { label: 'War Room batch', hint: 'Draft outreach for the highest scores in one pass.' },
   ];
 }

@@ -1,0 +1,35 @@
+<% const act = typeof activation !== 'undefined' && activation ? activation : { plan: [], progress: 0, total: 7, days: {} }; %>
+<% const pct = act.total ? Math.round((act.progress / act.total) * 100) : 0; %>
+<section class="<%= typeof fullPage !== 'undefined' && fullPage ? '' : 'mb-10' %> rounded-[2rem] border border-brand-border dark:border-white/10 bg-gradient-to-br from-violet-500/10 to-indigo-500/5 dark:from-violet-900/30 dark:to-slate-900/50 p-6 md:p-8 shadow-lg">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-300 mb-1">Week 1 habit stack</p>
+      <h2 class="font-display font-extrabold text-2xl text-brand-dark dark:text-white">Activation plan</h2>
+      <p class="text-sm text-brand-muted mt-1"><%= act.progress %> / <%= act.total %> complete · <%= pct %>%</p>
+    </div>
+    <a href="/activation" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Full page</a>
+  </div>
+  <div class="h-2 rounded-full bg-white/40 dark:bg-slate-800 mb-6 overflow-hidden">
+    <div class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all" style="width: <%= pct + '%' %>"></div>
+  </div>
+  <ul class="space-y-3">
+    <% (act.plan || []).forEach((day) => { %>
+      <% const done = act.days && act.days[day.id]; %>
+      <li class="flex gap-4 items-start p-4 rounded-2xl border <%= done ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-brand-border/60 dark:border-white/10 bg-white/60 dark:bg-slate-900/40' %>">
+        <span class="mt-0.5 w-8 h-8 shrink-0 rounded-xl flex items-center justify-center font-black text-xs <%= done ? 'bg-emerald-500 text-white' : 'bg-brand-cream dark:bg-slate-800 text-brand-muted' %>"><%= done ? '✓' : day.id.replace('d','') %></span>
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-brand-dark dark:text-white"><%= day.label %></div>
+          <p class="text-xs text-brand-muted mt-0.5"><%= day.hint %></p>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <a href="<%= day.href %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Go</a>
+            <% if (!done) { %>
+            <form method="post" action="/activation/day/<%= day.id %>" class="inline">
+              <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Mark done</button>
+            </form>
+            <% } %>
+          </div>
+        </div>
+      </li>
+    <% }) %>
+  </ul>
+</section>

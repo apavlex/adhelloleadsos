@@ -2,7 +2,15 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { enrichLead } = require('../services/firecrawl');
+const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
+const { summaryForApi, normalizeSignalLead } = require('../services/signalChannels');
+const {
+  fromNewsletterPayload,
+  fromBookingPayload,
+  fromInboundFormPayload,
+} = require('../services/inboundWebhookNormalize');
 const { cleanBusinessName } = require('../utils/nameCleaner');
+const { defaultPipelineStageForSource, clampPipelineStage } = require('../services/pipelineConstants');
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -14,6 +22,11 @@ const validateApiKey = (req, res, next) => {
   }
   next();
 };
+
+function workspaceIdFromReq(req) {
+  const h = req.headers['x-workspace-id'];
+  return typeof h === 'string' && h.trim() ? h.trim() : 'default';
+}
 
 /**
  * POST /api/leads/ingest
@@ -38,7 +51,8 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       state,
       industry,
       goal,
-      vibe
+      vibe,
+      pipelineStage: pipelineStageBody,
     } = req.body;
 
     if (!title && !email && !website) {
@@ -50,6 +64,12 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
 
     const clientIp = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
 
+    const src = source || 'adhello_audit';
+    const requestedPs = parseInt(pipelineStageBody, 10);
+    const resolvedStage = Number.isFinite(requestedPs)
+      ? clampPipelineStage(requestedPs)
+      : defaultPipelineStageForSource(src);
+
     // Prepare lead data for merge/save
     const leadData = {
       title: normalizedTitle,
@@ -59,7 +79,8 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       city: city || '',
       state: state || '',
       ip: clientIp,
-      source: source || 'adhello_audit',
+      source: src,
+      pipelineStage: resolvedStage,
       totalScore: parseFloat(totalScore) || 0,
       auditUrl: auditUrl || null,
       blueprintId: blueprintId || null,
@@ -69,14 +90,15 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       industry: industry || '',
       goal: goal || '',
       vibe: vibe || '',
-      lastActivity: new Date().toISOString()
+      lastActivity: new Date().toISOString(),
+      workspaceId: workspaceIdFromReq(req),
     };
 
     // Auto-status mapping
-    if (source === 'adhello_chatbot') leadData.status = 'Lead Captured';
-    if (source === 'adhello_audit') leadData.status = 'Discovery Done';
-    if (source === 'adhello_strategy') leadData.status = 'Strategy Created';
-    if (source === 'adhello_brief') leadData.status = 'Sales Briefing';
+    if (src === 'adhello_chatbot') leadData.status = 'Lead Captured';
+    if (src === 'adhello_audit') leadData.status = 'Discovery Done';
+    if (src === 'adhello_strategy') leadData.status = 'Strategy Created';
+    if (src === 'adhello_brief') leadData.status = 'Sales Briefing';
 
     // Add activity log
     leadData.logs = [{
@@ -95,7 +117,7 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
         try {
           const enrichment = await enrichLead(leadData.website);
           if (enrichment) {
-            await dbService.updateLead(leadKey, enrichment);
+            await dbService.updateLead(leadKey, firecrawlExtractToLeadUpdates(enrichment));
           }
         } catch (e) {
           console.error(`[API-INGEST] Auto-enrichment failed for ${leadKey}:`, e.message);
@@ -109,6 +131,59 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       message: 'Lead data ingested successfully.',
       lead: leadData
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/webhooks/newsletter
+ * Beehiiv / ConvertKit / generic — send JSON with at least email (flat or nested subscriber.contact).
+ */
+router.post('/webhooks/newsletter', validateApiKey, async (req, res, next) => {
+  try {
+    const payload = fromNewsletterPayload(req.body || {});
+    if (!payload.email || payload.email === 'N/A') {
+      return res.status(400).json({ error: 'email is required (top-level or subscriber.email).' });
+    }
+    const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
+    res.json({ success: true, key, message: 'Newsletter subscriber saved as lead.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/webhooks/booking
+ * Calendly / Cal.com-style payload — creates warm lead at CQI (stage 4) by default.
+ */
+router.post('/webhooks/booking', validateApiKey, async (req, res, next) => {
+  try {
+    const payload = fromBookingPayload(req.body || {});
+    if (!payload.email || payload.email === 'N/A') {
+      return res.status(400).json({
+        error: 'invitee email required (email, invitee.email, attendees[0].email, etc.).',
+      });
+    }
+    const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
+    res.json({ success: true, key, message: 'Booking saved as inbound lead.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/webhooks/form
+ * Typeform / Tally / custom — same email rules as newsletter; optional form_name, form_id, UTM fields.
+ */
+router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
+  try {
+    const payload = fromInboundFormPayload(req.body || {});
+    if (!payload.email || payload.email === 'N/A') {
+      return res.status(400).json({ error: 'email is required.' });
+    }
+    const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
+    res.json({ success: true, key, message: 'Form submission saved as inbound lead.' });
   } catch (err) {
     next(err);
   }
@@ -155,6 +230,39 @@ router.post('/track', async (req, res) => {
   } catch (err) {
     console.error('[ANALYTICS] Tracking error:', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * GET /api/acquisition-channels
+ * Roadmap + env hints for Maps-adjacent channels (jobs, ads, intent, creators).
+ */
+router.get('/acquisition-channels', async (req, res) => {
+  try {
+    res.json({ channels: summaryForApi() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /api/leads/signal-ingest
+ * Ingest leads from jobs boards, ads libraries, community intent, etc. (same API key as ingest).
+ */
+router.post('/leads/signal-ingest', validateApiKey, async (req, res, next) => {
+  try {
+    const payload = normalizeSignalLead(req.body);
+    const hasIdentity =
+      (payload.title && payload.title !== 'Untitled prospect') ||
+      (payload.website && payload.website !== 'N/A');
+    if (!hasIdentity) {
+      return res.status(400).json({ error: 'Provide title, company_name, or website.' });
+    }
+
+    const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
+    res.json({ success: true, key, message: 'Signal lead saved.' });
+  } catch (err) {
+    next(err);
   }
 });
 

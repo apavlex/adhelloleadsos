@@ -22,7 +22,7 @@ router.get('/', async (req, res, next) => {
 router.get('/leads', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads();
-    const leads = all.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+    const leads = all;
     res.json(getLeadsCoachPayload(leads));
   } catch (e) {
     next(e);

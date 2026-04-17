@@ -3,9 +3,15 @@ const multer = require('multer');
 const router = express.Router();
 const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
+const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
 const { PIPELINE_STAGES } = require('../services/salesConstants');
-const { getLeadsCoachPayload } = require('../services/opportunityScore');
+const { getLeadsCoachPayload, scoreLeadRecord } = require('../services/opportunityScore');
+const { chatCompletion } = require('../services/llmClient');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const activationService = require('../services/activationService');
+const sequenceEngine = require('../services/sequenceEngine');
+const workspaceService = require('../services/workspaceService');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -22,13 +28,25 @@ const upload = multer({
   },
 });
 
-// GET /leads — show all saved leads (excluding inbound AdHello leads)
+// GET /leads — unified pipeline (cold + inbound); ?source=inbound | cold | all
 router.get('/', async (req, res, next) => {
   try {
     const allLeads = await dbService.getAllLeads();
-    // Exclude leads from adhello sources as they go to the inbound tab
-    const leads = allLeads.filter(l => !l.source || !l.source.startsWith('adhello_'));
-    
+    const visible = filterLeadsForRequest(req, allLeads);
+    const sourceFilter = String(req.query.source || 'all').toLowerCase();
+    let leads = visible;
+    if (sourceFilter === 'inbound') {
+      leads = visible.filter((l) => l.source && l.source.startsWith('adhello_'));
+    } else if (sourceFilter === 'cold') {
+      leads = visible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+    }
+
+    const leadSourceCounts = {
+      all: visible.length,
+      cold: visible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
+      inbound: visible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
+    };
+
     let importNotice = null;
     if (['imported', 'skipped', 'failed'].some((k) => req.query[k] != null && req.query[k] !== '')) {
       importNotice = {
@@ -46,37 +64,30 @@ router.get('/', async (req, res, next) => {
 
     res.render('leads', {
       title: 'Saved Leads',
-      activePage: 'leads',
+      activePage: sourceFilter === 'inbound' ? 'inbound' : 'leads',
       leads,
+      sourceFilter,
+      leadSourceCounts,
       importNotice,
       importError,
       pipelineStages: PIPELINE_STAGES,
       flowCoach,
+      canManageWorkspace: req.canManageWorkspace,
     });
   } catch (err) {
     next(err);
   }
 });
 
-// GET /leads/inbound — show leads from adhello.ai
-router.get('/inbound', async (req, res, next) => {
-  try {
-    const allLeads = await dbService.getAllLeads();
-    const leads = allLeads.filter(l => l.source && l.source.startsWith('adhello_'));
-    res.render('inbound', {
-      title: 'Inbound Leads',
-      activePage: 'inbound',
-      leads,
-    });
-  } catch (err) {
-    next(err);
-  }
+// Legacy URL — warm leads now live on the main board with ?source=inbound
+router.get('/inbound', (req, res) => {
+  res.redirect(302, '/leads?source=inbound');
 });
 
 // GET /leads/saved — return all saved lead titles+keys for client-side bookmark state
 router.get('/saved', async (req, res, next) => {
   try {
-    const leads = await dbService.getAllLeads();
+    const leads = filterLeadsForRequest(req, await dbService.getAllLeads());
     const saved = leads.map((l) => ({ key: l.key, title: l.title }));
     res.json(saved);
   } catch (err) {
@@ -111,6 +122,7 @@ router.post('/save', async (req, res, next) => {
       status: 'Needs Video', // Default pipeline stage
       loomUrl: '',
       savedAt: new Date().toISOString(),
+      workspaceId: req.workspaceId || 'default',
     };
 
     const key = await dbService.saveLead(leadData);
@@ -153,12 +165,19 @@ router.post('/import', (req, res, next) => {
         continue;
       }
       try {
-        await dbService.saveLead(rec);
+        await dbService.saveLead({
+          ...rec,
+          workspaceId: req.workspaceId || 'default',
+        });
         imported += 1;
       } catch (e) {
         console.error('[CSV import] row error:', rec.title, e.message);
         failed += 1;
       }
+    }
+
+    if (imported > 0) {
+      await activationService.recordEvent(userEmail(req), 'csv_import');
     }
 
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
@@ -170,16 +189,108 @@ router.post('/import', (req, res, next) => {
   }
 });
 
+function leadKeyFromParam(key) {
+  return key.startsWith('lead:') ? key : `lead:${key}`;
+}
+
+// POST /leads/:key/sequence/start — attach persona cadence (Clay / Paul / Bob templates)
+router.post('/:key/sequence/start', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const templateId = (req.body && req.body.templateId) || 'clay_standard';
+    await sequenceEngine.startSequence(fullKey, templateId);
+    await activationService.recordEvent(userEmail(req), 'sequence_started');
+    res.json({ success: true, templateId });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/sequence/pause
+router.post('/:key/sequence/pause', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    await sequenceEngine.pauseSequence(fullKey);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/assign — owner/admin only
+router.post('/:key/assign', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Team admin required' });
+    }
+    const fullKey = leadKeyFromParam(req.params.key);
+    const assignee =
+      (req.body && (req.body.assigneeEmail || req.body.email || '').trim().toLowerCase()) || '';
+    if (!assignee) return res.status(400).json({ success: false, error: 'assigneeEmail required' });
+    await dbService.updateLead(fullKey, {
+      assignedTo: assignee,
+      logs: [
+        {
+          type: 'assignment',
+          message: `Assigned to ${assignee}`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    res.json({ success: true, assignedTo: assignee });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/assign-round-robin — owner/admin only
+router.post('/:key/assign-round-robin', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Team admin required' });
+    }
+    const fullKey = leadKeyFromParam(req.params.key);
+    const assignee = await workspaceService.pickRoundRobinAssignee(req.workspaceId || 'default');
+    if (!assignee) return res.status(400).json({ success: false, error: 'No assignees in pool' });
+    await dbService.updateLead(fullKey, {
+      assignedTo: assignee,
+      logs: [
+        {
+          type: 'assignment',
+          message: `Round-robin assigned to ${assignee}`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    res.json({ success: true, assignedTo: assignee });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/update — update lead metadata (status, etc.)
 router.post('/:key/update', async (req, res, next) => {
   try {
     const key = req.params.key;
-    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const fullKey = leadKeyFromParam(key);
     const updateData = req.body;
-    
+    const existing = await dbService.getLead(fullKey);
+
+    if (
+      existing &&
+      updateData.pipelineStage !== undefined &&
+      updateData.pipelineStage !== null
+    ) {
+      const prev = parseInt(existing.pipelineStage, 10) || 1;
+      const next = parseInt(updateData.pipelineStage, 10);
+      if (!Number.isNaN(next) && next >= 2 && next !== prev) {
+        await activationService.recordEvent(userEmail(req), 'pipeline_advanced');
+      }
+    }
+
     // Add to activity log if status changed
-    if (updateData.status) {
-      const lead = await dbService.getLead(fullKey);
+    if (updateData.status && existing) {
+      const lead = existing;
       const updates = lead.updates || [];
       updates.push({
         type: 'status_change',
@@ -235,17 +346,58 @@ router.post('/:key/delete', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/generate-prompt — generate personalized outreach
+// POST /leads/:key/generate-prompt — personalized outreach (KIE.ai preferred, then OpenAI, else template)
 router.post('/:key/generate-prompt', async (req, res, next) => {
   try {
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
     const lead = await dbService.getLead(fullKey);
 
-    const prompt = `Hi ${lead.title},\n\nI noticed your business in ${lead.city} has a great ${lead.totalScore} rating with ${lead.reviewsCount} reviews! I'm reaching out because we help ${lead.categoryName} businesses like yours grow their online presence.\n\nWould you be open to a quick chat about how we could help you get even more leads?\n\nBest,\n[Your Name]`;
+    const scored = scoreLeadRecord(lead);
+    const summary = {
+      title: lead.title,
+      city: lead.city,
+      state: lead.state,
+      niche: lead.categoryName,
+      rating: lead.totalScore,
+      reviews: lead.reviewsCount,
+      website: lead.website,
+      source: lead.source,
+      pipelineStage: lead.pipelineStage,
+      cmsPlatform: lead.cmsPlatform,
+      gapTier: scored.tier,
+      gapReasons: scored.reasons,
+    };
+
+    let prompt = '';
+    let llm = 'template';
+
+    const ai = await chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You write credible B2B agency / SaaS outreach emails. Do not invent metrics or claims not in context. Plain text only (no subject line). Under 170 words. Sign off as [Your Name].',
+        },
+        {
+          role: 'user',
+          content: `Write a first-touch email that references 1–2 concrete signals from the JSON (gaps, niche, location, warm vs cold source). Offer a low-friction next step (15-minute call).\n\n${JSON.stringify(summary, null, 2)}`,
+        },
+      ],
+      jsonObject: false,
+      max_tokens: 520,
+      temperature: 0.55,
+    });
+
+    if (ai.content && !ai.error) {
+      prompt = ai.content.trim();
+      llm = ai.provider || 'template';
+    } else {
+      prompt = `Hi ${lead.title},\n\nI noticed your business in ${lead.city} has a ${lead.totalScore} rating with ${lead.reviewsCount} reviews. We help ${lead.categoryName} operators like you turn visibility into booked calls.\n\nOpen to a 15-minute fit call next week?\n\nBest,\n[Your Name]`;
+    }
 
     await dbService.updateLead(fullKey, { outreachPrompt: prompt });
-    res.json({ success: true, prompt });
+    res.json({ success: true, prompt, llm });
   } catch (err) {
     next(err);
   }
@@ -285,7 +437,8 @@ router.post('/:key/enhance', async (req, res, next) => {
     
     if (deepData && Object.keys(deepData).length > 0) {
       const updates = lead.updates || [];
-      const updateData = { updates };
+      const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
+      const updateData = { ...enrichUpdates, updates };
 
       if ((!lead.email || lead.email === 'N/A') && deepData.email) updateData.email = deepData.email;
       if ((!lead.facebook || lead.facebook === 'N/A') && deepData.facebook) updateData.facebook = deepData.facebook;

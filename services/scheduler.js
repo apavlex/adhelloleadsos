@@ -3,6 +3,7 @@ const { DateTime } = require('luxon');
 const db = require('./database');
 const apify = require('./apify');
 const enricher = require('./enricher');
+const { runDueSequenceSteps } = require('./sequenceEngine');
 
 /**
  * Autopilot Scheduler: 
@@ -82,6 +83,28 @@ async function runDueSchedules() {
         await db.saveSearch(searchRecord);
 
         console.log(`[SCHEDULER] Autopilot search complete for "${schedule.keyword}". Found ${results.length} leads.`);
+
+        const hook = process.env.AUTOPILOT_WEBHOOK_URL;
+        if (hook) {
+          try {
+            await fetch(hook, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                event: 'autopilot.search_complete',
+                scheduleKey: schedule.key,
+                keyword: schedule.keyword,
+                city: schedule.city,
+                state: schedule.state,
+                maxResults: schedule.maxResults || 20,
+                resultCount: results.length,
+                timestamp: now.toISOString(),
+              }),
+            });
+          } catch (whErr) {
+            console.error('[SCHEDULER] AUTOPILOT_WEBHOOK_URL failed:', whErr.message);
+          }
+        }
       }
     } catch (err) {
       console.error(`[SCHEDULER] Autopilot execution failed for ${schedule.keyword}:`, err.stack);
@@ -89,8 +112,59 @@ async function runDueSchedules() {
   }
 }
 
+async function runReferralAskReminders() {
+  const leads = await db.getAllLeads();
+  const reminderDays = Math.max(1, parseInt(process.env.REFERRAL_REMINDER_DAYS || '30', 10) || 30);
+  const windowMs = reminderDays * 86400000;
+  const hook = process.env.REFERRAL_REMINDER_WEBHOOK_URL;
+
+  for (const lead of leads) {
+    if (lead.referralAskReminderLogged) continue;
+    const entered = lead.enteredStage8At;
+    if (!entered) continue;
+    if (Date.now() < Date.parse(entered) + windowMs) continue;
+
+    const ps = parseInt(lead.pipelineStage, 10);
+    if (![8, 9, 10].includes(ps)) continue;
+
+    const msg = `Referral ask reminder: ${reminderDays}+ days since retainer onboarding started — schedule ask or case study.`;
+
+    await db.updateLead(lead.key, {
+      referralAskReminderLogged: true,
+      logs: [
+        {
+          type: 'referral_reminder',
+          message: msg,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+
+    if (hook) {
+      try {
+        await fetch(hook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'referral_ask_due',
+            leadKey: lead.key,
+            title: lead.title,
+            pipelineStage: ps,
+            enteredStage8At: entered,
+            website: lead.website,
+            email: lead.email,
+          }),
+        });
+      } catch (e) {
+        console.error('[SCHEDULER] REFERRAL_REMINDER_WEBHOOK_URL failed:', e.message);
+      }
+    }
+  }
+}
+
 module.exports = {
   runDueSchedules,
+  runReferralAskReminders,
   init() {
     console.log('[SCHEDULER] Initializing Autopilot Heartbeat (Every hour)...');
     
@@ -99,7 +173,31 @@ module.exports = {
       runDueSchedules();
     });
 
+    // Daily referral prompts (09:00 UTC)
+    cron.schedule('0 9 * * *', () => {
+      runReferralAskReminders().catch((e) =>
+        console.error('[SCHEDULER] Referral reminders failed:', e.message)
+      );
+    });
+
+    // Outreach cadence — due steps land in lead logs (every 15 min)
+    cron.schedule('*/15 * * * *', () => {
+      runDueSequenceSteps().catch((e) =>
+        console.error('[SCHEDULER] Sequence steps failed:', e.message)
+      );
+    });
+
     // Also run once immediately on startup for any catching up
-    setTimeout(runDueSchedules, 5000); 
+    setTimeout(runDueSchedules, 5000);
+    setTimeout(() => {
+      runReferralAskReminders().catch((e) =>
+        console.error('[SCHEDULER] Referral reminders (startup) failed:', e.message)
+      );
+    }, 8000);
+    setTimeout(() => {
+      runDueSequenceSteps().catch((e) =>
+        console.error('[SCHEDULER] Sequence steps (startup) failed:', e.message)
+      );
+    }, 11000);
   }
 };

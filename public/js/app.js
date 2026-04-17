@@ -129,6 +129,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const noChatbot = lead.hasChatbot === 'false' || lead.hasChatbot === false;
     const noClickToCall = lead.hasClickToCall === 'false' || lead.hasClickToCall === false;
     const aeoScore = parseInt(lead.aeoScore || 0);
+    const cms = String(lead.cmsPlatform || '').toLowerCase();
+
+    let buyingSignals = [];
+    try {
+      if (lead.buyingSignals && lead.buyingSignals !== 'undefined') {
+        const parsed = JSON.parse(lead.buyingSignals);
+        if (Array.isArray(parsed)) buyingSignals = parsed;
+      }
+    } catch (_) {}
 
     // Logic: Agencies want leads with GAPS (weighted for high opportunity)
     if (!website) score += 4.5;
@@ -140,7 +149,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (noClickToCall) score += 1.5;
         if (aeoScore > 0 && aeoScore < 3) score += 1.5;
         if (!hasFB || !hasIG) score += 1.0;
+        if ((cms === 'wix' || cms === 'squarespace') && noChatbot) score += 1.5;
+        else if ((cms === 'shopify' || cms === 'webflow') && noChatbot) score += 1.0;
     }
+
+    if (buyingSignals.length > 0) score += Math.min(2, buyingSignals.length * 0.5);
     
     if (reviews > 0 && reviews < 20) score += 1.5;
     if (rating > 0 && rating < 4.2) score += 1.5;
@@ -1801,18 +1814,31 @@ document.addEventListener('DOMContentLoaded', () => {
               if (result.foundUrl) row.dataset.website = result.foundUrl; // Only for /enrich search result
               if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
               
-              // NEW AUDIT FIELDS
-              if (d.has_schema_markup !== undefined) row.dataset.hasSchemaMarkup = d.has_schema_markup;
-              if (d.has_chatbot !== undefined) row.dataset.hasChatbot = d.has_chatbot;
-              if (d.has_click_to_call !== undefined) row.dataset.hasClickToCall = d.has_click_to_call;
-              if (d.is_mobile_friendly !== undefined) row.dataset.isMobileFriendly = d.is_mobile_friendly;
-              if (d.is_outdated !== undefined) row.dataset.isOutdated = d.is_outdated;
-              if (d.visual_modernity_score !== undefined) row.dataset.visualModernityScore = d.visual_modernity_score;
-              if (d.aeo_score !== undefined) row.dataset.aeoScore = d.aeo_score;
-              if (d.geo_gaps !== undefined) row.dataset.geoGaps = d.geo_gaps;
-              if (d.competitor_name !== undefined) row.dataset.competitorName = d.competitor_name;
-              if (d.competitor_gap !== undefined) row.dataset.competitorGap = d.competitor_gap;
-              if (d.audit_summary !== undefined) row.dataset.auditSummary = d.audit_summary;
+              // Audit fields (Firecrawl snake_case or DB camelCase from /leads/:key/enhance)
+              const sch = d.has_schema_markup ?? d.hasSchemaMarkup;
+              const chat = d.has_chatbot ?? d.hasChatbot;
+              const ctc = d.has_click_to_call ?? d.hasClickToCall;
+              const mob = d.is_mobile_friendly ?? d.isMobileFriendly;
+              const old = d.is_outdated ?? d.isOutdated;
+              const vm = d.visual_modernity_score ?? d.visualModernityScore;
+              const aeo = d.aeo_score ?? d.aeoScore;
+              const gg = d.geo_gaps ?? d.geoGaps;
+              const cn = d.competitor_name ?? d.competitorName;
+              const cg = d.competitor_gap ?? d.competitorGap;
+              const au = d.audit_summary ?? d.auditSummary;
+              if (sch !== undefined) row.dataset.hasSchemaMarkup = sch;
+              if (chat !== undefined) row.dataset.hasChatbot = chat;
+              if (ctc !== undefined) row.dataset.hasClickToCall = ctc;
+              if (mob !== undefined) row.dataset.isMobileFriendly = mob;
+              if (old !== undefined) row.dataset.isOutdated = old;
+              if (vm !== undefined) row.dataset.visualModernityScore = vm;
+              if (aeo !== undefined) row.dataset.aeoScore = aeo;
+              if (gg !== undefined) row.dataset.geoGaps = gg;
+              if (cn !== undefined) row.dataset.competitorName = cn;
+              if (cg !== undefined) row.dataset.competitorGap = cg;
+              if (au !== undefined) row.dataset.auditSummary = au;
+              const cmsPl = d.cms_platform ?? d.cmsPlatform;
+              if (cmsPl !== undefined && cmsPl !== null) row.dataset.cmsPlatform = cmsPl;
 
               if (d.email) {
                 row.dataset.email = d.email;
@@ -1894,7 +1920,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initialize Kanban / pipeline boards (Saved Leads uses 8-step pipeline; Inbound uses legacy status columns)
+  // Initialize Kanban / pipeline boards (Saved Leads uses 10-stage pipeline; Inbound uses legacy status columns)
   function initKanban() {
     const columns = document.querySelectorAll('.kanban-list');
     const allRows = document.querySelectorAll('.result-row');
@@ -1917,7 +1943,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let shouldInclude = false;
             if (pipelineMode && !Number.isNaN(targetPipeline)) {
               let ps = parseInt(row.dataset.pipelineStage, 10);
-              if (Number.isNaN(ps) || ps < 1 || ps > 8) ps = 1;
+              if (Number.isNaN(ps) || ps < 1 || ps > 10) ps = 1;
               shouldInclude = ps === targetPipeline;
             } else {
               const leadStatus = row.dataset.status || 'Needs Video';
@@ -1951,7 +1977,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (pipelineMode) {
                         const newStage = parseInt(toCol.dataset.pipelineStage, 10);
-                        if (Number.isNaN(newStage) || newStage < 1 || newStage > 8) return;
+                        if (Number.isNaN(newStage) || newStage < 1 || newStage > 10) return;
                         try {
                             const res = await fetch(`/leads/${leadKey}/update`, {
                                 method: 'POST',

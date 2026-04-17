@@ -3,6 +3,8 @@ const router = express.Router();
 const apifyService = require('../services/apify');
 const dbService = require('../services/database');
 const enricher = require('../services/enricher');
+const activationService = require('../services/activationService');
+const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
 
 // POST /search — trigger an Apify search
 router.post('/', async (req, res, next) => {
@@ -35,8 +37,10 @@ router.post('/', async (req, res, next) => {
         frequency: frequency || 'daily',
         scheduledTime: scheduledTime || '09:00',
         timezone: timezone || 'UTC',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        workspaceId: req.workspaceId || 'default',
       });
+      await activationService.recordEvent(userEmail(req), 'autopilot_scheduled');
       return res.redirect('/schedules?success=true');
     }
 
@@ -48,6 +52,9 @@ router.post('/', async (req, res, next) => {
       state, 
       maxResults: parseInt(maxResults, 10) || 20 
     });
+
+    const activationUserEmail = userEmail(req);
+    const activationWorkspaceId = req.workspaceId || 'default';
 
     // We use setImmediate to run this in the background without blocking the response
     setImmediate(async () => {
@@ -79,10 +86,14 @@ router.post('/', async (req, res, next) => {
           resultCount: results.length,
           results,
           timestamp: new Date().toISOString(),
+          workspaceId: activationWorkspaceId,
         };
 
         const searchKey = await dbService.saveSearch(searchRecord);
         console.log(`[SEARCH-BG] Saved results to DB with key: ${searchKey}`);
+        if (activationUserEmail) {
+          await activationService.recordEvent(activationUserEmail, 'search_saved');
+        }
         
         // Finalize the job status
         await dbService.clearActiveJob();
@@ -131,7 +142,7 @@ router.get('/:key', async (req, res, next) => {
     }
 
     // Get all bookmarked leads to sync bookmark status on the results page
-    const savedLeads = await dbService.getAllLeads();
+    const savedLeads = filterLeadsForRequest(req, await dbService.getAllLeads());
 
     res.render('results', {
       title: `Results: ${data.keyword} in ${data.city}, ${data.state}`,

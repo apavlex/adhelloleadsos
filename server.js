@@ -6,6 +6,7 @@ const session = require('express-session');
 const { passport, ensureAuthenticated } = require('./services/auth');
 const { enrichLead } = require('./services/firecrawl');
 const scheduler = require('./services/scheduler');
+const { migrateLegacyPipelineStages } = require('./services/pipelineMigration');
 
 const indexRoutes = require('./routes/index');
 const searchRoutes = require('./routes/search');
@@ -15,6 +16,10 @@ const apiRoutes = require('./routes/api');
 const analyticsRoutes = require('./routes/analytics');
 const salesRoutes = require('./routes/sales');
 const coachRoutes = require('./routes/coach');
+const sequencesRoutes = require('./routes/sequences');
+const workspaceRoutes = require('./routes/workspace');
+const activationRoutes = require('./routes/activation');
+const attachWorkspace = require('./middleware/attachWorkspace');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -104,14 +109,17 @@ app.get('/api/cron/heartbeat', async (req, res) => {
 // Public API Routes (Security handled within router)
 app.use('/api', apiRoutes);
 
-// Protected Routes
-app.use('/', ensureAuthenticated, indexRoutes);
-app.use('/search', ensureAuthenticated, searchRoutes);
-app.use('/history', ensureAuthenticated, historyRoutes);
-app.use('/leads', ensureAuthenticated, leadsRoutes);
-app.use('/analytics', ensureAuthenticated, analyticsRoutes);
-app.use('/sales', ensureAuthenticated, salesRoutes);
-app.use('/coach', ensureAuthenticated, coachRoutes);
+// Protected Routes (workspace context for multi-seat + RBAC)
+app.use('/', ensureAuthenticated, attachWorkspace, indexRoutes);
+app.use('/search', ensureAuthenticated, attachWorkspace, searchRoutes);
+app.use('/history', ensureAuthenticated, attachWorkspace, historyRoutes);
+app.use('/leads', ensureAuthenticated, attachWorkspace, leadsRoutes);
+app.use('/analytics', ensureAuthenticated, attachWorkspace, analyticsRoutes);
+app.use('/sales', ensureAuthenticated, attachWorkspace, salesRoutes);
+app.use('/coach', ensureAuthenticated, attachWorkspace, coachRoutes);
+app.use('/sequences', ensureAuthenticated, attachWorkspace, sequencesRoutes);
+app.use('/workspace', ensureAuthenticated, attachWorkspace, workspaceRoutes);
+app.use('/activation', ensureAuthenticated, attachWorkspace, activationRoutes);
 
 // Firecrawl Enrichment Route
 app.post('/enrich', async (req, res) => {
@@ -149,12 +157,18 @@ app.use((err, req, res, next) => {
   });
 });
 
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Server running on 0.0.0.0:${PORT}`);
+async function boot() {
+  await migrateLegacyPipelineStages();
+
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server running on 0.0.0.0:${PORT}`);
+  });
+
+  server.setTimeout(600000);
+  scheduler.init();
+}
+
+boot().catch((err) => {
+  console.error('[BOOT] Fatal:', err);
+  process.exit(1);
 });
-
-// Allow long-running requests for Apify calls (10 minutes)
-server.setTimeout(600000);
-
-// Initialize Background Autopilot
-scheduler.init();

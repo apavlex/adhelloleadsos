@@ -17,10 +17,12 @@
       <a href="/" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'active' : '' %>">Search</a>
       <a href="/history" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'active' : '' %>">History</a>
       <a href="/schedules" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'schedules' ? 'active' : '' %>">Autopilot</a>
-      <a href="/leads/inbound" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'inbound' ? 'active' : '' %>">Inbound</a>
+      <a href="/leads?source=inbound" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'inbound' ? 'active' : '' %>">Inbound</a>
       <a href="/leads" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'active' : '' %>">Saved Leads</a>
       <a href="/sales" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'sales' ? 'active' : '' %>">Command Center</a>
       <a href="/analytics" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'analytics' ? 'active' : '' %>">Analytics</a>
+      <a href="/sequences" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'sequences' ? 'active' : '' %>">Sequences</a>
+      <a href="/workspace" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'workspace' ? 'active' : '' %>">Team</a>
     </nav>
 
     <!-- User Area -->
@@ -115,7 +117,7 @@
         <a href="/schedules" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'schedules' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
           <span class="font-display font-bold text-lg">Autopilot</span>
         </a>
-        <a href="/leads/inbound" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'inbound' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
+        <a href="/leads?source=inbound" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'inbound' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
           <span class="font-display font-bold text-lg">Inbound</span>
         </a>
         <a href="/leads" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
@@ -126,6 +128,15 @@
         </a>
         <a href="/analytics" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'analytics' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
           <span class="font-display font-bold text-lg">Analytics</span>
+        </a>
+        <a href="/sequences" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'sequences' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">Sequences</span>
+        </a>
+        <a href="/workspace" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'workspace' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">Team</span>
+        </a>
+        <a href="/activation" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'activation' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
+          <span class="font-display font-bold text-lg">7-day plan</span>
         </a>
       </nav>
 

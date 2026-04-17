@@ -11,6 +11,12 @@
 
         <div class="relative z-10">
                 <!-- Header -->
+                <% if (typeof isDemo !== 'undefined' && isDemo) { %>
+                <div class="mb-6 rounded-2xl border border-amber-300/50 bg-amber-50/90 dark:bg-amber-950/40 dark:border-amber-500/30 px-4 py-3 text-sm text-amber-950 dark:text-amber-100">
+                  <strong class="font-black uppercase tracking-widest text-[10px]">Sample data</strong>
+                  — No visits recorded yet. This preview shows what the dashboard looks like once <code class="text-[10px] px-1 rounded bg-white/60 dark:bg-black/30">/api/track</code> fires from adhello.ai (or remove <code class="text-[10px] px-1 rounded bg-white/60 dark:bg-black/30">?preview=1</code> / disable <code class="text-[10px] px-1 rounded bg-white/60 dark:bg-black/30">ANALYTICS_UI_DEMO</code>).
+                </div>
+                <% } %>
                 <div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
                     <div>
                         <div class="flex items-center gap-3 mb-2">

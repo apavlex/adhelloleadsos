@@ -43,7 +43,10 @@ module.exports = {
         twitters: true,
       },
       maximumLeadsEnrichmentRecords: 0,
-      maxReviews: 0,
+      maxReviews: Math.min(
+        50,
+        Math.max(0, parseInt(process.env.APIFY_MAPS_MAX_REVIEWS || '0', 10) || 0)
+      ),
       reviewsSort: 'newest',
       reviewsFilterString: '',
       reviewsOrigin: 'all',

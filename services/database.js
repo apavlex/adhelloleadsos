@@ -1,6 +1,7 @@
 const Database = require('@replit/database');
 const fs = require('fs');
 const path = require('path');
+const { clampPipelineStage, PIPELINE_SCHEMA_VERSION } = require('./pipelineConstants');
 
 let db;
 
@@ -103,11 +104,14 @@ module.exports = {
     const key = `lead:${Date.now()}`;
     const newLead = {
       ...leadData,
+      workspaceId: leadData.workspaceId || 'default',
       createdAt: new Date().toISOString(),
-      pipelineStage:
-        typeof leadData.pipelineStage === 'number' && leadData.pipelineStage >= 1 && leadData.pipelineStage <= 8
+      pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
+      pipelineStage: clampPipelineStage(
+        leadData.pipelineStage !== undefined && leadData.pipelineStage !== null
           ? leadData.pipelineStage
-          : 1,
+          : 1
+      ),
       status: leadData.status || 'Lead Captured',
       logs: [{ 
         type: 'creation', 
@@ -138,6 +142,11 @@ module.exports = {
     const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
     if (!raw) return null;
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
+  },
+
+  /** Alias for callers expecting list semantics (e.g. stitch-sync). */
+  async listLeads() {
+    return this.getAllLeads();
   },
 
   async getAllLeads() {
@@ -173,6 +182,14 @@ module.exports = {
       logs: logs.length > 0 ? logs : existing.logs,
       updatedAt: new Date().toISOString()
     };
+
+    if (updateData.pipelineStage !== undefined) {
+      updated.pipelineStage = clampPipelineStage(updateData.pipelineStage);
+    }
+
+    if (updated.pipelineStage === 8 && !existing.enteredStage8At) {
+      updated.enteredStage8At = new Date().toISOString();
+    }
     
     await db.set(key, JSON.stringify(updated));
     return updated;
@@ -414,5 +431,47 @@ module.exports = {
       }
     }
     return rows;
+  },
+
+  // --- Workspaces (multi-seat) ---
+
+  async getWorkspace(workspaceId) {
+    const key = `workspace:${workspaceId || 'default'}`;
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveWorkspace(workspaceId, doc) {
+    const id = workspaceId || 'default';
+    await db.set(`workspace:${id}`, JSON.stringify({ ...doc, id }));
+  },
+
+  // --- 7-day activation ---
+
+  async getActivationState(email) {
+    const fragment = this._emailKeyFragment(email);
+    const key = `activation:${fragment}`;
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveActivationState(email, state) {
+    const fragment = this._emailKeyFragment(email);
+    const key = `activation:${fragment}`;
+    await db.set(key, JSON.stringify(state));
   },
 };

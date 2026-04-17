@@ -1,4 +1,9 @@
 const FirecrawlApp = require('@mendable/firecrawl-js').default;
+const {
+  fetchHomepageHtml,
+  detectTechSignalsFromHtml,
+  mergeHtmlTechIntoExtract,
+} = require('./techSignals');
 
 let appInstance = null;
 function getFirecrawlApp() {
@@ -33,7 +38,9 @@ const enrichSchema = {
     geo_gaps: { type: "string", description: "Brief notes on missing local SEO signals or NAP inconsistencies for GEO." },
     competitor_name: { type: "string", description: "A high-performing local competitor in the same city/niche, if found." },
     competitor_gap: { type: "string", description: "One specific technical or conversion feature the competitor has that this business lacks (e.g., 'Modern Chatbot' or 'Schema Markup')." },
-    audit_summary: { type: "string", description: "A 1-sentence summary of the biggest opportunity for improvement." }
+    audit_summary: { type: "string", description: "A 1-sentence summary of the biggest opportunity for improvement." },
+    cms_platform: { type: "string", description: "Site builder or CMS if evident: wix, shopify, squarespace, webflow, wordpress, framer, ghost, other, or unknown." },
+    tech_stack_tags: { type: "array", items: { type: "string" }, description: "Short tags for notable martech/analytics (e.g. meta_pixel, hubspot, gtm, calendly)." }
   }
 };
 
@@ -63,7 +70,19 @@ async function enrichLead(url) {
       throw new Error(`Firecrawl API error: ${response.error || 'Unknown error'}`);
     }
 
-    return response.extract || {};
+    let merged = response.extract || {};
+
+    try {
+      const html = await fetchHomepageHtml(url);
+      if (html) {
+        const htmlSignals = detectTechSignalsFromHtml(html, url);
+        merged = mergeHtmlTechIntoExtract(merged, htmlSignals);
+      }
+    } catch (e) {
+      console.warn(`[Firecrawl] HTML tech merge skipped for ${url}:`, e.message);
+    }
+
+    return merged;
   } catch (error) {
     console.error(`Error enriching lead for ${url}:`, error.message);
     throw error;

@@ -1,16 +1,69 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
+const activationService = require('../services/activationService');
+const { userEmail } = require('../services/workspaceService');
 
 /**
  * GET /analytics
  * Renders the dashboard with visit data
  */
+function buildDemoAnalytics(visits, leads) {
+  const totalVisits = 842;
+  const uniqueIPs = 318;
+  const leadCount = leads.length;
+  const topRegions = [
+    { name: 'Los Angeles, California', count: 124 },
+    { name: 'New York, New York', count: 98 },
+    { name: 'Austin, Texas', count: 76 },
+    { name: 'Chicago, Illinois', count: 61 },
+    { name: 'Denver, Colorado', count: 44 },
+  ];
+  const now = new Date();
+  const dailyVisits = {};
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const key = d.toISOString().split('T')[0];
+    dailyVisits[key] = 12 + Math.round(8 * Math.sin(i / 4) + (i % 7) * 2);
+  }
+  const chartData = {
+    labels: Object.keys(dailyVisits),
+    values: Object.values(dailyVisits),
+  };
+  const recentVisits = [
+    { city: 'Phoenix', region: 'Arizona', ip: '•••', path: '/audit', timestamp: Date.now() - 120000 },
+    { city: 'Miami', region: 'Florida', ip: '•••', path: '/', timestamp: Date.now() - 340000 },
+    { city: 'Seattle', region: 'Washington', ip: '•••', path: '/pricing', timestamp: Date.now() - 900000 },
+  ];
+  return {
+    totalVisits,
+    uniqueIPs,
+    topRegions,
+    chartData,
+    recentVisits,
+    leadCount,
+    isDemo: true,
+  };
+}
+
 router.get('/', async (req, res) => {
   try {
     const visits = await dbService.getAllVisits();
     const leads = await dbService.getAllLeads();
-    
+
+    const demoMode =
+      (process.env.ANALYTICS_UI_DEMO === '1' || req.query.preview === '1') && visits.length === 0;
+
+    if (demoMode) {
+      const d = buildDemoAnalytics(visits, leads);
+      await activationService.recordEvent(userEmail(req), 'analytics_visit');
+      return res.render('analytics', {
+        user: req.user,
+        ...d,
+      });
+    }
+
     // Simple aggregations
     const totalVisits = visits.length;
     const uniqueIPs = new Set(visits.map(v => v.ip)).size;
@@ -51,6 +104,8 @@ router.get('/', async (req, res) => {
       values: Object.values(dailyVisits)
     };
 
+    await activationService.recordEvent(userEmail(req), 'analytics_visit');
+
     res.render('analytics', {
       user: req.user,
       totalVisits,
@@ -58,7 +113,8 @@ router.get('/', async (req, res) => {
       topRegions,
       chartData,
       recentVisits: visits.slice(0, 10),
-      leadCount: leads.length
+      leadCount: leads.length,
+      isDemo: false,
     });
   } catch (err) {
     res.status(500).send(err.message);

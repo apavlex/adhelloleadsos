@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark transition-colors duration-400">
+  <%- include('partials/navbar') %>
+  <main class="max-w-5xl mx-auto px-6 pt-12 pb-24">
+    <div class="mb-10">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Cadence engine</p>
+      <h1 class="font-display font-extrabold text-4xl md:text-5xl text-brand-dark dark:text-white leading-tight">Sequences</h1>
+      <p class="text-brand-muted mt-3 max-w-2xl">Persona-based day offsets create tasks in each lead’s activity log. Hook Instantly / Smartlead for live email send; scheduler runs due steps every 15 minutes.</p>
+    </div>
+
+    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-8 mb-10">
+      <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Active cadences</h2>
+          <p class="text-sm text-brand-muted"><%= typeof activeCount !== 'undefined' ? activeCount : 0 %> lead(s) with status <span class="font-semibold text-brand-yellow">active</span></p>
+        </div>
+        <a href="/leads" class="text-sm font-black uppercase tracking-widest text-brand-yellow hover:underline">Open pipeline</a>
+      </div>
+      <% if (!activeSequences || activeSequences.length === 0) { %>
+        <p class="text-sm text-brand-muted italic">No active sequences. Open a lead in <strong>Saved Leads</strong> and start a cadence from the row actions (or wire the API).</p>
+      <% } else { %>
+        <ul class="space-y-2">
+          <% activeSequences.slice(0, 20).forEach((l) => { %>
+            <li class="flex flex-wrap justify-between gap-2 p-4 rounded-2xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/50">
+              <span class="font-bold text-brand-dark dark:text-white"><%= l.title %></span>
+              <span class="text-xs text-brand-muted"><%= (l.sequenceState && l.sequenceState.templateId) || '—' %> · next <%= (l.sequenceState && l.sequenceState.nextDueAt) ? new Date(l.sequenceState.nextDueAt).toLocaleString() : '—' %></span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+
+    <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white mb-6">Templates (persona)</h2>
+    <div class="grid md:grid-cols-3 gap-6">
+      <% (templates || []).forEach((t) => { %>
+        <article class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 flex flex-col">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2"><%= t.persona %></span>
+          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-2"><%= t.name %></h3>
+          <p class="text-sm text-brand-muted flex-1 mb-4"><%= t.description %></p>
+          <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest"><%= t.stepCount %> steps</p>
+          <p class="text-[10px] text-brand-muted mt-2 font-mono">id: <%= t.id %></p>
+        </article>
+      <% }) %>
+    </div>
+
+    <div class="mt-12 p-6 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-sm text-brand-dark dark:text-slate-300">
+      <strong class="font-display text-brand-dark dark:text-white">API</strong>
+      <code class="block mt-2 text-xs bg-white/60 dark:bg-black/30 rounded-lg p-3 overflow-x-auto">POST /leads/:leadKey/sequence/start<br/>Content-Type: application/json<br/>{ "templateId": "clay_standard" }</code>
+    </div>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

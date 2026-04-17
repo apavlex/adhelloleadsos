@@ -1,0 +1,153 @@
+/**
+ * Unified LLM access: prefers [KIE.ai](https://kie.ai) (best models via marketplace paths),
+ * then OpenAI. Never call from browser — server only.
+ *
+ * Env (KIE — recommended):
+ *   KIE_AI_API_KEY — Bearer token from https://kie.ai/api-key
+ *   KIE_AI_CHAT_PATH — default `gpt-5-2/v1/chat/completions` (see docs.kie.ai chat models)
+ *   KIE_AI_MODEL — body `model` field, default `gpt-5-2`
+ *   KIE_AI_BASE_URL — default `https://api.kie.ai`
+ *
+ * Env (fallback):
+ *   OPENAI_API_KEY, OPENAI_MODEL (e.g. gpt-4o-mini)
+ */
+
+const DEFAULT_KIE_PATH = 'gpt-5-2/v1/chat/completions';
+const DEFAULT_KIE_MODEL = 'gpt-5-2';
+
+function pickProvider() {
+  const kieKey = process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY;
+  if (kieKey && String(kieKey).trim()) {
+    return {
+      name: 'kie',
+      apiKey: kieKey.trim(),
+      baseUrl: (process.env.KIE_AI_BASE_URL || 'https://api.kie.ai').replace(/\/$/, ''),
+      path: (process.env.KIE_AI_CHAT_PATH || DEFAULT_KIE_PATH).replace(/^\//, ''),
+      model: process.env.KIE_AI_MODEL || DEFAULT_KIE_MODEL,
+    };
+  }
+  const openaiKey = process.env.OPENAI_API_KEY;
+  if (openaiKey && String(openaiKey).trim()) {
+    return {
+      name: 'openai',
+      apiKey: openaiKey.trim(),
+      url: 'https://api.openai.com/v1/chat/completions',
+      model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    };
+  }
+  return null;
+}
+
+/**
+ * Chat completions (OpenAI-compatible request shape). Used by KIE GPT-style routes and OpenAI.
+ * @param {object} opts
+ * @param {Array<{role:string,content:string}>} opts.messages
+ * @param {boolean} [opts.jsonObject] — response_format json_object where supported
+ * @param {number} [opts.max_tokens]
+ * @param {number} [opts.temperature]
+ * @returns {Promise<{ content: string|null, provider: string, error?: boolean }>}
+ */
+async function chatCompletion({
+  messages,
+  jsonObject = false,
+  max_tokens = 900,
+  temperature = 0.45,
+}) {
+  const prov = pickProvider();
+  if (!prov) {
+    return { content: null, provider: 'none', error: true };
+  }
+
+  const body = {
+    model: prov.model,
+    messages,
+    temperature,
+    max_tokens,
+  };
+  if (jsonObject) {
+    body.response_format = { type: 'json_object' };
+  }
+
+  try {
+    if (prov.name === 'kie') {
+      const url = `${prov.baseUrl}/${prov.path}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${prov.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        console.warn('[llmClient] KIE non-JSON:', rawText.slice(0, 200));
+        return { content: null, provider: 'kie', error: true };
+      }
+      if (!res.ok) {
+        console.warn('[llmClient] KIE HTTP', res.status, rawText.slice(0, 280));
+        return { content: null, provider: 'kie', error: true };
+      }
+      const content =
+        data &&
+        data.choices &&
+        data.choices[0] &&
+        data.choices[0].message &&
+        data.choices[0].message.content;
+      return {
+        content: typeof content === 'string' ? content : null,
+        provider: 'kie',
+        error: !content,
+      };
+    }
+
+    const res = await fetch(prov.url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${prov.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+    const rawText = await res.text();
+    let data;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      console.warn('[llmClient] OpenAI non-JSON:', rawText.slice(0, 200));
+      return { content: null, provider: 'openai', error: true };
+    }
+    if (!res.ok) {
+      console.warn('[llmClient] OpenAI HTTP', res.status, rawText.slice(0, 280));
+      return { content: null, provider: 'openai', error: true };
+    }
+    const content =
+      data &&
+      data.choices &&
+      data.choices[0] &&
+      data.choices[0].message &&
+      data.choices[0].message.content;
+    return {
+      content: typeof content === 'string' ? content : null,
+      provider: 'openai',
+      error: !content,
+    };
+  } catch (e) {
+    console.warn('[llmClient] fetch error:', e.message);
+    return { content: null, provider: prov.name, error: true };
+  }
+}
+
+function activeProviderLabel() {
+  const p = pickProvider();
+  return p ? p.name : null;
+}
+
+module.exports = {
+  chatCompletion,
+  pickProvider,
+  activeProviderLabel,
+};

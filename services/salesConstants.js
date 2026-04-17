@@ -1,55 +1,67 @@
 /**
- * Phase 2–4 sales methodology: pipeline stages + static script library (Personas / dynamic scripting MVP).
+ * Phase 2–4 sales methodology: full pipeline (outreach sub-stages + close) + static script library.
  */
 
 const PIPELINE_STAGES = [
   {
     id: 1,
-    slug: 'niche_prospecting',
-    name: 'Niche Prospecting',
-    summary: 'Filter leads by industry and need (e.g. no website, low reviews, thin GBP).',
+    slug: 'niche',
+    name: 'Niche (new)',
+    summary: 'Scraped, imported, or triage — not yet in active outreach.',
   },
   {
     id: 2,
-    slug: 'cqi',
-    name: 'Client Qualification Interview (CQI)',
-    summary: 'Discovery: revenue, current marketing spend, pain, decision process.',
+    slug: 'contacted',
+    name: 'Contacted',
+    summary: 'First touch or sequence started (email, LI, DM).',
   },
   {
     id: 3,
-    slug: 'trial_close',
-    name: 'The Trial Close',
-    summary: 'Pitch a low-friction foot-in-the-door offer (≈ $297) — quick win, low risk.',
+    slug: 'engaged_booked',
+    name: 'Engaged / Booked',
+    summary: 'Reply, positive signal, or call booked — pre-CQI.',
   },
   {
     id: 4,
-    slug: 'trial_onboarding',
-    name: 'Trial Onboarding',
-    summary: 'Automate setup for the first small deliverable; set expectations and timeline.',
+    slug: 'cqi',
+    name: 'CQI (Discovery)',
+    summary: 'Client Qualification Interview: revenue, spend, pain, decision process.',
   },
   {
     id: 5,
-    slug: 'retainer_close',
-    name: 'Retainer Close',
-    summary: 'Move from trial to monthly AI / growth retainer ($1k–$3k+). Anchor to ROI.',
+    slug: 'trial_close',
+    name: 'Trial close (≈$297)',
+    summary: 'Low-friction foot-in-the-door offer; risk-reversal before retainer.',
   },
   {
     id: 6,
-    slug: 'retainer_onboarding',
-    name: 'Retainer Onboarding',
-    summary: 'Full integration: tracking, assets, access, weekly rhythm.',
+    slug: 'trial_onboarding',
+    name: 'Trial onboarding',
+    summary: 'Deliver first small win; set expectations and timeline.',
   },
   {
     id: 7,
-    slug: 'upsell',
-    name: 'The Upsell',
-    summary: 'Value ladder: Voice AI, agents, ads, advanced funnels.',
+    slug: 'retainer_close',
+    name: 'Retainer close',
+    summary: 'Move to monthly retainer ($1k–$3k+); anchor to ROI.',
   },
   {
     id: 8,
+    slug: 'retainer_onboarding',
+    name: 'Retainer onboarding',
+    summary: 'Tracking, assets, access, weekly rhythm — full integration.',
+  },
+  {
+    id: 9,
+    slug: 'upsell',
+    name: 'Upsell',
+    summary: 'Value ladder: voice AI, agents, ads, advanced funnels.',
+  },
+  {
+    id: 10,
     slug: 'referral_loop',
-    name: 'Referral Loop',
-    summary: 'After ~30 days of success, systematic referral asks and case study.',
+    name: 'Referral loop',
+    summary: 'Systematic referral asks, case studies, and compounding growth.',
   },
 ];
 
@@ -104,7 +116,7 @@ const PERSONAS = [
     color: 'from-emerald-400 to-teal-600',
     duties: ['Site and funnel drafts', 'Chatbot logic & handoff', 'Technical fulfillment notes'],
     href: '/leads',
-    hrefLabel: 'Saved Leads',
+    hrefLabel: 'Leads',
   },
 ];
 

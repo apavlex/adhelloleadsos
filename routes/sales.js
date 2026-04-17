@@ -4,15 +4,13 @@ const dbService = require('../services/database');
 const { PIPELINE_STAGES, SCRIPT_LIBRARY, PERSONAS } = require('../services/salesConstants');
 const { computeOutreachStreak, buildDailyChartSeries } = require('../services/trackerStats');
 const { getCoachPayload } = require('../services/flowCoach');
-
-function userEmail(req) {
-  return (req.user && req.user.emails && req.user.emails[0] && req.user.emails[0].value) || 'unknown';
-}
+const activationService = require('../services/activationService');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 
 router.get('/', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads();
-    const workspaceLeads = all.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+    const workspaceLeads = filterLeadsForRequest(req, all);
     const now = Date.now();
     const weekMs = 7 * 24 * 60 * 60 * 1000;
     const newThisWeek = workspaceLeads.filter((l) => {
@@ -20,10 +18,10 @@ router.get('/', async (req, res, next) => {
       return t && now - t < weekMs;
     }).length;
     const pipelineCounts = {};
-    for (let i = 1; i <= 8; i += 1) pipelineCounts[i] = 0;
+    for (let i = 1; i <= 10; i += 1) pipelineCounts[i] = 0;
     workspaceLeads.forEach((l) => {
       const ps =
-        typeof l.pipelineStage === 'number' && l.pipelineStage >= 1 && l.pipelineStage <= 8
+        typeof l.pipelineStage === 'number' && l.pipelineStage >= 1 && l.pipelineStage <= 10
           ? l.pipelineStage
           : 1;
       pipelineCounts[ps] += 1;
@@ -65,18 +63,18 @@ router.get('/', async (req, res, next) => {
 router.get('/workflow', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads();
-    const leads = all.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+    const leads = filterLeadsForRequest(req, all);
     const counts = {};
-    for (let i = 1; i <= 8; i += 1) counts[i] = 0;
+    for (let i = 1; i <= 10; i += 1) counts[i] = 0;
     leads.forEach((l) => {
       const ps =
-        typeof l.pipelineStage === 'number' && l.pipelineStage >= 1 && l.pipelineStage <= 8
+        typeof l.pipelineStage === 'number' && l.pipelineStage >= 1 && l.pipelineStage <= 10
           ? l.pipelineStage
           : 1;
       counts[ps] += 1;
     });
     res.render('sales-workflow', {
-      title: '8-Step Workflow',
+      title: '10-Stage Workflow',
       activePage: 'sales',
       activeSales: 'workflow',
       stages: PIPELINE_STAGES,
@@ -93,11 +91,14 @@ router.post('/workflow/stage', express.urlencoded({ extended: true }), async (re
     const { leadKey, pipelineStage } = req.body;
     if (!leadKey) return res.redirect('/sales/workflow');
     const key = leadKey.startsWith('lead:') ? leadKey : `lead:${leadKey}`;
-    const stage = Math.min(8, Math.max(1, parseInt(pipelineStage, 10) || 1));
+    const stage = Math.min(10, Math.max(1, parseInt(pipelineStage, 10) || 1));
     await dbService.updateLead(key, {
       pipelineStage: stage,
       pipelineStageUpdatedAt: new Date().toISOString(),
     });
+    if (stage >= 2) {
+      await activationService.recordEvent(userEmail(req), 'pipeline_advanced');
+    }
     res.redirect('/sales/workflow');
   } catch (e) {
     next(e);
@@ -166,6 +167,14 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
       notes: req.body.notes || '',
       callNotes: req.body.callNotes || '',
     });
+    const touches =
+      (parseInt(req.body.coldEmails, 10) || 0) +
+      (parseInt(req.body.coldDms, 10) || 0) +
+      (parseInt(req.body.coldCalls, 10) || 0) +
+      (parseInt(req.body.upworkBids, 10) || 0);
+    if (touches > 0) {
+      await activationService.recordEvent(email, 'outreach_logged');
+    }
     res.redirect('/sales/tracker');
   } catch (e) {
     next(e);

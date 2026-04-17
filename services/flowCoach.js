@@ -1,5 +1,7 @@
 const dbService = require('./database');
 const { computeOutreachStreak, touchesForRow } = require('./trackerStats');
+const { chatCompletion } = require('./llmClient');
+const { filterLeadsForRequest } = require('./workspaceService');
 
 /**
  * Rich context for AI / rule-based coaching when the user opens the app.
@@ -11,7 +13,10 @@ async function buildCoachContext(req) {
   const firstName = String(rawName).trim().split(/\s+/)[0] || 'there';
 
   const all = await dbService.getAllLeads();
-  const workspace = all.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+  const workspace =
+    req && typeof req.workspaceRole === 'string'
+      ? filterLeadsForRequest(req, all)
+      : all;
 
   const now = Date.now();
   const weekMs = 7 * 24 * 60 * 60 * 1000;
@@ -21,16 +26,16 @@ async function buildCoachContext(req) {
   }).length;
 
   const pipelineCounts = {};
-  for (let i = 1; i <= 8; i += 1) pipelineCounts[i] = 0;
+  for (let i = 1; i <= 10; i += 1) pipelineCounts[i] = 0;
   workspace.forEach((l) => {
     const ps = parseInt(l.pipelineStage, 10);
-    const n = !Number.isNaN(ps) && ps >= 1 && ps <= 8 ? ps : 1;
+    const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
     pipelineCounts[n] += 1;
   });
 
   let maxBacklogStage = null;
   let maxBacklogCount = 0;
-  for (let i = 1; i <= 8; i += 1) {
+  for (let i = 1; i <= 10; i += 1) {
     if (pipelineCounts[i] > maxBacklogCount) {
       maxBacklogCount = pipelineCounts[i];
       maxBacklogStage = i;
@@ -66,8 +71,15 @@ function defaultAiTimeSavers() {
   return [
     { label: 'Maps + Apify search', hint: 'Pulls businesses into saved leads — no manual spreadsheet.' },
     { label: 'CSV import', hint: 'Drop a list; we map columns and merge duplicates by email.' },
-    { label: 'Enrich a lead', hint: 'One click to scrape site signals instead of ten browser tabs.' },
-    { label: 'Personas & scripts', hint: 'Reusable talk tracks; add OPENAI_API_KEY for custom AI copy later.' },
+    {
+      label: 'Enrich a lead',
+      hint: 'Firecrawl + HTML tech detection (CMS/chat widgets) — beyond Maps-only SMB lists.',
+    },
+    {
+      label: 'Personas & scripts',
+      hint:
+        'Set KIE_AI_API_KEY from kie.ai (recommended) or OPENAI_API_KEY — live coach + smart outreach.',
+    },
   ];
 }
 
@@ -90,7 +102,11 @@ function ruleBasedCoach(ctx) {
       nextActions.push({ label: 'Log today’s outreach (streak + discipline)', href: '/sales/tracker', priority: 'high' });
     }
     if (ctx.maxBacklogStage === 1 && ctx.maxBacklogCount >= 3) {
-      nextActions.push({ label: 'Move prospects to CQI (stage 2)', href: '/sales/workflow', priority: 'high' });
+      nextActions.push({
+        label: 'Clear Niche backlog — outreach or drag to Contacted',
+        href: '/leads',
+        priority: 'high',
+      });
     }
     if (ctx.streak >= 3 && ctx.touchesToday === 0) {
       nextActions.push({ label: `Keep your ${ctx.streak}-day streak — log touches`, href: '/sales/tracker', priority: 'high' });
@@ -144,9 +160,12 @@ const ALLOWED_HREFS = new Set([
   '/history',
   '/schedules',
   '/analytics',
+  '/sequences',
+  '/activation',
+  '/workspace',
 ]);
 
-function normalizeCoachPayload(parsed, ctx, fallback) {
+function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openai') {
   if (!parsed || typeof parsed !== 'object') return fallback;
   const headline = typeof parsed.headline === 'string' ? parsed.headline : fallback.headline;
   const greeting = typeof parsed.greeting === 'string' ? parsed.greeting : fallback.greeting;
@@ -180,17 +199,13 @@ function normalizeCoachPayload(parsed, ctx, fallback) {
     nextActions,
     aiTimeSavers,
     mood,
-    source: 'openai',
+    source: coachSource === 'kie' ? 'kie' : 'openai',
     generatedAt: new Date().toISOString(),
   };
 }
 
-async function tryOpenAICoach(ctx, fallback) {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key || typeof fetch !== 'function') return null;
-
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
-  const userPrompt = `You coach a B2B SaaS founder using Agency OS (lead search, CSV import, pipeline stages 1-8, daily outreach tracker, AI personas/scripts).
+async function tryLlmCoach(ctx, fallback) {
+  const userPrompt = `You coach a B2B SaaS founder using Agency OS (lead search, CSV import, pipeline stages 1–10 including Contacted → CQI → trial → retainer → referral, daily outreach tracker, personas/scripts).
 
 User context (JSON):
 ${JSON.stringify(ctx, null, 2)}
@@ -205,47 +220,34 @@ Respond with JSON only (no markdown):
 }
 
 Rules:
-- href must be one of: /, /leads, /sales, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules
+- href must be one of: /, /leads, /sales, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics, /sequences, /activation, /workspace
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
+- Prefer warm inbound leads when pipelineCounts show inbound-heavy stages
 - aiTimeSavers: 3-4 items referencing Apify search, CSV import, enrichment, scripts — not generic life advice`;
 
   try {
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        temperature: 0.45,
-        max_tokens: 600,
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a concise sales-ops coach. Output valid JSON only. Never include markdown fences.',
-          },
-          { role: 'user', content: userPrompt },
-        ],
-      }),
+    const result = await chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content:
+            'You are a concise sales-ops coach. Output valid JSON only. Never include markdown fences.',
+        },
+        { role: 'user', content: userPrompt },
+      ],
+      jsonObject: true,
+      max_tokens: 700,
+      temperature: 0.42,
     });
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      console.warn('[flowCoach] OpenAI HTTP', res.status, errText.slice(0, 200));
-      return null;
-    }
+    if (!result.content || result.error) return null;
 
-    const data = await res.json();
-    const text = data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
-    if (!text || typeof text !== 'string') return null;
-    const parsed = JSON.parse(text);
-    return normalizeCoachPayload(parsed, ctx, fallback);
+    const parsed = JSON.parse(result.content);
+    const coachSource = result.provider === 'kie' ? 'kie' : 'openai';
+    return normalizeCoachPayload(parsed, ctx, fallback, coachSource);
   } catch (e) {
-    console.warn('[flowCoach] OpenAI error:', e.message);
+    console.warn('[flowCoach] LLM coach error:', e.message);
     return null;
   }
 }
@@ -256,7 +258,7 @@ Rules:
 async function getCoachPayload(req) {
   const ctx = await buildCoachContext(req);
   const fallback = ruleBasedCoach(ctx);
-  const ai = await tryOpenAICoach(ctx, fallback);
+  const ai = await tryLlmCoach(ctx, fallback);
   return ai || fallback;
 }
 

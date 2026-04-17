@@ -1,0 +1,177 @@
+const dbService = require('./database');
+const { getTemplate, dueAtIso } = require('./sequenceTemplates');
+
+function fullLeadKey(key) {
+  return key.startsWith('lead:') ? key : `lead:${key}`;
+}
+
+/**
+ * Attach sequence + first due time (step 0 fires when due).
+ */
+async function startSequence(leadKey, templateId, options = {}) {
+  const tpl = getTemplate(templateId);
+  if (!tpl || !tpl.steps.length) {
+    throw new Error(`Unknown sequence template: ${templateId}`);
+  }
+
+  const key = fullLeadKey(leadKey);
+  const lead = await dbService.getLead(key);
+  if (!lead) throw new Error('Lead not found');
+
+  const anchorTime = options.anchorTime || new Date().toISOString();
+  const stepIndex = 0;
+  const nextDueAt = dueAtIso(anchorTime, tpl.steps[stepIndex].dayOffset);
+
+  const sequenceState = {
+    templateId,
+    anchorTime,
+    stepIndex,
+    nextDueAt,
+    status: 'active',
+    startedAt: new Date().toISOString(),
+  };
+
+  await dbService.updateLead(key, {
+    sequenceState,
+    logs: [
+      {
+        type: 'sequence_start',
+        message: `Cadence started: ${tpl.name} (${tpl.steps.length} steps)`,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+
+  return { key, sequenceState, template: tpl };
+}
+
+async function pauseSequence(leadKey) {
+  const key = fullLeadKey(leadKey);
+  const lead = await dbService.getLead(key);
+  if (!lead || !lead.sequenceState) return null;
+  await dbService.updateLead(key, {
+    sequenceState: {
+      ...lead.sequenceState,
+      status: 'paused',
+      pausedAt: new Date().toISOString(),
+    },
+    logs: [
+      {
+        type: 'sequence_pause',
+        message: 'Cadence paused',
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+  return true;
+}
+
+function formatStepMessage(step, tplName) {
+  const ch = (step.channel || 'task').toUpperCase();
+  return `[${ch}] ${step.title}${step.hint ? ` — ${step.hint}` : ''}`;
+}
+
+/**
+ * Fire one due step and advance; called by scheduler.
+ */
+async function processLeadSequence(lead) {
+  const st = lead.sequenceState;
+  if (!st || st.status !== 'active' || !st.nextDueAt) return false;
+
+  const tpl = getTemplate(st.templateId);
+  if (!tpl || !tpl.steps.length) {
+    await dbService.updateLead(lead.key, {
+      sequenceState: null,
+      logs: [
+        {
+          type: 'sequence_error',
+          message: 'Cadence stopped — template missing',
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    return false;
+  }
+
+  const now = Date.now();
+  if (Date.parse(st.nextDueAt) > now) return false;
+
+  const idx = typeof st.stepIndex === 'number' ? st.stepIndex : 0;
+  if (idx >= tpl.steps.length) {
+    await dbService.updateLead(lead.key, {
+      sequenceState: {
+        templateId: st.templateId,
+        status: 'completed',
+        completedAt: new Date().toISOString(),
+      },
+      logs: [
+        {
+          type: 'sequence_complete',
+          message: `Cadence completed: ${tpl.name}`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    return true;
+  }
+
+  const step = tpl.steps[idx];
+  const msg = formatStepMessage(step, tpl.name);
+
+  const nextIdx = idx + 1;
+  let sequenceState;
+  if (nextIdx >= tpl.steps.length) {
+    sequenceState = {
+      templateId: st.templateId,
+      status: 'completed',
+      completedAt: new Date().toISOString(),
+      anchorTime: st.anchorTime,
+    };
+  } else {
+    sequenceState = {
+      ...st,
+      stepIndex: nextIdx,
+      nextDueAt: dueAtIso(st.anchorTime, tpl.steps[nextIdx].dayOffset),
+      status: 'active',
+    };
+  }
+
+  await dbService.updateLead(lead.key, {
+    sequenceState,
+    logs: [
+      {
+        type: 'sequence_step',
+        message: msg,
+        timestamp: new Date().toISOString(),
+        meta: {
+          templateId: st.templateId,
+          stepIndex: idx,
+          channel: step.channel,
+        },
+      },
+    ],
+  });
+
+  return true;
+}
+
+async function runDueSequenceSteps() {
+  const leads = await dbService.getAllLeads();
+  let n = 0;
+  for (const lead of leads) {
+    const st = lead.sequenceState;
+    if (!st || st.status !== 'active') continue;
+    if (!st.nextDueAt || Date.parse(st.nextDueAt) > Date.now()) continue;
+    const ran = await processLeadSequence(lead);
+    if (ran) n += 1;
+  }
+  return n;
+}
+
+module.exports = {
+  startSequence,
+  pauseSequence,
+  processLeadSequence,
+  runDueSequenceSteps,
+  listTemplates: require('./sequenceTemplates').listTemplates,
+};

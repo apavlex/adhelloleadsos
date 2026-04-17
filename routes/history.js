@@ -4,7 +4,11 @@ const dbService = require('../services/database');
 
 router.get('/', async (req, res, next) => {
   try {
-    const searches = await dbService.getAllSearches();
+    const allSearches = await dbService.getAllSearches();
+    const wid = (req.workspaceId || 'default');
+    const searches = allSearches.filter(
+      (s) => (s.workspaceId || 'default') === wid
+    );
     res.render('history', {
       title: 'Search History',
       activePage: 'history',

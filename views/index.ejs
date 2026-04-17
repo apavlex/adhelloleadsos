@@ -8,6 +8,9 @@
 
   <main class="max-wide px-6 pt-12 pb-24">
     <%- include('partials/flow-coach') %>
+    <% if (typeof activation !== 'undefined' && activation) { %>
+    <%- include('partials/activation-7day', { activation, fullPage: false }) %>
+    <% } %>
     <!-- Hero Section -->
     <div class="text-center mb-16">
       <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-4 py-1.5 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-8 animate-fade-in">
@@ -15,7 +18,7 @@
           <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-yellow opacity-75"></span>
           <span class="relative inline-flex rounded-full h-2 w-2 bg-brand-yellow"></span>
         </span>
-        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400"><%= savedLeadsCount %> AdHello Leads Saved</span>
+        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400"><%= typeof warmInboundCount !== 'undefined' ? warmInboundCount : savedLeadsCount %> warm inbound · <%= typeof totalPipelineCount !== 'undefined' ? totalPipelineCount : workspaceLeadsCount %> total pipeline</span>
       </div>
       
       <h1 class="font-display font-extrabold text-5xl md:text-7xl tracking-tight mb-6 leading-[1.1]">
@@ -23,8 +26,8 @@
         <span class="text-brand-muted">on Autopilot</span>
       </h1>
       
-      <p class="max-w-2xl mx-auto text-lg text-brand-muted font-medium mb-8">
-        Your <span class="text-brand-dark dark:text-white font-bold">daily leads generator</span> for the SaaS motion: scrape niches, enrich, then run pipeline + outreach from <span class="text-brand-dark dark:text-white font-bold">Command Center</span>.
+      <p class="max-w-2xl mx-auto text-base md:text-lg text-brand-muted font-medium mb-8 leading-relaxed">
+        Your <strong class="inline font-bold text-brand-dark dark:text-white">daily leads workflow</strong> for the SaaS motion — scrape niches, enrich, then run pipeline + outreach from the <strong class="inline font-bold text-brand-dark dark:text-white">Command Center</strong>.
       </p>
 
       <div class="max-w-4xl mx-auto mb-10 w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-900/70 backdrop-blur-md px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 text-left">

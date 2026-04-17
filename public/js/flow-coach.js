@@ -152,7 +152,12 @@
       if (fc.variant === 'leads') {
         srcLabel.textContent = 'Gap-based rank';
       } else {
-        srcLabel.textContent = fc.source === 'openai' ? 'Live coach' : 'Smart flow';
+        srcLabel.textContent =
+          fc.source === 'kie'
+            ? 'Live coach · KIE'
+            : fc.source === 'openai'
+              ? 'Live coach'
+              : 'Smart flow';
       }
     }
 

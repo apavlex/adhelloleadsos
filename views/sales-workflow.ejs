@@ -10,7 +10,7 @@
     <%- include('partials/sales-nav') %>
 
     <div class="mb-10 max-w-3xl">
-      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">8-Step <span class="text-brand-muted">Blueprint</span></h1>
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">10-Stage <span class="text-brand-muted">Blueprint</span></h1>
       <p class="text-brand-muted font-medium mt-2">Assign each saved lead to a stage. CQI fields store discovery answers on the lead record.</p>
     </div>
 
@@ -26,7 +26,7 @@
 
     <div class="space-y-4 mb-16">
       <% stages.forEach((s) => { %>
-        <details class="brand-card dark:bg-slate-900 dark:border-white/10 group" <%= s.id <= 2 ? 'open' : '' %>>
+        <details class="brand-card dark:bg-slate-900 dark:border-white/10 group" <%= s.id <= 4 ? 'open' : '' %>>
           <summary class="px-6 py-4 cursor-pointer font-display font-extrabold text-brand-dark dark:text-white list-none flex justify-between items-center">
             <span><span class="text-brand-yellow mr-2"><%= s.id %>.</span> <%= s.name %></span>
             <span class="text-[10px] font-black uppercase text-brand-muted group-open:rotate-180 transition-transform">▼</span>
@@ -41,7 +41,7 @@
     <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mb-12">
       <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
         <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Lead pipeline</h2>
-        <p class="text-xs text-brand-muted mt-1">Saved leads (excluding inbound). Stage is stored on the lead for reporting.</p>
+        <p class="text-xs text-brand-muted mt-1">All leads in one pipeline. Warm (AdHello) defaults to CQI when ingested.</p>
       </div>
       <div class="overflow-x-auto">
         <% if (leads.length === 0) { %>
@@ -66,7 +66,7 @@
                   <td class="px-6 py-4 align-top">
                     <form action="/sales/workflow/stage" method="post" class="flex flex-col sm:flex-row gap-2 items-start">
                       <input type="hidden" name="leadKey" value="<%= lead.key %>" />
-                      <% const ps = (typeof lead.pipelineStage === 'number' && lead.pipelineStage >= 1 && lead.pipelineStage <= 8) ? lead.pipelineStage : 1; %>
+                      <% const ps = (typeof lead.pipelineStage === 'number' && lead.pipelineStage >= 1 && lead.pipelineStage <= 10) ? lead.pipelineStage : 1; %>
                       <select name="pipelineStage" class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-semibold px-3 py-2 text-brand-dark dark:text-white max-w-[220px]">
                         <% stages.forEach((s) => { %>
                           <option value="<%= s.id %>" <%= (ps === s.id) ? 'selected' : '' %>><%= s.id %>. <%= s.name %></option>

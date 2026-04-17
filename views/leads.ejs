@@ -33,11 +33,25 @@
           <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Lead Management</span>
         </div>
         <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
-          Saved <span class="text-brand-muted">Leads</span>
+          <span class="text-brand-muted">Leads</span> pipeline
         </h1>
         <p class="text-brand-muted font-medium mt-2 max-w-xl">
-          Your daily workspace pipeline — <%= leads.length %> lead<%= leads.length !== 1 ? 's' : '' %>. Drag cards on the <strong class="text-brand-dark dark:text-white">Pipeline</strong> board to advance the 8-step methodology; table view shows stage and delivery status.
+          One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong> (<%= leads.length %> shown). Drag cards on the <strong class="text-brand-dark dark:text-white">Pipeline</strong> view to move through 10 stages (Niche → … → Referral); table view shows status and source.
         </p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-3 flex flex-wrap gap-x-4 gap-y-2">
+          <a href="/sequences" class="text-brand-yellow hover:underline">Cadence templates</a>
+          <a href="/activation" class="text-violet-600 dark:text-violet-300 hover:underline">7-day plan</a>
+          <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+          <a href="/workspace" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
+          <% } %>
+        </p>
+        <% if (typeof leadSourceCounts !== 'undefined' && leadSourceCounts) { %>
+        <div class="flex flex-wrap gap-2 mt-4" role="tablist" aria-label="Filter by lead source">
+          <a href="/leads?source=all" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter === 'undefined' || sourceFilter === 'all') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted hover:text-brand-dark' %>">All (<%= leadSourceCounts.all %>)</a>
+          <a href="/leads?source=cold" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'cold') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted hover:text-brand-dark' %>">Cold (<%= leadSourceCounts.cold %>)</a>
+          <a href="/leads?source=inbound" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'inbound') ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted hover:text-brand-dark' %>">Warm inbound (<%= leadSourceCounts.inbound %>)</a>
+        </div>
+        <% } %>
       </div>
       <div class="flex flex-col sm:flex-row items-center gap-4">
         <!-- View Toggle -->
@@ -113,7 +127,7 @@
             <tbody class="divide-y divide-brand-border/50">
               <% leads.forEach((lead, i) => { %>
                 <% const _ps = parseInt(lead.pipelineStage, 10); %>
-                <% const psRow = !Number.isNaN(_ps) && _ps >= 1 && _ps <= 8 ? _ps : 1; %>
+                <% const psRow = !Number.isNaN(_ps) && _ps >= 1 && _ps <= 10 ? _ps : 1; %>
                 <% const stRow = (typeof pipelineStages !== 'undefined' && pipelineStages) ? pipelineStages.find((s) => s.id === psRow) : null; %>
                 <% const pipeName = stRow ? stRow.name.replace(/\s*\(.*$/, '').trim() : 'Stage'; %>
                 <% const pipeShort = pipeName.length > 26 ? pipeName.slice(0, 26) + '…' : pipeName; %>
@@ -150,6 +164,8 @@
                     data-aeo-score="<%= lead.aeoScore %>"
                     data-geo-gaps="<%= lead.geoGaps %>"
                     data-audit-summary="<%= lead.auditSummary %>"
+                    data-cms-platform="<%= lead.cmsPlatform || '' %>"
+                    data-buying-signals='<%= JSON.stringify(lead.buyingSignals || []).replace(/'/g, "&apos;") %>'
                     data-source="<%= lead.source || 'manual' %>"
                     data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'
                     data-chat-history='<%= JSON.stringify(lead.chatHistory || null).replace(/'/g, "&apos;") %>'
@@ -168,7 +184,14 @@
                       </div>
                       <div class="max-w-[180px] truncate">
                         <div class="font-bold text-brand-dark group-hover:text-black transition-colors text-base" title="<%= lead.title %>"><%= lead.title %></div>
-                        <div class="text-[10px] font-bold text-brand-muted uppercase tracking-wider mt-0.5 truncate" title="<%= lead.categoryName %>"><%= lead.categoryName %></div>
+                        <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                          <% if (lead.source && lead.source.startsWith('adhello_')) { %>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Warm</span>
+                          <% } else { %>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Cold</span>
+                          <% } %>
+                          <span class="text-[10px] font-bold text-brand-muted uppercase tracking-wider truncate" title="<%= lead.categoryName %>"><%= lead.categoryName %></span>
+                        </div>
                       </div>
                     </div>
                   </td>
@@ -248,7 +271,7 @@
         </div>
       </div>
 
-      <!-- Pipeline board: 8-step methodology (drag cards between columns to update pipelineStage) -->
+      <!-- Pipeline board: 10-stage methodology (drag cards between columns to update pipelineStage) -->
       <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">
           <p class="text-xs text-brand-muted mb-4 max-w-3xl">Drag a card to another column to update its <strong class="text-brand-dark dark:text-white">pipeline stage</strong>. Delivery status (Needs Video, etc.) stays in table view — use your CRM column for fulfillment.</p>
           <div class="flex gap-4 min-w-max pb-2">
