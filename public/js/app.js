@@ -350,46 +350,30 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   syncBookmarkIcons();
 
-  // --- Search Form Handling ---
+  // --- Search Form Handling (POST /search → Apify in background) ---
   const searchForm = document.getElementById('searchForm');
-  if (searchForm) {
-    searchForm.addEventListener('submit', (e) => {
-      // Show progress ring on the bell
-      updateProcessingStatus(true);
-      
-      // Also show the legacy loader if it exists
-      const loadingOverlay = document.getElementById('loadingOverlay');
-      if (loadingOverlay) loadingOverlay.classList.remove('hidden');
-    });
-  }
-
   const btn = document.getElementById('searchBtn');
   const loader = document.getElementById('loadingIndicator');
-
-  // Search mode toggle logic
   const modeRunNow = document.getElementById('modeRunNow');
   const modeSchedule = document.getElementById('modeSchedule');
   const searchModeInput = document.getElementById('searchModeInput');
-  const frequencyPocket = document.getElementById('frequencyPocket');
-  const timePocket = document.getElementById('timePocket');
   const userTimezoneInput = document.getElementById('userTimezone');
   const searchBtnLabel = btn ? btn.querySelector('#searchBtnText') : null;
 
-  // Set user timezone on load
   if (userTimezoneInput) {
     userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
 
   if (modeRunNow && modeSchedule && searchModeInput) {
     const autopilotSettings = document.getElementById('autopilotSettings');
-    
+
     modeRunNow.addEventListener('click', () => {
       searchModeInput.value = 'run';
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
-      
+
       if (autopilotSettings) {
-          autopilotSettings.classList.add('hidden');
+        autopilotSettings.classList.add('hidden');
       }
 
       if (searchBtnLabel) {
@@ -401,9 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
       searchModeInput.value = 'schedule';
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
-      
+
       if (autopilotSettings) {
-          autopilotSettings.classList.remove('hidden');
+        autopilotSettings.classList.remove('hidden');
       }
 
       if (searchBtnLabel) {
@@ -412,31 +396,26 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (form) {
-    form.addEventListener('submit', (e) => {
+  if (searchForm) {
+    searchForm.addEventListener('submit', () => {
+      updateProcessingStatus(true);
+      const loadingOverlay = document.getElementById('loadingOverlay');
+      if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+
       const isSchedule = searchModeInput && searchModeInput.value === 'schedule';
-      
-      if (!isSchedule) {
-        // Trigger Alexa Progress Ring
-        updateProcessingStatus(true);
-        
-        if (btn) {
-          btn.disabled = true;
-          btn.innerHTML = `
+      if (!isSchedule && btn) {
+        btn.disabled = true;
+        btn.innerHTML = `
             <svg class="w-4 h-4 animate-spin text-brand-dark" fill="none" viewBox="0 0 24 24">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
             </svg>
             <span class="ml-2">Searching...</span>
           `;
-          btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-pulse');
-        }
-        if (loader) {
-          loader.classList.remove('hidden');
-        }
-      } else {
-        // If scheduling, we let the form submit normally or via fetch for better UX
-        // We will stick to normal submit for now as its easier to handle redirect
+        btn.classList.add('opacity-50', 'cursor-not-allowed', 'animate-pulse');
+      }
+      if (!isSchedule && loader) {
+        loader.classList.remove('hidden');
       }
     });
   }
@@ -633,6 +612,7 @@ document.addEventListener('DOMContentLoaded', () => {
           // Scroll logic removed - title is now always visible
       }
     }
+  }
   }
 
   // --- Populate panel from row data ---

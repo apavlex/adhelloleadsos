@@ -9,6 +9,13 @@ router.post('/', async (req, res, next) => {
   try {
     const { keyword, city, state, maxResults, mode, frequency } = req.body;
 
+    if (mode !== 'schedule' && !process.env.APIFY_API_TOKEN) {
+      return res.status(503).render('error', {
+        message: 'Apify is not configured. Set APIFY_API_TOKEN in your environment (Cloud Run → Variables & secrets).',
+        activePage: 'search',
+      });
+    }
+
     if (!keyword || !city || !state) {
       return res.status(400).render('error', {
         message: 'Keyword, City, and State are all required.',

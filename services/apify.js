@@ -4,7 +4,8 @@ const client = new ApifyClient({
   token: process.env.APIFY_API_TOKEN,
 });
 
-const ACTOR_ID = 'nwua9Gu5YrADL7ZDj';
+// Google Maps scraper actor (must match input shape below). Override via APIFY_GOOGLE_MAPS_ACTOR_ID if needed.
+const ACTOR_ID = process.env.APIFY_GOOGLE_MAPS_ACTOR_ID || 'nwua9Gu5YrADL7ZDj';
 
 module.exports = {
   /**
