@@ -8,7 +8,7 @@
   <main class="max-w-5xl mx-auto px-6 pt-12 pb-24">
     <div class="mb-10">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Cadence engine</p>
-      <h1 class="font-display font-extrabold text-4xl md:text-5xl text-brand-dark dark:text-white leading-tight">Sequences</h1>
+      <h1 class="font-display font-extrabold text-4xl md:text-5xl text-brand-dark dark:text-white leading-tight">Cadences</h1>
       <p class="text-brand-muted mt-3 max-w-2xl">Persona-based day offsets create tasks in each lead’s activity log. Hook Instantly / Smartlead for live email send; scheduler runs due steps every 15 minutes.</p>
     </div>
 
@@ -18,7 +18,7 @@
           <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Active cadences</h2>
           <p class="text-sm text-brand-muted"><%= typeof activeCount !== 'undefined' ? activeCount : 0 %> lead(s) with status <span class="font-semibold text-brand-yellow">active</span></p>
         </div>
-        <a href="/leads" class="text-sm font-black uppercase tracking-widest text-brand-yellow hover:underline">Open pipeline</a>
+        <a href="/pipeline" class="text-sm font-black uppercase tracking-widest text-brand-yellow hover:underline">Open Pipeline</a>
       </div>
       <% if (!activeSequences || activeSequences.length === 0) { %>
         <p class="text-sm text-brand-muted italic">No active sequences. Open a lead in <strong>Saved Leads</strong> and start a cadence from the row actions (or wire the API).</p>

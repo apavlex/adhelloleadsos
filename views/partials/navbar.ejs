@@ -1,41 +1,31 @@
+<% const np = typeof navPrimary !== 'undefined' ? navPrimary : ''; %>
 <header class="sticky top-0 z-50 w-full px-6 py-4">
   <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-3 rounded-full border border-brand-border dark:border-white/10 shadow-sm">
-    <a href="/" class="flex items-center gap-3 group h-10">
+    <a href="/today" class="flex items-center gap-3 group h-10">
       <div class="flex items-center gap-3">
-        <!-- Image shown in Light Mode (contains dark text) -->
         <img src="/images/logo-light.svg" alt="Leads Logo" class="h-8 w-auto block dark:hidden object-contain" />
-        <!-- Image shown in Dark Mode (contains light text) -->
         <img src="/images/logo-dark.svg" alt="Leads Logo" class="h-8 w-auto hidden dark:block object-contain" />
-        
         <div class="h-6 w-px bg-brand-border dark:bg-white/10 mx-4"></div>
         <span class="text-lg font-display font-black tracking-tight text-brand-dark dark:text-white pb-0.5">Agency OS</span>
       </div>
     </a>
 
-    <!-- Navigation -->
-    <nav class="hidden md:flex items-center gap-8">
-      <a href="/" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'active' : '' %>">Search</a>
-      <a href="/history" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'active' : '' %>">History</a>
-      <a href="/schedules" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'schedules' ? 'active' : '' %>">Autopilot</a>
-      <a href="/leads?source=inbound" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'inbound' ? 'active' : '' %>">Inbound</a>
-      <a href="/leads" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'active' : '' %>">Saved Leads</a>
-      <a href="/sales" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'sales' ? 'active' : '' %>">Command Center</a>
-      <a href="/analytics" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'analytics' ? 'active' : '' %>">Analytics</a>
-      <a href="/sequences" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'sequences' ? 'active' : '' %>">Sequences</a>
-      <a href="/workspace" class="nav-link text-sm <%= typeof activePage !== 'undefined' && activePage === 'workspace' ? 'active' : '' %>">Team</a>
+    <!-- Primary nav (5 items) -->
+    <nav class="hidden md:flex items-center gap-6 lg:gap-8" aria-label="Primary">
+      <a href="/today" class="nav-link text-sm <%= np === 'today' ? 'active' : '' %>">Today</a>
+      <a href="/find" class="nav-link text-sm <%= np === 'find' ? 'active' : '' %>">Find Leads</a>
+      <a href="/pipeline" class="nav-link text-sm <%= np === 'pipeline' ? 'active' : '' %>">Pipeline</a>
+      <a href="/outreach" class="nav-link text-sm <%= np === 'outreach' ? 'active' : '' %>">Outreach</a>
+      <a href="/insights" class="nav-link text-sm <%= np === 'insights' ? 'active' : '' %>">Insights</a>
     </nav>
 
-    <!-- User Area -->
-    <div class="flex items-center gap-2 sm:gap-4">
-      <!-- Background Processing Bell -->
+    <div class="flex items-center gap-2 sm:gap-3">
       <div id="processingIndicator" class="bell-icon-wrapper nav-bell w-10 h-10 flex items-center justify-center text-brand-dark dark:text-gray-300 rounded-full hover:bg-brand-cream dark:hover:bg-gray-800 transition-all cursor-pointer relative">
         <div class="processing-ring"></div>
         <div id="notificationPing" class="absolute top-2 right-2.5 w-2 h-2 bg-red-500 rounded-full hidden"></div>
         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
-
-        <!-- Notification Dropdown -->
         <div id="notificationDropdown" class="absolute top-full mt-3 right-0 w-80 bg-white dark:bg-slate-900 shadow-2xl rounded-2xl hidden p-0 border border-brand-border dark:border-white/10 z-[100] animate-slide-up overflow-hidden">
           <div class="p-4 border-b border-brand-border dark:border-white/5 bg-brand-cream/30 dark:bg-white/5">
             <h3 class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Notifications</h3>
@@ -46,48 +36,48 @@
             </div>
           </div>
           <div class="p-3 border-t border-brand-border dark:border-white/5 text-center">
-            <a href="/history" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">View All History</a>
+            <a href="/history" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">View history</a>
           </div>
         </div>
       </div>
 
-      <!-- Dark/Light Mode Toggle -->
-      <button id="themeToggleBtn" class="w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream dark:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors">
-        <!-- Sun icon (shown in dark mode) -->
+      <button id="themeToggleBtn" type="button" class="w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream dark:text-gray-300 dark:hover:bg-gray-800 rounded-full transition-colors" aria-label="Toggle theme">
         <svg class="hidden dark:block w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2m0 14v2m9-9h-2M5 12H3m15.364 6.364l-1.414-1.414M7.05 7.05L5.636 5.636m12.728 0l-1.414 1.414M7.05 16.95l-1.414 1.414M12 8a4 4 0 100 8 4 4 0 000-8z" />
         </svg>
-        <!-- Moon icon (shown in light mode) -->
         <svg class="block dark:hidden w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
         </svg>
       </button>
 
       <% if (user) { %>
-        <div class="hidden sm:flex flex-col items-end">
-          <span class="text-xs font-bold text-brand-dark" title="<%= user.emails?.[0]?.value || '' %>">
-            <%= (user.displayName || (user.emails?.[0]?.value || 'User').split('@')[0]) %>
+      <div class="relative hidden sm:block" id="userMenuDesktop">
+        <button type="button" id="userMenuBtn" class="flex items-center gap-2 rounded-full border border-brand-border dark:border-white/10 bg-brand-cream/50 dark:bg-slate-800 pl-1 pr-2 py-1 hover:bg-brand-cream dark:hover:bg-slate-700 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="userMenuPanel">
+          <span class="w-8 h-8 rounded-full bg-brand-cream border border-brand-border flex items-center justify-center font-bold text-brand-dark text-xs overflow-hidden shrink-0">
+            <% if (user.photos && user.photos.length > 0) { %>
+              <img src="<%= user.photos[0].value %>" alt="" class="w-full h-full object-cover">
+            <% } else { %>
+              <%= (user.displayName || (user.emails?.[0]?.value || 'U'))[0].toUpperCase() %>
+            <% } %>
           </span>
-          <a href="/logout" class="text-[10px] text-red-500 hover:text-red-600 uppercase tracking-widest font-bold transition-colors">Log Out</a>
+          <svg class="w-4 h-4 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        <div id="userMenuPanel" class="hidden absolute right-0 mt-2 w-56 rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl py-2 z-[110] text-left" role="menu">
+          <div class="px-4 py-2 border-b border-brand-border/50 dark:border-white/10">
+            <div class="text-xs font-bold text-brand-dark dark:text-white truncate"><%= user.displayName || (user.emails?.[0]?.value || 'User').split('@')[0] %></div>
+            <div class="text-[10px] text-brand-muted truncate" title="<%= user.emails?.[0]?.value || '' %>"><%= user.emails?.[0]?.value || '' %></div>
+          </div>
+          <a href="/workspace" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5">Team &amp; workspace</a>
+          <a href="/activation" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5">7-day activation</a>
+          <button type="button" id="connectAiOpen" class="w-full text-left px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/5">Connect AI</button>
+          <a href="/logout" class="block px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30">Log out</a>
         </div>
-        <div class="w-10 h-10 rounded-full bg-brand-cream border border-brand-border flex items-center justify-center font-bold text-brand-dark text-sm shadow-sm md:flex hidden overflow-hidden">
-          <% if (user.photos && user.photos.length > 0) { %>
-            <img src="<%= user.photos[0].value %>" alt="Avatar" class="w-full h-full object-cover">
-          <% } else { %>
-            <%= (user.displayName || (user.emails?.[0]?.value || 'U'))[0].toUpperCase() %>
-          <% } %>
-        </div>
+      </div>
       <% } else { %>
-        <div class="hidden sm:flex flex-col items-end mr-2">
-          <!-- External Access Label Removed -->
-        </div>
-        <a href="/auth/google" class="btn-pill btn-primary px-4 py-2 text-sm font-bold shadow-sm whitespace-nowrap">
-          Login
-        </a>
+      <a href="/auth/google" class="btn-pill btn-primary px-4 py-2 text-sm font-bold shadow-sm whitespace-nowrap hidden sm:inline-flex">Login</a>
       <% } %>
 
-      <!-- Burger Menu (Mobile Only) -->
-      <button id="mobileMenuBtn" class="md:hidden w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream rounded-full transition-colors border border-brand-border">
+      <button id="mobileMenuBtn" type="button" class="md:hidden w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream rounded-full transition-colors border border-brand-border" aria-label="Open menu">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16m-7 6h7" />
         </svg>
@@ -95,78 +85,83 @@
     </div>
   </div>
 
-  <!-- Mobile Side Nav -->
   <div id="mobileMenu" class="fixed inset-0 z-[100] bg-brand-dark/40 backdrop-blur-sm hidden opacity-0 transition-opacity duration-300 pointer-events-none">
-    <div class="absolute inset-y-0 right-0 w-72 bg-white dark:bg-slate-900 shadow-2xl p-8 translate-x-full transition-transform duration-300 pointer-events-auto">
-      <div class="flex items-center justify-between mb-12">
+    <div class="absolute inset-y-0 right-0 w-72 max-w-[90vw] bg-white dark:bg-slate-900 shadow-2xl p-8 translate-x-full transition-transform duration-300 pointer-events-auto overflow-y-auto">
+      <div class="flex items-center justify-between mb-8">
         <span class="font-display font-extrabold text-xl tracking-tight text-brand-dark dark:text-white">Menu</span>
-        <button id="closeMobileMenu" class="w-10 h-10 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white rounded-full transition-colors border border-brand-border dark:border-white/10">
-          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-          </svg>
+        <button id="closeMobileMenu" type="button" class="w-10 h-10 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white rounded-full transition-colors border border-brand-border dark:border-white/10" aria-label="Close menu">
+          <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
 
-      <nav class="flex flex-col gap-6">
-        <a href="/" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'search' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Search</span>
-        </a>
-        <a href="/history" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'history' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">History</span>
-        </a>
-        <a href="/schedules" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'schedules' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Autopilot</span>
-        </a>
-        <a href="/leads?source=inbound" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'inbound' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Inbound</span>
-        </a>
-        <a href="/leads" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'leads' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Saved Leads</span>
-        </a>
-        <a href="/sales" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'sales' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Command Center</span>
-        </a>
-        <a href="/analytics" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'analytics' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Analytics</span>
-        </a>
-        <a href="/sequences" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'sequences' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Sequences</span>
-        </a>
-        <a href="/workspace" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'workspace' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">Team</span>
-        </a>
-        <a href="/activation" class="flex items-center gap-4 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 hover:bg-brand-yellow/10 transition-colors <%= typeof activePage !== 'undefined' && activePage === 'activation' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>">
-          <span class="font-display font-bold text-lg">7-day plan</span>
-        </a>
+      <nav class="flex flex-col gap-3 mb-8" aria-label="Mobile primary">
+        <a href="/today" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'today' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Today</span></a>
+        <a href="/find" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'find' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Find Leads</span></a>
+        <a href="/pipeline" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'pipeline' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Pipeline</span></a>
+        <a href="/outreach" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'outreach' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Outreach</span></a>
+        <a href="/insights" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'insights' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Insights</span></a>
       </nav>
 
-      <div class="mt-12 pt-12 border-t border-brand-border dark:border-white/10">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Settings</p>
+      <nav class="flex flex-col gap-2 mb-8">
+        <a href="/workspace" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Team &amp; workspace</a>
+        <a href="/activation" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">7-day activation</a>
+        <button type="button" id="connectAiOpenMobile" class="w-full text-left px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Connect AI</button>
+      </nav>
+
+      <div class="pt-6 border-t border-brand-border dark:border-white/10">
         <% if (user) { %>
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-full bg-brand-cream border border-brand-border dark:border-white/10 flex items-center justify-center font-bold text-brand-dark dark:text-white text-lg shadow-sm overflow-hidden">
-              <% if (user.photos && user.photos.length > 0) { %>
-                <img src="<%= user.photos[0].value %>" alt="Avatar" class="w-full h-full object-cover">
-              <% } else { %>
-                <%= (user.displayName || (user.emails?.[0]?.value || 'U'))[0].toUpperCase() %>
-              <% } %>
-            </div>
-            <div>
-              <div class="text-sm font-bold text-brand-dark dark:text-white"><%= user.displayName || (user.emails?.[0]?.value || 'User').split('@')[0] %></div>
-              <a href="/logout" class="text-[10px] text-red-500 uppercase tracking-widest font-bold mt-1 block">Log out</a>
-            </div>
-          </div>
+        <a href="/logout" class="text-sm font-bold text-red-600 dark:text-red-400">Log out</a>
         <% } else { %>
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 border border-brand-border/30 dark:border-white/10 flex items-center justify-center text-brand-muted rounded-full">
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" /></svg>
-            </div>
-            <div>
-              <!-- External Access Label Removed -->
-              <a href="/auth/google" class="text-[10px] text-blue-500 uppercase tracking-widest font-bold">Login to AdHello</a>
-            </div>
-          </div>
+        <a href="/auth/google" class="text-sm font-bold text-brand-yellow">Login</a>
         <% } %>
       </div>
     </div>
   </div>
+
+  <div id="connectAiModal" class="fixed inset-0 z-[200] hidden items-center justify-center p-4" aria-hidden="true">
+    <div id="connectAiBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>
+    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-2">Connect AI</h2>
+      <p class="text-sm text-brand-muted leading-relaxed mb-6">AI keys are configured in your deployment environment (for example Cloud Run variables or Replit secrets), not in this UI. Ask your admin to add the provider credentials there.</p>
+      <button type="button" id="connectAiClose" class="w-full py-3 rounded-xl text-sm font-black uppercase tracking-widest bg-brand-dark text-white dark:bg-white dark:text-slate-900">Close</button>
+    </div>
+  </div>
 </header>
+<script>
+(function () {
+  var btn = document.getElementById('userMenuBtn');
+  var panel = document.getElementById('userMenuPanel');
+  function closeMenu() {
+    if (!panel || !btn) return;
+    panel.classList.add('hidden');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  if (btn && panel) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      panel.classList.toggle('hidden');
+      btn.setAttribute('aria-expanded', (!panel.classList.contains('hidden')).toString());
+    });
+    document.addEventListener('click', closeMenu);
+    panel.addEventListener('click', function (e) { e.stopPropagation(); });
+  }
+  function openConnectModal() {
+    var m = document.getElementById('connectAiModal');
+    if (m) { m.classList.remove('hidden'); m.classList.add('flex'); m.setAttribute('aria-hidden', 'false'); }
+    closeMenu();
+  }
+  function closeConnectModal() {
+    var m = document.getElementById('connectAiModal');
+    if (m) { m.classList.add('hidden'); m.classList.remove('flex'); m.setAttribute('aria-hidden', 'true'); }
+  }
+  var o = document.getElementById('connectAiOpen');
+  var om = document.getElementById('connectAiOpenMobile');
+  var c = document.getElementById('connectAiClose');
+  var bd = document.getElementById('connectAiBackdrop');
+  if (o) o.addEventListener('click', openConnectModal);
+  if (om) om.addEventListener('click', openConnectModal);
+  if (c) c.addEventListener('click', closeConnectModal);
+  if (bd) bd.addEventListener('click', closeConnectModal);
+})();
+</script>

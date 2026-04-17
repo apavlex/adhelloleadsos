@@ -39,7 +39,7 @@
           One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong> (<%= leads.length %> shown). Drag cards on the <strong class="text-brand-dark dark:text-white">Pipeline</strong> view to move through 10 stages (Niche → … → Referral); table view shows status and source.
         </p>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-3 flex flex-wrap gap-x-4 gap-y-2">
-          <a href="/sequences" class="text-brand-yellow hover:underline">Cadence templates</a>
+          <a href="/outreach" class="text-brand-yellow hover:underline">Cadences</a>
           <a href="/activation" class="text-violet-600 dark:text-violet-300 hover:underline">7-day plan</a>
           <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
           <a href="/workspace" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
@@ -198,7 +198,7 @@
                   <td class="px-6 py-6 pipeline-stage-cell align-top">
                     <a href="/sales/workflow" class="inline-flex flex-col gap-0.5 group/pipe" title="Edit stage on workflow page">
                       <span class="pipeline-stage-label text-[10px] font-black text-brand-yellow"><%= psRow %>. <%= pipeShort %></span>
-                      <span class="text-[9px] font-bold text-brand-muted group-hover/pipe:underline">Command Center →</span>
+                      <span class="text-[9px] font-bold text-brand-muted group-hover/pipe:underline">Pipeline →</span>
                     </a>
                   </td>
                   <td class="px-6 py-6">

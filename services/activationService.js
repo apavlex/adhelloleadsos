@@ -26,16 +26,16 @@ const PLAN = [
   },
   {
     id: 'd4',
-    label: 'Day 4 — Start a sequence',
+    label: 'Day 4 — Start a cadence',
     hint: 'Attach Clay / Paul / Bob cadence to a lead',
-    href: '/sequences',
+    href: '/outreach',
     event: 'sequence_started',
   },
   {
     id: 'd5',
     label: 'Day 5 — Log outreach',
     hint: 'Streak + discipline in the tracker',
-    href: '/sales/tracker',
+    href: '/outreach',
     event: 'outreach_logged',
   },
   {
@@ -49,7 +49,7 @@ const PLAN = [
     id: 'd7',
     label: 'Day 7 — Review Analytics',
     hint: 'See traffic + conversion momentum',
-    href: '/analytics',
+    href: '/insights',
     event: 'analytics_visit',
   },
 ];

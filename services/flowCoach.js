@@ -90,7 +90,7 @@ function ruleBasedCoach(ctx) {
   if (ctx.totalWorkspace === 0) {
     nextActions.push({ label: 'Run your first niche search', href: '/', priority: 'high' });
     nextActions.push({ label: 'Import a CSV of prospects', href: '/leads', priority: 'normal' });
-    nextActions.push({ label: 'See Command Center', href: '/sales', priority: 'normal' });
+    nextActions.push({ label: 'Open Today', href: '/today', priority: 'normal' });
   } else {
     if (ctx.hasUnreadNotification) {
       nextActions.push({ label: 'Review finished search / notification', href: '/history', priority: 'high' });
@@ -99,7 +99,7 @@ function ruleBasedCoach(ctx) {
       nextActions.push({ label: 'Search still running — check History', href: '/history', priority: 'normal' });
     }
     if (ctx.touchesToday === 0 && ctx.hourUTC >= 13) {
-      nextActions.push({ label: 'Log today’s outreach (streak + discipline)', href: '/sales/tracker', priority: 'high' });
+      nextActions.push({ label: 'Log today’s touches (streak + discipline)', href: '/outreach', priority: 'high' });
     }
     if (ctx.maxBacklogStage === 1 && ctx.maxBacklogCount >= 3) {
       nextActions.push({
@@ -109,9 +109,9 @@ function ruleBasedCoach(ctx) {
       });
     }
     if (ctx.streak >= 3 && ctx.touchesToday === 0) {
-      nextActions.push({ label: `Keep your ${ctx.streak}-day streak — log touches`, href: '/sales/tracker', priority: 'high' });
+      nextActions.push({ label: `Keep your ${ctx.streak}-day streak — log touches`, href: '/outreach', priority: 'high' });
     }
-    nextActions.push({ label: 'Drag cards on the pipeline board', href: '/leads', priority: 'normal' });
+    nextActions.push({ label: 'Drag cards on the Pipeline board', href: '/pipeline', priority: 'normal' });
     nextActions.push({ label: 'Open scripts (Clay / Paul / Bob)', href: '/sales/personas', priority: 'normal' });
   }
 
@@ -152,6 +152,11 @@ function ruleBasedCoach(ctx) {
 
 const ALLOWED_HREFS = new Set([
   '/',
+  '/today',
+  '/find',
+  '/pipeline',
+  '/outreach',
+  '/insights',
   '/leads',
   '/sales',
   '/sales/workflow',
@@ -174,7 +179,7 @@ function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openai') {
     .filter((a) => a && typeof a.label === 'string' && typeof a.href === 'string')
     .map((a) => {
       let href = a.href.startsWith('/') ? a.href.split('?')[0] : `/${a.href}`.replace(/^\/\//, '/');
-      if (!ALLOWED_HREFS.has(href)) href = '/sales';
+      if (!ALLOWED_HREFS.has(href)) href = '/today';
       return {
         label: a.label.slice(0, 160),
         href,
@@ -220,7 +225,7 @@ Respond with JSON only (no markdown):
 }
 
 Rules:
-- href must be one of: /, /leads, /sales, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics, /sequences, /activation, /workspace
+- href must be one of: /, /today, /find, /pipeline, /outreach, /insights, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics, /sequences, /activation, /workspace
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
 - Prefer warm inbound leads when pipelineCounts show inbound-heavy stages

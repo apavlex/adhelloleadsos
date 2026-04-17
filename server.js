@@ -20,6 +20,9 @@ const sequencesRoutes = require('./routes/sequences');
 const workspaceRoutes = require('./routes/workspace');
 const activationRoutes = require('./routes/activation');
 const attachWorkspace = require('./middleware/attachWorkspace');
+const iaNav = require('./middleware/iaNav');
+const iaRedirects = require('./routes/iaRedirects');
+const todayRoutes = require('./routes/today');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -74,7 +77,7 @@ app.get('/auth/google',
 app.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/auth/login?error=unauthorized' }),
   function(req, res) {
-    res.redirect('/');
+    res.redirect('/today');
   }
 );
 
@@ -109,19 +112,7 @@ app.get('/api/cron/heartbeat', async (req, res) => {
 // Public API Routes (Security handled within router)
 app.use('/api', apiRoutes);
 
-// Protected Routes (workspace context for multi-seat + RBAC)
-app.use('/', ensureAuthenticated, attachWorkspace, indexRoutes);
-app.use('/search', ensureAuthenticated, attachWorkspace, searchRoutes);
-app.use('/history', ensureAuthenticated, attachWorkspace, historyRoutes);
-app.use('/leads', ensureAuthenticated, attachWorkspace, leadsRoutes);
-app.use('/analytics', ensureAuthenticated, attachWorkspace, analyticsRoutes);
-app.use('/sales', ensureAuthenticated, attachWorkspace, salesRoutes);
-app.use('/coach', ensureAuthenticated, attachWorkspace, coachRoutes);
-app.use('/sequences', ensureAuthenticated, attachWorkspace, sequencesRoutes);
-app.use('/workspace', ensureAuthenticated, attachWorkspace, workspaceRoutes);
-app.use('/activation', ensureAuthenticated, attachWorkspace, activationRoutes);
-
-// Firecrawl Enrichment Route
+// Public enrichment (must stay before auth stack)
 app.post('/enrich', async (req, res) => {
   try {
     const { url, title, city, state } = req.body;
@@ -147,6 +138,23 @@ app.post('/enrich', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
+app.use(ensureAuthenticated);
+app.use(attachWorkspace);
+app.use(iaNav);
+app.use(iaRedirects);
+app.use('/today', todayRoutes);
+app.use('/', indexRoutes);
+app.use('/search', searchRoutes);
+app.use('/history', historyRoutes);
+app.use('/leads', leadsRoutes);
+app.use('/analytics', analyticsRoutes);
+app.use('/sales', salesRoutes);
+app.use('/coach', coachRoutes);
+app.use('/sequences', sequencesRoutes);
+app.use('/workspace', workspaceRoutes);
+app.use('/activation', activationRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
