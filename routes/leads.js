@@ -5,6 +5,7 @@ const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
 const { PIPELINE_STAGES } = require('../services/salesConstants');
+const { getLeadsCoachPayload } = require('../services/opportunityScore');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -41,6 +42,8 @@ router.get('/', async (req, res, next) => {
       ? req.query.importError.trim()
       : null;
 
+    const flowCoach = getLeadsCoachPayload(leads);
+
     res.render('leads', {
       title: 'Saved Leads',
       activePage: 'leads',
@@ -48,6 +51,7 @@ router.get('/', async (req, res, next) => {
       importNotice,
       importError,
       pipelineStages: PIPELINE_STAGES,
+      flowCoach,
     });
   } catch (err) {
     next(err);

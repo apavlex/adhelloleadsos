@@ -21,6 +21,78 @@
     }
   });
 
+  function escapeHtml(s) {
+    if (!s) return '';
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function escapeAttr(s) {
+    if (!s) return '';
+    return String(s).replace(/"/g, '&quot;');
+  }
+
+  function renderHotLeads(fc) {
+    const wrap = document.getElementById('flowCoachHotWrap');
+    const list = document.getElementById('flowCoachHotList');
+    if (!wrap || !list) return;
+
+    if (fc.variant !== 'leads' || !Array.isArray(fc.hotLeads) || fc.hotLeads.length === 0) {
+      wrap.classList.add('hidden');
+      list.innerHTML = '';
+      return;
+    }
+
+    wrap.classList.remove('hidden');
+    list.innerHTML = fc.hotLeads
+      .map(function (h) {
+        const tier = h.tier || 'low';
+        const tierClass =
+          tier === 'high'
+            ? 'border-rose-500/30 bg-rose-500/5'
+            : tier === 'medium'
+              ? 'border-amber-500/30 bg-amber-500/5'
+              : 'border-brand-border/50 bg-white/50 dark:bg-slate-800/30';
+        const scoreClass =
+          tier === 'high'
+            ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300'
+            : tier === 'medium'
+              ? 'bg-amber-500/20 text-amber-800 dark:text-amber-200'
+              : 'bg-slate-200/80 dark:bg-slate-700 text-brand-muted';
+        const reasons = (h.reasons || []).slice(0, 3);
+        const reasonHtml = reasons
+          .map(function (r) {
+            return (
+              '<li class="flex gap-1.5"><span class="text-brand-yellow shrink-0">•</span><span>' +
+              escapeHtml(r) +
+              '</span></li>'
+            );
+          })
+          .join('');
+        return (
+          '<li><a href="#lead-row-' +
+          escapeAttr(h.anchor) +
+          '" class="block p-4 rounded-2xl border ' +
+          tierClass +
+          ' hover:border-brand-yellow/50 transition-all group">' +
+          '<div class="flex items-start justify-between gap-2 mb-2">' +
+          '<span class="text-sm font-black text-brand-dark dark:text-white group-hover:text-brand-yellow transition-colors line-clamp-2">' +
+          escapeHtml(h.title) +
+          '</span>' +
+          '<span class="shrink-0 text-xs font-black px-2 py-0.5 rounded-lg ' +
+          scoreClass +
+          '">' +
+          escapeHtml(String(h.score)) +
+          '/10</span></div>' +
+          '<ul class="text-[11px] text-brand-muted space-y-1 leading-snug">' +
+          reasonHtml +
+          '</ul></a></li>'
+        );
+      })
+      .join('');
+  }
+
   function renderCoach(fc) {
     if (!fc) return;
     const h = document.getElementById('flowCoachHeadline');
@@ -28,9 +100,9 @@
     if (h) h.textContent = fc.headline || '';
     if (g) g.textContent = fc.greeting || '';
     card.dataset.coachSource = fc.source || '';
-
-    const badge = card.querySelector('[data-coach-source]');
-    if (badge) badge.setAttribute('data-coach-source', fc.source || '');
+    card.dataset.variant = fc.variant === 'leads' ? 'leads' : 'default';
+    const endpoint = fc.variant === 'leads' ? '/coach/leads' : '/coach';
+    card.dataset.coachEndpoint = endpoint;
 
     const actions = document.getElementById('flowCoachActions');
     if (actions && Array.isArray(fc.nextActions)) {
@@ -77,20 +149,14 @@
 
     const srcLabel = card.querySelector('.flow-coach-source-pill');
     if (srcLabel) {
-      srcLabel.textContent = fc.source === 'openai' ? 'Live coach' : 'Smart flow';
+      if (fc.variant === 'leads') {
+        srcLabel.textContent = 'Gap-based rank';
+      } else {
+        srcLabel.textContent = fc.source === 'openai' ? 'Live coach' : 'Smart flow';
+      }
     }
-  }
 
-  function escapeHtml(s) {
-    if (!s) return '';
-    const d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
-
-  function escapeAttr(s) {
-    if (!s) return '';
-    return String(s).replace(/"/g, '&quot;');
+    renderHotLeads(fc);
   }
 
   document.getElementById('flowCoachRefresh')?.addEventListener('click', async function () {
@@ -99,8 +165,9 @@
       btn.disabled = true;
       btn.textContent = '…';
     }
+    const url = card.dataset.coachEndpoint || '/coach';
     try {
-      const res = await fetch('/coach', { headers: { Accept: 'application/json' } });
+      const res = await fetch(url, { headers: { Accept: 'application/json' } });
       if (!res.ok) throw new Error('Coach fetch failed');
       const data = await res.json();
       renderCoach(data);

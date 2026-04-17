@@ -1,18 +1,28 @@
 <% if (typeof flowCoach !== 'undefined' && flowCoach) { %>
-<% const fc = flowCoach; const moodRing = fc.mood === 'celebrate' ? 'from-emerald-400 to-teal-500' : fc.mood === 'light' ? 'from-violet-400 to-indigo-500' : 'from-amber-400 to-orange-500'; %>
-<section id="flowCoachCard" class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-gradient-to-br from-white via-brand-cream/40 to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/90 shadow-lg overflow-hidden relative" data-coach-source="<%= fc.source %>">
+<% const fc = flowCoach; %>
+<% const isLeads = fc.variant === 'leads'; %>
+<% const moodRing = isLeads ? 'from-rose-500 to-amber-500' : fc.mood === 'celebrate' ? 'from-emerald-400 to-teal-500' : fc.mood === 'light' ? 'from-violet-400 to-indigo-500' : 'from-amber-400 to-orange-500'; %>
+<section id="flowCoachCard" class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-gradient-to-br from-white via-brand-cream/40 to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/90 shadow-lg overflow-hidden relative" data-coach-source="<%= fc.source %>" data-variant="<%= isLeads ? 'leads' : 'default' %>" data-coach-endpoint="<%= isLeads ? '/coach/leads' : '/coach' %>">
   <div class="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br <%= moodRing %> opacity-10 dark:opacity-20 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
   <div class="relative px-6 py-6 md:px-8 md:py-8">
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
       <div class="flex gap-4 min-w-0 flex-1">
-        <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br <%= moodRing %> flex items-center justify-center text-white font-display font-black text-lg shadow-md">AI</div>
+        <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br <%= moodRing %> flex items-center justify-center text-white font-display font-black text-lg shadow-md"><%= isLeads ? '★' : 'AI' %></div>
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2 mb-1">
             <h2 id="flowCoachHeadline" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white leading-tight"><%= fc.headline %></h2>
-            <span class="flow-coach-source-pill text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-dark/5 dark:bg-white/10 text-brand-muted"><%= fc.source === 'openai' ? 'Live coach' : 'Smart flow' %></span>
+            <span class="flow-coach-source-pill text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-dark/5 dark:bg-white/10 text-brand-muted"><%= isLeads ? 'Gap-based rank' : fc.source === 'openai' ? 'Live coach' : 'Smart flow' %></span>
           </div>
           <p id="flowCoachGreeting" class="text-sm md:text-base text-brand-muted font-medium leading-relaxed mt-1"><%= fc.greeting %></p>
+          <% if (!isLeads) { %>
           <p class="text-[10px] text-brand-muted/70 mt-3">Set <code class="text-[9px] bg-brand-cream dark:bg-slate-800 px-1 rounded">OPENAI_API_KEY</code> for personalized coaching; rules engine always runs as backup.</p>
+          <% } else if (fc.stats) { %>
+          <div class="flex flex-wrap gap-2 mt-3">
+            <span class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-rose-500/15 text-rose-700 dark:text-rose-300 border border-rose-500/20">High <%= fc.stats.high %></span>
+            <span class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-800 dark:text-amber-200 border border-amber-500/20">Medium <%= fc.stats.medium %></span>
+            <span class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-slate-500/10 text-brand-muted border border-brand-border/50">Other <%= fc.stats.low %></span>
+          </div>
+          <% } %>
         </div>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -21,9 +31,34 @@
       </div>
     </div>
 
+    <% if (isLeads && fc.hotLeads && fc.hotLeads.length) { %>
+    <div id="flowCoachHotWrap" class="mt-8">
+      <h3 class="text-[10px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-300 mb-3">Best opportunities (need-based)</h3>
+      <ul id="flowCoachHotList" class="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+        <% fc.hotLeads.forEach((h) => { %>
+          <% const tierClass = h.tier === 'high' ? 'border-rose-500/30 bg-rose-500/5' : h.tier === 'medium' ? 'border-amber-500/30 bg-amber-500/5' : 'border-brand-border/50 bg-white/50 dark:bg-slate-800/30'; %>
+          <li>
+            <a href="#lead-row-<%= h.anchor %>" class="block p-4 rounded-2xl border <%= tierClass %> hover:border-brand-yellow/50 transition-all group">
+              <div class="flex items-start justify-between gap-2 mb-2">
+                <span class="text-sm font-black text-brand-dark dark:text-white group-hover:text-brand-yellow transition-colors line-clamp-2"><%= h.title %></span>
+                <span class="shrink-0 text-xs font-black px-2 py-0.5 rounded-lg <%= h.tier === 'high' ? 'bg-rose-500/20 text-rose-700 dark:text-rose-300' : h.tier === 'medium' ? 'bg-amber-500/20 text-amber-800 dark:text-amber-200' : 'bg-slate-200/80 dark:bg-slate-700 text-brand-muted' %>"><%= h.score %>/10</span>
+              </div>
+              <ul class="text-[11px] text-brand-muted space-y-1 leading-snug">
+                <% (h.reasons || []).slice(0, 3).forEach((r) => { %>
+                  <li class="flex gap-1.5"><span class="text-brand-yellow shrink-0">•</span><span><%= r %></span></li>
+                <% }) %>
+              </ul>
+            </a>
+          </li>
+        <% }) %>
+      </ul>
+      <p class="text-[10px] text-brand-muted mt-3">Same signals as the <strong class="text-brand-dark dark:text-white">Opportunity</strong> column — bad site, low reviews, weak social, SEO gaps.</p>
+    </div>
+    <% } %>
+
     <div class="grid md:grid-cols-2 gap-6 mt-8">
       <div>
-        <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Do this next</h3>
+        <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3"><%= isLeads ? 'Quick moves' : 'Do this next' %></h3>
         <ul id="flowCoachActions" class="space-y-2">
           <% (fc.nextActions || []).forEach((a) => { %>
             <li>

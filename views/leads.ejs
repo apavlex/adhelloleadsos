@@ -26,6 +26,7 @@
         <a href="/leads" class="text-xs font-black uppercase text-emerald-800 dark:text-emerald-200 underline shrink-0">Dismiss</a>
       </div>
     <% } %>
+    <%- include('partials/flow-coach') %>
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
       <div>
         <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
@@ -116,7 +117,9 @@
                 <% const stRow = (typeof pipelineStages !== 'undefined' && pipelineStages) ? pipelineStages.find((s) => s.id === psRow) : null; %>
                 <% const pipeName = stRow ? stRow.name.replace(/\s*\(.*$/, '').trim() : 'Stage'; %>
                 <% const pipeShort = pipeName.length > 26 ? pipeName.slice(0, 26) + '…' : pipeName; %>
-                <tr class="result-row"
+                <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
+                <tr class="result-row scroll-mt-28"
+                    id="lead-row-<%= rowAnchor %>"
                     data-index="<%= i %>"
                     data-lead-key="<%= lead.key %>"
                     data-pipeline-stage="<%= psRow %>"
