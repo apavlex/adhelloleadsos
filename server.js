@@ -14,6 +14,7 @@ const leadsRoutes = require('./routes/leads');
 const apiRoutes = require('./routes/api');
 const analyticsRoutes = require('./routes/analytics');
 const salesRoutes = require('./routes/sales');
+const coachRoutes = require('./routes/coach');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -110,6 +111,7 @@ app.use('/history', ensureAuthenticated, historyRoutes);
 app.use('/leads', ensureAuthenticated, leadsRoutes);
 app.use('/analytics', ensureAuthenticated, analyticsRoutes);
 app.use('/sales', ensureAuthenticated, salesRoutes);
+app.use('/coach', ensureAuthenticated, coachRoutes);
 
 // Firecrawl Enrichment Route
 app.post('/enrich', async (req, res) => {

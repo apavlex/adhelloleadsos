@@ -3,6 +3,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { PIPELINE_STAGES, SCRIPT_LIBRARY, PERSONAS } = require('../services/salesConstants');
 const { computeOutreachStreak, buildDailyChartSeries } = require('../services/trackerStats');
+const { getCoachPayload } = require('../services/flowCoach');
 
 function userEmail(req) {
   return (req.user && req.user.emails && req.user.emails[0] && req.user.emails[0].value) || 'unknown';
@@ -38,6 +39,7 @@ router.get('/', async (req, res, next) => {
       (parseInt(todayRow?.coldCalls, 10) || 0) +
       (parseInt(todayRow?.upworkBids, 10) || 0);
     const chartSeries = buildDailyChartSeries(today, history, 14);
+    const flowCoach = await getCoachPayload(req);
 
     res.render('sales-hub', {
       title: 'Daily Leads HQ | Command Center',
@@ -45,6 +47,7 @@ router.get('/', async (req, res, next) => {
       activeSales: 'hub',
       stages: PIPELINE_STAGES,
       personas: PERSONAS,
+      flowCoach,
       hubStats: {
         totalWorkspace: workspaceLeads.length,
         newThisWeek,

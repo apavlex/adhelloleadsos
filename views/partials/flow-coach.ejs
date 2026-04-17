@@ -1,0 +1,57 @@
+<% if (typeof flowCoach !== 'undefined' && flowCoach) { %>
+<% const fc = flowCoach; const moodRing = fc.mood === 'celebrate' ? 'from-emerald-400 to-teal-500' : fc.mood === 'light' ? 'from-violet-400 to-indigo-500' : 'from-amber-400 to-orange-500'; %>
+<section id="flowCoachCard" class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-gradient-to-br from-white via-brand-cream/40 to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-800/90 shadow-lg overflow-hidden relative" data-coach-source="<%= fc.source %>">
+  <div class="absolute top-0 right-0 w-40 h-40 bg-gradient-to-br <%= moodRing %> opacity-10 dark:opacity-20 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/2"></div>
+  <div class="relative px-6 py-6 md:px-8 md:py-8">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
+      <div class="flex gap-4 min-w-0 flex-1">
+        <div class="shrink-0 w-12 h-12 rounded-2xl bg-gradient-to-br <%= moodRing %> flex items-center justify-center text-white font-display font-black text-lg shadow-md">AI</div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-1">
+            <h2 id="flowCoachHeadline" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white leading-tight"><%= fc.headline %></h2>
+            <span class="flow-coach-source-pill text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-dark/5 dark:bg-white/10 text-brand-muted"><%= fc.source === 'openai' ? 'Live coach' : 'Smart flow' %></span>
+          </div>
+          <p id="flowCoachGreeting" class="text-sm md:text-base text-brand-muted font-medium leading-relaxed mt-1"><%= fc.greeting %></p>
+          <p class="text-[10px] text-brand-muted/70 mt-3">Set <code class="text-[9px] bg-brand-cream dark:bg-slate-800 px-1 rounded">OPENAI_API_KEY</code> for personalized coaching; rules engine always runs as backup.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" id="flowCoachRefresh" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 transition-colors">Refresh</button>
+        <button type="button" id="flowCoachDismiss" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" aria-label="Hide until next visit">Hide</button>
+      </div>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-6 mt-8">
+      <div>
+        <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Do this next</h3>
+        <ul id="flowCoachActions" class="space-y-2">
+          <% (fc.nextActions || []).forEach((a) => { %>
+            <li>
+              <a href="<%= a.href %>" class="flex items-center gap-3 p-3 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/80 dark:bg-slate-800/50 hover:border-brand-yellow/50 hover:bg-brand-yellow/5 transition-all group">
+                <span class="w-2 h-2 rounded-full shrink-0 <%= a.priority === 'high' ? 'bg-brand-yellow animate-pulse' : 'bg-brand-border dark:bg-white/20' %>"></span>
+                <span class="text-sm font-bold text-brand-dark dark:text-white group-hover:text-brand-yellow transition-colors"><%= a.label %></span>
+                <svg class="w-4 h-4 ml-auto text-brand-muted group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+      <div>
+        <h3 class="text-[10px] font-black uppercase tracking-widest text-violet-500 dark:text-violet-300 mb-3">AI saves you time</h3>
+        <ul id="flowCoachAi" class="space-y-2">
+          <% (fc.aiTimeSavers || []).forEach((x) => { %>
+            <li class="flex gap-3 p-3 rounded-2xl bg-violet-500/5 dark:bg-violet-500/10 border border-violet-500/10">
+              <span class="text-[10px] font-black text-violet-600 dark:text-violet-300 shrink-0 mt-0.5">✦</span>
+              <div>
+                <span class="text-sm font-bold text-brand-dark dark:text-white"><%= x.label %></span>
+                <p class="text-xs text-brand-muted mt-0.5 leading-snug"><%= x.hint %></p>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<script src="/js/flow-coach.js" defer></script>
+<% } %>

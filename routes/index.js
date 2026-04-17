@@ -1,17 +1,20 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
+const { getCoachPayload } = require('../services/flowCoach');
 
 router.get('/', async (req, res, next) => {
   try {
     const leads = await dbService.getAllLeads();
     const adhelloLeads = leads.filter((l) => l.source && l.source.startsWith('adhello_'));
     const workspaceLeads = leads.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+    const flowCoach = await getCoachPayload(req);
     res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'search',
       savedLeadsCount: adhelloLeads.length,
       workspaceLeadsCount: workspaceLeads.length,
+      flowCoach,
     });
   } catch (e) {
     next(e);
