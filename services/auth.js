@@ -32,9 +32,10 @@ passport.deserializeUser((user, done) => {
 });
 
 function ensureAuthenticated(req, res, next) {
-  // --- TEMPORARY BYPASS FOR VERIFICATION ---
-  req.user = { id: 'dummy-id', emails: [{ value: 'dev@adhello.ai' }] };
-  return next();
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return next();
+  }
+  res.redirect('/auth/login');
 }
 
 module.exports = { passport, ensureAuthenticated };
