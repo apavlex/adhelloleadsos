@@ -1,33 +1,64 @@
 /**
- * Today — daily landing (same data as legacy /sales hub; /sales now redirects here).
+ * Today — daily operator landing (Phase 2 dashboard).
  */
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { PIPELINE_STAGES, PERSONAS } = require('../services/salesConstants');
 const { computeOutreachStreak, buildDailyChartSeries } = require('../services/trackerStats');
-const { getCoachPayload } = require('../services/flowCoach');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const activationService = require('../services/activationService');
+
+function firstNameFromUser(user) {
+  const raw =
+    (user && user.displayName) ||
+    (user && user.emails && user.emails[0] && user.emails[0].value) ||
+    'there';
+  return String(raw).trim().split(/\s+/)[0] || 'there';
+}
+
+function greetingWord() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Morning';
+  if (h < 17) return 'Afternoon';
+  return 'Evening';
+}
+
+function countReplySignals(leads) {
+  return leads.filter((l) => {
+    const logs = l.logs || [];
+    return logs.some((log) => {
+      const blob = `${log.type || ''} ${log.message || ''}`.toLowerCase();
+      return (
+        blob.includes('reply') ||
+        blob.includes('inbound') ||
+        blob.includes('replied')
+      );
+    });
+  }).length;
+}
+
+function countOverdueSequences(leads) {
+  const now = Date.now();
+  return leads.filter((l) => {
+    const st = l.sequenceState;
+    if (!st || st.status !== 'active' || !st.nextDueAt) return false;
+    return Date.parse(st.nextDueAt) < now;
+  }).length;
+}
+
+/** Leads that likely need outreach / stage movement (early pipeline). */
+function countQueueNeedingAction(leads) {
+  return leads.filter((l) => {
+    const ps = parseInt(l.pipelineStage, 10);
+    const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
+    return n <= 2;
+  }).length;
+}
 
 router.get('/', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads();
     const workspaceLeads = filterLeadsForRequest(req, all);
-    const now = Date.now();
-    const weekMs = 7 * 24 * 60 * 60 * 1000;
-    const newThisWeek = workspaceLeads.filter((l) => {
-      const t = new Date(l.createdAt || l.savedAt || 0).getTime();
-      return t && now - t < weekMs;
-    }).length;
-    const pipelineCounts = {};
-    for (let i = 1; i <= 10; i += 1) pipelineCounts[i] = 0;
-    workspaceLeads.forEach((l) => {
-      const ps =
-        typeof l.pipelineStage === 'number' && l.pipelineStage >= 1 && l.pipelineStage <= 10
-          ? l.pipelineStage
-          : 1;
-      pipelineCounts[ps] += 1;
-    });
     const email = userEmail(req);
     const today = new Date().toISOString().slice(0, 10);
     const history = await dbService.listDailyTrackers(email, 60);
@@ -38,25 +69,125 @@ router.get('/', async (req, res, next) => {
       (parseInt(todayRow?.coldDms, 10) || 0) +
       (parseInt(todayRow?.coldCalls, 10) || 0) +
       (parseInt(todayRow?.upworkBids, 10) || 0);
-    const chartSeries = buildDailyChartSeries(today, history, 14);
-    const flowCoach = await getCoachPayload(req);
 
-    res.render('sales-hub', {
+    const touchGoal = Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '15', 10) || 15);
+    const repliesWaiting = countReplySignals(workspaceLeads);
+    const overdueFollowUps = countOverdueSequences(workspaceLeads);
+    const queueNeedingAction = countQueueNeedingAction(workspaceLeads);
+
+    const activation = await activationService.getState(email);
+    const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
+
+    res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
-      activeSales: 'hub',
-      stages: PIPELINE_STAGES,
-      personas: PERSONAS,
-      flowCoach,
-      hubStats: {
-        totalWorkspace: workspaceLeads.length,
-        newThisWeek,
-        pipelineCounts,
-        streak,
-        touchesToday,
-        chartSeries,
-      },
+      greetingWord: greetingWord(),
+      firstName: firstNameFromUser(req.user),
+      dateLabel: new Date().toLocaleDateString(undefined, {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      }),
+      touchesToday,
+      touchGoal,
+      streak,
+      repliesWaiting,
+      overdueFollowUps,
+      queueNeedingAction,
+      totalLeads: workspaceLeads.length,
+      activation,
+      activationComplete: activation.progress >= (activation.total || 7),
+      seededNotice,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Load sample leads for empty-state onboarding (workspace-scoped). */
+router.post('/seed-demo', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId || 'default';
+    const ts = Date.now();
+    const rows = [
+      {
+        title: 'Sample Dental Studio',
+        city: 'Denver',
+        state: 'CO',
+        email: `demo-dental-${ts}@sample.invalid`,
+        phone: '303-555-0100',
+        website: 'https://example.com',
+        categoryName: 'Dental',
+        pipelineStage: 1,
+        totalScore: 4.2,
+        reviewsCount: 120,
+        source: 'demo_seed',
+        status: 'Needs Video',
+      },
+      {
+        title: 'Sample HVAC Pros',
+        city: 'Austin',
+        state: 'TX',
+        email: `demo-hvac-${ts}@sample.invalid`,
+        phone: '512-555-0101',
+        website: 'https://example.org',
+        categoryName: 'HVAC',
+        pipelineStage: 2,
+        totalScore: 4.5,
+        reviewsCount: 89,
+        source: 'demo_seed',
+        status: 'Lead Captured',
+      },
+      {
+        title: 'Sample Bistro East',
+        city: 'Miami',
+        state: 'FL',
+        email: `demo-bistro-${ts}@sample.invalid`,
+        phone: '305-555-0102',
+        website: 'N/A',
+        categoryName: 'Restaurant',
+        pipelineStage: 1,
+        totalScore: 4.0,
+        reviewsCount: 210,
+        source: 'demo_seed',
+        status: 'Needs Video',
+      },
+      {
+        title: 'Sample Gym Collective',
+        city: 'Phoenix',
+        state: 'AZ',
+        email: `demo-gym-${ts}@sample.invalid`,
+        phone: '602-555-0103',
+        website: 'https://example.net',
+        categoryName: 'Fitness',
+        pipelineStage: 3,
+        totalScore: 4.7,
+        reviewsCount: 340,
+        source: 'demo_seed',
+        status: 'Discovery Done',
+      },
+      {
+        title: 'Sample Law Group',
+        city: 'Seattle',
+        state: 'WA',
+        email: `demo-law-${ts}@sample.invalid`,
+        phone: '206-555-0104',
+        website: 'https://example.com/law',
+        categoryName: 'Legal',
+        pipelineStage: 2,
+        totalScore: 4.8,
+        reviewsCount: 56,
+        source: 'demo_seed',
+        status: 'Lead Captured',
+      },
+    ];
+
+    for (const row of rows) {
+      await dbService.saveLead({ ...row, workspaceId: wid });
+    }
+
+    res.redirect('/today?demo=1');
   } catch (e) {
     next(e);
   }
