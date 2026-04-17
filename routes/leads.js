@@ -4,6 +4,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
+const { PIPELINE_STAGES } = require('../services/salesConstants');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -46,6 +47,7 @@ router.get('/', async (req, res, next) => {
       leads,
       importNotice,
       importError,
+      pipelineStages: PIPELINE_STAGES,
     });
   } catch (err) {
     next(err);

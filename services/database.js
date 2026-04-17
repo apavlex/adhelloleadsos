@@ -101,9 +101,13 @@ module.exports = {
     }
 
     const key = `lead:${Date.now()}`;
-    const newLead = { 
-      ...leadData, 
+    const newLead = {
+      ...leadData,
       createdAt: new Date().toISOString(),
+      pipelineStage:
+        typeof leadData.pipelineStage === 'number' && leadData.pipelineStage >= 1 && leadData.pipelineStage <= 8
+          ? leadData.pipelineStage
+          : 1,
       status: leadData.status || 'Lead Captured',
       logs: [{ 
         type: 'creation', 

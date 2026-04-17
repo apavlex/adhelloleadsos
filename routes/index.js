@@ -2,14 +2,20 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 
-router.get('/', async (req, res) => {
-  const leads = await dbService.getAllLeads();
-  const adhelloLeads = leads.filter(l => l.source && l.source.startsWith('adhello_'));
-  res.render('index', {
-    title: 'Agency OS | Agent',
-    activePage: 'search',
-    savedLeadsCount: adhelloLeads.length
-  });
+router.get('/', async (req, res, next) => {
+  try {
+    const leads = await dbService.getAllLeads();
+    const adhelloLeads = leads.filter((l) => l.source && l.source.startsWith('adhello_'));
+    const workspaceLeads = leads.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+    res.render('index', {
+      title: 'Agency OS | Daily Leads',
+      activePage: 'search',
+      savedLeadsCount: adhelloLeads.length,
+      workspaceLeadsCount: workspaceLeads.length,
+    });
+  } catch (e) {
+    next(e);
+  }
 });
 
 // GET /schedules — View active autopilot jobs

@@ -1894,38 +1894,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initialize Kanban Boards
+  // Initialize Kanban / pipeline boards (Saved Leads uses 8-step pipeline; Inbound uses legacy status columns)
   function initKanban() {
     const columns = document.querySelectorAll('.kanban-list');
     const allRows = document.querySelectorAll('.result-row');
-    
-    // Clear and re-populate columns
-    columns.forEach(col => {
+    const pipelineMode = kanbanView && kanbanView.dataset && kanbanView.dataset.kanbanMode === 'pipeline';
+
+    columns.forEach((col) => {
+        if (typeof Sortable !== 'undefined' && typeof Sortable.get === 'function') {
+          const existing = Sortable.get(col);
+          if (existing && typeof existing.destroy === 'function') existing.destroy();
+        }
         col.innerHTML = '';
-        const targetStatus = col.parentElement.dataset.status;
+        const columnWrap = col.parentElement;
+        const targetStatus = columnWrap.dataset.status;
+        const targetPipeline = pipelineMode
+          ? parseInt(columnWrap.dataset.pipelineStage, 10)
+          : NaN;
         let count = 0;
 
-        allRows.forEach(row => {
-            const leadStatus = row.dataset.status || 'Needs Video';
+        allRows.forEach((row) => {
             let shouldInclude = false;
-
-            if (targetStatus === 'Needs Video' && leadStatus === 'Needs Video') shouldInclude = true;
-            if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
-            if (targetStatus === 'Lead Captured' && leadStatus === 'Lead Captured') shouldInclude = true;
-            if (targetStatus === 'Blueprint Purchased' && leadStatus === 'Blueprint Purchased') shouldInclude = true;
-            if (targetStatus === 'Action Ongoing' && ['Video Recorded', 'Called Lead', 'Email Sent', 'Follow-up'].includes(leadStatus)) shouldInclude = true;
-            if (targetStatus === 'Finished' && ['Closed - Won', 'Closed - Lost'].includes(leadStatus)) shouldInclude = true;
+            if (pipelineMode && !Number.isNaN(targetPipeline)) {
+              let ps = parseInt(row.dataset.pipelineStage, 10);
+              if (Number.isNaN(ps) || ps < 1 || ps > 8) ps = 1;
+              shouldInclude = ps === targetPipeline;
+            } else {
+              const leadStatus = row.dataset.status || 'Needs Video';
+              if (targetStatus === 'Needs Video' && leadStatus === 'Needs Video') shouldInclude = true;
+              if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
+              if (targetStatus === 'Lead Captured' && leadStatus === 'Lead Captured') shouldInclude = true;
+              if (targetStatus === 'Blueprint Purchased' && leadStatus === 'Blueprint Purchased') shouldInclude = true;
+              if (targetStatus === 'Action Ongoing' && ['Video Recorded', 'Called Lead', 'Email Sent', 'Follow-up'].includes(leadStatus)) shouldInclude = true;
+              if (targetStatus === 'Finished' && ['Closed - Won', 'Closed - Lost'].includes(leadStatus)) shouldInclude = true;
+            }
 
             if (shouldInclude) {
                 const card = createKanbanCard(row);
                 col.appendChild(card);
-                count++;
+                count += 1;
             }
         });
-        const countBadge = col.parentElement.querySelector('.column-count');
+        const countBadge = columnWrap.querySelector('.column-count');
         if (countBadge) countBadge.textContent = count;
 
-        // Init Sortable
         if (typeof Sortable !== 'undefined') {
             Sortable.create(col, {
                 group: 'leads',
@@ -1933,36 +1945,62 @@ document.addEventListener('DOMContentLoaded', () => {
                 ghostClass: 'opacity-50',
                 onEnd: async (evt) => {
                     const item = evt.item;
-                    const targetColStatus = evt.to.parentElement.dataset.status;
+                    const toCol = evt.to.parentElement;
                     const leadKey = item.dataset.leadKey;
-                    
-                    if (leadKey) {
-                        // Determine the specific status to save
-                        let newStatus = targetColStatus;
-                        if (targetColStatus === 'Action Ongoing') newStatus = 'Follow-up';
-                        if (targetColStatus === 'Finished') newStatus = 'Closed - Won';
+                    if (!leadKey) return;
 
+                    if (pipelineMode) {
+                        const newStage = parseInt(toCol.dataset.pipelineStage, 10);
+                        if (Number.isNaN(newStage) || newStage < 1 || newStage > 8) return;
                         try {
                             const res = await fetch(`/leads/${leadKey}/update`, {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ status: newStatus })
+                                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                                body: JSON.stringify({
+                                  pipelineStage: newStage,
+                                  pipelineStageUpdatedAt: new Date().toISOString(),
+                                }),
                             });
                             const data = await res.json();
                             if (data.success) {
-                                // Update original row dataset
                                 const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
                                 if (originalRow) {
-                                    originalRow.dataset.status = newStatus;
-                                    // Also update the status badge in the table view if visible
-                                    const statusBadge = originalRow.querySelector('td:nth-last-child(2) span');
-                                    if (statusBadge) statusBadge.textContent = newStatus;
+                                    originalRow.dataset.pipelineStage = String(newStage);
+                                    const labels = window.PIPELINE_STAGE_LABELS || {};
+                                    const fullName = labels[newStage] || '';
+                                    const short = (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
+                                    const cell = originalRow.querySelector('.pipeline-stage-label');
+                                    if (cell) cell.textContent = `${newStage}. ${short || 'Stage'}`;
                                 }
                                 updateColumnCounts();
                             }
-                        } catch (err) { console.error('Failed to update status:', err); }
+                        } catch (err) { console.error('Failed to update pipeline:', err); }
+                        return;
                     }
-                }
+
+                    const targetColStatus = toCol.dataset.status;
+                    let newStatus = targetColStatus;
+                    if (targetColStatus === 'Action Ongoing') newStatus = 'Follow-up';
+                    if (targetColStatus === 'Finished') newStatus = 'Closed - Won';
+
+                    try {
+                        const res = await fetch(`/leads/${leadKey}/update`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ status: newStatus }),
+                        });
+                        const data = await res.json();
+                        if (data.success) {
+                            const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
+                            if (originalRow) {
+                                originalRow.dataset.status = newStatus;
+                                const statusBadge = originalRow.querySelector('td:nth-last-child(2) span');
+                                if (statusBadge) statusBadge.textContent = newStatus;
+                            }
+                            updateColumnCounts();
+                        }
+                    } catch (err) { console.error('Failed to update status:', err); }
+                },
             });
         }
     });

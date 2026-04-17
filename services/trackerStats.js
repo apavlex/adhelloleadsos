@@ -1,0 +1,60 @@
+/**
+ * Outreach streak: consecutive calendar days (from today backward) with any logged activity.
+ * @param {Array<{ date?: string, coldEmails?: number, coldDms?: number, coldCalls?: number, upworkBids?: number }>} rows
+ * @param {string} todayStr YYYY-MM-DD
+ */
+function touchesForRow(row) {
+  if (!row) return 0;
+  return (
+    (parseInt(row.coldEmails, 10) || 0) +
+    (parseInt(row.coldDms, 10) || 0) +
+    (parseInt(row.coldCalls, 10) || 0) +
+    (parseInt(row.upworkBids, 10) || 0)
+  );
+}
+
+function computeOutreachStreak(rows, todayStr) {
+  const map = new Map();
+  (rows || []).forEach((r) => {
+    if (r && r.date) map.set(r.date, r);
+  });
+  let streak = 0;
+  const start = new Date(`${todayStr}T12:00:00Z`);
+  for (let i = 0; i < 120; i += 1) {
+    const d = new Date(start);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const t = touchesForRow(map.get(key));
+    if (t > 0) streak += 1;
+    else break;
+  }
+  return streak;
+}
+
+/**
+ * Last N days for bar chart (oldest first). Fills missing days with 0.
+ * @param {string} todayStr
+ * @param {Array} rows from listDailyTrackers (any order)
+ * @param {number} days
+ */
+function buildDailyChartSeries(todayStr, rows, days = 14) {
+  const map = new Map();
+  (rows || []).forEach((r) => {
+    if (r && r.date) map.set(r.date, touchesForRow(r));
+  });
+  const out = [];
+  const end = new Date(`${todayStr}T12:00:00Z`);
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date(end);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    out.push({ date: key, total: map.get(key) || 0 });
+  }
+  return out;
+}
+
+module.exports = {
+  touchesForRow,
+  computeOutreachStreak,
+  buildDailyChartSeries,
+};

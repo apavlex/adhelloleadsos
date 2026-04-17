@@ -14,6 +14,29 @@
       <p class="text-brand-muted font-medium mt-2">Log hustle metrics per day. Data is stored per logged-in user.</p>
     </div>
 
+    <% const streakVal = typeof streak !== 'undefined' ? streak : 0; %>
+    <% const cs = typeof chartSeries !== 'undefined' && chartSeries ? chartSeries : []; %>
+    <% const maxBar = cs.length ? Math.max(1, ...cs.map((x) => x.total)) : 1; %>
+    <div class="grid lg:grid-cols-3 gap-6 mb-10">
+      <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 lg:col-span-1">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outreach streak</p>
+        <p class="text-4xl font-display font-black text-emerald-600 dark:text-emerald-400"><%= streakVal %></p>
+        <p class="text-xs text-brand-muted mt-2">Consecutive days (any touches) ending today if you logged activity.</p>
+      </div>
+      <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 lg:col-span-2">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">14-day volume</p>
+        <div class="flex items-end gap-1.5 h-32 w-full">
+          <% cs.forEach((pt) => { %>
+            <% const barPx = Math.max(4, Math.round((pt.total / maxBar) * 100)); %>
+            <div class="flex-1 min-w-0 flex flex-col justify-end h-full group" title="<%= pt.date %>: <%= pt.total %>">
+              <div class="w-full max-w-[24px] mx-auto rounded-t-lg bg-emerald-500/80 dark:bg-emerald-500 transition-all group-hover:brightness-110" style="height: <%= barPx %>px"></div>
+              <span class="text-[8px] font-bold text-brand-muted text-center mt-1 truncate"><%= pt.date.slice(5) %></span>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+
     <div class="grid lg:grid-cols-2 gap-8 mb-14">
       <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
         <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Today · <%= today %></h2>

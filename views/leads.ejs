@@ -31,18 +31,18 @@
         <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
           <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Lead Management</span>
         </div>
-        <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark">
+        <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
           Saved <span class="text-brand-muted">Leads</span>
         </h1>
-        <p class="text-brand-muted font-medium mt-2">
-          You have <%= leads.length %> bookmarked lead<%= leads.length !== 1 ? 's' : '' %> in your collection.
+        <p class="text-brand-muted font-medium mt-2 max-w-xl">
+          Your daily workspace pipeline — <%= leads.length %> lead<%= leads.length !== 1 ? 's' : '' %>. Drag cards on the <strong class="text-brand-dark dark:text-white">Pipeline</strong> board to advance the 8-step methodology; table view shows stage and delivery status.
         </p>
       </div>
       <div class="flex flex-col sm:flex-row items-center gap-4">
         <!-- View Toggle -->
         <div class="flex items-center bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 p-1 shadow-sm mr-2">
             <button id="showTableView" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all bg-brand-yellow text-brand-dark shadow-sm">Table</button>
-            <button id="showKanbanView" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-brand-muted hover:text-brand-dark">Kanban</button>
+            <button id="showKanbanView" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-brand-muted hover:text-brand-dark">Pipeline</button>
         </div>
         <form action="/leads/import" method="post" enctype="multipart/form-data" class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <label class="relative flex-1 min-w-0 cursor-pointer group">
@@ -94,6 +94,7 @@
                   </div>
                 </th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Company</th>
+                <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Pipeline</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Address</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Phone</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Website</th>
@@ -110,9 +111,16 @@
             </thead>
             <tbody class="divide-y divide-brand-border/50">
               <% leads.forEach((lead, i) => { %>
+                <% const _ps = parseInt(lead.pipelineStage, 10); %>
+                <% const psRow = !Number.isNaN(_ps) && _ps >= 1 && _ps <= 8 ? _ps : 1; %>
+                <% const stRow = (typeof pipelineStages !== 'undefined' && pipelineStages) ? pipelineStages.find((s) => s.id === psRow) : null; %>
+                <% const pipeName = stRow ? stRow.name.replace(/\s*\(.*$/, '').trim() : 'Stage'; %>
+                <% const pipeShort = pipeName.length > 26 ? pipeName.slice(0, 26) + '…' : pipeName; %>
                 <tr class="result-row"
                     data-index="<%= i %>"
                     data-lead-key="<%= lead.key %>"
+                    data-pipeline-stage="<%= psRow %>"
+                    data-pipeline-label="<%= pipeShort.replace(/"/g, '&quot;') %>"
                     data-title="<%= lead.title %>"
                     data-phone="<%= lead.phone || 'N/A' %>"
                     data-website="<%= lead.website || 'N/A' %>"
@@ -160,6 +168,12 @@
                         <div class="text-[10px] font-bold text-brand-muted uppercase tracking-wider mt-0.5 truncate" title="<%= lead.categoryName %>"><%= lead.categoryName %></div>
                       </div>
                     </div>
+                  </td>
+                  <td class="px-6 py-6 pipeline-stage-cell align-top">
+                    <a href="/sales/workflow" class="inline-flex flex-col gap-0.5 group/pipe" title="Edit stage on workflow page">
+                      <span class="pipeline-stage-label text-[10px] font-black text-brand-yellow"><%= psRow %>. <%= pipeShort %></span>
+                      <span class="text-[9px] font-bold text-brand-muted group-hover/pipe:underline">Command Center →</span>
+                    </a>
                   </td>
                   <td class="px-6 py-6">
                     <div class="text-xs font-medium text-brand-muted max-w-[200px] truncate" title="<%= lead.address %>">
@@ -231,44 +245,19 @@
         </div>
       </div>
 
-      <!-- Kanban View Section (Hidden by default) -->
-      <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar">
-          <div class="flex gap-6 min-w-max">
-              <!-- Kanban Column: Research -->
-              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Needs Video">
-                  <div class="flex items-center justify-between px-2 mb-2">
-                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-muted">Lead Research</h3>
+      <!-- Pipeline board: 8-step methodology (drag cards between columns to update pipelineStage) -->
+      <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">
+          <p class="text-xs text-brand-muted mb-4 max-w-3xl">Drag a card to another column to update its <strong class="text-brand-dark dark:text-white">pipeline stage</strong>. Delivery status (Needs Video, etc.) stays in table view — use your CRM column for fulfillment.</p>
+          <div class="flex gap-4 min-w-max pb-2">
+              <% if (typeof pipelineStages !== 'undefined' && pipelineStages) { pipelineStages.forEach((col) => { %>
+              <div class="kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3" data-pipeline-stage="<%= col.id %>">
+                  <div class="flex items-center justify-between px-1 mb-1">
+                      <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white leading-tight"><%= col.id %>. <%= col.name %></h3>
                       <span class="px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted column-count">0</span>
                   </div>
-                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/30"></div>
+                  <div class="kanban-list min-h-[480px] flex flex-col gap-3 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/40 dark:border-white/10"></div>
               </div>
-
-              <!-- Kanban Column: Enriched -->
-              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Enriched">
-                  <div class="flex items-center justify-between px-2 mb-2">
-                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-cyan-500">Discovery Done</h3>
-                      <span class="px-2 py-0.5 rounded-full bg-cyan-500/10 text-[10px] font-bold text-cyan-500 column-count">0</span>
-                  </div>
-                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-cyan-500/5 dark:bg-cyan-500/5 rounded-3xl border border-dashed border-cyan-500/20"></div>
-              </div>
-
-              <!-- Kanban Column: Outreach Ongoing -->
-              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Action Ongoing">
-                  <div class="flex items-center justify-between px-2 mb-2">
-                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-yellow">Engagement</h3>
-                      <span class="px-2 py-0.5 rounded-full bg-brand-yellow/10 text-[10px] font-bold text-brand-yellow column-count">0</span>
-                  </div>
-                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-brand-yellow/5 dark:bg-brand-yellow/5 rounded-3xl border border-dashed border-brand-yellow/20"></div>
-              </div>
-
-              <!-- Kanban Column: Finished -->
-              <div class="kanban-column w-80 flex flex-col gap-4" data-status="Finished">
-                  <div class="flex items-center justify-between px-2 mb-2">
-                      <h3 class="text-xs font-black uppercase tracking-[0.2em] text-emerald-500">Outcomes</h3>
-                      <span class="px-2 py-0.5 rounded-full bg-emerald-500/10 text-[10px] font-bold text-emerald-500 column-count">0</span>
-                  </div>
-                  <div class="kanban-list min-h-[500px] flex flex-col gap-4 p-2 bg-emerald-500/5 dark:bg-emerald-500/5 rounded-3xl border border-dashed border-emerald-500/20"></div>
-              </div>
+              <% }); } %>
           </div>
       </div>
 
@@ -308,8 +297,8 @@
   <%- include('partials/lead_detail_panel') %>
 
   <script>
-    // Inject saved leads from server to app.js context
     window.INITIAL_SAVED_LEADS = <%- JSON.stringify(leads || []) %>;
+    window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   </script>
   <!-- The War Room: Batch Outreach Modal -->
   <div id="warRoomModal" class="fixed inset-0 z-[300] hidden overflow-hidden">
