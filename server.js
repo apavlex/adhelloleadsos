@@ -40,6 +40,13 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: process.env.K_SERVICE || 'adhelloleadsos',
+  });
+});
+
 // Auth Routes
 app.get('/auth/login', (req, res) => {
   res.render('login', { error: req.query.error });
@@ -130,8 +137,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on 0.0.0.0:${PORT}`);
 });
 
 // Allow long-running requests for Apify calls (10 minutes)

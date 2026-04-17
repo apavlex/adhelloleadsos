@@ -12,16 +12,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       
       // Restrict access explicitly to the @adhello.ai workspace
       if (email.endsWith('@adhello.ai')) {
-        // Create or update user in database
-        await db.query(
-            `INSERT INTO users (google_id, email, name, picture) 
-             VALUES (?, ?, ?, ?) 
-             ON DUPLICATE KEY UPDATE 
-             name = VALUES(name), 
-             picture = VALUES(picture),
-             last_login = CURRENT_TIMESTAMP`,
-            [profile.id, profile.emails[0].value, profile.displayName, profile.photos[0].value]
-        );
+        // App uses Replit / file-backed KV (see services/database.js), not SQL — persist user in session only
         return done(null, profile);
       } else {
         return done(null, false, { message: 'Access restricted to adhello.ai workspace.' });
