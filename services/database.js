@@ -330,5 +330,85 @@ module.exports = {
     if (data) {
       await db.set('latest_finished_job', JSON.stringify({ ...data, isRead: true }));
     }
-  }
+  },
+
+  // --- Daily action tracker (per user email, per calendar day) ---
+
+  _emailKeyFragment(email) {
+    return String(email || 'anon').replace(/[^a-zA-Z0-9]/g, '_');
+  },
+
+  async saveDailyTracker(email, dateStr, metrics) {
+    const fragment = this._emailKeyFragment(email);
+    const key = `daily_tracker:${fragment}:${dateStr}`;
+    const existingRaw = await db.get(key);
+    const existingParsed =
+      existingRaw &&
+      (typeof existingRaw === 'object' && 'ok' in existingRaw
+        ? existingRaw.value
+        : existingRaw);
+    let existing = {};
+    if (existingParsed) {
+      try {
+        existing = typeof existingParsed === 'string' ? JSON.parse(existingParsed) : existingParsed;
+      } catch {
+        existing = {};
+      }
+    }
+    const merged = {
+      ...existing,
+      coldEmails: metrics.coldEmails != null ? metrics.coldEmails : existing.coldEmails ?? 0,
+      coldDms: metrics.coldDms != null ? metrics.coldDms : existing.coldDms ?? 0,
+      coldCalls: metrics.coldCalls != null ? metrics.coldCalls : existing.coldCalls ?? 0,
+      upworkBids: metrics.upworkBids != null ? metrics.upworkBids : existing.upworkBids ?? 0,
+      notes: metrics.notes != null ? metrics.notes : existing.notes ?? '',
+      callNotes: metrics.callNotes != null ? metrics.callNotes : existing.callNotes ?? '',
+      email,
+      date: dateStr,
+      updatedAt: new Date().toISOString(),
+    };
+    await db.set(key, JSON.stringify(merged));
+    return merged;
+  },
+
+  async getDailyTracker(email, dateStr) {
+    const fragment = this._emailKeyFragment(email);
+    const key = `daily_tracker:${fragment}:${dateStr}`;
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async listDailyTrackers(email, limit = 14) {
+    const fragment = this._emailKeyFragment(email);
+    const prefix = `daily_tracker:${fragment}:`;
+    const keys = await db.list(prefix);
+    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    const sorted = keyList.sort((a, b) => {
+      const da = (a && a.split(':').pop()) || '';
+      const db = (b && b.split(':').pop()) || '';
+      return db.localeCompare(da);
+    });
+    const slice = sorted.slice(0, limit);
+    const rows = [];
+    for (const key of slice) {
+      const data = await db.get(key);
+      if (!data) continue;
+      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      if (!raw) continue;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        rows.push(parsed);
+      } catch {
+        /* skip */
+      }
+    }
+    return rows;
+  },
 };

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden transition-colors duration-400">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <%- include('partials/sales-nav') %>
+
+    <div class="mb-10 max-w-3xl">
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Daily Action <span class="text-brand-muted">Tracker</span></h1>
+      <p class="text-brand-muted font-medium mt-2">Log hustle metrics per day. Data is stored per logged-in user.</p>
+    </div>
+
+    <div class="grid lg:grid-cols-2 gap-8 mb-14">
+      <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+        <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Today · <%= today %></h2>
+        <p class="text-xs text-brand-muted mb-6">Cold outreach &amp; bids</p>
+        <form action="/sales/tracker" method="post" class="space-y-4">
+          <input type="hidden" name="date" value="<%= today %>" />
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold emails</label>
+              <input name="coldEmails" type="number" min="0" value="<%= todayRow.coldEmails != null ? todayRow.coldEmails : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold DMs</label>
+              <input name="coldDms" type="number" min="0" value="<%= todayRow.coldDms != null ? todayRow.coldDms : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold calls</label>
+              <input name="coldCalls" type="number" min="0" value="<%= todayRow.coldCalls != null ? todayRow.coldCalls : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Upwork / bids</label>
+              <input name="upworkBids" type="number" min="0" value="<%= todayRow.upworkBids != null ? todayRow.upworkBids : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Call / dialer notes</label>
+            <textarea name="callNotes" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Numbers dialed, outcomes, follow-ups…"><%= todayRow.callNotes || '' %></textarea>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Day notes</label>
+            <textarea name="notes" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Wins, blockers, tomorrow’s focus…"><%= todayRow.notes || '' %></textarea>
+          </div>
+          <button type="submit" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Save today</button>
+        </form>
+      </div>
+
+      <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+        <h2 class="font-display font-extrabold text-lg mb-4 text-brand-dark dark:text-white">Today’s totals</h2>
+        <% const t = todayRow || {}; %>
+        <dl class="grid grid-cols-2 gap-4 text-sm">
+          <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
+            <dt class="text-[10px] font-black uppercase text-brand-muted">Emails + DMs</dt>
+            <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= (parseInt(t.coldEmails,10)||0) + (parseInt(t.coldDms,10)||0) %></dd>
+          </div>
+          <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
+            <dt class="text-[10px] font-black uppercase text-brand-muted">Calls</dt>
+            <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.coldCalls,10)||0 %></dd>
+          </div>
+          <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10 col-span-2">
+            <dt class="text-[10px] font-black uppercase text-brand-muted">Bids</dt>
+            <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.upworkBids,10)||0 %></dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
+      <div class="px-6 py-4 border-b border-brand-border dark:border-white/10">
+        <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Recent days</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <% if (!history || history.length === 0) { %>
+          <p class="p-8 text-sm text-brand-muted">No history yet — save your first day above.</p>
+        <% } else { %>
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                <th class="px-6 py-3">Date</th>
+                <th class="px-6 py-3">Emails</th>
+                <th class="px-6 py-3">DMs</th>
+                <th class="px-6 py-3">Calls</th>
+                <th class="px-6 py-3">Bids</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-brand-border/50 dark:divide-white/5">
+              <% history.forEach((row) => { %>
+                <tr>
+                  <td class="px-6 py-3 font-bold text-brand-dark dark:text-white"><%= row.date || '—' %></td>
+                  <td class="px-6 py-3"><%= row.coldEmails != null ? row.coldEmails : 0 %></td>
+                  <td class="px-6 py-3"><%= row.coldDms != null ? row.coldDms : 0 %></td>
+                  <td class="px-6 py-3"><%= row.coldCalls != null ? row.coldCalls : 0 %></td>
+                  <td class="px-6 py-3"><%= row.upworkBids != null ? row.upworkBids : 0 %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

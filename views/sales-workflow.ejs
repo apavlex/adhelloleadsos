@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden transition-colors duration-400">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <%- include('partials/sales-nav') %>
+
+    <div class="mb-10 max-w-3xl">
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">8-Step <span class="text-brand-muted">Blueprint</span></h1>
+      <p class="text-brand-muted font-medium mt-2">Assign each saved lead to a stage. CQI fields store discovery answers on the lead record.</p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 mb-10">
+      <% stages.forEach((s) => { %>
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-[11px] font-bold text-brand-dark dark:text-white">
+          <span class="text-brand-muted font-black"><%= s.id %></span>
+          <%= s.name %>
+          <span class="text-brand-yellow font-black">(<%= counts[s.id] || 0 %>)</span>
+        </span>
+      <% }) %>
+    </div>
+
+    <div class="space-y-4 mb-16">
+      <% stages.forEach((s) => { %>
+        <details class="brand-card dark:bg-slate-900 dark:border-white/10 group" <%= s.id <= 2 ? 'open' : '' %>>
+          <summary class="px-6 py-4 cursor-pointer font-display font-extrabold text-brand-dark dark:text-white list-none flex justify-between items-center">
+            <span><span class="text-brand-yellow mr-2"><%= s.id %>.</span> <%= s.name %></span>
+            <span class="text-[10px] font-black uppercase text-brand-muted group-open:rotate-180 transition-transform">▼</span>
+          </summary>
+          <div class="px-6 pb-5 pt-0 text-sm text-brand-muted border-t border-brand-border/50 dark:border-white/5">
+            <%= s.summary %>
+          </div>
+        </details>
+      <% }) %>
+    </div>
+
+    <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mb-12">
+      <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
+        <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Lead pipeline</h2>
+        <p class="text-xs text-brand-muted mt-1">Saved leads (excluding inbound). Stage is stored on the lead for reporting.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <% if (leads.length === 0) { %>
+          <p class="p-8 text-sm text-brand-muted">No leads yet. <a href="/" class="text-brand-yellow font-bold underline">Run a search</a> or <a href="/leads" class="text-brand-yellow font-bold underline">import a CSV</a>.</p>
+        <% } else { %>
+          <table class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                <th class="px-6 py-4">Company</th>
+                <th class="px-6 py-4">Stage</th>
+                <th class="px-6 py-4">CQI</th>
+                <th class="px-6 py-4 text-right">Update</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-brand-border/50 dark:divide-white/5">
+              <% leads.forEach((lead) => { %>
+                <tr>
+                  <td class="px-6 py-4">
+                    <div class="font-bold text-brand-dark dark:text-white"><%= lead.title %></div>
+                    <div class="text-[11px] text-brand-muted"><%= lead.city %><% if (lead.state) { %>, <%= lead.state %><% } %></div>
+                  </td>
+                  <td class="px-6 py-4 align-top">
+                    <form action="/sales/workflow/stage" method="post" class="flex flex-col sm:flex-row gap-2 items-start">
+                      <input type="hidden" name="leadKey" value="<%= lead.key %>" />
+                      <% const ps = (typeof lead.pipelineStage === 'number' && lead.pipelineStage >= 1 && lead.pipelineStage <= 8) ? lead.pipelineStage : 1; %>
+                      <select name="pipelineStage" class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-semibold px-3 py-2 text-brand-dark dark:text-white max-w-[220px]">
+                        <% stages.forEach((s) => { %>
+                          <option value="<%= s.id %>" <%= (ps === s.id) ? 'selected' : '' %>><%= s.id %>. <%= s.name %></option>
+                        <% }) %>
+                      </select>
+                      <button type="submit" class="btn-pill bg-brand-yellow text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest shrink-0">Save</button>
+                    </form>
+                  </td>
+                  <td class="px-6 py-4 align-top text-[11px] text-brand-muted max-w-xs">
+                    <% if (lead.cqi && (lead.cqi.monthlyRevenue || lead.cqi.marketingSpend || lead.cqi.notes)) { %>
+                      <span class="text-emerald-600 dark:text-emerald-400 font-bold">Logged</span>
+                      <% if (lead.cqi.recordedAt) { %><br><span class="opacity-70"><%= new Date(lead.cqi.recordedAt).toLocaleDateString() %></span><% } %>
+                    <% } else { %>
+                      —
+                    <% } %>
+                  </td>
+                  <td class="px-6 py-4 align-top text-right">
+                    <a href="/leads" class="text-[10px] font-black uppercase text-brand-yellow underline">All leads</a>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <h2 class="font-display font-extrabold text-lg mb-2 text-brand-dark dark:text-white">Client Qualification Interview (CQI)</h2>
+      <p class="text-sm text-brand-muted mb-6">Saves to the lead as <code class="text-xs bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">cqi</code> — revenue, spend, and notes.</p>
+      <% if (leads.length === 0) { %>
+        <p class="text-sm text-brand-muted">Add leads first to log CQI.</p>
+      <% } else { %>
+        <form action="/sales/workflow/cqi" method="post" class="grid gap-4 max-w-xl">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Lead</label>
+            <select name="leadKey" required class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white">
+              <% leads.forEach((lead) => { %>
+                <option value="<%= lead.key %>"><%= lead.title %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Monthly revenue (approx)</label>
+              <input name="monthlyRevenue" type="text" placeholder="$ e.g. 45k/mo" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Marketing spend</label>
+              <input name="marketingSpend" type="text" placeholder="$ e.g. 2k/mo ads" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white" />
+            </div>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Discovery notes</label>
+            <textarea name="cqiNotes" rows="4" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white" placeholder="Pain, stack, decision maker, timeline…"></textarea>
+          </div>
+          <button type="submit" class="btn-pill btn-primary w-fit px-8 py-3 text-xs font-black uppercase tracking-widest">Save CQI</button>
+        </form>
+      <% } %>
+    </div>
+  </main>
+</body>
+</html>

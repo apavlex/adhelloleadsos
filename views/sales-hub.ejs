@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden transition-colors duration-400">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <%- include('partials/sales-nav') %>
+
+    <div class="mb-12 max-w-3xl">
+      <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Phases 2–4</span>
+      </div>
+      <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
+        Command <span class="text-brand-muted">Center</span>
+      </h1>
+      <p class="text-brand-muted font-medium mt-3 text-lg">
+        One place for the methodology, daily hustle metrics, and persona-based scripts — built on your existing Agency OS stack (Express + EJS).
+      </p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6 mb-16">
+      <a href="/sales/workflow" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
+        <div class="w-12 h-12 rounded-2xl bg-brand-yellow/20 flex items-center justify-center mb-6 text-brand-dark font-black text-xl border border-brand-yellow/30">8</div>
+        <h2 class="font-display font-extrabold text-xl mb-2 group-hover:text-brand-yellow transition-colors">8-Step Workflow</h2>
+        <p class="text-sm text-brand-muted leading-relaxed">Move each lead through Niche → CQI → Trial → Retainer → Upsell → Referrals. Log CQI notes per account.</p>
+        <span class="inline-block mt-6 text-[10px] font-black uppercase tracking-widest text-brand-yellow">Open workflow →</span>
+      </a>
+      <a href="/sales/tracker" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center mb-6 text-emerald-700 dark:text-emerald-400 font-black text-xl border border-emerald-500/20">∑</div>
+        <h2 class="font-display font-extrabold text-xl mb-2 group-hover:text-emerald-600 transition-colors">Daily Action Tracker</h2>
+        <p class="text-sm text-brand-muted leading-relaxed">Cold emails, DMs, calls, and bids — tracked per day so you can gamify consistency.</p>
+        <span class="inline-block mt-6 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Log today →</span>
+      </a>
+      <a href="/sales/personas" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
+        <div class="w-12 h-12 rounded-2xl bg-violet-500/15 flex items-center justify-center mb-6 text-violet-700 dark:text-violet-300 font-black text-xl border border-violet-500/20">AI</div>
+        <h2 class="font-display font-extrabold text-xl mb-2 group-hover:text-violet-600 transition-colors">Personas & Scripts</h2>
+        <p class="text-sm text-brand-muted leading-relaxed">Paul (Prospect), Clay (Close), Bob (Build) plus pitch-specific openings and closes.</p>
+        <span class="inline-block mt-6 text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-300">View scripts →</span>
+      </a>
+    </div>
+
+    <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <h3 class="font-display font-extrabold text-lg mb-4">Methodology at a glance</h3>
+      <ol class="grid sm:grid-cols-2 gap-4 text-sm text-brand-muted">
+        <% stages.forEach((s) => { %>
+          <li class="flex gap-3">
+            <span class="shrink-0 w-7 h-7 rounded-lg bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-[11px] font-black text-brand-dark dark:text-white"><%= s.id %></span>
+            <span><strong class="text-brand-dark dark:text-white"><%= s.name %></strong> — <%= s.summary %></span>
+          </li>
+        <% }) %>
+      </ol>
+    </div>
+  </main>
+</body>
+</html>
