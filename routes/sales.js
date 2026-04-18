@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { PIPELINE_STAGES, SCRIPT_LIBRARY, PERSONAS } = require('../services/salesConstants');
-const { computeOutreachStreak, buildDailyChartSeries } = require('../services/trackerStats');
+const { computeOutreachStreak, buildDailyChartSeries, buildDayRollup } = require('../services/trackerStats');
 const activationService = require('../services/activationService');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 
@@ -81,9 +81,11 @@ router.get('/tracker', async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const todayRow = await dbService.getDailyTracker(email, today);
     const history = await dbService.listDailyTrackers(email, 14);
-    const history60 = await dbService.listDailyTrackers(email, 60);
+    const history60 = await dbService.listDailyTrackers(email, 62);
     const chartSeries = buildDailyChartSeries(today, history, 14);
     const streak = computeOutreachStreak(history60, today);
+    const checklistWeek = buildDayRollup(today, history60, 7);
+    const checklistMonth = buildDayRollup(today, history60, 30);
     res.render('sales-tracker', {
       title: 'Daily Action Tracker',
       activePage: 'sales',
@@ -100,6 +102,8 @@ router.get('/tracker', async (req, res, next) => {
       history,
       chartSeries,
       streak,
+      checklistWeek,
+      checklistMonth,
     });
   } catch (e) {
     next(e);

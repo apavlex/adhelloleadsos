@@ -93,39 +93,145 @@
       </div>
     </div>
 
-    <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
-      <div class="px-6 py-4 border-b border-brand-border dark:border-white/10">
-        <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Recent days</h2>
+    <% const cw = typeof checklistWeek !== 'undefined' && checklistWeek ? checklistWeek : { days: [], sumTotal: 0, daysWithActivity: 0 }; %>
+    <% const cm = typeof checklistMonth !== 'undefined' && checklistMonth ? checklistMonth : { days: [], sumTotal: 0, daysWithActivity: 0 }; %>
+    <section class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" id="outreach-checklist" aria-label="Past outreach checklist">
+      <div class="px-6 py-5 border-b border-brand-border dark:border-white/10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+        <div>
+          <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Past outreach checklist</h2>
+          <p class="text-xs text-brand-muted dark:text-slate-400 mt-1 max-w-xl">Click any day to expand notes. <strong class="text-brand-dark dark:text-white">✓</strong> means at least one touch logged. Switch between the last 7 days and last 30 days.</p>
+        </div>
+        <div class="flex rounded-2xl border border-brand-border dark:border-white/10 p-1 bg-brand-cream/30 dark:bg-white/5 shrink-0" role="tablist" aria-label="Checklist range">
+          <button type="button" id="chkTabWeek" class="tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors bg-brand-yellow text-brand-dark shadow-sm" aria-selected="true" data-range="week">This week</button>
+          <button type="button" id="chkTabMonth" class="tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" aria-selected="false" data-range="month">This month</button>
+        </div>
       </div>
-      <div class="overflow-x-auto">
-        <% if (!history || history.length === 0) { %>
-          <p class="p-8 text-sm text-brand-muted">No history yet — save your first day above.</p>
-        <% } else { %>
-          <table class="w-full text-left text-sm">
-            <thead>
-              <tr class="border-b border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                <th class="px-6 py-3">Date</th>
-                <th class="px-6 py-3">Emails</th>
-                <th class="px-6 py-3">DMs</th>
-                <th class="px-6 py-3">Calls</th>
-                <th class="px-6 py-3">Bids</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-brand-border/50 dark:divide-white/5">
-              <% history.forEach((row) => { %>
-                <tr>
-                  <td class="px-6 py-3 font-bold text-brand-dark dark:text-white"><%= row.date || '—' %></td>
-                  <td class="px-6 py-3"><%= row.coldEmails != null ? row.coldEmails : 0 %></td>
-                  <td class="px-6 py-3"><%= row.coldDms != null ? row.coldDms : 0 %></td>
-                  <td class="px-6 py-3"><%= row.coldCalls != null ? row.coldCalls : 0 %></td>
-                  <td class="px-6 py-3"><%= row.upworkBids != null ? row.upworkBids : 0 %></td>
-                </tr>
-              <% }) %>
-            </tbody>
-          </table>
-        <% } %>
+
+      <div id="checklist-panel-week" class="p-3 sm:p-4">
+        <p class="px-2 pb-3 text-[11px] font-medium text-brand-muted dark:text-slate-400">
+          <span class="font-black text-brand-dark dark:text-white"><%= cw.daysWithActivity %></span> days with activity ·
+          <span class="font-black text-brand-dark dark:text-white"><%= cw.sumTotal %></span> total touches
+        </p>
+        <div class="space-y-1">
+          <% cw.days.forEach((day) => { %>
+            <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/40 dark:bg-slate-950/30 open:bg-white/70 dark:open:bg-slate-800/40 open:border-brand-yellow/40 transition-colors">
+              <summary class="flex flex-wrap items-center gap-3 py-3 px-3 sm:px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shrink-0 <%= day.total > 0 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25' : 'bg-brand-cream/60 dark:bg-white/5 text-brand-muted dark:text-slate-500 border border-brand-border/30 dark:border-white/10' %>" title="<%= day.total > 0 ? 'Logged touches' : 'No touches' %>"><%= day.total > 0 ? '✓' : '·' %></span>
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-brand-dark dark:text-white text-sm flex flex-wrap items-center gap-2">
+                    <span><%= day.label %></span>
+                    <% if (day.isToday) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/15 px-2 py-0.5 rounded-full">Today</span><% } %>
+                    <span class="text-[10px] font-mono text-brand-muted dark:text-slate-500"><%= day.date %></span>
+                  </div>
+                  <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">
+                    Emails <strong class="text-brand-dark dark:text-slate-200"><%= day.emails %></strong> ·
+                    DMs <strong class="text-brand-dark dark:text-slate-200"><%= day.dms %></strong> ·
+                    Calls <strong class="text-brand-dark dark:text-slate-200"><%= day.calls %></strong> ·
+                    Bids <strong class="text-brand-dark dark:text-slate-200"><%= day.bids %></strong>
+                  </div>
+                </div>
+                <span class="text-xl font-black text-brand-dark dark:text-white tabular-nums shrink-0"><%= day.total %></span>
+                <% if (day.hasNotes) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow shrink-0 hidden sm:inline">Notes</span><% } %>
+              </summary>
+              <div class="px-3 sm:px-4 pb-4 pt-0 ml-0 sm:ml-12 border-t border-brand-border/30 dark:border-white/10 mt-0">
+                <% if (day.callNotes) { %>
+                  <div class="pt-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1">Call / dialer</p>
+                    <p class="text-sm text-brand-dark dark:text-slate-200 whitespace-pre-wrap"><%= day.callNotes %></p>
+                  </div>
+                <% } %>
+                <% if (day.notes) { %>
+                  <div class="pt-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1">Day notes</p>
+                    <p class="text-sm text-brand-dark dark:text-slate-200 whitespace-pre-wrap"><%= day.notes %></p>
+                  </div>
+                <% } %>
+                <% if (!day.hasNotes) { %>
+                  <p class="text-xs text-brand-muted dark:text-slate-500 pt-3 italic">No notes for this day.</p>
+                <% } %>
+              </div>
+            </details>
+          <% }) %>
+        </div>
       </div>
-    </div>
+
+      <div id="checklist-panel-month" class="p-3 sm:p-4 hidden">
+        <p class="px-2 pb-3 text-[11px] font-medium text-brand-muted dark:text-slate-400">
+          <span class="font-black text-brand-dark dark:text-white"><%= cm.daysWithActivity %></span> days with activity ·
+          <span class="font-black text-brand-dark dark:text-white"><%= cm.sumTotal %></span> total touches
+        </p>
+        <div class="space-y-1 max-h-[min(70vh,32rem)] overflow-y-auto pr-1">
+          <% cm.days.forEach((day) => { %>
+            <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/40 dark:bg-slate-950/30 open:bg-white/70 dark:open:bg-slate-800/40 open:border-brand-yellow/40 transition-colors">
+              <summary class="flex flex-wrap items-center gap-3 py-3 px-3 sm:px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                <span class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shrink-0 <%= day.total > 0 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25' : 'bg-brand-cream/60 dark:bg-white/5 text-brand-muted dark:text-slate-500 border border-brand-border/30 dark:border-white/10' %>"><%= day.total > 0 ? '✓' : '·' %></span>
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-brand-dark dark:text-white text-sm flex flex-wrap items-center gap-2">
+                    <span><%= day.label %></span>
+                    <% if (day.isToday) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/15 px-2 py-0.5 rounded-full">Today</span><% } %>
+                    <span class="text-[10px] font-mono text-brand-muted dark:text-slate-500"><%= day.date %></span>
+                  </div>
+                  <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">
+                    Emails <strong class="text-brand-dark dark:text-slate-200"><%= day.emails %></strong> ·
+                    DMs <strong class="text-brand-dark dark:text-slate-200"><%= day.dms %></strong> ·
+                    Calls <strong class="text-brand-dark dark:text-slate-200"><%= day.calls %></strong> ·
+                    Bids <strong class="text-brand-dark dark:text-slate-200"><%= day.bids %></strong>
+                  </div>
+                </div>
+                <span class="text-xl font-black text-brand-dark dark:text-white tabular-nums shrink-0"><%= day.total %></span>
+              </summary>
+              <div class="px-3 sm:px-4 pb-4 pt-0 ml-0 sm:ml-12 border-t border-brand-border/30 dark:border-white/10 mt-0">
+                <% if (day.callNotes) { %>
+                  <div class="pt-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1">Call / dialer</p>
+                    <p class="text-sm text-brand-dark dark:text-slate-200 whitespace-pre-wrap"><%= day.callNotes %></p>
+                  </div>
+                <% } %>
+                <% if (day.notes) { %>
+                  <div class="pt-3">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1">Day notes</p>
+                    <p class="text-sm text-brand-dark dark:text-slate-200 whitespace-pre-wrap"><%= day.notes %></p>
+                  </div>
+                <% } %>
+                <% if (!day.hasNotes) { %>
+                  <p class="text-xs text-brand-muted dark:text-slate-500 pt-3 italic">No notes for this day.</p>
+                <% } %>
+              </div>
+            </details>
+          <% }) %>
+        </div>
+      </div>
+    </section>
+
+    <script>
+    (function () {
+      var w = document.getElementById('checklist-panel-week');
+      var m = document.getElementById('checklist-panel-month');
+      var tw = document.getElementById('chkTabWeek');
+      var tm = document.getElementById('chkTabMonth');
+      if (!w || !m || !tw || !tm) return;
+      var active = 'bg-brand-yellow text-brand-dark shadow-sm';
+      var inactive = 'text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white';
+      function setWeek() {
+        w.classList.remove('hidden');
+        m.classList.add('hidden');
+        tw.className = 'tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ' + active;
+        tm.className = 'tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ' + inactive;
+        tw.setAttribute('aria-selected', 'true');
+        tm.setAttribute('aria-selected', 'false');
+      }
+      function setMonth() {
+        m.classList.remove('hidden');
+        w.classList.add('hidden');
+        tm.className = 'tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ' + active;
+        tw.className = 'tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ' + inactive;
+        tm.setAttribute('aria-selected', 'true');
+        tw.setAttribute('aria-selected', 'false');
+      }
+      tw.addEventListener('click', setWeek);
+      tm.addEventListener('click', setMonth);
+    })();
+    </script>
   </main>
 </body>
 </html>

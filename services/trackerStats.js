@@ -53,8 +53,56 @@ function buildDailyChartSeries(todayStr, rows, days = 14) {
   return out;
 }
 
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+/**
+ * Rolling window of calendar days ending on todayStr (index 0 = today), for checklist UI.
+ * @param {string} todayStr YYYY-MM-DD
+ * @param {Array} rows from listDailyTrackers
+ * @param {number} numDays e.g. 7 or 30
+ */
+function buildDayRollup(todayStr, rows, numDays) {
+  const map = new Map();
+  (rows || []).forEach((r) => {
+    if (r && r.date) map.set(r.date, r);
+  });
+  const end = new Date(`${todayStr}T12:00:00Z`);
+  const out = [];
+  for (let i = 0; i < numDays; i += 1) {
+    const d = new Date(end);
+    d.setUTCDate(d.getUTCDate() - i);
+    const key = d.toISOString().slice(0, 10);
+    const row = map.get(key) || null;
+    const emails = parseInt(row && row.coldEmails, 10) || 0;
+    const dms = parseInt(row && row.coldDms, 10) || 0;
+    const calls = parseInt(row && row.coldCalls, 10) || 0;
+    const bids = parseInt(row && row.upworkBids, 10) || 0;
+    const total = emails + dms + calls + bids;
+    const notes = (row && row.notes && String(row.notes).trim()) || '';
+    const callNotes = (row && row.callNotes && String(row.callNotes).trim()) || '';
+    const isToday = i === 0;
+    out.push({
+      date: key,
+      label: `${WD[d.getUTCDay()]} · ${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`,
+      isToday,
+      emails,
+      dms,
+      calls,
+      bids,
+      total,
+      hasNotes: !!(notes || callNotes),
+      notes,
+      callNotes,
+    });
+  }
+  const sumTotal = out.reduce((s, x) => s + x.total, 0);
+  const daysWithActivity = out.filter((x) => x.total > 0).length;
+  return { days: out, sumTotal, daysWithActivity };
+}
+
 module.exports = {
   touchesForRow,
   computeOutreachStreak,
   buildDailyChartSeries,
+  buildDayRollup,
 };
