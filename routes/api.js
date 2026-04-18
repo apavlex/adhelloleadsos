@@ -30,7 +30,10 @@ function workspaceIdFromReq(req) {
 
 /**
  * POST /api/leads/ingest
- * Receives leads from adhello.ai audit report
+ * Receives leads from adhello.ai when someone submits email + domain for an audit scan.
+ * Headers: x-api-key (or ?api_key=) = API_INGEST_KEY; optional x-workspace-id (default default).
+ * Body: at least one of title, email, website; recommend email + website + source: "adhello_audit".
+ * Saves into the same lead store as /leads (warm inbound filter applies to adhello_* sources).
  */
 router.post('/ingest', validateApiKey, async (req, res, next) => {
   try {
@@ -225,8 +228,8 @@ router.post('/track', async (req, res) => {
       ...location
     };
 
-    await dbService.saveVisit(visitData);
-    res.json({ success: true });
+    const result = await dbService.saveVisit(visitData);
+    res.json({ success: true, deduped: result.deduped === true });
   } catch (err) {
     console.error('[ANALYTICS] Tracking error:', err.message);
     res.status(500).json({ error: err.message });

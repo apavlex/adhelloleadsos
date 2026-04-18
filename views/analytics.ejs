@@ -26,6 +26,9 @@
                           <h1 class="text-3xl font-black tracking-tight text-brand-dark dark:text-white uppercase">Analytics</h1>
                         </div>
                         <p class="text-brand-muted font-bold text-sm">Real-time traffic performance from adhello.ai</p>
+                        <% if (typeof isDemo === 'undefined' || !isDemo) { %>
+                        <p class="text-[10px] text-brand-muted/90 mt-2 max-w-xl leading-relaxed">Total visits ignore repeat <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">/api/track</code> pings from the same IP and path within about two minutes (burst dedupe).</p>
+                        <% } %>
                     </div>
                 </div>
 

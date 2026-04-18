@@ -464,14 +464,80 @@ module.exports = {
 
   // --- Analytics (Visits) ---
 
+  /** Strip query/hash and trailing slash so / and /?x match for dedupe. */
+  normalizeVisitPath(p) {
+    if (!p || typeof p !== 'string') return '/';
+    let s = p.trim() || '/';
+    const hash = s.indexOf('#');
+    if (hash >= 0) s = s.slice(0, hash);
+    const q = s.indexOf('?');
+    if (q >= 0) s = s.slice(0, q);
+    if (s.length > 1 && s.endsWith('/')) s = s.replace(/\/+$/, '');
+    return s || '/';
+  },
+
+  normalizeVisitIp(ip) {
+    if (!ip) return '';
+    let s = String(ip).split(',')[0].trim();
+    if (s.startsWith('::ffff:')) s = s.slice(7);
+    return s;
+  },
+
+  /**
+   * Stores one row per “visit burst”: same IP + path within VISIT_DEDUPE_WINDOW_MS (default 2m)
+   * counts once. Stops React double-mount / duplicate beacons from inflating totals.
+   */
   async saveVisit(visitData) {
+    const windowMs = Math.max(
+      5000,
+      parseInt(process.env.VISIT_DEDUPE_WINDOW_MS || '120000', 10) || 120000
+    );
+    const scanCap = Math.max(20, parseInt(process.env.VISIT_DEDUPE_SCAN || '200', 10) || 200);
+
+    const ipNorm = this.normalizeVisitIp(visitData.ip);
+    const pathNorm = this.normalizeVisitPath(visitData.path);
+    const now = Date.now();
+
+    const skipDedupe =
+      !ipNorm || ipNorm === '127.0.0.1' || ipNorm === '::1' || ipNorm === 'unknown';
+
+    if (!skipDedupe) {
+      const keys = await db.list('visit:');
+      const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+      const sortedKeys = keyList
+        .sort((a, b) => parseInt(b.split(':')[1], 10) - parseInt(a.split(':')[1], 10))
+        .slice(0, scanCap);
+
+      for (const key of sortedKeys) {
+        const data = await db.get(key);
+        if (!data) continue;
+        const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+        if (!raw) continue;
+        try {
+          const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          const vIp = this.normalizeVisitIp(v.ip);
+          const vPath = this.normalizeVisitPath(v.path);
+          const ts =
+            typeof v.timestamp === 'number' ? v.timestamp : parseInt(key.split(':')[1], 10);
+          if (vIp === ipNorm && vPath === pathNorm && now - ts < windowMs) {
+            return { key, deduped: true };
+          }
+        } catch (_) {
+          /* ignore corrupt row */
+        }
+      }
+    }
+
     const timestamp = Date.now();
     const key = `visit:${timestamp}`;
-    await db.set(key, JSON.stringify({ 
-      ...visitData, 
-      timestamp 
-    }));
-    return key;
+    const payload = {
+      ...visitData,
+      ip: ipNorm || visitData.ip,
+      path: pathNorm,
+      timestamp,
+    };
+    await db.set(key, JSON.stringify(payload));
+    return { key, deduped: false };
   },
 
   async getAllVisits() {
