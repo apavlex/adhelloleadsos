@@ -7,11 +7,18 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/css/custom.css">
 </head>
-<!-- Leads Background Color -->
-<body class="bg-[#FDFBF7] min-h-screen w-full flex items-center justify-center p-6 relative overflow-hidden font-sans">
-    
+<!-- Leads Background Color: decor stays out of flex flow so the card centers reliably -->
+<body class="bg-[#FDFBF7] min-h-screen w-full relative overflow-hidden font-sans">
+
+    <!-- Background Decorative Elements (behind content) -->
+    <div class="pointer-events-none absolute inset-0 -z-0" aria-hidden="true">
+        <div class="absolute -top-24 -right-24 w-96 h-96 bg-yellow-100/30 rounded-full blur-3xl"></div>
+        <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-orange-50/40 rounded-full blur-3xl"></div>
+    </div>
+
+    <main class="relative z-10 min-h-screen w-full flex flex-col items-center justify-center px-6 py-12">
     <!-- Login Card -->
-    <div class="brand-card max-w-lg w-full p-16 text-center bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] relative z-10 border-none rounded-[3.5rem]">
+    <div class="brand-card max-w-lg w-full mx-auto p-16 text-center bg-white shadow-[0_32px_64px_-16px_rgba(0,0,0,0.08)] border-none rounded-[3.5rem]">
         
         <!-- Lock icon container -->
         <div class="w-24 h-24 bg-white rounded-3xl flex items-center justify-center mx-auto mb-10 border border-slate-100 shadow-sm">
@@ -44,10 +51,7 @@
             <span>AdHello.ai | Leads</span>
         </div>
     </div>
-
-    <!-- Background Decorative Elements -->
-    <div class="absolute -top-24 -right-24 w-96 h-96 bg-yellow-100/30 rounded-full blur-3xl -z-0"></div>
-    <div class="absolute -bottom-24 -left-24 w-96 h-96 bg-orange-50/40 rounded-full blur-3xl -z-0"></div>
+    </main>
 
 </body>
 </html>
