@@ -1,6 +1,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><%= typeof title !== 'undefined' ? title : 'AdHello.ai | Leads' %></title>
+<script>
+  /* Before CSS: set dark/light on <html> so custom.css variables match on first paint.
+     (localStorage 'in' check is unreliable across browsers — use getItem only.) */
+  (function () {
+    try {
+      var d = document.documentElement;
+      var t = localStorage.getItem('color-theme');
+      if (t === 'dark') d.classList.add('dark');
+      else if (t === 'light') d.classList.remove('dark');
+      else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) d.classList.add('dark');
+      else d.classList.remove('dark');
+    } catch (e) {}
+  })();
+</script>
+<style>
+  /* First-paint background before Tailwind Play CDN injects utilities (avoids cream→dark snap). */
+  html:not(.dark) { background-color: #FAF7ED; }
+  html.dark { background-color: #020617; }
+</style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
@@ -38,11 +57,3 @@
   };
 </script>
 <link rel="stylesheet" href="/css/custom.css">
-<script>
-  // On page load or when changing themes, best to add inline in `head` to avoid FOUC
-  if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      document.documentElement.classList.add('dark');
-  } else {
-      document.documentElement.classList.remove('dark')
-  }
-</script>
