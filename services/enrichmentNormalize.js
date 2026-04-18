@@ -17,6 +17,16 @@ function firecrawlExtractToLeadUpdates(raw) {
   copy('google_places', 'googlePlaces');
   copy('yelp', 'yelp');
   copy('email', 'email');
+  copy('phone', 'phone');
+  copy('address', 'address');
+  if (raw.total_score !== undefined && raw.total_score !== null) {
+    const n = Number(raw.total_score);
+    if (!Number.isNaN(n)) u.totalScore = n;
+  }
+  if (raw.reviews_count !== undefined && raw.reviews_count !== null) {
+    const n = parseInt(raw.reviews_count, 10);
+    if (!Number.isNaN(n)) u.reviewsCount = n;
+  }
 
   copy('has_schema_markup', 'hasSchemaMarkup');
   copy('has_chatbot', 'hasChatbot');

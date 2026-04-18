@@ -27,7 +27,7 @@ model Lead {
   phone           String?
   website         String?
   location        String?
-  niche           String?
+  category        String?             // business vertical / trade (maps to categoryName today)
 
   // NEW — source + routing
   source          LeadSource          // COLD_SCRAPE | CSV | INBOUND_AUDIT | INBOUND_BLUEPRINT | REFERRAL | ADS | MANUAL
@@ -42,7 +42,7 @@ model Lead {
   intentSignals   Json?                     // {hiring:true, adsRunning:true, techStack:[...]}
 
   // NEW — pipeline
-  stage           Stage    @default(NICHE)
+  stage           Stage    @default(NEW)
   stageEnteredAt  DateTime @default(now())
   ownerId         String?
   nextActionAt    DateTime?
@@ -80,7 +80,7 @@ enum Temperature {
 }
 
 enum Stage {
-  NICHE            // 1. just discovered
+  NEW              // 1. just discovered (ingested / triage)
   CONTACTED        // 1.5 sequence started
   ENGAGED          // 1.75 replied / booked
   CQI              // 2. discovery call done
@@ -178,7 +178,7 @@ model Rule {
                        ▼
         ┌──────────────┴──────────────┐
         ▼ COLD                        ▼ WARM / HOT
- Stage: NICHE                   Stage: ENGAGED (skip cold)
+ Stage: NEW                     Stage: ENGAGED (skip cold)
         │                              │
         ▼                              ▼
  Auto-enroll in               Notify owner + auto-task
@@ -216,7 +216,7 @@ model Rule {
 
 | Stage | Entry | Exit | SLA | Auto-action on entry |
 |-------|--------|------|-----|------------------------|
-| **NICHE** | Created from any source | Sequence enrolled OR manually advanced | 24h | If COLD → enroll cold sequence. If WARM → skip to ENGAGED. |
+| **NEW** | Created from any source | Sequence enrolled OR manually advanced | 24h | If COLD → enroll cold sequence. If WARM → skip to ENGAGED. |
 | **CONTACTED** | First outbound touch sent | Reply received OR sequence completed | Sequence length | Track opens/clicks, schedule next step. |
 | **ENGAGED** | Reply received OR call booked OR inbound form filled | CQI completed | 48h | Create task “Book/hold CQI call”, notify owner in Slack. |
 | **CQI** | Discovery call completed, notes logged | Trial pitched | 3 days | AI summarize call notes → suggest pitch angle. |
@@ -361,7 +361,7 @@ You are working in the adhello-leadsos **Next.js** repo. Implement the improved 
 
 ## 9. Acceptance Criteria
 
-1. A scraped Google Maps lead flows: **NICHE → CONTACTED (auto) → ENGAGED (on reply) → CQI** without manual stage clicks.
+1. A scraped Google Maps lead flows: **NEW → CONTACTED (auto) → ENGAGED (on reply) → CQI** without manual stage clicks.
 2. An adhello.ai audit submission creates a lead at **ENGAGED** with a **5-minute owner task** and never enters a cold sequence.
 3. A lead that replies mid-sequence **auto-pauses** the sequence and **notifies** the owner.
 4. **30 days** after a lead hits **RETAINER_ONBOARD**, a **REFERRAL_ASK** task is auto-created.

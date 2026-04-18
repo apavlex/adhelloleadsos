@@ -6,7 +6,7 @@ const PLAN = [
   {
     id: 'd1',
     label: 'Day 1 — First search',
-    hint: 'Run a Maps + Apify niche pull',
+    hint: 'Run a Maps + Apify lead pull',
     href: '/',
     event: 'search_saved',
   },
@@ -41,7 +41,7 @@ const PLAN = [
   {
     id: 'd6',
     label: 'Day 6 — Advance the pipeline',
-    hint: 'Move a card past Niche Captured',
+    hint: 'Move a card past New (stage 1)',
     href: '/sales/workflow',
     event: 'pipeline_advanced',
   },

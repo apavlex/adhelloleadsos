@@ -1,19 +1,24 @@
 /**
- * Unified LLM access: prefers [KIE.ai](https://kie.ai) (best models via marketplace paths),
- * then OpenAI. Never call from browser — server only.
+ * Unified LLM access: KIE.ai → OpenAI → Google Gemini (e.g. Cloud Run with GEMINI_API_KEY).
+ * Never call from browser — server only.
  *
- * Env (KIE — recommended):
+ * Env (KIE):
  *   KIE_AI_API_KEY — Bearer token from https://kie.ai/api-key
- *   KIE_AI_CHAT_PATH — default `gpt-5-2/v1/chat/completions` (see docs.kie.ai chat models)
- *   KIE_AI_MODEL — body `model` field, default `gpt-5-2`
+ *   KIE_AI_CHAT_PATH — default `gpt-5-2/v1/chat/completions`
+ *   KIE_AI_MODEL — default `gpt-5-2`
  *   KIE_AI_BASE_URL — default `https://api.kie.ai`
  *
- * Env (fallback):
+ * Env (OpenAI):
  *   OPENAI_API_KEY, OPENAI_MODEL (e.g. gpt-4o-mini)
+ *
+ * Env (Gemini — Google AI / Vertex-style key on generateContent):
+ *   GEMINI_API_KEY
+ *   GEMINI_MODEL — default `gemini-2.0-flash`
  */
 
 const DEFAULT_KIE_PATH = 'gpt-5-2/v1/chat/completions';
 const DEFAULT_KIE_MODEL = 'gpt-5-2';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 
 function pickProvider() {
   const kieKey = process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY;
@@ -35,7 +40,51 @@ function pickProvider() {
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     };
   }
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (geminiKey && String(geminiKey).trim()) {
+    return {
+      name: 'gemini',
+      apiKey: geminiKey.trim(),
+      model: (process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).replace(/^models\//, ''),
+    };
+  }
   return null;
+}
+
+/**
+ * Maps OpenAI-style messages to Gemini generateContent body.
+ */
+function buildGeminiBody(messages, { jsonObject, max_tokens, temperature }) {
+  const systemChunks = [];
+  const contents = [];
+
+  for (const m of messages || []) {
+    const text = typeof m.content === 'string' ? m.content : '';
+    if (!text.trim()) continue;
+    if (m.role === 'system') {
+      systemChunks.push(text);
+      continue;
+    }
+    if (m.role === 'user') {
+      contents.push({ role: 'user', parts: [{ text }] });
+    } else if (m.role === 'assistant') {
+      contents.push({ role: 'model', parts: [{ text }] });
+    }
+  }
+
+  const generationConfig = {
+    temperature,
+    maxOutputTokens: max_tokens,
+  };
+  if (jsonObject) {
+    generationConfig.responseMimeType = 'application/json';
+  }
+
+  const body = { contents, generationConfig };
+  if (systemChunks.length) {
+    body.systemInstruction = { parts: [{ text: systemChunks.join('\n\n') }] };
+  }
+  return body;
 }
 
 /**
@@ -101,6 +150,44 @@ async function chatCompletion({
         content: typeof content === 'string' ? content : null,
         provider: 'kie',
         error: !content,
+      };
+    }
+
+    if (prov.name === 'gemini') {
+      const geminiBody = buildGeminiBody(messages, { jsonObject, max_tokens, temperature });
+      if (!geminiBody.contents || geminiBody.contents.length === 0) {
+        console.warn('[llmClient] Gemini: no user/model messages after mapping');
+        return { content: null, provider: 'gemini', error: true };
+      }
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+        prov.model
+      )}:generateContent?key=${encodeURIComponent(prov.apiKey)}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(geminiBody),
+      });
+      const rawText = await res.text();
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        console.warn('[llmClient] Gemini non-JSON:', rawText.slice(0, 200));
+        return { content: null, provider: 'gemini', error: true };
+      }
+      if (!res.ok) {
+        console.warn('[llmClient] Gemini HTTP', res.status, rawText.slice(0, 280));
+        return { content: null, provider: 'gemini', error: true };
+      }
+      const parts = data?.candidates?.[0]?.content?.parts;
+      let textOut = '';
+      if (Array.isArray(parts)) {
+        textOut = parts.map((p) => (typeof p.text === 'string' ? p.text : '')).join('');
+      }
+      return {
+        content: textOut || null,
+        provider: 'gemini',
+        error: !textOut,
       };
     }
 

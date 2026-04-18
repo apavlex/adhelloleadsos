@@ -125,7 +125,7 @@ function defaultAiTimeSaversLeads() {
     { label: 'Apify search first', hint: 'Structured Maps data beats manual lists — coach ranks by gaps automatically.' },
     {
       label: 'Tech + buying signals',
-      hint: 'Enrichment merges HTML tech tags (Wix/Shopify/chat widgets). Add KIE_AI_API_KEY for gap-aware outreach drafts.',
+      hint: 'Enrichment merges HTML tech tags (Wix/Shopify/chat widgets). Add GEMINI_API_KEY, KIE_AI_API_KEY, or OPENAI_API_KEY for gap-aware outreach drafts.',
     },
     { label: 'War Room batch', hint: 'Draft outreach for the highest scores in one pass.' },
   ];
@@ -145,7 +145,7 @@ function getLeadsCoachPayload(leads) {
       hotLeads: [],
       stats: { high: 0, medium: 0, low: 0, total: 0 },
       nextActions: [
-        { label: 'Run a niche search', href: '/', priority: 'high' },
+        { label: 'Run a lead search', href: '/', priority: 'high' },
         { label: 'Import CSV', href: '/leads', priority: 'normal' },
       ],
       aiTimeSavers: defaultAiTimeSaversLeads(),

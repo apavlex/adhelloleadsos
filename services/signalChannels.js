@@ -11,7 +11,7 @@ const CHANNELS = [
     label: 'Google Maps + Apify',
     audience: 'Local SMB',
     status: 'live',
-    notes: 'Default cold engine — niches like plumbers and dentists.',
+    notes: 'Default cold engine — verticals like plumbers and dentists.',
     env: ['APIFY_API_TOKEN', 'APIFY_GOOGLE_MAPS_ACTOR_ID'],
   },
   {
@@ -62,7 +62,7 @@ const CHANNELS = [
   {
     id: 'creator_outreach',
     label: 'YouTube / TikTok creators',
-    audience: 'Influencer / niche plays',
+    audience: 'Influencer / vertical plays',
     status: 'planned',
     notes:
       'Discovery via platform search APIs or curated lists — bridge into same lead record shape as other channels.',

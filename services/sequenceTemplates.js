@@ -13,7 +13,7 @@ const DEFAULT_SEQUENCE_TEMPLATES = [
     description: 'Email → LinkedIn → call → DM → breakup',
     steps: [
       { dayOffset: 0, channel: 'email', title: 'Day 0 — First email', hint: 'Reference 1 concrete gap; CTA = 15-min fit call.' },
-      { dayOffset: 2, channel: 'linkedin', title: 'Day 2 — LinkedIn connect', hint: 'Short note, no pitch; tie to their city/niche.' },
+      { dayOffset: 2, channel: 'linkedin', title: 'Day 2 — LinkedIn connect', hint: 'Short note, no pitch; tie to their city or category.' },
       { dayOffset: 4, channel: 'task', title: 'Day 4 — Call task', hint: 'Dial or book a live CQI-style discovery.' },
       { dayOffset: 7, channel: 'linkedin', title: 'Day 7 — Value-add DM', hint: 'Share one insight or asset; soft ask.' },
       { dayOffset: 14, channel: 'email', title: 'Day 14 — Breakup', hint: 'Polite close-the-loop; door open.' },

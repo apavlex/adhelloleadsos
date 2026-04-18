@@ -134,29 +134,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Export CSV Logic
-  const bulkExportBtn = document.getElementById('bulkExportBtn');
-  if (bulkExportBtn) {
-    bulkExportBtn.addEventListener('click', () => {
+  // Export CSV — all `.js-bulk-export-csv` buttons (avoids duplicate id on /leads floating bar vs header bar)
+  document.querySelectorAll('.js-bulk-export-csv').forEach((exportBtn) => {
+    exportBtn.addEventListener('click', () => {
       const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
       const leadsToExport = [];
-      
+
       if (selectedCheckboxes.length > 0) {
-        selectedCheckboxes.forEach(cb => {
+        selectedCheckboxes.forEach((cb) => {
           const row = cb.closest('.result-row');
           if (row) leadsToExport.push(row.dataset);
         });
       } else {
-        // Export all if none selected
-        document.querySelectorAll('.result-row').forEach(row => {
+        document.querySelectorAll('.result-row').forEach((row) => {
           leadsToExport.push(row.dataset);
         });
       }
 
       if (leadsToExport.length === 0) return alert('No leads found to export.');
 
-      const headers = ['Company', 'Category', 'Phone', 'Website', 'Email', 'Address', 'Rating', 'Reviews', 'Facebook', 'Instagram', 'Twitter', 'Opportunity Score'];
-      const rows = leadsToExport.map(l => [
+      const headers = [
+        'Company',
+        'Category',
+        'Phone',
+        'Website',
+        'Email',
+        'Address',
+        'Rating',
+        'Reviews',
+        'Facebook',
+        'Instagram',
+        'Twitter',
+        'Opportunity Score',
+      ];
+      const rows = leadsToExport.map((l) => [
         `"${l.title}"`,
         `"${l.category}"`,
         `"${l.phone}"`,
@@ -168,17 +179,17 @@ document.addEventListener('DOMContentLoaded', () => {
         `"${l.facebook}"`,
         `"${l.instagram}"`,
         `"${l.twitter}"`,
-        calculateOpportunityScore(l)
+        calculateOpportunityScore(l),
       ]);
 
-      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
       link.setAttribute('download', `AdHello_Leads_${new Date().toISOString().split('T')[0]}.csv`);
       link.click();
     });
-  }
+  });
 
   // Quick outreach logic
   document.addEventListener('click', (e) => {
@@ -354,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const prevLeadBtn = document.getElementById('prevLeadBtn');
   const nextLeadBtn = document.getElementById('nextLeadBtn');
   let rows = document.querySelectorAll('.result-row');
+  const navigableRows = () => Array.from(rows).filter((r) => !r.classList.contains('workflow-filtered-out'));
   let currentRow = null;
   let currentIndex = -1;
 
@@ -391,11 +403,12 @@ document.addEventListener('DOMContentLoaded', () => {
     row.classList.add('selected');
     
     currentRow = row;
-    currentIndex = Array.from(rows).indexOf(row);
+    const nav = navigableRows();
+    currentIndex = nav.indexOf(row);
 
-    // Update nav button visibility/state
+    // Update nav button visibility/state (workflow page may hide filtered-out rows)
     if (prevLeadBtn) prevLeadBtn.style.opacity = currentIndex > 0 ? '1' : '0.3';
-    if (nextLeadBtn) nextLeadBtn.style.opacity = currentIndex < rows.length - 1 ? '1' : '0.3';
+    if (nextLeadBtn) nextLeadBtn.style.opacity = currentIndex >= 0 && currentIndex < nav.length - 1 ? '1' : '0.3';
 
     populatePanel(row);
 
@@ -424,7 +437,15 @@ document.addEventListener('DOMContentLoaded', () => {
           mobilePanel.classList.add('open');
           mobilePanel.classList.replace('opacity-0', 'opacity-100');
           mobilePanel.style.pointerEvents = 'auto';
-          
+
+          const panelScroll = mobilePanel.querySelector('div.overflow-y-auto');
+          if (panelScroll) panelScroll.scrollTop = 0;
+          const stickyTitle = document.getElementById('stickyPanelTitle');
+          if (stickyTitle) {
+            stickyTitle.classList.add('opacity-0', 'pointer-events-none');
+            stickyTitle.classList.remove('opacity-100');
+          }
+
           const childDiv = mobilePanel.querySelector('div');
           if (childDiv) {
               childDiv.classList.remove('translate-y-full', 'translate-x-full');
@@ -442,6 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Stop if clicking specific interactive elements
         if (e.target.type === 'checkbox' || 
             e.target.closest('.bookmark-btn') || 
+            e.target.closest('.view-detail-btn') ||
             e.target.closest('form') ||
             e.target.closest('a')) {
           return;
@@ -478,20 +500,18 @@ document.addEventListener('DOMContentLoaded', () => {
     if (prevLeadBtn) {
         prevLeadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (currentIndex > 0) {
-                const prevRow = rows[currentIndex - 1];
-                selectRow(prevRow);
-            }
+            const nav = navigableRows();
+            const idx = currentRow ? nav.indexOf(currentRow) : -1;
+            if (idx > 0) selectRow(nav[idx - 1]);
         });
     }
 
     if (nextLeadBtn) {
         nextLeadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (currentIndex < rows.length - 1) {
-                const nextRow = rows[currentIndex + 1];
-                selectRow(nextRow);
-            }
+            const nav = navigableRows();
+            const idx = currentRow ? nav.indexOf(currentRow) : -1;
+            if (idx >= 0 && idx < nav.length - 1) selectRow(nav[idx + 1]);
         });
     }
 
@@ -509,14 +529,119 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Sticky Title Scroll Logic
+    // Sticky title: show compact name in the nav row after scrolling past the hero
     if (mobilePanel) {
       const panelContent = mobilePanel.querySelector('div.overflow-y-auto');
-      if (panelContent) {
-          // Scroll logic removed - title is now always visible
+      const stickyTitle = document.getElementById('stickyPanelTitle');
+      if (panelContent && stickyTitle) {
+        const STICKY_THRESHOLD = 96;
+        panelContent.addEventListener(
+          'scroll',
+          () => {
+            const show = panelContent.scrollTop > STICKY_THRESHOLD;
+            if (show) {
+              stickyTitle.classList.remove('opacity-0', 'pointer-events-none');
+              stickyTitle.classList.add('opacity-100');
+            } else {
+              stickyTitle.classList.add('opacity-0', 'pointer-events-none');
+              stickyTitle.classList.remove('opacity-100');
+            }
+          },
+          { passive: true }
+        );
       }
     }
   }
+  }
+
+  let kieInsightRequestId = 0;
+
+  function scheduleKieServiceInsight(row) {
+    const key = row.dataset.leadKey;
+    const auditStatus = document.getElementById('mobilePanelAuditStatus');
+    const auditSummary = document.getElementById('mobilePanelAuditSummary');
+    const auditLoading = document.getElementById('mobilePanelAuditLoading');
+    const auditProvider = document.getElementById('mobilePanelAuditProvider');
+    if (!auditStatus || !auditSummary) return;
+
+    const heuristic = auditSummary.textContent;
+
+    if (!key) {
+      if (auditLoading) auditLoading.classList.add('hidden');
+      if (auditProvider) auditProvider.classList.add('hidden');
+      return;
+    }
+
+    const reqId = ++kieInsightRequestId;
+    if (auditLoading) auditLoading.classList.remove('hidden');
+    if (auditProvider) {
+      auditProvider.classList.add('hidden');
+      auditProvider.textContent = '';
+    }
+
+    fetch(`/leads/${key}/insights`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({}),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (reqId !== kieInsightRequestId) return;
+        if (auditLoading) auditLoading.classList.add('hidden');
+        if (!data.success) {
+          auditSummary.textContent = heuristic;
+          return;
+        }
+        auditStatus.textContent = data.primaryServiceLabel || 'Recommended offer';
+        auditStatus.className = 'text-[10px] font-black uppercase tracking-widest text-brand-yellow';
+        let body = data.rationale || heuristic;
+        if (data.talkTrack) {
+          body += `\n\nSuggested opener: “${data.talkTrack}”`;
+        }
+        auditSummary.textContent = body;
+        if (auditProvider) {
+          auditProvider.textContent = data.cached ? 'AI insight (cached)' : `AI insight · ${data.provider || 'kie'}`;
+          auditProvider.classList.remove('hidden');
+        }
+      })
+      .catch(() => {
+        if (reqId !== kieInsightRequestId) return;
+        if (auditLoading) auditLoading.classList.add('hidden');
+        auditSummary.textContent = heuristic;
+      });
+  }
+
+  function syncPersistedLeadToRowDataset(row, L) {
+    if (!row || !L || typeof L !== 'object') return;
+    const ds = row.dataset;
+    if (L.title != null) ds.title = L.title;
+    if (L.phone != null) ds.phone = L.phone || 'N/A';
+    if (L.website != null) ds.website = L.website || 'N/A';
+    if (L.email != null) ds.email = L.email || 'N/A';
+    if (L.address != null) ds.address = L.address || 'N/A';
+    if (L.city != null) ds.city = L.city || '';
+    if (L.state != null) ds.state = L.state || '';
+    if (L.categoryName != null) ds.category = L.categoryName || 'N/A';
+    if (L.url != null) ds.url = L.url || '';
+    if (L.facebook != null) ds.facebook = L.facebook || 'N/A';
+    if (L.instagram != null) ds.instagram = L.instagram || 'N/A';
+    if (L.twitter != null) ds.twitter = L.twitter || 'N/A';
+    if (L.totalScore != null) ds.rating = String(L.totalScore);
+    if (L.reviewsCount != null) ds.reviews = String(L.reviewsCount);
+    if (L.status != null) ds.status = L.status;
+    if (L.hasSchemaMarkup !== undefined && L.hasSchemaMarkup !== null) ds.hasSchemaMarkup = L.hasSchemaMarkup;
+    if (L.hasChatbot !== undefined && L.hasChatbot !== null) ds.hasChatbot = L.hasChatbot;
+    if (L.hasClickToCall !== undefined && L.hasClickToCall !== null) ds.hasClickToCall = L.hasClickToCall;
+    if (L.isMobileFriendly !== undefined && L.isMobileFriendly !== null) ds.isMobileFriendly = L.isMobileFriendly;
+    if (L.isOutdated !== undefined && L.isOutdated !== null) ds.isOutdated = L.isOutdated;
+    if (L.visualModernityScore != null) ds.visualModernityScore = L.visualModernityScore;
+    if (L.aeoScore != null) ds.aeoScore = L.aeoScore;
+    if (L.geoGaps != null) ds.geoGaps = L.geoGaps;
+    if (L.auditSummary != null) ds.auditSummary = L.auditSummary;
+    if (L.cmsPlatform != null) ds.cmsPlatform = L.cmsPlatform;
+    if (L.competitorName != null) ds.competitorName = L.competitorName;
+    if (L.competitorGap != null) ds.competitorGap = L.competitorGap;
+    if (L.updates) ds.updates = JSON.stringify(L.updates);
   }
 
   // --- Populate panel from row data ---
@@ -552,6 +677,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
+
+    const sourcePill = document.getElementById('mobilePanelSourcePill');
+    if (sourcePill) {
+      const src = row.dataset.source || '';
+      sourcePill.classList.remove('hidden');
+      if (src.startsWith('adhello_')) {
+        sourcePill.textContent = 'Warm';
+        sourcePill.className =
+          'px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
+      } else if (src.includes('csv') || src === 'import' || src === 'manual') {
+        sourcePill.textContent = 'Imported';
+        sourcePill.className =
+          'px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-yellow border-brand-yellow/30';
+      } else {
+        sourcePill.textContent = 'Cold';
+        sourcePill.className =
+          'px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-brand-border/30 dark:border-white/10';
+      }
+    }
 
     // Stars & Rating
     renderStars(rating, reviews);
@@ -611,10 +755,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const websiteLink = document.getElementById('mobilePanelWebsiteLink');
     if (websiteShort) {
         try {
-            const domain = new URL(website.startsWith('http') ? website : `https://${website}`).hostname.replace('www.', '');
-            websiteShort.textContent = domain;
+            const w = (website && String(website).trim()) || '';
+            if (!w || w === 'N/A' || w.length < 3) {
+              websiteShort.textContent = 'No website';
+            } else {
+              const domain = new URL(w.startsWith('http') ? w : `https://${w}`).hostname.replace('www.', '');
+              websiteShort.textContent = domain && domain.length > 1 ? domain : 'No website';
+            }
         } catch (e) {
-            websiteShort.textContent = (website && website !== 'N/A') ? website : 'No Website';
+            websiteShort.textContent = (website && website !== 'N/A' && String(website).length > 2) ? String(website) : 'No website';
         }
     }
     if (websiteLink) {
@@ -810,14 +959,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (headerAddress) headerAddress.textContent = (address && address !== 'N/A') ? address : 'Address Not Available';
     if (headerPhone) {
+        headerPhone.onclick = null;
         if (phone && phone !== 'N/A') {
+            const tel = `tel:${phone.replace(/\D/g, '')}`;
+            headerPhone.href = tel;
             headerPhone.textContent = phone;
-            headerPhone.href = `tel:${phone.replace(/\D/g, '')}`;
             headerPhone.classList.remove('opacity-40', 'pointer-events-none', 'no-underline');
+            headerPhone.classList.add('underline', 'decoration-brand-yellow/30', 'decoration-2', 'underline-offset-4');
+            headerPhone.onclick = () => {
+              if (statusSelect) {
+                statusSelect.value = 'Called Lead';
+                statusSelect.dispatchEvent(new Event('change'));
+              }
+            };
         } else {
             headerPhone.textContent = 'No Phone Number';
             headerPhone.href = '#';
             headerPhone.classList.add('opacity-40', 'pointer-events-none', 'no-underline');
+            headerPhone.classList.remove('underline', 'decoration-brand-yellow/30', 'decoration-2', 'underline-offset-4');
         }
     }
 
@@ -852,6 +1011,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Loom URL Input (if exists)
     const loomInput = document.getElementById('loomUrlInput');
     if (loomInput) loomInput.value = loomUrl || '';
+
+    const panelStatusSelect = document.getElementById('leadStatusSelect');
+    if (panelStatusSelect) {
+      const st = (row.dataset.status || '').trim() || 'Not Contacted';
+      const hasOption = Array.from(panelStatusSelect.options).some((o) => o.value === st);
+      panelStatusSelect.value = hasOption ? st : 'Not Contacted';
+    }
 
     // Logic for Audit Insight Box in Panel (if exists)
     const auditStatus = document.getElementById('mobilePanelAuditStatus');
@@ -891,6 +1057,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         auditSummary.textContent = dynamicSummary;
+        scheduleKieServiceInsight(row);
     }
 
     // Stitch AI Design Logic
@@ -957,10 +1124,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const ratingText = document.getElementById(textId);
     if (ratingText) {
-        if (reviews !== undefined) {
-            ratingText.textContent = rating > 0 ? `${Number(rating).toFixed(1)} (${reviews} reviews)` : 'No Rating';
+        const rc = reviews !== undefined && reviews !== null ? parseInt(reviews, 10) || 0 : null;
+        if (rc !== null) {
+          if (rating > 0) {
+            ratingText.textContent = `${Number(rating).toFixed(1)} (${rc} reviews)`;
+          } else if (rc > 0) {
+            ratingText.textContent = `— (${rc} reviews)`;
+          } else {
+            ratingText.textContent = 'No rating';
+          }
         } else {
-            ratingText.textContent = rating > 0 ? Number(rating).toFixed(1) : '-';
+          ratingText.textContent = rating > 0 ? Number(rating).toFixed(1) : 'No rating';
         }
     }
   };
@@ -1194,18 +1368,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         
         if (data.success) {
-          const d = data.lead || data.data; // Unified data
-          if (d.website && d.website !== 'N/A') currentRow.dataset.website = d.website;
-          if (data.foundUrl) currentRow.dataset.website = data.foundUrl; // From /enrich search
-          
-          if (d.email && d.email !== 'N/A') currentRow.dataset.email = d.email;
-          if (d.facebook && d.facebook !== 'N/A') currentRow.dataset.facebook = d.facebook;
-          if (d.instagram && d.instagram !== 'N/A') currentRow.dataset.instagram = d.instagram;
-          if (d.twitter && d.twitter !== 'N/A') currentRow.dataset.twitter = d.twitter;
-          
-          if (d.updates) currentRow.dataset.updates = JSON.stringify(d.updates);
-          
-          // Refresh Panel UI
+          const d = data.lead || data.data;
+          if (data.lead && typeof data.lead === 'object') {
+            syncPersistedLeadToRowDataset(currentRow, data.lead);
+          } else {
+            if (d.website && d.website !== 'N/A') currentRow.dataset.website = d.website;
+            if (data.foundUrl) currentRow.dataset.website = data.foundUrl;
+            if (d.email && d.email !== 'N/A') currentRow.dataset.email = d.email;
+            if (d.facebook && d.facebook !== 'N/A') currentRow.dataset.facebook = d.facebook;
+            if (d.instagram && d.instagram !== 'N/A') currentRow.dataset.instagram = d.instagram;
+            if (d.twitter && d.twitter !== 'N/A') currentRow.dataset.twitter = d.twitter;
+            if (d.updates) currentRow.dataset.updates = JSON.stringify(d.updates);
+          }
+
+          const keyAfter = currentRow.dataset.leadKey;
+          if (keyAfter) {
+            fetch(`/leads/${keyAfter}/insights`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ refresh: true }),
+            }).catch(() => {});
+          }
+
           populatePanel(currentRow);
           
           deepEnhanceBtn.innerHTML = '✨ Success! Data Found';
@@ -1441,8 +1625,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkActionBar = document.getElementById('bulkActionBar');
   const selectedCountCircle = document.getElementById('selectedCountCircle');
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
-  // bulkExportBtn is now defined at the top of DOMContentLoaded
-  const bulkEnhanceBtn = document.getElementById('bulkEnhanceBtn');
 
   let selectedKeys = new Set();
 
@@ -1520,40 +1702,50 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Bulk Export (CSV)
-  if (bulkExportBtn) {
-    bulkExportBtn.addEventListener('click', () => {
+  const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+  if (bulkDeleteBtn) {
+    bulkDeleteBtn.addEventListener('click', async () => {
       if (selectedKeys.size === 0) return;
-      
-      const selectedRows = Array.from(leadCheckboxes)
-        .filter(cb => selectedKeys.has(cb.dataset.key))
-        .map(cb => cb.closest('.result-row'));
+      const n = selectedKeys.size;
+      const msg = `Delete ${n} selected lead${n === 1 ? '' : 's'}? This cannot be undone.`;
+      if (!window.confirm(msg)) return;
 
-      let csv = 'Company,Category,Address,Phone,Website,Status,Rating,Reviews\n';
-      selectedRows.forEach(row => {
-        const d = row.dataset;
-        const rowData = [
-          `"${d.title}"`,
-          `"${d.category}"`,
-          `"${d.address}"`,
-          `"${d.phone}"`,
-          `"${d.website}"`,
-          `"${d.status}"`,
-          d.rating,
-          d.reviews
-        ];
-        csv += rowData.join(',') + '\n';
-      });
+      const keys = [...selectedKeys];
+      const closePanel = document.getElementById('closeMobilePanel');
+      for (const leadKey of keys) {
+        try {
+          const res = await fetch(`/leads/${leadKey}/delete`, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) continue;
 
-      const blob = new Blob([csv], { type: 'text/csv' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.setAttribute('hidden', '');
-      a.setAttribute('href', url);
-      a.setAttribute('download', `leads_export_${new Date().getTime()}.csv`);
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+          const cb = Array.from(document.querySelectorAll('.lead-checkbox')).find((c) => c.dataset.key === leadKey);
+          const row = cb && cb.closest('.result-row');
+          if (row) {
+            const title = row.dataset.title ? row.dataset.title.trim() : '';
+            if (row.classList.contains('selected') && closePanel) closePanel.click();
+            row.remove();
+            if (title) savedLeads.delete(title);
+          }
+          selectedKeys.delete(leadKey);
+        } catch (err) {
+          console.error('Bulk delete failed for', leadKey, err);
+        }
+      }
+
+      if (selectAllLeads) selectAllLeads.checked = false;
+      updateBulkActionBar();
+
+      const remaining = document.querySelectorAll('.result-row').length;
+      const countEl = document.querySelector('.text-brand-muted.font-medium');
+      if (countEl && remaining > 0) {
+        countEl.textContent = `You have ${remaining} bookmarked lead${remaining !== 1 ? 's' : ''} in your collection.`;
+      }
+      if (remaining === 0) {
+        window.location.reload();
+      }
     });
   }
 
@@ -1623,122 +1815,218 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Bulk Enhance (Firecrawl) - Improved with in-place updates
-  if (bulkEnhanceBtn) {
+  function getBulkEnhanceLayout(row) {
+    const cells = row.querySelectorAll('td');
+    if (cells.length < 10) return null;
+    if (row.querySelector('.pipeline-stage-cell')) {
+      return {
+        kind: 'leads',
+        address: cells[3],
+        phone: cells[4],
+        website: cells[5],
+        reviews: cells[6],
+        opportunity: cells[7],
+      };
+    }
+    return {
+      kind: 'results',
+      phone: cells[2],
+      reviews: cells[4],
+      opportunity: cells[5],
+      website: cells[6],
+      email: cells[7],
+      social: cells[8],
+    };
+  }
+
+  function applyEnrichDataToRowDataset(row, d, result) {
+    if (!d || typeof d !== 'object') return;
+    if (d.facebook) row.dataset.facebook = d.facebook;
+    if (d.instagram) row.dataset.instagram = d.instagram;
+    if (d.twitter) row.dataset.twitter = d.twitter;
+    if (result && result.foundUrl) row.dataset.website = result.foundUrl;
+    if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
+    const sch = d.has_schema_markup ?? d.hasSchemaMarkup;
+    const chat = d.has_chatbot ?? d.hasChatbot;
+    const ctc = d.has_click_to_call ?? d.hasClickToCall;
+    const mob = d.is_mobile_friendly ?? d.isMobileFriendly;
+    const old = d.is_outdated ?? d.isOutdated;
+    const vm = d.visual_modernity_score ?? d.visualModernityScore;
+    const aeo = d.aeo_score ?? d.aeoScore;
+    const gg = d.geo_gaps ?? d.geoGaps;
+    const cn = d.competitor_name ?? d.competitorName;
+    const cg = d.competitor_gap ?? d.competitorGap;
+    const au = d.audit_summary ?? d.auditSummary;
+    if (sch !== undefined) row.dataset.hasSchemaMarkup = sch;
+    if (chat !== undefined) row.dataset.hasChatbot = chat;
+    if (ctc !== undefined) row.dataset.hasClickToCall = ctc;
+    if (mob !== undefined) row.dataset.isMobileFriendly = mob;
+    if (old !== undefined) row.dataset.isOutdated = old;
+    if (vm !== undefined) row.dataset.visualModernityScore = vm;
+    if (aeo !== undefined) row.dataset.aeoScore = aeo;
+    if (gg !== undefined) row.dataset.geoGaps = gg;
+    if (cn !== undefined) row.dataset.competitorName = cn;
+    if (cg !== undefined) row.dataset.competitorGap = cg;
+    if (au !== undefined) row.dataset.auditSummary = au;
+    const cmsPl = d.cms_platform ?? d.cmsPlatform;
+    if (cmsPl !== undefined && cmsPl !== null) row.dataset.cmsPlatform = cmsPl;
+    if (d.email) row.dataset.email = d.email;
+    if (d.phone !== undefined && d.phone !== null) row.dataset.phone = d.phone || 'N/A';
+    const ratingVal = d.totalScore ?? d.total_score ?? d.rating;
+    const revVal = d.reviewsCount ?? d.reviews_count ?? d.reviews;
+    if (ratingVal !== undefined && ratingVal !== null && !Number.isNaN(parseFloat(ratingVal))) {
+      row.dataset.rating = String(ratingVal);
+    }
+    if (revVal !== undefined && revVal !== null && !Number.isNaN(parseInt(revVal, 10))) {
+      row.dataset.reviews = String(parseInt(revVal, 10));
+    }
+    if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
+    if (d.address !== undefined && d.address !== null && String(d.address).trim()) {
+      row.dataset.address = d.address || 'N/A';
+    }
+  }
+
+  function renderLeadsTableAddressCell(addr) {
+    const a = addr && addr !== 'N/A' ? String(addr).trim() : '';
+    if (!a) {
+      return '<span class="text-brand-muted/50 dark:text-slate-500 text-sm font-bold">-</span>';
+    }
+    const safe = a.replace(/"/g, '&quot;');
+    return `<div class="text-xs font-medium text-brand-muted dark:text-slate-300 max-w-[200px] truncate" title="${safe}">${a}</div>`;
+  }
+
+  function renderLeadsTableWebsiteCell(w) {
+    if (!w || w === 'N/A') {
+      return '<span class="text-brand-muted/50 dark:text-slate-500 font-bold text-sm">-</span>';
+    }
+    const href = w.startsWith('http') ? w : `https://${w}`;
+    const label = w.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '');
+    return `<a href="${href}" target="_blank" class="website-link text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white transition-colors border-b border-transparent hover:border-brand-dark dark:hover:border-white pb-0.5 inline-block max-w-[150px] truncate" title="${w}" data-url="${w}">${label}</a>`;
+  }
+
+  function renderLeadsTablePhoneCell(phone, email) {
+    const p = phone && phone !== 'N/A' ? phone : '';
+    const e = email && email !== 'N/A' ? email : '';
+    let html = '';
+    if (p) {
+      html += `<span class="block text-sm font-medium text-brand-muted dark:text-slate-300">${p}</span>`;
+    } else {
+      html += '<span class="block text-sm text-brand-muted/60">-</span>';
+    }
+    if (e) {
+      html += `<a href="mailto:${e}" class="block text-xs font-bold text-brand-yellow truncate mt-1 max-w-[160px]" title="${e}">${e}</a>`;
+    }
+    return html || '<span class="text-sm text-brand-muted/60">-</span>';
+  }
+
+  function renderReviewsCellInner(rating, reviews) {
+    const r = parseFloat(rating) || 0;
+    const c = parseInt(reviews, 10) || 0;
+    if (!r && !c) {
+      return '<span class="text-brand-muted/50 dark:text-slate-500 text-sm font-bold">-</span>';
+    }
+    return `<div class="flex flex-col gap-1">
+      <div class="row-stars flex items-center gap-0.5"></div>
+      <div class="flex items-center gap-1.5">
+        <span class="text-[11px] font-black text-brand-dark dark:text-slate-200">${r.toFixed(1)}</span>
+        <span class="text-[9px] font-bold text-brand-muted/60 dark:text-slate-500">(${c})</span>
+      </div>
+    </div>`;
+  }
+
+  const enhanceLoadingHtml =
+    '<span class="flex items-center gap-2 justify-center"><svg class="animate-spin h-3.5 w-3.5 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span class="text-[10px] font-black uppercase tracking-widest">Enhancing…</span></span>';
+
+  // Bulk Enhance (Firecrawl) — `.js-bulk-enhance` on /leads attaches to both header + floating bar (no duplicate ids)
+  document.querySelectorAll('.js-bulk-enhance').forEach((bulkEnhanceBtn) => {
     bulkEnhanceBtn.addEventListener('click', async () => {
       const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
       if (checkedBoxes.length === 0) return;
-      
-      const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
-      
-      const originalText = bulkEnhanceBtn.innerHTML;
-      updateProcessingStatus(true);
-      bulkEnhanceBtn.classList.add('loading', 'animate-magic');
-      bulkEnhanceBtn.innerHTML = '<span class="flex items-center gap-2"><svg class="animate-spin h-3.5 w-3.5 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>Enchanting Leads...</span>';
 
-      // Limit to 20 leads as per user request
+      const selectedRows = Array.from(checkedBoxes).map((cb) => cb.closest('.result-row')).filter(Boolean);
+
+      const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
+      const enhanceBtnOriginalHtml = Array.from(enhanceBtns).map((b) => b.innerHTML);
+      updateProcessingStatus(true);
+      enhanceBtns.forEach((b) => {
+        b.disabled = true;
+        b.classList.add('loading', 'animate-magic');
+        b.innerHTML = enhanceLoadingHtml;
+      });
+
       const leadsToProcess = selectedRows.slice(0, 20);
-      if (selectedRows.length > 20) {
-          console.warn('Bulk audit limited to first 20 selected leads.');
-      }
+      if (selectedRows.length > 20) console.warn('Bulk audit limited to first 20 selected leads.');
+
+      const spinner = '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
+      let successCount = 0;
+      let attemptedCount = 0;
+      let lastError = '';
 
       for (const row of leadsToProcess) {
-        const url = row.dataset.website;
-        if (!url || url === 'N/A') continue;
+        const layout = getBulkEnhanceLayout(row);
+        if (!layout) continue;
 
-        // Find cells by their semantic content or indices (Company, Phone, Location, Reviews, Opportunity, Website, Email, Socials)
-        // In Search Results: index 7 is Email, 8 is Socials
-        // In Saved Leads: index 4 is Website? No, let's use class selectors if possible or search for children.
-        const cells = row.cells;
-        let emailCell, socialCell;
-        
-        // Find Email cell (look for mailto or 'No Email')
-        for (let cell of cells) {
-            if (cell.querySelector('a[href^="mailto:"]') || cell.textContent.includes('No Email')) {
-                emailCell = cell;
-            }
-            if (cell.querySelector('svg') && (cell.querySelector('a[title="Facebook"]') || cell.querySelector('a[title="Instagram"]'))) {
-                socialCell = cell;
-            }
-        }
-        
-        if (!emailCell || !socialCell) continue;
+        const key = row.dataset.leadKey;
+        let url = row.dataset.website;
+        const title = row.dataset.title;
+        const city = row.dataset.city;
+        const state = row.dataset.state;
 
-        const originalEmailHtml = emailCell.innerHTML;
-        const originalSocialHtml = socialCell.innerHTML;
-        
-        socialCell.innerHTML = '<div class="flex items-center gap-2 text-brand-muted"><svg class="animate-spin h-3 w-3 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span class="text-[9px] font-bold uppercase tracking-widest">Scanning...</span></div>';
-        
-        if (!row.dataset.email || row.dataset.email === 'N/A') {
-          emailCell.innerHTML = '<span class="text-[9px] font-bold text-brand-yellow tracking-widest uppercase animate-pulse">Scanning...</span>';
+        if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
+
+        attemptedCount += 1;
+        const cellOriginals = {};
+        if (layout.kind === 'leads') {
+          if (layout.address) cellOriginals.address = layout.address.innerHTML;
+          cellOriginals.phone = layout.phone.innerHTML;
+          cellOriginals.website = layout.website.innerHTML;
+          cellOriginals.reviews = layout.reviews.innerHTML;
+          cellOriginals.opp = layout.opportunity.innerHTML;
+          if (layout.address) layout.address.innerHTML = spinner;
+          layout.phone.innerHTML = spinner;
+          layout.website.innerHTML = spinner;
+        } else {
+          cellOriginals.email = layout.email.innerHTML;
+          cellOriginals.social = layout.social.innerHTML;
+          layout.social.innerHTML = `<div class="flex items-center gap-2 text-brand-muted">${spinner}</div>`;
+          if (!row.dataset.email || row.dataset.email === 'N/A') layout.email.innerHTML = spinner;
         }
 
         try {
-          const key = row.dataset.leadKey;
-          const url = row.dataset.website;
-          const title = row.dataset.title;
-          const city = row.dataset.city;
-          const state = row.dataset.state;
-
           let res;
           if (key) {
-            // Saved lead
-            res = await fetch(`/leads/${key}/enhance`, { method: 'POST' });
+            res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
           } else {
-            // Search result (unsaved)
             res = await fetch('/enrich', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url, title, city, state })
+              body: JSON.stringify({ url, title, city, state }),
             });
           }
 
-          if (res.ok) {
-            const result = await res.json();
-            // Unified data location (either result.lead or result.data)
-            const d = result.lead || result.data;
-            
-            if (result.success && d) {
-              if (d.facebook) row.dataset.facebook = d.facebook;
-              if (d.instagram) row.dataset.instagram = d.instagram;
-              if (d.twitter) row.dataset.twitter = d.twitter;
-              if (result.foundUrl) row.dataset.website = result.foundUrl; // Only for /enrich search result
-              if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
-              
-              // Audit fields (Firecrawl snake_case or DB camelCase from /leads/:key/enhance)
-              const sch = d.has_schema_markup ?? d.hasSchemaMarkup;
-              const chat = d.has_chatbot ?? d.hasChatbot;
-              const ctc = d.has_click_to_call ?? d.hasClickToCall;
-              const mob = d.is_mobile_friendly ?? d.isMobileFriendly;
-              const old = d.is_outdated ?? d.isOutdated;
-              const vm = d.visual_modernity_score ?? d.visualModernityScore;
-              const aeo = d.aeo_score ?? d.aeoScore;
-              const gg = d.geo_gaps ?? d.geoGaps;
-              const cn = d.competitor_name ?? d.competitorName;
-              const cg = d.competitor_gap ?? d.competitorGap;
-              const au = d.audit_summary ?? d.auditSummary;
-              if (sch !== undefined) row.dataset.hasSchemaMarkup = sch;
-              if (chat !== undefined) row.dataset.hasChatbot = chat;
-              if (ctc !== undefined) row.dataset.hasClickToCall = ctc;
-              if (mob !== undefined) row.dataset.isMobileFriendly = mob;
-              if (old !== undefined) row.dataset.isOutdated = old;
-              if (vm !== undefined) row.dataset.visualModernityScore = vm;
-              if (aeo !== undefined) row.dataset.aeoScore = aeo;
-              if (gg !== undefined) row.dataset.geoGaps = gg;
-              if (cn !== undefined) row.dataset.competitorName = cn;
-              if (cg !== undefined) row.dataset.competitorGap = cg;
-              if (au !== undefined) row.dataset.auditSummary = au;
-              const cmsPl = d.cms_platform ?? d.cmsPlatform;
-              if (cmsPl !== undefined && cmsPl !== null) row.dataset.cmsPlatform = cmsPl;
+          const result = await res.json().catch(() => ({}));
+          const d = result.lead || result.data;
+          if (result.error) lastError = String(result.error);
 
-              if (d.email) {
-                row.dataset.email = d.email;
-                emailCell.innerHTML = `<a href="mailto:${d.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${d.email}">${d.email}</a>`;
-              } else {
-                emailCell.innerHTML = originalEmailHtml;
+          if (res.ok && result.success && d) {
+            successCount += 1;
+            applyEnrichDataToRowDataset(row, d, result);
+
+            if (layout.kind === 'leads') {
+              if (layout.address) {
+                layout.address.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
               }
-
-              // Update Social Icons
+              layout.phone.innerHTML = renderLeadsTablePhoneCell(row.dataset.phone, row.dataset.email);
+              layout.website.innerHTML = renderLeadsTableWebsiteCell(row.dataset.website);
+              layout.reviews.innerHTML = renderReviewsCellInner(row.dataset.rating, row.dataset.reviews);
+              const starEl = layout.reviews.querySelector('.row-stars');
+              if (starEl) renderStarsInElement(starEl, parseFloat(row.dataset.rating) || 0);
+            } else {
+              if (row.dataset.email && row.dataset.email !== 'N/A') {
+                layout.email.innerHTML = `<a href="mailto:${row.dataset.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${row.dataset.email}">${row.dataset.email}</a>`;
+              } else {
+                layout.email.innerHTML = cellOriginals.email;
+              }
               let socialsHtml = '<div class="flex items-center justify-center gap-2.5">';
               if (row.dataset.facebook && row.dataset.facebook !== 'N/A') {
                 socialsHtml += `<a href="${row.dataset.facebook}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
@@ -1747,37 +2035,82 @@ document.addEventListener('DOMContentLoaded', () => {
                 socialsHtml += `<a href="${row.dataset.instagram}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
               }
               socialsHtml += '</div>';
-              socialCell.innerHTML = socialsHtml;
-              
-              // Sync panel if open
-              if (currentRow === row) populatePanel(row);
-            } else {
-              socialCell.innerHTML = originalSocialHtml;
-              emailCell.innerHTML = originalEmailHtml;
+              layout.social.innerHTML = socialsHtml;
+              if (layout.website) {
+                const w = row.dataset.website;
+                layout.website.innerHTML = w && w !== 'N/A'
+                  ? `<a href="${w.startsWith('http') ? w : 'https://' + w}" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[150px] truncate" title="${w}">${w.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '')}</a>`
+                  : '-';
+              }
+              if (layout.phone && row.dataset.phone) {
+                layout.phone.textContent = row.dataset.phone && row.dataset.phone !== 'N/A' ? row.dataset.phone : '-';
+              }
+              if (layout.reviews) {
+                layout.reviews.innerHTML = renderReviewsCellInner(row.dataset.rating, row.dataset.reviews);
+                const starEl2 = layout.reviews.querySelector('.row-stars');
+                if (starEl2) renderStarsInElement(starEl2, parseFloat(row.dataset.rating) || 0);
+              }
             }
+
+            const selectedPanelRow = document.querySelector('.result-row.selected');
+            if (selectedPanelRow === row && typeof populatePanel === 'function') populatePanel(row);
           } else {
-            socialCell.innerHTML = originalSocialHtml;
-            emailCell.innerHTML = originalEmailHtml;
+            if (layout.kind === 'leads') {
+              if (layout.address) layout.address.innerHTML = cellOriginals.address;
+              layout.phone.innerHTML = cellOriginals.phone;
+              layout.website.innerHTML = cellOriginals.website;
+              layout.reviews.innerHTML = cellOriginals.reviews;
+              layout.opportunity.innerHTML = cellOriginals.opp;
+            } else {
+              layout.email.innerHTML = cellOriginals.email;
+              layout.social.innerHTML = cellOriginals.social;
+            }
           }
         } catch (err) {
           console.error('Enrichment error:', err);
-          socialCell.innerHTML = originalSocialHtml;
-          emailCell.innerHTML = originalEmailHtml;
+          if (layout.kind === 'leads') {
+            if (layout.address) layout.address.innerHTML = cellOriginals.address;
+            layout.phone.innerHTML = cellOriginals.phone;
+            layout.website.innerHTML = cellOriginals.website;
+            layout.reviews.innerHTML = cellOriginals.reviews;
+            layout.opportunity.innerHTML = cellOriginals.opp;
+          } else {
+            layout.email.innerHTML = cellOriginals.email;
+            layout.social.innerHTML = cellOriginals.social;
+          }
         }
       }
 
       updateProcessingStatus(false);
-      bulkEnhanceBtn.innerHTML = '✨ Leads Enchanted';
-      
-      // Auto-re-sort after enhancement to move highest quality leads to top
+      const summaryLabel =
+        successCount > 0
+          ? `✨ Updated ${successCount} lead${successCount !== 1 ? 's' : ''}`
+          : attemptedCount > 0
+            ? 'No new data (check API / console)'
+            : '✨ Done';
+      enhanceBtns.forEach((b) => {
+        b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+      });
+      if (attemptedCount > 0 && successCount === 0) {
+        window.alert(
+          lastError
+            ? `Enhance finished but no rows were updated.\n\n${lastError}`
+            : 'Enhance finished but Firecrawl returned no new fields. Confirm FIRECRAWL_API_KEY and check server logs.'
+        );
+      }
+      updateOpportunityBadges();
       sortLeadsByOpportunity(false);
+      applyTableStars();
 
       setTimeout(() => {
-        bulkEnhanceBtn.classList.remove('loading', 'animate-magic');
-        bulkEnhanceBtn.innerHTML = originalText;
-      }, 3000);
+        enhanceBtns.forEach((b, i) => {
+          b.classList.remove('loading', 'animate-magic');
+          b.disabled = false;
+          b.innerHTML = enhanceBtnOriginalHtml[i] || b.innerHTML;
+        });
+      }, 2800);
     });
-  }
+  });
 
   // --- Website Preview Hover Logic Removed ---
 
@@ -1837,8 +2170,9 @@ document.addEventListener('DOMContentLoaded', () => {
               if (Number.isNaN(ps) || ps < 1 || ps > 10) ps = 1;
               shouldInclude = ps === targetPipeline;
             } else {
-              const leadStatus = row.dataset.status || 'Needs Video';
-              if (targetStatus === 'Needs Video' && leadStatus === 'Needs Video') shouldInclude = true;
+              const leadStatus = row.dataset.status || 'Not Contacted';
+              if (targetStatus === 'Needs Video' && (leadStatus === 'Needs Video' || leadStatus === 'Not Contacted')) shouldInclude = true;
+              if (targetStatus === 'Not Contacted' && leadStatus === 'Not Contacted') shouldInclude = true;
               if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
               if (targetStatus === 'Lead Captured' && leadStatus === 'Lead Captured') shouldInclude = true;
               if (targetStatus === 'Blueprint Purchased' && leadStatus === 'Blueprint Purchased') shouldInclude = true;

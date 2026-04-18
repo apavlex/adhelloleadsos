@@ -94,7 +94,7 @@ function toLeadPayload(row, originalFilename, rowIndex) {
     facebook: 'N/A',
     instagram: 'N/A',
     twitter: 'N/A',
-    status: 'Needs Video',
+    status: 'Not Contacted',
     loomUrl: '',
     savedAt: new Date().toISOString(),
     source: 'csv_import',

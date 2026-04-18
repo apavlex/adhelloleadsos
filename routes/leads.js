@@ -5,7 +5,7 @@ const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
-const { PIPELINE_STAGES } = require('../services/salesConstants');
+const { PIPELINE_STAGES, SCRIPT_LIBRARY } = require('../services/salesConstants');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
@@ -126,7 +126,7 @@ router.post('/save', async (req, res, next) => {
       facebook: facebook || 'N/A',
       instagram: instagram || 'N/A',
       twitter: twitter || 'N/A',
-      status: 'Needs Video', // Default pipeline stage
+      status: 'Not Contacted',
       loomUrl: '',
       savedAt: new Date().toISOString(),
       workspaceId: req.workspaceId || 'default',
@@ -387,7 +387,7 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
       title: lead.title,
       city: lead.city,
       state: lead.state,
-      niche: lead.categoryName,
+      category: lead.categoryName,
       rating: lead.totalScore,
       reviews: lead.reviewsCount,
       website: lead.website,
@@ -410,7 +410,7 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
         },
         {
           role: 'user',
-          content: `Write a first-touch email that references 1–2 concrete signals from the JSON (gaps, niche, location, warm vs cold source). Offer a low-friction next step (15-minute call).\n\n${JSON.stringify(summary, null, 2)}`,
+          content: `Write a first-touch email that references 1–2 concrete signals from the JSON (gaps, category, location, warm vs cold source). Offer a low-friction next step (15-minute call).\n\n${JSON.stringify(summary, null, 2)}`,
         },
       ],
       jsonObject: false,
@@ -432,56 +432,193 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/enhance — manual Firecrawl enrichment for a single lead
-router.post('/:key/enhance', async (req, res, next) => {
+// POST /leads/:key/insights — KIE/OpenAI: best service to sell + rationale (cached 7d)
+router.post('/:key/insights', async (req, res, next) => {
   try {
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
     const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const refresh = !!(req.body && req.body.refresh);
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    if (
+      !refresh &&
+      lead.kieServiceInsight &&
+      typeof lead.kieServiceInsight === 'object' &&
+      lead.kieServiceInsightAt
+    ) {
+      const age = Date.now() - new Date(lead.kieServiceInsightAt).getTime();
+      if (age >= 0 && age < maxAgeMs) {
+        return res.json({ success: true, cached: true, ...lead.kieServiceInsight });
+      }
+    }
+
+    const offeringCatalog = Object.entries(SCRIPT_LIBRARY)
+      .map(([id, s]) => `- ${id}: ${s.label} — ${s.valueProp}`)
+      .join('\n');
+
+    const snapshot = {
+      company: lead.title,
+      category: lead.categoryName,
+      city: lead.city,
+      state: lead.state,
+      address: lead.address,
+      website: lead.website,
+      email: lead.email,
+      phone: lead.phone,
+      mapsRating: lead.totalScore,
+      reviewCount: lead.reviewsCount,
+      pipelineStage: lead.pipelineStage,
+      source: lead.source,
+      gaps: {
+        hasWebsite: !!(lead.website && lead.website !== 'N/A'),
+        hasSchemaMarkup: lead.hasSchemaMarkup,
+        hasChatbot: lead.hasChatbot,
+        hasClickToCall: lead.hasClickToCall,
+        isMobileFriendly: lead.isMobileFriendly,
+        isOutdated: lead.isOutdated,
+        aeoScore: lead.aeoScore,
+        cmsPlatform: lead.cmsPlatform,
+      },
+      auditSummary: lead.auditSummary,
+    };
+
+    const ai = await chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: `You are a senior agency seller for a local SMB digital agency. Pick exactly ONE primary offering from the catalog that is the most logical first sale for this lead, based on their category, location, ratings/reviews, website presence, and technical gaps.
+
+Catalog (keys must be exactly "reputation" or "aiWebsites"):
+${offeringCatalog}
+
+Respond with JSON only, no markdown:
+{"primaryServiceKey":"reputation"|"aiWebsites","primaryServiceLabel":"string","rationale":"2-4 sentences: why this offer fits now","talkTrack":"One conversational sentence to open a call or email"}`,
+        },
+        {
+          role: 'user',
+          content: JSON.stringify(snapshot),
+        },
+      ],
+      jsonObject: true,
+      max_tokens: 650,
+      temperature: 0.35,
+    });
+
+    if (!ai.content || ai.error) {
+      return res.json({
+        success: false,
+        error:
+          'No AI provider configured (set KIE_AI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY) or request failed.',
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(ai.content);
+    } catch {
+      return res.json({ success: false, error: 'Invalid AI response' });
+    }
+
+    const keyOk = parsed.primaryServiceKey === 'reputation' || parsed.primaryServiceKey === 'aiWebsites';
+    const insight = {
+      primaryServiceKey: keyOk ? parsed.primaryServiceKey : 'aiWebsites',
+      primaryServiceLabel: parsed.primaryServiceLabel || SCRIPT_LIBRARY.aiWebsites.label,
+      rationale: parsed.rationale || '',
+      talkTrack: parsed.talkTrack || '',
+      provider: ai.provider || 'unknown',
+    };
+
+    await dbService.updateLead(fullKey, {
+      kieServiceInsight: insight,
+      kieServiceInsightAt: new Date().toISOString(),
+    });
+
+    return res.json({ success: true, cached: false, ...insight });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/enhance — Firecrawl scrape/search: contact + reviews + social + audit fields
+router.post('/:key/enhance', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    let lead = await dbService.getLead(fullKey);
 
     let deepData = null;
-    
+    let firecrawlViaSearch = false;
+
     if (lead.website && lead.website !== 'N/A') {
       console.log(`[ENHANCE] Triggering Firecrawl scrape for ${lead.title} (${lead.website})...`);
       deepData = await firecrawl.enrichLead(lead.website);
     } else {
       console.log(`[ENHANCE] Website missing. Triggering Firecrawl search for ${lead.title}...`);
+      firecrawlViaSearch = true;
       const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
       const searchResults = await firecrawl.searchBusiness(searchQuery);
-      
+
       if (searchResults && searchResults.length > 0) {
-        // Find the result with the most data or just the first successful extraction
-        const bestResult = searchResults.find(r => r.extract && (r.extract.email || r.extract.facebook || r.extract.instagram)) || searchResults[0];
+        const bestResult =
+          searchResults.find(
+            (r) =>
+              r.extract &&
+              (r.extract.email ||
+                r.extract.phone ||
+                r.extract.address ||
+                r.extract.total_score != null ||
+                r.extract.reviews_count != null ||
+                r.extract.facebook ||
+                r.extract.instagram)
+          ) || searchResults[0];
         deepData = bestResult.extract || {};
-        
-        // If we found a website in the search but didn't have one, save it
+
         if (!lead.website || lead.website === 'N/A') {
-           const foundUrl = searchResults.find(r => r.url)?.url;
-           if (foundUrl) {
-              await dbService.updateLead(fullKey, { website: foundUrl });
-           }
+          const foundUrl = searchResults.find((r) => r.url)?.url;
+          if (foundUrl) {
+            await dbService.updateLead(fullKey, { website: foundUrl });
+            lead = await dbService.getLead(fullKey);
+          }
         }
       }
     }
-    
+
+    const baseUpdates = [...(lead.updates || [])];
+    const patch = {};
+    const priorUpdateLen = baseUpdates.length;
+
     if (deepData && Object.keys(deepData).length > 0) {
-      const updates = lead.updates || [];
       const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
-      const updateData = { ...enrichUpdates, updates };
+      Object.assign(patch, enrichUpdates);
 
-      if ((!lead.email || lead.email === 'N/A') && deepData.email) updateData.email = deepData.email;
-      if ((!lead.facebook || lead.facebook === 'N/A') && deepData.facebook) updateData.facebook = deepData.facebook;
-      if ((!lead.instagram || lead.instagram === 'N/A') && deepData.instagram) updateData.instagram = deepData.instagram;
-      if ((!lead.twitter || lead.twitter === 'N/A') && deepData.twitter) updateData.twitter = deepData.twitter;
-      if (!lead.linkedin && deepData.linkedin) updateData.linkedin = deepData.linkedin;
+      if ((!lead.email || lead.email === 'N/A') && deepData.email) patch.email = deepData.email;
+      if ((!lead.facebook || lead.facebook === 'N/A') && deepData.facebook) patch.facebook = deepData.facebook;
+      if ((!lead.instagram || lead.instagram === 'N/A') && deepData.instagram) patch.instagram = deepData.instagram;
+      if ((!lead.twitter || lead.twitter === 'N/A') && deepData.twitter) patch.twitter = deepData.twitter;
+      if (!lead.linkedin && deepData.linkedin) patch.linkedin = deepData.linkedin;
 
-      updates.push({
+      // Do not overwrite existing CRM / Maps contact or ratings with scraped guesses
+      if (lead.phone && lead.phone !== 'N/A') delete patch.phone;
+      if (lead.address && lead.address !== 'N/A') delete patch.address;
+      if (lead.email && lead.email !== 'N/A') delete patch.email;
+      if (lead.totalScore != null && Number(lead.totalScore) > 0) delete patch.totalScore;
+      if (lead.reviewsCount != null && Number(lead.reviewsCount) > 0) delete patch.reviewsCount;
+
+      baseUpdates.push({
         type: 'enrichment',
-        value: `Deep hunt completed${(!lead.website || lead.website === 'N/A') ? ' via web search' : ''}.`,
-        timestamp: new Date().toISOString()
+        value: `Deep hunt completed${firecrawlViaSearch ? ' via web search' : ''}.`,
+        timestamp: new Date().toISOString(),
       });
+    }
 
-      const updatedLead = await dbService.updateLead(fullKey, updateData);
+    const hasNewUpdates = baseUpdates.length > priorUpdateLen;
+    const patchKeys = Object.keys(patch).filter((k) => k !== 'updates');
+
+    if (patchKeys.length > 0 || hasNewUpdates) {
+      patch.updates = baseUpdates;
+      const updatedLead = await dbService.updateLead(fullKey, patch);
       return res.json({ success: true, lead: updatedLead });
     }
 

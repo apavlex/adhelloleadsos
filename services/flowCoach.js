@@ -78,7 +78,7 @@ function defaultAiTimeSavers() {
     {
       label: 'Personas & scripts',
       hint:
-        'Set KIE_AI_API_KEY from kie.ai (recommended) or OPENAI_API_KEY — live coach + smart outreach.',
+        'Set GEMINI_API_KEY (Google AI), KIE_AI_API_KEY, or OPENAI_API_KEY — live coach + smart outreach.',
     },
   ];
 }
@@ -88,7 +88,7 @@ function ruleBasedCoach(ctx) {
   const aiTimeSavers = defaultAiTimeSavers();
 
   if (ctx.totalWorkspace === 0) {
-    nextActions.push({ label: 'Run your first niche search', href: '/', priority: 'high' });
+    nextActions.push({ label: 'Run your first lead search', href: '/', priority: 'high' });
     nextActions.push({ label: 'Import a CSV of prospects', href: '/leads', priority: 'normal' });
     nextActions.push({ label: 'Open Today', href: '/today', priority: 'normal' });
   } else {
@@ -103,7 +103,7 @@ function ruleBasedCoach(ctx) {
     }
     if (ctx.maxBacklogStage === 1 && ctx.maxBacklogCount >= 3) {
       nextActions.push({
-        label: 'Clear Niche backlog — outreach or drag to Contacted',
+        label: 'Clear New-stage backlog — outreach or drag to Contacted',
         href: '/leads',
         priority: 'high',
       });
@@ -204,7 +204,7 @@ function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openai') {
     nextActions,
     aiTimeSavers,
     mood,
-    source: coachSource === 'kie' ? 'kie' : 'openai',
+    source: ['kie', 'openai', 'gemini'].includes(coachSource) ? coachSource : 'openai',
     generatedAt: new Date().toISOString(),
   };
 }
@@ -249,7 +249,9 @@ Rules:
     if (!result.content || result.error) return null;
 
     const parsed = JSON.parse(result.content);
-    const coachSource = result.provider === 'kie' ? 'kie' : 'openai';
+    const coachSource = ['kie', 'openai', 'gemini'].includes(result.provider)
+      ? result.provider
+      : 'openai';
     return normalizeCoachPayload(parsed, ctx, fallback, coachSource);
   } catch (e) {
     console.warn('[flowCoach] LLM coach error:', e.message);

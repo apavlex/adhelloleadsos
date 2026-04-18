@@ -123,7 +123,7 @@ router.post('/seed-demo', express.urlencoded({ extended: true }), async (req, re
         totalScore: 4.2,
         reviewsCount: 120,
         source: 'demo_seed',
-        status: 'Needs Video',
+        status: 'Not Contacted',
       },
       {
         title: 'Sample HVAC Pros',
@@ -151,7 +151,7 @@ router.post('/seed-demo', express.urlencoded({ extended: true }), async (req, re
         totalScore: 4.0,
         reviewsCount: 210,
         source: 'demo_seed',
-        status: 'Needs Video',
+        status: 'Not Contacted',
       },
       {
         title: 'Sample Gym Collective',

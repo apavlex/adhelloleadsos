@@ -5,7 +5,7 @@
 const PIPELINE_SCHEMA_VERSION = 2;
 const PIPELINE_STAGE_MAX = 10;
 
-/** Old 8-step methodology id → new id (same Niche=1; CQI was 2 → now 4, etc.) */
+/** Old 8-step methodology id → new id (same New=1; CQI was 2 → now 4, etc.) */
 const LEGACY_EIGHT_STAGE_TO_NEW = {
   1: 1,
   2: 4,

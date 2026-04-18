@@ -22,9 +22,37 @@ function normalizeUrl(url) {
 /**
  * @returns {{ cms_platform: string|null, tech_stack_tags: string[], html_chat_widget_detected: boolean|null }}
  */
+/**
+ * First reasonable tel: href on the page (complements Firecrawl extract).
+ */
+function extractPhoneFromTelLinks(html) {
+  if (!html || typeof html !== 'string') return null;
+  const re = /href\s*=\s*["']tel:([^"']+)/gi;
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    let raw = (m[1] || '').trim();
+    if (!raw || raw === '#' || /^javascript:/i.test(raw)) continue;
+    try {
+      raw = decodeURIComponent(raw);
+    } catch {
+      /* keep raw */
+    }
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length >= 10) {
+      return raw.replace(/[^\d+()\-\s.]/g, '').slice(0, 42) || null;
+    }
+  }
+  return null;
+}
+
 function detectTechSignalsFromHtml(html, _url) {
   if (!html || typeof html !== 'string') {
-    return { cms_platform: null, tech_stack_tags: [], html_chat_widget_detected: null };
+    return {
+      cms_platform: null,
+      tech_stack_tags: [],
+      html_chat_widget_detected: null,
+      phone_from_tel: null,
+    };
   }
 
   const lower = html.toLowerCase();
@@ -92,6 +120,7 @@ function detectTechSignalsFromHtml(html, _url) {
     cms_platform,
     tech_stack_tags: [...tags],
     html_chat_widget_detected,
+    phone_from_tel: extractPhoneFromTelLinks(html),
   };
 }
 
@@ -152,6 +181,10 @@ function mergeHtmlTechIntoExtract(extract, htmlSignals) {
     out.has_chatbot !== false
   ) {
     out.has_chatbot = true;
+  }
+
+  if (htmlSignals.phone_from_tel && !out.phone) {
+    out.phone = htmlSignals.phone_from_tel;
   }
 
   return out;

@@ -5,8 +5,8 @@
 const PIPELINE_STAGES = [
   {
     id: 1,
-    slug: 'niche',
-    name: 'Niche (new)',
+    slug: 'new',
+    name: 'New',
     summary: 'Scraped, imported, or triage — not yet in active outreach.',
   },
   {

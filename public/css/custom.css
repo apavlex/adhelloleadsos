@@ -258,13 +258,15 @@ table {
   animation: shimmer 1.5s infinite linear;
 }
 
-#bulkEnhanceBtn.loading, #deepEnhanceBtn.loading {
+.js-bulk-enhance.loading,
+#deepEnhanceBtn.loading {
     pointer-events: none;
     position: relative;
     overflow: hidden;
 }
 
-#bulkEnhanceBtn.loading::after, #deepEnhanceBtn.loading::after {
+.js-bulk-enhance.loading::after,
+#deepEnhanceBtn.loading::after {
     content: "";
     position: absolute;
     inset: 0;

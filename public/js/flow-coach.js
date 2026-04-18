@@ -157,7 +157,9 @@
             ? 'Live coach · KIE'
             : fc.source === 'openai'
               ? 'Live coach'
-              : 'Smart flow';
+              : fc.source === 'gemini'
+                ? 'Live coach · Gemini'
+                : 'Smart flow';
       }
     }
 
