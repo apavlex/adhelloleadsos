@@ -142,6 +142,31 @@
         box.scrollTop = box.scrollHeight;
       }
 
+      function clearCoachMessagesUi() {
+        var box = coachMessagesEl();
+        if (box) box.innerHTML = '';
+      }
+
+      /** Read-only preview of the textarea script in the chat column (not sent as chat history). */
+      function appendCoachScriptPreview(scriptText) {
+        var box = coachMessagesEl();
+        if (!box) return;
+        var wrap = document.createElement('div');
+        wrap.className =
+          'mr-2 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/10 px-3 py-3 text-brand-dark dark:text-slate-100';
+        var label = document.createElement('p');
+        label.className = 'text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2';
+        label.textContent = 'Current script';
+        var body = document.createElement('pre');
+        body.className =
+          'text-xs leading-relaxed whitespace-pre-wrap font-sans text-brand-dark dark:text-slate-200 max-h-52 overflow-y-auto custom-scrollbar';
+        body.textContent = (scriptText && String(scriptText).trim()) ? scriptText : '(empty — type in the box on the left)';
+        wrap.appendChild(label);
+        wrap.appendChild(body);
+        box.appendChild(wrap);
+        box.scrollTop = box.scrollHeight;
+      }
+
       function hideRefined() {
         pendingRefined = null;
         var w = document.getElementById('coachRefinedWrap');
@@ -269,7 +294,13 @@
           document.querySelectorAll('.pitch-panel').forEach(function (p) {
             p.classList.toggle('hidden', p.getAttribute('data-panel') !== coachFocus.pitch);
           });
+          coachHistories[coachKey()] = [];
+          clearCoachMessagesUi();
+          var ta = document.getElementById('snippet-' + coachFocus.pitch + '-' + coachFocus.section);
+          appendCoachScriptPreview(ta ? ta.value : '');
           hideRefined();
+          var errEl = document.getElementById('coachError');
+          if (errEl) errEl.classList.add('hidden');
           var input = document.getElementById('coachInput');
           if (input) input.focus();
         });

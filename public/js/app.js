@@ -109,8 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = Array.from(tableBody.querySelectorAll('.result-row'));
     
     rows.sort((a, b) => {
-      const scoreA = parseFloat(a.querySelector('.opportunity-badge')?.dataset.score) || calculateOpportunityScore(a.dataset);
-      const scoreB = parseFloat(b.querySelector('.opportunity-badge')?.dataset.score) || calculateOpportunityScore(b.dataset);
+      const scoreA = calculateOpportunityScore(a.dataset);
+      const scoreB = calculateOpportunityScore(b.dataset);
       return isAscending ? scoreA - scoreB : scoreB - scoreA;
     });
     
@@ -217,6 +217,53 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.style.overflow = '';
   }
 
+  /** Plain-text bodies for “What we offer” mailto links (idx 0–5). */
+  function buildEmailIntelOfferMailto(email, company, idx) {
+    const c = company || 'there';
+    const offers = [
+      {
+        subject: `Website & conversions — ${c}`,
+        body: `Hi,\n\nI’ve been looking at ${c} online and wanted to reach out about speed, clarity, and conversion (CRO). We help teams turn more of the traffic they already get into booked calls and form fills.\n\nWould you be open to a short call this week?\n\nBest,`,
+      },
+      {
+        subject: `Reviews & reputation — ${c}`,
+        body: `Hi,\n\nGiven how visible ${c} is locally, protecting and growing reviews usually has a fast ROI. We help with review rhythm, listings/GEO, and AI-assisted responses so nothing slips.\n\nOpen to a quick conversation?\n\nBest,`,
+      },
+      {
+        subject: `Social & content — ${c}`,
+        body: `Hi,\n\nI’m reaching out about ${c}’s social presence — consistent posting, community replies, and content that actually supports leads (not just vanity metrics).\n\nWorth a 10-minute chat?\n\nBest,`,
+      },
+      {
+        subject: `Paid ads — ${c}`,
+        body: `Hi,\n\nIf ${c} is running (or considering) Meta/Google ads, we help with tracking, creative testing, and weekly optimization so spend maps to real bookings.\n\nWould you like a second opinion on the account?\n\nBest,`,
+      },
+      {
+        subject: `AI automation — ${c}`,
+        body: `Hi,\n\nQuick note on ${c}: many teams claw back hours with light AI workflows — follow-ups, scheduling, CRM hygiene, after-hours capture — without adding headcount.\n\nHappy to share one concrete idea if you’re open to it.\n\nBest,`,
+      },
+      {
+        subject: `Strategy & consulting — ${c}`,
+        body: `Hi,\n\nI’d love to explore a focused engagement with ${c} — growth priorities, channel mix, and a simple plan you can execute with or without us long-term.\n\nAre you open to a discovery call?\n\nBest,`,
+      },
+    ];
+    const o = offers[Math.min(Math.max(0, idx), offers.length - 1)];
+    return `mailto:${email}?subject=${encodeURIComponent(o.subject)}&body=${encodeURIComponent(o.body)}`;
+  }
+
+  function wireEmailIntelOfferLinks(email, company) {
+    document.querySelectorAll('.email-intel-offer-link').forEach((a, i) => {
+      if (!email) {
+        a.href = '#';
+        a.classList.add('opacity-45', 'pointer-events-none', 'cursor-not-allowed');
+        a.setAttribute('aria-disabled', 'true');
+        return;
+      }
+      a.classList.remove('opacity-45', 'pointer-events-none', 'cursor-not-allowed');
+      a.removeAttribute('aria-disabled');
+      a.href = buildEmailIntelOfferMailto(email, company, i);
+    });
+  }
+
   async function openEmailIntelModal(row) {
     const modal = document.getElementById('emailIntelModal');
     const titleEl = document.getElementById('emailIntelTitle');
@@ -234,11 +281,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const emailRaw = (row.dataset.email || '').trim();
     const email = emailRaw && emailRaw !== 'N/A' ? emailRaw : '';
 
+    wireEmailIntelOfferLinks(email, company);
+
+    const intelRef = { label: '', rationale: '', talkTrack: '' };
+
     if (mailtoBtn) {
       mailtoBtn.disabled = !email;
       mailtoBtn.onclick = () => {
         if (!email) return;
-        window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Quick idea for ${company}`)}`;
+        const subj = intelRef.label ? `${intelRef.label} — ${company}` : `Quick idea for ${company}`;
+        const parts = [];
+        if (intelRef.rationale) parts.push(intelRef.rationale);
+        if (intelRef.talkTrack) parts.push(`Suggested opener:\n${intelRef.talkTrack}`);
+        parts.push('Best,');
+        const body = parts.join('\n\n');
+        window.location.href = `mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
       };
     }
 
@@ -257,6 +314,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json();
         if (data.success) {
+          intelRef.label = data.primaryServiceLabel || '';
+          intelRef.rationale = data.rationale || '';
+          intelRef.talkTrack = data.talkTrack || '';
           const label = escapeHtmlText(data.primaryServiceLabel || 'Recommended offer');
           const rationale = data.rationale ? escapeHtmlText(data.rationale) : '';
           const track = data.talkTrack ? escapeHtmlText(data.talkTrack) : '';
@@ -764,6 +824,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.competitorName != null) ds.competitorName = L.competitorName;
     if (L.competitorGap != null) ds.competitorGap = L.competitorGap;
     if (L.updates) ds.updates = JSON.stringify(L.updates);
+    if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
   }
 
   /** Show Quick Pitch + scripts only when status is video-related or a Loom URL exists */
@@ -775,6 +836,79 @@ document.addEventListener('DOMContentLoaded', () => {
     const videoStatuses = st === 'Needs Video' || st === 'Video Recorded';
     const show = videoStatuses || loom.length > 0;
     section.classList.toggle('hidden', !show);
+  }
+
+  function parseRowCqi(row) {
+    try {
+      const raw = row.dataset.cqi;
+      if (!raw || raw === '' || raw === 'null' || raw === 'undefined') return null;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') return null;
+      return obj;
+    } catch {
+      return null;
+    }
+  }
+
+  function cqiHasContent(cqi) {
+    if (!cqi) return false;
+    const r = (cqi.monthlyRevenue || '').toString().trim();
+    const s = (cqi.marketingSpend || '').toString().trim();
+    const n = (cqi.notes || '').toString().trim();
+    return !!(r || s || n);
+  }
+
+  function syncMobilePanelCqi(row) {
+    const pill = document.getElementById('mobilePanelCqiPill');
+    const emptyEl = document.getElementById('mobilePanelCqiEmpty');
+    const detailsEl = document.getElementById('mobilePanelCqiDetails');
+    const revEl = document.getElementById('mobilePanelCqiRevenue');
+    const spendEl = document.getElementById('mobilePanelCqiSpend');
+    const notesEl = document.getElementById('mobilePanelCqiNotes');
+    const recEl = document.getElementById('mobilePanelCqiRecorded');
+    if (!pill || !emptyEl || !detailsEl) return;
+
+    const cqi = parseRowCqi(row);
+    const filled = cqiHasContent(cqi);
+    const ps = parseInt(row.dataset.pipelineStage, 10);
+    const stage = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
+
+    if (filled) {
+      pill.textContent = 'CQI logged';
+      pill.className =
+        'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/30';
+    } else if (stage >= 4) {
+      pill.textContent = 'Log CQI';
+      pill.className =
+        'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-500/35';
+    } else {
+      pill.textContent = 'Pre-CQI';
+      pill.className =
+        'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-brand-border/30 dark:border-white/10';
+    }
+
+    if (filled) {
+      emptyEl.classList.add('hidden');
+      detailsEl.classList.remove('hidden');
+      if (revEl) revEl.textContent = (cqi.monthlyRevenue && String(cqi.monthlyRevenue).trim()) || '—';
+      if (spendEl) spendEl.textContent = (cqi.marketingSpend && String(cqi.marketingSpend).trim()) || '—';
+      if (notesEl) notesEl.textContent = (cqi.notes && String(cqi.notes).trim()) || '—';
+      if (recEl) {
+        if (cqi.recordedAt) {
+          try {
+            recEl.textContent = `Recorded ${new Date(cqi.recordedAt).toLocaleDateString()}`;
+          } catch {
+            recEl.textContent = '';
+          }
+        } else {
+          recEl.textContent = '';
+        }
+      }
+    } else {
+      emptyEl.classList.remove('hidden');
+      detailsEl.classList.add('hidden');
+      if (recEl) recEl.textContent = '';
+    }
   }
 
   // --- Populate panel from row data ---
@@ -829,6 +963,8 @@ document.addEventListener('DOMContentLoaded', () => {
           'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-brand-border/30 dark:border-white/10';
       }
     }
+
+    syncMobilePanelCqi(row);
 
     // Stars & rating (larger stars in panel for visibility)
     renderStars(rating, reviews, 'mobilePanelStars', 'mobilePanelRatingText', 'w-4 h-4');
@@ -1345,6 +1481,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const short =
           (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
         row.dataset.pipelineLabel = short;
+        if (document.querySelector('.result-row.selected') === row) syncMobilePanelCqi(row);
       } else {
         sel.value = String(prev);
       }
@@ -1524,7 +1661,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
   if (deepEnhanceBtn) {
     deepEnhanceBtn.addEventListener('click', async () => {
-      if (!currentRow) return;
+      if (!currentRow) {
+        const hint =
+          '<span class="flex items-center justify-center gap-2 text-[11px] font-bold text-brand-muted normal-case tracking-normal"><svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Select a lead first</span>';
+        const prev = deepEnhanceBtn.innerHTML;
+        deepEnhanceBtn.innerHTML = hint;
+        setTimeout(() => {
+          deepEnhanceBtn.innerHTML = prev;
+        }, 2200);
+        return;
+      }
       const key = currentRow.dataset.leadKey;
       const title = currentRow.dataset.title;
       const city = currentRow.dataset.city;
@@ -1532,16 +1678,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const url = currentRow.dataset.website;
 
       const originalHTML = deepEnhanceBtn.innerHTML;
-      
+
+      const clearHuntBusy = () => {
+        deepEnhanceBtn.disabled = false;
+        deepEnhanceBtn.removeAttribute('aria-busy');
+        deepEnhanceBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+      };
+
       updateProcessingStatus(true);
-      deepEnhanceBtn.classList.add('loading', 'animate-magic');
+      deepEnhanceBtn.disabled = true;
+      deepEnhanceBtn.setAttribute('aria-busy', 'true');
+      deepEnhanceBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
       deepEnhanceBtn.innerHTML = `
-        <svg class="w-4 h-4 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24">
+        <svg class="w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span class="animate-pulse">Magic Hunt in progress...</span>
+        <span class="animate-pulse text-[11px] font-black uppercase tracking-wider">Searching…</span>
       `;
+
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
       try {
         let res;
@@ -1581,24 +1737,27 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           populatePanel(currentRow);
-          
-          deepEnhanceBtn.innerHTML = '✨ Success! Data Found';
+
+          clearHuntBusy();
+          deepEnhanceBtn.disabled = true;
+          deepEnhanceBtn.innerHTML =
+            '<span class="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400"><svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Data found</span>';
           updateProcessingStatus(false);
           setTimeout(() => {
-             deepEnhanceBtn.classList.remove('loading', 'animate-magic');
-             deepEnhanceBtn.innerHTML = originalHTML;
-          }, 3000);
+            deepEnhanceBtn.disabled = false;
+            deepEnhanceBtn.innerHTML = originalHTML;
+          }, 2600);
         } else {
           alert(data.error || "No additional contact data discovered yet.");
           updateProcessingStatus(false);
-          deepEnhanceBtn.classList.remove('loading', 'animate-magic');
+          clearHuntBusy();
           deepEnhanceBtn.innerHTML = originalHTML;
         }
       } catch (err) {
         console.error('Enhancement failed:', err);
         alert("Enhancement failed. Please try again later.");
         updateProcessingStatus(false);
-        deepEnhanceBtn.classList.remove('loading', 'animate-magic');
+        clearHuntBusy();
         deepEnhanceBtn.innerHTML = originalHTML;
       }
     });
@@ -2007,18 +2166,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getBulkEnhanceLayout(row) {
     const cells = row.querySelectorAll('td');
-    if (cells.length < 11) return null;
     if (row.querySelector('.pipeline-stage-cell')) {
+      if (cells.length < 9) return null;
       return {
         kind: 'leads',
-        address: cells[3],
-        phone: cells[4],
-        email: cells[5],
-        website: cells[6],
-        reviews: cells[7],
-        opportunity: cells[8],
+        addressEl: row.querySelector('.lead-row-address'),
+        phone: cells[3],
+        email: cells[4],
+        website: cells[5],
+        reviews: cells[6],
       };
     }
+    if (cells.length < 11) return null;
     return {
       kind: 'results',
       phone: cells[2],
@@ -2080,10 +2239,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderLeadsTableAddressCell(addr) {
     const a = addr && addr !== 'N/A' ? String(addr).trim() : '';
     if (!a) {
-      return '<span class="text-brand-muted/50 dark:text-slate-500 text-sm font-bold">-</span>';
+      return '<span class="text-brand-muted/50 dark:text-slate-500 text-sm font-bold">—</span>';
     }
-    const safe = a.replace(/"/g, '&quot;');
-    return `<div class="text-xs font-medium text-brand-muted dark:text-slate-300 max-w-[200px] truncate" title="${safe}">${a}</div>`;
+    const safe = escapeHtmlAttr(a);
+    return `<span class="block text-xs font-medium text-brand-muted dark:text-slate-300 max-w-[200px] truncate" title="${safe}">${escapeHtmlText(a)}</span>`;
   }
 
   function renderLeadsTableWebsiteCell(w) {
@@ -2171,13 +2330,12 @@ document.addEventListener('DOMContentLoaded', () => {
         attemptedCount += 1;
         const cellOriginals = {};
         if (layout.kind === 'leads') {
-          if (layout.address) cellOriginals.address = layout.address.innerHTML;
+          if (layout.addressEl) cellOriginals.address = layout.addressEl.innerHTML;
           cellOriginals.phone = layout.phone.innerHTML;
           cellOriginals.email = layout.email.innerHTML;
           cellOriginals.website = layout.website.innerHTML;
           cellOriginals.reviews = layout.reviews.innerHTML;
-          cellOriginals.opp = layout.opportunity.innerHTML;
-          if (layout.address) layout.address.innerHTML = spinner;
+          if (layout.addressEl) layout.addressEl.innerHTML = spinner;
           layout.phone.innerHTML = spinner;
           layout.email.innerHTML = spinner;
           layout.website.innerHTML = spinner;
@@ -2209,8 +2367,8 @@ document.addEventListener('DOMContentLoaded', () => {
             applyEnrichDataToRowDataset(row, d, result);
 
             if (layout.kind === 'leads') {
-              if (layout.address) {
-                layout.address.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
+              if (layout.addressEl) {
+                layout.addressEl.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
               }
               layout.phone.innerHTML = renderLeadsTablePhoneCell(row.dataset.phone);
               layout.email.innerHTML = renderLeadsTableEmailCell(row.dataset.email);
@@ -2257,12 +2415,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (selectedPanelRow === row && typeof populatePanel === 'function') populatePanel(row);
           } else {
             if (layout.kind === 'leads') {
-              if (layout.address) layout.address.innerHTML = cellOriginals.address;
+              if (layout.addressEl && cellOriginals.address !== undefined) {
+                layout.addressEl.innerHTML = cellOriginals.address;
+              }
               layout.phone.innerHTML = cellOriginals.phone;
               layout.email.innerHTML = cellOriginals.email;
               layout.website.innerHTML = cellOriginals.website;
               layout.reviews.innerHTML = cellOriginals.reviews;
-              layout.opportunity.innerHTML = cellOriginals.opp;
             } else {
               layout.email.innerHTML = cellOriginals.email;
               layout.social.innerHTML = cellOriginals.social;
@@ -2271,12 +2430,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
           console.error('Enrichment error:', err);
           if (layout.kind === 'leads') {
-            if (layout.address) layout.address.innerHTML = cellOriginals.address;
+            if (layout.addressEl && cellOriginals.address !== undefined) {
+              layout.addressEl.innerHTML = cellOriginals.address;
+            }
             layout.phone.innerHTML = cellOriginals.phone;
             layout.email.innerHTML = cellOriginals.email;
             layout.website.innerHTML = cellOriginals.website;
             layout.reviews.innerHTML = cellOriginals.reviews;
-            layout.opportunity.innerHTML = cellOriginals.opp;
           } else {
             layout.email.innerHTML = cellOriginals.email;
             layout.social.innerHTML = cellOriginals.social;

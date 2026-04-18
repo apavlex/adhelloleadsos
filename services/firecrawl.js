@@ -48,6 +48,12 @@ const enrichSchema = {
   }
 };
 
+const ENRICH_SCRAPE_PROMPT =
+  'You are a professional business auditor. Extract only what is visibly present on the page or in embedded widgets/schema—especially email, phone, address, star rating, review count, social URLs, and technical signals. Never guess contact info or reviews.';
+
+const ENRICH_SEARCH_PROMPT =
+  'Find the official business website. Extract any visible email, phone, address, ratings/review counts, and social/directory URLs from snippets or landing pages. Do not invent data.';
+
 /**
  * Enriches a lead by scraping the given URL and extracting social profiles and directories.
  * @param {string} url - The website URL to scrape.
@@ -61,20 +67,19 @@ async function enrichLead(url) {
 
   try {
     const firecrawl = getFirecrawlApp();
-    
-    const response = await firecrawl.scrape(url, {
-      formats: ['extract'],
-      extract: {
-        schema: enrichSchema,
-        systemPrompt: "You are a professional business auditor. Extract only what is visibly present on the page or in embedded widgets/schema—especially email, phone, address, star rating, review count, social URLs, and technical signals. Never guess contact info or reviews."
-      }
+
+    // Firecrawl v2: LLM extraction uses formats: [{ type: 'json', schema, prompt }], not legacy 'extract'.
+    const doc = await firecrawl.scrape(url, {
+      formats: [
+        {
+          type: 'json',
+          schema: enrichSchema,
+          prompt: ENRICH_SCRAPE_PROMPT,
+        },
+      ],
     });
 
-    if (!response.success) {
-      throw new Error(`Firecrawl API error: ${response.error || 'Unknown error'}`);
-    }
-
-    let merged = response.extract || {};
+    let merged = (doc && doc.json != null ? doc.json : doc.extract) || {};
 
     try {
       const html = await fetchHomepageHtml(url);
@@ -104,19 +109,21 @@ async function searchBusiness(query) {
     const response = await firecrawl.search(query, {
       limit: 3,
       scrapeOptions: {
-        formats: ['extract'],
-        extract: {
-          schema: enrichSchema,
-          systemPrompt: "Find the official business website. Extract any visible email, phone, address, ratings/review counts, and social/directory URLs from snippets or landing pages. Do not invent data."
-        }
-      }
+        formats: [
+          {
+            type: 'json',
+            schema: enrichSchema,
+            prompt: ENRICH_SEARCH_PROMPT,
+          },
+        ],
+      },
     });
 
-    if (!response.success) {
-      throw new Error(`Firecrawl Search API error: ${response.error || 'Unknown error'}`);
-    }
-
-    return response.data || [];
+    const web = response.web || [];
+    return web.map((item) => ({
+      ...item,
+      extract: item.json != null ? item.json : item.extract,
+    }));
   } catch (error) {
     console.error(`Error searching business for ${query}:`, error.message);
     throw error;

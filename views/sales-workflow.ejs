@@ -103,6 +103,7 @@
                     data-source="<%= lead.source || 'manual' %>"
                     data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'
                     data-chat-history='<%= JSON.stringify(lead.chatHistory || null).replace(/'/g, "&apos;") %>'
+                    data-cqi='<%= JSON.stringify(lead.cqi || null).replace(/'/g, "&apos;") %>'
                     data-stitch-design-url="<%= lead.stitchDesignUrl || '' %>"
                     data-stitch-screenshot-url="<%= lead.stitchScreenshotUrl || '' %>"
                     data-stitch-screen-id="<%= lead.stitchScreenId || '' %>"
