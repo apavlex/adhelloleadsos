@@ -15,9 +15,30 @@
 
     <header class="mb-8 md:mb-10">
       <p class="text-sm md:text-base text-brand-dark dark:text-white font-semibold">
-        <%= typeof greetingWord !== 'undefined' ? greetingWord : 'Hello' %>, <%= typeof firstName !== 'undefined' ? firstName : 'there' %> — <%= typeof dateLabel !== 'undefined' ? dateLabel : '' %>
+        <span id="todayDaypart"><%= typeof greetingWord !== 'undefined' ? greetingWord : 'Hello' %></span>, <%= typeof firstName !== 'undefined' ? firstName : 'there' %> — <span id="todayDateLabel"><%= typeof dateLabel !== 'undefined' ? dateLabel : '' %></span>
       </p>
     </header>
+    <script>
+    (function () {
+      function greetingWordLocal() {
+        var h = new Date().getHours();
+        if (h < 12) return 'Morning';
+        if (h < 17) return 'Afternoon';
+        return 'Evening';
+      }
+      var dp = document.getElementById('todayDaypart');
+      if (dp) dp.textContent = greetingWordLocal();
+      var dl = document.getElementById('todayDateLabel');
+      if (dl) {
+        dl.textContent = new Date().toLocaleDateString(undefined, {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
+    })();
+    </script>
 
     <% const empty = typeof totalLeads !== 'undefined' && totalLeads === 0; %>
     <% if (empty) { %>

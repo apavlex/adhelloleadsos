@@ -105,18 +105,43 @@ router.get('/saved', async (req, res, next) => {
 // POST /leads/save — bookmark a lead (called via fetch from client JS)
 router.post('/save', async (req, res, next) => {
   try {
-    const { title, phone, website, email, categoryName, address, city, state, totalScore, reviewsCount, url, facebook, instagram, twitter } = req.body;
+    const {
+      title,
+      phone,
+      website,
+      email,
+      categoryName,
+      address,
+      city,
+      state,
+      totalScore,
+      reviewsCount,
+      url,
+      facebook,
+      instagram,
+      twitter,
+      note,
+      source,
+    } = req.body;
 
     if (!title) {
       return res.status(400).json({ error: 'Lead title is required.' });
     }
+
+    const isManual =
+      source === 'manual' || source === 'manual_offline' || String(source || '').startsWith('manual');
 
     const leadData = {
       title,
       phone: phone || 'N/A',
       website: website || 'N/A',
       email: email || 'N/A',
-      categoryName: categoryName || 'N/A',
+      categoryName:
+        categoryName && String(categoryName).trim()
+          ? categoryName
+          : isManual
+            ? 'Offline / word of mouth'
+            : 'N/A',
       address: address || 'N/A',
       city: city || '',
       state: state || '',
@@ -132,7 +157,29 @@ router.post('/save', async (req, res, next) => {
       workspaceId: req.workspaceId || 'default',
     };
 
+    if (isManual) {
+      leadData.source = 'manual_offline';
+    }
+
+    const noteText = note != null ? String(note).trim() : '';
+    if (noteText) {
+      leadData.updates = [
+        {
+          type: 'note',
+          value: noteText,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+    }
+
     const key = await dbService.saveLead(leadData);
+    if (isManual) {
+      try {
+        await activationService.recordEvent(userEmail(req), 'manual_lead_added');
+      } catch (_) {
+        /* non-fatal */
+      }
+    }
     res.json({ success: true, key });
   } catch (err) {
     next(err);
