@@ -70,7 +70,7 @@ router.get('/', async (req, res, next) => {
       (parseInt(todayRow?.coldCalls, 10) || 0) +
       (parseInt(todayRow?.upworkBids, 10) || 0);
 
-    const touchGoal = Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '15', 10) || 15);
+    const touchGoal = Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '50', 10) || 50);
     const repliesWaiting = countReplySignals(workspaceLeads);
     const overdueFollowUps = countOverdueSequences(workspaceLeads);
     const queueNeedingAction = countQueueNeedingAction(workspaceLeads);

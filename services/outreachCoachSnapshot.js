@@ -84,7 +84,7 @@ function pickQuoteForDate(isoDate) {
 async function buildOutreachCoachSnapshot(req) {
   const email = userEmail(req);
   const today = new Date().toISOString().slice(0, 10);
-  const touchGoal = Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '15', 10) || 15);
+  const touchGoal = Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '50', 10) || 50);
 
   const all = await dbService.getAllLeads();
   const leads = filterLeadsForRequest(req, all);
