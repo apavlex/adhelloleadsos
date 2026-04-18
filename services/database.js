@@ -341,6 +341,61 @@ module.exports = {
     await db.delete(key);
   },
 
+  // --- Folders (user-defined lead buckets) ---
+
+  async listFolders(workspaceId) {
+    const wid = workspaceId || 'default';
+    const keys = await db.list(`folder:${wid}:`);
+    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const out = [];
+    for (const key of keyList) {
+      const data = await db.get(key);
+      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      if (!raw) continue;
+      const f = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      out.push({ key, ...f });
+    }
+    return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+  },
+
+  async createFolder(workspaceId, name) {
+    const wid = workspaceId || 'default';
+    const key = `folder:${wid}:${Date.now()}`;
+    const folder = {
+      name: String(name || '').trim(),
+      workspaceId: wid,
+      createdAt: new Date().toISOString(),
+    };
+    await db.set(key, JSON.stringify(folder));
+    return { key, ...folder };
+  },
+
+  async renameFolder(workspaceId, folderKey, name) {
+    const wid = workspaceId || 'default';
+    const fullKey = folderKey.startsWith('folder:') ? folderKey : `folder:${wid}:${folderKey}`;
+    const data = await db.get(fullKey);
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if ((existing.workspaceId || 'default') !== wid) return null;
+    const updated = { ...existing, name: String(name || '').trim(), updatedAt: new Date().toISOString() };
+    await db.set(fullKey, JSON.stringify(updated));
+    return { key: fullKey, ...updated };
+  },
+
+  async deleteFolder(workspaceId, folderKey) {
+    const wid = workspaceId || 'default';
+    const fullKey = folderKey.startsWith('folder:') ? folderKey : `folder:${wid}:${folderKey}`;
+    const data = await db.get(fullKey);
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (raw) {
+      const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if ((existing.workspaceId || 'default') === wid) {
+        await db.delete(fullKey);
+      }
+    }
+  },
+
   // --- Schedules (Autopilot) ---
 
   async saveSchedule(scheduleData) {

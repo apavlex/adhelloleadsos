@@ -102,6 +102,51 @@ router.get('/saved', async (req, res, next) => {
   }
 });
 
+// GET /leads/list.json — lightweight list for folders / client filtering
+router.get('/list.json', async (req, res, next) => {
+  try {
+    const all = await dbService.getAllLeads();
+    const visible = filterLeadsForRequest(req, all);
+    const folderKey = String(req.query.folderKey || '').trim();
+    const q = String(req.query.q || '').trim().toLowerCase();
+    const stage = String(req.query.stage || '').trim();
+
+    let out = visible;
+    if (folderKey) {
+      out = out.filter((l) => String(l.folderKey || '') === folderKey);
+    }
+    if (stage) {
+      const st = parseInt(stage, 10);
+      if (!Number.isNaN(st)) out = out.filter((l) => parseInt(l.pipelineStage, 10) === st);
+    }
+    if (q) {
+      out = out.filter((l) => {
+        const blob = `${l.title || ''} ${l.email || ''} ${l.phone || ''} ${l.website || ''} ${l.city || ''} ${l.state || ''}`.toLowerCase();
+        return blob.includes(q);
+      });
+    }
+
+    res.json({
+      success: true,
+      leads: out.map((l) => ({
+        key: l.key,
+        title: l.title,
+        email: l.email,
+        phone: l.phone,
+        website: l.website,
+        city: l.city,
+        state: l.state,
+        pipelineStage: l.pipelineStage,
+        status: l.status,
+        folderKey: l.folderKey || '',
+        source: l.source || '',
+      })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/save — bookmark a lead (called via fetch from client JS)
 router.post('/save', async (req, res, next) => {
   try {

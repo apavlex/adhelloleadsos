@@ -16,10 +16,6 @@ router.get('/pipeline', (req, res) => {
   res.redirect(302, `/leads${q}`);
 });
 
-router.get('/outreach', (req, res) => {
-  res.redirect(302, '/sales/tracker#tracker');
-});
-
 router.get('/insights', (req, res) => {
   res.redirect(302, '/analytics');
 });

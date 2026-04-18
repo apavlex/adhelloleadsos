@@ -1,9 +1,17 @@
 <% const np = typeof navPrimary !== 'undefined' ? navPrimary : ''; %>
 <header class="sticky top-0 z-50 w-full px-6 py-4">
   <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-3 rounded-full border border-brand-border dark:border-white/10 shadow-sm">
-    <a href="/today" class="flex items-center gap-2 sm:gap-3 group h-9 sm:h-10 shrink-0 min-w-0 max-w-[min(100%,14rem)] sm:max-w-none">
-      <img src="/images/adhello-logo-dark.png" alt="adhello.ai" width="160" height="40" class="h-8 sm:h-9 w-auto max-w-[11rem] sm:max-w-none object-contain object-left block dark:hidden" />
-      <img src="/images/adhello-logo-light.png" alt="adhello.ai" width="160" height="40" class="h-8 sm:h-9 w-auto max-w-[11rem] sm:max-w-none object-contain object-left hidden dark:block" />
+    <a href="/today" class="flex items-center gap-2 sm:gap-3 group h-9 sm:h-10 shrink-0 min-w-0 max-w-[min(100%,14rem)] sm:max-w-none" aria-label="adhello.ai — Agency OS home">
+      <span class="flex items-center gap-2 sm:gap-2.5 min-w-0" aria-hidden="true">
+        <span class="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-400 via-yellow-400 to-amber-500 shadow-sm ring-1 ring-amber-500/25 dark:ring-amber-400/30">
+          <svg class="h-[44%] w-[44%] text-white drop-shadow-sm" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path fill="currentColor" d="M12 5.5 19.5 18.5H4.5L12 5.5z" />
+          </svg>
+        </span>
+        <span class="font-display font-extrabold text-[1.05rem] sm:text-xl tracking-tight leading-none truncate">
+          <span class="text-brand-dark dark:text-white">adhello</span><span class="text-brand-yellow">.ai</span>
+        </span>
+      </span>
       <span class="hidden lg:inline-flex items-center gap-2 shrink-0 text-brand-muted dark:text-slate-500 font-bold text-sm" aria-hidden="true">|</span>
       <span class="hidden lg:inline font-display font-black text-sm tracking-tight text-brand-dark dark:text-white whitespace-nowrap">Agency OS</span>
     </a>
