@@ -130,6 +130,7 @@
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Pipeline</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Address</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Phone</th>
+                <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Email</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Website</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Reviews</th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300 text-center cursor-pointer hover:text-brand-dark dark:hover:text-white transition-colors group" id="sortOpportunity">
@@ -202,22 +203,29 @@
                       </div>
                       <div class="max-w-[180px] truncate">
                         <div class="font-bold text-brand-dark dark:text-white group-hover:text-black dark:group-hover:text-brand-yellow transition-colors text-base" title="<%= lead.title %>"><%= lead.title %></div>
-                        <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <div class="flex items-center gap-2 mt-0.5 flex-nowrap min-w-0 max-w-[200px]">
                           <% if (lead.source && lead.source.startsWith('adhello_')) { %>
-                            <span class="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Warm</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 shrink-0">Warm</span>
                           <% } else { %>
-                            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Cold</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 shrink-0">Cold</span>
                           <% } %>
-                          <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 uppercase tracking-wider truncate" title="<%= lead.categoryName %>"><%= lead.categoryName %></span>
+                          <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 uppercase tracking-wider truncate min-w-0" title="<%= lead.categoryName %>"><%= lead.categoryName %></span>
                         </div>
                       </div>
                     </div>
                   </td>
-                  <td class="px-6 py-6 pipeline-stage-cell align-top">
-                    <a href="/sales/workflow" class="inline-flex flex-col gap-0.5 group/pipe" title="Edit stage on workflow page">
-                      <span class="pipeline-stage-label text-[10px] font-black text-brand-yellow"><%= psRow %>. <%= pipeShort %></span>
-                      <span class="text-[9px] font-bold text-brand-muted dark:text-slate-400 group-hover/pipe:underline">Pipeline →</span>
-                    </a>
+                  <td class="px-6 py-6 pipeline-stage-cell align-top" onclick="event.stopPropagation()">
+                    <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { %>
+                    <label class="sr-only">Pipeline stage for <%= lead.title %></label>
+                    <select class="pipeline-inline-select w-full min-w-[10rem] max-w-[240px] text-[10px] font-black text-brand-dark dark:text-white bg-brand-cream/50 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10 rounded-xl px-3 py-2.5 shadow-sm focus:ring-2 focus:ring-brand-yellow cursor-pointer" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
+                      <% pipelineStages.forEach((st) => { %>
+                        <% const optShort = st.name.length > 34 ? st.name.slice(0, 34) + '…' : st.name; %>
+                        <option value="<%= st.id %>" <%= psRow === st.id ? 'selected' : '' %>><%= st.id %>. <%= optShort %></option>
+                      <% }); %>
+                    </select>
+                    <% } else { %>
+                    <span class="pipeline-stage-label text-[10px] font-black text-brand-yellow"><%= psRow %>. <%= pipeShort %></span>
+                    <% } %>
                   </td>
                   <td class="px-6 py-6">
                     <div class="text-xs font-medium text-brand-muted dark:text-slate-300 max-w-[200px] truncate" title="<%= lead.address %>">
@@ -226,6 +234,13 @@
                   </td>
                   <td class="px-6 py-6 text-sm font-medium text-brand-muted dark:text-slate-300">
                     <%= lead.phone && lead.phone !== 'N/A' ? lead.phone : '-' %>
+                  </td>
+                  <td class="px-6 py-6 text-xs font-medium text-brand-muted dark:text-slate-300 max-w-[180px]">
+                    <% if (lead.email && lead.email !== 'N/A') { %>
+                      <a href="mailto:<%= lead.email %>" class="text-brand-yellow hover:underline font-bold truncate block" title="<%= lead.email %>" onclick="event.stopPropagation()"><%= lead.email %></a>
+                    <% } else { %>
+                      <span class="text-brand-muted/50 dark:text-slate-500 font-bold">—</span>
+                    <% } %>
                   </td>
                   <td class="px-6 py-6 text-sm font-medium text-brand-muted dark:text-slate-300">
                     <% if (lead.website && lead.website !== 'N/A') { %>
@@ -236,19 +251,18 @@
                       <span class="text-brand-muted/50 dark:text-slate-500 font-bold text-sm">-</span>
                     <% } %>
                   </td>
-                  <!-- New Rating Column -->
                   <td class="px-6 py-6">
-                    <% if (lead.totalScore) { %>
-                      <div class="flex flex-col gap-1">
-                        <div class="row-stars flex items-center gap-0.5"></div>
-                        <div class="flex items-center gap-1.5">
-                          <span class="text-[11px] font-black text-brand-dark dark:text-slate-200"><%= Number(lead.totalScore).toFixed(1) %></span>
-                          <span class="text-[9px] font-bold text-brand-muted/60 dark:text-slate-500">(<%= lead.reviewsCount %>)</span>
-                        </div>
+                    <div class="flex items-center gap-2 min-h-[28px]">
+                      <div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
+                      <div class="text-[11px] font-black text-brand-dark dark:text-slate-200 whitespace-nowrap">
+                        <% if (lead.totalScore) { %>
+                          <%= Number(lead.totalScore).toFixed(1) %>
+                          <span class="text-[9px] font-bold text-brand-muted/60 dark:text-slate-500">(<%= lead.reviewsCount || 0 %>)</span>
+                        <% } else { %>
+                          <span class="text-brand-muted/50 dark:text-slate-500 font-bold">—<% if (lead.reviewsCount) { %> <span class="text-[9px] font-bold text-brand-muted/50">(<%= lead.reviewsCount %>)</span><% } %></span>
+                        <% } %>
                       </div>
-                    <% } else { %>
-                      <span class="text-brand-muted/50 dark:text-slate-500 text-sm font-bold">-</span>
-                    <% } %>
+                    </div>
                   </td>
                   <td class="px-6 py-6">
                     <div class="opportunity-badge flex flex-wrap gap-1 items-center justify-center min-h-[32px]" data-score="0">
@@ -271,13 +285,14 @@
                   </td>
                   <td class="px-6 py-6 text-right pr-8">
                     <div class="flex items-center justify-end gap-2 text-center">
-                       <% if (lead.email && lead.email !== 'N/A') { %>
-                        <button class="quick-outreach-btn w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all" 
-                          data-email="<%= lead.email %>" data-company="<%= lead.title %>" title="Quick Email Outreach">
+                        <button type="button" class="email-intel-btn w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all" 
+                          data-lead-key="<%= lead.key %>"
+                          data-email="<%= lead.email && lead.email !== 'N/A' ? lead.email : '' %>"
+                          data-company="<%= lead.title %>"
+                          title="Service offerings &amp; AI recommendation">
                           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                         </button>
-                      <% } %>
-                       <button class="view-detail-btn w-8 h-8 rounded-lg hover:bg-brand-yellow/10 text-brand-muted dark:text-slate-400 hover:text-brand-yellow dark:hover:text-brand-yellow transition-all flex items-center justify-center border border-transparent hover:border-brand-yellow/20">
+                       <button type="button" class="view-detail-btn w-8 h-8 rounded-lg hover:bg-brand-yellow/10 text-brand-muted dark:text-slate-400 hover:text-brand-yellow dark:hover:text-brand-yellow transition-all flex items-center justify-center border border-transparent hover:border-brand-yellow/20">
                           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                        </button>
                     </div>
@@ -349,6 +364,52 @@
     window.INITIAL_SAVED_LEADS = <%- JSON.stringify(leads || []) %>;
     window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   </script>
+
+  <!-- Email outreach: service lines + AI recommendation -->
+  <div id="emailIntelModal" class="fixed inset-0 z-[280] hidden" aria-hidden="true">
+    <div class="absolute inset-0 bg-brand-dark/75 backdrop-blur-sm email-intel-backdrop" aria-hidden="true"></div>
+    <div class="absolute inset-0 flex items-start justify-center p-4 pt-16 md:pt-24 pointer-events-none">
+      <div class="pointer-events-auto w-full max-w-md bg-white dark:bg-slate-900 rounded-[2rem] border border-brand-border/30 dark:border-white/10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+        <div class="p-6 border-b border-brand-border/20 dark:border-white/10 flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Outreach intel</p>
+            <h3 id="emailIntelTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mt-1 leading-tight">Company</h3>
+          </div>
+          <button type="button" class="email-intel-close w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0" aria-label="Close">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-3">What we offer</p>
+            <ul class="grid grid-cols-1 gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200">
+              <li class="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-cream/50 dark:bg-white/5 border border-brand-border/15"><span class="text-brand-yellow">●</span> Website &amp; conversion (CRO, speed, rebuilds)</li>
+              <li class="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-cream/50 dark:bg-white/5 border border-brand-border/15"><span class="text-brand-yellow">●</span> Reputation &amp; reviews (GEO, listings)</li>
+              <li class="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-cream/50 dark:bg-white/5 border border-brand-border/15"><span class="text-brand-yellow">●</span> Social &amp; content systems</li>
+              <li class="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-cream/50 dark:bg-white/5 border border-brand-border/15"><span class="text-brand-yellow">●</span> Paid ads &amp; media management</li>
+              <li class="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-cream/50 dark:bg-white/5 border border-brand-border/15"><span class="text-brand-yellow">●</span> AI automation &amp; agents</li>
+              <li class="flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-cream/50 dark:bg-white/5 border border-brand-border/15"><span class="text-brand-yellow">●</span> Strategy &amp; consulting retainers</li>
+            </ul>
+          </div>
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-3">AI recommended for this lead</p>
+            <div id="emailIntelAiBody" class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed min-h-[4rem]">
+              Loading…
+            </div>
+          </div>
+        </div>
+        <div class="p-6 pt-0 flex flex-col sm:flex-row gap-3">
+          <button type="button" id="emailIntelMailto" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest disabled:opacity-40 disabled:pointer-events-none">
+            Open email client
+          </button>
+          <button type="button" class="email-intel-close flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- The War Room: Batch Outreach Modal -->
   <div id="warRoomModal" class="fixed inset-0 z-[300] hidden overflow-hidden">
     <div class="absolute inset-0 bg-brand-dark/90 backdrop-blur-md transition-opacity"></div>

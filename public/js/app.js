@@ -191,7 +191,127 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Quick outreach logic
+  function escapeHtmlAttr(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function escapeHtmlText(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  function closeEmailIntelModal() {
+    const modal = document.getElementById('emailIntelModal');
+    if (modal) {
+      modal.classList.add('hidden');
+      modal.setAttribute('aria-hidden', 'true');
+    }
+    document.body.style.overflow = '';
+  }
+
+  async function openEmailIntelModal(row) {
+    const modal = document.getElementById('emailIntelModal');
+    const titleEl = document.getElementById('emailIntelTitle');
+    const aiBody = document.getElementById('emailIntelAiBody');
+    const mailtoBtn = document.getElementById('emailIntelMailto');
+    if (!modal || !row) return;
+
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+
+    const company = row.dataset.title || 'Lead';
+    if (titleEl) titleEl.textContent = company;
+
+    const emailRaw = (row.dataset.email || '').trim();
+    const email = emailRaw && emailRaw !== 'N/A' ? emailRaw : '';
+
+    if (mailtoBtn) {
+      mailtoBtn.disabled = !email;
+      mailtoBtn.onclick = () => {
+        if (!email) return;
+        window.location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Quick idea for ${company}`)}`;
+      };
+    }
+
+    if (aiBody) {
+      aiBody.innerHTML =
+        '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Loading AI recommendation…</p>';
+    }
+
+    const key = row.dataset.leadKey;
+    if (key && aiBody) {
+      try {
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/insights`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const data = await res.json();
+        if (data.success) {
+          const label = escapeHtmlText(data.primaryServiceLabel || 'Recommended offer');
+          const rationale = data.rationale ? escapeHtmlText(data.rationale) : '';
+          const track = data.talkTrack ? escapeHtmlText(data.talkTrack) : '';
+          let html = `<div class="rounded-2xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/30 p-4 mb-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">AI recommended focus</p>
+            <p class="font-bold text-brand-dark dark:text-white">${label}</p>
+          </div>`;
+          if (rationale) {
+            html += `<p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed">${rationale.replace(/\n/g, '<br>')}</p>`;
+          }
+          if (track) {
+            html += `<p class="text-xs font-semibold text-brand-dark dark:text-slate-300 mt-4 leading-relaxed">Suggested opener: <span class="italic">“${track}”</span></p>`;
+          }
+          if (data.cached) {
+            html += `<p class="text-[9px] font-bold uppercase tracking-widest text-brand-muted/60 mt-3">Cached insight · ${escapeHtmlText(data.provider || '')}</p>`;
+          }
+          aiBody.innerHTML = html;
+        } else {
+          aiBody.innerHTML =
+            '<p class="text-sm text-brand-muted dark:text-slate-500">No AI insight yet. Set <code class="text-[10px] bg-brand-cream dark:bg-slate-800 px-1 rounded">GEMINI_API_KEY</code> or other LLM keys, or open the lead detail panel after enrich.</p>';
+        }
+      } catch {
+        if (aiBody) {
+          aiBody.innerHTML =
+            '<p class="text-sm text-rose-600 dark:text-rose-400">Could not load AI recommendation.</p>';
+        }
+      }
+    } else if (aiBody) {
+      aiBody.innerHTML =
+        '<p class="text-sm text-brand-muted dark:text-slate-500">Save this lead to unlock AI recommendations.</p>';
+    }
+  }
+
+  document.addEventListener('click', (e) => {
+    const intelBtn = e.target.closest('.email-intel-btn');
+    if (intelBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      const row = intelBtn.closest('.result-row');
+      if (row) openEmailIntelModal(row);
+      return;
+    }
+    if (e.target.closest('.email-intel-close') || e.target.closest('.email-intel-backdrop')) {
+      closeEmailIntelModal();
+      return;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const modal = document.getElementById('emailIntelModal');
+    if (modal && !modal.classList.contains('hidden')) closeEmailIntelModal();
+  });
+
+  // Quick outreach logic (results / panel — not leads table email-intel)
   document.addEventListener('click', (e) => {
     const outreachBtn = e.target.closest('.quick-outreach-btn');
     if (outreachBtn) {
@@ -461,9 +581,11 @@ document.addEventListener('DOMContentLoaded', () => {
       row.style.cursor = 'pointer'; // Ensure it looks clickable
       row.addEventListener('click', (e) => {
         // Stop if clicking specific interactive elements
-        if (e.target.type === 'checkbox' || 
-            e.target.closest('.bookmark-btn') || 
+        if (e.target.type === 'checkbox' ||
+            e.target.closest('.bookmark-btn') ||
             e.target.closest('.view-detail-btn') ||
+            e.target.closest('.email-intel-btn') ||
+            e.target.closest('select') ||
             e.target.closest('form') ||
             e.target.closest('a')) {
           return;
@@ -644,6 +766,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.updates) ds.updates = JSON.stringify(L.updates);
   }
 
+  /** Show Quick Pitch + scripts only when status is video-related or a Loom URL exists */
+  function syncQuickPitchSectionVisibility(row) {
+    const section = document.getElementById('quickPitchSection');
+    if (!section || !row) return;
+    const st = String(row.dataset.status || '').trim();
+    const loom = String(row.dataset.loomUrl || '').trim();
+    const videoStatuses = st === 'Needs Video' || st === 'Video Recorded';
+    const show = videoStatuses || loom.length > 0;
+    section.classList.toggle('hidden', !show);
+  }
+
   // --- Populate panel from row data ---
   function populatePanel(row) {
     const title = row.dataset.title;
@@ -685,20 +818,20 @@ document.addEventListener('DOMContentLoaded', () => {
       if (src.startsWith('adhello_')) {
         sourcePill.textContent = 'Warm';
         sourcePill.className =
-          'px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
+          'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
       } else if (src.includes('csv') || src === 'import' || src === 'manual') {
         sourcePill.textContent = 'Imported';
         sourcePill.className =
-          'px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-yellow border-brand-yellow/30';
+          'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-yellow border-brand-yellow/30';
       } else {
         sourcePill.textContent = 'Cold';
         sourcePill.className =
-          'px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-brand-border/30 dark:border-white/10';
+          'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-brand-border/30 dark:border-white/10';
       }
     }
 
-    // Stars & Rating
-    renderStars(rating, reviews);
+    // Stars & rating (larger stars in panel for visibility)
+    renderStars(rating, reviews, 'mobilePanelStars', 'mobilePanelRatingText', 'w-4 h-4');
 
     // Phone logic
     const phoneEl = document.getElementById('mobilePanelPhone');
@@ -1011,6 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Loom URL Input (if exists)
     const loomInput = document.getElementById('loomUrlInput');
     if (loomInput) loomInput.value = loomUrl || '';
+    syncQuickPitchSectionVisibility(row);
 
     const panelStatusSelect = document.getElementById('leadStatusSelect');
     if (panelStatusSelect) {
@@ -1117,10 +1251,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  const renderStars = (rating, reviews, containerId = 'mobilePanelStars', textId = 'mobilePanelRatingText') => {
+  const renderStars = (
+    rating,
+    reviews,
+    containerId = 'mobilePanelStars',
+    textId = 'mobilePanelRatingText',
+    starSizeClass = 'w-3 h-3'
+  ) => {
     const starsContainer = document.getElementById(containerId);
     if (starsContainer) {
-        renderStarsInElement(starsContainer, rating);
+        renderStarsInElement(starsContainer, rating, starSizeClass);
     }
     const ratingText = document.getElementById(textId);
     if (ratingText) {
@@ -1139,31 +1279,81 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const renderStarsInElement = (element, rating) => {
+  const renderStarsInElement = (element, rating, starSizeClass = 'w-3 h-3') => {
     if (!element) return;
     element.innerHTML = '';
-    const fullStars = Math.floor(rating);
-    const hasHalf = (rating % 1) >= 0.5;
+    const r = Math.max(0, Math.min(5, Number(rating) || 0));
+    const fullStars = Math.floor(r);
+    const hasHalf = (r % 1) >= 0.5;
 
     for (let i = 0; i < 5; i++) {
-        const star = document.createElement('svg');
-        star.setAttribute('class', `w-3 h-3 ${i < fullStars ? 'text-brand-yellow' : (i === fullStars && hasHalf ? 'text-brand-yellow' : 'text-brand-muted/20')}`);
-        star.setAttribute('fill', 'currentColor');
-        star.setAttribute('viewBox', '0 0 20 20');
-        star.innerHTML = '<path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />';
-        element.appendChild(star);
+      const lit = i < fullStars || (i === fullStars && hasHalf);
+      const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      star.setAttribute(
+        'class',
+        `${starSizeClass} shrink-0 ${lit ? 'text-amber-400 dark:text-brand-yellow' : 'text-slate-300 dark:text-slate-600'}`
+      );
+      star.setAttribute('viewBox', '0 0 20 20');
+      star.setAttribute('fill', 'currentColor');
+      star.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute(
+        'd',
+        'M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z'
+      );
+      star.appendChild(path);
+      element.appendChild(star);
     }
   };
 
   const applyTableStars = () => {
-    document.querySelectorAll('.result-row').forEach(row => {
+    document.querySelectorAll('.result-row').forEach((row) => {
       const rating = parseFloat(row.dataset.rating) || 0;
       const starContainer = row.querySelector('.row-stars');
       if (starContainer) {
-        renderStarsInElement(starContainer, rating);
+        renderStarsInElement(starContainer, rating, 'w-3.5 h-3.5');
       }
     });
   };
+
+  document.addEventListener('change', async (e) => {
+    const sel = e.target.closest('.pipeline-inline-select');
+    if (!sel) return;
+    const row = sel.closest('.result-row');
+    if (!row) return;
+    const key = row.dataset.leadKey;
+    if (!key) return;
+    const newStage = parseInt(sel.value, 10);
+    if (Number.isNaN(newStage) || newStage < 1 || newStage > 10) return;
+    const prev = parseInt(row.dataset.pipelineStage, 10) || 1;
+    if (newStage === prev) return;
+    sel.disabled = true;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          pipelineStage: newStage,
+          pipelineStageUpdatedAt: new Date().toISOString(),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        row.dataset.pipelineStage = String(newStage);
+        const labels = window.PIPELINE_STAGE_LABELS || {};
+        const fullName = labels[newStage] || '';
+        const short =
+          (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
+        row.dataset.pipelineLabel = short;
+      } else {
+        sel.value = String(prev);
+      }
+    } catch {
+      sel.value = String(prev);
+    } finally {
+      sel.disabled = false;
+    }
+  });
 
   // --- Lead Management Actions ---
   const statusSelect = document.getElementById('leadStatusSelect');
@@ -1271,7 +1461,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = await res.json();
         if (data.success) {
           currentRow.dataset.loomUrl = newLoomUrl;
-          // Optionally add a tiny 'saved' toast here if needed
+          syncQuickPitchSectionVisibility(currentRow);
         }
       } catch (err) { console.error('Loom URL update failed:', err); }
     });
@@ -1817,15 +2007,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getBulkEnhanceLayout(row) {
     const cells = row.querySelectorAll('td');
-    if (cells.length < 10) return null;
+    if (cells.length < 11) return null;
     if (row.querySelector('.pipeline-stage-cell')) {
       return {
         kind: 'leads',
         address: cells[3],
         phone: cells[4],
-        website: cells[5],
-        reviews: cells[6],
-        opportunity: cells[7],
+        email: cells[5],
+        website: cells[6],
+        reviews: cells[7],
+        opportunity: cells[8],
       };
     }
     return {
@@ -1904,33 +2095,36 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${href}" target="_blank" class="website-link text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white transition-colors border-b border-transparent hover:border-brand-dark dark:hover:border-white pb-0.5 inline-block max-w-[150px] truncate" title="${w}" data-url="${w}">${label}</a>`;
   }
 
-  function renderLeadsTablePhoneCell(phone, email) {
+  function renderLeadsTablePhoneCell(phone) {
     const p = phone && phone !== 'N/A' ? phone : '';
-    const e = email && email !== 'N/A' ? email : '';
-    let html = '';
     if (p) {
-      html += `<span class="block text-sm font-medium text-brand-muted dark:text-slate-300">${p}</span>`;
-    } else {
-      html += '<span class="block text-sm text-brand-muted/60">-</span>';
+      return `<span class="block text-sm font-medium text-brand-muted dark:text-slate-300">${p}</span>`;
     }
-    if (e) {
-      html += `<a href="mailto:${e}" class="block text-xs font-bold text-brand-yellow truncate mt-1 max-w-[160px]" title="${e}">${e}</a>`;
+    return '<span class="block text-sm text-brand-muted/60">-</span>';
+  }
+
+  function renderLeadsTableEmailCell(email) {
+    const e = email && email !== 'N/A' ? String(email).trim() : '';
+    if (!e) {
+      return '<span class="text-brand-muted/50 dark:text-slate-500 font-bold">—</span>';
     }
-    return html || '<span class="text-sm text-brand-muted/60">-</span>';
+    return `<a href="mailto:${encodeURIComponent(e)}" class="text-brand-yellow hover:underline font-bold truncate block max-w-[180px]" title="${escapeHtmlAttr(e)}" onclick="event.stopPropagation()">${escapeHtmlText(e)}</a>`;
   }
 
   function renderReviewsCellInner(rating, reviews) {
     const r = parseFloat(rating) || 0;
     const c = parseInt(reviews, 10) || 0;
-    if (!r && !c) {
-      return '<span class="text-brand-muted/50 dark:text-slate-500 text-sm font-bold">-</span>';
-    }
-    return `<div class="flex flex-col gap-1">
-      <div class="row-stars flex items-center gap-0.5"></div>
-      <div class="flex items-center gap-1.5">
-        <span class="text-[11px] font-black text-brand-dark dark:text-slate-200">${r.toFixed(1)}</span>
-        <span class="text-[9px] font-bold text-brand-muted/60 dark:text-slate-500">(${c})</span>
-      </div>
+    const scorePart =
+      r > 0
+        ? `${r.toFixed(1)} <span class="text-[9px] font-bold text-brand-muted/60 dark:text-slate-500">(${c})</span>`
+        : `<span class="text-brand-muted/50 dark:text-slate-500 font-bold">—${
+            c > 0
+              ? ` <span class="text-[9px] font-bold text-brand-muted/50">(${c})</span>`
+              : ''
+          }</span>`;
+    return `<div class="flex items-center gap-2 min-h-[28px]">
+      <div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
+      <div class="text-[11px] font-black text-brand-dark dark:text-slate-200 whitespace-nowrap">${scorePart}</div>
     </div>`;
   }
 
@@ -1979,11 +2173,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (layout.kind === 'leads') {
           if (layout.address) cellOriginals.address = layout.address.innerHTML;
           cellOriginals.phone = layout.phone.innerHTML;
+          cellOriginals.email = layout.email.innerHTML;
           cellOriginals.website = layout.website.innerHTML;
           cellOriginals.reviews = layout.reviews.innerHTML;
           cellOriginals.opp = layout.opportunity.innerHTML;
           if (layout.address) layout.address.innerHTML = spinner;
           layout.phone.innerHTML = spinner;
+          layout.email.innerHTML = spinner;
           layout.website.innerHTML = spinner;
         } else {
           cellOriginals.email = layout.email.innerHTML;
@@ -2016,11 +2212,16 @@ document.addEventListener('DOMContentLoaded', () => {
               if (layout.address) {
                 layout.address.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
               }
-              layout.phone.innerHTML = renderLeadsTablePhoneCell(row.dataset.phone, row.dataset.email);
+              layout.phone.innerHTML = renderLeadsTablePhoneCell(row.dataset.phone);
+              layout.email.innerHTML = renderLeadsTableEmailCell(row.dataset.email);
               layout.website.innerHTML = renderLeadsTableWebsiteCell(row.dataset.website);
               layout.reviews.innerHTML = renderReviewsCellInner(row.dataset.rating, row.dataset.reviews);
               const starEl = layout.reviews.querySelector('.row-stars');
-              if (starEl) renderStarsInElement(starEl, parseFloat(row.dataset.rating) || 0);
+              if (starEl) renderStarsInElement(starEl, parseFloat(row.dataset.rating) || 0, 'w-3.5 h-3.5');
+              const intelBtn = row.querySelector('.email-intel-btn');
+              if (intelBtn) {
+                intelBtn.dataset.email = row.dataset.email && row.dataset.email !== 'N/A' ? row.dataset.email : '';
+              }
             } else {
               if (row.dataset.email && row.dataset.email !== 'N/A') {
                 layout.email.innerHTML = `<a href="mailto:${row.dataset.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${row.dataset.email}">${row.dataset.email}</a>`;
@@ -2058,6 +2259,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (layout.kind === 'leads') {
               if (layout.address) layout.address.innerHTML = cellOriginals.address;
               layout.phone.innerHTML = cellOriginals.phone;
+              layout.email.innerHTML = cellOriginals.email;
               layout.website.innerHTML = cellOriginals.website;
               layout.reviews.innerHTML = cellOriginals.reviews;
               layout.opportunity.innerHTML = cellOriginals.opp;
@@ -2071,6 +2273,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (layout.kind === 'leads') {
             if (layout.address) layout.address.innerHTML = cellOriginals.address;
             layout.phone.innerHTML = cellOriginals.phone;
+            layout.email.innerHTML = cellOriginals.email;
             layout.website.innerHTML = cellOriginals.website;
             layout.reviews.innerHTML = cellOriginals.reviews;
             layout.opportunity.innerHTML = cellOriginals.opp;
@@ -2220,6 +2423,9 @@ document.addEventListener('DOMContentLoaded', () => {
                                     const labels = window.PIPELINE_STAGE_LABELS || {};
                                     const fullName = labels[newStage] || '';
                                     const short = (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
+                                    originalRow.dataset.pipelineLabel = short;
+                                    const pipeSel = originalRow.querySelector('.pipeline-inline-select');
+                                    if (pipeSel) pipeSel.value = String(newStage);
                                     const cell = originalRow.querySelector('.pipeline-stage-label');
                                     if (cell) cell.textContent = `${newStage}. ${short || 'Stage'}`;
                                 }

@@ -5,7 +5,7 @@ const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
-const { PIPELINE_STAGES, SCRIPT_LIBRARY } = require('../services/salesConstants');
+const { PIPELINE_STAGES, SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
@@ -457,6 +457,7 @@ router.post('/:key/insights', async (req, res, next) => {
     const offeringCatalog = Object.entries(SCRIPT_LIBRARY)
       .map(([id, s]) => `- ${id}: ${s.label} — ${s.valueProp}`)
       .join('\n');
+    const serviceKeyList = SCRIPT_LIBRARY_KEYS.join(', ');
 
     const snapshot = {
       company: lead.title,
@@ -490,11 +491,11 @@ router.post('/:key/insights', async (req, res, next) => {
           role: 'system',
           content: `You are a senior agency seller for a local SMB digital agency. Pick exactly ONE primary offering from the catalog that is the most logical first sale for this lead, based on their category, location, ratings/reviews, website presence, and technical gaps.
 
-Catalog (keys must be exactly "reputation" or "aiWebsites"):
+Catalog (primaryServiceKey must be exactly one of: ${serviceKeyList}):
 ${offeringCatalog}
 
 Respond with JSON only, no markdown:
-{"primaryServiceKey":"reputation"|"aiWebsites","primaryServiceLabel":"string","rationale":"2-4 sentences: why this offer fits now","talkTrack":"One conversational sentence to open a call or email"}`,
+{"primaryServiceKey":"<one of the keys above>","primaryServiceLabel":"string","rationale":"2-4 sentences: why this offer fits now","talkTrack":"One conversational sentence to open a call or email"}`,
         },
         {
           role: 'user',
@@ -521,7 +522,7 @@ Respond with JSON only, no markdown:
       return res.json({ success: false, error: 'Invalid AI response' });
     }
 
-    const keyOk = parsed.primaryServiceKey === 'reputation' || parsed.primaryServiceKey === 'aiWebsites';
+    const keyOk = SCRIPT_LIBRARY_KEYS.includes(parsed.primaryServiceKey);
     const insight = {
       primaryServiceKey: keyOk ? parsed.primaryServiceKey : 'aiWebsites',
       primaryServiceLabel: parsed.primaryServiceLabel || SCRIPT_LIBRARY.aiWebsites.label,
