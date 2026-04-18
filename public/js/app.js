@@ -744,6 +744,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const auditSummary = document.getElementById('mobilePanelAuditSummary');
     const auditLoading = document.getElementById('mobilePanelAuditLoading');
     const auditProvider = document.getElementById('mobilePanelAuditProvider');
+    const auditSell = document.getElementById('mobilePanelAuditSell');
+    const openerWrap = document.getElementById('mobilePanelAuditOpenerWrap');
+    const openerEl = document.getElementById('mobilePanelAuditOpener');
     if (!auditStatus || !auditSummary) return;
 
     const heuristic = auditSummary.textContent;
@@ -751,6 +754,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!key) {
       if (auditLoading) auditLoading.classList.add('hidden');
       if (auditProvider) auditProvider.classList.add('hidden');
+      if (auditSell) auditSell.textContent = '—';
+      if (openerWrap) openerWrap.classList.add('hidden');
+      if (openerEl) openerEl.textContent = '';
       return;
     }
 
@@ -772,15 +778,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (auditLoading) auditLoading.classList.add('hidden');
         if (!data.success) {
           auditSummary.textContent = heuristic;
+          if (auditSell) auditSell.textContent = auditStatus.textContent || '—';
+          if (openerWrap) openerWrap.classList.add('hidden');
+          if (openerEl) openerEl.textContent = '';
           return;
         }
-        auditStatus.textContent = data.primaryServiceLabel || 'Recommended offer';
+        const sellLabel = data.primaryServiceLabel || 'Recommended offer';
+        auditStatus.textContent = sellLabel;
         auditStatus.className = 'text-[10px] font-black uppercase tracking-widest text-brand-yellow';
-        let body = data.rationale || heuristic;
-        if (data.talkTrack) {
-          body += `\n\nSuggested opener: “${data.talkTrack}”`;
+        if (auditSell) auditSell.textContent = sellLabel;
+        auditSummary.textContent = data.rationale || heuristic;
+        if (openerWrap && openerEl) {
+          const tt = typeof data.talkTrack === 'string' ? data.talkTrack.trim() : '';
+          if (tt) {
+            openerEl.textContent = `“${tt}”`;
+            openerWrap.classList.remove('hidden');
+          } else {
+            openerEl.textContent = '';
+            openerWrap.classList.add('hidden');
+          }
         }
-        auditSummary.textContent = body;
         if (auditProvider) {
           auditProvider.textContent = data.cached ? 'AI insight (cached)' : `AI insight · ${data.provider || 'kie'}`;
           auditProvider.classList.remove('hidden');
@@ -790,6 +807,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (reqId !== kieInsightRequestId) return;
         if (auditLoading) auditLoading.classList.add('hidden');
         auditSummary.textContent = heuristic;
+        if (auditSell) auditSell.textContent = auditStatus.textContent || '—';
+        if (openerWrap) openerWrap.classList.add('hidden');
+        if (openerEl) openerEl.textContent = '';
       });
   }
 

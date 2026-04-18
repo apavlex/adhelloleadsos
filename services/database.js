@@ -5,6 +5,95 @@ const { clampPipelineStage, PIPELINE_SCHEMA_VERSION } = require('./pipelineConst
 
 let db;
 
+function isBlankValue(v) {
+  if (v == null) return true;
+  if (typeof v === 'string') {
+    const s = v.trim();
+    return s === '' || s.toLowerCase() === 'n/a' || s === '—' || s === '-';
+  }
+  return false;
+}
+
+function normalizeEmail(email) {
+  if (!email || email === 'N/A') return '';
+  return String(email).trim().toLowerCase();
+}
+
+function normalizeDomain(website) {
+  if (!website || website === 'N/A') return '';
+  let s = String(website).trim();
+  if (!s) return '';
+  s = s.replace(/^https?:\/\//i, '');
+  s = s.replace(/^www\./i, '');
+  s = s.split(/[/?#]/)[0] || '';
+  return s.trim().toLowerCase();
+}
+
+function normalizePhone(phone) {
+  if (!phone || phone === 'N/A') return '';
+  const digits = String(phone).replace(/\D+/g, '');
+  if (!digits) return '';
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
+function normalizeName(name) {
+  if (!name) return '';
+  return String(name)
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
+    .replace(/\b(llc|inc|corp|co|company|ltd|pllc|pc|group|studio)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function normalizeGeo(city, state) {
+  const c = city ? String(city).trim().toLowerCase() : '';
+  const st = state ? String(state).trim().toLowerCase() : '';
+  if (!c || !st) return '';
+  return `${c}|${st}`;
+}
+
+function computeDedupeKey(lead) {
+  const em = normalizeEmail(lead.email);
+  if (em) return `email:${em}`;
+  const dom = normalizeDomain(lead.website);
+  if (dom) return `domain:${dom}`;
+  const ph = normalizePhone(lead.phone);
+  if (ph) return `phone:${ph}`;
+  const nm = normalizeName(lead.title);
+  const geo = normalizeGeo(lead.city, lead.state);
+  if (nm && geo) return `namegeo:${nm}|${geo}`;
+  return '';
+}
+
+function appendUpdates(existingUpdates, incomingUpdates) {
+  const base = Array.isArray(existingUpdates) ? existingUpdates : [];
+  const add = Array.isArray(incomingUpdates) ? incomingUpdates : [];
+  if (add.length === 0) return base;
+  return [...base, ...add];
+}
+
+function mergePreferExisting(existing, incoming) {
+  const out = {};
+  for (const [k, v] of Object.entries(incoming || {})) {
+    if (k === 'key' || k === 'workspaceId' || k === 'createdAt') continue;
+    if (k === 'logs' || k === 'chatHistory') continue;
+    if (k === 'updates') continue;
+    if (k === 'pipelineStage' || k === 'status') continue;
+    if (isBlankValue(v)) continue;
+    const cur = existing ? existing[k] : undefined;
+    if (isBlankValue(cur)) out[k] = v;
+  }
+
+  if (!existing) return out;
+
+  if (!isBlankValue(incoming?.status) && isBlankValue(existing.status)) out.status = incoming.status;
+  if (incoming?.pipelineStage !== undefined && existing.pipelineStage == null) out.pipelineStage = incoming.pipelineStage;
+
+  return out;
+}
+
 // On Replit, auto-connects via REPLIT_DB_URL env var
 // For local dev, falls back to a file-backed store so data persists across restarts
 if (process.env.REPLIT_DB_URL) {
@@ -88,26 +177,60 @@ module.exports = {
 
   async saveLead(leadData) {
     const wid = leadData.workspaceId || 'default';
-    // If an email exists, merge into an existing lead in the same workspace only
-    if (leadData.email && leadData.email !== 'N/A') {
-      const existing = await this.findLeadByEmail(leadData.email, wid);
-      if (existing) {
-        await this.updateLead(existing.key, leadData);
-        return existing.key;
-      }
-    } else if (leadData.ip) {
-      // Fallback to IP matching for anonymous chats/audits
-      const existing = await this.findLeadByIp(leadData.ip, wid);
-      if (existing) {
-        await this.updateLead(existing.key, leadData);
-        return existing.key;
-      }
+    const incoming = { ...(leadData || {}), workspaceId: wid };
+    incoming.emailNorm = normalizeEmail(incoming.email);
+    incoming.domainNorm = normalizeDomain(incoming.website);
+    incoming.phoneNorm = normalizePhone(incoming.phone);
+    incoming.nameNorm = normalizeName(incoming.title);
+    incoming.geoNorm = normalizeGeo(incoming.city, incoming.state);
+    incoming.dedupeKey = computeDedupeKey(incoming);
+
+    // Find existing lead to merge into (workspace-scoped)
+    const leads = await this.getAllLeads();
+    const sameWorkspace = (l) => (l.workspaceId || 'default') === wid;
+    const findBy = (pred) => leads.find((l) => sameWorkspace(l) && pred(l)) || null;
+
+    const existing =
+      (incoming.emailNorm ? findBy((l) => normalizeEmail(l.email) === incoming.emailNorm) : null) ||
+      (incoming.domainNorm ? findBy((l) => normalizeDomain(l.website) === incoming.domainNorm) : null) ||
+      (incoming.phoneNorm ? findBy((l) => normalizePhone(l.phone) === incoming.phoneNorm) : null) ||
+      (incoming.nameNorm && incoming.geoNorm
+        ? findBy(
+            (l) => normalizeName(l.title) === incoming.nameNorm && normalizeGeo(l.city, l.state) === incoming.geoNorm
+          )
+        : null) ||
+      (incoming.ip ? findBy((l) => l.ip === incoming.ip) : null);
+
+    if (existing) {
+      const patch = mergePreferExisting(existing, incoming);
+
+      // Persist canonical keys for future dedupe and analytics
+      patch.emailNorm = existing.emailNorm || incoming.emailNorm || undefined;
+      patch.domainNorm = existing.domainNorm || incoming.domainNorm || undefined;
+      patch.phoneNorm = existing.phoneNorm || incoming.phoneNorm || undefined;
+      patch.nameNorm = existing.nameNorm || incoming.nameNorm || undefined;
+      patch.geoNorm = existing.geoNorm || incoming.geoNorm || undefined;
+      patch.dedupeKey = existing.dedupeKey || incoming.dedupeKey || undefined;
+
+      // Merge updates (notes/enrichment updates)
+      patch.updates = appendUpdates(existing.updates, incoming.updates);
+
+      // Log merge source (updateLead already merges logs arrays)
+      patch.logs = [
+        {
+          type: 'merge',
+          message: `Merged incoming lead data from ${incoming.source || 'ingest'}`,
+          timestamp: new Date().toISOString(),
+        },
+      ];
+
+      await this.updateLead(existing.key, patch);
+      return existing.key;
     }
 
     const key = `lead:${Date.now()}`;
     const newLead = {
-      ...leadData,
-      workspaceId: wid,
+      ...incoming,
       createdAt: new Date().toISOString(),
       pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
       pipelineStage: clampPipelineStage(

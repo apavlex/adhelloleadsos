@@ -127,7 +127,7 @@
                   </div>
                 </th>
                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Company</th>
-                <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Pipeline</th>
+                <th class="px-3 py-3 text-[11px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Pipeline</th>
                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Phone</th>
                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Email</th>
                 <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Website</th>
@@ -212,14 +212,14 @@
                   <td class="px-3 py-3 pipeline-stage-cell align-top max-w-[11rem]" onclick="event.stopPropagation()">
                     <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { %>
                     <label class="sr-only">Pipeline stage for <%= lead.title %></label>
-                    <select class="pipeline-inline-select w-full min-w-0 max-w-[10.5rem] text-[9px] font-black text-brand-dark dark:text-white bg-brand-cream/50 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10 rounded-lg px-2 py-2 shadow-sm focus:ring-2 focus:ring-brand-yellow cursor-pointer" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
+                    <select class="pipeline-inline-select w-full min-w-0 max-w-[10.5rem] text-[12px] font-black text-brand-dark dark:text-white bg-brand-cream/50 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10 rounded-lg px-2.5 py-2.5 shadow-sm focus:ring-2 focus:ring-brand-yellow cursor-pointer" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
                       <% pipelineStages.forEach((st) => { %>
                         <% const optShort = st.name.length > 34 ? st.name.slice(0, 34) + '…' : st.name; %>
                         <option value="<%= st.id %>" <%= psRow === st.id ? 'selected' : '' %>><%= st.id %>. <%= optShort %></option>
                       <% }); %>
                     </select>
                     <% } else { %>
-                    <span class="pipeline-stage-label text-[9px] font-black text-brand-yellow"><%= psRow %>. <%= pipeShort %></span>
+                    <span class="pipeline-stage-label text-[12px] font-black text-brand-yellow"><%= psRow %>. <%= pipeShort %></span>
                     <% } %>
                   </td>
                   <td class="px-3 py-3 text-xs font-medium text-brand-muted dark:text-slate-300 whitespace-nowrap max-w-[7rem] truncate" title="<%= lead.phone %>">
