@@ -6,7 +6,7 @@ const firecrawl = require('../services/firecrawl');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
 const { PIPELINE_STAGES } = require('../services/salesConstants');
-const { getLeadsCoachPayload, scoreLeadRecord } = require('../services/opportunityScore');
+const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
@@ -70,8 +70,6 @@ router.get('/', async (req, res, next) => {
       ? req.query.importError.trim()
       : null;
 
-    const flowCoach = getLeadsCoachPayload(leads);
-
     res.render('leads', {
       title: 'Saved Leads',
       activePage: sourceFilter === 'inbound' ? 'inbound' : 'leads',
@@ -81,7 +79,6 @@ router.get('/', async (req, res, next) => {
       importNotice,
       importError,
       pipelineStages: PIPELINE_STAGES,
-      flowCoach,
       canManageWorkspace: req.canManageWorkspace,
     });
   } catch (err) {

@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { getCoachPayload } = require('../services/flowCoach');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 
 router.get('/', async (req, res, next) => {
@@ -10,7 +9,6 @@ router.get('/', async (req, res, next) => {
     const leads = filterLeadsForRequest(req, allLeads);
     const adhelloLeads = leads.filter((l) => l.source && l.source.startsWith('adhello_'));
     const workspaceLeads = leads;
-    const flowCoach = await getCoachPayload(req);
     res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'search',
@@ -18,7 +16,6 @@ router.get('/', async (req, res, next) => {
       workspaceLeadsCount: workspaceLeads.length,
       warmInboundCount: adhelloLeads.length,
       totalPipelineCount: leads.length,
-      flowCoach,
     });
   } catch (e) {
     next(e);
