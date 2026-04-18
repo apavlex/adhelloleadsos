@@ -9,36 +9,7 @@
   <main class="max-wide px-6 py-10 md:py-14">
     <%- include('partials/sales-nav') %>
 
-    <div class="mb-10 max-w-3xl">
-      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">10-Stage <span class="text-brand-muted">Blueprint</span></h1>
-      <p class="text-brand-muted font-medium mt-2">Assign each saved lead to a stage. CQI fields store discovery answers on the lead record.</p>
-    </div>
-
-    <div class="flex flex-wrap gap-2 mb-10">
-      <% stages.forEach((s) => { %>
-        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-[11px] font-bold text-brand-dark dark:text-white">
-          <span class="text-brand-muted font-black"><%= s.id %></span>
-          <%= s.name %>
-          <span class="text-brand-yellow font-black">(<%= counts[s.id] || 0 %>)</span>
-        </span>
-      <% }) %>
-    </div>
-
-    <div class="space-y-4 mb-16">
-      <% stages.forEach((s) => { %>
-        <details class="brand-card dark:bg-slate-900 dark:border-white/10 group" <%= s.id <= 4 ? 'open' : '' %>>
-          <summary class="px-6 py-4 cursor-pointer font-display font-extrabold text-brand-dark dark:text-white list-none flex justify-between items-center">
-            <span><span class="text-brand-yellow mr-2"><%= s.id %>.</span> <%= s.name %></span>
-            <span class="text-[10px] font-black uppercase text-brand-muted group-open:rotate-180 transition-transform">▼</span>
-          </summary>
-          <div class="px-6 pb-5 pt-0 text-sm text-brand-muted border-t border-brand-border/50 dark:border-white/5">
-            <%= s.summary %>
-          </div>
-        </details>
-      <% }) %>
-    </div>
-
-    <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mb-12">
+    <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mb-10">
       <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 bg-gray-50/50 dark:bg-white/5">
         <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Lead pipeline</h2>
         <p class="text-xs text-brand-muted mt-1">All leads in one pipeline. Warm (AdHello) defaults to CQI when ingested.</p>
@@ -94,7 +65,7 @@
       </div>
     </div>
 
-    <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+    <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10 mb-10">
       <h2 class="font-display font-extrabold text-lg mb-2 text-brand-dark dark:text-white">Client Qualification Interview (CQI)</h2>
       <p class="text-sm text-brand-muted mb-6">Saves to the lead as <code class="text-xs bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">cqi</code> — revenue, spend, and notes.</p>
       <% if (leads.length === 0) { %>
@@ -127,6 +98,41 @@
         </form>
       <% } %>
     </div>
+
+    <details class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden group/blueprint">
+      <summary class="px-6 py-4 cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 border-b border-brand-border dark:border-white/10 bg-gray-50/50 dark:bg-white/5 [&::-webkit-details-marker]:hidden">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Reference only</p>
+          <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-0.5">10-stage methodology</h2>
+          <p class="text-xs text-brand-muted dark:text-slate-400 mt-1 max-w-2xl">Definitions for each stage — informational. Use the table above to change stages.</p>
+        </div>
+        <span class="text-brand-muted dark:text-slate-400 text-lg shrink-0 group-open/blueprint:rotate-180 transition-transform" aria-hidden="true">▼</span>
+      </summary>
+      <div class="p-6 pt-4 space-y-8">
+        <div class="flex flex-wrap gap-2">
+          <% stages.forEach((s) => { %>
+            <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-cream/40 dark:bg-white/5 border border-brand-border dark:border-white/10 text-[11px] font-bold text-brand-dark dark:text-white">
+              <span class="text-brand-muted font-black"><%= s.id %></span>
+              <%= s.name %>
+              <span class="text-brand-yellow font-black">(<%= counts[s.id] || 0 %>)</span>
+            </span>
+          <% }) %>
+        </div>
+        <div class="space-y-4">
+          <% stages.forEach((s) => { %>
+            <details class="rounded-2xl border border-brand-border dark:border-white/10 bg-white/60 dark:bg-slate-950/40 group/stage">
+              <summary class="px-5 py-3 cursor-pointer font-display font-bold text-brand-dark dark:text-white list-none flex justify-between items-center text-sm [&::-webkit-details-marker]:hidden">
+                <span><span class="text-brand-yellow mr-2"><%= s.id %>.</span> <%= s.name %></span>
+                <span class="text-[10px] font-black uppercase text-brand-muted group-open/stage:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div class="px-5 pb-4 pt-0 text-sm text-brand-muted dark:text-slate-400 border-t border-brand-border/40 dark:border-white/5">
+                <%= s.summary %>
+              </div>
+            </details>
+          <% }) %>
+        </div>
+      </div>
+    </details>
   </main>
 </body>
 </html>
