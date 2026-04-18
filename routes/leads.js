@@ -48,11 +48,21 @@ router.get('/', async (req, res, next) => {
     };
 
     let importNotice = null;
-    if (['imported', 'skipped', 'failed'].some((k) => req.query[k] != null && req.query[k] !== '')) {
+    if (
+      ['imported', 'skipped', 'failed', 'rows', 'created', 'updated'].some(
+        (k) => req.query[k] != null && req.query[k] !== ''
+      )
+    ) {
+      const rowsQ = parseInt(req.query.rows, 10);
+      const createdQ = parseInt(req.query.created, 10);
+      const updatedQ = parseInt(req.query.updated, 10);
       importNotice = {
         imported: Math.max(0, parseInt(req.query.imported, 10) || 0),
         skipped: Math.max(0, parseInt(req.query.skipped, 10) || 0),
         failed: Math.max(0, parseInt(req.query.failed, 10) || 0),
+        rows: Number.isNaN(rowsQ) ? null : rowsQ,
+        created: Number.isNaN(createdQ) ? null : createdQ,
+        updated: Number.isNaN(updatedQ) ? null : updatedQ,
       };
     }
 
@@ -151,11 +161,13 @@ router.post('/import', (req, res, next) => {
       if (req.headers.accept && req.headers.accept.includes('application/json')) {
         return res.status(400).json({ success: false, error: 'No CSV file received (field name: csvfile).' });
       }
-      return res.redirect('/leads?imported=0&skipped=0&failed=0');
+      return res.redirect('/leads?rows=0&created=0&updated=0&imported=0&skipped=0&failed=0');
     }
 
     const records = parseCsvToLeadRecords(req.file.buffer, req.file.originalname || 'import.csv');
-    let imported = 0;
+    const wid = req.workspaceId || 'default';
+    let created = 0;
+    let updated = 0;
     let skipped = 0;
     let failed = 0;
 
@@ -164,26 +176,46 @@ router.post('/import', (req, res, next) => {
         skipped += 1;
         continue;
       }
+      let willMerge = false;
+      if (rec.email && rec.email !== 'N/A') {
+        const ex = await dbService.findLeadByEmail(rec.email, wid);
+        willMerge = !!ex;
+      } else if (rec.ip) {
+        const ex = await dbService.findLeadByIp(rec.ip, wid);
+        willMerge = !!ex;
+      }
       try {
         await dbService.saveLead({
           ...rec,
-          workspaceId: req.workspaceId || 'default',
+          workspaceId: wid,
         });
-        imported += 1;
+        if (willMerge) updated += 1;
+        else created += 1;
       } catch (e) {
         console.error('[CSV import] row error:', rec.title, e.message);
         failed += 1;
       }
     }
 
-    if (imported > 0) {
+    const applied = created + updated;
+    if (applied > 0) {
       await activationService.recordEvent(userEmail(req), 'csv_import');
     }
 
+    const rows = records.length;
+    const q = `rows=${rows}&created=${created}&updated=${updated}&imported=${applied}&skipped=${skipped}&failed=${failed}`;
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
-      return res.json({ success: true, imported, skipped, failed, totalRows: records.length });
+      return res.json({
+        success: true,
+        imported: applied,
+        created,
+        updated,
+        skipped,
+        failed,
+        totalRows: rows,
+      });
     }
-    res.redirect(`/leads?imported=${imported}&skipped=${skipped}&failed=${failed}`);
+    res.redirect(`/leads?${q}`);
   } catch (err) {
     next(err);
   }

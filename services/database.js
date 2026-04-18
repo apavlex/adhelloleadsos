@@ -87,24 +87,27 @@ module.exports = {
   // --- Leads (bookmarked businesses) ---
 
   async saveLead(leadData) {
-    // If an email exists, check for an existing lead first to merge
+    const wid = leadData.workspaceId || 'default';
+    // If an email exists, merge into an existing lead in the same workspace only
     if (leadData.email && leadData.email !== 'N/A') {
-      const existing = await this.findLeadByEmail(leadData.email);
+      const existing = await this.findLeadByEmail(leadData.email, wid);
       if (existing) {
-        return await this.updateLead(existing.key, leadData);
+        await this.updateLead(existing.key, leadData);
+        return existing.key;
       }
     } else if (leadData.ip) {
       // Fallback to IP matching for anonymous chats/audits
-      const existing = await this.findLeadByIp(leadData.ip);
+      const existing = await this.findLeadByIp(leadData.ip, wid);
       if (existing) {
-        return await this.updateLead(existing.key, leadData);
+        await this.updateLead(existing.key, leadData);
+        return existing.key;
       }
     }
 
     const key = `lead:${Date.now()}`;
     const newLead = {
       ...leadData,
-      workspaceId: leadData.workspaceId || 'default',
+      workspaceId: wid,
       createdAt: new Date().toISOString(),
       pipelineSchemaVersion: PIPELINE_SCHEMA_VERSION,
       pipelineStage: clampPipelineStage(
@@ -123,17 +126,33 @@ module.exports = {
     return key;
   },
 
-  async findLeadByEmail(email) {
+  /**
+   * @param {string} email
+   * @param {string} [workspaceId] When set, only match leads in that workspace (recommended for imports).
+   */
+  async findLeadByEmail(email, workspaceId) {
     if (!email || email === 'N/A') return null;
+    const em = String(email).trim().toLowerCase();
     const leads = await this.getAllLeads();
-    return leads.find(l => l.email && l.email.toLowerCase() === email.toLowerCase()) || null;
+    return (
+      leads.find((l) => {
+        if (!l.email || String(l.email).toLowerCase() !== em) return false;
+        if (workspaceId == null || workspaceId === '') return true;
+        return (l.workspaceId || 'default') === workspaceId;
+      }) || null
+    );
   },
 
-  async findLeadByIp(ip) {
+  async findLeadByIp(ip, workspaceId) {
     if (!ip) return null;
     const leads = await this.getAllLeads();
-    // Match only if the lead was created recently or from same source to avoid NAT over-merging
-    return leads.find(l => l.ip === ip) || null;
+    return (
+      leads.find((l) => {
+        if (l.ip !== ip) return false;
+        if (workspaceId == null || workspaceId === '') return true;
+        return (l.workspaceId || 'default') === workspaceId;
+      }) || null
+    );
   },
 
   async getLead(key) {
