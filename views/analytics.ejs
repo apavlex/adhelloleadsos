@@ -56,6 +56,16 @@
                     </div>
                 </div>
 
+                <!-- Daily action tracker (same partial as Outreach → Touches) -->
+                <section class="mb-10 scroll-mt-24" aria-labelledby="insights-tracker-heading">
+                    <div class="mb-6">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Outreach</p>
+                        <h2 id="insights-tracker-heading" class="text-xl md:text-2xl font-black text-brand-dark dark:text-white tracking-tight">Daily action tracker</h2>
+                        <p class="text-sm text-brand-muted mt-2 max-w-3xl">Log hustle metrics per day. Your AI prospecting coach reads your pipeline and today’s volume — same data as <a href="/outreach?tab=touches" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Outreach → Touches</a>.</p>
+                    </div>
+                    <%- include('partials/sales_tracker_content', { hideSalesTrackerHeading: true }) %>
+                </section>
+
                 <!-- Main Chart -->
                 <div class="bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm p-6 rounded-[2.5rem] border border-brand-border/40 dark:border-white/5 shadow-sm mb-8 overflow-hidden">
                     <div class="flex items-center justify-between mb-4">

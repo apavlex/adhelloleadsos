@@ -4,7 +4,11 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { computeOutreachStreak, buildDailyChartSeries } = require('../services/trackerStats');
+const {
+  computeOutreachStreak,
+  countUniqueLeadsTouchedOnUtcDate,
+  dailyPersonalizedTouchGoal,
+} = require('../services/trackerStats');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
 
@@ -63,14 +67,8 @@ router.get('/', async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const history = await dbService.listDailyTrackers(email, 60);
     const streak = computeOutreachStreak(history, today);
-    const todayRow = await dbService.getDailyTracker(email, today);
-    const touchesToday =
-      (parseInt(todayRow?.coldEmails, 10) || 0) +
-      (parseInt(todayRow?.coldDms, 10) || 0) +
-      (parseInt(todayRow?.coldCalls, 10) || 0) +
-      (parseInt(todayRow?.upworkBids, 10) || 0);
-
-    const touchGoal = Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '50', 10) || 50);
+    const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
+    const touchGoal = dailyPersonalizedTouchGoal();
     const repliesWaiting = countReplySignals(workspaceLeads);
     const overdueFollowUps = countOverdueSequences(workspaceLeads);
     const queueNeedingAction = countQueueNeedingAction(workspaceLeads);

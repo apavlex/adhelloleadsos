@@ -42,6 +42,8 @@
             <% const stRow = (typeof pipelineStages !== 'undefined' && pipelineStages) ? pipelineStages.find((s) => s.id === psRow) : null; %>
             <% const pipeName = stRow ? stRow.name.replace(/\s*\(.*$/, '').trim() : 'Stage'; %>
             <% const pipeShort = pipeName.length > 26 ? pipeName.slice(0, 26) + '…' : pipeName; %>
+            <% const rawDeliveryStatus = lead.status || 'Not Contacted'; %>
+            <% const deliveryStatusDisplay = rawDeliveryStatus === 'Needs Video' ? 'Not Contacted' : rawDeliveryStatus; %>
             <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
             <tr class="result-row scroll-mt-28"
                 id="lead-row-<%= rowAnchor %>"
@@ -62,7 +64,7 @@
                 data-facebook="<%= lead.facebook || 'N/A' %>"
                 data-instagram="<%= lead.instagram || 'N/A' %>"
                 data-twitter="<%= lead.twitter || 'N/A' %>"
-                data-status="<%= lead.status || 'Not Contacted' %>"
+                data-status="<%= deliveryStatusDisplay %>"
                 data-loom-url="<%= lead.loomUrl || '' %>"
                 data-outreach-prompt="<%= lead.outreachPrompt || '' %>"
                 data-updates='<%= JSON.stringify(lead.updates || []).replace(/'/g, "&apos;") %>'
@@ -156,14 +158,14 @@
               <td class="px-3 py-3">
                 <% 
                   let statusClass = 'bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-slate-200';
-                  if (lead.status === 'Video Recorded') statusClass = 'bg-brand-yellow text-brand-dark dark:text-slate-900';
-                  if (lead.status === 'Email Sent') statusClass = 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300';
-                  if (lead.status === 'Follow-up') statusClass = 'bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300';
-                  if (lead.status === 'Closed - Won') statusClass = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300';
-                  if (lead.status === 'Closed - Lost') statusClass = 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-300';
+                  if (deliveryStatusDisplay === 'Video Recorded') statusClass = 'bg-brand-yellow text-brand-dark dark:text-slate-900';
+                  if (deliveryStatusDisplay === 'Email Sent') statusClass = 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300';
+                  if (deliveryStatusDisplay === 'Follow-up') statusClass = 'bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300';
+                  if (deliveryStatusDisplay === 'Closed - Won') statusClass = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300';
+                  if (deliveryStatusDisplay === 'Closed - Lost') statusClass = 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-300';
                 %>
-                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider <%= statusClass %> whitespace-nowrap max-w-[9rem] truncate inline-block align-middle" title="<%= lead.status || 'Not Contacted' %>">
-                  <%= lead.status || 'Not Contacted' %>
+                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider <%= statusClass %> whitespace-nowrap max-w-[9rem] truncate inline-block align-middle" title="<%= deliveryStatusDisplay %>">
+                  <%= deliveryStatusDisplay %>
                 </span>
               </td>
               <td class="px-3 py-3 text-right pr-6">
@@ -189,7 +191,7 @@
 
   <!-- Pipeline board: 10-stage methodology (drag cards between columns to update pipelineStage) -->
   <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">
-      <p class="text-xs text-brand-muted mb-4 max-w-3xl">Drag a card to another column to update its <strong class="text-brand-dark dark:text-white">pipeline stage</strong>. Delivery status (Not Contacted, Needs Video, etc.) stays in table view — use your CRM column for fulfillment.</p>
+          <p class="text-xs text-brand-muted mb-4 max-w-3xl">Drag a card to another column to update its <strong class="text-brand-dark dark:text-white">pipeline stage</strong>. Delivery status (Not Contacted, Video Recorded, etc.) stays in table view — use your CRM column for fulfillment.</p>
       <div class="flex gap-4 min-w-max pb-2">
           <% if (typeof pipelineStages !== 'undefined' && pipelineStages) { pipelineStages.forEach((col) => { %>
           <div class="kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3" data-pipeline-stage="<%= col.id %>">

@@ -3,6 +3,38 @@ const router = express.Router();
 const dbService = require('../services/database');
 const activationService = require('../services/activationService');
 const { userEmail } = require('../services/workspaceService');
+const { computeOutreachStreak, buildDailyChartSeries, buildDayRollup } = require('../services/trackerStats');
+const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
+
+async function loadSalesTrackerLocals(req) {
+  const email = userEmail(req);
+  const today = new Date().toISOString().slice(0, 10);
+  const todayRow = await dbService.getDailyTracker(email, today);
+  const history = await dbService.listDailyTrackers(email, 14);
+  const history60 = await dbService.listDailyTrackers(email, 62);
+  const chartSeries = buildDailyChartSeries(today, history, 14);
+  const streak = computeOutreachStreak(history60, today);
+  const checklistWeek = buildDayRollup(today, history60, 7);
+  const checklistMonth = buildDayRollup(today, history60, 30);
+  const outreachCoach = await buildOutreachCoachSnapshot(req);
+  return {
+    today,
+    todayRow: todayRow || {
+      coldEmails: 0,
+      coldDms: 0,
+      coldCalls: 0,
+      upworkBids: 0,
+      notes: '',
+      callNotes: '',
+    },
+    chartSeries,
+    streak,
+    checklistWeek,
+    checklistMonth,
+    outreachCoach,
+    trackerReturnTo: '/analytics',
+  };
+}
 
 /**
  * GET /analytics
@@ -57,10 +89,12 @@ router.get('/', async (req, res) => {
 
     if (demoMode) {
       const d = buildDemoAnalytics(visits, leads);
+      const trackerLocals = await loadSalesTrackerLocals(req);
       await activationService.recordEvent(userEmail(req), 'analytics_visit');
       return res.render('analytics', {
         user: req.user,
         ...d,
+        ...trackerLocals,
       });
     }
 
@@ -106,6 +140,8 @@ router.get('/', async (req, res) => {
 
     await activationService.recordEvent(userEmail(req), 'analytics_visit');
 
+    const trackerLocals = await loadSalesTrackerLocals(req);
+
     res.render('analytics', {
       user: req.user,
       totalVisits,
@@ -115,6 +151,7 @@ router.get('/', async (req, res) => {
       recentVisits: visits.slice(0, 10),
       leadCount: leads.length,
       isDemo: false,
+      ...trackerLocals,
     });
   } catch (err) {
     res.status(500).send(err.message);

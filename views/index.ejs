@@ -99,29 +99,25 @@
 
           <!-- Scheduled scrape settings -->
           <div id="scheduledSearchSettings" class="hidden overflow-hidden border-t border-brand-border/10 dark:border-white/5 transition-all duration-500">
-            <div class="flex items-center gap-8 px-6 py-4">
-                <div id="frequencyPocket" class="flex flex-col items-start group/freq">
-                    <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/freq:text-brand-yellow transition-colors whitespace-nowrap">Frequency</label>
-                    <select name="frequency" class="bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-base cursor-pointer p-0">
-                        <option value="4hours">Every 4 Hours</option>
-                        <option value="daily">Daily</option>
-                        <option value="weekly">Weekly</option>
-                        <option value="monthly">Monthly</option>
-                    </select>
+            <div class="flex flex-wrap items-center gap-6 sm:gap-8 px-6 py-4">
+                <div id="datePocket" class="flex flex-col items-start group/date">
+                    <label for="scheduledDateInput" class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/date:text-brand-yellow transition-colors whitespace-nowrap">Run date</label>
+                    <input type="date" id="scheduledDateInput" name="scheduledDate"
+                        class="bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-base p-0 min-w-[10rem]">
                 </div>
 
-                <div class="w-px h-8 bg-brand-border/10"></div>
+                <div class="hidden sm:block w-px h-8 bg-brand-border/10 shrink-0"></div>
 
                 <div id="timePocket" class="flex flex-col items-start group/time">
-                    <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/time:text-brand-yellow transition-colors whitespace-nowrap">Time of Day</label>
+                    <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/time:text-brand-yellow transition-colors whitespace-nowrap">Time of day</label>
                     <div class="flex items-center gap-2">
-                        <input type="time" name="scheduledTime" value="09:00"
+                        <input type="time" name="scheduledTime" id="scheduledTimeInput" value="09:00"
                             class="bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-base p-0 w-full min-w-[70px]">
                         <svg class="w-3.5 h-3.5 text-brand-muted shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     </div>
                 </div>
                 
-                <div class="ml-auto text-[10px] font-black uppercase tracking-widest text-brand-muted/40 italic">Scheduled runs</div>
+                <div class="w-full sm:w-auto sm:ml-auto text-[10px] font-black uppercase tracking-widest text-brand-muted/40 italic"><a href="/schedules" class="hover:text-brand-yellow transition-colors">Scheduled runs</a></div>
             </div>
           </div>
         </form>

@@ -1,4 +1,5 @@
 const express = require('express');
+const { DateTime } = require('luxon');
 const router = express.Router();
 const apifyService = require('../services/apify');
 const dbService = require('../services/database');
@@ -9,7 +10,7 @@ const { userEmail, filterLeadsForRequest } = require('../services/workspaceServi
 // POST /search — trigger an Apify search
 router.post('/', async (req, res, next) => {
   try {
-    const { keyword, city, state, maxResults, mode, frequency } = req.body;
+    const { keyword, city, state, maxResults, mode } = req.body;
 
     if (mode !== 'schedule' && !process.env.APIFY_API_TOKEN) {
       return res.status(503).render('error', {
@@ -25,18 +26,57 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    // --- Scheduled recurring scrape ---
+    // --- Scheduled one-time scrape (date + time in user's timezone) ---
     if (mode === 'schedule') {
-      const { scheduledTime, timezone } = req.body;
-      console.log(`[SEARCH] Saving scheduled scrape for "${keyword}" in "${city}" at ${scheduledTime} (${timezone})...`);
+      const scheduledDate = String(req.body.scheduledDate || '').trim();
+      const scheduledTime = String(req.body.scheduledTime || '09:00').trim();
+      const timezone = String(req.body.timezone || 'UTC').trim() || 'UTC';
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+        return res.status(400).render('error', {
+          message: 'Choose a run date for your scheduled search.',
+          activePage: 'search',
+        });
+      }
+
+      const timeMatch = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(scheduledTime);
+      if (!timeMatch) {
+        return res.status(400).render('error', {
+          message: 'Choose a valid time for your scheduled search.',
+          activePage: 'search',
+        });
+      }
+
+      const hh = String(timeMatch[1]).padStart(2, '0');
+      const mm = timeMatch[2];
+      const normalizedTime = `${hh}:${mm}`;
+
+      const local = DateTime.fromISO(`${scheduledDate}T${normalizedTime}`, { zone: timezone });
+      if (!local.isValid) {
+        return res.status(400).render('error', {
+          message: 'Could not interpret that schedule in your timezone. Try again.',
+          activePage: 'search',
+        });
+      }
+
+      const scheduledRunAt = local.toUTC().toISO();
+      if (DateTime.utc() >= DateTime.fromISO(scheduledRunAt)) {
+        return res.status(400).render('error', {
+          message: 'Scheduled run must be in the future.',
+          activePage: 'search',
+        });
+      }
+
+      console.log(`[SEARCH] Saving scheduled scrape for "${keyword}" in "${city}" at ${scheduledDate} ${normalizedTime} (${timezone}) → ${scheduledRunAt}`);
       await dbService.saveSchedule({
         keyword,
         city,
         state,
         maxResults: parseInt(maxResults, 10) || 20,
-        frequency: frequency || 'daily',
-        scheduledTime: scheduledTime || '09:00',
-        timezone: timezone || 'UTC',
+        scheduledRunAt,
+        scheduledDate,
+        scheduledTime: normalizedTime,
+        timezone,
         createdAt: new Date().toISOString(),
         workspaceId: req.workspaceId || 'default',
       });

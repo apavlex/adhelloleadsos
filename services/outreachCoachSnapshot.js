@@ -3,7 +3,11 @@
  */
 
 const dbService = require('./database');
-const { computeOutreachStreak } = require('./trackerStats');
+const {
+  computeOutreachStreak,
+  countUniqueLeadsTouchedOnUtcDate,
+  dailyPersonalizedTouchGoal,
+} = require('./trackerStats');
 const { PIPELINE_STAGES } = require('./salesConstants');
 const { scoreLeadRecord } = require('./opportunityScore');
 const { filterLeadsForRequest, userEmail } = require('./workspaceService');
@@ -84,17 +88,12 @@ function pickQuoteForDate(isoDate) {
 async function buildOutreachCoachSnapshot(req) {
   const email = userEmail(req);
   const today = new Date().toISOString().slice(0, 10);
-  const touchGoal = Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '50', 10) || 50);
+  const touchGoal = dailyPersonalizedTouchGoal();
 
   const all = await dbService.getAllLeads();
   const leads = filterLeadsForRequest(req, all);
 
-  const todayRow = await dbService.getDailyTracker(email, today);
-  const touchesToday =
-    (parseInt(todayRow?.coldEmails, 10) || 0) +
-    (parseInt(todayRow?.coldDms, 10) || 0) +
-    (parseInt(todayRow?.coldCalls, 10) || 0) +
-    (parseInt(todayRow?.upworkBids, 10) || 0);
+  const touchesToday = countUniqueLeadsTouchedOnUtcDate(leads, today);
 
   const history60 = await dbService.listDailyTrackers(email, 62);
   const streak = computeOutreachStreak(history60, today);

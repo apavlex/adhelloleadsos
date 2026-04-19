@@ -31,7 +31,7 @@
     <% if (success) { %>
       <div class="max-w-xl mx-auto mb-10 bg-emerald-50 border border-emerald-100 text-emerald-700 px-6 py-4 rounded-2xl flex items-center gap-4 animate-bounce-subtle">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
-        <span class="font-bold text-sm">Scheduled scrape saved — we’ll run it automatically.</span>
+        <span class="font-bold text-sm">Scheduled scrape saved — we’ll run it once at the date and time you picked.</span>
       </div>
     <% } %>
 
@@ -67,12 +67,21 @@
                   </td>
                   <td class="px-6 py-6 text-center">
                     <div class="inline-flex flex-col items-center">
+                      <% if (job.scheduledRunAt) { %>
                       <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-600 mb-1">
-                        <%= job.frequency %>
+                        One-time
+                      </span>
+                      <div class="text-[10px] font-bold text-brand-dark tracking-tight">
+                        <%= job.scheduledDate || '' %> · <%= job.scheduledTime || '09:00' %>
+                      </div>
+                      <% } else { %>
+                      <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 text-purple-600 mb-1">
+                        <%= job.frequency || 'daily' %>
                       </span>
                       <div class="text-[10px] font-bold text-brand-dark tracking-tight">
                         @ <%= job.scheduledTime || '09:00' %>
                       </div>
+                      <% } %>
                       <div class="text-[9px] font-medium text-brand-muted uppercase tracking-tighter">
                         <%= job.timezone || 'UTC' %>
                       </div>
@@ -104,7 +113,7 @@
           <svg class="w-10 h-10 text-brand-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
         </div>
         <h2 class="font-display font-extrabold text-3xl text-brand-dark mb-4">No scheduled jobs</h2>
-        <p class="text-brand-muted font-medium mb-10 max-w-sm mx-auto">Create a scheduled search on Find Leads — we scrape on your frequency and notify you when each run completes.</p>
+        <p class="text-brand-muted font-medium mb-10 max-w-sm mx-auto">Create a scheduled search on Find Leads — pick a date and time; we run once then notify you when the scrape completes.</p>
         <a href="/" class="btn-pill btn-primary px-10">Create scheduled search</a>
       </div>
     <% } %>

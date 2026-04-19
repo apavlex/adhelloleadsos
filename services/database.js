@@ -791,6 +791,69 @@ module.exports = {
     await db.delete(key);
   },
 
+  // --- Saved resources (links: YouTube, Drive, X, etc.; per workspace + user) ---
+
+  _userResourceKey(workspaceId, email, resourceId) {
+    const wid = workspaceId || 'default';
+    const frag = this._emailKeyFragment(email);
+    return `user_resource:${wid}:${frag}:${resourceId}`;
+  },
+
+  async listUserResources(workspaceId, email) {
+    const wid = workspaceId || 'default';
+    const frag = this._emailKeyFragment(email);
+    const prefix = `user_resource:${wid}:${frag}:`;
+    const keys = await db.list(prefix);
+    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    const resources = [];
+    for (const key of keyList) {
+      const data = await db.get(key);
+      if (!data) continue;
+      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      if (!raw) continue;
+      try {
+        const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (r && r.id && r.url) resources.push(r);
+      } catch {
+        /* skip */
+      }
+    }
+    resources.sort((a, b) => {
+      const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0;
+      const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0;
+      return tb - ta;
+    });
+    return resources;
+  },
+
+  async saveUserResource(workspaceId, email, resource) {
+    const id = String(resource.id || '').trim();
+    if (!id) throw new Error('Resource id is required.');
+    const now = new Date().toISOString();
+    const url = String(resource.url || '').trim();
+    if (!url) throw new Error('URL is required.');
+    const kind = String(resource.kind || 'link').toLowerCase();
+    const allowedKinds = new Set(['youtube', 'drive', 'x', 'link']);
+    const safeKind = allowedKinds.has(kind) ? kind : 'link';
+    const payload = {
+      id,
+      url,
+      title: String(resource.title || '').trim() || url,
+      note: String(resource.note || '').trim(),
+      kind: safeKind,
+      createdAt: resource.createdAt || now,
+      updatedAt: now,
+    };
+    const key = this._userResourceKey(workspaceId, email, id);
+    await db.set(key, JSON.stringify(payload));
+    return payload;
+  },
+
+  async deleteUserResource(workspaceId, email, resourceId) {
+    const key = this._userResourceKey(workspaceId, email, resourceId);
+    await db.delete(key);
+  },
+
   // --- Workspaces (multi-seat) ---
 
   async getWorkspace(workspaceId) {

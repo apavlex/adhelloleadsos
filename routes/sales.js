@@ -136,7 +136,7 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
       await activationService.recordEvent(email, 'outreach_logged');
     }
     const returnTo = (req.body.returnTo || '').toString().trim();
-    const allowed = new Set(['/sales/tracker', '/outreach?tab=touches']);
+    const allowed = new Set(['/sales/tracker', '/outreach?tab=touches', '/analytics']);
     const dest = allowed.has(returnTo) ? returnTo : '/sales/tracker';
     res.redirect(302, dest);
   } catch (e) {

@@ -302,6 +302,19 @@ table {
   animation: hunt-ring 1.25s ease-in-out infinite;
 }
 
+@keyframes hunt-progress-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(350%);
+  }
+}
+
+.hunt-progress-indeterminate {
+  animation: hunt-progress-slide 1.4s ease-in-out infinite;
+}
+
 #bulkActionBar {
   background: rgba(15, 23, 42, 0.85);
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);

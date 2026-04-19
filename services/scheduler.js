@@ -16,107 +16,124 @@ async function runDueSchedules() {
   for (const schedule of schedules) {
     try {
       const timezone = schedule.timezone || 'UTC';
-      const now = DateTime.now().setZone(timezone);
-      
-      // Parse scheduled time (format "HH:mm")
+      const nowLocal = DateTime.now().setZone(timezone);
+      const nowUtc = DateTime.utc();
+
+      // Parse scheduled time (format "HH:mm") — legacy recurring jobs
       const [sHour, sMin] = (schedule.scheduledTime || '09:00').split(':').map(Number);
-      
-      // Calculate when the job SHOULD run today
-      const targetToday = now.set({ hour: sHour, minute: sMin, second: 0, millisecond: 0 });
-      
+
+      // Calculate when the job SHOULD run today (legacy)
+      const targetToday = nowLocal.set({ hour: sHour, minute: sMin, second: 0, millisecond: 0 });
+
       let due = false;
-      
-      if (!schedule.lastRun) {
-        // First run: only if current time is AT or AFTER the scheduled time today
-        if (now >= targetToday) {
+
+      if (schedule.scheduledRunAt) {
+        const targetUtc = DateTime.fromISO(schedule.scheduledRunAt);
+        if (targetUtc.isValid && !schedule.lastRun && nowUtc >= targetUtc) {
+          due = true;
+        }
+      } else if (!schedule.lastRun) {
+        // Legacy first run: only if current time is AT or AFTER the scheduled time today
+        if (nowLocal >= targetToday) {
           due = true;
         }
       } else {
         const lastRun = DateTime.fromISO(schedule.lastRun).setZone(timezone);
-        
-        // Frequency logic
+
+        // Legacy frequency logic
         if (schedule.frequency === 'daily') {
-          // Due if it's the next day (or later) and we are past the target time
           const nextDay = lastRun.plus({ days: 1 }).set({ hour: sHour, minute: sMin, second: 0, millisecond: 0 });
-          if (now >= nextDay) due = true;
+          if (nowLocal >= nextDay) due = true;
         } else if (schedule.frequency === 'weekly') {
           const nextWeek = lastRun.plus({ weeks: 1 }).set({ hour: sHour, minute: sMin, second: 0, millisecond: 0 });
-          if (now >= nextWeek) due = true;
+          if (nowLocal >= nextWeek) due = true;
         } else if (schedule.frequency === 'monthly') {
           const nextMonth = lastRun.plus({ months: 1 }).set({ hour: sHour, minute: sMin, second: 0, millisecond: 0 });
-          if (now >= nextMonth) due = true;
+          if (nowLocal >= nextMonth) due = true;
         } else if (schedule.frequency === '4hours') {
-          // Due every 4 hours regardless of specific clock time
           const nextRun = lastRun.plus({ hours: 4 });
-          if (now >= nextRun) due = true;
+          if (nowLocal >= nextRun) due = true;
         }
       }
 
       if (due) {
-        console.log(`[SCHEDULER] Running due schedule for: "${schedule.keyword}" at ${schedule.scheduledTime} (${timezone})`);
-        
+        console.log(`[SCHEDULER] Running due schedule for: "${schedule.keyword}" at ${schedule.scheduledTime || '?'} (${timezone})`);
+
         // Update lastRun first to prevent overlaps
-        await db.updateSchedule(schedule.key, { lastRun: now.toISOString() });
-
-        // 1. Apify Search
-        let results = await apify.searchGoogleMaps({
-          keyword: schedule.keyword,
-          city: schedule.city,
-          state: schedule.state,
-          maxResults: schedule.maxResults || 20
-        });
-
-        // 2. Enrich
-        results = await enricher.enrichLeads(results);
-
-        // 3. Store results in History
-        const searchRecord = {
-          keyword: schedule.keyword,
-          city: schedule.city,
-          state: schedule.state,
-          maxResults: schedule.maxResults || 20,
-          resultCount: results.length,
-          results,
-          isAutopilot: true,
-          timestamp: now.toISOString()
-        };
-        await db.saveSearch(searchRecord);
+        await db.updateSchedule(schedule.key, { lastRun: nowLocal.toISO() });
 
         try {
-          await db.recordCompletedSearchNotification({
+          // 1. Apify Search
+          let results = await apify.searchGoogleMaps({
+            keyword: schedule.keyword,
+            city: schedule.city,
+            state: schedule.state,
+            maxResults: schedule.maxResults || 20,
+          });
+
+          // 2. Enrich
+          results = await enricher.enrichLeads(results);
+
+          // 3. Store results in History
+          const searchRecord = {
             keyword: schedule.keyword,
             city: schedule.city,
             state: schedule.state,
             maxResults: schedule.maxResults || 20,
             resultCount: results.length,
-            source: 'scheduled',
-          });
-        } catch (notifyErr) {
-          console.error('[SCHEDULER] Failed to record completion notification:', notifyErr.message);
-        }
+            results,
+            isAutopilot: true,
+            timestamp: nowLocal.toISO(),
+          };
+          await db.saveSearch(searchRecord);
 
-        console.log(`[SCHEDULER] Scheduled scrape complete for "${schedule.keyword}". Found ${results.length} leads.`);
-
-        const hook = process.env.AUTOPILOT_WEBHOOK_URL;
-        if (hook) {
           try {
-            await fetch(hook, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                event: 'autopilot.search_complete',
-                scheduleKey: schedule.key,
-                keyword: schedule.keyword,
-                city: schedule.city,
-                state: schedule.state,
-                maxResults: schedule.maxResults || 20,
-                resultCount: results.length,
-                timestamp: now.toISOString(),
-              }),
+            await db.recordCompletedSearchNotification({
+              keyword: schedule.keyword,
+              city: schedule.city,
+              state: schedule.state,
+              maxResults: schedule.maxResults || 20,
+              resultCount: results.length,
+              source: 'scheduled',
             });
-          } catch (whErr) {
-            console.error('[SCHEDULER] AUTOPILOT_WEBHOOK_URL failed:', whErr.message);
+          } catch (notifyErr) {
+            console.error('[SCHEDULER] Failed to record completion notification:', notifyErr.message);
           }
+
+          console.log(`[SCHEDULER] Scheduled scrape complete for "${schedule.keyword}". Found ${results.length} leads.`);
+
+          const hook = process.env.AUTOPILOT_WEBHOOK_URL;
+          if (hook) {
+            try {
+              await fetch(hook, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  event: 'autopilot.search_complete',
+                  scheduleKey: schedule.key,
+                  keyword: schedule.keyword,
+                  city: schedule.city,
+                  state: schedule.state,
+                  maxResults: schedule.maxResults || 20,
+                  resultCount: results.length,
+                  timestamp: nowLocal.toISO(),
+                }),
+              });
+            } catch (whErr) {
+              console.error('[SCHEDULER] AUTOPILOT_WEBHOOK_URL failed:', whErr.message);
+            }
+          }
+
+          if (schedule.scheduledRunAt) {
+            await db.deleteSchedule(schedule.key);
+            console.log(`[SCHEDULER] One-time schedule removed after success: ${schedule.key}`);
+          }
+        } catch (runErr) {
+          if (schedule.scheduledRunAt) {
+            await db.updateSchedule(schedule.key, { lastRun: null });
+            console.error(`[SCHEDULER] One-time schedule ${schedule.key} will retry after error:`, runErr.message);
+          }
+          throw runErr;
         }
       }
     } catch (err) {

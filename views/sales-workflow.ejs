@@ -85,7 +85,7 @@
                     data-facebook="<%= lead.facebook || 'N/A' %>"
                     data-instagram="<%= lead.instagram || 'N/A' %>"
                     data-twitter="<%= lead.twitter || 'N/A' %>"
-                    data-status="<%= lead.status || 'Not Contacted' %>"
+                    data-status="<%= (lead.status || 'Not Contacted') === 'Needs Video' ? 'Not Contacted' : (lead.status || 'Not Contacted') %>"
                     data-loom-url="<%= lead.loomUrl || '' %>"
                     data-outreach-prompt="<%= lead.outreachPrompt || '' %>"
                     data-updates='<%= JSON.stringify(lead.updates || []).replace(/'/g, "&apos;") %>'

@@ -27,6 +27,8 @@ function iaNav(req, res, next) {
     navPrimary = 'insights';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
+  } else if (p === '/resources' || p.startsWith('/resources/')) {
+    navPrimary = 'resources';
   }
   res.locals.navPrimary = navPrimary;
   next();

@@ -1,7 +1,9 @@
+<% if (typeof hideSalesTrackerHeading === 'undefined' || !hideSalesTrackerHeading) { %>
 <div class="mb-10 max-w-3xl">
   <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Daily Action <span class="text-brand-muted">Tracker</span></h1>
   <p class="text-brand-muted font-medium mt-2">Log hustle metrics per day. Data is stored per logged-in user. Your <strong class="text-brand-dark dark:text-white">AI prospecting coach</strong> below reads your live pipeline and today’s volume to keep you moving.</p>
 </div>
+<% } %>
 
 <% const oc = typeof outreachCoach !== 'undefined' && outreachCoach ? outreachCoach : null; %>
 <% if (oc) { %>

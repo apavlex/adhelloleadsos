@@ -20,6 +20,7 @@ const sequencesRoutes = require('./routes/sequences');
 const workspaceRoutes = require('./routes/workspace');
 const activationRoutes = require('./routes/activation');
 const tasksRoutes = require('./routes/tasks');
+const resourcesRoutes = require('./routes/resources');
 const outreachRoutes = require('./routes/outreach');
 const foldersRoutes = require('./routes/folders');
 const attachWorkspace = require('./middleware/attachWorkspace');
@@ -163,6 +164,7 @@ app.use('/sequences', sequencesRoutes);
 app.use('/workspace', workspaceRoutes);
 app.use('/activation', activationRoutes);
 app.use('/tasks', tasksRoutes);
+app.use('/resources', resourcesRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

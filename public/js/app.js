@@ -400,27 +400,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- Theme Toggle Logic (Centralized) ---
-  const themeToggleBars = document.querySelectorAll('#themeToggleBtn');
-  
-  const setTheme = (theme) => {
-    if (theme === 'dark') {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('color-theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('color-theme', 'light');
-    }
-    // Update logo and other theme-dependent elements if necessary
-    // (Tailwind's dark: mode handles most of this)
-  };
+  // Theme toggle: public/js/theme-toggle.js (included from partials/navbar on all app pages)
 
-  themeToggleBars.forEach(btn => {
-    btn.addEventListener('click', () => {
-      const isDark = document.documentElement.classList.contains('dark');
-      setTheme(isDark ? 'light' : 'dark');
-    });
-  });
   // --- Track saved leads (title -> key mapping) ---
   const savedLeads = new Map();
   if (window.INITIAL_SAVED_LEADS && Array.isArray(window.INITIAL_SAVED_LEADS)) {
@@ -459,6 +440,18 @@ document.addEventListener('DOMContentLoaded', () => {
     userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
 
+  function setScheduledDateDefaults() {
+    const dateEl = document.getElementById('scheduledDateInput');
+    if (!dateEl) return;
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    const isoLocal = `${y}-${m}-${d}`;
+    dateEl.min = isoLocal;
+    if (!dateEl.value) dateEl.value = isoLocal;
+  }
+
   if (modeRunNow && modeSchedule && searchModeInput) {
     const scheduledSearchSettings = document.getElementById('scheduledSearchSettings');
 
@@ -470,6 +463,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (scheduledSearchSettings) {
         scheduledSearchSettings.classList.add('hidden');
       }
+      const dateEl = document.getElementById('scheduledDateInput');
+      if (dateEl) dateEl.required = false;
 
       if (searchBtnLabel) {
         searchBtnLabel.innerHTML = 'Find Leads<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
@@ -484,6 +479,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (scheduledSearchSettings) {
         scheduledSearchSettings.classList.remove('hidden');
       }
+      setScheduledDateDefaults();
+      const dateElSch = document.getElementById('scheduledDateInput');
+      if (dateElSch) dateElSch.required = true;
 
       if (searchBtnLabel) {
         searchBtnLabel.innerHTML = 'Save schedule ⚡<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
@@ -847,15 +845,28 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
   }
 
-  /** Show Quick Pitch + scripts only when status is video-related or a Loom URL exists */
+  /** Show recorded video URL block when status is Video Recorded or a URL was already saved */
   function syncQuickPitchSectionVisibility(row) {
     const section = document.getElementById('quickPitchSection');
     if (!section || !row) return;
     const st = String(row.dataset.status || '').trim();
     const loom = String(row.dataset.loomUrl || '').trim();
-    const videoStatuses = st === 'Needs Video' || st === 'Video Recorded';
-    const show = videoStatuses || loom.length > 0;
+    const show = st === 'Video Recorded' || loom.length > 0;
     section.classList.toggle('hidden', !show);
+  }
+
+  function syncLoomOpenLink(urlRaw) {
+    const loomOpen = document.getElementById('loomUrlOpenBtn');
+    if (!loomOpen) return;
+    const raw = String(urlRaw || '').trim();
+    if (!raw) {
+      loomOpen.classList.add('hidden');
+      loomOpen.removeAttribute('href');
+      return;
+    }
+    const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw.replace(/^\/+/, '')}`;
+    loomOpen.href = href;
+    loomOpen.classList.remove('hidden');
   }
 
   function parseRowCqi(row) {
@@ -1297,14 +1308,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Loom URL Input (if exists)
+    // Loom / recorded video URL
     const loomInput = document.getElementById('loomUrlInput');
     if (loomInput) loomInput.value = loomUrl || '';
+    syncLoomOpenLink(loomUrl);
     syncQuickPitchSectionVisibility(row);
 
     const panelStatusSelect = document.getElementById('leadStatusSelect');
     if (panelStatusSelect) {
-      const st = (row.dataset.status || '').trim() || 'Not Contacted';
+      let st = (row.dataset.status || '').trim() || 'Not Contacted';
+      if (st === 'Needs Video') st = 'Not Contacted';
       const hasOption = Array.from(panelStatusSelect.options).some((o) => o.value === st);
       panelStatusSelect.value = hasOption ? st : 'Not Contacted';
     }
@@ -1600,11 +1613,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Loom URL Auto-save ---
   const loomInput = document.getElementById('loomUrlInput');
   if (loomInput) {
+    loomInput.addEventListener('input', () => {
+      syncLoomOpenLink(loomInput.value.trim());
+    });
     // Save on blur (when user clicks out of the input box)
     loomInput.addEventListener('blur', async () => {
       if (!currentRow) return;
       const key = currentRow.dataset.leadKey;
       const newLoomUrl = loomInput.value.trim();
+      syncLoomOpenLink(newLoomUrl);
+
+      if (!key) return;
 
       // Only save if it actually changed
       if (currentRow.dataset.loomUrl === newLoomUrl) return;
@@ -1612,15 +1631,17 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         const res = await fetch(`/leads/${key}/update`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ loomUrl: newLoomUrl })
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ loomUrl: newLoomUrl }),
         });
         const data = await res.json();
         if (data.success) {
           currentRow.dataset.loomUrl = newLoomUrl;
           syncQuickPitchSectionVisibility(currentRow);
         }
-      } catch (err) { console.error('Loom URL update failed:', err); }
+      } catch (err) {
+        console.error('Loom URL update failed:', err);
+      }
     });
   }
 
@@ -1679,6 +1700,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Manual Deep Enhance with Firecrawl ---
   const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
+  const huntProgressWrap = document.getElementById('huntProgressWrap');
   if (deepEnhanceBtn) {
     deepEnhanceBtn.addEventListener('click', async () => {
       if (!currentRow) {
@@ -1691,6 +1713,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2200);
         return;
       }
+      if (deepEnhanceBtn.getAttribute('aria-busy') === 'true') return;
+
       const key = currentRow.dataset.leadKey;
       const title = currentRow.dataset.title;
       const city = currentRow.dataset.city;
@@ -1703,18 +1727,20 @@ document.addEventListener('DOMContentLoaded', () => {
         deepEnhanceBtn.disabled = false;
         deepEnhanceBtn.removeAttribute('aria-busy');
         deepEnhanceBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+        if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
       };
 
       updateProcessingStatus(true);
       deepEnhanceBtn.disabled = true;
       deepEnhanceBtn.setAttribute('aria-busy', 'true');
       deepEnhanceBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+      if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
       deepEnhanceBtn.innerHTML = `
-        <svg class="w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+        <svg class="deep-enhance-icon w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span class="animate-pulse text-[11px] font-black uppercase tracking-wider">Searching…</span>
+        <span class="deep-enhance-label animate-pulse text-[11px] font-black uppercase tracking-wider">Searching…</span>
       `;
 
       await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -1722,22 +1748,22 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         let res;
         if (key) {
-           res = await fetch(`/leads/${key}/enhance`, { method: 'POST' });
+          res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
         } else {
-           res = await fetch('/enrich', {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ url, title, city, state })
-           });
+          res = await fetch('/enrich', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ url, title, city, state }),
+          });
         }
-        
-        const data = await res.json();
-        
+
+        const data = await res.json().catch(() => ({}));
+
         if (data.success) {
           const d = data.lead || data.data;
           if (data.lead && typeof data.lead === 'object') {
             syncPersistedLeadToRowDataset(currentRow, data.lead);
-          } else {
+          } else if (d) {
             if (d.website && d.website !== 'N/A') currentRow.dataset.website = d.website;
             if (data.foundUrl) currentRow.dataset.website = data.foundUrl;
             if (d.email && d.email !== 'N/A') currentRow.dataset.email = d.email;
@@ -1749,7 +1775,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           const keyAfter = currentRow.dataset.leadKey;
           if (keyAfter) {
-            fetch(`/leads/${keyAfter}/insights`, {
+            fetch(`/leads/${encodeURIComponent(keyAfter)}/insights`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
               body: JSON.stringify({ refresh: true }),
@@ -1768,14 +1794,14 @@ document.addEventListener('DOMContentLoaded', () => {
             deepEnhanceBtn.innerHTML = originalHTML;
           }, 2600);
         } else {
-          alert(data.error || "No additional contact data discovered yet.");
+          alert(data.error || 'No additional contact data discovered yet.');
           updateProcessingStatus(false);
           clearHuntBusy();
           deepEnhanceBtn.innerHTML = originalHTML;
         }
       } catch (err) {
         console.error('Enhancement failed:', err);
-        alert("Enhancement failed. Please try again later.");
+        alert('Enhancement failed. Please try again later.');
         updateProcessingStatus(false);
         clearHuntBusy();
         deepEnhanceBtn.innerHTML = originalHTML;
@@ -2554,8 +2580,7 @@ document.addEventListener('DOMContentLoaded', () => {
               shouldInclude = ps === targetPipeline;
             } else {
               const leadStatus = row.dataset.status || 'Not Contacted';
-              if (targetStatus === 'Needs Video' && (leadStatus === 'Needs Video' || leadStatus === 'Not Contacted')) shouldInclude = true;
-              if (targetStatus === 'Not Contacted' && leadStatus === 'Not Contacted') shouldInclude = true;
+              if (targetStatus === 'Not Contacted' && (leadStatus === 'Not Contacted' || leadStatus === 'Needs Video')) shouldInclude = true;
               if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
               if (targetStatus === 'Lead Captured' && leadStatus === 'Lead Captured') shouldInclude = true;
               if (targetStatus === 'Blueprint Purchased' && leadStatus === 'Blueprint Purchased') shouldInclude = true;

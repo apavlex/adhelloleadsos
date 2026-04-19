@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Library</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Resources</h1>
+        <p class="text-brand-muted text-sm mt-2 max-w-xl">Save YouTube videos, Google Drive links, posts on X, and anything else you need one click away. Stored per workspace member.</p>
+      </div>
+    </div>
+
+    <% if (typeof saveError !== 'undefined' && saveError) { %>
+    <div class="mb-6 rounded-2xl border border-red-300/60 bg-red-50/90 dark:bg-red-950/40 dark:border-red-500/30 px-4 py-3 text-sm text-red-900 dark:text-red-100">
+      Could not save that URL. Use a valid <code class="text-xs">http://</code> or <code class="text-xs">https://</code> link (we’ll add https if you omit it).
+    </div>
+    <% } %>
+
+    <div class="brand-card p-6 md:p-8 dark:bg-slate-900 dark:border-white/10 mb-8">
+      <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Add a link</h2>
+      <form action="/resources/add" method="post" class="space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
+          <div class="lg:col-span-6">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resUrl">URL</label>
+            <input id="resUrl" name="url" type="text" required maxlength="2048" placeholder="youtube.com/watch…, docs.google.com/…, x.com/…" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50" />
+          </div>
+          <div class="lg:col-span-4">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resTitle">Title (optional)</label>
+            <input id="resTitle" name="title" type="text" maxlength="200" placeholder="Defaults to URL" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div class="lg:col-span-2">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resKind">Type</label>
+            <select id="resKind" name="kind" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-xs font-bold text-brand-dark dark:text-white">
+              <% kindOptions.forEach((opt) => { %>
+              <option value="<%= opt.id %>"><%= opt.label %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resNote">Note (optional)</label>
+          <textarea id="resNote" name="note" rows="2" maxlength="2000" placeholder="Why this matters, timestamp, cohort…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y"></textarea>
+        </div>
+        <button type="submit" class="btn-pill btn-primary px-8 py-3 text-[10px] font-black uppercase tracking-widest">Save resource</button>
+      </form>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 mb-6">
+      <% const pills = [
+        { id: 'all', label: 'All' },
+        { id: 'youtube', label: 'YouTube' },
+        { id: 'drive', label: 'Drive / Docs' },
+        { id: 'x', label: 'X' },
+        { id: 'link', label: 'Links' },
+      ]; %>
+      <% pills.forEach((p) => { %>
+      <a href="/resources<%= p.id === 'all' ? '' : ('?kind=' + encodeURIComponent(p.id)) %>"
+         class="inline-flex items-center px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= kindFilter === p.id ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white bg-white/60 dark:bg-slate-900/60' %>">
+        <%= p.label %>
+      </a>
+      <% }); %>
+    </div>
+
+    <% const kindLabels = { youtube: 'YouTube', drive: 'Drive / Docs', x: 'X / Twitter', link: 'Link' }; %>
+
+    <% if (!resources.length) { %>
+    <div class="brand-card p-12 dark:bg-slate-900 dark:border-white/10 text-center">
+      <p class="text-brand-muted text-sm italic">No saved links yet — paste a URL above.</p>
+      <p class="text-[11px] text-brand-muted mt-3 max-w-md mx-auto">Supports YouTube, Google Drive/Docs, X/Twitter posts, or any web address.</p>
+    </div>
+    <% } else { %>
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <% resources.forEach((r) => { %>
+      <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3">
+        <div class="flex items-start justify-between gap-3">
+          <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0">
+            <%= kindLabels[r.kind] || 'Link' %>
+          </span>
+          <form action="/resources/remove" method="post" class="shrink-0" onsubmit="return confirm('Remove this resource?');">
+            <input type="hidden" name="id" value="<%= r.id %>" />
+            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:underline">Remove</button>
+          </form>
+        </div>
+        <div class="min-w-0">
+          <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= r.title %></h3>
+          <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="text-xs text-brand-muted hover:text-brand-yellow break-all mt-1 inline-block"><%= r.url %></a>
+        </div>
+        <% if (r.note) { %>
+        <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap"><%= r.note %></p>
+        <% } %>
+        <div class="mt-auto pt-2 flex flex-wrap gap-3">
+          <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5">Open</a>
+        </div>
+      </article>
+      <% }); %>
+    </div>
+    <% } %>
+  </main>
+
+  <%- include('partials/footer') %>
+</body>
+</html>

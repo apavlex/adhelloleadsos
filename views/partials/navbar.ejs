@@ -2,10 +2,8 @@
 <header class="sticky top-0 z-50 w-full px-6 py-4">
   <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-3 rounded-full border border-brand-border dark:border-white/10 shadow-sm">
     <a href="/today" class="flex items-center gap-2 sm:gap-2.5 group h-9 sm:h-10 shrink-0 min-w-0 max-w-[min(100%,20rem)] sm:max-w-none" aria-label="adhello.ai — Agency OS home">
-      <span class="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center" aria-hidden="true">
-        <svg class="h-[1.65rem] w-[1.65rem] sm:h-[1.85rem] sm:w-[1.85rem] text-amber-600 dark:text-brand-yellow" viewBox="0 0 40 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <path d="M12 40 L20 8 L28 40" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
+      <span class="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center overflow-hidden rounded-[22%]" aria-hidden="true">
+        <img src="/images/adhello-app-icon.png" alt="" width="40" height="40" class="h-full w-full object-contain" loading="eager" decoding="async" />
       </span>
       <span class="hidden sm:inline font-display font-extrabold text-sm tracking-tight text-brand-dark dark:text-white whitespace-nowrap">adhello.ai</span>
       <span class="hidden lg:inline-flex items-center gap-2 shrink-0 text-brand-muted dark:text-slate-500 font-bold text-sm" aria-hidden="true">|</span>
@@ -19,6 +17,7 @@
       <a href="/pipeline" class="nav-link text-sm <%= np === 'pipeline' ? 'active' : '' %>">Pipeline</a>
       <a href="/outreach" class="nav-link text-sm <%= np === 'outreach' ? 'active' : '' %>">Outreach</a>
       <a href="/tasks" class="nav-link text-sm <%= np === 'tasks' ? 'active' : '' %>">Tasks</a>
+      <a href="/resources" class="nav-link text-sm <%= np === 'resources' ? 'active' : '' %>">Resources</a>
       <a href="/insights" class="nav-link text-sm <%= np === 'insights' ? 'active' : '' %>">Insights</a>
     </nav>
 
@@ -115,6 +114,7 @@
         <a href="/pipeline" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'pipeline' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Pipeline</span></a>
         <a href="/outreach" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'outreach' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Outreach</span></a>
         <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
+        <a href="/resources" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'resources' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Resources</span></a>
         <a href="/insights" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'insights' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Insights</span></a>
         <% if (user) { %>
         <button type="button" id="manualLeadOpenMobile" class="flex items-center justify-center gap-2 p-4 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 text-brand-dark dark:text-white font-display font-bold text-lg text-left w-full">
@@ -338,4 +338,5 @@
   });
 })();
 </script>
+<script src="/js/theme-toggle.js" defer></script>
 <script src="/js/nav-notifications.js" defer></script>

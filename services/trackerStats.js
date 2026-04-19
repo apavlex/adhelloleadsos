@@ -1,3 +1,58 @@
+/** Delivery milestones that imply a personalized outreach touch was made */
+const PERSONALIZED_TOUCH_STATUSES = new Set([
+  'Email Sent',
+  'Called Lead',
+  'Follow-up',
+  'Video Recorded',
+  'Closed - Won',
+  'Closed - Lost',
+]);
+
+function utcCalendarDayPrefix(iso) {
+  if (!iso || typeof iso !== 'string') return '';
+  return iso.slice(0, 10);
+}
+
+/**
+ * Whether this lead had at least one qualifying outreach signal on the given UTC calendar day.
+ * Each lead counts at most once per day (multiple notes / status changes same day still = 1).
+ */
+function leadHasPersonalizedTouchOnUtcDate(lead, dateStr) {
+  const updates = Array.isArray(lead.updates) ? lead.updates : [];
+  for (const u of updates) {
+    if (utcCalendarDayPrefix(u.timestamp) !== dateStr) continue;
+    if (u.type === 'note' && String(u.value || '').trim()) return true;
+    if (
+      u.type === 'status_change' &&
+      PERSONALIZED_TOUCH_STATUSES.has(String(u.value || '').trim())
+    ) {
+      return true;
+    }
+  }
+  const logs = Array.isArray(lead.logs) ? lead.logs : [];
+  for (const log of logs) {
+    if (utcCalendarDayPrefix(log.timestamp) !== dateStr) continue;
+    if (String(log.type || '') === 'sequence_step') return true;
+  }
+  return false;
+}
+
+/**
+ * Unique leads in the workspace with ≥1 personalized touch logged on dateStr (UTC YYYY-MM-DD).
+ */
+function countUniqueLeadsTouchedOnUtcDate(leads, dateStr) {
+  let n = 0;
+  for (const lead of leads || []) {
+    if (leadHasPersonalizedTouchOnUtcDate(lead, dateStr)) n += 1;
+  }
+  return n;
+}
+
+/** Daily goal for personalized (unique-lead) touches — override with DAILY_TOUCH_GOAL */
+function dailyPersonalizedTouchGoal() {
+  return Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '54', 10) || 54);
+}
+
 /**
  * Outreach streak: consecutive calendar days (from today backward) with any logged activity.
  * @param {Array<{ date?: string, coldEmails?: number, coldDms?: number, coldCalls?: number, upworkBids?: number }>} rows
@@ -105,4 +160,7 @@ module.exports = {
   computeOutreachStreak,
   buildDailyChartSeries,
   buildDayRollup,
+  countUniqueLeadsTouchedOnUtcDate,
+  dailyPersonalizedTouchGoal,
+  leadHasPersonalizedTouchOnUtcDate,
 };
