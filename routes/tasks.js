@@ -17,6 +17,14 @@ function normColumn(c) {
   return ALLOWED.has(s) ? s : 'todo';
 }
 
+/** Accept ISO or datetime-local; empty clears */
+function normScheduledAt(v) {
+  if (v == null || v === '') return null;
+  const ts = Date.parse(String(v));
+  if (!Number.isFinite(ts)) return null;
+  return new Date(ts).toISOString();
+}
+
 function newTaskId() {
   return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -78,6 +86,8 @@ router.patch('/api/:taskId', express.json(), async (req, res, next) => {
       title: req.body.title != null ? String(req.body.title).trim() || cur.title : cur.title,
       column: req.body.column != null ? normColumn(req.body.column) : cur.column,
       sort: req.body.sort != null ? Number(req.body.sort) || cur.sort : cur.sort,
+      scheduledAt:
+        req.body.scheduledAt !== undefined ? normScheduledAt(req.body.scheduledAt) : cur.scheduledAt,
     };
     const saved = await dbService.saveUserTask(req.workspaceId, email, nextTask);
     res.json({ success: true, task: saved });

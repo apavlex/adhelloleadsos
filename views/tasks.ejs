@@ -8,6 +8,12 @@
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-10 md:py-12">
+    <div id="taskNotifyBanner" class="hidden mb-6 rounded-2xl border border-amber-400/40 bg-amber-50/90 dark:bg-amber-950/30 dark:border-amber-500/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <p class="text-sm text-brand-dark dark:text-slate-200"><strong class="font-bold">Browser reminders</strong> — Allow notifications so Chrome can alert you when a scheduled task is due. Works while this tab is open or when you return to Agency OS.</p>
+      <button type="button" id="taskNotifyEnable" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0">Enable reminders</button>
+    </div>
+    <div id="taskNotifyDenied" class="hidden mb-6 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/40 px-4 py-3 text-sm text-brand-muted">Notifications are blocked for this site. Enable them in Chrome site settings if you want task reminders.</div>
+
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
@@ -21,18 +27,49 @@
     </div>
 
     <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 mb-8">
-      <form id="taskAddForm" class="flex flex-col sm:flex-row gap-3">
-        <label class="sr-only" for="taskTitleInput">New task</label>
-        <input id="taskTitleInput" name="title" type="text" autocomplete="off" placeholder="Add a task…" class="flex-1 rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
-        <div class="flex gap-2 shrink-0">
-          <select id="taskColumnSelect" class="rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white" aria-label="Starting column">
-            <% taskColumns.forEach((c) => { %>
-              <option value="<%= c.id %>" <%= c.id === 'todo' ? 'selected' : '' %>><%= c.label %></option>
-            <% }); %>
-          </select>
-          <button type="submit" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Add</button>
+      <form id="taskAddForm" class="space-y-4">
+        <div class="flex flex-col lg:flex-row gap-3 lg:items-end">
+          <div class="flex-1 min-w-0">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskTitleInput">Task</label>
+            <input id="taskTitleInput" name="title" type="text" autocomplete="off" placeholder="Add a task…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div class="w-full sm:w-auto">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskScheduledInput">Reminder / schedule (optional)</label>
+            <input id="taskScheduledInput" name="scheduledAt" type="datetime-local" class="w-full min-w-[14rem] rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div class="flex gap-2 shrink-0">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 invisible sm:block" for="taskColumnSelect">Column</label>
+              <select id="taskColumnSelect" class="rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white min-h-[46px]" aria-label="Starting column">
+                <% taskColumns.forEach((c) => { %>
+                  <option value="<%= c.id %>" <%= c.id === 'todo' ? 'selected' : '' %>><%= c.label %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 invisible sm:block">&nbsp;</label>
+              <button type="submit" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap min-h-[46px]">Add</button>
+            </div>
+          </div>
         </div>
+        <p class="text-[11px] text-brand-muted">If you set a date and time, we’ll prompt for notification permission (once). You’ll get a Chrome/desktop alert when it’s due.</p>
       </form>
+    </div>
+
+    <div id="taskScheduleModal" class="fixed inset-0 z-[240] hidden items-center justify-center p-4" aria-hidden="true">
+      <div id="taskScheduleBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>
+      <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl z-10">
+        <h2 class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">Schedule reminder</h2>
+        <p class="text-sm text-brand-muted mb-4">When should we notify you about this task?</p>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskScheduleModalInput">Reminder time</label>
+        <input type="datetime-local" id="taskScheduleModalInput" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-6" />
+        <input type="hidden" id="taskScheduleModalTaskId" value="" />
+        <div class="flex flex-col sm:flex-row gap-3">
+          <button type="button" id="taskScheduleModalSave" class="flex-1 btn-pill btn-primary py-3 text-[10px] font-black uppercase tracking-widest">Save</button>
+          <button type="button" id="taskScheduleModalClear" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Clear reminder</button>
+          <button type="button" id="taskScheduleModalCancel" class="flex-1 btn-pill bg-transparent border border-brand-border dark:border-white/10 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted">Cancel</button>
+        </div>
+      </div>
     </div>
 
     <section id="taskSectionChecklist" class="task-view-panel brand-card p-6 dark:bg-slate-900 dark:border-white/10">
@@ -64,6 +101,7 @@
   window.__TASKS__ = <%- JSON.stringify(tasks || []) %>;
   window.__TASK_COLUMNS__ = <%- JSON.stringify(taskColumns || []) %>;
   </script>
+  <script src="/js/task-reminders.js"></script>
   <script>
   (function () {
     var tasks = Array.isArray(window.__TASKS__) ? window.__TASKS__.slice() : [];
@@ -81,6 +119,66 @@
     function escapeHtml(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
+
+    function isoToDatetimeLocal(iso) {
+      if (!iso) return '';
+      var d = new Date(iso);
+      if (Number.isNaN(d.getTime())) return '';
+      var pad = function (n) { return String(n).padStart(2, '0'); };
+      return (
+        d.getFullYear() +
+        '-' +
+        pad(d.getMonth() + 1) +
+        '-' +
+        pad(d.getDate()) +
+        'T' +
+        pad(d.getHours()) +
+        ':' +
+        pad(d.getMinutes())
+      );
+    }
+
+    function datetimeLocalToIso(val) {
+      if (!val || String(val).trim() === '') return null;
+      var d = new Date(val);
+      if (Number.isNaN(d.getTime())) return null;
+      return d.toISOString();
+    }
+
+    function formatScheduled(iso) {
+      if (!iso) return '';
+      try {
+        var d = new Date(iso);
+        if (Number.isNaN(d.getTime())) return '';
+        return d.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+      } catch (e) {
+        return '';
+      }
+    }
+
+    var scheduledInput = document.getElementById('taskScheduledInput');
+
+    function updateNotifyBanner() {
+      var banner = document.getElementById('taskNotifyBanner');
+      var denied = document.getElementById('taskNotifyDenied');
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'default' && banner) banner.classList.remove('hidden');
+      else if (banner) banner.classList.add('hidden');
+      if (Notification.permission === 'denied' && denied) denied.classList.remove('hidden');
+      else if (denied) denied.classList.add('hidden');
+    }
+
+    var notifyBtn = document.getElementById('taskNotifyEnable');
+    if (notifyBtn) {
+      notifyBtn.addEventListener('click', function () {
+        if (!('Notification' in window)) return;
+        Notification.requestPermission().then(function () {
+          updateNotifyBanner();
+          if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();
+        });
+      });
+    }
+    updateNotifyBanner();
 
     function setView(isBoard) {
       if (isBoard) {
@@ -114,14 +212,26 @@
       }
       function row(t, isDone) {
         var id = escapeHtml(t.id);
+        var rawId = String(t.id || '');
+        var schedHtml = t.scheduledAt
+          ? '<p class="text-[11px] text-amber-800 dark:text-amber-200 mt-1 flex items-center gap-1.5">' +
+              '<svg class="w-3.5 h-3.5 shrink-0 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
+              '<span>' + escapeHtml(formatScheduled(t.scheduledAt)) + '</span></p>'
+          : '<p class="text-[10px] text-brand-muted mt-1">No reminder scheduled</p>';
         return (
           '<div class="flex items-start gap-3 p-3 rounded-xl border border-brand-border/30 dark:border-white/10 bg-white/50 dark:bg-slate-950/30" data-task-id="' + id + '">' +
             '<input type="checkbox" class="task-check mt-1 w-4 h-4 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" data-task-id="' + id + '" ' + (isDone ? 'checked' : '') + ' />' +
             '<div class="min-w-0 flex-1">' +
               '<p class="text-sm font-semibold text-brand-dark dark:text-white ' + (isDone ? 'line-through opacity-60' : '') + '">' + escapeHtml(t.title) + '</p>' +
               '<p class="text-[10px] font-bold uppercase tracking-wider text-brand-muted mt-1">' + escapeHtml(t.column) + '</p>' +
+              schedHtml +
             '</div>' +
-            '<button type="button" class="task-del text-[10px] font-black uppercase text-rose-500 hover:underline shrink-0" data-task-id="' + id + '">Remove</button>' +
+            '<div class="flex flex-col items-end gap-2 shrink-0">' +
+              '<button type="button" class="task-open-schedule text-[10px] font-black uppercase text-brand-yellow hover:underline" data-task-id="' + escapeHtml(rawId) + '">' +
+                (t.scheduledAt ? 'Edit reminder' : 'Set reminder') +
+              '</button>' +
+              '<button type="button" class="task-del text-[10px] font-black uppercase text-rose-500 hover:underline" data-task-id="' + id + '">Remove</button>' +
+            '</div>' +
           '</div>'
         );
       }
@@ -181,10 +291,21 @@
 
     function cardHtml(t) {
       var id = escapeHtml(t.id);
+      var rawId = String(t.id || '');
+      var sched =
+        t.scheduledAt
+          ? '<p class="text-[10px] text-amber-700 dark:text-amber-200/90 mt-1">' + escapeHtml(formatScheduled(t.scheduledAt)) + '</p>'
+          : '';
       return (
         '<li class="task-card p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing" data-task-id="' + id + '">' +
           '<p class="text-sm font-bold text-brand-dark dark:text-white leading-snug">' + escapeHtml(t.title) + '</p>' +
-          '<button type="button" class="task-del-board mt-2 text-[9px] font-black uppercase text-rose-500 hover:underline">Remove</button>' +
+          sched +
+          '<div class="flex flex-wrap gap-2 mt-2">' +
+            '<button type="button" class="task-open-schedule text-[9px] font-black uppercase text-brand-yellow hover:underline" data-task-id="' + escapeHtml(rawId) + '">' +
+              (t.scheduledAt ? 'Edit reminder' : 'Reminder') +
+            '</button>' +
+            '<button type="button" class="task-del-board text-[9px] font-black uppercase text-rose-500 hover:underline">Remove</button>' +
+          '</div>' +
         '</li>'
       );
     }
@@ -225,8 +346,12 @@
           if (ix >= 0) tasks[ix] = data.task;
           if (boardSection.classList.contains('hidden')) renderChecklist();
           else { renderBoard(); initSortable(); }
+          return data.task;
         })
-        .catch(function () { window.alert('Could not update task.'); });
+        .catch(function (err) {
+          window.alert('Could not update task.');
+          return Promise.reject(err);
+        });
     }
 
     function deleteTask(id) {
@@ -248,29 +373,115 @@
         var title = (input && input.value || '').trim();
         if (!title) return;
         var column = colSelect && colSelect.value ? colSelect.value : 'todo';
-        fetch('/tasks/api', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ title: title, column: column })
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (!data.success) throw new Error(data.error || 'Failed');
-            tasks.push(data.task);
-            if (input) input.value = '';
-            if (boardSection.classList.contains('hidden')) renderChecklist();
-            else { renderBoard(); initSortable(); }
+        var schedIso = datetimeLocalToIso(scheduledInput && scheduledInput.value);
+        function post() {
+          fetch('/tasks/api', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ title: title, column: column, scheduledAt: schedIso })
           })
-          .catch(function () { window.alert('Could not add task.'); });
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+              if (!data.success) throw new Error(data.error || 'Failed');
+              tasks.push(data.task);
+              if (input) input.value = '';
+              if (scheduledInput) scheduledInput.value = '';
+              updateNotifyBanner();
+              if (boardSection.classList.contains('hidden')) renderChecklist();
+              else { renderBoard(); initSortable(); }
+            })
+            .catch(function () { window.alert('Could not add task.'); });
+        }
+        if (schedIso && 'Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission().then(function () {
+            updateNotifyBanner();
+            post();
+          });
+        } else {
+          post();
+        }
       });
     }
+
+    var scheduleModal = document.getElementById('taskScheduleModal');
+    var scheduleModalInput = document.getElementById('taskScheduleModalInput');
+    var scheduleModalTaskId = document.getElementById('taskScheduleModalTaskId');
+    function openScheduleModal(taskId) {
+      var t = tasks.find(function (x) { return x.id === taskId; });
+      if (scheduleModalTaskId) scheduleModalTaskId.value = taskId;
+      if (scheduleModalInput) scheduleModalInput.value = t && t.scheduledAt ? isoToDatetimeLocal(t.scheduledAt) : '';
+      if (scheduleModal) {
+        scheduleModal.classList.remove('hidden');
+        scheduleModal.classList.add('flex');
+        scheduleModal.setAttribute('aria-hidden', 'false');
+      }
+    }
+    function closeScheduleModal() {
+      if (scheduleModal) {
+        scheduleModal.classList.add('hidden');
+        scheduleModal.classList.remove('flex');
+        scheduleModal.setAttribute('aria-hidden', 'true');
+      }
+    }
+    document.body.addEventListener('click', function (e) {
+      var btn = e.target.closest('.task-open-schedule');
+      if (!btn) return;
+      var tid = btn.getAttribute('data-task-id');
+      if (tid) openScheduleModal(tid);
+    });
+    var smSave = document.getElementById('taskScheduleModalSave');
+    var smClear = document.getElementById('taskScheduleModalClear');
+    var smCancel = document.getElementById('taskScheduleModalCancel');
+    var smBackdrop = document.getElementById('taskScheduleBackdrop');
+    if (smSave) {
+      smSave.addEventListener('click', function () {
+        var id = scheduleModalTaskId && scheduleModalTaskId.value;
+        if (!id) return;
+        var iso = datetimeLocalToIso(scheduleModalInput && scheduleModalInput.value);
+        function run() {
+          patchTask(id, { scheduledAt: iso })
+            .then(function () {
+              closeScheduleModal();
+            })
+            .catch(function () {});
+        }
+        if (iso && 'Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission().then(function () {
+            updateNotifyBanner();
+            run();
+          });
+        } else {
+          run();
+        }
+      });
+    }
+    if (smClear) {
+      smClear.addEventListener('click', function () {
+        var id = scheduleModalTaskId && scheduleModalTaskId.value;
+        if (!id) return;
+        patchTask(id, { scheduledAt: null })
+          .then(function () {
+            closeScheduleModal();
+          })
+          .catch(function () {});
+      });
+    }
+    if (smCancel) smCancel.addEventListener('click', closeScheduleModal);
+    if (smBackdrop) smBackdrop.addEventListener('click', closeScheduleModal);
 
     if (btnList) btnList.addEventListener('click', function () { setView(false); });
     if (btnBoard) btnBoard.addEventListener('click', function () { setView(true); });
 
+    window.__agencyTasksGetter = function () {
+      return tasks;
+    };
+    if (window.AgencyTaskReminders && window.AgencyTaskReminders.start) {
+      window.AgencyTaskReminders.start();
+    }
+
     renderChecklist();
   })();
   </script>
-  <%- include('/partials/footer') %>
+  <%- include('partials/footer') %>
 </body>
 </html>

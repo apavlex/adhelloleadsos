@@ -737,6 +737,11 @@ module.exports = {
     const id = String(task.id || '').trim();
     if (!id) throw new Error('Task id is required.');
     const now = new Date().toISOString();
+    let scheduledAt = null;
+    if (task.scheduledAt != null && task.scheduledAt !== '') {
+      const ts = Date.parse(String(task.scheduledAt));
+      if (Number.isFinite(ts)) scheduledAt = new Date(ts).toISOString();
+    }
     const payload = {
       id,
       title: String(task.title || '').trim() || 'Untitled',
@@ -744,6 +749,7 @@ module.exports = {
       sort: typeof task.sort === 'number' ? task.sort : Date.now(),
       createdAt: task.createdAt || now,
       updatedAt: now,
+      scheduledAt,
     };
     const key = this._userTaskKey(workspaceId, email, id);
     await db.set(key, JSON.stringify(payload));
