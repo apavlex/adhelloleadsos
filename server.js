@@ -35,6 +35,8 @@ app.set('trust proxy', 1);
 // View engine
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
+// Root-relative EJS includes: `include('/partials/foo')` resolves under views/ from any nested partial (Replit-safe).
+app.set('view options', { root: path.join(__dirname, 'views') });
 
 // Middleware
 app.use(cors());

@@ -1,5 +1,5 @@
-<!-- Mobile Detail Panel / Desktop Sidebar -->
-<%- include('partials/lead_detail_panel') %>
+<%# Root-relative include: requires app.set('view options', { root: views }) in server.js %>
+<%- include('/partials/lead_detail_panel') %>
 
 <script>
   window.INITIAL_SAVED_LEADS = <%- JSON.stringify(leads || []) %>;
@@ -112,4 +112,4 @@
     </div>
   </div>
 
-<%- include('partials/footer') %>
+<%- include('/partials/footer') %>
