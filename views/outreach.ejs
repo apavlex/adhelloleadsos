@@ -24,9 +24,7 @@
     </nav>
 
     <% if (activeTab === 'touches') { %>
-      <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
-        <iframe src="/sales/tracker#tracker" class="w-full h-[78vh] md:h-[80vh] border-0" title="Touches tracker"></iframe>
-      </div>
+      <%- include('partials/sales_tracker_content') %>
     <% } else if (activeTab === 'pipeline') { %>
       <% const _pipeSrc = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
       <% const _pipeCounts = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts : { all: (pipelineBoardLeads || []).length, cold: 0, inbound: 0 }; %>
@@ -141,6 +139,8 @@
   <% if (activeTab === 'pipeline') { %>
   <%- include('partials/leads_interactive_tail', { leads: typeof pipelineBoardLeads !== 'undefined' ? pipelineBoardLeads : [], pipelineStages }) %>
   <script src="/js/app.js"></script>
+  <% } else if (activeTab === 'touches') { %>
+  <%- include('partials/footer') %>
   <% } else { %>
   <div id="folderCreateModal" class="fixed inset-0 z-[220] hidden items-center justify-center p-4" aria-hidden="true">
     <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>

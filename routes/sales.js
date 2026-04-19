@@ -93,6 +93,7 @@ router.get('/tracker', async (req, res, next) => {
       title: 'Daily Action Tracker',
       activePage: 'sales',
       activeSales: 'tracker',
+      trackerReturnTo: '/sales/tracker',
       today,
       todayRow: todayRow || {
         coldEmails: 0,
@@ -134,7 +135,10 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
     if (touches > 0) {
       await activationService.recordEvent(email, 'outreach_logged');
     }
-    res.redirect('/sales/tracker');
+    const returnTo = (req.body.returnTo || '').toString().trim();
+    const allowed = new Set(['/sales/tracker', '/outreach?tab=touches']);
+    const dest = allowed.has(returnTo) ? returnTo : '/sales/tracker';
+    res.redirect(302, dest);
   } catch (e) {
     next(e);
   }

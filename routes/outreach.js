@@ -47,6 +47,7 @@ router.get('/', async (req, res, next) => {
       title: 'Outreach | Agency OS',
       activePage: 'outreach',
       tab: safeTab,
+      trackerReturnTo: '/outreach?tab=touches',
       today,
       todayRow: todayRow || {
         coldEmails: 0,
