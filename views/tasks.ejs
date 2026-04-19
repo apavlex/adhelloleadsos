@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Tasks</h1>
+        <p class="text-brand-muted text-sm mt-2 max-w-xl">Checklist for quick completes, or switch to the board to drag tasks across columns.</p>
+      </div>
+      <div class="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 p-1 shadow-sm shrink-0">
+        <button type="button" id="taskViewChecklist" class="task-view-btn px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all bg-brand-yellow text-brand-dark shadow-sm">Checklist</button>
+        <button type="button" id="taskViewBoard" class="task-view-btn px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white">Board</button>
+      </div>
+    </div>
+
+    <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 mb-8">
+      <form id="taskAddForm" class="flex flex-col sm:flex-row gap-3">
+        <label class="sr-only" for="taskTitleInput">New task</label>
+        <input id="taskTitleInput" name="title" type="text" autocomplete="off" placeholder="Add a task…" class="flex-1 rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+        <div class="flex gap-2 shrink-0">
+          <select id="taskColumnSelect" class="rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white" aria-label="Starting column">
+            <% taskColumns.forEach((c) => { %>
+              <option value="<%= c.id %>" <%= c.id === 'todo' ? 'selected' : '' %>><%= c.label %></option>
+            <% }); %>
+          </select>
+          <button type="submit" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap">Add</button>
+        </div>
+      </form>
+    </div>
+
+    <section id="taskSectionChecklist" class="task-view-panel brand-card p-6 dark:bg-slate-900 dark:border-white/10">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-4">Checklist</p>
+      <div id="taskChecklistRoot" class="space-y-2 min-h-[120px]">
+        <% if (!tasks.length) { %>
+          <p class="text-sm text-brand-muted italic py-8 text-center">No tasks yet — add one above.</p>
+        <% } %>
+      </div>
+    </section>
+
+    <section id="taskSectionBoard" class="task-view-panel hidden w-full overflow-x-auto pb-4 custom-scrollbar">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-4">Board</p>
+      <div class="flex gap-4 min-w-max pb-2">
+        <% taskColumns.forEach((col) => { %>
+          <div class="task-board-column w-[min(100vw-2rem,16rem)] shrink-0 flex flex-col gap-3" data-task-column="<%= col.id %>">
+            <div class="flex items-center justify-between px-1">
+              <h2 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= col.label %></h2>
+              <span class="task-col-count px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted">0</span>
+            </div>
+            <ul class="task-board-list min-h-[280px] flex flex-col gap-2 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-2xl border border-dashed border-brand-border/40 dark:border-white/10"></ul>
+          </div>
+        <% }); %>
+      </div>
+    </section>
+  </main>
+
+  <script>
+  window.__TASKS__ = <%- JSON.stringify(tasks || []) %>;
+  window.__TASK_COLUMNS__ = <%- JSON.stringify(taskColumns || []) %>;
+  </script>
+  <script>
+  (function () {
+    var tasks = Array.isArray(window.__TASKS__) ? window.__TASKS__.slice() : [];
+    var cols = window.__TASK_COLUMNS__ || [];
+
+    var checklistEl = document.getElementById('taskChecklistRoot');
+    var boardSection = document.getElementById('taskSectionBoard');
+    var listSection = document.getElementById('taskSectionChecklist');
+    var btnList = document.getElementById('taskViewChecklist');
+    var btnBoard = document.getElementById('taskViewBoard');
+    var form = document.getElementById('taskAddForm');
+    var input = document.getElementById('taskTitleInput');
+    var colSelect = document.getElementById('taskColumnSelect');
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function setView(isBoard) {
+      if (isBoard) {
+        listSection.classList.add('hidden');
+        boardSection.classList.remove('hidden');
+        btnBoard.classList.add('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        btnBoard.classList.remove('text-brand-muted');
+        btnList.classList.remove('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        btnList.classList.add('text-brand-muted', 'dark:text-slate-400');
+        renderBoard();
+        initSortable();
+      } else {
+        boardSection.classList.add('hidden');
+        listSection.classList.remove('hidden');
+        btnList.classList.add('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        btnList.classList.remove('text-brand-muted');
+        btnBoard.classList.remove('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
+        btnBoard.classList.add('text-brand-muted', 'dark:text-slate-400');
+        destroySortable();
+        renderChecklist();
+      }
+    }
+
+    function renderChecklist() {
+      if (!checklistEl) return;
+      var open = tasks.filter(function (t) { return t.column !== 'done'; });
+      var done = tasks.filter(function (t) { return t.column === 'done'; });
+      if (!tasks.length) {
+        checklistEl.innerHTML = '<p class="text-sm text-brand-muted italic py-8 text-center">No tasks yet — add one above.</p>';
+        return;
+      }
+      function row(t, isDone) {
+        var id = escapeHtml(t.id);
+        return (
+          '<div class="flex items-start gap-3 p-3 rounded-xl border border-brand-border/30 dark:border-white/10 bg-white/50 dark:bg-slate-950/30" data-task-id="' + id + '">' +
+            '<input type="checkbox" class="task-check mt-1 w-4 h-4 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" data-task-id="' + id + '" ' + (isDone ? 'checked' : '') + ' />' +
+            '<div class="min-w-0 flex-1">' +
+              '<p class="text-sm font-semibold text-brand-dark dark:text-white ' + (isDone ? 'line-through opacity-60' : '') + '">' + escapeHtml(t.title) + '</p>' +
+              '<p class="text-[10px] font-bold uppercase tracking-wider text-brand-muted mt-1">' + escapeHtml(t.column) + '</p>' +
+            '</div>' +
+            '<button type="button" class="task-del text-[10px] font-black uppercase text-rose-500 hover:underline shrink-0" data-task-id="' + id + '">Remove</button>' +
+          '</div>'
+        );
+      }
+      var html = '';
+      if (open.length) {
+        html += '<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Open</p>';
+        open.forEach(function (t) { html += row(t, false); });
+      }
+      if (done.length) {
+        html += '<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mt-4 mb-2">Done</p>';
+        done.forEach(function (t) { html += row(t, true); });
+      }
+      checklistEl.innerHTML = html;
+      checklistEl.querySelectorAll('.task-check').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+          var id = cb.getAttribute('data-task-id');
+          var toDone = cb.checked;
+          patchTask(id, { column: toDone ? 'done' : 'todo' });
+        });
+      });
+      checklistEl.querySelectorAll('.task-del').forEach(function (b) {
+        b.addEventListener('click', function () {
+          deleteTask(b.getAttribute('data-task-id'));
+        });
+      });
+    }
+
+    var sortableInstances = [];
+    function destroySortable() {
+      sortableInstances.forEach(function (s) {
+        try { s.destroy(); } catch (e) {}
+      });
+      sortableInstances = [];
+    }
+
+    function initSortable() {
+      destroySortable();
+      if (typeof Sortable === 'undefined') return;
+      document.querySelectorAll('.task-board-list').forEach(function (ul) {
+        var inst = Sortable.create(ul, {
+          group: 'tasks',
+          animation: 150,
+          ghostClass: 'opacity-50',
+          onEnd: function (evt) {
+            var card = evt.item;
+            var id = card.getAttribute('data-task-id');
+            var toCol = evt.to.closest('.task-board-column');
+            if (!id || !toCol) return;
+            var newCol = toCol.getAttribute('data-task-column');
+            var idx = Array.prototype.indexOf.call(evt.to.children, card);
+            patchTask(id, { column: newCol, sort: Date.now() + idx });
+          }
+        });
+        sortableInstances.push(inst);
+      });
+    }
+
+    function cardHtml(t) {
+      var id = escapeHtml(t.id);
+      return (
+        '<li class="task-card p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing" data-task-id="' + id + '">' +
+          '<p class="text-sm font-bold text-brand-dark dark:text-white leading-snug">' + escapeHtml(t.title) + '</p>' +
+          '<button type="button" class="task-del-board mt-2 text-[9px] font-black uppercase text-rose-500 hover:underline">Remove</button>' +
+        '</li>'
+      );
+    }
+
+    function renderBoard() {
+      document.querySelectorAll('.task-board-list').forEach(function (ul) { ul.innerHTML = ''; });
+      cols.forEach(function (c) {
+        var colEl = document.querySelector('.task-board-column[data-task-column="' + c.id + '"]');
+        if (!colEl) return;
+        var ul = colEl.querySelector('.task-board-list');
+        var count = colEl.querySelector('.task-col-count');
+        var subset = tasks.filter(function (t) { return t.column === c.id; });
+        if (count) count.textContent = String(subset.length);
+        subset.forEach(function (t) {
+          ul.insertAdjacentHTML('beforeend', cardHtml(t));
+        });
+      });
+      document.querySelectorAll('.task-del-board').forEach(function (b) {
+        b.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var li = b.closest('.task-card');
+          var id = li && li.getAttribute('data-task-id');
+          if (id) deleteTask(id);
+        });
+      });
+    }
+
+    function patchTask(id, body) {
+      return fetch('/tasks/api/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error(data.error || 'Failed');
+          var ix = tasks.findIndex(function (t) { return t.id === id });
+          if (ix >= 0) tasks[ix] = data.task;
+          if (boardSection.classList.contains('hidden')) renderChecklist();
+          else { renderBoard(); initSortable(); }
+        })
+        .catch(function () { window.alert('Could not update task.'); });
+    }
+
+    function deleteTask(id) {
+      if (!window.confirm('Remove this task?')) return;
+      fetch('/tasks/api/' + encodeURIComponent(id), { method: 'DELETE', headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) throw new Error();
+          tasks = tasks.filter(function (t) { return t.id !== id });
+          if (boardSection.classList.contains('hidden')) renderChecklist();
+          else { renderBoard(); initSortable(); }
+        })
+        .catch(function () { window.alert('Could not delete task.'); });
+    }
+
+    if (form) {
+      form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        var title = (input && input.value || '').trim();
+        if (!title) return;
+        var column = colSelect && colSelect.value ? colSelect.value : 'todo';
+        fetch('/tasks/api', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ title: title, column: column })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.success) throw new Error(data.error || 'Failed');
+            tasks.push(data.task);
+            if (input) input.value = '';
+            if (boardSection.classList.contains('hidden')) renderChecklist();
+            else { renderBoard(); initSortable(); }
+          })
+          .catch(function () { window.alert('Could not add task.'); });
+      });
+    }
+
+    if (btnList) btnList.addEventListener('click', function () { setView(false); });
+    if (btnBoard) btnBoard.addEventListener('click', function () { setView(true); });
+
+    renderChecklist();
+  })();
+  </script>
+  <%- include('/partials/footer') %>
+</body>
+</html>

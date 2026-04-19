@@ -9,6 +9,15 @@ router.get('/', async (req, res, next) => {
     const leads = filterLeadsForRequest(req, allLeads);
     const adhelloLeads = leads.filter((l) => l.source && l.source.startsWith('adhello_'));
     const workspaceLeads = leads;
+    const mapCenterRaw = (process.env.GOOGLE_MAPS_DEFAULT_CENTER || '45.5152,-122.6784').trim();
+    const mapCenterParts = mapCenterRaw.split(',').map((s) => parseFloat(String(s).trim(), 10));
+    const mapDefaultLat = Number.isFinite(mapCenterParts[0]) ? mapCenterParts[0] : 45.5152;
+    const mapDefaultLng = Number.isFinite(mapCenterParts[1]) ? mapCenterParts[1] : -122.6784;
+    const mapDefaultZoom = Math.max(
+      3,
+      Math.min(18, parseInt(process.env.GOOGLE_MAPS_DEFAULT_ZOOM || '11', 10) || 11)
+    );
+
     res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'search',
@@ -16,6 +25,10 @@ router.get('/', async (req, res, next) => {
       workspaceLeadsCount: workspaceLeads.length,
       warmInboundCount: adhelloLeads.length,
       totalPipelineCount: leads.length,
+      googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || null,
+      mapDefaultLat,
+      mapDefaultLng,
+      mapDefaultZoom,
     });
   } catch (e) {
     next(e);

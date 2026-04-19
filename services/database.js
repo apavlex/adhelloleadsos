@@ -696,6 +696,65 @@ module.exports = {
     return rows;
   },
 
+  // --- Personal tasks (checklist + kanban, per workspace + user email) ---
+
+  _userTaskKey(workspaceId, email, taskId) {
+    const wid = workspaceId || 'default';
+    const frag = this._emailKeyFragment(email);
+    return `user_task:${wid}:${frag}:${taskId}`;
+  },
+
+  async listUserTasks(workspaceId, email) {
+    const wid = workspaceId || 'default';
+    const frag = this._emailKeyFragment(email);
+    const prefix = `user_task:${wid}:${frag}:`;
+    const keys = await db.list(prefix);
+    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    const tasks = [];
+    for (const key of keyList) {
+      const data = await db.get(key);
+      if (!data) continue;
+      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      if (!raw) continue;
+      try {
+        const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (t && t.id) tasks.push(t);
+      } catch {
+        /* skip */
+      }
+    }
+    const colOrder = { backlog: 0, todo: 1, doing: 2, done: 3 };
+    tasks.sort((a, b) => {
+      const ca = colOrder[a.column] ?? 9;
+      const cb = colOrder[b.column] ?? 9;
+      if (ca !== cb) return ca - cb;
+      return (a.sort || 0) - (b.sort || 0);
+    });
+    return tasks;
+  },
+
+  async saveUserTask(workspaceId, email, task) {
+    const id = String(task.id || '').trim();
+    if (!id) throw new Error('Task id is required.');
+    const now = new Date().toISOString();
+    const payload = {
+      id,
+      title: String(task.title || '').trim() || 'Untitled',
+      column: task.column || 'todo',
+      sort: typeof task.sort === 'number' ? task.sort : Date.now(),
+      createdAt: task.createdAt || now,
+      updatedAt: now,
+    };
+    const key = this._userTaskKey(workspaceId, email, id);
+    await db.set(key, JSON.stringify(payload));
+    return payload;
+  },
+
+  async deleteUserTask(workspaceId, email, taskId) {
+    const key = this._userTaskKey(workspaceId, email, taskId);
+    await db.delete(key);
+  },
+
   // --- Workspaces (multi-seat) ---
 
   async getWorkspace(workspaceId) {

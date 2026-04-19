@@ -8,12 +8,13 @@
       <span class="hidden lg:inline font-display font-black text-sm tracking-tight text-brand-dark dark:text-white whitespace-nowrap">Agency OS</span>
     </a>
 
-    <!-- Primary nav (5 items) -->
-    <nav class="hidden md:flex items-center gap-6 lg:gap-8" aria-label="Primary">
+    <!-- Primary nav -->
+    <nav class="hidden md:flex items-center gap-5 lg:gap-6 flex-wrap justify-center" aria-label="Primary">
       <a href="/today" class="nav-link text-sm <%= np === 'today' ? 'active' : '' %>">Today</a>
       <a href="/find" class="nav-link text-sm <%= np === 'find' ? 'active' : '' %>">Find Leads</a>
       <a href="/pipeline" class="nav-link text-sm <%= np === 'pipeline' ? 'active' : '' %>">Pipeline</a>
       <a href="/outreach" class="nav-link text-sm <%= np === 'outreach' ? 'active' : '' %>">Outreach</a>
+      <a href="/tasks" class="nav-link text-sm <%= np === 'tasks' ? 'active' : '' %>">Tasks</a>
       <a href="/insights" class="nav-link text-sm <%= np === 'insights' ? 'active' : '' %>">Insights</a>
     </nav>
 
@@ -104,6 +105,7 @@
         <a href="/find" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'find' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Find Leads</span></a>
         <a href="/pipeline" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'pipeline' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Pipeline</span></a>
         <a href="/outreach" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'outreach' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Outreach</span></a>
+        <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
         <a href="/insights" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'insights' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Insights</span></a>
         <% if (user) { %>
         <button type="button" id="manualLeadOpenMobile" class="flex items-center justify-center gap-2 p-4 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 text-brand-dark dark:text-white font-display font-bold text-lg text-left w-full">

@@ -1,0 +1,85 @@
+<% if (typeof googleMapsKey === 'string' && googleMapsKey) { %>
+<section class="max-w-5xl mx-auto mt-10 text-left" aria-label="Map area picker">
+  <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-4">
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Map search</p>
+      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Pick an area</h2>
+      <p class="text-sm text-brand-muted mt-1 max-w-xl">Pan and zoom, then apply the map center to your city and state. Run <strong class="text-brand-dark dark:text-white">Find Leads</strong> as usual — Apify uses keyword + location.</p>
+    </div>
+    <button type="button" id="applyMapLocationBtn" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white shrink-0">
+      Use map center → location
+    </button>
+  </div>
+  <div id="findAreaMap" class="w-full h-[min(420px,55vh)] min-h-[260px] rounded-[1.75rem] overflow-hidden border border-brand-border/40 dark:border-white/10 shadow-lg bg-brand-cream/30 dark:bg-slate-800/50" role="application" aria-label="Google Map — drag to choose search area"></div>
+  <p id="findAreaMapStatus" class="text-[11px] text-brand-muted mt-2 min-h-[1.25rem]" aria-live="polite"></p>
+</section>
+<script>
+  window.__MAP_DEFAULT__ = {
+    lat: <%= typeof mapDefaultLat !== 'undefined' ? mapDefaultLat : 45.5152 %>,
+    lng: <%= typeof mapDefaultLng !== 'undefined' ? mapDefaultLng : -122.6784 %>,
+    zoom: <%= typeof mapDefaultZoom !== 'undefined' ? mapDefaultZoom : 11 %>
+  };
+  function initFindAreaMap() {
+    var el = document.getElementById('findAreaMap');
+    var btn = document.getElementById('applyMapLocationBtn');
+    var statusEl = document.getElementById('findAreaMapStatus');
+    if (!el || !window.google || !google.maps) return;
+    var d = window.__MAP_DEFAULT__ || { lat: 45.5152, lng: -122.6784, zoom: 11 };
+    var map = new google.maps.Map(el, {
+      center: { lat: d.lat, lng: d.lng },
+      zoom: d.zoom,
+      mapTypeControl: true,
+      streetViewControl: false,
+      fullscreenControl: true
+    });
+    window.__findAreaMap = map;
+    var geocoder = new google.maps.Geocoder();
+    function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
+    function applyCenter() {
+      var c = map.getCenter();
+      if (!c) return;
+      setStatus('Looking up address…');
+      geocoder.geocode({ location: c }, function (results, status) {
+        if (status !== 'OK' || !results || !results[0]) {
+          setStatus('Could not resolve this spot — try moving the map to a city block.');
+          return;
+        }
+        var city = '';
+        var state = '';
+        var comps = results[0].address_components || [];
+        for (var i = 0; i < comps.length; i++) {
+          var t = comps[i].types || [];
+          if (t.indexOf('locality') >= 0) city = comps[i].long_name;
+          if (t.indexOf('administrative_area_level_1') >= 0) state = comps[i].short_name || '';
+        }
+        if (!city) {
+          for (var j = 0; j < comps.length; j++) {
+            var t2 = comps[j].types || [];
+            if (t2.indexOf('sublocality') >= 0 || t2.indexOf('neighborhood') >= 0) {
+              city = comps[j].long_name;
+              break;
+            }
+          }
+        }
+        var cityIn = document.querySelector('#searchForm input[name="city"]');
+        var stateIn = document.querySelector('#searchForm input[name="state"]');
+        if (cityIn) cityIn.value = city || '';
+        if (stateIn) stateIn.value = (state || '').slice(0, 2).toUpperCase();
+        setStatus(
+          (city || state)
+            ? 'Set location to ' + (city || '—') + ', ' + (state || '—') + '.'
+            : 'Could not find city/state — zoom closer to a town.'
+        );
+      });
+    }
+    if (btn) btn.addEventListener('click', applyCenter);
+  }
+</script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=<%= encodeURIComponent(googleMapsKey) %>&callback=initFindAreaMap"></script>
+<% } else { %>
+<section class="max-w-5xl mx-auto mt-10 brand-card p-6 dark:bg-slate-900 dark:border-white/10">
+  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Map search</p>
+  <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Optional: area map</h2>
+  <p class="text-sm text-brand-muted mt-2">Set <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> in your environment and enable <strong class="text-brand-dark dark:text-white">Maps JavaScript API</strong> + <strong class="text-brand-dark dark:text-white">Geocoding API</strong> for the same key. Then you can pick a map center and fill city/state automatically.</p>
+</section>
+<% } %>

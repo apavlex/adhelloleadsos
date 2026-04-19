@@ -1,5 +1,5 @@
 /**
- * Phase 1 IA: sets res.locals.navPrimary for the 5-item top nav
+ * Phase 1 IA: sets res.locals.navPrimary for the top nav
  * (today | find | pipeline | outreach | insights).
  */
 function iaNav(req, res, next) {
@@ -25,6 +25,8 @@ function iaNav(req, res, next) {
     navPrimary = 'today';
   } else if (p.startsWith('/analytics') || p.startsWith('/insights')) {
     navPrimary = 'insights';
+  } else if (p === '/tasks' || p.startsWith('/tasks/')) {
+    navPrimary = 'tasks';
   }
   res.locals.navPrimary = navPrimary;
   next();

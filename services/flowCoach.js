@@ -156,6 +156,7 @@ const ALLOWED_HREFS = new Set([
   '/find',
   '/pipeline',
   '/outreach',
+  '/tasks',
   '/insights',
   '/leads',
   '/sales',
@@ -225,7 +226,7 @@ Respond with JSON only (no markdown):
 }
 
 Rules:
-- href must be one of: /, /today, /find, /pipeline, /outreach, /insights, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics, /sequences, /activation, /workspace
+- href must be one of: /, /today, /find, /pipeline, /outreach, /tasks, /insights, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics, /sequences, /activation, /workspace
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
 - Prefer warm inbound leads when pipelineCounts show inbound-heavy stages
