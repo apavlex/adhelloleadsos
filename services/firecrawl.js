@@ -1,3 +1,4 @@
+/** Hosted scrape + LLM extract — primary path for Enhance. Kept alongside optional self-host Crawl4AI / Outscraper (see scrapeCostAdvisor). */
 const FirecrawlApp = require('@mendable/firecrawl-js').default;
 const {
   fetchHomepageHtml,
@@ -5,16 +6,19 @@ const {
   mergeHtmlTechIntoExtract,
 } = require('./techSignals');
 
-let appInstance = null;
-function getFirecrawlApp() {
-  if (!appInstance) {
-    const apiKey = process.env.FIRECRAWL_API_KEY;
-    if (!apiKey) {
-      throw new Error('Firecrawl API Key is missing. Please set FIRECRAWL_API_KEY in your environment variables.');
-    }
-    appInstance = new FirecrawlApp({ apiKey });
+function firecrawlKey(integrationEnv) {
+  const fromWs = integrationEnv && integrationEnv.FIRECRAWL_API_KEY;
+  if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
+  const k = process.env.FIRECRAWL_API_KEY;
+  return typeof k === 'string' && k.trim() ? k.trim() : '';
+}
+
+function getFirecrawlApp(integrationEnv) {
+  const apiKey = firecrawlKey(integrationEnv);
+  if (!apiKey) {
+    throw new Error('Firecrawl API Key is missing. Set it under Workspace → API integrations or FIRECRAWL_API_KEY in the environment.');
   }
-  return appInstance;
+  return new FirecrawlApp({ apiKey });
 }
 
 // JSON schema for the data we want to extract
@@ -57,16 +61,17 @@ const ENRICH_SEARCH_PROMPT =
 /**
  * Enriches a lead by scraping the given URL and extracting social profiles and directories.
  * @param {string} url - The website URL to scrape.
+ * @param {{ techMergeHtml?: string|null, integrationEnv?: Record<string, string> }} [options] - Optional `techMergeHtml` (e.g. Crawl4AI) for tech merge; `integrationEnv` for per-workspace FIRECRAWL_API_KEY.
  * @returns {Promise<Object>} Enriched data matching the schema.
  */
-async function enrichLead(url) {
+async function enrichLead(url, options = {}) {
   // Ensure url is absolute
   if (url && !url.startsWith('http')) {
     url = 'https://' + url;
   }
 
   try {
-    const firecrawl = getFirecrawlApp();
+    const firecrawl = getFirecrawlApp(options.integrationEnv);
 
     // Firecrawl v2: LLM extraction uses formats: [{ type: 'json', schema, prompt }], not legacy 'extract'.
     const doc = await firecrawl.scrape(url, {
@@ -82,7 +87,10 @@ async function enrichLead(url) {
     let merged = (doc && doc.json != null ? doc.json : doc.extract) || {};
 
     try {
-      const html = await fetchHomepageHtml(url);
+      const html =
+        typeof options.techMergeHtml === 'string' && options.techMergeHtml.length > 0
+          ? options.techMergeHtml
+          : await fetchHomepageHtml(url);
       if (html) {
         const htmlSignals = detectTechSignalsFromHtml(html, url);
         merged = mergeHtmlTechIntoExtract(merged, htmlSignals);
@@ -103,9 +111,13 @@ async function enrichLead(url) {
  * @param {string} query - The search query.
  * @returns {Promise<Array>} List of search results.
  */
-async function searchBusiness(query) {
+/**
+ * @param {string} query
+ * @param {Record<string, string>|null|undefined} [integrationEnv]
+ */
+async function searchBusiness(query, integrationEnv) {
   try {
-    const firecrawl = getFirecrawlApp();
+    const firecrawl = getFirecrawlApp(integrationEnv);
     const response = await firecrawl.search(query, {
       limit: 3,
       scrapeOptions: {

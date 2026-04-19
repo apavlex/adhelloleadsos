@@ -2,18 +2,62 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 router.get('/', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId || 'default');
     const pool = workspaceService.assignablePool(ws);
+    const integrationMasks = workspaceIntegrations.integrationMasks(ws);
+    const integrationsReady = workspaceIntegrations.isEncryptionAvailable();
+    const q = req.query.integrations;
+    let integrationsMessage = null;
+    if (q === 'saved') {
+      integrationsMessage = {
+        type: 'ok',
+        text: 'Saved. These keys apply to every member of this workspace (including admins) for Maps search, Enhance, and ingest auto-enrich.',
+      };
+    }
+    if (q === 'need_secret') {
+      integrationsMessage = {
+        type: 'err',
+        text: 'The server must set WORKSPACE_INTEGRATIONS_SECRET (at least 16 characters) before API keys can be stored from this page.',
+      };
+    }
+
     res.render('workspace', {
       title: 'Workspace & team',
       activePage: 'workspace',
       workspace: ws,
       assignPool: pool,
       envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
+      integrationMasks,
+      integrationsReady,
+      integrationsMessage,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/integrations', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).render('error', {
+        message: 'Only workspace owners and admins can manage API integrations.',
+        activePage: 'workspace',
+      });
+    }
+    if (!workspaceIntegrations.isEncryptionAvailable()) {
+      return res.redirect('/workspace?integrations=need_secret');
+    }
+    const wid = req.workspaceId || 'default';
+    const ws = await dbService.getWorkspace(wid);
+    let plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+    plain = workspaceIntegrations.applyClears(plain, req.body);
+    plain = workspaceIntegrations.mergeIntegrationUpdates(plain, req.body);
+    await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
+    res.redirect('/workspace?integrations=saved');
   } catch (e) {
     next(e);
   }

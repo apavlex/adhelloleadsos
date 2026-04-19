@@ -11,6 +11,10 @@ const {
 } = require('../services/trackerStats');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
+const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
+const crawl4aiClient = require('../services/crawl4aiClient');
+const outscraperClient = require('../services/outscraperClient');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 function firstNameFromUser(user) {
   const raw =
@@ -76,6 +80,18 @@ router.get('/', async (req, res, next) => {
     const activation = await activationService.getState(email);
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
 
+    const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId || 'default');
+
+    let scrapeLive = {};
+    if (process.env.SCRAPE_SOURCES_LIVE_PING === '1') {
+      const [c4, os] = await Promise.all([
+        crawl4aiClient.pingHealth(resolvedEnv),
+        outscraperClient.pingHealth(resolvedEnv),
+      ]);
+      scrapeLive = { crawl4ai: c4, outscraper: os };
+    }
+    const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
+
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -97,6 +113,8 @@ router.get('/', async (req, res, next) => {
       activation,
       activationComplete: activation.progress >= (activation.total || 7),
       seededNotice,
+      scrapeAdvisor,
+      scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
     });
   } catch (e) {
     next(e);

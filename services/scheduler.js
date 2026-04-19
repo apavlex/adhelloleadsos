@@ -1,7 +1,8 @@
 const cron = require('node-cron');
 const { DateTime } = require('luxon');
 const db = require('./database');
-const apify = require('./apify');
+const mapsSearch = require('./mapsSearch');
+const workspaceIntegrations = require('./workspaceIntegrations');
 const enricher = require('./enricher');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 
@@ -63,16 +64,20 @@ async function runDueSchedules() {
         await db.updateSchedule(schedule.key, { lastRun: nowLocal.toISO() });
 
         try {
-          // 1. Apify Search
-          let results = await apify.searchGoogleMaps({
+          const wid = schedule.workspaceId || 'default';
+          const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+
+          // 1. Maps list (Outscraper first when configured, Apify fallback)
+          let results = await mapsSearch.searchGoogleMaps({
             keyword: schedule.keyword,
             city: schedule.city,
             state: schedule.state,
             maxResults: schedule.maxResults || 20,
+            integrationEnv,
           });
 
           // 2. Enrich
-          results = await enricher.enrichLeads(results);
+          results = await enricher.enrichLeads(results, { workspaceId: wid });
 
           // 3. Store results in History
           const searchRecord = {
@@ -84,6 +89,7 @@ async function runDueSchedules() {
             results,
             isAutopilot: true,
             timestamp: nowLocal.toISO(),
+            workspaceId: wid,
           };
           await db.saveSearch(searchRecord);
 

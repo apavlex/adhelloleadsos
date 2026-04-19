@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { enrichLead } = require('../services/firecrawl');
+const webEnrichment = require('../services/webEnrichment');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { summaryForApi, normalizeSignalLead } = require('../services/signalChannels');
 const {
@@ -116,9 +117,11 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
     
     // Background enrichment if new or missing data
     if (leadData.website && leadData.website !== 'N/A') {
+      const ingestWid = workspaceIdFromReq(req);
       setImmediate(async () => {
         try {
-          const enrichment = await enrichLead(leadData.website);
+          const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(ingestWid);
+          const enrichment = await webEnrichment.enrichLeadSmart(leadData.website, { integrationEnv });
           if (enrichment) {
             await dbService.updateLead(leadKey, firecrawlExtractToLeadUpdates(enrichment));
           }

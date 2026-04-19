@@ -1,11 +1,20 @@
+/** Google Maps actor (Apify). Find Leads step 1 goes through mapsSearch: Outscraper first when configured, then this client as fallback. */
 const { ApifyClient } = require('apify-client');
-
-const client = new ApifyClient({
-  token: process.env.APIFY_API_TOKEN,
-});
 
 // Google Maps scraper actor (must match input shape below). Override via APIFY_GOOGLE_MAPS_ACTOR_ID if needed.
 const ACTOR_ID = process.env.APIFY_GOOGLE_MAPS_ACTOR_ID || 'nwua9Gu5YrADL7ZDj';
+
+function apifyToken(integrationEnv) {
+  const fromWs = integrationEnv && integrationEnv.APIFY_API_TOKEN;
+  if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
+  return (process.env.APIFY_API_TOKEN || '').trim();
+}
+
+function clientFor(integrationEnv) {
+  const token = apifyToken(integrationEnv);
+  if (!token) throw new Error('APIFY_API_TOKEN is not set (workspace integrations or environment).');
+  return new ApifyClient({ token });
+}
 
 module.exports = {
   /**
@@ -17,7 +26,8 @@ module.exports = {
    * @param {number} params.maxResults - Max places to scrape
    * @returns {Promise<Array>} Array of place objects
    */
-  async searchGoogleMaps({ keyword, city, state, maxResults }) {
+  async searchGoogleMaps({ keyword, city, state, maxResults, integrationEnv }) {
+    const client = clientFor(integrationEnv);
     const searchString = `${keyword} in ${city}, ${state}`;
     const locationQuery = `${city}, ${state}, USA`;
 
@@ -89,7 +99,8 @@ module.exports = {
    * @param {Array} leads - Array of lead objects from the initial search
    * @returns {Promise<Array>} Enriched array of lead objects
    */
-  async enrichSocials(leads) {
+  async enrichSocials(leads, integrationEnv) {
+    const client = clientFor(integrationEnv);
     const leadsToEnrich = leads.filter(l => 
       l.website && l.website !== 'N/A' && 
       (l.facebook === 'N/A' || l.instagram === 'N/A' || l.twitter === 'N/A')

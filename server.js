@@ -4,7 +4,8 @@ const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
 const { passport, ensureAuthenticated } = require('./services/auth');
-const { enrichLead } = require('./services/firecrawl');
+const webEnrichment = require('./services/webEnrichment');
+const workspaceIntegrations = require('./services/workspaceIntegrations');
 const scheduler = require('./services/scheduler');
 const { migrateLegacyPipelineStages } = require('./services/pipelineMigration');
 
@@ -122,15 +123,17 @@ app.use('/api', apiRoutes);
 app.post('/enrich', async (req, res) => {
   try {
     const { url, title, city, state } = req.body;
-    
+    const wid = String(req.body.workspaceId || req.query.workspaceId || 'default').trim() || 'default';
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+
     if (url && url !== 'N/A') {
-      const data = await enrichLead(url);
+      const data = await webEnrichment.enrichLeadSmart(url, { integrationEnv });
       return res.json({ success: true, data });
     } else if (title && city) {
       console.log(`[ENRICH] No URL provided. Searching for ${title} in ${city}...`);
       const { searchBusiness } = require('./services/firecrawl');
       const searchQuery = `${title} business in ${city}${state ? ', ' + state : ''} official website contact`;
-      const searchResults = await searchBusiness(searchQuery);
+      const searchResults = await searchBusiness(searchQuery, integrationEnv);
       
       if (searchResults && searchResults.length > 0) {
         const bestResult = searchResults.find(r => r.extract && (r.extract.email || r.extract.facebook || r.extract.instagram)) || searchResults[0];

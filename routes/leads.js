@@ -3,6 +3,7 @@ const multer = require('multer');
 const router = express.Router();
 const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
+const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
 const { PIPELINE_STAGES, SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
@@ -12,6 +13,7 @@ const { filterLeadsForRequest, userEmail } = require('../services/workspaceServi
 const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
 const workspaceService = require('../services/workspaceService');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -644,14 +646,17 @@ router.post('/:key/enhance', async (req, res, next) => {
     let deepData = null;
     let firecrawlViaSearch = false;
 
+    const leadWorkspaceId = (lead && lead.workspaceId) || req.workspaceId || 'default';
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
+
     if (lead.website && lead.website !== 'N/A') {
-      console.log(`[ENHANCE] Triggering Firecrawl scrape for ${lead.title} (${lead.website})...`);
-      deepData = await firecrawl.enrichLead(lead.website);
+      console.log(`[ENHANCE] Triggering enrich for ${lead.title} (${lead.website})...`);
+      deepData = await webEnrichment.enrichLeadSmart(lead.website, { integrationEnv });
     } else {
       console.log(`[ENHANCE] Website missing. Triggering Firecrawl search for ${lead.title}...`);
       firecrawlViaSearch = true;
       const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
-      const searchResults = await firecrawl.searchBusiness(searchQuery);
+      const searchResults = await firecrawl.searchBusiness(searchQuery, integrationEnv);
 
       if (searchResults && searchResults.length > 0) {
         const bestResult =

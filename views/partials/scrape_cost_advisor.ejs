@@ -1,0 +1,64 @@
+<% const sa = typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor ? scrapeAdvisor : null; %>
+<% if (sa) { %>
+<section class="mb-10 md:mb-12" aria-labelledby="scrape-cost-heading">
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Cost-aware stack</p>
+        <h2 id="scrape-cost-heading" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white tracking-tight">What to use for each job</h2>
+        <p class="text-sm text-brand-muted mt-2 max-w-3xl leading-relaxed"><%= sa.principle %></p>
+      </div>
+      <% if (typeof scrapeSourcesLivePing !== 'undefined' && scrapeSourcesLivePing) { %>
+      <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-700 dark:text-emerald-300 shrink-0">Live reachability on for Crawl4AI / Outscraper</p>
+      <% } else { %>
+      <p class="text-[10px] font-bold text-brand-muted shrink-0 max-w-xs leading-relaxed">Optional: set <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">SCRAPE_SOURCES_LIVE_PING=1</code> to ping Crawl4AI / Outscraper on each load (slower).</p>
+      <% } %>
+    </div>
+
+    <div class="grid md:grid-cols-2 gap-4 mb-8">
+      <% sa.sources.forEach((s) => { %>
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/40 p-5">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h3 class="font-display font-bold text-sm text-brand-dark dark:text-white"><%= s.name %></h3>
+          <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg <%= s.configured ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25' : 'bg-brand-border/20 text-brand-muted border border-brand-border/40' %>"><%= s.configured ? 'Configured' : 'Not set' %></span>
+        </div>
+        <p class="text-[11px] font-bold text-brand-muted uppercase tracking-wide mb-1"><%= s.role %></p>
+        <p class="text-xs text-brand-muted mb-2"><%= s.cost %></p>
+        <% if (s.live) { %>
+        <p class="text-[11px] <%= s.live.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-800 dark:text-amber-200' %> mb-2"><%= s.live.message %></p>
+        <% } %>
+        <p class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed"><%= s.tip %></p>
+      </div>
+      <% }); %>
+    </div>
+
+    <p class="text-[11px] text-brand-muted mb-6 leading-relaxed max-w-4xl">
+      Enhance pipeline: set <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">ENRICH_TRY_CRAWL4AI_FIRST=1</code> with a running Crawl4AI Docker host to pre-fetch HTML for tech signals, then Firecrawl still runs for LLM extract (default). Only if you accept weaker results, <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">ENRICH_SKIP_FIRECRAWL_ON_CRAWL4AI_HTML=1</code> skips the Firecrawl call when Crawl4AI returns HTML (tech-only merge).
+    </p>
+
+    <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Pick by task</h3>
+    <div class="overflow-x-auto rounded-2xl border border-brand-border/40 dark:border-white/10">
+      <table class="min-w-full text-left text-sm">
+        <thead class="bg-brand-cream/40 dark:bg-slate-800/80 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+          <tr>
+            <th class="px-4 py-3">Task</th>
+            <th class="px-4 py-3">Try low-cost first</th>
+            <th class="px-4 py-3">Paid is worth it when…</th>
+            <th class="px-4 py-3">In this app</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-brand-border/30 dark:divide-white/10 text-brand-dark dark:text-slate-200">
+          <% sa.tasks.forEach((row) => { %>
+          <tr class="bg-white/60 dark:bg-slate-900/40">
+            <td class="px-4 py-3 font-bold align-top"><%= row.task %></td>
+            <td class="px-4 py-3 text-brand-muted align-top"><%= row.startCheap %></td>
+            <td class="px-4 py-3 text-brand-muted align-top"><%= row.keepPaid %></td>
+            <td class="px-4 py-3 text-brand-muted align-top"><%= row.inApp %></td>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+<% } %>

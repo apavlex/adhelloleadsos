@@ -1,20 +1,24 @@
 const express = require('express');
 const { DateTime } = require('luxon');
 const router = express.Router();
-const apifyService = require('../services/apify');
+const mapsSearch = require('../services/mapsSearch');
 const dbService = require('../services/database');
 const enricher = require('../services/enricher');
 const activationService = require('../services/activationService');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
 
-// POST /search — trigger an Apify search
+// POST /search — Google Maps list (Outscraper first when configured, else Apify)
 router.post('/', async (req, res, next) => {
   try {
     const { keyword, city, state, maxResults, mode } = req.body;
+    const wid = req.workspaceId || 'default';
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
-    if (mode !== 'schedule' && !process.env.APIFY_API_TOKEN) {
+    if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).render('error', {
-        message: 'Apify is not configured. Set APIFY_API_TOKEN in your environment (Cloud Run → Variables & secrets).',
+        message:
+          'Maps search is not configured for this workspace. Add keys under Workspace → API integrations, or set OUTSCRAPER_API_KEY / APIFY_API_TOKEN on the server.',
         activePage: 'search',
       });
     }
@@ -94,28 +98,29 @@ router.post('/', async (req, res, next) => {
     });
 
     const activationUserEmail = userEmail(req);
-    const activationWorkspaceId = req.workspaceId || 'default';
+    const activationWorkspaceId = wid;
 
     // We use setImmediate to run this in the background without blocking the response
     setImmediate(async () => {
       try {
-        if (!process.env.APIFY_API_TOKEN) {
-          console.error('[SEARCH-BG] APIFY_API_TOKEN is not configured.');
+        if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
+          console.error('[SEARCH-BG] No Maps provider for workspace:', activationWorkspaceId);
+          await dbService.clearActiveJob();
           return;
         }
 
-        // Run the Apify search
-        console.log(`[SEARCH-BG] Starting Apify search for "${keyword}" in "${city}, ${state}"...`);
-        let results = await apifyService.searchGoogleMaps({
+        console.log(`[SEARCH-BG] Starting Maps search for "${keyword}" in "${city}, ${state}"...`);
+        let results = await mapsSearch.searchGoogleMaps({
           keyword,
           city,
           state,
           maxResults: maxResults || 20,
+          integrationEnv,
         });
 
         // Enrich with socials and emails if missing
         console.log(`[SEARCH-BG] Starting deep enrichment pass...`);
-        results = await enricher.enrichLeads(results);
+        results = await enricher.enrichLeads(results, { workspaceId: activationWorkspaceId });
 
         // Save to database
         const searchRecord = {
@@ -151,13 +156,13 @@ router.post('/', async (req, res, next) => {
 
     if (err.message && err.message.includes('401')) {
       return res.status(401).render('error', {
-        message: 'Invalid Apify API token. Check your APIFY_API_TOKEN.',
+        message: 'Invalid API credentials for Maps search. Check OUTSCRAPER_API_KEY and/or APIFY_API_TOKEN.',
         activePage: 'search',
       });
     }
     if (err.message && err.message.includes('402')) {
       return res.status(402).render('error', {
-        message: 'Insufficient Apify credits. Please top up your Apify account.',
+        message: 'Billing issue or insufficient credits on Apify or Outscraper. Check the provider that ran last in server logs.',
         activePage: 'search',
       });
     }

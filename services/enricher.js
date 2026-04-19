@@ -1,12 +1,20 @@
-const firecrawl = require('./firecrawl');
+const webEnrichment = require('./webEnrichment');
 const dbService = require('./database');
+const workspaceIntegrations = require('./workspaceIntegrations');
 
 /**
  * High-quality multi-stage enrichment that combines Apify and Firecrawl.
  * Aim is to find social media links and, most importantly, business emails.
  */
 module.exports = {
-  async enrichLeads(leads) {
+  /**
+   * @param {object[]} leads
+   * @param {{ workspaceId?: string }} [opts]
+   */
+  async enrichLeads(leads, opts = {}) {
+    const workspaceId = opts.workspaceId || 'default';
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(workspaceId);
+
     console.log(`[ENRICHER] Starting deep enrichment for ${leads.length} leads...`);
 
     const enrichedLeads = [...leads]; 
@@ -60,7 +68,7 @@ module.exports = {
       return enrichedLeads;
     }
 
-    console.log(`[ENRICHER] ${stillInNeed.length} leads still need Firecrawl. Processing in batches of ${concurrency}...`);
+    console.log(`[ENRICHER] ${stillInNeed.length} leads still need web enrich (Firecrawl path, optional Crawl4AI first). Processing in batches of ${concurrency}...`);
 
     // Process in batches to avoid API rate limits while staying fast
     for (let i = 0; i < stillInNeed.length; i += concurrency) {
@@ -69,7 +77,7 @@ module.exports = {
       await Promise.all(batch.map(async (lead) => {
         try {
           console.log(`[ENRICHER] [BATCH] Hunting data for: ${lead.title} (${lead.website})`);
-          const deepData = await firecrawl.enrichLead(lead.website);
+          const deepData = await webEnrichment.enrichLeadSmart(lead.website, { integrationEnv });
           
           if (deepData && Object.keys(deepData).length > 0) {
             // Update the lead object
@@ -83,7 +91,7 @@ module.exports = {
             await dbService.saveSiteMetadata(lead.website, deepData);
           }
         } catch (err) {
-          console.error(`[ENRICHER] [BATCH] Firecrawl failed for ${lead.title}:`, err.message);
+          console.error(`[ENRICHER] [BATCH] Enrich failed for ${lead.title}:`, err.message);
         }
       }));
     }
