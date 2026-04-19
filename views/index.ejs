@@ -26,16 +26,23 @@
         Your <strong class="inline font-bold text-brand-dark dark:text-white">daily leads workflow</strong> for the SaaS motion — scrape verticals, enrich, then run pipeline + outreach from <strong class="inline font-bold text-brand-dark dark:text-white">Today</strong>.
       </p>
 
-      <!-- Search Container -->
-      <!-- Search Container 2.0 -->
-      <div class="max-w-5xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl p-2 rounded-[2.5rem] border border-white/20 dark:border-white/5 shadow-2xl relative z-10 transition-all duration-500" id="searchContainer">
+      <!-- Map + search hub: map first, then keyword row -->
+      <div class="max-w-5xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] border border-white/20 dark:border-white/5 shadow-2xl relative z-10 transition-all duration-500 overflow-hidden text-left" id="searchContainer">
+        <%- include('partials/find_area_map') %>
+
+        <div class="p-2 sm:p-3">
+          <div class="px-3 pt-4 pb-2 sm:px-5 sm:pt-5">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Step 2</p>
+            <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white mt-0.5">What to find &amp; how many</h2>
+            <p class="text-sm text-brand-muted mt-1">Keyword and location power the scrape. Autopilot schedules repeat runs with the same settings.</p>
+          </div>
         <form action="/search" method="POST" id="searchForm">
           <!-- Main Search Row -->
           <div class="grid grid-cols-1 lg:flex items-center gap-2 lg:gap-0 px-2 w-full">
             <!-- Keyword -->
             <div class="px-4 py-3 flex flex-col items-start hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-300 group flex-[1.5] min-w-0">
               <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover:text-brand-yellow transition-colors whitespace-nowrap">Business Keyword</label>
-              <input type="text" name="keyword" required placeholder="e.g. Plumber, Dentist"
+              <input type="text" name="keyword" id="searchKeywordField" required placeholder="e.g. Plumber, Dentist"
                 class="w-full bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold placeholder:text-brand-dark/20 text-lg p-0 truncate">
             </div>
             
@@ -118,9 +125,8 @@
             </div>
           </div>
         </form>
+        </div>
       </div>
-
-      <%- include('partials/find_area_map') %>
     </div>
 
     <!-- Loading indicator -->
