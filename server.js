@@ -93,7 +93,7 @@ app.get('/logout', (req, res, next) => {
   });
 });
 
-// Autopilot Heartbeat (Public but secret-protected for Google Cloud Scheduler)
+// Scheduled scrape heartbeat (Public but secret-protected for Google Cloud Scheduler)
 app.get('/api/cron/heartbeat', async (req, res) => {
   const secret = req.headers['x-cron-secret'] || req.query.secret;
   const expectedSecret = process.env.CRON_SECRET || 'fallback-secret-for-setup-only';

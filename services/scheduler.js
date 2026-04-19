@@ -10,7 +10,7 @@ const { runDueSequenceSteps } = require('./sequenceEngine');
  * Periodically wakes up to run scheduled searches and discover new leads.
  */
 async function runDueSchedules() {
-  console.log('[SCHEDULER] Checking for due autopilot jobs...');
+  console.log('[SCHEDULER] Checking for due scheduled jobs...');
   const schedules = await db.listSchedules();
   
   for (const schedule of schedules) {
@@ -53,7 +53,7 @@ async function runDueSchedules() {
       }
 
       if (due) {
-        console.log(`[SCHEDULER] Running due autopilot for: "${schedule.keyword}" at ${schedule.scheduledTime} (${timezone})`);
+        console.log(`[SCHEDULER] Running due schedule for: "${schedule.keyword}" at ${schedule.scheduledTime} (${timezone})`);
         
         // Update lastRun first to prevent overlaps
         await db.updateSchedule(schedule.key, { lastRun: now.toISOString() });
@@ -82,7 +82,20 @@ async function runDueSchedules() {
         };
         await db.saveSearch(searchRecord);
 
-        console.log(`[SCHEDULER] Autopilot search complete for "${schedule.keyword}". Found ${results.length} leads.`);
+        try {
+          await db.recordCompletedSearchNotification({
+            keyword: schedule.keyword,
+            city: schedule.city,
+            state: schedule.state,
+            maxResults: schedule.maxResults || 20,
+            resultCount: results.length,
+            source: 'scheduled',
+          });
+        } catch (notifyErr) {
+          console.error('[SCHEDULER] Failed to record completion notification:', notifyErr.message);
+        }
+
+        console.log(`[SCHEDULER] Scheduled scrape complete for "${schedule.keyword}". Found ${results.length} leads.`);
 
         const hook = process.env.AUTOPILOT_WEBHOOK_URL;
         if (hook) {
@@ -107,7 +120,7 @@ async function runDueSchedules() {
         }
       }
     } catch (err) {
-      console.error(`[SCHEDULER] Autopilot execution failed for ${schedule.keyword}:`, err.stack);
+      console.error(`[SCHEDULER] Scheduled scrape failed for ${schedule.keyword}:`, err.stack);
     }
   }
 }
@@ -166,7 +179,7 @@ module.exports = {
   runDueSchedules,
   runReferralAskReminders,
   init() {
-    console.log('[SCHEDULER] Initializing Autopilot Heartbeat (Every hour)...');
+    console.log('[SCHEDULER] Initializing scheduled lead runs (hourly check)...');
     
     // Check every hour (0 * * * *)
     cron.schedule('0 * * * *', () => {

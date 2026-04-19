@@ -35,20 +35,20 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// GET /schedules — View active autopilot jobs
+// GET /schedules — View scheduled scrape jobs
 router.get('/schedules', async (req, res) => {
   const allSchedules = await dbService.listSchedules();
   const wid = req.workspaceId || 'default';
   const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
-  res.render('schedules', {
-    title: 'Scheduled Jobs | Autopilot',
+    res.render('schedules', {
+      title: 'Scheduled Jobs | Agency OS',
     activePage: 'schedules',
     schedules,
     success: req.query.success === 'true'
   });
 });
 
-// POST /schedules/delete — Remove an autopilot job
+// POST /schedules/delete — Remove a scheduled job
 router.post('/schedules/delete', async (req, res) => {
   const { key } = req.body;
   if (key) {

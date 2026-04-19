@@ -19,7 +19,7 @@ const PLAN = [
   },
   {
     id: 'd3',
-    label: 'Day 3 — Schedule Autopilot',
+    label: 'Day 3 — Schedule lead runs',
     hint: 'Daily / weekly scrape while you sleep',
     href: '/schedules',
     event: 'autopilot_scheduled',

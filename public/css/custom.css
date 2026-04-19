@@ -316,7 +316,7 @@ table {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-#autopilotSettings {
+#scheduledSearchSettings {
   transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
               opacity 0.3s ease-out,
               padding-top 0.4s ease;

@@ -460,15 +460,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (modeRunNow && modeSchedule && searchModeInput) {
-    const autopilotSettings = document.getElementById('autopilotSettings');
+    const scheduledSearchSettings = document.getElementById('scheduledSearchSettings');
 
     modeRunNow.addEventListener('click', () => {
       searchModeInput.value = 'run';
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
 
-      if (autopilotSettings) {
-        autopilotSettings.classList.add('hidden');
+      if (scheduledSearchSettings) {
+        scheduledSearchSettings.classList.add('hidden');
       }
 
       if (searchBtnLabel) {
@@ -481,12 +481,12 @@ document.addEventListener('DOMContentLoaded', () => {
       modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
       modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
 
-      if (autopilotSettings) {
-        autopilotSettings.classList.remove('hidden');
+      if (scheduledSearchSettings) {
+        scheduledSearchSettings.classList.remove('hidden');
       }
 
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Start Autopilot ⚡<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Save schedule ⚡<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
   }

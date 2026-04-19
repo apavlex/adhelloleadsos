@@ -396,7 +396,7 @@ module.exports = {
     }
   },
 
-  // --- Schedules (Autopilot) ---
+  // --- Schedules (recurring scrapes) ---
 
   async saveSchedule(scheduleData) {
     const key = `schedule:${Date.now()}`;
@@ -595,7 +595,8 @@ module.exports = {
         ...active,
         status: 'completed',
         finishedAt: new Date().toISOString(),
-        isRead: false
+        isRead: false,
+        source: 'run',
       }));
     }
     await db.delete('active_job');
@@ -614,6 +615,35 @@ module.exports = {
     if (data) {
       await db.set('latest_finished_job', JSON.stringify({ ...data, isRead: true }));
     }
+  },
+
+  /**
+   * Publish bell + /api/status when a server-side scheduled scrape completes.
+   */
+  async recordCompletedSearchNotification({
+    keyword,
+    city,
+    state,
+    maxResults,
+    resultCount,
+    source = 'scheduled',
+  }) {
+    const finishedAt = new Date().toISOString();
+    await db.set(
+      'latest_finished_job',
+      JSON.stringify({
+        type: 'search',
+        keyword: String(keyword || ''),
+        city: String(city || ''),
+        state: String(state || ''),
+        maxResults: maxResults != null ? maxResults : 20,
+        resultCount: resultCount != null ? resultCount : 0,
+        status: 'completed',
+        finishedAt,
+        isRead: false,
+        source: String(source || 'scheduled'),
+      })
+    );
   },
 
   // --- Daily action tracker (per user email, per calendar day) ---

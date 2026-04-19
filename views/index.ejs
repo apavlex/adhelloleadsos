@@ -19,7 +19,7 @@
       
       <h1 class="font-display font-extrabold text-5xl md:text-7xl tracking-tight mb-6 leading-[1.1]">
         Lead Generation <br/>
-        <span class="text-brand-muted">Run now or schedule</span>
+        <span class="text-brand-muted">Run now or run on a schedule</span>
       </h1>
       
       <p class="max-w-2xl mx-auto text-base md:text-lg text-brand-muted font-medium mb-10 leading-relaxed">
@@ -34,7 +34,7 @@
           <div class="px-3 pt-4 pb-2 sm:px-5 sm:pt-5">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Step 2</p>
             <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white mt-0.5">What to find &amp; how many</h2>
-            <p class="text-sm text-brand-muted mt-1">Keyword and location power the scrape. Autopilot schedules repeat runs with the same settings.</p>
+            <p class="text-sm text-brand-muted mt-1">Keyword and location power the scrape. <strong class="font-semibold text-brand-dark dark:text-white">Scheduled</strong> repeats this search automatically; you’ll get the bell + desktop notification when each run finishes (allow notifications for this site).</p>
           </div>
         <form action="/search" method="POST" id="searchForm">
           <!-- Main Search Row -->
@@ -76,7 +76,7 @@
               <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-2 ml-1 whitespace-nowrap">Mode</label>
               <div class="flex items-center gap-1 p-1 bg-brand-cream/80 dark:bg-slate-800/80 rounded-xl border border-brand-border/20 dark:border-white/5 w-full h-9">
                 <button type="button" id="modeRunNow" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10">Run Now</button>
-                <button type="button" id="modeSchedule" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100">Autopilot</button>
+                <button type="button" id="modeSchedule" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100">Scheduled</button>
               </div>
               <input type="hidden" name="mode" id="searchModeInput" value="run">
               <input type="hidden" name="timezone" id="userTimezone">
@@ -97,8 +97,8 @@
             </div>
           </div>
 
-          <!-- Autopilot Settings Row (New) -->
-          <div id="autopilotSettings" class="hidden overflow-hidden border-t border-brand-border/10 dark:border-white/5 transition-all duration-500">
+          <!-- Scheduled scrape settings -->
+          <div id="scheduledSearchSettings" class="hidden overflow-hidden border-t border-brand-border/10 dark:border-white/5 transition-all duration-500">
             <div class="flex items-center gap-8 px-6 py-4">
                 <div id="frequencyPocket" class="flex flex-col items-start group/freq">
                     <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/freq:text-brand-yellow transition-colors whitespace-nowrap">Frequency</label>
@@ -121,7 +121,7 @@
                     </div>
                 </div>
                 
-                <div class="ml-auto text-[10px] font-black uppercase tracking-widest text-brand-muted/40 italic">Scheduled Automations</div>
+                <div class="ml-auto text-[10px] font-black uppercase tracking-widest text-brand-muted/40 italic">Scheduled runs</div>
             </div>
           </div>
         </form>

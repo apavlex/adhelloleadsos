@@ -25,10 +25,10 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    // --- HANDLE AUTOPILOT SCHEDULING ---
+    // --- Scheduled recurring scrape ---
     if (mode === 'schedule') {
       const { scheduledTime, timezone } = req.body;
-      console.log(`[SEARCH] Saving new Autopilot schedule for "${keyword}" in "${city}" at ${scheduledTime} (${timezone})...`);
+      console.log(`[SEARCH] Saving scheduled scrape for "${keyword}" in "${city}" at ${scheduledTime} (${timezone})...`);
       await dbService.saveSchedule({
         keyword,
         city,
