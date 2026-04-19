@@ -1,6 +1,6 @@
 /**
  * Phase 1 IA: sets res.locals.navPrimary for the top nav
- * (today | find | pipeline | outreach | insights).
+ * (today | find | pipeline | outreach | reports).
  */
 function iaNav(req, res, next) {
   const p = req.path || '';
@@ -23,8 +23,8 @@ function iaNav(req, res, next) {
     navPrimary = 'outreach';
   } else if (p.startsWith('/coach')) {
     navPrimary = 'today';
-  } else if (p.startsWith('/analytics') || p.startsWith('/insights')) {
-    navPrimary = 'insights';
+  } else if (p.startsWith('/analytics') || p.startsWith('/insights') || p.startsWith('/reports')) {
+    navPrimary = 'reports';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
   } else if (p === '/resources' || p.startsWith('/resources/')) {

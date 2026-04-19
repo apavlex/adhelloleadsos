@@ -81,7 +81,7 @@
 <div id="tracker" class="grid lg:grid-cols-2 gap-8 mb-14 scroll-mt-24">
   <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
     <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Today · <%= today %></h2>
-    <p class="text-xs text-brand-muted mb-6">Cold outreach &amp; bids</p>
+    <p class="text-xs text-brand-muted mb-6">Cold outreach, social, creatives &amp; bids</p>
     <form action="/sales/tracker" method="post" class="space-y-4">
       <input type="hidden" name="date" value="<%= today %>" />
       <input type="hidden" name="returnTo" value="<%= typeof trackerReturnTo !== 'undefined' ? trackerReturnTo : '/sales/tracker' %>" />
@@ -101,6 +101,14 @@
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Upwork / bids</label>
           <input name="upworkBids" type="number" min="0" value="<%= todayRow.upworkBids != null ? todayRow.upworkBids : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Social posts</label>
+          <input name="socialPosts" type="number" min="0" value="<%= todayRow.socialPosts != null ? todayRow.socialPosts : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Ad creatives</label>
+          <input name="adCreatives" type="number" min="0" value="<%= todayRow.adCreatives != null ? todayRow.adCreatives : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
         </div>
       </div>
       <div>
@@ -127,9 +135,17 @@
         <dt class="text-[10px] font-black uppercase text-brand-muted">Calls</dt>
         <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.coldCalls,10)||0 %></dd>
       </div>
-      <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10 col-span-2">
+      <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
         <dt class="text-[10px] font-black uppercase text-brand-muted">Bids</dt>
         <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.upworkBids,10)||0 %></dd>
+      </div>
+      <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
+        <dt class="text-[10px] font-black uppercase text-brand-muted">Social posts</dt>
+        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.socialPosts,10)||0 %></dd>
+      </div>
+      <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10 col-span-2">
+        <dt class="text-[10px] font-black uppercase text-brand-muted">Ad creatives</dt>
+        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.adCreatives,10)||0 %></dd>
       </div>
     </dl>
   </div>
@@ -165,11 +181,13 @@
                 <% if (day.isToday) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/15 px-2 py-0.5 rounded-full">Today</span><% } %>
                 <span class="text-[10px] font-mono text-brand-muted dark:text-slate-500"><%= day.date %></span>
               </div>
-              <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">
-                Emails <strong class="text-brand-dark dark:text-slate-200"><%= day.emails %></strong> ·
-                DMs <strong class="text-brand-dark dark:text-slate-200"><%= day.dms %></strong> ·
-                Calls <strong class="text-brand-dark dark:text-slate-200"><%= day.calls %></strong> ·
-                Bids <strong class="text-brand-dark dark:text-slate-200"><%= day.bids %></strong>
+              <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                <span>Emails <strong class="text-brand-dark dark:text-slate-200"><%= day.emails %></strong></span>
+                <span>·</span><span>DMs <strong class="text-brand-dark dark:text-slate-200"><%= day.dms %></strong></span>
+                <span>·</span><span>Calls <strong class="text-brand-dark dark:text-slate-200"><%= day.calls %></strong></span>
+                <span>·</span><span>Bids <strong class="text-brand-dark dark:text-slate-200"><%= day.bids %></strong></span>
+                <span>·</span><span>Social <strong class="text-brand-dark dark:text-slate-200"><%= day.socialPosts %></strong></span>
+                <span>·</span><span>Ads <strong class="text-brand-dark dark:text-slate-200"><%= day.adCreatives %></strong></span>
               </div>
             </div>
             <span class="text-xl font-black text-brand-dark dark:text-white tabular-nums shrink-0"><%= day.total %></span>
@@ -213,11 +231,13 @@
                 <% if (day.isToday) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/15 px-2 py-0.5 rounded-full">Today</span><% } %>
                 <span class="text-[10px] font-mono text-brand-muted dark:text-slate-500"><%= day.date %></span>
               </div>
-              <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">
-                Emails <strong class="text-brand-dark dark:text-slate-200"><%= day.emails %></strong> ·
-                DMs <strong class="text-brand-dark dark:text-slate-200"><%= day.dms %></strong> ·
-                Calls <strong class="text-brand-dark dark:text-slate-200"><%= day.calls %></strong> ·
-                Bids <strong class="text-brand-dark dark:text-slate-200"><%= day.bids %></strong>
+              <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 flex flex-wrap gap-x-2 gap-y-1">
+                <span>Emails <strong class="text-brand-dark dark:text-slate-200"><%= day.emails %></strong></span>
+                <span>·</span><span>DMs <strong class="text-brand-dark dark:text-slate-200"><%= day.dms %></strong></span>
+                <span>·</span><span>Calls <strong class="text-brand-dark dark:text-slate-200"><%= day.calls %></strong></span>
+                <span>·</span><span>Bids <strong class="text-brand-dark dark:text-slate-200"><%= day.bids %></strong></span>
+                <span>·</span><span>Social <strong class="text-brand-dark dark:text-slate-200"><%= day.socialPosts %></strong></span>
+                <span>·</span><span>Ads <strong class="text-brand-dark dark:text-slate-200"><%= day.adCreatives %></strong></span>
               </div>
             </div>
             <span class="text-xl font-black text-brand-dark dark:text-white tabular-nums shrink-0"><%= day.total %></span>

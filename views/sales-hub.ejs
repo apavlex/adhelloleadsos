@@ -50,7 +50,7 @@
       <div class="brand-card p-6 mb-10 dark:bg-slate-900 dark:border-white/10">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-display font-extrabold text-sm text-brand-dark dark:text-white">14-day outreach volume</h3>
-          <a href="/outreach" class="text-[10px] font-black uppercase text-brand-yellow underline">Today’s touches</a>
+          <a href="/analytics?tab=tracker" class="text-[10px] font-black uppercase text-brand-yellow underline">Today’s touches</a>
         </div>
         <div class="flex items-end gap-1.5 h-40 w-full">
           <% h.chartSeries.forEach((pt) => { %>
@@ -72,10 +72,10 @@
         <p class="text-sm text-brand-muted leading-relaxed">New → Contacted → Booked → CQI → Trial → Retainer → Upsell → Referrals. CQI notes live on each lead.</p>
         <span class="inline-block mt-6 text-[10px] font-black uppercase tracking-widest text-brand-yellow">Open workflow →</span>
       </a>
-      <a href="/outreach" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
+      <a href="/analytics?tab=tracker" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
         <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center mb-6 text-emerald-700 dark:text-emerald-400 font-black text-xl border border-emerald-500/20">∑</div>
         <h2 class="font-display font-extrabold text-xl mb-2 group-hover:text-emerald-600 transition-colors">Daily Action Tracker</h2>
-        <p class="text-sm text-brand-muted leading-relaxed">Cold emails, DMs, calls, and bids — tracked per day so you can gamify consistency.</p>
+        <p class="text-sm text-brand-muted leading-relaxed">Cold outreach, social posts, ad creatives, and bids — tracked per day under Reports.</p>
         <span class="inline-block mt-6 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Log today →</span>
       </a>
       <a href="/sales/personas" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">

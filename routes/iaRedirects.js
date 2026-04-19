@@ -20,4 +20,10 @@ router.get('/insights', (req, res) => {
   res.redirect(302, '/analytics');
 });
 
+router.get('/reports', (req, res) => {
+  const i = req.originalUrl.indexOf('?');
+  const q = i >= 0 ? req.originalUrl.slice(i) : '';
+  res.redirect(302, `/analytics${q}`);
+});
+
 module.exports = router;

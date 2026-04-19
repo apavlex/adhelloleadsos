@@ -24,6 +24,8 @@ async function loadSalesTrackerLocals(req) {
       coldDms: 0,
       coldCalls: 0,
       upworkBids: 0,
+      socialPosts: 0,
+      adCreatives: 0,
       notes: '',
       callNotes: '',
     },
@@ -32,7 +34,7 @@ async function loadSalesTrackerLocals(req) {
     checklistWeek,
     checklistMonth,
     outreachCoach,
-    trackerReturnTo: '/analytics',
+    trackerReturnTo: '/analytics?tab=tracker',
   };
 }
 
@@ -81,6 +83,9 @@ function buildDemoAnalytics(visits, leads) {
 
 router.get('/', async (req, res) => {
   try {
+    const tabQ = String(req.query.tab || 'analytics').toLowerCase();
+    const reportsTab = tabQ === 'tracker' ? 'tracker' : 'analytics';
+
     const visits = await dbService.getAllVisits();
     const leads = await dbService.getAllLeads();
 
@@ -144,6 +149,7 @@ router.get('/', async (req, res) => {
 
     res.render('analytics', {
       user: req.user,
+      reportsTab,
       totalVisits,
       uniqueIPs,
       topRegions,

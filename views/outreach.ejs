@@ -12,20 +12,17 @@
   <main class="max-wide px-6 py-10 md:py-14">
     <div class="mb-8 max-w-3xl">
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Outreach <span class="text-brand-muted">Hub</span></h1>
-      <p class="text-brand-muted font-medium mt-2">One place to filter your working leads, log touches, and organize folders.</p>
+      <p class="text-brand-muted font-medium mt-2">One place to filter your working leads and organize folders. Daily hustle metrics live under <a href="/analytics?tab=tracker" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Reports → Daily tracker</a>.</p>
     </div>
 
     <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
     <nav class="flex flex-wrap gap-2 mb-8" aria-label="Outreach tabs">
       <a href="/outreach?tab=queue" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= activeTab === 'queue' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Queue</a>
       <a href="/outreach?tab=pipeline" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= activeTab === 'pipeline' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Pipeline</a>
-      <a href="/outreach?tab=touches" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= activeTab === 'touches' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Touches</a>
       <a href="/outreach?tab=folders" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= activeTab === 'folders' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Folders</a>
     </nav>
 
-    <% if (activeTab === 'touches') { %>
-      <%- include('partials/sales_tracker_content') %>
-    <% } else if (activeTab === 'pipeline') { %>
+    <% if (activeTab === 'pipeline') { %>
       <% const _pipeSrc = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
       <% const _pipeCounts = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts : { all: (pipelineBoardLeads || []).length, cold: 0, inbound: 0 }; %>
       <% const _pipeLeads = typeof pipelineBoardLeads !== 'undefined' ? pipelineBoardLeads : []; %>
@@ -139,8 +136,6 @@
   <% if (activeTab === 'pipeline') { %>
   <%- include('partials/leads_interactive_tail', { leads: typeof pipelineBoardLeads !== 'undefined' ? pipelineBoardLeads : [], pipelineStages }) %>
   <script src="/js/app.js"></script>
-  <% } else if (activeTab === 'touches') { %>
-  <%- include('partials/footer') %>
   <% } else { %>
   <div id="folderCreateModal" class="fixed inset-0 z-[220] hidden items-center justify-center p-4" aria-hidden="true">
     <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>

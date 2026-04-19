@@ -675,6 +675,8 @@ module.exports = {
       coldDms: metrics.coldDms != null ? metrics.coldDms : existing.coldDms ?? 0,
       coldCalls: metrics.coldCalls != null ? metrics.coldCalls : existing.coldCalls ?? 0,
       upworkBids: metrics.upworkBids != null ? metrics.upworkBids : existing.upworkBids ?? 0,
+      socialPosts: metrics.socialPosts != null ? metrics.socialPosts : existing.socialPosts ?? 0,
+      adCreatives: metrics.adCreatives != null ? metrics.adCreatives : existing.adCreatives ?? 0,
       notes: metrics.notes != null ? metrics.notes : existing.notes ?? '',
       callNotes: metrics.callNotes != null ? metrics.callNotes : existing.callNotes ?? '',
       email,

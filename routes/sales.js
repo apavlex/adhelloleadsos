@@ -100,6 +100,8 @@ router.get('/tracker', async (req, res, next) => {
         coldDms: 0,
         coldCalls: 0,
         upworkBids: 0,
+        socialPosts: 0,
+        adCreatives: 0,
         notes: '',
         callNotes: '',
       },
@@ -124,6 +126,8 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
       coldDms: parseInt(req.body.coldDms, 10) || 0,
       coldCalls: parseInt(req.body.coldCalls, 10) || 0,
       upworkBids: parseInt(req.body.upworkBids, 10) || 0,
+      socialPosts: parseInt(req.body.socialPosts, 10) || 0,
+      adCreatives: parseInt(req.body.adCreatives, 10) || 0,
       notes: req.body.notes || '',
       callNotes: req.body.callNotes || '',
     });
@@ -131,13 +135,25 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
       (parseInt(req.body.coldEmails, 10) || 0) +
       (parseInt(req.body.coldDms, 10) || 0) +
       (parseInt(req.body.coldCalls, 10) || 0) +
-      (parseInt(req.body.upworkBids, 10) || 0);
+      (parseInt(req.body.upworkBids, 10) || 0) +
+      (parseInt(req.body.socialPosts, 10) || 0) +
+      (parseInt(req.body.adCreatives, 10) || 0);
     if (touches > 0) {
       await activationService.recordEvent(email, 'outreach_logged');
     }
     const returnTo = (req.body.returnTo || '').toString().trim();
-    const allowed = new Set(['/sales/tracker', '/outreach?tab=touches', '/analytics']);
-    const dest = allowed.has(returnTo) ? returnTo : '/sales/tracker';
+    const dest = (() => {
+      if (['/sales/tracker', '/analytics', '/outreach?tab=touches'].includes(returnTo)) return returnTo;
+      if (returnTo.startsWith('/analytics?')) {
+        try {
+          const u = new URL(returnTo, 'http://localhost');
+          if (u.pathname === '/analytics') return returnTo;
+        } catch {
+          /* fall through */
+        }
+      }
+      return '/sales/tracker';
+    })();
     res.redirect(302, dest);
   } catch (e) {
     next(e);

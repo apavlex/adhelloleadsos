@@ -64,7 +64,9 @@ function touchesForRow(row) {
     (parseInt(row.coldEmails, 10) || 0) +
     (parseInt(row.coldDms, 10) || 0) +
     (parseInt(row.coldCalls, 10) || 0) +
-    (parseInt(row.upworkBids, 10) || 0)
+    (parseInt(row.upworkBids, 10) || 0) +
+    (parseInt(row.socialPosts, 10) || 0) +
+    (parseInt(row.adCreatives, 10) || 0)
   );
 }
 
@@ -132,7 +134,9 @@ function buildDayRollup(todayStr, rows, numDays) {
     const dms = parseInt(row && row.coldDms, 10) || 0;
     const calls = parseInt(row && row.coldCalls, 10) || 0;
     const bids = parseInt(row && row.upworkBids, 10) || 0;
-    const total = emails + dms + calls + bids;
+    const socialPosts = parseInt(row && row.socialPosts, 10) || 0;
+    const adCreatives = parseInt(row && row.adCreatives, 10) || 0;
+    const total = emails + dms + calls + bids + socialPosts + adCreatives;
     const notes = (row && row.notes && String(row.notes).trim()) || '';
     const callNotes = (row && row.callNotes && String(row.callNotes).trim()) || '';
     const isToday = i === 0;
@@ -144,6 +148,8 @@ function buildDayRollup(todayStr, rows, numDays) {
       dms,
       calls,
       bids,
+      socialPosts,
+      adCreatives,
       total,
       hasNotes: !!(notes || callNotes),
       notes,

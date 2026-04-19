@@ -98,7 +98,7 @@ function ruleBasedCoach(ctx) {
       nextActions.push({ label: 'Search still running — check History', href: '/history', priority: 'normal' });
     }
     if (ctx.touchesToday === 0 && ctx.hourUTC >= 13) {
-      nextActions.push({ label: 'Log today’s touches (streak + discipline)', href: '/outreach', priority: 'high' });
+      nextActions.push({ label: 'Log today’s touches (streak + discipline)', href: '/analytics?tab=tracker', priority: 'high' });
     }
     if (ctx.maxBacklogStage === 1 && ctx.maxBacklogCount >= 3) {
       nextActions.push({
@@ -108,7 +108,7 @@ function ruleBasedCoach(ctx) {
       });
     }
     if (ctx.streak >= 3 && ctx.touchesToday === 0) {
-      nextActions.push({ label: `Keep your ${ctx.streak}-day streak — log touches`, href: '/outreach', priority: 'high' });
+      nextActions.push({ label: `Keep your ${ctx.streak}-day streak — log touches`, href: '/analytics?tab=tracker', priority: 'high' });
     }
     nextActions.push({ label: 'Drag cards on the Pipeline board', href: '/pipeline', priority: 'normal' });
     nextActions.push({ label: 'Open scripts (Clay / Paul / Bob)', href: '/sales/personas', priority: 'normal' });
@@ -156,7 +156,7 @@ const ALLOWED_HREFS = new Set([
   '/pipeline',
   '/outreach',
   '/tasks',
-  '/insights',
+  '/resources',
   '/leads',
   '/sales',
   '/sales/workflow',
@@ -178,8 +178,10 @@ function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openai') {
   nextActions = nextActions
     .filter((a) => a && typeof a.label === 'string' && typeof a.href === 'string')
     .map((a) => {
-      let href = a.href.startsWith('/') ? a.href.split('?')[0] : `/${a.href}`.replace(/^\/\//, '/');
-      if (!ALLOWED_HREFS.has(href)) href = '/today';
+      let raw = String(a.href || '').trim();
+      if (!raw.startsWith('/')) raw = '/' + raw.replace(/^\/+/, '');
+      const pathOnly = raw.split(/[?#]/)[0];
+      const href = ALLOWED_HREFS.has(pathOnly) ? raw : '/today';
       return {
         label: a.label.slice(0, 160),
         href,
@@ -225,7 +227,7 @@ Respond with JSON only (no markdown):
 }
 
 Rules:
-- href must be one of: /, /today, /find, /pipeline, /outreach, /tasks, /insights, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics, /sequences, /activation, /workspace
+- href paths must match app routes: /, /today, /find, /pipeline, /outreach, /tasks, /resources, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics (optional ?tab=tracker), /sequences, /activation, /workspace
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
 - Prefer warm inbound leads when pipelineCounts show inbound-heavy stages
