@@ -1,0 +1,50 @@
+<% if (typeof user !== 'undefined' && user) { %>
+<div id="assistantDock" class="fixed bottom-5 right-5 z-[155] flex flex-col items-end gap-3 pointer-events-none [&>*]:pointer-events-auto">
+  <div
+    id="assistantPanel"
+    class="hidden w-[min(calc(100vw-1.5rem),26rem)] h-[min(32rem,calc(100vh-6rem))] flex flex-col rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden"
+    role="dialog"
+    aria-label="Workspace assistant"
+    aria-hidden="true"
+  >
+    <div class="flex items-center justify-between gap-2 px-4 py-3 border-b border-brand-border/60 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 shrink-0">
+      <div class="min-w-0">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Assistant</p>
+        <p class="text-xs font-bold text-brand-dark dark:text-white truncate">Leads &amp; resources</p>
+      </div>
+      <button type="button" id="assistantClose" class="w-9 h-9 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center transition-colors" aria-label="Close assistant">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+    <div id="assistantMessages" class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 text-sm custom-scrollbar"></div>
+    <div id="assistantCitations" class="hidden shrink-0 max-h-28 overflow-y-auto border-t border-brand-border/40 dark:border-white/10 px-3 py-2 bg-brand-cream/20 dark:bg-slate-800/40 text-[11px]"></div>
+    <form id="assistantForm" class="shrink-0 flex gap-2 p-3 border-t border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900">
+      <label class="sr-only" for="assistantInput">Message</label>
+      <input
+        id="assistantInput"
+        type="text"
+        autocomplete="off"
+        maxlength="2000"
+        placeholder="Search leads &amp; resources…"
+        class="flex-1 min-w-0 rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-yellow/50"
+      />
+      <button type="submit" id="assistantSend" class="shrink-0 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">
+        Send
+      </button>
+    </form>
+  </div>
+  <button
+    type="button"
+    id="assistantFab"
+    class="w-14 h-14 rounded-full bg-brand-yellow text-brand-dark shadow-lg shadow-brand-yellow/35 border border-amber-400/40 flex items-center justify-center hover:brightness-105 active:scale-[0.97] transition-all"
+    aria-expanded="false"
+    aria-controls="assistantPanel"
+    title="Open assistant"
+  >
+    <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+    </svg>
+  </button>
+</div>
+<script src="/js/assistant-chat.js" defer></script>
+<% } %>

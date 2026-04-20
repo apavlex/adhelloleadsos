@@ -495,24 +495,26 @@ table {
     border-radius: 50%;
     opacity: 0;
     transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    /* Monochrome sweep from workspace accent (--brand-yellow), not multi-hue */
     background: conic-gradient(
         from 0deg,
-        transparent 0%,
-        #00f2ff 25%,
-        #004de6 50%,
-        #8a2be2 75%,
-        var(--brand-yellow) 100%
+        transparent 0deg,
+        color-mix(in srgb, var(--brand-yellow) 25%, transparent) 70deg,
+        color-mix(in srgb, var(--brand-yellow) 70%, white) 160deg,
+        var(--brand-yellow) 250deg,
+        color-mix(in srgb, var(--brand-yellow) 35%, transparent) 320deg,
+        transparent 360deg
     );
     -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2.5px));
     mask: radial-gradient(farthest-side, transparent calc(100% - 3px), black calc(100% - 2.5px));
-    filter: drop-shadow(0 0 10px rgba(0, 242, 255, 0.4));
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--brand-yellow) 45%, transparent));
 }
 
 .processing-active .processing-ring {
     opacity: 1;
     inset: -5px;
     animation: alexa-sweep 1.2s cubic-bezier(0.55, 0.055, 0.675, 0.19) infinite;
-    filter: drop-shadow(0 0 12px rgba(253, 224, 71, 0.6));
+    filter: drop-shadow(0 0 12px color-mix(in srgb, var(--brand-yellow) 55%, transparent));
 }
 
 .bell-icon-wrapper {
@@ -542,9 +544,8 @@ table {
 }
 
 @keyframes alexa-sweep {
-    0% { transform: rotate(0deg); filter: hue-rotate(0deg) brightness(1.2); }
-    50% { transform: rotate(180deg); filter: hue-rotate(90deg) brightness(1.5); }
-    100% { transform: rotate(360deg); filter: hue-rotate(0deg) brightness(1.2); }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 @keyframes bell-shake {

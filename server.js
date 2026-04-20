@@ -24,6 +24,7 @@ const workspacesRoutes = require('./routes/workspaces');
 const activationRoutes = require('./routes/activation');
 const tasksRoutes = require('./routes/tasks');
 const resourcesRoutes = require('./routes/resources');
+const assistantRoutes = require('./routes/assistant');
 const outreachRoutes = require('./routes/outreach');
 const prospectingRoutes = require('./routes/prospecting');
 const foldersRoutes = require('./routes/folders');
@@ -177,6 +178,7 @@ app.use('/pipeline', pipelineRoutes);
 app.use('/activation', activationRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/resources', resourcesRoutes);
+app.use('/api/assistant', assistantRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {
