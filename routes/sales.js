@@ -13,6 +13,7 @@ const {
 } = require('../services/outreachCoachSnapshot');
 const { generateOutreachCoachPayload } = require('../services/outreachCoachAi');
 const { workspaceTodayYmd } = require('../services/workspaceTimezone');
+const salesScriptsStorage = require('../services/salesScriptsStorage');
 
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
@@ -187,19 +188,27 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
   }
 });
 
-router.get('/personas', (req, res) => {
-  const scriptServiceLabels = Object.fromEntries(
-    SCRIPT_LIBRARY_KEYS.map((k) => [k, SCRIPT_LIBRARY[k].label])
-  );
-  res.render('sales-personas', {
-    title: 'AI Personas & Scripts',
-    activePage: 'sales',
-    activeSales: 'personas',
-    SCRIPT_LIBRARY,
-    SCRIPT_LIBRARY_KEYS,
-    scriptServiceLabels,
-    PERSONAS,
-  });
+router.get('/personas', async (req, res, next) => {
+  try {
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const scriptServiceLabels = Object.fromEntries(
+      SCRIPT_LIBRARY_KEYS.map((k) => [k, SCRIPT_LIBRARY[k].label])
+    );
+    const SCRIPT_LIBRARY_MERGED = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const initialScriptLibraryItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
+    res.render('sales-personas', {
+      title: 'AI Personas & Scripts',
+      activePage: 'sales',
+      activeSales: 'personas',
+      SCRIPT_LIBRARY: SCRIPT_LIBRARY_MERGED,
+      SCRIPT_LIBRARY_KEYS,
+      scriptServiceLabels,
+      initialScriptLibraryItems,
+      PERSONAS,
+    });
+  } catch (e) {
+    next(e);
+  }
 });
 
 const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'close'];

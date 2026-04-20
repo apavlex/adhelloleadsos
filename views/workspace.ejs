@@ -3,11 +3,15 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-bg min-h-screen text-brand-dark">
+<body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
   <%- include('partials/navbar') %>
   <main class="max-wide mx-auto px-6 pt-12 pb-24">
     <h1 class="font-display font-extrabold text-4xl text-brand-dark dark:text-white mb-2">Workspace</h1>
     <p class="text-brand-muted mb-8"><%= workspace && workspace.name ? workspace.name : 'Main workspace' %> · ID <code class="text-xs bg-brand-cream dark:bg-slate-800 px-2 py-0.5 rounded"><%= workspace && workspace.id ? workspace.id : 'default' %></code></p>
+
+    <% if (typeof SCRIPT_LIBRARY_KEYS !== 'undefined' && SCRIPT_LIBRARY_KEYS && SCRIPT_LIBRARY_KEYS.length) { %>
+    <%- include('partials/workspace_scripts_panel') %>
+    <% } %>
 
     <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace && workspace && workspace.id) { %>
     <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 mb-8 flex flex-wrap items-center justify-between gap-4">
