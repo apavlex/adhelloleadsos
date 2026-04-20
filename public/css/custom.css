@@ -381,6 +381,53 @@ table {
   box-shadow: 0 14px 32px -8px rgba(0, 0, 0, 0.55);
 }
 
+/* Prospecting: sortable column headers */
+.prospect-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  max-width: 100%;
+  text-align: inherit;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+  padding: 0.15rem 0.1rem;
+  margin: -0.15rem -0.1rem;
+  border: 0;
+  background: transparent;
+  border-radius: 0.35rem;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.prospect-sort-btn:hover {
+  color: var(--brand-dark, #111827);
+  background: rgba(253, 214, 68, 0.12);
+}
+
+.dark .prospect-sort-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.prospect-sort-btn--right {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.prospect-sort-indicator {
+  font-size: 0.65em;
+  opacity: 0.35;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.prospect-sort-btn.prospect-sort-btn--active .prospect-sort-indicator {
+  opacity: 1;
+  color: var(--brand-yellow, #e8bc1a);
+}
+
 /* Prospecting pipeline table: sticky header + checkbox/company, row hover actions */
 .prospect-leads-table thead th {
   position: sticky;

@@ -103,19 +103,136 @@ document.addEventListener('DOMContentLoaded', () => {
   // Secondary backup for slower renders
   setTimeout(updateOpportunityBadges, 1500);
   
+  const getProspectTableBody = () => document.querySelector('#prospectLeadsTable tbody');
+
   const sortLeadsByOpportunity = (isAscending) => {
-    const tableBody = document.querySelector('tbody');
+    const tableBody = getProspectTableBody() || document.querySelector('tbody');
     if (!tableBody) return;
     const rows = Array.from(tableBody.querySelectorAll('.result-row'));
-    
+
     rows.sort((a, b) => {
       const scoreA = calculateOpportunityScore(a.dataset);
       const scoreB = calculateOpportunityScore(b.dataset);
       return isAscending ? scoreA - scoreB : scoreB - scoreA;
     });
-    
-    rows.forEach(row => tableBody.appendChild(row));
+
+    rows.forEach((row) => tableBody.appendChild(row));
   };
+
+  /** Prospect table: count phone + email + website present (not N/A). */
+  const prospectContactCompleteness = (ds) => {
+    let n = 0;
+    if (ds.phone && ds.phone !== 'N/A') n += 1;
+    if (ds.email && ds.email !== 'N/A') n += 1;
+    if (ds.website && ds.website !== 'N/A') n += 1;
+    return n;
+  };
+
+  const prospectSortDefaultDesc = (key) =>
+    key === 'contact' || key === 'reviews' || key === 'actions' || key === 'added';
+
+  let prospectSortState = { key: null, desc: true };
+
+  const updateProspectSortHeaderUi = (activeKey, desc) => {
+    document.querySelectorAll('[data-prospect-sort]').forEach((btn) => {
+      const k = btn.getAttribute('data-prospect-sort');
+      const active = activeKey != null && k === activeKey;
+      btn.classList.toggle('prospect-sort-btn--active', active);
+      btn.removeAttribute('aria-sort');
+      const ind = btn.querySelector('.prospect-sort-indicator');
+      if (ind) ind.textContent = '';
+      if (active) {
+        btn.setAttribute('aria-sort', desc ? 'descending' : 'ascending');
+        if (ind) ind.textContent = desc ? '↓' : '↑';
+      }
+    });
+  };
+
+  const sortProspectTableBy = (columnKey, descending) => {
+    const tableBody = getProspectTableBody();
+    if (!tableBody) return;
+    const rows = Array.from(tableBody.querySelectorAll('.result-row'));
+    const mult = descending ? -1 : 1;
+    const cmpStr = (x, y) => String(x || '').localeCompare(String(y || ''), undefined, { sensitivity: 'base' });
+
+    rows.sort((ra, rb) => {
+      const a = ra.dataset;
+      const b = rb.dataset;
+      let c = 0;
+      switch (columnKey) {
+        case 'company':
+          c = cmpStr((a.title || '').trim(), (b.title || '').trim());
+          break;
+        case 'category':
+          c = cmpStr((a.category || '').trim(), (b.category || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        case 'added': {
+          const ta = parseInt(a.createdSort, 10) || 0;
+          const tb = parseInt(b.createdSort, 10) || 0;
+          c = ta - tb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'pipeline': {
+          const na = parseInt(a.pipelineStage, 10) || 0;
+          const nb = parseInt(b.pipelineStage, 10) || 0;
+          c = na - nb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'contact': {
+          const ca = prospectContactCompleteness(a);
+          const cb = prospectContactCompleteness(b);
+          c = ca - cb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'reviews': {
+          const raa = parseFloat(a.rating || 0) || 0;
+          const rbb = parseFloat(b.rating || 0) || 0;
+          c = raa - rbb;
+          if (c === 0) {
+            const nca = parseInt(a.reviews || 0, 10) || 0;
+            const ncb = parseInt(b.reviews || 0, 10) || 0;
+            c = nca - ncb;
+          }
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'status':
+          c = cmpStr((a.status || '').trim(), (b.status || '').trim());
+          break;
+        case 'actions':
+          c = calculateOpportunityScore(a) - calculateOpportunityScore(b);
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        default:
+          return 0;
+      }
+      return mult * c;
+    });
+
+    rows.forEach((row) => tableBody.appendChild(row));
+    updateProspectSortHeaderUi(columnKey, descending);
+  };
+
+  const prospectTable = document.getElementById('prospectLeadsTable');
+  if (prospectTable) {
+    document.querySelectorAll('#prospectLeadsTable [data-prospect-sort]').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const key = btn.getAttribute('data-prospect-sort');
+        if (!key) return;
+        if (prospectSortState.key === key) prospectSortState.desc = !prospectSortState.desc;
+        else {
+          prospectSortState.key = key;
+          prospectSortState.desc = prospectSortDefaultDesc(key);
+        }
+        sortProspectTableBy(key, prospectSortState.desc);
+      });
+    });
+  }
 
   // Auto-sort by High Opportunity immediately after calculation
   sortLeadsByOpportunity(false);
@@ -126,8 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let asc = false;
     sortOppBtn.addEventListener('click', () => {
       asc = !asc;
+      prospectSortState = { key: null, desc: true };
+      updateProspectSortHeaderUi(null, true);
       sortLeadsByOpportunity(asc);
-      // Update icon direction
       const svg = sortOppBtn.querySelector('svg');
       if (svg) svg.style.transform = asc ? 'rotate(180deg)' : 'rotate(0deg)';
       sortOppBtn.classList.add('text-brand-dark');
@@ -3549,12 +3667,46 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function warRoomFetchAiOpener(leadKey, card, scriptDefaults) {
+    const ta = card.querySelector('.war-room-script-input');
+    const statusEl = card.querySelector('.war-room-ai-opener-status');
+    if (!ta || !leadKey) return;
+    const placeholderBackup = ta.placeholder;
+    ta.placeholder = 'Generating AI opener from audit insights…';
+    if (statusEl) statusEl.textContent = 'Drafting opener with AI…';
+
+    fetch('/leads/' + encodeURIComponent(leadKey) + '/insights', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({}),
+    })
+      .then((r) => r.json().catch(() => ({})))
+      .then((data) => {
+        if (!card.isConnected || card.dataset.leadKey !== leadKey) return;
+        if (!data || !data.success) return;
+        const raw = typeof data.warRoomOpener === 'string' ? data.warRoomOpener.trim() : '';
+        if (!raw) return;
+        if (card.dataset.openerUserEdited === '1') return;
+        scriptDefaults.opener = raw;
+        warRoomScriptDrafts[warRoomDraftKey(leadKey, 'opener')] = raw;
+        if ((card.dataset.scriptTab || 'opener') === 'opener') ta.value = raw;
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!ta.isConnected) return;
+        ta.placeholder = placeholderBackup;
+        if (statusEl && card.isConnected) statusEl.textContent = '';
+      });
+  }
+
   function warRoomBindCard(card, row, scriptDefaults) {
     const leadKey = row.dataset.leadKey;
     if (!leadKey) return;
 
     const ta = card.querySelector('.war-room-script-input');
     const tabBtns = card.querySelectorAll('[data-war-script-tab]');
+    card.dataset.openerUserEdited = '';
 
     function flushDraft() {
       if (!ta) return;
@@ -3588,6 +3740,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     card.dataset.scriptTab = 'opener';
     applyTab('opener');
+
+    if (ta) {
+      ta.addEventListener('input', () => {
+        if ((card.dataset.scriptTab || 'opener') === 'opener') card.dataset.openerUserEdited = '1';
+      });
+    }
+    warRoomFetchAiOpener(leadKey, card, scriptDefaults);
 
     const saveBtn = card.querySelector('.war-room-save-note');
     const noteTa = card.querySelector('.war-room-notes-input');
@@ -3776,9 +3935,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const reviews = row.dataset.reviews || '0';
 
     const gaps = [];
+    if (!website || website === 'N/A') gaps.push('no website on file');
     if (row.dataset.isMobileFriendly === 'false') gaps.push("site isn't mobile-friendly");
     if (row.dataset.hasChatbot === 'false') gaps.push('no obvious lead-capture chat');
     if (row.dataset.hasSchemaMarkup === 'false') gaps.push('thin local SEO schema');
+    if (row.dataset.hasClickToCall === 'false') gaps.push('click-to-call could be stronger');
+    if (row.dataset.isOutdated === 'true') gaps.push('site looks dated vs competitors');
 
     const gapPhrase =
       gaps.length > 0
@@ -3848,6 +4010,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <button type="button" role="tab" data-war-script-tab="voicemail" aria-selected="false" class="rounded-lg border-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-colors">Voicemail</button>
             </div>
             <textarea class="war-room-script-input w-full rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-4 text-sm text-slate-800 dark:text-slate-100 leading-relaxed min-h-[12rem] focus:border-amber-500 focus:ring-2 focus:ring-amber-400/30 outline-none transition-all resize-y" placeholder="Pick a tab above, then edit…"></textarea>
+            <p class="war-room-ai-opener-status text-[10px] font-semibold text-amber-700 dark:text-amber-300 min-h-[1.25rem]" aria-live="polite"></p>
         </div>
         <div class="rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 p-4">
             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Notes (saved to this lead)</p>

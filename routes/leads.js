@@ -501,7 +501,10 @@ router.post('/:key/insights', async (req, res, next) => {
       lead.kieServiceInsightAt
     ) {
       const age = Date.now() - new Date(lead.kieServiceInsightAt).getTime();
-      if (age >= 0 && age < maxAgeMs) {
+      const hasWarRoomOpener =
+        typeof lead.kieServiceInsight.warRoomOpener === 'string' &&
+        lead.kieServiceInsight.warRoomOpener.trim().length > 0;
+      if (age >= 0 && age < maxAgeMs && hasWarRoomOpener) {
         return res.json({ success: true, cached: true, ...lead.kieServiceInsight });
       }
     }
@@ -547,7 +550,7 @@ Catalog (primaryServiceKey must be exactly one of: ${serviceKeyList}):
 ${offeringCatalog}
 
 Respond with JSON only, no markdown:
-{"primaryServiceKey":"<one of the keys above>","primaryServiceLabel":"string","rationale":"2-4 sentences: why this offer fits now","talkTrack":"One conversational sentence to open a call or email"}`,
+{"primaryServiceKey":"<one of the keys above>","primaryServiceLabel":"string","rationale":"2-4 sentences: why this offer fits now","talkTrack":"One conversational sentence to open a call or email","warRoomOpener":"Plain text only: 4-8 short sentences for a respectful cold-call opener. Use placeholders [your name] and optionally [your company]. Only mention technical or conversion gaps that are actually true in the snapshot gaps object—say them in plain English (e.g. mobile experience, lead-capture chat, local/schema SEO for AI search, click-to-call, dated design). Tie those pains naturally to primaryServiceLabel as a logical first project. No bullets, markdown, or nested quotes."}`,
         },
         {
           role: 'user',
@@ -555,7 +558,7 @@ Respond with JSON only, no markdown:
         },
       ],
       jsonObject: true,
-      max_tokens: 650,
+      max_tokens: 1000,
       temperature: 0.35,
     });
 
@@ -580,6 +583,7 @@ Respond with JSON only, no markdown:
       primaryServiceLabel: parsed.primaryServiceLabel || SCRIPT_LIBRARY.aiWebsites.label,
       rationale: parsed.rationale || '',
       talkTrack: parsed.talkTrack || '',
+      warRoomOpener: typeof parsed.warRoomOpener === 'string' ? parsed.warRoomOpener.trim() : '',
       provider: ai.provider || 'unknown',
     };
 

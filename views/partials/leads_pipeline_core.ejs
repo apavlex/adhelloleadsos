@@ -17,12 +17,30 @@
                 <input type="checkbox" id="selectAllLeads" class="w-4 h-4 rounded-md border-brand-border dark:border-slate-500 text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" title="Select all leads" aria-label="Select all leads">
               </div>
             </th>
-            <th class="lead-sticky-company px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[13rem]">Company</th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle w-[1%] whitespace-nowrap">Pipeline</th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem]">Contact</th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap">Reviews</th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle">Status</th>
-            <th class="px-2 py-3.5 pr-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]">Actions</th>
+            <th class="lead-sticky-company px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[13rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="company" title="Sort by company name">Company <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[6.5rem] max-w-[9rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="category" title="Sort by category">Category <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap w-[1%]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="added" title="Sort by date added">Added <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle w-[1%] whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="pipeline" title="Sort by pipeline stage">Pipeline <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="contact" title="Sort by contact fields filled (phone, email, website)">Contact <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="reviews" title="Sort by rating and review count">Reviews <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="status" title="Sort by status">Status <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 pr-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]" scope="col">
+              <button type="button" class="prospect-sort-btn prospect-sort-btn--right" data-prospect-sort="actions" title="Sort by opportunity score">Actions <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -42,7 +60,7 @@
             <% const deliveryStatusDisplay = rawDeliveryStatus === 'Needs Video' ? 'Not Contacted' : rawDeliveryStatus; %>
             <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
             <% const _createdRaw = lead.createdAt || lead.savedAt; %>
-            <% let _addedShort = ''; if (_createdRaw) { try { _addedShort = new Date(_createdRaw).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {} } %>
+            <% let _addedShort = ''; let _createdSortMs = 0; if (_createdRaw) { try { const _d = new Date(_createdRaw); _addedShort = _d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); const _t = _d.getTime(); _createdSortMs = Number.isFinite(_t) ? _t : 0; } catch (e) {} } %>
             <% 
               var _ph = lead.phone && lead.phone !== 'N/A' ? String(lead.phone) : '';
               var _em = lead.email && lead.email !== 'N/A' ? String(lead.email) : '';
@@ -95,7 +113,8 @@
                 data-stitch-design-url="<%= lead.stitchDesignUrl || '' %>"
                 data-stitch-screenshot-url="<%= lead.stitchScreenshotUrl || '' %>"
                 data-stitch-screen-id="<%= lead.stitchScreenId || '' %>"
-                data-estimated-value="<%= lead.estimatedValue != null && lead.estimatedValue !== '' ? String(lead.estimatedValue).replace(/"/g, '&quot;') : '' %>">
+                data-estimated-value="<%= lead.estimatedValue != null && lead.estimatedValue !== '' ? String(lead.estimatedValue).replace(/"/g, '&quot;') : '' %>"
+                data-created-sort="<%= _createdSortMs %>">
               <td class="lead-sticky-check pl-5 pr-2 align-top border-b border-brand-border/15 dark:border-white/[0.07]">
                 <div class="flex items-start pt-0.5">
                   <input type="checkbox" class="lead-checkbox w-4 h-4 mt-1 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>">
@@ -114,14 +133,16 @@
                       <% } else { %>
                         <span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 shrink-0 px-1.5 py-0.5 rounded-full bg-brand-cream/80 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10">Cold</span>
                       <% } %>
-                      <span class="text-[9px] font-bold text-brand-muted dark:text-slate-400 uppercase tracking-wider truncate max-w-[10rem]" title="<%= lead.categoryName %>"><%= lead.categoryName %></span>
                     </div>
                     <p class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 mt-1.5 leading-snug line-clamp-2" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></p>
-                    <% if (_addedShort) { %>
-                    <p class="text-[9px] text-brand-muted dark:text-slate-400 mt-1">Added <%= _addedShort %></p>
-                    <% } %>
                   </div>
                 </div>
+              </td>
+              <td class="px-2 align-top border-b border-brand-border/15 dark:border-white/[0.07] min-w-[5.5rem] max-w-[9rem]">
+                <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-snug line-clamp-3 mt-0.5 block" title="<%= lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName : '' %>"><%= lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName : '—' %></span>
+              </td>
+              <td class="px-2 align-top border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums mt-0.5 inline-block"><%= _addedShort || '—' %></span>
               </td>
               <td class="px-2 pipeline-stage-cell align-top border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap" onclick="event.stopPropagation()">
                 <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { %>
