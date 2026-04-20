@@ -45,6 +45,8 @@
             <% const rawDeliveryStatus = lead.status || 'Not Contacted'; %>
             <% const deliveryStatusDisplay = rawDeliveryStatus === 'Needs Video' ? 'Not Contacted' : rawDeliveryStatus; %>
             <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
+            <% const _createdRaw = lead.createdAt || lead.savedAt; %>
+            <% let _addedShort = ''; if (_createdRaw) { try { _addedShort = new Date(_createdRaw).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {} } %>
             <tr class="result-row scroll-mt-28"
                 id="lead-row-<%= rowAnchor %>"
                 data-index="<%= i %>"
@@ -79,7 +81,8 @@
                 data-audit-summary="<%= lead.auditSummary %>"
                 data-cms-platform="<%= lead.cmsPlatform || '' %>"
                 data-buying-signals='<%= JSON.stringify(lead.buyingSignals || []).replace(/'/g, "&apos;") %>'
-                data-source="<%= lead.source || 'manual' %>"
+                data-source="<%= lead.source || '' %>"
+                data-created-at="<%= (_createdRaw || '').toString().replace(/"/g, '&quot;') %>"
                 data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'
                 data-chat-history='<%= JSON.stringify(lead.chatHistory || null).replace(/'/g, "&apos;") %>'
                 data-cqi='<%= JSON.stringify(lead.cqi || null).replace(/'/g, "&apos;") %>'
@@ -107,6 +110,9 @@
                       <span class="text-[9px] font-bold text-brand-muted dark:text-slate-400 uppercase tracking-wider truncate max-w-[7rem] sm:max-w-[9rem]" title="<%= lead.categoryName %>"><%= lead.categoryName %></span>
                     </div>
                     <p class="lead-row-address text-[10px] text-brand-muted dark:text-slate-500 mt-1 leading-snug line-clamp-2" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></p>
+                    <% if (_addedShort) { %>
+                    <p class="text-[9px] text-brand-muted/90 dark:text-slate-500 mt-0.5">Added <%= _addedShort %></p>
+                    <% } %>
                   </div>
                 </div>
               </td>

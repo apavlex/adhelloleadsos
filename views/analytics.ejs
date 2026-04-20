@@ -25,17 +25,17 @@
                           </div>
                           <h1 class="text-3xl font-black tracking-tight text-brand-dark dark:text-white uppercase">Reports</h1>
                         </div>
-                        <p class="text-brand-muted font-bold text-sm">Traffic analytics and daily hustle metrics in one place.</p>
+                        <p class="text-brand-muted font-bold text-sm">Daily hustle metrics and traffic analytics in one place.</p>
                         <% if (typeof isDemo === 'undefined' || !isDemo) { %>
                         <p class="text-[10px] text-brand-muted/90 mt-2 max-w-xl leading-relaxed">Total visits ignore repeat <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">/api/track</code> pings from the same IP and path within about two minutes (burst dedupe).</p>
                         <% } %>
                     </div>
                 </div>
 
-                <% const rt = typeof reportsTab !== 'undefined' ? reportsTab : 'analytics'; %>
+                <% const rt = typeof reportsTab !== 'undefined' ? reportsTab : 'tracker'; %>
                 <nav class="flex flex-wrap gap-2 mb-8" aria-label="Reports tabs">
-                    <a href="/analytics?tab=analytics" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'analytics' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Analytics</a>
                     <a href="/analytics?tab=tracker" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'tracker' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Daily tracker</a>
+                    <a href="/analytics?tab=analytics" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'analytics' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Analytics</a>
                 </nav>
 
                 <% if (rt === 'analytics') { %>

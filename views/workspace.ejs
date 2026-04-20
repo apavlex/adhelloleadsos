@@ -5,7 +5,7 @@
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark">
   <%- include('partials/navbar') %>
-  <main class="max-w-3xl mx-auto px-6 pt-12 pb-24">
+  <main class="max-wide mx-auto px-6 pt-12 pb-24">
     <h1 class="font-display font-extrabold text-4xl text-brand-dark dark:text-white mb-2">Workspace</h1>
     <p class="text-brand-muted mb-8"><%= workspace && workspace.name ? workspace.name : 'Main workspace' %> · ID <code class="text-xs bg-brand-cream dark:bg-slate-800 px-2 py-0.5 rounded"><%= workspace && workspace.id ? workspace.id : 'default' %></code></p>
 
@@ -84,6 +84,8 @@
       <% } %>
     </div>
     <% } %>
+
+    <%- include('partials/scrape_cost_advisor') %>
 
     <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Round-robin pool</h2>

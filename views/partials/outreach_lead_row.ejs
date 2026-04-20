@@ -1,0 +1,25 @@
+<% const email = lead.email && lead.email !== 'N/A' ? lead.email : '—'; %>
+<% const phone = lead.phone && lead.phone !== 'N/A' ? lead.phone : '—'; %>
+<% let site = '—'; if (lead.website && lead.website !== 'N/A') { site = String(lead.website).replace(/^https?:\/\//, '').replace(/\/$/, ''); } %>
+<% const stage = lead.pipelineStage || 1; %>
+<% const fk = lead.folderKey || ''; %>
+<% const rowMode = typeof mode !== 'undefined' ? mode : 'queue'; %>
+<div class="p-4 sm:p-5 flex items-start justify-between gap-3">
+  <div class="min-w-0">
+    <div class="font-bold text-brand-dark dark:text-white truncate"><%= lead.title || 'Lead' %></div>
+    <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 truncate"><%= [email, phone, site].filter(Boolean).join(' · ') %></div>
+    <div class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-2">Stage <%= stage %></div>
+  </div>
+  <div class="shrink-0 flex flex-col items-end gap-2">
+    <% if (rowMode === 'folders' && typeof folders !== 'undefined') { %>
+      <select class="folder-assign rounded-xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-[11px] font-bold text-brand-dark dark:text-white" data-lead="<%= lead.key %>">
+        <option value="">No folder</option>
+        <% folders.forEach(function (f) { %>
+          <option value="<%= f.key %>"<%= fk === f.key ? ' selected' : '' %>><%= f.name %></option>
+        <% }); %>
+      </select>
+    <% } %>
+    <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
+    <a href="/leads#lead-row-<%= rowAnchor %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open</a>
+  </div>
+</div>

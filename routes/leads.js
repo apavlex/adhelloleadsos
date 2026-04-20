@@ -10,6 +10,13 @@ const { PIPELINE_STAGES, SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../ser
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const {
+  displayStatus,
+  applyLeadListFilters,
+  mapLeadListJson,
+  normalizeLeadListFilters,
+  leadListFilterQuerySuffix,
+} = require('../services/leadListFilters');
 const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
 const workspaceService = require('../services/workspaceService');
@@ -42,6 +49,17 @@ router.get('/', async (req, res, next) => {
     } else if (sourceFilter === 'cold') {
       leads = visible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
     }
+
+    const leadListFilters = normalizeLeadListFilters(req.query);
+    leads = applyLeadListFilters(leads, leadListFilters);
+    const leadsFilterSuffix = leadListFilterQuerySuffix(leadListFilters);
+
+    const statusUniq = new Map();
+    visible.forEach((l) => {
+      const d = displayStatus(l.status);
+      statusUniq.set(d.toLowerCase(), d);
+    });
+    const pipelineStatusOptions = Array.from(statusUniq.values()).sort((a, b) => a.localeCompare(b));
 
     const leadSourceCounts = {
       all: visible.length,
@@ -78,6 +96,9 @@ router.get('/', async (req, res, next) => {
       leads,
       sourceFilter,
       leadSourceCounts,
+      leadListFilters,
+      leadsFilterSuffix,
+      pipelineStatusOptions,
       importNotice,
       importError,
       pipelineStages: PIPELINE_STAGES,
@@ -109,40 +130,15 @@ router.get('/list.json', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads();
     const visible = filterLeadsForRequest(req, all);
-    const folderKey = String(req.query.folderKey || '').trim();
-    const q = String(req.query.q || '').trim().toLowerCase();
-    const stage = String(req.query.stage || '').trim();
-
-    let out = visible;
-    if (folderKey) {
-      out = out.filter((l) => String(l.folderKey || '') === folderKey);
-    }
-    if (stage) {
-      const st = parseInt(stage, 10);
-      if (!Number.isNaN(st)) out = out.filter((l) => parseInt(l.pipelineStage, 10) === st);
-    }
-    if (q) {
-      out = out.filter((l) => {
-        const blob = `${l.title || ''} ${l.email || ''} ${l.phone || ''} ${l.website || ''} ${l.city || ''} ${l.state || ''}`.toLowerCase();
-        return blob.includes(q);
-      });
-    }
+    const filters = {
+      folderKey: req.query.folderKey,
+      ...normalizeLeadListFilters(req.query),
+    };
+    const out = applyLeadListFilters(visible, filters);
 
     res.json({
       success: true,
-      leads: out.map((l) => ({
-        key: l.key,
-        title: l.title,
-        email: l.email,
-        phone: l.phone,
-        website: l.website,
-        city: l.city,
-        state: l.state,
-        pipelineStage: l.pipelineStage,
-        status: l.status,
-        folderKey: l.folderKey || '',
-        source: l.source || '',
-      })),
+      leads: out.map(mapLeadListJson),
     });
   } catch (err) {
     next(err);

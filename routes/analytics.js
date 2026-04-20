@@ -83,8 +83,8 @@ function buildDemoAnalytics(visits, leads) {
 
 router.get('/', async (req, res) => {
   try {
-    const tabQ = String(req.query.tab || 'analytics').toLowerCase();
-    const reportsTab = tabQ === 'tracker' ? 'tracker' : 'analytics';
+    const tabQ = String(req.query.tab || 'tracker').toLowerCase();
+    const reportsTab = tabQ === 'analytics' ? 'analytics' : 'tracker';
 
     const visits = await dbService.getAllVisits();
     const leads = await dbService.getAllLeads();
@@ -98,6 +98,7 @@ router.get('/', async (req, res) => {
       await activationService.recordEvent(userEmail(req), 'analytics_visit');
       return res.render('analytics', {
         user: req.user,
+        reportsTab,
         ...d,
         ...trackerLocals,
       });

@@ -3,6 +3,9 @@ const router = express.Router();
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
+const crawl4aiClient = require('../services/crawl4aiClient');
+const outscraperClient = require('../services/outscraperClient');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -25,6 +28,18 @@ router.get('/', async (req, res, next) => {
       };
     }
 
+    const wid = req.workspaceId || 'default';
+    const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    let scrapeLive = {};
+    if (process.env.SCRAPE_SOURCES_LIVE_PING === '1') {
+      const [c4, os] = await Promise.all([
+        crawl4aiClient.pingHealth(resolvedEnv),
+        outscraperClient.pingHealth(resolvedEnv),
+      ]);
+      scrapeLive = { crawl4ai: c4, outscraper: os };
+    }
+    const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
+
     res.render('workspace', {
       title: 'Workspace & team',
       activePage: 'workspace',
@@ -34,6 +49,9 @@ router.get('/', async (req, res, next) => {
       integrationMasks,
       integrationsReady,
       integrationsMessage,
+      scrapeAdvisor,
+      scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
+      scrapeCostOnWorkspace: true,
     });
   } catch (e) {
     next(e);

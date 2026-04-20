@@ -40,8 +40,6 @@
     })();
     </script>
 
-    <%- include('partials/scrape_cost_advisor') %>
-
     <% const empty = typeof totalLeads !== 'undefined' && totalLeads === 0; %>
     <% if (empty) { %>
     <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-16 text-center mb-12">
@@ -94,7 +92,8 @@
         <a href="/find" class="group rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find</p>
           <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
-          <p class="text-sm text-brand-muted leading-relaxed">Keyword + location; Maps list via Outscraper first when configured, Apify fallback.</p>
+          <p class="text-sm text-brand-muted leading-relaxed">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
+          <p class="text-[11px] text-brand-muted mt-3"><a href="/workspace" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.</p>
         </a>
         <a href="/pipeline" class="group rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Pipeline</p>

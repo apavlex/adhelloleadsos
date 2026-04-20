@@ -4,6 +4,13 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { PIPELINE_STAGES } = require('../services/salesConstants');
 const { filterLeadsForRequest } = require('../services/workspaceService');
+const {
+  displayStatus,
+  applyLeadListFilters,
+  mapLeadListJson,
+  normalizeLeadListFilters,
+  leadListFilterQuerySuffix,
+} = require('../services/leadListFilters');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -26,11 +33,26 @@ router.get('/', async (req, res, next) => {
       pipelineBoardLeads = visible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
     }
 
+    const pipelineFilters = normalizeLeadListFilters(req.query);
+    pipelineBoardLeads = applyLeadListFilters(pipelineBoardLeads, pipelineFilters);
+
+    const statusUniq = new Map();
+    visible.forEach((l) => {
+      const d = displayStatus(l.status);
+      statusUniq.set(d.toLowerCase(), d);
+    });
+    const pipelineStatusOptions = Array.from(statusUniq.values()).sort((a, b) => a.localeCompare(b));
+
+    const pipelineFilterSuffix = leadListFilterQuerySuffix(pipelineFilters);
+
     const leadSourceCounts = {
       all: visible.length,
       cold: visible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
       inbound: visible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
     };
+
+    const queueListLeads = safeTab === 'queue' ? visible.map(mapLeadListJson) : null;
+    const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : null;
 
     res.render('outreach', {
       title: 'Outreach | Agency OS',
@@ -38,10 +60,15 @@ router.get('/', async (req, res, next) => {
       tab: safeTab,
       leadCount: visible.length,
       folders,
+      queueListLeads,
+      folderListLeads,
       pipelineBoardLeads,
       pipelineStages: PIPELINE_STAGES,
       sourceFilter,
       leadSourceCounts,
+      pipelineFilters,
+      pipelineStatusOptions,
+      pipelineFilterSuffix,
       canManageWorkspace: req.canManageWorkspace,
     });
   } catch (e) {

@@ -2,6 +2,11 @@
 <% if (sa) { %>
 <section class="mb-10 md:mb-12" aria-labelledby="scrape-cost-heading">
   <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 shadow-sm">
+    <% if (typeof scrapeCostOnWorkspace !== 'undefined' && scrapeCostOnWorkspace) { %>
+    <p class="text-xs text-brand-muted mb-6 leading-relaxed max-w-4xl">
+      “Configured” reflects keys saved on this page by an owner/admin (when available), then server environment variables. Everyone in the workspace shares the same resolved credentials for Maps search and Enhance.
+    </p>
+    <% } %>
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Cost-aware stack</p>
