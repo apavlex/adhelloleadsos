@@ -12,29 +12,51 @@
       .replace(/"/g, '&quot;');
   }
 
-  /** Simple icon: woman with golden blonde hair (inline SVG). Unique gradient ids per instance. */
+  /** Coach portrait: dark bob, face detail. Unique gradient ids per bubble instance. */
   function assistantAvatarNode() {
     var n = ++_assistantAvatarId;
-    var g = 'asstBlonde' + n;
+    var gh = 'asstCoachHair' + n;
+    var gs = 'asstCoachSkin' + n;
     const span = document.createElement('span');
     span.className =
-      'shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-amber-200/60 dark:border-amber-400/25 bg-[#FFF9ED] shadow-sm ring-2 ring-amber-100/80 dark:ring-amber-900/40';
+      'shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-slate-700/35 dark:border-white/20 bg-[#2a2220] shadow-sm ring-2 ring-white/20 dark:ring-white/10';
     span.setAttribute('aria-hidden', 'true');
     span.innerHTML =
       '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" class="w-full h-full" role="img" aria-label="Coach">' +
       '<defs>' +
       '<linearGradient id="' +
-      g +
-      '" x1="10" y1="6" x2="38" y2="34" gradientUnits="userSpaceOnUse">' +
-      '<stop stop-color="#FFF4C8"/><stop offset="0.5" stop-color="#EECD6B"/><stop offset="1" stop-color="#D4A84A"/>' +
+      gh +
+      '" x1="6" y1="4" x2="42" y2="22" gradientUnits="userSpaceOnUse">' +
+      '<stop stop-color="#3d2a22"/><stop offset="0.55" stop-color="#1c1210"/><stop offset="1" stop-color="#0a0605"/>' +
+      '</linearGradient>' +
+      '<linearGradient id="' +
+      gs +
+      '" x1="16" y1="16" x2="32" y2="42" gradientUnits="userSpaceOnUse">' +
+      '<stop stop-color="#f0c4b8"/><stop offset="1" stop-color="#c99588"/>' +
       '</linearGradient>' +
       '</defs>' +
       '<path fill="url(#' +
-      g +
-      ')" d="M24 5C14 5 7 13 7 23v3c0 9 5 16 12 18 0-4 2-7 5-7s5 3 5 7c7-2 12-9 12-18v-3C41 13 34 5 24 5z"/>' +
-      '<path fill="#F2D875" d="M12 22c2-9 9-14 12-14s10 5 12 14c-3-4-7-6-12-6s-9 2-12 6z"/>' +
-      '<ellipse cx="24" cy="27" rx="8.5" ry="10" fill="#E8B4A0"/>' +
-      '<ellipse cx="24" cy="28" rx="7" ry="8" fill="#F0C4B0" opacity="0.7"/>' +
+      gh +
+      ')" d="M24 3C12 3 5 12 5 24c0 5 1.2 9.5 3.5 13 0.5-7 4.5-12 11.5-13.5 1.2 0.8 2.5 1.2 4 1.2s2.8-0.4 4-1.2c7 1.5 11 6.5 11.5 13.5 2.3-3.5 3.5-8 3.5-13C43 12 36 3 24 3z"/>' +
+      '<path fill="#1a1210" d="M14 19c2.5-7 8.5-11 10-11s7.5 4 10 11c-2-4.5-6-7.5-10-7.5s-8 3-10 7.5z"/>' +
+      '<ellipse cx="24" cy="25" rx="9.5" ry="11" fill="url(#' +
+      gs +
+      ')"/>' +
+      '<path fill="url(#' +
+      gh +
+      ')" d="M11 24c0-8 5.5-14 13-14s13 6 13 14c0 2-0.5 4-1.5 5.5-1-6-5.5-10-11.5-10s-10.5 4-11.5 10c-1-1.5-1.5-3.5-1.5-5.5z"/>' +
+      '<ellipse cx="19.5" cy="23.5" rx="1.7" ry="2.1" fill="#2a1a14"/>' +
+      '<ellipse cx="28.5" cy="23.5" rx="1.7" ry="2.1" fill="#2a1a14"/>' +
+      '<circle cx="20.3" cy="22.6" r="0.6" fill="#fff" opacity="0.9"/>' +
+      '<circle cx="29.3" cy="22.6" r="0.6" fill="#fff" opacity="0.9"/>' +
+      '<path stroke="#3d2a22" stroke-width="0.85" stroke-linecap="round" fill="none" d="M16.8 20.2q2.8-1.2 5.6 0M25.6 20.2q2.8-1.2 5.6 0" opacity="0.45"/>' +
+      '<path stroke="#a65d52" stroke-width="0.9" stroke-linecap="round" fill="none" d="M24 26.2v2.8" opacity="0.55"/>' +
+      '<path stroke="#9a4d42" stroke-width="1.05" stroke-linecap="round" fill="none" d="M19.5 31.2q4.5 3 9 0"/>' +
+      '<ellipse cx="17.2" cy="27.5" rx="2.2" ry="1.3" fill="#d9a090" opacity="0.4"/>' +
+      '<ellipse cx="30.8" cy="27.5" rx="2.2" ry="1.3" fill="#d9a090" opacity="0.4"/>' +
+      '<path fill="url(#' +
+      gs +
+      ')" d="M17.5 35.5h13v4.5c0 1.8-2.2 3.5-6.5 3.5s-6.5-1.7-6.5-3.5v-4.5z"/>' +
       '</svg>';
     return span;
   }
