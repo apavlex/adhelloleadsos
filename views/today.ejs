@@ -88,22 +88,26 @@
 
     <section aria-labelledby="actions-heading" class="mb-12 md:mb-16">
       <h2 id="actions-heading" class="sr-only">Quick actions</h2>
-      <div class="grid md:grid-cols-3 gap-6">
-        <a href="/find" class="group rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find</p>
-          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
-          <p class="text-sm text-brand-muted leading-relaxed">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
-          <p class="text-[11px] text-brand-muted mt-3"><a href="/workspace" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.</p>
-        </a>
-        <a href="/pipeline" class="group rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
+        <div class="flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden hover:border-brand-yellow/50 transition-colors">
+          <a href="/find" class="group flex flex-1 flex-col p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find</p>
+            <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
+            <p class="text-sm text-brand-muted leading-relaxed flex-1">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
+          </a>
+          <p class="text-[11px] text-brand-muted px-8 pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10 -mt-1">
+            <a href="/workspace" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.
+          </p>
+        </div>
+        <a href="/prospecting?tab=pipeline" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Pipeline</p>
           <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads in early stages</h3>
-          <p class="text-sm text-brand-muted leading-relaxed">Stages 1–2 need movement or outreach.</p>
+          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Stages 1–2 need movement or outreach.</p>
         </a>
-        <a href="/sales/tracker#tracker" class="group rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors">
+        <a href="/sales/tracker#tracker" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Touches</p>
           <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Log today’s outreach</h3>
-          <p class="text-sm text-brand-muted leading-relaxed">Cold emails, DMs, calls — keep the streak.</p>
+          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Cold emails, DMs, calls — keep the streak.</p>
         </a>
       </div>
     </section>
