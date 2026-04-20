@@ -1,19 +1,226 @@
 /**
  * Global navbar: notification bell, processing ring, /api/status polling.
+ * Bulk lead enhance queue (sessionStorage) so enhancement continues after navigation; bell shows x/y progress.
  * Loaded from partials/navbar.ejs on every app page so the bell works everywhere.
  */
 (function () {
   let activeProcessingCount = 0;
   let processingIndicator = null;
 
-  function applyProcessingRing() {
-    if (!processingIndicator) return;
-    if (activeProcessingCount > 0 || localStorage.getItem('is_searching') === 'true') {
-      processingIndicator.classList.add('processing-active');
+  /**
+   * In-app toast (glass-style). Use for enhance/Firecrawl errors instead of window.alert.
+   * @param {string} message
+   * @param {{ variant?: 'info'|'error', duration?: number }} [opts]
+   */
+  window.showAppToast = function showAppToast(message, opts) {
+    if (!message) return;
+    opts = opts || {};
+    const variant = opts.variant === 'error' ? 'error' : 'info';
+    const duration = typeof opts.duration === 'number' ? opts.duration : variant === 'error' ? 11000 : 2800;
+
+    var el = document.getElementById('appToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'appToast';
+      document.body.appendChild(el);
+    }
+    el.setAttribute('role', variant === 'error' ? 'alert' : 'status');
+
+    var errSkin =
+      'top-[4.5rem] bg-rose-950/72 text-rose-50 border-rose-400/35 shadow-[0_8px_32px_rgba(0,0,0,0.28)]';
+    var infoSkin =
+      'top-[4.5rem] bg-slate-900/68 text-white border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.22)]';
+    el.className = [
+      'fixed left-1/2 z-[220] max-w-[min(92vw,26rem)] -translate-x-1/2',
+      'translate-y-2 opacity-0 transition-all duration-200 ease-out',
+      'px-5 py-3.5 rounded-2xl text-sm font-semibold leading-snug',
+      'backdrop-blur-xl backdrop-saturate-150 border',
+      variant === 'error' ? errSkin : infoSkin,
+    ].join(' ');
+    el.style.whiteSpace = 'pre-line';
+    el.textContent = message;
+
+    if (variant === 'error') {
+      el.classList.add('cursor-pointer', 'pointer-events-auto');
+      el.title = 'Click to dismiss';
     } else {
-      processingIndicator.classList.remove('processing-active');
+      el.removeAttribute('title');
+      el.classList.remove('cursor-pointer', 'pointer-events-auto');
+      el.classList.add('pointer-events-none');
+    }
+
+    requestAnimationFrame(function () {
+      el.classList.remove('opacity-0', 'translate-y-2');
+    });
+
+    clearTimeout(window.__appToastTimer);
+    window.__appToastTimer = setTimeout(function () {
+      el.classList.add('opacity-0', 'translate-y-2');
+      el.onclick = null;
+    }, duration);
+
+    if (variant === 'error') {
+      el.onclick = function () {
+        clearTimeout(window.__appToastTimer);
+        el.classList.add('opacity-0', 'translate-y-2');
+        el.onclick = null;
+      };
+    } else {
+      el.onclick = null;
+    }
+  };
+
+  const BULK_ENHANCE_STORAGE_KEY = 'agencyOsBulkEnhanceJob';
+  let bulkEnhanceProcessorLock = false;
+
+  function readBulkEnhanceJob() {
+    try {
+      const raw = sessionStorage.getItem(BULK_ENHANCE_STORAGE_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || !Array.isArray(o.keys)) return null;
+      return o;
+    } catch (_) {
+      return null;
     }
   }
+
+  function writeBulkEnhanceJob(job) {
+    try {
+      if (!job) sessionStorage.removeItem(BULK_ENHANCE_STORAGE_KEY);
+      else sessionStorage.setItem(BULK_ENHANCE_STORAGE_KEY, JSON.stringify(job));
+    } catch (_) {}
+  }
+
+  function isBulkEnhanceJobRunning() {
+    const j = readBulkEnhanceJob();
+    return !!(j && j.running === true && j.index < j.keys.length);
+  }
+
+  function updateBulkEnhanceBellBadge(currentZeroBasedIndex, total) {
+    const el = document.getElementById('bulkEnhanceBellBadge');
+    if (!el) return;
+    if (total > 0 && currentZeroBasedIndex < total) {
+      el.textContent = currentZeroBasedIndex + 1 + '/' + total;
+      el.classList.remove('hidden');
+      el.setAttribute(
+        'title',
+        'Enhancing leads: ' + (currentZeroBasedIndex + 1) + ' of ' + total + ' (safe to change pages)'
+      );
+    } else {
+      el.textContent = '';
+      el.classList.add('hidden');
+      el.removeAttribute('title');
+    }
+  }
+
+  function applyProcessingRing() {
+    if (!processingIndicator) return;
+    const bulk = isBulkEnhanceJobRunning();
+    if (activeProcessingCount > 0 || localStorage.getItem('is_searching') === 'true' || bulk) {
+      processingIndicator.classList.add('processing-active');
+      if (bulk) {
+        const j = readBulkEnhanceJob();
+        if (j) updateBulkEnhanceBellBadge(j.index, j.keys.length);
+      }
+    } else {
+      processingIndicator.classList.remove('processing-active');
+      updateBulkEnhanceBellBadge(0, 0);
+    }
+  }
+
+  async function processBulkEnhanceQueue() {
+    if (bulkEnhanceProcessorLock) return;
+    if (!isBulkEnhanceJobRunning()) return;
+    bulkEnhanceProcessorLock = true; // one queue per tab
+    const summary = { successCount: 0, attempted: 0, lastError: '' };
+    try {
+      while (true) {
+        let job = readBulkEnhanceJob();
+        if (!job || !job.running || job.index >= job.keys.length) break;
+
+        const key = job.keys[job.index];
+        updateBulkEnhanceBellBadge(job.index, job.keys.length);
+        if (processingIndicator) processingIndicator.classList.add('processing-active');
+
+        let success = false;
+        let result = {};
+        try {
+          const res = await fetch('/leads/' + encodeURIComponent(key) + '/enhance', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          result = await res.json().catch(() => ({}));
+          success = !!(res.ok && result.success);
+        } catch (err) {
+          result = { error: err.message };
+        }
+
+        job = readBulkEnhanceJob();
+        if (!job || !job.running) break;
+
+        if (success) job.successCount = (job.successCount || 0) + 1;
+        job.attempted = (job.attempted || 0) + 1;
+        if (result.error) job.lastError = String(result.error);
+        job.index += 1;
+        writeBulkEnhanceJob(job);
+
+        window.dispatchEvent(
+          new CustomEvent('agency-os-bulk-enhance-item-complete', {
+            detail: {
+              key,
+              success,
+              result,
+              index: job.index - 1,
+              total: job.keys.length,
+            },
+          })
+        );
+
+        updateBulkEnhanceBellBadge(job.index, job.keys.length);
+      }
+
+      const final = readBulkEnhanceJob();
+      if (final) {
+        summary.successCount = final.successCount || 0;
+        summary.attempted = final.attempted || 0;
+        summary.lastError = final.lastError || '';
+      }
+    } finally {
+      bulkEnhanceProcessorLock = false;
+      writeBulkEnhanceJob(null);
+      updateBulkEnhanceBellBadge(0, 0);
+      if (typeof window.updateProcessingStatus === 'function') {
+        window.updateProcessingStatus(false);
+      }
+      applyProcessingRing();
+      window.dispatchEvent(new CustomEvent('agency-os-bulk-enhance-finished', { detail: summary }));
+    }
+  }
+
+  window.agencyOsBulkEnhance = {
+    start(keys) {
+      if (!keys || !keys.length) return;
+      const list = keys.slice(0, 20).filter(Boolean);
+      if (!list.length) return;
+      const job = {
+        keys: list,
+        index: 0,
+        running: true,
+        successCount: 0,
+        attempted: 0,
+        startedAt: Date.now(),
+      };
+      writeBulkEnhanceJob(job);
+      if (typeof window.updateProcessingStatus === 'function') {
+        window.updateProcessingStatus(true);
+      }
+      updateBulkEnhanceBellBadge(0, list.length);
+      if (processingIndicator) processingIndicator.classList.add('processing-active');
+      processBulkEnhanceQueue().catch((e) => console.warn('[bulk-enhance]', e));
+    },
+  };
 
   /** Called from app.js when starting/finishing client-side search flows. */
   window.updateProcessingStatus = function (isActive) {
@@ -39,6 +246,12 @@
     if (!processingIndicator) return;
 
     applyProcessingRing();
+
+    if (isBulkEnhanceJobRunning()) {
+      const jr = readBulkEnhanceJob();
+      if (jr) updateBulkEnhanceBellBadge(jr.index, jr.keys.length);
+      processBulkEnhanceQueue().catch((e) => console.warn('[bulk-enhance-resume]', e));
+    }
 
     function maybeDesktopNotify(data) {
       if (!data.notification || data.notification.isRead || !data.notification.finishedAt) return;
@@ -80,8 +293,10 @@
           processingIndicator.classList.add('processing-active');
           localStorage.setItem('is_searching', 'true');
         } else {
-          processingIndicator.classList.remove('processing-active');
-          localStorage.removeItem('is_searching');
+          if (!isBulkEnhanceJobRunning()) {
+            processingIndicator.classList.remove('processing-active');
+            localStorage.removeItem('is_searching');
+          }
         }
 
         if (data.notification && !data.notification.isRead) {

@@ -121,8 +121,12 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
       setImmediate(async () => {
         try {
           const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(ingestWid);
-          const enrichment = await webEnrichment.enrichLeadSmart(leadData.website, { integrationEnv });
-          if (enrichment) {
+          const { merged: enrichment } = await webEnrichment.enrichLeadSmartWithMapsFallback(
+            leadData.website,
+            { title: leadData.title, city: leadData.city, state: leadData.state },
+            { integrationEnv }
+          );
+          if (enrichment && Object.keys(enrichment).length > 0) {
             await dbService.updateLead(leadKey, firecrawlExtractToLeadUpdates(enrichment));
           }
         } catch (e) {

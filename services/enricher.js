@@ -77,17 +77,19 @@ module.exports = {
       await Promise.all(batch.map(async (lead) => {
         try {
           console.log(`[ENRICHER] [BATCH] Hunting data for: ${lead.title} (${lead.website})`);
-          const deepData = await webEnrichment.enrichLeadSmart(lead.website, { integrationEnv });
-          
+          const { merged: deepData } = await webEnrichment.enrichLeadSmartWithMapsFallback(
+            lead.website,
+            { title: lead.title, city: lead.city, state: lead.state },
+            { integrationEnv }
+          );
+
           if (deepData && Object.keys(deepData).length > 0) {
-            // Update the lead object
             if (lead.email === 'N/A' && deepData.email) lead.email = deepData.email;
             if (lead.facebook === 'N/A' && deepData.facebook) lead.facebook = deepData.facebook;
             if (lead.instagram === 'N/A' && deepData.instagram) lead.instagram = deepData.instagram;
             if (lead.twitter === 'N/A' && deepData.twitter) lead.twitter = deepData.twitter;
             if (!lead.linkedin && deepData.linkedin) lead.linkedin = deepData.linkedin;
 
-            // Save to site cache for future searches
             await dbService.saveSiteMetadata(lead.website, deepData);
           }
         } catch (err) {

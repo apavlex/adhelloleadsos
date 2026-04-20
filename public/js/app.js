@@ -2869,6 +2869,126 @@ document.addEventListener('DOMContentLoaded', () => {
   const enhanceLoadingHtml =
     '<span class="flex items-center gap-2 justify-center"><svg class="animate-spin h-3.5 w-3.5 text-brand-yellow" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span class="text-[10px] font-black uppercase tracking-widest">Enhancing…</span></span>';
 
+  const bulkEnhanceDomSnapshots = new WeakMap();
+  let bulkEnhanceBtnSnapshotHtml = null;
+
+  function findResultRowByLeadKey(key) {
+    const esc = String(key).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return document.querySelector(`tr.result-row[data-lead-key="${esc}"]`);
+  }
+
+  function applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, success, result) {
+    const d = result && (result.lead || result.data);
+    if (success && d) {
+      applyEnrichDataToRowDataset(row, d, result);
+      if (layout.kind === 'leads') {
+        if (layout.addressEl) {
+          layout.addressEl.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
+        }
+        setLeadPhoneSlot(layout.phone, row.dataset.phone);
+        layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
+        layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
+        layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
+        const intelBtn = row.querySelector('.email-intel-btn');
+        if (intelBtn) {
+          intelBtn.dataset.email = row.dataset.email && row.dataset.email !== 'N/A' ? row.dataset.email : '';
+        }
+      } else {
+        if (row.dataset.email && row.dataset.email !== 'N/A') {
+          layout.email.innerHTML = `<a href="mailto:${row.dataset.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${row.dataset.email}">${row.dataset.email}</a>`;
+        } else {
+          layout.email.innerHTML = cellOriginals.email;
+        }
+        let socialsHtml = '<div class="flex items-center justify-center gap-2.5">';
+        if (row.dataset.facebook && row.dataset.facebook !== 'N/A') {
+          socialsHtml += `<a href="${row.dataset.facebook}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
+        }
+        if (row.dataset.instagram && row.dataset.instagram !== 'N/A') {
+          socialsHtml += `<a href="${row.dataset.instagram}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
+        }
+        socialsHtml += '</div>';
+        layout.social.innerHTML = socialsHtml;
+        if (layout.website) {
+          const w = row.dataset.website;
+          layout.website.innerHTML =
+            w && w !== 'N/A'
+              ? `<a href="${w.startsWith('http') ? w : 'https://' + w}" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[150px] truncate" title="${w}">${w.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '')}</a>`
+              : '-';
+        }
+        if (layout.phone && row.dataset.phone) {
+          layout.phone.textContent = row.dataset.phone && row.dataset.phone !== 'N/A' ? row.dataset.phone : '-';
+        }
+        if (layout.reviews) {
+          layout.reviews.innerHTML = renderReviewsCellInner(row.dataset.rating, row.dataset.reviews);
+          const starEl2 = layout.reviews.querySelector('.row-stars');
+          if (starEl2) renderStarsInElement(starEl2, parseFloat(row.dataset.rating) || 0);
+        }
+      }
+      const selectedPanelRow = document.querySelector('.result-row.selected');
+      if (selectedPanelRow === row && typeof populatePanel === 'function') populatePanel(row);
+    } else {
+      if (layout.kind === 'leads') {
+        if (layout.addressEl && cellOriginals.address !== undefined) {
+          layout.addressEl.innerHTML = cellOriginals.address;
+        }
+        layout.phone.innerHTML = cellOriginals.phone;
+        layout.email.innerHTML = cellOriginals.email;
+        layout.website.innerHTML = cellOriginals.website;
+        layout.reviews.innerHTML = cellOriginals.reviews;
+      } else {
+        layout.email.innerHTML = cellOriginals.email;
+        layout.social.innerHTML = cellOriginals.social;
+      }
+    }
+  }
+
+  document.addEventListener('agency-os-bulk-enhance-item-complete', (ev) => {
+    const { key, success, result } = ev.detail || {};
+    if (!key) return;
+    const row = findResultRowByLeadKey(key);
+    if (!row) return;
+    const layout = getBulkEnhanceLayout(row);
+    const snap = bulkEnhanceDomSnapshots.get(row);
+    if (!layout || !snap) return;
+    applyBulkEnhanceDomAfterFetch(row, layout, snap, success, result);
+  });
+
+  document.addEventListener('agency-os-bulk-enhance-finished', (ev) => {
+    const d = ev.detail || {};
+    const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
+    const summaryLabel =
+      d.successCount > 0
+        ? `✨ Updated ${d.successCount} lead${d.successCount !== 1 ? 's' : ''}`
+        : d.attempted > 0
+          ? 'No new data (check API / console)'
+          : '✨ Done';
+    enhanceBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+    if (d.attempted > 0 && d.successCount === 0) {
+      const enhanceFailMsg = d.lastError
+        ? `Enhance finished but no rows were updated.\n\n${d.lastError}`
+        : 'Enhance could not add new fields (Firecrawl or network). Open Workspace → API integrations and confirm your Firecrawl key, then try again. Check server logs if it keeps failing.';
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(enhanceFailMsg, { variant: 'error', duration: 12000 });
+      } else {
+        window.alert(enhanceFailMsg);
+      }
+    }
+    updateOpportunityBadges();
+    sortLeadsByOpportunity(false);
+    applyTableStars();
+    setTimeout(() => {
+      const snap = bulkEnhanceBtnSnapshotHtml;
+      bulkEnhanceBtnSnapshotHtml = null;
+      enhanceBtns.forEach((b, i) => {
+        b.classList.remove('loading', 'animate-magic');
+        b.disabled = false;
+        b.innerHTML = (snap && snap[i]) || b.innerHTML;
+      });
+    }, 2200);
+  });
+
   // Bulk Enhance (Firecrawl) — `.js-bulk-enhance` on /leads attaches to both header + floating bar (no duplicate ids)
   document.querySelectorAll('.js-bulk-enhance').forEach((bulkEnhanceBtn) => {
     bulkEnhanceBtn.addEventListener('click', async () => {
@@ -2876,6 +2996,52 @@ document.addEventListener('DOMContentLoaded', () => {
       if (checkedBoxes.length === 0) return;
 
       const selectedRows = Array.from(checkedBoxes).map((cb) => cb.closest('.result-row')).filter(Boolean);
+
+      const leadsToProcess = selectedRows.slice(0, 20);
+      if (selectedRows.length > 20) console.warn('Bulk audit limited to first 20 selected leads.');
+
+      const allKeyedPipeline =
+        leadsToProcess.length > 0 &&
+        leadsToProcess.every((r) => r.dataset.leadKey) &&
+        leadsToProcess.every((r) => !!getBulkEnhanceLayout(r)) &&
+        window.agencyOsBulkEnhance &&
+        typeof window.agencyOsBulkEnhance.start === 'function';
+
+      if (allKeyedPipeline) {
+        const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
+        const enhanceBtnOriginalHtml = Array.from(enhanceBtns).map((b) => b.innerHTML);
+        bulkEnhanceBtnSnapshotHtml = enhanceBtnOriginalHtml;
+        enhanceBtns.forEach((b) => {
+          b.disabled = true;
+          b.classList.add('loading', 'animate-magic');
+          b.innerHTML = enhanceLoadingHtml;
+        });
+        const spinner =
+          '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
+        for (const row of leadsToProcess) {
+          const layout = getBulkEnhanceLayout(row);
+          const cellOriginals = {};
+          if (layout.kind === 'leads') {
+            if (layout.addressEl) cellOriginals.address = layout.addressEl.innerHTML;
+            cellOriginals.phone = layout.phone.innerHTML;
+            cellOriginals.email = layout.email.innerHTML;
+            cellOriginals.website = layout.website.innerHTML;
+            cellOriginals.reviews = layout.reviews.innerHTML;
+            if (layout.addressEl) layout.addressEl.innerHTML = spinner;
+            layout.phone.innerHTML = spinner;
+            layout.email.innerHTML = spinner;
+            layout.website.innerHTML = spinner;
+          } else {
+            cellOriginals.email = layout.email.innerHTML;
+            cellOriginals.social = layout.social.innerHTML;
+            layout.social.innerHTML = `<div class="flex items-center gap-2 text-brand-muted">${spinner}</div>`;
+            if (!row.dataset.email || row.dataset.email === 'N/A') layout.email.innerHTML = spinner;
+          }
+          bulkEnhanceDomSnapshots.set(row, cellOriginals);
+        }
+        window.agencyOsBulkEnhance.start(leadsToProcess.map((r) => r.dataset.leadKey));
+        return;
+      }
 
       const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
       const enhanceBtnOriginalHtml = Array.from(enhanceBtns).map((b) => b.innerHTML);
@@ -2885,9 +3051,6 @@ document.addEventListener('DOMContentLoaded', () => {
         b.classList.add('loading', 'animate-magic');
         b.innerHTML = enhanceLoadingHtml;
       });
-
-      const leadsToProcess = selectedRows.slice(0, 20);
-      if (selectedRows.length > 20) console.warn('Bulk audit limited to first 20 selected leads.');
 
       const spinner = '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
       let successCount = 0;
@@ -2938,86 +3101,14 @@ document.addEventListener('DOMContentLoaded', () => {
           }
 
           const result = await res.json().catch(() => ({}));
-          const d = result.lead || result.data;
           if (result.error) lastError = String(result.error);
-
-          if (res.ok && result.success && d) {
-            successCount += 1;
-            applyEnrichDataToRowDataset(row, d, result);
-
-            if (layout.kind === 'leads') {
-              if (layout.addressEl) {
-                layout.addressEl.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
-              }
-              setLeadPhoneSlot(layout.phone, row.dataset.phone);
-              layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
-              layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
-              layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
-              const intelBtn = row.querySelector('.email-intel-btn');
-              if (intelBtn) {
-                intelBtn.dataset.email = row.dataset.email && row.dataset.email !== 'N/A' ? row.dataset.email : '';
-              }
-            } else {
-              if (row.dataset.email && row.dataset.email !== 'N/A') {
-                layout.email.innerHTML = `<a href="mailto:${row.dataset.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${row.dataset.email}">${row.dataset.email}</a>`;
-              } else {
-                layout.email.innerHTML = cellOriginals.email;
-              }
-              let socialsHtml = '<div class="flex items-center justify-center gap-2.5">';
-              if (row.dataset.facebook && row.dataset.facebook !== 'N/A') {
-                socialsHtml += `<a href="${row.dataset.facebook}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
-              }
-              if (row.dataset.instagram && row.dataset.instagram !== 'N/A') {
-                socialsHtml += `<a href="${row.dataset.instagram}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
-              }
-              socialsHtml += '</div>';
-              layout.social.innerHTML = socialsHtml;
-              if (layout.website) {
-                const w = row.dataset.website;
-                layout.website.innerHTML = w && w !== 'N/A'
-                  ? `<a href="${w.startsWith('http') ? w : 'https://' + w}" target="_blank" class="website-link hover:text-brand-dark transition-colors border-b border-transparent hover:border-brand-dark pb-0.5 inline-block max-w-[150px] truncate" title="${w}">${w.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '')}</a>`
-                  : '-';
-              }
-              if (layout.phone && row.dataset.phone) {
-                layout.phone.textContent = row.dataset.phone && row.dataset.phone !== 'N/A' ? row.dataset.phone : '-';
-              }
-              if (layout.reviews) {
-                layout.reviews.innerHTML = renderReviewsCellInner(row.dataset.rating, row.dataset.reviews);
-                const starEl2 = layout.reviews.querySelector('.row-stars');
-                if (starEl2) renderStarsInElement(starEl2, parseFloat(row.dataset.rating) || 0);
-              }
-            }
-
-            const selectedPanelRow = document.querySelector('.result-row.selected');
-            if (selectedPanelRow === row && typeof populatePanel === 'function') populatePanel(row);
-          } else {
-            if (layout.kind === 'leads') {
-              if (layout.addressEl && cellOriginals.address !== undefined) {
-                layout.addressEl.innerHTML = cellOriginals.address;
-              }
-              layout.phone.innerHTML = cellOriginals.phone;
-              layout.email.innerHTML = cellOriginals.email;
-              layout.website.innerHTML = cellOriginals.website;
-              layout.reviews.innerHTML = cellOriginals.reviews;
-            } else {
-              layout.email.innerHTML = cellOriginals.email;
-              layout.social.innerHTML = cellOriginals.social;
-            }
-          }
+          const d = result.lead || result.data;
+          const ok = res.ok && result.success && d;
+          if (ok) successCount += 1;
+          applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, ok, result);
         } catch (err) {
           console.error('Enrichment error:', err);
-          if (layout.kind === 'leads') {
-            if (layout.addressEl && cellOriginals.address !== undefined) {
-              layout.addressEl.innerHTML = cellOriginals.address;
-            }
-            layout.phone.innerHTML = cellOriginals.phone;
-            layout.email.innerHTML = cellOriginals.email;
-            layout.website.innerHTML = cellOriginals.website;
-            layout.reviews.innerHTML = cellOriginals.reviews;
-          } else {
-            layout.email.innerHTML = cellOriginals.email;
-            layout.social.innerHTML = cellOriginals.social;
-          }
+          applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, false, {});
         }
       }
 
@@ -3032,11 +3123,14 @@ document.addEventListener('DOMContentLoaded', () => {
         b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
       });
       if (attemptedCount > 0 && successCount === 0) {
-        window.alert(
-          lastError
-            ? `Enhance finished but no rows were updated.\n\n${lastError}`
-            : 'Enhance finished but Firecrawl returned no new fields. Confirm FIRECRAWL_API_KEY and check server logs.'
-        );
+        const enhanceFailMsg = lastError
+          ? `Enhance finished but no rows were updated.\n\n${lastError}`
+          : 'Enhance could not add new fields (Firecrawl or network). Open Workspace → API integrations and confirm your Firecrawl key, then try again. Check server logs if it keeps failing.';
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(enhanceFailMsg, { variant: 'error', duration: 12000 });
+        } else {
+          window.alert(enhanceFailMsg);
+        }
       }
       updateOpportunityBadges();
       sortLeadsByOpportunity(false);

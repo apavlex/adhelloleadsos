@@ -5,6 +5,7 @@ const path = require('path');
 const session = require('express-session');
 const { passport, ensureAuthenticated } = require('./services/auth');
 const webEnrichment = require('./services/webEnrichment');
+const mapsEnrichFallback = require('./services/mapsEnrichFallback');
 const workspaceIntegrations = require('./services/workspaceIntegrations');
 const scheduler = require('./services/scheduler');
 const { migrateLegacyPipelineStages } = require('./services/pipelineMigration');
@@ -133,20 +134,45 @@ app.post('/enrich', async (req, res) => {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
     if (url && url !== 'N/A') {
-      const data = await webEnrichment.enrichLeadSmart(url, { integrationEnv });
-      return res.json({ success: true, data });
+      const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(
+        url,
+        { title, city, state },
+        { integrationEnv }
+      );
+      return res.json({
+        success: true,
+        data: pack.merged,
+        mapsFallback: pack.mapsUsed,
+        foundUrl: pack.websiteHint || undefined,
+      });
     } else if (title && city) {
       console.log(`[ENRICH] No URL provided. Searching for ${title} in ${city}...`);
       const { searchBusiness } = require('./services/firecrawl');
       const searchQuery = `${title} business in ${city}${state ? ', ' + state : ''} official website contact`;
-      const searchResults = await searchBusiness(searchQuery, integrationEnv);
-      
-      if (searchResults && searchResults.length > 0) {
-        const bestResult = searchResults.find(r => r.extract && (r.extract.email || r.extract.facebook || r.extract.instagram)) || searchResults[0];
-        return res.json({ success: true, data: bestResult.extract || {}, foundUrl: bestResult.url });
+      let data = {};
+      let foundUrl = null;
+      try {
+        const searchResults = await searchBusiness(searchQuery, integrationEnv);
+        if (searchResults && searchResults.length > 0) {
+          const bestResult =
+            searchResults.find((r) => r.extract && (r.extract.email || r.extract.facebook || r.extract.instagram)) ||
+            searchResults[0];
+          data = bestResult.extract || {};
+          foundUrl = bestResult.url || null;
+        }
+      } catch (e) {
+        console.warn('[ENRICH] Firecrawl search failed:', e.message);
       }
+      if (!mapsEnrichFallback.extractHasContactSignal(data)) {
+        const pack = await mapsEnrichFallback.enrichFromMapsForLead({ title, city, state }, integrationEnv);
+        if (pack) {
+          data = mapsEnrichFallback.mergeExtractPreferFirecrawl(data, pack.extract);
+          if (!foundUrl && pack.websiteHint) foundUrl = pack.websiteHint;
+        }
+      }
+      return res.json({ success: true, data, foundUrl: foundUrl || undefined });
     }
-    
+
     res.status(400).json({ success: false, error: 'Insufficient data for enrichment (need URL or Title+City).' });
   } catch (err) {
     console.error('Enrichment Server Error:', err.message);

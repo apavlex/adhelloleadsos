@@ -5,6 +5,7 @@
 
 const firecrawl = require('./firecrawl');
 const crawl4ai = require('./crawl4aiClient');
+const mapsEnrichFallback = require('./mapsEnrichFallback');
 const { detectTechSignalsFromHtml, mergeHtmlTechIntoExtract } = require('./techSignals');
 
 function truthyEnv(v) {
@@ -59,8 +60,51 @@ async function enrichLeadSmart(url, options = {}) {
   return firecrawl.enrichLead(u, { techMergeHtml, integrationEnv });
 }
 
+/**
+ * Firecrawl first; if it errors or returns no contact signals, merge in Maps (Outscraper/Apify).
+ * @param {string|null|undefined} url
+ * @param {{ title?: string, city?: string, state?: string }} leadProfile
+ * @param {{ integrationEnv?: Record<string, string> }} [options]
+ * @returns {Promise<{ merged: object, mapsUsed: boolean, websiteHint: string|null }>}
+ */
+async function enrichLeadSmartWithMapsFallback(url, leadProfile, options = {}) {
+  const integrationEnv = options.integrationEnv || null;
+  let fcData = null;
+  let fcFailed = false;
+
+  try {
+    if (url && String(url).trim() && String(url).trim() !== 'N/A') {
+      fcData = await enrichLeadSmart(url, { integrationEnv });
+    }
+  } catch (e) {
+    fcFailed = true;
+    console.warn('[webEnrichment] Firecrawl enrich failed; trying Maps fallback:', e.message);
+  }
+
+  const fcHadSignal = mapsEnrichFallback.extractHasContactSignal(fcData);
+  let mapsExtract = null;
+  let websiteHint = null;
+
+  if (fcFailed || !fcHadSignal) {
+    const pack = await mapsEnrichFallback.enrichFromMapsForLead(leadProfile || {}, integrationEnv);
+    if (pack) {
+      mapsExtract = pack.extract;
+      websiteHint = pack.websiteHint || null;
+    }
+  }
+
+  const merged = mapsEnrichFallback.mergeExtractPreferFirecrawl(fcData || {}, mapsExtract || {});
+  const mapsUsed = Boolean(
+    (fcFailed || !fcHadSignal) &&
+      ((mapsExtract && Object.keys(mapsExtract).length > 0) || Boolean(websiteHint))
+  );
+
+  return { merged, mapsUsed, websiteHint };
+}
+
 module.exports = {
   enrichLeadSmart,
+  enrichLeadSmartWithMapsFallback,
   tryCrawl4FirstEnabled,
   skipFirecrawlOnCrawl4Html,
 };

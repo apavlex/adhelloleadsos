@@ -5,6 +5,7 @@ const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
+const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -697,7 +698,7 @@ Return JSON only, no markdown:
   }
 });
 
-// POST /leads/:key/enhance — Firecrawl scrape/search: contact + reviews + social + audit fields
+// POST /leads/:key/enhance — Firecrawl scrape/search + Maps (Outscraper/Apify) fallback
 router.post('/:key/enhance', async (req, res, next) => {
   try {
     const key = req.params.key;
@@ -706,41 +707,62 @@ router.post('/:key/enhance', async (req, res, next) => {
 
     let deepData = null;
     let firecrawlViaSearch = false;
+    let mapsFallbackUsed = false;
+    /** When lead has no website: prefer Maps listing site, else Firecrawl result URL */
+    let urlToSave = null;
 
     const leadWorkspaceId = (lead && lead.workspaceId) || req.workspaceId;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
+    const leadProfile = { title: lead.title, city: lead.city, state: lead.state };
 
     if (lead.website && lead.website !== 'N/A') {
       console.log(`[ENHANCE] Triggering enrich for ${lead.title} (${lead.website})...`);
-      deepData = await webEnrichment.enrichLeadSmart(lead.website, { integrationEnv });
+      const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(lead.website, leadProfile, {
+        integrationEnv,
+      });
+      deepData = pack.merged;
+      mapsFallbackUsed = pack.mapsUsed;
     } else {
-      console.log(`[ENHANCE] Website missing. Triggering Firecrawl search for ${lead.title}...`);
+      console.log(`[ENHANCE] Website missing. Firecrawl search + Maps fallback for ${lead.title}...`);
       firecrawlViaSearch = true;
       const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
-      const searchResults = await firecrawl.searchBusiness(searchQuery, integrationEnv);
+      let searchExtract = {};
+      let firecrawlFoundUrl = null;
+      try {
+        const searchResults = await firecrawl.searchBusiness(searchQuery, integrationEnv);
 
-      if (searchResults && searchResults.length > 0) {
-        const bestResult =
-          searchResults.find(
-            (r) =>
-              r.extract &&
-              (r.extract.email ||
-                r.extract.phone ||
-                r.extract.address ||
-                r.extract.total_score != null ||
-                r.extract.reviews_count != null ||
-                r.extract.facebook ||
-                r.extract.instagram)
-          ) || searchResults[0];
-        deepData = bestResult.extract || {};
-
-        if (!lead.website || lead.website === 'N/A') {
-          const foundUrl = searchResults.find((r) => r.url)?.url;
-          if (foundUrl) {
-            await dbService.updateLead(fullKey, { website: foundUrl });
-            lead = await dbService.getLead(fullKey);
-          }
+        if (searchResults && searchResults.length > 0) {
+          const bestResult =
+            searchResults.find(
+              (r) =>
+                r.extract &&
+                (r.extract.email ||
+                  r.extract.phone ||
+                  r.extract.address ||
+                  r.extract.total_score != null ||
+                  r.extract.reviews_count != null ||
+                  r.extract.facebook ||
+                  r.extract.instagram)
+            ) || searchResults[0];
+          searchExtract = bestResult.extract || {};
+          firecrawlFoundUrl = searchResults.find((r) => r.url)?.url || null;
         }
+      } catch (e) {
+        console.warn('[ENHANCE] Firecrawl search failed:', e.message);
+      }
+
+      let websiteHint = null;
+      if (!mapsEnrichFallback.extractHasContactSignal(searchExtract)) {
+        const pack = await mapsEnrichFallback.enrichFromMapsForLead(lead, integrationEnv);
+        if (pack) {
+          searchExtract = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, pack.extract);
+          websiteHint = pack.websiteHint;
+          mapsFallbackUsed = true;
+        }
+      }
+      deepData = searchExtract;
+      if (!lead.website || lead.website === 'N/A') {
+        urlToSave = websiteHint || firecrawlFoundUrl || null;
       }
     }
 
@@ -748,7 +770,8 @@ router.post('/:key/enhance', async (req, res, next) => {
     const patch = {};
     const priorUpdateLen = baseUpdates.length;
 
-    if (deepData && Object.keys(deepData).length > 0) {
+    const hadExtract = deepData && Object.keys(deepData).length > 0;
+    if (hadExtract) {
       const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
       Object.assign(patch, enrichUpdates);
 
@@ -764,10 +787,22 @@ router.post('/:key/enhance', async (req, res, next) => {
       if (lead.email && lead.email !== 'N/A') delete patch.email;
       if (lead.totalScore != null && Number(lead.totalScore) > 0) delete patch.totalScore;
       if (lead.reviewsCount != null && Number(lead.reviewsCount) > 0) delete patch.reviewsCount;
+    }
 
+    if ((!lead.website || lead.website === 'N/A') && urlToSave) {
+      patch.website = urlToSave;
+    }
+
+    if (hadExtract || urlToSave || mapsFallbackUsed) {
+      const via = [
+        firecrawlViaSearch ? 'web search' : null,
+        mapsFallbackUsed ? 'Maps backup' : null,
+      ]
+        .filter(Boolean)
+        .join(' + ');
       baseUpdates.push({
         type: 'enrichment',
-        value: `Deep hunt completed${firecrawlViaSearch ? ' via web search' : ''}.`,
+        value: `Deep hunt completed${via ? ` (${via})` : ''}.`,
         timestamp: new Date().toISOString(),
       });
     }
