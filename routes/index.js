@@ -6,7 +6,7 @@ const { getWorkspaceIcp } = require('../services/workspaceIcp');
 
 router.get('/', async (req, res, next) => {
   try {
-    const allLeads = await dbService.getAllLeads();
+    const allLeads = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, allLeads);
     const adhelloLeads = leads.filter((l) => l.source && l.source.startsWith('adhello_'));
     const workspaceLeads = leads;
@@ -20,7 +20,7 @@ router.get('/', async (req, res, next) => {
     );
 
     const allSchedules = await dbService.listSchedules();
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
 
     const workspace = (await dbService.getWorkspace(wid)) || {};

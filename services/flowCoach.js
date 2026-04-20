@@ -12,7 +12,9 @@ async function buildCoachContext(req) {
   const rawName = (user && user.displayName) || email.split('@')[0] || 'there';
   const firstName = String(rawName).trim().split(/\s+/)[0] || 'there';
 
-  const all = await dbService.getAllLeads();
+  const wid = req.workspaceId;
+  if (!wid) throw new Error('buildCoachContext requires req.workspaceId');
+  const all = await dbService.getAllLeads(wid);
   const workspace =
     req && typeof req.workspaceRole === 'string'
       ? filterLeadsForRequest(req, all)
@@ -44,7 +46,7 @@ async function buildCoachContext(req) {
 
   const today = new Date().toISOString().slice(0, 10);
   const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspace, today);
-  const history60 = await dbService.listDailyTrackers(email, 60);
+  const history60 = await dbService.listDailyTrackers(wid, email, 60);
   const streak = computeOutreachStreak(history60, today);
 
   const activeJob = await dbService.getActiveJob();

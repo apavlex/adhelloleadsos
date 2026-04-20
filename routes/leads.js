@@ -6,7 +6,8 @@ const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
-const { PIPELINE_STAGES, SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
+const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
+const pipelineStagesService = require('../services/pipelineStagesService');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
@@ -59,7 +60,7 @@ router.get('/inbound', (req, res) => {
 // GET /leads/saved — return all saved lead titles+keys for client-side bookmark state
 router.get('/saved', async (req, res, next) => {
   try {
-    const leads = filterLeadsForRequest(req, await dbService.getAllLeads());
+    const leads = filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
     const saved = leads.map((l) => ({ key: l.key, title: l.title }));
     res.json(saved);
   } catch (err) {
@@ -70,7 +71,7 @@ router.get('/saved', async (req, res, next) => {
 // GET /leads/list.json — lightweight list for folders / client filtering
 router.get('/list.json', async (req, res, next) => {
   try {
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const filters = {
       folderKey: req.query.folderKey,
@@ -141,7 +142,7 @@ router.post('/save', async (req, res, next) => {
       status: 'Not Contacted',
       loomUrl: '',
       savedAt: new Date().toISOString(),
-      workspaceId: req.workspaceId || 'default',
+      workspaceId: req.workspaceId,
     };
 
     if (isManual) {
@@ -196,7 +197,7 @@ router.post('/import', (req, res, next) => {
     }
 
     const records = parseCsvToLeadRecords(req.file.buffer, req.file.originalname || 'import.csv');
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     let created = 0;
     let updated = 0;
     let skipped = 0;
@@ -313,7 +314,7 @@ router.post('/:key/assign-round-robin', async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Team admin required' });
     }
     const fullKey = leadKeyFromParam(req.params.key);
-    const assignee = await workspaceService.pickRoundRobinAssignee(req.workspaceId || 'default');
+    const assignee = await workspaceService.pickRoundRobinAssignee(req.workspaceId);
     if (!assignee) return res.status(400).json({ success: false, error: 'No assignees in pool' });
     await dbService.updateLead(fullKey, {
       assignedTo: assignee,
@@ -336,8 +337,24 @@ router.post('/:key/update', async (req, res, next) => {
   try {
     const key = req.params.key;
     const fullKey = leadKeyFromParam(key);
-    const updateData = req.body;
+    const updateData = { ...req.body };
     const existing = await dbService.getLead(fullKey);
+    const wid = req.workspaceId;
+
+    const stages = await pipelineStagesService.listStages(wid);
+    if (updateData.stageId != null && String(updateData.stageId).trim() !== '') {
+      const sid = String(updateData.stageId).trim();
+      if (stages.some((s) => s.id === sid)) {
+        Object.assign(updateData, pipelineStagesService.patchLeadStageFields(existing, stages, sid));
+      }
+      delete updateData.stageId;
+    } else if (updateData.pipelineStage !== undefined && updateData.pipelineStage !== null) {
+      const next = parseInt(updateData.pipelineStage, 10);
+      if (!Number.isNaN(next) && next >= 1 && next <= stages.length) {
+        const sid = stages[next - 1].id;
+        Object.assign(updateData, pipelineStagesService.patchLeadStageFields(existing, stages, sid));
+      }
+    }
 
     if (
       existing &&
@@ -363,7 +380,7 @@ router.post('/:key/update', async (req, res, next) => {
       updateData.updates = updates;
     }
 
-    const updated = await dbService.updateLead(fullKey, updateData);
+    const updated = await dbService.updateLead(fullKey, updateData, wid);
     res.json({ success: true, lead: updated });
   } catch (err) {
     next(err);
@@ -690,7 +707,7 @@ router.post('/:key/enhance', async (req, res, next) => {
     let deepData = null;
     let firecrawlViaSearch = false;
 
-    const leadWorkspaceId = (lead && lead.workspaceId) || req.workspaceId || 'default';
+    const leadWorkspaceId = (lead && lead.workspaceId) || req.workspaceId;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
 
     if (lead.website && lead.website !== 'N/A') {

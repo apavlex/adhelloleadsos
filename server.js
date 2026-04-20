@@ -8,6 +8,7 @@ const webEnrichment = require('./services/webEnrichment');
 const workspaceIntegrations = require('./services/workspaceIntegrations');
 const scheduler = require('./services/scheduler');
 const { migrateLegacyPipelineStages } = require('./services/pipelineMigration');
+const { runGlobalPipelineSeedOnce } = require('./services/pipelineStagesService');
 
 const indexRoutes = require('./routes/index');
 const searchRoutes = require('./routes/search');
@@ -19,6 +20,7 @@ const salesRoutes = require('./routes/sales');
 const coachRoutes = require('./routes/coach');
 const sequencesRoutes = require('./routes/sequences');
 const workspaceRoutes = require('./routes/workspace');
+const workspacesRoutes = require('./routes/workspaces');
 const activationRoutes = require('./routes/activation');
 const tasksRoutes = require('./routes/tasks');
 const resourcesRoutes = require('./routes/resources');
@@ -30,6 +32,7 @@ const iaNav = require('./middleware/iaNav');
 const iaRedirects = require('./routes/iaRedirects');
 const todayRoutes = require('./routes/today');
 const focusRoutes = require('./routes/focus');
+const pipelineRoutes = require('./routes/pipeline');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -169,6 +172,8 @@ app.use('/sales', salesRoutes);
 app.use('/coach', coachRoutes);
 app.use('/sequences', sequencesRoutes);
 app.use('/workspace', workspaceRoutes);
+app.use('/workspaces', workspacesRoutes);
+app.use('/pipeline', pipelineRoutes);
 app.use('/activation', activationRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/resources', resourcesRoutes);
@@ -184,6 +189,7 @@ app.use((err, req, res, next) => {
 
 async function boot() {
   await migrateLegacyPipelineStages();
+  runGlobalPipelineSeedOnce();
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on 0.0.0.0:${PORT}`);

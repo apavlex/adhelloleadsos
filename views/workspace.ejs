@@ -9,6 +9,16 @@
     <h1 class="font-display font-extrabold text-4xl text-brand-dark dark:text-white mb-2">Workspace</h1>
     <p class="text-brand-muted mb-8"><%= workspace && workspace.name ? workspace.name : 'Main workspace' %> · ID <code class="text-xs bg-brand-cream dark:bg-slate-800 px-2 py-0.5 rounded"><%= workspace && workspace.id ? workspace.id : 'default' %></code></p>
 
+    <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace && workspace && workspace.id) { %>
+    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 mb-8 flex flex-wrap items-center justify-between gap-4">
+      <div>
+        <h2 class="font-bold text-lg text-brand-dark dark:text-white">Pipeline stages</h2>
+        <p class="text-sm text-brand-muted mt-1">Reorder stages, apply presets, or redesign with AI. Leads stay mapped when you change the board.</p>
+      </div>
+      <a href="/workspaces/<%= workspace.id %>/settings/pipeline" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0">Edit pipeline</a>
+    </div>
+    <% } %>
+
     <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-4">Members & roles</h2>
       <% if (workspace && workspace.members) { %>

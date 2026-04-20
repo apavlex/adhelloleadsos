@@ -5,7 +5,7 @@ const dbService = require('../services/database');
 router.get('/', async (req, res, next) => {
   try {
     const allSearches = await dbService.getAllSearches();
-    const wid = (req.workspaceId || 'default');
+    const wid = req.workspaceId;
     const searches = allSearches.filter(
       (s) => (s.workspaceId || 'default') === wid
     );

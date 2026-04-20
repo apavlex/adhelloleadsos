@@ -6,7 +6,7 @@ const { filterLeadsForRequest } = require('../services/workspaceService');
 
 router.get('/', async (req, res, next) => {
   try {
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, all);
     const templates = sequenceEngine.listTemplates();
     const active = leads.filter(

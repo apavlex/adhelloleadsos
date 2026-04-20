@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const dbService = require('../services/database');
-const { PIPELINE_STAGES } = require('../services/salesConstants');
+const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const {
   displayStatus,
@@ -21,10 +21,10 @@ router.get('/', async (req, res, next) => {
     }
     const safeTab = ['queue', 'pipeline', 'folders'].includes(tab) ? tab : 'pipeline';
 
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const folders = await dbService.listFolders(wid);
 
     const allSchedules = await dbService.listSchedules();
@@ -70,6 +70,9 @@ router.get('/', async (req, res, next) => {
       cold: pipelineBase.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
       inbound: pipelineBase.filter((l) => l.source && l.source.startsWith('adhello_')).length,
     };
+
+    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(wid);
+    const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
 
     let importNotice = null;
     if (
@@ -117,7 +120,7 @@ router.get('/', async (req, res, next) => {
       pipelineStatusOptions,
       importNotice,
       importError,
-      pipelineStages: PIPELINE_STAGES,
+      pipelineStages,
       canManageWorkspace: req.canManageWorkspace,
     });
   } catch (e) {

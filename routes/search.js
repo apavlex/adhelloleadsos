@@ -13,7 +13,7 @@ const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 router.post('/', async (req, res, next) => {
   try {
     const { keyword, city, state, maxResults, mode } = req.body;
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
     if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
@@ -83,7 +83,7 @@ router.post('/', async (req, res, next) => {
         scheduledTime: normalizedTime,
         timezone,
         createdAt: new Date().toISOString(),
-        workspaceId: req.workspaceId || 'default',
+        workspaceId: req.workspaceId,
       });
       await activationService.recordEvent(userEmail(req), 'autopilot_scheduled');
       await persistWorkspaceIcp(wid, {
@@ -196,7 +196,7 @@ router.get('/:key', async (req, res, next) => {
     }
 
     // Get all bookmarked leads to sync bookmark status on the results page
-    const savedLeads = filterLeadsForRequest(req, await dbService.getAllLeads());
+    const savedLeads = filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
 
     res.render('results', {
       title: `Results: ${data.keyword} in ${data.city}, ${data.state}`,

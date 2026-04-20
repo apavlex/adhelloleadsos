@@ -12,12 +12,16 @@ const {
 } = require('../services/trackerStats');
 const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
 
-const { PIPELINE_STAGES } = require('../services/salesConstants');
+const pipelineStagesService = require('../services/pipelineStagesService');
 
-function stageLabel(id) {
-  const n = parseInt(id, 10);
-  const row = PIPELINE_STAGES.find((s) => s.id === n);
-  return row ? row.name : `Stage ${n}`;
+function stageLabelFromLead(l, sortedStages) {
+  const row =
+    sortedStages.find((s) => s.id === l.stageId) ||
+    sortedStages.find((s) => s.key === l.pipelineStageKey);
+  if (row) return row.name;
+  const n = parseInt(l.pipelineStage, 10);
+  const idx = !Number.isNaN(n) && n >= 1 && n <= sortedStages.length ? n - 1 : 0;
+  return sortedStages[idx] ? sortedStages[idx].name : `Stage ${n || 1}`;
 }
 
 function formatLastTouchDisplay(l) {
@@ -27,9 +31,9 @@ function formatLastTouchDisplay(l) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function leadToFocusPayload(l) {
+function leadToFocusPayload(l, sortedStages) {
   const ps = parseInt(l.pipelineStage, 10);
-  const stage = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
+  const stage = !Number.isNaN(ps) && ps >= 1 && ps <= 24 ? ps : 1;
   const email = String(l.email || '').trim();
   const hasEmail = email && email !== 'N/A';
   const hasIg = String(l.instagram || '').trim() && l.instagram !== 'N/A';
@@ -47,7 +51,7 @@ function leadToFocusPayload(l) {
     title: l.title || 'Company',
     contactName: contact || '—',
     pipelineStage: stage,
-    pipelineLabel: stageLabel(stage),
+    pipelineLabel: stageLabelFromLead(l, sortedStages),
     lastTouchLabel: formatLastTouchDisplay(l),
     website: l.website && l.website !== 'N/A' ? l.website : '',
     phone: l.phone && l.phone !== 'N/A' ? l.phone : '',
@@ -65,7 +69,7 @@ function leadToFocusPayload(l) {
 router.get('/metrics.json', async (req, res, next) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const workspaceLeads = filterLeadsForRequest(req, all);
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
     const touchGoal = dailyPersonalizedTouchGoal();
@@ -78,11 +82,13 @@ router.get('/metrics.json', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const pipelineLeads = excludeOutreachFolderLeads(visible);
+    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
+    const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const ordered = buildFocusQueue(pipelineLeads);
-    const queue = ordered.map(leadToFocusPayload);
+    const queue = ordered.map((l) => leadToFocusPayload(l, sortedStages));
     const prefer = String(req.query.lead || req.query.leadId || '')
       .trim()
       .replace(/^lead:/i, '');

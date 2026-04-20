@@ -59,6 +59,9 @@
   };
 </script>
 <link rel="stylesheet" href="/css/custom.css">
+<% if (typeof workspaceAccent !== 'undefined' && workspaceAccent) { %>
+<style>:root { --brand-yellow: <%= workspaceAccent %>; --workspace-accent: <%= workspaceAccent %>; }</style>
+<% } %>
 <script>
 (function () {
   function typingTarget(el) {

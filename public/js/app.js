@@ -1713,37 +1713,45 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row) return;
     const key = row.dataset.leadKey;
     if (!key) return;
-    const newStage = parseInt(sel.value, 10);
-    if (Number.isNaN(newStage) || newStage < 1 || newStage > 10) return;
-    const prev = parseInt(row.dataset.pipelineStage, 10) || 1;
-    if (newStage === prev) return;
+    const newStageId = String(sel.value || '').trim();
+    if (!newStageId) return;
+    const prevId = String(row.dataset.stageId || '').trim();
+    if (newStageId === prevId) return;
     sel.disabled = true;
     try {
       const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
-          pipelineStage: newStage,
+          stageId: newStageId,
           pipelineStageUpdatedAt: new Date().toISOString(),
         }),
       });
       const data = await res.json();
       if (data.success) {
-        row.dataset.pipelineStage = String(newStage);
+        const lead = data.lead || {};
+        row.dataset.stageId = newStageId;
+        if (lead.pipelineStage != null) {
+          row.dataset.pipelineStage = String(lead.pipelineStage);
+        }
         const labels = window.PIPELINE_STAGE_LABELS || {};
-        const fullName = labels[newStage] || '';
+        const fullName = labels[newStageId] || '';
         const short =
           (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
         row.dataset.pipelineLabel = short;
         const wrap = row.querySelector('.pipeline-stage-pill-wrap');
-        if (wrap) wrap.style.boxShadow = `inset 3px 0 0 hsl(${((newStage - 1) * 36) % 360}, 58%, 48%)`;
+        if (wrap) {
+          const dot =
+            (window.PIPELINE_STAGE_COLORS && window.PIPELINE_STAGE_COLORS[newStageId]) || '#94a3b8';
+          wrap.style.boxShadow = `inset 3px 0 0 ${dot}`;
+        }
         if (typeof window.showProspectToast === 'function') window.showProspectToast('Stage updated');
         if (document.querySelector('.result-row.selected') === row) syncMobilePanelCqi(row);
       } else {
-        sel.value = String(prev);
+        sel.value = prevId;
       }
     } catch {
-      sel.value = String(prev);
+      sel.value = prevId;
     } finally {
       sel.disabled = false;
     }
@@ -3090,17 +3098,14 @@ document.addEventListener('DOMContentLoaded', () => {
         col.innerHTML = '';
         const columnWrap = col.parentElement;
         const targetStatus = columnWrap.dataset.status;
-        const targetPipeline = pipelineMode
-          ? parseInt(columnWrap.dataset.pipelineStage, 10)
-          : NaN;
+        const targetPipelineId = pipelineMode ? String(columnWrap.dataset.pipelineStage || '').trim() : '';
         let count = 0;
 
         allRows.forEach((row) => {
             let shouldInclude = false;
-            if (pipelineMode && !Number.isNaN(targetPipeline)) {
-              let ps = parseInt(row.dataset.pipelineStage, 10);
-              if (Number.isNaN(ps) || ps < 1 || ps > 10) ps = 1;
-              shouldInclude = ps === targetPipeline;
+            if (pipelineMode && targetPipelineId) {
+              const sid = String(row.dataset.stageId || '').trim();
+              shouldInclude = sid === targetPipelineId;
             } else {
               const leadStatus = row.dataset.status || 'Not Contacted';
               if (targetStatus === 'Not Contacted' && (leadStatus === 'Not Contacted' || leadStatus === 'Needs Video')) shouldInclude = true;
@@ -3132,14 +3137,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!leadKey) return;
 
                     if (pipelineMode) {
-                        const newStage = parseInt(toCol.dataset.pipelineStage, 10);
-                        if (Number.isNaN(newStage) || newStage < 1 || newStage > 10) return;
+                        const newStageId = String(toCol.dataset.pipelineStage || '').trim();
+                        if (!newStageId) return;
                         try {
                             const res = await fetch(`/leads/${leadKey}/update`, {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
                                 body: JSON.stringify({
-                                  pipelineStage: newStage,
+                                  stageId: newStageId,
                                   pipelineStageUpdatedAt: new Date().toISOString(),
                                 }),
                             });
@@ -3147,17 +3152,26 @@ document.addEventListener('DOMContentLoaded', () => {
                             if (data.success) {
                                 const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
                                 if (originalRow) {
-                                    originalRow.dataset.pipelineStage = String(newStage);
+                                    const lead = data.lead || {};
+                                    originalRow.dataset.stageId = newStageId;
+                                    if (lead.pipelineStage != null) {
+                                      originalRow.dataset.pipelineStage = String(lead.pipelineStage);
+                                    }
                                     const labels = window.PIPELINE_STAGE_LABELS || {};
-                                    const fullName = labels[newStage] || '';
+                                    const fullName = labels[newStageId] || '';
                                     const short = (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
                                     originalRow.dataset.pipelineLabel = short;
                                     const pipeSel = originalRow.querySelector('.pipeline-inline-select');
-                                    if (pipeSel) pipeSel.value = String(newStage);
+                                    if (pipeSel) pipeSel.value = newStageId;
                                     const cell = originalRow.querySelector('.pipeline-stage-label');
-                                    if (cell) cell.textContent = `${newStage}. ${short || 'Stage'}`;
+                                    if (cell) cell.textContent = short || 'Stage';
                                     const wrap = originalRow.querySelector('.pipeline-stage-pill-wrap');
-                                    if (wrap) wrap.style.boxShadow = `inset 3px 0 0 hsl(${((newStage - 1) * 36) % 360}, 58%, 48%)`;
+                                    if (wrap) {
+                                      const dot =
+                                        (window.PIPELINE_STAGE_COLORS && window.PIPELINE_STAGE_COLORS[newStageId]) ||
+                                        '#94a3b8';
+                                      wrap.style.boxShadow = `inset 3px 0 0 ${dot}`;
+                                    }
                                 }
                                 updateColumnCounts();
                                 if (typeof window.showProspectToast === 'function') {

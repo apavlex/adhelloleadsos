@@ -19,7 +19,8 @@ function userEmail(req) {
  */
 function filterLeadsForRequest(req, leads) {
   if (!Array.isArray(leads)) return [];
-  const wid = (req && req.workspaceId) || 'default';
+  const wid = req && req.workspaceId;
+  if (!wid) return [];
   const role = (req && req.workspaceRole) || 'admin';
   let list = leads.filter((l) => (l.workspaceId || 'default') === wid);
   if (role === 'sdr') {
@@ -30,27 +31,26 @@ function filterLeadsForRequest(req, leads) {
 }
 
 async function ensureWorkspaceAndMember(workspaceId, userEmailRaw) {
-  const id = workspaceId || 'default';
+  const id = workspaceId;
+  if (!id || typeof id !== 'string') {
+    throw new Error('ensureWorkspaceAndMember: workspaceId required');
+  }
   let w = await dbService.getWorkspace(id);
   if (!w || typeof w !== 'object') {
-    w = {
-      id,
-      name: process.env.WORKSPACE_NAME || 'Main workspace',
-      members: {},
-      roundRobinIndex: 0,
-      createdAt: new Date().toISOString(),
-    };
-    await dbService.saveWorkspace(id, w);
+    throw new Error(`Workspace not found: ${id}`);
   }
   const em = (userEmailRaw || '').toLowerCase().trim();
   if (!em) return w;
 
+  const ownerEm = (w.ownerUserId || '').toLowerCase().trim();
   const sdrSet = parseEmailSet(process.env.WORKSPACE_SDR_EMAILS);
   if (!w.members[em]) {
     let role = 'admin';
-    if (sdrSet.has(em)) role = 'sdr';
-    else if (Object.keys(w.members).length === 0) role = 'owner';
-    w.members[em] = { role, joinedAt: new Date().toISOString() };
+    if (ownerEm && em === ownerEm) role = 'owner';
+    else if (sdrSet.has(em)) role = 'sdr';
+    else if (Object.keys(w.members || {}).length === 0) role = 'owner';
+    else role = 'viewer';
+    w.members = { ...(w.members || {}), [em]: { role, joinedAt: new Date().toISOString(), userId: em } };
     await dbService.saveWorkspace(id, w);
   }
 
@@ -79,7 +79,8 @@ function assignablePool(workspace) {
  * Round-robin among SDR/admin assignees; persists counter on workspace.
  */
 async function pickRoundRobinAssignee(workspaceId) {
-  const id = workspaceId || 'default';
+  const id = workspaceId;
+  if (!id) return null;
   let w = await dbService.getWorkspace(id);
   if (!w) w = await ensureWorkspaceAndMember(id, '');
   const pool = assignablePool(w);

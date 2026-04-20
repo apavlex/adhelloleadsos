@@ -12,9 +12,17 @@ const {
 async function generateOutreachCoachPayload(req) {
   const snapshot = await buildOutreachCoachSnapshot(req);
   const { entrepreneurQuote, firstName, stageBreakdown } = snapshot;
-  const allLeads = await dbService.getAllLeads();
+  const wid = req.workspaceId;
+  if (!wid) throw new Error('generateOutreachCoachPayload requires req.workspaceId');
+  const allLeads = await dbService.getAllLeads(wid);
   const workspaceLeads = filterLeadsForRequest(req, allLeads);
   const actions = buildNamedCoachActions(workspaceLeads, snapshot);
+
+  const wsDoc = await dbService.getWorkspace(wid);
+  const coachExtra =
+    wsDoc && typeof wsDoc.coachPrompt === 'string' && wsDoc.coachPrompt.trim()
+      ? `\n\nWorkspace coaching lens:\n${wsDoc.coachPrompt.trim()}`
+      : '';
 
   const ai = await chatCompletion({
     messages: [
@@ -30,7 +38,7 @@ Rules:
 - Do NOT output a list of next steps — the app shows named lead actions separately.
 
 Respond with JSON only:
-{"headline":"max 8 words","body":"two paragraphs separated by \\n\\n","focusToday":"one imperative sentence"}`,
+{"headline":"max 8 words","body":"two paragraphs separated by \\n\\n","focusToday":"one imperative sentence"}${coachExtra}`,
       },
       {
         role: 'user',
@@ -38,7 +46,9 @@ Respond with JSON only:
           coachFor: firstName,
           snapshot,
           entrepreneurQuote,
-          stageNamesForReference: stageBreakdown.map((s) => `${s.id}. ${s.name}: ${s.count}`),
+          stageNamesForReference: stageBreakdown.map(
+            (s) => `${s.key || s.slug || s.id}: ${s.name} (${s.count} leads)`
+          ),
         }),
       },
     ],

@@ -7,10 +7,11 @@ const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
 const crawl4aiClient = require('../services/crawl4aiClient');
 const outscraperClient = require('../services/outscraperClient');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
+const workspaceBootstrap = require('../services/workspaceBootstrap');
 
 router.get('/', async (req, res, next) => {
   try {
-    const ws = await dbService.getWorkspace(req.workspaceId || 'default');
+    const ws = await dbService.getWorkspace(req.workspaceId);
     const pool = workspaceService.assignablePool(ws);
     const integrationMasks = workspaceIntegrations.integrationMasks(ws);
     const integrationsReady = workspaceIntegrations.isEncryptionAvailable();
@@ -29,7 +30,7 @@ router.get('/', async (req, res, next) => {
       };
     }
 
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     let scrapeLive = {};
     if (process.env.SCRAPE_SOURCES_LIVE_PING === '1') {
@@ -70,7 +71,7 @@ router.post('/integrations', async (req, res, next) => {
     if (!workspaceIntegrations.isEncryptionAvailable()) {
       return res.redirect('/workspace?integrations=need_secret');
     }
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const ws = await dbService.getWorkspace(wid);
     let plain = workspaceIntegrations.decryptedFromWorkspace(ws);
     plain = workspaceIntegrations.applyClears(plain, req.body);
@@ -82,17 +83,27 @@ router.post('/integrations', async (req, res, next) => {
   }
 });
 
-/** Switch workspace (stub — only default until multi-workspace IDs are exposed). */
+/** @deprecated — use POST /workspaces/switch */
 router.post('/switch', express.urlencoded({ extended: true }), async (req, res) => {
-  const id = (req.body.workspaceId || 'default').trim();
-  if (req.session) req.session.workspaceId = id;
-  res.redirect('/workspace');
+  const id = String(req.body.workspaceId || '').trim();
+  if (!id) return res.redirect('/workspace');
+  const email = workspaceService.userEmail(req);
+  const ws = await dbService.getWorkspace(id);
+  if (!email || !ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
+    return res.redirect('/workspace');
+  }
+  await dbService.saveUserPrefs(email, { activeWorkspaceId: id });
+  if (req.session) {
+    req.session.activeWorkspaceId = id;
+    req.session.workspaceId = id;
+  }
+  res.redirect('/today');
 });
 
 /** POST JSON: ICP defaults (Today modal, Find preset). */
 router.post('/icp', express.json(), async (req, res) => {
   try {
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     await persistWorkspaceIcp(wid, {
       keyword: req.body && req.body.keyword,
       city: req.body && req.body.city,
@@ -111,7 +122,7 @@ router.post('/settings', express.json(), async (req, res) => {
     if (!req.canManageWorkspace) {
       return res.status(403).json({ success: false, error: 'Only admins can change workspace settings.' });
     }
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
     if (req.body && req.body.avgDealValue != null && req.body.avgDealValue !== '') {
       const n = parseFloat(String(req.body.avgDealValue).replace(/,/g, ''), 10);

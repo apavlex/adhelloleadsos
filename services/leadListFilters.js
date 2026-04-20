@@ -76,8 +76,12 @@ function applyLeadListFilters(leads, filters) {
   }
   const stage = String(filters.stage || '').trim();
   if (stage) {
-    const st = parseInt(stage, 10);
-    if (!Number.isNaN(st)) out = out.filter((l) => parseInt(l.pipelineStage, 10) === st);
+    if (stage.includes('-') && stage.length >= 32) {
+      out = out.filter((l) => String(l.stageId || '').trim() === stage);
+    } else {
+      const st = parseInt(stage, 10);
+      if (!Number.isNaN(st)) out = out.filter((l) => parseInt(l.pipelineStage, 10) === st);
+    }
   }
   const folderKey = String(filters.folderKey || '').trim();
   if (folderKey) {

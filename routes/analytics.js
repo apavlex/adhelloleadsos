@@ -5,13 +5,15 @@ const activationService = require('../services/activationService');
 const { userEmail } = require('../services/workspaceService');
 const { computeOutreachStreak, buildDailyChartSeries, buildDayRollup } = require('../services/trackerStats');
 const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
+const { buildConversionSnapshot } = require('../services/conversionMetrics');
 
 async function loadSalesTrackerLocals(req) {
   const email = userEmail(req);
+  const wid = req.workspaceId;
   const today = new Date().toISOString().slice(0, 10);
-  const todayRow = await dbService.getDailyTracker(email, today);
-  const history = await dbService.listDailyTrackers(email, 14);
-  const history60 = await dbService.listDailyTrackers(email, 62);
+  const todayRow = await dbService.getDailyTracker(wid, email, today);
+  const history = await dbService.listDailyTrackers(wid, email, 14);
+  const history60 = await dbService.listDailyTrackers(wid, email, 62);
   const chartSeries = buildDailyChartSeries(today, history, 14);
   const streak = computeOutreachStreak(history60, today);
   const checklistWeek = buildDayRollup(today, history60, 7);
@@ -34,7 +36,7 @@ async function loadSalesTrackerLocals(req) {
     checklistWeek,
     checklistMonth,
     outreachCoach,
-    trackerReturnTo: '/analytics?tab=tracker',
+    trackerReturnTo: `/analytics?tab=tracker&scope=${String(req.query.scope || 'workspace')}`,
   };
 }
 
@@ -89,7 +91,24 @@ router.get('/', async (req, res) => {
     const analyticsRange = String(req.query.range || '').trim();
 
     const visits = await dbService.getAllVisits();
-    const leads = await dbService.getAllLeads();
+    const reportsScope = String(req.query.scope || 'workspace').toLowerCase() === 'all' ? 'all' : 'workspace';
+    const leads = await dbService.getAllLeads(req.workspaceId);
+
+    let workspaceCompare = [];
+    if (reportsScope === 'all') {
+      const em = userEmail(req);
+      const ids = await dbService.getUserWorkspaceIds(em);
+      for (const id of ids) {
+        const ws = await dbService.getWorkspace(id);
+        const ls = await dbService.getAllLeads(id);
+        workspaceCompare.push({
+          id,
+          name: (ws && ws.name) || 'Workspace',
+          accentColor: (ws && ws.accentColor) || '#CA8A04',
+          snapshot: buildConversionSnapshot(ls, ws || {}),
+        });
+      }
+    }
 
     const demoMode =
       (process.env.ANALYTICS_UI_DEMO === '1' || req.query.preview === '1') && visits.length === 0;
@@ -103,6 +122,8 @@ router.get('/', async (req, res) => {
         reportsTab,
         analyticsMetric: String(req.query.metric || '').trim(),
         analyticsRange: String(req.query.range || '').trim(),
+        reportsScope,
+        workspaceCompare,
         ...d,
         ...trackerLocals,
       });
@@ -157,6 +178,8 @@ router.get('/', async (req, res) => {
       reportsTab,
       analyticsMetric,
       analyticsRange,
+      reportsScope,
+      workspaceCompare,
       totalVisits,
       uniqueIPs,
       topRegions,

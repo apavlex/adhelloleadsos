@@ -65,7 +65,7 @@ function countQueueNeedingAction(leads) {
 
 router.get('/', async (req, res, next) => {
   try {
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const workspaceLeads = filterLeadsForRequest(req, all);
     const email = userEmail(req);
     const today = new Date().toISOString().slice(0, 10);
@@ -81,7 +81,7 @@ router.get('/', async (req, res, next) => {
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
     const outreachCoach = await buildOutreachCoachSnapshot(req);
 
-    const workspaceDoc = await dbService.getWorkspace(req.workspaceId || 'default');
+    const workspaceDoc = await dbService.getWorkspace(req.workspaceId);
     const conversionSnapshot = buildConversionSnapshot(workspaceLeads, workspaceDoc);
     const weekReview = buildWeekReview(workspaceLeads, conversionSnapshot);
     const icp = getWorkspaceIcp(workspaceDoc);
@@ -137,7 +137,7 @@ router.get('/', async (req, res, next) => {
 /** Load sample leads for empty-state onboarding (workspace-scoped). */
 router.post('/seed-demo', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const ts = Date.now();
     const rows = [
       {

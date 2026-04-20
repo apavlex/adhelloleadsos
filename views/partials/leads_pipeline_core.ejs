@@ -27,17 +27,22 @@
         </thead>
         <tbody>
           <% leads.forEach((lead, i) => { %>
-            <% const _ps = parseInt(lead.pipelineStage, 10); %>
-            <% const psRow = !Number.isNaN(_ps) && _ps >= 1 && _ps <= 10 ? _ps : 1; %>
-            <% const stRow = (typeof pipelineStages !== 'undefined' && pipelineStages) ? pipelineStages.find((s) => s.id === psRow) : null; %>
+            <% const stagesList = (typeof pipelineStages !== 'undefined' && pipelineStages) ? pipelineStages : []; %>
+            <% let activeStageId = lead.stageId ? String(lead.stageId) : ''; %>
+            <% if (!activeStageId && stagesList.length) { %>
+            <%   let _idx = parseInt(lead.pipelineStage, 10); if (Number.isNaN(_idx) || _idx < 1) _idx = 1; const _safe = Math.min(_idx, stagesList.length); %>
+            <%   activeStageId = stagesList[_safe - 1] ? String(stagesList[_safe - 1].id) : ''; %>
+            <% } %>
+            <% const stRow = activeStageId ? stagesList.find((s) => String(s.id) === activeStageId) : null; %>
+            <% const psRow = stRow ? (stagesList.findIndex((s) => s.id === stRow.id) + 1) : (parseInt(lead.pipelineStage, 10) || 1); %>
             <% const pipeName = stRow ? stRow.name.replace(/\s*\(.*$/, '').trim() : 'Stage'; %>
             <% const pipeShort = pipeName.length > 26 ? pipeName.slice(0, 26) + '…' : pipeName; %>
+            <% const _dot = stRow && stRow.color ? stRow.color : '#94a3b8'; %>
             <% const rawDeliveryStatus = lead.status || 'Not Contacted'; %>
             <% const deliveryStatusDisplay = rawDeliveryStatus === 'Needs Video' ? 'Not Contacted' : rawDeliveryStatus; %>
             <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
             <% const _createdRaw = lead.createdAt || lead.savedAt; %>
             <% let _addedShort = ''; if (_createdRaw) { try { _addedShort = new Date(_createdRaw).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {} } %>
-            <% const _stageHue = ((psRow - 1) * 36) % 360; %>
             <% 
               var _ph = lead.phone && lead.phone !== 'N/A' ? String(lead.phone) : '';
               var _em = lead.email && lead.email !== 'N/A' ? String(lead.email) : '';
@@ -50,6 +55,7 @@
                 id="lead-row-<%= rowAnchor %>"
                 data-index="<%= i %>"
                 data-lead-key="<%= lead.key %>"
+                data-stage-id="<%= (activeStageId || '').replace(/"/g, '&quot;') %>"
                 data-pipeline-stage="<%= psRow %>"
                 data-pipeline-label="<%= pipeShort.replace(/"/g, '&quot;') %>"
                 data-title="<%= lead.title %>"
@@ -120,11 +126,11 @@
               <td class="px-2 pipeline-stage-cell align-top border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap" onclick="event.stopPropagation()">
                 <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { %>
                 <label class="sr-only">Pipeline stage for <%= lead.title %></label>
-                <div class="pipeline-stage-pill-wrap inline-block w-max max-w-[13rem] rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/60 overflow-hidden transition-shadow duration-150 align-top" style="box-shadow: inset 3px 0 0 hsl(<%= _stageHue %>, 58%, 48%);">
+                <div class="pipeline-stage-pill-wrap inline-block w-max max-w-[13rem] rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/60 overflow-hidden transition-shadow duration-150 align-top" style="box-shadow: inset 3px 0 0 <%= _dot %>;">
                 <select class="pipeline-inline-select w-max min-w-0 max-w-[12.5rem] text-[11px] font-black text-brand-dark dark:text-white bg-transparent border-0 rounded-lg pl-2.5 pr-7 py-2 focus:ring-2 focus:ring-brand-yellow cursor-pointer transition-colors duration-150" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
                   <% pipelineStages.forEach((st) => { %>
                     <% const optShort = st.name.length > 34 ? st.name.slice(0, 34) + '…' : st.name; %>
-                    <option value="<%= st.id %>" <%= psRow === st.id ? 'selected' : '' %>><%= optShort %></option>
+                    <option value="<%= st.id %>" <%= activeStageId === String(st.id) ? 'selected' : '' %>><%= optShort %></option>
                   <% }); %>
                 </select>
                 </div>
@@ -210,14 +216,14 @@
     </div>
   </div>
 
-  <!-- Pipeline board: 10-stage methodology (drag cards between columns to update pipelineStage) -->
+  <!-- Pipeline board: workspace stages (drag cards to update stage) -->
   <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">
           <p class="text-xs text-brand-muted mb-4 max-w-3xl">Drag a card to another column to update its <strong class="text-brand-dark dark:text-white">pipeline stage</strong>. Delivery status (Not Contacted, Video Recorded, etc.) stays in table view — use your CRM column for fulfillment.</p>
       <div class="flex gap-4 min-w-max pb-2">
           <% if (typeof pipelineStages !== 'undefined' && pipelineStages) { pipelineStages.forEach((col) => { %>
           <div class="kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3" data-pipeline-stage="<%= col.id %>">
               <div class="flex items-center justify-between px-1 mb-1">
-                  <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white leading-tight"><%= col.name %></h3>
+                  <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white leading-tight<% if (col.description) { %> cursor-help border-b border-dotted border-brand-border/50 dark:border-white/20<% } %>"<% if (col.description) { %> title="<%= String(col.description).replace(/"/g, '&quot;') %>"<% } %>><%= col.name %></h3>
                   <span class="px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted dark:text-slate-300 column-count">0</span>
               </div>
               <div class="kanban-list kanban-drop-zone min-h-[480px] flex flex-col gap-3 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/40 dark:border-white/10"></div>

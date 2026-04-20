@@ -3,6 +3,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { getCoachPayload } = require('../services/flowCoach');
 const { getLeadsCoachPayload } = require('../services/opportunityScore');
+const { filterLeadsForRequest } = require('../services/workspaceService');
 
 /**
  * GET /coach — JSON for the flow coach (refresh button, optional clients)
@@ -21,8 +22,8 @@ router.get('/', async (req, res, next) => {
  */
 router.get('/leads', async (req, res, next) => {
   try {
-    const all = await dbService.getAllLeads();
-    const leads = all;
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const leads = filterLeadsForRequest(req, all);
     res.json(getLeadsCoachPayload(leads));
   } catch (e) {
     next(e);

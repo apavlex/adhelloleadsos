@@ -3,7 +3,8 @@
  */
 
 const PIPELINE_SCHEMA_VERSION = 2;
-const PIPELINE_STAGE_MAX = 10;
+/** Upper bound for 1-based pipeline index when stages are workspace-defined (was fixed 10). */
+const PIPELINE_STAGE_MAX = 24;
 
 /** Old 8-step methodology id → new id (same New=1; CQI was 2 → now 4, etc.) */
 const LEGACY_EIGHT_STAGE_TO_NEW = {

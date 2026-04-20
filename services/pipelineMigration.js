@@ -9,7 +9,7 @@ const {
  * One-time remap: legacy 8 stages → 10-stage model. Idempotent via pipelineSchemaVersion.
  */
 async function migrateLegacyPipelineStages() {
-  const leads = await db.getAllLeads();
+  const leads = await db.getAllLeadsUnscoped();
   let updated = 0;
 
   for (const lead of leads) {

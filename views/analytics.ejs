@@ -33,10 +33,48 @@
                 </div>
 
                 <% const rt = typeof reportsTab !== 'undefined' ? reportsTab : 'tracker'; %>
+                <% const _rs = typeof reportsScope !== 'undefined' ? reportsScope : 'workspace'; %>
                 <nav class="flex flex-wrap gap-2 mb-8" aria-label="Reports tabs">
-                    <a href="/analytics?tab=tracker" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'tracker' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Daily tracker</a>
-                    <a href="/analytics?tab=analytics" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'analytics' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Analytics</a>
+                    <a href="/analytics?tab=tracker&amp;scope=<%= encodeURIComponent(_rs) %>" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'tracker' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Daily tracker</a>
+                    <a href="/analytics?tab=analytics&amp;scope=<%= encodeURIComponent(_rs) %>" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'analytics' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Analytics</a>
                 </nav>
+                <% if (rt === 'tracker') { %>
+                <nav class="flex flex-wrap gap-2 mb-6" aria-label="Workspace scope">
+                    <a href="/analytics?tab=tracker&amp;scope=workspace" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= _rs !== 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900 border-brand-dark dark:border-white' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted' %>">This workspace</a>
+                    <a href="/analytics?tab=tracker&amp;scope=all" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= _rs === 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900 border-brand-dark dark:border-white' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted' %>">All workspaces</a>
+                </nav>
+                <% if (_rs === 'all' && typeof workspaceCompare !== 'undefined' && workspaceCompare.length) { %>
+                <div class="mb-10 overflow-x-auto rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/80">
+                  <table class="w-full text-left text-sm min-w-[640px]">
+                    <thead>
+                      <tr class="border-b border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                        <th class="px-4 py-3">Workspace</th>
+                        <th class="px-4 py-3 text-right">Touches (7d)</th>
+                        <th class="px-4 py-3 text-right">Reply rate</th>
+                        <th class="px-4 py-3 text-right">Meetings</th>
+                        <th class="px-4 py-3 text-right">Pipeline $</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% workspaceCompare.forEach(function (row) {
+                        var s = row.snapshot || {};
+                      %>
+                      <tr class="border-b border-brand-border/50 dark:border-white/5">
+                        <td class="px-4 py-3 font-bold text-brand-dark dark:text-white flex items-center gap-2">
+                          <span class="w-2 h-2 rounded-full shrink-0" style="background-color: <%= row.accentColor %>"></span>
+                          <%= row.name %>
+                        </td>
+                        <td class="px-4 py-3 text-right tabular-nums"><%= s.touches7d != null ? s.touches7d : 0 %></td>
+                        <td class="px-4 py-3 text-right tabular-nums"><%= s.replyRate7dDisplay || '0%' %></td>
+                        <td class="px-4 py-3 text-right tabular-nums"><%= s.meetingsBooked7d != null ? s.meetingsBooked7d : 0 %></td>
+                        <td class="px-4 py-3 text-right tabular-nums"><%= s.pipelineValueCreated7d != null ? Math.round(s.pipelineValueCreated7d) : 0 %></td>
+                      </tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+                <% } %>
+                <% } %>
 
                 <% const _am = typeof analyticsMetric !== 'undefined' ? analyticsMetric : ''; const _ar = typeof analyticsRange !== 'undefined' ? analyticsRange : ''; %>
                 <% if (_am && rt === 'tracker') { %>

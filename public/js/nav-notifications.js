@@ -56,7 +56,9 @@
               : 'Lead search';
         var kw = String(data.notification.keyword || '').slice(0, 120);
         var rc = data.notification.resultCount;
+        var wsn = String(data.notification.workspaceName || '').trim();
         var body =
+          (wsn ? '[' + wsn.slice(0, 40) + '] ' : '') +
           (kw ? '"' + kw + '"' : 'Your search') +
           (typeof rc === 'number' ? ' — ' + rc + ' leads.' : ' is ready to review.');
         new Notification(src + ' complete', {

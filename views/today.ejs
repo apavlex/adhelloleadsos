@@ -14,7 +14,8 @@
     <% } %>
 
     <header class="mb-8 md:mb-10 flex flex-col gap-4">
-      <p class="text-sm md:text-base text-brand-dark dark:text-white font-semibold">
+      <% const _ta = typeof workspaceAccent !== 'undefined' && workspaceAccent ? workspaceAccent : ''; %>
+      <p class="text-sm md:text-base text-brand-dark dark:text-white font-semibold border-b-2 pb-2 self-start" <% if (_ta) { %>style="border-color: <%= _ta %>"<% } %>>
         <span id="todayDaypart"><%= typeof greetingWord !== 'undefined' ? greetingWord : 'Hello' %></span>, <%= typeof firstName !== 'undefined' ? firstName : 'there' %> — <span id="todayDateLabel"><%= typeof dateLabel !== 'undefined' ? dateLabel : '' %></span>
       </p>
       <% if (typeof icpLabel !== 'undefined') { %>

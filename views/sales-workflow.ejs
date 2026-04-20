@@ -38,6 +38,7 @@
         <% if (leads.length === 0) { %>
           <p class="p-8 text-sm text-brand-muted">No leads yet. <a href="/" class="text-brand-yellow font-bold underline">Run a search</a> or <a href="/prospecting?tab=pipeline" class="text-brand-yellow font-bold underline">import a CSV</a>.</p>
         <% } else { %>
+          <% const _maxSt = (typeof stages !== 'undefined' && stages && stages.length) ? stages.length : 10; %>
           <table class="w-full text-left text-sm" id="workflowPipelineTable">
             <thead>
               <tr class="border-b border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
@@ -53,7 +54,7 @@
             <tbody class="divide-y divide-brand-border/50 dark:divide-white/5">
               <% leads.forEach((lead, i) => { %>
                 <% const _ps = parseInt(lead.pipelineStage, 10); %>
-                <% const psRow = !Number.isNaN(_ps) && _ps >= 1 && _ps <= 10 ? _ps : 1; %>
+                <% const psRow = !Number.isNaN(_ps) && _ps >= 1 && _ps <= _maxSt ? _ps : 1; %>
                 <% const stRow = stages.find((s) => s.id === psRow); %>
                 <% const pipeName = stRow ? stRow.name.replace(/\s*\(.*$/, '').trim() : 'Stage'; %>
                 <% const pipeShort = pipeName.length > 26 ? pipeName.slice(0, 26) + '…' : pipeName; %>
@@ -137,7 +138,7 @@
                   <td class="px-6 py-4 align-top">
                     <form action="/sales/workflow/stage" method="post" class="flex flex-col sm:flex-row gap-2 items-start">
                       <input type="hidden" name="leadKey" value="<%= lead.key %>" />
-                      <% const ps = (typeof lead.pipelineStage === 'number' && lead.pipelineStage >= 1 && lead.pipelineStage <= 10) ? lead.pipelineStage : 1; %>
+                      <% const ps = (typeof lead.pipelineStage === 'number' && lead.pipelineStage >= 1 && lead.pipelineStage <= _maxSt) ? lead.pipelineStage : 1; %>
                       <select name="pipelineStage" class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 text-xs font-semibold px-3 py-2 text-brand-dark dark:text-white max-w-[220px]">
                         <% stages.forEach((s) => { %>
                           <option value="<%= s.id %>" <%= (ps === s.id) ? 'selected' : '' %>><%= s.id %>. <%= s.name %></option>

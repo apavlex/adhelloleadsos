@@ -130,6 +130,15 @@ if (process.env.REPLIT_DB_URL) {
   };
 }
 
+function assertLeadScopedWorkspaceId(workspaceId, methodName) {
+  const ok = workspaceId != null && String(workspaceId).trim() !== '';
+  if (ok) return;
+  const label = methodName || 'Lead-scoped query';
+  const msg = `[workspace] ${label} requires workspaceId`;
+  if (process.env.NODE_ENV !== 'production') throw new Error(msg);
+  console.warn(msg);
+}
+
 module.exports = {
   async saveSearch(searchData) {
     const key = `search:${Date.now()}`;
@@ -175,8 +184,22 @@ module.exports = {
 
   // --- Leads (bookmarked businesses) ---
 
+  async _resolveWorkspaceIdForWrite(raw) {
+    let wid = raw != null && raw !== '' ? String(raw).trim() : '';
+    if (wid === 'default' || wid === '') {
+      const aliasRaw = await db.get('sys:legacy_default_workspace_id');
+      const alias =
+        aliasRaw && typeof aliasRaw === 'object' && 'ok' in aliasRaw ? aliasRaw.value : aliasRaw;
+      const a = typeof alias === 'string' ? alias.trim() : '';
+      if (a) return a;
+    }
+    return wid || '';
+  },
+
   async saveLead(leadData) {
-    const wid = leadData.workspaceId || 'default';
+    const resolved = await this._resolveWorkspaceIdForWrite(leadData.workspaceId);
+    assertLeadScopedWorkspaceId(resolved, 'saveLead');
+    const wid = resolved;
     const incoming = { ...(leadData || {}), workspaceId: wid };
     incoming.emailNorm = normalizeEmail(incoming.email);
     incoming.domainNorm = normalizeDomain(incoming.website);
@@ -186,7 +209,7 @@ module.exports = {
     incoming.dedupeKey = computeDedupeKey(incoming);
 
     // Find existing lead to merge into (workspace-scoped)
-    const leads = await this.getAllLeads();
+    const leads = await this.getAllLeads(wid);
     const sameWorkspace = (l) => (l.workspaceId || 'default') === wid;
     const findBy = (pred) => leads.find((l) => sameWorkspace(l) && pred(l)) || null;
 
@@ -224,7 +247,7 @@ module.exports = {
         },
       ];
 
-      await this.updateLead(existing.key, patch);
+      await this.updateLead(existing.key, patch, wid);
       return existing.key;
     }
 
@@ -245,6 +268,27 @@ module.exports = {
         timestamp: new Date().toISOString() 
       }]
     };
+
+    if (wid) {
+      try {
+        const pss = require('./pipelineStagesService');
+        const stages = await pss.ensureWorkspaceStagesSeeded(wid);
+        if (stages.length) {
+          const sid =
+            incoming.stageId && stages.some((s) => s.id === incoming.stageId)
+              ? incoming.stageId
+              : pss.resolveStageIdForLead({ ...incoming, stageId: incoming.stageId }, stages);
+          Object.assign(newLead, pss.patchLeadStageFields(incoming, stages, sid));
+          const legacyNum = parseInt(incoming.pipelineStage, 10);
+          if (Number.isFinite(legacyNum)) {
+            newLead.legacyStageNumber = legacyNum;
+          }
+        }
+      } catch (e) {
+        console.warn('[saveLead] pipeline attach:', e.message);
+      }
+    }
+
     await db.set(key, JSON.stringify(newLead));
     return key;
   },
@@ -256,24 +300,30 @@ module.exports = {
   async findLeadByEmail(email, workspaceId) {
     if (!email || email === 'N/A') return null;
     const em = String(email).trim().toLowerCase();
-    const leads = await this.getAllLeads();
+    const wid =
+      workspaceId != null && workspaceId !== ''
+        ? await this._resolveWorkspaceIdForWrite(workspaceId)
+        : null;
+    const leads = wid ? await this.getAllLeads(wid) : await this.getAllLeadsUnscoped();
     return (
       leads.find((l) => {
         if (!l.email || String(l.email).toLowerCase() !== em) return false;
-        if (workspaceId == null || workspaceId === '') return true;
-        return (l.workspaceId || 'default') === workspaceId;
+        return true;
       }) || null
     );
   },
 
   async findLeadByIp(ip, workspaceId) {
     if (!ip) return null;
-    const leads = await this.getAllLeads();
+    const wid =
+      workspaceId != null && workspaceId !== ''
+        ? await this._resolveWorkspaceIdForWrite(workspaceId)
+        : null;
+    const leads = wid ? await this.getAllLeads(wid) : await this.getAllLeadsUnscoped();
     return (
       leads.find((l) => {
         if (l.ip !== ip) return false;
-        if (workspaceId == null || workspaceId === '') return true;
-        return (l.workspaceId || 'default') === workspaceId;
+        return true;
       }) || null
     );
   },
@@ -286,12 +336,46 @@ module.exports = {
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   },
 
-  /** Alias for callers expecting list semantics (e.g. stitch-sync). */
-  async listLeads() {
-    return this.getAllLeads();
+  /** @param {string} [workspaceId] When omitted, only allowed for trusted internal callers via {@link getAllLeadsUnscoped}. */
+  async listLeads(workspaceId) {
+    return this.getAllLeads(workspaceId);
   },
 
-  async getAllLeads() {
+  /**
+   * All leads in one workspace (efficient: skips other workspaces on disk).
+   * @param {string} workspaceId
+   */
+  async getAllLeads(workspaceId) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'getAllLeads');
+    const aliasRaw = await db.get('sys:legacy_default_workspace_id');
+    const aliasVal =
+      aliasRaw && typeof aliasRaw === 'object' && 'ok' in aliasRaw ? aliasRaw.value : aliasRaw;
+    const aliasStr = typeof aliasVal === 'string' ? aliasVal.trim() : '';
+    const normLeadW = (lw) => {
+      const x = lw || 'default';
+      if (x === 'default' && aliasStr) return aliasStr;
+      return x;
+    };
+    const keys = await db.list('lead:');
+    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const sorted = keyList.sort((a, b) => {
+      const tsA = parseInt(a.split(':')[1]);
+      const tsB = parseInt(b.split(':')[1]);
+      return tsB - tsA;
+    });
+    const leads = [];
+    for (const key of sorted) {
+      const data = await this.getLead(key);
+      if (!data) continue;
+      if (normLeadW(data.workspaceId) !== wid) continue;
+      leads.push({ key, ...data, workspaceId: wid });
+    }
+    return leads;
+  },
+
+  /** Migration, cron, and sequence runner only — loads every lead row. */
+  async getAllLeadsUnscoped() {
     const keys = await db.list('lead:');
     const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
     const sorted = keyList.sort((a, b) => {
@@ -309,9 +393,123 @@ module.exports = {
     return leads;
   },
 
-  async updateLead(key, updateData) {
+  async listStorageKeysWithPrefix(prefix) {
+    const keys = await db.list(prefix);
+    return Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+  },
+
+  async deleteStorageKey(key) {
+    await db.delete(key);
+  },
+
+  /** Low-level read for migrations (string or JSON-serialized value). */
+  async peekStorageKey(key) {
+    const data = await db.get(key);
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    return raw != null ? raw : null;
+  },
+
+  /** Low-level write for migrations. */
+  async putStorageKey(key, value) {
+    const payload = typeof value === 'string' ? value : JSON.stringify(value);
+    await db.set(key, payload);
+  },
+
+  async getUserPrefs(email) {
+    const fragment = this._emailKeyFragment(email);
+    const storageKey = `userprefs:${fragment}`;
+    const data = await db.get(storageKey);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveUserPrefs(email, partial) {
+    const fragment = this._emailKeyFragment(email);
+    const storageKey = `userprefs:${fragment}`;
+    const cur = (await this.getUserPrefs(email)) || {};
+    const em = String(email || '').trim().toLowerCase();
+    const next = {
+      ...cur,
+      ...partial,
+      email: em || cur.email,
+      updatedAt: new Date().toISOString(),
+    };
+    if (!cur.createdAt) next.createdAt = new Date().toISOString();
+    await db.set(storageKey, JSON.stringify(next));
+    return next;
+  },
+
+  async getUserWorkspaceIds(email) {
+    const fragment = this._emailKeyFragment(email);
+    const storageKey = `userwork:${fragment}`;
+    const data = await db.get(storageKey);
+    if (!data) return [];
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return [];
+    try {
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      return Array.isArray(parsed) ? parsed.filter(Boolean).map(String) : [];
+    } catch {
+      return [];
+    }
+  },
+
+  async setUserWorkspaceIds(email, ids) {
+    const fragment = this._emailKeyFragment(email);
+    const storageKey = `userwork:${fragment}`;
+    const list = Array.isArray(ids) ? [...new Set(ids.map(String).filter(Boolean))] : [];
+    await db.set(storageKey, JSON.stringify(list));
+    return list;
+  },
+
+  async addUserWorkspaceId(email, workspaceId) {
+    const wid = String(workspaceId || '').trim();
+    if (!wid) return this.getUserWorkspaceIds(email);
+    const cur = await this.getUserWorkspaceIds(email);
+    if (!cur.includes(wid)) cur.push(wid);
+    return this.setUserWorkspaceIds(email, cur);
+  },
+
+  async getWorkspaceIdForSlug(slug) {
+    const s = String(slug || '')
+      .trim()
+      .toLowerCase();
+    if (!s) return null;
+    const data = await db.get(`wslug:${s}`);
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (raw == null) return null;
+    const id = typeof raw === 'string' ? raw.trim() : String(raw);
+    return id || null;
+  },
+
+  async saveWorkspaceSlug(slug, workspaceId) {
+    const s = String(slug || '')
+      .trim()
+      .toLowerCase();
+    if (!s) throw new Error('slug required');
+    await db.set(`wslug:${s}`, String(workspaceId));
+  },
+
+  async updateLead(key, updateData, expectWorkspaceId) {
     const existing = await this.getLead(key);
     if (!existing) return null;
+
+    if (process.env.NODE_ENV !== 'production' && expectWorkspaceId != null && expectWorkspaceId !== '') {
+      const ew = String(expectWorkspaceId).trim();
+      const lw = String(existing.workspaceId || '').trim();
+      if (!lw) {
+        throw new Error(`[workspace] updateLead: lead ${key} is missing workspaceId`);
+      }
+      if (ew && lw !== ew) {
+        throw new Error(`[workspace] updateLead: workspace mismatch for ${key}`);
+      }
+    }
     
     // Merge arrays (chatHistory, logs) instead of overwriting
     const chatHistory = [...(existing.chatHistory || []), ...(updateData.chatHistory || [])];
@@ -627,6 +825,8 @@ module.exports = {
     maxResults,
     resultCount,
     source = 'scheduled',
+    workspaceId,
+    workspaceName,
   }) {
     const finishedAt = new Date().toISOString();
     await db.set(
@@ -642,6 +842,8 @@ module.exports = {
         finishedAt,
         isRead: false,
         source: String(source || 'scheduled'),
+        workspaceId: workspaceId != null ? String(workspaceId) : '',
+        workspaceName: workspaceName != null ? String(workspaceName) : '',
       })
     );
   },
@@ -652,9 +854,11 @@ module.exports = {
     return String(email || 'anon').replace(/[^a-zA-Z0-9]/g, '_');
   },
 
-  async saveDailyTracker(email, dateStr, metrics) {
+  async saveDailyTracker(workspaceId, email, dateStr, metrics) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'saveDailyTracker');
     const fragment = this._emailKeyFragment(email);
-    const key = `daily_tracker:${fragment}:${dateStr}`;
+    const key = `daily_tracker:${wid}:${fragment}:${dateStr}`;
     const existingRaw = await db.get(key);
     const existingParsed =
       existingRaw &&
@@ -687,10 +891,16 @@ module.exports = {
     return merged;
   },
 
-  async getDailyTracker(email, dateStr) {
+  async getDailyTracker(workspaceId, email, dateStr) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'getDailyTracker');
     const fragment = this._emailKeyFragment(email);
-    const key = `daily_tracker:${fragment}:${dateStr}`;
-    const data = await db.get(key);
+    const key = `daily_tracker:${wid}:${fragment}:${dateStr}`;
+    let data = await db.get(key);
+    if (!data) {
+      const legacyKey = `daily_tracker:${fragment}:${dateStr}`;
+      data = await db.get(legacyKey);
+    }
     if (!data) return null;
     const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
     if (!raw) return null;
@@ -701,9 +911,11 @@ module.exports = {
     }
   },
 
-  async listDailyTrackers(email, limit = 14) {
+  async listDailyTrackers(workspaceId, email, limit = 14) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'listDailyTrackers');
     const fragment = this._emailKeyFragment(email);
-    const prefix = `daily_tracker:${fragment}:`;
+    const prefix = `daily_tracker:${wid}:${fragment}:`;
     const keys = await db.list(prefix);
     const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
     const sorted = keyList.sort((a, b) => {
@@ -859,7 +1071,9 @@ module.exports = {
   // --- Workspaces (multi-seat) ---
 
   async getWorkspace(workspaceId) {
-    const key = `workspace:${workspaceId || 'default'}`;
+    const id = workspaceId != null ? String(workspaceId).trim() : '';
+    if (!id) return null;
+    const key = `workspace:${id}`;
     const data = await db.get(key);
     if (!data) return null;
     const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
@@ -872,7 +1086,8 @@ module.exports = {
   },
 
   async saveWorkspace(workspaceId, doc) {
-    const id = workspaceId || 'default';
+    const id = workspaceId != null ? String(workspaceId).trim() : '';
+    if (!id) throw new Error('saveWorkspace requires workspaceId');
     await db.set(`workspace:${id}`, JSON.stringify({ ...doc, id }));
   },
 

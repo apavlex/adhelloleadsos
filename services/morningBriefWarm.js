@@ -28,7 +28,11 @@ async function maybeWarmAllMorningBriefs() {
       const existing = await dbService.getMorningBrief(wid, ymd);
       if (existing && existing.success) continue;
 
-      const fakeReq = { workspaceId: wid, workspaceRole: 'admin', user: null };
+      const fakeReq = {
+        workspaceId: wid,
+        workspaceRole: 'admin',
+        user: { displayName: 'Operator', emails: [{ value: 'operator@local' }] },
+      };
       const result = await generateOutreachCoachPayload(fakeReq);
       if (result.success) {
         await dbService.setMorningBrief(wid, ymd, {

@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head', { title: typeof title !== 'undefined' ? title : 'Pipeline' }) %>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+  <% const wid = typeof workspaceId !== 'undefined' ? workspaceId : ''; %>
+  <% const counts = typeof leadCountsByStageId !== 'undefined' && leadCountsByStageId ? leadCountsByStageId : {}; %>
+  <% const intake = typeof pipelineIntake !== 'undefined' ? pipelineIntake : null; %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <h1 class="font-display font-black text-2xl md:text-3xl text-brand-dark dark:text-white mb-2">Pipeline stages</h1>
+    <p class="text-sm text-brand-muted max-w-2xl mb-6"><%= workspace && workspace.name ? workspace.name : 'Workspace' %> — reorder, rename, and tune SLAs. Replacing the whole board with a preset or AI requires mapping leads if any stages have contacts.</p>
+
+    <div class="flex flex-wrap gap-3 mb-8">
+      <div class="flex items-center gap-2">
+        <label class="text-[10px] font-black uppercase text-brand-muted">Apply preset</label>
+        <select id="applyPresetSelect" class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold">
+          <option value="">Choose…</option>
+          <% (typeof PRESET_LIST !== 'undefined' ? PRESET_LIST : []).forEach(function (p) { %>
+          <option value="<%= p.key %>"><%= p.label %></option>
+          <% }); %>
+        </select>
+        <button type="button" id="applyPresetBtn" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Apply</button>
+      </div>
+      <button type="button" id="openAiRedesign" class="btn-pill border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Redesign with AI</button>
+      <button type="button" id="savePipelineBtn" class="btn-pill btn-primary px-6 py-2 text-[10px] font-black uppercase tracking-widest">Save changes</button>
+    </div>
+
+    <p id="pipelineSettingsMsg" class="hidden mb-4 text-sm rounded-xl px-4 py-3"></p>
+
+    <ul id="settingsStageList" class="max-w-3xl space-y-3">
+      <% (typeof stages !== 'undefined' ? stages : []).forEach(function (s, idx) { %>
+      <li class="settings-stage-row flex flex-wrap items-center gap-2 rounded-xl border border-brand-border dark:border-white/10 p-3 bg-white/60 dark:bg-slate-800/50" data-stage-id="<%= s.id %>">
+        <span class="cursor-grab text-brand-muted drag-handle px-1" title="Drag">⠿</span>
+        <input type="color" class="st-color w-10 h-10 rounded-lg border-0" value="<%= s.color %>" aria-label="Color" />
+        <input type="text" class="st-name flex-1 min-w-[8rem] rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-sm" value="<%= s.name.replace(/"/g, '&quot;') %>" maxlength="30" />
+        <input type="text" class="st-key font-mono text-xs w-28 rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2" value="<%= s.key %>" title="Stable key" readonly />
+        <input type="number" class="st-sla w-20 rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-xs" value="<%= s.slaHours != null ? s.slaHours : '' %>" placeholder="SLA" min="1" max="720" />
+        <label class="text-[10px] font-black uppercase text-brand-muted"><input type="checkbox" class="st-won" <%= s.isWon ? 'checked' : '' %> /> Won</label>
+        <label class="text-[10px] font-black uppercase text-brand-muted"><input type="checkbox" class="st-lost" <%= s.isLost ? 'checked' : '' %> /> Lost</label>
+        <% const lc = counts[s.id] || 0; %>
+        <button type="button" class="st-del text-red-500 text-xs font-bold px-2" data-leads="<%= lc %>"><%= lc ? ('Move ' + lc + ' leads first') : 'Delete' %></button>
+        <% if (s.description) { %>
+        <p class="w-full text-xs text-brand-muted pl-8"><%= s.description %></p>
+        <% } %>
+      </li>
+      <% }); %>
+    </ul>
+    <button type="button" id="settingsAddStage" class="mt-4 text-sm font-bold text-brand-yellow">+ Add stage</button>
+
+    <!-- Mapper modal -->
+    <div id="stageMapperModal" class="fixed inset-0 z-[300] hidden" aria-hidden="true">
+      <div class="absolute inset-0 bg-brand-dark/70 backdrop-blur-sm" id="stageMapperBackdrop"></div>
+      <div class="absolute inset-0 flex items-start justify-center p-4 pt-16 overflow-y-auto">
+        <div class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] border border-brand-border dark:border-white/10 shadow-2xl p-6">
+          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-2">Map leads to new stages</h3>
+          <p class="text-sm text-brand-muted mb-4">Every current stage with leads must be mapped so nothing is lost.</p>
+          <div id="mapperBody" class="space-y-3 max-h-[50vh] overflow-y-auto"></div>
+          <div class="flex gap-3 mt-6">
+            <button type="button" id="mapperConfirm" class="btn-pill btn-primary px-6 py-2 text-[10px] font-black uppercase tracking-widest disabled:opacity-40" disabled>Confirm</button>
+            <button type="button" id="mapperCancel" class="btn-pill border border-brand-border px-6 py-2 text-[10px] font-black uppercase tracking-widest">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI modal -->
+    <div id="aiModal" class="fixed inset-0 z-[300] hidden">
+      <div class="absolute inset-0 bg-brand-dark/70 backdrop-blur-sm" id="aiModalBackdrop"></div>
+      <div class="absolute inset-0 flex items-start justify-center p-4 pt-12 overflow-y-auto">
+        <div class="w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] border border-brand-border dark:border-white/10 shadow-2xl p-6">
+          <h3 class="font-display font-bold text-lg mb-4">AI redesign</h3>
+          <div class="space-y-3 text-sm">
+            <div>
+              <label class="block text-[10px] font-black uppercase text-brand-muted mb-1">Business description</label>
+              <textarea id="aiBiz" rows="3" maxlength="500" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2"><%= intake && intake.businessDescription ? intake.businessDescription : '' %></textarea>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase text-brand-muted mb-1">Cycle</label>
+              <select id="aiCycle" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2">
+                <option value="days">Days</option>
+                <option value="1-2w">1–2 weeks</option>
+                <option value="1-2m" selected>1–2 months</option>
+                <option value="3m+">3+ months</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase text-brand-muted mb-1">Won means</label>
+              <input id="aiWon" type="text" maxlength="200" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2" value="<%= intake && intake.wonDefinition ? intake.wonDefinition : 'Contract signed' %>" />
+            </div>
+          </div>
+          <div class="flex gap-3 mt-6">
+            <button type="button" id="aiSubmit" class="btn-pill btn-primary px-6 py-2 text-[10px] font-black uppercase tracking-widest">Generate</button>
+            <button type="button" id="aiCancel" class="btn-pill border border-brand-border px-6 py-2 text-[10px] font-black uppercase tracking-widest">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    var wid = <%- JSON.stringify(wid) %>;
+    var list = document.getElementById('settingsStageList');
+    var msg = document.getElementById('pipelineSettingsMsg');
+    var pendingReplace = null;
+
+    function showMsg(text, ok) {
+      if (!msg) return;
+      msg.textContent = text;
+      msg.className = 'mb-4 text-sm rounded-xl px-4 py-3 ' + (ok ? 'bg-emerald-500/15 text-emerald-900 dark:text-emerald-200' : 'bg-red-500/15 text-red-900 dark:text-red-200');
+      msg.classList.remove('hidden');
+    }
+
+    function rowToStage(row, i) {
+      return {
+        id: row.getAttribute('data-stage-id') || undefined,
+        key: row.querySelector('.st-key').value,
+        name: row.querySelector('.st-name').value,
+        color: row.querySelector('.st-color').value,
+        slaHours: (function () {
+          var v = row.querySelector('.st-sla').value;
+          if (v === '') return null;
+          var n = parseInt(v, 10);
+          return isNaN(n) ? null : n;
+        })(),
+        isWon: row.querySelector('.st-won').checked,
+        isLost: row.querySelector('.st-lost').checked,
+        sortOrder: i
+      };
+    }
+
+    function collectStages() {
+      var rows = list.querySelectorAll('.settings-stage-row');
+      var out = [];
+      rows.forEach(function (row, i) { out.push(rowToStage(row, i)); });
+      return out;
+    }
+
+    if (list && typeof Sortable !== 'undefined') {
+      Sortable.create(list, { handle: '.drag-handle', animation: 150 });
+    }
+
+    document.getElementById('settingsAddStage').addEventListener('click', function () {
+      var li = document.createElement('li');
+      li.className = 'settings-stage-row flex flex-wrap items-center gap-2 rounded-xl border border-brand-border dark:border-white/10 p-3 bg-white/60 dark:bg-slate-800/50';
+      li.setAttribute('data-stage-id', '');
+      li.innerHTML = '<span class="cursor-grab text-brand-muted drag-handle px-1">⠿</span>' +
+        '<input type="color" class="st-color w-10 h-10 rounded-lg border-0" value="#60a5fa" />' +
+        '<input type="text" class="st-name flex-1 min-w-[8rem] rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-sm" value="New stage" maxlength="30" />' +
+        '<input type="text" class="st-key font-mono text-xs w-28 rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2" value="new_stage" />' +
+        '<input type="number" class="st-sla w-20 rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-xs" placeholder="SLA" min="1" max="720" />' +
+        '<label class="text-[10px] font-black uppercase text-brand-muted"><input type="checkbox" class="st-won" /> Won</label>' +
+        '<label class="text-[10px] font-black uppercase text-brand-muted"><input type="checkbox" class="st-lost" /> Lost</label>' +
+        '<button type="button" class="st-del text-red-500 text-xs font-bold px-2" data-leads="0">Delete</button>';
+      list.appendChild(li);
+    });
+
+    list.addEventListener('click', function (e) {
+      var btn = e.target.closest('.st-del');
+      if (!btn) return;
+      var leads = parseInt(btn.getAttribute('data-leads') || '0', 10);
+      if (leads > 0) return;
+      var row = btn.closest('.settings-stage-row');
+      if (row && list.querySelectorAll('.settings-stage-row').length > 3) row.remove();
+    });
+
+    document.getElementById('savePipelineBtn').addEventListener('click', function () {
+      fetch('/workspaces/' + encodeURIComponent(wid) + '/settings/pipeline/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ stages: collectStages(), deleteStageIds: [] })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.success) showMsg('Saved.', true);
+        else showMsg(j.error || 'Save failed', false);
+      }).catch(function () { showMsg('Save failed', false); });
+    });
+
+    function openMapper(oldStages, newStages, onConfirm) {
+      var modal = document.getElementById('stageMapperModal');
+      var body = document.getElementById('mapperBody');
+      var confirmBtn = document.getElementById('mapperConfirm');
+      body.innerHTML = '';
+      var need = 0;
+      oldStages.forEach(function (o) {
+        if (!o.leadCount) return;
+        need += 1;
+        var wrap = document.createElement('div');
+        wrap.className = 'flex flex-col gap-1 border-b border-brand-border/30 pb-2';
+        var lab = document.createElement('label');
+        lab.className = 'text-xs font-bold';
+        lab.textContent = o.name + ' (' + o.leadCount + ' leads) →';
+        var sel = document.createElement('select');
+        sel.className = 'rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-sm map-select';
+        sel.setAttribute('data-old-id', o.id);
+        newStages.forEach(function (ns) {
+          var opt = document.createElement('option');
+          opt.value = ns.key;
+          opt.textContent = ns.name;
+          sel.appendChild(opt);
+        });
+        wrap.appendChild(lab);
+        wrap.appendChild(sel);
+        body.appendChild(wrap);
+      });
+      function validate() {
+        var ok = true;
+        body.querySelectorAll('.map-select').forEach(function (s) {
+          if (!s.value) ok = false;
+        });
+        confirmBtn.disabled = !ok;
+      }
+      body.querySelectorAll('.map-select').forEach(function (s) { s.addEventListener('change', validate); });
+      validate();
+      confirmBtn.onclick = function () {
+        var mapping = {};
+        body.querySelectorAll('.map-select').forEach(function (s) {
+          mapping[s.getAttribute('data-old-id')] = s.value;
+        });
+        onConfirm(mapping);
+        modal.classList.add('hidden');
+      };
+      document.getElementById('mapperCancel').onclick = function () { modal.classList.add('hidden'); };
+      document.getElementById('stageMapperBackdrop').onclick = function () { modal.classList.add('hidden'); };
+      modal.classList.remove('hidden');
+    }
+
+    function doReplace(newStages, mapping, pipelineIntakePatch) {
+      fetch('/workspaces/' + encodeURIComponent(wid) + '/settings/pipeline/replace-mapped', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ newStages: newStages, mapping: mapping || {}, pipelineIntake: pipelineIntakePatch })
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (j.success) window.location.reload();
+        else showMsg(j.error || 'Replace failed', false);
+      }).catch(function () { showMsg('Replace failed', false); });
+    }
+
+    document.getElementById('applyPresetBtn').addEventListener('click', function () {
+      var psel = document.getElementById('applyPresetSelect');
+      var pkey = psel && psel.value;
+      if (!pkey) return;
+      if (!confirm('Replace the entire pipeline with this preset?')) return;
+      var presetStages = window.__PRESET_STAGES && window.__PRESET_STAGES[pkey];
+      if (!presetStages) { showMsg('Unknown preset', false); return; }
+      var newStages = presetStages.map(function (s) {
+        return {
+          key: s.key,
+          name: s.name,
+          color: s.color,
+          slaHours: s.slaHours,
+          isWon: !!s.isWon,
+          isLost: !!s.isLost
+        };
+      });
+      var oldRows = list.querySelectorAll('.settings-stage-row');
+      var oldStages = [];
+      oldRows.forEach(function (row) {
+        var id = row.getAttribute('data-stage-id');
+        var leads = parseInt((row.querySelector('.st-del') && row.querySelector('.st-del').getAttribute('data-leads')) || '0', 10);
+        oldStages.push({ id: id, name: row.querySelector('.st-name').value, leadCount: leads });
+      });
+      var hasLeads = oldStages.some(function (o) { return o.leadCount > 0; });
+      if (hasLeads) {
+        openMapper(oldStages, newStages, function (mapping) {
+          doReplace(newStages, mapping, null);
+        });
+      } else {
+        doReplace(newStages, {}, null);
+      }
+    });
+
+    window.__PRESET_STAGES = <%- JSON.stringify((typeof PRESET_LIST !== 'undefined' ? PRESET_LIST : []).reduce(function (m, p) { m[p.key] = p.stages; return m; }, {})) %>;
+
+    document.getElementById('openAiRedesign').addEventListener('click', function () {
+      document.getElementById('aiModal').classList.remove('hidden');
+    });
+    document.getElementById('aiModalBackdrop').onclick = function () { document.getElementById('aiModal').classList.add('hidden'); };
+    document.getElementById('aiCancel').onclick = function () { document.getElementById('aiModal').classList.add('hidden'); };
+    document.getElementById('aiSubmit').addEventListener('click', function () {
+      var body = {
+        businessDescription: document.getElementById('aiBiz').value.trim(),
+        cycleLength: document.getElementById('aiCycle').value,
+        saleIncludes: [],
+        wonDefinition: document.getElementById('aiWon').value.trim() || 'Contract signed',
+        modifier: null
+      };
+      fetch('/workspaces/suggest-stages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j.success) { showMsg(j.error || 'AI failed', false); return; }
+        document.getElementById('aiModal').classList.add('hidden');
+        var newStages = j.stages.map(function (s) {
+          return {
+            key: s.key,
+            name: s.name,
+            color: s.color,
+            slaHours: s.slaHours,
+            isWon: !!s.isWon,
+            isLost: !!s.isLost
+          };
+        });
+        var oldRows = list.querySelectorAll('.settings-stage-row');
+        var oldStages = [];
+        oldRows.forEach(function (row) {
+          var id = row.getAttribute('data-stage-id');
+          var leads = parseInt((row.querySelector('.st-del') && row.querySelector('.st-del').getAttribute('data-leads')) || '0', 10);
+          oldStages.push({ id: id, name: row.querySelector('.st-name').value, leadCount: leads });
+        });
+        var hasLeads = oldStages.some(function (o) { return o.leadCount > 0; });
+        var intakePatch = { businessDescription: body.businessDescription, cycleLength: body.cycleLength, saleIncludes: [], wonDefinition: body.wonDefinition };
+        if (hasLeads) {
+          openMapper(oldStages, newStages, function (mapping) {
+            doReplace(newStages, mapping, intakePatch);
+          });
+        } else {
+          doReplace(newStages, {}, intakePatch);
+        }
+      }).catch(function () { showMsg('AI request failed', false); });
+    });
+  })();
+  </script>
+  <%- include('partials/footer') %>
+</body>
+</html>

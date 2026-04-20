@@ -8,7 +8,7 @@ const {
   countUniqueLeadsTouchedOnUtcDate,
   dailyPersonalizedTouchGoal,
 } = require('./trackerStats');
-const { PIPELINE_STAGES } = require('./salesConstants');
+const pipelineStagesService = require('./pipelineStagesService');
 const { scoreLeadRecord } = require('./opportunityScore');
 const { filterLeadsForRequest, userEmail } = require('./workspaceService');
 
@@ -133,7 +133,7 @@ function buildNamedCoachActions(leads, snapshot) {
 
   const early = list.filter((l) => {
     const ps = parseInt(l.pipelineStage, 10);
-    const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
+    const n = !Number.isNaN(ps) && ps >= 1 && ps <= 24 ? ps : 1;
     return n <= 2;
   });
 
@@ -210,9 +210,12 @@ async function buildOutreachCoachSnapshot(req) {
   const email = userEmail(req);
   const today = new Date().toISOString().slice(0, 10);
   const touchGoal = dailyPersonalizedTouchGoal();
-  const wid = req.workspaceId || 'default';
+  const wid = req.workspaceId;
+  if (!wid) {
+    throw new Error('buildOutreachCoachSnapshot requires req.workspaceId');
+  }
 
-  const all = await dbService.getAllLeads();
+  const all = await dbService.getAllLeads(wid);
   const leads = filterLeadsForRequest(req, all);
 
   const allSchedules = await dbService.listSchedules();
@@ -220,11 +223,20 @@ async function buildOutreachCoachSnapshot(req) {
 
   const touchesToday = countUniqueLeadsTouchedOnUtcDate(leads, today);
 
-  const history60 = await dbService.listDailyTrackers(email, 62);
+  const history60 = await dbService.listDailyTrackers(wid, email, 62);
   const streak = computeOutreachStreak(history60, today);
 
+  const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(wid);
+  const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const openStages = sortedStages.filter((s) => !s.isWon && !s.isLost);
+
+  const stageCountsByKey = {};
+  for (const s of stageRows) {
+    stageCountsByKey[s.key] = 0;
+  }
+
   const stageCounts = {};
-  for (let i = 1; i <= 10; i += 1) stageCounts[i] = 0;
+  for (let i = 1; i <= 24; i += 1) stageCounts[i] = 0;
 
   let warmInbound = 0;
   let oppHigh = 0;
@@ -232,9 +244,23 @@ async function buildOutreachCoachSnapshot(req) {
   let oppLow = 0;
 
   for (const l of leads) {
+    let row = stageRows.find((s) => s.id === l.stageId);
+    if (!row && l.pipelineStageKey) {
+      row = stageRows.find((s) => s.key === l.pipelineStageKey);
+    }
+    if (!row) {
+      const ps = parseInt(l.pipelineStage, 10);
+      const idx = !Number.isNaN(ps) && ps >= 1 && ps <= sortedStages.length ? ps - 1 : 0;
+      row = sortedStages[idx] || sortedStages[0];
+    }
+    if (row) {
+      stageCountsByKey[row.key] = (stageCountsByKey[row.key] || 0) + 1;
+    }
+
     const ps = parseInt(l.pipelineStage, 10);
-    const id = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
-    stageCounts[id] += 1;
+    const id = !Number.isNaN(ps) && ps >= 1 && ps <= 24 ? ps : 1;
+    stageCounts[id] = (stageCounts[id] || 0) + 1;
+
     if (l.source && String(l.source).startsWith('adhello_')) warmInbound += 1;
     const { tier } = scoreLeadRecord(l);
     if (tier === 'high') oppHigh += 1;
@@ -242,16 +268,32 @@ async function buildOutreachCoachSnapshot(req) {
     else oppLow += 1;
   }
 
-  const inNewOrContacted = (stageCounts[1] || 0) + (stageCounts[2] || 0);
-  const inEngagedCqi = (stageCounts[3] || 0) + (stageCounts[4] || 0);
-  let inClosing = 0;
-  for (let s = 6; s <= 10; s += 1) inClosing += stageCounts[s] || 0;
+  const stageKeyAt = (i) => (openStages[i] ? openStages[i].key : null);
+  const inNewOrContacted = leads.filter((l) => {
+    const k = l.pipelineStageKey;
+    const a = stageKeyAt(0);
+    const b = stageKeyAt(1);
+    return k && (k === a || k === b);
+  }).length;
+  const inEngagedCqi = leads.filter((l) => {
+    const k = l.pipelineStageKey;
+    const a = stageKeyAt(2);
+    const b = stageKeyAt(3);
+    return k && (k === a || k === b);
+  }).length;
+  const inClosing = leads.filter((l) => {
+    const row = stageRows.find((s) => s.id === l.stageId || s.key === l.pipelineStageKey);
+    if (!row || row.isWon || row.isLost) return false;
+    const ix = openStages.findIndex((s) => s.id === row.id);
+    return ix >= 4;
+  }).length;
 
-  const stageBreakdown = PIPELINE_STAGES.map((s) => ({
+  const stageBreakdown = sortedStages.map((s) => ({
     id: s.id,
-    slug: s.slug,
+    key: s.key,
+    slug: s.key,
     name: s.name,
-    count: stageCounts[s.id] || 0,
+    count: stageCountsByKey[s.key] || 0,
   }));
 
   return {

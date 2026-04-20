@@ -175,9 +175,9 @@
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Pipeline stage</label>
       <select name="stage" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white">
         <option value=""<%= !_lf.stage ? ' selected' : '' %>>All stages</option>
-        <% for (let i = 1; i <= 10; i += 1) { %>
-        <option value="<%= i %>"<%= String(_lf.stage) === String(i) ? ' selected' : '' %>><%= i %></option>
-        <% } %>
+        <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { pipelineStages.forEach(function (st, idx) { %>
+        <option value="<%= st.id %>"<%= String(_lf.stage) === String(st.id) ? ' selected' : '' %>><%= st.name %></option>
+        <% }); } %>
       </select>
     </div>
     <div class="lg:col-span-4">

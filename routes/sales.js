@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { PIPELINE_STAGES, SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS, PERSONAS } = require('../services/salesConstants');
+const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS, PERSONAS } = require('../services/salesConstants');
+const pipelineStagesService = require('../services/pipelineStagesService');
 const { chatCompletion } = require('../services/llmClient');
 const { computeOutreachStreak, buildDailyChartSeries, buildDayRollup } = require('../services/trackerStats');
 const activationService = require('../services/activationService');
@@ -20,22 +21,32 @@ router.get('/', (req, res) => {
 
 router.get('/workflow', async (req, res, next) => {
   try {
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, all);
+    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
+    const sorted = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const stages = sorted.map((s, i) => ({
+      id: i + 1,
+      key: s.key,
+      name: s.name,
+      color: s.color,
+      stageUuid: s.id,
+      summary: (s.description && String(s.description).trim()) || '—',
+    }));
     const counts = {};
-    for (let i = 1; i <= 10; i += 1) counts[i] = 0;
+    for (let i = 1; i <= sorted.length; i += 1) counts[i] = 0;
     leads.forEach((l) => {
       const ps =
-        typeof l.pipelineStage === 'number' && l.pipelineStage >= 1 && l.pipelineStage <= 10
+        typeof l.pipelineStage === 'number' && l.pipelineStage >= 1 && l.pipelineStage <= sorted.length
           ? l.pipelineStage
           : 1;
       counts[ps] += 1;
     });
     res.render('sales-workflow', {
-      title: '10-Stage Workflow',
+      title: 'Pipeline workflow',
       activePage: 'sales',
       activeSales: 'workflow',
-      stages: PIPELINE_STAGES,
+      stages,
       leads,
       counts,
     });
@@ -49,11 +60,22 @@ router.post('/workflow/stage', express.urlencoded({ extended: true }), async (re
     const { leadKey, pipelineStage } = req.body;
     if (!leadKey) return res.redirect('/sales/workflow');
     const key = leadKey.startsWith('lead:') ? leadKey : `lead:${leadKey}`;
-    const stage = Math.min(10, Math.max(1, parseInt(pipelineStage, 10) || 1));
-    await dbService.updateLead(key, {
-      pipelineStage: stage,
-      pipelineStageUpdatedAt: new Date().toISOString(),
-    });
+    const wid = req.workspaceId;
+    const stageRows = await pipelineStagesService.listStages(wid);
+    const sorted = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const n = sorted.length || 1;
+    const stage = Math.min(n, Math.max(1, parseInt(pipelineStage, 10) || 1));
+    const existing = await dbService.getLead(key);
+    const sid = sorted[stage - 1] ? sorted[stage - 1].id : null;
+    const patch = sid && existing ? pipelineStagesService.patchLeadStageFields(existing, sorted, sid) : { pipelineStage: stage };
+    await dbService.updateLead(
+      key,
+      {
+        ...patch,
+        pipelineStageUpdatedAt: new Date().toISOString(),
+      },
+      wid
+    );
     if (stage >= 2) {
       await activationService.recordEvent(userEmail(req), 'pipeline_advanced');
     }
@@ -86,9 +108,9 @@ router.get('/tracker', async (req, res, next) => {
   try {
     const email = userEmail(req);
     const today = new Date().toISOString().slice(0, 10);
-    const todayRow = await dbService.getDailyTracker(email, today);
-    const history = await dbService.listDailyTrackers(email, 14);
-    const history60 = await dbService.listDailyTrackers(email, 62);
+    const todayRow = await dbService.getDailyTracker(req.workspaceId, email, today);
+    const history = await dbService.listDailyTrackers(req.workspaceId, email, 14);
+    const history60 = await dbService.listDailyTrackers(req.workspaceId, email, 62);
     const chartSeries = buildDailyChartSeries(today, history, 14);
     const streak = computeOutreachStreak(history60, today);
     const checklistWeek = buildDayRollup(today, history60, 7);
@@ -126,7 +148,7 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
   try {
     const email = userEmail(req);
     const dateStr = (req.body.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
-    await dbService.saveDailyTracker(email, dateStr, {
+    await dbService.saveDailyTracker(req.workspaceId, email, dateStr, {
       coldEmails: parseInt(req.body.coldEmails, 10) || 0,
       coldDms: parseInt(req.body.coldDms, 10) || 0,
       coldCalls: parseInt(req.body.coldCalls, 10) || 0,
@@ -288,7 +310,7 @@ Rules:
 router.get('/outreach-coach/stream', async (req, res, next) => {
   try {
     const force = req.query.force === '1';
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const ws = await dbService.getWorkspace(wid);
     const ymd = workspaceTodayYmd(ws);
 
@@ -372,7 +394,7 @@ router.post('/outreach-coach', async (req, res, next) => {
       });
     }
 
-    const wid = req.workspaceId || 'default';
+    const wid = req.workspaceId;
     const ws = await dbService.getWorkspace(wid);
     const ymd = workspaceTodayYmd(ws);
 
@@ -430,7 +452,7 @@ router.post('/draft-outreach', async (req, res, next) => {
     const allowed = new Set(['email', 'dm', 'call-script']);
     if (!allowed.has(channel)) channel = 'email';
 
-    const all = await dbService.getAllLeads();
+    const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const lead = visible.find((l) => {
       const k = String(l.key || '').trim();

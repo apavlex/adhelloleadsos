@@ -95,6 +95,7 @@ async function runDueSchedules() {
           await db.saveSearch(searchRecord);
 
           try {
+            const wsMeta = await db.getWorkspace(wid);
             await db.recordCompletedSearchNotification({
               keyword: schedule.keyword,
               city: schedule.city,
@@ -102,6 +103,8 @@ async function runDueSchedules() {
               maxResults: schedule.maxResults || 20,
               resultCount: results.length,
               source: 'scheduled',
+              workspaceId: wid,
+              workspaceName: (wsMeta && wsMeta.name) || '',
             });
           } catch (notifyErr) {
             console.error('[SCHEDULER] Failed to record completion notification:', notifyErr.message);
@@ -150,7 +153,7 @@ async function runDueSchedules() {
 }
 
 async function runReferralAskReminders() {
-  const leads = await db.getAllLeads();
+  const leads = await db.getAllLeadsUnscoped();
   const reminderDays = Math.max(1, parseInt(process.env.REFERRAL_REMINDER_DAYS || '30', 10) || 30);
   const windowMs = reminderDays * 86400000;
   const hook = process.env.REFERRAL_REMINDER_WEBHOOK_URL;

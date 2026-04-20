@@ -156,7 +156,7 @@ async function processLeadSequence(lead) {
 }
 
 async function runDueSequenceSteps() {
-  const leads = await dbService.getAllLeads();
+  const leads = await dbService.getAllLeadsUnscoped();
   let n = 0;
   for (const lead of leads) {
     const st = lead.sequenceState;

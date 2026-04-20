@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: typeof title !== 'undefined' ? title : 'New workspace' }) %>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <h1 class="font-display font-black text-2xl md:text-3xl text-brand-dark dark:text-white mb-2">Create workspace</h1>
+    <p class="text-sm text-brand-muted max-w-xl mb-8">Each workspace has its own pipeline, ICP, cadences, and coach persona — switch anytime from the nav.</p>
+
+    <form method="post" action="/workspaces/new" class="max-w-lg space-y-6 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Workspace name</label>
+        <input name="name" required maxlength="80" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold" placeholder="e.g. Portland Flooring" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Accent color</label>
+        <input name="accentColor" type="color" value="#0D9488" class="h-12 w-full max-w-[8rem] rounded-xl border border-brand-border cursor-pointer bg-transparent" />
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">ICP keyword</label>
+          <input name="keyword" maxlength="120" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="e.g. general contractor" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Default city</label>
+          <input name="city" maxlength="80" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">State</label>
+          <input name="state" maxlength="2" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm uppercase" placeholder="OR" />
+        </div>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Average deal value (optional)</label>
+        <input name="avgDealValue" inputmode="decimal" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="15000" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Coach persona</label>
+        <select name="coachPreset" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold">
+          <option value="agency">Agency</option>
+          <option value="retail_install">Retail + install</option>
+          <option value="saas">SaaS</option>
+          <option value="local_service">Local service</option>
+          <option value="other">Other (custom)</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Custom coach instructions (if Other)</label>
+        <textarea name="coachCustom" rows="3" maxlength="2000" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="How should the AI coach think about this business?"></textarea>
+      </div>
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Create workspace</button>
+        <a href="/today" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-center text-brand-dark dark:text-white">Cancel</a>
+      </div>
+    </form>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

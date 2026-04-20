@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: typeof title !== 'undefined' ? title : 'New workspace' }) %>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <% const w = typeof wizard !== 'undefined' && wizard ? wizard : { step: 1 }; %>
+  <% const step = w.step; %>
+  <% const pal = typeof PALETTE !== 'undefined' ? PALETTE : {}; %>
+  <% const palEntries = Object.keys(pal).map(function (k) { return { key: k, hex: pal[k] }; }); %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <h1 class="font-display font-black text-2xl md:text-3xl text-brand-dark dark:text-white mb-2">Create workspace</h1>
+    <p class="text-sm text-brand-muted max-w-2xl mb-6">Set up your pipeline: pick a preset, let AI propose stages, or start from scratch. You can edit everything before saving.</p>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+    <div class="mb-6 rounded-2xl border border-red-200 dark:border-red-900/50 bg-red-50 dark:bg-red-950/40 px-4 py-3 text-sm text-red-900 dark:text-red-200"><%= error %></div>
+    <% } %>
+
+    <% if (step === 1) { %>
+    <form method="post" action="/workspaces/new" class="max-w-xl space-y-6 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <input type="hidden" name="action" value="step1" />
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Workspace name</label>
+        <input name="name" required maxlength="80" value="<%= w.name || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-semibold" placeholder="e.g. Portland Flooring" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Accent color</label>
+        <div class="flex flex-wrap gap-2">
+          <% palEntries.forEach(function (p) { %>
+          <label class="cursor-pointer">
+            <input type="radio" name="accentColor" value="<%= p.hex %>" class="sr-only peer" <%= (w.accentColor === p.hex || (!w.accentColor && p.key === 'slate')) ? 'checked' : '' %> />
+            <span class="block w-10 h-10 rounded-xl border-2 border-transparent peer-checked:border-brand-dark dark:peer-checked:border-white ring-2 ring-transparent peer-checked:ring-brand-yellow" style="background:<%= p.hex %>"></span>
+            <span class="sr-only"><%= p.key %></span>
+          </label>
+          <% }); %>
+        </div>
+      </div>
+      <div class="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">ICP keyword (optional)</label>
+          <input name="keyword" maxlength="120" value="<%= w.icpKeyword || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="e.g. general contractor" />
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">City</label>
+            <input name="city" maxlength="80" value="<%= w.icpCity || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">State</label>
+            <input name="state" maxlength="2" value="<%= w.icpState || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm uppercase" placeholder="OR" />
+          </div>
+        </div>
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Average deal value (optional)</label>
+        <input name="avgDealValue" inputmode="decimal" value="<%= Number.isFinite(w.avgDealValue) ? w.avgDealValue : '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="15000" />
+      </div>
+      <fieldset>
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Pipeline setup</legend>
+        <div class="space-y-3">
+          <label class="flex gap-3 items-start cursor-pointer rounded-2xl border border-brand-border dark:border-white/10 p-4 has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/5">
+            <input type="radio" name="setupPath" value="preset" class="mt-1" checked />
+            <span><strong class="text-brand-dark dark:text-white">Use a preset</strong><span class="block text-xs text-brand-muted mt-0.5">Agency, retail/install, SaaS, and more.</span></span>
+          </label>
+          <label class="flex gap-3 items-start cursor-pointer rounded-2xl border border-brand-border dark:border-white/10 p-4 has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/5">
+            <input type="radio" name="setupPath" value="ai" class="mt-1" />
+            <span><strong class="text-brand-dark dark:text-white">Let AI design it</strong><span class="block text-xs text-brand-muted mt-0.5">Answer four questions; we propose stages in ~20s.</span></span>
+          </label>
+          <label class="flex gap-3 items-start cursor-pointer rounded-2xl border border-brand-border dark:border-white/10 p-4 has-[:checked]:border-brand-yellow has-[:checked]:bg-brand-yellow/5">
+            <input type="radio" name="setupPath" value="scratch" class="mt-1" />
+            <span><strong class="text-brand-dark dark:text-white">Start from scratch</strong><span class="block text-xs text-brand-muted mt-0.5">Minimal template you edit in the next step.</span></span>
+          </label>
+        </div>
+      </fieldset>
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Continue</button>
+        <a href="/today" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-center text-brand-dark dark:text-white">Cancel</a>
+      </div>
+    </form>
+    <% } %>
+
+    <% if (step === 2) { %>
+    <div class="max-w-3xl">
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white mb-4">Choose a preset</h2>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <% (typeof PRESET_LIST !== 'undefined' ? PRESET_LIST : []).forEach(function (pr) { %>
+        <form method="post" action="/workspaces/new" class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 text-left hover:border-brand-yellow/50 transition-colors">
+          <input type="hidden" name="action" value="preset_pick" />
+          <input type="hidden" name="presetKey" value="<%= pr.key %>" />
+          <h3 class="font-bold text-brand-dark dark:text-white mb-2"><%= pr.label %></h3>
+          <ul class="text-xs text-brand-muted space-y-1 mb-4 max-h-40 overflow-y-auto custom-scrollbar">
+            <% (pr.stages || []).forEach(function (s) { %>
+            <li class="flex items-center gap-2"><span class="w-2 h-2 rounded-full shrink-0" style="background:<%= s.color %>"></span><span class="truncate"><%= s.name %></span></li>
+            <% }); %>
+          </ul>
+          <button type="submit" class="btn-pill btn-primary w-full py-2.5 text-[10px] font-black uppercase tracking-widest">Use this preset</button>
+        </form>
+        <% }); %>
+      </div>
+      <form method="post" action="/workspaces/new" class="mt-6">
+        <input type="hidden" name="action" value="back" />
+        <button type="submit" class="text-sm font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white">← Back</button>
+      </form>
+    </div>
+    <% } %>
+
+    <% if (step === '2b') { %>
+    <form method="post" action="/workspaces/new" class="max-w-xl space-y-5 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <input type="hidden" name="action" value="ai_intake" />
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">AI pipeline intake</h2>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Business description</label>
+        <textarea name="businessDescription" required minlength="3" maxlength="500" rows="4" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-sm" placeholder="e.g., flooring retail and installation for homeowners and contractors"><%= (w.cwIntake && w.cwIntake.businessDescription) ? w.cwIntake.businessDescription : '' %></textarea>
+      </div>
+      <fieldset>
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Sales cycle length</legend>
+        <div class="flex flex-wrap gap-3 text-sm">
+          <% ['days','1-2w','1-2m','3m+'].forEach(function (c) { %>
+          <label class="inline-flex items-center gap-2"><input type="radio" name="cycleLength" value="<%= c %>" <%= ((w.cwIntake && w.cwIntake.cycleLength === c) || (!w.cwIntake && c === '1-2m')) ? 'checked' : '' %> /> <%= c === 'days' ? 'Days' : c === '1-2w' ? '1–2 weeks' : c === '1-2m' ? '1–2 months' : '3+ months' %></label>
+          <% }); %>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Does the sale involve any of these?</legend>
+        <div class="grid sm:grid-cols-2 gap-2 text-sm">
+          <label class="flex gap-2"><input type="checkbox" name="inc_site_visit" value="1" /> Site visit</label>
+          <label class="flex gap-2"><input type="checkbox" name="inc_estimate" value="1" /> Custom estimate</label>
+          <label class="flex gap-2"><input type="checkbox" name="inc_contract" value="1" /> Contract or proposal</label>
+          <label class="flex gap-2"><input type="checkbox" name="inc_deposit" value="1" /> Deposit</label>
+          <label class="flex gap-2"><input type="checkbox" name="inc_install" value="1" /> Delivery / install</label>
+          <label class="flex gap-2"><input type="checkbox" name="inc_subscription" value="1" /> Recurring subscription</label>
+          <label class="flex gap-2 sm:col-span-2"><input type="checkbox" name="inc_multi" value="1" /> Multi-stakeholder approval</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">How do you define &quot;won&quot;?</legend>
+        <div class="space-y-2 text-sm">
+          <label class="flex gap-2"><input type="radio" name="wonOption" value="contract" checked /> Contract signed</label>
+          <label class="flex gap-2"><input type="radio" name="wonOption" value="deposit" /> Deposit received</label>
+          <label class="flex gap-2"><input type="radio" name="wonOption" value="completed" /> Work completed</label>
+          <label class="flex gap-2"><input type="radio" name="wonOption" value="payment" /> First payment</label>
+          <label class="flex gap-2 items-center"><input type="radio" name="wonOption" value="other" /> Other
+            <input type="text" name="wonOther" maxlength="200" class="flex-1 min-w-0 rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1 text-xs" placeholder="Describe" />
+          </label>
+        </div>
+      </fieldset>
+      <div class="flex flex-col sm:flex-row gap-3 pt-2">
+        <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Design pipeline</button>
+      </div>
+    </form>
+    <form method="post" action="/workspaces/new" class="max-w-xl mt-4">
+      <input type="hidden" name="action" value="back" />
+      <button type="submit" class="text-sm font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white">← Back</button>
+    </form>
+    <% } %>
+
+    <% if (step === 3) { %>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <% if (w.setupPath === 'ai') { %>
+    <div class="max-w-2xl mb-4 flex flex-wrap gap-2 items-center">
+      <span class="text-[10px] font-black uppercase text-brand-muted">Regenerate:</span>
+      <form method="post" action="/workspaces/new" class="inline">
+        <input type="hidden" name="action" value="regenerate_ai" />
+        <input type="hidden" name="modifier" value="simpler" />
+        <button type="submit" class="px-3 py-1.5 rounded-lg border border-brand-border dark:border-white/10 text-xs font-bold bg-white dark:bg-slate-900">Simpler</button>
+      </form>
+      <form method="post" action="/workspaces/new" class="inline">
+        <input type="hidden" name="action" value="regenerate_ai" />
+        <input type="hidden" name="modifier" value="more_detailed" />
+        <button type="submit" class="px-3 py-1.5 rounded-lg border border-brand-border dark:border-white/10 text-xs font-bold bg-white dark:bg-slate-900">More detail</button>
+      </form>
+      <form method="post" action="/workspaces/new" class="inline">
+        <input type="hidden" name="action" value="regenerate_ai" />
+        <input type="hidden" name="modifier" value="try_again" />
+        <button type="submit" class="px-3 py-1.5 rounded-lg border border-brand-border dark:border-white/10 text-xs font-bold bg-white dark:bg-slate-900">Try again</button>
+      </form>
+    </div>
+    <% } %>
+    <form method="post" action="/workspaces/new" id="wizardFinalForm" class="max-w-2xl space-y-6 brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <input type="hidden" name="action" value="create" />
+      <input type="hidden" name="stagesJson" id="stagesJsonField" value="" />
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Review pipeline</h2>
+      <% if (w.cwRationale) { %>
+      <blockquote class="text-sm text-brand-muted border-l-4 border-brand-yellow pl-4 italic">&ldquo;<%= w.cwRationale %>&rdquo;</blockquote>
+      <% } %>
+      <ul id="wizardStageList" class="space-y-3">
+        <% (w.cwStages || []).forEach(function (s, idx) { %>
+        <li class="wizard-stage-row flex flex-wrap items-center gap-2 rounded-xl border border-brand-border dark:border-white/10 p-3 bg-white/50 dark:bg-slate-800/40" data-index="<%= idx %>">
+          <span class="cursor-grab text-brand-muted drag-handle px-1" title="Drag">⠿</span>
+          <input type="color" class="stage-color w-10 h-10 rounded-lg border-0 bg-transparent" value="<%= s.color %>" aria-label="Color" />
+          <input type="text" class="stage-name flex-1 min-w-[8rem] rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-sm" value="<%= s.name.replace(/"/g, '&quot;') %>" maxlength="30" />
+          <input type="number" class="stage-sla w-20 rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-xs" value="<%= s.slaHours != null ? s.slaHours : '' %>" placeholder="SLA h" min="1" max="720" />
+          <label class="text-[10px] font-black uppercase text-brand-muted flex items-center gap-1"><input type="checkbox" class="stage-won" <%= s.isWon ? 'checked' : '' %> /> Won</label>
+          <label class="text-[10px] font-black uppercase text-brand-muted flex items-center gap-1"><input type="checkbox" class="stage-lost" <%= s.isLost ? 'checked' : '' %> /> Lost</label>
+          <button type="button" class="stage-del text-red-500 text-xs font-bold px-2">Remove</button>
+          <input type="hidden" class="stage-key" value="<%= s.key %>" />
+        </li>
+        <% }); %>
+      </ul>
+      <button type="button" id="wizardAddStage" class="text-sm font-bold text-brand-yellow">+ Add stage</button>
+
+      <div class="flex flex-col sm:flex-row gap-3 pt-4">
+        <button type="submit" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest">Create workspace</button>
+      </div>
+    </form>
+    <form method="post" action="/workspaces/new" class="max-w-2xl mt-4">
+      <input type="hidden" name="action" value="back" />
+      <button type="submit" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-8 py-3.5 text-xs font-black uppercase tracking-widest">Back</button>
+    </form>
+    <script>
+    (function () {
+      var list = document.getElementById('wizardStageList');
+      var field = document.getElementById('stagesJsonField');
+      var form = document.getElementById('wizardFinalForm');
+      if (!list || !field || !form) return;
+
+      function collect() {
+        var rows = list.querySelectorAll('.wizard-stage-row');
+        var out = [];
+        rows.forEach(function (row, i) {
+          var keyInp = row.querySelector('.stage-key');
+          var nameInp = row.querySelector('.stage-name');
+          var colorInp = row.querySelector('.stage-color');
+          var slaInp = row.querySelector('.stage-sla');
+          var won = row.querySelector('.stage-won');
+          var lost = row.querySelector('.stage-lost');
+          out.push({
+            key: keyInp ? keyInp.value : 'stage_' + i,
+            name: nameInp ? nameInp.value : 'Stage',
+            color: colorInp ? colorInp.value : '#94a3b8',
+            slaHours: slaInp && slaInp.value !== '' ? parseInt(slaInp.value, 10) : null,
+            isWon: won && won.checked,
+            isLost: lost && lost.checked,
+            sortOrder: i
+          });
+        });
+        field.value = JSON.stringify(out);
+      }
+
+      form.addEventListener('submit', function () { collect(); });
+
+      if (typeof Sortable !== 'undefined') {
+        Sortable.create(list, { handle: '.drag-handle', animation: 150 });
+      }
+
+      document.getElementById('wizardAddStage').addEventListener('click', function () {
+        var li = document.createElement('li');
+        li.className = 'wizard-stage-row flex flex-wrap items-center gap-2 rounded-xl border border-brand-border dark:border-white/10 p-3 bg-white/50 dark:bg-slate-800/40';
+        li.innerHTML = '<span class="cursor-grab text-brand-muted drag-handle px-1">⠿</span>' +
+          '<input type="color" class="stage-color w-10 h-10 rounded-lg border-0 bg-transparent" value="#60a5fa" />' +
+          '<input type="text" class="stage-name flex-1 min-w-[8rem] rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-sm" value="New stage" maxlength="30" />' +
+          '<input type="number" class="stage-sla w-20 rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-2 text-xs" placeholder="SLA h" min="1" max="720" />' +
+          '<label class="text-[10px] font-black uppercase text-brand-muted flex items-center gap-1"><input type="checkbox" class="stage-won" /> Won</label>' +
+          '<label class="text-[10px] font-black uppercase text-brand-muted flex items-center gap-1"><input type="checkbox" class="stage-lost" /> Lost</label>' +
+          '<button type="button" class="stage-del text-red-500 text-xs font-bold px-2">Remove</button>' +
+          '<input type="hidden" class="stage-key" value="new_stage" />';
+        list.appendChild(li);
+      });
+
+      list.addEventListener('click', function (e) {
+        if (e.target.classList.contains('stage-del')) {
+          var row = e.target.closest('.wizard-stage-row');
+          if (row && list.querySelectorAll('.wizard-stage-row').length > 3) row.remove();
+        }
+      });
+      collect();
+    })();
+    </script>
+    <% } %>
+  </main>
+  <%- include('partials/footer') %>
+</body>
+</html>

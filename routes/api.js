@@ -321,7 +321,12 @@ router.post('/leads/stitch-sync', validateApiKey, async (req, res, next) => {
     // Update existing lead with stitch design info
     // We'll search by website URL first, then title
     let leadKey = null;
-    const leads = await dbService.listLeads();
+    const widRaw = (req.body && req.body.workspaceId) || req.headers['x-workspace-id'];
+    const wid =
+      typeof widRaw === 'string' && widRaw.trim()
+        ? widRaw.trim()
+        : workspaceIdFromReq(req);
+    const leads = await dbService.listLeads(wid);
     const existing = leads.find(l => 
         (website && l.website && l.website === website) || 
         (title && l.title && l.title.toLowerCase() === title.toLowerCase())
