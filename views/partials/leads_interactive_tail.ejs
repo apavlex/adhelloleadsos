@@ -54,30 +54,39 @@
   </div>
 </div>
 
-<!-- The War Room: Batch Outreach Modal -->
+<!-- Cold call war room: business info, script, dial list, session timer -->
 <div id="warRoomModal" class="fixed inset-0 z-[300] hidden overflow-hidden">
   <div class="absolute inset-0 bg-brand-dark/90 backdrop-blur-md transition-opacity"></div>
   <div class="absolute inset-0 flex flex-col p-4 md:p-8">
-      <!-- War Room Header -->
-      <div class="flex items-center justify-between mb-8 relative z-10">
-          <div>
-              <h2 class="font-display font-black text-4xl text-white tracking-tight">The War Room</h2>
-              <p class="text-brand-muted font-bold uppercase tracking-[0.2em] text-xs">Batch Personalized Outreach</p>
+      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6 relative z-10">
+          <div class="min-w-0">
+              <h2 class="font-display font-black text-3xl md:text-4xl text-white tracking-tight">Cold call war room</h2>
+              <p class="text-white/60 font-bold uppercase tracking-[0.2em] text-xs mt-1">Cold leads only · business facts, script, numbers to dial</p>
           </div>
-          <button id="closeWarRoom" class="w-12 h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-rose-500 transition-all border border-white/10">
-              <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-          </button>
+          <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div class="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 sm:px-4">
+                  <span class="text-[9px] font-black uppercase tracking-widest text-white/50 shrink-0">Session</span>
+                  <span id="warRoomTimerDisplay" class="font-mono text-lg sm:text-xl font-black text-brand-yellow tabular-nums shrink-0" aria-live="polite">00:00</span>
+                  <button type="button" id="warRoomTimerToggle" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-colors shrink-0">Pause</button>
+                  <button type="button" id="warRoomTimerReset" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-white/5 text-white/80 hover:text-white hover:bg-white/10 border border-white/10 transition-colors shrink-0">Reset</button>
+              </div>
+              <a href="/" id="warRoomExitDashboard" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-yellow/50 bg-brand-yellow/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:bg-brand-yellow/25 transition-colors shrink-0">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+                  Exit to dashboard
+              </a>
+              <button type="button" id="closeWarRoom" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-rose-500 transition-all border border-white/10 shrink-0" aria-label="Close war room">
+                  <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+          </div>
       </div>
-      <!-- War Room Content (Scrollable Grid) -->
-      <div id="warRoomGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 overflow-y-auto pb-20 custom-scrollbar pr-2 relative z-10">
-          <!-- Cards will be injected via JS -->
+      <div id="warRoomGrid" class="grid grid-cols-1 lg:grid-cols-2 gap-5 overflow-y-auto pb-24 custom-scrollbar pr-1 relative z-10 flex-1 min-h-0">
+          <!-- Cards injected via JS -->
       </div>
-      <!-- War Room Footer Stats -->
-      <div class="absolute bottom-0 left-0 right-0 p-8 bg-gradient-to-t from-brand-dark to-transparent pointer-events-none z-20">
-          <div class="flex items-center gap-6 pointer-events-auto">
-              <div class="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 flex items-center gap-4">
-                  <div class="text-3xl font-display font-black text-white" id="warRoomTotal">0</div>
-                  <div class="text-[10px] font-bold text-brand-muted uppercase tracking-widest leading-tight">Leads in<br>Queue</div>
+      <div class="absolute bottom-0 left-0 right-0 p-6 md:p-8 bg-gradient-to-t from-brand-dark via-brand-dark/90 to-transparent pointer-events-none z-20">
+          <div class="flex items-center gap-4 pointer-events-auto">
+              <div class="bg-white/5 border border-white/10 rounded-2xl px-5 py-3 flex items-center gap-4">
+                  <div class="text-2xl md:text-3xl font-display font-black text-white tabular-nums" id="warRoomTotal">0</div>
+                  <div class="text-[10px] font-bold text-white/50 uppercase tracking-widest leading-tight">Cold leads<br>in this session</div>
               </div>
           </div>
       </div>

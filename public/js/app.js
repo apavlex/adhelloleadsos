@@ -369,6 +369,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key !== 'Escape') return;
     const modal = document.getElementById('emailIntelModal');
     if (modal && !modal.classList.contains('hidden')) closeEmailIntelModal();
+    const wr = document.getElementById('warRoomModal');
+    if (wr && !wr.classList.contains('hidden') && typeof closeWarRoomModal === 'function') closeWarRoomModal();
   });
 
   // Quick outreach logic (results / panel — not leads table email-intel)
@@ -3254,93 +3256,242 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- The War Room (Batch Outreach) ---
+  // --- Cold call war room (cold leads only: business info, script, dial) ---
   const batchOutreachBtn = document.getElementById('batchOutreachBtn');
   const batchOutreachBtnBulk = document.getElementById('batchOutreachBtnBulk');
   const warRoomModal = document.getElementById('warRoomModal');
   const closeWarRoom = document.getElementById('closeWarRoom');
   const warRoomGrid = document.getElementById('warRoomGrid');
   const warRoomTotal = document.getElementById('warRoomTotal');
+  const warRoomTimerDisplay = document.getElementById('warRoomTimerDisplay');
+  const warRoomTimerToggle = document.getElementById('warRoomTimerToggle');
+  const warRoomTimerReset = document.getElementById('warRoomTimerReset');
+
+  function isColdLeadRow(row) {
+    if (!row) return false;
+    const src = String(row.dataset.source || '');
+    return !src.startsWith('adhello_');
+  }
+
+  function warRoomFormatClock(sec) {
+    const s = Math.max(0, Math.floor(sec));
+    const m = Math.floor(s / 60);
+    const r = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(r).padStart(2, '0')}`;
+  }
+
+  let warRoomTimerId = null;
+  let warRoomElapsedSec = 0;
+  let warRoomTimerRunning = false;
+
+  function warRoomUpdateTimerDisplay() {
+    if (warRoomTimerDisplay) warRoomTimerDisplay.textContent = warRoomFormatClock(warRoomElapsedSec);
+    if (warRoomTimerToggle) {
+      warRoomTimerToggle.textContent = warRoomTimerRunning ? 'Pause' : 'Resume';
+      warRoomTimerToggle.setAttribute('aria-pressed', warRoomTimerRunning ? 'true' : 'false');
+    }
+  }
+
+  function warRoomStopTimerInterval() {
+    if (warRoomTimerId) {
+      clearInterval(warRoomTimerId);
+      warRoomTimerId = null;
+    }
+  }
+
+  function warRoomStartSessionTimer() {
+    warRoomStopTimerInterval();
+    warRoomElapsedSec = 0;
+    warRoomTimerRunning = true;
+    warRoomUpdateTimerDisplay();
+    warRoomTimerId = setInterval(() => {
+      if (!warRoomTimerRunning) return;
+      warRoomElapsedSec += 1;
+      warRoomUpdateTimerDisplay();
+    }, 1000);
+  }
+
+  function warRoomPauseResumeTimer() {
+    warRoomTimerRunning = !warRoomTimerRunning;
+    warRoomUpdateTimerDisplay();
+  }
+
+  function warRoomResetTimer() {
+    warRoomElapsedSec = 0;
+    warRoomTimerRunning = true;
+    warRoomStopTimerInterval();
+    warRoomUpdateTimerDisplay();
+    warRoomTimerId = setInterval(() => {
+      if (!warRoomTimerRunning) return;
+      warRoomElapsedSec += 1;
+      warRoomUpdateTimerDisplay();
+    }, 1000);
+  }
+
+  function closeWarRoomModal() {
+    if (!warRoomModal) return;
+    warRoomStopTimerInterval();
+    warRoomTimerRunning = false;
+    warRoomElapsedSec = 0;
+    if (warRoomTimerDisplay) warRoomTimerDisplay.textContent = '00:00';
+    if (warRoomTimerToggle) warRoomTimerToggle.textContent = 'Pause';
+    warRoomModal.classList.add('hidden');
+  }
+
+  function splitPhoneNumbers(raw) {
+    if (raw == null || raw === '' || raw === 'N/A') return [];
+    return String(raw)
+      .split(/[,;/|]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0 && s !== 'N/A');
+  }
+
+  function telHref(num) {
+    const digits = String(num).replace(/[^\d+]/g, '');
+    return digits ? `tel:${digits}` : '#';
+  }
 
   function openWarRoomFromSelection() {
-    if (!warRoomModal) return;
-    const selected = document.querySelectorAll('.result-row .lead-checkbox:checked');
+    if (!warRoomModal || !warRoomGrid) return;
+    const selected = Array.from(document.querySelectorAll('.result-row .lead-checkbox:checked'));
     if (selected.length === 0) {
-      alert('Please select at least one lead for the War Room.');
+      alert('Select at least one lead to open the cold call war room.');
       return;
     }
-    renderWarRoom(selected);
+    const coldOnly = selected.filter((cb) => isColdLeadRow(cb.closest('.result-row')));
+    if (coldOnly.length === 0) {
+      alert(
+        'Cold call war room only includes cold leads. Warm inbound (AdHello) leads are excluded—deselect them or filter the table to Cold, then try again.'
+      );
+      return;
+    }
+    if (coldOnly.length < selected.length) {
+      const skipped = selected.length - coldOnly.length;
+      alert(`Skipped ${skipped} warm lead${skipped === 1 ? '' : 's'}. Opening cold call room with ${coldOnly.length} cold lead${coldOnly.length === 1 ? '' : 's'}.`);
+    }
+    renderWarRoom(coldOnly);
     warRoomModal.classList.remove('hidden');
+    warRoomStartSessionTimer();
   }
 
   if (warRoomModal) {
     if (batchOutreachBtn) batchOutreachBtn.addEventListener('click', openWarRoomFromSelection);
     if (batchOutreachBtnBulk) batchOutreachBtnBulk.addEventListener('click', openWarRoomFromSelection);
-    if (closeWarRoom) {
-      closeWarRoom.addEventListener('click', () => {
-        warRoomModal.classList.add('hidden');
-      });
-    }
+    if (closeWarRoom) closeWarRoom.addEventListener('click', closeWarRoomModal);
+    if (warRoomTimerToggle) warRoomTimerToggle.addEventListener('click', warRoomPauseResumeTimer);
+    if (warRoomTimerReset) warRoomTimerReset.addEventListener('click', warRoomResetTimer);
   }
 
   function renderWarRoom(selectedCheckboxes) {
     warRoomGrid.innerHTML = '';
-    warRoomTotal.textContent = selectedCheckboxes.length;
+    warRoomTotal.textContent = String(selectedCheckboxes.length);
 
-    selectedCheckboxes.forEach(cb => {
-        const row = cb.closest('.result-row');
-        const card = createWarRoomCard(row);
-        warRoomGrid.appendChild(card);
+    selectedCheckboxes.forEach((cb) => {
+      const row = cb.closest('.result-row');
+      if (!row || !isColdLeadRow(row)) return;
+      const card = createWarRoomCard(row);
+      warRoomGrid.appendChild(card);
     });
   }
 
   function createWarRoomCard(row) {
     const card = document.createElement('div');
-    card.className = 'bg-white/5 border border-white/10 rounded-[2.5rem] p-6 hover:border-brand-yellow/30 transition-all flex flex-col gap-4';
-    
-    const title = row.dataset.title;
-    const city = row.dataset.city || 'your area';
-    const email = row.dataset.email;
+    card.className =
+      'bg-white/5 border border-white/10 rounded-[2rem] p-5 md:p-6 hover:border-brand-yellow/25 transition-all flex flex-col gap-4';
+
+    const title = row.dataset.title || 'Company';
+    const city = row.dataset.city || '';
+    const category = row.dataset.category || '';
+    const address = row.dataset.address || '';
+    const website = row.dataset.website || '';
+    const pipelineLabel = row.dataset.pipelineLabel || '';
+    const email = row.dataset.email || '';
     const competitor = row.dataset.competitorName;
     const compGap = row.dataset.competitorGap;
-
     const rating = row.dataset.rating || 0;
-    
+    const reviews = row.dataset.reviews || '0';
+
     const gaps = [];
-    if (row.dataset.isMobileFriendly === 'false') gaps.push("isn't mobile-friendly");
-    if (row.dataset.hasChatbot === 'false') gaps.push("lacks lead-capture");
-    if (row.dataset.hasSchemaMarkup === 'false') gaps.push("missing SEO schema");
+    if (row.dataset.isMobileFriendly === 'false') gaps.push("site isn't mobile-friendly");
+    if (row.dataset.hasChatbot === 'false') gaps.push('no obvious lead-capture chat');
+    if (row.dataset.hasSchemaMarkup === 'false') gaps.push('thin local SEO schema');
 
-    let gapText = gaps.length > 0 ? `I noticed your site ${gaps.join(' and ')}.` : "I found some conversion gaps on your site.";
-    let compText = (competitor && competitor !== 'N/A') ? `\n\nYour competitor, ${competitor}, is currently gaining an edge because they have ${compGap || 'a more optimized presence'}.` : "";
+    const gapPhrase =
+      gaps.length > 0
+        ? `On your site I noticed ${gaps.join(' and ')}.`
+        : 'I spent a few minutes on your site and have a couple of ideas that might help conversions.';
+    const compPhrase =
+      competitor && competitor !== 'N/A'
+        ? ` I also saw ${competitor} nearby—they seem stronger on ${compGap || 'digital presence'}.`
+        : '';
 
-    const bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and spent some time on your website. ${gapText}${compText}\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat?\n\nBest,\n[Your Name]`;
+    const scriptText = `Hi, this is [your name]—I'm reaching out to local ${category && category !== 'N/A' ? category : 'businesses'} in ${city || 'the area'}. I came across ${title} and had you on my list to call.\n\n${gapPhrase}${compPhrase}\n\nI'm not looking to waste your time—do you have sixty seconds for one concrete idea? If now's bad, what time works for a two-minute call later today?`;
+
+    const phones = splitPhoneNumbers(row.dataset.phone);
+    const ws =
+      website && website !== 'N/A'
+        ? website.startsWith('http')
+          ? website
+          : `https://${website}`
+        : '';
+    const wsLabel =
+      website && website !== 'N/A' ? String(website).replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, '') : '';
+
+    const phoneBlocks =
+      phones.length > 0
+        ? phones
+            .map((p, i) => {
+              const safe = escapeHtmlText(p);
+              const href = telHref(p);
+              return `<a href="${escapeHtmlAttr(href)}" class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-sm font-black hover:bg-emerald-500/30 transition-colors">${safe}<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-300/80">Call ${i + 1}</span></a>`;
+            })
+            .join('')
+        : `<p class="text-xs font-bold text-rose-300/90">No phone on file—add a number on the lead or enrich before dialing.</p>`;
+
+    const mailRow =
+      email && email !== 'N/A'
+        ? `<a href="mailto:${encodeURIComponent(email)}" class="text-xs font-bold text-brand-yellow hover:underline truncate">${escapeHtmlText(email)}</a>`
+        : `<span class="text-xs text-white/40">—</span>`;
 
     card.innerHTML = `
-        <div class="flex items-center justify-between">
+        <div class="flex items-start justify-between gap-3">
             <div class="flex flex-col gap-1 min-w-0">
-                <h4 class="text-white font-black text-xl truncate pr-4">${title}</h4>
-                <div class="flex items-center gap-1.5 war-room-stars-${row.dataset.leadKey}">
-                    <!-- Stars rendered via JS -->
-                    <span class="text-[10px] font-bold text-white/40">${rating}</span>
+                <h4 class="text-white font-black text-lg md:text-xl leading-tight truncate">${escapeHtmlText(title)}</h4>
+                <div class="flex flex-wrap items-center gap-2 war-room-stars-${row.dataset.leadKey}">
+                    <span class="text-[10px] font-bold text-white/40">${rating} · ${reviews} reviews</span>
                 </div>
             </div>
-            <div class="px-2 py-1 bg-brand-yellow/10 rounded-lg border border-brand-yellow/30 text-[10px] font-black text-brand-yellow shrink-0">READY</div>
+            <span class="shrink-0 px-2 py-1 rounded-lg border border-white/15 bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/70">Cold</span>
+        </div>
+        <div class="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-2">
+            <p class="text-[9px] font-black uppercase tracking-widest text-white/45">Business</p>
+            <p class="text-xs text-white/85 leading-relaxed">${category && category !== 'N/A' ? `<span class="font-bold text-white">${escapeHtmlText(category)}</span> · ` : ''}${escapeHtmlText([address, city].filter(Boolean).join(', ') || '—')}</p>
+            ${pipelineLabel ? `<p class="text-[11px] text-white/55">Pipeline: <span class="text-white/80 font-semibold">${escapeHtmlText(pipelineLabel)}</span></p>` : ''}
+            ${
+              ws
+                ? `<a href="${escapeHtmlAttr(ws)}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-brand-yellow hover:underline break-all">${escapeHtmlText(wsLabel)}</a>`
+                : `<p class="text-xs text-white/40">No website on file</p>`
+            }
+            <p class="text-[9px] font-black uppercase tracking-widest text-white/45 pt-2">Email</p>
+            <div class="min-w-0">${mailRow}</div>
+        </div>
+        <div class="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-emerald-300/80 mb-3">Numbers to call</p>
+            <div class="flex flex-wrap gap-2">${phoneBlocks}</div>
+        </div>
+        <div>
+            <p class="text-[9px] font-black uppercase tracking-widest text-white/45 mb-2">Call script <span class="font-medium normal-case tracking-normal text-white/35">(edit before you dial)</span></p>
+            <textarea class="war-room-script-input w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-semibold text-white/90 leading-relaxed min-h-[11rem] focus:border-brand-yellow outline-none transition-all resize-y">${escapeHtmlText(scriptText)}</textarea>
         </div>
         <div class="flex flex-wrap gap-2">
-            ${gaps.map(g => `<span class="px-2 py-1 bg-rose-500/10 text-rose-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-rose-500/20">${g}</span>`).join('')}
-            ${competitor && competitor !== 'N/A' ? `<span class="px-2 py-1 bg-blue-500/10 text-blue-400 text-[9px] font-black uppercase tracking-widest rounded-md border border-blue-500/20">vs ${competitor}</span>` : ''}
+            ${gaps.map((g) => `<span class="px-2 py-1 bg-rose-500/10 text-rose-300 text-[9px] font-black uppercase tracking-widest rounded-md border border-rose-500/25">${escapeHtmlText(g)}</span>`).join('')}
+            ${competitor && competitor !== 'N/A' ? `<span class="px-2 py-1 bg-blue-500/10 text-blue-300 text-[9px] font-black uppercase tracking-widest rounded-md border border-blue-500/25">vs ${escapeHtmlText(competitor)}</span>` : ''}
         </div>
-        <textarea class="w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-bold text-white/70 h-40 focus:border-brand-yellow outline-none transition-all">${bodyText}</textarea>
-        <button class="w-full py-4 bg-brand-yellow text-brand-dark rounded-2xl font-black uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-brand-yellow/10 flex items-center justify-center gap-2" onclick="window.location.href='mailto:${email}?subject=Question regarding ${encodeURIComponent(title)}&body=${encodeURIComponent(bodyText)}'">
-             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
-             Review & Lead Audit
-        </button>
     `;
-    
+
     setTimeout(() => {
-        const starContainer = card.querySelector(`.war-room-stars-${row.dataset.leadKey}`);
-        if (starContainer) renderStarsInElement(starContainer, parseFloat(rating) || 0);
+      const starContainer = card.querySelector(`.war-room-stars-${row.dataset.leadKey}`);
+      if (starContainer) renderStarsInElement(starContainer, parseFloat(rating) || 0);
     }, 0);
     return card;
   }
