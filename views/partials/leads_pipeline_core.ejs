@@ -1,41 +1,31 @@
 <% if (leads.length > 0) { %>
-  <!-- Bulk Actions Bar (for Leads) -->
-  <div id="bulkActions" class="hidden items-center gap-3 mb-6 bg-white dark:bg-slate-900 p-3 rounded-2xl border border-brand-border dark:border-white/10 shadow-sm">
-    <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 ml-2"><span id="selectedCount" class="text-brand-dark dark:text-white mr-1 text-sm font-black">0</span> SELECTED</span>
-    <button type="button" class="js-bulk-export-csv btn-pill bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 text-brand-dark dark:text-slate-100 hover:bg-brand-cream dark:hover:bg-slate-800 px-4 py-2 text-sm font-bold shadow-sm flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-        Export
-    </button>
-    <button type="button" class="js-bulk-enhance btn-pill bg-brand-yellow/10 border border-brand-yellow/30 text-brand-dark hover:bg-brand-yellow px-4 py-2 text-sm font-bold shadow-sm transition-all">
-        ✨ Enrich All
-    </button>
-    <div class="h-6 w-px bg-brand-border/30 mx-2"></div>
-    <button id="batchOutreachBtn" class="btn-pill bg-rose-500/10 border border-rose-500/30 text-rose-600 hover:bg-rose-500 hover:text-white px-4 py-2 text-sm font-black uppercase tracking-widest shadow-sm transition-all flex items-center gap-2">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
-        War Room
-    </button>
-  </div>      <!-- Table View Section -->
+  <!-- Table View Section -->
   <div id="tableView" class="brand-card overflow-hidden w-full dark:bg-slate-900 dark:border-white/10">
+    <div class="flex flex-wrap items-center justify-end gap-2 px-5 pt-4 pb-3 border-b border-brand-border/25 dark:border-white/10">
+      <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mr-1">Density</span>
+      <div class="inline-flex rounded-full border border-brand-border/40 dark:border-white/10 p-0.5 bg-brand-cream/30 dark:bg-slate-800/80" role="group" aria-label="Table row density">
+        <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="comfortable">Comfortable</button>
+        <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="compact">Compact</button>
+      </div>
+    </div>
     <div class="overflow-x-auto">
-      <table class="w-full text-left border-collapse">
+      <table id="prospectLeadsTable" class="w-full text-left border-collapse prospect-leads-table prospect-leads-table--comfortable">
         <thead>
-          <tr class="bg-gray-50/50 dark:bg-slate-800/60 border-b border-brand-border dark:border-white/10">
-            <th class="pl-6 pr-2 py-3 w-10">
+          <tr class="border-b border-brand-border/40 dark:border-white/10">
+            <th class="lead-sticky-check pl-5 pr-2 py-3.5 w-12 align-middle">
               <div class="flex items-center">
-                <input type="checkbox" id="selectAllLeads" class="w-4 h-4 rounded-md border-brand-border dark:border-slate-500 text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer">
+                <input type="checkbox" id="selectAllLeads" class="w-4 h-4 rounded-md border-brand-border dark:border-slate-500 text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" title="Select all leads" aria-label="Select all leads">
               </div>
             </th>
-            <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Company</th>
-            <th class="px-3 py-3 text-[11px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Pipeline</th>
-            <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Phone</th>
-            <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Email</th>
-            <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Website</th>
-            <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Reviews</th>
-            <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300">Status</th>
-            <th class="px-3 py-3 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-300 text-right pr-6">Actions</th>
+            <th class="lead-sticky-company px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[13rem]">Company</th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle w-[1%] whitespace-nowrap">Pipeline</th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem]">Contact</th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap">Reviews</th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle">Status</th>
+            <th class="px-2 py-3.5 pr-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]">Actions</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-brand-border/50 dark:divide-white/10">
+        <tbody>
           <% leads.forEach((lead, i) => { %>
             <% const _ps = parseInt(lead.pipelineStage, 10); %>
             <% const psRow = !Number.isNaN(_ps) && _ps >= 1 && _ps <= 10 ? _ps : 1; %>
@@ -47,7 +37,16 @@
             <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
             <% const _createdRaw = lead.createdAt || lead.savedAt; %>
             <% let _addedShort = ''; if (_createdRaw) { try { _addedShort = new Date(_createdRaw).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); } catch (e) {} } %>
-            <tr class="result-row scroll-mt-28"
+            <% const _stageHue = ((psRow - 1) * 36) % 360; %>
+            <% 
+              var _ph = lead.phone && lead.phone !== 'N/A' ? String(lead.phone) : '';
+              var _em = lead.email && lead.email !== 'N/A' ? String(lead.email) : '';
+              var _ws = lead.website && lead.website !== 'N/A' ? String(lead.website) : '';
+              var _wsLabel = _ws ? _ws.replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, '') : '';
+              var _rNum = lead.totalScore ? Number(lead.totalScore).toFixed(1) : '';
+              var _rc = parseInt(String(lead.reviewsCount || 0), 10) || 0;
+            %>
+            <tr class="result-row group/row scroll-mt-28 transition-colors duration-150 border-b border-brand-border/15 dark:border-white/[0.07]"
                 id="lead-row-<%= rowAnchor %>"
                 data-index="<%= i %>"
                 data-lead-key="<%= lead.key %>"
@@ -62,6 +61,7 @@
                 data-city="<%= lead.city || '' %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
+                data-review-snippets='<%= JSON.stringify(lead.reviewSnippets || []).replace(/'/g, "&apos;") %>'
                 data-url="<%= lead.url || '' %>"
                 data-facebook="<%= lead.facebook || 'N/A' %>"
                 data-instagram="<%= lead.instagram || 'N/A' %>"
@@ -89,107 +89,116 @@
                 data-stitch-design-url="<%= lead.stitchDesignUrl || '' %>"
                 data-stitch-screenshot-url="<%= lead.stitchScreenshotUrl || '' %>"
                 data-stitch-screen-id="<%= lead.stitchScreenId || '' %>">
-              <td class="pl-6 pr-2 py-3 align-top">
-                <div class="flex items-start">
+              <td class="lead-sticky-check pl-5 pr-2 align-top border-b border-brand-border/15 dark:border-white/[0.07]">
+                <div class="flex items-start pt-0.5">
                   <input type="checkbox" class="lead-checkbox w-4 h-4 mt-1 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>">
                 </div>
               </td>
-              <td class="px-3 py-3 align-top">
-                <div class="flex items-start gap-2.5 min-w-0 max-w-[14rem] sm:max-w-[16rem]">
-                  <div class="w-8 h-8 shrink-0 bg-brand-yellow/10 dark:bg-brand-yellow/20 rounded-lg flex items-center justify-center font-display font-extrabold text-sm text-brand-dark dark:text-white border border-brand-yellow/20 group-hover:bg-brand-yellow group-hover:border-brand-yellow transition-all duration-300">
+              <td class="lead-sticky-company px-2 align-top border-b border-brand-border/15 dark:border-white/[0.07]">
+                <div class="flex items-start gap-2.5 min-w-0 max-w-[20rem]">
+                  <div class="w-9 h-9 shrink-0 bg-brand-yellow/10 dark:bg-brand-yellow/20 rounded-xl flex items-center justify-center font-display font-extrabold text-sm text-brand-dark dark:text-white border border-brand-yellow/20 group-hover/row:bg-brand-yellow/25 transition-all duration-300">
                     <%= lead.title.charAt(0).toUpperCase() %>
                   </div>
                   <div class="min-w-0 flex-1">
-                    <div class="font-bold text-brand-dark dark:text-white group-hover:text-black dark:group-hover:text-brand-yellow transition-colors text-sm leading-tight truncate" title="<%= lead.title %>"><%= lead.title %></div>
-                    <div class="flex items-center gap-1.5 mt-0.5 flex-wrap gap-y-0">
+                    <div class="font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm leading-snug truncate" title="<%= lead.title %>"><%= lead.title %></div>
+                    <div class="flex items-center gap-1.5 mt-1 flex-wrap gap-y-0">
                       <% if (lead.source && lead.source.startsWith('adhello_')) { %>
-                        <span class="text-[8px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 shrink-0">Warm</span>
+                        <span class="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/40">Warm</span>
                       <% } else { %>
-                        <span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 shrink-0">Cold</span>
+                        <span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 shrink-0 px-1.5 py-0.5 rounded-full bg-brand-cream/80 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10">Cold</span>
                       <% } %>
-                      <span class="text-[9px] font-bold text-brand-muted dark:text-slate-400 uppercase tracking-wider truncate max-w-[7rem] sm:max-w-[9rem]" title="<%= lead.categoryName %>"><%= lead.categoryName %></span>
+                      <span class="text-[9px] font-bold text-brand-muted dark:text-slate-400 uppercase tracking-wider truncate max-w-[10rem]" title="<%= lead.categoryName %>"><%= lead.categoryName %></span>
                     </div>
-                    <p class="lead-row-address text-[10px] text-brand-muted dark:text-slate-500 mt-1 leading-snug line-clamp-2" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></p>
+                    <p class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 mt-1.5 leading-snug line-clamp-2" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></p>
                     <% if (_addedShort) { %>
-                    <p class="text-[9px] text-brand-muted/90 dark:text-slate-500 mt-0.5">Added <%= _addedShort %></p>
+                    <p class="text-[9px] text-brand-muted dark:text-slate-400 mt-1">Added <%= _addedShort %></p>
                     <% } %>
                   </div>
                 </div>
               </td>
-              <td class="px-3 py-3 pipeline-stage-cell align-top max-w-[11rem]" onclick="event.stopPropagation()">
+              <td class="px-2 pipeline-stage-cell align-top border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap" onclick="event.stopPropagation()">
                 <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { %>
                 <label class="sr-only">Pipeline stage for <%= lead.title %></label>
-                <select class="pipeline-inline-select w-full min-w-0 max-w-[10.5rem] text-[12px] font-black text-brand-dark dark:text-white bg-brand-cream/50 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10 rounded-lg px-2.5 py-2.5 shadow-sm focus:ring-2 focus:ring-brand-yellow cursor-pointer" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
+                <div class="pipeline-stage-pill-wrap inline-block w-max max-w-[13rem] rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/60 overflow-hidden transition-shadow duration-150 align-top" style="box-shadow: inset 3px 0 0 hsl(<%= _stageHue %>, 58%, 48%);">
+                <select class="pipeline-inline-select w-max min-w-0 max-w-[12.5rem] text-[11px] font-black text-brand-dark dark:text-white bg-transparent border-0 rounded-lg pl-2.5 pr-7 py-2 focus:ring-2 focus:ring-brand-yellow cursor-pointer transition-colors duration-150" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
                   <% pipelineStages.forEach((st) => { %>
                     <% const optShort = st.name.length > 34 ? st.name.slice(0, 34) + '…' : st.name; %>
                     <option value="<%= st.id %>" <%= psRow === st.id ? 'selected' : '' %>><%= optShort %></option>
                   <% }); %>
                 </select>
+                </div>
                 <% } else { %>
                 <span class="pipeline-stage-label text-[12px] font-black text-brand-yellow"><%= pipeShort %></span>
                 <% } %>
               </td>
-              <td class="px-3 py-3 text-xs font-medium text-brand-muted dark:text-slate-300 whitespace-nowrap max-w-[7rem] truncate" title="<%= lead.phone %>">
-                <%= lead.phone && lead.phone !== 'N/A' ? lead.phone : '-' %>
-              </td>
-              <td class="px-3 py-3 text-[11px] font-medium text-brand-muted dark:text-slate-300 max-w-[9rem]">
-                <% if (lead.email && lead.email !== 'N/A') { %>
-                  <a href="mailto:<%= lead.email %>" class="text-brand-yellow hover:underline font-bold truncate block" title="<%= lead.email %>" onclick="event.stopPropagation()"><%= lead.email %></a>
-                <% } else { %>
-                  <span class="text-brand-muted/50 dark:text-slate-500 font-bold">—</span>
-                <% } %>
-              </td>
-              <td class="px-3 py-3 text-xs font-medium text-brand-muted dark:text-slate-300 max-w-[6.5rem] sm:max-w-[8rem]">
-                <% if (lead.website && lead.website !== 'N/A') { %>
-                  <a href="<%= lead.website %>" target="_blank" class="website-link text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white transition-colors border-b border-transparent hover:border-brand-dark dark:hover:border-white pb-0.5 inline-block truncate max-w-full" title="<%= lead.website %>" data-url="<%= lead.website %>">
-                      <%= lead.website.replace(/^https?:\/\//, '').split('?')[0].replace(/\/$/, '') %>
-                  </a>
-                <% } else { %>
-                  <span class="text-brand-muted/50 dark:text-slate-500 font-bold text-sm">-</span>
-                <% } %>
-              </td>
-              <td class="px-3 py-3 align-top">
-                <div class="flex flex-col items-start gap-1 min-w-[4.5rem]">
-                  <div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
-                  <% if (lead.totalScore) { %>
-                    <div class="flex flex-col gap-0.5">
-                      <span class="text-xs font-black tabular-nums text-brand-dark dark:text-slate-100 leading-none"><%= Number(lead.totalScore).toFixed(1) %></span>
-                      <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-snug"><%= lead.reviewsCount || 0 %> reviews</span>
-                    </div>
-                  <% } else { %>
-                    <div class="flex flex-col gap-0.5">
-                      <span class="text-sm font-bold text-brand-muted/50 dark:text-slate-500 leading-none">—</span>
-                      <% if (lead.reviewsCount) { %>
-                      <span class="text-[10px] font-bold text-brand-muted/60 dark:text-slate-500 leading-snug"><%= lead.reviewsCount %> reviews</span>
+              <td class="lead-cell-contact px-2 align-top border-b border-brand-border/15 dark:border-white/[0.07] min-w-[11rem] max-w-[22rem]">
+                <div class="flex flex-col gap-2.5 min-w-0 py-0.5">
+                  <div class="flex items-start gap-2 min-w-0">
+                    <svg class="w-3.5 h-3.5 shrink-0 mt-0.5 text-brand-muted dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                    <span class="lead-contact-phone-slot text-xs font-semibold text-brand-dark dark:text-slate-200 truncate max-w-[200px]" title="<%= _ph || '' %>"><%= _ph || '—' %></span>
+                  </div>
+                  <div class="flex items-start gap-2 min-w-0">
+                    <svg class="w-3.5 h-3.5 shrink-0 mt-0.5 text-brand-muted dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    <span class="lead-contact-email-slot min-w-0 flex-1 max-w-[200px]">
+                      <% if (_em) { %>
+                        <a href="mailto:<%= lead.email %>" class="text-brand-yellow hover:underline font-bold text-xs truncate block" title="<%= _em %>" onclick="event.stopPropagation()"><%= _em %></a>
+                      <% } else { %>
+                        <span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>
                       <% } %>
-                    </div>
+                    </span>
+                  </div>
+                  <div class="flex items-start gap-2 min-w-0">
+                    <svg class="w-3.5 h-3.5 shrink-0 mt-0.5 text-brand-muted dark:text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                    <span class="lead-contact-web-slot min-w-0 flex-1 max-w-[200px]">
+                      <% if (_ws) { %>
+                        <a href="<%= _ws.startsWith('http') ? _ws : 'https://' + _ws %>" target="_blank" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50" title="<%= _ws %>" data-url="<%= _ws %>"><%= _wsLabel.length > 36 ? _wsLabel.slice(0, 36) + '…' : _wsLabel %></a>
+                      <% } else { %>
+                        <span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>
+                      <% } %>
+                    </span>
+                  </div>
+                </div>
+              </td>
+              <td class="lead-cell-reviews px-2 align-top border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <div class="lead-reviews-inner py-0.5">
+                  <% if (_rNum) { %>
+                    <span class="lead-reviews-line text-sm font-bold tabular-nums text-brand-dark dark:text-slate-100" title="<%= _rNum %> stars, <%= _rc %> reviews"><span class="text-brand-yellow" aria-hidden="true">★</span> <%= _rNum %> <span class="text-brand-muted dark:text-slate-400 font-semibold">(<%= _rc %>)</span></span>
+                  <% } else if (_rc) { %>
+                    <span class="text-xs font-semibold text-brand-muted dark:text-slate-400 tabular-nums" title="<%= _rc %> reviews">— <span class="text-brand-dark dark:text-slate-200">(<%= _rc %>)</span></span>
+                  <% } else { %>
+                    <span class="text-sm font-semibold text-brand-muted/60 dark:text-slate-500">—</span>
                   <% } %>
                 </div>
               </td>
-              <td class="px-3 py-3">
+              <td class="px-2 align-top border-b border-brand-border/15 dark:border-white/[0.07]">
                 <% 
-                  let statusClass = 'bg-gray-100 text-gray-500 dark:bg-slate-700 dark:text-slate-200';
-                  if (deliveryStatusDisplay === 'Video Recorded') statusClass = 'bg-brand-yellow text-brand-dark dark:text-slate-900';
-                  if (deliveryStatusDisplay === 'Email Sent') statusClass = 'bg-blue-50 text-blue-600 dark:bg-blue-950/50 dark:text-blue-300';
-                  if (deliveryStatusDisplay === 'Follow-up') statusClass = 'bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300';
-                  if (deliveryStatusDisplay === 'Closed - Won') statusClass = 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-300';
-                  if (deliveryStatusDisplay === 'Closed - Lost') statusClass = 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-300';
+                  let statusClass = 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/80 dark:bg-slate-800 dark:text-slate-200 dark:ring-white/10';
+                  if (deliveryStatusDisplay === 'Not Contacted') statusClass = 'bg-slate-100 text-slate-700 ring-1 ring-slate-200/70 dark:bg-slate-800/90 dark:text-slate-200 dark:ring-white/12';
+                  if (deliveryStatusDisplay === 'Called Lead') statusClass = 'bg-amber-50 text-amber-900 ring-1 ring-amber-200/90 dark:bg-amber-950/45 dark:text-amber-200 dark:ring-amber-800/45';
+                  if (deliveryStatusDisplay === 'Video Recorded') statusClass = 'bg-brand-yellow/35 text-brand-dark ring-1 ring-brand-yellow/50 dark:bg-brand-yellow/25 dark:text-brand-yellow dark:ring-brand-yellow/35';
+                  if (deliveryStatusDisplay === 'Email Sent') statusClass = 'bg-teal-50 text-teal-800 ring-1 ring-teal-200/80 dark:bg-teal-950/40 dark:text-teal-200 dark:ring-teal-800/40';
+                  if (deliveryStatusDisplay === 'Follow-up') statusClass = 'bg-purple-50 text-purple-800 ring-1 ring-purple-200/80 dark:bg-purple-950/45 dark:text-purple-200 dark:ring-purple-800/40';
+                  if (deliveryStatusDisplay === 'Closed - Won') statusClass = 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200/80 dark:bg-emerald-950/45 dark:text-emerald-300 dark:ring-emerald-800/40';
+                  if (deliveryStatusDisplay === 'Closed - Lost') statusClass = 'bg-red-50 text-red-800 ring-1 ring-red-200/80 dark:bg-red-950/45 dark:text-red-300 dark:ring-red-800/40';
                 %>
-                <span class="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider <%= statusClass %> whitespace-nowrap max-w-[9rem] truncate inline-block align-middle" title="<%= deliveryStatusDisplay %>">
+                <span class="px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider <%= statusClass %> whitespace-nowrap max-w-[10rem] truncate inline-block align-middle" title="<%= deliveryStatusDisplay %>">
                   <%= deliveryStatusDisplay %>
                 </span>
               </td>
-              <td class="px-3 py-3 text-right pr-6">
-                <div class="flex items-center justify-end gap-2 text-center">
-                    <button type="button" class="email-intel-btn w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all" 
+              <td class="lead-actions-cell px-2 pr-5 align-top border-b border-brand-border/15 dark:border-white/[0.07] text-right">
+                <div class="flex items-center justify-end gap-1 pt-0.5">
+                    <button type="button" class="email-intel-btn email-intel-btn--row w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" 
                       data-lead-key="<%= lead.key %>"
                       data-email="<%= lead.email && lead.email !== 'N/A' ? lead.email : '' %>"
                       data-company="<%= lead.title %>"
-                      title="Service offerings &amp; AI recommendation">
-                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      title="Offerings &amp; AI email recommendation"
+                      aria-label="Offerings and AI recommendation">
+                      <span class="sr-only">Offerings</span>
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                     </button>
-                   <button type="button" class="view-detail-btn w-8 h-8 rounded-lg hover:bg-brand-yellow/10 text-brand-muted dark:text-slate-400 hover:text-brand-yellow dark:hover:text-brand-yellow transition-all flex items-center justify-center border border-transparent hover:border-brand-yellow/20">
-                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
+                   <button type="button" class="view-detail-btn w-8 h-8 rounded-lg hover:bg-brand-yellow/10 text-brand-muted dark:text-slate-400 hover:text-brand-yellow dark:hover:text-brand-yellow transition-all flex items-center justify-center border border-transparent hover:border-brand-yellow/20" title="Open lead details" aria-label="Open lead details">
+                      <span class="sr-only">Details</span>
+                      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>
                    </button>
                 </div>
               </td>
@@ -210,14 +219,14 @@
                   <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white leading-tight"><%= col.name %></h3>
                   <span class="px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted dark:text-slate-300 column-count">0</span>
               </div>
-              <div class="kanban-list min-h-[480px] flex flex-col gap-3 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/40 dark:border-white/10"></div>
+              <div class="kanban-list kanban-drop-zone min-h-[480px] flex flex-col gap-3 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/40 dark:border-white/10"></div>
           </div>
           <% }); } %>
       </div>
   </div>
 
   <!-- Bulk Action Bar -->
-  <div id="bulkActionBar" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-brand-dark text-white px-8 py-5 rounded-[2.5rem] shadow-2xl z-[150] flex flex-col gap-3 max-w-[calc(100vw-2rem)] opacity-0 translate-y-20 pointer-events-none transition-all duration-500 backdrop-blur-xl border border-white/10">
+  <div id="bulkActionBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-brand-dark text-white px-6 py-4 sm:px-8 sm:py-5 rounded-[2.5rem] shadow-2xl z-[150] flex flex-col gap-3 max-w-[calc(100vw-2rem)] opacity-0 translate-y-24 pointer-events-none transition-all duration-300 ease-out backdrop-blur-xl border border-white/10">
     <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
       <div class="flex items-center gap-4 sm:border-r sm:border-white/10 sm:pr-8">
           <div id="selectedCountCircle" class="w-10 h-10 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center font-black text-sm shadow-lg">0</div>
@@ -225,27 +234,42 @@
       </div>
       
       <div class="flex flex-wrap items-center gap-4">
-          <div class="flex items-center gap-2.5 px-3 py-2 rounded-2xl bg-white/5 border border-white/10">
-            <label for="bulkFolderSelect" class="text-[10px] font-black uppercase tracking-widest text-white/70">Folder</label>
-            <select id="bulkFolderSelect" class="bg-transparent text-xs font-black uppercase tracking-widest text-white/90 focus:outline-none cursor-pointer max-w-[14rem]">
-              <option value="">No folder</option>
-            </select>
-            <button type="button" id="bulkMoveFolderBtn" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed" disabled>
-              Move
-            </button>
+          <div class="flex flex-col gap-2">
+            <div class="flex flex-wrap items-center gap-2 sm:gap-2.5 px-3 py-2 rounded-2xl bg-white/5 border border-white/10">
+              <label for="bulkFolderSelect" class="text-[10px] font-black uppercase tracking-widest text-white/70 shrink-0">Folder</label>
+              <select id="bulkFolderSelect" class="min-w-[9rem] max-w-[16rem] rounded-lg bg-white/10 border border-white/10 px-2 py-1.5 text-xs font-black uppercase tracking-widest text-white/90 focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 cursor-pointer">
+                <option value="">No folder</option>
+              </select>
+              <button type="button" id="bulkMoveFolderBtn" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+                Move
+              </button>
+              <button type="button" id="bulkFolderNewToggle" class="px-2.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:bg-white/10 border border-transparent hover:border-brand-yellow/35 transition-colors shrink-0" title="Create a new folder">
+                + New folder
+              </button>
+            </div>
+            <div id="bulkFolderNewRow" class="hidden flex-wrap items-center gap-2 px-3 py-2 rounded-2xl bg-white/5 border border-brand-yellow/25">
+              <input type="text" id="bulkFolderNewName" autocomplete="off" placeholder="New folder name…" class="min-w-[10rem] flex-1 rounded-lg bg-white/10 border border-white/15 px-3 py-2 text-xs font-semibold text-white placeholder:text-white/45 focus:outline-none focus:ring-2 focus:ring-brand-yellow/50" />
+              <button type="button" id="bulkFolderNewSave" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest hover:brightness-105 shrink-0">Create</button>
+              <button type="button" id="bulkFolderNewCancel" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-white/75 hover:text-white border border-white/15 shrink-0">Cancel</button>
+            </div>
           </div>
-          <button type="button" class="js-bulk-enhance flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-brand-yellow transition-all group overflow-hidden relative">
+          <button type="button" class="js-bulk-enhance flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-brand-yellow transition-all group overflow-hidden relative" title="Enrich selected leads (Firecrawl)">
              <svg class="w-4 h-4 text-brand-yellow group-hover:animate-sparkle" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 15L18 16.125l-.25-1.125a1.125 1.125 0 00-.75-.75L15.875 14l1.125-.25a1.125 1.125 0 00.75-.75L18 11.875l.25 1.125a1.125 1.125 0 00.75.75l1.125.25-1.125.25a1.125 1.125 0 00-.75.75z" /></svg>
              <span class="text-xs font-black uppercase tracking-widest">Enhance</span>
           </button>
-          <button type="button" class="js-bulk-export-csv flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-400 transition-all group">
+          <button type="button" class="js-bulk-export-csv flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-400 transition-all group" title="Download selected as CSV">
              <svg class="w-4 h-4 text-blue-400 group-hover:translate-y-[-2px] transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
              <span class="text-xs font-black uppercase tracking-widest">Export CSV</span>
+          </button>
+
+          <button type="button" id="batchOutreachBtnBulk" class="flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/40 transition-all group" title="Batch outreach workspace">
+             <svg class="w-4 h-4 text-rose-300 group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" /></svg>
+             <span class="text-xs font-black uppercase tracking-widest text-rose-100">War Room</span>
           </button>
           
           <div class="hidden sm:block w-px h-6 bg-white/10"></div>
           
-          <button id="cancelSelectionBtn" class="text-xs font-bold text-white/50 hover:text-white transition-colors uppercase tracking-widest">Cancel</button>
+          <button type="button" id="cancelSelectionBtn" class="text-xs font-bold text-white/50 hover:text-white transition-colors uppercase tracking-widest">Cancel</button>
       </div>
     </div>
     <button type="button" id="bulkDeleteBtn" class="w-full text-center pt-2 border-t border-white/10 text-xs font-black uppercase tracking-widest text-rose-400 hover:text-rose-300 transition-colors">
@@ -253,12 +277,13 @@
     </button>
   </div>
 <% } else { %>
-  <div class="brand-card p-24 text-center max-wide">
-    <div class="w-20 h-20 bg-brand-cream rounded-full flex items-center justify-center mx-auto mb-8 border border-brand-border">
-      <svg class="w-10 h-10 text-brand-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
+  <div class="brand-card p-16 md:p-24 text-center max-wide dark:bg-slate-900 dark:border-white/10">
+    <div class="w-20 h-20 bg-brand-yellow/15 dark:bg-brand-yellow/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-brand-yellow/30">
+      <svg class="w-10 h-10 text-brand-yellow/80" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
     </div>
-    <h2 class="font-display font-extrabold text-3xl text-brand-dark mb-4">No saved leads</h2>
-    <p class="text-brand-muted font-medium mb-10 max-w-sm mx-auto">You haven't bookmarked any leads yet. Start searching to build your collection.</p>
-    <a href="/" class="btn-pill btn-primary px-10">Start Searching</a>
+    <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">No leads in this workspace yet</h2>
+    <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mb-2 max-w-md mx-auto leading-relaxed">Run a maps search, import a CSV, or add a manual lead — your pipeline and board will light up here.</p>
+    <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-10 max-w-sm mx-auto">Tip: use <strong class="text-brand-dark dark:text-white">Find More Leads</strong> above to start.</p>
+    <a href="/" class="btn-pill btn-primary px-10 shadow-md">Find leads</a>
   </div>
 <% } %>

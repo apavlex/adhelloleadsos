@@ -14,7 +14,7 @@
 .dark {
     --brand-bg: #020617; /* Slate 950 */
     --brand-dark: #F8FAFC; /* Slate 50 */
-    --brand-muted: #94A3B8; /* Slate 400 */
+    --brand-muted: #cbd5e1; /* Slate 300 — stronger muted-body contrast on navy */
     --brand-border: rgba(255, 255, 255, 0.1);
     --brand-card-bg: #0F172A; /* Slate 900 */
     --brand-cream: #1E293B; /* Slate 800 - Used for hovers/inputs */
@@ -130,7 +130,7 @@ h1, h2, h3, h4, .font-display {
 
 #mobilePanel {
     transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    z-index: 100;
+    z-index: 160;
 }
 
 #mobilePanel.open {
@@ -316,9 +316,143 @@ table {
 }
 
 #bulkActionBar {
-  background: rgba(15, 23, 42, 0.85);
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  background: rgba(15, 23, 42, 0.92);
+  box-shadow: 0 -8px 32px -6px rgba(0, 0, 0, 0.35), 0 25px 50px -12px rgba(0, 0, 0, 0.45);
 }
+
+/* Kanban: empty column drop hint + card hover lift */
+.kanban-drop-zone:empty::after {
+  content: 'Drag a lead here from another column to move its stage.';
+  display: block;
+  margin-top: auto;
+  margin-bottom: auto;
+  padding: 0.85rem 0.65rem;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: 0.02em;
+  color: var(--brand-muted);
+  border-radius: 1.15rem;
+  background: rgba(253, 214, 68, 0.14);
+  border: 1px dashed var(--brand-border);
+}
+
+.dark .kanban-drop-zone:empty::after {
+  background: rgba(253, 214, 68, 0.09);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+}
+
+.kanban-card--lift {
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.kanban-card--lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.2);
+}
+
+.dark .kanban-card--lift:hover {
+  box-shadow: 0 14px 32px -8px rgba(0, 0, 0, 0.55);
+}
+
+/* Prospecting pipeline table: sticky header + checkbox/company, row hover actions */
+.prospect-leads-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--brand-card-bg);
+  box-shadow: 0 1px 0 rgba(17, 24, 39, 0.08);
+}
+
+.dark .prospect-leads-table thead th {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.prospect-leads-table th.lead-sticky-check,
+.prospect-leads-table td.lead-sticky-check {
+  position: sticky;
+  left: 0;
+  z-index: 35;
+  box-shadow: 1px 0 0 rgba(17, 24, 39, 0.06);
+}
+
+.prospect-leads-table th.lead-sticky-company,
+.prospect-leads-table td.lead-sticky-company {
+  position: sticky;
+  left: 3rem;
+  z-index: 34;
+  box-shadow: 1px 0 0 rgba(17, 24, 39, 0.06);
+}
+
+.dark .prospect-leads-table th.lead-sticky-check,
+.dark .prospect-leads-table td.lead-sticky-check,
+.dark .prospect-leads-table th.lead-sticky-company,
+.dark .prospect-leads-table td.lead-sticky-company {
+  box-shadow: 1px 0 0 rgba(255, 255, 255, 0.07);
+}
+
+.prospect-leads-table thead th.lead-sticky-check {
+  z-index: 45;
+}
+
+.prospect-leads-table thead th.lead-sticky-company {
+  z-index: 44;
+}
+
+.prospect-leads-table tbody tr:nth-child(odd) td {
+  background-color: rgba(250, 247, 237, 0.45);
+}
+
+.prospect-leads-table tbody tr:nth-child(even) td {
+  background-color: var(--brand-card-bg);
+}
+
+.dark .prospect-leads-table tbody tr:nth-child(odd) td {
+  background-color: rgba(30, 41, 59, 0.55);
+}
+
+.dark .prospect-leads-table tbody tr:nth-child(even) td {
+  background-color: var(--brand-card-bg);
+}
+
+.prospect-leads-table--comfortable tbody td {
+  padding-top: 1.15rem;
+  padding-bottom: 1.15rem;
+}
+
+.prospect-leads-table--comfortable thead th {
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+
+.prospect-leads-table--compact tbody td {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.prospect-leads-table--compact thead th {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.prospect-leads-table--compact .lead-cell-contact .flex.flex-col {
+  gap: 0.35rem;
+}
+
+.result-row:focus-within .email-intel-btn--row,
+.lead-actions-cell:focus-within .email-intel-btn--row {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+
+.lead-density-btn.lead-density-btn--active {
+  background-color: var(--brand-yellow);
+  color: #111827;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
 .lead-checkbox:checked {
   background-color: var(--brand-yellow);
   border-color: var(--brand-yellow);

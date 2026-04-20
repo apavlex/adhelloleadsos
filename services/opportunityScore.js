@@ -124,8 +124,9 @@ function defaultAiTimeSaversLeads() {
     { label: 'Enrich from Saved Leads', hint: 'Fills mobile, schema, chatbot flags so scoring gets sharper.' },
     { label: 'Apify search first', hint: 'Structured Maps data beats manual lists — coach ranks by gaps automatically.' },
     {
-      label: 'Tech + buying signals',
-      hint: 'Enrichment merges HTML tech tags (Wix/Shopify/chat widgets). Add GEMINI_API_KEY, KIE_AI_API_KEY, or OPENAI_API_KEY for gap-aware outreach drafts.',
+      label: 'Frontier LLMs on top of signals',
+      hint:
+        'Claude / GPT-4–level models shine on personalization lines, ICP 1–10 + why, 2-line site summaries for reps, reply classification, business-specific follow-ups, and structured pulls (names, pain points) from rough Firecrawl text. Add GEMINI_API_KEY, KIE_AI_API_KEY, or OPENAI_API_KEY.',
     },
     { label: 'War Room batch', hint: 'Draft outreach for the highest scores in one pass.' },
   ];

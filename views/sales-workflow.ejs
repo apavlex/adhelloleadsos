@@ -81,6 +81,7 @@
                     data-city="<%= lead.city || '' %>"
                     data-rating="<%= lead.totalScore || 0 %>"
                     data-reviews="<%= lead.reviewsCount || 0 %>"
+                    data-review-snippets='<%= JSON.stringify(lead.reviewSnippets || []).replace(/'/g, "&apos;") %>'
                     data-url="<%= lead.url || '' %>"
                     data-facebook="<%= lead.facebook || 'N/A' %>"
                     data-instagram="<%= lead.instagram || 'N/A' %>"

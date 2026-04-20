@@ -537,7 +537,9 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileMenu.addEventListener('click', (e) => {
       if (e.target === mobileMenu) closeNav();
     });
-   // --- Detail panel & rows ---
+  }
+
+  // --- Detail panel & rows (must not depend on mobile nav; panel exists on Prospecting / leads pages) ---
   const mobilePanel = document.getElementById('mobilePanel');
   const closeMobileBtn = document.getElementById('closeMobilePanel');
   const prevLeadBtn = document.getElementById('prevLeadBtn');
@@ -739,7 +741,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
-  }
 
   let kieInsightRequestId = 0;
 
@@ -818,6 +819,176 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
+  let reviewIntelRequestId = 0;
+
+  function reviewHeuristicsFromRowDataset(ds) {
+    const rating = parseFloat(ds.rating) || 0;
+    const n = parseInt(ds.reviews, 10) || 0;
+    const strengths = [];
+    const weaknesses = [];
+    if (rating >= 4.3) strengths.push('Strong average rating — customers generally rate the experience highly.');
+    else if (rating >= 3.8 && rating > 0) strengths.push('Solid average rating with room to sharpen the public narrative.');
+    if (n >= 50) strengths.push('High review volume — strong social proof in local search.');
+    else if (n >= 10) strengths.push('Meaningful review count — an established local footprint.');
+    if (rating < 4.0 && rating > 0) weaknesses.push('Below ~4.0★ — sentiment and response cadence may need attention.');
+    if (n > 0 && n < 10) weaknesses.push('Thin review footprint — easier for competitors to look more trusted.');
+    if (rating === 0 && n === 0) {
+      strengths.push('Greenfield — a structured review program can be positioned as growth, not chores.');
+      weaknesses.push('No star/review signals on file — enrich or import listings data to tighten the pitch.');
+    }
+    if (strengths.length === 0) strengths.push('—');
+    if (weaknesses.length === 0) weaknesses.push('—');
+    return {
+      strengths,
+      weaknesses,
+      sourceNote: 'Quick read from stars and review count only (save the lead for AI + quoted snippets).',
+    };
+  }
+
+  function scheduleReviewIntelligence(row, opts) {
+    const refresh = !!(opts && opts.refresh);
+    const section = document.getElementById('reviewReputationSection');
+    if (!section || !row) return;
+
+    const loading = document.getElementById('reviewIntelLoading');
+    const grid = document.getElementById('reviewIntelGrid');
+    const errEl = document.getElementById('reviewIntelError');
+    const foot = document.getElementById('reviewIntelFootnote');
+    const strengthsUl = document.getElementById('reviewStrengthsList');
+    const weaknessesUl = document.getElementById('reviewWeaknessesList');
+    const snippetsWrap = document.getElementById('reviewSnippetsWrap');
+    const snippetsUl = document.getElementById('reviewSnippetsList');
+    const refreshBtn = document.getElementById('reviewIntelRefreshBtn');
+
+    function fillReviewBullets(ul, items) {
+      if (!ul) return;
+      ul.innerHTML = '';
+      const list = Array.isArray(items) ? items : [];
+      if (!list.length) {
+        const li = document.createElement('li');
+        li.className = 'text-xs text-brand-muted dark:text-slate-400';
+        li.textContent = '—';
+        ul.appendChild(li);
+        return;
+      }
+      for (const t of list.slice(0, 8)) {
+        const li = document.createElement('li');
+        li.className =
+          'text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed pl-3 border-l-2 border-brand-yellow/50 mb-2 last:mb-0';
+        li.textContent = String(t);
+        ul.appendChild(li);
+      }
+    }
+
+    function applyIntel(data, heuristicFallback) {
+      if (loading) loading.classList.add('hidden');
+      if (grid) grid.classList.remove('hidden');
+      if (errEl) errEl.classList.add('hidden');
+      const src = data && data.sourceNote;
+      if (foot) {
+        if (src) {
+          foot.textContent = data.cached ? `${src} (cached)` : src;
+          foot.classList.remove('hidden');
+        } else {
+          foot.textContent = '';
+          foot.classList.add('hidden');
+        }
+      }
+      if (data && Array.isArray(data.strengths)) {
+        fillReviewBullets(strengthsUl, data.strengths);
+        fillReviewBullets(weaknessesUl, data.weaknesses);
+      } else if (heuristicFallback) {
+        fillReviewBullets(strengthsUl, heuristicFallback.strengths);
+        fillReviewBullets(weaknessesUl, heuristicFallback.weaknesses);
+        if (foot && heuristicFallback.sourceNote) {
+          foot.textContent = heuristicFallback.sourceNote;
+          foot.classList.remove('hidden');
+        }
+      }
+    }
+
+    let snippets = [];
+    try {
+      const raw = row.dataset.reviewSnippets;
+      if (raw && raw !== '[]' && raw !== '') snippets = JSON.parse(raw);
+    } catch (_) {
+      snippets = [];
+    }
+    if (snippetsUl && snippetsWrap) {
+      snippetsUl.innerHTML = '';
+      if (snippets.length) {
+        snippetsWrap.classList.remove('hidden');
+        for (const s of snippets.slice(0, 8)) {
+          const li = document.createElement('li');
+          li.className =
+            'text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed italic border-l-2 border-brand-border/40 dark:border-white/10 pl-3';
+          li.textContent = `"${String(s)}"`;
+          snippetsUl.appendChild(li);
+        }
+      } else {
+        snippetsWrap.classList.add('hidden');
+      }
+    }
+
+    if (refreshBtn) {
+      refreshBtn.classList.toggle('hidden', !row.dataset.leadKey);
+    }
+
+    const key = row.dataset.leadKey;
+    const heuristic = reviewHeuristicsFromRowDataset(row.dataset);
+
+    if (!key) {
+      applyIntel(null, heuristic);
+      return;
+    }
+
+    if (errEl) {
+      errEl.classList.add('hidden');
+      errEl.textContent = '';
+    }
+    if (loading) loading.classList.remove('hidden');
+    if (grid) grid.classList.add('hidden');
+    if (foot) {
+      foot.textContent = '';
+      foot.classList.add('hidden');
+    }
+
+    const reqId = ++reviewIntelRequestId;
+    fetch(`/leads/${encodeURIComponent(key)}/review-intelligence`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ refresh }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (reqId !== reviewIntelRequestId) return;
+        if (data.success) {
+          applyIntel(data, null);
+        } else {
+          if (loading) loading.classList.add('hidden');
+          if (grid) grid.classList.remove('hidden');
+          applyIntel(null, heuristic);
+          if (errEl) {
+            const hint = data.error ? String(data.error) : '';
+            errEl.textContent = hint
+              ? `${hint} Showing quick signals below.`
+              : 'AI unavailable. Showing quick signals below.';
+            errEl.classList.remove('hidden');
+          }
+        }
+      })
+      .catch(() => {
+        if (reqId !== reviewIntelRequestId) return;
+        if (loading) loading.classList.add('hidden');
+        if (grid) grid.classList.remove('hidden');
+        applyIntel(null, heuristic);
+        if (errEl) {
+          errEl.textContent = 'Could not reach review analysis. Showing quick signals below.';
+          errEl.classList.remove('hidden');
+        }
+      });
+  }
+
   function syncPersistedLeadToRowDataset(row, L) {
     if (!row || !L || typeof L !== 'object') return;
     const ds = row.dataset;
@@ -835,6 +1006,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.twitter != null) ds.twitter = L.twitter || 'N/A';
     if (L.totalScore != null) ds.rating = String(L.totalScore);
     if (L.reviewsCount != null) ds.reviews = String(L.reviewsCount);
+    if (L.reviewSnippets != null) {
+      ds.reviewSnippets = Array.isArray(L.reviewSnippets)
+        ? JSON.stringify(L.reviewSnippets)
+        : String(L.reviewSnippets || '[]');
+    }
     if (L.status != null) ds.status = L.status;
     if (L.hasSchemaMarkup !== undefined && L.hasSchemaMarkup !== null) ds.hasSchemaMarkup = L.hasSchemaMarkup;
     if (L.hasChatbot !== undefined && L.hasChatbot !== null) ds.hasChatbot = L.hasChatbot;
@@ -1379,6 +1555,8 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduleKieServiceInsight(row);
     }
 
+    scheduleReviewIntelligence(row, { refresh: false });
+
     // Stitch AI Design Logic
     const stitchPreviewSection = document.getElementById('stitchPreviewSection');
     const stitchScreenshot = document.getElementById('stitchScreenshot');
@@ -1530,6 +1708,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const short =
           (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
         row.dataset.pipelineLabel = short;
+        const wrap = row.querySelector('.pipeline-stage-pill-wrap');
+        if (wrap) wrap.style.boxShadow = `inset 3px 0 0 hsl(${((newStage - 1) * 36) % 360}, 58%, 48%)`;
+        if (typeof window.showProspectToast === 'function') window.showProspectToast('Stage updated');
         if (document.querySelector('.result-row.selected') === row) syncMobilePanelCqi(row);
       } else {
         sel.value = String(prev);
@@ -1736,6 +1917,14 @@ document.addEventListener('DOMContentLoaded', () => {
         statusSelect.value = 'Email Sent';
         statusSelect.dispatchEvent(new Event('change'));
       }
+    });
+  }
+
+  const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');
+  if (reviewIntelRefreshBtn) {
+    reviewIntelRefreshBtn.addEventListener('click', () => {
+      if (!currentRow || !currentRow.dataset.leadKey) return;
+      scheduleReviewIntelligence(currentRow, { refresh: true });
     });
   }
 
@@ -2055,6 +2244,26 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.textContent = 'Save Lead';
   }
 
+  window.showProspectToast = function showProspectToast(message) {
+    let el = document.getElementById('prospectToast');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'prospectToast';
+      el.setAttribute('role', 'status');
+      el.className =
+        'fixed bottom-28 left-1/2 z-[180] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark dark:bg-slate-900 text-white text-sm font-semibold shadow-lg shadow-black/20 dark:shadow-black/40 border border-white/15 max-w-[min(90vw,20rem)] text-center';
+      document.body.appendChild(el);
+    }
+    el.textContent = message || 'Done';
+    requestAnimationFrame(() => {
+      el.classList.remove('opacity-0', 'translate-y-3', 'pointer-events-none');
+    });
+    clearTimeout(window.__prospectToastTimer);
+    window.__prospectToastTimer = setTimeout(() => {
+      el.classList.add('opacity-0', 'translate-y-3', 'pointer-events-none');
+    }, 2400);
+  };
+
   // --- Bulk Selection & Actions ---
   const selectAllLeads = document.getElementById('selectAllLeads');
   const leadCheckboxes = document.querySelectorAll('.lead-checkbox');
@@ -2063,6 +2272,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
   const bulkFolderSelect = document.getElementById('bulkFolderSelect');
   const bulkMoveFolderBtn = document.getElementById('bulkMoveFolderBtn');
+  const bulkFolderNewToggle = document.getElementById('bulkFolderNewToggle');
+  const bulkFolderNewRow = document.getElementById('bulkFolderNewRow');
+  const bulkFolderNewName = document.getElementById('bulkFolderNewName');
+  const bulkFolderNewSave = document.getElementById('bulkFolderNewSave');
+  const bulkFolderNewCancel = document.getElementById('bulkFolderNewCancel');
 
   let selectedKeys = new Set();
 
@@ -2073,11 +2287,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (selectedCountCircle) selectedCountCircle.textContent = count;
     if (bulkActionBar) {
       if (count > 0) {
-        bulkActionBar.classList.remove('opacity-0', 'translate-y-20', 'pointer-events-none');
+        bulkActionBar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
         bulkActionBar.classList.add('opacity-100', 'translate-y-0');
         bulkActionBar.style.pointerEvents = 'auto';
       } else {
-        bulkActionBar.classList.add('opacity-0', 'translate-y-20', 'pointer-events-none');
+        bulkActionBar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
         bulkActionBar.classList.remove('opacity-100', 'translate-y-0');
         bulkActionBar.style.pointerEvents = 'none';
       }
@@ -2102,20 +2316,103 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  function hydrateBulkFolderSelect() {
+  function rebuildBulkFolderSelect(preferredValue) {
     if (!bulkFolderSelect) return;
-    const folders = Array.isArray(window.WORKSPACE_FOLDERS) ? window.WORKSPACE_FOLDERS : [];
-    const existing = new Set(Array.from(bulkFolderSelect.options).map((o) => o.value));
+    if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+    const folders = [...window.WORKSPACE_FOLDERS].sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
+    );
+    const prev =
+      preferredValue !== undefined && preferredValue !== null
+        ? String(preferredValue)
+        : bulkFolderSelect.value;
+    bulkFolderSelect.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = 'No folder';
+    bulkFolderSelect.appendChild(emptyOpt);
     folders.forEach((f) => {
-      if (!f || !f.key || existing.has(f.key)) return;
+      if (!f || !f.key) return;
       const opt = document.createElement('option');
       opt.value = f.key;
       opt.textContent = f.name || 'Folder';
       bulkFolderSelect.appendChild(opt);
     });
+    const valid = prev && Array.from(bulkFolderSelect.options).some((o) => o.value === prev);
+    bulkFolderSelect.value = valid ? prev : '';
   }
 
-  hydrateBulkFolderSelect();
+  rebuildBulkFolderSelect();
+
+  function setBulkFolderNewRowVisible(show) {
+    if (!bulkFolderNewRow) return;
+    if (show) {
+      bulkFolderNewRow.classList.remove('hidden');
+      bulkFolderNewRow.classList.add('flex');
+    } else {
+      bulkFolderNewRow.classList.add('hidden');
+      bulkFolderNewRow.classList.remove('flex');
+      if (bulkFolderNewName) bulkFolderNewName.value = '';
+    }
+  }
+
+  if (bulkFolderNewToggle && bulkFolderNewRow) {
+    bulkFolderNewToggle.addEventListener('click', () => {
+      const isHidden = bulkFolderNewRow.classList.contains('hidden');
+      if (isHidden) {
+        setBulkFolderNewRowVisible(true);
+        if (bulkFolderNewName) bulkFolderNewName.focus();
+      } else {
+        setBulkFolderNewRowVisible(false);
+      }
+    });
+  }
+  if (bulkFolderNewCancel) {
+    bulkFolderNewCancel.addEventListener('click', () => setBulkFolderNewRowVisible(false));
+  }
+  if (bulkFolderNewName) {
+    bulkFolderNewName.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') setBulkFolderNewRowVisible(false);
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        if (bulkFolderNewSave && !bulkFolderNewSave.disabled) bulkFolderNewSave.click();
+      }
+    });
+  }
+  if (bulkFolderNewSave && bulkFolderNewName) {
+    bulkFolderNewSave.addEventListener('click', async () => {
+      const name = String(bulkFolderNewName.value || '').trim();
+      if (!name) {
+        window.alert('Enter a folder name.');
+        return;
+      }
+      bulkFolderNewSave.disabled = true;
+      try {
+        const res = await fetch('/folders', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success || !data.folder || !data.folder.key) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        const { key, name: folderName } = data.folder;
+        if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+        if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
+          window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
+        }
+        rebuildBulkFolderSelect(key);
+        setBulkFolderNewRowVisible(false);
+      } catch (err) {
+        console.error('Create folder from bulk bar failed:', err);
+        window.alert(err.message || 'Could not create folder.');
+      } finally {
+        bulkFolderNewSave.disabled = false;
+      }
+    });
+  }
 
   if (selectAllLeads) {
     selectAllLeads.addEventListener('change', (e) => {
@@ -2312,14 +2609,20 @@ document.addEventListener('DOMContentLoaded', () => {
   function getBulkEnhanceLayout(row) {
     const cells = row.querySelectorAll('td');
     if (row.querySelector('.pipeline-stage-cell')) {
-      if (cells.length < 9) return null;
+      const contactCell = row.querySelector('.lead-cell-contact');
+      const reviewsInner = row.querySelector('.lead-reviews-inner');
+      if (!contactCell || !reviewsInner) return null;
+      const phone = contactCell.querySelector('.lead-contact-phone-slot');
+      const email = contactCell.querySelector('.lead-contact-email-slot');
+      const website = contactCell.querySelector('.lead-contact-web-slot');
+      if (!phone || !email || !website) return null;
       return {
         kind: 'leads',
         addressEl: row.querySelector('.lead-row-address'),
-        phone: cells[3],
-        email: cells[4],
-        website: cells[5],
-        reviews: cells[6],
+        phone,
+        email,
+        website,
+        reviews: reviewsInner,
       };
     }
     if (cells.length < 11) return null;
@@ -2405,6 +2708,45 @@ document.addEventListener('DOMContentLoaded', () => {
       return `<span class="block text-sm font-medium text-brand-muted dark:text-slate-300">${p}</span>`;
     }
     return '<span class="block text-sm text-brand-muted/60">-</span>';
+  }
+
+  function setLeadPhoneSlot(el, phone) {
+    if (!el) return;
+    const p = phone && phone !== 'N/A' ? String(phone).trim() : '';
+    el.textContent = p || '—';
+    if (p) el.setAttribute('title', p);
+    else el.removeAttribute('title');
+  }
+
+  function renderLeadEmailSlotInner(email) {
+    const e = email && email !== 'N/A' ? String(email).trim() : '';
+    if (!e) {
+      return '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
+    }
+    return `<a href="mailto:${encodeURIComponent(e)}" class="text-brand-yellow hover:underline font-bold text-xs truncate block max-w-[200px]" title="${escapeHtmlAttr(e)}" onclick="event.stopPropagation()">${escapeHtmlText(e)}</a>`;
+  }
+
+  function renderLeadWebSlotInner(website) {
+    if (!website || website === 'N/A') {
+      return '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
+    }
+    const w = String(website).trim();
+    const href = w.startsWith('http') ? w : `https://${w}`;
+    const label = w.replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, '');
+    const disp = label.length > 36 ? `${label.slice(0, 36)}…` : label;
+    return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50 max-w-[200px]" title="${escapeHtmlAttr(w)}" data-url="${escapeHtmlAttr(w)}">${escapeHtmlText(disp)}</a>`;
+  }
+
+  function renderLeadsReviewsInnerHtml(rating, reviews) {
+    const r = parseFloat(rating) || 0;
+    const c = parseInt(reviews, 10) || 0;
+    if (r > 0) {
+      return `<span class="lead-reviews-line text-sm font-bold tabular-nums text-brand-dark dark:text-slate-100" title="${r.toFixed(1)} stars, ${c} reviews"><span class="text-brand-yellow" aria-hidden="true">★</span> ${r.toFixed(1)} <span class="text-brand-muted dark:text-slate-400 font-semibold">(${c})</span></span>`;
+    }
+    if (c > 0) {
+      return `<span class="text-xs font-semibold text-brand-muted dark:text-slate-400 tabular-nums" title="${c} reviews">— <span class="text-brand-dark dark:text-slate-200">(${c})</span></span>`;
+    }
+    return '<span class="text-sm font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
   }
 
   function renderLeadsTableEmailCell(email) {
@@ -2523,12 +2865,10 @@ document.addEventListener('DOMContentLoaded', () => {
               if (layout.addressEl) {
                 layout.addressEl.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
               }
-              layout.phone.innerHTML = renderLeadsTablePhoneCell(row.dataset.phone);
-              layout.email.innerHTML = renderLeadsTableEmailCell(row.dataset.email);
-              layout.website.innerHTML = renderLeadsTableWebsiteCell(row.dataset.website);
-              layout.reviews.innerHTML = renderReviewsCellInner(row.dataset.rating, row.dataset.reviews);
-              const starEl = layout.reviews.querySelector('.row-stars');
-              if (starEl) renderStarsInElement(starEl, parseFloat(row.dataset.rating) || 0, 'w-3.5 h-3.5');
+              setLeadPhoneSlot(layout.phone, row.dataset.phone);
+              layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
+              layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
+              layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
               const intelBtn = row.querySelector('.email-intel-btn');
               if (intelBtn) {
                 intelBtn.dataset.email = row.dataset.email && row.dataset.email !== 'N/A' ? row.dataset.email : '';
@@ -2640,22 +2980,24 @@ document.addEventListener('DOMContentLoaded', () => {
   const kanbanView = document.getElementById('kanbanView');
 
   if (showTableViewBtn && showKanbanViewBtn) {
+    const segActive = ['bg-brand-yellow', 'text-brand-dark', 'shadow-sm'];
+    const segInactive = ['text-brand-muted', 'dark:text-slate-400'];
     showTableViewBtn.addEventListener('click', () => {
         tableView.classList.remove('hidden');
         kanbanView.classList.add('hidden');
-        showTableViewBtn.classList.add('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
-        showTableViewBtn.classList.remove('text-brand-muted');
-        showKanbanViewBtn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
-        showKanbanViewBtn.classList.add('text-brand-muted');
+        showTableViewBtn.classList.add(...segActive);
+        showTableViewBtn.classList.remove(...segInactive);
+        showKanbanViewBtn.classList.remove(...segActive);
+        showKanbanViewBtn.classList.add(...segInactive);
     });
 
     showKanbanViewBtn.addEventListener('click', () => {
         tableView.classList.add('hidden');
         kanbanView.classList.remove('hidden');
-        showKanbanViewBtn.classList.add('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
-        showKanbanViewBtn.classList.remove('text-brand-muted');
-        showTableViewBtn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
-        showTableViewBtn.classList.add('text-brand-muted');
+        showKanbanViewBtn.classList.add(...segActive);
+        showKanbanViewBtn.classList.remove(...segInactive);
+        showTableViewBtn.classList.remove(...segActive);
+        showTableViewBtn.classList.add(...segInactive);
         initKanban();
     });
   }
@@ -2740,8 +3082,13 @@ document.addEventListener('DOMContentLoaded', () => {
                                     if (pipeSel) pipeSel.value = String(newStage);
                                     const cell = originalRow.querySelector('.pipeline-stage-label');
                                     if (cell) cell.textContent = `${newStage}. ${short || 'Stage'}`;
+                                    const wrap = originalRow.querySelector('.pipeline-stage-pill-wrap');
+                                    if (wrap) wrap.style.boxShadow = `inset 3px 0 0 hsl(${((newStage - 1) * 36) % 360}, 58%, 48%)`;
                                 }
                                 updateColumnCounts();
+                                if (typeof window.showProspectToast === 'function') {
+                                  window.showProspectToast('Stage updated');
+                                }
                             }
                         } catch (err) { console.error('Failed to update pipeline:', err); }
                         return;
@@ -2777,7 +3124,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function createKanbanCard(row) {
     const card = document.createElement('div');
-    card.className = 'kanban-card p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-brand-border/10 cursor-grab active:cursor-grabbing hover:border-brand-yellow/50 transition-all group';
+    card.className =
+      'kanban-card kanban-card--lift p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-brand-border/10 cursor-grab active:cursor-grabbing hover:border-brand-yellow/50 transition-all duration-150 group';
     card.dataset.leadKey = row.dataset.leadKey;
     
     const title = row.dataset.title;
@@ -2820,25 +3168,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- The War Room (Batch Outreach) ---
   const batchOutreachBtn = document.getElementById('batchOutreachBtn');
+  const batchOutreachBtnBulk = document.getElementById('batchOutreachBtnBulk');
   const warRoomModal = document.getElementById('warRoomModal');
   const closeWarRoom = document.getElementById('closeWarRoom');
   const warRoomGrid = document.getElementById('warRoomGrid');
   const warRoomTotal = document.getElementById('warRoomTotal');
 
-  if (batchOutreachBtn && warRoomModal) {
-    batchOutreachBtn.addEventListener('click', () => {
-        const selected = document.querySelectorAll('.result-row .lead-checkbox:checked');
-        if (selected.length === 0) {
-            alert('Please select at least one lead for the War Room.');
-            return;
-        }
-        renderWarRoom(selected);
-        warRoomModal.classList.remove('hidden');
-    });
+  function openWarRoomFromSelection() {
+    if (!warRoomModal) return;
+    const selected = document.querySelectorAll('.result-row .lead-checkbox:checked');
+    if (selected.length === 0) {
+      alert('Please select at least one lead for the War Room.');
+      return;
+    }
+    renderWarRoom(selected);
+    warRoomModal.classList.remove('hidden');
+  }
 
-    closeWarRoom.addEventListener('click', () => {
+  if (warRoomModal) {
+    if (batchOutreachBtn) batchOutreachBtn.addEventListener('click', openWarRoomFromSelection);
+    if (batchOutreachBtnBulk) batchOutreachBtnBulk.addEventListener('click', openWarRoomFromSelection);
+    if (closeWarRoom) {
+      closeWarRoom.addEventListener('click', () => {
         warRoomModal.classList.add('hidden');
-    });
+      });
+    }
   }
 
   function renderWarRoom(selectedCheckboxes) {
@@ -2906,4 +3260,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initial render of stars in the table
   applyTableStars();
+
+  (function initLeadTableDensity() {
+    const table = document.getElementById('prospectLeadsTable');
+    if (!table) return;
+    const key = 'prospectLeadTableDensity';
+    const saved = localStorage.getItem(key) === 'compact' ? 'compact' : 'comfortable';
+    function apply(mode) {
+      const d = mode === 'compact' ? 'compact' : 'comfortable';
+      table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
+      table.classList.add(d === 'compact' ? 'prospect-leads-table--compact' : 'prospect-leads-table--comfortable');
+      document.querySelectorAll('.lead-density-btn').forEach((btn) => {
+        const on = (btn.dataset.density || 'comfortable') === d;
+        btn.classList.toggle('lead-density-btn--active', on);
+      });
+      try {
+        localStorage.setItem(key, d);
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    apply(saved);
+    document.querySelectorAll('.lead-density-btn').forEach((btn) => {
+      btn.addEventListener('click', () => apply(btn.dataset.density || 'comfortable'));
+    });
+  })();
 });

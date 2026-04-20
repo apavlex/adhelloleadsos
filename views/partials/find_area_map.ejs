@@ -67,6 +67,35 @@
     var zoomInBtn = document.getElementById('findAreaMapZoomIn');
     var zoomOutBtn = document.getElementById('findAreaMapZoomOut');
     function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
+    function parseCityStateFromGeocodeResult(result) {
+      var city = '';
+      var state = '';
+      var comps = (result && result.address_components) || [];
+      for (var i = 0; i < comps.length; i++) {
+        var t = comps[i].types || [];
+        if (t.indexOf('locality') >= 0) city = comps[i].long_name;
+        if (t.indexOf('administrative_area_level_1') >= 0) state = comps[i].short_name || '';
+      }
+      if (!city) {
+        for (var j = 0; j < comps.length; j++) {
+          var t2 = comps[j].types || [];
+          if (t2.indexOf('sublocality') >= 0 || t2.indexOf('neighborhood') >= 0) {
+            city = comps[j].long_name;
+            break;
+          }
+        }
+      }
+      return {
+        city: city || '',
+        state: (state || '').slice(0, 2).toUpperCase()
+      };
+    }
+    function writeSearchFormLocation(city, state) {
+      var cityIn = document.querySelector('#searchForm input[name="city"]');
+      var stateIn = document.querySelector('#searchForm input[name="state"]');
+      if (cityIn) cityIn.value = city || '';
+      if (stateIn) stateIn.value = state || '';
+    }
     function runMapSearch() {
       var q = searchInput && String(searchInput.value || '').trim();
       if (!q) {
@@ -79,14 +108,21 @@
           setStatus('No results — try another spelling or be more specific.');
           return;
         }
-        var g = results[0].geometry;
+        var first = results[0];
+        var g = first.geometry;
         if (g.viewport) {
           map.fitBounds(g.viewport);
         } else if (g.location) {
           map.setCenter(g.location);
           map.setZoom(11);
         }
-        setStatus('Map updated — fine-tune if needed, then Apply map → location.');
+        var loc = parseCityStateFromGeocodeResult(first);
+        writeSearchFormLocation(loc.city, loc.state);
+        setStatus(
+          (loc.city || loc.state)
+            ? 'Step 2 location set to ' + (loc.city || '—') + ', ' + (loc.state || '—') + '. Pan or zoom if needed, then Apply map → location to override.'
+            : 'Map updated — zoom to a neighborhood or use Apply map → location to set city/state.'
+        );
       });
     }
     if (searchBtn) searchBtn.addEventListener('click', runMapSearch);
@@ -119,30 +155,11 @@
           setStatus('Could not resolve this spot — try moving the map to a city block.');
           return;
         }
-        var city = '';
-        var state = '';
-        var comps = results[0].address_components || [];
-        for (var i = 0; i < comps.length; i++) {
-          var t = comps[i].types || [];
-          if (t.indexOf('locality') >= 0) city = comps[i].long_name;
-          if (t.indexOf('administrative_area_level_1') >= 0) state = comps[i].short_name || '';
-        }
-        if (!city) {
-          for (var j = 0; j < comps.length; j++) {
-            var t2 = comps[j].types || [];
-            if (t2.indexOf('sublocality') >= 0 || t2.indexOf('neighborhood') >= 0) {
-              city = comps[j].long_name;
-              break;
-            }
-          }
-        }
-        var cityIn = document.querySelector('#searchForm input[name="city"]');
-        var stateIn = document.querySelector('#searchForm input[name="state"]');
-        if (cityIn) cityIn.value = city || '';
-        if (stateIn) stateIn.value = (state || '').slice(0, 2).toUpperCase();
+        var loc = parseCityStateFromGeocodeResult(results[0]);
+        writeSearchFormLocation(loc.city, loc.state);
         setStatus(
-          (city || state)
-            ? 'Location set to ' + (city || '—') + ', ' + (state || '—') + '. Adjust keyword below, then run Find Leads.'
+          (loc.city || loc.state)
+            ? 'Location updated from map center to ' + (loc.city || '—') + ', ' + (loc.state || '—') + '. Adjust keyword below, then run Find Leads.'
             : 'Could not find city/state — zoom closer to a town.'
         );
         var hub = document.getElementById('searchKeywordField');

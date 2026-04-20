@@ -576,6 +576,110 @@ Respond with JSON only, no markdown:
   }
 });
 
+// POST /leads/:key/review-intelligence — strengths / weaknesses from review snippets + rating (cached 7d)
+router.post('/:key/review-intelligence', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const refresh = !!(req.body && req.body.refresh);
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    if (
+      !refresh &&
+      lead.reviewIntel &&
+      typeof lead.reviewIntel === 'object' &&
+      lead.reviewIntelAt
+    ) {
+      const age = Date.now() - new Date(lead.reviewIntelAt).getTime();
+      if (age >= 0 && age < maxAgeMs) {
+        const ri = lead.reviewIntel;
+        return res.json({
+          success: true,
+          cached: true,
+          strengths: Array.isArray(ri.strengths) ? ri.strengths : [],
+          weaknesses: Array.isArray(ri.weaknesses) ? ri.weaknesses : [],
+          sourceNote: typeof ri.sourceNote === 'string' ? ri.sourceNote : '',
+        });
+      }
+    }
+
+    const snippets = Array.isArray(lead.reviewSnippets) ? lead.reviewSnippets : [];
+    const snapshot = {
+      company: lead.title,
+      category: lead.categoryName,
+      city: lead.city,
+      state: lead.state,
+      mapsRating: lead.totalScore,
+      reviewCount: lead.reviewsCount,
+      auditSummary: lead.auditSummary || '',
+      reviewSnippets: snippets,
+    };
+
+    const ai = await chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: `You analyze local business reputation for agency sales. Input is JSON with optional verbatim customer quotes in reviewSnippets, star rating mapsRating (0-5), reviewCount, category, location, and auditSummary.
+
+Rules:
+- If reviewSnippets has one or more strings: derive strengths and weaknesses only from themes in those quotes plus rating/count. Do not invent incidents not supported by the quotes.
+- If reviewSnippets is empty: infer plausible strengths and weaknesses from category, location, mapsRating, reviewCount, and auditSummary only. Use cautious wording ("Often…", "May…", "Typical risk…"). Do not claim you read specific reviews.
+
+Return JSON only, no markdown:
+{"strengths":["bullet 1",...],"weaknesses":["bullet 1",...],"sourceNote":"One sentence: cite verbatim snippets vs rating-only inference."}`,
+        },
+        {
+          role: 'user',
+          content: JSON.stringify(snapshot),
+        },
+      ],
+      jsonObject: true,
+      max_tokens: 800,
+      temperature: 0.35,
+    });
+
+    if (!ai.content || ai.error) {
+      return res.json({
+        success: false,
+        error:
+          'No AI provider configured (set KIE_AI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY) or request failed.',
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(ai.content);
+    } catch {
+      return res.json({ success: false, error: 'Invalid AI response' });
+    }
+
+    const intel = {
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map((s) => String(s || '').trim()).filter(Boolean) : [],
+      weaknesses: Array.isArray(parsed.weaknesses)
+        ? parsed.weaknesses.map((s) => String(s || '').trim()).filter(Boolean)
+        : [],
+      sourceNote: typeof parsed.sourceNote === 'string' ? parsed.sourceNote.trim() : '',
+    };
+
+    await dbService.updateLead(fullKey, {
+      reviewIntel: intel,
+      reviewIntelAt: new Date().toISOString(),
+    });
+
+    return res.json({
+      success: true,
+      cached: false,
+      strengths: intel.strengths,
+      weaknesses: intel.weaknesses,
+      sourceNote: intel.sourceNote,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/enhance — Firecrawl scrape/search: contact + reviews + social + audit fields
 router.post('/:key/enhance', async (req, res, next) => {
   try {

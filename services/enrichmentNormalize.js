@@ -28,6 +28,14 @@ function firecrawlExtractToLeadUpdates(raw) {
     if (!Number.isNaN(n)) u.reviewsCount = n;
   }
 
+  if (Array.isArray(raw.review_snippets) && raw.review_snippets.length) {
+    u.reviewSnippets = raw.review_snippets
+      .map((s) => String(s || '').trim())
+      .filter(Boolean)
+      .slice(0, 12)
+      .map((s) => (s.length > 500 ? `${s.slice(0, 497)}…` : s));
+  }
+
   copy('has_schema_markup', 'hasSchemaMarkup');
   copy('has_chatbot', 'hasChatbot');
   copy('has_click_to_call', 'hasClickToCall');

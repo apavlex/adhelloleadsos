@@ -2,6 +2,11 @@
  * Unified LLM access: KIE.ai → OpenAI → Google Gemini (e.g. Cloud Run with GEMINI_API_KEY).
  * Never call from browser — server only.
  *
+ * Strong / reasoning models (Claude, GPT-4 class via your configured provider) are the right default for:
+ * one-line email personalization; ICP fit 1–10 with a brief rationale; 2-sentence prospect site summaries;
+ * inbound-reply classification; follow-ups that reference the prospect’s business; structured extraction
+ * (e.g. decision-maker, pain points) from noisy scraped or Firecrawl output.
+ *
  * Env (KIE):
  *   KIE_AI_API_KEY — Bearer token from https://kie.ai/api-key
  *   KIE_AI_CHAT_PATH — default `gpt-5-2/v1/chat/completions`

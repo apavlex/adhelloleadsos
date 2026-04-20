@@ -75,9 +75,9 @@ function defaultAiTimeSavers() {
       hint: 'Firecrawl + HTML tech detection (CMS/chat widgets) — beyond Maps-only SMB lists.',
     },
     {
-      label: 'Personas & scripts',
+      label: 'Claude / GPT-4–class = reasoning work',
       hint:
-        'Set GEMINI_API_KEY (Google AI), KIE_AI_API_KEY, or OPENAI_API_KEY — live coach + smart outreach.',
+        'Best for one-line email openers, ICP fit scores 1–10 with a short why, two-sentence site blurbs for SDRs, inbound-reply triage, follow-ups that reference their business, and pulling structured fields (decision-maker, pains) from noisy scraped text. Set GEMINI_API_KEY, KIE_AI_API_KEY, or OPENAI_API_KEY — rules stay as backup.',
     },
   ];
 }
@@ -195,7 +195,7 @@ function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openai') {
   let aiTimeSavers = Array.isArray(parsed.aiTimeSavers) ? parsed.aiTimeSavers : [];
   aiTimeSavers = aiTimeSavers
     .filter((x) => x && typeof x.label === 'string' && typeof x.hint === 'string')
-    .map((x) => ({ label: x.label.slice(0, 80), hint: x.hint.slice(0, 200) }))
+    .map((x) => ({ label: x.label.slice(0, 80), hint: x.hint.slice(0, 320) }))
     .slice(0, 6);
   if (aiTimeSavers.length === 0) aiTimeSavers = fallback.aiTimeSavers;
 
@@ -232,7 +232,7 @@ Rules:
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
 - Prefer warm inbound leads when pipelineCounts show inbound-heavy stages
-- aiTimeSavers: 3-4 items referencing Apify search, CSV import, enrichment, scripts — not generic life advice`;
+- aiTimeSavers: 3-5 items; tie to this product. Include at least one item that explains frontier models (Claude / GPT-4 class) are ideal for: one-line email personalization, ICP 1-10 scoring with rationale, 2-sentence website summaries for SDRs, classifying inbound replies, contextual follow-ups, structured extraction from messy scrapes. Other items: Apify search, CSV import, enrichment — not generic life advice`;
 
   try {
     const result = await chatCompletion({

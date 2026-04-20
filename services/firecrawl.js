@@ -48,15 +48,21 @@ const enrichSchema = {
     competitor_gap: { type: "string", description: "One specific technical or conversion feature the competitor has that this business lacks (e.g., 'Modern Chatbot' or 'Schema Markup')." },
     audit_summary: { type: "string", description: "A 1-sentence summary of the biggest opportunity for improvement." },
     cms_platform: { type: "string", description: "Site builder or CMS if evident: wix, shopify, squarespace, webflow, wordpress, framer, ghost, other, or unknown." },
-    tech_stack_tags: { type: "array", items: { type: "string" }, description: "Short tags for notable martech/analytics (e.g. meta_pixel, hubspot, gtm, calendly)." }
+    tech_stack_tags: { type: "array", items: { type: "string" }, description: "Short tags for notable martech/analytics (e.g. meta_pixel, hubspot, gtm, calendly)." },
+    review_snippets: {
+      type: "array",
+      items: { type: "string" },
+      description:
+        "Up to 8 short verbatim quotes from visible customer reviews or testimonials on the page (widgets, embeds, testimonial sections). Each quote under 220 characters. Omit entirely if no review text is visible—do not invent.",
+    },
   }
 };
 
 const ENRICH_SCRAPE_PROMPT =
-  'You are a professional business auditor. Extract only what is visibly present on the page or in embedded widgets/schema—especially email, phone, address, star rating, review count, social URLs, and technical signals. Never guess contact info or reviews.';
+  'You are a professional business auditor. Extract only what is visibly present on the page or in embedded widgets/schema—especially email, phone, address, star rating, review count, verbatim review/testimonial quotes (review_snippets), social URLs, and technical signals. Never guess contact info, ratings, or review text.';
 
 const ENRICH_SEARCH_PROMPT =
-  'Find the official business website. Extract any visible email, phone, address, ratings/review counts, and social/directory URLs from snippets or landing pages. Do not invent data.';
+  'Find the official business website. Extract any visible email, phone, address, ratings/review counts, short verbatim review or testimonial quotes if visible in snippets, and social/directory URLs from snippets or landing pages. Do not invent data.';
 
 /**
  * Enriches a lead by scraping the given URL and extracting social profiles and directories.
