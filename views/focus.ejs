@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-8 md:py-10">
+    <header class="mb-8">
+      <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-3">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Focus mode</p>
+          <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Start my 54</h1>
+          <p class="text-sm text-brand-muted dark:text-slate-400 mt-2">One lead at a time — draft, log, next. <button type="button" id="focus-help-btn" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Shortcuts (?)</button></p>
+        </div>
+        <a href="/today" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">← Today</a>
+      </div>
+      <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 px-4 py-3">
+        <div class="flex justify-between items-baseline text-sm mb-2">
+          <span class="text-brand-muted dark:text-slate-400">Touches today</span>
+          <span class="font-display font-black text-brand-dark dark:text-white"><span id="focus-touch-count"><%= typeof touchesToday !== 'undefined' ? touchesToday : 0 %></span> <span class="text-brand-muted font-bold text-sm">/ <span id="focus-touch-goal"><%= typeof touchGoal !== 'undefined' ? touchGoal : 54 %></span></span></span>
+        </div>
+        <div class="h-2 rounded-full bg-brand-cream/80 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="<%= typeof touchGoal !== 'undefined' ? touchGoal : 54 %>" aria-valuenow="<%= typeof touchesToday !== 'undefined' ? touchesToday : 0 %>" id="focus-progress-bar-wrap">
+          <div id="focus-progress-fill" class="h-full bg-brand-yellow rounded-full transition-[width] duration-300" style="width: <%= (typeof touchGoal !== 'undefined' && touchGoal > 0) ? Math.min(100, Math.round((touchesToday || 0) / touchGoal * 100)) : 0 %>%"></div>
+        </div>
+      </div>
+    </header>
+
+    <div id="focus-empty" class="hidden rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-14 text-center">
+      <h2 id="focus-empty-title" class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2">No leads in this queue</h2>
+      <p id="focus-empty-desc" class="text-sm text-brand-muted mb-6 max-w-md mx-auto">Add or import leads to your pipeline, then come back.</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+        <button type="button" id="focus-empty-reload" class="hidden btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Reload queue</button>
+        <a href="/prospecting?tab=pipeline" class="btn-pill btn-primary inline-flex px-8 py-3 text-xs font-black uppercase tracking-widest">Open pipeline</a>
+      </div>
+    </div>
+
+    <section id="focus-card-section" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/85 dark:bg-slate-900/75 shadow-sm p-6 md:p-8 max-w-3xl mx-auto" aria-label="Current lead">
+      <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div class="min-w-0">
+          <h2 id="focus-company" class="font-display font-black text-2xl text-brand-dark dark:text-white truncate">—</h2>
+          <p id="focus-contact" class="text-sm font-semibold text-brand-muted dark:text-slate-400 mt-1">—</p>
+        </div>
+        <span id="focus-stage-badge" class="shrink-0 inline-flex items-center px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 border border-brand-border/50 dark:border-white/10 text-brand-dark dark:text-slate-200">—</span>
+      </div>
+      <p class="text-[11px] font-bold uppercase tracking-wider text-brand-muted mb-4">Last touch <span id="focus-last-touch" class="text-brand-dark dark:text-white normal-case">—</span></p>
+
+      <div id="focus-links" class="flex flex-wrap gap-2 mb-6" aria-label="Contact links"></div>
+
+      <div class="mb-4">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Channel</p>
+        <div class="flex flex-wrap gap-2" role="group" aria-label="Outreach channel">
+          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="email">Email</button>
+          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="dm">DM</button>
+          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="call-script">Call script</button>
+        </div>
+      </div>
+
+      <div id="focus-subject-wrap" class="mb-3 hidden">
+        <label for="focus-subject" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Subject</label>
+        <input id="focus-subject" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-brand-dark dark:text-white" autocomplete="off" />
+      </div>
+      <div class="mb-6">
+        <label for="focus-body" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Outreach draft</label>
+        <textarea id="focus-body" rows="10" class="w-full rounded-2xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white font-medium leading-relaxed resize-y min-h-[200px]" placeholder="Draft loads here — edit before you send or log."></textarea>
+      </div>
+
+      <div class="flex flex-col sm:flex-row flex-wrap gap-3">
+        <button type="button" id="focus-btn-send" class="btn-pill btn-primary flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest shadow-md">Send &amp; advance</button>
+        <button type="button" id="focus-btn-log" class="btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800">Log &amp; next</button>
+        <button type="button" id="focus-btn-skip" class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40">Skip</button>
+      </div>
+      <p class="text-[10px] text-brand-muted mt-4"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> send · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
+    </section>
+  </main>
+
+  <div id="focus-modal-help" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-dark/50 dark:bg-black/60" role="dialog" aria-modal="true" aria-labelledby="focus-help-title">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 shadow-xl max-w-md w-full p-6">
+      <h2 id="focus-help-title" class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Keyboard shortcuts</h2>
+      <ul class="space-y-2 text-sm text-brand-dark dark:text-slate-200">
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">E</kbd> — Focus draft textarea</li>
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">⌘/Ctrl</kbd> + <kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">Enter</kbd> — Send &amp; advance</li>
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">L</kbd> — Log &amp; next</li>
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">J</kbd> — Skip</li>
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">?</kbd> — This sheet</li>
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">Esc</kbd> — Close</li>
+      </ul>
+      <button type="button" id="focus-help-close" class="mt-6 w-full btn-pill btn-primary py-3 text-xs font-black uppercase tracking-widest">Got it</button>
+    </div>
+  </div>
+
+  <div id="focus-modal-celebrate" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-brand-dark/50 dark:bg-black/60" role="dialog" aria-modal="true" aria-labelledby="focus-celebrate-title">
+    <div class="bg-white dark:bg-slate-900 rounded-[2rem] border-2 border-brand-yellow/50 shadow-xl max-w-md w-full p-8 text-center">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Goal hit</p>
+      <h2 id="focus-celebrate-title" class="font-display font-black text-2xl text-brand-dark dark:text-white mb-3">You hit your touch goal 🎯</h2>
+      <p class="text-sm text-brand-muted mb-8">Nice work. Keep the streak or call it a day.</p>
+      <div class="flex flex-col gap-3">
+        <button type="button" id="focus-celebrate-continue" class="btn-pill btn-primary py-3.5 text-xs font-black uppercase tracking-widest">Keep going</button>
+        <a href="/today" id="focus-celebrate-done" class="btn-pill border-2 border-brand-border dark:border-white/20 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Done for today</a>
+      </div>
+    </div>
+  </div>
+
+  <script type="application/json" id="focus-queue-json"><%- typeof focusQueueJson !== 'undefined' ? focusQueueJson : '[]' %></script>
+  <script>
+  (function () {
+    var queue = [];
+    try {
+      queue = JSON.parse(document.getElementById('focus-queue-json').textContent || '[]');
+    } catch (e) {
+      queue = [];
+    }
+
+    var idx = 0;
+    var currentChannel = 'email';
+    var touchGoal = parseInt(document.getElementById('focus-touch-goal').textContent, 10) || 54;
+    var celebrateDismissed = false;
+
+    var elEmpty = document.getElementById('focus-empty');
+    var elEmptyTitle = document.getElementById('focus-empty-title');
+    var elEmptyDesc = document.getElementById('focus-empty-desc');
+    var elEmptyReload = document.getElementById('focus-empty-reload');
+    var elSection = document.getElementById('focus-card-section');
+    var elCompany = document.getElementById('focus-company');
+    var elContact = document.getElementById('focus-contact');
+    var elStage = document.getElementById('focus-stage-badge');
+    var elLast = document.getElementById('focus-last-touch');
+    var elLinks = document.getElementById('focus-links');
+    var elSubjectWrap = document.getElementById('focus-subject-wrap');
+    var elSubject = document.getElementById('focus-subject');
+    var elBody = document.getElementById('focus-body');
+    var channelBtns = document.querySelectorAll('.focus-channel-btn');
+    var btnSend = document.getElementById('focus-btn-send');
+    var btnLog = document.getElementById('focus-btn-log');
+    var btnSkip = document.getElementById('focus-btn-skip');
+    var modalHelp = document.getElementById('focus-modal-help');
+    var modalCelebrate = document.getElementById('focus-modal-celebrate');
+    var fill = document.getElementById('focus-progress-fill');
+    var countEl = document.getElementById('focus-touch-count');
+    var barWrap = document.getElementById('focus-progress-bar-wrap');
+
+    function hrefUrl(u) {
+      if (!u) return '';
+      var s = String(u).trim();
+      if (!s) return '';
+      if (/^https?:\/\//i.test(s)) return s;
+      return 'https://' + s.replace(/^\/\//, '');
+    }
+
+    function iconLink(href, label, svgPath) {
+      var a = document.createElement('a');
+      a.href = href;
+      a.setAttribute('aria-label', label);
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'inline-flex items-center justify-center w-9 h-9 rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors';
+      a.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">' + svgPath + '</svg>';
+      return a;
+    }
+
+    function renderLinks(lead) {
+      elLinks.innerHTML = '';
+      if (lead.website) elLinks.appendChild(iconLink(hrefUrl(lead.website), 'Website', '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>'));
+      if (lead.phone) elLinks.appendChild(iconLink('tel:' + String(lead.phone).replace(/\s/g, ''), 'Phone', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/>'));
+      if (lead.email) elLinks.appendChild(iconLink('mailto:' + encodeURIComponent(lead.email), 'Email', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>'));
+      if (lead.linkedin) elLinks.appendChild(iconLink(hrefUrl(lead.linkedin), 'LinkedIn', '<path stroke-linecap="round" stroke-linejoin="round" d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2V9zM4 6a2 2 0 100-4 2 2 0 000 4z"/>'));
+      if (lead.instagram) elLinks.appendChild(iconLink(hrefUrl(lead.instagram), 'Instagram', '<path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>'));
+      if (lead.facebook) elLinks.appendChild(iconLink(hrefUrl(lead.facebook), 'Facebook', '<path stroke-linecap="round" stroke-linejoin="round" d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z"/>'));
+      if (lead.twitter) elLinks.appendChild(iconLink(hrefUrl(lead.twitter), 'X / Twitter', '<path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>'));
+    }
+
+    function setChannelButtons() {
+      channelBtns.forEach(function (b) {
+        b.setAttribute('data-active', b.getAttribute('data-channel') === currentChannel ? 'true' : 'false');
+      });
+    }
+
+    function applyChannelUI() {
+      var isEmail = currentChannel === 'email';
+      elSubjectWrap.classList.toggle('hidden', !isEmail);
+      setChannelButtons();
+    }
+
+    function currentLead() {
+      return queue[idx] || null;
+    }
+
+    function renderCard() {
+      var lead = currentLead();
+      if (!lead) {
+        elSection.classList.add('hidden');
+        elEmpty.classList.remove('hidden');
+        elEmptyReload.classList.add('hidden');
+        elEmptyTitle.textContent = 'No leads in this queue';
+        elEmptyDesc.textContent = 'Add or import leads to your pipeline, then come back.';
+        return;
+      }
+      elEmpty.classList.add('hidden');
+      elSection.classList.remove('hidden');
+      elCompany.textContent = lead.title || '—';
+      elContact.textContent = lead.contactName || '—';
+      elStage.textContent = lead.pipelineLabel || ('Stage ' + lead.pipelineStage);
+      elLast.textContent = lead.lastTouchLabel || '—';
+      renderLinks(lead);
+      currentChannel = lead.defaultChannel || 'email';
+      if (currentChannel !== 'email' && currentChannel !== 'dm' && currentChannel !== 'call-script') currentChannel = 'email';
+      applyChannelUI();
+    }
+
+    function buildNoteText() {
+      var ch = currentChannel;
+      var body = (elBody.value || '').trim();
+      if (ch === 'email') {
+        var sub = (elSubject.value || '').trim();
+        if (sub) return '[Focus · email] ' + sub + '\n\n' + body;
+      }
+      if (ch === 'dm') return '[Focus · DM]\n\n' + body;
+      return '[Focus · call script]\n\n' + body;
+    }
+
+    function fetchDraft() {
+      var lead = currentLead();
+      if (!lead) return Promise.resolve();
+      return fetch('/sales/draft-outreach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadId: lead.key, channel: currentChannel }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) return;
+          elSubject.value = data.subject || '';
+          elBody.value = data.body || '';
+        })
+        .catch(function () {});
+    }
+
+    function refreshMetrics() {
+      return fetch('/focus/metrics.json', { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data.success) return;
+          var n = data.touchesToday;
+          touchGoal = data.touchGoal || touchGoal;
+          countEl.textContent = n;
+          document.getElementById('focus-touch-goal').textContent = touchGoal;
+          var pct = touchGoal > 0 ? Math.min(100, Math.round((n / touchGoal) * 100)) : 0;
+          fill.style.width = pct + '%';
+          barWrap.setAttribute('aria-valuenow', String(n));
+          barWrap.setAttribute('aria-valuemax', String(touchGoal));
+          if (!celebrateDismissed && n >= touchGoal) {
+            modalCelebrate.classList.remove('hidden');
+          }
+        })
+        .catch(function () {});
+    }
+
+    function nextLead() {
+      idx += 1;
+      if (idx >= queue.length) {
+        elSection.classList.add('hidden');
+        elEmpty.classList.remove('hidden');
+        elEmptyReload.classList.remove('hidden');
+        elEmptyTitle.textContent = 'End of queue';
+        elEmptyDesc.textContent = 'Reload for a fresh ordering, or head back to your pipeline.';
+        return;
+      }
+      renderCard();
+      fetchDraft();
+    }
+
+    function postNote() {
+      var lead = currentLead();
+      if (!lead) return Promise.resolve(null);
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ content: buildNoteText() }),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error('note failed');
+          return j;
+        });
+      });
+    }
+
+    function maybeAdvanceStage() {
+      var lead = currentLead();
+      if (!lead) return Promise.resolve(null);
+      var ps = parseInt(lead.pipelineStage, 10);
+      if (ps !== 1 && ps !== 2) return Promise.resolve(null);
+      var nextStage = ps + 1;
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          pipelineStage: nextStage,
+          pipelineStageUpdatedAt: new Date().toISOString(),
+        }),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error('stage update failed');
+          lead.pipelineStage = nextStage;
+          return j;
+        });
+      });
+    }
+
+    function onSendAdvance() {
+      var lead = currentLead();
+      if (!lead) return;
+      btnSend.disabled = true;
+      postNote()
+        .then(function () { return maybeAdvanceStage(); })
+        .then(function () {
+          nextLead();
+          return refreshMetrics();
+        })
+        .catch(function () {})
+        .finally(function () { btnSend.disabled = false; });
+    }
+
+    function onLogNext() {
+      var lead = currentLead();
+      if (!lead) return;
+      btnLog.disabled = true;
+      postNote()
+        .then(function () {
+          nextLead();
+          return refreshMetrics();
+        })
+        .catch(function () {})
+        .finally(function () { btnLog.disabled = false; });
+    }
+
+    function onSkip() {
+      nextLead();
+    }
+
+    channelBtns.forEach(function (b) {
+      b.addEventListener('click', function () {
+        currentChannel = b.getAttribute('data-channel');
+        applyChannelUI();
+        fetchDraft();
+      });
+    });
+
+    btnSend.addEventListener('click', onSendAdvance);
+    btnLog.addEventListener('click', onLogNext);
+    btnSkip.addEventListener('click', onSkip);
+
+    document.getElementById('focus-help-btn').addEventListener('click', function () {
+      modalHelp.classList.remove('hidden');
+    });
+    document.getElementById('focus-help-close').addEventListener('click', function () {
+      modalHelp.classList.add('hidden');
+    });
+    modalHelp.addEventListener('click', function (e) {
+      if (e.target === modalHelp) modalHelp.classList.add('hidden');
+    });
+    document.getElementById('focus-celebrate-continue').addEventListener('click', function () {
+      celebrateDismissed = true;
+      modalCelebrate.classList.add('hidden');
+    });
+    modalCelebrate.addEventListener('click', function (e) {
+      if (e.target === modalCelebrate) {
+        celebrateDismissed = true;
+        modalCelebrate.classList.add('hidden');
+      }
+    });
+
+    function typingTarget(el) {
+      if (!el) return false;
+      var tag = el.tagName;
+      if (tag === 'TEXTAREA') return true;
+      if (tag === 'SELECT') return true;
+      if (tag === 'INPUT') return el.type !== 'button' && el.type !== 'submit' && el.type !== 'checkbox' && el.type !== 'radio';
+      return el.isContentEditable;
+    }
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') {
+        modalHelp.classList.add('hidden');
+        celebrateDismissed = true;
+        modalCelebrate.classList.add('hidden');
+      }
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (typingTarget(document.activeElement)) return;
+        e.preventDefault();
+        modalHelp.classList.toggle('hidden');
+      }
+      if (e.key === 'e' || e.key === 'E') {
+        if (typingTarget(document.activeElement)) return;
+        e.preventDefault();
+        elBody.focus();
+      }
+      if (e.key === 'l' || e.key === 'L') {
+        if (typingTarget(document.activeElement)) return;
+        e.preventDefault();
+        onLogNext();
+      }
+      if (e.key === 'j' || e.key === 'J') {
+        if (typingTarget(document.activeElement)) return;
+        e.preventDefault();
+        onSkip();
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        onSendAdvance();
+      }
+    });
+
+    elEmptyReload.addEventListener('click', function () {
+      location.reload();
+    });
+
+    if (!queue.length) {
+      elSection.classList.add('hidden');
+      elEmpty.classList.remove('hidden');
+      elEmptyReload.classList.add('hidden');
+    } else {
+      renderCard();
+      fetchDraft();
+      var initial = parseInt(countEl.textContent, 10) || 0;
+      if (initial >= touchGoal) modalCelebrate.classList.remove('hidden');
+    }
+  })();
+  </script>
+</body>
+</html>

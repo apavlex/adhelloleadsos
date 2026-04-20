@@ -88,7 +88,8 @@
                 data-cqi='<%= JSON.stringify(lead.cqi || null).replace(/'/g, "&apos;") %>'
                 data-stitch-design-url="<%= lead.stitchDesignUrl || '' %>"
                 data-stitch-screenshot-url="<%= lead.stitchScreenshotUrl || '' %>"
-                data-stitch-screen-id="<%= lead.stitchScreenId || '' %>">
+                data-stitch-screen-id="<%= lead.stitchScreenId || '' %>"
+                data-estimated-value="<%= lead.estimatedValue != null && lead.estimatedValue !== '' ? String(lead.estimatedValue).replace(/"/g, '&quot;') : '' %>">
               <td class="lead-sticky-check pl-5 pr-2 align-top border-b border-brand-border/15 dark:border-white/[0.07]">
                 <div class="flex items-start pt-0.5">
                   <input type="checkbox" class="lead-checkbox w-4 h-4 mt-1 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>">
@@ -287,10 +288,16 @@
     <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mb-2 max-w-md mx-auto leading-relaxed">Move leads into this folder from the main pipeline (select rows → <strong class="text-brand-dark dark:text-white">Move</strong> in the bar below), or switch folders in <strong class="text-brand-dark dark:text-white">Search &amp; refine</strong>.</p>
     <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-10 max-w-sm mx-auto"><a href="/prospecting?tab=pipeline" class="font-bold text-brand-yellow hover:underline">Main pipeline (unfiled)</a> · <a href="/prospecting?tab=folders" class="font-bold text-brand-yellow hover:underline">Folder manager</a></p>
     <% } else { %>
-    <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">No leads in this workspace yet</h2>
-    <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mb-2 max-w-md mx-auto leading-relaxed">Run a maps search, import a CSV, or add a manual lead — your pipeline and board will light up here.</p>
-    <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-10 max-w-sm mx-auto">Tip: use <strong class="text-brand-dark dark:text-white">Find More Leads</strong> above to start.</p>
-    <a href="/" class="btn-pill btn-primary px-10 shadow-md">Find leads</a>
+    <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Your Pipeline is empty</h2>
+    <p class="text-brand-muted max-w-md mx-auto mb-8">Run a lead search to pull SMBs, or load sample leads to see how stages and cadences look.</p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
+      <a href="/find" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Run your first search</a>
+      <form method="post" action="/today/seed-demo" class="inline">
+        <button type="submit" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-8 py-3 text-xs font-black uppercase tracking-widest hover:border-brand-yellow/60">
+          Load sample leads
+        </button>
+      </form>
+    </div>
     <% } %>
   </div>
 <% } %>

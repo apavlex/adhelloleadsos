@@ -169,4 +169,5 @@ module.exports = {
   countUniqueLeadsTouchedOnUtcDate,
   dailyPersonalizedTouchGoal,
   leadHasPersonalizedTouchOnUtcDate,
+  PERSONALIZED_TOUCH_STATUSES,
 };

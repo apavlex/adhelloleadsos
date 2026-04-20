@@ -48,10 +48,11 @@
   var fallbackEl = document.getElementById('outreachCoachFallback');
   if (!loadingEl || !contentEl || !fallbackEl) return;
 
-  var COACH_FETCH_MS = 55000;
+  var forceNextStream = false;
 
   function showLoading() {
     loadingEl.classList.remove('hidden');
+    loadingEl.textContent = 'Loading your coach…';
     contentEl.classList.add('hidden');
     fallbackEl.classList.add('hidden');
   }
@@ -131,36 +132,78 @@
     fallbackEl.textContent = parts.join(' ');
   }
 
+  function renderBodyStreaming(text) {
+    var body = document.getElementById('outreachCoachBody');
+    if (!body) return;
+    body.innerHTML = '';
+    String(text || '')
+      .split(/\n\n/)
+      .forEach(function (para) {
+        var t = para.trim();
+        if (!t) return;
+        var p = document.createElement('p');
+        p.textContent = t;
+        body.appendChild(p);
+      });
+  }
+
   function loadCoach() {
     showLoading();
-    var ctrl = new AbortController();
-    var t = setTimeout(function () {
-      ctrl.abort();
-    }, COACH_FETCH_MS);
-    fetch('/sales/outreach-coach', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: '{}',
-      signal: ctrl.signal,
-    })
-      .then(function (r) {
-        return r.json();
-      })
-      .then(function (data) {
-        clearTimeout(t);
+    var bodyEl = document.getElementById('outreachCoachBody');
+    if (bodyEl) bodyEl.innerHTML = '';
+    var streamed = '';
+    var url = '/sales/outreach-coach/stream?force=' + (forceNextStream ? '1' : '0');
+    forceNextStream = false;
+    var es = new EventSource(url);
+    var tmo = setTimeout(function () {
+      try {
+        es.close();
+      } catch (e) {}
+      renderFallback('Coach is taking too long. Try Refresh AI or check your API keys.', null);
+    }, 120000);
+    es.addEventListener('ping', function () {
+      loadingEl.classList.add('hidden');
+      contentEl.classList.remove('hidden');
+      fallbackEl.classList.add('hidden');
+      var h = document.getElementById('outreachCoachHeadline');
+      if (h) h.textContent = '…';
+    });
+    es.addEventListener('token', function (e) {
+      try {
+        var d = JSON.parse(e.data);
+        streamed += d.d != null ? String(d.d) : '';
+        renderBodyStreaming(streamed);
+      } catch (err) {}
+    });
+    es.addEventListener('complete', function (e) {
+      clearTimeout(tmo);
+      es.close();
+      try {
+        var data = JSON.parse(e.data);
         if (data && data.success) renderSuccess(data);
-        else if (data && Array.isArray(data.actions) && data.actions.length) {
+        else renderFallback('Coach unavailable.', data && data.snapshot);
+      } catch (err) {
+        renderFallback('Coach response incomplete.', null);
+      }
+    });
+    es.addEventListener('error', function (e) {
+      if (!e || !e.data) return;
+      clearTimeout(tmo);
+      try {
+        var errObj = JSON.parse(e.data);
+        es.close();
+        if (errObj && Array.isArray(errObj.actions) && errObj.actions.length) {
           loadingEl.classList.add('hidden');
           fallbackEl.classList.add('hidden');
           contentEl.classList.remove('hidden');
-          var h = document.getElementById('outreachCoachHeadline');
-          if (h) h.textContent = 'Coach unavailable — still your next moves';
+          var h2 = document.getElementById('outreachCoachHeadline');
+          if (h2) h2.textContent = 'Coach unavailable — still your next moves';
           var body = document.getElementById('outreachCoachBody');
           if (body) {
             body.innerHTML = '';
             var errP = document.createElement('p');
             errP.className = 'text-brand-muted';
-            errP.textContent = (data && data.error) || 'Configure an LLM key for full coaching.';
+            errP.textContent = (errObj && errObj.error) || 'Configure an LLM key for full coaching.';
             body.appendChild(errP);
           }
           var focus = document.getElementById('outreachCoachFocus');
@@ -168,26 +211,27 @@
           var wrap = document.getElementById('outreachCoachActions');
           if (wrap) {
             wrap.innerHTML = '';
-            data.actions.forEach(function (a) {
+            errObj.actions.forEach(function (a) {
               var node = renderActionRow(a);
               if (node) wrap.appendChild(node);
             });
           }
         } else {
-          renderFallback((data && data.error) || 'Coach unavailable.', data && data.snapshot);
+          renderFallback((errObj && errObj.error) || 'Coach unavailable.', errObj && errObj.snapshot);
         }
-      })
-      .catch(function (err) {
-        clearTimeout(t);
-        if (err && err.name === 'AbortError') {
-          renderFallback('Coach is taking too long. Try Refresh AI or check your API keys.', null);
-        } else {
-          renderFallback('Could not reach the coach.', null);
-        }
-      });
+      } catch (x) {
+        try {
+          es.close();
+        } catch (z) {}
+      }
+    });
   }
 
-  if (refreshBtn) refreshBtn.addEventListener('click', loadCoach);
+  if (refreshBtn)
+    refreshBtn.addEventListener('click', function () {
+      forceNextStream = true;
+      loadCoach();
+    });
   loadCoach();
 })();
 </script>

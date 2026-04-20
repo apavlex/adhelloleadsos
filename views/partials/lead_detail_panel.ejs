@@ -323,6 +323,12 @@
             </div>
         </div>
 
+        <section class="mb-8 px-1" aria-label="Estimated deal value">
+          <label for="estimatedValueInput" class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 block mb-2">Estimated value (USD)</label>
+          <input type="number" id="estimatedValueInput" min="0" step="100" placeholder="e.g. 3000" class="w-full max-w-xs bg-white dark:bg-slate-800 border border-brand-border/50 dark:border-white/10 rounded-2xl px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+          <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-2">Used for pipeline value metrics. Saves when you leave the field.</p>
+        </section>
+
         <!-- CQI (Client Qualification Interview) -->
         <section id="mobilePanelCqiSection" class="mb-10">
           <div class="flex items-center justify-between gap-3 mb-4 px-1">

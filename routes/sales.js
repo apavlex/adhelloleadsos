@@ -10,6 +10,8 @@ const {
   buildOutreachCoachSnapshot,
   buildNamedCoachActions,
 } = require('../services/outreachCoachSnapshot');
+const { generateOutreachCoachPayload } = require('../services/outreachCoachAi');
+const { workspaceTodayYmd } = require('../services/workspaceTimezone');
 
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
@@ -282,76 +284,185 @@ Rules:
   }
 });
 
-/** POST JSON: AI prospecting coach from live pipeline + tracker snapshot. */
+/** GET SSE: prospecting coach stream (EventSource). Cached brief returns instantly. ?force=1 skips cache. */
+router.get('/outreach-coach/stream', async (req, res, next) => {
+  try {
+    const force = req.query.force === '1';
+    const wid = req.workspaceId || 'default';
+    const ws = await dbService.getWorkspace(wid);
+    const ymd = workspaceTodayYmd(ws);
+
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+    const writeEv = (event, data) => {
+      res.write(`event: ${event}\n`);
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    writeEv('ping', { t: Date.now() });
+
+    if (!force) {
+      const cached = await dbService.getMorningBrief(wid, ymd);
+      if (cached && cached.success && typeof cached.body === 'string') {
+        writeEv('complete', {
+          success: true,
+          headline: cached.headline,
+          body: cached.body,
+          focusToday: cached.focusToday,
+          actions: cached.actions,
+          provider: cached.provider,
+          snapshot: cached.snapshot,
+          cached: true,
+        });
+        res.end();
+        return;
+      }
+    } else {
+      await dbService.deleteMorningBrief(wid, ymd);
+    }
+
+    const result = await generateOutreachCoachPayload(req);
+    if (!result.success) {
+      writeEv('error', {
+        success: false,
+        error: result.error || 'Coach failed',
+        actions: result.actions || [],
+        snapshot: result.snapshot,
+      });
+      res.end();
+      return;
+    }
+
+    const bodyText = result.body || '';
+    const parts = bodyText.split(/(\s+)/);
+    for (const p of parts) {
+      if (p) writeEv('token', { d: p });
+    }
+
+    const payload = {
+      success: true,
+      headline: result.headline,
+      body: result.body,
+      focusToday: result.focusToday,
+      actions: result.actions,
+      provider: result.provider,
+      snapshot: result.snapshot,
+      cached: false,
+    };
+    await dbService.setMorningBrief(wid, ymd, payload);
+    writeEv('complete', payload);
+    res.end();
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: AI prospecting coach (non-streaming). Fills daily cache if empty. */
 router.post('/outreach-coach', async (req, res, next) => {
   try {
-    const snapshot = await buildOutreachCoachSnapshot(req);
-    const { entrepreneurQuote, firstName, stageBreakdown } = snapshot;
-    const allLeads = await dbService.getAllLeads();
-    const workspaceLeads = filterLeadsForRequest(req, allLeads);
-    const actions = buildNamedCoachActions(workspaceLeads, snapshot);
-
-    const ai = await chatCompletion({
-      messages: [
-        {
-          role: 'system',
-          content: `You are a concise sales coach for an agency founder using Agency OS. Use ONLY the JSON snapshot — pipeline counts, opportunity tiers, streak, touches vs goal, warm inbound, overdue cadences, reply signals.
-
-Rules:
-- Reference real numbers; do not invent metrics.
-- In "body", write 2 short paragraphs (plain text, no markdown). Paragraph 1: situational coaching from the data. Paragraph 2: tie the provided entrepreneur quote to today's work (name the author once).
-- Do not fabricate quotes beyond entrepreneurQuote.
-- Tone: direct, specific, anti-procrastination. Do not give generic pep-talk; ground every sentence in the snapshot.
-- Do NOT output a list of next steps — the app shows named lead actions separately.
-
-Respond with JSON only:
-{"headline":"max 8 words","body":"two paragraphs separated by \\n\\n","focusToday":"one imperative sentence"}`,
-        },
-        {
-          role: 'user',
-          content: JSON.stringify({
-            coachFor: firstName,
-            snapshot,
-            entrepreneurQuote,
-            stageNamesForReference: stageBreakdown.map((s) => `${s.id}. ${s.name}: ${s.count}`),
-          }),
-        },
-      ],
-      jsonObject: true,
-      max_tokens: 650,
-      temperature: 0.5,
-    });
-
-    if (!ai.content || ai.error) {
-      return res.json({
+    const accept = String(req.headers.accept || '');
+    if (accept.includes('text/event-stream')) {
+      res.setHeader('Content-Type', 'application/json');
+      return res.status(400).json({
         success: false,
-        error:
-          'No AI provider configured (set KIE_AI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY) or request failed.',
-        snapshot,
-        actions,
+        error: 'Use GET /sales/outreach-coach/stream for Server-Sent Events.',
       });
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(ai.content);
-    } catch {
-      return res.json({ success: false, error: 'Invalid AI response', snapshot, actions });
+    const wid = req.workspaceId || 'default';
+    const ws = await dbService.getWorkspace(wid);
+    const ymd = workspaceTodayYmd(ws);
+
+    const result = await generateOutreachCoachPayload(req);
+    if (result.success) {
+      const existing = await dbService.getMorningBrief(wid, ymd);
+      if (!existing || !existing.success) {
+        await dbService.setMorningBrief(wid, ymd, {
+          success: true,
+          headline: result.headline,
+          body: result.body,
+          focusToday: result.focusToday,
+          actions: result.actions,
+          provider: result.provider,
+          snapshot: result.snapshot,
+        });
+      }
     }
 
-    const headline = typeof parsed.headline === 'string' ? parsed.headline.trim() : '';
-    const body = typeof parsed.body === 'string' ? parsed.body.trim() : '';
-    const focusToday = typeof parsed.focusToday === 'string' ? parsed.focusToday.trim() : '';
+    if (!result.success) {
+      return res.json({
+        success: false,
+        error: result.error,
+        snapshot: result.snapshot,
+        actions: result.actions,
+      });
+    }
 
     return res.json({
       success: true,
-      headline: headline || 'Keep the pipeline moving',
-      body: body || '',
-      focusToday,
-      actions,
-      provider: ai.provider || 'unknown',
-      snapshot,
+      headline: result.headline,
+      body: result.body,
+      focusToday: result.focusToday,
+      actions: result.actions,
+      provider: result.provider,
+      snapshot: result.snapshot,
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST /sales/draft-outreach — Focus Mode copy (stub templates; replace with LLM later). */
+router.post('/draft-outreach', async (req, res, next) => {
+  try {
+    const rawId = String((req.body && req.body.leadId) || '')
+      .trim()
+      .replace(/^lead:/i, '');
+    let channel = String((req.body && req.body.channel) || 'email')
+      .trim()
+      .toLowerCase();
+    if (!rawId) {
+      return res.status(400).json({ success: false, error: 'leadId required' });
+    }
+    const allowed = new Set(['email', 'dm', 'call-script']);
+    if (!allowed.has(channel)) channel = 'email';
+
+    const all = await dbService.getAllLeads();
+    const visible = filterLeadsForRequest(req, all);
+    const lead = visible.find((l) => {
+      const k = String(l.key || '').trim();
+      const short = k.startsWith('lead:') ? k.slice(5) : k;
+      return short === rawId || k === `lead:${rawId}` || k === rawId;
+    });
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+
+    // TODO: wire to LLM
+    const company = String(lead.title || 'your team').trim() || 'your team';
+    const em = String(lead.email || '').trim();
+    const contact =
+      String(lead.contactName || '').trim() ||
+      (em && em.includes('@') ? em.split('@')[0].replace(/[._]+/g, ' ') : '') ||
+      'there';
+    const city = [lead.city, lead.state].filter(Boolean).join(', ');
+    const loc = city ? ` in ${city}` : '';
+
+    let subject = '';
+    let body = '';
+    if (channel === 'email') {
+      subject = `Quick idea for ${company}`;
+      body = `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion.\n\nThanks,\n`;
+    } else if (channel === 'dm') {
+      body = `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump).`;
+    } else {
+      body = `[Opener] Hi, this is ___ calling for ${contact} at ${company}. Did I catch you at an okay time?\n\n[Bridge] I work with local businesses on filling the calendar — noticed you online${loc}.\n\n[Ask] If it makes sense, who handles marketing day-to-day?`;
+    }
+
+    res.json({ success: true, subject, body });
   } catch (e) {
     next(e);
   }

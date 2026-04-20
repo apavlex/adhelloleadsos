@@ -4,13 +4,6 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 
-router.get('/focus', (req, res) => {
-  const id = String(req.query.leadId || '').trim();
-  if (!id) return res.redirect(302, '/prospecting?tab=pipeline');
-  const short = id.replace(/^lead:/i, '');
-  res.redirect(302, `/prospecting?tab=pipeline&focusLead=${encodeURIComponent(short)}`);
-});
-
 router.get('/', async (req, res, next) => {
   try {
     const allLeads = await dbService.getAllLeads();

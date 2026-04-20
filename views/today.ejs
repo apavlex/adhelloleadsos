@@ -13,10 +13,16 @@
     </div>
     <% } %>
 
-    <header class="mb-8 md:mb-10">
+    <header class="mb-8 md:mb-10 flex flex-col gap-4">
       <p class="text-sm md:text-base text-brand-dark dark:text-white font-semibold">
         <span id="todayDaypart"><%= typeof greetingWord !== 'undefined' ? greetingWord : 'Hello' %></span>, <%= typeof firstName !== 'undefined' ? firstName : 'there' %> — <span id="todayDateLabel"><%= typeof dateLabel !== 'undefined' ? dateLabel : '' %></span>
       </p>
+      <% if (typeof icpLabel !== 'undefined') { %>
+      <button type="button" id="todayIcpPill" class="self-start inline-flex items-center gap-2 rounded-full border border-brand-border dark:border-white/15 bg-white/80 dark:bg-slate-900/70 px-4 py-2 text-left text-[11px] font-bold text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors max-w-full">
+        <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted shrink-0">Targeting</span>
+        <span class="truncate"><%= icpLabel %></span>
+      </button>
+      <% } %>
     </header>
     <script>
     (function () {
@@ -75,26 +81,38 @@
       <h2 id="glance-heading" class="sr-only">Day at a glance</h2>
       <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-6">Day at a glance</p>
+        <% const _cs = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
+        <% const _pv = typeof _cs.pipelineValueCreated7d === 'number' ? _cs.pipelineValueCreated7d : 0; %>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <a href="/sales/tracker#tracker" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/50 transition-colors text-left">
+          <a href="/analytics?tab=tracker&amp;metric=touches_today&amp;range=1d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/50 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 group-hover:text-brand-dark dark:group-hover:text-white">Touches today</p>
             <p class="text-2xl md:text-3xl font-display font-black text-brand-yellow"><%= typeof touchesToday !== 'undefined' ? touchesToday : 0 %><span class="text-sm font-bold text-brand-muted"> / <%= typeof touchGoal !== 'undefined' ? touchGoal : 54 %></span></p>
-            <p class="text-[11px] text-brand-muted mt-2">Goal · unique leads touched today (one count per lead)</p>
+            <p class="text-[11px] text-brand-muted mt-2">Unique leads touched today</p>
           </a>
-          <a href="/sales/tracker#tracker" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-emerald-500/40 transition-colors text-left">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outreach streak</p>
-            <p class="text-2xl md:text-3xl font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof streak !== 'undefined' ? streak : 0 %></p>
-            <p class="text-[11px] text-brand-muted mt-2">Consecutive days</p>
+          <a href="/analytics?tab=tracker&amp;metric=reply_rate&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Reply rate (7d)</p>
+            <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-violet-300"><%= _cs.replyRate7dDisplay || '0%' %></p>
+            <p class="text-[11px] text-brand-muted mt-2">Replies / touches · rolling week</p>
           </a>
-          <a href="/prospecting?tab=pipeline" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Reply signals</p>
-            <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-white"><%= typeof repliesWaiting !== 'undefined' ? repliesWaiting : 0 %></p>
-            <p class="text-[11px] text-brand-muted mt-2">Logs mentioning reply / inbound</p>
+          <a href="/analytics?tab=tracker&amp;metric=meetings_booked&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-emerald-500/40 transition-colors text-left">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Meetings booked (7d)</p>
+            <p class="text-2xl md:text-3xl font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof _cs.meetingsBooked7d !== 'undefined' ? _cs.meetingsBooked7d : 0 %></p>
+            <p class="text-[11px] text-brand-muted mt-2">From notes &amp; activity keywords</p>
           </a>
-          <a href="/prospecting?tab=pipeline" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-rose-500/40 transition-colors text-left">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Overdue follow-ups</p>
-            <p class="text-2xl md:text-3xl font-display font-black text-rose-600 dark:text-rose-400"><%= typeof overdueFollowUps !== 'undefined' ? overdueFollowUps : 0 %></p>
-            <p class="text-[11px] text-brand-muted mt-2">Cadence step past due</p>
+          <a href="/analytics?tab=tracker&amp;metric=pipeline_created&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/60 transition-colors text-left">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Pipeline created (7d)</p>
+            <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-white">$<%= Math.round(_pv).toLocaleString() %></p>
+            <p class="text-[11px] text-brand-muted mt-2">Stage 3+ moves · est. value</p>
+          </a>
+        </div>
+        <div class="grid grid-cols-2 gap-4 md:gap-6 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-brand-border/30 dark:border-white/10">
+          <a href="/analytics?tab=tracker&amp;metric=outreach_streak&amp;range=30d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-emerald-500/30 transition-colors text-left">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Outreach streak</p>
+            <p class="text-lg font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof streak !== 'undefined' ? streak : 0 %>d</p>
+          </a>
+          <a href="/analytics?tab=tracker&amp;metric=overdue_followups&amp;range=1d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-rose-500/30 transition-colors text-left">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Overdue follow-ups</p>
+            <p class="text-lg font-display font-black text-rose-600 dark:text-rose-400"><%= typeof overdueFollowUps !== 'undefined' ? overdueFollowUps : 0 %></p>
           </a>
         </div>
       </div>
@@ -127,7 +145,9 @@
     </section>
     <% } %>
 
-    <% if (typeof activation !== 'undefined' && activation && typeof activationComplete !== 'undefined' && !activationComplete) { %>
+    <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
+    <% const _showAct = typeof showActivationRibbon !== 'undefined' && showActivationRibbon; %>
+    <% if (typeof activation !== 'undefined' && activation && typeof activationComplete !== 'undefined' && !activationComplete && _showAct) { %>
     <div id="activationRibbonWrap" class="mb-10">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">7-day activation</p>
@@ -149,16 +169,51 @@
     (function () {
       var wrap = document.getElementById('activationRibbonWrap');
       var btn = document.getElementById('activationRibbonDismiss');
+      var review = document.getElementById('weekReviewCard');
+      function showReview() {
+        if (review) review.classList.remove('hidden');
+      }
       function hide() {
         if (wrap) wrap.style.display = 'none';
         try { localStorage.setItem('todayActivationRibbonDismissed', '1'); } catch (e) {}
+        showReview();
       }
       if (btn) btn.addEventListener('click', hide);
       try {
-        if (localStorage.getItem('todayActivationRibbonDismissed') === '1' && wrap) wrap.style.display = 'none';
+        if (localStorage.getItem('todayActivationRibbonDismissed') === '1') {
+          if (wrap) wrap.style.display = 'none';
+          showReview();
+        }
       } catch (e) {}
     })();
     </script>
+    <% } %>
+    <% if (_wr) { %>
+    <div id="weekReviewCard" class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm <%= _showAct ? 'hidden' : '' %>">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-4">This week&apos;s review</p>
+      <div class="space-y-6">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Best-performing cadence</p>
+          <p class="font-display font-bold text-brand-dark dark:text-white"><%= _wr.cadence && _wr.cadence.label ? _wr.cadence.label : '—' %><% if (_wr.cadence && _wr.cadence.count) { %> <span class="text-brand-muted font-sans font-semibold text-sm">(<%= _wr.cadence.count %> touches logged)</span><% } %></p>
+        </div>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Top leads by engagement</p>
+          <ol class="list-decimal list-inside space-y-1 text-sm text-brand-dark dark:text-slate-200">
+            <% if (_wr.topLeads && _wr.topLeads.length) { %>
+              <% _wr.topLeads.forEach(function (L) { %>
+              <li><a href="/focus?lead=<%= encodeURIComponent(String(L.key || '').replace(/^lead:/i, '')) %>" class="font-semibold hover:text-brand-yellow"><%= L.title %></a> <span class="text-brand-muted">· <%= L.touches %> events</span></li>
+              <% }); %>
+            <% } else { %>
+              <li class="text-brand-muted">No activity this week yet — log touches from Focus or the pipeline.</li>
+            <% } %>
+          </ol>
+        </div>
+        <div class="rounded-2xl border border-brand-yellow/30 bg-brand-yellow/10 dark:bg-brand-yellow/5 px-4 py-3">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-1">Suggested experiment</p>
+          <p class="text-sm text-brand-dark dark:text-slate-200 leading-relaxed"><%= _wr.experiment || '' %></p>
+        </div>
+      </div>
+    </div>
     <% } %>
   </main>
 
@@ -175,7 +230,79 @@
         <footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— <%= _eq.author %></footer>
       </blockquote>
     </details>
+    <div class="mt-4 pt-4 border-t border-brand-border/30 dark:border-white/10">
+      <a href="/focus" class="btn-pill btn-primary inline-flex items-center justify-center px-8 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg w-full sm:w-auto text-center">Start my 54 →</a>
+    </div>
+  </footer>
+  <% } else { %>
+  <footer class="max-wide mx-auto px-6 pb-10 md:pb-14">
+    <a href="/focus" class="btn-pill btn-primary inline-flex items-center justify-center px-8 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg w-full sm:w-auto text-center">Start my 54 →</a>
   </footer>
   <% } %>
+
+  <% const _icpF = typeof icpForm !== 'undefined' && icpForm ? icpForm : { keyword: '', city: '', state: '', qty: 50 }; %>
+  <div id="todayIcpModal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4 bg-brand-dark/50 dark:bg-black/60" role="dialog" aria-modal="true" aria-labelledby="today-icp-title">
+    <div class="bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 shadow-xl max-w-md w-full p-6">
+      <h2 id="today-icp-title" class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Ideal customer profile</h2>
+      <form id="todayIcpForm" class="space-y-4">
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Keyword</label>
+          <input name="keyword" type="text" value="<%= _icpF.keyword || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
+            <input name="city" type="text" value="<%= _icpF.city || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
+            <input name="state" type="text" maxlength="2" value="<%= _icpF.state || '' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm uppercase" placeholder="OR" />
+          </div>
+        </div>
+        <p id="todayIcpFormErr" class="hidden text-sm text-rose-600 dark:text-rose-400"></p>
+        <div class="flex gap-2 justify-end pt-2">
+          <button type="button" id="todayIcpCancel" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+          <button type="submit" class="btn-pill btn-primary px-4 py-2 text-xs font-black uppercase tracking-widest">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script>
+  (function () {
+    var pill = document.getElementById('todayIcpPill');
+    var modal = document.getElementById('todayIcpModal');
+    var form = document.getElementById('todayIcpForm');
+    var cancel = document.getElementById('todayIcpCancel');
+    var err = document.getElementById('todayIcpFormErr');
+    function openM() { if (modal) modal.classList.remove('hidden'); if (err) { err.classList.add('hidden'); err.textContent = ''; } }
+    function closeM() { if (modal) modal.classList.add('hidden'); }
+    if (pill) pill.addEventListener('click', openM);
+    if (cancel) cancel.addEventListener('click', closeM);
+    if (modal) modal.addEventListener('click', function (e) { if (e.target === modal) closeM(); });
+    if (form) form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fd = new FormData(form);
+      var body = {
+        keyword: fd.get('keyword'),
+        city: fd.get('city'),
+        state: fd.get('state'),
+      };
+      fetch('/workspace/icp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (data && data.success) {
+          closeM();
+          window.location.reload();
+        } else {
+          if (err) { err.textContent = (data && data.error) || 'Could not save'; err.classList.remove('hidden'); }
+        }
+      }).catch(function () {
+        if (err) { err.textContent = 'Could not save'; err.classList.remove('hidden'); }
+      });
+    });
+  })();
+  </script>
 </body>
 </html>

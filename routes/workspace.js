@@ -6,6 +6,7 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
 const crawl4aiClient = require('../services/crawl4aiClient');
 const outscraperClient = require('../services/outscraperClient');
+const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -86,6 +87,44 @@ router.post('/switch', express.urlencoded({ extended: true }), async (req, res) 
   const id = (req.body.workspaceId || 'default').trim();
   if (req.session) req.session.workspaceId = id;
   res.redirect('/workspace');
+});
+
+/** POST JSON: ICP defaults (Today modal, Find preset). */
+router.post('/icp', express.json(), async (req, res) => {
+  try {
+    const wid = req.workspaceId || 'default';
+    await persistWorkspaceIcp(wid, {
+      keyword: req.body && req.body.keyword,
+      city: req.body && req.body.city,
+      state: req.body && req.body.state,
+      qty: req.body && req.body.qty,
+    });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message || 'Server error' });
+  }
+});
+
+/** POST JSON: revenue defaults (avg deal, timezone for morning brief). */
+router.post('/settings', express.json(), async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can change workspace settings.' });
+    }
+    const wid = req.workspaceId || 'default';
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    if (req.body && req.body.avgDealValue != null && req.body.avgDealValue !== '') {
+      const n = parseFloat(String(req.body.avgDealValue).replace(/,/g, ''), 10);
+      if (Number.isFinite(n) && n > 0) ws.avgDealValue = n;
+    }
+    if (req.body && typeof req.body.timezone === 'string' && req.body.timezone.trim()) {
+      ws.timezone = req.body.timezone.trim().slice(0, 64);
+    }
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message || 'Server error' });
+  }
 });
 
 module.exports = router;

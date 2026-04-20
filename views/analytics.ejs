@@ -38,6 +38,16 @@
                     <a href="/analytics?tab=analytics" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'analytics' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Analytics</a>
                 </nav>
 
+                <% const _am = typeof analyticsMetric !== 'undefined' ? analyticsMetric : ''; const _ar = typeof analyticsRange !== 'undefined' ? analyticsRange : ''; %>
+                <% if (_am && rt === 'tracker') { %>
+                <% const _labels = { touches_today: 'Touches today', reply_rate: 'Reply rate', meetings_booked: 'Meetings booked', pipeline_created: 'Pipeline value created', outreach_streak: 'Outreach streak', overdue_followups: 'Overdue follow-ups' }; %>
+                <div id="analytics-metric-banner" class="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/10 px-4 py-3 text-sm text-brand-dark dark:text-slate-100">
+                  <strong class="font-black uppercase tracking-widest text-[10px] text-brand-yellow">Context</strong>
+                  — Showing <strong><%= _labels[_am] || _am.replace(/_/g, ' ') %></strong><% if (_ar) { %> · range <strong><%= _ar %></strong><% } %>. Use the daily tracker below to log and review activity.
+                </div>
+                <script>try { var el = document.getElementById('analytics-metric-banner'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}</script>
+                <% } %>
+
                 <% if (rt === 'analytics') { %>
                 <!-- KPI Grid -->
                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

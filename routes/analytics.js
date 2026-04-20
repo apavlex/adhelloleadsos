@@ -85,6 +85,8 @@ router.get('/', async (req, res) => {
   try {
     const tabQ = String(req.query.tab || 'tracker').toLowerCase();
     const reportsTab = tabQ === 'analytics' ? 'analytics' : 'tracker';
+    const analyticsMetric = String(req.query.metric || '').trim();
+    const analyticsRange = String(req.query.range || '').trim();
 
     const visits = await dbService.getAllVisits();
     const leads = await dbService.getAllLeads();
@@ -99,6 +101,8 @@ router.get('/', async (req, res) => {
       return res.render('analytics', {
         user: req.user,
         reportsTab,
+        analyticsMetric: String(req.query.metric || '').trim(),
+        analyticsRange: String(req.query.range || '').trim(),
         ...d,
         ...trackerLocals,
       });
@@ -151,6 +155,8 @@ router.get('/', async (req, res) => {
     res.render('analytics', {
       user: req.user,
       reportsTab,
+      analyticsMetric,
+      analyticsRange,
       totalVisits,
       uniqueIPs,
       topRegions,

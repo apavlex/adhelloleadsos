@@ -12,6 +12,9 @@ const {
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
 const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
+const { buildConversionSnapshot } = require('../services/conversionMetrics');
+const { buildWeekReview } = require('../services/weekReview');
+const { getWorkspaceIcp } = require('../services/workspaceIcp');
 
 function firstNameFromUser(user) {
   const raw =
@@ -78,6 +81,25 @@ router.get('/', async (req, res, next) => {
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
     const outreachCoach = await buildOutreachCoachSnapshot(req);
 
+    const workspaceDoc = await dbService.getWorkspace(req.workspaceId || 'default');
+    const conversionSnapshot = buildConversionSnapshot(workspaceLeads, workspaceDoc);
+    const weekReview = buildWeekReview(workspaceLeads, conversionSnapshot);
+    const icp = getWorkspaceIcp(workspaceDoc);
+    const icpCityState = [icp.city, icp.state].filter(Boolean).join(', ');
+    const icpLabelParts = [icp.keyword, icpCityState].filter((s) => s && String(s).trim());
+    const icpLabel =
+      icpLabelParts.length > 0 ? icpLabelParts.join(' · ') : 'Set your ICP';
+
+    const wsCreatedMs =
+      workspaceDoc && workspaceDoc.createdAt ? Date.parse(workspaceDoc.createdAt) : NaN;
+    const daysSinceWsCreated =
+      Number.isFinite(wsCreatedMs) ? (Date.now() - wsCreatedMs) / 86400000 : null;
+    const activationComplete = activation.progress >= (activation.total || 7);
+    const activationAutoHide =
+      (daysSinceWsCreated != null && daysSinceWsCreated >= 7) ||
+      activation.progress >= 5;
+    const showActivationRibbon = !activationComplete && !activationAutoHide;
+
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -98,7 +120,13 @@ router.get('/', async (req, res, next) => {
       totalLeads: workspaceLeads.length,
       outreachCoach,
       activation,
-      activationComplete: activation.progress >= (activation.total || 7),
+      activationComplete,
+      activationAutoHide,
+      showActivationRibbon,
+      conversionSnapshot,
+      weekReview,
+      icpLabel,
+      icpForm: icp,
       seededNotice,
     });
   } catch (e) {

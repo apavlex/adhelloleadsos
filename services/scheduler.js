@@ -5,6 +5,7 @@ const mapsSearch = require('./mapsSearch');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const enricher = require('./enricher');
 const { runDueSequenceSteps } = require('./sequenceEngine');
+const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 
 /**
  * Autopilot Scheduler: 
@@ -220,6 +221,9 @@ module.exports = {
     cron.schedule('*/15 * * * *', () => {
       runDueSequenceSteps().catch((e) =>
         console.error('[SCHEDULER] Sequence steps failed:', e.message)
+      );
+      maybeWarmAllMorningBriefs().catch((e) =>
+        console.error('[SCHEDULER] Morning brief warm failed:', e.message)
       );
     });
 

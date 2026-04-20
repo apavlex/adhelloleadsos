@@ -29,6 +29,7 @@ const attachWorkspace = require('./middleware/attachWorkspace');
 const iaNav = require('./middleware/iaNav');
 const iaRedirects = require('./routes/iaRedirects');
 const todayRoutes = require('./routes/today');
+const focusRoutes = require('./routes/focus');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -155,6 +156,7 @@ app.use(attachWorkspace);
 app.use(iaNav);
 app.use(iaRedirects);
 app.use('/today', todayRoutes);
+app.use('/focus', focusRoutes);
 app.use('/', indexRoutes);
 app.use('/search', searchRoutes);
 app.use('/history', historyRoutes);

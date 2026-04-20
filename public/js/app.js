@@ -1534,6 +1534,13 @@ document.addEventListener('DOMContentLoaded', () => {
     syncLoomOpenLink(loomUrl);
     syncQuickPitchSectionVisibility(row);
 
+    const evInput = document.getElementById('estimatedValueInput');
+    if (evInput) {
+      const raw =
+        row.dataset.estimatedValue != null ? String(row.dataset.estimatedValue).trim() : '';
+      evInput.value = raw || '';
+    }
+
     // Logic for Audit Insight Box in Panel (if exists)
     const auditStatus = document.getElementById('mobilePanelAuditStatus');
     const auditSummary = document.getElementById('mobilePanelAuditSummary');
@@ -1872,6 +1879,38 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         console.error('Loom URL update failed:', err);
+      }
+    });
+  }
+
+  const estimatedValueInput = document.getElementById('estimatedValueInput');
+  if (estimatedValueInput) {
+    estimatedValueInput.addEventListener('blur', async () => {
+      if (!currentRow) return;
+      const key = currentRow.dataset.leadKey;
+      if (!key) return;
+      const raw = estimatedValueInput.value.trim();
+      const prev = String(currentRow.dataset.estimatedValue || '').trim();
+      if (raw === prev) return;
+      let estimatedValue = null;
+      if (raw !== '') {
+        const n = parseFloat(raw.replace(/,/g, ''), 10);
+        if (Number.isFinite(n) && n >= 0) estimatedValue = n;
+      }
+      try {
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ estimatedValue: estimatedValue == null ? '' : estimatedValue }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentRow.dataset.estimatedValue =
+            estimatedValue != null && estimatedValue !== '' ? String(estimatedValue) : '';
+          if (typeof window.showProspectToast === 'function') window.showProspectToast('Value saved');
+        }
+      } catch (err) {
+        console.error('Estimated value update failed:', err);
       }
     });
   }

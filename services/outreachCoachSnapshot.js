@@ -126,7 +126,7 @@ function buildNamedCoachActions(leads, snapshot) {
       label: `Follow up — ${companyTitle(l)} (cadence overdue)`,
       leadId: id,
       leadName: displayLeadName(l),
-      href: `/focus?leadId=${encodeURIComponent(id)}`,
+      href: `/focus?lead=${encodeURIComponent(id)}`,
       actionType: 'follow_up',
     });
   });
@@ -150,7 +150,7 @@ function buildNamedCoachActions(leads, snapshot) {
       label: `Draft follow-up to ${ln} (${co})`,
       leadId: id,
       leadName: ln,
-      href: `/focus?leadId=${encodeURIComponent(id)}`,
+      href: `/focus?lead=${encodeURIComponent(id)}`,
       actionType: 'draft_email',
     });
   });
@@ -168,7 +168,7 @@ function buildNamedCoachActions(leads, snapshot) {
       label: `Advance ${companyTitle(l)} — next pipeline step`,
       leadId: id,
       leadName: displayLeadName(l),
-      href: `/focus?leadId=${encodeURIComponent(id)}`,
+      href: `/focus?lead=${encodeURIComponent(id)}`,
       actionType: 'advance_stage',
     });
   });

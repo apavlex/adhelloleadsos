@@ -897,4 +897,47 @@ module.exports = {
     const key = `activation:${fragment}`;
     await db.set(key, JSON.stringify(state));
   },
+
+  _morningBriefKey(workspaceId, ymd) {
+    return `morningBrief:${workspaceId || 'default'}:${ymd}`;
+  },
+
+  async getMorningBrief(workspaceId, ymd) {
+    const key = this._morningBriefKey(workspaceId, ymd);
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async setMorningBrief(workspaceId, ymd, payload) {
+    const id = workspaceId || 'default';
+    const key = this._morningBriefKey(id, ymd);
+    await db.set(
+      key,
+      JSON.stringify({
+        ...payload,
+        workspaceId: id,
+        date: ymd,
+        cachedAt: new Date().toISOString(),
+      })
+    );
+  },
+
+  async deleteMorningBrief(workspaceId, ymd) {
+    await db.delete(this._morningBriefKey(workspaceId, ymd));
+  },
+
+  async listWorkspaceIds() {
+    const keys = await db.list('workspace:');
+    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    return keyList
+      .map((k) => String(k).replace(/^workspace:/, ''))
+      .filter(Boolean);
+  },
 };
