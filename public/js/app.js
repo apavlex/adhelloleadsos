@@ -634,34 +634,41 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --- Row click -> open slide-up detail panel (Universal) ---
-  if (mobilePanel && rows.length > 0) {
+  if (rows.length > 0) {
     rows.forEach((row) => {
       row.style.cursor = 'pointer'; // Ensure it looks clickable
       row.addEventListener('click', (e) => {
+        if (!mobilePanel) return;
         // Stop if clicking specific interactive elements
-        if (e.target.type === 'checkbox' ||
-            e.target.closest('.bookmark-btn') ||
-            e.target.closest('.view-detail-btn') ||
-            e.target.closest('.email-intel-btn') ||
-            e.target.closest('select') ||
-            e.target.closest('form') ||
-            e.target.closest('a')) {
+        if (
+          e.target.type === 'checkbox' ||
+          e.target.closest('.bookmark-btn') ||
+          e.target.closest('.view-detail-btn') ||
+          e.target.closest('.email-intel-btn') ||
+          e.target.closest('select') ||
+          e.target.closest('form') ||
+          e.target.closest('a')
+        ) {
           return;
         }
 
         selectRow(row);
       });
     });
+  }
 
-    // Specific Detail Button Trigger (Reliability)
-    document.addEventListener('click', (e) => {
-      const detailBtn = e.target.closest('.view-detail-btn');
-      if (detailBtn) {
-        e.stopPropagation();
-        const row = detailBtn.closest('.result-row');
-        if (row) selectRow(row);
-      }
-    });
+  // Specific Detail Button Trigger (Reliability)
+  document.addEventListener('click', (e) => {
+    if (!mobilePanel) return;
+    const detailBtn = e.target.closest('.view-detail-btn');
+    if (detailBtn) {
+      e.stopPropagation();
+      const row = detailBtn.closest('.result-row');
+      if (row) selectRow(row);
+    }
+  });
+
+  if (mobilePanel && rows.length > 0) {
 
     if (closeMobileBtn) {
         closeMobileBtn.addEventListener('click', () => {
@@ -2054,6 +2061,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkActionBar = document.getElementById('bulkActionBar');
   const selectedCountCircle = document.getElementById('selectedCountCircle');
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
+  const bulkFolderSelect = document.getElementById('bulkFolderSelect');
+  const bulkMoveFolderBtn = document.getElementById('bulkMoveFolderBtn');
 
   let selectedKeys = new Set();
 
@@ -2074,6 +2083,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    if (bulkMoveFolderBtn) {
+      bulkMoveFolderBtn.disabled = count === 0;
+    }
+
     // Update header bar (specific to results.ejs)
     const headerBulkActions = document.getElementById('headerBulkActions');
     const headerSelectedCount = document.getElementById('headerSelectedCount');
@@ -2088,6 +2101,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   };
+
+  function hydrateBulkFolderSelect() {
+    if (!bulkFolderSelect) return;
+    const folders = Array.isArray(window.WORKSPACE_FOLDERS) ? window.WORKSPACE_FOLDERS : [];
+    const existing = new Set(Array.from(bulkFolderSelect.options).map((o) => o.value));
+    folders.forEach((f) => {
+      if (!f || !f.key || existing.has(f.key)) return;
+      const opt = document.createElement('option');
+      opt.value = f.key;
+      opt.textContent = f.name || 'Folder';
+      bulkFolderSelect.appendChild(opt);
+    });
+  }
+
+  hydrateBulkFolderSelect();
 
   if (selectAllLeads) {
     selectAllLeads.addEventListener('change', (e) => {
@@ -2174,6 +2202,43 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (remaining === 0) {
         window.location.reload();
+      }
+    });
+  }
+
+  if (bulkMoveFolderBtn && bulkFolderSelect) {
+    bulkMoveFolderBtn.addEventListener('click', async () => {
+      if (selectedKeys.size === 0) return;
+      const keys = [...selectedKeys];
+      const folderKey = bulkFolderSelect.value || '';
+      bulkMoveFolderBtn.disabled = true;
+      try {
+        const res = await fetch('/folders/assign-bulk', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: keys, folderKey }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+
+        // Remove moved rows from current list (pipeline view excludes folderKey)
+        keys.forEach((leadKey) => {
+          const cb = Array.from(document.querySelectorAll('.lead-checkbox')).find((c) => c.dataset.key === leadKey);
+          const row = cb && cb.closest('.result-row');
+          if (row) row.remove();
+        });
+        selectedKeys.clear();
+        document.querySelectorAll('.lead-checkbox').forEach((cb) => { cb.checked = false; });
+        if (selectAllLeads) selectAllLeads.checked = false;
+        updateBulkActionBar();
+      } catch (e) {
+        console.error('Bulk move to folder failed:', e);
+        window.alert('Could not move selected leads to that folder. Please try again.');
+      } finally {
+        bulkMoveFolderBtn.disabled = selectedKeys.size === 0;
       }
     });
   }

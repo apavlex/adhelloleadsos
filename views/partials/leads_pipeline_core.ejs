@@ -122,11 +122,11 @@
                 <select class="pipeline-inline-select w-full min-w-0 max-w-[10.5rem] text-[12px] font-black text-brand-dark dark:text-white bg-brand-cream/50 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10 rounded-lg px-2.5 py-2.5 shadow-sm focus:ring-2 focus:ring-brand-yellow cursor-pointer" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
                   <% pipelineStages.forEach((st) => { %>
                     <% const optShort = st.name.length > 34 ? st.name.slice(0, 34) + '…' : st.name; %>
-                    <option value="<%= st.id %>" <%= psRow === st.id ? 'selected' : '' %>><%= st.id %>. <%= optShort %></option>
+                    <option value="<%= st.id %>" <%= psRow === st.id ? 'selected' : '' %>><%= optShort %></option>
                   <% }); %>
                 </select>
                 <% } else { %>
-                <span class="pipeline-stage-label text-[12px] font-black text-brand-yellow"><%= psRow %>. <%= pipeShort %></span>
+                <span class="pipeline-stage-label text-[12px] font-black text-brand-yellow"><%= pipeShort %></span>
                 <% } %>
               </td>
               <td class="px-3 py-3 text-xs font-medium text-brand-muted dark:text-slate-300 whitespace-nowrap max-w-[7rem] truncate" title="<%= lead.phone %>">
@@ -207,7 +207,7 @@
           <% if (typeof pipelineStages !== 'undefined' && pipelineStages) { pipelineStages.forEach((col) => { %>
           <div class="kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3" data-pipeline-stage="<%= col.id %>">
               <div class="flex items-center justify-between px-1 mb-1">
-                  <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white leading-tight"><%= col.id %>. <%= col.name %></h3>
+                  <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white leading-tight"><%= col.name %></h3>
                   <span class="px-2 py-0.5 rounded-full bg-brand-cream dark:bg-slate-800 text-[10px] font-bold text-brand-muted dark:text-slate-300 column-count">0</span>
               </div>
               <div class="kanban-list min-h-[480px] flex flex-col gap-3 p-2 bg-brand-cream/20 dark:bg-white/5 rounded-3xl border border-dashed border-brand-border/40 dark:border-white/10"></div>
@@ -225,6 +225,15 @@
       </div>
       
       <div class="flex flex-wrap items-center gap-4">
+          <div class="flex items-center gap-2.5 px-3 py-2 rounded-2xl bg-white/5 border border-white/10">
+            <label for="bulkFolderSelect" class="text-[10px] font-black uppercase tracking-widest text-white/70">Folder</label>
+            <select id="bulkFolderSelect" class="bg-transparent text-xs font-black uppercase tracking-widest text-white/90 focus:outline-none cursor-pointer max-w-[14rem]">
+              <option value="">No folder</option>
+            </select>
+            <button type="button" id="bulkMoveFolderBtn" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest hover:brightness-105 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed" disabled>
+              Move
+            </button>
+          </div>
           <button type="button" class="js-bulk-enhance flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-brand-yellow transition-all group overflow-hidden relative">
              <svg class="w-4 h-4 text-brand-yellow group-hover:animate-sparkle" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 15L18 16.125l-.25-1.125a1.125 1.125 0 00-.75-.75L15.875 14l1.125-.25a1.125 1.125 0 00.75-.75L18 11.875l.25 1.125a1.125 1.125 0 00.75.75l1.125.25-1.125.25a1.125 1.125 0 00-.75.75z" /></svg>
              <span class="text-xs font-black uppercase tracking-widest">Enhance</span>

@@ -59,7 +59,7 @@ router.post('/schedules/delete', async (req, res) => {
   if (key) {
     await dbService.deleteSchedule(key);
   }
-  const dest = returnTo === '/' ? '/' : '/schedules';
+  const dest = returnTo === '/' || returnTo === '/prospecting?tab=queue' ? (returnTo || '/') : '/schedules';
   res.redirect(dest);
 });
 

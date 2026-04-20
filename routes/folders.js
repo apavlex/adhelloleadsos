@@ -70,5 +70,37 @@ router.post('/assign', async (req, res, next) => {
   }
 });
 
+router.post('/assign-bulk', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId || 'default';
+    const folderKey = String(req.body?.folderKey || '').trim();
+    const leadKeysRaw = Array.isArray(req.body?.leadKeys) ? req.body.leadKeys : [];
+    const leadKeys = leadKeysRaw
+      .map((k) => String(k || '').trim())
+      .filter(Boolean);
+
+    if (!leadKeys.length) {
+      return res.status(400).json({ success: false, error: 'leadKeys is required.' });
+    }
+
+    const all = await dbService.getAllLeads();
+    const visible = filterLeadsForRequest(req, all);
+    const visibleKeys = new Set(visible.map((l) => l.key));
+
+    const updated = [];
+    for (const key of leadKeys) {
+      const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+      if (!visibleKeys.has(fullKey)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const lead = await dbService.updateLead(fullKey, { folderKey: folderKey || '' });
+      if (lead) updated.push(lead.key);
+    }
+
+    res.json({ success: true, updatedKeys: updated });
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
 

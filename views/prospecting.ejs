@@ -25,55 +25,52 @@
     <% if (activeTab === 'pipeline') { %>
       <%- include('partials/prospecting_board') %>
     <% } else if (activeTab === 'queue') { %>
-      <div class="grid lg:grid-cols-3 gap-6">
-        <section class="lg:col-span-1 brand-card p-6 dark:bg-slate-900 dark:border-white/10">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-4">Filters</p>
-          <div class="space-y-4">
-            <div>
-              <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 block">Stage</label>
-              <select id="queueStage" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-bold text-brand-dark dark:text-white">
-                <option value="">All stages</option>
-                <% for (let i = 1; i <= 10; i += 1) { %>
-                  <option value="<%= i %>"><%= i %></option>
-                <% } %>
-              </select>
-            </div>
-            <div>
-              <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 block">Folder</label>
-              <select id="queueFolder" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-bold text-brand-dark dark:text-white">
-                <option value="">All folders</option>
-                <% (folders || []).forEach((f) => { %>
-                  <option value="<%= f.key %>"><%= f.name %></option>
-                <% }) %>
-              </select>
-            </div>
-            <div>
-              <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 block">Search</label>
-              <input id="queueSearch" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Company, email, phone, domain…" />
-            </div>
-            <button id="queueApply" type="button" class="btn-pill btn-primary w-full py-3 text-[10px] font-black uppercase tracking-widest">Apply</button>
+      <section class="brand-card p-6 md:p-8 dark:bg-slate-900 dark:border-white/10">
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Scheduled searches</p>
+            <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white tracking-tight mt-1">Pending runs</h2>
+            <p class="text-sm text-brand-muted mt-2 max-w-2xl">Only shows scheduled runs that haven’t fired yet. When a run completes it will appear in History.</p>
           </div>
-        </section>
+          <div class="flex items-center gap-3">
+            <a href="/schedules" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Manage schedules</a>
+            <a href="/" class="btn-pill btn-primary px-5 py-3 text-[10px] font-black uppercase tracking-widest">Create schedule</a>
+          </div>
+        </div>
 
-        <section class="lg:col-span-2 brand-card p-6 dark:bg-slate-900 dark:border-white/10">
-          <div class="flex items-center justify-between gap-3 mb-4">
-            <div>
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Working queue</p>
-              <p class="text-sm text-brand-muted mt-1">Leads filtered for outreach focus. Click a lead to open details.</p>
+        <% const pending = (typeof pendingSchedules !== 'undefined' && pendingSchedules) ? pendingSchedules : []; %>
+        <% if (pending.length > 0) { %>
+          <ul class="space-y-3 max-h-[520px] overflow-y-auto pr-1">
+            <% pending.forEach((job) => { %>
+              <li class="flex flex-wrap items-center gap-3 rounded-2xl border border-brand-border/30 dark:border-white/10 bg-white/60 dark:bg-slate-950/20 px-5 py-4">
+                <div class="min-w-0 flex-1">
+                  <div class="font-bold text-brand-dark dark:text-white truncate"><%= job.keyword %></div>
+                  <div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 truncate"><%= job.city %>, <%= job.state %> · up to <%= job.maxResults %> leads</div>
+                </div>
+                <div class="shrink-0 text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-slate-200 tabular-nums">
+                  <%= job.scheduledDate || '' %> · <%= job.scheduledTime || '09:00' %> <span class="text-brand-muted"><%= job.timezone || 'UTC' %></span>
+                </div>
+                <form action="/schedules/delete" method="POST" class="shrink-0" onsubmit="return confirm('Stop this scheduled search?')">
+                  <input type="hidden" name="key" value="<%= job.key %>">
+                  <input type="hidden" name="returnTo" value="/prospecting?tab=queue">
+                  <button type="submit" class="w-10 h-10 rounded-xl bg-white dark:bg-slate-800 border border-brand-border/30 dark:border-white/10 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex items-center justify-center" title="Remove schedule" aria-label="Remove schedule">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                  </button>
+                </form>
+              </li>
+            <% }) %>
+          </ul>
+        <% } else { %>
+          <div class="p-10 md:p-14 rounded-[2rem] border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-white/5 text-center">
+            <div class="w-16 h-16 mx-auto rounded-2xl bg-brand-yellow/10 border border-brand-yellow/25 flex items-center justify-center mb-6">
+              <svg class="w-8 h-8 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
             </div>
-            <a href="/prospecting?tab=pipeline" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Open pipeline</a>
+            <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2">No pending schedules</h3>
+            <p class="text-sm text-brand-muted mb-6 max-w-md mx-auto">Create a scheduled search and we’ll run it automatically at the time you pick.</p>
+            <a href="/" class="btn-pill btn-primary px-8 py-3 text-[10px] font-black uppercase tracking-widest inline-flex items-center justify-center">Create scheduled search</a>
           </div>
-          <div id="queueList" class="divide-y divide-brand-border/40 dark:divide-white/10 rounded-2xl border border-brand-border/30 dark:border-white/10 overflow-hidden bg-white/50 dark:bg-slate-950/20">
-            <% if (typeof queueListLeads !== 'undefined' && queueListLeads && queueListLeads.length) { %>
-              <% queueListLeads.forEach(function (lead) { %>
-                <%- include('partials/outreach_lead_row', { lead: lead, mode: 'queue' }) %>
-              <% }); %>
-            <% } else { %>
-              <div class="p-6 text-sm text-brand-muted dark:text-slate-400 italic">No leads in this workspace.</div>
-            <% } %>
-          </div>
-        </section>
-      </div>
+        <% } %>
+      </section>
     <% } else { %>
       <div class="grid lg:grid-cols-3 gap-6">
         <aside class="brand-card p-6 dark:bg-slate-900 dark:border-white/10">
@@ -82,9 +79,19 @@
             <button type="button" id="folderCreateOpen" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">New</button>
           </div>
           <div id="folderList" class="space-y-2">
-            <button type="button" data-folder="" class="folder-pill w-full text-left px-4 py-3 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-800/40 text-sm font-bold text-brand-dark dark:text-white">All leads</button>
+            <div class="folder-row flex items-center gap-2 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-800/40 px-2 py-2">
+              <button type="button" data-folder="" class="folder-pill flex-1 text-left px-3 py-2 rounded-xl text-sm font-bold text-brand-dark dark:text-white">All leads</button>
+            </div>
             <% (folders || []).forEach((f) => { %>
-              <button type="button" data-folder="<%= f.key %>" class="folder-pill w-full text-left px-4 py-3 rounded-2xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/30 text-sm font-semibold text-brand-dark dark:text-white hover:border-brand-yellow/40 transition-colors"><%= f.name %></button>
+              <div class="folder-row flex items-center gap-2 rounded-2xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/30 px-2 py-2 hover:border-brand-yellow/40 transition-colors" data-folder-row="<%= f.key %>" data-folder-name="<%= f.name %>">
+                <button type="button" data-folder="<%= f.key %>" class="folder-pill flex-1 text-left px-3 py-2 rounded-xl text-sm font-semibold text-brand-dark dark:text-white"><%= f.name %></button>
+                <button type="button" class="folder-rename w-9 h-9 rounded-xl bg-white/70 dark:bg-slate-900/40 border border-brand-border/30 dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center" title="Rename folder" aria-label="Rename folder" data-folder-key="<%= f.key %>">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+                </button>
+                <button type="button" class="folder-delete w-9 h-9 rounded-xl bg-white/70 dark:bg-slate-900/40 border border-brand-border/30 dark:border-white/10 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 flex items-center justify-center" title="Delete folder" aria-label="Delete folder" data-folder-key="<%= f.key %>">
+                  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                </button>
+              </div>
             <% }) %>
           </div>
           <p class="text-[11px] text-brand-muted mt-4">Use folders for “Referrals”, “Events”, “High-priority”, etc.</p>
@@ -117,7 +124,7 @@
   </main>
 
   <% if (activeTab === 'pipeline') { %>
-  <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], pipelineStages }) %>
+  <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], pipelineStages, folders }) %>
   <script>
   (function () {
     document.addEventListener('DOMContentLoaded', function () {
@@ -237,19 +244,6 @@
         });
     }
 
-    if (activeTab === 'queue') {
-      var list = $('queueList');
-      var stage = $('queueStage');
-      var folder = $('queueFolder');
-      var q = $('queueSearch');
-      var apply = $('queueApply');
-      function refresh() {
-        loadLeads({ stage: stage.value, folderKey: folder.value, q: q.value, excludeFolderAssigned: '1' }, list);
-      }
-      if (apply) apply.addEventListener('click', refresh);
-      refresh();
-    }
-
     if (activeTab === 'folders') {
       window.__folders = <%- JSON.stringify((folders || []).map((f) => ({ key: f.key, name: f.name }))) %>;
       var leadsEl = $('folderLeads');
@@ -323,6 +317,46 @@
           });
           b.classList.add('border-brand-yellow', 'bg-brand-yellow/10');
           refreshLeads();
+        });
+      });
+
+      // Rename / delete folder controls (manager)
+      document.querySelectorAll('.folder-rename').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var key = btn.getAttribute('data-folder-key') || '';
+          var row = btn.closest('[data-folder-row]');
+          var currentName = (row && row.getAttribute('data-folder-name')) || '';
+          var nextName = window.prompt('Rename folder', currentName);
+          if (!nextName) return;
+          fetch('/folders/' + encodeURIComponent(key) + '/rename', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ name: nextName })
+          })
+            .then(function () { window.location.reload(); })
+            .catch(function () { window.alert('Could not rename folder.'); });
+        });
+      });
+
+      document.querySelectorAll('.folder-delete').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var key = btn.getAttribute('data-folder-key') || '';
+          var row = btn.closest('[data-folder-row]');
+          var currentName = (row && row.getAttribute('data-folder-name')) || 'this folder';
+          if (!window.confirm('Delete ' + currentName + '? Leads will be unassigned from this folder.')) return;
+          fetch('/folders/' + encodeURIComponent(key) + '/delete', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({})
+          })
+            .then(function () { window.location.reload(); })
+            .catch(function () { window.alert('Could not delete folder.'); });
         });
       });
       if (refreshBtn) refreshBtn.addEventListener('click', function () { refreshFolders().then(refreshLeads); });

@@ -24,7 +24,19 @@ router.get('/', async (req, res, next) => {
     const all = await dbService.getAllLeads();
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
-    const folders = await dbService.listFolders(req.workspaceId || 'default');
+    const wid = req.workspaceId || 'default';
+    const folders = await dbService.listFolders(wid);
+
+    const allSchedules = await dbService.listSchedules();
+    const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
+    const nowMs = Date.now();
+    const pendingSchedules = schedules
+      .filter((s) => !s.lastRun && s.scheduledRunAt)
+      .filter((s) => {
+        const t = Date.parse(String(s.scheduledRunAt));
+        return Number.isFinite(t) && t > nowMs;
+      })
+      .sort((a, b) => Date.parse(String(a.scheduledRunAt)) - Date.parse(String(b.scheduledRunAt)));
 
     const sourceFilter = String(req.query.source || 'all').toLowerCase();
     let leads = pipelineVisible;
@@ -84,6 +96,7 @@ router.get('/', async (req, res, next) => {
       tab: safeTab,
       leadCount: pipelineVisible.length,
       folders,
+      pendingSchedules,
       queueListLeads,
       folderListLeads,
       leads,
