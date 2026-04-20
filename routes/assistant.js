@@ -65,7 +65,7 @@ Rules:
 
     if (!reply) {
       reply =
-        'I pulled matching leads and resources from your workspace (see links below). Full AI answers need OPENAI_API_KEY, KIE_AI_API_KEY, or GEMINI_API_KEY on the server.';
+        'I matched items in your workspace (see links below), but no AI provider returned a reply. Set KIE_AI_API_KEY (or KIE_API_KEY), GEMINI_API_KEY, and/or OPENAI_API_KEY on the server — we try KIE first, then Gemini, then OpenAI.';
     }
 
     const citationsOut = citations.slice(0, 12);
