@@ -4,17 +4,40 @@
   <%- include('partials/head') %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark dark:text-white overflow-x-hidden">
+  <style>html { scroll-behavior: smooth; }</style>
   <%- include('partials/navbar') %>
   <main class="max-wide mx-auto px-6 pt-12 pb-24">
     <h1 class="font-display font-extrabold text-4xl text-brand-dark dark:text-white mb-2">Workspace</h1>
-    <p class="text-brand-muted mb-8"><%= workspace && workspace.name ? workspace.name : 'Main workspace' %> · ID <code class="text-xs bg-brand-cream dark:bg-slate-800 px-2 py-0.5 rounded"><%= workspace && workspace.id ? workspace.id : 'default' %></code></p>
+    <p class="text-brand-muted mb-4"><%= workspace && workspace.name ? workspace.name : 'Main workspace' %> · ID <code class="text-xs bg-brand-cream dark:bg-slate-800 px-2 py-0.5 rounded"><%= workspace && workspace.id ? workspace.id : 'default' %></code></p>
+
+    <nav class="sticky top-[4.75rem] z-30 -mx-6 px-6 py-3 mb-8 flex flex-wrap gap-2 items-center border-b border-brand-border/50 dark:border-white/10 bg-brand-bg/95 dark:bg-slate-950/90 backdrop-blur-md supports-[backdrop-filter]:bg-brand-bg/80 dark:supports-[backdrop-filter]:bg-slate-950/75" aria-label="Jump to workspace section">
+      <% if (typeof SCRIPT_LIBRARY_KEYS !== 'undefined' && SCRIPT_LIBRARY_KEYS && SCRIPT_LIBRARY_KEYS.length) { %>
+      <a href="#workspace-sales-scripts" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Sales scripts</a>
+      <% } %>
+      <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace && workspace && workspace.id) { %>
+      <a href="#workspace-pipeline" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Pipeline</a>
+      <a href="#workspace-brand-accent" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Brand accent</a>
+      <% } %>
+      <a href="#workspace-members" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Team</a>
+      <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+      <a href="#workspace-integrations" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">API keys</a>
+      <% } %>
+      <% if (typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor) { %>
+      <a href="#workspace-scrape-cost" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Scrape stack</a>
+      <% } %>
+      <a href="#workspace-round-robin" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Round-robin</a>
+      <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+      <a href="#workspace-revenue" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Revenue</a>
+      <% } %>
+      <a href="#workspace-advanced" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/40 dark:hover:bg-white/5 transition-colors">Advanced</a>
+    </nav>
 
     <% if (typeof SCRIPT_LIBRARY_KEYS !== 'undefined' && SCRIPT_LIBRARY_KEYS && SCRIPT_LIBRARY_KEYS.length) { %>
     <%- include('partials/workspace_scripts_panel') %>
     <% } %>
 
     <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace && workspace && workspace.id) { %>
-    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 mb-8 flex flex-wrap items-center justify-between gap-4">
+    <div id="workspace-pipeline" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 mb-8 flex flex-wrap items-center justify-between gap-4">
       <div>
         <h2 class="font-bold text-lg text-brand-dark dark:text-white">Pipeline stages</h2>
         <p class="text-sm text-brand-muted mt-1">Reorder stages, apply presets, or redesign with AI. Leads stay mapped when you change the board.</p>
@@ -25,7 +48,7 @@
     <% const _accentChoices = typeof workspaceAccentChoices !== 'undefined' && workspaceAccentChoices ? workspaceAccentChoices : []; %>
     <% const _accentCur = ((workspace && workspace.accentColor) ? workspace.accentColor : '#CA8A04').toString().toLowerCase(); %>
     <% const _accentIsUiPreset = _accentChoices.some(function (o) { return o.hex.toLowerCase() === _accentCur; }); %>
-    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 mb-8">
+    <div id="workspace-brand-accent" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Brand accent</h2>
       <p class="text-sm text-brand-muted mb-4">Primary buttons, nav highlights, and the workspace chip use this color. You can change it anytime after the workspace is created.</p>
       <% if (!_accentIsUiPreset && workspace && workspace.accentColor) { %>
@@ -50,7 +73,7 @@
     </div>
     <% } %>
 
-    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
+    <div id="workspace-members" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-4">Members & roles</h2>
       <% if (workspace && workspace.members) { %>
         <ul class="space-y-3">
@@ -71,7 +94,7 @@
     </div>
 
     <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
+    <div id="workspace-integrations" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">API integrations (this workspace)</h2>
       <p class="text-sm text-brand-muted mb-4 leading-relaxed">
         Keys saved here are used for <strong>everyone</strong> in this workspace (all roles). Non-empty values override server environment variables for that integration only.
@@ -128,7 +151,7 @@
 
     <%- include('partials/scrape_cost_advisor') %>
 
-    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
+    <div id="workspace-round-robin" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Round-robin pool</h2>
       <p class="text-sm text-brand-muted mb-4">Next inbound assignee cycles through admins + SDRs (used by “Round-robin assign”).</p>
       <% if (assignPool && assignPool.length) { %>
@@ -141,7 +164,7 @@
     </div>
 
     <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
+    <div id="workspace-revenue" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Revenue defaults</h2>
       <p class="text-sm text-brand-muted mb-4">Used when a lead has no estimated value (pipeline metrics, reporting).</p>
       <div class="space-y-4 max-w-md">
@@ -224,7 +247,7 @@
     </script>
     <% } %>
 
-    <form method="post" action="/workspace/switch" class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/10 p-6">
+    <form id="workspace-advanced" method="post" action="/workspace/switch" class="scroll-mt-28 rounded-[2rem] border border-dashed border-brand-border dark:border-white/10 p-6">
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace ID (advanced)</label>
       <input type="text" name="workspaceId" value="<%= workspace && workspace.id ? workspace.id : 'default' %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm mb-3" />
       <button type="submit" class="text-xs font-black uppercase tracking-widest text-brand-yellow hover:underline">Switch session workspace</button>

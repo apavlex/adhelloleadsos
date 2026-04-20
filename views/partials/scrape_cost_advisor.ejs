@@ -1,6 +1,6 @@
 <% const sa = typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor ? scrapeAdvisor : null; %>
 <% if (sa) { %>
-<section class="mb-10 md:mb-12" aria-labelledby="scrape-cost-heading">
+<section id="workspace-scrape-cost" class="scroll-mt-28 mb-10 md:mb-12" aria-labelledby="scrape-cost-heading">
   <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 shadow-sm">
     <% if (typeof scrapeCostOnWorkspace !== 'undefined' && scrapeCostOnWorkspace) { %>
     <p class="text-xs text-brand-muted mb-6 leading-relaxed max-w-4xl">
