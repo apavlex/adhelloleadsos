@@ -54,55 +54,63 @@
   </div>
 </div>
 
-<!-- Cold call war room: business info, script, dial list, session timer -->
+<!-- Cold call war room: high-contrast panel, script tabs, notes, primary dial in footer -->
 <div id="warRoomModal" class="fixed inset-0 z-[300] hidden overflow-hidden">
-  <div class="absolute inset-0 bg-brand-dark/90 backdrop-blur-md transition-opacity"></div>
-  <div class="absolute inset-0 flex flex-col p-4 md:p-8">
-      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-6 relative z-10">
+  <div class="absolute inset-0 bg-slate-950/92 backdrop-blur-sm transition-opacity" aria-hidden="true"></div>
+  <div class="absolute inset-0 flex flex-col p-3 sm:p-6 md:p-8 text-slate-100">
+      <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4 sm:mb-5 relative z-10 shrink-0">
           <div class="min-w-0">
-              <h2 class="font-display font-black text-3xl md:text-4xl text-white tracking-tight">Cold call war room</h2>
-              <p class="text-white/60 font-bold uppercase tracking-[0.2em] text-xs mt-1">Cold leads only · one business at a time</p>
-              <p class="text-white/40 text-[11px] font-semibold mt-2 normal-case tracking-normal">Keyboard: <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white/80 font-mono text-[10px]">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white/80 font-mono text-[10px]">→</kbd> previous / next · <kbd class="px-1.5 py-0.5 rounded bg-white/10 text-white/80 font-mono text-[10px]">Space</kbd> next (click outside the script box)</p>
+              <h2 class="font-display font-black text-2xl sm:text-3xl md:text-4xl text-white tracking-tight drop-shadow-sm">Cold call war room</h2>
+              <p class="text-slate-300 font-bold uppercase tracking-[0.2em] text-xs mt-1">Cold leads only · one business at a time</p>
+              <p class="text-slate-400 text-[11px] font-semibold mt-2 normal-case tracking-normal">Keyboard: <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-[10px] border border-slate-600">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-[10px] border border-slate-600">→</kbd> previous / next · <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-[10px] border border-slate-600">Space</kbd> next (click outside script / notes)</p>
           </div>
           <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-              <div class="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-3 py-2 sm:px-4">
-                  <span class="text-[9px] font-black uppercase tracking-widest text-white/50 shrink-0">Session</span>
-                  <span id="warRoomTimerDisplay" class="font-mono text-lg sm:text-xl font-black text-brand-yellow tabular-nums shrink-0" aria-live="polite">00:00</span>
-                  <button type="button" id="warRoomTimerToggle" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 border border-white/10 transition-colors shrink-0">Pause</button>
-                  <button type="button" id="warRoomTimerReset" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-white/5 text-white/80 hover:text-white hover:bg-white/10 border border-white/10 transition-colors shrink-0">Reset</button>
+              <div class="flex items-center gap-2 rounded-2xl border border-slate-600/80 bg-slate-800/90 px-3 py-2 sm:px-4 shadow-lg">
+                  <span class="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">Session</span>
+                  <span id="warRoomTimerDisplay" class="font-mono text-lg sm:text-xl font-black text-amber-300 tabular-nums shrink-0" aria-live="polite">00:00</span>
+                  <button type="button" id="warRoomTimerToggle" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-slate-700 text-white hover:bg-slate-600 border border-slate-500/50 transition-colors shrink-0">Pause</button>
+                  <button type="button" id="warRoomTimerReset" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-200 hover:bg-slate-700 border border-slate-600 transition-colors shrink-0">Reset</button>
               </div>
-              <a href="/" id="warRoomExitDashboard" class="inline-flex items-center justify-center gap-2 rounded-2xl border border-brand-yellow/50 bg-brand-yellow/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:bg-brand-yellow/25 transition-colors shrink-0">
+              <a href="/" id="warRoomExitDashboard" class="inline-flex items-center justify-center gap-2 rounded-2xl border-2 border-amber-400/70 bg-amber-400 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-900 hover:bg-amber-300 transition-colors shrink-0 shadow-lg shadow-amber-500/20">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                   Exit to dashboard
               </a>
-              <button type="button" id="closeWarRoom" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-white/10 text-white flex items-center justify-center hover:bg-rose-500 transition-all border border-white/10 shrink-0" aria-label="Close war room">
+              <button type="button" id="closeWarRoom" class="w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-slate-800 text-slate-200 flex items-center justify-center hover:bg-rose-600 hover:text-white transition-all border border-slate-600 shrink-0" aria-label="Close war room">
                   <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
           </div>
       </div>
-      <div id="warRoomStage" class="flex flex-col flex-1 min-h-0 relative z-10 pb-28">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 shrink-0">
+      <div id="warRoomStage" class="flex flex-col flex-1 min-h-0 relative z-10 pb-[7.5rem] sm:pb-32">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-3 shrink-0">
           <div class="flex items-center gap-2">
-            <button type="button" id="warRoomPrev" class="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/20 transition-colors disabled:opacity-35 disabled:pointer-events-none" aria-label="Previous lead">
+            <button type="button" id="warRoomPrev" class="inline-flex items-center gap-2 rounded-xl border-2 border-slate-500 bg-slate-800 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-slate-700 transition-colors disabled:opacity-35 disabled:pointer-events-none shadow-md" aria-label="Previous lead">
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
               Previous
             </button>
-            <button type="button" id="warRoomNext" class="inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/20 transition-colors disabled:opacity-35 disabled:pointer-events-none" aria-label="Next lead">
+            <button type="button" id="warRoomNext" class="inline-flex items-center gap-2 rounded-xl border-2 border-slate-500 bg-slate-800 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-slate-700 transition-colors disabled:opacity-35 disabled:pointer-events-none shadow-md" aria-label="Next lead">
               Next
               <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
             </button>
           </div>
-          <p id="warRoomPosition" class="text-sm font-black tabular-nums text-brand-yellow shrink-0" aria-live="polite">—</p>
+          <p id="warRoomPosition" class="text-sm font-black tabular-nums text-amber-300 shrink-0 drop-shadow-sm" aria-live="polite">—</p>
         </div>
-        <div id="warRoomGrid" class="overflow-y-auto flex-1 min-h-0 custom-scrollbar pr-1 rounded-2xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/45" tabindex="-1">
+        <div id="warRoomGrid" class="overflow-y-auto flex-1 min-h-0 custom-scrollbar pr-1 rounded-2xl border border-slate-700/80 bg-slate-900/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/70 shadow-inner" tabindex="-1">
             <!-- Single card injected via JS -->
         </div>
       </div>
-      <div class="absolute bottom-0 left-0 right-0 p-6 md:p-8 bg-gradient-to-t from-brand-dark via-brand-dark/90 to-transparent pointer-events-none z-20">
-          <div class="flex items-center gap-4 pointer-events-auto">
-              <div class="bg-white/5 border border-white/10 rounded-2xl px-5 py-3 flex items-center gap-4">
-                  <div class="text-2xl md:text-3xl font-display font-black text-white tabular-nums" id="warRoomTotal">0</div>
-                  <div class="text-[10px] font-bold text-white/50 uppercase tracking-widest leading-tight">Cold leads<br>in this session</div>
+      <div class="absolute bottom-0 left-0 right-0 z-20 pointer-events-none p-3 sm:p-6 md:p-8 pt-12 bg-gradient-to-t from-slate-950 via-slate-950/95 to-transparent">
+          <div class="pointer-events-auto flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-between gap-3 sm:gap-4 rounded-2xl border-2 border-slate-600 bg-slate-900/95 px-4 py-3 sm:px-5 sm:py-4 shadow-2xl backdrop-blur-md">
+              <div class="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div class="text-2xl md:text-3xl font-display font-black text-white tabular-nums shrink-0" id="warRoomTotal">0</div>
+                  <div class="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-tight">Cold leads<br>in this session</div>
+              </div>
+              <div class="flex flex-col sm:items-end gap-1 min-w-0 flex-1 sm:flex-initial sm:max-w-[70%]">
+                <span class="text-[9px] font-black uppercase tracking-widest text-slate-500 sm:text-right">Primary number — tap to dial</span>
+                <a href="#" id="warRoomPrimaryDial" class="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-3 sm:py-3.5 text-base sm:text-lg font-black tracking-tight shadow-lg shadow-emerald-900/40 border-2 border-emerald-300 transition-colors min-h-[3rem] w-full sm:w-auto text-center">
+                  <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                  <span id="warRoomPrimaryDialLabel">—</span>
+                </a>
+                <p id="warRoomAltPhones" class="text-[10px] text-slate-500 sm:text-right hidden"></p>
               </div>
           </div>
       </div>

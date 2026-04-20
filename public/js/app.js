@@ -3336,6 +3336,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function closeWarRoomModal() {
     if (!warRoomModal) return;
+    warRoomFlushCurrentScriptDraft();
     warRoomStopTimerInterval();
     warRoomTimerRunning = false;
     warRoomElapsedSec = 0;
@@ -3345,6 +3346,7 @@ document.addEventListener('DOMContentLoaded', () => {
     warRoomIndex = 0;
     if (warRoomGrid) warRoomGrid.innerHTML = '';
     if (warRoomPosition) warRoomPosition.textContent = '—';
+    warRoomUpdateFooterDial({ dataset: { phone: '' } });
     warRoomModal.classList.add('hidden');
   }
 
@@ -3383,12 +3385,189 @@ document.addEventListener('DOMContentLoaded', () => {
     warRoomGoDelta(-1);
   }
 
+  const warRoomScriptDrafts = Object.create(null);
+
+  function warRoomDraftKey(leadKey, tab) {
+    return String(leadKey || '') + '|' + String(tab || 'opener');
+  }
+
+  function warRoomFlushCurrentScriptDraft() {
+    if (!warRoomGrid) return;
+    const card = warRoomGrid.querySelector('[data-war-room-card]');
+    if (!card) return;
+    const ta = card.querySelector('.war-room-script-input');
+    const lk = card.dataset.leadKey;
+    const tab = card.dataset.scriptTab || 'opener';
+    if (ta && lk) warRoomScriptDrafts[warRoomDraftKey(lk, tab)] = ta.value;
+  }
+
+  function warRoomBuildScripts(title, city, category, gapPhrase, compPhrase, gaps) {
+    const cat = category && category !== 'N/A' ? category : 'businesses';
+    const place = city || 'the area';
+    const opener = `Hi, this is [your name]—I'm reaching out to local ${cat} in ${place}. I came across ${title} and had you on my list to call.\n\n${gapPhrase}${compPhrase}\n\nI'm not looking to waste your time—do you have sixty seconds for one concrete idea? If now's bad, what time works for a two-minute call later today?`;
+    const gapHint = gaps.length ? gaps[0] : 'a couple of ways to sharpen your online presence';
+    const short = `Hi, this is [your name]—quick call for ${title} in ${place}. I noticed ${gapHint} and have one specific suggestion—got thirty seconds?\n\nIf this is a bad time, when should I try you back?`;
+    const voicemail = `Hi, this is [your name] from [company]. I'm calling ${title} with a brief idea on how you're showing up online versus other ${cat} in ${place}. Worth two minutes when you have a moment—my number is [your number]. Thanks, and I'll try you again if I don't hear back.`;
+    return { opener, short, voicemail };
+  }
+
+  function warRoomParseNoteHistory(row) {
+    try {
+      const raw = row.dataset.updates;
+      if (!raw) return [];
+      const u = JSON.parse(raw);
+      if (!Array.isArray(u)) return [];
+      return u.filter((x) => x && x.type === 'note' && x.value);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function warRoomUpdateFooterDial(row) {
+    const a = document.getElementById('warRoomPrimaryDial');
+    const label = document.getElementById('warRoomPrimaryDialLabel');
+    const alt = document.getElementById('warRoomAltPhones');
+    if (!a || !label) return;
+    const phones = splitPhoneNumbers(row.dataset.phone);
+    if (!phones.length) {
+      a.removeAttribute('href');
+      a.href = '#';
+      a.classList.add('pointer-events-none', 'opacity-60', 'grayscale');
+      a.classList.remove('hover:bg-emerald-400');
+      label.textContent = 'No phone on file — add in pipeline';
+      if (alt) {
+        alt.classList.add('hidden');
+        alt.textContent = '';
+      }
+      return;
+    }
+    a.classList.remove('pointer-events-none', 'opacity-60', 'grayscale');
+    a.href = telHref(phones[0]);
+    label.textContent = phones[0];
+    if (alt) {
+      if (phones.length > 1) {
+        alt.classList.remove('hidden');
+        alt.textContent = 'Also: ' + phones.slice(1).join(' · ');
+      } else {
+        alt.classList.add('hidden');
+        alt.textContent = '';
+      }
+    }
+  }
+
+  function warRoomBindCard(card, row, scriptDefaults) {
+    const leadKey = row.dataset.leadKey;
+    if (!leadKey) return;
+
+    const ta = card.querySelector('.war-room-script-input');
+    const tabBtns = card.querySelectorAll('[data-war-script-tab]');
+
+    function flushDraft() {
+      if (!ta) return;
+      const cur = card.dataset.scriptTab || 'opener';
+      warRoomScriptDrafts[warRoomDraftKey(leadKey, cur)] = ta.value;
+    }
+
+    function applyTab(tab) {
+      flushDraft();
+      card.dataset.scriptTab = tab;
+      tabBtns.forEach((b) => {
+        const on = b.getAttribute('data-war-script-tab') === tab;
+        b.classList.toggle('bg-amber-400', on);
+        b.classList.toggle('text-slate-900', on);
+        b.classList.toggle('border-amber-500', on);
+        b.classList.toggle('shadow-md', on);
+        b.classList.toggle('bg-slate-100', !on);
+        b.classList.toggle('dark:bg-slate-700', !on);
+        b.classList.toggle('text-slate-700', !on);
+        b.classList.toggle('dark:text-slate-200', !on);
+        b.classList.toggle('border-slate-200', !on);
+        b.classList.toggle('dark:border-slate-600', !on);
+        b.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      const draft = warRoomScriptDrafts[warRoomDraftKey(leadKey, tab)];
+      ta.value = draft != null ? draft : scriptDefaults[tab] || '';
+    }
+
+    tabBtns.forEach((btn) => {
+      btn.addEventListener('click', () => applyTab(btn.getAttribute('data-war-script-tab')));
+    });
+    card.dataset.scriptTab = 'opener';
+    applyTab('opener');
+
+    const saveBtn = card.querySelector('.war-room-save-note');
+    const noteTa = card.querySelector('.war-room-notes-input');
+    const statusEl = card.querySelector('.war-room-note-status');
+    if (saveBtn && noteTa && statusEl) {
+      saveBtn.addEventListener('click', async () => {
+        const content = (noteTa.value || '').trim();
+        if (!content) {
+          statusEl.textContent = 'Write a note first';
+          statusEl.classList.remove('text-emerald-600', 'dark:text-emerald-400');
+          statusEl.classList.add('text-amber-700', 'dark:text-amber-300');
+          return;
+        }
+        saveBtn.disabled = true;
+        statusEl.textContent = 'Saving…';
+        try {
+          const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ content }),
+          });
+          let data = {};
+          try {
+            data = await res.json();
+          } catch (_) {
+            data = {};
+          }
+          if (res.ok && data.success) {
+            statusEl.textContent = 'Saved to lead timeline';
+            statusEl.classList.add('text-emerald-600', 'dark:text-emerald-400');
+            statusEl.classList.remove('text-amber-700', 'dark:text-amber-300');
+            noteTa.value = '';
+            try {
+              const updates = Array.isArray(data.updates) ? data.updates : [];
+              row.dataset.updates = JSON.stringify(updates);
+              const hist = card.querySelector('.war-room-notes-history');
+              if (hist) {
+                const notes = updates.filter((x) => x && x.type === 'note' && x.value);
+                const last = notes.slice(-2);
+                hist.classList.remove('hidden');
+                hist.innerHTML = last.length
+                  ? '<span class="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[9px]">Recent notes</span><ul class="mt-1 space-y-1 list-disc pl-4">' +
+                    last.map((n) => '<li class="text-xs text-slate-600 dark:text-slate-300">' + escapeHtmlText(String(n.value).slice(0, 220)) + (String(n.value).length > 220 ? '…' : '') + '</li>').join('') +
+                    '</ul>'
+                  : '';
+              }
+            } catch (_) {
+              /* ignore */
+            }
+          } else {
+            statusEl.textContent = (data && data.error) || 'Could not save note';
+            statusEl.classList.remove('text-emerald-600', 'dark:text-emerald-400');
+            statusEl.classList.add('text-rose-600', 'dark:text-rose-400');
+          }
+        } catch (_) {
+          statusEl.textContent = 'Network error';
+          statusEl.classList.add('text-rose-600');
+        }
+        saveBtn.disabled = false;
+      });
+    }
+  }
+
   function warRoomRenderCurrent() {
     if (!warRoomGrid) return;
+    warRoomFlushCurrentScriptDraft();
     warRoomGrid.innerHTML = '';
     const row = warRoomRowEls[warRoomIndex];
     if (!row) return;
-    warRoomGrid.appendChild(createWarRoomCard(row));
+    const { card, scriptDefaults } = createWarRoomCard(row);
+    warRoomGrid.appendChild(card);
+    warRoomBindCard(card, row, scriptDefaults);
+    warRoomUpdateFooterDial(row);
     const n = warRoomRowEls.length;
     if (warRoomPosition) warRoomPosition.textContent = n ? `${warRoomIndex + 1} / ${n}` : '—';
     const multi = n > 1;
@@ -3486,7 +3665,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function createWarRoomCard(row) {
     const card = document.createElement('div');
     card.className =
-      'bg-white/5 border border-white/10 rounded-[2rem] p-5 md:p-6 hover:border-brand-yellow/25 transition-all flex flex-col gap-4 max-w-4xl mx-auto w-full';
+      'max-w-4xl mx-auto w-full rounded-2xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 shadow-xl p-5 md:p-6 flex flex-col gap-4';
+    card.setAttribute('data-war-room-card', '1');
+    card.dataset.leadKey = row.dataset.leadKey || '';
 
     const title = row.dataset.title || 'Company';
     const city = row.dataset.city || '';
@@ -3514,9 +3695,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ? ` I also saw ${competitor} nearby—they seem stronger on ${compGap || 'digital presence'}.`
         : '';
 
-    const scriptText = `Hi, this is [your name]—I'm reaching out to local ${category && category !== 'N/A' ? category : 'businesses'} in ${city || 'the area'}. I came across ${title} and had you on my list to call.\n\n${gapPhrase}${compPhrase}\n\nI'm not looking to waste your time—do you have sixty seconds for one concrete idea? If now's bad, what time works for a two-minute call later today?`;
+    const scriptDefaults = warRoomBuildScripts(title, city, category, gapPhrase, compPhrase, gaps);
 
-    const phones = splitPhoneNumbers(row.dataset.phone);
     const ws =
       website && website !== 'N/A'
         ? website.startsWith('http')
@@ -3526,55 +3706,67 @@ document.addEventListener('DOMContentLoaded', () => {
     const wsLabel =
       website && website !== 'N/A' ? String(website).replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, '') : '';
 
-    const phoneBlocks =
-      phones.length > 0
-        ? phones
-            .map((p, i) => {
-              const safe = escapeHtmlText(p);
-              const href = telHref(p);
-              return `<a href="${escapeHtmlAttr(href)}" class="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-sm font-black hover:bg-emerald-500/30 transition-colors">${safe}<span class="text-[9px] font-bold uppercase tracking-widest text-emerald-300/80">Call ${i + 1}</span></a>`;
-            })
-            .join('')
-        : `<p class="text-xs font-bold text-rose-300/90">No phone on file—add a number on the lead or enrich before dialing.</p>`;
-
     const mailRow =
       email && email !== 'N/A'
-        ? `<a href="mailto:${encodeURIComponent(email)}" class="text-xs font-bold text-brand-yellow hover:underline truncate">${escapeHtmlText(email)}</a>`
-        : `<span class="text-xs text-white/40">—</span>`;
+        ? `<a href="mailto:${encodeURIComponent(email)}" class="text-sm font-bold text-amber-700 dark:text-amber-300 hover:underline truncate">${escapeHtmlText(email)}</a>`
+        : `<span class="text-sm text-slate-400">—</span>`;
+
+    const noteHistory = warRoomParseNoteHistory(row);
+    const lastNotes = noteHistory.slice(-2);
+    const notesHistoryHtml =
+      lastNotes.length > 0
+        ? `<div class="war-room-notes-history mt-2 pt-2 border-t border-slate-200 dark:border-slate-600"><span class="text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider text-[9px]">Recent notes</span><ul class="mt-1 space-y-1 list-disc pl-4">${lastNotes
+            .map(
+              (n) =>
+                `<li class="text-xs text-slate-600 dark:text-slate-300">${escapeHtmlText(String(n.value).slice(0, 220))}${String(n.value).length > 220 ? '…' : ''}</li>`
+            )
+            .join('')}</ul></div>`
+        : '<div class="war-room-notes-history mt-2 hidden"></div>';
 
     card.innerHTML = `
         <div class="flex items-start justify-between gap-3">
             <div class="flex flex-col gap-1 min-w-0">
-                <h4 class="text-white font-black text-lg md:text-xl leading-tight truncate">${escapeHtmlText(title)}</h4>
+                <h4 class="font-black text-xl md:text-2xl leading-tight text-slate-900 dark:text-white truncate">${escapeHtmlText(title)}</h4>
                 <div class="flex flex-wrap items-center gap-2 war-room-stars-${row.dataset.leadKey}">
-                    <span class="text-[10px] font-bold text-white/40">${rating} · ${reviews} reviews</span>
+                    <span class="text-[11px] font-semibold text-slate-500 dark:text-slate-400">${rating} ★ · ${reviews} reviews</span>
                 </div>
             </div>
-            <span class="shrink-0 px-2 py-1 rounded-lg border border-white/15 bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/70">Cold</span>
+            <span class="shrink-0 px-2.5 py-1 rounded-lg border border-slate-300 dark:border-slate-500 bg-slate-100 dark:bg-slate-700 text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">Cold</span>
         </div>
-        <div class="rounded-2xl border border-white/10 bg-black/25 p-4 space-y-2">
-            <p class="text-[9px] font-black uppercase tracking-widest text-white/45">Business</p>
-            <p class="text-xs text-white/85 leading-relaxed">${category && category !== 'N/A' ? `<span class="font-bold text-white">${escapeHtmlText(category)}</span> · ` : ''}${escapeHtmlText([address, city].filter(Boolean).join(', ') || '—')}</p>
-            ${pipelineLabel ? `<p class="text-[11px] text-white/55">Pipeline: <span class="text-white/80 font-semibold">${escapeHtmlText(pipelineLabel)}</span></p>` : ''}
+        <div class="rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/50 p-4 space-y-2">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Business</p>
+            <p class="text-sm text-slate-800 dark:text-slate-100 leading-relaxed">${category && category !== 'N/A' ? `<span class="font-bold text-slate-900 dark:text-white">${escapeHtmlText(category)}</span> · ` : ''}${escapeHtmlText([address, city].filter(Boolean).join(', ') || '—')}</p>
+            ${pipelineLabel ? `<p class="text-sm text-slate-600 dark:text-slate-300">Pipeline: <span class="font-semibold text-slate-900 dark:text-white">${escapeHtmlText(pipelineLabel)}</span></p>` : ''}
             ${
               ws
-                ? `<a href="${escapeHtmlAttr(ws)}" target="_blank" rel="noopener noreferrer" class="text-xs font-bold text-brand-yellow hover:underline break-all">${escapeHtmlText(wsLabel)}</a>`
-                : `<p class="text-xs text-white/40">No website on file</p>`
+                ? `<a href="${escapeHtmlAttr(ws)}" target="_blank" rel="noopener noreferrer" class="text-sm font-bold text-amber-700 dark:text-amber-300 hover:underline break-all">${escapeHtmlText(wsLabel)}</a>`
+                : `<p class="text-sm text-slate-400">No website on file</p>`
             }
-            <p class="text-[9px] font-black uppercase tracking-widest text-white/45 pt-2">Email</p>
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 pt-2">Email</p>
             <div class="min-w-0">${mailRow}</div>
-        </div>
-        <div class="rounded-2xl border border-emerald-500/25 bg-emerald-950/20 p-4">
-            <p class="text-[9px] font-black uppercase tracking-widest text-emerald-300/80 mb-3">Numbers to call</p>
-            <div class="flex flex-wrap gap-2">${phoneBlocks}</div>
+            <p class="text-[11px] text-slate-500 dark:text-slate-400 pt-1">Use the <strong class="text-slate-700 dark:text-slate-200">green call button</strong> in the bar below for the primary number.</p>
         </div>
         <div>
-            <p class="text-[9px] font-black uppercase tracking-widest text-white/45 mb-2">Call script <span class="font-medium normal-case tracking-normal text-white/35">(edit before you dial)</span></p>
-            <textarea class="war-room-script-input w-full bg-black/40 border border-white/10 rounded-2xl p-4 text-xs font-semibold text-white/90 leading-relaxed min-h-[11rem] focus:border-brand-yellow outline-none transition-all resize-y">${escapeHtmlText(scriptText)}</textarea>
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Call script</p>
+            <div class="flex flex-wrap gap-2 mb-2" role="tablist" aria-label="Script type">
+              <button type="button" role="tab" data-war-script-tab="opener" aria-selected="true" class="rounded-lg border-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-colors">Opener</button>
+              <button type="button" role="tab" data-war-script-tab="short" aria-selected="false" class="rounded-lg border-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-colors">Short pitch</button>
+              <button type="button" role="tab" data-war-script-tab="voicemail" aria-selected="false" class="rounded-lg border-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest transition-colors">Voicemail</button>
+            </div>
+            <textarea class="war-room-script-input w-full rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-4 text-sm text-slate-800 dark:text-slate-100 leading-relaxed min-h-[12rem] focus:border-amber-500 focus:ring-2 focus:ring-amber-400/30 outline-none transition-all resize-y" placeholder="Pick a tab above, then edit…"></textarea>
+        </div>
+        <div class="rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-900/40 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Notes (saved to this lead)</p>
+            <textarea class="war-room-notes-input w-full rounded-xl border-2 border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 p-3 text-sm text-slate-800 dark:text-slate-100 min-h-[5rem] focus:border-amber-500 outline-none resize-y" placeholder="Gatekeeper name, objection, follow-up time…"></textarea>
+            <div class="mt-2 flex flex-wrap items-center gap-3">
+              <button type="button" class="war-room-save-note rounded-xl bg-slate-900 dark:bg-amber-400 text-white dark:text-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">Save note to lead</button>
+              <span class="war-room-note-status text-xs font-semibold text-slate-500" aria-live="polite"></span>
+            </div>
+            ${notesHistoryHtml}
         </div>
         <div class="flex flex-wrap gap-2">
-            ${gaps.map((g) => `<span class="px-2 py-1 bg-rose-500/10 text-rose-300 text-[9px] font-black uppercase tracking-widest rounded-md border border-rose-500/25">${escapeHtmlText(g)}</span>`).join('')}
-            ${competitor && competitor !== 'N/A' ? `<span class="px-2 py-1 bg-blue-500/10 text-blue-300 text-[9px] font-black uppercase tracking-widest rounded-md border border-blue-500/25">vs ${escapeHtmlText(competitor)}</span>` : ''}
+            ${gaps.map((g) => `<span class="px-2 py-1 bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 text-[9px] font-black uppercase tracking-widest rounded-md border border-rose-200 dark:border-rose-800">${escapeHtmlText(g)}</span>`).join('')}
+            ${competitor && competitor !== 'N/A' ? `<span class="px-2 py-1 bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 text-[9px] font-black uppercase tracking-widest rounded-md border border-blue-200 dark:border-blue-800">vs ${escapeHtmlText(competitor)}</span>` : ''}
         </div>
     `;
 
@@ -3582,7 +3774,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const starContainer = card.querySelector(`.war-room-stars-${row.dataset.leadKey}`);
       if (starContainer) renderStarsInElement(starContainer, parseFloat(rating) || 0);
     }, 0);
-    return card;
+    return { card, scriptDefaults };
   }
 
 
