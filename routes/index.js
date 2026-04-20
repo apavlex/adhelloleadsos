@@ -40,17 +40,12 @@ router.get('/', async (req, res, next) => {
   }
 });
 
-// GET /schedules — View scheduled scrape jobs
-router.get('/schedules', async (req, res) => {
-  const allSchedules = await dbService.listSchedules();
-  const wid = req.workspaceId || 'default';
-  const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
-    res.render('schedules', {
-      title: 'Scheduled Jobs | Agency OS',
-    activePage: 'schedules',
-    schedules,
-    success: req.query.success === 'true'
-  });
+// GET /schedules — canonical UI is Prospecting → Queue (scheduled jobs table)
+router.get('/schedules', (req, res) => {
+  const params = new URLSearchParams();
+  params.set('tab', 'queue');
+  if (req.query.success === 'true') params.set('scheduleSuccess', 'true');
+  res.redirect(302, `/prospecting?${params.toString()}`);
 });
 
 // POST /schedules/delete — Remove a scheduled job
@@ -59,7 +54,9 @@ router.post('/schedules/delete', async (req, res) => {
   if (key) {
     await dbService.deleteSchedule(key);
   }
-  const dest = returnTo === '/' || returnTo === '/prospecting?tab=queue' ? (returnTo || '/') : '/schedules';
+  let dest = '/prospecting?tab=queue';
+  if (returnTo === '/') dest = '/';
+  else if (returnTo && returnTo !== '/schedules') dest = returnTo;
   res.redirect(dest);
 });
 

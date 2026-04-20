@@ -5,14 +5,33 @@
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Step 1</p>
         <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Choose the area</h2>
-        <p class="text-sm text-brand-muted mt-1 max-w-xl">Pan and zoom the map to the neighborhood or city you want, then <strong class="text-brand-dark dark:text-white">apply to location</strong>. Your city and state below update automatically.</p>
+        <p class="text-sm text-brand-muted mt-1 max-w-xl">Search, pan, or zoom the map to the area you want, then <strong class="text-brand-dark dark:text-white">apply to location</strong>. Your city and state below update automatically.</p>
       </div>
-      <button type="button" id="applyMapLocationBtn" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white shrink-0 w-full sm:w-auto">
+      <button type="button" id="applyMapLocationBtn" class="shrink-0 w-full sm:w-auto px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-widest bg-white dark:bg-slate-900 text-brand-dark dark:text-white border-2 border-brand-dark dark:border-brand-yellow shadow-md hover:shadow-lg hover:border-brand-yellow dark:hover:border-brand-yellow ring-2 ring-brand-yellow/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2">
         Apply map → location
       </button>
     </div>
   </div>
-  <div id="findAreaMap" class="w-full h-[min(340px,48vh)] min-h-[220px] sm:h-[min(400px,52vh)] sm:min-h-[280px] border-t border-b border-brand-border/20 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40" role="application" aria-label="Google Map — drag to choose search area"></div>
+  <div class="relative w-full border-t border-b border-brand-border/20 dark:border-white/10">
+    <div id="findAreaMap" class="w-full h-[min(340px,48vh)] min-h-[220px] sm:h-[min(400px,52vh)] sm:min-h-[280px] bg-brand-cream/20 dark:bg-slate-800/40" role="application" aria-label="Google Map — drag to choose search area"></div>
+    <div class="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4">
+      <div class="pointer-events-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:max-w-xl">
+        <label for="findAreaMapSearch" class="sr-only">Search city or address on map</label>
+        <div class="flex flex-1 min-w-0 rounded-2xl border-2 border-brand-dark/20 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg backdrop-blur-sm overflow-hidden focus-within:border-brand-yellow focus-within:ring-2 focus-within:ring-brand-yellow/40">
+          <input type="search" id="findAreaMapSearch" autocomplete="off" placeholder="Search city, neighborhood, or address…" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted focus:outline-none focus:ring-0" />
+          <button type="button" id="findAreaMapSearchBtn" class="shrink-0 px-4 py-3 text-[10px] font-black uppercase tracking-widest bg-brand-yellow text-brand-dark hover:brightness-105 active:scale-[0.98] transition-all border-l border-brand-dark/10 dark:border-white/10">
+            Go
+          </button>
+        </div>
+      </div>
+      <div class="pointer-events-none flex justify-end pb-1">
+        <div class="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border-2 border-brand-dark/25 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg">
+          <button type="button" id="findAreaMapZoomIn" class="flex h-11 w-11 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 border-b border-brand-border/40 dark:border-white/10 transition-colors" aria-label="Zoom in">+</button>
+          <button type="button" id="findAreaMapZoomOut" class="flex h-11 w-11 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 transition-colors" aria-label="Zoom out">−</button>
+        </div>
+      </div>
+    </div>
+  </div>
   <p id="findAreaMapStatus" class="text-[12px] text-brand-muted px-5 sm:px-7 py-3 min-h-[2.75rem] border-b border-brand-border/10 dark:border-white/5" aria-live="polite"></p>
 </div>
 <script>
@@ -31,12 +50,66 @@
       center: { lat: d.lat, lng: d.lng },
       zoom: d.zoom,
       mapTypeControl: true,
+      mapTypeControlOptions: {
+        position: google.maps.ControlPosition.TOP_RIGHT
+      },
+      zoomControl: false,
       streetViewControl: false,
-      fullscreenControl: true
+      fullscreenControl: true,
+      fullscreenControlOptions: {
+        position: google.maps.ControlPosition.TOP_RIGHT
+      }
     });
     window.__findAreaMap = map;
     var geocoder = new google.maps.Geocoder();
+    var searchInput = document.getElementById('findAreaMapSearch');
+    var searchBtn = document.getElementById('findAreaMapSearchBtn');
+    var zoomInBtn = document.getElementById('findAreaMapZoomIn');
+    var zoomOutBtn = document.getElementById('findAreaMapZoomOut');
     function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
+    function runMapSearch() {
+      var q = searchInput && String(searchInput.value || '').trim();
+      if (!q) {
+        setStatus('Type a city or address, then tap Go.');
+        return;
+      }
+      setStatus('Searching…');
+      geocoder.geocode({ address: q }, function (results, gStatus) {
+        if (gStatus !== 'OK' || !results || !results[0]) {
+          setStatus('No results — try another spelling or be more specific.');
+          return;
+        }
+        var g = results[0].geometry;
+        if (g.viewport) {
+          map.fitBounds(g.viewport);
+        } else if (g.location) {
+          map.setCenter(g.location);
+          map.setZoom(11);
+        }
+        setStatus('Map updated — fine-tune if needed, then Apply map → location.');
+      });
+    }
+    if (searchBtn) searchBtn.addEventListener('click', runMapSearch);
+    if (searchInput) {
+      searchInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runMapSearch();
+        }
+      });
+    }
+    if (zoomInBtn) {
+      zoomInBtn.addEventListener('click', function () {
+        var z = map.getZoom();
+        if (z != null) map.setZoom(Math.min(z + 1, 21));
+      });
+    }
+    if (zoomOutBtn) {
+      zoomOutBtn.addEventListener('click', function () {
+        var z = map.getZoom();
+        if (z != null) map.setZoom(Math.max(z - 1, 2));
+      });
+    }
     function applyCenter() {
       var c = map.getCenter();
       if (!c) return;

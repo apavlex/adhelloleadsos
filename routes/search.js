@@ -85,7 +85,7 @@ router.post('/', async (req, res, next) => {
         workspaceId: req.workspaceId || 'default',
       });
       await activationService.recordEvent(userEmail(req), 'autopilot_scheduled');
-      return res.redirect('/schedules?success=true');
+      return res.redirect('/prospecting?tab=queue&scheduleSuccess=true');
     }
 
     // --- START BACKGROUND PROCESSING ---

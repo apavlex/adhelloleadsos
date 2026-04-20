@@ -228,7 +228,7 @@ Respond with JSON only (no markdown):
 }
 
 Rules:
-- href paths must match app routes: /, /today, /find, /prospecting (tabs: queue, pipeline, folders), /pipeline, /outreach, /tasks, /resources, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics (optional ?tab=tracker), /sequences, /activation, /workspace
+- href paths must match app routes: /, /today, /find, /prospecting (tabs: queue, pipeline, folders), /pipeline, /outreach, /tasks, /resources, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules (redirects to prospecting queue), /analytics (optional ?tab=tracker), /sequences, /activation, /workspace
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
 - Prefer warm inbound leads when pipelineCounts show inbound-heavy stages

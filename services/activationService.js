@@ -21,7 +21,7 @@ const PLAN = [
     id: 'd3',
     label: 'Day 3 — Schedule lead runs',
     hint: 'Daily / weekly scrape while you sleep',
-    href: '/schedules',
+    href: '/prospecting?tab=queue',
     event: 'autopilot_scheduled',
   },
   {

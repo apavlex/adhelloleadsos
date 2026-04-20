@@ -11,6 +11,7 @@ const {
 } = require('../services/trackerStats');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
+const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
 
 function firstNameFromUser(user) {
   const raw =
@@ -75,6 +76,7 @@ router.get('/', async (req, res, next) => {
 
     const activation = await activationService.getState(email);
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
+    const outreachCoach = await buildOutreachCoachSnapshot(req);
 
     res.render('today', {
       title: 'Today | Agency OS',
@@ -94,6 +96,7 @@ router.get('/', async (req, res, next) => {
       overdueFollowUps,
       queueNeedingAction,
       totalLeads: workspaceLeads.length,
+      outreachCoach,
       activation,
       activationComplete: activation.progress >= (activation.total || 7),
       seededNotice,

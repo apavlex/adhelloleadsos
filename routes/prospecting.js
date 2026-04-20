@@ -29,14 +29,16 @@ router.get('/', async (req, res, next) => {
 
     const allSchedules = await dbService.listSchedules();
     const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
-    const nowMs = Date.now();
-    const pendingSchedules = schedules
-      .filter((s) => !s.lastRun && s.scheduledRunAt)
-      .filter((s) => {
-        const t = Date.parse(String(s.scheduledRunAt));
-        return Number.isFinite(t) && t > nowMs;
-      })
-      .sort((a, b) => Date.parse(String(a.scheduledRunAt)) - Date.parse(String(b.scheduledRunAt)));
+    const scheduleSuccess = req.query.scheduleSuccess === 'true';
+    const schedulesSorted = [...schedules].sort((a, b) => {
+      const t = (s) => {
+        const x = Date.parse(String(s.scheduledRunAt || ''));
+        return Number.isFinite(x) ? x : Infinity;
+      };
+      const cmp = t(a) - t(b);
+      if (cmp !== 0) return cmp;
+      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+    });
 
     const sourceFilter = String(req.query.source || 'all').toLowerCase();
     let leads = pipelineVisible;
@@ -96,7 +98,8 @@ router.get('/', async (req, res, next) => {
       tab: safeTab,
       leadCount: pipelineVisible.length,
       folders,
-      pendingSchedules,
+      schedules: schedulesSorted,
+      scheduleSuccess,
       queueListLeads,
       folderListLeads,
       leads,
