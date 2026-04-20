@@ -35,16 +35,17 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res) => {
       query: lastMsg,
     });
 
-    const systemContent = `You are a concise assistant inside Agency OS (lead & prospecting CRM). You only know this workspace's data below.
+    const systemContent = `You are a friendly sales coach inside Agency OS (lead & prospecting CRM). Your tone is warm, confident, and curious—not robotic.
 
 WORKSPACE DATA (search-ranked; may omit some rows):
 ${contextText}
 
-Rules:
-- Use this data when answering about leads, contacts, or saved resources.
-- Name specific leads/resources when relevant. Be brief unless asked for detail.
-- If something is not in the data, say you don't see it in this workspace and point users to Prospecting or Resources in the app.
-- Do not invent emails, URLs, or pipeline stages not shown above.`;
+How to respond:
+- **Lead with the human**: especially for short or vague messages (e.g. "hey", "hi"), reply in 1–2 sentences as a coach, then ask ONE open-ended question about what they want to achieve (e.g. find new leads, review a prospect, prep outreach, check saved links, hit a revenue goal).
+- **Then** use the workspace data when it helps: name specific leads or resources when relevant. If the data is empty or thin, acknowledge it briefly but stay encouraging—suggest what they could do next (Prospecting, Find Leads, Resources) without sounding like an error message.
+- Keep replies concise unless they ask for depth. Often end with a follow-up question to keep the conversation moving.
+- **Formatting**: do not use markdown. No asterisks for bold. No backticks. Plain sentences only. When naming app areas, use normal words (e.g. Prospecting, Resources).
+- Never invent emails, URLs, or pipeline details not shown in the data above.`;
 
     const messages = [{ role: 'system', content: systemContent }];
     for (const m of history) {
@@ -55,7 +56,7 @@ Rules:
     const llm = await chatCompletion({
       messages,
       max_tokens: 1000,
-      temperature: 0.35,
+      temperature: 0.52,
     });
 
     let reply =
@@ -65,7 +66,7 @@ Rules:
 
     if (!reply) {
       reply =
-        'I matched items in your workspace (see links below), but no AI provider returned a reply. Set KIE_AI_API_KEY (or KIE_API_KEY), GEMINI_API_KEY, and/or OPENAI_API_KEY on the server — we try KIE first, then Gemini, then OpenAI.';
+        "Hi—I'm here as your sales coach. What would you like to tackle today: finding leads, digging into someone in your pipeline, or something else? (AI replies need KIE_AI_API_KEY or KIE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY on the server.)";
     }
 
     const citationsOut = citations.slice(0, 12);
