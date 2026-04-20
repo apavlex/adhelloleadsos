@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <% if (typeof tab !== 'undefined' && tab === 'pipeline') { %>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <% } %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-14">
+    <div class="mb-8 max-w-3xl">
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Prospecting</h1>
+      <p class="text-brand-muted font-medium mt-2">Queue, pipeline board, and outreach folders in one place. Daily metrics live under <a href="/analytics?tab=tracker" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Reports → Daily tracker</a>.</p>
+    </div>
+
+    <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
+    <nav class="flex flex-wrap gap-2 mb-8" aria-label="Prospecting sections">
+      <a href="/prospecting?tab=queue" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= activeTab === 'queue' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Queue</a>
+      <a href="/prospecting?tab=pipeline" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= activeTab === 'pipeline' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Pipeline</a>
+      <a href="/prospecting?tab=folders" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= activeTab === 'folders' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Folders</a>
+    </nav>
+
+    <% if (activeTab === 'pipeline') { %>
+      <%- include('partials/prospecting_board') %>
+    <% } else if (activeTab === 'queue') { %>
+      <div class="grid lg:grid-cols-3 gap-6">
+        <section class="lg:col-span-1 brand-card p-6 dark:bg-slate-900 dark:border-white/10">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-4">Filters</p>
+          <div class="space-y-4">
+            <div>
+              <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 block">Stage</label>
+              <select id="queueStage" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-bold text-brand-dark dark:text-white">
+                <option value="">All stages</option>
+                <% for (let i = 1; i <= 10; i += 1) { %>
+                  <option value="<%= i %>"><%= i %></option>
+                <% } %>
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 block">Folder</label>
+              <select id="queueFolder" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-bold text-brand-dark dark:text-white">
+                <option value="">All folders</option>
+                <% (folders || []).forEach((f) => { %>
+                  <option value="<%= f.key %>"><%= f.name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div>
+              <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5 block">Search</label>
+              <input id="queueSearch" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Company, email, phone, domain…" />
+            </div>
+            <button id="queueApply" type="button" class="btn-pill btn-primary w-full py-3 text-[10px] font-black uppercase tracking-widest">Apply</button>
+          </div>
+        </section>
+
+        <section class="lg:col-span-2 brand-card p-6 dark:bg-slate-900 dark:border-white/10">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Working queue</p>
+              <p class="text-sm text-brand-muted mt-1">Leads filtered for outreach focus. Click a lead to open details.</p>
+            </div>
+            <a href="/prospecting?tab=pipeline" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Open pipeline</a>
+          </div>
+          <div id="queueList" class="divide-y divide-brand-border/40 dark:divide-white/10 rounded-2xl border border-brand-border/30 dark:border-white/10 overflow-hidden bg-white/50 dark:bg-slate-950/20">
+            <% if (typeof queueListLeads !== 'undefined' && queueListLeads && queueListLeads.length) { %>
+              <% queueListLeads.forEach(function (lead) { %>
+                <%- include('partials/outreach_lead_row', { lead: lead, mode: 'queue' }) %>
+              <% }); %>
+            <% } else { %>
+              <div class="p-6 text-sm text-brand-muted dark:text-slate-400 italic">No leads in this workspace.</div>
+            <% } %>
+          </div>
+        </section>
+      </div>
+    <% } else { %>
+      <div class="grid lg:grid-cols-3 gap-6">
+        <aside class="brand-card p-6 dark:bg-slate-900 dark:border-white/10">
+          <div class="flex items-center justify-between gap-3 mb-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Folders</p>
+            <button type="button" id="folderCreateOpen" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">New</button>
+          </div>
+          <div id="folderList" class="space-y-2">
+            <button type="button" data-folder="" class="folder-pill w-full text-left px-4 py-3 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-800/40 text-sm font-bold text-brand-dark dark:text-white">All leads</button>
+            <% (folders || []).forEach((f) => { %>
+              <button type="button" data-folder="<%= f.key %>" class="folder-pill w-full text-left px-4 py-3 rounded-2xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/30 text-sm font-semibold text-brand-dark dark:text-white hover:border-brand-yellow/40 transition-colors"><%= f.name %></button>
+            <% }) %>
+          </div>
+          <p class="text-[11px] text-brand-muted mt-4">Use folders for “Referrals”, “Events”, “High-priority”, etc.</p>
+        </aside>
+
+        <section class="lg:col-span-2 brand-card p-6 dark:bg-slate-900 dark:border-white/10">
+          <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div>
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Leads</p>
+              <p id="folderLeadsMeta" class="text-sm text-brand-muted mt-1">Select a folder to filter.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <input id="folderSearch" type="text" class="rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-2.5 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Search…" />
+              <button id="folderRefresh" type="button" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Refresh</button>
+            </div>
+          </div>
+
+          <div id="folderLeads" class="divide-y divide-brand-border/40 dark:divide-white/10 rounded-2xl border border-brand-border/30 dark:border-white/10 overflow-hidden bg-white/50 dark:bg-slate-950/20">
+            <% if (typeof folderListLeads !== 'undefined' && folderListLeads && folderListLeads.length) { %>
+              <% folderListLeads.forEach(function (lead) { %>
+                <%- include('partials/outreach_lead_row', { lead: lead, mode: 'folders', folders: folders || [] }) %>
+              <% }); %>
+            <% } else { %>
+              <div class="p-6 text-sm text-brand-muted dark:text-slate-400 italic">No leads in this workspace.</div>
+            <% } %>
+          </div>
+        </section>
+      </div>
+    <% } %>
+  </main>
+
+  <% if (activeTab === 'pipeline') { %>
+  <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], pipelineStages }) %>
+  <script>
+  (function () {
+    document.addEventListener('DOMContentLoaded', function () {
+      var input = document.getElementById('leadsCsvFile');
+      var hint = document.getElementById('csvFileAttachHint');
+      var nameEl = document.getElementById('csvFileNameDisplay');
+      var labelWrap = document.getElementById('leadsCsvLabelWrap');
+      var labelText = document.getElementById('leadsCsvLabelText');
+      if (!input || !hint || !nameEl) return;
+      function sync() {
+        var f = input.files && input.files[0];
+        if (f && f.name) {
+          nameEl.textContent = f.name;
+          hint.classList.remove('hidden');
+          hint.classList.add('flex');
+          if (labelWrap) {
+            labelWrap.classList.add('border-emerald-500/70', 'dark:border-emerald-400/60', 'ring-2', 'ring-emerald-500/25', 'dark:ring-emerald-400/20');
+          }
+          if (labelText) labelText.textContent = 'Change file';
+        } else {
+          nameEl.textContent = '';
+          hint.classList.add('hidden');
+          hint.classList.remove('flex');
+          if (labelWrap) {
+            labelWrap.classList.remove('border-emerald-500/70', 'dark:border-emerald-400/60', 'ring-2', 'ring-emerald-500/25', 'dark:ring-emerald-400/20');
+          }
+          if (labelText) labelText.textContent = 'Import CSV';
+        }
+      }
+      input.addEventListener('change', sync);
+      sync();
+    });
+  })();
+  </script>
+  <script src="/js/app.js"></script>
+  <% } else { %>
+  <div id="folderCreateModal" class="fixed inset-0 z-[6000] hidden items-center justify-center p-4" aria-hidden="true">
+    <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>
+    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">New folder</h2>
+      <p class="text-sm text-brand-muted mb-5">Create a folder to bucket leads (manual or imported).</p>
+      <input id="folderCreateName" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" placeholder="e.g. Referrals" />
+      <p id="folderCreateError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderCreateSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Create</button>
+        <button id="folderCreateCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    var activeTab = <%- JSON.stringify(activeTab) %>;
+    function $(id) { return document.getElementById(id); }
+
+    var jsonHeaders = { Accept: 'application/json', 'Content-Type': 'application/json' };
+    var fetchJsonOpts = { credentials: 'same-origin', headers: { Accept: 'application/json' } };
+
+    function renderLeadRow(l, folderKey) {
+      var email = l.email && l.email !== 'N/A' ? l.email : '—';
+      var phone = l.phone && l.phone !== 'N/A' ? l.phone : '—';
+      var site = l.website && l.website !== 'N/A' ? l.website.replace(/^https?:\\/\\//, '').replace(/\\/$/, '') : '—';
+      var stage = l.pipelineStage || 1;
+      var fk = l.folderKey || '';
+      var rowAnchor = String(l.key || '').replace(/[^a-z0-9]+/gi, '-');
+      var openHref = fk ? '/prospecting?tab=folders' : ('/prospecting?tab=pipeline#lead-row-' + rowAnchor);
+      return '' +
+        '<div class="p-4 sm:p-5 flex items-start justify-between gap-3">' +
+          '<div class="min-w-0">' +
+            '<div class="font-bold text-brand-dark dark:text-white truncate">' + escapeHtml(l.title || 'Lead') + '</div>' +
+            '<div class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 truncate">' +
+              escapeHtml([email, phone, site].filter(Boolean).join(' · ')) +
+            '</div>' +
+            '<div class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-2">Stage ' + escapeHtml(String(stage)) + '</div>' +
+          '</div>' +
+          '<div class="shrink-0 flex flex-col items-end gap-2">' +
+            (activeTab === 'folders'
+              ? '<select class="folder-assign rounded-xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-[11px] font-bold text-brand-dark dark:text-white" data-lead="' + escapeAttr(l.key) + '">' +
+                  '<option value="">No folder</option>' +
+                  (window.__folders || []).map(function (f) {
+                    var sel = (fk === f.key) ? ' selected' : '';
+                    return '<option value="' + escapeAttr(f.key) + '"' + sel + '>' + escapeHtml(f.name) + '</option>';
+                  }).join('') +
+                '</select>'
+              : '') +
+            '<a href="' + escapeAttr(openHref) + '" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open</a>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+    function escapeAttr(s) {
+      return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    }
+
+    function loadLeads(params, targetEl, metaEl) {
+      if (!targetEl) return Promise.resolve();
+      var qs = new URLSearchParams(params || {});
+      return fetch('/leads/list.json?' + qs.toString(), fetchJsonOpts)
+        .then(function (r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function (data) {
+          if (!data || !data.success) throw new Error('Failed');
+          if (metaEl) metaEl.textContent = data.leads.length + ' lead' + (data.leads.length === 1 ? '' : 's');
+          if (!data.leads.length) {
+            targetEl.innerHTML = '<div class="p-6 text-sm text-brand-muted dark:text-slate-400 italic">No leads match this filter.</div>';
+            return;
+          }
+          targetEl.innerHTML = data.leads.map(function (l) { return renderLeadRow(l); }).join('');
+        })
+        .catch(function () {
+          targetEl.innerHTML = '<div class="p-6 text-sm text-rose-600 dark:text-rose-400 italic">Could not load leads. Refresh the page or sign in again.</div>';
+        });
+    }
+
+    if (activeTab === 'queue') {
+      var list = $('queueList');
+      var stage = $('queueStage');
+      var folder = $('queueFolder');
+      var q = $('queueSearch');
+      var apply = $('queueApply');
+      function refresh() {
+        loadLeads({ stage: stage.value, folderKey: folder.value, q: q.value, excludeFolderAssigned: '1' }, list);
+      }
+      if (apply) apply.addEventListener('click', refresh);
+      refresh();
+    }
+
+    if (activeTab === 'folders') {
+      window.__folders = <%- JSON.stringify((folders || []).map((f) => ({ key: f.key, name: f.name }))) %>;
+      var leadsEl = $('folderLeads');
+      var metaEl = $('folderLeadsMeta');
+      var searchEl = $('folderSearch');
+      var refreshBtn = $('folderRefresh');
+      var selectedFolder = '';
+
+      function bindFolderAssigns(container) {
+        if (!container) return;
+        container.querySelectorAll('select.folder-assign').forEach(function (sel) {
+          sel.addEventListener('change', function () {
+            var leadKey = sel.getAttribute('data-lead');
+            var folderKey = sel.value;
+            fetch('/folders/assign', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: jsonHeaders,
+              body: JSON.stringify({ leadKey: leadKey, folderKey: folderKey })
+            }).then(function () { refreshLeads(); });
+          });
+        });
+      }
+
+      function refreshFolders() {
+        return fetch('/folders', fetchJsonOpts)
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (data) {
+            if (data && data.success) {
+              window.__folders = data.folders.map(function (f) { return { key: f.key, name: f.name }; });
+            }
+          })
+          .catch(function () {});
+      }
+
+      function refreshLeads() {
+        var params = { q: (searchEl && searchEl.value) || '' };
+        if (selectedFolder) params.folderKey = selectedFolder;
+        return fetch('/leads/list.json?' + new URLSearchParams(params).toString(), fetchJsonOpts)
+          .then(function (r) {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.json();
+          })
+          .then(function (data) {
+            if (!data || !data.success) throw new Error('Failed');
+            if (metaEl) {
+              metaEl.textContent = (selectedFolder ? 'Folder' : 'All leads') + ' · ' + data.leads.length + ' lead' + (data.leads.length === 1 ? '' : 's');
+            }
+            if (!data.leads.length) {
+              leadsEl.innerHTML = '<div class="p-6 text-sm text-brand-muted dark:text-slate-400 italic">No leads in this folder.</div>';
+              return;
+            }
+            leadsEl.innerHTML = data.leads.map(function (l) { return renderLeadRow(l); }).join('');
+          })
+          .then(function () {
+            bindFolderAssigns(leadsEl);
+          })
+          .catch(function () {
+            if (leadsEl) leadsEl.innerHTML = '<div class="p-6 text-sm text-rose-600 dark:text-rose-400 italic">Could not load leads.</div>';
+          });
+      }
+
+      document.querySelectorAll('.folder-pill').forEach(function (b) {
+        b.addEventListener('click', function () {
+          selectedFolder = b.getAttribute('data-folder') || '';
+          document.querySelectorAll('.folder-pill').forEach(function (x) {
+            x.classList.remove('border-brand-yellow', 'bg-brand-yellow/10');
+          });
+          b.classList.add('border-brand-yellow', 'bg-brand-yellow/10');
+          refreshLeads();
+        });
+      });
+      if (refreshBtn) refreshBtn.addEventListener('click', function () { refreshFolders().then(refreshLeads); });
+      if (searchEl) searchEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); refreshLeads(); }});
+
+      var m = $('folderCreateModal');
+      var open = $('folderCreateOpen');
+      var bd = $('folderCreateBackdrop');
+      var cancel = $('folderCreateCancel');
+      var save = $('folderCreateSave');
+      var name = $('folderCreateName');
+      var err = $('folderCreateError');
+      function openM() {
+        if (!m) return;
+        m.classList.remove('hidden');
+        m.classList.add('flex');
+        m.setAttribute('aria-hidden', 'false');
+        if (name) name.focus();
+        if (err) { err.classList.add('hidden'); err.textContent = ''; }
+      }
+      function closeM() {
+        if (!m) return;
+        m.classList.add('hidden');
+        m.classList.remove('flex');
+        m.setAttribute('aria-hidden', 'true');
+        if (name) name.value = '';
+      }
+      if (open) open.addEventListener('click', openM);
+      if (bd) bd.addEventListener('click', closeM);
+      if (cancel) cancel.addEventListener('click', closeM);
+      if (save) save.addEventListener('click', function () {
+        var n = (name && name.value || '').trim();
+        if (!n) return;
+        fetch('/folders', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: jsonHeaders,
+          body: JSON.stringify({ name: n })
+        })
+          .then(function (r) {
+            return r.text().then(function (t) {
+              try { return JSON.parse(t); } catch (e2) {
+                throw new Error(r.ok ? 'Invalid response' : ('HTTP ' + r.status));
+              }
+            });
+          })
+          .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || 'Failed');
+            closeM();
+            window.location.reload();
+          })
+          .catch(function (e) {
+            if (err) { err.textContent = e && e.message ? e.message : 'Could not create folder.'; err.classList.remove('hidden'); }
+          });
+      });
+
+      bindFolderAssigns(leadsEl);
+      if (metaEl && leadsEl) {
+        var nInit = leadsEl.querySelectorAll('select.folder-assign').length;
+        metaEl.textContent = 'All leads · ' + nInit + ' lead' + (nInit === 1 ? '' : 's');
+      }
+      refreshFolders().then(refreshLeads);
+    }
+  })();
+  </script>
+  <%- include('partials/footer') %>
+  <% } %>
+</body>
+</html>

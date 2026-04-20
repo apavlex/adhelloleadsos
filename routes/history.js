@@ -21,7 +21,7 @@ router.get('/', async (req, res, next) => {
       title: 'Search History',
       activePage: 'history',
       searches,
-      activeJob: jobIsSearch ? activeJob : null,
+      activeJob: showSearchProgress ? activeJob : null,
       showSearchProgress,
     });
   } catch (err) {

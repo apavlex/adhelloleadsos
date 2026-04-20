@@ -72,12 +72,12 @@
             <p class="text-2xl md:text-3xl font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof streak !== 'undefined' ? streak : 0 %></p>
             <p class="text-[11px] text-brand-muted mt-2">Consecutive days</p>
           </a>
-          <a href="/leads" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
+          <a href="/prospecting?tab=pipeline" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Reply signals</p>
             <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-white"><%= typeof repliesWaiting !== 'undefined' ? repliesWaiting : 0 %></p>
             <p class="text-[11px] text-brand-muted mt-2">Logs mentioning reply / inbound</p>
           </a>
-          <a href="/leads" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-rose-500/40 transition-colors text-left">
+          <a href="/prospecting?tab=pipeline" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-rose-500/40 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Overdue follow-ups</p>
             <p class="text-2xl md:text-3xl font-display font-black text-rose-600 dark:text-rose-400"><%= typeof overdueFollowUps !== 'undefined' ? overdueFollowUps : 0 %></p>
             <p class="text-[11px] text-brand-muted mt-2">Cadence step past due</p>

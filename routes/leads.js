@@ -38,77 +38,17 @@ const upload = multer({
   },
 });
 
-// GET /leads — unified pipeline (cold + inbound); ?source=inbound | cold | all
-router.get('/', async (req, res, next) => {
-  try {
-    const allLeads = await dbService.getAllLeads();
-    const visible = filterLeadsForRequest(req, allLeads);
-    const pipelineVisible = excludeOutreachFolderLeads(visible);
-    const sourceFilter = String(req.query.source || 'all').toLowerCase();
-    let leads = pipelineVisible;
-    if (sourceFilter === 'inbound') {
-      leads = pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_'));
-    } else if (sourceFilter === 'cold') {
-      leads = pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
-    }
-
-    const leadListFilters = normalizeLeadListFilters(req.query);
-    leads = applyLeadListFilters(leads, leadListFilters);
-    const leadsFilterSuffix = leadListFilterQuerySuffix(leadListFilters);
-
-    const statusUniq = new Map();
-    pipelineVisible.forEach((l) => {
-      const d = displayStatus(l.status);
-      statusUniq.set(d.toLowerCase(), d);
-    });
-    const pipelineStatusOptions = Array.from(statusUniq.values()).sort((a, b) => a.localeCompare(b));
-
-    const leadSourceCounts = {
-      all: pipelineVisible.length,
-      cold: pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
-      inbound: pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
-    };
-
-    let importNotice = null;
-    if (
-      ['imported', 'skipped', 'failed', 'rows', 'created', 'updated'].some(
-        (k) => req.query[k] != null && req.query[k] !== ''
-      )
-    ) {
-      const rowsQ = parseInt(req.query.rows, 10);
-      const createdQ = parseInt(req.query.created, 10);
-      const updatedQ = parseInt(req.query.updated, 10);
-      importNotice = {
-        imported: Math.max(0, parseInt(req.query.imported, 10) || 0),
-        skipped: Math.max(0, parseInt(req.query.skipped, 10) || 0),
-        failed: Math.max(0, parseInt(req.query.failed, 10) || 0),
-        rows: Number.isNaN(rowsQ) ? null : rowsQ,
-        created: Number.isNaN(createdQ) ? null : createdQ,
-        updated: Number.isNaN(updatedQ) ? null : updatedQ,
-      };
-    }
-
-    const importError = typeof req.query.importError === 'string' && req.query.importError.trim()
-      ? req.query.importError.trim()
-      : null;
-
-    res.render('leads', {
-      title: 'Saved Leads',
-      activePage: sourceFilter === 'inbound' ? 'inbound' : 'leads',
-      leads,
-      sourceFilter,
-      leadSourceCounts,
-      leadListFilters,
-      leadsFilterSuffix,
-      pipelineStatusOptions,
-      importNotice,
-      importError,
-      pipelineStages: PIPELINE_STAGES,
-      canManageWorkspace: req.canManageWorkspace,
-    });
-  } catch (err) {
-    next(err);
-  }
+// GET /leads — canonical URL is /prospecting?tab=pipeline (bookmark-safe redirect)
+router.get('/', (req, res) => {
+  const params = new URLSearchParams();
+  Object.entries(req.query).forEach(([k, v]) => {
+    if (k === 'tab') return;
+    if (v == null || v === '') return;
+    if (Array.isArray(v)) v.forEach((x) => params.append(k, String(x)));
+    else params.set(k, String(v));
+  });
+  params.set('tab', 'pipeline');
+  res.redirect(302, `/prospecting?${params.toString()}`);
 });
 
 // Legacy URL — warm leads now live on the main board with ?source=inbound
@@ -242,7 +182,7 @@ router.post('/import', (req, res, next) => {
       if (wantsJson) {
         return res.status(400).json({ success: false, error: msg });
       }
-      return res.redirect(`/leads?importError=${encodeURIComponent(msg)}`);
+      return res.redirect(`/prospecting?tab=pipeline&importError=${encodeURIComponent(msg)}`);
     }
     next();
   });
@@ -252,7 +192,7 @@ router.post('/import', (req, res, next) => {
       if (req.headers.accept && req.headers.accept.includes('application/json')) {
         return res.status(400).json({ success: false, error: 'No CSV file received (field name: csvfile).' });
       }
-      return res.redirect('/leads?rows=0&created=0&updated=0&imported=0&skipped=0&failed=0');
+      return res.redirect('/prospecting?tab=pipeline&rows=0&created=0&updated=0&imported=0&skipped=0&failed=0');
     }
 
     const records = parseCsvToLeadRecords(req.file.buffer, req.file.originalname || 'import.csv');
@@ -306,7 +246,7 @@ router.post('/import', (req, res, next) => {
         totalRows: rows,
       });
     }
-    res.redirect(`/leads?${q}`);
+    res.redirect(`/prospecting?tab=pipeline&${q}`);
   } catch (err) {
     next(err);
   }
@@ -463,7 +403,7 @@ router.post('/:key/delete', async (req, res, next) => {
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
       return res.json({ success: true });
     }
-    res.redirect('/leads');
+    res.redirect('/prospecting?tab=pipeline');
   } catch (err) {
     next(err);
   }

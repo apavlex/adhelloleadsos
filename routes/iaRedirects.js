@@ -1,6 +1,6 @@
 /**
- * Phase 1 IA: canonical paths → existing routes (no page deletes).
- * /find, /pipeline, /outreach, /insights are aliases until tabbed pages ship.
+ * Phase 1 IA: canonical paths → existing routes.
+ * /find → home; /pipeline → /prospecting?tab=pipeline; /outreach → /prospecting (preserves query).
  */
 const express = require('express');
 
@@ -12,8 +12,10 @@ router.get('/find', (req, res) => {
 
 router.get('/pipeline', (req, res) => {
   const i = req.originalUrl.indexOf('?');
-  const q = i >= 0 ? req.originalUrl.slice(i) : '';
-  res.redirect(302, `/leads${q}`);
+  const raw = i >= 0 ? req.originalUrl.slice(i + 1) : '';
+  const params = new URLSearchParams(raw);
+  params.set('tab', 'pipeline');
+  res.redirect(302, `/prospecting?${params.toString()}`);
 });
 
 router.get('/insights', (req, res) => {

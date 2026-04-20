@@ -14,7 +14,7 @@ const PLAN = [
     id: 'd2',
     label: 'Day 2 — Import CSV',
     hint: 'Drop enriched or exported leads',
-    href: '/leads',
+    href: '/prospecting?tab=pipeline',
     event: 'csv_import',
   },
   {
@@ -28,14 +28,14 @@ const PLAN = [
     id: 'd4',
     label: 'Day 4 — Start a cadence',
     hint: 'Attach Clay / Paul / Bob cadence to a lead',
-    href: '/outreach',
+    href: '/prospecting?tab=queue',
     event: 'sequence_started',
   },
   {
     id: 'd5',
     label: 'Day 5 — Log outreach',
     hint: 'Streak + discipline in the tracker',
-    href: '/outreach',
+    href: '/prospecting?tab=queue',
     event: 'outreach_logged',
   },
   {

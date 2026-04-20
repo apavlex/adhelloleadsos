@@ -156,7 +156,7 @@ const PERSONAS = [
     role: 'The Builder',
     color: 'from-emerald-400 to-teal-600',
     duties: ['Site and funnel drafts', 'Chatbot logic & handoff', 'Technical fulfillment notes'],
-    href: '/leads',
+    href: '/prospecting?tab=pipeline',
     hrefLabel: 'Leads',
   },
 ];

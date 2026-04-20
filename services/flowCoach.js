@@ -88,7 +88,7 @@ function ruleBasedCoach(ctx) {
 
   if (ctx.totalWorkspace === 0) {
     nextActions.push({ label: 'Run your first lead search', href: '/', priority: 'high' });
-    nextActions.push({ label: 'Import a CSV of prospects', href: '/leads', priority: 'normal' });
+    nextActions.push({ label: 'Import a CSV of prospects', href: '/prospecting?tab=pipeline', priority: 'normal' });
     nextActions.push({ label: 'Open Today', href: '/today', priority: 'normal' });
   } else {
     if (ctx.hasUnreadNotification) {
@@ -103,14 +103,14 @@ function ruleBasedCoach(ctx) {
     if (ctx.maxBacklogStage === 1 && ctx.maxBacklogCount >= 3) {
       nextActions.push({
         label: 'Clear New-stage backlog — outreach or drag to Contacted',
-        href: '/leads',
+        href: '/prospecting?tab=pipeline',
         priority: 'high',
       });
     }
     if (ctx.streak >= 3 && ctx.touchesToday === 0) {
       nextActions.push({ label: `Keep your ${ctx.streak}-day streak — log touches`, href: '/analytics?tab=tracker', priority: 'high' });
     }
-    nextActions.push({ label: 'Drag cards on the Pipeline board', href: '/pipeline', priority: 'normal' });
+    nextActions.push({ label: 'Drag cards on the Pipeline board', href: '/prospecting?tab=pipeline', priority: 'normal' });
     nextActions.push({ label: 'Open scripts (Clay / Paul / Bob)', href: '/sales/personas', priority: 'normal' });
   }
 
@@ -154,6 +154,7 @@ const ALLOWED_HREFS = new Set([
   '/today',
   '/find',
   '/pipeline',
+  '/prospecting',
   '/outreach',
   '/tasks',
   '/resources',
@@ -227,7 +228,7 @@ Respond with JSON only (no markdown):
 }
 
 Rules:
-- href paths must match app routes: /, /today, /find, /pipeline, /outreach, /tasks, /resources, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics (optional ?tab=tracker), /sequences, /activation, /workspace
+- href paths must match app routes: /, /today, /find, /prospecting (tabs: queue, pipeline, folders), /pipeline, /outreach, /tasks, /resources, /leads, /sales/workflow, /sales/tracker, /sales/personas, /history, /schedules, /analytics (optional ?tab=tracker), /sequences, /activation, /workspace
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
 - Prefer warm inbound leads when pipelineCounts show inbound-heavy stages

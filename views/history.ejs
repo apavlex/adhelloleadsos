@@ -28,6 +28,33 @@
       </a>
     </div>
 
+    <% if (typeof showSearchProgress !== 'undefined' && showSearchProgress) { %>
+      <div class="brand-card p-8 md:p-10 mb-8 border border-brand-yellow/30 bg-brand-yellow/5 dark:bg-slate-900/80 dark:border-brand-yellow/25" role="status" aria-live="polite" aria-busy="true">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-6">
+          <div class="shrink-0 flex items-center justify-center w-16 h-16 rounded-2xl bg-brand-yellow/20 border border-brand-yellow/30">
+            <div class="animate-spin rounded-full h-8 w-8 border-[3px] border-brand-yellow/35 border-t-brand-yellow" aria-hidden="true"></div>
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1">Scraping in progress</p>
+            <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white tracking-tight">
+              Finding &amp; enriching leads
+            </h2>
+            <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-2xl leading-relaxed">
+              <% if (activeJob && activeJob.keyword) { %>
+                <strong class="text-brand-dark dark:text-white"><%= activeJob.keyword %></strong>
+                <% if (activeJob.city || activeJob.state) { %>
+                  <span class="text-brand-muted"> · <%= activeJob.city %><%= activeJob.city && activeJob.state ? ', ' : '' %><%= activeJob.state %></span>
+                <% } %>
+                — maps search and enrichment can take a few minutes. This page refreshes when the run completes.
+              <% } else { %>
+                Your search is running on the server. Maps pull plus social enrichment can take a few minutes. This page refreshes automatically when the run completes.
+              <% } %>
+            </p>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
     <% if (searches.length > 0) { %>
       <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
         <div class="overflow-x-auto">

@@ -143,7 +143,7 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
     }
     const returnTo = (req.body.returnTo || '').toString().trim();
     const dest = (() => {
-      if (['/sales/tracker', '/analytics', '/outreach?tab=touches'].includes(returnTo)) return returnTo;
+      if (['/sales/tracker', '/analytics', '/outreach?tab=touches', '/prospecting?tab=queue'].includes(returnTo)) return returnTo;
       if (returnTo.startsWith('/analytics?')) {
         try {
           const u = new URL(returnTo, 'http://localhost');

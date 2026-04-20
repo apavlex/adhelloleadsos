@@ -36,7 +36,7 @@
       </div>
       <div class="overflow-x-auto">
         <% if (leads.length === 0) { %>
-          <p class="p-8 text-sm text-brand-muted">No leads yet. <a href="/" class="text-brand-yellow font-bold underline">Run a search</a> or <a href="/leads" class="text-brand-yellow font-bold underline">import a CSV</a>.</p>
+          <p class="p-8 text-sm text-brand-muted">No leads yet. <a href="/" class="text-brand-yellow font-bold underline">Run a search</a> or <a href="/prospecting?tab=pipeline" class="text-brand-yellow font-bold underline">import a CSV</a>.</p>
         <% } else { %>
           <table class="w-full text-left text-sm" id="workflowPipelineTable">
             <thead>

@@ -14,8 +14,7 @@
     <nav class="hidden md:flex items-center gap-5 lg:gap-6 flex-wrap justify-center" aria-label="Primary">
       <a href="/today" class="nav-link text-sm <%= np === 'today' ? 'active' : '' %>">Today</a>
       <a href="/find" class="nav-link text-sm <%= np === 'find' ? 'active' : '' %>">Find Leads</a>
-      <a href="/pipeline" class="nav-link text-sm <%= np === 'pipeline' ? 'active' : '' %>">Pipeline</a>
-      <a href="/outreach" class="nav-link text-sm <%= np === 'outreach' ? 'active' : '' %>">Outreach</a>
+      <a href="/prospecting" class="nav-link text-sm <%= np === 'prospecting' ? 'active' : '' %>">Prospecting</a>
       <a href="/tasks" class="nav-link text-sm <%= np === 'tasks' ? 'active' : '' %>">Tasks</a>
       <a href="/resources" class="nav-link text-sm <%= np === 'resources' ? 'active' : '' %>">Resources</a>
       <a href="/analytics" class="nav-link text-sm <%= np === 'reports' ? 'active' : '' %>">Reports</a>
@@ -111,8 +110,7 @@
       <nav class="flex flex-col gap-3 mb-8" aria-label="Mobile primary">
         <a href="/today" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'today' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Today</span></a>
         <a href="/find" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'find' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Find Leads</span></a>
-        <a href="/pipeline" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'pipeline' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Pipeline</span></a>
-        <a href="/outreach" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'outreach' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Outreach</span></a>
+        <a href="/prospecting" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'prospecting' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Prospecting</span></a>
         <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
         <a href="/resources" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'resources' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Resources</span></a>
         <a href="/analytics" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'reports' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Reports</span></a>
@@ -315,7 +313,7 @@
           if (btn) { btn.disabled = false; btn.textContent = 'Save to pipeline'; }
           if (ok && data.success) {
             closeManualLead();
-            window.location.href = '/leads?manual=1';
+            window.location.href = '/prospecting?tab=pipeline&manual=1';
             return;
           }
           if (mlErr) {
