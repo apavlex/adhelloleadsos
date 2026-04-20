@@ -40,29 +40,35 @@ router.get('/', async (req, res, next) => {
       return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
     });
 
+    const leadListFilters = normalizeLeadListFilters(req.query);
+    const activeFolderKey = String(leadListFilters.folderKey || '').trim();
+    const folderMembers = activeFolderKey
+      ? visible.filter((l) => String(l.folderKey || '').trim() === activeFolderKey)
+      : null;
+    const pipelineBase = folderMembers != null ? folderMembers : pipelineVisible;
+
     const sourceFilter = String(req.query.source || 'all').toLowerCase();
-    let leads = pipelineVisible;
+    let leads = pipelineBase;
     if (sourceFilter === 'inbound') {
-      leads = pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_'));
+      leads = pipelineBase.filter((l) => l.source && l.source.startsWith('adhello_'));
     } else if (sourceFilter === 'cold') {
-      leads = pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+      leads = pipelineBase.filter((l) => !l.source || !l.source.startsWith('adhello_'));
     }
 
-    const leadListFilters = normalizeLeadListFilters(req.query);
     leads = applyLeadListFilters(leads, leadListFilters);
     const leadsFilterSuffix = leadListFilterQuerySuffix(leadListFilters);
 
     const statusUniq = new Map();
-    pipelineVisible.forEach((l) => {
+    pipelineBase.forEach((l) => {
       const d = displayStatus(l.status);
       statusUniq.set(d.toLowerCase(), d);
     });
     const pipelineStatusOptions = Array.from(statusUniq.values()).sort((a, b) => a.localeCompare(b));
 
     const leadSourceCounts = {
-      all: pipelineVisible.length,
-      cold: pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
-      inbound: pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
+      all: pipelineBase.length,
+      cold: pipelineBase.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
+      inbound: pipelineBase.filter((l) => l.source && l.source.startsWith('adhello_')).length,
     };
 
     let importNotice = null;
@@ -97,6 +103,7 @@ router.get('/', async (req, res, next) => {
       activePage: 'prospecting',
       tab: safeTab,
       leadCount: pipelineVisible.length,
+      activeFolderKey,
       folders,
       schedules: schedulesSorted,
       scheduleSuccess,

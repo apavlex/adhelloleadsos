@@ -7,7 +7,9 @@ const express = require('express');
 const router = express.Router();
 
 router.get('/find', (req, res) => {
-  res.redirect(302, '/');
+  const i = req.originalUrl.indexOf('?');
+  const q = i >= 0 ? req.originalUrl.slice(i) : '';
+  res.redirect(302, `/${q}`);
 });
 
 router.get('/pipeline', (req, res) => {

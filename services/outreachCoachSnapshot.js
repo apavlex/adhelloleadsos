@@ -75,6 +75,127 @@ function countOverdueSequences(leads) {
   }).length;
 }
 
+function leadShortKey(l) {
+  const k = String(l?.key || '').trim();
+  if (!k) return '';
+  return k.startsWith('lead:') ? k.slice(5) : k;
+}
+
+function displayLeadName(l) {
+  const c = String(l.contactName || '').trim();
+  if (c) return c;
+  const em = String(l.email || '').trim();
+  if (em && em !== 'N/A') {
+    const local = em.split('@')[0];
+    if (local) return local.replace(/[._]+/g, ' ').trim();
+  }
+  return 'Contact';
+}
+
+function companyTitle(l) {
+  const t = String(l.title || '').trim();
+  return t || 'Company';
+}
+
+/**
+ * Named, one-click actions for Today / outreach coach (server-driven).
+ * @param {object[]} leads — workspace-filtered leads
+ * @param {object} snapshot — from buildOutreachCoachSnapshot (needs scheduledSearchesCount, totalLeads)
+ * @returns {Array<{ label: string, leadId: string, leadName: string, href: string, actionType: string }>}
+ */
+function buildNamedCoachActions(leads, snapshot) {
+  const list = Array.isArray(leads) ? leads : [];
+  const actions = [];
+  const used = new Set();
+  const now = Date.now();
+  const total = snapshot.totalLeads != null ? snapshot.totalLeads : list.length;
+
+  const overdue = list
+    .filter((l) => {
+      const st = l.sequenceState;
+      if (!st || st.status !== 'active' || !st.nextDueAt) return false;
+      return Date.parse(st.nextDueAt) < now;
+    })
+    .sort((a, b) => Date.parse(a.sequenceState.nextDueAt) - Date.parse(b.sequenceState.nextDueAt));
+
+  overdue.slice(0, 6).forEach((l) => {
+    const id = leadShortKey(l);
+    if (!id || used.has(id)) return;
+    used.add(id);
+    actions.push({
+      label: `Follow up — ${companyTitle(l)} (cadence overdue)`,
+      leadId: id,
+      leadName: displayLeadName(l),
+      href: `/focus?leadId=${encodeURIComponent(id)}`,
+      actionType: 'follow_up',
+    });
+  });
+
+  const early = list.filter((l) => {
+    const ps = parseInt(l.pipelineStage, 10);
+    const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
+    return n <= 2;
+  });
+
+  let draftCount = 0;
+  early.forEach((l) => {
+    if (draftCount >= 6) return;
+    const id = leadShortKey(l);
+    if (!id || used.has(id)) return;
+    used.add(id);
+    draftCount += 1;
+    const ln = displayLeadName(l);
+    const co = companyTitle(l);
+    actions.push({
+      label: `Draft follow-up to ${ln} (${co})`,
+      leadId: id,
+      leadName: ln,
+      href: `/focus?leadId=${encodeURIComponent(id)}`,
+      actionType: 'draft_email',
+    });
+  });
+
+  list.forEach((l) => {
+    if (actions.length >= 12) return;
+    const id = leadShortKey(l);
+    if (!id || used.has(id)) return;
+    const ps = parseInt(l.pipelineStage, 10);
+    if (Number.isNaN(ps) || ps < 3 || ps > 5) return;
+    const { tier } = scoreLeadRecord(l);
+    if (tier !== 'high') return;
+    used.add(id);
+    actions.push({
+      label: `Advance ${companyTitle(l)} — next pipeline step`,
+      leadId: id,
+      leadName: displayLeadName(l),
+      href: `/focus?leadId=${encodeURIComponent(id)}`,
+      actionType: 'advance_stage',
+    });
+  });
+
+  if (total < 20) {
+    actions.push({
+      label: 'Add prospects — find more leads',
+      leadId: '',
+      leadName: '',
+      href: '/find?preset=icp',
+      actionType: 'add_prospects',
+    });
+  }
+
+  if ((snapshot.scheduledSearchesCount || 0) === 0 && total < 40) {
+    actions.push({
+      label: 'Schedule a recurring maps search',
+      leadId: '',
+      leadName: '',
+      href: '/prospecting?tab=queue',
+      actionType: 'schedule_run',
+    });
+  }
+
+  return actions.slice(0, 14);
+}
+
 function pickQuoteForDate(isoDate) {
   const day = isoDate.slice(8, 10);
   const m = isoDate.slice(5, 7);
@@ -89,9 +210,13 @@ async function buildOutreachCoachSnapshot(req) {
   const email = userEmail(req);
   const today = new Date().toISOString().slice(0, 10);
   const touchGoal = dailyPersonalizedTouchGoal();
+  const wid = req.workspaceId || 'default';
 
   const all = await dbService.getAllLeads();
   const leads = filterLeadsForRequest(req, all);
+
+  const allSchedules = await dbService.listSchedules();
+  const scheduledSearchesCount = allSchedules.filter((s) => (s.workspaceId || 'default') === wid).length;
 
   const touchesToday = countUniqueLeadsTouchedOnUtcDate(leads, today);
 
@@ -145,11 +270,13 @@ async function buildOutreachCoachSnapshot(req) {
     opportunityTiers: { high: oppHigh, medium: oppMed, low: oppLow },
     repliesLoggedApprox: countReplySignals(leads),
     overdueSequences: countOverdueSequences(leads),
+    scheduledSearchesCount,
     entrepreneurQuote: pickQuoteForDate(today),
   };
 }
 
 module.exports = {
   buildOutreachCoachSnapshot,
+  buildNamedCoachActions,
   ENTREPRENEUR_QUOTES,
 };

@@ -1,5 +1,8 @@
 <% const _lfs = typeof leadsFilterSuffix !== 'undefined' ? leadsFilterSuffix : ''; %>
 <% const _lf = typeof leadListFilters !== 'undefined' && leadListFilters ? leadListFilters : {}; %>
+<% const _fk = _lf.folderKey ? String(_lf.folderKey) : ''; %>
+<% const _folders = typeof folders !== 'undefined' && folders ? folders : []; %>
+<% const _activeFolder = _fk ? _folders.find(function (x) { return x && String(x.key) === _fk; }) : null; %>
 <% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
 <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
 <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
@@ -7,6 +10,7 @@
 <% function _pipelineQs(omit) {
   var o = omit || '';
   var p = ['tab=pipeline', 'source=' + encodeURIComponent(_src)];
+  if (o !== 'folderKey' && _fk) p.push('folderKey=' + encodeURIComponent(_fk));
   if (o !== 'q' && _lf.q) p.push('q=' + encodeURIComponent(String(_lf.q)));
   if (o !== 'origin' && _lf.origin) p.push('origin=' + encodeURIComponent(String(_lf.origin)));
   if (o !== 'addedFrom' && _lf.addedFrom) p.push('addedFrom=' + encodeURIComponent(String(_lf.addedFrom)));
@@ -53,9 +57,14 @@
     </h2>
     <% const _wsAll = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts.all : leads.length; %>
     <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mt-3 max-w-xl leading-relaxed">
+      <% if (_activeFolder) { %>
+      Viewing folder <strong class="text-brand-dark dark:text-white"><%= _activeFolder.name %></strong>
+      (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> lead<%= _wsAll === 1 ? '' : 's' %> here<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this source filter<% } %>).
+      <% } else { %>
       One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
-      (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
-      Drag cards on the kanban to move through stages; table view shows status and source.
+      (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> unfiled in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
+      <% } %>
+      Drag cards on the kanban to move through stages; table view shows status and source. Filed leads live in <a href="/prospecting?tab=folders" class="font-bold text-brand-yellow hover:underline">Folders</a> until you open them here.
     </p>
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-4 flex flex-wrap gap-x-4 gap-y-2">
       <a href="/sequences" class="text-brand-yellow hover:underline">Sequences</a>
@@ -117,7 +126,16 @@
   <input type="hidden" name="tab" value="pipeline" />
   <input type="hidden" name="source" value="<%= _src %>" />
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 gap-y-3 items-end">
-    <div class="lg:col-span-4">
+    <div class="lg:col-span-3">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Folder</label>
+      <select name="folderKey" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white" title="Show leads from a folder or main pipeline">
+        <option value=""<%= !_fk ? ' selected' : '' %>>Main pipeline (unfiled)</option>
+        <% _folders.forEach(function (fd) { if (!fd || !fd.key) return; %>
+        <option value="<%= fd.key %>"<%= _fk === String(fd.key) ? ' selected' : '' %>><%= fd.name || 'Folder' %></option>
+        <% }); %>
+      </select>
+    </div>
+    <div class="lg:col-span-3">
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Search</label>
       <input type="search" name="q" value="<%= _lf.q || '' %>" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" placeholder="Company, email, phone, website…" />
     </div>
@@ -131,7 +149,7 @@
         <option value="warm"<%= _lf.origin === 'warm' ? ' selected' : '' %>>Warm (inbound)</option>
       </select>
     </div>
-    <div class="lg:col-span-5 flex flex-wrap items-end gap-2">
+    <div class="lg:col-span-3 flex flex-wrap items-end gap-2">
       <button type="submit" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Apply</button>
       <a href="/prospecting?tab=pipeline&amp;source=<%= _src %>" class="inline-flex items-center justify-center rounded-full border-2 border-brand-border dark:border-white/15 bg-transparent px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors text-center">Clear</a>
     </div>
@@ -192,6 +210,9 @@
   <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mr-1">Active</span>
   <% if (_lf.q) { %>
   <a href="<%= _pipelineQs('q') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove search filter">Search: <span class="max-w-[10rem] truncate"><%= _lf.q %></span><span class="text-brand-muted" aria-hidden="true">×</span></a>
+  <% } %>
+  <% if (_fk && _activeFolder) { %>
+  <a href="<%= _pipelineQs('folderKey') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Back to main pipeline">Folder: <%= _activeFolder.name %><span class="text-brand-muted" aria-hidden="true">×</span></a>
   <% } %>
   <% if (_lf.origin) { %>
   <a href="<%= _pipelineQs('origin') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove origin filter">Origin: <%= _lf.origin %><span class="text-brand-muted" aria-hidden="true">×</span></a>

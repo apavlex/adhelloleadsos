@@ -670,6 +670,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  (function openFocusLeadFromQuery() {
+    if (!mobilePanel) return;
+    const params = new URLSearchParams(window.location.search);
+    const raw = (params.get('focusLead') || '').trim();
+    if (!raw) return;
+    const short = raw.replace(/^lead:/i, '');
+    let target = null;
+    document.querySelectorAll('.result-row').forEach((row) => {
+      const k = row.getAttribute('data-lead-key') || '';
+      const norm = k.startsWith('lead:') ? k.slice(5) : k;
+      if (k === raw || k === `lead:${short}` || norm === short) target = row;
+    });
+    if (target) {
+      selectRow(target);
+      params.delete('focusLead');
+      const clean = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', clean);
+    }
+  })();
+
   if (mobilePanel && rows.length > 0) {
 
     if (closeMobileBtn) {
@@ -2342,7 +2362,11 @@ document.addEventListener('DOMContentLoaded', () => {
     bulkFolderSelect.value = valid ? prev : '';
   }
 
-  rebuildBulkFolderSelect();
+  const initialBulkFolderPref =
+    typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+      ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+      : undefined;
+  rebuildBulkFolderSelect(initialBulkFolderPref);
 
   function setBulkFolderNewRowVisible(show) {
     if (!bulkFolderNewRow) return;
@@ -2521,11 +2545,22 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error((data && data.error) || `HTTP ${res.status}`);
         }
 
-        // Remove moved rows from current list (pipeline view excludes folderKey)
+        const viewingFolder =
+          typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
+            ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+            : '';
+        const targetFolder = folderKey || '';
         keys.forEach((leadKey) => {
           const cb = Array.from(document.querySelectorAll('.lead-checkbox')).find((c) => c.dataset.key === leadKey);
           const row = cb && cb.closest('.result-row');
-          if (row) row.remove();
+          if (!row) return;
+          let remove = false;
+          if (!viewingFolder) {
+            if (targetFolder) remove = true;
+          } else if (targetFolder !== viewingFolder) {
+            remove = true;
+          }
+          if (remove) row.remove();
         });
         selectedKeys.clear();
         document.querySelectorAll('.lead-checkbox').forEach((cb) => { cb.checked = false; });

@@ -2,6 +2,14 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
+const { getWorkspaceIcp } = require('../services/workspaceIcp');
+
+router.get('/focus', (req, res) => {
+  const id = String(req.query.leadId || '').trim();
+  if (!id) return res.redirect(302, '/prospecting?tab=pipeline');
+  const short = id.replace(/^lead:/i, '');
+  res.redirect(302, `/prospecting?tab=pipeline&focusLead=${encodeURIComponent(short)}`);
+});
 
 router.get('/', async (req, res, next) => {
   try {
@@ -22,6 +30,20 @@ router.get('/', async (req, res, next) => {
     const wid = req.workspaceId || 'default';
     const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
 
+    const workspace = (await dbService.getWorkspace(wid)) || {};
+    const presetIcp = String(req.query.preset || '').toLowerCase() === 'icp';
+    const icp = getWorkspaceIcp(workspace);
+    const mrQ = parseInt(req.query.maxResults, 10);
+    const qtyIcp = Number.isFinite(mrQ) && mrQ > 0 ? Math.min(100, mrQ) : icp.qty || 50;
+    const searchPrefill = presetIcp
+      ? {
+          keyword: icp.keyword || 'plumber',
+          city: icp.city || 'Austin',
+          state: icp.state || 'TX',
+          qty: qtyIcp,
+        }
+      : { keyword: '', city: '', state: '', qty: 20 };
+
     res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'search',
@@ -34,6 +56,8 @@ router.get('/', async (req, res, next) => {
       mapDefaultLng,
       mapDefaultZoom,
       schedules,
+      searchPrefill,
+      presetIcp,
     });
   } catch (e) {
     next(e);

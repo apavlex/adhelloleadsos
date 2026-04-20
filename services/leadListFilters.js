@@ -153,7 +153,17 @@ function mapLeadListJson(l) {
 }
 
 /** Query keys used by GET /leads and /leads/list.json (excluding cold/inbound `source` tab). */
-const LEAD_LIST_FILTER_KEYS = ['q', 'stage', 'status', 'minRating', 'minReviews', 'origin', 'addedFrom', 'addedTo'];
+const LEAD_LIST_FILTER_KEYS = [
+  'q',
+  'stage',
+  'status',
+  'minRating',
+  'minReviews',
+  'origin',
+  'addedFrom',
+  'addedTo',
+  'folderKey',
+];
 
 function normalizeLeadListFilters(query) {
   const q = query || {};

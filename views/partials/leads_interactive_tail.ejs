@@ -5,6 +5,7 @@
   window.INITIAL_SAVED_LEADS = <%- JSON.stringify(leads || []) %>;
   window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %>;
+  window.PROSPECTING_ACTIVE_FOLDER_KEY = <%- JSON.stringify(typeof activeFolderKey !== 'undefined' && activeFolderKey ? String(activeFolderKey) : '') %>;
 </script>
 
 <!-- Email outreach: service lines + AI recommendation -->

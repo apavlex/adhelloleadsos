@@ -6,7 +6,10 @@ const { chatCompletion } = require('../services/llmClient');
 const { computeOutreachStreak, buildDailyChartSeries, buildDayRollup } = require('../services/trackerStats');
 const activationService = require('../services/activationService');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
-const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
+const {
+  buildOutreachCoachSnapshot,
+  buildNamedCoachActions,
+} = require('../services/outreachCoachSnapshot');
 
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
@@ -284,22 +287,25 @@ router.post('/outreach-coach', async (req, res, next) => {
   try {
     const snapshot = await buildOutreachCoachSnapshot(req);
     const { entrepreneurQuote, firstName, stageBreakdown } = snapshot;
+    const allLeads = await dbService.getAllLeads();
+    const workspaceLeads = filterLeadsForRequest(req, allLeads);
+    const actions = buildNamedCoachActions(workspaceLeads, snapshot);
 
     const ai = await chatCompletion({
       messages: [
         {
           role: 'system',
-          content: `You are an energetic but professional sales coach for an agency founder using Agency OS. Your job is to motivate daily prospecting using ONLY the JSON snapshot provided — pipeline stage counts, opportunity tiers, streak, touches vs goal, warm inbound count, overdue sequences, and reply signals.
+          content: `You are a concise sales coach for an agency founder using Agency OS. Use ONLY the JSON snapshot — pipeline counts, opportunity tiers, streak, touches vs goal, warm inbound, overdue cadences, reply signals.
 
 Rules:
-- Reference real numbers from the snapshot (e.g. leads in New/Contacted, high-opportunity count). Do not invent metrics.
-- Tie the message to growth: pipeline hygiene, booking calls, working high-opportunity leads first, clearing overdue follow-ups.
-- In "body", write 2 short paragraphs (plain text, no markdown). Paragraph 1: situational coaching from the data. Paragraph 2: connect the spirit of the provided entrepreneur quote to today's work (name the author once).
-- Do not fabricate additional famous quotes — only discuss the one given in entrepreneurQuote.
-- Tone: direct, optimistic, anti-procrastination.
+- Reference real numbers; do not invent metrics.
+- In "body", write 2 short paragraphs (plain text, no markdown). Paragraph 1: situational coaching from the data. Paragraph 2: tie the provided entrepreneur quote to today's work (name the author once).
+- Do not fabricate quotes beyond entrepreneurQuote.
+- Tone: direct, specific, anti-procrastination. Do not give generic pep-talk; ground every sentence in the snapshot.
+- Do NOT output a list of next steps — the app shows named lead actions separately.
 
 Respond with JSON only:
-{"headline":"max 8 words","body":"two paragraphs separated by \\n\\n","focusToday":"one imperative sentence","actions":["three very short next steps, max 8 words each"]}`,
+{"headline":"max 8 words","body":"two paragraphs separated by \\n\\n","focusToday":"one imperative sentence"}`,
         },
         {
           role: 'user',
@@ -322,6 +328,7 @@ Respond with JSON only:
         error:
           'No AI provider configured (set KIE_AI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY) or request failed.',
         snapshot,
+        actions,
       });
     }
 
@@ -329,14 +336,12 @@ Respond with JSON only:
     try {
       parsed = JSON.parse(ai.content);
     } catch {
-      return res.json({ success: false, error: 'Invalid AI response', snapshot });
+      return res.json({ success: false, error: 'Invalid AI response', snapshot, actions });
     }
 
     const headline = typeof parsed.headline === 'string' ? parsed.headline.trim() : '';
     const body = typeof parsed.body === 'string' ? parsed.body.trim() : '';
     const focusToday = typeof parsed.focusToday === 'string' ? parsed.focusToday.trim() : '';
-    let actions = Array.isArray(parsed.actions) ? parsed.actions.filter((x) => typeof x === 'string') : [];
-    actions = actions.slice(0, 3);
 
     return res.json({
       success: true,

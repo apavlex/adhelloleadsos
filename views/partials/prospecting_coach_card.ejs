@@ -4,45 +4,39 @@
   <div class="px-6 py-5 border-b border-brand-border dark:border-white/10 flex flex-wrap items-center justify-between gap-3">
     <div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Prospecting coach</p>
-      <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-1">Prospecting status</h2>
+      <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-1">What to do next</h2>
     </div>
     <div class="flex flex-wrap gap-2">
       <a href="/prospecting?tab=pipeline" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5">Open prospecting</a>
       <button type="button" id="outreachCoachRefresh" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 text-brand-dark dark:text-white">Refresh AI</button>
     </div>
   </div>
-  <div class="p-6 grid lg:grid-cols-5 gap-8">
-    <div class="lg:col-span-2 rounded-2xl bg-brand-yellow/10 dark:bg-brand-yellow/5 border border-brand-yellow/25 p-5 flex flex-col justify-center">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-3">Today’s spark</p>
-      <blockquote class="text-brand-dark dark:text-slate-100">
-        <p class="font-display font-bold text-lg leading-snug">“<%= oc.entrepreneurQuote.text %>”</p>
-        <footer class="mt-4 text-sm font-bold text-brand-muted dark:text-slate-400">— <%= oc.entrepreneurQuote.author %></footer>
-      </blockquote>
+  <div class="p-6 space-y-4">
+    <div class="flex flex-wrap gap-2">
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200" title="Workspace leads"><%= oc.totalLeads %> leads</span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">New + contacted: <%= oc.inNewOrContacted %></span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300">High opp: <%= oc.opportunityTiers.high %></span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">Streak <%= oc.streak != null ? oc.streak : 0 %>d</span>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">Today <%= oc.touchesToday %>/<%= oc.touchGoal %></span>
+      <% if (oc.warmInbound > 0) { %>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200">Warm <%= oc.warmInbound %></span>
+      <% } %>
+      <% if (oc.overdueSequences > 0) { %>
+      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-rose-500/10 border border-rose-500/25 text-rose-800 dark:text-rose-300">Cadence overdue <%= oc.overdueSequences %></span>
+      <% } %>
     </div>
-    <div class="lg:col-span-3 space-y-4">
-      <div class="flex flex-wrap gap-2">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200" title="Workspace leads"><%= oc.totalLeads %> leads</span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">New + contacted: <%= oc.inNewOrContacted %></span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300">High opp: <%= oc.opportunityTiers.high %></span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">Streak <%= oc.streak != null ? oc.streak : 0 %>d</span>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">Today <%= oc.touchesToday %>/<%= oc.touchGoal %></span>
-        <% if (oc.warmInbound > 0) { %>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200">Warm <%= oc.warmInbound %></span>
-        <% } %>
-        <% if (oc.overdueSequences > 0) { %>
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-rose-500/10 border border-rose-500/25 text-rose-800 dark:text-rose-300">Cadence overdue <%= oc.overdueSequences %></span>
-        <% } %>
-      </div>
-      <div id="outreachCoachAi" class="min-h-[8rem] rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/20 p-5">
-        <p class="text-sm text-brand-muted dark:text-slate-400 animate-pulse" id="outreachCoachLoading">Loading your coach…</p>
-        <div id="outreachCoachContent" class="hidden space-y-4">
-          <h3 id="outreachCoachHeadline" class="font-display font-extrabold text-xl text-brand-dark dark:text-white"></h3>
-          <div id="outreachCoachBody" class="text-sm text-brand-muted dark:text-slate-300 leading-relaxed space-y-3"></div>
-          <p id="outreachCoachFocus" class="text-sm font-bold text-brand-yellow"></p>
-          <ul id="outreachCoachActions" class="list-disc list-inside text-sm text-brand-dark dark:text-slate-200 space-y-1"></ul>
+    <div id="outreachCoachAi" class="min-h-[8rem] rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/20 p-5">
+      <p class="text-sm text-brand-muted dark:text-slate-400 animate-pulse" id="outreachCoachLoading">Loading your coach…</p>
+      <div id="outreachCoachContent" class="hidden space-y-4">
+        <h3 id="outreachCoachHeadline" class="font-display font-extrabold text-xl text-brand-dark dark:text-white"></h3>
+        <div id="outreachCoachBody" class="text-sm text-brand-muted dark:text-slate-300 leading-relaxed space-y-3"></div>
+        <p id="outreachCoachFocus" class="text-sm font-bold text-brand-yellow"></p>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-2">Named actions</p>
+          <div id="outreachCoachActions" class="flex flex-col gap-2"></div>
         </div>
-        <div id="outreachCoachFallback" class="hidden text-sm text-brand-muted dark:text-slate-400 leading-relaxed"></div>
       </div>
+      <div id="outreachCoachFallback" class="hidden text-sm text-brand-muted dark:text-slate-400 leading-relaxed"></div>
     </div>
   </div>
 </div>
@@ -60,6 +54,31 @@
     loadingEl.classList.remove('hidden');
     contentEl.classList.add('hidden');
     fallbackEl.classList.add('hidden');
+  }
+
+  function renderActionRow(a) {
+    if (typeof a === 'string') {
+      var rowLegacy = document.createElement('div');
+      rowLegacy.className = 'flex items-center gap-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-800/40 px-4 py-3 text-sm text-brand-dark dark:text-slate-200';
+      rowLegacy.textContent = a;
+      return rowLegacy;
+    }
+    if (!a || typeof a !== 'object') return null;
+    var href = typeof a.href === 'string' ? a.href : '';
+    var label = typeof a.label === 'string' ? a.label : 'Open';
+    var link = document.createElement('a');
+    link.href = href || '#';
+    link.className = 'flex items-center justify-between gap-3 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white/80 dark:bg-slate-800/50 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white hover:border-brand-yellow/60 hover:bg-brand-yellow/5 dark:hover:bg-brand-yellow/10 transition-colors group';
+    var left = document.createElement('span');
+    left.className = 'min-w-0 text-left leading-snug';
+    left.textContent = label;
+    link.appendChild(left);
+    var chev = document.createElement('span');
+    chev.className = 'shrink-0 text-brand-muted group-hover:text-brand-yellow';
+    chev.setAttribute('aria-hidden', 'true');
+    chev.innerHTML = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>';
+    link.appendChild(chev);
+    return link;
   }
 
   function renderSuccess(data) {
@@ -81,13 +100,13 @@
     }
     var focus = document.getElementById('outreachCoachFocus');
     if (focus) focus.textContent = data.focusToday ? 'Today: ' + data.focusToday : '';
-    var ul = document.getElementById('outreachCoachActions');
-    if (ul) {
-      ul.innerHTML = '';
-      (data.actions || []).forEach(function (a) {
-        var li = document.createElement('li');
-        li.textContent = a;
-        ul.appendChild(li);
+    var wrap = document.getElementById('outreachCoachActions');
+    if (wrap) {
+      wrap.innerHTML = '';
+      var list = data.actions || [];
+      list.forEach(function (a) {
+        var node = renderActionRow(a);
+        if (node) wrap.appendChild(node);
       });
     }
   }
@@ -130,7 +149,33 @@
       .then(function (data) {
         clearTimeout(t);
         if (data && data.success) renderSuccess(data);
-        else renderFallback((data && data.error) || 'Coach unavailable.', data && data.snapshot);
+        else if (data && Array.isArray(data.actions) && data.actions.length) {
+          loadingEl.classList.add('hidden');
+          fallbackEl.classList.add('hidden');
+          contentEl.classList.remove('hidden');
+          var h = document.getElementById('outreachCoachHeadline');
+          if (h) h.textContent = 'Coach unavailable — still your next moves';
+          var body = document.getElementById('outreachCoachBody');
+          if (body) {
+            body.innerHTML = '';
+            var errP = document.createElement('p');
+            errP.className = 'text-brand-muted';
+            errP.textContent = (data && data.error) || 'Configure an LLM key for full coaching.';
+            body.appendChild(errP);
+          }
+          var focus = document.getElementById('outreachCoachFocus');
+          if (focus) focus.textContent = '';
+          var wrap = document.getElementById('outreachCoachActions');
+          if (wrap) {
+            wrap.innerHTML = '';
+            data.actions.forEach(function (a) {
+              var node = renderActionRow(a);
+              if (node) wrap.appendChild(node);
+            });
+          }
+        } else {
+          renderFallback((data && data.error) || 'Coach unavailable.', data && data.snapshot);
+        }
       })
       .catch(function (err) {
         clearTimeout(t);

@@ -277,13 +277,20 @@
     </button>
   </div>
 <% } else { %>
+  <% var _emptyFk = typeof activeFolderKey !== 'undefined' && activeFolderKey ? String(activeFolderKey) : ''; var _emptyFName = ''; if (_emptyFk && typeof folders !== 'undefined' && folders) { folders.forEach(function (fd) { if (fd && String(fd.key) === _emptyFk && !_emptyFName) _emptyFName = fd.name || ''; }); } %>
   <div class="brand-card p-16 md:p-24 text-center max-wide dark:bg-slate-900 dark:border-white/10">
     <div class="w-20 h-20 bg-brand-yellow/15 dark:bg-brand-yellow/10 rounded-full flex items-center justify-center mx-auto mb-8 border border-brand-yellow/30">
       <svg class="w-10 h-10 text-brand-yellow/80" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0111.186 0z" /></svg>
     </div>
+    <% if (_emptyFName) { %>
+    <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">No leads in “<%= _emptyFName %>”</h2>
+    <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mb-2 max-w-md mx-auto leading-relaxed">Move leads into this folder from the main pipeline (select rows → <strong class="text-brand-dark dark:text-white">Move</strong> in the bar below), or switch folders in <strong class="text-brand-dark dark:text-white">Search &amp; refine</strong>.</p>
+    <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-10 max-w-sm mx-auto"><a href="/prospecting?tab=pipeline" class="font-bold text-brand-yellow hover:underline">Main pipeline (unfiled)</a> · <a href="/prospecting?tab=folders" class="font-bold text-brand-yellow hover:underline">Folder manager</a></p>
+    <% } else { %>
     <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">No leads in this workspace yet</h2>
     <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mb-2 max-w-md mx-auto leading-relaxed">Run a maps search, import a CSV, or add a manual lead — your pipeline and board will light up here.</p>
     <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-10 max-w-sm mx-auto">Tip: use <strong class="text-brand-dark dark:text-white">Find More Leads</strong> above to start.</p>
     <a href="/" class="btn-pill btn-primary px-10 shadow-md">Find leads</a>
+    <% } %>
   </div>
 <% } %>

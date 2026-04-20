@@ -7,6 +7,7 @@ const enricher = require('../services/enricher');
 const activationService = require('../services/activationService');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 
 // POST /search — Google Maps list (Outscraper first when configured, else Apify)
 router.post('/', async (req, res, next) => {
@@ -85,16 +86,24 @@ router.post('/', async (req, res, next) => {
         workspaceId: req.workspaceId || 'default',
       });
       await activationService.recordEvent(userEmail(req), 'autopilot_scheduled');
+      await persistWorkspaceIcp(wid, {
+        keyword,
+        city,
+        state,
+        qty: parseInt(maxResults, 10) || 20,
+      });
       return res.redirect('/prospecting?tab=queue&scheduleSuccess=true');
     }
 
     // --- START BACKGROUND PROCESSING ---
+    const maxRes = parseInt(maxResults, 10) || 20;
+    await persistWorkspaceIcp(wid, { keyword, city, state, qty: maxRes });
     await dbService.setActiveJob({ 
       type: 'search', 
       keyword, 
       city, 
       state, 
-      maxResults: parseInt(maxResults, 10) || 20 
+      maxResults: maxRes 
     });
 
     const activationUserEmail = userEmail(req);
