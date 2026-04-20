@@ -231,13 +231,17 @@
         <footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— <%= _eq.author %></footer>
       </blockquote>
     </details>
+    <% if (empty) { %>
     <div class="mt-4 pt-4 border-t border-brand-border/30 dark:border-white/10">
       <a href="/focus" class="btn-pill btn-primary inline-flex items-center justify-center px-8 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg w-full sm:w-auto text-center">Start my 54 →</a>
     </div>
+    <% } %>
   </footer>
   <% } else { %>
   <footer class="max-wide mx-auto px-6 pb-10 md:pb-14">
+    <% if (empty) { %>
     <a href="/focus" class="btn-pill btn-primary inline-flex items-center justify-center px-8 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg w-full sm:w-auto text-center">Start my 54 →</a>
+    <% } %>
   </footer>
   <% } %>
 

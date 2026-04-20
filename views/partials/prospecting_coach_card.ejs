@@ -6,9 +6,11 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Prospecting coach</p>
       <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-1">What to do next</h2>
     </div>
-    <div class="flex flex-wrap gap-2">
-      <a href="/prospecting?tab=pipeline" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5">Open prospecting</a>
-      <button type="button" id="outreachCoachRefresh" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 text-brand-dark dark:text-white">Refresh AI</button>
+    <div class="flex flex-wrap items-center justify-end gap-2">
+      <a href="/prospecting?tab=pipeline" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 shrink-0">Open prospecting</a>
+      <a href="/focus" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5 shadow-md shrink-0 inline-flex items-center gap-1">Start my 54 <span aria-hidden="true">→</span></a>
+      <span class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200 shrink-0" title="Touches today vs daily goal">Today <%= oc.touchesToday %>/<%= oc.touchGoal %></span>
+      <button type="button" id="outreachCoachRefresh" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 text-brand-dark dark:text-white shrink-0">Refresh AI</button>
     </div>
   </div>
   <div class="p-6 space-y-4">
@@ -17,7 +19,6 @@
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">New + contacted: <%= oc.inNewOrContacted %></span>
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 border border-emerald-500/25 text-emerald-800 dark:text-emerald-300">High opp: <%= oc.opportunityTiers.high %></span>
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">Streak <%= oc.streak != null ? oc.streak : 0 %>d</span>
-      <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">Today <%= oc.touchesToday %>/<%= oc.touchGoal %></span>
       <% if (oc.warmInbound > 0) { %>
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200">Warm <%= oc.warmInbound %></span>
       <% } %>
