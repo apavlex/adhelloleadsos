@@ -8,6 +8,7 @@ const { PRESETS, PALETTE } = require('../lib/pipeline/presets');
 const { normalizeStages } = require('../lib/pipeline/normalize');
 const { suggestPipelineStages } = require('../services/suggestPipelineStages');
 const pipelineStagesService = require('../services/pipelineStagesService');
+const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 
 const router = express.Router();
 
@@ -135,7 +136,13 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
 
     if (action === 'step1') {
       w.name = String(req.body.name || '').trim() || 'New workspace';
-      w.accentColor = String(req.body.accentColor || Object.values(PALETTE)[0]).trim();
+      let acRaw = String(req.body.accentColor || '').trim();
+      if (acRaw === '__custom__') {
+        acRaw = String(req.body.accentColorCustom || '').trim();
+      }
+      if (!acRaw) acRaw = String(Object.values(PALETTE)[0]);
+      const normAc = normalizeWorkspaceAccentHex(acRaw);
+      w.accentColor = normAc || String(Object.values(PALETTE)[0]);
       w.setupPath = String(req.body.setupPath || 'preset').trim();
       w.presetKey = null;
       w.icpKeyword = String(req.body.keyword || '').trim();
@@ -249,7 +256,8 @@ router.post('/new', express.urlencoded({ extended: true }), async (req, res, nex
       }
 
       const name = w.name || String(req.body.name || '').trim() || 'New workspace';
-      const accentColor = w.accentColor || String(req.body.accentColor || '#CA8A04').trim();
+      const accentRaw = w.accentColor || String(req.body.accentColor || '#CA8A04').trim();
+      const accentColor = normalizeWorkspaceAccentHex(accentRaw) || '#CA8A04';
       const keyword = w.icpKeyword != null ? w.icpKeyword : String(req.body.keyword || '').trim();
       const city = w.icpCity != null ? w.icpCity : String(req.body.city || '').trim();
       const state = w.icpState != null ? w.icpState : String(req.body.state || '').trim();

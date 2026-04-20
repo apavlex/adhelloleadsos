@@ -8,6 +8,11 @@
   <% const step = w.step; %>
   <% const pal = typeof PALETTE !== 'undefined' ? PALETTE : {}; %>
   <% const palEntries = Object.keys(pal).map(function (k) { return { key: k, hex: pal[k] }; }); %>
+  <% const _palHexLookup = {}; palEntries.forEach(function (p) { _palHexLookup[String(p.hex).toLowerCase()] = true; }); %>
+  <% const _wizAccent = w.accentColor ? String(w.accentColor) : ''; %>
+  <% const _isCustomAccent = _wizAccent.length > 0 && !_palHexLookup[_wizAccent.toLowerCase()]; %>
+  <% const _customPickerDefault = '#6366F1'; %>
+  <% const _pickerSafe = (_isCustomAccent && /^#[0-9A-Fa-f]{6}$/.test(_wizAccent)) ? _wizAccent : _customPickerDefault; %>
 
   <main class="max-wide px-6 py-10 md:py-14">
     <h1 class="font-display font-black text-2xl md:text-3xl text-brand-dark dark:text-white mb-2">Create workspace</h1>
@@ -26,16 +31,52 @@
       </div>
       <div>
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Accent color</label>
-        <div class="flex flex-wrap gap-2">
+        <div class="flex flex-wrap gap-2 items-center">
           <% palEntries.forEach(function (p) { %>
           <label class="cursor-pointer">
-            <input type="radio" name="accentColor" value="<%= p.hex %>" class="sr-only peer" <%= (w.accentColor === p.hex || (!w.accentColor && p.key === 'slate')) ? 'checked' : '' %> />
+            <input type="radio" name="accentColor" value="<%= p.hex %>" class="sr-only peer" <%= (!_isCustomAccent && (w.accentColor === p.hex || (!w.accentColor && p.key === 'slate'))) ? 'checked' : '' %> />
             <span class="block w-10 h-10 rounded-xl border-2 border-transparent peer-checked:border-brand-dark dark:peer-checked:border-white ring-2 ring-transparent peer-checked:ring-brand-yellow" style="background:<%= p.hex %>"></span>
             <span class="sr-only"><%= p.key %></span>
           </label>
           <% }); %>
+          <label class="cursor-pointer relative">
+            <input type="radio" name="accentColor" value="__custom__" class="sr-only peer wizard-accent-custom-radio" <%= _isCustomAccent ? 'checked' : '' %> />
+            <span class="wizard-accent-custom-swatch block w-10 h-10 rounded-xl border-2 border-brand-border/70 dark:border-white/25 ring-2 ring-transparent peer-checked:border-brand-dark dark:peer-checked:border-white peer-checked:ring-brand-yellow relative overflow-hidden <%= _isCustomAccent ? '' : 'border-dashed' %>" style="<%= _isCustomAccent ? ('background:' + _wizAccent + '; border-style: solid;') : '' %>">
+              <input type="color" id="wizardAccentColorCustom" name="accentColorCustom" value="<%= _pickerSafe %>" class="absolute inset-0 w-[120%] h-[120%] -left-[10%] -top-[10%] cursor-pointer opacity-0" aria-label="Pick custom accent color" />
+              <span class="wizard-accent-custom-plus pointer-events-none absolute inset-0 flex items-center justify-center text-lg font-black text-brand-muted <%= _isCustomAccent ? 'hidden' : '' %>">+</span>
+            </span>
+            <span class="sr-only">Custom color</span>
+          </label>
         </div>
+        <p class="text-[10px] text-brand-muted mt-2">Last swatch: pick any color for your workspace accent.</p>
       </div>
+      <script>
+      (function () {
+        var pick = document.getElementById('wizardAccentColorCustom');
+        var rad = document.querySelector('.wizard-accent-custom-radio');
+        var sw = document.querySelector('.wizard-accent-custom-swatch');
+        var plus = document.querySelector('.wizard-accent-custom-plus');
+        if (!pick || !rad || !sw) return;
+        function syncCustomUi() {
+          if (!rad.checked) return;
+          sw.style.background = pick.value;
+          sw.style.borderStyle = 'solid';
+          sw.classList.remove('border-dashed');
+          if (plus) plus.classList.add('hidden');
+        }
+        pick.addEventListener('input', function () {
+          rad.checked = true;
+          syncCustomUi();
+        });
+        pick.addEventListener('change', function () {
+          rad.checked = true;
+          syncCustomUi();
+        });
+        rad.addEventListener('change', function () {
+          if (rad.checked) syncCustomUi();
+        });
+      })();
+      </script>
       <div class="grid gap-3 sm:grid-cols-2">
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">ICP keyword (optional)</label>

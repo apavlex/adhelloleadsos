@@ -17,6 +17,33 @@
       </div>
       <a href="/workspaces/<%= workspace.id %>/settings/pipeline" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0">Edit pipeline</a>
     </div>
+
+    <% const _accentChoices = typeof workspaceAccentChoices !== 'undefined' && workspaceAccentChoices ? workspaceAccentChoices : []; %>
+    <% const _accentCur = ((workspace && workspace.accentColor) ? workspace.accentColor : '#CA8A04').toString().toLowerCase(); %>
+    <% const _accentIsUiPreset = _accentChoices.some(function (o) { return o.hex.toLowerCase() === _accentCur; }); %>
+    <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 mb-8">
+      <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Brand accent</h2>
+      <p class="text-sm text-brand-muted mb-4">Primary buttons, nav highlights, and the workspace chip use this color. You can change it anytime after the workspace is created.</p>
+      <% if (!_accentIsUiPreset && workspace && workspace.accentColor) { %>
+      <p class="text-xs text-brand-muted mb-4 rounded-xl border border-brand-border/60 dark:border-white/10 px-3 py-2">Your saved accent is a custom color from setup. Pick <strong class="text-brand-dark dark:text-white">Amber</strong> or <strong class="text-brand-dark dark:text-white">Bright yellow</strong> below, then save to switch.</p>
+      <% } %>
+      <div class="flex flex-wrap gap-3 mb-4">
+        <% _accentChoices.forEach(function (opt) { %>
+        <label class="cursor-pointer flex-1 min-w-[140px] max-w-[220px]">
+          <input type="radio" name="wsAccentChoice" value="<%= opt.hex %>" class="sr-only peer" <%= _accentCur === opt.hex.toLowerCase() ? 'checked' : '' %> />
+          <span class="flex flex-col gap-2 rounded-2xl border-2 border-transparent peer-checked:border-brand-dark dark:peer-checked:border-white p-4 bg-brand-cream/40 dark:bg-slate-800/50 ring-2 ring-transparent peer-checked:ring-brand-yellow/80 transition-all">
+            <span class="flex items-center gap-2">
+              <span class="w-8 h-8 rounded-lg shrink-0 border border-brand-border/50 dark:border-white/10" style="background-color:<%= opt.hex %>"></span>
+              <span class="font-display font-bold text-brand-dark dark:text-white"><%= opt.label %></span>
+            </span>
+            <span class="text-xs text-brand-muted leading-snug"><%= opt.description %></span>
+          </span>
+        </label>
+        <% }); %>
+      </div>
+      <p id="wsAccentMsg" class="hidden text-sm mb-3"></p>
+      <button type="button" id="wsAccentSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save accent</button>
+    </div>
     <% } %>
 
     <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
@@ -150,6 +177,43 @@
           }
         }).catch(function () {
           if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Save failed'; msg.className = 'text-sm text-rose-600'; }
+        });
+      });
+    })();
+    </script>
+    <script>
+    (function () {
+      var btn = document.getElementById('wsAccentSave');
+      var msg = document.getElementById('wsAccentMsg');
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var picked = document.querySelector('input[name="wsAccentChoice"]:checked');
+        if (!picked) {
+          if (msg) {
+            msg.classList.remove('hidden');
+            msg.textContent = 'Choose Amber or Bright yellow.';
+            msg.className = 'text-sm mb-3 text-rose-600';
+          }
+          return;
+        }
+        fetch('/workspace/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ accentColor: picked.value }),
+        }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); }).then(function (res) {
+          if (msg) {
+            msg.classList.remove('hidden');
+            if (res.ok && res.data && res.data.success) {
+              msg.textContent = 'Saved. Refreshing…';
+              msg.className = 'text-sm mb-3 text-emerald-700 dark:text-emerald-300';
+              window.location.reload();
+            } else {
+              msg.textContent = (res.data && res.data.error) || 'Save failed';
+              msg.className = 'text-sm mb-3 text-rose-600';
+            }
+          }
+        }).catch(function () {
+          if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Save failed'; msg.className = 'text-sm mb-3 text-rose-600'; }
         });
       });
     })();
