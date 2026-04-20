@@ -3263,9 +3263,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeWarRoom = document.getElementById('closeWarRoom');
   const warRoomGrid = document.getElementById('warRoomGrid');
   const warRoomTotal = document.getElementById('warRoomTotal');
+  const warRoomPrev = document.getElementById('warRoomPrev');
+  const warRoomNext = document.getElementById('warRoomNext');
+  const warRoomPosition = document.getElementById('warRoomPosition');
   const warRoomTimerDisplay = document.getElementById('warRoomTimerDisplay');
   const warRoomTimerToggle = document.getElementById('warRoomTimerToggle');
   const warRoomTimerReset = document.getElementById('warRoomTimerReset');
+
+  let warRoomRowEls = [];
+  let warRoomIndex = 0;
 
   function isColdLeadRow(row) {
     if (!row) return false;
@@ -3335,7 +3341,85 @@ document.addEventListener('DOMContentLoaded', () => {
     warRoomElapsedSec = 0;
     if (warRoomTimerDisplay) warRoomTimerDisplay.textContent = '00:00';
     if (warRoomTimerToggle) warRoomTimerToggle.textContent = 'Pause';
+    warRoomRowEls = [];
+    warRoomIndex = 0;
+    if (warRoomGrid) warRoomGrid.innerHTML = '';
+    if (warRoomPosition) warRoomPosition.textContent = '—';
     warRoomModal.classList.add('hidden');
+  }
+
+  function warRoomKeyboardConsumesNav(ev) {
+    const t = ev && ev.target;
+    if (!t) return false;
+    if (t.isContentEditable) return true;
+    const tag = (t.tagName || '').toUpperCase();
+    if (tag === 'TEXTAREA') return true;
+    if (tag === 'INPUT') {
+      const ty = (t.type || '').toLowerCase();
+      if (ty === 'checkbox' || ty === 'radio' || ty === 'button' || ty === 'submit' || ty === 'reset') return false;
+      return true;
+    }
+    return false;
+  }
+
+  function warRoomClampIndex(i) {
+    const n = warRoomRowEls.length;
+    if (n === 0) return 0;
+    return ((i % n) + n) % n;
+  }
+
+  function warRoomGoDelta(delta) {
+    if (!warRoomRowEls.length) return;
+    if (warRoomRowEls.length <= 1) return;
+    warRoomIndex = warRoomClampIndex(warRoomIndex + delta);
+    warRoomRenderCurrent();
+  }
+
+  function warRoomGoNext() {
+    warRoomGoDelta(1);
+  }
+
+  function warRoomGoPrev() {
+    warRoomGoDelta(-1);
+  }
+
+  function warRoomRenderCurrent() {
+    if (!warRoomGrid) return;
+    warRoomGrid.innerHTML = '';
+    const row = warRoomRowEls[warRoomIndex];
+    if (!row) return;
+    warRoomGrid.appendChild(createWarRoomCard(row));
+    const n = warRoomRowEls.length;
+    if (warRoomPosition) warRoomPosition.textContent = n ? `${warRoomIndex + 1} / ${n}` : '—';
+    const multi = n > 1;
+    if (warRoomPrev) {
+      warRoomPrev.disabled = !multi;
+      warRoomPrev.setAttribute('aria-disabled', multi ? 'false' : 'true');
+    }
+    if (warRoomNext) {
+      warRoomNext.disabled = !multi;
+      warRoomNext.setAttribute('aria-disabled', multi ? 'false' : 'true');
+    }
+  }
+
+  function warRoomOnGlobalKeydown(e) {
+    if (!warRoomModal || warRoomModal.classList.contains('hidden')) return;
+    if (!warRoomRowEls.length) return;
+    if (warRoomKeyboardConsumesNav(e)) return;
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      warRoomGoPrev();
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      warRoomGoNext();
+      return;
+    }
+    if (e.key === ' ' || e.code === 'Space') {
+      e.preventDefault();
+      if (warRoomRowEls.length > 1) warRoomGoNext();
+    }
   }
 
   function splitPhoneNumbers(raw) {
@@ -3372,6 +3456,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderWarRoom(coldOnly);
     warRoomModal.classList.remove('hidden');
     warRoomStartSessionTimer();
+    requestAnimationFrame(() => {
+      if (warRoomGrid) warRoomGrid.focus();
+    });
   }
 
   if (warRoomModal) {
@@ -3380,24 +3467,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (closeWarRoom) closeWarRoom.addEventListener('click', closeWarRoomModal);
     if (warRoomTimerToggle) warRoomTimerToggle.addEventListener('click', warRoomPauseResumeTimer);
     if (warRoomTimerReset) warRoomTimerReset.addEventListener('click', warRoomResetTimer);
+    if (warRoomPrev) warRoomPrev.addEventListener('click', () => warRoomGoPrev());
+    if (warRoomNext) warRoomNext.addEventListener('click', () => warRoomGoNext());
+    document.addEventListener('keydown', warRoomOnGlobalKeydown, true);
   }
 
   function renderWarRoom(selectedCheckboxes) {
-    warRoomGrid.innerHTML = '';
-    warRoomTotal.textContent = String(selectedCheckboxes.length);
-
+    warRoomRowEls = [];
     selectedCheckboxes.forEach((cb) => {
       const row = cb.closest('.result-row');
-      if (!row || !isColdLeadRow(row)) return;
-      const card = createWarRoomCard(row);
-      warRoomGrid.appendChild(card);
+      if (row && isColdLeadRow(row)) warRoomRowEls.push(row);
     });
+    warRoomTotal.textContent = String(warRoomRowEls.length);
+    warRoomIndex = 0;
+    warRoomRenderCurrent();
   }
 
   function createWarRoomCard(row) {
     const card = document.createElement('div');
     card.className =
-      'bg-white/5 border border-white/10 rounded-[2rem] p-5 md:p-6 hover:border-brand-yellow/25 transition-all flex flex-col gap-4';
+      'bg-white/5 border border-white/10 rounded-[2rem] p-5 md:p-6 hover:border-brand-yellow/25 transition-all flex flex-col gap-4 max-w-4xl mx-auto w-full';
 
     const title = row.dataset.title || 'Company';
     const city = row.dataset.city || '';
