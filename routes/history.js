@@ -9,10 +9,20 @@ router.get('/', async (req, res, next) => {
     const searches = allSearches.filter(
       (s) => (s.workspaceId || 'default') === wid
     );
+    const activeJob = await dbService.getActiveJob();
+    const searchingParam = String(req.query.status || '').toLowerCase() === 'searching';
+    const jobIsSearch =
+      activeJob &&
+      activeJob.type === 'search' &&
+      activeJob.status === 'processing';
+    const showSearchProgress = jobIsSearch || searchingParam;
+
     res.render('history', {
       title: 'Search History',
       activePage: 'history',
       searches,
+      activeJob: jobIsSearch ? activeJob : null,
+      showSearchProgress,
     });
   } catch (err) {
     next(err);

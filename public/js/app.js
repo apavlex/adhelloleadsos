@@ -845,11 +845,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
   }
 
-  /** Show recorded video URL block when status is Video Recorded or a URL was already saved */
+  /** Show pitch video URL when status is Video Recorded, or when a URL is already saved (any status). */
   function syncQuickPitchSectionVisibility(row) {
     const section = document.getElementById('quickPitchSection');
+    const panelSel = document.getElementById('leadStatusSelect');
     if (!section || !row) return;
-    const st = String(row.dataset.status || '').trim();
+    let st = String(row.dataset.status || '').trim();
+    if (st === 'Needs Video') st = 'Not Contacted';
+    if (row === currentRow && panelSel) {
+      const pv = String(panelSel.value || '').trim();
+      if (pv) {
+        st = pv;
+        if (st === 'Needs Video') st = 'Not Contacted';
+      }
+    }
     const loom = String(row.dataset.loomUrl || '').trim();
     const show = st === 'Video Recorded' || loom.length > 0;
     section.classList.toggle('hidden', !show);
@@ -1308,12 +1317,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Loom / recorded video URL
-    const loomInput = document.getElementById('loomUrlInput');
-    if (loomInput) loomInput.value = loomUrl || '';
-    syncLoomOpenLink(loomUrl);
-    syncQuickPitchSectionVisibility(row);
-
     const panelStatusSelect = document.getElementById('leadStatusSelect');
     if (panelStatusSelect) {
       let st = (row.dataset.status || '').trim() || 'Not Contacted';
@@ -1321,6 +1324,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasOption = Array.from(panelStatusSelect.options).some((o) => o.value === st);
       panelStatusSelect.value = hasOption ? st : 'Not Contacted';
     }
+
+    // Loom / pitch video URL (after status select so visibility matches "Video Recorded")
+    const loomInput = document.getElementById('loomUrlInput');
+    if (loomInput) loomInput.value = loomUrl || '';
+    syncLoomOpenLink(loomUrl);
+    syncQuickPitchSectionVisibility(row);
 
     // Logic for Audit Insight Box in Panel (if exists)
     const auditStatus = document.getElementById('mobilePanelAuditStatus');
@@ -1532,33 +1541,47 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!currentRow) return;
       const key = currentRow.dataset.leadKey;
       const newStatus = statusSelect.value;
-      
+      const prevStatus = String(currentRow.dataset.status || '').trim() || 'Not Contacted';
+
+      syncQuickPitchSectionVisibility(currentRow);
+
+      if (!key) {
+        currentRow.dataset.status = newStatus;
+        return;
+      }
+
       try {
-        const res = await fetch(`/leads/${key}/update`, {
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: newStatus })
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ status: newStatus }),
         });
         const data = await res.json();
         if (data.success) {
           currentRow.dataset.status = newStatus;
-          currentRow.dataset.updates = JSON.stringify(data.lead.updates);
-          
-          // Update table badge manually for a smooth experience
+          if (data.lead && data.lead.updates) {
+            currentRow.dataset.updates = JSON.stringify(data.lead.updates);
+          }
+
           const statusBadge = currentRow.querySelector('td:nth-last-child(2) span') || currentRow.querySelector('span[class*="rounded-full"]');
           if (statusBadge) {
-              statusBadge.textContent = newStatus;
-              statusBadge.className = "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20";
+            statusBadge.textContent = newStatus;
+            statusBadge.className =
+              'px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20';
           }
-          
-          // Refresh panel to sync dropdowns/updates
+
           populatePanel(currentRow);
-          
-          // If we have a Kanban board, we might need a reload or a manual move, 
-          // but for now, we'll just allow the table/sidebar sync to be fast.
-          // window.location.reload(); 
+        } else {
+          statusSelect.value = prevStatus;
+          currentRow.dataset.status = prevStatus;
+          syncQuickPitchSectionVisibility(currentRow);
         }
-      } catch (err) { console.error('Status update failed:', err); }
+      } catch (err) {
+        console.error('Status update failed:', err);
+        statusSelect.value = prevStatus;
+        currentRow.dataset.status = prevStatus;
+        syncQuickPitchSectionVisibility(currentRow);
+      }
     });
   }
 
@@ -1654,7 +1677,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const title = currentRow.dataset.title || 'there';
       const city = currentRow.dataset.city || 'your area';
       const email = currentRow.dataset.email;
-      const loomLink = document.getElementById('loomUrlInput') ? document.getElementById('loomUrlInput').value.trim() : '';
+      const loomInputEl = document.getElementById('loomUrlInput');
+      const loomFromInput = loomInputEl ? loomInputEl.value.trim() : '';
+      const loomFromRow = String(currentRow.dataset.loomUrl || '').trim();
+      let loomLink = loomFromInput || loomFromRow;
+
+      const statusForDraft = statusSelect ? String(statusSelect.value || '').trim() : String(currentRow.dataset.status || '').trim();
+      if (statusForDraft === 'Video Recorded' && !loomLink) {
+        const go = window.confirm(
+          'Video Recorded is selected but there is no pitch URL yet. Continue with a draft that does not include a video link?'
+        );
+        if (!go) return;
+      }
 
       const subject = encodeURIComponent(`Question regarding ${title}'s online presence`);
       
@@ -2319,17 +2353,25 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderReviewsCellInner(rating, reviews) {
     const r = parseFloat(rating) || 0;
     const c = parseInt(reviews, 10) || 0;
-    const scorePart =
-      r > 0
-        ? `${r.toFixed(1)} <span class="text-[9px] font-bold text-brand-muted/60 dark:text-slate-500">(${c})</span>`
-        : `<span class="text-brand-muted/50 dark:text-slate-500 font-bold">—${
-            c > 0
-              ? ` <span class="text-[9px] font-bold text-brand-muted/50">(${c})</span>`
-              : ''
-          }</span>`;
-    return `<div class="flex items-center gap-2 min-h-[28px]">
+    let metaHtml;
+    if (r > 0) {
+      metaHtml = `<div class="flex flex-col gap-0.5">
+        <span class="text-xs font-black tabular-nums text-brand-dark dark:text-slate-100 leading-none">${r.toFixed(1)}</span>
+        <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-snug">${c} reviews</span>
+      </div>`;
+    } else {
+      metaHtml = `<div class="flex flex-col gap-0.5">
+        <span class="text-sm font-bold text-brand-muted/50 dark:text-slate-500 leading-none">—</span>
+        ${
+          c > 0
+            ? `<span class="text-[10px] font-bold text-brand-muted/60 dark:text-slate-500 leading-snug">${c} reviews</span>`
+            : ''
+        }
+      </div>`;
+    }
+    return `<div class="flex flex-col items-start gap-1 min-w-[4.5rem]">
       <div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
-      <div class="text-[11px] font-black text-brand-dark dark:text-slate-200 whitespace-nowrap">${scorePart}</div>
+      ${metaHtml}
     </div>`;
   }
 

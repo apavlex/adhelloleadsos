@@ -56,6 +56,15 @@ function isSearchedSource(l) {
   return true;
 }
 
+/** Lead is bucketed into an outreach folder (not shown on main pipeline / working queue). */
+function isInOutreachFolder(l) {
+  return Boolean(String(l.folderKey || '').trim());
+}
+
+function excludeOutreachFolderLeads(leads) {
+  return leads.filter((l) => !isInOutreachFolder(l));
+}
+
 function applyLeadListFilters(leads, filters) {
   let out = leads;
   const q = String(filters.q || '').trim().toLowerCase();
@@ -71,7 +80,11 @@ function applyLeadListFilters(leads, filters) {
     if (!Number.isNaN(st)) out = out.filter((l) => parseInt(l.pipelineStage, 10) === st);
   }
   const folderKey = String(filters.folderKey || '').trim();
-  if (folderKey) out = out.filter((l) => String(l.folderKey || '') === folderKey);
+  if (folderKey) {
+    out = out.filter((l) => String(l.folderKey || '') === folderKey);
+  } else if (filters.excludeFolderAssigned) {
+    out = excludeOutreachFolderLeads(out);
+  }
 
   const statusRaw = String(filters.status || '').trim();
   if (statusRaw && statusRaw.toLowerCase() !== 'all') {
@@ -165,6 +178,8 @@ module.exports = {
   displayStatus,
   applyLeadListFilters,
   mapLeadListJson,
+  isInOutreachFolder,
+  excludeOutreachFolderLeads,
   LEAD_LIST_FILTER_KEYS,
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,

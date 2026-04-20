@@ -16,6 +16,7 @@ const {
   mapLeadListJson,
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
+  excludeOutreachFolderLeads,
 } = require('../services/leadListFilters');
 const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
@@ -42,12 +43,13 @@ router.get('/', async (req, res, next) => {
   try {
     const allLeads = await dbService.getAllLeads();
     const visible = filterLeadsForRequest(req, allLeads);
+    const pipelineVisible = excludeOutreachFolderLeads(visible);
     const sourceFilter = String(req.query.source || 'all').toLowerCase();
-    let leads = visible;
+    let leads = pipelineVisible;
     if (sourceFilter === 'inbound') {
-      leads = visible.filter((l) => l.source && l.source.startsWith('adhello_'));
+      leads = pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_'));
     } else if (sourceFilter === 'cold') {
-      leads = visible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+      leads = pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
     }
 
     const leadListFilters = normalizeLeadListFilters(req.query);
@@ -55,16 +57,16 @@ router.get('/', async (req, res, next) => {
     const leadsFilterSuffix = leadListFilterQuerySuffix(leadListFilters);
 
     const statusUniq = new Map();
-    visible.forEach((l) => {
+    pipelineVisible.forEach((l) => {
       const d = displayStatus(l.status);
       statusUniq.set(d.toLowerCase(), d);
     });
     const pipelineStatusOptions = Array.from(statusUniq.values()).sort((a, b) => a.localeCompare(b));
 
     const leadSourceCounts = {
-      all: visible.length,
-      cold: visible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
-      inbound: visible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
+      all: pipelineVisible.length,
+      cold: pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
+      inbound: pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
     };
 
     let importNotice = null;
@@ -132,6 +134,8 @@ router.get('/list.json', async (req, res, next) => {
     const visible = filterLeadsForRequest(req, all);
     const filters = {
       folderKey: req.query.folderKey,
+      excludeFolderAssigned:
+        req.query.excludeFolderAssigned === '1' || req.query.excludeFolderAssigned === 'true',
       ...normalizeLeadListFilters(req.query),
     };
     const out = applyLeadListFilters(visible, filters);

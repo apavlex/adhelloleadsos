@@ -18,6 +18,10 @@ router.get('/', async (req, res, next) => {
       Math.min(18, parseInt(process.env.GOOGLE_MAPS_DEFAULT_ZOOM || '11', 10) || 11)
     );
 
+    const allSchedules = await dbService.listSchedules();
+    const wid = req.workspaceId || 'default';
+    const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
+
     res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'search',
@@ -29,6 +33,7 @@ router.get('/', async (req, res, next) => {
       mapDefaultLat,
       mapDefaultLng,
       mapDefaultZoom,
+      schedules,
     });
   } catch (e) {
     next(e);
@@ -50,11 +55,12 @@ router.get('/schedules', async (req, res) => {
 
 // POST /schedules/delete — Remove a scheduled job
 router.post('/schedules/delete', async (req, res) => {
-  const { key } = req.body;
+  const { key, returnTo } = req.body;
   if (key) {
     await dbService.deleteSchedule(key);
   }
-  res.redirect('/schedules');
+  const dest = returnTo === '/' ? '/' : '/schedules';
+  res.redirect(dest);
 });
 
 module.exports = router;

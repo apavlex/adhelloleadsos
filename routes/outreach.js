@@ -10,6 +10,7 @@ const {
   mapLeadListJson,
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
+  excludeOutreachFolderLeads,
 } = require('../services/leadListFilters');
 
 router.get('/', async (req, res, next) => {
@@ -22,22 +23,23 @@ router.get('/', async (req, res, next) => {
 
     const all = await dbService.getAllLeads();
     const visible = filterLeadsForRequest(req, all);
+    const pipelineVisible = excludeOutreachFolderLeads(visible);
 
     const folders = await dbService.listFolders(req.workspaceId || 'default');
 
     const sourceFilter = String(req.query.source || 'all').toLowerCase();
-    let pipelineBoardLeads = visible;
+    let pipelineBoardLeads = pipelineVisible;
     if (sourceFilter === 'inbound') {
-      pipelineBoardLeads = visible.filter((l) => l.source && l.source.startsWith('adhello_'));
+      pipelineBoardLeads = pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_'));
     } else if (sourceFilter === 'cold') {
-      pipelineBoardLeads = visible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
+      pipelineBoardLeads = pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_'));
     }
 
     const pipelineFilters = normalizeLeadListFilters(req.query);
     pipelineBoardLeads = applyLeadListFilters(pipelineBoardLeads, pipelineFilters);
 
     const statusUniq = new Map();
-    visible.forEach((l) => {
+    pipelineVisible.forEach((l) => {
       const d = displayStatus(l.status);
       statusUniq.set(d.toLowerCase(), d);
     });
@@ -46,19 +48,19 @@ router.get('/', async (req, res, next) => {
     const pipelineFilterSuffix = leadListFilterQuerySuffix(pipelineFilters);
 
     const leadSourceCounts = {
-      all: visible.length,
-      cold: visible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
-      inbound: visible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
+      all: pipelineVisible.length,
+      cold: pipelineVisible.filter((l) => !l.source || !l.source.startsWith('adhello_')).length,
+      inbound: pipelineVisible.filter((l) => l.source && l.source.startsWith('adhello_')).length,
     };
 
-    const queueListLeads = safeTab === 'queue' ? visible.map(mapLeadListJson) : null;
+    const queueListLeads = safeTab === 'queue' ? pipelineVisible.map(mapLeadListJson) : null;
     const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : null;
 
     res.render('outreach', {
       title: 'Outreach | Agency OS',
       activePage: 'outreach',
       tab: safeTab,
-      leadCount: visible.length,
+      leadCount: pipelineVisible.length,
       folders,
       queueListLeads,
       folderListLeads,

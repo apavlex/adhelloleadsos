@@ -20,6 +20,7 @@
       </select>
     <% } %>
     <% const rowAnchor = String(lead.key || '').replace(/[^a-z0-9]+/gi, '-'); %>
-    <a href="/leads#lead-row-<%= rowAnchor %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open</a>
+    <% const openHref = fk ? '/outreach?tab=folders' : ('/leads#lead-row-' + rowAnchor); %>
+    <a href="<%= openHref %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Open</a>
   </div>
 </div>

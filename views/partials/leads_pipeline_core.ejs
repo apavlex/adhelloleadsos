@@ -148,17 +148,22 @@
                   <span class="text-brand-muted/50 dark:text-slate-500 font-bold text-sm">-</span>
                 <% } %>
               </td>
-              <td class="px-3 py-3">
-                <div class="flex items-center gap-1.5 min-h-[24px]">
+              <td class="px-3 py-3 align-top">
+                <div class="flex flex-col items-start gap-1 min-w-[4.5rem]">
                   <div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
-                  <div class="text-[10px] font-black text-brand-dark dark:text-slate-200 whitespace-nowrap">
-                    <% if (lead.totalScore) { %>
-                      <%= Number(lead.totalScore).toFixed(1) %>
-                      <span class="text-[8px] font-bold text-brand-muted/60 dark:text-slate-500">(<%= lead.reviewsCount || 0 %>)</span>
-                    <% } else { %>
-                      <span class="text-brand-muted/50 dark:text-slate-500 font-bold">—<% if (lead.reviewsCount) { %> <span class="text-[8px] font-bold text-brand-muted/50">(<%= lead.reviewsCount %>)</span><% } %></span>
-                    <% } %>
-                  </div>
+                  <% if (lead.totalScore) { %>
+                    <div class="flex flex-col gap-0.5">
+                      <span class="text-xs font-black tabular-nums text-brand-dark dark:text-slate-100 leading-none"><%= Number(lead.totalScore).toFixed(1) %></span>
+                      <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-snug"><%= lead.reviewsCount || 0 %> reviews</span>
+                    </div>
+                  <% } else { %>
+                    <div class="flex flex-col gap-0.5">
+                      <span class="text-sm font-bold text-brand-muted/50 dark:text-slate-500 leading-none">—</span>
+                      <% if (lead.reviewsCount) { %>
+                      <span class="text-[10px] font-bold text-brand-muted/60 dark:text-slate-500 leading-snug"><%= lead.reviewsCount %> reviews</span>
+                      <% } %>
+                    </div>
+                  <% } %>
                 </div>
               </td>
               <td class="px-3 py-3">
