@@ -14,6 +14,11 @@ const {
 const { generateOutreachCoachPayload } = require('../services/outreachCoachAi');
 const { workspaceTodayYmd } = require('../services/workspaceTimezone');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const {
+  getCoachBriefForToday,
+  persistCoachBrief,
+  clearCoachBrief,
+} = require('../services/prospectingCoachCache');
 
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
@@ -336,8 +341,8 @@ router.get('/outreach-coach/stream', async (req, res, next) => {
     writeEv('ping', { t: Date.now() });
 
     if (!force) {
-      const cached = await dbService.getMorningBrief(wid, ymd);
-      if (cached && cached.success && typeof cached.body === 'string') {
+      const cached = await getCoachBriefForToday(dbService, wid, ymd);
+      if (cached) {
         writeEv('complete', {
           success: true,
           headline: cached.headline,
@@ -352,7 +357,7 @@ router.get('/outreach-coach/stream', async (req, res, next) => {
         return;
       }
     } else {
-      await dbService.deleteMorningBrief(wid, ymd);
+      await clearCoachBrief(dbService, wid, ymd);
     }
 
     const result = await generateOutreachCoachPayload(req);
@@ -383,7 +388,7 @@ router.get('/outreach-coach/stream', async (req, res, next) => {
       snapshot: result.snapshot,
       cached: false,
     };
-    await dbService.setMorningBrief(wid, ymd, payload);
+    await persistCoachBrief(dbService, wid, ymd, payload);
     writeEv('complete', payload);
     res.end();
   } catch (e) {
@@ -409,9 +414,9 @@ router.post('/outreach-coach', async (req, res, next) => {
 
     const result = await generateOutreachCoachPayload(req);
     if (result.success) {
-      const existing = await dbService.getMorningBrief(wid, ymd);
-      if (!existing || !existing.success) {
-        await dbService.setMorningBrief(wid, ymd, {
+      const existing = await getCoachBriefForToday(dbService, wid, ymd);
+      if (!existing) {
+        await persistCoachBrief(dbService, wid, ymd, {
           success: true,
           headline: result.headline,
           body: result.body,

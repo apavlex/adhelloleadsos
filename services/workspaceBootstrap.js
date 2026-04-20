@@ -70,6 +70,14 @@ async function migrateMorningBriefsToWorkspace(newId) {
   }
 }
 
+async function migrateProspectingCoachCacheToWorkspace(newId) {
+  const oldKey = 'pc_coach:default';
+  const raw = await dbService.peekStorageKey(oldKey);
+  if (raw == null) return;
+  await dbService.putStorageKey(`pc_coach:${newId}`, raw);
+  await dbService.deleteStorageKey(oldKey);
+}
+
 async function migrateDailyTrackersToWorkspace(newId) {
   const keys = await dbService.listStorageKeysWithPrefix('daily_tracker:');
   for (const oldKey of keys) {
@@ -148,9 +156,11 @@ async function runLegacyMigrationToNewWorkspace(ownerEmail) {
   await migrateFoldersToWorkspace(newId);
   await migrateSchedulesToWorkspace(newId);
   await migrateMorningBriefsToWorkspace(newId);
+  await migrateProspectingCoachCacheToWorkspace(newId);
   await migrateDailyTrackersToWorkspace(newId);
   await migrateUserScopedPrefix('default', newId, 'user_task');
   await migrateUserScopedPrefix('default', newId, 'user_resource');
+  await migrateUserScopedPrefix('default', newId, 'ws_resource');
 
   await dbService.addUserWorkspaceId(em, newId);
   await dbService.saveUserPrefs(em, {

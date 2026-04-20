@@ -47,9 +47,10 @@ async function buildAssistantContext(opts) {
   const query = opts.query || '';
   const words = tokenizeQuery(query);
 
+  await dbService.mergeUserResourcesIntoWorkspace(workspaceId, email);
   const [leads, resources] = await Promise.all([
     dbService.listLeads(workspaceId),
-    dbService.listUserResources(workspaceId, email),
+    dbService.listWorkspaceResources(workspaceId),
   ]);
 
   let leadsForContext;

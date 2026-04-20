@@ -29,7 +29,9 @@
         <% }) %>
         <div class="border-t border-brand-border dark:border-white/10 mt-1 pt-1">
           <a href="/workspaces/new" class="block px-4 py-2.5 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10">+ Create workspace</a>
-          <a href="/workspace" class="block px-4 py-2.5 text-sm text-brand-muted hover:bg-brand-cream/40 dark:hover:bg-white/10">Workspace settings</a>
+          <p class="px-4 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-brand-muted">Workspace</p>
+          <a href="/workspace#workspace-sales-scripts" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 pl-6">Sales scripts</a>
+          <a href="/workspace" class="block px-4 py-2.5 text-sm text-brand-muted hover:bg-brand-cream/40 dark:hover:bg-white/10 pl-6">Workspace settings</a>
         </div>
       </div>
     </div>
@@ -41,7 +43,6 @@
       <a href="/prospecting" class="nav-link text-sm <%= np === 'prospecting' ? 'active' : '' %>">Prospecting</a>
       <a href="/tasks" class="nav-link text-sm <%= np === 'tasks' ? 'active' : '' %>">Tasks</a>
       <a href="/analytics" class="nav-link text-sm <%= np === 'reports' ? 'active' : '' %>">Reports</a>
-      <a href="/workspace#workspace-sales-scripts" class="nav-link text-sm">Scripts</a>
       <a href="https://app.adhello.ai" target="_blank" rel="noopener noreferrer" class="nav-link text-sm">Manage Ads</a>
       <a href="/resources" class="nav-link text-sm <%= np === 'resources' ? 'active' : '' %>">Resources</a>
     </nav>
@@ -140,7 +141,6 @@
         <a href="/prospecting" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'prospecting' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Prospecting</span></a>
         <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
         <a href="/analytics" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'reports' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Reports</span></a>
-        <a href="/workspace#workspace-sales-scripts" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-muted"><span class="font-display font-bold text-lg">Scripts</span></a>
         <a href="https://app.adhello.ai" target="_blank" rel="noopener noreferrer" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-muted"><span class="font-display font-bold text-lg">Manage Ads</span><span class="ml-auto text-[10px] font-black uppercase text-brand-muted">↗</span></a>
         <a href="/resources" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'resources' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Resources</span></a>
         <% if (user) { %>
@@ -153,6 +153,7 @@
 
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Settings</p>
       <nav class="flex flex-col gap-2 mb-8">
+        <a href="/workspace#workspace-sales-scripts" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Sales scripts</a>
         <a href="/workspace" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Team &amp; workspace</a>
         <a href="/activation" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">7-day activation</a>
         <button type="button" id="connectAiOpenMobile" class="w-full text-left px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Connect AI</button>

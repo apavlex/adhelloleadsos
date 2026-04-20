@@ -1068,6 +1068,123 @@ module.exports = {
     await db.delete(key);
   },
 
+  // --- Workspace resources (shared links; same shape as user resources) ---
+
+  _workspaceResourceKey(workspaceId, resourceId) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String(resourceId || '').trim();
+    return `ws_resource:${wid}:${id}`;
+  },
+
+  async listWorkspaceResources(workspaceId) {
+    const wid = String(workspaceId || 'default').trim();
+    const prefix = `ws_resource:${wid}:`;
+    const keys = await db.list(prefix);
+    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    const resources = [];
+    for (const key of keyList) {
+      const data = await db.get(key);
+      if (!data) continue;
+      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      if (!raw) continue;
+      try {
+        const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (r && r.id && r.url) resources.push(r);
+      } catch {
+        /* skip */
+      }
+    }
+    resources.sort((a, b) => {
+      const ta = Date.parse(a.updatedAt || a.createdAt || '') || 0;
+      const tb = Date.parse(b.updatedAt || b.createdAt || '') || 0;
+      return tb - ta;
+    });
+    return resources;
+  },
+
+  async saveWorkspaceResource(workspaceId, resource) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = String(resource.id || '').trim();
+    if (!id) throw new Error('Resource id is required.');
+    const now = new Date().toISOString();
+    const url = String(resource.url || '').trim();
+    if (!url) throw new Error('URL is required.');
+    const kind = String(resource.kind || 'link').toLowerCase();
+    const allowedKinds = new Set(['youtube', 'drive', 'x', 'link']);
+    const safeKind = allowedKinds.has(kind) ? kind : 'link';
+    const payload = {
+      id,
+      url,
+      title: String(resource.title || '').trim() || url,
+      note: String(resource.note || '').trim(),
+      kind: safeKind,
+      createdAt: resource.createdAt || now,
+      updatedAt: now,
+    };
+    if (resource.addedBy) payload.addedBy = String(resource.addedBy).trim().slice(0, 320);
+    const key = this._workspaceResourceKey(wid, id);
+    await db.set(key, JSON.stringify(payload));
+    return payload;
+  },
+
+  async deleteWorkspaceResource(workspaceId, resourceId) {
+    const wid = String(workspaceId || 'default').trim();
+    const key = this._workspaceResourceKey(wid, resourceId);
+    await db.delete(key);
+  },
+
+  /**
+   * One-time style migration: copy this user's legacy user_resource:* rows into ws_resource:*,
+   * then delete the legacy keys. Skips URLs already present on the workspace list.
+   */
+  async mergeUserResourcesIntoWorkspace(workspaceId, email) {
+    const wid = String(workspaceId || 'default').trim();
+    if (!wid || !email) return;
+    const frag = this._emailKeyFragment(email);
+    const legacyPrefix = `user_resource:${wid}:${frag}:`;
+    const keys = await db.list(legacyPrefix);
+    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    if (!keyList.length) return;
+
+    const workspaceList = await this.listWorkspaceResources(wid);
+    const urls = new Set(workspaceList.map((r) => r.url).filter(Boolean));
+
+    for (const key of keyList) {
+      const data = await db.get(key);
+      if (!data) continue;
+      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      if (!raw) continue;
+      let r;
+      try {
+        r = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        await db.delete(key);
+        continue;
+      }
+      if (!r || !r.url) {
+        await db.delete(key);
+        continue;
+      }
+      const urlNorm = String(r.url).trim();
+      if (urls.has(urlNorm)) {
+        await db.delete(key);
+        continue;
+      }
+      const newId = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+      try {
+        await this.saveWorkspaceResource(wid, {
+          ...r,
+          id: newId,
+          addedBy: email,
+        });
+        urls.add(urlNorm);
+        await db.delete(key);
+      } catch {
+        /* keep legacy key if save failed */
+      }
+    }
+  },
+
   // --- Workspaces (multi-seat) ---
 
   async getWorkspace(workspaceId) {
@@ -1146,6 +1263,44 @@ module.exports = {
 
   async deleteMorningBrief(workspaceId, ymd) {
     await db.delete(this._morningBriefKey(workspaceId, ymd));
+  },
+
+  /** Last good prospecting coach (Today page). Fallback if morningBrief key missing; same workspace calendar day. */
+  _prospectingCoachKey(workspaceId) {
+    return `pc_coach:${String(workspaceId || 'default').trim()}`;
+  },
+
+  async getProspectingCoachCache(workspaceId) {
+    const key = this._prospectingCoachKey(workspaceId);
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async setProspectingCoachCache(workspaceId, ymd, payload) {
+    const id = String(workspaceId || 'default').trim();
+    const y = String(ymd || '').slice(0, 10);
+    const key = this._prospectingCoachKey(id);
+    const base = payload && typeof payload === 'object' ? payload : {};
+    await db.set(
+      key,
+      JSON.stringify({
+        ...base,
+        forYmd: y,
+        workspaceId: id,
+        cachedAt: new Date().toISOString(),
+      })
+    );
+  },
+
+  async deleteProspectingCoachCache(workspaceId) {
+    await db.delete(this._prospectingCoachKey(workspaceId));
   },
 
   async listWorkspaceIds() {

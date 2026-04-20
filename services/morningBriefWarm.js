@@ -2,6 +2,7 @@ const { DateTime } = require('luxon');
 const dbService = require('./database');
 const { generateOutreachCoachPayload } = require('./outreachCoachAi');
 const { workspaceTodayYmd } = require('./workspaceTimezone');
+const { persistCoachBrief } = require('./prospectingCoachCache');
 
 /**
  * At ~6:00 local workspace time, pre-generate the morning brief once per workspace/day if missing.
@@ -26,7 +27,9 @@ async function maybeWarmAllMorningBriefs() {
 
       const ymd = workspaceTodayYmd(ws);
       const existing = await dbService.getMorningBrief(wid, ymd);
-      if (existing && existing.success) continue;
+      const pc = await dbService.getProspectingCoachCache(wid);
+      if (existing && existing.success && existing.body && String(existing.body).trim()) continue;
+      if (pc && pc.forYmd === ymd && pc.success && pc.body && String(pc.body).trim()) continue;
 
       const fakeReq = {
         workspaceId: wid,
@@ -35,7 +38,7 @@ async function maybeWarmAllMorningBriefs() {
       };
       const result = await generateOutreachCoachPayload(fakeReq);
       if (result.success) {
-        await dbService.setMorningBrief(wid, ymd, {
+        await persistCoachBrief(dbService, wid, ymd, {
           success: true,
           headline: result.headline,
           body: result.body,

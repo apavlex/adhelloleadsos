@@ -51,8 +51,9 @@ function newResourceId() {
 router.get('/', async (req, res, next) => {
   try {
     const email = userEmail(req);
+    await dbService.mergeUserResourcesIntoWorkspace(req.workspaceId, email);
     const filterKind = String(req.query.kind || 'all').toLowerCase();
-    let resources = await dbService.listUserResources(req.workspaceId, email);
+    let resources = await dbService.listWorkspaceResources(req.workspaceId);
     const allowedFilters = new Set(['all', 'youtube', 'drive', 'x', 'link']);
     const fk = allowedFilters.has(filterKind) ? filterKind : 'all';
     if (fk !== 'all') {
@@ -83,12 +84,13 @@ router.post('/add', express.urlencoded({ extended: true }), async (req, res, nex
     const kind = resolveKind(url, req.body.kind);
     const title = titleIn || url;
     const id = newResourceId();
-    await dbService.saveUserResource(req.workspaceId, email, {
+    await dbService.saveWorkspaceResource(req.workspaceId, {
       id,
       url,
       title,
       note,
       kind,
+      addedBy: email,
     });
     res.redirect(302, '/resources');
   } catch (e) {
@@ -101,9 +103,9 @@ router.post('/remove', express.urlencoded({ extended: true }), async (req, res, 
     const email = userEmail(req);
     const id = String(req.body.id || '').trim();
     if (!id) return res.redirect(302, '/resources');
-    const existing = await dbService.listUserResources(req.workspaceId, email);
+    const existing = await dbService.listWorkspaceResources(req.workspaceId);
     if (!existing.some((r) => r.id === id)) return res.redirect(302, '/resources');
-    await dbService.deleteUserResource(req.workspaceId, email, id);
+    await dbService.deleteWorkspaceResource(req.workspaceId, id);
     res.redirect(302, '/resources');
   } catch (e) {
     next(e);
