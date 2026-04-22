@@ -235,6 +235,16 @@ function isEmptyLaml2xxError(err) {
 }
 
 /**
+ * 404 with this body means the hostname in SIGNALWIRE_SPACE_URL is not a real SignalWire space (wrong subdomain or typo).
+ * In that case we should fall back to the global LaML base instead of failing before trying api.signalwire.com.
+ */
+function isSpaceSubdomainNotFoundError(err) {
+  const m = err && err.message ? String(err.message) : '';
+  if (!/\b404\b/i.test(m) && !/Not Found/i.test(m)) return false;
+  return /The space api|space api does|doesn.t exist on Signalwire|double check you are sending|the correct subdoma/i.test(m);
+}
+
+/**
  * Create-call only: try paths/types documented or reported to work. Official docs use POST .../Calls (no .json)
  * with x-www-form-urlencoded; OpenAPI also lists application/json. Some spaces return 200/empty for one variant.
  * When SIGNALWIRE_SPACE_URL is set, also tries the global `api.signalwire.com` LaML host (some accounts respond there).
@@ -247,35 +257,45 @@ async function postFormCreateCall(formBody) {
   const cfg = envConfig();
   const useSpace = !!String(cfg.spaceUrl || '').trim();
   const globalLamlRoot = `${DEFAULT_API_BASE}/api/laml/2010-04-01/Accounts/${encodeURIComponent(cfg.projectId)}`;
+  const hostPfx = useSpace ? 'space: ' : 'LaML: ';
 
   const attempts = [
-    { path: '/Calls', asJson: false, label: 'space: POST /Calls (form)' },
-    { path: '/Calls', asJson: true, label: 'space: POST /Calls (JSON)' },
-    { path: '/Calls.json', asJson: false, label: 'space: POST /Calls.json (form)' },
+    { path: '/Calls', asJson: false, label: hostPfx + 'POST /Calls (form)' },
+    { path: '/Calls', asJson: true, label: hostPfx + 'POST /Calls (JSON)' },
+    { path: '/Calls.json', asJson: false, label: hostPfx + 'POST /Calls.json (form)' },
   ];
   if (useSpace) {
     attempts.push(
       { path: '/Calls', asJson: false, label: 'api.signalwire.com: POST /Calls (form)', apiRoot: globalLamlRoot },
       { path: '/Calls', asJson: true, label: 'api.signalwire.com: POST /Calls (JSON)', apiRoot: globalLamlRoot },
+      { path: '/Calls.json', asJson: false, label: 'api.signalwire.com: POST /Calls.json (form)', apiRoot: globalLamlRoot },
     );
   }
 
   const tried = [];
   let last;
+  let skipSpace = false;
   for (const a of attempts) {
+    if (!a.apiRoot && useSpace && skipSpace) {
+      continue;
+    }
     try {
       return await lamlPost(a.path, formBody, { asJson: a.asJson, label: a.label, apiRoot: a.apiRoot });
     } catch (e) {
       last = e;
       tried.push(a.label);
       if (isEmptyLaml2xxError(e)) continue;
+      if (useSpace && a.apiRoot == null && isSpaceSubdomainNotFoundError(e)) {
+        skipSpace = true;
+        continue;
+      }
       throw e;
     }
   }
   const summary = 'Tried: ' + tried.join(' → ') + '. ';
   const inner = last && last.message ? String(last.message) : 'Unknown error';
   throw new Error(
-    `SignalWire create call: ${summary}${inner} If the space host keeps returning empty 2xx, open SignalWire support with curl -i output, or set SIGNALWIRE_SPACE_URL to match the Space URL in Dashboard → API. You can also try leaving SIGNALWIRE_SPACE_URL unset to use only ${DEFAULT_API_BASE} (same project id and token).`,
+    `SignalWire create call: ${summary}${inner} If the space host was wrong, copy SIGNALWIRE_SPACE_URL from Dashboard → API (e.g. https://your-space.signalwire.com), or clear it to use only ${DEFAULT_API_BASE}. If you still get empty 2xx, contact SignalWire support with curl -i output.`,
   );
 }
 
