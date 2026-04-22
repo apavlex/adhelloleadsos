@@ -428,6 +428,7 @@
     activeNumber: '',
     callSid: '',
     pollTimer: null,
+    webrtcDialWatchdog: null,
     webrtc: false,
     relayClient: null,
     relayCall: null,
@@ -453,6 +454,7 @@
     });
   }
   function softphoneClearWebrtcSession() {
+    webrtcClearDialWatchdog();
     try {
       if (softphoneSession.relayClient) {
         softphoneSession.relayClient.disconnect();
@@ -477,6 +479,22 @@
     softphoneSession.relayClient = null;
     softphoneSession.webrtc = false;
   }
+  function webrtcClearDialWatchdog() {
+    if (softphoneSession.webrtcDialWatchdog) {
+      clearTimeout(softphoneSession.webrtcDialWatchdog);
+      softphoneSession.webrtcDialWatchdog = null;
+    }
+  }
+  function webrtcStartDialWatchdog() {
+    webrtcClearDialWatchdog();
+    softphoneSession.webrtcDialWatchdog = setTimeout(function () {
+      if (softphoneSession.state !== 'dialing' || !softphoneSession.webrtc) return;
+      softphoneSetStatus(
+        'Still in “requesting” (WebRTC is setting up the call). If this never connects: allow microphone, try another number, or switch Workspace → call routing to “Cloud dial (SignalWire).” If it persists, check SignalWire logs and browser console for errors.',
+        true,
+      );
+    }, 35000);
+  }
   function webrtcOnNotification(notification) {
     if (!notification || !notification.call) return;
     var c = notification.call;
@@ -485,12 +503,31 @@
       softphoneSetCallState('dialing');
       if (spCallState) spCallState.textContent = st ? 'dialing · ' + st : 'dialing';
     } else if (st === 'active') {
+      webrtcClearDialWatchdog();
       softphoneSetCallState('in_call');
       softphoneSetStatus('In call (WebRTC).');
     } else if (st === 'held') {
       softphoneSetCallState('in_call');
       softphoneSetStatus('On hold (WebRTC).');
+    } else if (
+      st === 'failed' ||
+      st === 'rejected' ||
+      st === 'busy' ||
+      st === 'no-answer' ||
+      st === 'cancel' ||
+      st === 'decline' ||
+      st === 'error' ||
+      st === 'canceled' ||
+      st === 'unanswered' ||
+      st === 'congestion'
+    ) {
+      webrtcClearDialWatchdog();
+      softphoneClearWebrtcSession();
+      softphoneSetCallState('ended');
+      softphoneSetWrapRequired(true);
+      softphoneSetStatus('Call did not connect (WebRTC: ' + (st || 'error') + '). Check the number, your SignalWire number/caller ID, and account. Complete wrap-up to try again or use “Cloud dial” in Workspace.');
     } else if (st === 'hangup' || st === 'destroy' || st === 'purge') {
+      webrtcClearDialWatchdog();
       softphoneClearWebrtcSession();
       softphoneSetCallState('ended');
       softphoneSetWrapRequired(true);
@@ -786,9 +823,10 @@
             softphoneSession.webrtc = true;
             softphoneSession.callSid = '';
             softphoneStopPolling();
+            webrtcStartDialWatchdog();
             addRecentDial(to);
             softphoneSetCallState('dialing');
-            softphoneSetStatus('WebRTC: allow microphone. Audio plays in the browser for this call.');
+            softphoneSetStatus('WebRTC: allow microphone. Audio plays in the browser for this call. “Requesting” means the call is being set up — it may take 10–30s before the phone rings.');
             softphoneSession.isCloudPstn = false;
             return true;
           });
