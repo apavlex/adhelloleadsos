@@ -120,6 +120,57 @@ function buildApiRoot(cfg) {
   return `${DEFAULT_API_BASE}/api/laml/2010-04-01/Accounts/${encodeURIComponent(cfg.projectId)}`;
 }
 
+function responseHostForError(url) {
+  try {
+    return new URL(url).host;
+  } catch (_) {
+    return '';
+  }
+}
+
+/**
+ * LaML responses must be JSON. Empty or HTML 200s often mean a wrong base URL, proxy, or WAF.
+ */
+function parseLamlJsonBody({ res, text, url, label }) {
+  const trimmed = String(text == null ? '' : text).trim();
+  const contentType = String((res && res.headers && res.headers.get && res.headers.get('content-type')) || '').toLowerCase();
+  if (!res.ok) {
+    let errMsg = `SignalWire API error ${res.status} ${res.statusText || ''}`.trim();
+    if (trimmed) {
+      try {
+        const j = JSON.parse(trimmed);
+        errMsg = j.message || j.error || j.MoreInfo || (Array.isArray(j.exceptions) && j.exceptions[0] && j.exceptions[0].err) || errMsg;
+      } catch (_) {
+        errMsg = `${errMsg} — ${trimmed.slice(0, 280)}`;
+      }
+    }
+    throw new Error(String(label || 'SignalWire:') + ' ' + errMsg);
+  }
+  if (!trimmed) {
+    const host = responseHostForError(url) || 'your-space.signalwire.com';
+    throw new Error(
+      (label || 'SignalWire') +
+        ` returned HTTP ${res.status} with an empty body. Your app reached host "${host}" but got no JSON. Set SIGNALWIRE_SPACE_URL in .env to the exact Space URL from the SignalWire dashboard (API / credentials), e.g. https://yoursubdomain.signalwire.com, and use the PROJECT_ID and API token for that same space. A proxy or wrong host can return 200 with an empty body.`,
+    );
+  }
+  if (contentType.includes('text/html') || (trimmed.startsWith('<') && /<\s*!?\s*html/i.test(trimmed))) {
+    throw new Error(
+      (label || 'SignalWire') +
+        ` returned HTML, not JSON — the request likely hit a wrong path or a login page. Set SIGNALWIRE_SPACE_URL to your real Space (see Dashboard → API) so the base is https://&lt;your-space&gt;.signalwire.com, not a generic or frontend URL. Host used: ${responseHostForError(url) || 'unknown'}. First bytes: ` +
+        trimmed.slice(0, 200),
+    );
+  }
+  try {
+    return JSON.parse(trimmed);
+  } catch (e) {
+    throw new Error(
+      (label || 'SignalWire') +
+        ` response was not valid JSON (HTTP ${res.status}). Check credentials and base URL. Snippet: ` +
+        trimmed.slice(0, 200),
+    );
+  }
+}
+
 async function postForm(path, formBody) {
   const cfg = envConfig();
   if (!configured()) {
@@ -143,19 +194,7 @@ async function postForm(path, formBody) {
     body: body.toString(),
   });
   const text = await res.text();
-  let parsed = null;
-  try {
-    parsed = text ? JSON.parse(text) : {};
-  } catch (_) {
-    parsed = { raw: text };
-  }
-  if (!res.ok) {
-    const msg =
-      (parsed && (parsed.message || parsed.error || parsed.raw)) ||
-      `SignalWire API error ${res.status}`;
-    throw new Error(msg);
-  }
-  return parsed || {};
+  return parseLamlJsonBody({ res, text, url, label: 'POST ' + path });
 }
 
 async function getJson(path) {
@@ -174,19 +213,7 @@ async function getJson(path) {
     },
   });
   const text = await res.text();
-  let parsed = null;
-  try {
-    parsed = text ? JSON.parse(text) : {};
-  } catch (_) {
-    parsed = { raw: text };
-  }
-  if (!res.ok) {
-    const msg =
-      (parsed && (parsed.message || parsed.error || parsed.raw)) ||
-      `SignalWire API error ${res.status}`;
-    throw new Error(msg);
-  }
-  return parsed || {};
+  return parseLamlJsonBody({ res, text, url, label: 'GET ' + path });
 }
 
 function buildAppUrl(path, params) {
@@ -226,6 +253,11 @@ async function createLeadCall(opts) {
     action,
     audioUrl: voicemailAudioUrl,
   });
+  if (!String(voiceUrl || '').trim() || !String(statusCallback || '').trim()) {
+    throw new Error(
+      'TwiML or status callback URL is empty. Set BASE_URL in the environment to your public https root (e.g. https://yourapp.com) so /api/telephony/voice routes can be reached by SignalWire.',
+    );
+  }
 
   const body = {
     To: to,
