@@ -254,18 +254,27 @@
     </div>
   </div>
 
-  <div id="softphoneModal" class="fixed inset-0 z-[215] hidden items-center justify-center p-4" aria-hidden="true">
-    <div id="softphoneBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>
-    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 shadow-2xl z-10">
-      <div class="flex items-start justify-between gap-3 mb-4">
-        <div>
-          <h2 class="font-display font-black text-xl text-brand-dark dark:text-white">Softphone</h2>
-          <p id="softphoneStatus" class="text-sm text-brand-muted mt-1">Enter a number and place a call.</p>
+  <div id="softphoneModal" class="hidden fixed z-[215] inset-0 pointer-events-none" aria-hidden="true">
+    <div id="softphonePanel" class="fixed z-[220] pointer-events-auto w-[min(100vw-1.5rem,24rem)] max-h-[calc(100vh-4.5rem)] flex flex-col rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl ring-1 ring-black/5 dark:ring-white/5 overflow-hidden" style="right:0.75rem;top:4.5rem;left:auto;">
+      <div id="softphoneDragHandle" class="flex items-start justify-between gap-2 px-3 pt-3 pb-2 border-b border-brand-border/20 dark:border-white/10 cursor-grab active:cursor-grabbing select-none">
+        <div class="flex items-start gap-2 min-w-0 flex-1">
+          <span class="shrink-0 w-3.5 mt-1 text-slate-400 dark:text-slate-500" title="Drag to move" aria-hidden="true">
+            <svg class="w-3.5 h-4" fill="currentColor" viewBox="0 0 12 20" aria-hidden="true"><circle cx="2" cy="4" r="1.5"/><circle cx="6" cy="4" r="1.5"/><circle cx="10" cy="4" r="1.5"/><circle cx="2" cy="10" r="1.5"/><circle cx="6" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="2" cy="16" r="1.5"/><circle cx="6" cy="16" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
+          </span>
+          <div class="min-w-0">
+            <h2 class="font-display font-black text-lg text-brand-dark dark:text-white leading-tight">Softphone</h2>
+            <p id="softphoneStatus" class="text-xs text-brand-muted mt-0.5 leading-snug">Enter a number and place a call.</p>
+            <p id="softphoneModeLine" class="text-[10px] text-brand-muted/90 mt-1.5 leading-snug"></p>
+          </div>
         </div>
-        <button type="button" id="softphoneClose" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0" aria-label="Close">
-          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
+        <div class="flex flex-col items-end gap-1 shrink-0">
+          <button type="button" id="softphoneClose" class="w-9 h-9 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center" aria-label="Close" title="Close">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+          <button type="button" id="softphoneDockRight" class="text-[9px] font-bold uppercase tracking-widest text-brand-yellow hover:underline py-0.5 bg-transparent border-0 cursor-pointer" title="Snap to right">Dock right</button>
+        </div>
       </div>
+      <div class="p-4 pt-3 flex-1 overflow-y-auto min-h-0">
       <div class="space-y-3">
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Outbound number
           <select id="softphoneFromNumber" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-white">
@@ -325,6 +334,7 @@
         </div>
       </div>
     </div>
+    </div>
   </div>
 </header>
 <script>
@@ -383,10 +393,14 @@
   if (bd) bd.addEventListener('click', closeConnectModal);
 
   var spModal = document.getElementById('softphoneModal');
+  var spPanel = document.getElementById('softphonePanel');
+  var spModeLine = document.getElementById('softphoneModeLine');
   var spOpen = document.getElementById('navSoftphoneOpen');
   var spOpenMobile = document.getElementById('navSoftphoneOpenMobile');
   var spClose = document.getElementById('softphoneClose');
-  var spBackdrop = document.getElementById('softphoneBackdrop');
+  var spDockRight = document.getElementById('softphoneDockRight');
+  var spDragHandle = document.getElementById('softphoneDragHandle');
+  var SOFTPHONE_POS_KEY = 'adhelloSoftphonePos';
   var spStatus = document.getElementById('softphoneStatus');
   var spFrom = document.getElementById('softphoneFromNumber');
   var spTo = document.getElementById('softphoneToNumber');
@@ -417,6 +431,7 @@
     webrtc: false,
     relayClient: null,
     relayCall: null,
+    isCloudPstn: false,
   };
   var RELAY_SDK_SRC = 'https://unpkg.com/@signalwire/js@1.5.0/dist/index.min.js';
   function loadRelayScript() {
@@ -534,12 +549,25 @@
     spStatus.textContent = msg || '';
     spStatus.className = 'text-sm mt-1 ' + (isErr ? 'text-red-600 dark:text-red-400' : 'text-brand-muted');
   }
+  function updateCallStateLabel() {
+    if (!spCallState) return;
+    var s = String(softphoneSession.state || 'idle');
+    if (s === 'idle' || s === 'ready' || s === 'ended') {
+      spCallState.textContent = s;
+      return;
+    }
+    if (softphoneSession.isCloudPstn) {
+      if (s === 'dialing') { spCallState.textContent = 'dialing · cloud (PSTN only)'; return; }
+      if (s === 'in_call') { spCallState.textContent = 'connected · no audio in this tab'; return; }
+    } else if (softphoneSession.webrtc) { spCallState.textContent = s + ' · WebRTC'; return; }
+    spCallState.textContent = s;
+  }
   function softphoneSetCallState(state) {
     softphoneSession.state = state;
-    if (spCallState) spCallState.textContent = String(state || 'idle');
     var needsWrap = !!softphoneSession.wrapRequired;
     if (spCall) spCall.disabled = needsWrap;
     if (spVm) spVm.disabled = needsWrap;
+    updateCallStateLabel();
   }
   function softphoneStopPolling() {
     if (softphoneSession.pollTimer) {
@@ -547,45 +575,88 @@
       softphoneSession.pollTimer = null;
     }
   }
+  function applyCloudPollState(st, durationStr) {
+    if (st === 'completed' || st === 'canceled' || st === 'failed' || st === 'busy' || st === 'no-answer') {
+      softphoneSetCallState('ended');
+      softphoneSetWrapRequired(true);
+      softphoneSetStatus('Call ended (' + st + '). Complete wrap-up to unlock next dial.');
+      softphoneStopPolling();
+      softphoneSession.isCloudPstn = false;
+      return;
+    }
+    if (st === 'in-progress' || st === 'inprogress' || st === 'answered') {
+      if (softphoneSession.isCloudPstn) {
+        softphoneSetStatus('The remote end answered. No in-browser audio in cloud mode. Mute/hold are display only here.');
+      }
+      softphoneSetCallState('in_call');
+    } else if (st === 'ringing' || st === 'queued' || st === 'initiated' || st === 'trying' || st === 'early') {
+      if (softphoneSession.isCloudPstn) {
+        softphoneSetStatus('Cloud leg is ringing the contact. There is no sound in this tab — the call is on the PSTN.');
+      } else { softphoneSetStatus('Call progressing…'); }
+      softphoneSetCallState('dialing');
+    } else { softphoneSetCallState('dialing'); }
+    if (spCallState && durationStr && (softphoneSession.state === 'in_call' && (st === 'in-progress' || st === 'inprogress' || st === 'answered'))) {
+      if (softphoneSession.isCloudPstn) {
+        spCallState.textContent = 'in call · ' + String(durationStr) + 's — no tab audio (cloud PSTN)';
+      } else { spCallState.textContent = 'in_call · ' + String(durationStr) + 's'; }
+    }
+  }
+  function softphoneStatusPollOnce() {
+    if (!softphoneSession.callSid) return;
+    fetch('/leads/telephony/call-status?callSid=' + encodeURIComponent(softphoneSession.callSid), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) return;
+        var st = String(res.j.status || '').trim().toLowerCase();
+        if (!st) return;
+        var dur = res.j.duration != null && res.j.duration !== '' ? res.j.duration : null;
+        applyCloudPollState(st, dur);
+      })
+      .catch(function () {});
+  }
   function softphoneStartPolling() {
     softphoneStopPolling();
     if (!softphoneSession.callSid) return;
-    softphoneSession.pollTimer = setInterval(function () {
-      fetch('/leads/telephony/call-status?callSid=' + encodeURIComponent(softphoneSession.callSid), {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (res) {
-          if (!res.ok || !res.j || !res.j.success) return;
-          var st = String(res.j.status || '').trim().toLowerCase();
-          if (!st) return;
-          if (st === 'completed' || st === 'canceled' || st === 'failed' || st === 'busy' || st === 'no-answer') {
-            softphoneSetCallState('ended');
-            softphoneSetWrapRequired(true);
-            softphoneSetStatus('Call ended (' + st + '). Complete wrap-up to unlock next dial.');
-            softphoneStopPolling();
-            return;
-          }
-          if (st === 'in-progress' || st === 'answered') softphoneSetCallState('in_call');
-          else if (st === 'ringing' || st === 'queued' || st === 'initiated') softphoneSetCallState('dialing');
-          if (spCallState && res.j.duration && softphoneSession.state === 'in_call') {
-            spCallState.textContent = 'in_call · ' + String(res.j.duration) + 's';
-          }
-        })
-        .catch(function () {});
-    }, 2500);
+    softphoneStatusPollOnce();
+    softphoneSession.pollTimer = setInterval(softphoneStatusPollOnce, 2000);
   }
   function softphoneSetWrapRequired(v) {
     softphoneSession.wrapRequired = !!v;
     if (spCall) spCall.disabled = !!v;
     if (spVm) spVm.disabled = !!v;
   }
+  function applyDockRight() {
+    if (!spPanel) return;
+    spPanel.style.setProperty('left', 'auto', 'important');
+    spPanel.style.setProperty('right', '0.75rem', 'important');
+    spPanel.style.setProperty('top', '4.5rem', 'important');
+    spPanel.style.setProperty('bottom', 'auto', 'important');
+  }
+  function applySoftphoneOpenPosition() {
+    if (!spPanel) return;
+    try {
+      var raw = localStorage.getItem(SOFTPHONE_POS_KEY);
+      if (!raw) { applyDockRight(); return; }
+      var s = JSON.parse(raw);
+      if (s && s.dock === 'right') { applyDockRight(); return; }
+      if (s && typeof s.left === 'number' && typeof s.top === 'number') {
+        spPanel.style.setProperty('left', s.left + 'px', 'important');
+        spPanel.style.setProperty('top', s.top + 'px', 'important');
+        spPanel.style.setProperty('right', 'auto', 'important');
+        return;
+      }
+    } catch (e) {}
+    applyDockRight();
+  }
   function openSoftphone() {
     if (!spModal) return;
     spModal.classList.remove('hidden');
-    spModal.classList.add('flex');
     spModal.setAttribute('aria-hidden', 'false');
+    softphoneSession.isCloudPstn = false;
+    applySoftphoneOpenPosition();
     softphoneSetStatus('Enter a number and place a call.');
     if (spTo) setTimeout(function () { spTo.focus(); }, 80);
     renderRecentDials();
@@ -601,6 +672,13 @@
         if (!res.ok || !res.j || !res.j.success) return;
         spRelayWebrtc = !!res.j.relayWebrtcAvailable;
         spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
+        if (spModeLine) {
+          if (res.j.relayWebrtcAvailable) {
+            spModeLine.textContent = 'Tip: Call first tries in-browser WebRTC. If the app uses cloud, this tab has no call audio (SignalWire dials the contact on the network).';
+          } else {
+            spModeLine.textContent = 'Tip: WebRTC not available. Outbound is cloud or device: use "My device dialer" in Workspace, or set SIGNALWIRE_SPACE_URL and enable WebRTC. This tab will not play call audio in cloud mode.';
+          }
+        }
         if (!spFrom) return;
         var options = Array.isArray(res.j.options) ? res.j.options : [];
         var active = String(res.j.activeFromNumber || '').trim();
@@ -623,7 +701,6 @@
   function closeSoftphone() {
     if (!spModal) return;
     spModal.classList.add('hidden');
-    spModal.classList.remove('flex');
     spModal.setAttribute('aria-hidden', 'true');
     softphoneStopPolling();
     softphoneDestroyWebrtc();
@@ -631,6 +708,7 @@
   function startCloudSoftphoneDial(to, action) {
     var body = { to: to, action: action };
     if (spFrom && spFrom.value) body.fromNumber = spFrom.value;
+    softphoneSession.isCloudPstn = false;
     return fetch('/leads/telephony/dial', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -641,18 +719,29 @@
         if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'Call failed.');
         if (res.j.dialMode === 'browser_device' && res.j.phone) {
           window.location.href = 'tel:' + String(res.j.phone).replace(/[^\d+]/g, '');
-          softphoneSetStatus('Opened your device dialer.');
+          softphoneSetStatus('Opened your device dialer (audio on your phone or headset).');
           softphoneSetCallState('in_call');
           softphoneSession.callSid = '';
           softphoneStopPolling();
           addRecentDial(to);
           return;
         }
+        softphoneSession.isCloudPstn = true;
         softphoneSession.callSid = String((res.j && res.j.callSid) || '').trim();
-        if (softphoneSession.callSid) softphoneStartPolling();
-        softphoneSetCallState('in_call');
         addRecentDial(to);
-        softphoneSetStatus(action === 'voicemail_drop' ? 'Voicemail drop started.' : 'Call started (cloud).');
+        softphoneSetCallState('dialing');
+        if (!softphoneSession.callSid) {
+          softphoneSetStatus('No call id returned. Check the server, SignalWire credentials, and that BASE_URL is reachable for webhooks.', true);
+          softphoneSetCallState('idle');
+          softphoneSession.isCloudPstn = false;
+          return;
+        }
+        softphoneStartPolling();
+        if (action === 'voicemail_drop') {
+          softphoneSetStatus('Voicemail drop started (outbound to their line only — not played in this browser).');
+        } else {
+          softphoneSetStatus('Cloud call started. SignalWire is calling this number from your workspace. This tab does not play call audio. For sound here, use WebRTC if available, or set Call routing to "My device dialer" in Workspace → Phone / telephony settings.');
+        }
       });
   }
   function tryWebrtcSoftphone(to) {
@@ -699,7 +788,8 @@
             softphoneStopPolling();
             addRecentDial(to);
             softphoneSetCallState('dialing');
-            softphoneSetStatus('WebRTC: connecting…');
+            softphoneSetStatus('WebRTC: allow microphone. Audio plays in the browser for this call.');
+            softphoneSession.isCloudPstn = false;
             return true;
           });
       })
@@ -722,6 +812,7 @@
     if (action === 'call' && spRelayWebrtc) {
       p = tryWebrtcSoftphone(to).then(function (ok) {
         if (ok) return;
+        softphoneSetStatus('In-browser call did not start — using cloud. No audio in this tab for cloud calls.');
         return startCloudSoftphoneDial(to, action);
       });
     } else {
@@ -730,6 +821,7 @@
     p.catch(function (err) {
       softphoneSetCallState('idle');
       softphoneSession.callSid = '';
+      softphoneSession.isCloudPstn = false;
       softphoneStopPolling();
       softphoneClearWebrtcSession();
       softphoneSetStatus((err && err.message) || 'Call failed.', true);
@@ -741,7 +833,51 @@
   if (spOpen) spOpen.addEventListener('click', openSoftphone);
   if (spOpenMobile) spOpenMobile.addEventListener('click', openSoftphone);
   if (spClose) spClose.addEventListener('click', closeSoftphone);
-  if (spBackdrop) spBackdrop.addEventListener('click', closeSoftphone);
+  if (spClose) spClose.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  if (spDockRight) {
+    spDockRight.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      applyDockRight();
+      try { localStorage.setItem(SOFTPHONE_POS_KEY, JSON.stringify({ dock: 'right' })); } catch (e2) {}
+    });
+  }
+  if (spDragHandle && spPanel) {
+    spDragHandle.addEventListener('mousedown', function (e) {
+      if (e.target && e.target.closest && e.target.closest('button, a, input, select, textarea')) return;
+      e.preventDefault();
+      var br = spPanel.getBoundingClientRect();
+      var ox = e.clientX - br.left;
+      var oy = e.clientY - br.top;
+      var pw = br.width;
+      var ph = br.height;
+      spPanel.style.setProperty('right', 'auto', 'important');
+      function onMove(e2) {
+        var nl = e2.clientX - ox;
+        var nt = e2.clientY - oy;
+        var maxL = window.innerWidth - pw - 8;
+        var maxT = window.innerHeight - ph - 8;
+        nl = Math.max(8, Math.min(nl, maxL));
+        nt = Math.max(8, Math.min(nt, maxT));
+        spPanel.style.setProperty('left', nl + 'px', 'important');
+        spPanel.style.setProperty('top', nt + 'px', 'important');
+        spPanel.style.setProperty('bottom', 'auto', 'important');
+      }
+      function onUp() {
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        try {
+          var b = spPanel.getBoundingClientRect();
+          localStorage.setItem(
+            SOFTPHONE_POS_KEY,
+            JSON.stringify({ dock: 'float', left: Math.round(b.left), top: Math.round(b.top) })
+          );
+        } catch (e2) {}
+      }
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    });
+  }
   if (spCall) spCall.addEventListener('click', function () { runSoftphoneAction('call'); });
   if (spVm) spVm.addEventListener('click', function () { runSoftphoneAction('voicemail_drop'); });
   if (spTo) {
