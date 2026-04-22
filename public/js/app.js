@@ -1832,6 +1832,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasSchema = row.dataset.hasSchemaMarkup === 'true' || row.dataset.has_schema_markup === true;
         schemaTile.innerHTML = hasSchema ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> AI Ready</span>' : '<span class="text-amber-500 font-bold underline decoration-amber-500/30 underline-offset-2 tracking-tighter">Needs GEO</span>';
     }
+    loadCallWidgetEvents();
+    loadCallWidgetOptions();
   }
 
   const renderStars = (
@@ -2137,11 +2139,71 @@ document.addEventListener('DOMContentLoaded', () => {
       currentRow.dataset.updates = JSON.stringify(data.lead.updates);
       if (data.lead.status) currentRow.dataset.status = String(data.lead.status);
     }
+    if (data && data.dialMode === 'browser_device' && data.phone) {
+      const digits = String(data.phone || '').replace(/[^\d+]/g, '');
+      if (digits) {
+        window.location.href = `tel:${digits}`;
+      }
+    }
     if (typeof window.showProspectToast === 'function') {
       window.showProspectToast(loadingLabel || 'Done');
     }
     populatePanel(currentRow);
+    loadCallWidgetEvents();
+    loadCallWidgetOptions();
     return data;
+  }
+
+  async function requestLeadCallByKey(leadKey, fallbackPhone, options) {
+    const key = String(leadKey || '').trim();
+    if (!key) throw new Error('Missing lead key.');
+    const body = { ...(options || {}) };
+    const res = await fetch('/leads/' + encodeURIComponent(key) + '/call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Call failed');
+    }
+    if (data && data.dialMode === 'browser_device') {
+      const raw = String((data && data.phone) || fallbackPhone || '').trim();
+      const digits = raw.replace(/[^\d+]/g, '');
+      if (digits) window.location.href = `tel:${digits}`;
+    }
+    return data;
+  }
+
+  async function requestLeadVoicemailByKey(leadKey, options) {
+    const key = String(leadKey || '').trim();
+    if (!key) throw new Error('Missing lead key.');
+    const body = { ...(options || {}), ...telephonyBodyWithFrom({}) };
+    const res = await fetch('/leads/' + encodeURIComponent(key) + '/voicemail-drop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Voicemail drop failed');
+    }
+    return data;
+  }
+
+  function selectedCallWidgetFromNumber() {
+    const sel = document.getElementById('callWidgetFromNumber');
+    if (!sel) return '';
+    return String(sel.value || '').trim();
+  }
+
+  function telephonyBodyWithFrom(overrides) {
+    const body = { ...(overrides || {}) };
+    const fromNumber = selectedCallWidgetFromNumber();
+    if (fromNumber) body.fromNumber = fromNumber;
+    return body;
   }
 
   const clickToCallBtn = document.getElementById('clickToCallBtn');
@@ -2151,7 +2213,7 @@ document.addEventListener('DOMContentLoaded', () => {
       clickToCallBtn.disabled = true;
       clickToCallBtn.textContent = 'Dialing...';
       try {
-        await runLeadTelephonyAction('/call', {}, 'Calling lead');
+        await runLeadTelephonyAction('/call', telephonyBodyWithFrom({}), 'Calling lead');
       } catch (err) {
         alert(err.message || 'Failed to start call.');
       } finally {
@@ -2185,7 +2247,7 @@ document.addEventListener('DOMContentLoaded', () => {
     trigger.classList.add('pointer-events-none', 'opacity-70');
     if (shouldResetText) trigger.textContent = 'Dialing...';
     try {
-      await runLeadTelephonyAction('/call', {}, 'Calling lead');
+      await runLeadTelephonyAction('/call', telephonyBodyWithFrom({}), 'Calling lead');
     } catch (err) {
       alert(err.message || 'Failed to start call.');
     } finally {
@@ -2196,6 +2258,142 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
+  const callWidgetRefreshBtn = document.getElementById('callWidgetRefreshBtn');
+  const callWidgetStatus = document.getElementById('callWidgetStatus');
+  const callWidgetList = document.getElementById('callWidgetList');
+  const callWidgetFromNumber = document.getElementById('callWidgetFromNumber');
+  const callWidgetFromNumberHint = document.getElementById('callWidgetFromNumberHint');
+  const callWidgetVoicemailBtn = document.getElementById('callWidgetVoicemailBtn');
+  let callWidgetActiveFromNumber = '';
+
+  function syncCallWidgetFromNumberHint() {
+    if (!callWidgetFromNumberHint) return;
+    const selected = selectedCallWidgetFromNumber();
+    if (selected) {
+      callWidgetFromNumberHint.textContent = `Using selected number: ${selected}`;
+      return;
+    }
+    if (callWidgetActiveFromNumber) {
+      callWidgetFromNumberHint.textContent = `Using active default: ${callWidgetActiveFromNumber}`;
+      return;
+    }
+    callWidgetFromNumberHint.textContent = 'Using active default workspace number.';
+  }
+
+  function formatCallEventType(type) {
+    const map = {
+      call_outbound: 'Outbound Call',
+      call_browser_handoff: 'Device Dialer',
+      call_status: 'Call Status',
+      voicemail_drop: 'Voicemail Drop',
+      voicemail_status: 'Voicemail Status',
+      voicemail_amd: 'Voicemail Detection',
+    };
+    return map[type] || 'Call Event';
+  }
+
+  function formatCallEventTime(ts) {
+    try {
+      if (!ts) return '';
+      return new Date(ts).toLocaleString(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function renderCallWidgetEvents(events) {
+    if (!callWidgetStatus || !callWidgetList) return;
+    const list = Array.isArray(events) ? events : [];
+    callWidgetList.innerHTML = '';
+    if (!list.length) {
+      callWidgetStatus.textContent = 'No call events yet.';
+      return;
+    }
+    callWidgetStatus.textContent = `${list.length} recent call event${list.length === 1 ? '' : 's'}.`;
+    list.forEach((ev) => {
+      const type = formatCallEventType(String(ev.type || ''));
+      const value = String(ev.value || '').trim() || '—';
+      const sid = String(ev.callSid || '').trim();
+      const ts = formatCallEventTime(ev.timestamp);
+      const item = document.createElement('div');
+      item.className =
+        'rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 px-3 py-2';
+      item.innerHTML =
+        `<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">${escapeHtmlText(type)}</p>` +
+        `<p class="text-xs font-semibold text-brand-dark dark:text-slate-100 mt-1">${escapeHtmlText(value)}</p>` +
+        `<p class="text-[10px] text-brand-muted mt-1">${escapeHtmlText(ts)}${sid ? ` · SID: ${escapeHtmlText(sid)}` : ''}</p>`;
+      callWidgetList.appendChild(item);
+    });
+  }
+
+  async function loadCallWidgetEvents() {
+    if (!callWidgetStatus || !callWidgetList || !currentRow || !currentRow.dataset || !currentRow.dataset.leadKey) return;
+    callWidgetStatus.textContent = 'Loading call activity...';
+    try {
+      const leadKey = encodeURIComponent(currentRow.dataset.leadKey);
+      const res = await fetch(`/leads/${leadKey}/call-events`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load call activity.');
+      renderCallWidgetEvents(data.events || []);
+    } catch (err) {
+      callWidgetStatus.textContent = err.message || 'Could not load call activity.';
+      callWidgetList.innerHTML = '';
+    }
+  }
+
+  async function loadCallWidgetOptions() {
+    if (!callWidgetFromNumber) return;
+    try {
+      const res = await fetch('/leads/telephony/call-options', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load call options.');
+      const options = Array.isArray(data.options) ? data.options : [];
+      const active = String(data.activeFromNumber || '').trim();
+      callWidgetActiveFromNumber = active;
+      const prev = String(callWidgetFromNumber.value || '').trim();
+      callWidgetFromNumber.innerHTML = '';
+      const first = document.createElement('option');
+      first.value = '';
+      first.textContent = active ? `Default workspace number (${active})` : 'Default workspace number';
+      callWidgetFromNumber.appendChild(first);
+      options.forEach((n) => {
+        const v = String(n || '').trim();
+        if (!v) return;
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        callWidgetFromNumber.appendChild(opt);
+      });
+      if (prev && options.includes(prev)) callWidgetFromNumber.value = prev;
+      else callWidgetFromNumber.value = '';
+      syncCallWidgetFromNumberHint();
+    } catch (_) {
+      callWidgetFromNumber.innerHTML = '<option value="">Default workspace number</option>';
+      callWidgetActiveFromNumber = '';
+      syncCallWidgetFromNumberHint();
+    }
+  }
+  if (callWidgetFromNumber) {
+    callWidgetFromNumber.addEventListener('change', syncCallWidgetFromNumberHint);
+  }
+
+  if (callWidgetRefreshBtn) {
+    callWidgetRefreshBtn.addEventListener('click', () => {
+      loadCallWidgetEvents();
+      loadCallWidgetOptions();
+    });
+  }
   if (voicemailDropBtn) {
     voicemailDropBtn.addEventListener('click', async () => {
       const ok = window.confirm(
@@ -2206,7 +2404,7 @@ document.addEventListener('DOMContentLoaded', () => {
       voicemailDropBtn.disabled = true;
       voicemailDropBtn.textContent = 'Starting...';
       try {
-        await runLeadTelephonyAction('/voicemail-drop', {}, 'Voicemail drop started');
+        await runLeadTelephonyAction('/voicemail-drop', telephonyBodyWithFrom({}), 'Voicemail drop started');
       } catch (err) {
         alert(err.message || 'Failed to start voicemail drop.');
       } finally {
@@ -2215,26 +2413,172 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+  if (callWidgetVoicemailBtn) {
+    callWidgetVoicemailBtn.addEventListener('click', async () => {
+      if (!currentRow) return;
+      const original = callWidgetVoicemailBtn.textContent;
+      callWidgetVoicemailBtn.disabled = true;
+      callWidgetVoicemailBtn.textContent = 'Starting...';
+      try {
+        await runLeadTelephonyAction('/voicemail-drop', telephonyBodyWithFrom({}), 'Voicemail drop started');
+      } catch (err) {
+        alert(err.message || 'Failed to start voicemail drop.');
+      } finally {
+        callWidgetVoicemailBtn.disabled = false;
+        callWidgetVoicemailBtn.textContent = original;
+      }
+    });
+  }
 
   const sendSmsBtn = document.getElementById('sendSmsBtn');
+  const smsScriptModal = document.getElementById('smsScriptModal');
+  const smsScriptSelect = document.getElementById('smsScriptSelect');
+  const smsBodyInput = document.getElementById('smsBodyInput');
+  const smsBodyCount = document.getElementById('smsBodyCount');
+  const smsPersonalizeBtn = document.getElementById('smsPersonalizeBtn');
+  const smsScriptSendBtn = document.getElementById('smsScriptSendBtn');
+  const smsScriptModalClose = document.getElementById('smsScriptModalClose');
+  const smsScriptCancelBtn = document.getElementById('smsScriptCancelBtn');
+  let smsScriptOptions = [];
+
+  function setSmsCharCount() {
+    if (!smsBodyInput || !smsBodyCount) return;
+    smsBodyCount.textContent = String((smsBodyInput.value || '').length);
+  }
+
+  function closeSmsModal() {
+    if (!smsScriptModal) return;
+    smsScriptModal.classList.add('hidden');
+    smsScriptModal.setAttribute('aria-hidden', 'true');
+  }
+
+  function openSmsModal() {
+    if (!smsScriptModal) return;
+    smsScriptModal.classList.remove('hidden');
+    smsScriptModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function getCurrentLeadKey() {
+    if (!currentRow || !currentRow.dataset) return '';
+    return String(currentRow.dataset.leadKey || '').trim();
+  }
+
+  async function loadSmsScriptOptions() {
+    const leadKey = getCurrentLeadKey();
+    if (!leadKey || !smsScriptSelect || !smsBodyInput) return;
+    smsScriptSelect.disabled = true;
+    smsScriptSelect.innerHTML = '<option value="">Loading scripts...</option>';
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-script-options`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load SMS scripts.');
+      smsScriptOptions = Array.isArray(data.options) ? data.options : [];
+      if (!smsScriptOptions.length) {
+        const title = String((currentRow && currentRow.dataset && currentRow.dataset.title) || 'there').trim();
+        smsScriptOptions = [
+          {
+            id: 'fallback',
+            label: 'Default outreach',
+            text: `Hi ${title} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`,
+          },
+        ];
+      }
+      smsScriptSelect.innerHTML = '';
+      smsScriptOptions.forEach((opt, idx) => {
+        const o = document.createElement('option');
+        o.value = String(idx);
+        o.textContent = opt.label || `Script ${idx + 1}`;
+        smsScriptSelect.appendChild(o);
+      });
+      smsScriptSelect.value = '0';
+      smsBodyInput.value = smsScriptOptions[0].text || '';
+      setSmsCharCount();
+    } catch (err) {
+      smsScriptSelect.innerHTML = '<option value="">No scripts available</option>';
+      smsBodyInput.value = '';
+      setSmsCharCount();
+      alert(err.message || 'Failed to load scripts.');
+    } finally {
+      smsScriptSelect.disabled = false;
+    }
+  }
+
   if (sendSmsBtn) {
     sendSmsBtn.addEventListener('click', async () => {
       if (!currentRow) return;
-      const title = String(currentRow.dataset.title || 'there').trim();
-      const suggested = `Hi ${title} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`;
-      const smsBody = window.prompt('Enter SMS message to send', suggested);
-      if (!smsBody || !smsBody.trim()) return;
-      const original = sendSmsBtn.textContent;
-      sendSmsBtn.disabled = true;
-      sendSmsBtn.textContent = 'Sending...';
+      openSmsModal();
+      await loadSmsScriptOptions();
+      if (smsBodyInput) smsBodyInput.focus();
+    });
+  }
+
+  if (smsScriptSelect && smsBodyInput) {
+    smsScriptSelect.addEventListener('change', () => {
+      const idx = parseInt(smsScriptSelect.value, 10);
+      const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
+      smsBodyInput.value = selected && selected.text ? selected.text : '';
+      setSmsCharCount();
+    });
+  }
+  if (smsBodyInput) {
+    smsBodyInput.addEventListener('input', setSmsCharCount);
+  }
+  if (smsPersonalizeBtn) {
+    smsPersonalizeBtn.addEventListener('click', async () => {
+      const leadKey = getCurrentLeadKey();
+      if (!leadKey || !smsBodyInput) return;
+      const scriptText = String(smsBodyInput.value || '').trim();
+      if (!scriptText) return;
+      const original = smsPersonalizeBtn.textContent;
+      smsPersonalizeBtn.disabled = true;
+      smsPersonalizeBtn.textContent = 'Personalizing...';
       try {
-        await runLeadTelephonyAction('/sms', { body: smsBody.trim() }, 'SMS sent');
+        const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-personalize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ scriptText }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not personalize SMS.');
+        smsBodyInput.value = data.personalized || scriptText;
+        setSmsCharCount();
+      } catch (err) {
+        alert(err.message || 'Failed to personalize SMS.');
+      } finally {
+        smsPersonalizeBtn.disabled = false;
+        smsPersonalizeBtn.textContent = original;
+      }
+    });
+  }
+  if (smsScriptSendBtn) {
+    smsScriptSendBtn.addEventListener('click', async () => {
+      if (!smsBodyInput) return;
+      const smsBody = String(smsBodyInput.value || '').trim();
+      if (!smsBody) return;
+      const original = smsScriptSendBtn.textContent;
+      smsScriptSendBtn.disabled = true;
+      smsScriptSendBtn.textContent = 'Sending...';
+      try {
+        await runLeadTelephonyAction('/sms', { body: smsBody }, 'SMS sent');
+        closeSmsModal();
       } catch (err) {
         alert(err.message || 'Failed to send SMS.');
       } finally {
-        sendSmsBtn.disabled = false;
-        sendSmsBtn.textContent = original;
+        smsScriptSendBtn.disabled = false;
+        smsScriptSendBtn.textContent = original;
       }
+    });
+  }
+  [smsScriptModalClose, smsScriptCancelBtn].forEach((btnEl) => {
+    if (!btnEl) return;
+    btnEl.addEventListener('click', closeSmsModal);
+  });
+  if (smsScriptModal) {
+    smsScriptModal.addEventListener('click', (e) => {
+      if (e.target && e.target.hasAttribute('data-sms-modal-close')) closeSmsModal();
     });
   }
 
@@ -3901,6 +4245,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const warRoomAutoDialStop = document.getElementById('warRoomAutoDialStop');
   const warRoomAutoDialStatus = document.getElementById('warRoomAutoDialStatus');
   const warRoomDialInterval = document.getElementById('warRoomDialInterval');
+  const warRoomSumDialed = document.getElementById('warRoomSumDialed');
+  const warRoomSumConnected = document.getElementById('warRoomSumConnected');
+  const warRoomSumVm = document.getElementById('warRoomSumVm');
+  const warRoomSumNoAnswer = document.getElementById('warRoomSumNoAnswer');
+  const warRoomSumGatekeeper = document.getElementById('warRoomSumGatekeeper');
+  const warRoomSumWrong = document.getElementById('warRoomSumWrong');
+  const warRoomSumCallback = document.getElementById('warRoomSumCallback');
+  const warRoomSumFailures = document.getElementById('warRoomSumFailures');
+  const warRoomSummaryHint = document.getElementById('warRoomSummaryHint');
 
   let warRoomRowEls = [];
   let warRoomIndex = 0;
@@ -3925,6 +4278,55 @@ document.addEventListener('DOMContentLoaded', () => {
   let warRoomAutoDialRunning = false;
   let warRoomAutoDialPaused = false;
   let warRoomAutoDialCalled = new Set();
+  let warRoomCallOptionsCache = null;
+  let warRoomSessionStats = {
+    dialed: 0,
+    connected: 0,
+    vmDrops: 0,
+    noAnswer: 0,
+    gatekeeper: 0,
+    wrongNumber: 0,
+    callbacks: 0,
+    failures: 0,
+  };
+
+  function warRoomResetSessionStats() {
+    warRoomSessionStats = {
+      dialed: 0,
+      connected: 0,
+      vmDrops: 0,
+      noAnswer: 0,
+      gatekeeper: 0,
+      wrongNumber: 0,
+      callbacks: 0,
+      failures: 0,
+    };
+    warRoomRenderSessionStats();
+    if (warRoomSummaryHint) warRoomSummaryHint.textContent = 'Running totals for this war room session.';
+  }
+
+  function warRoomRenderSessionStats() {
+    if (warRoomSumDialed) warRoomSumDialed.textContent = String(warRoomSessionStats.dialed || 0);
+    if (warRoomSumConnected) warRoomSumConnected.textContent = String(warRoomSessionStats.connected || 0);
+    if (warRoomSumVm) warRoomSumVm.textContent = String(warRoomSessionStats.vmDrops || 0);
+    if (warRoomSumNoAnswer) warRoomSumNoAnswer.textContent = String(warRoomSessionStats.noAnswer || 0);
+    if (warRoomSumGatekeeper) warRoomSumGatekeeper.textContent = String(warRoomSessionStats.gatekeeper || 0);
+    if (warRoomSumWrong) warRoomSumWrong.textContent = String(warRoomSessionStats.wrongNumber || 0);
+    if (warRoomSumCallback) warRoomSumCallback.textContent = String(warRoomSessionStats.callbacks || 0);
+    if (warRoomSumFailures) warRoomSumFailures.textContent = String(warRoomSessionStats.failures || 0);
+  }
+
+  function warRoomFinalizeSummary(label) {
+    if (!warRoomSummaryHint) return;
+    const handled =
+      (warRoomSessionStats.connected || 0) +
+      (warRoomSessionStats.vmDrops || 0) +
+      (warRoomSessionStats.noAnswer || 0) +
+      (warRoomSessionStats.gatekeeper || 0) +
+      (warRoomSessionStats.wrongNumber || 0) +
+      (warRoomSessionStats.callbacks || 0);
+    warRoomSummaryHint.textContent = `${label || 'Session'}: ${handled} outcomes logged, ${warRoomSessionStats.failures || 0} failures, ${warRoomSessionStats.dialed || 0} dial attempts.`;
+  }
 
   function warRoomSetAutoDialStatus(msg, tone) {
     if (!warRoomAutoDialStatus) return;
@@ -3940,6 +4342,131 @@ document.addEventListener('DOMContentLoaded', () => {
             : 'text-slate-400');
   }
 
+  async function warRoomEnsureCallOptions() {
+    if (warRoomCallOptionsCache) return warRoomCallOptionsCache;
+    try {
+      const res = await fetch('/leads/telephony/call-options', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error('call options unavailable');
+      warRoomCallOptionsCache = {
+        options: Array.isArray(data.options) ? data.options : [],
+        activeFromNumber: String(data.activeFromNumber || '').trim(),
+      };
+      return warRoomCallOptionsCache;
+    } catch (_) {
+      warRoomCallOptionsCache = { options: [], activeFromNumber: '' };
+      return warRoomCallOptionsCache;
+    }
+  }
+
+  function warRoomAreaCode(raw) {
+    const digits = String(raw || '').replace(/\D/g, '');
+    if (digits.length < 10) return '';
+    return digits.slice(-10, -7);
+  }
+
+  function warRoomBestRetryIso(row, mode) {
+    const now = new Date();
+    const dt = new Date(now.getTime());
+    if (mode === 'callback') {
+      dt.setHours(dt.getHours() + 2);
+      dt.setMinutes(0, 0, 0);
+      return dt.toISOString();
+    }
+    dt.setDate(dt.getDate() + 1);
+    const category = String((row && row.dataset && row.dataset.category) || '').toLowerCase();
+    const hour = category.includes('restaurant') ? 14 : category.includes('medical') ? 11 : 10;
+    dt.setHours(hour, 0, 0, 0);
+    return dt.toISOString();
+  }
+
+  async function warRoomSuggestedFromNumber(row) {
+    const opt = await warRoomEnsureCallOptions();
+    const list = Array.isArray(opt.options) ? opt.options : [];
+    if (!list.length) return '';
+    const leadArea = warRoomAreaCode(row && row.dataset ? row.dataset.phone : '');
+    if (leadArea) {
+      const matched = list.find((n) => warRoomAreaCode(n) === leadArea);
+      if (matched) return matched;
+    }
+    return String(opt.activeFromNumber || list[0] || '').trim();
+  }
+
+  async function warRoomAppendLeadNote(leadKey, content) {
+    const text = String(content || '').trim();
+    if (!text) return;
+    await fetch('/leads/' + encodeURIComponent(leadKey) + '/notes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ content: text }),
+    }).catch(() => {});
+  }
+
+  async function warRoomPatchLead(leadKey, patch) {
+    const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(patch || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Update failed');
+    return data;
+  }
+
+  async function warRoomApplyDisposition(row, code) {
+    if (!row || !row.dataset || !row.dataset.leadKey) return;
+    const key = String(row.dataset.leadKey || '').trim();
+    const company = row.dataset.title || 'Lead';
+    let status = 'Not Contacted';
+    let note = '';
+    const patch = {};
+
+    if (code === 'connected') {
+      status = 'Connected - Follow Up';
+      note = `[War room] Connected with ${company}.`;
+    } else if (code === 'no_answer') {
+      status = 'No Answer';
+      const when = warRoomBestRetryIso(row, 'no_answer');
+      patch.nextActionAt = when;
+      note = `[War room] No answer. Retry queued for ${new Date(when).toLocaleString()}.`;
+    } else if (code === 'gatekeeper') {
+      status = 'Gatekeeper';
+      note = `[War room] Hit gatekeeper. Need alternate route or callback window.`;
+    } else if (code === 'wrong_number') {
+      status = 'Bad Number';
+      note = `[War room] Wrong number. Needs data enrichment/replacement contact.`;
+    } else if (code === 'callback') {
+      status = 'Callback Requested';
+      const when = warRoomBestRetryIso(row, 'callback');
+      patch.nextActionAt = when;
+      note = `[War room] Callback requested. Follow-up set for ${new Date(when).toLocaleString()}.`;
+    }
+
+    patch.status = status;
+    const data = await warRoomPatchLead(key, patch);
+    if (data && data.lead && data.lead.status) row.dataset.status = String(data.lead.status);
+    await warRoomAppendLeadNote(key, note);
+    if (code === 'connected') warRoomSessionStats.connected += 1;
+    if (code === 'no_answer') warRoomSessionStats.noAnswer += 1;
+    if (code === 'gatekeeper') warRoomSessionStats.gatekeeper += 1;
+    if (code === 'wrong_number') warRoomSessionStats.wrongNumber += 1;
+    if (code === 'callback') warRoomSessionStats.callbacks += 1;
+    warRoomRenderSessionStats();
+    warRoomAutoDialCalled.add(key);
+    warRoomSetAutoDialStatus(`${status} logged for ${company}.`, code === 'wrong_number' ? 'warn' : 'ok');
+    if (warRoomAutoDialCalled.size >= warRoomRowEls.length) {
+      warRoomStopAutoDial('Auto dial completed all selected leads.');
+    } else {
+      warRoomGoNext();
+    }
+  }
+
   function warRoomStopAutoDial(reason) {
     if (warRoomAutoDialTimer) {
       clearInterval(warRoomAutoDialTimer);
@@ -3948,6 +4475,7 @@ document.addEventListener('DOMContentLoaded', () => {
     warRoomAutoDialRunning = false;
     warRoomAutoDialPaused = false;
     if (reason) warRoomSetAutoDialStatus(reason, 'warn');
+    if (reason) warRoomFinalizeSummary('Auto dial stopped');
     if (warRoomAutoDialStart) warRoomAutoDialStart.disabled = false;
     if (warRoomAutoDialPause) warRoomAutoDialPause.textContent = 'Pause';
   }
@@ -3963,22 +4491,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const phones = splitPhoneNumbers(row.dataset.phone);
     if (!phones.length) {
       warRoomAutoDialCalled.add(key);
+      warRoomSessionStats.failures += 1;
+      warRoomRenderSessionStats();
       warRoomSetAutoDialStatus(`Skipped ${row.dataset.title || 'lead'} (no phone).`, 'warn');
       warRoomGoNext();
       return;
     }
     try {
-      const res = await fetch('/leads/' + encodeURIComponent(key) + '/call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'same-origin',
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error((data && data.error) || 'Call failed');
-      }
+      const fromNumber = await warRoomSuggestedFromNumber(row);
+      const data = await requestLeadCallByKey(key, phones[0], fromNumber ? { fromNumber } : {});
       warRoomAutoDialCalled.add(key);
-      warRoomSetAutoDialStatus(`Dialed ${row.dataset.title || 'lead'} (${warRoomAutoDialCalled.size}/${warRoomRowEls.length}).`, 'ok');
+      warRoomSessionStats.dialed += 1;
+      warRoomRenderSessionStats();
+      warRoomSetAutoDialStatus(
+        `Dialed ${row.dataset.title || 'lead'}${fromNumber ? ` from ${fromNumber}` : ''} (${warRoomAutoDialCalled.size}/${warRoomRowEls.length}).`,
+        'ok'
+      );
       if (data.lead && data.lead.updates) {
         row.dataset.updates = JSON.stringify(data.lead.updates);
       }
@@ -3990,6 +4518,8 @@ document.addEventListener('DOMContentLoaded', () => {
         warRoomStopAutoDial('Auto dial completed all selected leads.');
       }
     } catch (err) {
+      warRoomSessionStats.failures += 1;
+      warRoomRenderSessionStats();
       warRoomSetAutoDialStatus(`Dial failed: ${err.message || 'unknown error'}`, 'err');
       warRoomGoNext();
     }
@@ -4089,6 +4619,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (warRoomTimerToggle) warRoomTimerToggle.textContent = 'Pause';
     warRoomRowEls = [];
     warRoomIndex = 0;
+    warRoomFinalizeSummary('Session closed');
     warRoomStopAutoDial();
     if (warRoomGrid) warRoomGrid.innerHTML = '';
     if (warRoomPosition) warRoomPosition.textContent = '—';
@@ -4188,7 +4719,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     a.classList.remove('pointer-events-none', 'opacity-60', 'grayscale');
-    a.href = telHref(phones[0]);
+    a.href = '#';
+    a.dataset.leadKey = String(row.dataset.leadKey || '').trim();
+    a.dataset.phone = String(phones[0] || '').trim();
     label.textContent = phones[0];
     if (alt) {
       if (phones.length > 1) {
@@ -4283,8 +4816,42 @@ document.addEventListener('DOMContentLoaded', () => {
     warRoomFetchAiOpener(leadKey, card, scriptDefaults);
 
     const saveBtn = card.querySelector('.war-room-save-note');
+    const vmNextBtn = card.querySelector('.war-room-vm-next');
+    const dispBtns = card.querySelectorAll('.war-room-disp-btn');
     const noteTa = card.querySelector('.war-room-notes-input');
     const statusEl = card.querySelector('.war-room-note-status');
+    if (vmNextBtn) {
+      vmNextBtn.addEventListener('click', async () => {
+        vmNextBtn.disabled = true;
+        const original = vmNextBtn.textContent;
+        vmNextBtn.textContent = 'Dropping...';
+        try {
+          const fromNumber = await warRoomSuggestedFromNumber(row);
+          const data = await requestLeadVoicemailByKey(leadKey, fromNumber ? { fromNumber } : {});
+          if (data.lead && data.lead.updates) row.dataset.updates = JSON.stringify(data.lead.updates);
+          if (data.lead && data.lead.status) row.dataset.status = String(data.lead.status);
+          warRoomAutoDialCalled.add(leadKey);
+          warRoomSessionStats.vmDrops += 1;
+          warRoomRenderSessionStats();
+          warRoomSetAutoDialStatus(
+            `Voicemail dropped for ${row.dataset.title || 'lead'}${fromNumber ? ` from ${fromNumber}` : ''}; moving next.`,
+            'ok'
+          );
+          if (warRoomAutoDialCalled.size >= warRoomRowEls.length) {
+            warRoomStopAutoDial('Auto dial completed all selected leads.');
+          } else {
+            warRoomGoNext();
+          }
+        } catch (err) {
+          warRoomSessionStats.failures += 1;
+          warRoomRenderSessionStats();
+          warRoomSetAutoDialStatus(`Voicemail drop failed: ${err.message || 'unknown error'}`, 'err');
+        } finally {
+          vmNextBtn.disabled = false;
+          vmNextBtn.textContent = original;
+        }
+      });
+    }
     if (saveBtn && noteTa && statusEl) {
       saveBtn.addEventListener('click', async () => {
         const content = (noteTa.value || '').trim();
@@ -4343,6 +4910,25 @@ document.addEventListener('DOMContentLoaded', () => {
         saveBtn.disabled = false;
       });
     }
+    if (dispBtns && dispBtns.length) {
+      dispBtns.forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const code = String(btn.getAttribute('data-disp') || '').trim();
+          if (!code) return;
+          btn.disabled = true;
+          const original = btn.textContent;
+          btn.textContent = 'Saving...';
+          try {
+            await warRoomApplyDisposition(row, code);
+          } catch (err) {
+            warRoomSetAutoDialStatus(`Disposition failed: ${err.message || 'unknown error'}`, 'err');
+          } finally {
+            btn.disabled = false;
+            btn.textContent = original;
+          }
+        });
+      });
+    }
   }
 
   function warRoomRenderCurrent() {
@@ -4385,6 +4971,56 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === ' ' || e.code === 'Space') {
       e.preventDefault();
       if (warRoomRowEls.length > 1) warRoomGoNext();
+    }
+    const row = warRoomRowEls[warRoomIndex];
+    if (!row) return;
+    if (e.key === '1') {
+      e.preventDefault();
+      warRoomApplyDisposition(row, 'connected').catch(() => {});
+      return;
+    }
+    if (e.key === '2') {
+      e.preventDefault();
+      const key = String(row.dataset.leadKey || '').trim();
+      if (!key) return;
+      const fromPromise = warRoomSuggestedFromNumber(row);
+      fromPromise
+        .then((fromNumber) => requestLeadVoicemailByKey(key, fromNumber ? { fromNumber } : {}))
+        .then((data) => {
+          if (data.lead && data.lead.updates) row.dataset.updates = JSON.stringify(data.lead.updates);
+          if (data.lead && data.lead.status) row.dataset.status = String(data.lead.status);
+          warRoomAutoDialCalled.add(key);
+          warRoomSessionStats.vmDrops += 1;
+          warRoomRenderSessionStats();
+          warRoomSetAutoDialStatus(`Voicemail dropped for ${row.dataset.title || 'lead'}; moving next.`, 'ok');
+          if (warRoomAutoDialCalled.size >= warRoomRowEls.length) warRoomStopAutoDial('Auto dial completed all selected leads.');
+          else warRoomGoNext();
+        })
+        .catch((err) => {
+          warRoomSessionStats.failures += 1;
+          warRoomRenderSessionStats();
+          warRoomSetAutoDialStatus(`Voicemail drop failed: ${err.message || 'unknown error'}`, 'err');
+        });
+      return;
+    }
+    if (e.key === '3') {
+      e.preventDefault();
+      warRoomApplyDisposition(row, 'no_answer').catch(() => {});
+      return;
+    }
+    if (e.key === '4') {
+      e.preventDefault();
+      warRoomApplyDisposition(row, 'gatekeeper').catch(() => {});
+      return;
+    }
+    if (e.key === '5') {
+      e.preventDefault();
+      warRoomApplyDisposition(row, 'wrong_number').catch(() => {});
+      return;
+    }
+    if (e.key === '6') {
+      e.preventDefault();
+      warRoomApplyDisposition(row, 'callback').catch(() => {});
     }
   }
 
@@ -4438,6 +5074,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (warRoomAutoDialStart) warRoomAutoDialStart.addEventListener('click', warRoomStartAutoDial);
     if (warRoomAutoDialPause) warRoomAutoDialPause.addEventListener('click', warRoomToggleAutoDialPause);
     if (warRoomAutoDialStop) warRoomAutoDialStop.addEventListener('click', () => warRoomStopAutoDial('Auto dial stopped.'));
+    const warRoomPrimaryDial = document.getElementById('warRoomPrimaryDial');
+    if (warRoomPrimaryDial) {
+      warRoomPrimaryDial.addEventListener('click', async (e) => {
+        e.preventDefault();
+        if (warRoomPrimaryDial.classList.contains('pointer-events-none')) return;
+        const row = warRoomRowEls[warRoomIndex];
+        if (!row) return;
+        const key = String(row.dataset.leadKey || '').trim();
+        const phone = splitPhoneNumbers(row.dataset.phone)[0] || '';
+        if (!key) return;
+        warRoomPrimaryDial.classList.add('pointer-events-none', 'opacity-70');
+        try {
+          const fromNumber = await warRoomSuggestedFromNumber(row);
+          const data = await requestLeadCallByKey(key, phone, fromNumber ? { fromNumber } : {});
+          if (data.lead && data.lead.updates) row.dataset.updates = JSON.stringify(data.lead.updates);
+          if (data.lead && data.lead.status) row.dataset.status = String(data.lead.status);
+          warRoomSessionStats.dialed += 1;
+          warRoomRenderSessionStats();
+          warRoomSetAutoDialStatus(`Call started for current lead${fromNumber ? ` from ${fromNumber}` : ''}.`, 'ok');
+        } catch (err) {
+          warRoomSessionStats.failures += 1;
+          warRoomRenderSessionStats();
+          warRoomSetAutoDialStatus(`Dial failed: ${err.message || 'unknown error'}`, 'err');
+        } finally {
+          warRoomPrimaryDial.classList.remove('pointer-events-none', 'opacity-70');
+        }
+      });
+    }
     document.addEventListener('keydown', warRoomOnGlobalKeydown, true);
   }
 
@@ -4450,6 +5114,7 @@ document.addEventListener('DOMContentLoaded', () => {
     warRoomTotal.textContent = String(warRoomRowEls.length);
     warRoomIndex = 0;
     warRoomAutoDialCalled = new Set();
+    warRoomResetSessionStats();
     warRoomSetAutoDialStatus('Auto dialer idle.', null);
     if (warRoomAutoDialStart) warRoomAutoDialStart.disabled = false;
     if (warRoomAutoDialPause) warRoomAutoDialPause.textContent = 'Pause';
@@ -4493,6 +5158,12 @@ document.addEventListener('DOMContentLoaded', () => {
         : '';
 
     const scriptDefaults = warRoomBuildScripts(title, city, category, gapPhrase, compPhrase, gaps);
+    const suggestedAction =
+      gaps.length > 2
+        ? 'Lead with website + conversion gap, then offer a quick fix call.'
+        : (parseFloat(rating) || 0) >= 4.5
+          ? 'Lead with growth angle and social proof expansion.'
+          : 'Lead with visibility + reputation improvement opener.';
 
     const ws =
       website && website !== 'N/A'
@@ -4542,6 +5213,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 pt-2">Email</p>
             <div class="min-w-0">${mailRow}</div>
             <p class="text-[11px] text-slate-500 dark:text-slate-400 pt-1">Use the <strong class="text-slate-700 dark:text-slate-200">green call button</strong> in the bar below for the primary number.</p>
+            <p class="text-[11px] text-amber-700 dark:text-amber-300 pt-1"><strong>Next best action:</strong> ${escapeHtmlText(suggestedAction)}</p>
+            <p class="text-[10px] text-slate-500 dark:text-slate-400">Hotkeys: <strong>1</strong> connected, <strong>2</strong> voicemail drop + next, <strong>3</strong> no answer, <strong>4</strong> gatekeeper, <strong>5</strong> wrong number, <strong>6</strong> callback.</p>
         </div>
         <div>
             <p class="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">Call script</p>
@@ -4563,6 +5236,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ${notesHistoryHtml}
         </div>
         <div class="flex flex-wrap gap-2">
+            <button type="button" class="war-room-vm-next px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">Drop VM + Next</button>
+            <button type="button" class="war-room-disp-btn px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500 transition-colors" data-disp="connected">Connected</button>
+            <button type="button" class="war-room-disp-btn px-3 py-1.5 rounded-lg bg-slate-700 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-600 transition-colors" data-disp="no_answer">No answer</button>
+            <button type="button" class="war-room-disp-btn px-3 py-1.5 rounded-lg bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-500 transition-colors" data-disp="gatekeeper">Gatekeeper</button>
+            <button type="button" class="war-room-disp-btn px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 transition-colors" data-disp="wrong_number">Wrong number</button>
+            <button type="button" class="war-room-disp-btn px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-500 transition-colors" data-disp="callback">Callback</button>
             ${gaps.map((g) => `<span class="px-2 py-1 bg-rose-100 dark:bg-rose-950/50 text-rose-800 dark:text-rose-200 text-[9px] font-black uppercase tracking-widest rounded-md border border-rose-200 dark:border-rose-800">${escapeHtmlText(g)}</span>`).join('')}
             ${competitor && competitor !== 'N/A' ? `<span class="px-2 py-1 bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-200 text-[9px] font-black uppercase tracking-widest rounded-md border border-blue-200 dark:border-blue-800">vs ${escapeHtmlText(competitor)}</span>` : ''}
         </div>

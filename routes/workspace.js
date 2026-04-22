@@ -103,6 +103,12 @@ function upsertEntryByNumber(entries, patch) {
   return cloned;
 }
 
+function normalizeCallMode(raw) {
+  const mode = String(raw || '').trim().toLowerCase();
+  if (mode === 'browser_device') return 'browser_device';
+  return 'cloud_dial';
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId);
@@ -248,24 +254,33 @@ router.post('/settings', express.json(), async (req, res) => {
     if (
       req.body &&
       (Object.prototype.hasOwnProperty.call(req.body, 'phoneBank') ||
-        Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries'))
+        Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'callMode'))
     ) {
       const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
-      const bankEntries = normalizePhoneBankEntries(
-        Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries')
-          ? req.body.phoneBankEntries
-          : req.body.phoneBank
-      );
-      const bank = numberListFromEntries(bankEntries);
-      telephony.numberBankEntries = bankEntries;
-      telephony.numberBank = bank;
-      const requestedActive = signalwire.normalizePhone(req.body.activeCallerId || req.body.activeFromNumber || '');
-      if (requestedActive && bank.includes(requestedActive)) {
-        telephony.activeFromNumber = requestedActive;
-      } else if (telephony.activeFromNumber && bank.includes(telephony.activeFromNumber)) {
-        // keep existing active number
-      } else {
-        telephony.activeFromNumber = bank[0] || '';
+      if (
+        Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'phoneBank')
+      ) {
+        const bankEntries = normalizePhoneBankEntries(
+          Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries')
+            ? req.body.phoneBankEntries
+            : req.body.phoneBank
+        );
+        const bank = numberListFromEntries(bankEntries);
+        telephony.numberBankEntries = bankEntries;
+        telephony.numberBank = bank;
+        const requestedActive = signalwire.normalizePhone(req.body.activeCallerId || req.body.activeFromNumber || '');
+        if (requestedActive && bank.includes(requestedActive)) {
+          telephony.activeFromNumber = requestedActive;
+        } else if (telephony.activeFromNumber && bank.includes(telephony.activeFromNumber)) {
+          // keep existing active number
+        } else {
+          telephony.activeFromNumber = bank[0] || '';
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'callMode')) {
+        telephony.callMode = normalizeCallMode(req.body.callMode);
       }
       ws.telephony = telephony;
     }

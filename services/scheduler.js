@@ -8,6 +8,28 @@ const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
 
+function normalizeVoicemailLibrary(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const audioUrl = String(item.audioUrl || item.url || '').trim();
+      if (!audioUrl) return null;
+      return { id: String(item.id || '').trim(), audioUrl };
+    })
+    .filter(Boolean);
+}
+
+function resolveActiveVoicemailAudioUrl(telephony) {
+  const tp = telephony && typeof telephony === 'object' ? telephony : {};
+  const lib = normalizeVoicemailLibrary(tp.voicemailLibrary);
+  const activeId = String(tp.activeVoicemailId || '').trim();
+  const active = activeId ? lib.find((x) => x.id === activeId) : null;
+  if (active && active.audioUrl) return active.audioUrl;
+  if (lib.length) return lib[lib.length - 1].audioUrl;
+  return String(tp.voicemailAudioUrl || '').trim();
+}
+
 /**
  * Autopilot Scheduler: 
  * Periodically wakes up to run scheduled searches and discover new leads.
@@ -260,7 +282,7 @@ async function runWeeklyVoicemailDrops() {
             leadKey: lead.key,
             workspaceId: wid,
             action: 'voicemail_drop',
-            voicemailAudioUrl: String(telephony.voicemailAudioUrl || ''),
+            voicemailAudioUrl: resolveActiveVoicemailAudioUrl(telephony),
             from: selectedFrom,
           });
           const updates = Array.isArray(lead.updates) ? [...lead.updates] : [];

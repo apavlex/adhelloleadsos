@@ -125,6 +125,20 @@
                 <p id="warRoomAutoDialStatus" class="text-[10px] text-slate-400 leading-tight">Auto dialer idle.</p>
               </div>
           </div>
+          <div class="pointer-events-auto mt-2 rounded-2xl border border-slate-700/90 bg-slate-900/95 px-4 py-3 shadow-2xl">
+            <p class="text-[9px] font-black uppercase tracking-widest text-slate-500 mb-2">Session summary</p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 text-[10px]">
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">Dialed</span><p id="warRoomSumDialed" class="font-black text-white">0</p></div>
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">Connected</span><p id="warRoomSumConnected" class="font-black text-emerald-300">0</p></div>
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">VM drops</span><p id="warRoomSumVm" class="font-black text-violet-300">0</p></div>
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">No answer</span><p id="warRoomSumNoAnswer" class="font-black text-slate-200">0</p></div>
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">Gatekeeper</span><p id="warRoomSumGatekeeper" class="font-black text-amber-300">0</p></div>
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">Wrong #</span><p id="warRoomSumWrong" class="font-black text-rose-300">0</p></div>
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">Callbacks</span><p id="warRoomSumCallback" class="font-black text-blue-300">0</p></div>
+              <div class="rounded-lg bg-slate-800/90 border border-slate-700 px-2 py-1.5"><span class="text-slate-400">Failures</span><p id="warRoomSumFailures" class="font-black text-rose-300">0</p></div>
+            </div>
+            <p id="warRoomSummaryHint" class="mt-2 text-[10px] text-slate-500">Running totals for this war room session.</p>
+          </div>
       </div>
   </div>
 </div>

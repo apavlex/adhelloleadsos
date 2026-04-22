@@ -99,6 +99,9 @@ async function createLeadCall(opts) {
   const cfg = envConfig();
   const from = normalizePhone((opts && opts.from) || cfg.callerId || cfg.fromNumber);
   if (!from) throw new Error('SIGNALWIRE_FROM_NUMBER must be configured.');
+  if (!cfg.baseUrl) {
+    throw new Error('BASE_URL must be set to a public HTTPS URL so call webhooks can connect.');
+  }
 
   const action = (opts && opts.action) || 'call';
   const leadKey = String((opts && opts.leadKey) || '').trim();

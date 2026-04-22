@@ -27,6 +27,7 @@ const sequenceEngine = require('../services/sequenceEngine');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const signalwire = require('../services/signalwire');
+const salesScriptsStorage = require('../services/salesScriptsStorage');
 
 function appendLeadUpdate(lead, entry) {
   const updates = Array.isArray(lead && lead.updates) ? [...lead.updates] : [];
@@ -313,6 +314,83 @@ function resolveWorkspaceCallerNumber(ws) {
   return bank[0] || '';
 }
 
+function workspaceCallerNumbers(ws) {
+  if (!ws || typeof ws !== 'object') return [];
+  const telephony = ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+  const entries = Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [];
+  const fromEntries = entries.map((e) => signalwire.normalizePhone(e && e.number)).filter(Boolean);
+  const fromLegacy = Array.isArray(telephony.numberBank)
+    ? telephony.numberBank.map((n) => signalwire.normalizePhone(n)).filter(Boolean)
+    : [];
+  return [...new Set([...fromEntries, ...fromLegacy])];
+}
+
+function resolveRequestedCallerNumber(ws, requested) {
+  const bank = workspaceCallerNumbers(ws);
+  const picked = signalwire.normalizePhone(requested || '');
+  if (picked && bank.includes(picked)) return picked;
+  return resolveWorkspaceCallerNumber(ws);
+}
+
+function resolveWorkspaceCallMode(ws) {
+  const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+  const mode = String(telephony.callMode || '').trim().toLowerCase();
+  if (mode === 'browser_device') return 'browser_device';
+  return 'cloud_dial';
+}
+
+async function buildContactedStagePatch(lead, workspaceId) {
+  if (!lead || !workspaceId) return {};
+  const status = String(lead.status || '').toLowerCase();
+  if (status.includes('closed - won') || status.includes('closed - lost')) return {};
+  const currentStageNum = parseInt(lead.pipelineStage, 10) || 1;
+  if (currentStageNum > 1) return {};
+
+  const stages = await pipelineStagesService.ensureWorkspaceStagesSeeded(workspaceId);
+  if (!Array.isArray(stages) || !stages.length) return {};
+  const sortedStages = [...stages].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+  const contacted =
+    sortedStages.find((s) => String(s.key || '').toLowerCase() === 'contacted') ||
+    sortedStages[Math.min(1, sortedStages.length - 1)];
+  if (!contacted || !contacted.id) return {};
+  return pipelineStagesService.patchLeadStageFields(lead, sortedStages, contacted.id);
+}
+
+function normalizeVoicemailLibrary(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((item) => {
+      if (!item || typeof item !== 'object') return null;
+      const audioUrl = String(item.audioUrl || item.url || '').trim();
+      if (!audioUrl) return null;
+      return {
+        id: String(item.id || '').trim() || `vm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        audioUrl,
+        fileName: String(item.fileName || item.name || '').trim(),
+        mimeType: String(item.mimeType || '').trim(),
+        uploadedAt: String(item.uploadedAt || item.createdAt || new Date().toISOString()),
+      };
+    })
+    .filter(Boolean)
+    .slice(-30);
+}
+
+function resolveActiveVoicemailAudioUrl(telephony) {
+  const tp = telephony && typeof telephony === 'object' ? telephony : {};
+  const library = normalizeVoicemailLibrary(tp.voicemailLibrary);
+  const activeId = String(tp.activeVoicemailId || '').trim();
+  const activeFromLibrary = activeId ? library.find((x) => x.id === activeId) : null;
+  const latestFromLibrary = library.length ? library[library.length - 1] : null;
+  const legacy = String(tp.voicemailAudioUrl || '').trim();
+  if (activeFromLibrary && activeFromLibrary.audioUrl) {
+    return { audioUrl: activeFromLibrary.audioUrl, activeId: activeFromLibrary.id, library };
+  }
+  if (latestFromLibrary && latestFromLibrary.audioUrl) {
+    return { audioUrl: latestFromLibrary.audioUrl, activeId: latestFromLibrary.id, library };
+  }
+  return { audioUrl: legacy, activeId: '', library };
+}
+
 // POST /leads/:key/sequence/start — attach persona cadence (Clay / Paul / Bob templates)
 router.post('/:key/sequence/start', async (req, res, next) => {
   try {
@@ -471,19 +549,55 @@ router.post('/:key/call', async (req, res, next) => {
     const fullKey = leadKeyFromParam(req.params.key);
     const lead = await dbService.getLead(fullKey);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
-    if (!signalwire.configured()) {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const callMode = resolveWorkspaceCallMode(ws);
+    if (callMode !== 'browser_device' && !signalwire.configured()) {
       return res.status(400).json({
         success: false,
         error:
           'Telephony is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER, and BASE_URL.',
       });
     }
+    const normalizedTo = signalwire.normalizePhone(lead.phone);
+    if (!normalizedTo) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lead has no valid phone number for outbound calling.',
+      });
+    }
+    if (callMode === 'browser_device') {
+      const updates = appendLeadUpdate(lead, {
+        type: 'call_browser_handoff',
+        value: `Opened device dialer for ${normalizedTo}.`,
+        to: normalizedTo,
+        provider: 'device',
+      });
+      const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+      const updatedLead = await dbService.updateLead(fullKey, {
+        ...contactedPatch,
+        status: 'Call Started (Device)',
+        updates,
+        logs: [
+          {
+            type: 'call_browser_handoff',
+            message: `Device dialer initiated (${normalizedTo})`,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      });
+      return res.json({
+        success: true,
+        dialMode: 'browser_device',
+        phone: normalizedTo,
+        lead: updatedLead,
+      });
+    }
     const call = await signalwire.createLeadCall({
-      to: lead.phone,
+      to: normalizedTo,
       leadKey: fullKey,
       workspaceId: req.workspaceId,
       action: 'call',
-      from: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
+      from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
     });
     const updates = appendLeadUpdate(lead, {
       type: 'call_outbound',
@@ -491,7 +605,9 @@ router.post('/:key/call', async (req, res, next) => {
       callSid: call.sid || '',
       provider: 'signalwire',
     });
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const updatedLead = await dbService.updateLead(fullKey, {
+      ...contactedPatch,
       status: 'Called Lead',
       updates,
       logs: [
@@ -503,6 +619,22 @@ router.post('/:key/call', async (req, res, next) => {
       ],
     });
     res.json({ success: true, callSid: call.sid || null, lead: updatedLead });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/telephony/call-options — caller ID options for call widget
+router.get('/telephony/call-options', async (req, res, next) => {
+  try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const numbers = workspaceCallerNumbers(ws);
+    return res.json({
+      success: true,
+      options: numbers,
+      activeFromNumber: resolveWorkspaceCallerNumber(ws),
+      callMode: resolveWorkspaceCallMode(ws),
+    });
   } catch (err) {
     next(err);
   }
@@ -521,18 +653,23 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
           'Telephony is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER, and BASE_URL.',
       });
     }
+    const normalizedTo = signalwire.normalizePhone(lead.phone);
+    if (!normalizedTo) {
+      return res.status(400).json({
+        success: false,
+        error: 'Lead has no valid phone number for voicemail drop.',
+      });
+    }
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    const voicemailAudioUrl =
-      ws && ws.telephony && typeof ws.telephony.voicemailAudioUrl === 'string'
-        ? ws.telephony.voicemailAudioUrl
-        : '';
+    const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+    const { audioUrl: voicemailAudioUrl } = resolveActiveVoicemailAudioUrl(telephony);
     const call = await signalwire.createLeadCall({
-      to: lead.phone,
+      to: normalizedTo,
       leadKey: fullKey,
       workspaceId: req.workspaceId,
       action: 'voicemail_drop',
       voicemailAudioUrl,
-      from: resolveWorkspaceCallerNumber(ws),
+      from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
     });
     const updates = appendLeadUpdate(lead, {
       type: 'voicemail_drop',
@@ -540,7 +677,9 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
       callSid: call.sid || '',
       provider: 'signalwire',
     });
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const updatedLead = await dbService.updateLead(fullKey, {
+      ...contactedPatch,
       updates,
       logs: [
         {
@@ -551,6 +690,35 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
       ],
     });
     res.json({ success: true, callSid: call.sid || null, lead: updatedLead });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/:key/call-events — recent call/voicemail events for call widget
+router.get('/:key/call-events', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    const updates = Array.isArray(lead.updates) ? lead.updates : [];
+    const callEvents = updates
+      .filter((u) =>
+        u &&
+        [
+          'call_outbound',
+          'call_browser_handoff',
+          'call_status',
+          'voicemail_drop',
+          'voicemail_status',
+          'voicemail_amd',
+        ].includes(
+          String(u.type || '')
+        )
+      )
+      .slice(-30)
+      .reverse();
+    return res.json({ success: true, events: callEvents });
   } catch (err) {
     next(err);
   }
@@ -584,7 +752,9 @@ router.post('/:key/sms', async (req, res, next) => {
       messageSid: sms.sid || '',
       provider: 'signalwire',
     });
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const updatedLead = await dbService.updateLead(fullKey, {
+      ...contactedPatch,
       status: 'Follow-up',
       updates,
       logs: [
@@ -601,22 +771,262 @@ router.post('/:key/sms', async (req, res, next) => {
   }
 });
 
+// GET /leads/:key/sms-script-options — script choices for SMS modal
+router.get('/:key/sms-script-options', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const savedItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
+
+    const leadServiceKey =
+      (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
+    const serviceKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey)
+      ? leadServiceKey
+      : SCRIPT_LIBRARY_KEYS[0];
+    const serviceDef = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey] || {};
+    const serviceLabel = serviceDef.label || 'Primary offer';
+
+    const sectionLabels = {
+      opening: 'Opening',
+      discovery: 'Discovery',
+      valueProp: 'Value proposition',
+      objectionHandling: 'Objection handling',
+      close: 'Close',
+    };
+
+    const options = [];
+    ['opening', 'valueProp', 'objectionHandling', 'close'].forEach((section) => {
+      const text = String(serviceDef[section] || '').trim();
+      if (!text) return;
+      options.push({
+        id: `${serviceKey}:${section}`,
+        label: `${serviceLabel} — ${sectionLabels[section]}`,
+        text,
+      });
+    });
+
+    savedItems
+      .filter((item) => item && String(item.text || '').trim())
+      .slice(-12)
+      .forEach((item) => {
+        const itemService = String(item.serviceKey || '').trim();
+        const itemSection = String(item.section || '').trim();
+        const itemServiceLabel =
+          itemService && mergedLibrary[itemService] && mergedLibrary[itemService].label
+            ? mergedLibrary[itemService].label
+            : itemService
+              ? itemService
+              : 'General';
+        const suffix = itemSection ? ` · ${sectionLabels[itemSection] || itemSection}` : '';
+        const title = String(item.title || '').trim();
+        options.push({
+          id: `saved:${item.id}`,
+          label: title
+            ? `Saved: ${title}`
+            : `Saved script — ${itemServiceLabel}${suffix}`,
+          text: String(item.text).trim(),
+        });
+      });
+
+    return res.json({
+      success: true,
+      serviceKey,
+      serviceLabel,
+      options,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/sms-personalize — AI personalize selected script for lead
+router.post('/:key/sms-personalize', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const scriptText = String((req.body && req.body.scriptText) || '').trim();
+    if (!scriptText) {
+      return res.status(400).json({ success: false, error: 'scriptText is required.' });
+    }
+
+    const company = String(lead.title || 'your business').trim() || 'your business';
+    const contact =
+      String(lead.contactName || '').trim() ||
+      (lead.email && lead.email !== 'N/A' ? String(lead.email).split('@')[0].replace(/[._]+/g, ' ') : '') ||
+      'there';
+    const cityState = [lead.city, lead.state].filter(Boolean).join(', ');
+    const insight = lead.kieServiceInsight && typeof lead.kieServiceInsight === 'object'
+      ? lead.kieServiceInsight
+      : {};
+    const snapshot = {
+      company,
+      contact,
+      cityState,
+      category: lead.categoryName || '',
+      rating: lead.totalScore || 0,
+      reviewCount: lead.reviewsCount || 0,
+      website: lead.website || '',
+      primaryServiceLabel: insight.primaryServiceLabel || '',
+      rationale: insight.rationale || '',
+      talkTrack: insight.talkTrack || '',
+      auditSummary: lead.auditSummary || '',
+      buyingSignals: Array.isArray(lead.buyingSignals) ? lead.buyingSignals : [],
+    };
+
+    const ai = await chatCompletion({
+      messages: [
+        {
+          role: 'system',
+          content: `You personalize outbound SMS for local-business sales.
+
+Rules:
+- Return JSON only: {"message":"..."}
+- Keep message concise: target 280 chars, hard max 480 chars.
+- Keep tone human, respectful, and non-spammy.
+- Use specific lead context when relevant (city/category/reviews/offer fit).
+- Include one clear CTA.
+- Do not use markdown, bullet points, or emojis unless already present.
+- Preserve placeholders if they exist: [your name], [your company].`,
+        },
+        {
+          role: 'user',
+          content: `Lead context:\n${JSON.stringify(snapshot)}\n\nBase script:\n${scriptText}`,
+        },
+      ],
+      jsonObject: true,
+      max_tokens: 300,
+      temperature: 0.45,
+    });
+
+    if (!ai.content || ai.error) {
+      const fallback = scriptText
+        .replace(/\{\{name\}\}/gi, contact)
+        .replace(/\{\{company\}\}/gi, company)
+        .replace(/\{\{city\}\}/gi, cityState || 'your area');
+      return res.json({
+        success: true,
+        personalized: fallback,
+        provider: 'fallback',
+      });
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(ai.content);
+    } catch {
+      return res.status(500).json({ success: false, error: 'Invalid AI response' });
+    }
+    const personalized = String((parsed && parsed.message) || '').trim();
+    if (!personalized) {
+      return res.status(500).json({ success: false, error: 'AI did not return a message.' });
+    }
+    return res.json({
+      success: true,
+      personalized: personalized.slice(0, 480),
+      provider: ai.provider || 'unknown',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /leads/telephony/voicemail/settings — current workspace voicemail automation settings
 router.get('/telephony/voicemail/settings', async (req, res, next) => {
   try {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
     const telephony = ws.telephony || {};
+    const resolvedVoicemail = resolveActiveVoicemailAudioUrl(telephony);
     const weekly = telephony.weeklyVoicemail || {};
     res.json({
       success: true,
       settings: {
-        audioUrl: String(telephony.voicemailAudioUrl || ''),
+        audioUrl: String(resolvedVoicemail.audioUrl || ''),
+        activeVoicemailId: String(resolvedVoicemail.activeId || ''),
+        voicemailLibrary: resolvedVoicemail.library,
         enabled: !!weekly.enabled,
         dayOfWeek: parseWeeklyDay(weekly.dayOfWeek),
         time: parseWeeklyTime(weekly.time),
         timezone: String(weekly.timezone || ws.timezone || 'America/Los_Angeles'),
         maxLeadsPerRun: Math.max(1, parseInt(weekly.maxLeadsPerRun || '25', 10) || 25),
       },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/voicemail/active — choose active voicemail from saved library
+router.post('/telephony/voicemail/active', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can select active voicemail audio.' });
+    }
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
+    const voicemailLibrary = normalizeVoicemailLibrary(telephony.voicemailLibrary);
+    const activeVoicemailId = String((req.body && req.body.activeVoicemailId) || '').trim();
+    const selected = voicemailLibrary.find((v) => v.id === activeVoicemailId);
+    if (!selected) return res.status(404).json({ success: false, error: 'Selected voicemail recording was not found.' });
+    telephony.voicemailLibrary = voicemailLibrary;
+    telephony.activeVoicemailId = selected.id;
+    telephony.voicemailAudioUrl = selected.audioUrl;
+    telephony.voicemailUploadedAt = selected.uploadedAt || new Date().toISOString();
+    ws.telephony = telephony;
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, activeVoicemailId: selected.id, audioUrl: selected.audioUrl });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/voicemail/delete — remove a saved voicemail recording
+router.post('/telephony/voicemail/delete', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can delete voicemail audio.' });
+    }
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
+    const voicemailLibrary = normalizeVoicemailLibrary(telephony.voicemailLibrary);
+    const voicemailId = String((req.body && req.body.voicemailId) || '').trim();
+    if (!voicemailId) return res.status(400).json({ success: false, error: 'voicemailId is required.' });
+
+    const existing = voicemailLibrary.find((v) => v.id === voicemailId);
+    if (!existing) return res.status(404).json({ success: false, error: 'Recording not found.' });
+
+    const nextLibrary = voicemailLibrary.filter((v) => v.id !== voicemailId);
+    telephony.voicemailLibrary = nextLibrary;
+
+    const wasActive = String(telephony.activeVoicemailId || '').trim() === voicemailId;
+    if (wasActive) {
+      const replacement = nextLibrary.length ? nextLibrary[nextLibrary.length - 1] : null;
+      telephony.activeVoicemailId = replacement ? replacement.id : '';
+      telephony.voicemailAudioUrl = replacement ? replacement.audioUrl : '';
+      telephony.voicemailUploadedAt = replacement ? replacement.uploadedAt || new Date().toISOString() : '';
+    } else if (!nextLibrary.length) {
+      telephony.activeVoicemailId = '';
+      telephony.voicemailAudioUrl = '';
+      telephony.voicemailUploadedAt = '';
+    }
+
+    ws.telephony = telephony;
+    await dbService.saveWorkspace(wid, ws);
+    const resolved = resolveActiveVoicemailAudioUrl(telephony);
+    return res.json({
+      success: true,
+      voicemailLibrary: resolved.library,
+      activeVoicemailId: resolved.activeId,
+      audioUrl: resolved.audioUrl || '',
     });
   } catch (err) {
     next(err);
@@ -675,19 +1085,36 @@ router.post('/telephony/voicemail/upload', (req, res, next) => {
     const relDir = path.join('public', 'uploads', 'voicemail');
     const absDir = path.join(process.cwd(), relDir);
     await fs.mkdir(absDir, { recursive: true });
-    const filename = `${wid}_weekly${ext}`;
+    const stamp = Date.now();
+    const filename = `${wid}_weekly_${stamp}${ext}`;
     const absPath = path.join(absDir, filename);
     await fs.writeFile(absPath, req.file.buffer);
     const publicUrl = `/uploads/voicemail/${filename}`;
 
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
     const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
-    telephony.voicemailAudioUrl = publicUrl;
-    telephony.voicemailUploadedAt = new Date().toISOString();
+    const library = normalizeVoicemailLibrary(telephony.voicemailLibrary);
+    const entry = {
+      id: `vm_${stamp}_${Math.random().toString(36).slice(2, 8)}`,
+      audioUrl: publicUrl,
+      fileName: String(req.file.originalname || filename),
+      mimeType: String(req.file.mimetype || ''),
+      uploadedAt: new Date().toISOString(),
+    };
+    const nextLibrary = [...library, entry].slice(-30);
+    telephony.voicemailLibrary = nextLibrary;
+    telephony.activeVoicemailId = entry.id;
+    telephony.voicemailAudioUrl = entry.audioUrl;
+    telephony.voicemailUploadedAt = entry.uploadedAt;
     ws.telephony = telephony;
     await dbService.saveWorkspace(req.workspaceId, ws);
 
-    res.json({ success: true, audioUrl: publicUrl });
+    res.json({
+      success: true,
+      audioUrl: publicUrl,
+      activeVoicemailId: entry.id,
+      voicemailLibrary: nextLibrary,
+    });
   } catch (err) {
     next(err);
   }
@@ -760,7 +1187,11 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
       prompt = `Hi ${lead.title},\n\nI noticed your business in ${lead.city} has a ${lead.totalScore} rating with ${lead.reviewsCount} reviews. We help ${lead.categoryName} operators like you turn visibility into booked calls.\n\nOpen to a 15-minute fit call next week?\n\nBest,\n[Your Name]`;
     }
 
-    await dbService.updateLead(fullKey, { outreachPrompt: prompt });
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+    await dbService.updateLead(fullKey, {
+      ...contactedPatch,
+      outreachPrompt: prompt,
+    });
     res.json({ success: true, prompt, llm });
   } catch (err) {
     next(err);
@@ -1148,6 +1579,13 @@ router.post('/:key/enhance', async (req, res, next) => {
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
     const lead = await dbService.getLead(fullKey);
     const result = await runLeadEnhancement(lead, req.workspaceId);
+    if (result && result.success) {
+      const refreshed = await dbService.getLead(fullKey);
+      const contactedPatch = await buildContactedStagePatch(refreshed || lead, req.workspaceId);
+      if (Object.keys(contactedPatch).length) {
+        await dbService.updateLead(fullKey, contactedPatch);
+      }
+    }
     res.json(result);
   } catch (err) {
     console.error('Manual enhancement error:', err.message);
