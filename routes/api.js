@@ -12,6 +12,7 @@ const {
 } = require('../services/inboundWebhookNormalize');
 const { cleanBusinessName } = require('../utils/nameCleaner');
 const { defaultPipelineStageForSource, clampPipelineStage } = require('../services/pipelineConstants');
+const signalwire = require('../services/signalwire');
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -27,6 +28,61 @@ const validateApiKey = (req, res, next) => {
 function workspaceIdFromReq(req) {
   const h = req.headers['x-workspace-id'];
   return typeof h === 'string' && h.trim() ? h.trim() : 'default';
+}
+
+function xmlEscape(text) {
+  return String(text || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function telephonyAuthorized(req) {
+  const cfg = signalwire.envConfig();
+  if (!cfg.webhookToken) return true;
+  const token = String((req.query && req.query.token) || req.headers['x-telephony-token'] || '').trim();
+  return !!token && token === cfg.webhookToken;
+}
+
+async function findLeadForTelephonyEvent({ leadKey, workspaceId, from, to }) {
+  if (leadKey) {
+    const lead = await dbService.getLead(String(leadKey));
+    if (lead) return { key: String(leadKey), lead };
+  }
+  const candidates = workspaceId
+    ? await dbService.getAllLeads(String(workspaceId))
+    : await dbService.getAllLeadsUnscoped();
+  const normalizedFrom = signalwire.normalizePhone(from);
+  const normalizedTo = signalwire.normalizePhone(to);
+  const match = candidates.find((l) => {
+    const lp = signalwire.normalizePhone(l.phone);
+    if (!lp) return false;
+    return lp === normalizedFrom || lp === normalizedTo;
+  });
+  if (!match) return null;
+  return { key: match.key, lead: match };
+}
+
+async function appendTelephonyUpdate(match, entry, extras) {
+  if (!match || !match.lead || !match.key) return;
+  const updates = Array.isArray(match.lead.updates) ? [...match.lead.updates] : [];
+  updates.push({
+    timestamp: new Date().toISOString(),
+    ...entry,
+  });
+  await dbService.updateLead(match.key, {
+    ...(extras || {}),
+    updates,
+    logs: [
+      {
+        type: entry.type || 'telephony',
+        message: entry.value || entry.type || 'Telephony event',
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
 }
 
 /**
@@ -356,6 +412,164 @@ router.post('/leads/stitch-sync', validateApiKey, async (req, res, next) => {
     res.json({ success: !!leadKey, key: leadKey, message: leadKey ? 'Design synced successfully' : 'Lead not found for sync' });
   } catch (err) {
     next(err);
+  }
+});
+
+// POST /api/telephony/sms/inbound — SignalWire inbound SMS webhook
+router.post('/telephony/sms/inbound', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    const from = req.body.From || req.body.from || '';
+    const to = req.body.To || req.body.to || '';
+    const body = String(req.body.Body || req.body.body || '').trim();
+    const leadKey = String((req.query && req.query.leadKey) || '').trim();
+    const workspaceId = String((req.query && req.query.workspaceId) || '').trim();
+    const match = await findLeadForTelephonyEvent({ leadKey, workspaceId, from, to });
+    if (match && body) {
+      await appendTelephonyUpdate(match, {
+        type: 'sms_inbound',
+        value: body,
+        from,
+        to,
+        messageSid: String(req.body.MessageSid || req.body.SmsSid || ''),
+        provider: 'signalwire',
+      });
+    }
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+  } catch (err) {
+    console.error('[telephony:sms:inbound]', err.message);
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>');
+  }
+});
+
+// POST /api/telephony/sms/status — SignalWire delivery updates
+router.post('/telephony/sms/status', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).json({ success: false });
+    const leadKey = String((req.query && req.query.leadKey) || '').trim();
+    const workspaceId = String((req.query && req.query.workspaceId) || '').trim();
+    const from = req.body.From || '';
+    const to = req.body.To || '';
+    const status = String(req.body.MessageStatus || req.body.SmsStatus || '').trim();
+    const sid = String(req.body.MessageSid || req.body.SmsSid || '').trim();
+    const match = await findLeadForTelephonyEvent({ leadKey, workspaceId, from, to });
+    if (match && status) {
+      await appendTelephonyUpdate(match, {
+        type: 'sms_status',
+        value: `SMS status: ${status}`,
+        from,
+        to,
+        messageSid: sid,
+        provider: 'signalwire',
+      });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[telephony:sms:status]', err.message);
+    res.json({ success: true });
+  }
+});
+
+// POST /api/telephony/voice/status — call state updates
+router.post('/telephony/voice/status', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).json({ success: false });
+    const leadKey = String((req.query && req.query.leadKey) || '').trim();
+    const workspaceId = String((req.query && req.query.workspaceId) || '').trim();
+    const from = req.body.From || '';
+    const to = req.body.To || '';
+    const callStatus = String(req.body.CallStatus || '').trim();
+    const sid = String(req.body.CallSid || '').trim();
+    const action = String((req.query && req.query.action) || 'call').trim();
+    const match = await findLeadForTelephonyEvent({ leadKey, workspaceId, from, to });
+    if (match && callStatus) {
+      await appendTelephonyUpdate(
+        match,
+        {
+          type: action === 'voicemail_drop' ? 'voicemail_status' : 'call_status',
+          value: `${action === 'voicemail_drop' ? 'Voicemail' : 'Call'} status: ${callStatus}`,
+          from,
+          to,
+          callSid: sid,
+          provider: 'signalwire',
+        },
+        callStatus === 'completed' ? { lastActivity: new Date().toISOString() } : null
+      );
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[telephony:voice:status]', err.message);
+    res.json({ success: true });
+  }
+});
+
+// POST /api/telephony/voice/amd — machine-detection updates
+router.post('/telephony/voice/amd', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).json({ success: false });
+    const leadKey = String((req.query && req.query.leadKey) || '').trim();
+    const workspaceId = String((req.query && req.query.workspaceId) || '').trim();
+    const from = req.body.From || '';
+    const to = req.body.To || '';
+    const result =
+      String(req.body.AnsweredBy || req.body.MachineDetectionResult || req.body.AmdStatus || '').trim() ||
+      'unknown';
+    const sid = String(req.body.CallSid || '').trim();
+    const match = await findLeadForTelephonyEvent({ leadKey, workspaceId, from, to });
+    if (match) {
+      await appendTelephonyUpdate(match, {
+        type: 'voicemail_amd',
+        value: `Voicemail detection result: ${result}`,
+        from,
+        to,
+        callSid: sid,
+        provider: 'signalwire',
+      });
+    }
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[telephony:voice:amd]', err.message);
+    res.json({ success: true });
+  }
+});
+
+// POST|GET /api/telephony/voice/twiml — dynamic call script for calls/voicemail drops
+router.all('/telephony/voice/twiml', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    const action = String((req.query && req.query.action) || 'call').trim();
+    const script = String(process.env.VOICEMAIL_DROP_SCRIPT || '').trim();
+    const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
+    const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
+    const voicemailAudioUrl =
+      String(
+        (req.query && req.query.audioUrl) ||
+          process.env.VOICEMAIL_DROP_AUDIO_URL ||
+          ''
+      ).trim();
+    const followupNumber = String(process.env.SIGNALWIRE_CALLBACK_NUMBER || process.env.SIGNALWIRE_FROM_NUMBER || '')
+      .trim();
+
+    let body = '<?xml version="1.0" encoding="UTF-8"?><Response>';
+    if (action === 'voicemail_drop') {
+      body += '<Pause length="2"/>';
+      if (voicemailAudioUrl) {
+        body += `<Play>${xmlEscape(voicemailAudioUrl)}</Play>`;
+      } else if (script) {
+        body += `<Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">${xmlEscape(script)}</Say>`;
+      } else {
+        body += `<Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Hi, this is AdHello with a quick idea for your business. Please call us back at ${xmlEscape(followupNumber)}. We will follow up with a text as well. Thank you.</Say>`;
+      }
+      body += '<Hangup/>';
+    } else {
+      body += `<Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Hi, this is AdHello calling with a quick follow-up. Please call us back at ${xmlEscape(followupNumber)} or reply to our text message. Thank you.</Say>`;
+      body += '<Hangup/>';
+    }
+    body += '</Response>';
+    res.type('text/xml').send(body);
+  } catch (err) {
+    console.error('[telephony:voice:twiml]', err.message);
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
   }
 });
 

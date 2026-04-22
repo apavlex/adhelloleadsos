@@ -6,6 +6,7 @@ const workspaceIntegrations = require('./workspaceIntegrations');
 const enricher = require('./enricher');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
+const signalwire = require('./signalwire');
 
 /**
  * Autopilot Scheduler: 
@@ -202,9 +203,104 @@ async function runReferralAskReminders() {
   }
 }
 
+async function runWeeklyVoicemailDrops() {
+  if (!signalwire.configured()) return;
+  const workspaceIds = await db.listWorkspaceIds();
+  for (const wid of workspaceIds) {
+    try {
+      const ws = await db.getWorkspace(wid);
+      const telephony = ws && ws.telephony ? ws.telephony : {};
+      const weekly = telephony && telephony.weeklyVoicemail ? telephony.weeklyVoicemail : {};
+      if (!weekly.enabled) continue;
+      const timezone = weekly.timezone || ws.timezone || 'America/Los_Angeles';
+      const now = DateTime.now().setZone(timezone);
+      const targetDay = Math.max(0, Math.min(6, parseInt(weekly.dayOfWeek, 10) || 1));
+      const time = String(weekly.time || '09:00');
+      const match = /^(\d{1,2}):(\d{2})$/.exec(time);
+      const hh = match ? Math.max(0, Math.min(23, parseInt(match[1], 10) || 9)) : 9;
+      const mm = match ? Math.max(0, Math.min(59, parseInt(match[2], 10) || 0)) : 0;
+      if (now.weekday % 7 !== targetDay) continue;
+      const dueToday = now.set({ hour: hh, minute: mm, second: 0, millisecond: 0 });
+      if (now < dueToday) continue;
+      const lastRunAt = weekly.lastRunAt ? DateTime.fromISO(weekly.lastRunAt).setZone(timezone) : null;
+      if (lastRunAt && lastRunAt.isValid && lastRunAt.hasSame(now, 'day')) continue;
+
+      const maxLeads = Math.max(1, Math.min(200, parseInt(weekly.maxLeadsPerRun || '25', 10) || 25));
+      const leads = await db.getAllLeads(wid);
+      const candidates = leads
+        .filter((l) => {
+          const phone = signalwire.normalizePhone(l.phone);
+          if (!phone) return false;
+          const status = String(l.status || '').toLowerCase();
+          if (status.includes('closed - won') || status.includes('closed - lost')) return false;
+          const updates = Array.isArray(l.updates) ? l.updates : [];
+          const hadRecentDrop = updates.some((u) => {
+            if (!u || u.type !== 'voicemail_drop') return false;
+            const ts = Date.parse(String(u.timestamp || ''));
+            if (!Number.isFinite(ts)) return false;
+            return Date.now() - ts < 6 * 24 * 60 * 60 * 1000;
+          });
+          return !hadRecentDrop;
+        })
+        .slice(0, maxLeads);
+
+      let sent = 0;
+      for (const lead of candidates) {
+        try {
+          const call = await signalwire.createLeadCall({
+            to: lead.phone,
+            leadKey: lead.key,
+            workspaceId: wid,
+            action: 'voicemail_drop',
+            voicemailAudioUrl: String(telephony.voicemailAudioUrl || ''),
+          });
+          const updates = Array.isArray(lead.updates) ? [...lead.updates] : [];
+          updates.push({
+            type: 'voicemail_drop',
+            value: 'Weekly voicemail drop attempt started.',
+            callSid: call.sid || '',
+            provider: 'signalwire',
+            timestamp: new Date().toISOString(),
+          });
+          await db.updateLead(lead.key, {
+            updates,
+            logs: [
+              {
+                type: 'voicemail_drop',
+                message: `Weekly voicemail drop initiated (${call.sid || 'no sid'})`,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          });
+          sent += 1;
+        } catch (err) {
+          console.error(`[SCHEDULER] Weekly voicemail drop failed for ${lead.key}:`, err.message);
+        }
+      }
+
+      const wsNext = ws && typeof ws === 'object' ? { ...ws } : { id: wid };
+      const telephonyNext =
+        wsNext.telephony && typeof wsNext.telephony === 'object' ? { ...wsNext.telephony } : {};
+      const weeklyNext =
+        telephonyNext.weeklyVoicemail && typeof telephonyNext.weeklyVoicemail === 'object'
+          ? { ...telephonyNext.weeklyVoicemail }
+          : {};
+      weeklyNext.lastRunAt = DateTime.utc().toISO();
+      weeklyNext.lastRunCount = sent;
+      telephonyNext.weeklyVoicemail = weeklyNext;
+      wsNext.telephony = telephonyNext;
+      await db.saveWorkspace(wid, wsNext);
+      console.log(`[SCHEDULER] Weekly voicemail run complete for ${wid}: ${sent} drops.`);
+    } catch (err) {
+      console.error('[SCHEDULER] Weekly voicemail run failed:', err.message);
+    }
+  }
+}
+
 module.exports = {
   runDueSchedules,
   runReferralAskReminders,
+  runWeeklyVoicemailDrops,
   init() {
     console.log('[SCHEDULER] Initializing scheduled lead runs (hourly check)...');
     
@@ -228,6 +324,9 @@ module.exports = {
       maybeWarmAllMorningBriefs().catch((e) =>
         console.error('[SCHEDULER] Morning brief warm failed:', e.message)
       );
+      runWeeklyVoicemailDrops().catch((e) =>
+        console.error('[SCHEDULER] Weekly voicemail drops failed:', e.message)
+      );
     });
 
     // Also run once immediately on startup for any catching up
@@ -242,5 +341,10 @@ module.exports = {
         console.error('[SCHEDULER] Sequence steps (startup) failed:', e.message)
       );
     }, 11000);
+    setTimeout(() => {
+      runWeeklyVoicemailDrops().catch((e) =>
+        console.error('[SCHEDULER] Weekly voicemail drops (startup) failed:', e.message)
+      );
+    }, 13000);
   }
 };

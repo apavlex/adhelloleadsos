@@ -1,5 +1,7 @@
 const express = require('express');
 const multer = require('multer');
+const path = require('path');
+const fs = require('fs/promises');
 const router = express.Router();
 const dbService = require('../services/database');
 const firecrawl = require('../services/firecrawl');
@@ -24,6 +26,16 @@ const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const signalwire = require('../services/signalwire');
+
+function appendLeadUpdate(lead, entry) {
+  const updates = Array.isArray(lead && lead.updates) ? [...lead.updates] : [];
+  updates.push({
+    timestamp: new Date().toISOString(),
+    ...entry,
+  });
+  return updates;
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -37,6 +49,16 @@ const upload = multer({
       file.mimetype === 'application/vnd.ms-excel';
     if (ok) cb(null, true);
     else cb(new Error('Upload a .csv file only.'));
+  },
+});
+
+const voiceUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 15 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const mt = String(file.mimetype || '').toLowerCase();
+    if (mt.startsWith('audio/')) return cb(null, true);
+    cb(new Error('Upload an audio file only.'));
   },
 });
 
@@ -258,6 +280,21 @@ function leadKeyFromParam(key) {
   return key.startsWith('lead:') ? key : `lead:${key}`;
 }
 
+function parseWeeklyDay(raw) {
+  const n = parseInt(String(raw), 10);
+  if (!Number.isFinite(n)) return 1;
+  return Math.max(0, Math.min(6, n));
+}
+
+function parseWeeklyTime(raw) {
+  const s = String(raw || '09:00').trim();
+  const m = /^(\d{1,2}):(\d{2})$/.exec(s);
+  if (!m) return '09:00';
+  const hh = Math.max(0, Math.min(23, parseInt(m[1], 10) || 0));
+  const mm = Math.max(0, Math.min(59, parseInt(m[2], 10) || 0));
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+}
+
 // POST /leads/:key/sequence/start — attach persona cadence (Clay / Paul / Bob templates)
 router.post('/:key/sequence/start', async (req, res, next) => {
   try {
@@ -405,6 +442,231 @@ router.post('/:key/notes', async (req, res, next) => {
 
     await dbService.updateLead(fullKey, { updates });
     res.json({ success: true, updates });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/call — click-to-call outbound voice dial
+router.post('/:key/call', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (!signalwire.configured()) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Telephony is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER, and BASE_URL.',
+      });
+    }
+    const call = await signalwire.createLeadCall({
+      to: lead.phone,
+      leadKey: fullKey,
+      workspaceId: req.workspaceId,
+      action: 'call',
+    });
+    const updates = appendLeadUpdate(lead, {
+      type: 'call_outbound',
+      value: `Outbound call initiated (${lead.phone || 'unknown number'}).`,
+      callSid: call.sid || '',
+      provider: 'signalwire',
+    });
+    const updatedLead = await dbService.updateLead(fullKey, {
+      status: 'Called Lead',
+      updates,
+      logs: [
+        {
+          type: 'call_outbound',
+          message: `SignalWire call initiated (${call.sid || 'no sid'})`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    res.json({ success: true, callSid: call.sid || null, lead: updatedLead });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/voicemail-drop — automated voicemail playback call
+router.post('/:key/voicemail-drop', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (!signalwire.configured()) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Telephony is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER, and BASE_URL.',
+      });
+    }
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const voicemailAudioUrl =
+      ws && ws.telephony && typeof ws.telephony.voicemailAudioUrl === 'string'
+        ? ws.telephony.voicemailAudioUrl
+        : '';
+    const call = await signalwire.createLeadCall({
+      to: lead.phone,
+      leadKey: fullKey,
+      workspaceId: req.workspaceId,
+      action: 'voicemail_drop',
+      voicemailAudioUrl,
+    });
+    const updates = appendLeadUpdate(lead, {
+      type: 'voicemail_drop',
+      value: 'Voicemail drop attempt started.',
+      callSid: call.sid || '',
+      provider: 'signalwire',
+    });
+    const updatedLead = await dbService.updateLead(fullKey, {
+      updates,
+      logs: [
+        {
+          type: 'voicemail_drop',
+          message: `SignalWire voicemail-drop initiated (${call.sid || 'no sid'})`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    res.json({ success: true, callSid: call.sid || null, lead: updatedLead });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/sms — send outbound SMS
+router.post('/:key/sms', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    const body = String((req.body && req.body.body) || '').trim();
+    if (!body) return res.status(400).json({ success: false, error: 'Message body is required.' });
+    if (!signalwire.configured()) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Telephony is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER, and BASE_URL.',
+      });
+    }
+    const sms = await signalwire.sendSms({
+      to: lead.phone,
+      body,
+      leadKey: fullKey,
+      workspaceId: req.workspaceId,
+    });
+    const updates = appendLeadUpdate(lead, {
+      type: 'sms_outbound',
+      value: body,
+      messageSid: sms.sid || '',
+      provider: 'signalwire',
+    });
+    const updatedLead = await dbService.updateLead(fullKey, {
+      status: 'Follow-up',
+      updates,
+      logs: [
+        {
+          type: 'sms_outbound',
+          message: `SignalWire SMS queued (${sms.sid || 'no sid'})`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    res.json({ success: true, messageSid: sms.sid || null, lead: updatedLead });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/telephony/voicemail/settings — current workspace voicemail automation settings
+router.get('/telephony/voicemail/settings', async (req, res, next) => {
+  try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
+    const telephony = ws.telephony || {};
+    const weekly = telephony.weeklyVoicemail || {};
+    res.json({
+      success: true,
+      settings: {
+        audioUrl: String(telephony.voicemailAudioUrl || ''),
+        enabled: !!weekly.enabled,
+        dayOfWeek: parseWeeklyDay(weekly.dayOfWeek),
+        time: parseWeeklyTime(weekly.time),
+        timezone: String(weekly.timezone || ws.timezone || 'America/Los_Angeles'),
+        maxLeadsPerRun: Math.max(1, parseInt(weekly.maxLeadsPerRun || '25', 10) || 25),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/voicemail/settings — update weekly voicemail automation settings
+router.post('/telephony/voicemail/settings', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can update telephony settings.' });
+    }
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const body = req.body || {};
+    const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
+    const weekly =
+      telephony.weeklyVoicemail && typeof telephony.weeklyVoicemail === 'object'
+        ? { ...telephony.weeklyVoicemail }
+        : {};
+    weekly.enabled = !!body.enabled;
+    weekly.dayOfWeek = parseWeeklyDay(body.dayOfWeek);
+    weekly.time = parseWeeklyTime(body.time);
+    weekly.timezone = String(body.timezone || ws.timezone || 'America/Los_Angeles')
+      .trim()
+      .slice(0, 64);
+    weekly.maxLeadsPerRun = Math.max(1, Math.min(200, parseInt(body.maxLeadsPerRun || '25', 10) || 25));
+    telephony.weeklyVoicemail = weekly;
+    ws.telephony = telephony;
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, settings: weekly });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/voicemail/upload — upload recorded/uploaded voicemail audio for workspace
+router.post('/telephony/voicemail/upload', (req, res, next) => {
+  voiceUpload.single('audio')(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, error: err.message || 'Upload failed' });
+    next();
+  });
+}, async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can upload voicemail audio.' });
+    }
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, error: 'Audio file is required.' });
+    }
+    const wid = String(req.workspaceId || 'default')
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const extFromName = path.extname(String(req.file.originalname || '')).toLowerCase();
+    const ext = extFromName && extFromName.length <= 8 ? extFromName : '.webm';
+    const relDir = path.join('public', 'uploads', 'voicemail');
+    const absDir = path.join(process.cwd(), relDir);
+    await fs.mkdir(absDir, { recursive: true });
+    const filename = `${wid}_weekly${ext}`;
+    const absPath = path.join(absDir, filename);
+    await fs.writeFile(absPath, req.file.buffer);
+    const publicUrl = `/uploads/voicemail/${filename}`;
+
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
+    const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
+    telephony.voicemailAudioUrl = publicUrl;
+    telephony.voicemailUploadedAt = new Date().toISOString();
+    ws.telephony = telephony;
+    await dbService.saveWorkspace(req.workspaceId, ws);
+
+    res.json({ success: true, audioUrl: publicUrl });
   } catch (err) {
     next(err);
   }

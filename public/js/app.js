@@ -2096,6 +2096,231 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  async function runLeadTelephonyAction(path, body, loadingLabel) {
+    if (!currentRow) return null;
+    const key = currentRow.dataset.leadKey;
+    if (!key) {
+      alert('Save this lead first before running telephony actions.');
+      return null;
+    }
+    const res = await fetch(`/leads/${encodeURIComponent(key)}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      const msg = (data && data.error) || `${loadingLabel || 'Action'} failed`;
+      throw new Error(msg);
+    }
+    if (data.lead && Array.isArray(data.lead.updates)) {
+      currentRow.dataset.updates = JSON.stringify(data.lead.updates);
+      if (data.lead.status) currentRow.dataset.status = String(data.lead.status);
+    }
+    if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(loadingLabel || 'Done');
+    }
+    populatePanel(currentRow);
+    return data;
+  }
+
+  const clickToCallBtn = document.getElementById('clickToCallBtn');
+  if (clickToCallBtn) {
+    clickToCallBtn.addEventListener('click', async () => {
+      const original = clickToCallBtn.textContent;
+      clickToCallBtn.disabled = true;
+      clickToCallBtn.textContent = 'Dialing...';
+      try {
+        await runLeadTelephonyAction('/call', {}, 'Calling lead');
+      } catch (err) {
+        alert(err.message || 'Failed to start call.');
+      } finally {
+        clickToCallBtn.disabled = false;
+        clickToCallBtn.textContent = original;
+      }
+    });
+  }
+
+  const voicemailDropBtn = document.getElementById('voicemailDropBtn');
+  if (voicemailDropBtn) {
+    voicemailDropBtn.addEventListener('click', async () => {
+      const ok = window.confirm(
+        'Start a voicemail drop attempt for this lead? This places an outbound call immediately.'
+      );
+      if (!ok) return;
+      const original = voicemailDropBtn.textContent;
+      voicemailDropBtn.disabled = true;
+      voicemailDropBtn.textContent = 'Starting...';
+      try {
+        await runLeadTelephonyAction('/voicemail-drop', {}, 'Voicemail drop started');
+      } catch (err) {
+        alert(err.message || 'Failed to start voicemail drop.');
+      } finally {
+        voicemailDropBtn.disabled = false;
+        voicemailDropBtn.textContent = original;
+      }
+    });
+  }
+
+  const sendSmsBtn = document.getElementById('sendSmsBtn');
+  if (sendSmsBtn) {
+    sendSmsBtn.addEventListener('click', async () => {
+      if (!currentRow) return;
+      const title = String(currentRow.dataset.title || 'there').trim();
+      const suggested = `Hi ${title} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`;
+      const smsBody = window.prompt('Enter SMS message to send', suggested);
+      if (!smsBody || !smsBody.trim()) return;
+      const original = sendSmsBtn.textContent;
+      sendSmsBtn.disabled = true;
+      sendSmsBtn.textContent = 'Sending...';
+      try {
+        await runLeadTelephonyAction('/sms', { body: smsBody.trim() }, 'SMS sent');
+      } catch (err) {
+        alert(err.message || 'Failed to send SMS.');
+      } finally {
+        sendSmsBtn.disabled = false;
+        sendSmsBtn.textContent = original;
+      }
+    });
+  }
+
+  const vmAudioStatus = document.getElementById('vmAudioStatus');
+  const vmWeeklyDay = document.getElementById('vmWeeklyDay');
+  const vmWeeklyTime = document.getElementById('vmWeeklyTime');
+  const vmWeeklyEnabled = document.getElementById('vmWeeklyEnabled');
+  const vmSaveWeeklyBtn = document.getElementById('vmSaveWeeklyBtn');
+  const vmUploadInput = document.getElementById('vmUploadInput');
+  const vmRecordStartBtn = document.getElementById('vmRecordStartBtn');
+  const vmRecordStopBtn = document.getElementById('vmRecordStopBtn');
+  let vmRecorder = null;
+  let vmChunks = [];
+  let vmSettingsLoaded = false;
+
+  async function uploadVoicemailBlob(blob, filename) {
+    const fd = new FormData();
+    fd.append('audio', blob, filename || 'voicemail.webm');
+    const res = await fetch('/leads/telephony/voicemail/upload', {
+      method: 'POST',
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Voicemail upload failed');
+    return data;
+  }
+
+  async function loadVoicemailSettings() {
+    if (!vmAudioStatus || vmSettingsLoaded) return;
+    try {
+      const res = await fetch('/leads/telephony/voicemail/settings', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load settings');
+      const s = data.settings || {};
+      if (vmWeeklyDay) vmWeeklyDay.value = String(s.dayOfWeek != null ? s.dayOfWeek : 1);
+      if (vmWeeklyTime) vmWeeklyTime.value = String(s.time || '09:00');
+      if (vmWeeklyEnabled) vmWeeklyEnabled.checked = !!s.enabled;
+      if (s.audioUrl) {
+        vmAudioStatus.innerHTML = `Active voicemail audio: <a class="underline text-brand-yellow" href="${s.audioUrl}" target="_blank" rel="noopener">preview</a>`;
+      } else {
+        vmAudioStatus.textContent = 'No voicemail audio uploaded yet.';
+      }
+      vmSettingsLoaded = true;
+    } catch (err) {
+      vmAudioStatus.textContent = err.message || 'Failed to load voicemail settings.';
+    }
+  }
+
+  if (vmSaveWeeklyBtn) {
+    vmSaveWeeklyBtn.addEventListener('click', async () => {
+      const original = vmSaveWeeklyBtn.textContent;
+      vmSaveWeeklyBtn.disabled = true;
+      vmSaveWeeklyBtn.textContent = 'Saving...';
+      try {
+        const body = {
+          enabled: !!(vmWeeklyEnabled && vmWeeklyEnabled.checked),
+          dayOfWeek: vmWeeklyDay ? vmWeeklyDay.value : '1',
+          time: vmWeeklyTime ? vmWeeklyTime.value : '09:00',
+          maxLeadsPerRun: 25,
+        };
+        const res = await fetch('/leads/telephony/voicemail/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not save weekly settings');
+        if (typeof window.showProspectToast === 'function') window.showProspectToast('Weekly voicemail settings saved');
+      } catch (err) {
+        alert(err.message || 'Could not save weekly settings.');
+      } finally {
+        vmSaveWeeklyBtn.disabled = false;
+        vmSaveWeeklyBtn.textContent = original;
+      }
+    });
+  }
+
+  if (vmUploadInput) {
+    vmUploadInput.addEventListener('change', async () => {
+      const file = vmUploadInput.files && vmUploadInput.files[0];
+      if (!file) return;
+      try {
+        vmAudioStatus.textContent = 'Uploading voicemail audio...';
+        const up = await uploadVoicemailBlob(file, file.name || 'voicemail.webm');
+        vmAudioStatus.innerHTML = `Voicemail audio saved: <a class="underline text-brand-yellow" href="${up.audioUrl}" target="_blank" rel="noopener">preview</a>`;
+      } catch (err) {
+        vmAudioStatus.textContent = err.message || 'Upload failed.';
+      } finally {
+        vmUploadInput.value = '';
+      }
+    });
+  }
+
+  if (vmRecordStartBtn && vmRecordStopBtn) {
+    vmRecordStartBtn.addEventListener('click', async () => {
+      try {
+        if (!navigator.mediaDevices || !window.MediaRecorder) {
+          throw new Error('Browser recording is not supported here.');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        vmChunks = [];
+        vmRecorder = new MediaRecorder(stream);
+        vmRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) vmChunks.push(e.data);
+        };
+        vmRecorder.onstop = async () => {
+          try {
+            const blob = new Blob(vmChunks, { type: 'audio/webm' });
+            vmAudioStatus.textContent = 'Uploading recorded voicemail...';
+            const up = await uploadVoicemailBlob(blob, 'voicemail-recording.webm');
+            vmAudioStatus.innerHTML = `Voicemail recording saved: <a class="underline text-brand-yellow" href="${up.audioUrl}" target="_blank" rel="noopener">preview</a>`;
+          } catch (err) {
+            vmAudioStatus.textContent = err.message || 'Recording upload failed.';
+          }
+        };
+        vmRecorder.start();
+        vmRecordStartBtn.disabled = true;
+        vmRecordStopBtn.disabled = false;
+        vmAudioStatus.textContent = 'Recording... click Stop + save when done.';
+      } catch (err) {
+        vmAudioStatus.textContent = err.message || 'Could not start recording.';
+      }
+    });
+
+    vmRecordStopBtn.addEventListener('click', () => {
+      if (!vmRecorder) return;
+      try {
+        vmRecorder.stop();
+      } catch (_) {
+        /* ignore */
+      }
+      vmRecordStopBtn.disabled = true;
+      vmRecordStartBtn.disabled = false;
+    });
+  }
+  loadVoicemailSettings();
+
   // --- Generate Mailto Email Draft ---
   const draftEmailBtn = document.getElementById('draftEmailBtn');
   if (draftEmailBtn) {
