@@ -132,6 +132,13 @@ function responseHostForError(url) {
  * Twilio / SignalWire may return 201/200 with an empty body and put the Call in the Location (or a sid header).
  * @see https://www.twilio.com/docs/voice/api/call-resource#create-a-call-resource
  */
+function callSidFromString(s) {
+  if (s == null) return '';
+  const str = String(s);
+  const m = str.match(/(CA[0-9a-f]{32})/i);
+  return m ? m[1].toUpperCase() : '';
+}
+
 function extractCallSidFromResHeaders(res) {
   if (!res || typeof res.headers === 'undefined' || !res.headers.get) return '';
   const g = (n) => {
@@ -140,9 +147,8 @@ function extractCallSidFromResHeaders(res) {
   };
   const location = g('location') || g('Location') || g('Call-Location') || g('call-location');
   if (location) {
-    const s = String(location);
-    const m1 = s.match(/\/(CA[0-9a-f]{32})(?:[/.]|$)/i) || s.match(/(CA[0-9a-f]{32})/i);
-    if (m1) return m1[1].toUpperCase();
+    const fromLoc = callSidFromString(location);
+    if (fromLoc) return fromLoc;
   }
   const hSid =
     g('x-twilio-call-sid') ||
@@ -153,6 +159,16 @@ function extractCallSidFromResHeaders(res) {
     '';
   const t = String(hSid).trim();
   if (/^CA[0-9a-f]{32}$/i.test(t)) return t.toUpperCase();
+  // Some proxies use uncommon header names: scan all values for a LaML Call sid.
+  if (typeof res.headers.forEach === 'function') {
+    let found = '';
+    res.headers.forEach((value) => {
+      if (found) return;
+      const sid = callSidFromString(value);
+      if (sid) found = sid;
+    });
+    if (found) return found;
+  }
   return '';
 }
 
@@ -192,7 +208,7 @@ function parseLamlJsonBody({ res, text, url, label }) {
     const host = responseHostForError(url) || 'your-space.signalwire.com';
     throw new Error(
       (label || 'SignalWire') +
-        ` returned HTTP ${res.status} with an empty body. Your app reached host "${host}" with no JSON and no Call SID in headers (e.g. Location). Set SIGNALWIRE_SPACE_URL in .env to the exact Space URL (Dashboard → API) and use PROJECT_ID + API token for that same space. If a proxy or CDN is in front, ensure it does not strip response bodies. Test with: curl -i -X POST "https://${host}/api/laml/2010-04-01/Accounts/YOUR_PROJECT/Calls.json" with Basic auth.`,
+        ` returned HTTP ${res.status} with an empty body. Your app reached host "${host}" with no JSON and no Call SID in headers (e.g. Location). Set SIGNALWIRE_SPACE_URL in .env to the exact Space URL (Dashboard → API) and use PROJECT_ID + API token for that same space, and ensure the API token has Voice scope. If a proxy or CDN is in front, ensure it does not strip response bodies. Test with: curl -i -X POST "https://${host}/api/laml/2010-04-01/Accounts/YOUR_PROJECT/Calls" (and /Calls.json) with Basic auth and form or JSON body.`,
     );
   }
   if (contentType.includes('text/html') || (trimmed.startsWith('<') && /<\s*!?\s*html/i.test(trimmed))) {
@@ -213,7 +229,38 @@ function parseLamlJsonBody({ res, text, url, label }) {
   }
 }
 
-async function postForm(path, formBody) {
+function isEmptyLaml2xxError(err) {
+  const m = err && err.message ? String(err.message) : '';
+  return m.includes('empty body') && m.includes('no Call SID in headers');
+}
+
+/**
+ * Create-call only: try paths/types documented or reported to work. Official docs use POST .../Calls (no .json)
+ * with x-www-form-urlencoded; OpenAPI also lists application/json. Some spaces return 200/empty for one variant.
+ * @see https://signalwire.com/docs/compatibility-api/rest/calls/create-a-call
+ */
+async function postFormCreateCall(formBody) {
+  const attempts = [
+    { path: '/Calls', asJson: false, label: 'POST /Calls' },
+    { path: '/Calls', asJson: true, label: 'POST /Calls (application/json)' },
+    { path: '/Calls.json', asJson: false, label: 'POST /Calls.json' },
+  ];
+  let last;
+  for (const a of attempts) {
+    try {
+      return await lamlPost(a.path, formBody, { asJson: a.asJson, label: a.label });
+    } catch (e) {
+      last = e;
+      if (isEmptyLaml2xxError(e)) continue;
+      throw e;
+    }
+  }
+  throw last;
+}
+
+async function lamlPost(path, formBody, opts) {
+  const { asJson = false, label: labelIn } = opts || {};
+  const label = labelIn != null ? labelIn : 'POST ' + path;
   const cfg = envConfig();
   if (!configured()) {
     throw new Error('SignalWire is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER.');
@@ -221,22 +268,28 @@ async function postForm(path, formBody) {
   const root = buildApiRoot(cfg);
   const url = `${root}${path}`;
   const auth = Buffer.from(`${cfg.projectId}:${cfg.token}`).toString('base64');
-  const body = new URLSearchParams();
-  Object.entries(formBody || {}).forEach(([k, v]) => {
-    if (v == null || v === '') return;
-    body.set(k, String(v));
-  });
+  const q = new URLSearchParams();
+  if (!asJson) {
+    Object.entries(formBody || {}).forEach(([k, v]) => {
+      if (v == null || v === '') return;
+      q.set(k, String(v));
+    });
+  }
   const res = await fetch(url, {
     method: 'POST',
     headers: {
       Authorization: `Basic ${auth}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Type': asJson ? 'application/json' : 'application/x-www-form-urlencoded',
       Accept: 'application/json',
     },
-    body: body.toString(),
+    body: asJson ? JSON.stringify(formBody && typeof formBody === 'object' ? formBody : {}) : q.toString(),
   });
   const text = await res.text();
-  return parseLamlJsonBody({ res, text, url, label: 'POST ' + path });
+  return parseLamlJsonBody({ res, text, url, label });
+}
+
+async function postForm(path, formBody) {
+  return lamlPost(path, formBody, { asJson: false, label: 'POST ' + path });
 }
 
 async function getJson(path) {
@@ -320,7 +373,7 @@ async function createLeadCall(opts) {
     });
   }
 
-  const raw = await postForm('/Calls.json', body);
+  const raw = await postFormCreateCall(body);
   return ensureCallWithSid(raw, 'Create call:');
 }
 
