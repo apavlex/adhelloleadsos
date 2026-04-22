@@ -11,6 +11,7 @@
   "dependencies": {
     "@mendable/firecrawl-js": "^4.18.1",
     "@replit/database": "^2.0.5",
+    "@signalwire/js": "^1.5.0",
     "apify-client": "^2.9.3",
     "cors": "^2.8.6",
     "csv-parse": "^6.2.1",

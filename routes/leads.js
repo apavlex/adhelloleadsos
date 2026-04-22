@@ -629,11 +629,240 @@ router.get('/telephony/call-options', async (req, res, next) => {
   try {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const numbers = workspaceCallerNumbers(ws);
+    const callMode = resolveWorkspaceCallMode(ws);
+    const cfg = signalwire.envConfig();
+    const defaultFrom =
+      signalwire.normalizePhone(resolveRequestedCallerNumber(ws, null)) ||
+      signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
+      '';
     return res.json({
       success: true,
       options: numbers,
       activeFromNumber: resolveWorkspaceCallerNumber(ws),
-      callMode: resolveWorkspaceCallMode(ws),
+      callMode,
+      relayWebrtcAvailable: callMode !== 'browser_device' && signalwire.relayWebrtcCanMint(),
+      defaultFromNumber: defaultFrom,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/telephony/webrtc-token — Relay (Verto) JWT for browser WebRTC softphone
+router.get('/telephony/webrtc-token', async (req, res, next) => {
+  try {
+    if (!signalwire.relayWebrtcCanMint || !signalwire.relayWebrtcCanMint()) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'WebRTC softphone is not available. Set SIGNALWIRE_SPACE_URL, enable SIGNALWIRE_WEBRTC_ENABLED, and use Cloud dial (not “My device dialer”) in workspace settings.',
+      });
+    }
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    if (resolveWorkspaceCallMode(ws) === 'browser_device') {
+      return res.status(400).json({
+        success: false,
+        error: 'WebRTC is disabled when Call routing mode is set to your device dialer.',
+      });
+    }
+    const cfg = signalwire.envConfig();
+    const fromQuery = String((req.query && req.query.fromNumber) || '').trim();
+    const fromNumber =
+      signalwire.normalizePhone(resolveRequestedCallerNumber(ws, fromQuery)) ||
+      signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
+      '';
+    if (!fromNumber) {
+      return res.status(400).json({
+        success: false,
+        error: 'Configure a workspace outbound number (or SIGNALWIRE_FROM_NUMBER) before using the browser softphone.',
+      });
+    }
+    const resource = String(
+      (req.query && req.query.resource) || `adhello-softphone-ws-${String(req.workspaceId).slice(0, 36)}`,
+    )
+      .trim()
+      .slice(0, 200);
+    let expires = parseInt(String((req.query && req.query.expires_in) || '30'), 10);
+    if (!Number.isFinite(expires) || expires < 5) expires = 30;
+    if (expires > 120) expires = 120;
+    const { token, refresh } = await signalwire.createRelayBrowserJwt({
+      resource,
+      expires_in: expires,
+    });
+    return res.json({
+      success: true,
+      projectId: cfg.projectId,
+      host: signalwire.relaySpaceHost(),
+      token,
+      refreshToken: refresh || undefined,
+      fromNumber,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/dial — global softphone dial (no lead context required)
+router.post('/telephony/dial', async (req, res, next) => {
+  try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const callMode = resolveWorkspaceCallMode(ws);
+    const to = signalwire.normalizePhone(req.body && req.body.to);
+    if (!to) {
+      return res.status(400).json({ success: false, error: 'A valid phone number is required.' });
+    }
+
+    const action = String((req.body && req.body.action) || 'call').trim().toLowerCase() === 'voicemail_drop'
+      ? 'voicemail_drop'
+      : 'call';
+
+    if (callMode === 'browser_device') {
+      return res.json({
+        success: true,
+        dialMode: 'browser_device',
+        phone: to,
+        action,
+      });
+    }
+
+    if (!signalwire.configured()) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Telephony is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER, and BASE_URL.',
+      });
+    }
+
+    const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+    const { audioUrl: voicemailAudioUrl } = resolveActiveVoicemailAudioUrl(telephony);
+    const call = await signalwire.createLeadCall({
+      to,
+      leadKey: '',
+      workspaceId: req.workspaceId,
+      action,
+      voicemailAudioUrl: action === 'voicemail_drop' ? voicemailAudioUrl : '',
+      from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
+    });
+    return res.json({
+      success: true,
+      dialMode: 'cloud_dial',
+      callSid: call.sid || null,
+      action,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/ai-summary — AI wrap-up for completed calls
+router.post('/telephony/ai-summary', async (req, res, next) => {
+  try {
+    const disposition = String((req.body && req.body.disposition) || '').trim();
+    const notes = String((req.body && req.body.notes) || '').trim();
+    const number = String((req.body && req.body.number) || '').trim();
+    if (!disposition) {
+      return res.status(400).json({ success: false, error: 'Disposition is required.' });
+    }
+    if (!notes) {
+      return res.status(400).json({ success: false, error: 'Add brief notes before generating summary.' });
+    }
+
+    let summary = '';
+    let nextStep = '';
+    let followupSms = '';
+
+    try {
+      const prompt = [
+        'You are a sales call assistant.',
+        'Return STRICT JSON with keys: summary, nextStep, followupSms.',
+        'summary: 1-2 short sentences.',
+        'nextStep: one concrete action.',
+        'followupSms: under 240 chars, plain text, optional but provide if useful.',
+        `Disposition: ${disposition}`,
+        `Called number: ${number || 'unknown'}`,
+        `Rep notes:\n${notes}`,
+      ].join('\n');
+      const resp = await chatCompletion({
+        provider: 'openai',
+        model: process.env.OUTREACH_COACH_MODEL || 'gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.2,
+        max_tokens: 350,
+      });
+      const text = String((resp && resp.content) || '').trim();
+      try {
+        const parsed = JSON.parse(text);
+        summary = String(parsed.summary || '').trim();
+        nextStep = String(parsed.nextStep || '').trim();
+        followupSms = String(parsed.followupSms || '').trim();
+      } catch (_) {
+        summary = text.slice(0, 320);
+      }
+    } catch (_) {
+      /* graceful fallback */
+    }
+
+    if (!summary) summary = `Call disposition: ${disposition}. Notes captured for follow-up.`;
+    if (!nextStep) {
+      nextStep =
+        disposition.toLowerCase().includes('callback')
+          ? 'Schedule callback and send brief confirmation SMS.'
+          : disposition.toLowerCase().includes('no')
+            ? 'Retry in the next best contact window and send value-focused SMS.'
+            : 'Log CRM notes and send a concise follow-up message.';
+    }
+    if (!followupSms) {
+      followupSms = `Hi, thanks for your time today. Quick follow-up from our call: ${summary.slice(0, 140)} Reply here if you want to continue.`;
+    }
+
+    return res.json({ success: true, summary, nextStep, followupSms });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/telephony/call-status?callSid=... — poll live call status
+router.get('/telephony/call-status', async (req, res, next) => {
+  try {
+    const callSid = String((req.query && req.query.callSid) || '').trim();
+    if (!callSid) {
+      return res.status(400).json({ success: false, error: 'callSid is required.' });
+    }
+    if (!signalwire.configured()) {
+      return res.status(400).json({ success: false, error: 'Telephony is not configured.' });
+    }
+    const call = await signalwire.getCall(callSid);
+    return res.json({
+      success: true,
+      callSid,
+      status: String(call.status || call.call_status || '').trim().toLowerCase(),
+      duration: call.duration != null ? String(call.duration) : '',
+      from: String(call.from || ''),
+      to: String(call.to || ''),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/call-control — real call controls supported by provider
+router.post('/telephony/call-control', async (req, res, next) => {
+  try {
+    const action = String((req.body && req.body.action) || '').trim().toLowerCase();
+    const callSid = String((req.body && req.body.callSid) || '').trim();
+    if (!callSid) {
+      return res.status(400).json({ success: false, error: 'callSid is required.' });
+    }
+    if (!signalwire.configured()) {
+      return res.status(400).json({ success: false, error: 'Telephony is not configured.' });
+    }
+    if (action === 'hangup') {
+      await signalwire.completeCall(callSid);
+      return res.json({ success: true, action: 'hangup', callSid });
+    }
+    return res.status(400).json({
+      success: false,
+      error: 'Action not supported by provider control endpoint yet. Use hangup.',
     });
   } catch (err) {
     next(err);

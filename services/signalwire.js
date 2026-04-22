@@ -7,6 +7,41 @@ function truthyEnv(v) {
   return t === '1' || t === 'true' || t === 'yes' || t === 'on';
 }
 
+function webrtcEnabled() {
+  const v = String(process.env.SIGNALWIRE_WEBRTC_ENABLED || '1')
+    .trim()
+    .toLowerCase();
+  if (v === '0' || v === 'false' || v === 'off' || v === 'no') return false;
+  return true;
+}
+
+function relaySpaceHost() {
+  const raw = String(process.env.SIGNALWIRE_SPACE_URL || '')
+    .trim()
+    .replace(/\/+$/, '');
+  if (!raw) return '';
+  return raw.replace(/^https?:\/\//, '');
+}
+
+/**
+ * Public HTTPS URL for creating Relay (browser) JWTs, e.g. https://your-space.signalwire.com/api/relay/rest/jwt
+ * Override with SIGNALWIRE_FABRIC_HTTP + SIGNALWIRE_FABRIC_TOKEN_PATH if your deployment uses a custom edge URL.
+ */
+function relayJwtRequestUrl() {
+  const customBase = String(process.env.SIGNALWIRE_FABRIC_HTTP || '')
+    .trim()
+    .replace(/\/+$/, '');
+  const path = String(
+    (process.env.SIGNALWIRE_FABRIC_TOKEN_PATH || '/api/relay/rest/jwt').trim() || '/api/relay/rest/jwt',
+  );
+  if (customBase) {
+    return (path.startsWith('/') ? `${customBase}${path}` : `${customBase}/${path}`);
+  }
+  const host = relaySpaceHost();
+  if (!host) return '';
+  return `https://${host}/api/relay/rest/jwt`;
+}
+
 function envConfig() {
   return {
     spaceUrl: String(process.env.SIGNALWIRE_SPACE_URL || '')
@@ -25,6 +60,15 @@ function envConfig() {
 function configured() {
   const cfg = envConfig();
   return !!(cfg.enabled && cfg.projectId && cfg.token && cfg.fromNumber);
+}
+
+/**
+ * True when the legacy Relay (Verto) browser WebRTC path can request a signed JWT.
+ */
+function relayWebrtcCanMint() {
+  if (!configured() || !webrtcEnabled()) return false;
+  if (!relayJwtRequestUrl() || !relaySpaceHost()) return false;
+  return true;
 }
 
 function normalizePhone(raw) {
@@ -65,6 +109,37 @@ async function postForm(path, formBody) {
       Accept: 'application/json',
     },
     body: body.toString(),
+  });
+  const text = await res.text();
+  let parsed = null;
+  try {
+    parsed = text ? JSON.parse(text) : {};
+  } catch (_) {
+    parsed = { raw: text };
+  }
+  if (!res.ok) {
+    const msg =
+      (parsed && (parsed.message || parsed.error || parsed.raw)) ||
+      `SignalWire API error ${res.status}`;
+    throw new Error(msg);
+  }
+  return parsed || {};
+}
+
+async function getJson(path) {
+  const cfg = envConfig();
+  if (!configured()) {
+    throw new Error('SignalWire is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER.');
+  }
+  const root = buildApiRoot(cfg);
+  const url = `${root}${path}`;
+  const auth = Buffer.from(`${cfg.projectId}:${cfg.token}`).toString('base64');
+  const res = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      Accept: 'application/json',
+    },
   });
   const text = await res.text();
   let parsed = null;
@@ -163,11 +238,76 @@ async function sendSms(opts) {
   });
 }
 
+async function getCall(callSid) {
+  const sid = String(callSid || '').trim();
+  if (!sid) throw new Error('Call SID is required.');
+  return getJson(`/Calls/${encodeURIComponent(sid)}.json`);
+}
+
+async function completeCall(callSid) {
+  const sid = String(callSid || '').trim();
+  if (!sid) throw new Error('Call SID is required.');
+  return postForm(`/Calls/${encodeURIComponent(sid)}.json`, { Status: 'completed' });
+}
+
+/**
+ * Create a short-lived Relay JWT for @signalwire/js (v1) browser softphone.
+ * @see https://signalwire.com/docs/browser-sdk/v2/js#authentication-using-jwt
+ */
+async function createRelayBrowserJwt(body) {
+  if (!configured()) {
+    throw new Error('SignalWire is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER.');
+  }
+  const url = relayJwtRequestUrl();
+  if (!url) {
+    throw new Error('SIGNALWIRE_SPACE_URL (or SIGNALWIRE_FABRIC_HTTP) is required for WebRTC token minting.');
+  }
+  const cfg = envConfig();
+  const auth = Buffer.from(`${cfg.projectId}:${cfg.token}`).toString('base64');
+  const payload = body && typeof body === 'object' ? body : {};
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify(payload),
+  });
+  const text = await res.text();
+  let parsed = null;
+  try {
+    parsed = text ? JSON.parse(text) : {};
+  } catch (_) {
+    parsed = { raw: text };
+  }
+  if (!res.ok) {
+    const msg =
+      (parsed && (parsed.message || parsed.error || parsed.title || parsed.raw)) ||
+      `SignalWire Relay JWT error ${res.status}`;
+    throw new Error(msg);
+  }
+  const jwt = String((parsed && (parsed.jwt_token || parsed.token)) || '').trim();
+  if (!jwt) {
+    throw new Error('SignalWire did not return jwt_token in the Relay JWT response.');
+  }
+  return {
+    token: jwt,
+    refresh: String((parsed && parsed.refresh_token) || '').trim(),
+  };
+}
+
 module.exports = {
   configured,
   envConfig,
+  webrtcEnabled,
+  relayWebrtcCanMint,
+  relaySpaceHost,
+  createRelayBrowserJwt,
   normalizePhone,
   buildAppUrl,
   createLeadCall,
   sendSms,
+  getCall,
+  completeCall,
 };
