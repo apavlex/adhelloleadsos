@@ -750,6 +750,13 @@ router.post('/telephony/dial', async (req, res, next) => {
       action,
     });
   } catch (err) {
+    console.error('[POST /leads/telephony/dial]', err && err.message ? err.message : err);
+    if (!res.headersSent) {
+      return res.status(500).json({
+        success: false,
+        error: (err && err.message) || 'Telephony dial failed.',
+      });
+    }
     next(err);
   }
 });

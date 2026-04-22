@@ -80,6 +80,38 @@ function normalizePhone(raw) {
   return `+${stripped}`;
 }
 
+/**
+ * Twilio/SignalWire LaML responses may use `sid`, `CallSid`, or `call_sid`.
+ */
+function extractCallSid(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  return String(
+    obj.sid || obj.Sid || obj.CallSid || obj.call_sid || obj.callSid || '',
+  ).trim();
+}
+
+/**
+ * Create-call response: normalize to always include `sid` when the provider returns any known key.
+ * Throws if HTTP succeeded but no call id is present.
+ */
+function ensureCallWithSid(raw, context) {
+  const sid = extractCallSid(raw);
+  if (sid) {
+    return { ...(raw || {}), sid };
+  }
+  const sample = (() => {
+    try {
+      return JSON.stringify(raw).slice(0, 400);
+    } catch (_) {
+      return String(raw);
+    }
+  })();
+  const hint = context ? `${context} ` : '';
+  throw new Error(
+    `${hint}SignalWire did not return a call id (sid). ${sample ? 'Response: ' + sample : 'Empty response.'}`,
+  );
+}
+
 function buildApiRoot(cfg) {
   if (cfg.spaceUrl) {
     const clean = cfg.spaceUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
@@ -214,7 +246,8 @@ async function createLeadCall(opts) {
     });
   }
 
-  return postForm('/Calls.json', body);
+  const raw = await postForm('/Calls.json', body);
+  return ensureCallWithSid(raw, 'Create call:');
 }
 
 async function sendSms(opts) {
@@ -305,6 +338,7 @@ module.exports = {
   relaySpaceHost,
   createRelayBrowserJwt,
   normalizePhone,
+  extractCallSid,
   buildAppUrl,
   createLeadCall,
   sendSms,
