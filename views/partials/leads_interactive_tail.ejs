@@ -112,6 +112,18 @@
                 </a>
                 <p id="warRoomAltPhones" class="text-[10px] text-slate-500 sm:text-right hidden"></p>
               </div>
+              <div class="flex flex-col gap-2 min-w-0 sm:min-w-[18rem]">
+                <div class="flex items-center gap-2">
+                  <label for="warRoomDialInterval" class="text-[9px] font-black uppercase tracking-widest text-slate-500">Auto dial sec</label>
+                  <input id="warRoomDialInterval" type="number" min="5" max="120" step="1" value="12" class="w-20 rounded-lg bg-slate-800 border border-slate-600 px-2 py-1 text-xs font-bold text-white" />
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="button" id="warRoomAutoDialStart" class="px-3 py-2 rounded-xl bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-colors">Start auto dial</button>
+                  <button type="button" id="warRoomAutoDialPause" class="px-3 py-2 rounded-xl bg-slate-700 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-600 transition-colors">Pause</button>
+                  <button type="button" id="warRoomAutoDialStop" class="px-3 py-2 rounded-xl bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 transition-colors">Stop</button>
+                </div>
+                <p id="warRoomAutoDialStatus" class="text-[10px] text-slate-400 leading-tight">Auto dialer idle.</p>
+              </div>
           </div>
       </div>
   </div>

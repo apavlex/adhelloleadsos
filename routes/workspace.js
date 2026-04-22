@@ -11,11 +11,97 @@ const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/workspaceAccent');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const signalwire = require('../services/signalwire');
 const {
   sanitizeBlockOverrides,
   sanitizeLibraryItems,
   normalizeLibraryItem,
 } = salesScriptsStorage;
+
+function normalizeCnamStatus(raw) {
+  const v = String(raw || 'not_submitted')
+    .trim()
+    .toLowerCase();
+  const allowed = new Set(['not_submitted', 'submitted', 'in_review', 'approved', 'rejected', 'live']);
+  return allowed.has(v) ? v : 'not_submitted';
+}
+
+function normalizePhoneBankEntries(raw) {
+  const out = [];
+  const pushEntry = (item) => {
+    if (!item) return;
+    const number = signalwire.normalizePhone(item.number || item.phone || item.value || item);
+    if (!number) return;
+    const callerName = String(item.callerName || item.cnamName || '').trim().slice(0, 40);
+    const cnamStatus = normalizeCnamStatus(item.cnamStatus || item.status);
+    const cnamNotes = String(item.cnamNotes || item.notes || '').trim().slice(0, 280);
+    out.push({
+      number,
+      callerName,
+      cnamStatus,
+      cnamNotes,
+      submittedAt: item.submittedAt ? String(item.submittedAt) : undefined,
+      updatedAt: new Date().toISOString(),
+    });
+  };
+
+  if (Array.isArray(raw)) {
+    raw.forEach(pushEntry);
+  } else if (raw && typeof raw === 'object') {
+    Object.values(raw).forEach(pushEntry);
+  } else {
+    String(raw || '')
+      .split(/[\n,;]+/)
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .forEach((n) => pushEntry({ number: n }));
+  }
+
+  const dedup = new Map();
+  out.forEach((entry) => {
+    dedup.set(entry.number, entry);
+  });
+  return [...dedup.values()].slice(0, 50);
+}
+
+function numberListFromEntries(entries) {
+  return entries.map((e) => e.number).filter(Boolean);
+}
+
+function upsertEntryByNumber(entries, patch) {
+  const number = signalwire.normalizePhone(patch.number || '');
+  if (!number) return entries;
+  const idx = entries.findIndex((e) => e.number === number);
+  const now = new Date().toISOString();
+  if (idx === -1) {
+    return [
+      ...entries,
+      {
+        number,
+        callerName: String(patch.callerName || '').trim().slice(0, 40),
+        cnamStatus: normalizeCnamStatus(patch.cnamStatus || 'not_submitted'),
+        cnamNotes: String(patch.cnamNotes || '').trim().slice(0, 280),
+        submittedAt: patch.submittedAt ? String(patch.submittedAt) : undefined,
+        updatedAt: now,
+      },
+    ];
+  }
+  const cur = entries[idx];
+  const next = {
+    ...cur,
+    ...patch,
+    number,
+    cnamStatus: normalizeCnamStatus(patch.cnamStatus || cur.cnamStatus),
+    callerName:
+      patch.callerName != null ? String(patch.callerName).trim().slice(0, 40) : String(cur.callerName || ''),
+    cnamNotes:
+      patch.cnamNotes != null ? String(patch.cnamNotes).trim().slice(0, 280) : String(cur.cnamNotes || ''),
+    updatedAt: now,
+  };
+  const cloned = [...entries];
+  cloned[idx] = next;
+  return cloned;
+}
 
 router.get('/', async (req, res, next) => {
   try {
@@ -159,7 +245,81 @@ router.post('/settings', express.json(), async (req, res) => {
         ws.accentColor = norm;
       }
     }
+    if (
+      req.body &&
+      (Object.prototype.hasOwnProperty.call(req.body, 'phoneBank') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries'))
+    ) {
+      const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
+      const bankEntries = normalizePhoneBankEntries(
+        Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries')
+          ? req.body.phoneBankEntries
+          : req.body.phoneBank
+      );
+      const bank = numberListFromEntries(bankEntries);
+      telephony.numberBankEntries = bankEntries;
+      telephony.numberBank = bank;
+      const requestedActive = signalwire.normalizePhone(req.body.activeCallerId || req.body.activeFromNumber || '');
+      if (requestedActive && bank.includes(requestedActive)) {
+        telephony.activeFromNumber = requestedActive;
+      } else if (telephony.activeFromNumber && bank.includes(telephony.activeFromNumber)) {
+        // keep existing active number
+      } else {
+        telephony.activeFromNumber = bank[0] || '';
+      }
+      ws.telephony = telephony;
+    }
     await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message || 'Server error' });
+  }
+});
+
+/** POST JSON: mark a number's CNAM request as submitted (and optionally notify webhook). */
+router.post('/phone-bank/cnam-submit', express.json(), async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can submit CNAM requests.' });
+    }
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
+    let entries = normalizePhoneBankEntries(telephony.numberBankEntries || telephony.numberBank || []);
+    const number = signalwire.normalizePhone(req.body && req.body.number);
+    if (!number) return res.status(400).json({ success: false, error: 'Valid number required.' });
+    entries = upsertEntryByNumber(entries, {
+      number,
+      callerName: req.body && req.body.callerName,
+      cnamStatus: 'submitted',
+      cnamNotes: req.body && req.body.cnamNotes,
+      submittedAt: new Date().toISOString(),
+    });
+    telephony.numberBankEntries = entries;
+    telephony.numberBank = numberListFromEntries(entries);
+    if (!telephony.activeFromNumber) telephony.activeFromNumber = number;
+    ws.telephony = telephony;
+    await dbService.saveWorkspace(wid, ws);
+
+    const hook = String(process.env.CNAM_REQUEST_WEBHOOK_URL || '').trim();
+    if (hook) {
+      try {
+        await fetch(hook, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'cnam.request_submitted',
+            workspaceId: wid,
+            number,
+            callerName: String((req.body && req.body.callerName) || ''),
+            notes: String((req.body && req.body.cnamNotes) || ''),
+            submittedAt: new Date().toISOString(),
+          }),
+        });
+      } catch (_) {
+        /* non-fatal */
+      }
+    }
     res.json({ success: true });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message || 'Server error' });

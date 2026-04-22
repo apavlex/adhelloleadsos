@@ -295,6 +295,20 @@ function parseWeeklyTime(raw) {
   return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
 }
 
+function resolveWorkspaceCallerNumber(ws) {
+  if (!ws || typeof ws !== 'object') return '';
+  const telephony = ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+  const entries = Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [];
+  const fromEntries = entries.map((e) => signalwire.normalizePhone(e && e.number)).filter(Boolean);
+  const fromLegacy = Array.isArray(telephony.numberBank)
+    ? telephony.numberBank.map((n) => signalwire.normalizePhone(n)).filter(Boolean)
+    : [];
+  const bank = [...new Set([...fromEntries, ...fromLegacy])];
+  const active = signalwire.normalizePhone(telephony.activeFromNumber || '');
+  if (active && bank.includes(active)) return active;
+  return bank[0] || '';
+}
+
 // POST /leads/:key/sequence/start — attach persona cadence (Clay / Paul / Bob templates)
 router.post('/:key/sequence/start', async (req, res, next) => {
   try {
@@ -465,6 +479,7 @@ router.post('/:key/call', async (req, res, next) => {
       leadKey: fullKey,
       workspaceId: req.workspaceId,
       action: 'call',
+      from: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
     });
     const updates = appendLeadUpdate(lead, {
       type: 'call_outbound',
@@ -513,6 +528,7 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
       workspaceId: req.workspaceId,
       action: 'voicemail_drop',
       voicemailAudioUrl,
+      from: resolveWorkspaceCallerNumber(ws),
     });
     const updates = appendLeadUpdate(lead, {
       type: 'voicemail_drop',
@@ -556,6 +572,7 @@ router.post('/:key/sms', async (req, res, next) => {
       body,
       leadKey: fullKey,
       workspaceId: req.workspaceId,
+      from: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
     });
     const updates = appendLeadUpdate(lead, {
       type: 'sms_outbound',

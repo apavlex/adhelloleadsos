@@ -21,6 +21,7 @@
       <a href="#workspace-members" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Team</a>
       <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
       <a href="#workspace-integrations" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">API keys</a>
+      <a href="#workspace-phone-bank" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Phone bank</a>
       <% } %>
       <% if (typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor) { %>
       <a href="#workspace-scrape-cost" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/20 hover:border-brand-yellow/50 transition-colors">Scrape stack</a>
@@ -164,6 +165,61 @@
     </div>
 
     <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+    <% const _tp = workspace && workspace.telephony ? workspace.telephony : {}; %>
+    <% const _entryList = Array.isArray(_tp.numberBankEntries) ? _tp.numberBankEntries : []; %>
+    <% const _legacyBank = Array.isArray(_tp.numberBank) ? _tp.numberBank : []; %>
+    <% const _entries = _entryList.length ? _entryList : _legacyBank.map(function (n) { return { number: n, callerName: '', cnamStatus: 'not_submitted', cnamNotes: '' }; }); %>
+    <% const _activeFrom = (_tp.activeFromNumber || '').toString(); %>
+    <div id="workspace-phone-bank" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
+      <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Phone number bank</h2>
+      <p class="text-sm text-brand-muted mb-4">Manage outbound numbers and CNAM request status. Active number is used for call/SMS/voicemail actions.</p>
+      <div class="space-y-4">
+        <div id="wsPhoneBankList" class="space-y-2">
+          <% _entries.forEach(function (entry, idx) { %>
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry" data-entry-index="<%= idx %>">
+            <div class="md:col-span-3">
+              <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label>
+              <input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.number || '').toString() %>" placeholder="+15551234567" />
+            </div>
+            <div class="md:col-span-3">
+              <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label>
+              <input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.callerName || '').toString() %>" placeholder="ADHELLO AI" />
+            </div>
+            <div class="md:col-span-3">
+              <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label>
+              <select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs">
+                <% const _st = (entry.cnamStatus || 'not_submitted').toString(); %>
+                <% ['not_submitted','submitted','in_review','approved','rejected','live'].forEach(function (opt) { %>
+                  <option value="<%= opt %>" <%= _st === opt ? 'selected' : '' %>><%= opt %></option>
+                <% }); %>
+              </select>
+            </div>
+            <div class="md:col-span-2">
+              <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label>
+              <label class="inline-flex items-center gap-2 text-xs">
+                <input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="<%= (entry.number || '').toString() %>" <%= _activeFrom && _activeFrom === (entry.number || '').toString() ? 'checked' : '' %> />
+                Use
+              </label>
+            </div>
+            <div class="md:col-span-1 flex md:justify-end">
+              <button type="button" class="ws-phone-remove text-[10px] font-black uppercase tracking-widest text-rose-600 hover:underline">Remove</button>
+            </div>
+            <div class="md:col-span-12">
+              <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM notes</label>
+              <input type="text" class="ws-phone-cnam-notes w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.cnamNotes || '').toString() %>" placeholder="Carrier ticket / support notes" />
+            </div>
+          </div>
+          <% }); %>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" id="wsPhoneBankAdd" class="rounded-xl border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Add number</button>
+          <button type="button" id="wsPhoneBankSubmitCnam" class="rounded-xl border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest">Submit CNAM request</button>
+        </div>
+        <p id="wsPhoneBankMsg" class="hidden text-sm"></p>
+        <button type="button" id="wsPhoneBankSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save phone bank</button>
+      </div>
+    </div>
+
     <div id="workspace-revenue" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Revenue defaults</h2>
       <p class="text-sm text-brand-muted mb-4">Used when a lead has no estimated value (pipeline metrics, reporting).</p>
@@ -181,6 +237,113 @@
         <button type="button" id="wsSettingsSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save revenue settings</button>
       </div>
     </div>
+    <script>
+    (function () {
+      var btn = document.getElementById('wsPhoneBankSave');
+      var msg = document.getElementById('wsPhoneBankMsg');
+      var list = document.getElementById('wsPhoneBankList');
+      var addBtn = document.getElementById('wsPhoneBankAdd');
+      var submitBtn = document.getElementById('wsPhoneBankSubmitCnam');
+      if (!btn) return;
+      function bindEntryRow(row) {
+        if (!row) return;
+        var remove = row.querySelector('.ws-phone-remove');
+        if (remove) {
+          remove.addEventListener('click', function () {
+            row.remove();
+          });
+        }
+      }
+      if (list) {
+        Array.prototype.forEach.call(list.querySelectorAll('.ws-phone-entry'), bindEntryRow);
+      }
+      if (addBtn && list) {
+        addBtn.addEventListener('click', function () {
+          var div = document.createElement('div');
+          div.className = 'grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry';
+          div.innerHTML = '' +
+            '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label><input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="+15551234567" /></div>' +
+            '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label><input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="ADHELLO AI" /></div>' +
+            '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label><select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"><option value="not_submitted">not_submitted</option><option value="submitted">submitted</option><option value="in_review">in_review</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="live">live</option></select></div>' +
+            '<div class="md:col-span-2"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label><label class="inline-flex items-center gap-2 text-xs"><input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="" />Use</label></div>' +
+            '<div class="md:col-span-1 flex md:justify-end"><button type="button" class="ws-phone-remove text-[10px] font-black uppercase tracking-widest text-rose-600 hover:underline">Remove</button></div>' +
+            '<div class="md:col-span-12"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM notes</label><input type="text" class="ws-phone-cnam-notes w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="Carrier ticket / support notes" /></div>';
+          list.appendChild(div);
+          bindEntryRow(div);
+        });
+      }
+      function collectEntries() {
+        if (!list) return [];
+        var rows = list.querySelectorAll('.ws-phone-entry');
+        return Array.prototype.map.call(rows, function (row) {
+          var number = (row.querySelector('.ws-phone-number') || {}).value || '';
+          var callerName = (row.querySelector('.ws-phone-caller-name') || {}).value || '';
+          var cnamStatus = (row.querySelector('.ws-phone-cnam-status') || {}).value || 'not_submitted';
+          var cnamNotes = (row.querySelector('.ws-phone-cnam-notes') || {}).value || '';
+          return { number: number, callerName: callerName, cnamStatus: cnamStatus, cnamNotes: cnamNotes };
+        }).filter(function (x) { return x.number && x.number.trim(); });
+      }
+      function activeNumber() {
+        var picked = document.querySelector('input[name="wsActiveCallerRadio"]:checked');
+        if (!picked) return '';
+        return String(picked.value || '').trim();
+      }
+      if (list) {
+        list.addEventListener('input', function (e) {
+          if (e.target && e.target.classList.contains('ws-phone-number')) {
+            var row = e.target.closest('.ws-phone-entry');
+            var active = row ? row.querySelector('.ws-phone-active') : null;
+            if (active) active.value = e.target.value;
+          }
+        });
+      }
+      btn.addEventListener('click', function () {
+        var entries = collectEntries();
+        fetch('/workspace/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            phoneBankEntries: entries,
+            activeCallerId: activeNumber(),
+          }),
+        }).then(function (r) { return r.json(); }).then(function (data) {
+          if (msg) {
+            msg.classList.remove('hidden');
+            msg.textContent = data && data.success ? 'Saved.' : (data && data.error) || 'Save failed';
+            msg.className = 'text-sm ' + (data && data.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+          }
+        }).catch(function () {
+          if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Save failed'; msg.className = 'text-sm text-rose-600'; }
+        });
+      });
+      if (submitBtn) {
+        submitBtn.addEventListener('click', function () {
+          var number = activeNumber();
+          if (!number) {
+            if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Select an active number first.'; msg.className = 'text-sm text-rose-600'; }
+            return;
+          }
+          var row = document.querySelector('.ws-phone-entry input.ws-phone-active:checked');
+          row = row ? row.closest('.ws-phone-entry') : null;
+          var callerName = row ? ((row.querySelector('.ws-phone-caller-name') || {}).value || '') : '';
+          var cnamNotes = row ? ((row.querySelector('.ws-phone-cnam-notes') || {}).value || '') : '';
+          fetch('/workspace/phone-bank/cnam-submit', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ number: number, callerName: callerName, cnamNotes: cnamNotes }),
+          }).then(function (r) { return r.json(); }).then(function (data) {
+            if (msg) {
+              msg.classList.remove('hidden');
+              msg.textContent = data && data.success ? 'CNAM request submitted.' : (data && data.error) || 'Submit failed';
+              msg.className = 'text-sm ' + (data && data.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+            }
+          }).catch(function () {
+            if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Submit failed'; msg.className = 'text-sm text-rose-600'; }
+          });
+        });
+      }
+    })();
+    </script>
     <script>
     (function () {
       var btn = document.getElementById('wsSettingsSave');

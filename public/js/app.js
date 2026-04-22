@@ -3759,6 +3759,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const warRoomTimerDisplay = document.getElementById('warRoomTimerDisplay');
   const warRoomTimerToggle = document.getElementById('warRoomTimerToggle');
   const warRoomTimerReset = document.getElementById('warRoomTimerReset');
+  const warRoomAutoDialStart = document.getElementById('warRoomAutoDialStart');
+  const warRoomAutoDialPause = document.getElementById('warRoomAutoDialPause');
+  const warRoomAutoDialStop = document.getElementById('warRoomAutoDialStop');
+  const warRoomAutoDialStatus = document.getElementById('warRoomAutoDialStatus');
+  const warRoomDialInterval = document.getElementById('warRoomDialInterval');
 
   let warRoomRowEls = [];
   let warRoomIndex = 0;
@@ -3779,6 +3784,119 @@ document.addEventListener('DOMContentLoaded', () => {
   let warRoomTimerId = null;
   let warRoomElapsedSec = 0;
   let warRoomTimerRunning = false;
+  let warRoomAutoDialTimer = null;
+  let warRoomAutoDialRunning = false;
+  let warRoomAutoDialPaused = false;
+  let warRoomAutoDialCalled = new Set();
+
+  function warRoomSetAutoDialStatus(msg, tone) {
+    if (!warRoomAutoDialStatus) return;
+    warRoomAutoDialStatus.textContent = msg;
+    warRoomAutoDialStatus.className =
+      'text-[10px] leading-tight ' +
+      (tone === 'ok'
+        ? 'text-emerald-300'
+        : tone === 'warn'
+          ? 'text-amber-300'
+          : tone === 'err'
+            ? 'text-rose-300'
+            : 'text-slate-400');
+  }
+
+  function warRoomStopAutoDial(reason) {
+    if (warRoomAutoDialTimer) {
+      clearInterval(warRoomAutoDialTimer);
+      warRoomAutoDialTimer = null;
+    }
+    warRoomAutoDialRunning = false;
+    warRoomAutoDialPaused = false;
+    if (reason) warRoomSetAutoDialStatus(reason, 'warn');
+    if (warRoomAutoDialStart) warRoomAutoDialStart.disabled = false;
+    if (warRoomAutoDialPause) warRoomAutoDialPause.textContent = 'Pause';
+  }
+
+  async function warRoomDialCurrentLead() {
+    const row = warRoomRowEls[warRoomIndex];
+    if (!row) return;
+    const key = row.dataset.leadKey;
+    if (!key) {
+      warRoomGoNext();
+      return;
+    }
+    const phones = splitPhoneNumbers(row.dataset.phone);
+    if (!phones.length) {
+      warRoomAutoDialCalled.add(key);
+      warRoomSetAutoDialStatus(`Skipped ${row.dataset.title || 'lead'} (no phone).`, 'warn');
+      warRoomGoNext();
+      return;
+    }
+    try {
+      const res = await fetch('/leads/' + encodeURIComponent(key) + '/call', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Call failed');
+      }
+      warRoomAutoDialCalled.add(key);
+      warRoomSetAutoDialStatus(`Dialed ${row.dataset.title || 'lead'} (${warRoomAutoDialCalled.size}/${warRoomRowEls.length}).`, 'ok');
+      if (data.lead && data.lead.updates) {
+        row.dataset.updates = JSON.stringify(data.lead.updates);
+      }
+      if (data.lead && data.lead.status) {
+        row.dataset.status = String(data.lead.status);
+      }
+      warRoomGoNext();
+      if (warRoomAutoDialCalled.size >= warRoomRowEls.length) {
+        warRoomStopAutoDial('Auto dial completed all selected leads.');
+      }
+    } catch (err) {
+      warRoomSetAutoDialStatus(`Dial failed: ${err.message || 'unknown error'}`, 'err');
+      warRoomGoNext();
+    }
+  }
+
+  function warRoomStartAutoDial() {
+    if (!warRoomRowEls.length) {
+      warRoomSetAutoDialStatus('No leads selected for auto dial.', 'warn');
+      return;
+    }
+    const sec = Math.max(5, Math.min(120, parseInt((warRoomDialInterval && warRoomDialInterval.value) || '12', 10) || 12));
+    if (warRoomDialInterval) warRoomDialInterval.value = String(sec);
+    warRoomStopAutoDial();
+    warRoomAutoDialCalled = new Set();
+    warRoomAutoDialRunning = true;
+    warRoomAutoDialPaused = false;
+    if (warRoomAutoDialStart) warRoomAutoDialStart.disabled = true;
+    if (warRoomAutoDialPause) warRoomAutoDialPause.textContent = 'Pause';
+    warRoomSetAutoDialStatus(`Auto dial running every ${sec}s...`, 'ok');
+    warRoomDialCurrentLead();
+    warRoomAutoDialTimer = setInterval(() => {
+      if (!warRoomAutoDialRunning || warRoomAutoDialPaused) return;
+      if (warRoomAutoDialCalled.size >= warRoomRowEls.length) {
+        warRoomStopAutoDial('Auto dial completed all selected leads.');
+        return;
+      }
+      warRoomDialCurrentLead();
+    }, sec * 1000);
+  }
+
+  function warRoomToggleAutoDialPause() {
+    if (!warRoomAutoDialRunning) {
+      warRoomSetAutoDialStatus('Start auto dial first.', 'warn');
+      return;
+    }
+    warRoomAutoDialPaused = !warRoomAutoDialPaused;
+    if (warRoomAutoDialPause) warRoomAutoDialPause.textContent = warRoomAutoDialPaused ? 'Resume' : 'Pause';
+    warRoomSetAutoDialStatus(
+      warRoomAutoDialPaused
+        ? `Auto dial paused (${warRoomAutoDialCalled.size}/${warRoomRowEls.length}).`
+        : `Auto dial resumed (${warRoomAutoDialCalled.size}/${warRoomRowEls.length}).`,
+      'warn'
+    );
+  }
 
   function warRoomUpdateTimerDisplay() {
     if (warRoomTimerDisplay) warRoomTimerDisplay.textContent = warRoomFormatClock(warRoomElapsedSec);
@@ -3834,6 +3952,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (warRoomTimerToggle) warRoomTimerToggle.textContent = 'Pause';
     warRoomRowEls = [];
     warRoomIndex = 0;
+    warRoomStopAutoDial();
     if (warRoomGrid) warRoomGrid.innerHTML = '';
     if (warRoomPosition) warRoomPosition.textContent = '—';
     warRoomUpdateFooterDial({ dataset: { phone: '' } });
@@ -4179,6 +4298,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (warRoomTimerReset) warRoomTimerReset.addEventListener('click', warRoomResetTimer);
     if (warRoomPrev) warRoomPrev.addEventListener('click', () => warRoomGoPrev());
     if (warRoomNext) warRoomNext.addEventListener('click', () => warRoomGoNext());
+    if (warRoomAutoDialStart) warRoomAutoDialStart.addEventListener('click', warRoomStartAutoDial);
+    if (warRoomAutoDialPause) warRoomAutoDialPause.addEventListener('click', warRoomToggleAutoDialPause);
+    if (warRoomAutoDialStop) warRoomAutoDialStop.addEventListener('click', () => warRoomStopAutoDial('Auto dial stopped.'));
     document.addEventListener('keydown', warRoomOnGlobalKeydown, true);
   }
 
@@ -4190,6 +4312,10 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     warRoomTotal.textContent = String(warRoomRowEls.length);
     warRoomIndex = 0;
+    warRoomAutoDialCalled = new Set();
+    warRoomSetAutoDialStatus('Auto dialer idle.', null);
+    if (warRoomAutoDialStart) warRoomAutoDialStart.disabled = false;
+    if (warRoomAutoDialPause) warRoomAutoDialPause.textContent = 'Pause';
     warRoomRenderCurrent();
   }
 

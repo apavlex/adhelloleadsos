@@ -210,6 +210,14 @@ async function runWeeklyVoicemailDrops() {
     try {
       const ws = await db.getWorkspace(wid);
       const telephony = ws && ws.telephony ? ws.telephony : {};
+      const entries = Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [];
+      const fromEntries = entries.map((e) => signalwire.normalizePhone(e && e.number)).filter(Boolean);
+      const fromLegacy = Array.isArray(telephony.numberBank)
+        ? telephony.numberBank.map((n) => signalwire.normalizePhone(n)).filter(Boolean)
+        : [];
+      const bank = [...new Set([...fromEntries, ...fromLegacy])];
+      const activeFrom = signalwire.normalizePhone(telephony.activeFromNumber || '');
+      const selectedFrom = activeFrom && bank.includes(activeFrom) ? activeFrom : bank[0] || '';
       const weekly = telephony && telephony.weeklyVoicemail ? telephony.weeklyVoicemail : {};
       if (!weekly.enabled) continue;
       const timezone = weekly.timezone || ws.timezone || 'America/Los_Angeles';
@@ -253,6 +261,7 @@ async function runWeeklyVoicemailDrops() {
             workspaceId: wid,
             action: 'voicemail_drop',
             voicemailAudioUrl: String(telephony.voicemailAudioUrl || ''),
+            from: selectedFrom,
           });
           const updates = Array.isArray(lead.updates) ? [...lead.updates] : [];
           updates.push({
