@@ -75,6 +75,8 @@ const SCRIPT_LIBRARY = {
       'What happens today when someone leaves a critical review? Who responds, and how fast? How much of your new business comes from maps vs word of mouth?',
     valueProp:
       'We help local operators protect revenue with a review request rhythm, AI-assisted responses, and a simple dashboard so nothing slips — without adding headcount.',
+    objectionHandling:
+      "Totally fair. Most owners worry this becomes extra work or another tool to babysit. We keep it lightweight: we set the cadence, your team approves guardrails, and you only review exceptions. If it doesn't clearly improve review flow in 30 days, we stop.",
     close:
       "I'd suggest we start with a small pilot: we turn on requests + response playbooks for 30 days. If you don't see cleaner sentiment and more reviews, we part friends. Fair?",
   },
@@ -87,6 +89,8 @@ const SCRIPT_LIBRARY = {
       'How do leads find you today — maps, paid, referrals? What does a qualified job look like, and what do you wish the site did automatically?',
     valueProp:
       'We rebuild the buyer journey with fast pages, clear CTAs, and optional AI chat so you capture demand you already pay for — then we measure calls and forms.',
+    objectionHandling:
+      "I hear you. If your current site 'works,' we don't rip everything apart. We start with one high-intent page and tracking so you can see lift first. If conversion doesn't improve, you keep the assets and we're done.",
     close:
       "We can pre-build a focused landing experience for your top service and connect tracking. Low four figures to prove lift before we talk full site. Want to see a wireframe this week?",
   },
@@ -99,6 +103,8 @@ const SCRIPT_LIBRARY = {
       'What are the top 3 repetitive tasks your team does every week? Where do leads or jobs fall through the cracks today — CRM, inbox, or after-hours?',
     valueProp:
       'We design small, reliable automations: AI-assisted replies, booking flows, CRM updates, and handoffs to humans when it matters — so you scale output without hiring another coordinator.',
+    objectionHandling:
+      "Makes sense — automation can feel risky. We don't replace your team; we remove repetitive tasks and keep human approvals where needed. We start with one workflow tied to revenue, measure it, and only expand if it's clearly working.",
     close:
       "I'd start with a 2-week workflow audit plus one pilot automation tied to revenue (e.g. missed-call text-back or quote follow-up). If it doesn't save real time, we stop. Open to a 20-minute scoping call?",
   },
@@ -111,6 +117,8 @@ const SCRIPT_LIBRARY = {
       'Which platforms actually drive leads for you today? Who posts now, and how often? Any campaigns or offers you wish more people saw locally?',
     valueProp:
       'We run a simple rhythm: content calendar, short-form creative, community replies, and monthly reporting tied to calls and DMs — not vanity metrics — so you stay visible without living in the apps.',
+    objectionHandling:
+      "Fair point — a lot of social plans are fluff. We tie content to offers and local demand, then report on conversations, calls, and leads. If it doesn't move pipeline metrics, we adjust fast or pause.",
     close:
       "We could run a 30-day pilot on one channel with a clear CTA (book / call / offer). You'll see the calendar and approvals before anything goes live. Want me to send two sample post themes for your niche?",
   },
@@ -123,6 +131,8 @@ const SCRIPT_LIBRARY = {
       'Rough monthly ad spend? Who manages it — agency, freelancer, or in-house? What does a profitable lead or job look like in dollar terms?',
     valueProp:
       'We tighten tracking, creative testing, and weekly optimization so spend maps to booked work — not just clicks. You get plain-English reporting and a single owner accountable to CPA or cost per booked call.',
+    objectionHandling:
+      "You're right to ask — many ad accounts burn cash. We start with tracking and one controlled test, not a full overhaul. You get transparent weekly numbers and clear stop/go rules tied to cost per booked lead.",
     close:
       "I'd suggest a 14-day account review plus one new creative angle and conversion event fix. If we don't see a credible path to efficiency, we part friends. Worth a quick look at the account together?",
   },

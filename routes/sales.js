@@ -216,11 +216,12 @@ router.get('/personas', async (req, res, next) => {
   }
 });
 
-const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'close'];
+const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];
 const SECTION_LABELS = {
   opening: 'Opening',
   discovery: 'Discovery',
   valueProp: 'Value proposition',
+  objectionHandling: 'Objection handling',
   close: 'Close',
 };
 
@@ -463,7 +464,7 @@ router.post('/draft-outreach', async (req, res, next) => {
     if (!rawId) {
       return res.status(400).json({ success: false, error: 'leadId required' });
     }
-    const allowed = new Set(['email', 'dm', 'call-script']);
+    const allowed = new Set(['email', 'dm', 'call-script', 'objection-handling']);
     if (!allowed.has(channel)) channel = 'email';
 
     const all = await dbService.getAllLeads(req.workspaceId);
@@ -486,6 +487,17 @@ router.post('/draft-outreach', async (req, res, next) => {
       'there';
     const city = [lead.city, lead.state].filter(Boolean).join(', ');
     const loc = city ? ` in ${city}` : '';
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const leadServiceKey = String(lead.primaryServiceKey || '').trim();
+    const fallbackServiceKey = SCRIPT_LIBRARY_KEYS[0];
+    const serviceKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey) ? leadServiceKey : fallbackServiceKey;
+    const objectionText =
+      mergedLibrary &&
+      mergedLibrary[serviceKey] &&
+      typeof mergedLibrary[serviceKey].objectionHandling === 'string'
+        ? mergedLibrary[serviceKey].objectionHandling.trim()
+        : '';
 
     let subject = '';
     let body = '';
@@ -494,6 +506,10 @@ router.post('/draft-outreach', async (req, res, next) => {
       body = `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion.\n\nThanks,\n`;
     } else if (channel === 'dm') {
       body = `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump).`;
+    } else if (channel === 'objection-handling') {
+      body =
+        objectionText ||
+        `Objection: "We're good for now."\nResponse: Totally fair. Most teams we help were already getting leads, but wanted better consistency week to week.\n\nObjection: "No budget."\nResponse: Understood. If helpful, I can outline a low-lift starting point so you can gauge ROI before committing.`;
     } else {
       body = `[Opener] Hi, this is ___ calling for ${contact} at ${company}. Did I catch you at an okay time?\n\n[Bridge] I work with local businesses on filling the calendar — noticed you online${loc}.\n\n[Ask] If it makes sense, who handles marketing day-to-day?`;
     }

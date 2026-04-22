@@ -15,6 +15,27 @@ router.post('/', async (req, res, next) => {
     const { keyword, city, state, maxResults, mode } = req.body;
     const wid = req.workspaceId;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    const requestedFolderKey = String(req.body.folderKey || '').trim();
+    const newFolderName = String(req.body.newFolderName || '').trim();
+    let targetFolderKey = '';
+    let targetFolderName = '';
+
+    if (newFolderName) {
+      const folder = await dbService.createFolder(wid, newFolderName);
+      targetFolderKey = folder && folder.key ? String(folder.key) : '';
+      targetFolderName = folder && folder.name ? String(folder.name) : newFolderName;
+    } else if (requestedFolderKey) {
+      const folders = await dbService.listFolders(wid);
+      const existing = folders.find((f) => f && String(f.key) === requestedFolderKey);
+      if (!existing) {
+        return res.status(400).render('error', {
+          message: 'Selected folder no longer exists. Refresh and choose again.',
+          activePage: 'search',
+        });
+      }
+      targetFolderKey = String(existing.key);
+      targetFolderName = String(existing.name || '');
+    }
 
     if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).render('error', {
@@ -78,6 +99,8 @@ router.post('/', async (req, res, next) => {
         city,
         state,
         maxResults: parseInt(maxResults, 10) || 20,
+        targetFolderKey,
+        targetFolderName,
         scheduledRunAt,
         scheduledDate,
         scheduledTime: normalizedTime,
@@ -137,6 +160,8 @@ router.post('/', async (req, res, next) => {
           city,
           state,
           maxResults: parseInt(maxResults, 10) || 20,
+          targetFolderKey,
+          targetFolderName,
           resultCount: results.length,
           results,
           timestamp: new Date().toISOString(),
@@ -207,6 +232,8 @@ router.get('/:key', async (req, res, next) => {
       maxResults: data.maxResults,
       results: data.results || [],
       searchKey: fullKey,
+      targetFolderKey: data.targetFolderKey || '',
+      targetFolderName: data.targetFolderName || '',
       savedLeads,
       message: null,
     });

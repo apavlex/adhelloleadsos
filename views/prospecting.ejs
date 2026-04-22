@@ -94,6 +94,10 @@
       var nameEl = document.getElementById('csvFileNameDisplay');
       var labelWrap = document.getElementById('leadsCsvLabelWrap');
       var labelText = document.getElementById('leadsCsvLabelText');
+      var form = document.getElementById('leadsCsvImportForm');
+      var uploadButton = document.getElementById('leadsCsvUploadButton');
+      var uploadSpinner = document.getElementById('leadsCsvUploadSpinner');
+      var uploadButtonText = document.getElementById('leadsCsvUploadButtonText');
       if (!input || !hint || !nameEl) return;
       function sync() {
         var f = input.files && input.files[0];
@@ -117,6 +121,18 @@
       }
       input.addEventListener('change', sync);
       sync();
+      if (form && uploadButton) {
+        form.addEventListener('submit', function () {
+          uploadButton.disabled = true;
+          uploadButton.setAttribute('aria-busy', 'true');
+          if (uploadSpinner) {
+            uploadSpinner.classList.remove('hidden');
+          }
+          if (uploadButtonText) {
+            uploadButtonText.textContent = 'Uploading...';
+          }
+        });
+      }
       var params = new URLSearchParams(window.location.search);
       if (params.get('action') === 'import' && input) {
         setTimeout(function () {

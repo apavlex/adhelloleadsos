@@ -555,6 +555,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchModeInput = document.getElementById('searchModeInput');
   const userTimezoneInput = document.getElementById('userTimezone');
   const searchBtnLabel = btn ? btn.querySelector('#searchBtnText') : null;
+  const searchFolderKey = document.getElementById('searchFolderKey');
+  const searchNewFolderWrap = document.getElementById('searchNewFolderWrap');
+  const searchNewFolderName = document.getElementById('searchNewFolderName');
 
   if (userTimezoneInput) {
     userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -610,7 +613,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (searchForm) {
+    const syncSearchFolderMode = () => {
+      if (!searchFolderKey || !searchNewFolderWrap || !searchNewFolderName) return;
+      const isCreate = searchFolderKey.value === '__new__';
+      searchNewFolderWrap.classList.toggle('hidden', !isCreate);
+      searchNewFolderName.required = isCreate;
+      if (isCreate) {
+        searchNewFolderName.focus();
+      } else {
+        searchNewFolderName.value = '';
+      }
+    };
+
+    if (searchFolderKey) {
+      searchFolderKey.addEventListener('change', syncSearchFolderMode);
+      syncSearchFolderMode();
+    }
+
     searchForm.addEventListener('submit', () => {
+      if (searchFolderKey && searchFolderKey.value === '__new__') {
+        searchFolderKey.value = '';
+      }
       updateProcessingStatus(true);
       const loadingOverlay = document.getElementById('loadingOverlay');
       if (loadingOverlay) loadingOverlay.classList.remove('hidden');
@@ -1339,7 +1362,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (phoneEl) {
         if (phone && phone !== 'N/A') {
-            phoneEl.innerHTML = `<a href="tel:${phone.replace(/\D/g, '')}" class="hover:text-brand-yellow transition-colors">${phone}</a>`;
+            const leadKey = row.dataset.leadKey || '';
+            phoneEl.innerHTML = `<a href="#" class="js-click-to-call-number hover:text-brand-yellow transition-colors" data-phone="${escapeHtmlAttr(phone)}" data-lead-key="${escapeHtmlAttr(leadKey)}">${escapeHtmlText(phone)}</a>`;
         } else {
             phoneEl.textContent = 'No Phone';
         }
@@ -1347,22 +1371,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (phoneLink) {
         if (phone && phone !== 'N/A') {
-            const tel = `tel:${phone.replace(/\D/g, '')}`;
-            phoneLink.href = tel;
+            phoneLink.href = '#';
+            phoneLink.classList.add('js-click-to-call-number');
+            phoneLink.dataset.phone = phone;
+            if (row.dataset.leadKey) phoneLink.dataset.leadKey = row.dataset.leadKey;
             phoneLink.classList.remove('opacity-20', 'pointer-events-none');
-            
-            // Called Lead Automation
-            const callTrigger = () => {
-                if (statusSelect) {
-                    statusSelect.value = 'Called Lead';
-                    statusSelect.dispatchEvent(new Event('change'));
-                }
-            };
-            
-            phoneLink.onclick = (e) => { e.stopPropagation(); callTrigger(); };
-            if (phoneRow) phoneRow.onclick = () => { window.location.href = tel; callTrigger(); };
+            phoneLink.onclick = (e) => { e.preventDefault(); e.stopPropagation(); };
+            if (phoneRow) phoneRow.onclick = () => { phoneLink.click(); };
         } else {
             phoneLink.href = '#';
+            phoneLink.classList.remove('js-click-to-call-number');
+            delete phoneLink.dataset.phone;
+            delete phoneLink.dataset.leadKey;
             phoneLink.classList.add('opacity-20', 'pointer-events-none');
             if (phoneRow) phoneRow.onclick = null;
         }
@@ -1593,20 +1613,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (headerPhone) {
         headerPhone.onclick = null;
         if (phone && phone !== 'N/A') {
-            const tel = `tel:${phone.replace(/\D/g, '')}`;
-            headerPhone.href = tel;
+            headerPhone.href = '#';
             headerPhone.textContent = phone;
+            headerPhone.classList.add('js-click-to-call-number');
+            headerPhone.dataset.phone = phone;
+            if (row.dataset.leadKey) headerPhone.dataset.leadKey = row.dataset.leadKey;
             headerPhone.classList.remove('opacity-40', 'pointer-events-none', 'no-underline');
             headerPhone.classList.add('underline', 'decoration-brand-yellow/30', 'decoration-2', 'underline-offset-4');
-            headerPhone.onclick = () => {
-              if (statusSelect) {
-                statusSelect.value = 'Called Lead';
-                statusSelect.dispatchEvent(new Event('change'));
-              }
-            };
+            headerPhone.onclick = (e) => { e.preventDefault(); e.stopPropagation(); };
         } else {
             headerPhone.textContent = 'No Phone Number';
             headerPhone.href = '#';
+            headerPhone.classList.remove('js-click-to-call-number');
+            delete headerPhone.dataset.phone;
+            delete headerPhone.dataset.leadKey;
             headerPhone.classList.add('opacity-40', 'pointer-events-none', 'no-underline');
             headerPhone.classList.remove('underline', 'decoration-brand-yellow/30', 'decoration-2', 'underline-offset-4');
         }
@@ -2141,6 +2161,40 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  document.addEventListener('click', async (e) => {
+    const trigger = e.target && e.target.closest ? e.target.closest('.js-click-to-call-number') : null;
+    if (!trigger) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const explicitPhone = (trigger.dataset && trigger.dataset.phone) || '';
+    const leadKey = (trigger.dataset && trigger.dataset.leadKey) || '';
+    let row = trigger.closest('.result-row');
+    if (!row && leadKey) row = findResultRowByLeadKey(leadKey);
+    if (!row || !row.dataset || !row.dataset.leadKey) {
+      const raw = String(explicitPhone || '').trim();
+      const digits = raw.replace(/\D/g, '');
+      if (digits) window.location.href = `tel:${digits}`;
+      return;
+    }
+
+    const originalRow = currentRow;
+    const originalText = trigger.textContent;
+    const shouldResetText = trigger.tagName === 'A' || trigger.tagName === 'BUTTON';
+    currentRow = row;
+    trigger.classList.add('pointer-events-none', 'opacity-70');
+    if (shouldResetText) trigger.textContent = 'Dialing...';
+    try {
+      await runLeadTelephonyAction('/call', {}, 'Calling lead');
+    } catch (err) {
+      alert(err.message || 'Failed to start call.');
+    } finally {
+      trigger.classList.remove('pointer-events-none', 'opacity-70');
+      if (shouldResetText) trigger.textContent = originalText;
+      currentRow = originalRow || row;
+    }
+  });
+
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
   if (voicemailDropBtn) {
     voicemailDropBtn.addEventListener('click', async () => {
@@ -2623,6 +2677,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Save a lead ---
   async function saveLead(row) {
+    const targetFolderKey = String(window.SEARCH_TARGET_FOLDER_KEY || '').trim();
     const leadData = {
       title: row.dataset.title,
       phone: row.dataset.phone,
@@ -2637,6 +2692,7 @@ document.addEventListener('DOMContentLoaded', () => {
       facebook: row.dataset.facebook,
       instagram: row.dataset.instagram,
       twitter: row.dataset.twitter,
+      folderKey: targetFolderKey,
     };
 
     try {
@@ -3089,12 +3145,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function getBulkEnhanceLayout(row) {
     const cells = row.querySelectorAll('td');
     if (row.querySelector('.pipeline-stage-cell')) {
-      const contactCell = row.querySelector('.lead-cell-contact');
       const reviewsInner = row.querySelector('.lead-reviews-inner');
-      if (!contactCell || !reviewsInner) return null;
-      const phone = contactCell.querySelector('.lead-contact-phone-slot');
-      const email = contactCell.querySelector('.lead-contact-email-slot');
-      const website = contactCell.querySelector('.lead-contact-web-slot');
+      if (!reviewsInner) return null;
+      const phone = row.querySelector('.lead-contact-phone-slot');
+      const email = row.querySelector('.lead-contact-email-slot');
+      const website = row.querySelector('.lead-contact-web-slot');
       if (!phone || !email || !website) return null;
       return {
         kind: 'leads',
@@ -3103,6 +3158,23 @@ document.addEventListener('DOMContentLoaded', () => {
         email,
         website,
         reviews: reviewsInner,
+      };
+    }
+    const contactCell = row.querySelector('.lead-cell-contact');
+    const opportunityCell = row.querySelector('.opportunity-cell');
+    if (contactCell && opportunityCell) {
+      const phone = contactCell.querySelector('.lead-contact-phone-slot');
+      const email = contactCell.querySelector('.lead-contact-email-slot');
+      const website = contactCell.querySelector('.lead-contact-web-slot');
+      if (!phone || !email || !website) return null;
+      return {
+        kind: 'results',
+        phone,
+        reviews: cells[4],
+        opportunity: opportunityCell,
+        website,
+        email,
+        social: cells[6],
       };
     }
     if (cells.length < 11) return null;
@@ -3185,7 +3257,9 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderLeadsTablePhoneCell(phone) {
     const p = phone && phone !== 'N/A' ? phone : '';
     if (p) {
-      return `<span class="block text-sm font-medium text-brand-muted dark:text-slate-300">${p}</span>`;
+      return `<a href="#" class="js-click-to-call-number block text-sm font-medium text-brand-muted dark:text-slate-300 hover:text-brand-yellow transition-colors" data-phone="${escapeHtmlAttr(
+        p
+      )}" onclick="event.stopPropagation()">${escapeHtmlText(p)}</a>`;
     }
     return '<span class="block text-sm text-brand-muted/60">-</span>';
   }
@@ -3193,9 +3267,24 @@ document.addEventListener('DOMContentLoaded', () => {
   function setLeadPhoneSlot(el, phone) {
     if (!el) return;
     const p = phone && phone !== 'N/A' ? String(phone).trim() : '';
-    el.textContent = p || '—';
-    if (p) el.setAttribute('title', p);
-    else el.removeAttribute('title');
+    if (!p) {
+      el.textContent = '—';
+      el.removeAttribute('title');
+      el.classList.remove('js-click-to-call-number');
+      el.removeAttribute('data-phone');
+      el.removeAttribute('data-lead-key');
+      if (el.tagName === 'A') el.setAttribute('href', '#');
+      return;
+    }
+    const row = el.closest('.result-row');
+    const key = row && row.dataset ? row.dataset.leadKey || '' : '';
+    el.classList.add('js-click-to-call-number');
+    el.setAttribute('data-phone', p);
+    if (key) el.setAttribute('data-lead-key', key);
+    else el.removeAttribute('data-lead-key');
+    if (el.tagName === 'A') el.setAttribute('href', '#');
+    el.textContent = p;
+    el.setAttribute('title', p);
   }
 
   function renderLeadEmailSlotInner(email) {
@@ -3539,6 +3628,54 @@ document.addEventListener('DOMContentLoaded', () => {
           b.innerHTML = enhanceBtnOriginalHtml[i] || b.innerHTML;
         });
       }, 2800);
+    });
+  });
+
+  // Backfill missing phone/email (and website hints) for all leads in workspace.
+  document.querySelectorAll('.js-enhance-missing-contacts').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const ok = window.confirm(
+        'Run deep contact backfill for all leads missing phone/email in this workspace?\n\nThis can take a few minutes.'
+      );
+      if (!ok) return;
+
+      const originalHtml = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add('opacity-70', 'cursor-wait');
+      btn.innerHTML =
+        '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Running...</span>';
+      try {
+        const res = await fetch('/leads/enhance-missing-contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ limit: 200 }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || 'Backfill request failed.');
+        }
+
+        const msg = `Backfill finished: ${data.updated || 0} updated out of ${data.attempted || 0} attempted${data.remaining > 0 ? ` (${data.remaining} still queued)` : ''}.`;
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'success', duration: 7000 });
+        } else {
+          window.alert(msg);
+        }
+        window.setTimeout(() => {
+          window.location.reload();
+        }, 900);
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Backfill failed.';
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'error', duration: 12000 });
+        } else {
+          window.alert(msg);
+        }
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-70', 'cursor-wait');
+        btn.innerHTML = originalHtml;
+      }
     });
   });
 

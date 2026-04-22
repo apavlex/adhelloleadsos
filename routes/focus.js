@@ -62,6 +62,11 @@ function leadToFocusPayload(l, sortedStages) {
     linkedin: l.linkedin && l.linkedin !== 'N/A' ? l.linkedin : '',
     city: l.city || '',
     state: l.state || '',
+    address: l.address && l.address !== 'N/A' ? l.address : '',
+    categoryName: l.categoryName && l.categoryName !== 'N/A' ? l.categoryName : '',
+    url: l.url && l.url !== 'N/A' ? l.url : '',
+    reviewsCount: Number.isFinite(parseInt(l.reviewsCount, 10)) ? parseInt(l.reviewsCount, 10) : 0,
+    totalScore: Number.isFinite(parseFloat(l.totalScore)) ? parseFloat(l.totalScore) : 0,
     defaultChannel,
   };
 }

@@ -28,16 +28,15 @@
 
       <!-- Map + search hub: map first, then keyword row -->
       <div class="max-w-5xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] border border-white/20 dark:border-white/5 shadow-2xl relative z-10 transition-all duration-500 overflow-hidden text-left" id="searchContainer">
-        <%- include('partials/find_area_map') %>
-
-        <div class="p-2 sm:p-3">
-          <div class="px-3 pt-4 pb-2 sm:px-5 sm:pt-5">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Step 2</p>
-            <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white mt-0.5">What to find &amp; how many</h2>
-            <p class="text-sm text-brand-muted mt-1">Keyword and location power the scrape. <strong class="font-semibold text-brand-dark dark:text-white">Scheduled</strong> repeats this search automatically; you’ll get the bell + desktop notification when each run finishes (allow notifications for this site).</p>
-          </div>
         <% const _sp = typeof searchPrefill !== 'undefined' && searchPrefill ? searchPrefill : { keyword: '', city: '', state: '', qty: 20 }; %>
         <form action="/search" method="POST" id="searchForm">
+        <%- include('partials/find_area_map') %>
+
+        <div class="px-2 pb-2 sm:px-3 sm:pb-3">
+          <div class="px-3 pt-4 pb-2 sm:px-5 sm:pt-5 border-t border-brand-border/10 dark:border-white/5">
+            <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white mt-0.5">Set what to find</h2>
+            <p class="text-sm text-brand-muted mt-1">Use the same map workflow above to set location, then choose keyword, lead count, and run mode here. <strong class="font-semibold text-brand-dark dark:text-white">Scheduled</strong> repeats this search automatically; you’ll get the bell + desktop notification when each run finishes (allow notifications for this site).</p>
+          </div>
           <!-- Main Search Row -->
           <div class="grid grid-cols-1 lg:flex items-center gap-2 lg:gap-0 px-2 w-full">
             <!-- Keyword -->
@@ -98,6 +97,27 @@
             </div>
           </div>
 
+          <!-- Folder target for this search -->
+          <div class="border-t border-brand-border/10 dark:border-white/5 px-4 sm:px-6 py-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
+              <div>
+                <label for="searchFolderKey" class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 block">Target folder</label>
+                <select id="searchFolderKey" name="folderKey" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-slate-100">
+                  <option value="">Main pipeline (no folder)</option>
+                  <% (folders || []).forEach((fd) => { if (!fd || !fd.key) return; %>
+                    <option value="<%= fd.key %>"><%= fd.name %></option>
+                  <% }) %>
+                  <option value="__new__">+ Create new folder</option>
+                </select>
+              </div>
+              <div id="searchNewFolderWrap" class="hidden">
+                <label for="searchNewFolderName" class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 block">New folder name</label>
+                <input id="searchNewFolderName" name="newFolderName" type="text" maxlength="80" placeholder="e.g. Plumbers - Austin Apr 22" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-slate-100 placeholder:text-brand-muted/60">
+              </div>
+            </div>
+            <p class="text-[11px] text-brand-muted mt-2">Saved leads from this search will be filed into the selected folder.</p>
+          </div>
+
           <!-- Scheduled scrape settings -->
           <div id="scheduledSearchSettings" class="hidden overflow-hidden border-t border-brand-border/10 dark:border-white/5 transition-all duration-500">
             <div class="flex flex-wrap items-center gap-6 sm:gap-8 px-6 py-4">
@@ -122,6 +142,7 @@
             </div>
           </div>
         </form>
+        </div>
 
         <% if (typeof schedules !== 'undefined' && schedules.length > 0) { %>
         <div class="border-t border-brand-border/10 dark:border-white/5 px-3 sm:px-5 pb-4 pt-3">

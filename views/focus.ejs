@@ -47,6 +47,37 @@
       <p class="text-[11px] font-bold uppercase tracking-wider text-brand-muted mb-4">Last touch <span id="focus-last-touch" class="text-brand-dark dark:text-white normal-case">—</span></p>
 
       <div id="focus-links" class="flex flex-wrap gap-2 mb-6" aria-label="Contact links"></div>
+      <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+          <div>
+            <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Website</p>
+            <a id="focus-biz-website" href="#" target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-dark dark:text-slate-100 hover:text-brand-yellow transition-colors truncate block">—</a>
+          </div>
+          <div>
+            <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Location</p>
+            <p id="focus-biz-location" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+          </div>
+          <div>
+            <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Category</p>
+            <p id="focus-biz-category" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+          </div>
+          <div>
+            <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Reviews</p>
+            <p id="focus-biz-reviews" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+          </div>
+        </div>
+        <div id="focus-biz-socials" class="flex flex-wrap gap-2 mt-3"></div>
+        <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+          <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="focus-copy-phone" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Phone</button>
+            <button type="button" id="focus-copy-email" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Email</button>
+            <button type="button" id="focus-copy-website" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Website</button>
+          </div>
+          <p id="focus-copy-feedback" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]"></p>
+        </div>
+      </div>
 
       <div class="mb-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Channel</p>
@@ -54,6 +85,7 @@
           <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="email">Email</button>
           <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="dm">DM</button>
           <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="call-script">Call script</button>
+          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="objection-handling">Objection handling</button>
         </div>
       </div>
 
@@ -127,6 +159,15 @@
     var elStage = document.getElementById('focus-stage-badge');
     var elLast = document.getElementById('focus-last-touch');
     var elLinks = document.getElementById('focus-links');
+    var elBizWebsite = document.getElementById('focus-biz-website');
+    var elBizLocation = document.getElementById('focus-biz-location');
+    var elBizCategory = document.getElementById('focus-biz-category');
+    var elBizReviews = document.getElementById('focus-biz-reviews');
+    var elBizSocials = document.getElementById('focus-biz-socials');
+    var btnCopyPhone = document.getElementById('focus-copy-phone');
+    var btnCopyEmail = document.getElementById('focus-copy-email');
+    var btnCopyWebsite = document.getElementById('focus-copy-website');
+    var elCopyFeedback = document.getElementById('focus-copy-feedback');
     var elSubjectWrap = document.getElementById('focus-subject-wrap');
     var elSubject = document.getElementById('focus-subject');
     var elBody = document.getElementById('focus-body');
@@ -159,6 +200,21 @@
       return a;
     }
 
+    function cleanUrlLabel(raw) {
+      if (!raw) return '';
+      return String(raw).replace(/^https?:\/\//i, '').replace(/\/$/, '');
+    }
+
+    function socialPill(label, href) {
+      var a = document.createElement('a');
+      a.href = href;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors';
+      a.textContent = label;
+      return a;
+    }
+
     function renderLinks(lead) {
       elLinks.innerHTML = '';
       if (lead.website) elLinks.appendChild(iconLink(hrefUrl(lead.website), 'Website', '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>'));
@@ -168,6 +224,82 @@
       if (lead.instagram) elLinks.appendChild(iconLink(hrefUrl(lead.instagram), 'Instagram', '<path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>'));
       if (lead.facebook) elLinks.appendChild(iconLink(hrefUrl(lead.facebook), 'Facebook', '<path stroke-linecap="round" stroke-linejoin="round" d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z"/>'));
       if (lead.twitter) elLinks.appendChild(iconLink(hrefUrl(lead.twitter), 'X / Twitter', '<path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>'));
+    }
+
+    function renderBusinessInfo(lead) {
+      var websiteHref = hrefUrl(lead.website || '');
+      if (websiteHref) {
+        elBizWebsite.href = websiteHref;
+        elBizWebsite.textContent = cleanUrlLabel(websiteHref);
+        elBizWebsite.classList.remove('pointer-events-none', 'text-brand-muted');
+      } else {
+        elBizWebsite.href = '#';
+        elBizWebsite.textContent = '—';
+        elBizWebsite.classList.add('pointer-events-none', 'text-brand-muted');
+      }
+
+      var parts = [];
+      if (lead.address) parts.push(lead.address);
+      var cityState = [lead.city || '', lead.state || ''].filter(Boolean).join(', ');
+      if (cityState) parts.push(cityState);
+      elBizLocation.textContent = parts.length ? parts.join(' · ') : '—';
+
+      elBizCategory.textContent = lead.categoryName || '—';
+
+      var score = Number(lead.totalScore || 0);
+      var reviews = parseInt(lead.reviewsCount, 10) || 0;
+      if (score > 0) {
+        elBizReviews.textContent = score.toFixed(1) + ' stars · ' + reviews + ' review' + (reviews === 1 ? '' : 's');
+      } else if (reviews > 0) {
+        elBizReviews.textContent = reviews + ' review' + (reviews === 1 ? '' : 's');
+      } else {
+        elBizReviews.textContent = '—';
+      }
+
+      elBizSocials.innerHTML = '';
+      if (lead.url) elBizSocials.appendChild(socialPill('Google listing', hrefUrl(lead.url)));
+      if (lead.facebook) elBizSocials.appendChild(socialPill('Facebook', hrefUrl(lead.facebook)));
+      if (lead.instagram) elBizSocials.appendChild(socialPill('Instagram', hrefUrl(lead.instagram)));
+      if (lead.twitter) elBizSocials.appendChild(socialPill('X', hrefUrl(lead.twitter)));
+      if (lead.linkedin) elBizSocials.appendChild(socialPill('LinkedIn', hrefUrl(lead.linkedin)));
+      if (!elBizSocials.children.length) {
+        var empty = document.createElement('span');
+        empty.className = 'text-[11px] text-brand-muted';
+        empty.textContent = 'No social/profile links found';
+        elBizSocials.appendChild(empty);
+      }
+    }
+
+    function setCopyFeedback(msg, isError) {
+      if (!elCopyFeedback) return;
+      elCopyFeedback.textContent = msg || '';
+      elCopyFeedback.classList.toggle('text-red-500', Boolean(isError));
+      elCopyFeedback.classList.toggle('text-brand-muted', !isError);
+      if (window.__focusCopyTimer) clearTimeout(window.__focusCopyTimer);
+      if (msg) {
+        window.__focusCopyTimer = setTimeout(function () {
+          elCopyFeedback.textContent = '';
+          elCopyFeedback.classList.remove('text-red-500');
+          elCopyFeedback.classList.add('text-brand-muted');
+        }, 1800);
+      }
+    }
+
+    function copyLeadField(field, label) {
+      var lead = currentLead();
+      if (!lead) return;
+      var value = String(lead[field] || '').trim();
+      if (!value) {
+        setCopyFeedback('No ' + label.toLowerCase() + ' available for this lead.', true);
+        return;
+      }
+      navigator.clipboard.writeText(value)
+        .then(function () {
+          setCopyFeedback(label + ' copied');
+        })
+        .catch(function () {
+          setCopyFeedback('Could not copy ' + label.toLowerCase() + '.', true);
+        });
     }
 
     function setChannelButtons() {
@@ -203,8 +335,14 @@
       elStage.textContent = lead.pipelineLabel || ('Stage ' + lead.pipelineStage);
       elLast.textContent = lead.lastTouchLabel || '—';
       renderLinks(lead);
+      renderBusinessInfo(lead);
       currentChannel = lead.defaultChannel || 'email';
-      if (currentChannel !== 'email' && currentChannel !== 'dm' && currentChannel !== 'call-script') currentChannel = 'email';
+      if (
+        currentChannel !== 'email' &&
+        currentChannel !== 'dm' &&
+        currentChannel !== 'call-script' &&
+        currentChannel !== 'objection-handling'
+      ) currentChannel = 'email';
       applyChannelUI();
     }
 
@@ -216,6 +354,7 @@
         if (sub) return '[Focus · email] ' + sub + '\n\n' + body;
       }
       if (ch === 'dm') return '[Focus · DM]\n\n' + body;
+      if (ch === 'objection-handling') return '[Focus · objection handling]\n\n' + body;
       return '[Focus · call script]\n\n' + body;
     }
 
@@ -349,6 +488,9 @@
     btnSend.addEventListener('click', onSendAdvance);
     btnLog.addEventListener('click', onLogNext);
     btnSkip.addEventListener('click', onSkip);
+    if (btnCopyPhone) btnCopyPhone.addEventListener('click', function () { copyLeadField('phone', 'Phone'); });
+    if (btnCopyEmail) btnCopyEmail.addEventListener('click', function () { copyLeadField('email', 'Email'); });
+    if (btnCopyWebsite) btnCopyWebsite.addEventListener('click', function () { copyLeadField('website', 'Website'); });
 
     document.getElementById('focus-help-btn').addEventListener('click', function () {
       modalHelp.classList.remove('hidden');

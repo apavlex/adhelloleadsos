@@ -4,7 +4,7 @@
 
 const MAX_SECTION_LEN = 24_000;
 
-const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'close'];
+const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];
 
 function mergeScriptLibrary(base, overrides) {
   const o = overrides && typeof overrides === 'object' ? overrides : {};

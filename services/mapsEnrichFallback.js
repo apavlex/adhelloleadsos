@@ -39,6 +39,19 @@ function extractHasContactSignal(data) {
   return false;
 }
 
+/**
+ * True when critical contact fields are still missing.
+ * This is stricter than `extractHasContactSignal` so we can trigger Maps fallback
+ * even when Firecrawl finds ratings/reviews but not direct contact points.
+ */
+function extractMissingCoreContact(data) {
+  if (!data || typeof data !== 'object') return true;
+  const has = (v) => v != null && String(v).trim() && String(v).trim() !== 'N/A';
+  const hasEmail = has(data.email);
+  const hasPhone = has(data.phone);
+  return !hasEmail || !hasPhone;
+}
+
 function apifyPlaceToExtract(place) {
   const out = {};
   const set = (k, v) => {
@@ -146,6 +159,7 @@ async function enrichFromMapsForLead(lead, integrationEnv) {
 
 module.exports = {
   extractHasContactSignal,
+  extractMissingCoreContact,
   mergeExtractPreferFirecrawl,
   enrichFromMapsForLead,
 };

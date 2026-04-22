@@ -133,6 +133,7 @@ router.post('/save', async (req, res, next) => {
       twitter,
       note,
       source,
+      folderKey,
     } = req.body;
 
     if (!title) {
@@ -170,6 +171,9 @@ router.post('/save', async (req, res, next) => {
 
     if (isManual) {
       leadData.source = 'manual_offline';
+    }
+    if (folderKey && String(folderKey).trim()) {
+      leadData.folderKey = String(folderKey).trim();
     }
 
     const noteText = note != null ? String(note).trim() : '';
@@ -981,125 +985,170 @@ Return JSON only, no markdown:
   }
 });
 
+async function runLeadEnhancement(lead, workspaceId) {
+  if (!lead || !lead.key) return { success: false, error: 'Lead not found.' };
+  const fullKey = lead.key.startsWith('lead:') ? lead.key : `lead:${lead.key}`;
+
+  let deepData = null;
+  let firecrawlViaSearch = false;
+  let mapsFallbackUsed = false;
+  let urlToSave = null;
+
+  const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
+  const leadProfile = { title: lead.title, city: lead.city, state: lead.state };
+
+  if (lead.website && lead.website !== 'N/A') {
+    console.log(`[ENHANCE] Triggering enrich for ${lead.title} (${lead.website})...`);
+    const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(lead.website, leadProfile, {
+      integrationEnv,
+    });
+    deepData = pack.merged;
+    mapsFallbackUsed = pack.mapsUsed;
+  } else {
+    console.log(`[ENHANCE] Website missing. Firecrawl search + Maps fallback for ${lead.title}...`);
+    firecrawlViaSearch = true;
+    const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
+    let searchExtract = {};
+    let firecrawlFoundUrl = null;
+    try {
+      const searchResults = await firecrawl.searchBusiness(searchQuery, integrationEnv);
+
+      if (searchResults && searchResults.length > 0) {
+        const bestResult =
+          searchResults.find(
+            (r) =>
+              r.extract &&
+              (r.extract.email ||
+                r.extract.phone ||
+                r.extract.address ||
+                r.extract.total_score != null ||
+                r.extract.reviews_count != null ||
+                r.extract.facebook ||
+                r.extract.instagram)
+          ) || searchResults[0];
+        searchExtract = bestResult.extract || {};
+        firecrawlFoundUrl = searchResults.find((r) => r.url)?.url || null;
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] Firecrawl search failed:', e.message);
+    }
+
+    let websiteHint = null;
+    const missingCoreContact = mapsEnrichFallback.extractMissingCoreContact(searchExtract);
+    if (
+      !mapsEnrichFallback.extractHasContactSignal(searchExtract) ||
+      missingCoreContact ||
+      !firecrawlFoundUrl
+    ) {
+      const pack = await mapsEnrichFallback.enrichFromMapsForLead(lead, integrationEnv);
+      if (pack) {
+        searchExtract = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, pack.extract);
+        websiteHint = pack.websiteHint;
+        mapsFallbackUsed = true;
+      }
+    }
+    deepData = searchExtract;
+    if (!lead.website || lead.website === 'N/A') {
+      urlToSave = websiteHint || firecrawlFoundUrl || null;
+    }
+  }
+
+  const baseUpdates = [...(lead.updates || [])];
+  const patch = {};
+  const priorUpdateLen = baseUpdates.length;
+
+  const hadExtract = deepData && Object.keys(deepData).length > 0;
+  if (hadExtract) {
+    const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
+    Object.assign(patch, enrichUpdates);
+
+    if ((!lead.email || lead.email === 'N/A') && deepData.email) patch.email = deepData.email;
+    if ((!lead.facebook || lead.facebook === 'N/A') && deepData.facebook) patch.facebook = deepData.facebook;
+    if ((!lead.instagram || lead.instagram === 'N/A') && deepData.instagram) patch.instagram = deepData.instagram;
+    if ((!lead.twitter || lead.twitter === 'N/A') && deepData.twitter) patch.twitter = deepData.twitter;
+    if (!lead.linkedin && deepData.linkedin) patch.linkedin = deepData.linkedin;
+
+    if (lead.phone && lead.phone !== 'N/A') delete patch.phone;
+    if (lead.address && lead.address !== 'N/A') delete patch.address;
+    if (lead.email && lead.email !== 'N/A') delete patch.email;
+    if (lead.totalScore != null && Number(lead.totalScore) > 0) delete patch.totalScore;
+    if (lead.reviewsCount != null && Number(lead.reviewsCount) > 0) delete patch.reviewsCount;
+  }
+
+  if ((!lead.website || lead.website === 'N/A') && urlToSave) {
+    patch.website = urlToSave;
+  }
+
+  if (hadExtract || urlToSave || mapsFallbackUsed) {
+    const via = [firecrawlViaSearch ? 'web search' : null, mapsFallbackUsed ? 'Maps backup' : null]
+      .filter(Boolean)
+      .join(' + ');
+    baseUpdates.push({
+      type: 'enrichment',
+      value: `Deep hunt completed${via ? ` (${via})` : ''}.`,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  const hasNewUpdates = baseUpdates.length > priorUpdateLen;
+  const patchKeys = Object.keys(patch).filter((k) => k !== 'updates');
+  if (patchKeys.length > 0 || hasNewUpdates) {
+    patch.updates = baseUpdates;
+    const updatedLead = await dbService.updateLead(fullKey, patch, leadWorkspaceId);
+    return { success: true, lead: updatedLead };
+  }
+
+  return { success: false, error: 'No new contact data discovered yet.' };
+}
+
+// POST /leads/enhance-missing-contacts — admin backfill for leads missing phone/email
+router.post('/enhance-missing-contacts', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Team admin required' });
+    }
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const needsBackfill = visible.filter((lead) => mapsEnrichFallback.extractMissingCoreContact(lead));
+    const maxLeads = Math.min(200, Math.max(1, parseInt((req.body && req.body.limit) || '80', 10) || 80));
+    const queue = needsBackfill.slice(0, maxLeads);
+
+    let updated = 0;
+    let attempted = 0;
+    let lastError = '';
+    for (const lead of queue) {
+      attempted += 1;
+      try {
+        const result = await runLeadEnhancement(lead, req.workspaceId);
+        if (result && result.success) updated += 1;
+        else if (result && result.error) lastError = String(result.error);
+      } catch (err) {
+        lastError = err && err.message ? String(err.message) : 'Enhancement failed for one lead.';
+      }
+    }
+
+    return res.json({
+      success: true,
+      attempted,
+      updated,
+      totalMissing: needsBackfill.length,
+      remaining: Math.max(0, needsBackfill.length - attempted),
+      lastError,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/enhance — Firecrawl scrape/search + Maps (Outscraper/Apify) fallback
 router.post('/:key/enhance', async (req, res, next) => {
   try {
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
-    let lead = await dbService.getLead(fullKey);
-
-    let deepData = null;
-    let firecrawlViaSearch = false;
-    let mapsFallbackUsed = false;
-    /** When lead has no website: prefer Maps listing site, else Firecrawl result URL */
-    let urlToSave = null;
-
-    const leadWorkspaceId = (lead && lead.workspaceId) || req.workspaceId;
-    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
-    const leadProfile = { title: lead.title, city: lead.city, state: lead.state };
-
-    if (lead.website && lead.website !== 'N/A') {
-      console.log(`[ENHANCE] Triggering enrich for ${lead.title} (${lead.website})...`);
-      const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(lead.website, leadProfile, {
-        integrationEnv,
-      });
-      deepData = pack.merged;
-      mapsFallbackUsed = pack.mapsUsed;
-    } else {
-      console.log(`[ENHANCE] Website missing. Firecrawl search + Maps fallback for ${lead.title}...`);
-      firecrawlViaSearch = true;
-      const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
-      let searchExtract = {};
-      let firecrawlFoundUrl = null;
-      try {
-        const searchResults = await firecrawl.searchBusiness(searchQuery, integrationEnv);
-
-        if (searchResults && searchResults.length > 0) {
-          const bestResult =
-            searchResults.find(
-              (r) =>
-                r.extract &&
-                (r.extract.email ||
-                  r.extract.phone ||
-                  r.extract.address ||
-                  r.extract.total_score != null ||
-                  r.extract.reviews_count != null ||
-                  r.extract.facebook ||
-                  r.extract.instagram)
-            ) || searchResults[0];
-          searchExtract = bestResult.extract || {};
-          firecrawlFoundUrl = searchResults.find((r) => r.url)?.url || null;
-        }
-      } catch (e) {
-        console.warn('[ENHANCE] Firecrawl search failed:', e.message);
-      }
-
-      let websiteHint = null;
-      if (!mapsEnrichFallback.extractHasContactSignal(searchExtract)) {
-        const pack = await mapsEnrichFallback.enrichFromMapsForLead(lead, integrationEnv);
-        if (pack) {
-          searchExtract = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, pack.extract);
-          websiteHint = pack.websiteHint;
-          mapsFallbackUsed = true;
-        }
-      }
-      deepData = searchExtract;
-      if (!lead.website || lead.website === 'N/A') {
-        urlToSave = websiteHint || firecrawlFoundUrl || null;
-      }
-    }
-
-    const baseUpdates = [...(lead.updates || [])];
-    const patch = {};
-    const priorUpdateLen = baseUpdates.length;
-
-    const hadExtract = deepData && Object.keys(deepData).length > 0;
-    if (hadExtract) {
-      const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
-      Object.assign(patch, enrichUpdates);
-
-      if ((!lead.email || lead.email === 'N/A') && deepData.email) patch.email = deepData.email;
-      if ((!lead.facebook || lead.facebook === 'N/A') && deepData.facebook) patch.facebook = deepData.facebook;
-      if ((!lead.instagram || lead.instagram === 'N/A') && deepData.instagram) patch.instagram = deepData.instagram;
-      if ((!lead.twitter || lead.twitter === 'N/A') && deepData.twitter) patch.twitter = deepData.twitter;
-      if (!lead.linkedin && deepData.linkedin) patch.linkedin = deepData.linkedin;
-
-      // Do not overwrite existing CRM / Maps contact or ratings with scraped guesses
-      if (lead.phone && lead.phone !== 'N/A') delete patch.phone;
-      if (lead.address && lead.address !== 'N/A') delete patch.address;
-      if (lead.email && lead.email !== 'N/A') delete patch.email;
-      if (lead.totalScore != null && Number(lead.totalScore) > 0) delete patch.totalScore;
-      if (lead.reviewsCount != null && Number(lead.reviewsCount) > 0) delete patch.reviewsCount;
-    }
-
-    if ((!lead.website || lead.website === 'N/A') && urlToSave) {
-      patch.website = urlToSave;
-    }
-
-    if (hadExtract || urlToSave || mapsFallbackUsed) {
-      const via = [
-        firecrawlViaSearch ? 'web search' : null,
-        mapsFallbackUsed ? 'Maps backup' : null,
-      ]
-        .filter(Boolean)
-        .join(' + ');
-      baseUpdates.push({
-        type: 'enrichment',
-        value: `Deep hunt completed${via ? ` (${via})` : ''}.`,
-        timestamp: new Date().toISOString(),
-      });
-    }
-
-    const hasNewUpdates = baseUpdates.length > priorUpdateLen;
-    const patchKeys = Object.keys(patch).filter((k) => k !== 'updates');
-
-    if (patchKeys.length > 0 || hasNewUpdates) {
-      patch.updates = baseUpdates;
-      const updatedLead = await dbService.updateLead(fullKey, patch);
-      return res.json({ success: true, lead: updatedLead });
-    }
-
-    res.json({ success: false, error: 'No new contact data discovered yet.' });
+    const lead = await dbService.getLead(fullKey);
+    const result = await runLeadEnhancement(lead, req.workspaceId);
+    res.json(result);
   } catch (err) {
     console.error('Manual enhancement error:', err.message);
     res.status(500).json({ success: false, error: err.message });

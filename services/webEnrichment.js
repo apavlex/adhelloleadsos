@@ -82,10 +82,11 @@ async function enrichLeadSmartWithMapsFallback(url, leadProfile, options = {}) {
   }
 
   const fcHadSignal = mapsEnrichFallback.extractHasContactSignal(fcData);
+  const missingCoreContact = mapsEnrichFallback.extractMissingCoreContact(fcData);
   let mapsExtract = null;
   let websiteHint = null;
 
-  if (fcFailed || !fcHadSignal) {
+  if (fcFailed || !fcHadSignal || missingCoreContact) {
     const pack = await mapsEnrichFallback.enrichFromMapsForLead(leadProfile || {}, integrationEnv);
     if (pack) {
       mapsExtract = pack.extract;
@@ -95,7 +96,7 @@ async function enrichLeadSmartWithMapsFallback(url, leadProfile, options = {}) {
 
   const merged = mapsEnrichFallback.mergeExtractPreferFirecrawl(fcData || {}, mapsExtract || {});
   const mapsUsed = Boolean(
-    (fcFailed || !fcHadSignal) &&
+    (fcFailed || !fcHadSignal || missingCoreContact) &&
       ((mapsExtract && Object.keys(mapsExtract).length > 0) || Boolean(websiteHint))
   );
 

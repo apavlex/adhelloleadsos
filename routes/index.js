@@ -22,6 +22,7 @@ router.get('/', async (req, res, next) => {
     const allSchedules = await dbService.listSchedules();
     const wid = req.workspaceId;
     const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
+    const folders = await dbService.listFolders(wid);
 
     const workspace = (await dbService.getWorkspace(wid)) || {};
     const presetIcp = String(req.query.preset || '').toLowerCase() === 'icp';
@@ -49,6 +50,7 @@ router.get('/', async (req, res, next) => {
       mapDefaultLng,
       mapDefaultZoom,
       schedules,
+      folders,
       searchPrefill,
       presetIcp,
     });

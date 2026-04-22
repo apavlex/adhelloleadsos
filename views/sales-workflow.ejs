@@ -130,7 +130,7 @@
                   </td>
                   <td class="px-6 py-4 align-top max-w-[9rem]">
                     <% if (phoneDisp !== '—') { %>
-                      <span class="text-xs font-medium text-brand-dark dark:text-slate-200 truncate block" title="<%= phoneDisp %>"><%= phoneDisp %></span>
+                      <a href="#" class="js-click-to-call-number text-xs font-medium text-brand-dark dark:text-slate-200 truncate block hover:text-brand-yellow transition-colors" title="<%= phoneDisp %>" data-phone="<%= phoneDisp %>" data-lead-key="<%= lead.key %>" onclick="event.stopPropagation()"><%= phoneDisp %></a>
                     <% } else { %>
                       <span class="text-brand-muted">—</span>
                     <% } %>

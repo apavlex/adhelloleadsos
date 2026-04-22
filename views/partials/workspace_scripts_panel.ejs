@@ -21,8 +21,8 @@
         <% const block = SCRIPT_LIBRARY[pk]; %>
         <div class="pitch-panel px-6 py-8 <%= idx === 0 ? '' : 'hidden' %>" data-panel="<%= pk %>">
           <p class="text-sm font-bold text-brand-muted mb-6"><%= block.label %></p>
-          <% ['opening', 'discovery', 'valueProp', 'close'].forEach((section) => { %>
-            <% const labels = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value prop', close: 'Close' }; %>
+          <% ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'].forEach((section) => { %>
+            <% const labels = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value prop', objectionHandling: 'Objection handling', close: 'Close' }; %>
             <div class="mb-8 last:mb-0 script-block" data-service="<%= pk %>" data-section="<%= section %>">
               <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
                 <h4 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow"><%= labels[section] %></h4>
@@ -187,6 +187,34 @@
           })
           .catch(function () { console.warn('[scripts] block save failed'); });
       }, 1500);
+    }
+
+    function applyBlockOverridesToEditors(blockOverrides) {
+      if (!blockOverrides || typeof blockOverrides !== 'object') return;
+      Object.keys(blockOverrides).forEach(function (serviceKey) {
+        var sections = blockOverrides[serviceKey];
+        if (!sections || typeof sections !== 'object') return;
+        ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'].forEach(function (section) {
+          if (!Object.prototype.hasOwnProperty.call(sections, section)) return;
+          var ta = document.getElementById('snippet-' + serviceKey + '-' + section);
+          if (!ta) return;
+          ta.value = String(sections[section] || '');
+        });
+      });
+    }
+
+    function syncScriptsFromServer() {
+      return fetch('/workspace/scripts.json', { headers: { Accept: 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (!data || !data.success) return;
+          applyBlockOverridesToEditors(data.blockOverrides || {});
+          if (Array.isArray(data.libraryItems)) {
+            libraryItems = data.libraryItems;
+            renderLibrary();
+          }
+        })
+        .catch(function () {});
     }
 
     function migrateLegacyLocalLibrary() {
@@ -459,5 +487,9 @@
     migrateLegacyLocalLibrary();
     updateCoachLabel();
     renderLibrary();
+    syncScriptsFromServer();
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) syncScriptsFromServer();
+    });
   })();
 </script>
