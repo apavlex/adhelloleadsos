@@ -129,7 +129,45 @@ function responseHostForError(url) {
 }
 
 /**
+ * Twilio / SignalWire may return 201/200 with an empty body and put the Call in the Location (or a sid header).
+ * @see https://www.twilio.com/docs/voice/api/call-resource#create-a-call-resource
+ */
+function extractCallSidFromResHeaders(res) {
+  if (!res || typeof res.headers === 'undefined' || !res.headers.get) return '';
+  const g = (n) => {
+    const v = res.headers.get(n);
+    return v == null || v === '' ? '' : String(v);
+  };
+  const location = g('location') || g('Location') || g('Call-Location') || g('call-location');
+  if (location) {
+    const s = String(location);
+    const m1 = s.match(/\/(CA[0-9a-f]{32})(?:[/.]|$)/i) || s.match(/(CA[0-9a-f]{32})/i);
+    if (m1) return m1[1].toUpperCase();
+  }
+  const hSid =
+    g('x-twilio-call-sid') ||
+    g('X-Twilio-Call-Sid') ||
+    g('Call-Sid') ||
+    g('I-Twilio-Call-Id') ||
+    g('X-Call-Id') ||
+    '';
+  const t = String(hSid).trim();
+  if (/^CA[0-9a-f]{32}$/i.test(t)) return t.toUpperCase();
+  return '';
+}
+
+/**
+ * If LaML returns success with no JSON body, try to build a minimal { sid } from headers.
+ */
+function resourceFromHeaderFallback(res) {
+  const sid = extractCallSidFromResHeaders(res);
+  if (!sid) return null;
+  return { sid, CallSid: sid };
+}
+
+/**
  * LaML responses must be JSON. Empty or HTML 200s often mean a wrong base URL, proxy, or WAF.
+ * Also handles empty 201 + Location (Twilio-compatibility) by parsing Call SID from headers.
  */
 function parseLamlJsonBody({ res, text, url, label }) {
   const trimmed = String(text == null ? '' : text).trim();
@@ -147,10 +185,14 @@ function parseLamlJsonBody({ res, text, url, label }) {
     throw new Error(String(label || 'SignalWire:') + ' ' + errMsg);
   }
   if (!trimmed) {
+    const fromHeaders = resourceFromHeaderFallback(res);
+    if (fromHeaders) {
+      return fromHeaders;
+    }
     const host = responseHostForError(url) || 'your-space.signalwire.com';
     throw new Error(
       (label || 'SignalWire') +
-        ` returned HTTP ${res.status} with an empty body. Your app reached host "${host}" but got no JSON. Set SIGNALWIRE_SPACE_URL in .env to the exact Space URL from the SignalWire dashboard (API / credentials), e.g. https://yoursubdomain.signalwire.com, and use the PROJECT_ID and API token for that same space. A proxy or wrong host can return 200 with an empty body.`,
+        ` returned HTTP ${res.status} with an empty body. Your app reached host "${host}" with no JSON and no Call SID in headers (e.g. Location). Set SIGNALWIRE_SPACE_URL in .env to the exact Space URL (Dashboard → API) and use PROJECT_ID + API token for that same space. If a proxy or CDN is in front, ensure it does not strip response bodies. Test with: curl -i -X POST "https://${host}/api/laml/2010-04-01/Accounts/YOUR_PROJECT/Calls.json" with Basic auth.`,
     );
   }
   if (contentType.includes('text/html') || (trimmed.startsWith('<') && /<\s*!?\s*html/i.test(trimmed))) {
