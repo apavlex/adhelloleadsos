@@ -237,35 +237,56 @@ function isEmptyLaml2xxError(err) {
 /**
  * Create-call only: try paths/types documented or reported to work. Official docs use POST .../Calls (no .json)
  * with x-www-form-urlencoded; OpenAPI also lists application/json. Some spaces return 200/empty for one variant.
+ * When SIGNALWIRE_SPACE_URL is set, also tries the global `api.signalwire.com` LaML host (some accounts respond there).
  * @see https://signalwire.com/docs/compatibility-api/rest/calls/create-a-call
  */
 async function postFormCreateCall(formBody) {
+  if (!configured()) {
+    throw new Error('SignalWire is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER.');
+  }
+  const cfg = envConfig();
+  const useSpace = !!String(cfg.spaceUrl || '').trim();
+  const globalLamlRoot = `${DEFAULT_API_BASE}/api/laml/2010-04-01/Accounts/${encodeURIComponent(cfg.projectId)}`;
+
   const attempts = [
-    { path: '/Calls', asJson: false, label: 'POST /Calls' },
-    { path: '/Calls', asJson: true, label: 'POST /Calls (application/json)' },
-    { path: '/Calls.json', asJson: false, label: 'POST /Calls.json' },
+    { path: '/Calls', asJson: false, label: 'space: POST /Calls (form)' },
+    { path: '/Calls', asJson: true, label: 'space: POST /Calls (JSON)' },
+    { path: '/Calls.json', asJson: false, label: 'space: POST /Calls.json (form)' },
   ];
+  if (useSpace) {
+    attempts.push(
+      { path: '/Calls', asJson: false, label: 'api.signalwire.com: POST /Calls (form)', apiRoot: globalLamlRoot },
+      { path: '/Calls', asJson: true, label: 'api.signalwire.com: POST /Calls (JSON)', apiRoot: globalLamlRoot },
+    );
+  }
+
+  const tried = [];
   let last;
   for (const a of attempts) {
     try {
-      return await lamlPost(a.path, formBody, { asJson: a.asJson, label: a.label });
+      return await lamlPost(a.path, formBody, { asJson: a.asJson, label: a.label, apiRoot: a.apiRoot });
     } catch (e) {
       last = e;
+      tried.push(a.label);
       if (isEmptyLaml2xxError(e)) continue;
       throw e;
     }
   }
-  throw last;
+  const summary = 'Tried: ' + tried.join(' → ') + '. ';
+  const inner = last && last.message ? String(last.message) : 'Unknown error';
+  throw new Error(
+    `SignalWire create call: ${summary}${inner} If the space host keeps returning empty 2xx, open SignalWire support with curl -i output, or set SIGNALWIRE_SPACE_URL to match the Space URL in Dashboard → API. You can also try leaving SIGNALWIRE_SPACE_URL unset to use only ${DEFAULT_API_BASE} (same project id and token).`,
+  );
 }
 
 async function lamlPost(path, formBody, opts) {
-  const { asJson = false, label: labelIn } = opts || {};
+  const { asJson = false, label: labelIn, apiRoot: apiRootIn } = opts || {};
   const label = labelIn != null ? labelIn : 'POST ' + path;
   const cfg = envConfig();
   if (!configured()) {
     throw new Error('SignalWire is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER.');
   }
-  const root = buildApiRoot(cfg);
+  const root = apiRootIn != null && String(apiRootIn).trim() ? String(apiRootIn).trim().replace(/\/+$/, '') : buildApiRoot(cfg);
   const url = `${root}${path}`;
   const auth = Buffer.from(`${cfg.projectId}:${cfg.token}`).toString('base64');
   const q = new URLSearchParams();
