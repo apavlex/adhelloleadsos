@@ -419,6 +419,7 @@
   var spNextStep = document.getElementById('softphoneNextStep');
   var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
   var spRelayWebrtc = false;
+  var spWorkspaceCallMode = 'cloud_dial';
   var spDefaultFrom = '';
   var softphoneSession = {
     state: 'idle',
@@ -709,11 +710,16 @@
         if (!res.ok || !res.j || !res.j.success) return;
         spRelayWebrtc = !!res.j.relayWebrtcAvailable;
         spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
+        if (res.j && res.j.callMode) spWorkspaceCallMode = String(res.j.callMode).trim() || 'cloud_dial';
         if (spModeLine) {
-          if (res.j.relayWebrtcAvailable) {
-            spModeLine.textContent = 'Tip: Call first tries in-browser WebRTC. If the app uses cloud, this tab has no call audio (SignalWire dials the contact on the network).';
+          if (res.j && res.j.callMode === 'cloud_dial') {
+            spModeLine.textContent = 'Call routing: Cloud (SignalWire) — the server places the call right away. No in-tab audio; the contact’s phone rings on the network.';
+          } else if (res.j && res.j.callMode === 'browser_device') {
+            spModeLine.textContent = 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
+          } else if (res.j.relayWebrtcAvailable) {
+            spModeLine.textContent = 'Call may use in-browser WebRTC if enabled. In-tab audio on WebRTC only; otherwise use cloud or device mode in Workspace.';
           } else {
-            spModeLine.textContent = 'Tip: WebRTC not available. Outbound is cloud or device: use "My device dialer" in Workspace, or set SIGNALWIRE_SPACE_URL and enable WebRTC. This tab will not play call audio in cloud mode.';
+            spModeLine.textContent = 'Tip: WebRTC not available. In Workspace, use Cloud or My device dialer, and set SIGNALWIRE_SPACE_URL if you need browser calling.';
           }
         }
         if (!spFrom) return;
@@ -847,7 +853,8 @@
     softphoneSetCallState('dialing');
     softphoneSession.activeNumber = to;
     var p;
-    if (action === 'call' && spRelayWebrtc) {
+    var tryWebrtc = action === 'call' && spRelayWebrtc && spWorkspaceCallMode !== 'cloud_dial';
+    if (tryWebrtc) {
       p = tryWebrtcSoftphone(to).then(function (ok) {
         if (ok) return;
         softphoneSetStatus('In-browser call did not start — using cloud. No audio in this tab for cloud calls.');
