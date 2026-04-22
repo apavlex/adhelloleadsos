@@ -4,13 +4,14 @@
 substitutions:
   _REGION: us-west1
   _SERVICE: adhello-leadsos
+  _AR_REPO: adhello
 
 steps:
   - name: gcr.io/cloud-builders/docker
     args:
       - build
       - -t
-      - gcr.io/$PROJECT_ID/${_SERVICE}:$BUILD_ID
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$BUILD_ID
       - .
 
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -20,11 +21,11 @@ steps:
       - deploy
       - ${_SERVICE}
       - --image
-      - gcr.io/$PROJECT_ID/${_SERVICE}:$BUILD_ID
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$BUILD_ID
       - --region
       - ${_REGION}
       - --platform
       - managed
 
 images:
-  - gcr.io/$PROJECT_ID/${_SERVICE}:$BUILD_ID
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE}:$BUILD_ID
