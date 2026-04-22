@@ -1,4 +1,8 @@
-const DEFAULT_API_BASE = 'https://api.signalwire.com';
+/**
+ * The Compatibility (LaML) / Twilio-migration API is not served on api.signalwire.com.
+ * Each Space has its own host: https://&lt;subdomain&gt;.signalwire.com/.../Accounts/...
+ * @see https://signalwire.com/docs/compatibility-api
+ */
 
 function truthyEnv(v) {
   const t = String(v || '')
@@ -54,6 +58,10 @@ function envConfig() {
     baseUrl: String(process.env.BASE_URL || '').trim().replace(/\/+$/, ''),
     webhookToken: String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     enabled: truthyEnv(process.env.SIGNALWIRE_ENABLED || '1'),
+    /** Full LaML account root, optional override: .../2010-04-01/Accounts/PROJECT_ID */
+    lamlApiRoot: String(process.env.SIGNALWIRE_LAML_API_ROOT || '')
+      .trim()
+      .replace(/\/+$/, ''),
   };
 }
 
@@ -113,11 +121,18 @@ function ensureCallWithSid(raw, context) {
 }
 
 function buildApiRoot(cfg) {
-  if (cfg.spaceUrl) {
+  if (cfg.lamlApiRoot) {
+    return cfg.lamlApiRoot;
+  }
+  if (String(cfg.spaceUrl || '').trim()) {
     const clean = cfg.spaceUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
     return `https://${clean}/api/laml/2010-04-01/Accounts/${encodeURIComponent(cfg.projectId)}`;
   }
-  return `${DEFAULT_API_BASE}/api/laml/2010-04-01/Accounts/${encodeURIComponent(cfg.projectId)}`;
+  throw new Error(
+    'SIGNALWIRE_SPACE_URL is required for the Compatibility (LaML) API. It only exists on your Space host (see SignalWire Dashboard → API), e.g. https://YOUR_SUBDOMAIN.signalwire.com — not https://api.signalwire.com. Set SIGNALWIRE_SPACE_URL to that base URL, or set SIGNALWIRE_LAML_API_ROOT to the full path ending in .../Accounts/' +
+      (cfg.projectId || 'YOUR_PROJECT_ID') +
+      '.',
+  );
 }
 
 function responseHostForError(url) {
@@ -235,8 +250,7 @@ function isEmptyLaml2xxError(err) {
 }
 
 /**
- * 404 with this body means the hostname in SIGNALWIRE_SPACE_URL is not a real SignalWire space (wrong subdomain or typo).
- * In that case we should fall back to the global LaML base instead of failing before trying api.signalwire.com.
+ * 404 with this body usually means the Space hostname in SIGNALWIRE_SPACE_URL is wrong (not the real API subdomain).
  */
 function isSpaceSubdomainNotFoundError(err) {
   const m = err && err.message ? String(err.message) : '';
@@ -245,49 +259,34 @@ function isSpaceSubdomainNotFoundError(err) {
 }
 
 /**
- * Create-call only: try paths/types documented or reported to work. Official docs use POST .../Calls (no .json)
- * with x-www-form-urlencoded; OpenAPI also lists application/json. Some spaces return 200/empty for one variant.
- * When SIGNALWIRE_SPACE_URL is set, also tries the global `api.signalwire.com` LaML host (some accounts respond there).
+ * Create-call: try /Calls and /Calls.json, form and JSON. LaML only exists on the Space host (SIGNALWIRE_SPACE_URL).
  * @see https://signalwire.com/docs/compatibility-api/rest/calls/create-a-call
  */
 async function postFormCreateCall(formBody) {
   if (!configured()) {
     throw new Error('SignalWire is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER.');
   }
-  const cfg = envConfig();
-  const useSpace = !!String(cfg.spaceUrl || '').trim();
-  const globalLamlRoot = `${DEFAULT_API_BASE}/api/laml/2010-04-01/Accounts/${encodeURIComponent(cfg.projectId)}`;
-  const hostPfx = useSpace ? 'space: ' : 'LaML: ';
 
   const attempts = [
-    { path: '/Calls', asJson: false, label: hostPfx + 'POST /Calls (form)' },
-    { path: '/Calls', asJson: true, label: hostPfx + 'POST /Calls (JSON)' },
-    { path: '/Calls.json', asJson: false, label: hostPfx + 'POST /Calls.json (form)' },
+    { path: '/Calls', asJson: false, label: 'POST /Calls (form)' },
+    { path: '/Calls', asJson: true, label: 'POST /Calls (JSON)' },
+    { path: '/Calls.json', asJson: false, label: 'POST /Calls.json (form)' },
   ];
-  if (useSpace) {
-    attempts.push(
-      { path: '/Calls', asJson: false, label: 'api.signalwire.com: POST /Calls (form)', apiRoot: globalLamlRoot },
-      { path: '/Calls', asJson: true, label: 'api.signalwire.com: POST /Calls (JSON)', apiRoot: globalLamlRoot },
-      { path: '/Calls.json', asJson: false, label: 'api.signalwire.com: POST /Calls.json (form)', apiRoot: globalLamlRoot },
-    );
-  }
 
   const tried = [];
   let last;
-  let skipSpace = false;
   for (const a of attempts) {
-    if (!a.apiRoot && useSpace && skipSpace) {
-      continue;
-    }
     try {
-      return await lamlPost(a.path, formBody, { asJson: a.asJson, label: a.label, apiRoot: a.apiRoot });
+      return await lamlPost(a.path, formBody, { asJson: a.asJson, label: a.label });
     } catch (e) {
       last = e;
       tried.push(a.label);
       if (isEmptyLaml2xxError(e)) continue;
-      if (useSpace && a.apiRoot == null && isSpaceSubdomainNotFoundError(e)) {
-        skipSpace = true;
-        continue;
+      if (isSpaceSubdomainNotFoundError(e)) {
+        throw new Error(
+          'SIGNALWIRE_SPACE_URL must be the exact Space base URL from SignalWire (Dashboard → API), e.g. https://your-subdomain.signalwire.com. The LaML/Compatibility API is not available on https://api.signalwire.com. Original error: ' +
+            (e && e.message ? String(e.message) : '404'),
+        );
       }
       throw e;
     }
@@ -295,7 +294,7 @@ async function postFormCreateCall(formBody) {
   const summary = 'Tried: ' + tried.join(' → ') + '. ';
   const inner = last && last.message ? String(last.message) : 'Unknown error';
   throw new Error(
-    `SignalWire create call: ${summary}${inner} If the space host was wrong, copy SIGNALWIRE_SPACE_URL from Dashboard → API (e.g. https://your-space.signalwire.com), or clear it to use only ${DEFAULT_API_BASE}. If you still get empty 2xx, contact SignalWire support with curl -i output.`,
+    `SignalWire create call: ${summary}${inner} If responses are empty 2xx, contact SignalWire with curl -i for your Space host.`,
   );
 }
 
