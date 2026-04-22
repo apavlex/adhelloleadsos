@@ -10,8 +10,34 @@ function normalizeKeys(row) {
     const key = String(k || '')
       .trim()
       .toLowerCase()
-      .replace(/\s+/g, '_');
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (!key) continue;
     out[key] = v == null ? '' : String(v).trim();
+  }
+  return out;
+}
+
+function stripTablePreamble(text) {
+  const lines = String(text || '').split(/\r?\n/);
+  if (lines.length < 2) return text;
+  const first = String(lines[0] || '').trim();
+  const second = String(lines[1] || '').trim();
+  // Outscraper exports may prepend "Table 1" before actual CSV headers.
+  if (/^table\s+\d+$/i.test(first) && second.includes(',')) {
+    return lines.slice(1).join('\n');
+  }
+  return text;
+}
+
+function collectImportFields(row) {
+  const normalized = normalizeKeys(row);
+  const out = {};
+  for (const [k, v] of Object.entries(normalized)) {
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (!s) continue;
+    out[k] = s;
   }
   return out;
 }
@@ -48,9 +74,10 @@ function pickPrimaryEmail(r) {
 
 function toLeadPayload(row, originalFilename, rowIndex) {
   const r = normalizeKeys(row);
+  const importFields = collectImportFields(row);
 
   const title =
-    (r.company_name || r.title || r.business_name || r.name || '').trim() ||
+    (r.company_name || r.business_name || r.title || r.name || '').trim() ||
     (r.company_domain || '').trim();
   if (!title) return null;
 
@@ -70,7 +97,7 @@ function toLeadPayload(row, originalFilename, rowIndex) {
   const email = emailRaw || 'N/A';
 
   const categoryName =
-    (r.company_type || r.category || r.categoryname || r.industry || 'Imported').trim() || 'Imported';
+    (r.company_type || r.subtypes || r.category || r.categoryname || r.industry || r.type || 'Imported').trim() || 'Imported';
 
   const linkedin = (r.decision_maker_linkedin_url || r.linkedin || '').trim();
   const decisionMakerName = (r.decision_maker_name || '').trim();
@@ -100,6 +127,7 @@ function toLeadPayload(row, originalFilename, rowIndex) {
     source: 'csv_import',
     importFilename: originalFilename || 'upload.csv',
     importRowIndex: rowIndex,
+    importFields,
     linkedin: linkedin || undefined,
     decisionMakerName: decisionMakerName || undefined,
     decisionMakerTitle: decisionMakerTitle || undefined,
@@ -118,7 +146,8 @@ function toLeadPayload(row, originalFilename, rowIndex) {
  * @returns {Array<Record<string, unknown>>}
  */
 function parseCsvToLeadRecords(buffer, originalFilename) {
-  const text = buffer.toString('utf8');
+  const textRaw = buffer.toString('utf8');
+  const text = stripTablePreamble(textRaw);
   if (!text.trim()) return [];
 
   const rows = parse(text, {
