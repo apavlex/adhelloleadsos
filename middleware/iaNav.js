@@ -7,20 +7,26 @@ function iaNav(req, res, next) {
   let navPrimary = '';
   if (p === '/today' || p.startsWith('/today/') || p === '/focus' || p.startsWith('/focus/')) {
     navPrimary = 'today';
-  } else if (p === '/' || p.startsWith('/search') || p.startsWith('/history') || p.startsWith('/schedules')) {
+  } else if (
+    p === '/' ||
+    p.startsWith('/leads/find') ||
+    p.startsWith('/search') ||
+    p.startsWith('/history') ||
+    p.startsWith('/schedules')
+  ) {
     navPrimary = 'find';
-  } else if (p.startsWith('/prospecting')) {
+  } else if (p.startsWith('/pipeline/stages')) {
+    /* POST /pipeline/stages/explain — no primary nav */
+  } else if (p.startsWith('/prospecting') || p === '/pipeline' || p.startsWith('/pipeline/')) {
     navPrimary = 'prospecting';
   } else if (p.startsWith('/leads')) {
     navPrimary = 'prospecting';
+  } else if (p.startsWith('/sales/personas')) {
+    navPrimary = 'sales';
   } else if (p.startsWith('/sales/workflow')) {
     navPrimary = 'pipeline';
-  } else if (
-    p.startsWith('/sales/') ||
-    p === '/sequences' ||
-    p.startsWith('/sequences/')
-  ) {
-    navPrimary = 'outreach';
+  } else if (p.startsWith('/sales/') || p === '/sequences' || p.startsWith('/sequences/')) {
+    navPrimary = 'sales';
   } else if (p === '/outreach' || p.startsWith('/outreach/')) {
     navPrimary = 'prospecting';
   } else if (p.startsWith('/coach')) {

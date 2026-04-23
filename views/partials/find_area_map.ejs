@@ -3,12 +3,12 @@
   <div class="flex flex-col gap-4 px-5 pt-6 pb-4 sm:px-7 sm:pt-7">
     <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
       <div>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Step 1 · Map + Search setup</p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Step 1 · Area</p>
         <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Choose the area</h2>
-        <p class="text-sm text-brand-muted mt-1 max-w-xl">Search, pan, or zoom the map to the area you want, then <strong class="text-brand-dark dark:text-white">apply to location</strong>. Your city and state below update automatically.</p>
+        <p class="text-sm text-brand-muted mt-1 max-w-xl">Pan or zoom the map, then set area from map.</p>
       </div>
       <button type="button" id="applyMapLocationBtn" class="shrink-0 w-full sm:w-auto px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-widest bg-white dark:bg-slate-900 text-brand-dark dark:text-white border-2 border-brand-dark dark:border-brand-yellow shadow-md hover:shadow-lg hover:border-brand-yellow dark:hover:border-brand-yellow ring-2 ring-brand-yellow/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2">
-        Apply map → location
+        Set area from map
       </button>
     </div>
   </div>
@@ -16,6 +16,9 @@
     <div id="findAreaMap" class="w-full h-[min(340px,48vh)] min-h-[220px] sm:h-[min(400px,52vh)] sm:min-h-[280px] bg-brand-cream/20 dark:bg-slate-800/40" role="application" aria-label="Google Map — drag to choose search area"></div>
     <div class="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4">
       <div class="pointer-events-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:max-w-xl">
+        <div class="rounded-full border border-brand-border/40 dark:border-white/15 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+          Pan or zoom here → applies to search
+        </div>
         <label for="findAreaMapSearch" class="sr-only">Search city or address on map</label>
         <div class="flex flex-1 min-w-0 rounded-2xl border-2 border-brand-dark/20 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg backdrop-blur-sm overflow-hidden focus-within:border-brand-yellow focus-within:ring-2 focus-within:ring-brand-yellow/40">
           <input type="search" id="findAreaMapSearch" autocomplete="off" placeholder="Search city, neighborhood, or address…" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted focus:outline-none focus:ring-0" />
@@ -120,8 +123,8 @@
         writeSearchFormLocation(loc.city, loc.state);
         setStatus(
           (loc.city || loc.state)
-            ? 'Location set to ' + (loc.city || '—') + ', ' + (loc.state || '—') + '. Pan or zoom if needed, then Apply map → location to override.'
-            : 'Map updated — zoom to a neighborhood or use Apply map → location to set city/state.'
+            ? 'Location set to ' + (loc.city || '—') + ', ' + (loc.state || '—') + '. Pan or zoom if needed, then Set area from map to override.'
+            : 'Map updated — zoom to a neighborhood or use Set area from map to set city/state.'
         );
       });
     }

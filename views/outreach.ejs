@@ -12,7 +12,6 @@
   <main class="max-wide px-6 py-10 md:py-14">
     <div class="mb-8 max-w-3xl">
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Outreach <span class="text-brand-muted">Hub</span></h1>
-      <p class="text-brand-muted font-medium mt-2">One place to filter your working leads and organize folders. Daily hustle metrics live under <a href="/analytics?tab=tracker" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Reports → Daily tracker</a>.</p>
     </div>
 
     <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
@@ -42,7 +41,7 @@
           </div>
           <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-3">
-            <a href="/workspace" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
+            <a href="/workspace/team" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
           </p>
           <% } %>
         </div>
@@ -52,7 +51,7 @@
             <button id="showKanbanView" type="button" class="px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white">Pipeline</button>
           </div>
           <a href="/leads" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white text-center whitespace-nowrap">Import CSV &amp; tools</a>
-          <a href="/" class="btn-pill btn-primary px-5 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap text-center">Find leads</a>
+          <a href="/leads/find" class="btn-pill btn-primary px-5 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap text-center">Find leads</a>
         </div>
       </div>
 

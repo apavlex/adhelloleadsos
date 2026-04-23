@@ -46,8 +46,11 @@
             <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="status" title="Sort by status">Status <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
             </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="actions" title="Sort by opportunity score">Opportunity <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
             <th class="px-2 py-3.5 pr-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]" scope="col">
-              <button type="button" class="prospect-sort-btn prospect-sort-btn--right" data-prospect-sort="actions" title="Sort by opportunity score">Actions <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              Actions
             </th>
           </tr>
         </thead>
@@ -225,6 +228,11 @@
                   <%= deliveryStatusDisplay %>
                 </span>
               </td>
+              <td class="opportunity-cell px-2 align-top border-b border-brand-border/15 dark:border-white/[0.07]">
+                <div class="opportunity-badge pt-0.5">
+                  <span class="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5 text-[9px] font-black uppercase tracking-tight">Scoring…</span>
+                </div>
+              </td>
               <td class="lead-actions-cell px-2 pr-5 align-top border-b border-brand-border/15 dark:border-white/[0.07] text-right">
                 <div class="flex items-center justify-end gap-1 pt-0.5">
                     <button type="button" class="email-intel-btn email-intel-btn--row w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" 
@@ -334,7 +342,7 @@
     <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Your Pipeline is empty</h2>
     <p class="text-brand-muted max-w-md mx-auto mb-8">Run a lead search to pull SMBs, or load sample leads to see how stages and cadences look.</p>
     <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-      <a href="/find" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Run your first search</a>
+      <a href="/leads/find" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Run your first search</a>
       <form method="post" action="/today/seed-demo" class="inline">
         <button type="submit" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-8 py-3 text-xs font-black uppercase tracking-widest hover:border-brand-yellow/60">
           Load sample leads

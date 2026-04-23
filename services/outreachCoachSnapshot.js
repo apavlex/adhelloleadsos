@@ -178,7 +178,7 @@ function buildNamedCoachActions(leads, snapshot) {
       label: 'Add prospects — find more leads',
       leadId: '',
       leadName: '',
-      href: '/find?preset=icp',
+      href: '/leads/find?preset=icp',
       actionType: 'add_prospects',
     });
   }

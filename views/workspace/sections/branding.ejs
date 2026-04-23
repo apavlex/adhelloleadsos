@@ -1,0 +1,33 @@
+<% const _accentChoices = typeof workspaceAccentChoices !== 'undefined' && workspaceAccentChoices ? workspaceAccentChoices : []; %>
+<% const _accentCur = ((workspace && workspace.accentColor) ? workspace.accentColor : '#CA8A04').toString().toLowerCase(); %>
+<% const _accentIsUiPreset = _accentChoices.some(function (o) { return o.hex.toLowerCase() === _accentCur; }); %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Brand accent</h2>
+  <p class="text-sm text-brand-muted mb-4">Choose your workspace accent (two presets). Primary buttons, nav highlights, and the workspace chip use this color.</p>
+  <% if (!_accentIsUiPreset && workspace && workspace.accentColor) { %>
+  <p class="text-xs text-brand-muted mb-4 rounded-xl border border-brand-border/60 dark:border-white/10 px-3 py-2">Your saved accent is a custom color from setup. Pick <strong class="text-brand-dark dark:text-white">Amber</strong> or <strong class="text-brand-dark dark:text-white">Bright yellow</strong> below, then save to switch.</p>
+  <% } %>
+  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Swatches</p>
+  <div class="flex flex-wrap items-center gap-4 mb-6" role="radiogroup" aria-label="Accent color">
+    <% _accentChoices.forEach(function (opt) { %>
+    <label class="cursor-pointer group">
+      <input type="radio" name="wsAccentChoice" value="<%= opt.hex %>" class="sr-only peer" <%= _accentCur === opt.hex.toLowerCase() ? 'checked' : '' %> />
+      <span class="flex flex-col items-center gap-2">
+        <span class="w-12 h-12 rounded-full border-2 border-transparent peer-checked:border-brand-dark dark:peer-checked:border-white peer-checked:ring-2 peer-checked:ring-brand-yellow/80 shadow-sm shrink-0" style="background-color:<%= opt.hex %>" title="<%= opt.label %>"></span>
+        <span class="text-[10px] font-bold text-brand-muted group-hover:text-brand-dark dark:group-hover:text-white"><%= opt.label %></span>
+      </span>
+    </label>
+    <% }); %>
+  </div>
+  <div id="wsAccentPreview" class="mb-6 rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 bg-brand-cream/20 dark:bg-slate-800/50" style="--preview-accent: <%= _accentCur %>">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Live preview</p>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="button" class="ws-preview-btn rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-sm" style="background: var(--preview-accent)">Primary</button>
+      <span class="ws-preview-badge text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border" style="border-color: var(--preview-accent); color: var(--preview-accent)">Badge</span>
+      <span class="text-sm font-semibold ws-preview-nav" style="color: var(--preview-accent)">Nav highlight</span>
+    </div>
+  </div>
+  <p id="wsAccentMsg" class="hidden text-sm mb-3"></p>
+  <button type="button" id="wsAccentSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save accent</button>
+</div>
+<%- include('../partials/scripts_accent') %>

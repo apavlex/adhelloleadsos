@@ -40,7 +40,7 @@
         <p class="text-[11px] text-brand-muted mt-1">Emails + DMs + calls + bids</p>
       </div>
       <div class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col justify-center gap-2">
-        <a href="/" class="btn-pill btn-primary text-center text-xs font-black uppercase py-3">Run search</a>
+        <a href="/leads/find" class="btn-pill btn-primary text-center text-xs font-black uppercase py-3">Run search</a>
         <a href="/prospecting?tab=pipeline" class="text-center text-[10px] font-black uppercase text-brand-muted hover:text-brand-dark dark:hover:text-white underline">Saved leads →</a>
       </div>
     </div>
@@ -50,7 +50,7 @@
       <div class="brand-card p-6 mb-10 dark:bg-slate-900 dark:border-white/10">
         <div class="flex items-center justify-between mb-4">
           <h3 class="font-display font-extrabold text-sm text-brand-dark dark:text-white">14-day outreach volume</h3>
-          <a href="/analytics?tab=tracker" class="text-[10px] font-black uppercase text-brand-yellow underline">Today’s touches</a>
+          <a href="/reports?tab=tracker" class="text-[10px] font-black uppercase text-brand-yellow underline">Today’s touches</a>
         </div>
         <div class="flex items-end gap-1.5 h-40 w-full">
           <% h.chartSeries.forEach((pt) => { %>
@@ -72,7 +72,7 @@
         <p class="text-sm text-brand-muted leading-relaxed">New → Contacted → Booked → CQI → Trial → Retainer → Upsell → Referrals. CQI notes live on each lead.</p>
         <span class="inline-block mt-6 text-[10px] font-black uppercase tracking-widest text-brand-yellow">Open workflow →</span>
       </a>
-      <a href="/analytics?tab=tracker" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
+      <a href="/reports?tab=tracker" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
         <div class="w-12 h-12 rounded-2xl bg-emerald-500/15 flex items-center justify-center mb-6 text-emerald-700 dark:text-emerald-400 font-black text-xl border border-emerald-500/20">∑</div>
         <h2 class="font-display font-extrabold text-xl mb-2 group-hover:text-emerald-600 transition-colors">Daily Action Tracker</h2>
         <p class="text-sm text-brand-muted leading-relaxed">Cold outreach, social posts, ad creatives, and bids — tracked per day under Reports.</p>
@@ -80,8 +80,8 @@
       </a>
       <a href="/sales/personas" class="group brand-card p-8 dark:bg-slate-900 dark:border-white/10 hover:border-brand-yellow/50 transition-all">
         <div class="w-12 h-12 rounded-2xl bg-violet-500/15 flex items-center justify-center mb-6 text-violet-700 dark:text-violet-300 font-black text-xl border border-violet-500/20">AI</div>
-        <h2 class="font-display font-extrabold text-xl mb-2 group-hover:text-violet-600 transition-colors">Personas & Scripts</h2>
-        <p class="text-sm text-brand-muted leading-relaxed">Paul (Prospect), Clay (Close), Bob (Build) plus pitch-specific openings and closes.</p>
+        <h2 class="font-display font-extrabold text-xl mb-2 group-hover:text-violet-600 transition-colors">Sales scripts</h2>
+        <p class="text-sm text-brand-muted leading-relaxed">Talk tracks by offer, merge tags, script coach, and saved snippets for this workspace.</p>
         <span class="inline-block mt-6 text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-300">View scripts →</span>
       </a>
     </div>

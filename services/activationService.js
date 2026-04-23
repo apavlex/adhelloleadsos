@@ -49,7 +49,7 @@ const PLAN = [
     id: 'd7',
     label: 'Day 7 — Review reports',
     hint: 'See traffic + conversion momentum',
-    href: '/analytics',
+    href: '/reports',
     event: 'analytics_visit',
   },
 ];

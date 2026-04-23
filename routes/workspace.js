@@ -110,74 +110,144 @@ function normalizeCallMode(raw) {
   return 'cloud_dial';
 }
 
+const WORKSPACE_SECTION_SLUGS = new Set([
+  'pipeline',
+  'branding',
+  'team',
+  'integrations',
+  'phones',
+  'voicemail',
+  'scrape',
+  'routing',
+  'revenue',
+  'advanced',
+]);
+
+const WORKSPACE_SECTION_META = {
+  pipeline: {
+    title: 'Pipeline stages',
+    description: 'Reorder stages, apply presets, or redesign with AI. Leads stay mapped when you change the board.',
+  },
+  branding: {
+    title: 'Brand accent',
+    description: 'Primary buttons, nav highlights, and the workspace chip use this color.',
+  },
+  team: {
+    title: 'Members & roles',
+    description: 'Who belongs to this workspace and what they can do.',
+  },
+  integrations: {
+    title: 'Integrations',
+    description: 'API keys and provider preferences for this workspace.',
+  },
+  phones: {
+    title: 'Phone number bank',
+    description: 'Outbound numbers, routing mode, and CNAM status.',
+  },
+  voicemail: {
+    title: 'Weekly voicemail automation',
+    description: 'Recordings, active message, and scheduled drops.',
+  },
+  scrape: {
+    title: 'Scrape stack',
+    description: 'Cost-aware guidance for Maps search and enrichment providers.',
+  },
+  routing: {
+    title: 'Round-robin pool',
+    description: 'Next inbound assignee cycles through admins and SDRs.',
+  },
+  revenue: {
+    title: 'Revenue defaults',
+    description: 'Fallback values for pipeline metrics and the morning brief.',
+  },
+  advanced: {
+    title: 'Advanced',
+    description: 'Power-user options for this workspace.',
+  },
+};
+
+function defaultWorkspaceHomePath(req, workspace) {
+  if (!req.canManageWorkspace) return '/workspace/team';
+  if (workspace && workspace.id) return '/workspace/pipeline';
+  return '/workspace/integrations';
+}
+
+async function loadWorkspacePageLocals(req) {
+  const ws = await dbService.getWorkspace(req.workspaceId);
+  const pool = workspaceService.orderedRoundRobinPool(ws);
+  const integrationMasks = workspaceIntegrations.integrationMasks(ws);
+  const integrationsReady = workspaceIntegrations.isEncryptionAvailable();
+  const q = req.query.integrations;
+  let integrationsMessage = null;
+  if (q === 'saved') {
+    integrationsMessage = {
+      type: 'ok',
+      text: 'Saved. These keys apply to every member of this workspace (including admins) for Maps search, Enhance, and ingest auto-enrich.',
+    };
+  }
+  if (q === 'need_secret') {
+    integrationsMessage = {
+      type: 'err',
+      text: 'Integration keys cannot be saved from the browser until your operator configures the workspace integrations secret on the server. Until then, only deployment environment variables apply.',
+    };
+  }
+
+  const wid = req.workspaceId;
+  const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+  let scrapeLive = {};
+  if (process.env.SCRAPE_SOURCES_LIVE_PING === '1') {
+    const [c4, os] = await Promise.all([
+      crawl4aiClient.pingHealth(resolvedEnv),
+      outscraperClient.pingHealth(resolvedEnv),
+    ]);
+    scrapeLive = { crawl4ai: c4, outscraper: os };
+  }
+  const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
+  const mapsSearchPrimary = String(
+    (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'auto',
+  )
+    .trim()
+    .toLowerCase();
+  const enrichPrimary = String(
+    (resolvedEnv && resolvedEnv.ENRICH_PRIMARY) || process.env.ENRICH_PRIMARY || 'auto',
+  )
+    .trim()
+    .toLowerCase();
+
+  return {
+    title: 'Workspace & team',
+    activePage: 'workspace',
+    workspace: ws,
+    assignPool: pool,
+    envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
+    integrationMasks,
+    integrationsReady,
+    integrationsMessage,
+    mapsSearchPrimary,
+    enrichPrimary,
+    scrapeAdvisor,
+    scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
+    scrapeCostOnWorkspace: true,
+    workspaceAccentChoices: WORKSPACE_UI_ACCENTS,
+    showWorkspaceSwitchForm: process.env.ADHELLO_WORKSPACE_SWITCH === '1',
+  };
+}
+
+router.get('/settings', (req, res) => res.redirect(302, '/workspace/team'));
+router.get('/voicemail', (req, res) => res.redirect(302, '/workspace/voicemail'));
+router.get('/scripts', (req, res) => res.redirect(302, '/scripts'));
+
 router.get('/', async (req, res, next) => {
   try {
-    const ws = await dbService.getWorkspace(req.workspaceId);
-    const pool = workspaceService.assignablePool(ws);
-    const integrationMasks = workspaceIntegrations.integrationMasks(ws);
-    const integrationsReady = workspaceIntegrations.isEncryptionAvailable();
-    const q = req.query.integrations;
-    let integrationsMessage = null;
-    if (q === 'saved') {
-      integrationsMessage = {
-        type: 'ok',
-        text: 'Saved. These keys apply to every member of this workspace (including admins) for Maps search, Enhance, and ingest auto-enrich.',
-      };
+    const iq = req.query && req.query.integrations;
+    if (iq === 'saved' || iq === 'need_secret') {
+      return res.redirect(
+        302,
+        `/workspace/integrations?integrations=${encodeURIComponent(String(iq))}`,
+      );
     }
-    if (q === 'need_secret') {
-      integrationsMessage = {
-        type: 'err',
-        text: 'The server must set WORKSPACE_INTEGRATIONS_SECRET (at least 16 characters) before API keys can be stored from this page.',
-      };
-    }
-
-    const wid = req.workspaceId;
-    const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
-    let scrapeLive = {};
-    if (process.env.SCRAPE_SOURCES_LIVE_PING === '1') {
-      const [c4, os] = await Promise.all([
-        crawl4aiClient.pingHealth(resolvedEnv),
-        outscraperClient.pingHealth(resolvedEnv),
-      ]);
-      scrapeLive = { crawl4ai: c4, outscraper: os };
-    }
-    const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
-    const mapsSearchPrimary = String(
-      (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'auto',
-    )
-      .trim()
-      .toLowerCase();
-    const enrichPrimary = String(
-      (resolvedEnv && resolvedEnv.ENRICH_PRIMARY) || process.env.ENRICH_PRIMARY || 'auto',
-    )
-      .trim()
-      .toLowerCase();
-    const scriptServiceLabels = Object.fromEntries(
-      SCRIPT_LIBRARY_KEYS.map((k) => [k, SCRIPT_LIBRARY[k].label])
-    );
-    const SCRIPT_LIBRARY_MERGED = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
-    const initialScriptLibraryItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
-
-    res.render('workspace', {
-      title: 'Workspace & team',
-      activePage: 'workspace',
-      workspace: ws,
-      assignPool: pool,
-      envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
-      integrationMasks,
-      integrationsReady,
-      integrationsMessage,
-      mapsSearchPrimary,
-      enrichPrimary,
-      scrapeAdvisor,
-      scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
-      scrapeCostOnWorkspace: true,
-      workspaceAccentChoices: WORKSPACE_UI_ACCENTS,
-      SCRIPT_LIBRARY: SCRIPT_LIBRARY_MERGED,
-      SCRIPT_LIBRARY_KEYS,
-      scriptServiceLabels,
-      initialScriptLibraryItems,
-    });
+    const locals = await loadWorkspacePageLocals(req);
+    res.redirect(302, defaultWorkspaceHomePath(req, locals.workspace));
   } catch (e) {
     next(e);
   }
@@ -192,7 +262,7 @@ router.post('/integrations', async (req, res, next) => {
       });
     }
     if (!workspaceIntegrations.isEncryptionAvailable()) {
-      return res.redirect('/workspace?integrations=need_secret');
+      return res.redirect('/workspace/integrations?integrations=need_secret');
     }
     const wid = req.workspaceId;
     const ws = await dbService.getWorkspace(wid);
@@ -200,7 +270,7 @@ router.post('/integrations', async (req, res, next) => {
     plain = workspaceIntegrations.applyClears(plain, req.body);
     plain = workspaceIntegrations.mergeIntegrationUpdates(plain, req.body);
     await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
-    res.redirect('/workspace?integrations=saved');
+    res.redirect('/workspace/integrations?integrations=saved');
   } catch (e) {
     next(e);
   }
@@ -209,11 +279,11 @@ router.post('/integrations', async (req, res, next) => {
 /** @deprecated — use POST /workspaces/switch */
 router.post('/switch', express.urlencoded({ extended: true }), async (req, res) => {
   const id = String(req.body.workspaceId || '').trim();
-  if (!id) return res.redirect('/workspace');
+  if (!id) return res.redirect('/workspace/team');
   const email = workspaceService.userEmail(req);
   const ws = await dbService.getWorkspace(id);
   if (!email || !ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) {
-    return res.redirect('/workspace');
+    return res.redirect('/workspace/team');
   }
   await dbService.saveUserPrefs(email, { activeWorkspaceId: id });
   if (req.session) {
@@ -234,6 +304,24 @@ router.post('/icp', express.json(), async (req, res) => {
       qty: req.body && req.body.qty,
     });
     res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message || 'Server error' });
+  }
+});
+
+/** POST JSON: round-robin member order (admins + SDRs). */
+router.post('/routing-order', express.json(), async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can change round-robin order.' });
+    }
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const incoming = req.body && Array.isArray(req.body.emails) ? req.body.emails : [];
+    const normalized = workspaceService.normalizeRoundRobinOrder(ws, incoming);
+    ws.roundRobinOrder = normalized;
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, emails: normalized });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message || 'Server error' });
   }
@@ -269,7 +357,10 @@ router.post('/settings', express.json(), async (req, res) => {
       (Object.prototype.hasOwnProperty.call(req.body, 'phoneBank') ||
         Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries') ||
         Object.prototype.hasOwnProperty.call(req.body, 'callMode') ||
-        Object.prototype.hasOwnProperty.call(req.body, 'agentPhone'))
+        Object.prototype.hasOwnProperty.call(req.body, 'agentPhone') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'perNumberHourCap') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'quietHoursStart') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'quietHoursEnd'))
     ) {
       const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
       if (
@@ -309,6 +400,30 @@ router.post('/settings', express.json(), async (req, res) => {
           }
           telephony.agentPhone = n;
         }
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'perNumberHourCap')) {
+        const cap = parseInt(String(req.body.perNumberHourCap || '').trim(), 10);
+        if (!Number.isFinite(cap) || cap < 1 || cap > 120) {
+          return res.status(400).json({
+            success: false,
+            error: 'Per-number dial cap must be between 1 and 120 calls per hour.',
+          });
+        }
+        telephony.perNumberHourCap = cap;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'quietHoursStart')) {
+        const s = String(req.body.quietHoursStart || '').trim();
+        if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(s)) {
+          return res.status(400).json({ success: false, error: 'Quiet hours start must be HH:MM.' });
+        }
+        telephony.quietHoursStart = s.length === 4 ? `0${s}` : s;
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'quietHoursEnd')) {
+        const s = String(req.body.quietHoursEnd || '').trim();
+        if (!/^([01]?\d|2[0-3]):[0-5]\d$/.test(s)) {
+          return res.status(400).json({ success: false, error: 'Quiet hours end must be HH:MM.' });
+        }
+        telephony.quietHoursEnd = s.length === 4 ? `0${s}` : s;
       }
       ws.telephony = telephony;
     }
@@ -470,6 +585,40 @@ router.post('/scripts/library/import', express.json({ limit: '512kb' }), async (
     ws.salesScriptsUpdatedAt = new Date().toISOString();
     await dbService.saveWorkspace(wid, ws);
     res.json({ success: true, libraryItems: cur, imported: n });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/:section', async (req, res, next) => {
+  try {
+    const section = String(req.params.section || '').toLowerCase();
+    if (!WORKSPACE_SECTION_SLUGS.has(section)) {
+      return next();
+    }
+    const locals = await loadWorkspacePageLocals(req);
+    const ws = locals.workspace;
+    const managerSections = new Set(['integrations', 'phones', 'voicemail', 'revenue']);
+    if (managerSections.has(section) && !req.canManageWorkspace) {
+      return res.redirect(302, '/workspace/team');
+    }
+    if (
+      (section === 'pipeline' || section === 'branding') &&
+      (!req.canManageWorkspace || !ws || !ws.id)
+    ) {
+      return res.redirect(302, '/workspace/team');
+    }
+    if (section === 'scrape' && !locals.scrapeAdvisor) {
+      return res.redirect(302, '/workspace/team');
+    }
+    const meta = WORKSPACE_SECTION_META[section] || { title: 'Workspace', description: '' };
+    res.render('workspace', {
+      ...locals,
+      title: `${meta.title} · Workspace`,
+      workspaceSection: section,
+      workspaceSectionTitle: meta.title,
+      workspaceSectionDescription: meta.description,
+    });
   } catch (e) {
     next(e);
   }

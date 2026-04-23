@@ -148,8 +148,8 @@ const PERSONAS = [
     role: 'The Prospector',
     color: 'from-amber-400 to-orange-500',
     duties: ['Cold email & DM sequences', 'Lead scraping & filters', 'List hygiene & follow-up cadence'],
-    href: '/',
-    hrefLabel: 'Open Search',
+    href: '/leads/find',
+    hrefLabel: 'Find leads',
   },
   {
     id: 'clay',
@@ -167,7 +167,7 @@ const PERSONAS = [
     color: 'from-emerald-400 to-teal-600',
     duties: ['Site and funnel drafts', 'Chatbot logic & handoff', 'Technical fulfillment notes'],
     href: '/prospecting?tab=pipeline',
-    hrefLabel: 'Leads',
+    hrefLabel: 'Lead queue',
   },
 ];
 

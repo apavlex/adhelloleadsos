@@ -9,26 +9,12 @@
   <main class="max-wide px-6 py-10 md:py-14">
     <%- include('partials/sales-nav') %>
 
-    <div class="mb-12 max-w-3xl">
-      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">AI <span class="text-brand-muted">Personas</span></h1>
-      <p class="text-brand-muted font-medium mt-2">Assign mental models to your tooling: prospect, close, build. Scripts switch by offer — swap <code class="text-xs bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{name}}</code> when pasting. Use the <strong class="text-brand-dark dark:text-white">script coach</strong> to refine copy; scripts and library snippets are saved to the <strong class="text-brand-dark dark:text-white">workspace</strong> on the server.</p>
+    <div class="mb-10 max-w-3xl">
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Sales <span class="text-brand-muted">scripts</span></h1>
+      <p class="text-brand-muted font-medium mt-2">Pick an offer, open one section at a time, and edit the lines you actually run on calls and DMs. The coach always works on the section you last opened from <strong class="text-brand-dark dark:text-white">Coach</strong>. Saved snippets live in the library below.</p>
     </div>
 
-    <div class="grid md:grid-cols-3 gap-6 mb-16">
-      <% PERSONAS.forEach((p) => { %>
-        <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 flex flex-col">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-br <%= p.color %> mb-4 flex items-center justify-center text-white font-display font-black text-xl shadow-lg"><%= p.name[0] %></div>
-          <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white"><%= p.name %></h2>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-4"><%= p.role %></p>
-          <ul class="text-sm text-brand-muted space-y-2 flex-1 mb-6">
-            <% p.duties.forEach((d) => { %><li>• <%= d %></li><% }) %>
-          </ul>
-          <a href="<%= p.href %>" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-center text-xs font-black uppercase tracking-widest py-3"><%= p.hrefLabel %></a>
-        </div>
-      <% }) %>
-    </div>
-
-    <%- include('partials/workspace_scripts_panel') %>
+    <%- include('partials/workspace_scripts_panel', { scriptsPanelShowPersonasCrossLink: false }) %>
   </main>
 </body>
 </html>

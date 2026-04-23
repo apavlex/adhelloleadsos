@@ -1,5 +1,5 @@
 /**
- * Workspace-level ICP defaults for /find?preset=icp (keyword, geo, batch size).
+ * Workspace-level ICP defaults for /leads/find?preset=icp (keyword, geo, batch size).
  */
 
 const dbService = require('./database');

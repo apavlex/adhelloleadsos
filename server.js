@@ -194,7 +194,7 @@ app.use('/leads', leadsRoutes);
 app.use('/folders', foldersRoutes);
 app.use('/prospecting', prospectingRoutes);
 app.use('/outreach', outreachRoutes);
-app.use('/analytics', analyticsRoutes);
+app.use('/reports', analyticsRoutes);
 app.use('/sales', salesRoutes);
 app.use('/coach', coachRoutes);
 app.use('/sequences', sequencesRoutes);

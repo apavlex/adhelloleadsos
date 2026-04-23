@@ -4,7 +4,7 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 
-router.get('/', async (req, res, next) => {
+async function renderFindLeads(req, res, next) {
   try {
     const allLeads = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, allLeads);
@@ -38,7 +38,7 @@ router.get('/', async (req, res, next) => {
         }
       : { keyword: '', city: '', state: '', qty: 20 };
 
-    res.render('index', {
+    return res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'search',
       savedLeadsCount: adhelloLeads.length,
@@ -55,9 +55,14 @@ router.get('/', async (req, res, next) => {
       presetIcp,
     });
   } catch (e) {
-    next(e);
+    return next(e);
   }
+}
+
+router.get('/', (req, res) => {
+  res.redirect(302, '/today');
 });
+router.get('/leads/find', renderFindLeads);
 
 // GET /schedules — canonical UI is Prospecting → Queue (scheduled jobs table)
 router.get('/schedules', (req, res) => {
@@ -74,7 +79,7 @@ router.post('/schedules/delete', async (req, res) => {
     await dbService.deleteSchedule(key);
   }
   let dest = '/prospecting?tab=queue';
-  if (returnTo === '/') dest = '/';
+  if (returnTo === '/') dest = '/today';
   else if (returnTo && returnTo !== '/schedules') dest = returnTo;
   res.redirect(dest);
 });

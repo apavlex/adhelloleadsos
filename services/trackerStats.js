@@ -170,4 +170,5 @@ module.exports = {
   dailyPersonalizedTouchGoal,
   leadHasPersonalizedTouchOnUtcDate,
   PERSONALIZED_TOUCH_STATUSES,
+  utcCalendarDayPrefix,
 };

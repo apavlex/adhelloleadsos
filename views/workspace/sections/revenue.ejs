@@ -1,0 +1,34 @@
+<% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+<% const COMMON_TZ = ['America/New_York','America/Chicago','America/Denver','America/Los_Angeles','America/Phoenix','America/Anchorage','Pacific/Honolulu','America/Toronto','America/Vancouver','Europe/London','Europe/Dublin','Europe/Paris','Europe/Berlin','Europe/Madrid','Europe/Amsterdam','Asia/Dubai','Asia/Kolkata','Asia/Singapore','Asia/Hong_Kong','Asia/Tokyo','Asia/Seoul','Australia/Sydney','Australia/Melbourne','Pacific/Auckland','UTC']; %>
+<% const curTz = (workspace && workspace.timezone) ? String(workspace.timezone).trim() : ''; %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Revenue defaults</h2>
+  <p class="text-sm text-brand-muted mb-4">Used when a lead has no estimated value (pipeline metrics, reporting).</p>
+  <div class="space-y-4 max-w-md">
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Average deal value (USD)</label>
+      <div class="relative">
+        <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-brand-muted">$</span>
+        <input type="number" id="wsAvgDealValue" min="1" step="100" value="<%= workspace && workspace.avgDealValue != null ? workspace.avgDealValue : 3000 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 pl-7 pr-4 py-2 text-sm" />
+      </div>
+      <p class="text-[11px] text-brand-muted mt-1">We use this for any lead without its own estimate.</p>
+    </div>
+    <div>
+      <label for="wsTimezone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Workspace timezone (morning brief)</label>
+      <select id="wsTimezone" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+        <option value="">Not set</option>
+        <% if (curTz && COMMON_TZ.indexOf(curTz) === -1) { %>
+        <option value="<%= curTz %>" selected><%= curTz %> (current)</option>
+        <% } %>
+        <% COMMON_TZ.forEach(function (z) { %>
+        <option value="<%= z %>" <%= curTz === z ? 'selected' : '' %>><%= z %></option>
+        <% }); %>
+      </select>
+      <p id="wsTimezoneLive" class="text-[11px] text-brand-muted mt-1 min-h-[1.25rem]"></p>
+    </div>
+    <p id="wsSettingsMsg" class="hidden text-sm"></p>
+    <button type="button" id="wsSettingsSave" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save revenue settings</button>
+  </div>
+</div>
+<%- include('../partials/scripts_revenue') %>
+<% } %>

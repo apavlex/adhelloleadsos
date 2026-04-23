@@ -18,24 +18,44 @@
       </div>
       
       <h1 class="font-display font-extrabold text-5xl md:text-7xl tracking-tight mb-6 leading-[1.1]">
-        Lead Generation <br/>
-        <span class="text-brand-muted">Run now or run on a schedule</span>
+        Find Leads <br/>
+        <span class="text-brand-muted">Area → keyword → schedule → run</span>
       </h1>
       
       <p class="max-w-2xl mx-auto text-base md:text-lg text-brand-muted font-medium mb-10 leading-relaxed">
-        Your <strong class="inline font-bold text-brand-dark dark:text-white">daily leads workflow</strong> for the SaaS motion — scrape verticals, enrich, then run pipeline + outreach from <strong class="inline font-bold text-brand-dark dark:text-white">Today</strong>.
+        Build lead runs in a guided flow. Set an area, choose what to find, schedule it, then run once or on autopilot.
       </p>
+
+      <div class="sticky top-20 z-20 mb-6 max-w-5xl mx-auto rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-3 shadow-sm">
+        <nav class="flex flex-wrap gap-5 pb-3 mb-3 border-b border-brand-border/30 dark:border-white/10 text-[10px] font-black uppercase tracking-widest" aria-label="Leads navigation">
+          <a href="/leads/find" class="text-brand-dark dark:text-white">Find</a>
+          <a href="/prospecting?tab=queue" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Queue</a>
+          <a href="/prospecting?tab=pipeline" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Pipeline</a>
+          <a href="/prospecting?tab=folders" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Folders</a>
+        </nav>
+        <ol class="grid grid-cols-2 md:grid-cols-4 gap-2 text-left" id="findWizardProgress" aria-label="Find Leads steps">
+          <li data-step-indicator="1" class="rounded-xl px-3 py-2 bg-brand-yellow/10 border border-brand-yellow/40 text-brand-dark dark:text-white text-[11px] font-black uppercase tracking-widest">1. Area</li>
+          <li data-step-indicator="2" class="rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-muted text-[11px] font-black uppercase tracking-widest">2. Keyword + volume</li>
+          <li data-step-indicator="3" class="rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-muted text-[11px] font-black uppercase tracking-widest">3. Schedule</li>
+          <li data-step-indicator="4" class="rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-muted text-[11px] font-black uppercase tracking-widest">4. Review & run</li>
+        </ol>
+      </div>
 
       <!-- Map + search hub: map first, then keyword row -->
       <div class="max-w-5xl mx-auto bg-white/40 dark:bg-slate-900/40 backdrop-blur-xl rounded-[2.5rem] border border-white/20 dark:border-white/5 shadow-2xl relative z-10 transition-all duration-500 overflow-hidden text-left" id="searchContainer">
         <% const _sp = typeof searchPrefill !== 'undefined' && searchPrefill ? searchPrefill : { keyword: '', city: '', state: '', qty: 20 }; %>
         <form action="/search" method="POST" id="searchForm">
-        <%- include('partials/find_area_map') %>
+        <section data-step-panel="1" class="wizard-step-panel">
+          <%- include('partials/find_area_map') %>
+          <div class="px-6 py-4 border-b border-brand-border/10 dark:border-white/5 flex justify-end">
+            <button type="button" data-step-next="2" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Next: keyword + volume</button>
+          </div>
+        </section>
 
-        <div class="px-2 pb-2 sm:px-3 sm:pb-3">
+        <div class="px-2 pb-2 sm:px-3 sm:pb-3 wizard-step-panel hidden" data-step-panel="2">
           <div class="px-3 pt-4 pb-2 sm:px-5 sm:pt-5 border-t border-brand-border/10 dark:border-white/5">
             <h2 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white mt-0.5">Set what to find</h2>
-            <p class="text-sm text-brand-muted mt-1">Use the same map workflow above to set location, then choose keyword, lead count, and run mode here. <strong class="font-semibold text-brand-dark dark:text-white">Scheduled</strong> repeats this search automatically; you’ll get the bell + desktop notification when each run finishes (allow notifications for this site).</p>
+            <p class="text-sm text-brand-muted mt-1">Choose keyword, location, and lead count. Keep this simple — you can refine after the first run.</p>
           </div>
           <!-- Main Search Row -->
           <div class="grid grid-cols-1 lg:flex items-center gap-2 lg:gap-0 px-2 w-full">
@@ -69,32 +89,10 @@
                 class="w-full min-w-0 bg-transparent border-none focus:ring-0 text-brand-dark dark:text-slate-100 font-bold text-lg p-0">
             </div>
 
-            <div class="hidden lg:block w-px h-8 bg-brand-border/20 mx-2 shrink-0"></div>
-
-            <!-- Mode Toggle -->
-            <div class="px-4 py-3 flex flex-col items-start hover:bg-white/40 dark:hover:bg-white/5 rounded-2xl transition-all duration-300 flex-1 min-w-0">
-              <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-2 ml-1 whitespace-nowrap">Mode</label>
-              <div class="flex items-center gap-1 p-1 bg-brand-cream/80 dark:bg-slate-800/80 rounded-xl border border-brand-border/20 dark:border-white/5 w-full h-9">
-                <button type="button" id="modeRunNow" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10">Run Now</button>
-                <button type="button" id="modeSchedule" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100">Scheduled</button>
-              </div>
-              <input type="hidden" name="mode" id="searchModeInput" value="run">
-              <input type="hidden" name="timezone" id="userTimezone">
-            </div>
-
-            <div class="hidden lg:block w-px h-8 bg-brand-border/20 mx-2 shrink-0"></div>
-            
-            <!-- CTA Button -->
-            <div class="p-1 shrink-0">
-              <button type="submit" id="searchBtn" class="w-full lg:w-auto btn-pill btn-primary px-8 py-4 text-base group shadow-lg hover:shadow-brand-yellow/20 rounded-2xl transition-all duration-300">
-                <span id="searchBtnText" class="flex items-center justify-center gap-2 whitespace-nowrap font-black">
-                  Find Leads
-                  <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
-                </span>
-              </button>
-            </div>
+          </div>
+          <div class="px-4 pb-3 flex items-center justify-between gap-3">
+            <button type="button" data-step-prev="1" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Back</button>
+            <button type="button" data-step-next="3" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Next: schedule</button>
           </div>
 
           <!-- Folder target for this search -->
@@ -119,7 +117,25 @@
           </div>
 
           <!-- Scheduled scrape settings -->
-          <div id="scheduledSearchSettings" class="hidden overflow-hidden border-t border-brand-border/10 dark:border-white/5 transition-all duration-500">
+          <div class="wizard-step-panel hidden border-t border-brand-border/10 dark:border-white/5" data-step-panel="3">
+            <div class="px-6 py-4">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Choose run mode</h3>
+              <p class="text-sm text-brand-muted mt-1">Default is scheduled so lead runs can happen automatically. You can still run one now.</p>
+            </div>
+            <div class="px-6 pb-4">
+              <label class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-2 ml-1 block whitespace-nowrap">Mode</label>
+              <div class="flex items-center gap-1 p-1 bg-brand-cream/80 dark:bg-slate-800/80 rounded-xl border border-brand-border/20 dark:border-white/5 w-full max-w-xs h-10">
+                <button type="button" id="modeRunNow" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100">Run now</button>
+                <button type="button" id="modeSchedule" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10">Scheduled</button>
+              </div>
+              <input type="hidden" name="mode" id="searchModeInput" value="schedule">
+              <input type="hidden" name="timezone" id="userTimezone">
+              <label class="mt-3 inline-flex items-center gap-2 text-sm text-brand-dark dark:text-white">
+                <input type="checkbox" name="runNowAlso" id="runNowAlso" class="rounded border-brand-border" />
+                Run once now too
+              </label>
+            </div>
+            <div id="scheduledSearchSettings" class="overflow-hidden border-t border-brand-border/10 dark:border-white/5 transition-all duration-500">
             <div class="flex flex-wrap items-center gap-6 sm:gap-8 px-6 py-4">
                 <div id="datePocket" class="flex flex-col items-start group/date">
                     <label for="scheduledDateInput" class="text-[9px] font-extrabold uppercase tracking-[0.2em] text-brand-muted mb-1 ml-1 group-hover/date:text-brand-yellow transition-colors whitespace-nowrap">Run date</label>
@@ -139,6 +155,26 @@
                 </div>
                 
                 <div class="w-full sm:w-auto sm:ml-auto text-[10px] font-black uppercase tracking-widest text-brand-muted/40 italic"><a href="/prospecting?tab=queue" class="hover:text-brand-yellow transition-colors">Scheduled runs</a></div>
+            </div>
+            </div>
+            <div class="px-4 pb-4 flex items-center justify-between gap-3">
+              <button type="button" data-step-prev="2" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Back</button>
+              <button type="button" data-step-next="4" class="btn-pill btn-primary px-6 py-2.5 text-[10px] font-black uppercase tracking-widest">Next: review & run</button>
+            </div>
+          </div>
+          <div class="wizard-step-panel hidden border-t border-brand-border/10 dark:border-white/5 px-6 py-5" data-step-panel="4">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Review & run</h3>
+            <p class="text-sm text-brand-muted mt-1 mb-4">Confirm your setup, then run. You can leave this page and continue from Today while lead runs process.</p>
+            <div class="flex items-center justify-between gap-3">
+              <button type="button" data-step-prev="3" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Back</button>
+              <button type="submit" id="searchBtn" class="w-full sm:w-auto btn-pill btn-primary px-8 py-4 text-base group shadow-lg hover:shadow-brand-yellow/20 rounded-2xl transition-all duration-300">
+                <span id="searchBtnText" class="flex items-center justify-center gap-2 whitespace-nowrap font-black">
+                  Start lead run
+                  <svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                  </svg>
+                </span>
+              </button>
             </div>
           </div>
         </form>
@@ -166,7 +202,7 @@
               </div>
               <form action="/schedules/delete" method="POST" class="shrink-0" onsubmit="return confirm('Stop this scheduled job?')">
                 <input type="hidden" name="key" value="<%= job.key %>">
-                <input type="hidden" name="returnTo" value="/">
+                <input type="hidden" name="returnTo" value="/leads/find">
                 <button type="submit" class="w-9 h-9 rounded-lg bg-white dark:bg-slate-800 border border-brand-border/30 dark:border-white/10 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors flex items-center justify-center" title="Remove schedule" aria-label="Remove <%= job.keyword %> schedule">
                   <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                 </button>
@@ -186,12 +222,13 @@
         <div class="w-16 h-16 bg-brand-yellow/20 rounded-full flex items-center justify-center mx-auto mb-6">
           <div class="animate-spin rounded-full h-8 w-8 border-4 border-brand-yellow/30 border-t-brand-yellow"></div>
         </div>
-        <h3 class="font-display font-bold text-xl mb-2">Scraping & Hunting Socials...</h3>
-        <p class="text-brand-muted text-sm px-8">We're finding company data and performing a deep social hunt. This can take 2-5 minutes. Please keep this tab open.</p>
+        <h3 class="font-display font-bold text-xl mb-2">Lead run started</h3>
+        <p class="text-brand-muted text-sm px-8">You can keep working in Today while this runs. We’ll notify you when results are ready.</p>
       </div>
     </div>
 
     <!-- Features Section / Proof -->
+    <% if ((typeof totalPipelineCount !== 'undefined' ? totalPipelineCount : 0) === 0) { %>
     <div class="grid-features mt-24">
       <div class="brand-card p-10">
         <div class="feature-icon-container bg-blue-50 text-blue-500">
@@ -233,6 +270,7 @@
         <p class="text-brand-muted text-sm leading-relaxed">Filter leads based on customer reviews and ratings to target the best prospects.</p>
       </div>
     </div>
+    <% } %>
   </main>
 
   <script src="/js/app.js"></script>

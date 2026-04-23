@@ -1,0 +1,368 @@
+<script>
+(function () {
+  const vmAudioStatus = document.getElementById('vmAudioStatus');
+  const vmActiveBadge = document.getElementById('vmActiveBadge');
+  const vmActiveBadgeName = document.getElementById('vmActiveBadgeName');
+  const vmWeeklyDay = document.getElementById('vmWeeklyDay');
+  const vmWeeklyTime = document.getElementById('vmWeeklyTime');
+  const vmWeeklyEnabled = document.getElementById('vmWeeklyEnabled');
+  const vmSaveWeeklyBtn = document.getElementById('vmSaveWeeklyBtn');
+  const vmUploadInput = document.getElementById('vmUploadInput');
+  const vmRecordStartBtn = document.getElementById('vmRecordStartBtn');
+  const vmRecordStopBtn = document.getElementById('vmRecordStopBtn');
+  const vmLibraryList = document.getElementById('vmLibraryList');
+  const vmDeleteModal = document.getElementById('vmDeleteModal');
+  const vmDeleteModalName = document.getElementById('vmDeleteModalName');
+  const vmDeleteModalMeta = document.getElementById('vmDeleteModalMeta');
+  const vmDeleteCancelBtn = document.getElementById('vmDeleteCancelBtn');
+  const vmDeleteConfirmBtn = document.getElementById('vmDeleteConfirmBtn');
+  const vmStep1 = document.getElementById('vmStep1');
+  const vmStep2 = document.getElementById('vmStep2');
+  const vmStep3 = document.getElementById('vmStep3');
+  const vmStepDot1 = document.getElementById('vmStepDot1');
+  const vmStepDot2 = document.getElementById('vmStepDot2');
+  const vmStepDot3 = document.getElementById('vmStepDot3');
+  let vmRecorder = null;
+  let vmChunks = [];
+  let vmSettingsLoaded = false;
+  let vmLibrary = [];
+  let vmActiveId = '';
+  let vmDeletePendingId = '';
+
+  function pillClass(done, current) {
+    if (current) {
+      return 'flex items-center gap-2 rounded-full border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white';
+    }
+    if (done) {
+      return 'flex items-center gap-2 rounded-full border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-emerald-900 dark:text-emerald-200';
+    }
+    return 'flex items-center gap-2 rounded-full border border-brand-border/50 dark:border-white/10 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted';
+  }
+
+  function updateVoicemailSteps() {
+    var libCount = Array.isArray(vmLibrary) ? vmLibrary.length : 0;
+    var hasActive = String(vmActiveId || '').trim() !== '';
+    var unlock2 = libCount > 0;
+    var unlock3 = hasActive;
+    if (vmStep2) {
+      vmStep2.classList.toggle('opacity-50', !unlock2);
+      vmStep2.classList.toggle('pointer-events-none', !unlock2);
+    }
+    if (vmStep3) {
+      vmStep3.classList.toggle('opacity-50', !unlock3);
+      vmStep3.classList.toggle('pointer-events-none', !unlock3);
+    }
+    function ring(el, on) {
+      if (!el) return;
+      el.classList.toggle('ring-2', !!on);
+      el.classList.toggle('ring-brand-yellow/40', !!on);
+    }
+    ring(vmStep1, !unlock2);
+    ring(vmStep2, unlock2 && !hasActive);
+    ring(vmStep3, unlock3);
+    if (vmStepDot1) vmStepDot1.className = pillClass(unlock2, !unlock2);
+    if (vmStepDot2) vmStepDot2.className = pillClass(hasActive, unlock2 && !hasActive);
+    if (vmStepDot3) vmStepDot3.className = pillClass(false, unlock3);
+  }
+
+  function formatVmDate(iso) {
+    if (!iso) return '';
+    try {
+      return new Date(iso).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function renderVoicemailLibrary() {
+    if (!vmLibraryList) return;
+    vmLibraryList.innerHTML = '';
+    if (!Array.isArray(vmLibrary) || !vmLibrary.length) {
+      vmLibraryList.innerHTML = '<p class="text-[11px] text-brand-muted dark:text-slate-400">No saved voicemail recordings yet.</p>';
+      return;
+    }
+    vmLibrary
+      .slice()
+      .sort(function (a, b) {
+        return Date.parse(String(b.uploadedAt || '')) - Date.parse(String(a.uploadedAt || ''));
+      })
+      .forEach(function (item) {
+        var isActive = String(item.id || '') === String(vmActiveId || '');
+        var wrap = document.createElement('div');
+        wrap.className = 'flex flex-wrap items-center gap-2 rounded-xl border px-3 py-2 ' +
+          (isActive
+            ? 'border-brand-yellow/60 bg-brand-yellow/10'
+            : 'border-brand-border/30 dark:border-white/10 bg-white/50 dark:bg-slate-800/40');
+        var label = item.fileName || 'Voicemail recording';
+        var meta = formatVmDate(item.uploadedAt);
+        wrap.innerHTML =
+          '<div class="min-w-0 flex-1">' +
+            '<p class="text-xs font-semibold text-brand-dark dark:text-white truncate">' + label + '</p>' +
+            '<p class="text-[10px] text-brand-muted dark:text-slate-400">' + (meta || 'Saved recording') + '</p>' +
+          '</div>' +
+          '<audio controls preload="none" class="h-8 max-w-[13rem]"><source src="' + item.audioUrl + '"></audio>' +
+          '<button type="button" class="vm-set-active btn-pill px-3 py-1.5 text-[10px] font-black uppercase tracking-widest ' +
+            (isActive
+              ? 'bg-brand-yellow text-brand-dark'
+              : 'bg-white dark:bg-slate-800 border border-brand-border/30 dark:border-white/10 text-brand-dark dark:text-white') +
+            '" data-vm-id="' + String(item.id || '') + '">' +
+            (isActive ? 'Active' : 'Set active') +
+          '</button>' +
+          '<button type="button" class="vm-delete btn-pill px-3 py-1.5 text-[10px] font-black uppercase tracking-widest border border-rose-300/50 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30" data-vm-id="' + String(item.id || '') + '">Delete</button>';
+        vmLibraryList.appendChild(wrap);
+      });
+    updateVoicemailSteps();
+  }
+
+  function updateVmActiveBadge() {
+    if (!vmActiveBadge || !vmActiveBadgeName) return;
+    const active = (Array.isArray(vmLibrary) ? vmLibrary : []).find(function (x) {
+      return String((x && x.id) || '') === String(vmActiveId || '');
+    });
+    if (!active) {
+      vmActiveBadge.classList.add('hidden');
+      vmActiveBadgeName.textContent = 'None selected';
+      updateVoicemailSteps();
+      return;
+    }
+    vmActiveBadge.classList.remove('hidden');
+    vmActiveBadgeName.textContent = String(active.fileName || 'Voicemail recording');
+    updateVoicemailSteps();
+  }
+
+  function openVmDeleteModal(item) {
+    if (!vmDeleteModal || !item) return;
+    vmDeletePendingId = String(item.id || '').trim();
+    if (vmDeleteModalName) vmDeleteModalName.textContent = item.fileName || 'Voicemail recording';
+    if (vmDeleteModalMeta) vmDeleteModalMeta.textContent = formatVmDate(item.uploadedAt) || 'Saved recording';
+    vmDeleteModal.classList.remove('hidden');
+    vmDeleteModal.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeVmDeleteModal() {
+    if (!vmDeleteModal) return;
+    vmDeleteModal.classList.add('hidden');
+    vmDeleteModal.setAttribute('aria-hidden', 'true');
+    vmDeletePendingId = '';
+  }
+
+  async function uploadVoicemailBlob(blob, filename) {
+    const fd = new FormData();
+    fd.append('audio', blob, filename || 'voicemail.webm');
+    const res = await fetch('/leads/telephony/voicemail/upload', {
+      method: 'POST',
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Voicemail upload failed');
+    return data;
+  }
+
+  async function loadVoicemailSettings() {
+    if (!vmAudioStatus || vmSettingsLoaded) return;
+    try {
+      const res = await fetch('/leads/telephony/voicemail/settings', {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load settings');
+      const s = data.settings || {};
+      if (vmWeeklyDay) vmWeeklyDay.value = String(s.dayOfWeek != null ? s.dayOfWeek : 1);
+      if (vmWeeklyTime) vmWeeklyTime.value = String(s.time || '09:00');
+      if (vmWeeklyEnabled) vmWeeklyEnabled.checked = !!s.enabled;
+      vmLibrary = Array.isArray(s.voicemailLibrary) ? s.voicemailLibrary : [];
+      vmActiveId = String(s.activeVoicemailId || '');
+      if (s.audioUrl) {
+        vmAudioStatus.innerHTML = 'Active voicemail: <a class="underline text-brand-yellow" href="' + s.audioUrl + '" target="_blank" rel="noopener">preview</a>';
+      } else {
+        vmAudioStatus.textContent = 'No voicemail audio uploaded yet.';
+      }
+      renderVoicemailLibrary();
+      updateVmActiveBadge();
+      vmSettingsLoaded = true;
+    } catch (err) {
+      vmAudioStatus.textContent = err.message || 'Failed to load voicemail settings.';
+    }
+  }
+
+  if (vmSaveWeeklyBtn) {
+    vmSaveWeeklyBtn.addEventListener('click', async () => {
+      const original = vmSaveWeeklyBtn.textContent;
+      vmSaveWeeklyBtn.disabled = true;
+      vmSaveWeeklyBtn.textContent = 'Saving...';
+      try {
+        const body = {
+          enabled: !!(vmWeeklyEnabled && vmWeeklyEnabled.checked),
+          dayOfWeek: vmWeeklyDay ? vmWeeklyDay.value : '1',
+          time: vmWeeklyTime ? vmWeeklyTime.value : '09:00',
+          maxLeadsPerRun: 25,
+        };
+        const res = await fetch('/leads/telephony/voicemail/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not save weekly settings');
+        window.alert('Weekly voicemail settings saved.');
+      } catch (err) {
+        window.alert(err.message || 'Could not save weekly settings.');
+      } finally {
+        vmSaveWeeklyBtn.disabled = false;
+        vmSaveWeeklyBtn.textContent = original;
+      }
+    });
+  }
+
+  if (vmUploadInput) {
+    vmUploadInput.addEventListener('change', async () => {
+      const file = vmUploadInput.files && vmUploadInput.files[0];
+      if (!file) return;
+      try {
+        vmAudioStatus.textContent = 'Uploading voicemail audio...';
+        const up = await uploadVoicemailBlob(file, file.name || 'voicemail.webm');
+        vmLibrary = Array.isArray(up.voicemailLibrary) ? up.voicemailLibrary : vmLibrary;
+        vmActiveId = String(up.activeVoicemailId || vmActiveId || '');
+        vmAudioStatus.innerHTML = 'Active voicemail: <a class="underline text-brand-yellow" href="' + up.audioUrl + '" target="_blank" rel="noopener">preview</a>';
+        renderVoicemailLibrary();
+        updateVmActiveBadge();
+      } catch (err) {
+        vmAudioStatus.textContent = err.message || 'Upload failed.';
+      } finally {
+        vmUploadInput.value = '';
+      }
+    });
+  }
+
+  if (vmRecordStartBtn && vmRecordStopBtn) {
+    vmRecordStartBtn.addEventListener('click', async () => {
+      try {
+        if (!navigator.mediaDevices || !window.MediaRecorder) {
+          throw new Error('Browser recording is not supported here.');
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        vmChunks = [];
+        vmRecorder = new MediaRecorder(stream);
+        vmRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) vmChunks.push(e.data);
+        };
+        vmRecorder.onstop = async () => {
+          try {
+            const blob = new Blob(vmChunks, { type: 'audio/webm' });
+            vmAudioStatus.textContent = 'Uploading recorded voicemail...';
+            const up = await uploadVoicemailBlob(blob, 'voicemail-recording.webm');
+            vmLibrary = Array.isArray(up.voicemailLibrary) ? up.voicemailLibrary : vmLibrary;
+            vmActiveId = String(up.activeVoicemailId || vmActiveId || '');
+            vmAudioStatus.innerHTML = 'Active voicemail: <a class="underline text-brand-yellow" href="' + up.audioUrl + '" target="_blank" rel="noopener">preview</a>';
+            renderVoicemailLibrary();
+            updateVmActiveBadge();
+          } catch (err) {
+            vmAudioStatus.textContent = err.message || 'Recording upload failed.';
+          }
+        };
+        vmRecorder.start();
+        vmRecordStartBtn.disabled = true;
+        vmRecordStopBtn.disabled = false;
+        vmAudioStatus.textContent = 'Recording... click Stop + save when done.';
+      } catch (err) {
+        vmAudioStatus.textContent = err.message || 'Could not start recording.';
+      }
+    });
+
+    vmRecordStopBtn.addEventListener('click', () => {
+      if (!vmRecorder) return;
+      try {
+        vmRecorder.stop();
+      } catch (_) {
+        /* ignore */
+      }
+      vmRecordStopBtn.disabled = true;
+      vmRecordStartBtn.disabled = false;
+    });
+  }
+  if (vmLibraryList) {
+    vmLibraryList.addEventListener('click', async function (e) {
+      var btnEl = e.target && e.target.closest ? e.target.closest('.vm-set-active') : null;
+      if (btnEl) {
+        var vmId = String(btnEl.getAttribute('data-vm-id') || '').trim();
+        if (!vmId) return;
+        var original = btnEl.textContent;
+        btnEl.disabled = true;
+        btnEl.textContent = 'Saving...';
+        try {
+          const res = await fetch('/leads/telephony/voicemail/active', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ activeVoicemailId: vmId }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not set active voicemail.');
+          vmActiveId = vmId;
+          renderVoicemailLibrary();
+          updateVmActiveBadge();
+          if (data.audioUrl) {
+            vmAudioStatus.innerHTML = 'Active voicemail: <a class="underline text-brand-yellow" href="' + data.audioUrl + '" target="_blank" rel="noopener">preview</a>';
+          }
+        } catch (err) {
+          vmAudioStatus.textContent = err.message || 'Could not set active voicemail.';
+          btnEl.textContent = original;
+        } finally {
+          btnEl.disabled = false;
+        }
+        return;
+      }
+
+      var deleteBtn = e.target && e.target.closest ? e.target.closest('.vm-delete') : null;
+      if (deleteBtn) {
+        var deleteId = String(deleteBtn.getAttribute('data-vm-id') || '').trim();
+        if (!deleteId) return;
+        var item = vmLibrary.find(function (x) { return String(x.id || '') === deleteId; });
+        if (!item) return;
+        openVmDeleteModal(item);
+      }
+    });
+  }
+  if (vmDeleteModal) {
+    vmDeleteModal.addEventListener('click', function (e) {
+      if (e.target && e.target.hasAttribute('data-vm-delete-close')) closeVmDeleteModal();
+    });
+  }
+  if (vmDeleteCancelBtn) vmDeleteCancelBtn.addEventListener('click', closeVmDeleteModal);
+  if (vmDeleteConfirmBtn) {
+    vmDeleteConfirmBtn.addEventListener('click', async function () {
+      var deleteId = String(vmDeletePendingId || '').trim();
+      if (!deleteId) return;
+      var original = vmDeleteConfirmBtn.textContent;
+      vmDeleteConfirmBtn.disabled = true;
+      vmDeleteConfirmBtn.textContent = 'Deleting...';
+      try {
+        const res = await fetch('/leads/telephony/voicemail/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ voicemailId: deleteId }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not delete voicemail.');
+        vmLibrary = Array.isArray(data.voicemailLibrary) ? data.voicemailLibrary : [];
+        vmActiveId = String(data.activeVoicemailId || '');
+        renderVoicemailLibrary();
+        updateVmActiveBadge();
+        if (data.audioUrl) {
+          vmAudioStatus.innerHTML = 'Active voicemail: <a class="underline text-brand-yellow" href="' + data.audioUrl + '" target="_blank" rel="noopener">preview</a>';
+        } else {
+          vmAudioStatus.textContent = 'No voicemail audio uploaded yet.';
+        }
+        closeVmDeleteModal();
+      } catch (err) {
+        vmAudioStatus.textContent = err.message || 'Could not delete voicemail.';
+      } finally {
+        vmDeleteConfirmBtn.disabled = false;
+        vmDeleteConfirmBtn.textContent = original;
+      }
+    });
+  }
+  updateVoicemailSteps();
+  loadVoicemailSettings();
+})();
+</script>

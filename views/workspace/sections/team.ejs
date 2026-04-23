@@ -1,0 +1,30 @@
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-4">Members & roles</h2>
+  <% if (workspace && workspace.members) { %>
+    <div class="overflow-x-auto rounded-xl border border-brand-border/40 dark:border-white/10">
+      <table class="min-w-full text-sm">
+        <thead class="text-left text-[10px] font-black uppercase tracking-widest text-brand-muted border-b border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/60">
+          <tr>
+            <th class="px-4 py-3">Email</th>
+            <th class="px-4 py-3">Role</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% Object.entries(workspace.members).forEach(([email, meta]) => { %>
+            <tr class="border-b border-brand-border/30 dark:border-white/5 last:border-0">
+              <td class="px-4 py-3 font-semibold text-brand-dark dark:text-white"><%= email %></td>
+              <td class="px-4 py-3"><span class="text-xs font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/15 text-amber-900 dark:text-amber-200"><%= meta.role %></span></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } else { %>
+    <p class="text-sm text-brand-muted">No members yet — sign in again to seed your account.</p>
+  <% } %>
+  <p class="text-sm text-brand-muted mt-6">Invite teammates and manage roles from this screen soon. Until then, membership follows your account workspace.</p>
+  <details class="mt-6 text-xs text-brand-muted rounded-xl border border-brand-border/40 dark:border-white/10 px-3 py-2">
+    <summary class="cursor-pointer font-semibold text-brand-dark dark:text-white">Advanced: SDR list via server configuration</summary>
+    <p class="mt-2 leading-relaxed">Some deployments mark SDR seats with a server-side allowlist so routing stays aligned with your identity provider. If you are self-hosting, your operator can configure that list; it is not editable from this UI.</p>
+  </details>
+</div>

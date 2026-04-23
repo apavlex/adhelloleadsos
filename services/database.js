@@ -986,6 +986,11 @@ module.exports = {
       const ts = Date.parse(String(task.scheduledAt));
       if (Number.isFinite(ts)) scheduledAt = new Date(ts).toISOString();
     }
+    let leadKey = null;
+    if (task.leadKey != null && String(task.leadKey).trim() !== '') {
+      const lk = String(task.leadKey).trim();
+      if (lk.startsWith('lead:')) leadKey = lk.slice(0, 200);
+    }
     const payload = {
       id,
       title: String(task.title || '').trim() || 'Untitled',
@@ -994,6 +999,7 @@ module.exports = {
       createdAt: task.createdAt || now,
       updatedAt: now,
       scheduledAt,
+      leadKey,
     };
     const key = this._userTaskKey(workspaceId, email, id);
     await db.set(key, JSON.stringify(payload));

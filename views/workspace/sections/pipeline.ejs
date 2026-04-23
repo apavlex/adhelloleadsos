@@ -1,0 +1,9 @@
+<% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace && workspace && workspace.id) { %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 flex flex-wrap items-center justify-between gap-4">
+  <div>
+    <h2 class="font-bold text-lg text-brand-dark dark:text-white">Pipeline stages</h2>
+    <p class="text-sm text-brand-muted mt-1">Reorder stages, apply presets, or redesign with AI. Leads stay mapped when you change the board.</p>
+  </div>
+  <a href="/workspaces/<%= workspace.id %>/settings/pipeline" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0">Edit pipeline</a>
+</div>
+<% } %>

@@ -1,0 +1,159 @@
+<script>
+(function () {
+  var btn = document.getElementById('wsPhoneBankSave');
+  var msg = document.getElementById('wsPhoneBankMsg');
+  var list = document.getElementById('wsPhoneBankList');
+  var addBtn = document.getElementById('wsPhoneBankAdd');
+  var submitBtn = document.getElementById('wsPhoneBankSubmitCnam');
+  var agentPhoneInput = document.getElementById('wsAgentPhone');
+  var agentWrap = document.getElementById('wsAgentPhoneWrap');
+  var perNumberHourCapInput = document.getElementById('wsPerNumberHourCap');
+  var quietStartInput = document.getElementById('wsQuietStart');
+  var quietEndInput = document.getElementById('wsQuietEnd');
+  function formatEta(ms) {
+    if (ms <= 0) return '00:00';
+    var totalMin = Math.ceil(ms / 60000);
+    var hh = Math.floor(totalMin / 60);
+    var mm = totalMin % 60;
+    return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+  }
+  function tickBurnEtas() {
+    var nodes = document.querySelectorAll('.ws-burn-eta[data-until]');
+    if (!nodes.length) return;
+    var now = Date.now();
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var ts = Date.parse(String(el.getAttribute('data-until') || ''));
+      if (!Number.isFinite(ts)) {
+        el.textContent = '--:--';
+        continue;
+      }
+      var left = ts - now;
+      el.textContent = formatEta(left);
+      if (left <= 0) {
+        el.textContent = '00:00';
+      }
+    }
+  }
+  function getCallMode() {
+    var r = document.querySelector('input[name="wsCallMode"]:checked');
+    return r ? String(r.value || 'cloud_dial').trim() : 'cloud_dial';
+  }
+  function syncAgentPhoneVisibility() {
+    if (!agentWrap) return;
+    agentWrap.classList.toggle('hidden', getCallMode() !== 'agent_first');
+  }
+  function bindCallModeRadios() {
+    document.querySelectorAll('input[name="wsCallMode"]').forEach(function (r) {
+      r.addEventListener('change', syncAgentPhoneVisibility);
+    });
+    syncAgentPhoneVisibility();
+  }
+  if (!btn) return;
+  tickBurnEtas();
+  window.setInterval(tickBurnEtas, 30000);
+  bindCallModeRadios();
+  function bindEntryRow(row) {
+    if (!row) return;
+    var remove = row.querySelector('.ws-phone-remove');
+    if (remove) {
+      remove.addEventListener('click', function () {
+        row.remove();
+      });
+    }
+  }
+  if (list) {
+    Array.prototype.forEach.call(list.querySelectorAll('.ws-phone-entry'), bindEntryRow);
+  }
+  if (addBtn && list) {
+    addBtn.addEventListener('click', function () {
+      var div = document.createElement('div');
+      div.className = 'grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry';
+      div.innerHTML = '' +
+        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label><input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="+15551234567" /></div>' +
+        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label><input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="ADHELLO AI" /></div>' +
+        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label><select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"><option value="not_submitted">not_submitted</option><option value="submitted">submitted</option><option value="in_review">in_review</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="live">live</option></select></div>' +
+        '<div class="md:col-span-2"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label><label class="inline-flex items-center gap-2 text-xs"><input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="" />Use</label></div>' +
+        '<div class="md:col-span-1 flex md:justify-end"><button type="button" class="ws-phone-remove text-[10px] font-black uppercase tracking-widest text-rose-600 hover:underline">Remove</button></div>' +
+        '<div class="md:col-span-12"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM notes</label><input type="text" class="ws-phone-cnam-notes w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="Carrier ticket / support notes" /></div>';
+      list.appendChild(div);
+      bindEntryRow(div);
+    });
+  }
+  function collectEntries() {
+    if (!list) return [];
+    var rows = list.querySelectorAll('.ws-phone-entry');
+    return Array.prototype.map.call(rows, function (row) {
+      var number = (row.querySelector('.ws-phone-number') || {}).value || '';
+      var callerName = (row.querySelector('.ws-phone-caller-name') || {}).value || '';
+      var cnamStatus = (row.querySelector('.ws-phone-cnam-status') || {}).value || 'not_submitted';
+      var cnamNotes = (row.querySelector('.ws-phone-cnam-notes') || {}).value || '';
+      return { number: number, callerName: callerName, cnamStatus: cnamStatus, cnamNotes: cnamNotes };
+    }).filter(function (x) { return x.number && x.number.trim(); });
+  }
+  function activeNumber() {
+    var picked = document.querySelector('input[name="wsActiveCallerRadio"]:checked');
+    if (!picked) return '';
+    return String(picked.value || '').trim();
+  }
+  if (list) {
+    list.addEventListener('input', function (e) {
+      if (e.target && e.target.classList.contains('ws-phone-number')) {
+        var row = e.target.closest('.ws-phone-entry');
+        var active = row ? row.querySelector('.ws-phone-active') : null;
+        if (active) active.value = e.target.value;
+      }
+    });
+  }
+  btn.addEventListener('click', function () {
+    var entries = collectEntries();
+    fetch('/workspace/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        phoneBankEntries: entries,
+        activeCallerId: activeNumber(),
+        callMode: getCallMode(),
+        agentPhone: agentPhoneInput ? String(agentPhoneInput.value || '').trim() : '',
+        perNumberHourCap: perNumberHourCapInput ? String(perNumberHourCapInput.value || '').trim() : '',
+        quietHoursStart: quietStartInput ? String(quietStartInput.value || '').trim() : '',
+        quietHoursEnd: quietEndInput ? String(quietEndInput.value || '').trim() : '',
+      }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (msg) {
+        msg.classList.remove('hidden');
+        msg.textContent = data && data.success ? 'Saved.' : (data && data.error) || 'Save failed';
+        msg.className = 'text-sm ' + (data && data.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+      }
+    }).catch(function () {
+      if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Save failed'; msg.className = 'text-sm text-rose-600'; }
+    });
+  });
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function () {
+      var number = activeNumber();
+      if (!number) {
+        if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Select an active number first.'; msg.className = 'text-sm text-rose-600'; }
+        return;
+      }
+      var row = document.querySelector('.ws-phone-entry input.ws-phone-active:checked');
+      row = row ? row.closest('.ws-phone-entry') : null;
+      var callerName = row ? ((row.querySelector('.ws-phone-caller-name') || {}).value || '') : '';
+      var cnamNotes = row ? ((row.querySelector('.ws-phone-cnam-notes') || {}).value || '') : '';
+      fetch('/workspace/phone-bank/cnam-submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ number: number, callerName: callerName, cnamNotes: cnamNotes }),
+      }).then(function (r) { return r.json(); }).then(function (data) {
+        if (msg) {
+          msg.classList.remove('hidden');
+          msg.textContent = data && data.success ? 'CNAM request submitted.' : (data && data.error) || 'Submit failed';
+          msg.className = 'text-sm ' + (data && data.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+        }
+      }).catch(function () {
+        if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Submit failed'; msg.className = 'text-sm text-rose-600'; }
+      });
+    });
+  }
+})();
+</script>

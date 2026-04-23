@@ -56,8 +56,10 @@
       fired[k] = now;
       saveMap(fired);
       try {
+        var body = task.title || 'Scheduled task';
+        if (task.leadTitle) body += ' — ' + task.leadTitle;
         new Notification('Task reminder', {
-          body: task.title || 'Scheduled task',
+          body: body,
           tag: k,
           silent: false,
         });

@@ -76,6 +76,63 @@ function assignablePool(workspace) {
 }
 
 /**
+ * Admins + SDRs in persisted order (drag ribbon), then any new pool members appended.
+ */
+function orderedRoundRobinPool(workspace) {
+  const base = assignablePool(workspace);
+  if (base.length === 0) return [];
+  const set = new Set(base.map((e) => e.toLowerCase()));
+  const raw =
+    workspace && Array.isArray(workspace.roundRobinOrder) ? workspace.roundRobinOrder : [];
+  const seen = new Set();
+  const out = [];
+  for (const item of raw) {
+    const em = String(item || '')
+      .trim()
+      .toLowerCase();
+    if (!em || !set.has(em) || seen.has(em)) continue;
+    const canonical = base.find((x) => x.toLowerCase() === em);
+    if (!canonical) continue;
+    seen.add(em);
+    out.push(canonical);
+  }
+  for (const em of base) {
+    const low = em.toLowerCase();
+    if (!seen.has(low)) {
+      seen.add(low);
+      out.push(em);
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {object} workspace
+ * @param {string[]} incoming emails (any subset order — must cover pool exactly for a full reorder)
+ */
+function normalizeRoundRobinOrder(workspace, incoming) {
+  const base = assignablePool(workspace);
+  if (base.length === 0) return [];
+  if (!Array.isArray(incoming) || incoming.length === 0) return [...base];
+  const lowerBase = new Set(base.map((e) => e.toLowerCase()));
+  const seen = new Set();
+  const out = [];
+  for (const item of incoming) {
+    const raw = String(item || '').trim();
+    if (!raw) continue;
+    const match = base.find((e) => e.toLowerCase() === raw.toLowerCase());
+    if (!match || seen.has(match.toLowerCase())) continue;
+    if (!lowerBase.has(match.toLowerCase())) continue;
+    seen.add(match.toLowerCase());
+    out.push(match);
+  }
+  for (const em of base) {
+    if (!seen.has(em.toLowerCase())) out.push(em);
+  }
+  return out;
+}
+
+/**
  * Round-robin among SDR/admin assignees; persists counter on workspace.
  */
 async function pickRoundRobinAssignee(workspaceId) {
@@ -83,7 +140,7 @@ async function pickRoundRobinAssignee(workspaceId) {
   if (!id) return null;
   let w = await dbService.getWorkspace(id);
   if (!w) w = await ensureWorkspaceAndMember(id, '');
-  const pool = assignablePool(w);
+  const pool = orderedRoundRobinPool(w);
   if (pool.length === 0) return null;
   let idx = typeof w.roundRobinIndex === 'number' ? w.roundRobinIndex : 0;
   idx = ((idx % pool.length) + pool.length) % pool.length;
@@ -99,6 +156,8 @@ module.exports = {
   roleForEmail,
   canManageTeam,
   assignablePool,
+  orderedRoundRobinPool,
+  normalizeRoundRobinOrder,
   pickRoundRobinAssignee,
   userEmail,
 };

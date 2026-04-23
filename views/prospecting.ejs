@@ -11,14 +11,14 @@
 
   <main class="max-wide px-6 py-10 md:py-14">
     <div class="mb-10 md:mb-12 max-w-3xl">
-      <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">Prospecting</h1>
-      <p class="text-sm md:text-base text-brand-muted dark:text-slate-300 font-medium mt-3 leading-relaxed">Queue, pipeline board, and outreach folders in one place. Daily metrics live under <a href="/analytics?tab=tracker" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Reports → Daily tracker</a>.</p>
+      <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">Leads</h1>
     </div>
 
     <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
-    <nav class="flex flex-wrap gap-8 mb-10 border-b border-brand-border/50 dark:border-white/10 pb-px" aria-label="Prospecting sections">
+    <nav class="flex flex-wrap gap-8 mb-10 border-b border-brand-border/50 dark:border-white/10 pb-px" aria-label="Leads sections">
+      <a href="/leads/find" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200">Find</a>
       <a href="/prospecting?tab=queue" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'queue' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Queue</a>
-      <a href="/prospecting?tab=pipeline" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'pipeline' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Pipeline</a>
+      <a href="/pipeline" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'pipeline' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Pipeline</a>
       <a href="/prospecting?tab=folders" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'folders' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Folders</a>
     </nav>
 

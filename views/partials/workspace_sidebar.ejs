@@ -1,0 +1,48 @@
+<% const _sec = typeof workspaceSection !== 'undefined' ? workspaceSection : ''; %>
+<% const _ws = typeof workspace !== 'undefined' ? workspace : null; %>
+<% const _can = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+<% const _hasId = _ws && _ws.id; %>
+<% const _scrape = typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor; %>
+<aside class="w-full md:w-56 shrink-0 md:sticky md:top-[4.75rem] self-start space-y-4" aria-label="Workspace settings">
+  <div>
+    <label for="wsSettingsSearch" class="sr-only">Search settings</label>
+    <input id="wsSettingsSearch" type="search" autocomplete="off" placeholder="Search sections…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-brand-dark dark:text-white placeholder:text-brand-muted" />
+  </div>
+  <nav class="flex flex-col gap-1 text-[10px] font-black uppercase tracking-widest" id="wsSettingsNav">
+    <a href="/scripts" data-ws-nav="sales scripts personas library" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors">Sales scripts</a>
+    <% if (_can && _hasId) { %>
+    <a href="/workspace/pipeline" data-ws-nav="pipeline stages board" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'pipeline' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Pipeline</a>
+    <a href="/workspace/branding" data-ws-nav="brand accent color theme" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'branding' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Brand accent</a>
+    <% } %>
+    <a href="/workspace/team" data-ws-nav="team members roles invite" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'team' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Team</a>
+    <% if (_can) { %>
+    <a href="/workspace/integrations" data-ws-nav="integrations api keys apify outscraper firecrawl" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'integrations' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Integrations</a>
+    <a href="/workspace/phones" data-ws-nav="phone bank numbers cnam signalwire outbound" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'phones' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Phone bank</a>
+    <a href="/workspace/voicemail" data-ws-nav="voicemail weekly drop recording" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'voicemail' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Voicemail</a>
+    <% } %>
+    <% if (_scrape) { %>
+    <a href="/workspace/scrape" data-ws-nav="scrape stack cost apify crawl" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'scrape' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Scrape stack</a>
+    <% } %>
+    <a href="/workspace/routing" data-ws-nav="round robin routing assign inbound sdr" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'routing' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Round-robin</a>
+    <% if (_can) { %>
+    <a href="/workspace/revenue" data-ws-nav="revenue deal value timezone brief" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'revenue' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Revenue</a>
+    <% } %>
+    <a href="/workspace/advanced" data-ws-nav="advanced workspace id" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/40 dark:hover:bg-white/5 transition-colors <%= _sec === 'advanced' ? 'bg-brand-cream/50 dark:bg-white/10 text-brand-dark dark:text-white' : '' %>">Advanced</a>
+  </nav>
+  <script>
+  (function () {
+    var input = document.getElementById('wsSettingsSearch');
+    var nav = document.getElementById('wsSettingsNav');
+    if (!input || !nav) return;
+    input.addEventListener('input', function () {
+      var q = String(input.value || '').trim().toLowerCase();
+      var links = nav.querySelectorAll('a.ws-nav-item');
+      for (var i = 0; i < links.length; i++) {
+        var a = links[i];
+        var hay = (a.textContent + ' ' + (a.getAttribute('data-ws-nav') || '')).toLowerCase();
+        a.style.display = !q || hay.indexOf(q) !== -1 ? '' : 'none';
+      }
+    });
+  })();
+  </script>
+</aside>

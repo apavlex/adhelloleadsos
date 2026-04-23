@@ -1,86 +1,151 @@
 <section id="workspace-sales-scripts" class="scroll-mt-28 mb-16" aria-labelledby="workspace-sales-scripts-heading">
   <div class="mb-8 max-w-3xl">
-    <h2 id="workspace-sales-scripts-heading" class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">Sales <span class="text-brand-muted">scripts</span></h2>
-    <p class="text-brand-muted font-medium mt-2">Edit outreach copy by offer, use the <strong class="text-brand-dark dark:text-white">script coach</strong> to refine, and <strong class="text-brand-dark dark:text-white">save</strong> snippets to the workspace library. Copy autosaves to the server after you pause typing. Swap <code class="text-xs bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{name}}</code> when pasting.</p>
-    <p class="text-xs text-brand-muted mt-3">Mental models and methodology: <a href="/sales/personas" class="text-brand-yellow font-bold hover:underline">AI Personas</a>.</p>
+    <h2 id="workspace-sales-scripts-heading" class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">Script <span class="text-brand-muted">library</span></h2>
+    <p class="text-brand-muted font-medium mt-2">Scripts are grouped by offer. Open a section, edit the text, and use <strong class="text-brand-dark dark:text-white">Coach</strong> for that block — the coach panel on the right always follows the section you chose. <strong class="text-brand-dark dark:text-white">Save</strong> sends a copy to your snippet library; edits to the blocks themselves sync to the workspace after you pause typing.</p>
+    <% if (typeof scriptsPanelShowPersonasCrossLink === 'undefined' || scriptsPanelShowPersonasCrossLink) { %>
+    <p class="text-xs text-brand-muted mt-3">Full-page scripts & coach: <a href="/sales/personas" class="text-brand-yellow font-bold hover:underline">Sales scripts</a>.</p>
+    <% } %>
   </div>
 
-  <div class="grid lg:grid-cols-3 gap-8 items-start">
-    <div class="lg:col-span-2 brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
-      <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 flex flex-wrap gap-2 items-center justify-between gap-y-3">
-        <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Dynamic scripting</h3>
-        <div class="flex flex-wrap gap-2" id="pitchTabs">
+  <% const SCRIPT_SECTION_ORDER = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close']; %>
+  <% const SECTION_HEADINGS = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value proposition', objectionHandling: 'Objection handling', close: 'Close' }; %>
+
+  <div class="grid xl:grid-cols-[minmax(0,1fr)_min(22rem,100%)] gap-8 items-start">
+    <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden min-w-0">
+      <div class="px-4 sm:px-6 py-4 border-b border-brand-border dark:border-white/10 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center sm:justify-between">
+        <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white shrink-0">By offer</h3>
+        <div class="flex flex-wrap gap-2" id="pitchTabs" role="tablist" aria-label="Offer">
           <% SCRIPT_LIBRARY_KEYS.forEach((pk, idx) => { %>
             <% const tab = SCRIPT_LIBRARY[pk]; %>
-            <button type="button" data-pitch="<%= pk %>" class="pitch-tab px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest <%= idx === 0 ? 'bg-brand-yellow text-brand-dark shadow-sm' : 'bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-brand-muted' %>"><%= tab.tabLabel || tab.label %></button>
+            <button type="button" role="tab" aria-selected="<%= idx === 0 ? 'true' : 'false' %>" data-pitch="<%= pk %>" class="pitch-tab px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest <%= idx === 0 ? 'bg-brand-yellow text-brand-dark shadow-sm' : 'bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-brand-muted' %>"><%= tab.tabLabel || tab.label %></button>
           <% }) %>
         </div>
       </div>
 
       <% SCRIPT_LIBRARY_KEYS.forEach((pk, idx) => { %>
         <% const block = SCRIPT_LIBRARY[pk]; %>
-        <div class="pitch-panel px-6 py-8 <%= idx === 0 ? '' : 'hidden' %>" data-panel="<%= pk %>">
-          <p class="text-sm font-bold text-brand-muted mb-6"><%= block.label %></p>
-          <% ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'].forEach((section) => { %>
-            <% const labels = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value prop', objectionHandling: 'Objection handling', close: 'Close' }; %>
-            <div class="mb-8 last:mb-0 script-block" data-service="<%= pk %>" data-section="<%= section %>">
-              <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-                <h4 class="text-[10px] font-black uppercase tracking-widest text-brand-yellow"><%= labels[section] %></h4>
-                <div class="flex flex-wrap gap-2">
-                  <button type="button" class="use-in-coach px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-pitch="<%= pk %>" data-section="<%= section %>">Coach</button>
-                  <button type="button" class="save-to-library px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-<%= pk %>-<%= section %>">Save</button>
-                  <button type="button" class="copy-snippet text-[10px] font-black uppercase text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1 rounded-lg border border-transparent hover:border-brand-border/50" data-copy-target="snippet-<%= pk %>-<%= section %>">Copy</button>
+        <div class="pitch-panel <%= idx === 0 ? '' : 'hidden' %>" data-panel="<%= pk %>" role="tabpanel">
+          <p class="text-sm font-bold text-brand-muted px-4 sm:px-6 pt-6 pb-2"><%= block.label %></p>
+          <div class="px-2 sm:px-4 pb-4">
+            <% SCRIPT_SECTION_ORDER.forEach((section, secIdx) => { %>
+              <% const onlyFirstOpen = idx === 0 && section === 'opening'; %>
+              <details class="script-section-details group border border-brand-border/40 dark:border-white/10 rounded-2xl mb-2 last:mb-0 bg-brand-cream/20 dark:bg-black/10 open:shadow-sm" <%= onlyFirstOpen ? 'open' : '' %> data-service="<%= pk %>" data-section="<%= section %>">
+                <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-2 py-3 px-4 rounded-2xl marker:hidden [&::-webkit-details-marker]:hidden">
+                  <span class="flex items-center gap-2 min-w-0">
+                    <span class="text-brand-muted text-xs font-black shrink-0 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow"><%= SECTION_HEADINGS[section] %></span>
+                  </span>
+                  <span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-<%= pk %>-<%= section %>">Saved</span>
+                </summary>
+                <div class="script-block border-t border-brand-border/40 dark:border-white/10 px-4 pb-4 pt-3" data-service="<%= pk %>" data-section="<%= section %>">
+                  <div class="flex flex-wrap gap-2 justify-end mb-3">
+                    <button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="<%= pk %>" data-section="<%= section %>">Coach</button>
+                    <button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-<%= pk %>-<%= section %>">Save</button>
+                    <button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="snippet-<%= pk %>-<%= section %>">Copy</button>
+                  </div>
+                  <textarea id="snippet-<%= pk %>-<%= section %>" rows="5" class="script-snippet w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[6rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"><%= block[section] %></textarea>
                 </div>
-              </div>
-              <textarea id="snippet-<%= pk %>-<%= section %>" rows="5" class="script-snippet w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-brand-cream/30 dark:bg-black/20 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[6rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"><%= block[section] %></textarea>
-            </div>
-          <% }) %>
+              </details>
+            <% }) %>
+          </div>
         </div>
       <% }) %>
     </div>
 
-    <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden lg:sticky lg:top-24 flex flex-col max-h-[min(85vh,44rem)]">
-      <div class="px-4 py-3 border-b border-brand-border dark:border-white/10 shrink-0">
-        <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white">AI script coach</h3>
-        <p id="coachContextLabel" class="text-[10px] font-bold text-brand-muted mt-1 uppercase tracking-wide">Reputation · Opening</p>
-        <button type="button" id="coachResetBtn" class="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">New conversation</button>
+    <aside class="flex flex-col gap-4 min-w-0 xl:sticky xl:top-24 xl:max-h-[calc(100vh-5.5rem)] xl:overflow-y-auto custom-scrollbar">
+      <% if (typeof PERSONAS !== 'undefined' && PERSONAS && PERSONAS.length) { %>
+      <div class="brand-card dark:bg-slate-900 dark:border-white/10 p-4 shrink-0" aria-labelledby="persona-lenses-heading">
+        <h3 id="persona-lenses-heading" class="font-display font-extrabold text-sm text-brand-dark dark:text-white">Workflow lenses</h3>
+        <p class="text-[10px] text-brand-muted font-medium mt-1 leading-relaxed">Optional mental models — jump to the tool each lens maps to. Scripts stay the same.</p>
+        <ul class="mt-3 space-y-2">
+          <% PERSONAS.forEach((p) => { %>
+            <li>
+              <a href="<%= p.href %>" class="flex items-center gap-3 rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-2.5 hover:border-brand-yellow/60 hover:bg-brand-yellow/5 transition-colors group">
+                <span class="w-9 h-9 rounded-xl bg-gradient-to-br <%= p.color %> flex items-center justify-center text-white font-display font-black text-sm shadow shrink-0"><%= p.name[0] %></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-xs font-bold text-brand-dark dark:text-white"><%= p.name %> — <%= p.role %></span>
+                  <span class="block text-[10px] font-black uppercase tracking-wider text-brand-yellow mt-0.5"><%= p.hrefLabel %></span>
+                </span>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
       </div>
-      <div id="coachMessages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm min-h-[12rem] max-h-[22rem] custom-scrollbar"></div>
-      <div id="coachRefinedWrap" class="hidden px-4 pb-2 shrink-0">
-        <div class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-3">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-2">Suggested script</p>
-          <pre id="coachRefinedText" class="text-xs text-brand-dark dark:text-slate-200 whitespace-pre-wrap font-sans max-h-32 overflow-y-auto"></pre>
-          <button type="button" id="coachApplyBtn" class="mt-2 w-full btn-pill bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest py-2">Apply to this section</button>
+      <% } %>
+
+      <div class="brand-card dark:bg-slate-900 dark:border-white/10 p-4 shrink-0">
+        <h3 class="font-display font-extrabold text-sm text-brand-dark dark:text-white">Merge tags & preview</h3>
+        <p class="text-[10px] text-brand-muted font-medium mt-1">Fill a sample lead, then click a tag to insert it at the cursor in the script box (or use preview as-is).</p>
+        <div class="mt-3 grid grid-cols-1 gap-2">
+          <label class="block text-[10px] font-black uppercase tracking-wider text-brand-muted">Name
+            <input type="text" id="mergePreviewName" value="Jordan Lee" autocomplete="off" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-sm text-brand-dark dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-brand-yellow outline-none" />
+          </label>
+          <label class="block text-[10px] font-black uppercase tracking-wider text-brand-muted">Company
+            <input type="text" id="mergePreviewCompany" value="Northside Home Services" autocomplete="off" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-sm text-brand-dark dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-brand-yellow outline-none" />
+          </label>
+          <label class="block text-[10px] font-black uppercase tracking-wider text-brand-muted">City
+            <input type="text" id="mergePreviewCity" value="Austin" autocomplete="off" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-sm text-brand-dark dark:text-slate-100 px-3 py-2 focus:ring-2 focus:ring-brand-yellow outline-none" />
+          </label>
+        </div>
+        <div class="mt-3 flex flex-wrap gap-2" id="mergeTagPills" aria-label="Insert merge tags">
+          <button type="button" class="merge-tag-pill px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border border-brand-border dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 hover:border-brand-yellow/70 text-brand-dark dark:text-slate-100 transition-colors" data-tag="{{name}}">{{name}}</button>
+          <button type="button" class="merge-tag-pill px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border border-brand-border dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 hover:border-brand-yellow/70 text-brand-dark dark:text-slate-100 transition-colors" data-tag="{{company}}">{{company}}</button>
+          <button type="button" class="merge-tag-pill px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wide border border-brand-border dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 hover:border-brand-yellow/70 text-brand-dark dark:text-slate-100 transition-colors" data-tag="{{city}}">{{city}}</button>
+        </div>
+        <div class="mt-4 rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-black/20 p-3">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Preview <span id="mergePreviewContext" class="text-brand-dark dark:text-white font-bold normal-case tracking-normal">—</span></p>
+          <pre id="mergePreviewOut" class="text-xs leading-relaxed whitespace-pre-wrap font-sans text-brand-dark dark:text-slate-200 max-h-40 overflow-y-auto custom-scrollbar">—</pre>
         </div>
       </div>
-      <div class="p-4 border-t border-brand-border dark:border-white/10 shrink-0">
-        <div class="flex gap-2">
-          <textarea id="coachInput" rows="2" placeholder="e.g. Make this shorter and more casual…" class="flex-1 rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-brand-dark dark:text-slate-100 text-sm px-3 py-2 resize-none focus:ring-2 focus:ring-brand-yellow outline-none"></textarea>
+
+      <div id="sales-scripts-coach" class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden flex flex-col min-h-0 xl:flex-1 xl:min-h-[18rem]">
+        <div class="px-4 py-3 border-b border-brand-border dark:border-white/10 shrink-0">
+          <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white">AI script coach</h3>
+          <p class="text-[10px] text-brand-muted mt-1 leading-relaxed">Scoped to the section you open with <strong class="text-brand-dark dark:text-white">Coach</strong> on the left.</p>
+          <p id="coachContextLabel" class="text-[10px] font-bold text-brand-yellow mt-2 uppercase tracking-wide">Reputation · Opening</p>
+          <button type="button" id="coachResetBtn" class="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:underline">New conversation</button>
         </div>
-        <button type="button" id="coachSendBtn" class="mt-2 w-full btn-pill bg-brand-dark dark:bg-white dark:text-slate-900 text-white dark:text-white text-[10px] font-black uppercase tracking-widest py-3">Send</button>
-        <p id="coachError" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></p>
+        <div id="coachMessages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm min-h-[10rem] max-h-[min(40vh,18rem)] xl:max-h-[14rem] custom-scrollbar"></div>
+        <div id="coachRefinedWrap" class="hidden px-4 pb-2 shrink-0">
+          <div class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-2">Suggested script</p>
+            <pre id="coachRefinedText" class="text-xs text-brand-dark dark:text-slate-200 whitespace-pre-wrap font-sans max-h-32 overflow-y-auto"></pre>
+            <button type="button" id="coachApplyBtn" class="mt-2 w-full btn-pill bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest py-2">Apply to this section</button>
+          </div>
+        </div>
+        <div class="p-4 border-t border-brand-border dark:border-white/10 shrink-0 mt-auto">
+          <textarea id="coachInput" rows="2" placeholder="e.g. Make this shorter and more casual…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-brand-dark dark:text-slate-100 text-sm px-3 py-2 resize-none focus:ring-2 focus:ring-brand-yellow outline-none"></textarea>
+          <button type="button" id="coachSendBtn" class="mt-2 w-full btn-pill bg-brand-dark dark:bg-white dark:text-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-3">Send</button>
+          <p id="coachError" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></p>
+        </div>
       </div>
-    </div>
+    </aside>
   </div>
 
   <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden mt-10">
     <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 flex items-center justify-between flex-wrap gap-2">
-      <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Script library</h3>
-      <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Stored in this workspace (DB)</p>
+      <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Saved snippets</h3>
+      <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Workspace library (DB)</p>
     </div>
-    <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Edit a block above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
+    <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Expand a section above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
     <ul id="scriptLibraryList" class="divide-y divide-brand-border/50 dark:divide-white/10 hidden"></ul>
   </div>
 
   <p class="mt-8 text-center text-[11px] text-brand-muted max-w-2xl mx-auto">
-    Script coach uses your configured AI provider (same as lead insights). Edited scripts and saved library entries persist on the server for this workspace.
+    Script coach uses your configured AI provider (same as lead insights). Edited blocks and saved library entries persist on the server for this workspace.
   </p>
 </section>
 
 <script>
   (function () {
     var LIB_KEY_LEGACY = 'adhello_persona_script_library_v1';
-    var sectionLabels = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value prop', close: 'Close' };
+    var sectionLabels = {
+      opening: 'Opening',
+      discovery: 'Discovery',
+      valueProp: 'Value proposition',
+      objectionHandling: 'Objection handling',
+      close: 'Close',
+    };
     var serviceLabels = <%- JSON.stringify(typeof scriptServiceLabels !== 'undefined' ? scriptServiceLabels : {}) %>;
     var libraryItems = <%- JSON.stringify(typeof initialScriptLibraryItems !== 'undefined' && initialScriptLibraryItems ? initialScriptLibraryItems : []) %>;
 
@@ -88,6 +153,9 @@
     var coachHistories = {};
     var pendingRefined = null;
     var blockSaveTimer = null;
+    var lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-' + coachFocus.section;
+    var lastServerSaveAt = null;
+    var saveStatusTimer = null;
 
     function coachKey() {
       return coachFocus.pitch + ':' + coachFocus.section;
@@ -95,6 +163,37 @@
 
     function snippetEl() {
       return document.getElementById('snippet-' + coachFocus.pitch + '-' + coachFocus.section);
+    }
+
+    function statusElForSnippetId(sid) {
+      return document.querySelector('.script-autosave-status[data-snippet-id="' + sid + '"]');
+    }
+
+    function setAutosaveTextForAll(text) {
+      document.querySelectorAll('.script-autosave-status').forEach(function (el) {
+        el.textContent = text;
+      });
+    }
+
+    function formatSavedAgo() {
+      if (!lastServerSaveAt) return 'Saved';
+      var s = Math.floor((Date.now() - lastServerSaveAt) / 1000);
+      if (s < 2) return 'Saved · just now';
+      if (s < 60) return 'Saved · ' + s + 's ago';
+      var m = Math.floor(s / 60);
+      if (m < 60) return 'Saved · ' + m + 'm ago';
+      var h = Math.floor(m / 60);
+      return 'Saved · ' + h + 'h ago';
+    }
+
+    function refreshSavedAgoLabels() {
+      if (!lastServerSaveAt) return;
+      setAutosaveTextForAll(formatSavedAgo());
+    }
+
+    function scheduleSaveStatusTick() {
+      clearInterval(saveStatusTimer);
+      saveStatusTimer = setInterval(refreshSavedAgoLabels, 10000);
     }
 
     function updateCoachLabel() {
@@ -161,11 +260,55 @@
       }
     }
 
+    function applyMergeToText(raw) {
+      var nameEl = document.getElementById('mergePreviewName');
+      var coEl = document.getElementById('mergePreviewCompany');
+      var cityEl = document.getElementById('mergePreviewCity');
+      var name = nameEl ? nameEl.value : '';
+      var company = coEl ? coEl.value : '';
+      var city = cityEl ? cityEl.value : '';
+      var s = String(raw || '');
+      s = s.split('{{name}}').join(name);
+      s = s.split('{{company}}').join(company);
+      s = s.split('{{city}}').join(city);
+      return s;
+    }
+
+    function updateMergePreview() {
+      var out = document.getElementById('mergePreviewOut');
+      var ctx = document.getElementById('mergePreviewContext');
+      var ta = document.getElementById(lastFocusedSnippetId);
+      if (!ta) ta = snippetEl();
+      if (ctx && ta && ta.id) {
+        var m = /^snippet-(.+)-(opening|discovery|valueProp|objectionHandling|close)$/.exec(ta.id);
+        if (m) {
+          var sLab = serviceLabels[m[1]] || m[1];
+          var pLab = sectionLabels[m[2]] || m[2];
+          ctx.textContent = '— ' + sLab + ' · ' + pLab;
+        }
+      }
+      if (!out) return;
+      var raw = ta ? ta.value : '';
+      out.textContent = raw ? applyMergeToText(raw) : '—';
+    }
+
+    function insertAtCursor(textarea, text) {
+      if (!textarea) return;
+      var start = textarea.selectionStart != null ? textarea.selectionStart : textarea.value.length;
+      var end = textarea.selectionEnd != null ? textarea.selectionEnd : textarea.value.length;
+      var v = textarea.value;
+      textarea.value = v.slice(0, start) + text + v.slice(end);
+      var pos = start + text.length;
+      if (textarea.setSelectionRange) textarea.setSelectionRange(pos, pos);
+      textarea.focus();
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
     function collectBlocksPayload() {
       var blocks = {};
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
         var id = ta.id || '';
-        var m = /^snippet-(.+)-(opening|discovery|valueProp|close)$/.exec(id);
+        var m = /^snippet-(.+)-(opening|discovery|valueProp|objectionHandling|close)$/.exec(id);
         if (!m) return;
         if (!blocks[m[1]]) blocks[m[1]] = {};
         blocks[m[1]][m[2]] = ta.value;
@@ -176,6 +319,7 @@
     function scheduleBlocksPersist() {
       clearTimeout(blockSaveTimer);
       blockSaveTimer = setTimeout(function () {
+        setAutosaveTextForAll('Saving…');
         fetch('/workspace/scripts/blocks', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -183,9 +327,19 @@
         })
           .then(function (r) { return r.json(); })
           .then(function (d) {
-            if (!d || !d.success) console.warn('[scripts] block save failed', d && d.error);
+            if (!d || !d.success) {
+              console.warn('[scripts] block save failed', d && d.error);
+              setAutosaveTextForAll('Save failed — retry by editing');
+              return;
+            }
+            lastServerSaveAt = Date.now();
+            setAutosaveTextForAll(formatSavedAgo());
+            scheduleSaveStatusTick();
           })
-          .catch(function () { console.warn('[scripts] block save failed'); });
+          .catch(function () {
+            console.warn('[scripts] block save failed');
+            setAutosaveTextForAll('Save failed — retry by editing');
+          });
       }, 1500);
     }
 
@@ -213,6 +367,10 @@
             libraryItems = data.libraryItems;
             renderLibrary();
           }
+          lastServerSaveAt = Date.now();
+          setAutosaveTextForAll(formatSavedAgo());
+          scheduleSaveStatusTick();
+          updateMergePreview();
         })
         .catch(function () {});
     }
@@ -303,53 +461,81 @@
       });
     }
 
-    document.querySelectorAll('.pitch-tab').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        var pitch = tab.getAttribute('data-pitch');
-        document.querySelectorAll('.pitch-tab').forEach(function (t) {
-          t.classList.remove('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
-          t.classList.add('bg-white', 'dark:bg-slate-800', 'border', 'border-brand-border', 'dark:border-white/10', 'text-brand-muted');
+    function activatePitchTab(pitch) {
+      document.querySelectorAll('.pitch-tab').forEach(function (t) {
+        var active = t.getAttribute('data-pitch') === pitch;
+        t.setAttribute('aria-selected', active ? 'true' : 'false');
+        t.classList.toggle('bg-brand-yellow', active);
+        t.classList.toggle('text-brand-dark', active);
+        t.classList.toggle('shadow-sm', active);
+        t.classList.toggle('bg-white', !active);
+        t.classList.toggle('dark:bg-slate-800', !active);
+        t.classList.toggle('border', !active);
+        t.classList.toggle('border-brand-border', !active);
+        t.classList.toggle('dark:border-white/10', !active);
+        t.classList.toggle('text-brand-muted', !active);
+      });
+      document.querySelectorAll('.pitch-panel').forEach(function (p) {
+        p.classList.toggle('hidden', p.getAttribute('data-panel') !== pitch);
+      });
+    }
+
+    function accordionOnlyOneOpen(panelEl, openDetails) {
+      if (!panelEl || !openDetails) return;
+      panelEl.querySelectorAll('.script-section-details').forEach(function (d) {
+        if (d !== openDetails) d.open = false;
+      });
+    }
+
+    document.querySelectorAll('.pitch-panel').forEach(function (panel) {
+      panel.querySelectorAll('.script-section-details').forEach(function (d) {
+        d.addEventListener('toggle', function () {
+          if (d.open) accordionOnlyOneOpen(panel, d);
         });
-        tab.classList.add('bg-brand-yellow', 'text-brand-dark', 'shadow-sm');
-        tab.classList.remove('bg-white', 'dark:bg-slate-800', 'border', 'border-brand-border', 'dark:border-white/10', 'text-brand-muted');
-        document.querySelectorAll('.pitch-panel').forEach(function (p) {
-          p.classList.toggle('hidden', p.getAttribute('data-panel') !== pitch);
-        });
-        coachFocus.pitch = pitch;
-        updateCoachLabel();
-        hideRefined();
       });
     });
 
+    document.querySelectorAll('.pitch-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        var pitch = tab.getAttribute('data-pitch');
+        activatePitchTab(pitch);
+        coachFocus.pitch = pitch;
+        updateCoachLabel();
+        hideRefined();
+        lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-' + coachFocus.section;
+        updateMergePreview();
+      });
+    });
+
+    function openCoachForBlock(pitch, section) {
+      coachFocus.pitch = pitch;
+      coachFocus.section = section;
+      lastFocusedSnippetId = 'snippet-' + pitch + '-' + section;
+      activatePitchTab(pitch);
+      var panel = document.querySelector('.pitch-panel[data-panel="' + pitch + '"]');
+      var det = panel ? panel.querySelector('.script-section-details[data-section="' + section + '"]') : null;
+      if (det) {
+        accordionOnlyOneOpen(panel, det);
+        det.open = true;
+      }
+      updateCoachLabel();
+      coachHistories[coachKey()] = [];
+      clearCoachMessagesUi();
+      var ta = document.getElementById('snippet-' + pitch + '-' + section);
+      appendCoachScriptPreview(ta ? ta.value : '');
+      hideRefined();
+      var errEl = document.getElementById('coachError');
+      if (errEl) errEl.classList.add('hidden');
+      var coachCard = document.getElementById('sales-scripts-coach');
+      if (coachCard) coachCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      var input = document.getElementById('coachInput');
+      if (input) setTimeout(function () { input.focus(); }, 250);
+      updateMergePreview();
+    }
+
     document.querySelectorAll('.use-in-coach').forEach(function (btn) {
       btn.addEventListener('click', function () {
-        coachFocus.pitch = btn.getAttribute('data-pitch');
-        coachFocus.section = btn.getAttribute('data-section');
-        updateCoachLabel();
-        document.querySelectorAll('.pitch-tab').forEach(function (t) {
-          var active = t.getAttribute('data-pitch') === coachFocus.pitch;
-          t.classList.toggle('bg-brand-yellow', active);
-          t.classList.toggle('text-brand-dark', active);
-          t.classList.toggle('shadow-sm', active);
-          t.classList.toggle('bg-white', !active);
-          t.classList.toggle('dark:bg-slate-800', !active);
-          t.classList.toggle('border', !active);
-          t.classList.toggle('border-brand-border', !active);
-          t.classList.toggle('dark:border-white/10', !active);
-          t.classList.toggle('text-brand-muted', !active);
-        });
-        document.querySelectorAll('.pitch-panel').forEach(function (p) {
-          p.classList.toggle('hidden', p.getAttribute('data-panel') !== coachFocus.pitch);
-        });
-        coachHistories[coachKey()] = [];
-        clearCoachMessagesUi();
-        var ta = document.getElementById('snippet-' + coachFocus.pitch + '-' + coachFocus.section);
-        appendCoachScriptPreview(ta ? ta.value : '');
-        hideRefined();
-        var errEl = document.getElementById('coachError');
-        if (errEl) errEl.classList.add('hidden');
-        var input = document.getElementById('coachInput');
-        if (input) input.focus();
+        openCoachForBlock(btn.getAttribute('data-pitch'), btn.getAttribute('data-section'));
       });
     });
 
@@ -424,6 +610,7 @@
       if (ta) ta.value = pendingRefined;
       hideRefined();
       scheduleBlocksPersist();
+      updateMergePreview();
     });
 
     async function coachSend() {
@@ -481,11 +668,36 @@
     });
 
     document.querySelectorAll('.script-snippet').forEach(function (ta) {
-      ta.addEventListener('input', scheduleBlocksPersist);
+      ta.addEventListener('input', function () {
+        lastFocusedSnippetId = ta.id;
+        var st = statusElForSnippetId(ta.id);
+        if (st) st.textContent = 'Unsaved';
+        scheduleBlocksPersist();
+        updateMergePreview();
+      });
+      ta.addEventListener('focus', function () {
+        lastFocusedSnippetId = ta.id;
+        updateMergePreview();
+      });
+    });
+
+    ['mergePreviewName', 'mergePreviewCompany', 'mergePreviewCity'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateMergePreview);
+    });
+
+    document.querySelectorAll('.merge-tag-pill').forEach(function (pill) {
+      pill.addEventListener('click', function () {
+        var tag = pill.getAttribute('data-tag') || '';
+        var ta = document.getElementById(lastFocusedSnippetId) || snippetEl();
+        insertAtCursor(ta, tag);
+        updateMergePreview();
+      });
     });
 
     migrateLegacyLocalLibrary();
     updateCoachLabel();
+    updateMergePreview();
     renderLibrary();
     syncScriptsFromServer();
     document.addEventListener('visibilitychange', function () {

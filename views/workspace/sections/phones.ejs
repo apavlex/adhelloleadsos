@@ -1,0 +1,168 @@
+<% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+<% const _tp = workspace && workspace.telephony ? workspace.telephony : {}; %>
+<% const _entryList = Array.isArray(_tp.numberBankEntries) ? _tp.numberBankEntries : []; %>
+<% const _legacyBank = Array.isArray(_tp.numberBank) ? _tp.numberBank : []; %>
+<% const _entries = _entryList.length ? _entryList : _legacyBank.map(function (n) { return { number: n, callerName: '', cnamStatus: 'not_submitted', cnamNotes: '' }; }); %>
+<% const _activeFrom = (_tp.activeFromNumber || '').toString(); %>
+<% const _callMode = (_tp.callMode || 'cloud_dial').toString(); %>
+<% const _pacing = _tp && _tp.dialerPacing && typeof _tp.dialerPacing === 'object' ? _tp.dialerPacing : {}; %>
+<% const _pEvents = Array.isArray(_pacing.events) ? _pacing.events : []; %>
+<% const _pBurned = _pacing.burned && typeof _pacing.burned === 'object' ? _pacing.burned : {}; %>
+<%
+  const _nowMs = Date.now();
+  const _hourAgo = _nowMs - (60 * 60 * 1000);
+  const _attemptsLastHour = _pEvents.filter(function (e) {
+    if (!e || e.type !== 'attempt' || !e.at) return false;
+    const t = Date.parse(String(e.at));
+    return Number.isFinite(t) && t >= _hourAgo;
+  });
+  const _outcomesRecent = _pEvents.filter(function (e) {
+    if (!e || e.type !== 'outcome' || !e.at) return false;
+    const t = Date.parse(String(e.at));
+    return Number.isFinite(t) && t >= (_nowMs - (24 * 60 * 60 * 1000));
+  });
+  const _answeredRecent = _outcomesRecent.filter(function (e) { return e.answered === true; }).length;
+  const _answerRateRecent = _outcomesRecent.length ? Math.round((_answeredRecent / _outcomesRecent.length) * 100) : 0;
+  const _burnedLive = Object.entries(_pBurned).filter(function (entry) {
+    const v = entry[1] || {};
+    const until = Date.parse(String(v.until || ''));
+    return Number.isFinite(until) && until > _nowMs;
+  });
+%>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Phone number bank</h2>
+  <p class="text-sm text-brand-muted mb-6">Manage outbound numbers, call routing mode, and CNAM request status. Active number is used for call/SMS/voicemail actions in cloud mode.</p>
+
+  <fieldset class="mb-6">
+    <legend class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Call routing mode</legend>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+      <label class="relative flex flex-col cursor-pointer min-h-0">
+        <input type="radio" name="wsCallMode" value="cloud_dial" class="peer sr-only" <%= _callMode === 'cloud_dial' ? 'checked' : '' %> />
+        <div class="flex-1 rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-4 transition-all peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/50 peer-checked:bg-brand-yellow/10">
+          <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cloud dial</p>
+          <p class="text-[11px] text-brand-muted mt-1">SignalWire places calls from your workspace number.</p>
+        </div>
+        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Server dials the lead directly — best for automated voicemail drops and server-managed outbound. No in-tab call audio.</p>
+      </label>
+      <label class="relative flex flex-col cursor-pointer min-h-0">
+        <input type="radio" name="wsCallMode" value="agent_first" class="peer sr-only" <%= _callMode === 'agent_first' ? 'checked' : '' %> />
+        <div class="flex-1 rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-4 transition-all peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/50 peer-checked:bg-brand-yellow/10">
+          <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Agent first</p>
+          <p class="text-[11px] text-brand-muted mt-1">Your mobile rings first, then the lead is bridged.</p>
+        </div>
+        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Great for two-way talk on iPhone or Bluetooth. Requires your mobile in E.164. Voicemail drop still uses the cloud flow.</p>
+      </label>
+      <label class="relative flex flex-col cursor-pointer min-h-0">
+        <input type="radio" name="wsCallMode" value="browser_device" class="peer sr-only" <%= _callMode === 'browser_device' ? 'checked' : '' %> />
+        <div class="flex-1 rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-4 transition-all peer-checked:border-brand-yellow peer-checked:ring-2 peer-checked:ring-brand-yellow/50 peer-checked:bg-brand-yellow/10">
+          <p class="text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">My device dialer</p>
+          <p class="text-[11px] text-brand-muted mt-1">Opens your phone app with the number prefilled.</p>
+        </div>
+        <p class="mt-2 text-[11px] text-brand-muted leading-snug hidden peer-checked:block">Runs on your carrier or device, not in-browser audio. AdHello voicemail drop still uses cloud automation.</p>
+      </label>
+    </div>
+  </fieldset>
+
+  <div id="wsAgentPhoneWrap" class="<%= _callMode === 'agent_first' ? '' : 'hidden' %> mb-6">
+    <label for="wsAgentPhone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Your mobile (agent)</label>
+    <input type="tel" id="wsAgentPhone" class="w-full max-w-md rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="+15551234567" value="<%= (workspace && workspace.telephony && workspace.telephony.agentPhone) || '' %>" />
+    <p class="text-[10px] text-brand-muted mt-1">E.164. Ring this number first; when you answer, the app connects the call to the lead.</p>
+  </div>
+
+  <div class="mb-6 rounded-xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/40 p-4">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Pacing intelligence</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Cap / number / hour
+        <input id="wsPerNumberHourCap" type="number" min="1" max="120" step="1" value="<%= (workspace && workspace.telephony && workspace.telephony.perNumberHourCap) || 24 %>" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs" />
+      </label>
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Lead local dial start
+        <input id="wsQuietStart" type="time" value="<%= (workspace && workspace.telephony && workspace.telephony.quietHoursStart) || '08:00' %>" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs" />
+      </label>
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Lead local dial end
+        <input id="wsQuietEnd" type="time" value="<%= (workspace && workspace.telephony && workspace.telephony.quietHoursEnd) || '20:00' %>" class="mt-1 w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs" />
+      </label>
+    </div>
+    <p class="text-[10px] text-brand-muted mt-2">Caller IDs rotate automatically, numbers over cap are throttled, and low-answer numbers cool down before reuse.</p>
+  </div>
+
+  <div class="mb-6 rounded-xl border border-brand-border/30 dark:border-white/10 bg-white/60 dark:bg-slate-900/45 p-4">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Pacing health</p>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+      <div class="rounded-lg border border-brand-border/30 dark:border-white/10 px-3 py-2">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Attempts (last hour)</p>
+        <p class="mt-1 text-lg font-black text-brand-dark dark:text-white tabular-nums"><%= _attemptsLastHour.length %></p>
+      </div>
+      <div class="rounded-lg border border-brand-border/30 dark:border-white/10 px-3 py-2">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Answer rate (24h)</p>
+        <p class="mt-1 text-lg font-black text-brand-dark dark:text-white tabular-nums"><%= _answerRateRecent %>%</p>
+      </div>
+      <div class="rounded-lg border border-brand-border/30 dark:border-white/10 px-3 py-2">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Cooled numbers</p>
+        <p class="mt-1 text-lg font-black <%= _burnedLive.length ? 'text-amber-700 dark:text-amber-300' : 'text-emerald-700 dark:text-emerald-300' %> tabular-nums"><%= _burnedLive.length %></p>
+      </div>
+    </div>
+    <% if (_burnedLive.length) { %>
+      <div class="space-y-2">
+        <% _burnedLive.forEach(function (entry) { const num = entry[0]; const data = entry[1] || {}; const until = String(data.until || ''); const reason = String(data.reason || 'Cooling down due to low answer rate.'); %>
+          <div class="rounded-lg border border-amber-300/40 dark:border-amber-500/20 bg-amber-50/60 dark:bg-amber-950/15 px-3 py-2">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <p class="text-xs font-bold text-brand-dark dark:text-white"><%= num %></p>
+              <p class="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">
+                back in <span class="ws-burn-eta tabular-nums" data-until="<%= until %>">--:--</span>
+              </p>
+            </div>
+            <p class="mt-1 text-[11px] text-brand-muted"><%= reason %></p>
+          </div>
+        <% }); %>
+      </div>
+    <% } else { %>
+      <p class="text-xs text-emerald-700 dark:text-emerald-300 font-semibold">All numbers healthy — none are currently cooling down.</p>
+    <% } %>
+  </div>
+
+  <div id="wsPhoneBankList" class="space-y-2">
+    <% _entries.forEach(function (entry, idx) { %>
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry" data-entry-index="<%= idx %>">
+      <div class="md:col-span-3">
+        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label>
+        <input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.number || '').toString() %>" placeholder="+15551234567" />
+      </div>
+      <div class="md:col-span-3">
+        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label>
+        <input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.callerName || '').toString() %>" placeholder="ADHELLO AI" />
+      </div>
+      <div class="md:col-span-3">
+        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label>
+        <select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs">
+          <% const _st = (entry.cnamStatus || 'not_submitted').toString(); %>
+          <% ['not_submitted','submitted','in_review','approved','rejected','live'].forEach(function (opt) { %>
+            <option value="<%= opt %>" <%= _st === opt ? 'selected' : '' %>><%= opt %></option>
+          <% }); %>
+        </select>
+      </div>
+      <div class="md:col-span-2">
+        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label>
+        <label class="inline-flex items-center gap-2 text-xs">
+          <input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="<%= (entry.number || '').toString() %>" <%= _activeFrom && _activeFrom === (entry.number || '').toString() ? 'checked' : '' %> />
+          Use
+        </label>
+      </div>
+      <div class="md:col-span-1 flex md:justify-end">
+        <button type="button" class="ws-phone-remove text-[10px] font-black uppercase tracking-widest text-rose-600 hover:underline">Remove</button>
+      </div>
+      <div class="md:col-span-12">
+        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM notes</label>
+        <input type="text" class="ws-phone-cnam-notes w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.cnamNotes || '').toString() %>" placeholder="Carrier ticket / support notes" />
+      </div>
+    </div>
+    <% }); %>
+  </div>
+  <div class="flex flex-wrap items-center gap-3">
+    <button type="button" id="wsPhoneBankAdd" class="rounded-xl border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Add number</button>
+    <button type="button" id="wsPhoneBankSubmitCnam" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white underline underline-offset-2">Submit CNAM request</button>
+  </div>
+  <p id="wsPhoneBankMsg" class="hidden text-sm"></p>
+  <button type="button" id="wsPhoneBankSave" class="mt-4 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save phone bank</button>
+</div>
+<%- include('../partials/scripts_phones') %>
+<% } %>

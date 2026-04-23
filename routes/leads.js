@@ -24,6 +24,8 @@ const {
 } = require('../services/leadListFilters');
 const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
+const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
+const dialerPacing = require('../services/dialerPacing');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const signalwire = require('../services/signalwire');
@@ -189,6 +191,11 @@ router.post('/save', async (req, res, next) => {
     }
 
     const key = await dbService.saveLead(leadData);
+    try {
+      await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: req.workspaceId });
+    } catch (_) {
+      /* non-fatal */
+    }
     if (isManual) {
       try {
         await activationService.recordEvent(userEmail(req), 'manual_lead_added');
@@ -245,10 +252,15 @@ router.post('/import', (req, res, next) => {
         willMerge = !!ex;
       }
       try {
-        await dbService.saveLead({
+        const key = await dbService.saveLead({
           ...rec,
           workspaceId: wid,
         });
+        try {
+          await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid });
+        } catch (_) {
+          /* non-fatal */
+        }
         if (willMerge) updated += 1;
         else created += 1;
       } catch (e) {
@@ -417,6 +429,97 @@ router.post('/:key/sequence/pause', async (req, res, next) => {
     const fullKey = leadKeyFromParam(req.params.key);
     await sequenceEngine.pauseSequence(fullKey);
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:key/disposition', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    const code = String((req.body && req.body.code) || '').trim().toLowerCase();
+    const notes = String((req.body && req.body.notes) || '').trim();
+    if (!code) return res.status(400).json({ success: false, error: 'Disposition code is required.' });
+
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const now = new Date();
+    const patch = {};
+    let status = lead.status || 'Not Contacted';
+    let nextStep = '';
+    let automation = '';
+    if (code === 'connected') {
+      status = 'Connected - Follow Up';
+      nextStep = 'Send a concise recap with next step.';
+    } else if (code === 'no_answer') {
+      status = 'No Answer';
+      const next = new Date(now.getTime() + 18 * 60 * 60 * 1000);
+      patch.nextActionAt = next.toISOString();
+      const numbers = workspaceCallerNumbers(ws);
+      const active = resolveWorkspaceCallerNumber(ws);
+      const alternate = numbers.find((n) => n && n !== active) || '';
+      if (alternate) {
+        patch.nextCallerId = alternate;
+        automation = `Retry queued in 18h using alternate caller ID ${alternate}.`;
+      } else {
+        automation = 'Retry queued in 18h.';
+      }
+      nextStep = 'Retry in the next window.';
+    } else if (code === 'voicemail') {
+      status = 'Voicemail Left';
+      const auto = await autoAttachCadenceIfNeeded({ leadKey: fullKey, workspaceId: req.workspaceId });
+      automation = auto && auto.attached ? `Follow-up cadence queued (${auto.templateId}).` : 'Follow-up cadence already active.';
+      nextStep = 'Run immediate day-0 follow-up email task.';
+    } else if (code === 'callback') {
+      status = 'Callback Requested';
+      const when = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      const taskId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      await dbService.saveUserTask(req.workspaceId, userEmail(req), {
+        id: taskId,
+        title: `Callback requested — ${lead.title || 'Lead'}`,
+        column: 'todo',
+        sort: Date.now(),
+        createdAt: new Date().toISOString(),
+        scheduledAt: when.toISOString(),
+        leadKey: fullKey,
+      });
+      patch.nextActionAt = when.toISOString();
+      patch.redialBlockedUntil = when.toISOString();
+      patch.callbackTaskId = taskId;
+      automation = 'Callback task created and redial paused until follow-up window.';
+      nextStep = 'Confirm callback window and prepare notes.';
+    } else if (code === 'gatekeeper') {
+      status = 'Gatekeeper';
+      patch.scriptVariant = 'gatekeeper_bypass';
+      automation = 'Switched to gatekeeper bypass script variant.';
+      nextStep = 'Use gatekeeper bypass opener on next touch.';
+    } else if (code === 'wrong_number') {
+      status = 'Bad Number';
+      patch.needsReenrichment = true;
+      automation = 'Lead flagged for re-enrichment and alternate contact lookup.';
+      nextStep = 'Run contact enrichment before next dial.';
+    }
+    patch.status = status;
+    patch.lastDisposition = code;
+    patch.lastDispositionAt = new Date().toISOString();
+    const updates = appendLeadUpdate(lead, {
+      type: 'call_disposition',
+      value: `Disposition: ${code}${notes ? ` — ${notes}` : ''}`,
+      code,
+      notes,
+      automation,
+    });
+    patch.updates = updates;
+    patch.logs = [
+      {
+        type: 'call_disposition',
+        message: `Disposition set to ${code}${automation ? ` · ${automation}` : ''}`,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+    const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
+    return res.json({ success: true, lead: updated, status, nextStep, automation });
   } catch (err) {
     next(err);
   }
@@ -609,15 +712,34 @@ router.post('/:key/call', async (req, res, next) => {
         });
       }
     }
+    const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+    const fromPick = dialerPacing.selectCallerIdForDial({
+      workspace: ws,
+      telephony,
+      lead,
+      requestedFrom: req.body && req.body.fromNumber,
+      now: new Date(),
+    });
+    if (!fromPick.allowed) {
+      return res.status(429).json({ success: false, error: fromPick.reason || 'Dial pacing blocked this call.' });
+    }
     const call = await signalwire.createLeadCall({
       to: normalizedTo,
       leadKey: fullKey,
       workspaceId: req.workspaceId,
       action: 'call',
-      from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
+      from: fromPick.from,
       agentFirst: callMode === 'agent_first',
       agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
     });
+    dialerPacing.recordDialAttempt(telephony, {
+      from: fromPick.from,
+      to: normalizedTo,
+      action: 'call',
+      leadKey: fullKey,
+      callSid: call.sid || '',
+    });
+    await dbService.saveWorkspace(req.workspaceId, ws);
     const updates = appendLeadUpdate(lead, {
       type: 'call_outbound',
       value: `Outbound call initiated (${lead.phone || 'unknown number'}).`,
@@ -637,7 +759,7 @@ router.post('/:key/call', async (req, res, next) => {
         },
       ],
     });
-    res.json({ success: true, callSid: call.sid || null, lead: updatedLead });
+    res.json({ success: true, callSid: call.sid || null, callerId: fromPick.from, lead: updatedLead });
   } catch (err) {
     next(err);
   }
@@ -648,6 +770,8 @@ router.get('/telephony/call-options', async (req, res, next) => {
   try {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const numbers = workspaceCallerNumbers(ws);
+    const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+    const pacingCfg = dialerPacing.getPacingConfig(ws, telephony);
     const callMode = resolveWorkspaceCallMode(ws);
     const cfg = signalwire.envConfig();
     const defaultFrom =
@@ -663,6 +787,11 @@ router.get('/telephony/call-options', async (req, res, next) => {
       relayWebrtcAvailable:
         callMode !== 'browser_device' && callMode !== 'agent_first' && signalwire.relayWebrtcCanMint(),
       defaultFromNumber: defaultFrom,
+      pacing: {
+        perNumberHourCap: pacingCfg.perNumberHourCap,
+        quietHoursStart: pacingCfg.quietStart,
+        quietHoursEnd: pacingCfg.quietEnd,
+      },
     });
   } catch (err) {
     next(err);
@@ -779,21 +908,40 @@ router.post('/telephony/dial', async (req, res, next) => {
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
     const { audioUrl: voicemailAudioUrl } = resolveActiveVoicemailAudioUrl(telephony);
     const useAgent = callMode === 'agent_first' && !(action === 'voicemail_drop' && forceCloudVoicemail);
+    const fromPick = dialerPacing.selectCallerIdForDial({
+      workspace: ws,
+      telephony,
+      lead: null,
+      requestedFrom: req.body && req.body.fromNumber,
+      now: new Date(),
+    });
+    if (!fromPick.allowed) {
+      return res.status(429).json({ success: false, error: fromPick.reason || 'Dial pacing blocked this call.' });
+    }
     const call = await signalwire.createLeadCall({
       to,
       leadKey: '',
       workspaceId: req.workspaceId,
       action,
       voicemailAudioUrl: action === 'voicemail_drop' ? voicemailAudioUrl : '',
-      from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
+      from: fromPick.from,
       agentFirst: useAgent,
       agentTo: useAgent ? resolveAgentFirstNumber(ws) : undefined,
     });
+    dialerPacing.recordDialAttempt(telephony, {
+      from: fromPick.from,
+      to,
+      action,
+      leadKey: '',
+      callSid: call.sid || '',
+    });
+    await dbService.saveWorkspace(req.workspaceId, ws);
     return res.json({
       success: true,
       dialMode: useAgent ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       action,
+      callerId: fromPick.from,
     });
   } catch (err) {
     console.error('[POST /leads/telephony/dial]', err && err.message ? err.message : err);
@@ -952,14 +1100,32 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
     }
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
     const { audioUrl: voicemailAudioUrl } = resolveActiveVoicemailAudioUrl(telephony);
+    const fromPick = dialerPacing.selectCallerIdForDial({
+      workspace: ws,
+      telephony,
+      lead,
+      requestedFrom: req.body && req.body.fromNumber,
+      now: new Date(),
+    });
+    if (!fromPick.allowed) {
+      return res.status(429).json({ success: false, error: fromPick.reason || 'Dial pacing blocked this call.' });
+    }
     const call = await signalwire.createLeadCall({
       to: normalizedTo,
       leadKey: fullKey,
       workspaceId: req.workspaceId,
       action: 'voicemail_drop',
       voicemailAudioUrl,
-      from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
+      from: fromPick.from,
     });
+    dialerPacing.recordDialAttempt(telephony, {
+      from: fromPick.from,
+      to: normalizedTo,
+      action: 'voicemail_drop',
+      leadKey: fullKey,
+      callSid: call.sid || '',
+    });
+    await dbService.saveWorkspace(req.workspaceId, ws);
     const updates = appendLeadUpdate(lead, {
       type: 'voicemail_drop',
       value: 'Voicemail drop attempt started.',
@@ -978,7 +1144,7 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
         },
       ],
     });
-    res.json({ success: true, callSid: call.sid || null, lead: updatedLead });
+    res.json({ success: true, callSid: call.sid || null, callerId: fromPick.from, lead: updatedLead });
   } catch (err) {
     next(err);
   }

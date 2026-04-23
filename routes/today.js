@@ -5,10 +5,10 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const {
-  computeOutreachStreak,
   countUniqueLeadsTouchedOnUtcDate,
   dailyPersonalizedTouchGoal,
 } = require('../services/trackerStats');
+const { computeOutreachStreakWithLeads } = require('../services/trackerAutoFill');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
 const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
@@ -63,14 +63,38 @@ function countQueueNeedingAction(leads) {
   }).length;
 }
 
+function enrichTasksWithLeadsForToday(tasks, leads) {
+  const leadMap = Object.fromEntries(leads.map((l) => [l.key, l]));
+  return tasks.map((t) => {
+    const L = t.leadKey && leadMap[t.leadKey];
+    const leadTitle = L ? String(L.title || L.company || L.email || 'Lead').slice(0, 120) : null;
+    return { ...t, leadTitle };
+  });
+}
+
+/** Scheduled follow-ups not marked done: overdue or due before end of today (server local calendar). */
+function followUpTasksNeedingAttention(tasksEnriched) {
+  const now = new Date();
+  const endToday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
+  return tasksEnriched
+    .filter((t) => {
+      if (!t.scheduledAt || t.column === 'done') return false;
+      const ts = Date.parse(t.scheduledAt);
+      if (!Number.isFinite(ts)) return false;
+      return ts < endToday;
+    })
+    .sort((a, b) => Date.parse(a.scheduledAt) - Date.parse(b.scheduledAt))
+    .slice(0, 15);
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads(req.workspaceId);
     const workspaceLeads = filterLeadsForRequest(req, all);
     const email = userEmail(req);
     const today = new Date().toISOString().slice(0, 10);
-    const history = await dbService.listDailyTrackers(email, 60);
-    const streak = computeOutreachStreak(history, today);
+    const history = await dbService.listDailyTrackers(req.workspaceId, email, 60);
+    const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
     const touchGoal = dailyPersonalizedTouchGoal();
     const repliesWaiting = countReplySignals(workspaceLeads);
@@ -79,6 +103,8 @@ router.get('/', async (req, res, next) => {
 
     const activation = await activationService.getState(email);
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
+    const searchInProgressNotice = req.query.searchInProgress === '1';
+    const scheduleSavedNotice = req.query.scheduleSaved === '1';
     const outreachCoach = await buildOutreachCoachSnapshot(req);
 
     const workspaceDoc = await dbService.getWorkspace(req.workspaceId);
@@ -99,6 +125,11 @@ router.get('/', async (req, res, next) => {
       (daysSinceWsCreated != null && daysSinceWsCreated >= 7) ||
       activation.progress >= 5;
     const showActivationRibbon = !activationComplete && !activationAutoHide;
+
+    const rawTasks = await dbService.listUserTasks(req.workspaceId, email);
+    const followUpTasksToday = followUpTasksNeedingAttention(
+      enrichTasksWithLeadsForToday(rawTasks, workspaceLeads),
+    );
 
     res.render('today', {
       title: 'Today | Agency OS',
@@ -128,6 +159,9 @@ router.get('/', async (req, res, next) => {
       icpLabel,
       icpForm: icp,
       seededNotice,
+      searchInProgressNotice,
+      scheduleSavedNotice,
+      followUpTasksToday,
     });
   } catch (e) {
     next(e);

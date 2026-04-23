@@ -1,0 +1,49 @@
+<script>
+(function () {
+  var btn = document.getElementById('wsSettingsSave');
+  var msg = document.getElementById('wsSettingsMsg');
+  var tzSelect = document.getElementById('wsTimezone');
+  var tzLive = document.getElementById('wsTimezoneLive');
+  function refreshTzHint() {
+    if (!tzSelect || !tzLive) return;
+    var v = String(tzSelect.value || '').trim();
+    if (!v) {
+      tzLive.textContent = '';
+      return;
+    }
+    try {
+      var now = new Date();
+      tzLive.textContent =
+        'Current time in this zone: ' +
+        now.toLocaleString(undefined, { timeZone: v, weekday: 'short', hour: 'numeric', minute: '2-digit' });
+    } catch (_) {
+      tzLive.textContent = 'Could not read that timezone name.';
+    }
+  }
+  if (tzSelect) {
+    tzSelect.addEventListener('change', refreshTzHint);
+    refreshTzHint();
+  }
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var avg = document.getElementById('wsAvgDealValue');
+    var tz = document.getElementById('wsTimezone');
+    fetch('/workspace/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        avgDealValue: avg ? avg.value : '',
+        timezone: tz ? tz.value : '',
+      }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      if (msg) {
+        msg.classList.remove('hidden');
+        msg.textContent = data && data.success ? 'Saved.' : (data && data.error) || 'Save failed';
+        msg.className = 'text-sm ' + (data && data.success ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+      }
+    }).catch(function () {
+      if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Save failed'; msg.className = 'text-sm text-rose-600'; }
+    });
+  });
+})();
+</script>

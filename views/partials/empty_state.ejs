@@ -1,0 +1,17 @@
+<% const _h = typeof emptyHeadline !== 'undefined' ? emptyHeadline : 'Nothing here yet'; %>
+<% const _b = typeof emptyBody !== 'undefined' ? emptyBody : ''; %>
+<% const _ch = typeof emptyCtaHref !== 'undefined' ? emptyCtaHref : ''; %>
+<% const _cl = typeof emptyCtaLabel !== 'undefined' ? emptyCtaLabel : ''; %>
+<% const _sh = typeof emptySecondaryHref !== 'undefined' ? emptySecondaryHref : ''; %>
+<% const _sl = typeof emptySecondaryLabel !== 'undefined' ? emptySecondaryLabel : ''; %>
+<div class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 bg-brand-cream/15 dark:bg-slate-900/50 px-8 py-14 text-center" role="region" aria-label="Empty state">
+  <div class="mx-auto max-w-md flex flex-col items-center gap-4">
+    <div class="w-14 h-14 rounded-2xl bg-brand-yellow/25 dark:bg-brand-yellow/10 flex items-center justify-center text-2xl leading-none" aria-hidden="true">📌</div>
+    <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white"><%= _h %></h2>
+    <% if (_b) { %><p class="text-sm text-brand-muted leading-relaxed"><%= _b %></p><% } %>
+    <div class="flex flex-col sm:flex-row gap-3 w-full justify-center mt-2">
+      <% if (_ch && _cl) { %><a href="<%= _ch %>" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center"><%= _cl %></a><% } %>
+      <% if (_sh && _sl) { %><a href="<%= _sh %>" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center"><%= _sl %></a><% } %>
+    </div>
+  </div>
+</div>

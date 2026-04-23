@@ -25,23 +25,23 @@
                           </div>
                           <h1 class="text-3xl font-black tracking-tight text-brand-dark dark:text-white uppercase">Reports</h1>
                         </div>
-                        <p class="text-brand-muted font-bold text-sm">Daily hustle metrics and traffic analytics in one place.</p>
-                        <% if (typeof isDemo === 'undefined' || !isDemo) { %>
-                        <p class="text-[10px] text-brand-muted/90 mt-2 max-w-xl leading-relaxed">Total visits ignore repeat <code class="text-[9px] px-1 rounded bg-brand-cream/80 dark:bg-white/10">/api/track</code> pings from the same IP and path within about two minutes (burst dedupe).</p>
-                        <% } %>
                     </div>
                 </div>
 
                 <% const rt = typeof reportsTab !== 'undefined' ? reportsTab : 'tracker'; %>
                 <% const _rs = typeof reportsScope !== 'undefined' ? reportsScope : 'workspace'; %>
-                <nav class="flex flex-wrap gap-2 mb-8" aria-label="Reports tabs">
-                    <a href="/analytics?tab=tracker&amp;scope=<%= encodeURIComponent(_rs) %>" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'tracker' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Daily tracker</a>
-                    <a href="/analytics?tab=analytics&amp;scope=<%= encodeURIComponent(_rs) %>" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= rt === 'analytics' ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white' %>">Analytics</a>
+                <nav class="mb-8 w-full max-w-2xl rounded-2xl border-2 border-brand-border dark:border-white/15 bg-brand-cream/40 dark:bg-slate-900/95 p-1.5 shadow-md ring-1 ring-black/5 dark:ring-white/10" aria-label="Reports tabs">
+                    <div class="grid grid-cols-2 gap-1">
+                    <a href="/reports?tab=tracker&amp;scope=<%= encodeURIComponent(_rs) %>" class="flex items-center justify-center px-4 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest text-center transition-all <%= rt === 'tracker' ? 'bg-brand-yellow text-brand-dark shadow-lg border border-brand-yellow' : 'text-brand-muted dark:text-slate-400 border border-transparent hover:bg-white/60 dark:hover:bg-white/5 hover:text-brand-dark dark:hover:text-white' %>">Daily tracker</a>
+                    <a href="/reports?tab=analytics&amp;scope=<%= encodeURIComponent(_rs) %>" class="flex items-center justify-center px-4 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest text-center transition-all <%= rt === 'analytics' ? 'bg-brand-yellow text-brand-dark shadow-lg border border-brand-yellow' : 'text-brand-muted dark:text-slate-400 border border-transparent hover:bg-white/60 dark:hover:bg-white/5 hover:text-brand-dark dark:hover:text-white' %>">Traffic analytics</a>
+                    </div>
                 </nav>
                 <% if (rt === 'tracker') { %>
-                <nav class="flex flex-wrap gap-2 mb-6" aria-label="Workspace scope">
-                    <a href="/analytics?tab=tracker&amp;scope=workspace" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= _rs !== 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900 border-brand-dark dark:border-white' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted' %>">This workspace</a>
-                    <a href="/analytics?tab=tracker&amp;scope=all" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= _rs === 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900 border-brand-dark dark:border-white' : 'bg-white dark:bg-slate-900 border-brand-border dark:border-white/10 text-brand-muted' %>">All workspaces</a>
+                <nav class="mb-8 w-full max-w-xl rounded-2xl border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 p-1.5 shadow-md" aria-label="Workspace scope">
+                    <div class="grid grid-cols-2 gap-1">
+                    <a href="/reports?tab=tracker&amp;scope=workspace" class="flex items-center justify-center px-4 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest text-center transition-all <%= _rs !== 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900 shadow-md border border-brand-dark dark:border-white' : 'text-brand-muted dark:text-slate-400 border border-transparent hover:bg-brand-cream/50 dark:hover:bg-white/5' %>">This workspace</a>
+                    <a href="/reports?tab=tracker&amp;scope=all" class="flex items-center justify-center px-4 py-3.5 rounded-xl text-[11px] font-black uppercase tracking-widest text-center transition-all <%= _rs === 'all' ? 'bg-brand-dark text-white dark:bg-white dark:text-slate-900 shadow-md border border-brand-dark dark:border-white' : 'text-brand-muted dark:text-slate-400 border border-transparent hover:bg-brand-cream/50 dark:hover:bg-white/5' %>">All workspaces</a>
+                    </div>
                 </nav>
                 <% if (_rs === 'all' && typeof workspaceCompare !== 'undefined' && workspaceCompare.length) { %>
                 <div class="mb-10 overflow-x-auto rounded-2xl border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/80">
@@ -81,7 +81,7 @@
                 <% const _labels = { touches_today: 'Touches today', reply_rate: 'Reply rate', meetings_booked: 'Meetings booked', pipeline_created: 'Pipeline value created', outreach_streak: 'Outreach streak', overdue_followups: 'Overdue follow-ups' }; %>
                 <div id="analytics-metric-banner" class="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/10 px-4 py-3 text-sm text-brand-dark dark:text-slate-100">
                   <strong class="font-black uppercase tracking-widest text-[10px] text-brand-yellow">Context</strong>
-                  — Showing <strong><%= _labels[_am] || _am.replace(/_/g, ' ') %></strong><% if (_ar) { %> · range <strong><%= _ar %></strong><% } %>. Use the daily tracker below to log and review activity.
+                  — Showing <strong><%= _labels[_am] || _am.replace(/_/g, ' ') %></strong><% if (_ar) { %> · range <strong><%= _ar %></strong><% } %>. Use the daily tracker below to review and adjust.
                 </div>
                 <script>try { var el = document.getElementById('analytics-metric-banner'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); } catch (e) {}</script>
                 <% } %>
@@ -188,7 +188,6 @@
                     <div class="mb-6">
                         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Daily hustle</p>
                         <h2 id="reports-tracker-heading" class="text-xl md:text-2xl font-black text-brand-dark dark:text-white tracking-tight">Daily action tracker</h2>
-                        <p class="text-sm text-brand-muted mt-2 max-w-3xl">Log outreach volume, social posts, and ad creatives per day. Your AI prospecting coach reads your pipeline and logged activity.</p>
                     </div>
                     <%- include('partials/sales_tracker_content', { hideSalesTrackerHeading: true }) %>
                 </section>

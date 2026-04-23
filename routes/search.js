@@ -12,6 +12,57 @@ const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 // POST /search — Google Maps list (Outscraper first when configured, else Apify)
 router.post('/', async (req, res, next) => {
   try {
+    const activationUserEmail = userEmail(req);
+    const activationWorkspaceId = wid;
+
+    async function startBackgroundSearchRun() {
+      await dbService.setActiveJob({
+        type: 'search',
+        keyword,
+        city,
+        state,
+        maxResults: parseInt(maxResults, 10) || 20,
+      });
+      setImmediate(async () => {
+        try {
+          if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
+            console.error('[SEARCH-BG] No Maps provider for workspace:', activationWorkspaceId);
+            await dbService.clearActiveJob();
+            return;
+          }
+          console.log(`[SEARCH-BG] Starting Maps search for "${keyword}" in "${city}, ${state}"...`);
+          let results = await mapsSearch.searchGoogleMaps({
+            keyword,
+            city,
+            state,
+            maxResults: maxResults || 20,
+            integrationEnv,
+          });
+          console.log('[SEARCH-BG] Starting deep enrichment pass...');
+          results = await enricher.enrichLeads(results, { workspaceId: activationWorkspaceId });
+          const searchRecord = {
+            keyword,
+            city,
+            state,
+            maxResults: parseInt(maxResults, 10) || 20,
+            targetFolderKey,
+            targetFolderName,
+            resultCount: results.length,
+            results,
+            timestamp: new Date().toISOString(),
+            workspaceId: activationWorkspaceId,
+          };
+          const searchKey = await dbService.saveSearch(searchRecord);
+          console.log(`[SEARCH-BG] Saved results to DB with key: ${searchKey}`);
+          if (activationUserEmail) await activationService.recordEvent(activationUserEmail, 'search_saved');
+          await dbService.clearActiveJob();
+        } catch (err) {
+          console.error('[SEARCH-BG] Background search failed:', err);
+          await dbService.clearActiveJob();
+        }
+      });
+    }
+
     const { keyword, city, state, maxResults, mode } = req.body;
     const wid = req.workspaceId;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
@@ -115,76 +166,21 @@ router.post('/', async (req, res, next) => {
         state,
         qty: parseInt(maxResults, 10) || 20,
       });
+      const runNowAlso = String(req.body.runNowAlso || '').toLowerCase() === 'on';
+      if (runNowAlso) {
+        await startBackgroundSearchRun();
+        return res.redirect('/today?searchInProgress=1&scheduleSaved=1');
+      }
       return res.redirect('/prospecting?tab=queue&scheduleSuccess=true');
     }
 
     // --- START BACKGROUND PROCESSING ---
     const maxRes = parseInt(maxResults, 10) || 20;
     await persistWorkspaceIcp(wid, { keyword, city, state, qty: maxRes });
-    await dbService.setActiveJob({ 
-      type: 'search', 
-      keyword, 
-      city, 
-      state, 
-      maxResults: maxRes 
-    });
+    await startBackgroundSearchRun();
 
-    const activationUserEmail = userEmail(req);
-    const activationWorkspaceId = wid;
-
-    // We use setImmediate to run this in the background without blocking the response
-    setImmediate(async () => {
-      try {
-        if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
-          console.error('[SEARCH-BG] No Maps provider for workspace:', activationWorkspaceId);
-          await dbService.clearActiveJob();
-          return;
-        }
-
-        console.log(`[SEARCH-BG] Starting Maps search for "${keyword}" in "${city}, ${state}"...`);
-        let results = await mapsSearch.searchGoogleMaps({
-          keyword,
-          city,
-          state,
-          maxResults: maxResults || 20,
-          integrationEnv,
-        });
-
-        // Enrich with socials and emails if missing
-        console.log(`[SEARCH-BG] Starting deep enrichment pass...`);
-        results = await enricher.enrichLeads(results, { workspaceId: activationWorkspaceId });
-
-        // Save to database
-        const searchRecord = {
-          keyword,
-          city,
-          state,
-          maxResults: parseInt(maxResults, 10) || 20,
-          targetFolderKey,
-          targetFolderName,
-          resultCount: results.length,
-          results,
-          timestamp: new Date().toISOString(),
-          workspaceId: activationWorkspaceId,
-        };
-
-        const searchKey = await dbService.saveSearch(searchRecord);
-        console.log(`[SEARCH-BG] Saved results to DB with key: ${searchKey}`);
-        if (activationUserEmail) {
-          await activationService.recordEvent(activationUserEmail, 'search_saved');
-        }
-        
-        // Finalize the job status
-        await dbService.clearActiveJob();
-      } catch (err) {
-        console.error('[SEARCH-BG] Background search failed:', err);
-        // Even on failure, clear the active job so the spinner stops
-        await dbService.clearActiveJob();
-      }
-    });
-
-    // Redirect user immediately to history (or a search status page)
-    res.redirect('/history?status=searching');
+    // Redirect user immediately back to Today (non-blocking run).
+    res.redirect('/today?searchInProgress=1');
   } catch (err) {
     console.error('Search error:', err);
 

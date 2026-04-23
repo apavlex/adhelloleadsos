@@ -4,7 +4,14 @@ const dbService = require('../services/database');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS, PERSONAS } = require('../services/salesConstants');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { chatCompletion } = require('../services/llmClient');
-const { computeOutreachStreak, buildDailyChartSeries, buildDayRollup } = require('../services/trackerStats');
+const { buildDayRollup } = require('../services/trackerStats');
+const {
+  inferDailyTouchCountsFromLeads,
+  displayTouchTotalsForDay,
+  buildDailyChartDisplaySeries,
+  enrichRollupWithLeadInference,
+  computeOutreachStreakWithLeads,
+} = require('../services/trackerAutoFill');
 const activationService = require('../services/activationService');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const {
@@ -117,11 +124,15 @@ router.get('/tracker', async (req, res, next) => {
     const todayRow = await dbService.getDailyTracker(req.workspaceId, email, today);
     const history = await dbService.listDailyTrackers(req.workspaceId, email, 14);
     const history60 = await dbService.listDailyTrackers(req.workspaceId, email, 62);
-    const chartSeries = buildDailyChartSeries(today, history, 14);
-    const streak = computeOutreachStreak(history60, today);
-    const checklistWeek = buildDayRollup(today, history60, 7);
-    const checklistMonth = buildDayRollup(today, history60, 30);
+    const allLeads = await dbService.getAllLeads(req.workspaceId);
+    const leadsScoped = filterLeadsForRequest(req, allLeads);
+    const chartSeries = buildDailyChartDisplaySeries(today, history, 14, leadsScoped);
+    const streak = computeOutreachStreakWithLeads(history60, today, leadsScoped);
+    const checklistWeek = enrichRollupWithLeadInference(buildDayRollup(today, history60, 7), leadsScoped);
+    const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
     const outreachCoach = await buildOutreachCoachSnapshot(req);
+    const trackerInferred = inferDailyTouchCountsFromLeads(leadsScoped, today);
+    const trackerDisplayToday = displayTouchTotalsForDay(todayRow || null, leadsScoped, today);
     res.render('sales-tracker', {
       title: 'Daily Action Tracker',
       activePage: 'sales',
@@ -144,6 +155,8 @@ router.get('/tracker', async (req, res, next) => {
       checklistWeek,
       checklistMonth,
       outreachCoach,
+      trackerInferred,
+      trackerDisplayToday,
     });
   } catch (e) {
     next(e);
@@ -154,33 +167,45 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
   try {
     const email = userEmail(req);
     const dateStr = (req.body.date || new Date().toISOString().slice(0, 10)).slice(0, 10);
+    const allLeads = await dbService.getAllLeads(req.workspaceId);
+    const leadsScoped = filterLeadsForRequest(req, allLeads);
+    const inferred = inferDailyTouchCountsFromLeads(leadsScoped, dateStr);
+    const safeNum = (v) => parseInt(v, 10) || 0;
+    const merged = {
+      coldEmails: Math.max(safeNum(req.body.coldEmails), inferred.coldEmails || 0),
+      coldDms: Math.max(safeNum(req.body.coldDms), inferred.coldDms || 0),
+      coldCalls: Math.max(safeNum(req.body.coldCalls), inferred.coldCalls || 0),
+      upworkBids: Math.max(safeNum(req.body.upworkBids), inferred.upworkBids || 0),
+      socialPosts: Math.max(safeNum(req.body.socialPosts), inferred.socialPosts || 0),
+      adCreatives: Math.max(safeNum(req.body.adCreatives), inferred.adCreatives || 0),
+    };
     await dbService.saveDailyTracker(req.workspaceId, email, dateStr, {
-      coldEmails: parseInt(req.body.coldEmails, 10) || 0,
-      coldDms: parseInt(req.body.coldDms, 10) || 0,
-      coldCalls: parseInt(req.body.coldCalls, 10) || 0,
-      upworkBids: parseInt(req.body.upworkBids, 10) || 0,
-      socialPosts: parseInt(req.body.socialPosts, 10) || 0,
-      adCreatives: parseInt(req.body.adCreatives, 10) || 0,
+      coldEmails: merged.coldEmails,
+      coldDms: merged.coldDms,
+      coldCalls: merged.coldCalls,
+      upworkBids: merged.upworkBids,
+      socialPosts: merged.socialPosts,
+      adCreatives: merged.adCreatives,
       notes: req.body.notes || '',
       callNotes: req.body.callNotes || '',
     });
     const touches =
-      (parseInt(req.body.coldEmails, 10) || 0) +
-      (parseInt(req.body.coldDms, 10) || 0) +
-      (parseInt(req.body.coldCalls, 10) || 0) +
-      (parseInt(req.body.upworkBids, 10) || 0) +
-      (parseInt(req.body.socialPosts, 10) || 0) +
-      (parseInt(req.body.adCreatives, 10) || 0);
+      merged.coldEmails +
+      merged.coldDms +
+      merged.coldCalls +
+      merged.upworkBids +
+      merged.socialPosts +
+      merged.adCreatives;
     if (touches > 0) {
       await activationService.recordEvent(email, 'outreach_logged');
     }
     const returnTo = (req.body.returnTo || '').toString().trim();
     const dest = (() => {
-      if (['/sales/tracker', '/analytics', '/outreach?tab=touches', '/prospecting?tab=queue'].includes(returnTo)) return returnTo;
-      if (returnTo.startsWith('/analytics?')) {
+      if (['/sales/tracker', '/reports', '/analytics', '/outreach?tab=touches', '/prospecting?tab=queue'].includes(returnTo)) return returnTo;
+      if (returnTo.startsWith('/reports?') || returnTo.startsWith('/analytics?')) {
         try {
           const u = new URL(returnTo, 'http://localhost');
-          if (u.pathname === '/analytics') return returnTo;
+          if (u.pathname === '/reports' || u.pathname === '/analytics') return returnTo.replace(/^\/analytics/, '/reports');
         } catch {
           /* fall through */
         }
@@ -202,7 +227,7 @@ router.get('/personas', async (req, res, next) => {
     const SCRIPT_LIBRARY_MERGED = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const initialScriptLibraryItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
     res.render('sales-personas', {
-      title: 'AI Personas & Scripts',
+      title: 'Sales scripts',
       activePage: 'sales',
       activeSales: 'personas',
       SCRIPT_LIBRARY: SCRIPT_LIBRARY_MERGED,

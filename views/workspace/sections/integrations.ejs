@@ -1,0 +1,79 @@
+<% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Integrations</h2>
+  <p class="text-sm text-brand-muted mb-4 leading-relaxed">
+    Keys saved here apply to <strong>everyone</strong> in this workspace. Values you set override deployment environment variables for that integration only.
+  </p>
+  <% if (!integrationsReady) { %>
+  <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-4 mb-6 text-sm text-amber-950 dark:text-amber-100">
+    <p class="font-semibold text-brand-dark dark:text-white mb-1">Integration keys are managed in your deployment environment</p>
+    <p class="leading-relaxed">This screen cannot store API keys until your operator enables the workspace integrations secret on the server. Ask them to finish that setup, then return here to connect providers.</p>
+  </div>
+  <% } %>
+  <% if (integrationsReady && integrationsMessage) { %>
+    <p class="text-sm mb-4 rounded-xl px-4 py-3 <%= integrationsMessage.type === 'ok' ? 'bg-emerald-500/10 text-emerald-900 dark:text-emerald-200' : 'bg-amber-500/10 text-amber-900 dark:text-amber-100' %>"><%= integrationsMessage.text %></p>
+  <% } %>
+  <% if (integrationsReady) { %>
+  <form method="post" action="/workspace/integrations" class="space-y-6">
+    <% const masks = integrationMasks || {}; %>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Apify API token</label>
+      <% if (masks.apifyApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.apifyApiToken %></p><% } %>
+      <input type="password" name="apifyApiToken" autocomplete="off" placeholder="New token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.apifyApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="apifyApiToken_clear" value="1" /> Remove saved token</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outscraper API key</label>
+      <% if (masks.outscraperApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiKey %></p><% } %>
+      <input type="password" name="outscraperApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.outscraperApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiKey_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outscraper API base (optional)</label>
+      <% if (masks.outscraperApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiBase %></p><% } %>
+      <input type="text" name="outscraperApiBase" autocomplete="off" placeholder="https://api.app.outscraper.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.outscraperApiBase) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiBase_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper preference</label>
+      <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+        <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>
+        <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (Outscraper first, fallback Apify)</option>
+        <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
+        <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
+      </select>
+      <p class="text-xs text-brand-muted mt-2">Manual override for Find Leads job provider in this workspace.</p>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Firecrawl API key</label>
+      <% if (masks.firecrawlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.firecrawlApiKey %></p><% } %>
+      <input type="password" name="firecrawlApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.firecrawlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="firecrawlApiKey_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Enhance provider preference (Firecrawl / Crawl4AI)</label>
+      <select name="enrichPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+        <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
+        <option value="auto" <%= _enrichPrimary === 'auto' || _enrichPrimary === '' ? 'selected' : '' %>>Auto (current defaults / env flags)</option>
+        <option value="firecrawl_only" <%= _enrichPrimary === 'firecrawl_only' ? 'selected' : '' %>>Firecrawl only</option>
+        <option value="crawl4ai_first" <%= _enrichPrimary === 'crawl4ai_first' ? 'selected' : '' %>>Crawl4AI first, then Firecrawl fallback</option>
+      </select>
+      <p class="text-xs text-brand-muted mt-2">Manual override for Enhance jobs in this workspace.</p>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Crawl4AI base URL</label>
+      <% if (masks.crawl4aiBaseUrl) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.crawl4aiBaseUrl %></p><% } %>
+      <input type="text" name="crawl4aiBaseUrl" autocomplete="off" placeholder="http://localhost:11235" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.crawl4aiBaseUrl) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiBaseUrl_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="pb-2">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Crawl4AI API token (optional)</label>
+      <% if (masks.crawl4aiApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.crawl4aiApiToken %></p><% } %>
+      <input type="password" name="crawl4aiApiToken" autocomplete="off" placeholder="Bearer token if required" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.crawl4aiApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiApiToken_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <button type="submit" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save integrations</button>
+  </form>
+  <% } %>
+</div>
+<% } %>

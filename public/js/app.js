@@ -59,14 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const score = calculateOpportunityScore(l);
     
     // Core Score Label
-    let label = 'Low Opportunity';
+    let label = `Cool ${score.toFixed(1)}/10`;
     let scoreColor = 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5';
     
     if (score >= 7) {
-        label = 'High Opportunity';
+        label = `Hot ${score.toFixed(1)}/10`;
         scoreColor = 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20';
     } else if (score >= 4) {
-        label = 'Medium Opportunity';
+        label = `Warm ${score.toFixed(1)}/10`;
         scoreColor = 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-brand-yellow/10 dark:text-brand-yellow dark:border-brand-yellow/20';
     }
     
@@ -558,6 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchFolderKey = document.getElementById('searchFolderKey');
   const searchNewFolderWrap = document.getElementById('searchNewFolderWrap');
   const searchNewFolderName = document.getElementById('searchNewFolderName');
+  const runNowAlso = document.getElementById('runNowAlso');
 
   if (userTimezoneInput) {
     userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -577,15 +578,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (modeRunNow && modeSchedule && searchModeInput) {
     const scheduledSearchSettings = document.getElementById('scheduledSearchSettings');
+    const setModeButtonClasses = (mode) => {
+      if (mode === 'run') {
+        modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
+        modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      } else {
+        modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
+        modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      }
+    };
 
     modeRunNow.addEventListener('click', () => {
       searchModeInput.value = 'run';
-      modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
-      modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      setModeButtonClasses('run');
 
       if (scheduledSearchSettings) {
         scheduledSearchSettings.classList.add('hidden');
       }
+      if (runNowAlso) runNowAlso.checked = false;
       const dateEl = document.getElementById('scheduledDateInput');
       if (dateEl) dateEl.required = false;
 
@@ -596,8 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     modeSchedule.addEventListener('click', () => {
       searchModeInput.value = 'schedule';
-      modeSchedule.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 text-brand-dark dark:text-slate-100 shadow-sm border border-brand-border/10';
-      modeRunNow.className = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-100';
+      setModeButtonClasses('schedule');
 
       if (scheduledSearchSettings) {
         scheduledSearchSettings.classList.remove('hidden');
@@ -607,9 +616,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dateElSch) dateElSch.required = true;
 
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Save schedule ⚡<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Save schedule<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
+
+    setModeButtonClasses(searchModeInput.value === 'run' ? 'run' : 'schedule');
   }
 
   if (searchForm) {
@@ -653,7 +664,42 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isSchedule && loader) {
         loader.classList.remove('hidden');
       }
+      if (isSchedule && runNowAlso && runNowAlso.checked && btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
     });
+  }
+
+  // Find Leads wizard (progressive flow)
+  const wizardPanels = document.querySelectorAll('[data-step-panel]');
+  if (wizardPanels && wizardPanels.length) {
+    const setStep = (stepNo) => {
+      wizardPanels.forEach((panel) => {
+        panel.classList.toggle('hidden', String(panel.getAttribute('data-step-panel')) !== String(stepNo));
+      });
+      document.querySelectorAll('[data-step-indicator]').forEach((el) => {
+        const active = String(el.getAttribute('data-step-indicator')) === String(stepNo);
+        el.classList.toggle('bg-brand-yellow/10', active);
+        el.classList.toggle('border-brand-yellow/40', active);
+        el.classList.toggle('text-brand-dark', active);
+        el.classList.toggle('dark:text-white', active);
+        if (active) {
+          el.classList.remove('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
+        } else {
+          el.classList.remove('bg-brand-yellow/10', 'border-brand-yellow/40', 'text-brand-dark', 'dark:text-white');
+          el.classList.add('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
+        }
+      });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    document.querySelectorAll('[data-step-next]').forEach((btnNext) => {
+      btnNext.addEventListener('click', () => setStep(btnNext.getAttribute('data-step-next')));
+    });
+    document.querySelectorAll('[data-step-prev]').forEach((btnPrev) => {
+      btnPrev.addEventListener('click', () => setStep(btnPrev.getAttribute('data-step-prev')));
+    });
+    setStep(1);
   }
 
   // --- Navigation & Menu ---
@@ -1326,7 +1372,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const panelTitle = document.getElementById('mobilePanelTitle');
     if (panelTitle) panelTitle.textContent = title;
 
-
+    const tasksDeep = document.getElementById('leadTasksDeepLink');
+    if (tasksDeep) {
+      const lk = row.dataset.leadKey || '';
+      if (lk) {
+        tasksDeep.href = '/tasks?leadKey=' + encodeURIComponent(lk);
+        tasksDeep.classList.remove('hidden');
+      } else {
+        tasksDeep.classList.add('hidden');
+      }
+    }
 
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
@@ -4464,35 +4519,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row || !row.dataset || !row.dataset.leadKey) return;
     const key = String(row.dataset.leadKey || '').trim();
     const company = row.dataset.title || 'Lead';
-    let status = 'Not Contacted';
-    let note = '';
-    const patch = {};
-
-    if (code === 'connected') {
-      status = 'Connected - Follow Up';
-      note = `[War room] Connected with ${company}.`;
-    } else if (code === 'no_answer') {
-      status = 'No Answer';
-      const when = warRoomBestRetryIso(row, 'no_answer');
-      patch.nextActionAt = when;
-      note = `[War room] No answer. Retry queued for ${new Date(when).toLocaleString()}.`;
-    } else if (code === 'gatekeeper') {
-      status = 'Gatekeeper';
-      note = `[War room] Hit gatekeeper. Need alternate route or callback window.`;
-    } else if (code === 'wrong_number') {
-      status = 'Bad Number';
-      note = `[War room] Wrong number. Needs data enrichment/replacement contact.`;
-    } else if (code === 'callback') {
-      status = 'Callback Requested';
-      const when = warRoomBestRetryIso(row, 'callback');
-      patch.nextActionAt = when;
-      note = `[War room] Callback requested. Follow-up set for ${new Date(when).toLocaleString()}.`;
-    }
-
-    patch.status = status;
-    const data = await warRoomPatchLead(key, patch);
+    const res = await fetch('/leads/' + encodeURIComponent(key) + '/disposition', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Disposition failed');
+    const status = String(data.status || (data.lead && data.lead.status) || 'Updated');
     if (data && data.lead && data.lead.status) row.dataset.status = String(data.lead.status);
-    await warRoomAppendLeadNote(key, note);
+    if (data && data.lead && data.lead.updates) row.dataset.updates = JSON.stringify(data.lead.updates);
     if (code === 'connected') warRoomSessionStats.connected += 1;
     if (code === 'no_answer') warRoomSessionStats.noAnswer += 1;
     if (code === 'gatekeeper') warRoomSessionStats.gatekeeper += 1;
@@ -4500,7 +4537,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (code === 'callback') warRoomSessionStats.callbacks += 1;
     warRoomRenderSessionStats();
     warRoomAutoDialCalled.add(key);
-    warRoomSetAutoDialStatus(`${status} logged for ${company}.`, code === 'wrong_number' ? 'warn' : 'ok');
+    const suffix = data.automation ? ` ${data.automation}` : '';
+    warRoomSetAutoDialStatus(`${status} logged for ${company}.${suffix}`, code === 'wrong_number' ? 'warn' : 'ok');
     if (warRoomAutoDialCalled.size >= warRoomRowEls.length) {
       warRoomStopAutoDial('Auto dial completed all selected leads.');
     } else {

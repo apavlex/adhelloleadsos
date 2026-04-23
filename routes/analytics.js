@@ -2,8 +2,15 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const activationService = require('../services/activationService');
-const { userEmail } = require('../services/workspaceService');
-const { computeOutreachStreak, buildDailyChartSeries, buildDayRollup } = require('../services/trackerStats');
+const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
+const { buildDayRollup } = require('../services/trackerStats');
+const {
+  inferDailyTouchCountsFromLeads,
+  displayTouchTotalsForDay,
+  buildDailyChartDisplaySeries,
+  enrichRollupWithLeadInference,
+  computeOutreachStreakWithLeads,
+} = require('../services/trackerAutoFill');
 const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
 const { buildConversionSnapshot } = require('../services/conversionMetrics');
 
@@ -14,11 +21,15 @@ async function loadSalesTrackerLocals(req) {
   const todayRow = await dbService.getDailyTracker(wid, email, today);
   const history = await dbService.listDailyTrackers(wid, email, 14);
   const history60 = await dbService.listDailyTrackers(wid, email, 62);
-  const chartSeries = buildDailyChartSeries(today, history, 14);
-  const streak = computeOutreachStreak(history60, today);
-  const checklistWeek = buildDayRollup(today, history60, 7);
-  const checklistMonth = buildDayRollup(today, history60, 30);
+  const allLeads = await dbService.getAllLeads(wid);
+  const leadsScoped = filterLeadsForRequest(req, allLeads);
+  const chartSeries = buildDailyChartDisplaySeries(today, history, 14, leadsScoped);
+  const streak = computeOutreachStreakWithLeads(history60, today, leadsScoped);
+  const checklistWeek = enrichRollupWithLeadInference(buildDayRollup(today, history60, 7), leadsScoped);
+  const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
   const outreachCoach = await buildOutreachCoachSnapshot(req);
+  const trackerInferred = inferDailyTouchCountsFromLeads(leadsScoped, today);
+  const trackerDisplayToday = displayTouchTotalsForDay(todayRow || null, leadsScoped, today);
   return {
     today,
     todayRow: todayRow || {
@@ -36,12 +47,14 @@ async function loadSalesTrackerLocals(req) {
     checklistWeek,
     checklistMonth,
     outreachCoach,
-    trackerReturnTo: `/analytics?tab=tracker&scope=${String(req.query.scope || 'workspace')}`,
+    trackerInferred,
+    trackerDisplayToday,
+    trackerReturnTo: `/reports?tab=tracker&scope=${String(req.query.scope || 'workspace')}`,
   };
 }
 
 /**
- * GET /analytics
+ * GET /reports (legacy GET /analytics redirects in iaRedirects.js)
  * Renders the dashboard with visit data
  */
 function buildDemoAnalytics(visits, leads) {

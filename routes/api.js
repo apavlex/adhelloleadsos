@@ -13,6 +13,8 @@ const {
 const { cleanBusinessName } = require('../utils/nameCleaner');
 const { defaultPipelineStageForSource, clampPipelineStage } = require('../services/pipelineConstants');
 const signalwire = require('../services/signalwire');
+const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
+const dialerPacing = require('../services/dialerPacing');
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -170,6 +172,11 @@ router.post('/ingest', validateApiKey, async (req, res, next) => {
 
     // Save/Merge via DB Service
     const leadKey = await dbService.saveLead(leadData);
+    try {
+      await autoAttachCadenceIfNeeded({ leadKey, workspaceId: workspaceIdFromReq(req) });
+    } catch (_) {
+      /* non-fatal */
+    }
     
     // Background enrichment if new or missing data
     if (leadData.website && leadData.website !== 'N/A') {
@@ -213,6 +220,11 @@ router.post('/webhooks/newsletter', validateApiKey, async (req, res, next) => {
       return res.status(400).json({ error: 'email is required (top-level or subscriber.email).' });
     }
     const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
+    try {
+      await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: workspaceIdFromReq(req) });
+    } catch (_) {
+      /* non-fatal */
+    }
     res.json({ success: true, key, message: 'Newsletter subscriber saved as lead.' });
   } catch (err) {
     next(err);
@@ -232,6 +244,11 @@ router.post('/webhooks/booking', validateApiKey, async (req, res, next) => {
       });
     }
     const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
+    try {
+      await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: workspaceIdFromReq(req) });
+    } catch (_) {
+      /* non-fatal */
+    }
     res.json({ success: true, key, message: 'Booking saved as inbound lead.' });
   } catch (err) {
     next(err);
@@ -249,6 +266,11 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
       return res.status(400).json({ error: 'email is required.' });
     }
     const key = await dbService.saveLead({ ...payload, workspaceId: workspaceIdFromReq(req) });
+    try {
+      await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: workspaceIdFromReq(req) });
+    } catch (_) {
+      /* non-fatal */
+    }
     res.json({ success: true, key, message: 'Form submission saved as inbound lead.' });
   } catch (err) {
     next(err);
@@ -496,6 +518,22 @@ router.post('/telephony/voice/status', async (req, res) => {
         callStatus === 'completed' ? { lastActivity: new Date().toISOString() } : null
       );
     }
+    if (workspaceId && callStatus) {
+      try {
+        const ws = await dbService.getWorkspace(workspaceId);
+        if (ws && ws.telephony && typeof ws.telephony === 'object') {
+          const changed = dialerPacing.recordCallOutcome(ws.telephony, {
+            from,
+            to,
+            callStatus,
+            callSid: sid,
+          });
+          if (changed) await dbService.saveWorkspace(workspaceId, ws);
+        }
+      } catch (_) {
+        /* non-fatal */
+      }
+    }
     res.json({ success: true });
   } catch (err) {
     console.error('[telephony:voice:status]', err.message);
@@ -525,6 +563,23 @@ router.post('/telephony/voice/amd', async (req, res) => {
         callSid: sid,
         provider: 'signalwire',
       });
+    }
+    if (workspaceId) {
+      try {
+        const ws = await dbService.getWorkspace(workspaceId);
+        if (ws && ws.telephony && typeof ws.telephony === 'object') {
+          const changed = dialerPacing.recordCallOutcome(ws.telephony, {
+            from,
+            to,
+            callStatus: '',
+            callSid: sid,
+            answeredBy: result,
+          });
+          if (changed) await dbService.saveWorkspace(workspaceId, ws);
+        }
+      } catch (_) {
+        /* non-fatal */
+      }
     }
     res.json({ success: true });
   } catch (err) {

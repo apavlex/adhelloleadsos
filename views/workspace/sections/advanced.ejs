@@ -1,0 +1,16 @@
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Advanced</h2>
+  <p class="text-sm text-brand-muted mb-4">Power-user options for this workspace.</p>
+  <% if (typeof showWorkspaceSwitchForm !== 'undefined' && showWorkspaceSwitchForm) { %>
+  <form method="post" action="/workspace/switch" class="rounded-xl border border-dashed border-brand-border dark:border-white/10 p-6 max-w-xl">
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Switch session workspace</label>
+    <input type="text" name="workspaceId" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm mb-3" placeholder="Workspace ID" />
+    <button type="submit" class="text-xs font-black uppercase tracking-widest text-brand-yellow hover:underline">Switch workspace</button>
+    <p class="text-[10px] text-brand-muted mt-2">New leads and filters use the workspace you select.</p>
+  </form>
+  <% } else { %>
+  <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 p-5 max-w-xl">
+    <p class="text-sm text-brand-muted">Multi-workspace switching from the browser is not available yet. Use the workspace menu in the header, or ask your operator if you need a different default workspace on login.</p>
+  </div>
+  <% } %>
+</div>

@@ -1,0 +1,23 @@
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Round-robin pool</h2>
+  <p class="text-sm text-brand-muted mb-4">Drag to set rotation order for “Round-robin assign”. Next inbound goes to the first chip, then the next, and so on.</p>
+  <% if (assignPool && assignPool.length) { %>
+  <script type="application/json" id="rrPoolJson"><%- JSON.stringify(assignPool) %></script>
+  <div
+    id="rrRibbon"
+    class="flex flex-wrap gap-2 p-3 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 min-h-[3.25rem] items-stretch"
+    role="list"
+    aria-label="Round-robin order, draggable"
+  ></div>
+  <p id="rrPreview" class="mt-4 text-sm font-semibold text-brand-dark dark:text-white"></p>
+  <p id="rrOrderMsg" class="mt-2 text-xs text-brand-muted hidden" aria-live="polite"></p>
+  <% } else { %>
+  <div class="rounded-xl border border-dashed border-brand-border/60 dark:border-white/20 bg-brand-cream/20 dark:bg-slate-800/40 p-6 text-center">
+    <p class="text-sm text-brand-muted mb-4">Add admins or SDRs to your workspace so round-robin has people to rotate through.</p>
+    <a href="/workspace/team" class="inline-flex items-center justify-center rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest">Go to Team</a>
+  </div>
+  <% } %>
+</div>
+<% if (assignPool && assignPool.length) { %>
+<%- include('../partials/scripts_routing') %>
+<% } %>

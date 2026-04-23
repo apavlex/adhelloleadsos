@@ -1,0 +1,48 @@
+<script>
+(function () {
+  var btn = document.getElementById('wsAccentSave');
+  var msg = document.getElementById('wsAccentMsg');
+  var preview = document.getElementById('wsAccentPreview');
+  function syncPreview() {
+    var picked = document.querySelector('input[name="wsAccentChoice"]:checked');
+    if (preview && picked && picked.value) {
+      preview.style.setProperty('--preview-accent', picked.value);
+    }
+  }
+  document.querySelectorAll('input[name="wsAccentChoice"]').forEach(function (r) {
+    r.addEventListener('change', syncPreview);
+  });
+  syncPreview();
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var picked = document.querySelector('input[name="wsAccentChoice"]:checked');
+    if (!picked) {
+      if (msg) {
+        msg.classList.remove('hidden');
+        msg.textContent = 'Choose Amber or Bright yellow.';
+        msg.className = 'text-sm mb-3 text-rose-600';
+      }
+      return;
+    }
+    fetch('/workspace/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ accentColor: picked.value }),
+    }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); }).then(function (res) {
+      if (msg) {
+        msg.classList.remove('hidden');
+        if (res.ok && res.data && res.data.success) {
+          msg.textContent = 'Saved. Refreshing…';
+          msg.className = 'text-sm mb-3 text-emerald-700 dark:text-emerald-300';
+          window.location.reload();
+        } else {
+          msg.textContent = (res.data && res.data.error) || 'Save failed';
+          msg.className = 'text-sm mb-3 text-rose-600';
+        }
+      }
+    }).catch(function () {
+      if (msg) { msg.classList.remove('hidden'); msg.textContent = 'Save failed'; msg.className = 'text-sm mb-3 text-rose-600'; }
+    });
+  });
+})();
+</script>

@@ -12,18 +12,45 @@
       Sample leads were added to your Pipeline. You can edit or delete them anytime.
     </div>
     <% } %>
+    <% if (typeof searchInProgressNotice !== 'undefined' && searchInProgressNotice) { %>
+    <div class="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 dark:border-brand-yellow/30 px-4 py-3 text-sm text-brand-dark dark:text-brand-yellow">
+      Lead run in progress. You can keep working here — we’ll notify you in-app when results are ready.
+      <% if (typeof scheduleSavedNotice !== 'undefined' && scheduleSavedNotice) { %>
+      <span class="font-bold">Schedule saved too.</span>
+      <% } %>
+    </div>
+    <% } %>
 
+    <% const _csHeader = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
+    <% const _pvHeader = typeof _csHeader.pipelineValueCreated7d === 'number' ? _csHeader.pipelineValueCreated7d : 0; %>
+    <% const _touchesToday = typeof touchesToday !== 'undefined' ? touchesToday : 0; %>
+    <% const _touchGoal = typeof touchGoal !== 'undefined' ? touchGoal : 54; %>
     <header class="mb-8 md:mb-10 flex flex-col gap-4">
       <% const _ta = typeof workspaceAccent !== 'undefined' && workspaceAccent ? workspaceAccent : ''; %>
       <p class="text-sm md:text-base text-brand-dark dark:text-white font-semibold border-b-2 pb-2 self-start" <% if (_ta) { %>style="border-color: <%= _ta %>"<% } %>>
         <span id="todayDaypart"><%= typeof greetingWord !== 'undefined' ? greetingWord : 'Hello' %></span>, <%= typeof firstName !== 'undefined' ? firstName : 'there' %> — <span id="todayDateLabel"><%= typeof dateLabel !== 'undefined' ? dateLabel : '' %></span>
       </p>
-      <% if (typeof icpLabel !== 'undefined') { %>
-      <button type="button" id="todayIcpPill" class="self-start inline-flex items-center gap-2 rounded-full border border-brand-border dark:border-white/15 bg-white/80 dark:bg-slate-900/70 px-4 py-2 text-left text-[11px] font-bold text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors max-w-full">
-        <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted shrink-0">Targeting</span>
-        <span class="truncate"><%= icpLabel %></span>
-      </button>
+      <% if (typeof outreachCoach !== 'undefined' && outreachCoach) { %>
+      <%- include('partials/prospecting_coach_card', { coachCardClass: 'mb-6 md:mb-8 ring-2 ring-brand-yellow/20 shadow-lg shadow-brand-yellow/10' }) %>
       <% } %>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Calls made</p>
+          <p class="font-display font-black text-xl text-brand-dark dark:text-white tabular-nums"><%= _touchesToday %><span class="text-xs text-brand-muted"> / <%= _touchGoal %></span></p>
+        </div>
+        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Replies received</p>
+          <p class="font-display font-black text-xl text-brand-dark dark:text-white tabular-nums"><%= typeof repliesWaiting !== 'undefined' ? repliesWaiting : 0 %></p>
+        </div>
+        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Pipeline value (7d)</p>
+          <p class="font-display font-black text-xl text-brand-dark dark:text-white tabular-nums">$<%= Math.round(_pvHeader).toLocaleString() %></p>
+        </div>
+        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Streak</p>
+          <p class="font-display font-black text-xl text-emerald-600 dark:text-emerald-400 tabular-nums"><%= typeof streak !== 'undefined' ? streak : 0 %>d</p>
+        </div>
+      </div>
     </header>
     <script>
     (function () {
@@ -47,36 +74,105 @@
     })();
     </script>
 
-    <% const _tl = typeof totalLeads !== 'undefined' ? totalLeads : 0; %>
-    <% if (_tl < 20) { %>
-    <div class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 bg-brand-yellow/15 dark:bg-brand-yellow/10 dark:border-brand-yellow/40 px-6 py-6 md:px-8 md:py-8 shadow-md" role="region" aria-label="Pipeline size">
-      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-2">Your pipeline is too small to hit your goal</h2>
-      <p class="text-sm md:text-base text-brand-muted dark:text-slate-300 font-medium max-w-3xl leading-relaxed mb-6">Realistic math: 54 touches/day × ~3% reply rate needs 50+ active leads. You have <strong class="text-brand-dark dark:text-white"><%= _tl %></strong>.</p>
-      <div class="flex flex-col sm:flex-row flex-wrap gap-3">
-        <a href="/find?preset=icp" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest text-center shadow-lg">Pull 50 leads now</a>
-        <a href="/prospecting?tab=pipeline&amp;action=import" class="inline-flex items-center justify-center rounded-full border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 px-8 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/50 dark:hover:bg-slate-800 transition-colors text-center">Import CSV</a>
+    <% const _fuTasks = typeof followUpTasksToday !== 'undefined' && followUpTasksToday ? followUpTasksToday : []; %>
+    <% if (_fuTasks.length) { %>
+    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Scheduled follow-ups">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Follow-ups</p>
+          <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white">Due &amp; overdue on your list</h2>
+        </div>
+        <a href="/tasks" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 self-start">All tasks</a>
       </div>
-    </div>
+      <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+        <% _fuTasks.forEach((t) => { %>
+          <li class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-bold text-brand-dark dark:text-white"><%= t.title %></p>
+              <p class="text-[11px] text-amber-800 dark:text-amber-200/90 mt-0.5"><%= t.scheduledAt ? new Date(t.scheduledAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '' %></p>
+            </div>
+            <% if (t.leadKey) { %>
+              <a href="/pipeline?focusLead=<%= encodeURIComponent(t.leadKey) %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0"><%= t.leadTitle || 'Open lead' %></a>
+            <% } else { %>
+              <span class="text-[10px] font-bold text-brand-muted shrink-0">No lead linked</span>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    </section>
     <% } %>
 
-    <% const empty = typeof totalLeads !== 'undefined' && totalLeads === 0; %>
+    <% const _tl = typeof totalLeads !== 'undefined' ? totalLeads : 0; %>
+    <% const empty = _tl === 0; %>
+    <% const _leadTarget = 50; %>
+    <% const _underProvisioned = !empty && _tl < _leadTarget; %>
+    <% const _leadPct = Math.max(0, Math.min(100, Math.round((_tl / _leadTarget) * 100))); %>
+    <% const _showAct = typeof showActivationRibbon !== 'undefined' && showActivationRibbon; %>
+    <% const _isDayOne = typeof activation !== 'undefined' && activation && (activation.progress || 0) === 0; %>
+    <% const _showDayOneHero = empty && _showAct && _isDayOne; %>
+
     <% if (empty) { %>
-    <div class="rounded-[2rem] border-2 border-dashed border-brand-border dark:border-white/15 bg-white/60 dark:bg-slate-900/50 px-8 py-16 text-center mb-12">
-      <h1 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Your Pipeline is empty</h1>
-      <p class="text-brand-muted max-w-md mx-auto mb-8">Run a lead search to pull SMBs, or load sample leads to see how stages and cadences look.</p>
-      <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-        <a href="/find" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Run your first search</a>
-        <form method="post" action="/today/seed-demo" class="inline">
-          <button type="submit" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-8 py-3 text-xs font-black uppercase tracking-widest hover:border-brand-yellow/60">
-            Load sample leads
-          </button>
-        </form>
+    <section class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 px-6 py-8 md:px-8 md:py-10 mb-10 shadow-sm" aria-label="Get started">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Get started</p>
+      <h1 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Let’s pull your first 50 leads — takes about 90 seconds.</h1>
+      <p class="text-sm md:text-base text-brand-muted max-w-2xl mb-6">Start with one search, then launch a call session. You can also load sample data to see the full pipeline flow first.</p>
+      <div class="flex flex-col sm:flex-row gap-3 mb-4">
+        <a href="/leads/find?preset=icp" class="btn-pill btn-primary px-8 py-3.5 text-xs font-black uppercase tracking-widest text-center shadow-lg">Pull first 50 leads</a>
+        <% if (typeof icpLabel !== 'undefined') { %>
+        <button type="button" id="todayIcpPill" class="inline-flex items-center justify-center gap-2 rounded-full border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-5 py-3 text-[11px] font-bold text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">
+          <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted shrink-0">Step 0 · ICP</span>
+          <span class="truncate max-w-[14rem]"><%= icpLabel %></span>
+        </button>
+        <% } %>
       </div>
-    </div>
+      <form method="post" action="/today/seed-demo" class="inline">
+        <button type="submit" class="text-sm font-bold text-brand-yellow hover:underline">Load sample data</button>
+      </form>
+    </section>
+    <% } %>
+
+    <% if (_underProvisioned) { %>
+    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 dark:border-brand-yellow/30 px-6 py-6 md:px-8 md:py-7" role="region" aria-label="Pipeline math">
+      <div class="flex flex-col md:flex-row md:items-center gap-5 md:gap-8">
+        <div class="flex-1">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Pipeline math</p>
+          <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-1">You need about <%= _leadTarget %> active leads to support daily goals.</h2>
+          <p class="text-sm text-brand-muted">At ~54 touches/day and ~3% reply rate, your current lead volume is below target.</p>
+        </div>
+        <div class="w-full md:w-72">
+          <div class="flex items-center justify-between text-[11px] font-bold text-brand-dark dark:text-white mb-1.5">
+            <span><%= _tl %> leads</span>
+            <span>Target <%= _leadTarget %></span>
+          </div>
+          <div class="h-3 rounded-full bg-brand-cream/80 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="<%= _leadTarget %>" aria-valuenow="<%= _tl %>">
+            <div class="h-full bg-brand-yellow rounded-full transition-[width] duration-300" style="width:<%= _leadPct %>%"></div>
+          </div>
+          <div class="mt-3 flex gap-2">
+            <a href="/leads/find?preset=icp" class="btn-pill btn-primary px-5 py-2 text-[10px] font-black uppercase tracking-widest">Add leads</a>
+            <a href="/pipeline?action=import" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Import CSV</a>
+          </div>
+        </div>
+      </div>
+    </section>
+    <% } %>
+
+    <% if (_showDayOneHero) { %>
+    <section class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-900/60 p-4 md:p-6 shadow-sm" aria-label="Day one activation">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow px-3 pt-2 mb-2">Day 1 activation</p>
+      <%- include('partials/activation-7day', { activation, activationEmbed: true }) %>
+    </section>
     <% } %>
 
     <% if (!empty) { %>
-    <%- include('partials/prospecting_coach_card', { coachCardClass: 'mb-10 md:mb-12' }) %>
+    <section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-6 md:p-8 shadow-sm" aria-label="Next 30 minutes">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Next 30 minutes</p>
+      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mb-2">You have <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads queued for action today.</h2>
+      <p class="text-sm text-brand-muted mb-5">Start a focused calling block and work the queue in order. AdHello will keep wrap-up and next steps aligned.</p>
+      <div class="flex flex-col sm:flex-row gap-3">
+        <a href="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center">Start session</a>
+        <a href="/pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open pipeline queue</a>
+      </div>
+    </section>
 
     <section aria-labelledby="glance-heading" class="mb-10 md:mb-12">
       <h2 id="glance-heading" class="sr-only">Day at a glance</h2>
@@ -85,33 +181,33 @@
         <% const _cs = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
         <% const _pv = typeof _cs.pipelineValueCreated7d === 'number' ? _cs.pipelineValueCreated7d : 0; %>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <a href="/analytics?tab=tracker&amp;metric=touches_today&amp;range=1d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/50 transition-colors text-left">
+          <a href="/reports?tab=tracker&amp;metric=touches_today&amp;range=1d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/50 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 group-hover:text-brand-dark dark:group-hover:text-white">Touches today</p>
             <p class="text-2xl md:text-3xl font-display font-black text-brand-yellow"><%= typeof touchesToday !== 'undefined' ? touchesToday : 0 %><span class="text-sm font-bold text-brand-muted"> / <%= typeof touchGoal !== 'undefined' ? touchGoal : 54 %></span></p>
             <p class="text-[11px] text-brand-muted mt-2">Unique leads touched today</p>
           </a>
-          <a href="/analytics?tab=tracker&amp;metric=reply_rate&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
+          <a href="/reports?tab=tracker&amp;metric=reply_rate&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Reply rate (7d)</p>
             <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-violet-300"><%= _cs.replyRate7dDisplay || '0%' %></p>
             <p class="text-[11px] text-brand-muted mt-2">Replies / touches · rolling week</p>
           </a>
-          <a href="/analytics?tab=tracker&amp;metric=meetings_booked&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-emerald-500/40 transition-colors text-left">
+          <a href="/reports?tab=tracker&amp;metric=meetings_booked&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-emerald-500/40 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Meetings booked (7d)</p>
             <p class="text-2xl md:text-3xl font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof _cs.meetingsBooked7d !== 'undefined' ? _cs.meetingsBooked7d : 0 %></p>
             <p class="text-[11px] text-brand-muted mt-2">From notes &amp; activity keywords</p>
           </a>
-          <a href="/analytics?tab=tracker&amp;metric=pipeline_created&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/60 transition-colors text-left">
+          <a href="/reports?tab=tracker&amp;metric=pipeline_created&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/60 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Pipeline created (7d)</p>
             <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-white">$<%= Math.round(_pv).toLocaleString() %></p>
             <p class="text-[11px] text-brand-muted mt-2">Stage 3+ moves · est. value</p>
           </a>
         </div>
         <div class="grid grid-cols-2 gap-4 md:gap-6 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-brand-border/30 dark:border-white/10">
-          <a href="/analytics?tab=tracker&amp;metric=outreach_streak&amp;range=30d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-emerald-500/30 transition-colors text-left">
+          <a href="/reports?tab=tracker&amp;metric=outreach_streak&amp;range=30d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-emerald-500/30 transition-colors text-left">
             <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Outreach streak</p>
             <p class="text-lg font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof streak !== 'undefined' ? streak : 0 %>d</p>
           </a>
-          <a href="/analytics?tab=tracker&amp;metric=overdue_followups&amp;range=1d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-rose-500/30 transition-colors text-left">
+          <a href="/reports?tab=tracker&amp;metric=overdue_followups&amp;range=1d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-rose-500/30 transition-colors text-left">
             <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Overdue follow-ups</p>
             <p class="text-lg font-display font-black text-rose-600 dark:text-rose-400"><%= typeof overdueFollowUps !== 'undefined' ? overdueFollowUps : 0 %></p>
           </a>
@@ -123,32 +219,31 @@
       <h2 id="actions-heading" class="sr-only">Quick actions</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
         <div class="flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 shadow-sm overflow-hidden hover:border-brand-yellow/50 transition-colors">
-          <a href="/find" class="group flex flex-1 flex-col p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+          <a href="/leads/find" class="group flex flex-1 flex-col p-8 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find</p>
             <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Start a lead search</h3>
             <p class="text-sm text-brand-muted leading-relaxed flex-1">Keyword + location; Maps via Outscraper first when configured, Apify fallback.</p>
           </a>
           <p class="text-[11px] text-brand-muted px-8 pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10 -mt-1">
-            <a href="/workspace" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.
+            <a href="/workspace/integrations" class="text-brand-yellow font-bold hover:underline">Workspace</a> — API keys &amp; cost-aware stack guide.
           </p>
         </div>
-        <a href="/prospecting?tab=pipeline" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+        <a href="/pipeline" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Pipeline</p>
           <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Work your queue — <%= typeof queueNeedingAction !== 'undefined' ? queueNeedingAction : 0 %> leads in early stages</h3>
           <p class="text-sm text-brand-muted leading-relaxed mt-auto">Stages 1–2 need movement or outreach.</p>
         </a>
-        <a href="/sales/tracker#tracker" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
+        <a href="/reports?tab=tracker" class="group flex min-w-0 flex-col rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 p-8 shadow-sm hover:border-brand-yellow/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Touches</p>
-          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Log today’s outreach</h3>
-          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Cold emails, DMs, calls — keep the streak.</p>
+          <h3 class="font-display font-extrabold text-xl text-brand-dark dark:text-white mb-2 group-hover:text-brand-yellow transition-colors">Review daily tracker</h3>
+          <p class="text-sm text-brand-muted leading-relaxed mt-auto">Auto-detected calls and cadence steps plus anything you adjust — streaks and charts in Reports.</p>
         </a>
       </div>
     </section>
     <% } %>
 
     <% const _wr = typeof weekReview !== 'undefined' && weekReview ? weekReview : null; %>
-    <% const _showAct = typeof showActivationRibbon !== 'undefined' && showActivationRibbon; %>
-    <% if (typeof activation !== 'undefined' && activation && typeof activationComplete !== 'undefined' && !activationComplete && _showAct) { %>
+    <% if (typeof activation !== 'undefined' && activation && typeof activationComplete !== 'undefined' && !activationComplete && _showAct && !_showDayOneHero) { %>
     <div id="activationRibbonWrap" class="mb-10">
       <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">7-day activation</p>
@@ -190,7 +285,7 @@
     </script>
     <% } %>
     <% if (_wr) { %>
-    <div id="weekReviewCard" class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm <%= _showAct ? 'hidden' : '' %>">
+    <div id="weekReviewCard" class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm <%= (_showAct && !_showDayOneHero) ? 'hidden' : '' %>">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-4">This week&apos;s review</p>
       <div class="space-y-6">
         <div>
@@ -231,18 +326,9 @@
         <footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— <%= _eq.author %></footer>
       </blockquote>
     </details>
-    <% if (empty) { %>
-    <div class="mt-4 pt-4 border-t border-brand-border/30 dark:border-white/10">
-      <a href="/focus" class="btn-pill btn-primary inline-flex items-center justify-center px-8 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg w-full sm:w-auto text-center">Start my 54 →</a>
-    </div>
-    <% } %>
   </footer>
   <% } else { %>
-  <footer class="max-wide mx-auto px-6 pb-10 md:pb-14">
-    <% if (empty) { %>
-    <a href="/focus" class="btn-pill btn-primary inline-flex items-center justify-center px-8 py-3.5 text-xs font-black uppercase tracking-widest shadow-lg w-full sm:w-auto text-center">Start my 54 →</a>
-    <% } %>
-  </footer>
+  <footer class="max-wide mx-auto px-6 pb-10 md:pb-14"></footer>
   <% } %>
 
   <% const _icpF = typeof icpForm !== 'undefined' && icpForm ? icpForm : { keyword: '', city: '', state: '', qty: 50 }; %>

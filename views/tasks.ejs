@@ -8,17 +8,10 @@
   <%- include('partials/navbar') %>
 
   <main class="max-wide px-6 py-10 md:py-12">
-    <div id="taskNotifyBanner" class="hidden mb-6 rounded-2xl border border-amber-400/40 bg-amber-50/90 dark:bg-amber-950/30 dark:border-amber-500/30 px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <p class="text-sm text-brand-dark dark:text-slate-200"><strong class="font-bold">Browser reminders</strong> — Allow notifications so Chrome can alert you when a scheduled task is due. Works while this tab is open or when you return to Agency OS.</p>
-      <button type="button" id="taskNotifyEnable" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0">Enable reminders</button>
-    </div>
-    <div id="taskNotifyDenied" class="hidden mb-6 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/40 px-4 py-3 text-sm text-brand-muted">Notifications are blocked for this site. Enable them in Chrome site settings if you want task reminders.</div>
-
     <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Tasks</h1>
-        <p class="text-brand-muted text-sm mt-2 max-w-xl">Checklist for quick completes, or switch to the board to drag tasks across columns.</p>
       </div>
       <div class="flex items-center gap-2 bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 p-1 shadow-sm shrink-0">
         <button type="button" id="taskViewChecklist" class="task-view-btn px-4 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all bg-brand-yellow text-brand-dark shadow-sm">Checklist</button>
@@ -28,13 +21,24 @@
 
     <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 mb-8">
       <form id="taskAddForm" class="space-y-4">
-        <div class="flex flex-col lg:flex-row gap-3 lg:items-end">
+        <div class="flex flex-col xl:flex-row gap-3 xl:items-end">
           <div class="flex-1 min-w-0">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskTitleInput">Task</label>
-            <input id="taskTitleInput" name="title" type="text" autocomplete="off" placeholder="Add a task…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+            <input id="taskTitleInput" name="title" type="text" autocomplete="off" placeholder="e.g. Call back about proposal…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div class="w-full min-w-0 sm:max-w-xs xl:max-w-[14rem]">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskLeadSelect">Lead (optional)</label>
+            <select id="taskLeadSelect" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white min-h-[46px]" aria-label="Link to lead">
+              <option value="">— No lead —</option>
+              <% if (typeof leadChoices !== 'undefined' && leadChoices && leadChoices.length) { %>
+                <% leadChoices.forEach((lc) => { %>
+                  <option value="<%= lc.key %>" <%= typeof initialLeadKey !== 'undefined' && initialLeadKey === lc.key ? 'selected' : '' %>><%= lc.label %></option>
+                <% }); %>
+              <% } %>
+            </select>
           </div>
           <div class="w-full sm:w-auto">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskScheduledInput">Reminder / schedule (optional)</label>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskScheduledInput">Reminder (optional)</label>
             <input id="taskScheduledInput" name="scheduledAt" type="datetime-local" class="w-full min-w-[14rem] rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
           <div class="flex gap-2 shrink-0">
@@ -52,8 +56,15 @@
             </div>
           </div>
         </div>
-        <p class="text-[11px] text-brand-muted">If you set a date and time, we’ll prompt for notification permission (once). You’ll get a Chrome/desktop alert when it’s due.</p>
+        <p id="taskNotifyInline" class="hidden text-[11px] text-amber-900 dark:text-amber-200 rounded-xl border border-amber-400/40 bg-amber-50/90 dark:bg-amber-950/40 px-3 py-2"></p>
       </form>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 mb-6" role="group" aria-label="Filter tasks">
+      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted mr-1">Show</span>
+      <button type="button" class="task-filter-btn px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm" data-task-filter="all">All</button>
+      <button type="button" class="task-filter-btn px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border dark:border-white/10 text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-task-filter="due">Due &amp; overdue</button>
+      <button type="button" class="task-filter-btn px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border dark:border-white/10 text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-task-filter="lead">With lead</button>
     </div>
 
     <div id="taskScheduleModal" class="fixed inset-0 z-[240] hidden items-center justify-center p-4" aria-hidden="true">
@@ -76,7 +87,14 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-4">Checklist</p>
       <div id="taskChecklistRoot" class="space-y-2 min-h-[120px]">
         <% if (!tasks.length) { %>
-          <p class="text-sm text-brand-muted italic py-8 text-center">No tasks yet — add one above.</p>
+          <%- include('partials/empty_state', {
+            emptyHeadline: 'Tasks · 0',
+            emptyBody: 'Drop your first follow-up above, or pull leads and let Today surface what’s due.',
+            emptyCtaHref: '/leads/find',
+            emptyCtaLabel: 'Find leads',
+            emptySecondaryHref: '/today',
+            emptySecondaryLabel: 'Open Today',
+          }) %>
         <% } %>
       </div>
     </section>
@@ -115,6 +133,8 @@
     var form = document.getElementById('taskAddForm');
     var input = document.getElementById('taskTitleInput');
     var colSelect = document.getElementById('taskColumnSelect');
+    var leadSelect = document.getElementById('taskLeadSelect');
+    var currentFilter = 'all';
 
     function escapeHtml(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -158,27 +178,64 @@
 
     var scheduledInput = document.getElementById('taskScheduledInput');
 
-    function updateNotifyBanner() {
-      var banner = document.getElementById('taskNotifyBanner');
-      var denied = document.getElementById('taskNotifyDenied');
-      if (!('Notification' in window)) return;
-      if (Notification.permission === 'default' && banner) banner.classList.remove('hidden');
-      else if (banner) banner.classList.add('hidden');
-      if (Notification.permission === 'denied' && denied) denied.classList.remove('hidden');
-      else if (denied) denied.classList.add('hidden');
+    function endOfTodayMs() {
+      var now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1).getTime();
     }
 
-    var notifyBtn = document.getElementById('taskNotifyEnable');
-    if (notifyBtn) {
-      notifyBtn.addEventListener('click', function () {
-        if (!('Notification' in window)) return;
-        Notification.requestPermission().then(function () {
-          updateNotifyBanner();
-          if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();
-        });
+    function taskPassesFilter(t) {
+      if (currentFilter === 'all') return true;
+      if (currentFilter === 'lead') return !!(t.leadKey || t.leadTitle);
+      if (currentFilter === 'due') {
+        if (!t.scheduledAt || t.column === 'done') return false;
+        var ts = Date.parse(t.scheduledAt);
+        return Number.isFinite(ts) && ts < endOfTodayMs();
+      }
+      return true;
+    }
+
+    function visibleTasks() {
+      return tasks.filter(taskPassesFilter);
+    }
+
+    function showNotifyDeniedInline() {
+      var el = document.getElementById('taskNotifyInline');
+      if (!el) return;
+      if (!('Notification' in window)) return;
+      if (Notification.permission !== 'denied') return;
+      el.textContent =
+        'Notifications are blocked for this site. Tasks and reminders are still saved; enable notifications in your browser site settings if you want desktop alerts when a reminder is due.';
+      el.classList.remove('hidden');
+    }
+
+    function clearNotifyInlineIfGranted() {
+      var el = document.getElementById('taskNotifyInline');
+      if (el && 'Notification' in window && Notification.permission === 'granted') el.classList.add('hidden');
+    }
+
+    function leadCellHtml(t) {
+      if (!t.leadKey) return '<p class="text-[10px] text-brand-muted mt-1">No lead linked</p>';
+      var label = escapeHtml(t.leadTitle || 'Lead');
+      var href = '/prospecting?tab=pipeline&focusLead=' + encodeURIComponent(t.leadKey);
+      return (
+        '<p class="text-[10px] mt-1"><span class="text-brand-muted font-bold uppercase tracking-wider mr-1">Lead</span>' +
+        '<a class="font-bold text-brand-yellow hover:underline" href="' + href + '">' + label + '</a></p>'
+      );
+    }
+
+    function syncFilterButtons() {
+      document.querySelectorAll('.task-filter-btn').forEach(function (b) {
+        var on = b.getAttribute('data-task-filter') === currentFilter;
+        b.classList.toggle('bg-brand-yellow', on);
+        b.classList.toggle('text-brand-dark', on);
+        b.classList.toggle('border-brand-yellow', on);
+        b.classList.toggle('shadow-sm', on);
+        b.classList.toggle('border-brand-border', !on);
+        b.classList.toggle('dark:border-white/10', !on);
+        b.classList.toggle('text-brand-muted', !on);
+        b.classList.toggle('dark:text-slate-400', !on);
       });
     }
-    updateNotifyBanner();
 
     function setView(isBoard) {
       if (isBoard) {
@@ -204,12 +261,18 @@
 
     function renderChecklist() {
       if (!checklistEl) return;
-      var open = tasks.filter(function (t) { return t.column !== 'done'; });
-      var done = tasks.filter(function (t) { return t.column === 'done'; });
       if (!tasks.length) {
         checklistEl.innerHTML = '<p class="text-sm text-brand-muted italic py-8 text-center">No tasks yet — add one above.</p>';
         return;
       }
+      var vis = visibleTasks();
+      if (!vis.length) {
+        checklistEl.innerHTML =
+          '<p class="text-sm text-brand-muted italic py-8 text-center">No tasks match this filter. Try <strong class="text-brand-dark dark:text-white">All</strong> or add a task above.</p>';
+        return;
+      }
+      var open = vis.filter(function (t) { return t.column !== 'done'; });
+      var done = vis.filter(function (t) { return t.column === 'done'; });
       function row(t, isDone) {
         var id = escapeHtml(t.id);
         var rawId = String(t.id || '');
@@ -224,6 +287,7 @@
             '<div class="min-w-0 flex-1">' +
               '<p class="text-sm font-semibold text-brand-dark dark:text-white ' + (isDone ? 'line-through opacity-60' : '') + '">' + escapeHtml(t.title) + '</p>' +
               '<p class="text-[10px] font-bold uppercase tracking-wider text-brand-muted mt-1">' + escapeHtml(t.column) + '</p>' +
+              leadCellHtml(t) +
               schedHtml +
             '</div>' +
             '<div class="flex flex-col items-end gap-2 shrink-0">' +
@@ -299,6 +363,7 @@
       return (
         '<li class="task-card p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing" data-task-id="' + id + '">' +
           '<p class="text-sm font-bold text-brand-dark dark:text-white leading-snug">' + escapeHtml(t.title) + '</p>' +
+          leadCellHtml(t) +
           sched +
           '<div class="flex flex-wrap gap-2 mt-2">' +
             '<button type="button" class="task-open-schedule text-[9px] font-black uppercase text-brand-yellow hover:underline" data-task-id="' + escapeHtml(rawId) + '">' +
@@ -317,7 +382,7 @@
         if (!colEl) return;
         var ul = colEl.querySelector('.task-board-list');
         var count = colEl.querySelector('.task-col-count');
-        var subset = tasks.filter(function (t) { return t.column === c.id; });
+        var subset = visibleTasks().filter(function (t) { return t.column === c.id; });
         if (count) count.textContent = String(subset.length);
         subset.forEach(function (t) {
           ul.insertAdjacentHTML('beforeend', cardHtml(t));
@@ -374,11 +439,12 @@
         if (!title) return;
         var column = colSelect && colSelect.value ? colSelect.value : 'todo';
         var schedIso = datetimeLocalToIso(scheduledInput && scheduledInput.value);
+        var leadKey = leadSelect && leadSelect.value ? leadSelect.value : null;
         function post() {
           fetch('/tasks/api', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ title: title, column: column, scheduledAt: schedIso })
+            body: JSON.stringify({ title: title, column: column, scheduledAt: schedIso, leadKey: leadKey })
           })
             .then(function (r) { return r.json(); })
             .then(function (data) {
@@ -386,7 +452,10 @@
               tasks.push(data.task);
               if (input) input.value = '';
               if (scheduledInput) scheduledInput.value = '';
-              updateNotifyBanner();
+              if (leadSelect) leadSelect.value = '';
+              clearNotifyInlineIfGranted();
+              if (schedIso && 'Notification' in window && Notification.permission === 'denied') showNotifyDeniedInline();
+              if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();
               if (boardSection.classList.contains('hidden')) renderChecklist();
               else { renderBoard(); initSortable(); }
             })
@@ -394,7 +463,8 @@
         }
         if (schedIso && 'Notification' in window && Notification.permission === 'default') {
           Notification.requestPermission().then(function () {
-            updateNotifyBanner();
+            clearNotifyInlineIfGranted();
+            if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();
             post();
           });
         } else {
@@ -442,12 +512,14 @@
           patchTask(id, { scheduledAt: iso })
             .then(function () {
               closeScheduleModal();
+              if (iso && 'Notification' in window && Notification.permission === 'denied') showNotifyDeniedInline();
             })
             .catch(function () {});
         }
         if (iso && 'Notification' in window && Notification.permission === 'default') {
           Notification.requestPermission().then(function () {
-            updateNotifyBanner();
+            clearNotifyInlineIfGranted();
+            if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();
             run();
           });
         } else {
@@ -471,6 +543,21 @@
 
     if (btnList) btnList.addEventListener('click', function () { setView(false); });
     if (btnBoard) btnBoard.addEventListener('click', function () { setView(true); });
+
+    document.querySelectorAll('.task-filter-btn').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var f = b.getAttribute('data-task-filter');
+        if (!f) return;
+        currentFilter = f;
+        syncFilterButtons();
+        if (boardSection.classList.contains('hidden')) renderChecklist();
+        else {
+          renderBoard();
+          initSortable();
+        }
+      });
+    });
+    syncFilterButtons();
 
     window.__agencyTasksGetter = function () {
       return tasks;

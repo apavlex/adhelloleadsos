@@ -1,54 +1,77 @@
 <% if (typeof hideSalesTrackerHeading === 'undefined' || !hideSalesTrackerHeading) { %>
 <div class="mb-10 max-w-3xl">
   <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Daily Action <span class="text-brand-muted">Tracker</span></h1>
-  <p class="text-brand-muted font-medium mt-2">Log hustle metrics per day. Data is stored per logged-in user. Your <strong class="text-brand-dark dark:text-white">AI prospecting coach</strong> below reads your live pipeline and today’s volume to keep you moving.</p>
+  <p class="text-brand-muted font-medium mt-2">Review totals for each day — numbers can combine what you save here with <strong class="text-brand-dark dark:text-white">calls and cadence steps</strong> we detect from lead activity. Adjust anything that looks off and save.</p>
 </div>
 <% } %>
 
-<%- include('/partials/prospecting_coach_card') %>
-
 <% const streakVal = typeof streak !== 'undefined' ? streak : 0; %>
 <% const cs = typeof chartSeries !== 'undefined' && chartSeries ? chartSeries : []; %>
+<% const chartSum = cs.reduce(function (s, x) { return s + (x.total || 0); }, 0); %>
 <% const maxBar = cs.length ? Math.max(1, ...cs.map((x) => x.total)) : 1; %>
+<% const _ti = typeof trackerInferred !== 'undefined' && trackerInferred ? trackerInferred : { coldCalls: 0, coldEmails: 0, coldDms: 0, upworkBids: 0, socialPosts: 0, adCreatives: 0 }; %>
+<% const _tiTot = (_ti.coldCalls || 0) + (_ti.coldEmails || 0) + (_ti.coldDms || 0) + (_ti.upworkBids || 0) + (_ti.socialPosts || 0) + (_ti.adCreatives || 0); %>
 <div class="grid lg:grid-cols-3 gap-6 mb-10">
   <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 lg:col-span-1">
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outreach streak</p>
     <p class="text-4xl font-display font-black text-emerald-600 dark:text-emerald-400"><%= streakVal %></p>
-    <p class="text-xs text-brand-muted mt-2">Consecutive days (any touches) ending today if you logged activity.</p>
+    <p class="text-xs text-brand-muted mt-2">Consecutive days with volume from saved totals or from calls and cadence steps on your leads (whichever is higher per day).</p>
   </div>
   <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 lg:col-span-2">
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">14-day volume</p>
+    <% if (chartSum === 0) { %>
+    <div class="rounded-2xl border border-dashed border-brand-border dark:border-white/15 bg-brand-cream/20 dark:bg-white/5 px-5 py-10 text-center min-h-[10rem] flex flex-col items-center justify-center">
+      <p class="text-sm font-semibold text-brand-dark dark:text-white">No volume in this window yet</p>
+      <p class="text-xs text-brand-muted mt-2 max-w-md mx-auto leading-relaxed">Your volume chart lights up once you log activity — or connect the softphone to auto-log calls.</p>
+    </div>
+    <% } else { %>
     <div class="flex items-end gap-1.5 h-32 w-full">
       <% cs.forEach((pt) => { %>
         <% const barPx = Math.max(4, Math.round((pt.total / maxBar) * 100)); %>
         <div class="flex-1 min-w-0 flex flex-col justify-end h-full group" title="<%= pt.date %>: <%= pt.total %>">
+          <span class="text-[9px] font-black text-brand-dark dark:text-white text-center mb-0.5 tabular-nums"><%= pt.total %></span>
           <div class="w-full max-w-[24px] mx-auto rounded-t-lg bg-emerald-500/80 dark:bg-emerald-500 transition-all group-hover:brightness-110" style="height: <%= barPx %>px"></div>
           <span class="text-[8px] font-bold text-brand-muted text-center mt-1 truncate"><%= pt.date.slice(5) %></span>
         </div>
       <% }) %>
     </div>
+    <% } %>
   </div>
 </div>
 
+<% if (_tiTot > 0) { %>
+<div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 mb-10 border border-brand-yellow/25 bg-brand-yellow/5 dark:bg-brand-yellow/10">
+  <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Detected today (UTC)</p>
+      <p class="text-sm text-brand-dark dark:text-white font-semibold">From lead logs: <%= _ti.coldCalls %> calls · <%= _ti.coldEmails %> email steps · <%= _ti.coldDms %> LinkedIn / DM steps</p>
+      <p class="text-[11px] text-brand-muted mt-2 max-w-2xl">Softphone and sequence events already feed your chart and checklist. Use the button only if you want the same numbers reflected in the saved fields below (we take the higher of saved vs. detected per channel — no double-count).</p>
+    </div>
+    <button type="button" id="trackerApplyInferred" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0">Align form with activity</button>
+  </div>
+</div>
+<script type="application/json" id="tracker-inferred-json"><%- JSON.stringify(_ti) %></script>
+<% } %>
+
 <div id="tracker" class="grid lg:grid-cols-2 gap-8 mb-14 scroll-mt-24">
   <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
-    <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Today · <%= today %></h2>
-    <p class="text-xs text-brand-muted mb-6">Cold outreach, social, creatives &amp; bids</p>
+    <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Review today · <%= today %></h2>
+    <p class="text-xs text-brand-muted mb-6">These fields are for adjustments and notes — calls and cadence steps from the pipeline already lift your chart, streak, and checklist. Only change a number if you need to correct or add something that did not hit a lead timeline.</p>
     <form action="/sales/tracker" method="post" class="space-y-4">
       <input type="hidden" name="date" value="<%= today %>" />
       <input type="hidden" name="returnTo" value="<%= typeof trackerReturnTo !== 'undefined' ? trackerReturnTo : '/sales/tracker' %>" />
       <div class="grid grid-cols-2 gap-4">
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold emails</label>
-          <input name="coldEmails" type="number" min="0" value="<%= todayRow.coldEmails != null ? todayRow.coldEmails : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          <input id="trackerInputColdEmails" name="coldEmails" type="number" min="0" value="<%= todayRow.coldEmails != null ? todayRow.coldEmails : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
         </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold DMs</label>
-          <input name="coldDms" type="number" min="0" value="<%= todayRow.coldDms != null ? todayRow.coldDms : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          <input id="trackerInputColdDms" name="coldDms" type="number" min="0" value="<%= todayRow.coldDms != null ? todayRow.coldDms : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
         </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold calls</label>
-          <input name="coldCalls" type="number" min="0" value="<%= todayRow.coldCalls != null ? todayRow.coldCalls : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          <input id="trackerInputColdCalls" name="coldCalls" type="number" min="0" value="<%= todayRow.coldCalls != null ? todayRow.coldCalls : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
         </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Upwork / bids</label>
@@ -71,33 +94,41 @@
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Day notes</label>
         <textarea name="notes" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Wins, blockers, tomorrow’s focus…"><%= todayRow.notes || '' %></textarea>
       </div>
-      <button type="submit" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Save today</button>
+      <button type="submit" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Save adjustments</button>
     </form>
   </div>
 
   <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
-    <h2 class="font-display font-extrabold text-lg mb-4 text-brand-dark dark:text-white">Today’s totals</h2>
+    <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Today’s picture</h2>
+    <p class="text-[11px] text-brand-muted mb-4">Higher of <strong class="text-brand-dark dark:text-white">saved</strong> vs <strong class="text-brand-dark dark:text-white">detected</strong> from lead activity (per channel).</p>
     <% const t = todayRow || {}; %>
+    <% const _td = typeof trackerDisplayToday !== 'undefined' && trackerDisplayToday ? trackerDisplayToday : null; %>
+    <% const _de = _td ? _td.emails : (parseInt(t.coldEmails,10)||0); %>
+    <% const _dd = _td ? _td.dms : (parseInt(t.coldDms,10)||0); %>
+    <% const _dc = _td ? _td.calls : (parseInt(t.coldCalls,10)||0); %>
+    <% const _db = _td ? _td.bids : (parseInt(t.upworkBids,10)||0); %>
+    <% const _ds = _td ? _td.socialPosts : (parseInt(t.socialPosts,10)||0); %>
+    <% const _da = _td ? _td.adCreatives : (parseInt(t.adCreatives,10)||0); %>
     <dl class="grid grid-cols-2 gap-4 text-sm">
       <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
         <dt class="text-[10px] font-black uppercase text-brand-muted">Emails + DMs</dt>
-        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= (parseInt(t.coldEmails,10)||0) + (parseInt(t.coldDms,10)||0) %></dd>
+        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _de + _dd %></dd>
       </div>
       <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
         <dt class="text-[10px] font-black uppercase text-brand-muted">Calls</dt>
-        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.coldCalls,10)||0 %></dd>
+        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _dc %></dd>
       </div>
       <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
         <dt class="text-[10px] font-black uppercase text-brand-muted">Bids</dt>
-        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.upworkBids,10)||0 %></dd>
+        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _db %></dd>
       </div>
       <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
         <dt class="text-[10px] font-black uppercase text-brand-muted">Social posts</dt>
-        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.socialPosts,10)||0 %></dd>
+        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _ds %></dd>
       </div>
       <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10 col-span-2">
         <dt class="text-[10px] font-black uppercase text-brand-muted">Ad creatives</dt>
-        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= parseInt(t.adCreatives,10)||0 %></dd>
+        <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _da %></dd>
       </div>
     </dl>
   </div>
@@ -105,26 +136,39 @@
 
 <% const cw = typeof checklistWeek !== 'undefined' && checklistWeek ? checklistWeek : { days: [], sumTotal: 0, daysWithActivity: 0 }; %>
 <% const cm = typeof checklistMonth !== 'undefined' && checklistMonth ? checklistMonth : { days: [], sumTotal: 0, daysWithActivity: 0 }; %>
+<style>
+  #checklist-panel-week[data-hide-empty="1"] .tracker-checklist-row[data-empty="1"],
+  #checklist-panel-month[data-hide-empty="1"] .tracker-checklist-row[data-empty="1"] {
+    display: none;
+  }
+</style>
 <section class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" id="outreach-checklist" aria-label="Past outreach checklist">
-  <div class="px-6 py-5 border-b border-brand-border dark:border-white/10 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+  <div class="px-6 py-5 border-b border-brand-border dark:border-white/10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <div>
       <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Past outreach checklist</h2>
-      <p class="text-xs text-brand-muted dark:text-slate-400 mt-1 max-w-xl">Click any day to expand notes. <strong class="text-brand-dark dark:text-white">✓</strong> means at least one touch logged. Switch between the last 7 days and last 30 days.</p>
+      <p class="text-xs text-brand-muted dark:text-slate-400 mt-1 max-w-xl">Days with no touches are hidden by default on long ranges so the list stays scannable. Expand a row for notes.</p>
     </div>
-    <div class="flex rounded-2xl border border-brand-border dark:border-white/10 p-1 bg-brand-cream/30 dark:bg-white/5 shrink-0" role="tablist" aria-label="Checklist range">
-      <button type="button" id="chkTabWeek" class="tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors bg-brand-yellow text-brand-dark shadow-sm" aria-selected="true" data-range="week">This week</button>
-      <button type="button" id="chkTabMonth" class="tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" aria-selected="false" data-range="month">This month</button>
+    <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 shrink-0">
+      <button type="button" id="chkToggleEmptyDays" class="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 text-brand-muted dark:text-slate-300 hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" aria-pressed="false" data-showing-empty="false">Show empty days</button>
+      <div class="flex rounded-2xl border border-brand-border dark:border-white/10 p-1 bg-brand-cream/30 dark:bg-white/5" role="tablist" aria-label="Checklist range">
+        <button type="button" id="chkTabWeek" class="tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors bg-brand-yellow text-brand-dark shadow-sm" aria-selected="true" data-range="week">This week</button>
+        <button type="button" id="chkTabMonth" class="tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" aria-selected="false" data-range="month">This month</button>
+      </div>
     </div>
   </div>
 
-  <div id="checklist-panel-week" class="p-3 sm:p-4">
+  <div id="checklist-panel-week" class="p-3 sm:p-4" data-hide-empty="1">
     <p class="px-2 pb-3 text-[11px] font-medium text-brand-muted dark:text-slate-400">
       <span class="font-black text-brand-dark dark:text-white"><%= cw.daysWithActivity %></span> days with activity ·
       <span class="font-black text-brand-dark dark:text-white"><%= cw.sumTotal %></span> total touches
     </p>
+    <% if (cw.daysWithActivity === 0) { %>
+    <p class="px-2 pb-3 text-xs text-brand-muted dark:text-slate-400 max-w-xl">No touches in this range yet — work the pipeline or use “Show empty days” to reveal the full calendar.</p>
+    <% } %>
     <div class="space-y-1">
       <% cw.days.forEach((day) => { %>
-        <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/40 dark:bg-slate-950/30 open:bg-white/70 dark:open:bg-slate-800/40 open:border-brand-yellow/40 transition-colors">
+        <% const _emptyRow = day.total === 0 && !day.hasNotes; %>
+        <details class="tracker-checklist-row group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/40 dark:bg-slate-950/30 open:bg-white/70 dark:open:bg-slate-800/40 open:border-brand-yellow/40 transition-colors" data-empty="<%= _emptyRow ? '1' : '0' %>">
           <summary class="flex flex-wrap items-center gap-3 py-3 px-3 sm:px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shrink-0 <%= day.total > 0 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25' : 'bg-brand-cream/60 dark:bg-white/5 text-brand-muted dark:text-slate-500 border border-brand-border/30 dark:border-white/10' %>" title="<%= day.total > 0 ? 'Logged touches' : 'No touches' %>"><%= day.total > 0 ? '✓' : '·' %></span>
             <div class="min-w-0 flex-1">
@@ -167,14 +211,18 @@
     </div>
   </div>
 
-  <div id="checklist-panel-month" class="p-3 sm:p-4 hidden">
+  <div id="checklist-panel-month" class="p-3 sm:p-4 hidden" data-hide-empty="1">
     <p class="px-2 pb-3 text-[11px] font-medium text-brand-muted dark:text-slate-400">
       <span class="font-black text-brand-dark dark:text-white"><%= cm.daysWithActivity %></span> days with activity ·
       <span class="font-black text-brand-dark dark:text-white"><%= cm.sumTotal %></span> total touches
     </p>
+    <% if (cm.daysWithActivity === 0) { %>
+    <p class="px-2 pb-3 text-xs text-brand-muted dark:text-slate-400 max-w-xl">No touches in this range yet — work the pipeline or use “Show empty days” to reveal the full calendar.</p>
+    <% } %>
     <div class="space-y-1 max-h-[min(70vh,32rem)] overflow-y-auto pr-1">
       <% cm.days.forEach((day) => { %>
-        <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/40 dark:bg-slate-950/30 open:bg-white/70 dark:open:bg-slate-800/40 open:border-brand-yellow/40 transition-colors">
+        <% const _emptyRowM = day.total === 0 && !day.hasNotes; %>
+        <details class="tracker-checklist-row group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/40 dark:bg-slate-950/30 open:bg-white/70 dark:open:bg-slate-800/40 open:border-brand-yellow/40 transition-colors" data-empty="<%= _emptyRowM ? '1' : '0' %>">
           <summary class="flex flex-wrap items-center gap-3 py-3 px-3 sm:px-4 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
             <span class="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shrink-0 <%= day.total > 0 ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/25' : 'bg-brand-cream/60 dark:bg-white/5 text-brand-muted dark:text-slate-500 border border-brand-border/30 dark:border-white/10' %>"><%= day.total > 0 ? '✓' : '·' %></span>
             <div class="min-w-0 flex-1">
@@ -223,9 +271,21 @@
   var m = document.getElementById('checklist-panel-month');
   var tw = document.getElementById('chkTabWeek');
   var tm = document.getElementById('chkTabMonth');
+  var toggleEmpty = document.getElementById('chkToggleEmptyDays');
   if (!w || !m || !tw || !tm) return;
   var active = 'bg-brand-yellow text-brand-dark shadow-sm';
   var inactive = 'text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white';
+  function activePanel() {
+    return m.classList.contains('hidden') ? w : m;
+  }
+  function syncEmptyToggleLabel() {
+    if (!toggleEmpty) return;
+    var p = activePanel();
+    var showing = p.getAttribute('data-hide-empty') !== '1';
+    toggleEmpty.textContent = showing ? 'Hide empty days' : 'Show empty days';
+    toggleEmpty.setAttribute('aria-pressed', showing ? 'true' : 'false');
+    toggleEmpty.setAttribute('data-showing-empty', showing ? 'true' : 'false');
+  }
   function setWeek() {
     w.classList.remove('hidden');
     m.classList.add('hidden');
@@ -233,6 +293,7 @@
     tm.className = 'tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ' + inactive;
     tw.setAttribute('aria-selected', 'true');
     tm.setAttribute('aria-selected', 'false');
+    syncEmptyToggleLabel();
   }
   function setMonth() {
     m.classList.remove('hidden');
@@ -241,9 +302,40 @@
     tw.className = 'tracker-range-tab px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ' + inactive;
     tm.setAttribute('aria-selected', 'true');
     tw.setAttribute('aria-selected', 'false');
+    syncEmptyToggleLabel();
   }
   tw.addEventListener('click', setWeek);
   tm.addEventListener('click', setMonth);
+  if (toggleEmpty) {
+    toggleEmpty.addEventListener('click', function () {
+      var p = activePanel();
+      if (p.getAttribute('data-hide-empty') === '1') p.removeAttribute('data-hide-empty');
+      else p.setAttribute('data-hide-empty', '1');
+      syncEmptyToggleLabel();
+    });
+  }
+  syncEmptyToggleLabel();
+
+  var applyBtn = document.getElementById('trackerApplyInferred');
+  var jsonEl = document.getElementById('tracker-inferred-json');
+  if (applyBtn && jsonEl) {
+    applyBtn.addEventListener('click', function () {
+      var j = {};
+      try {
+        j = JSON.parse(jsonEl.textContent || '{}');
+      } catch (e) {}
+      function setMax(id, key) {
+        var el = document.getElementById(id);
+        if (!el) return;
+        var cur = parseInt(el.value, 10) || 0;
+        var det = parseInt(j[key], 10) || 0;
+        el.value = String(Math.max(cur, det));
+      }
+      setMax('trackerInputColdEmails', 'coldEmails');
+      setMax('trackerInputColdDms', 'coldDms');
+      setMax('trackerInputColdCalls', 'coldCalls');
+    });
+  }
 })();
 </script>
 

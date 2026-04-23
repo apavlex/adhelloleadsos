@@ -49,15 +49,13 @@
           <span class="text-brand-muted dark:text-slate-500">Leads</span> pipeline
         </h1>
         <% const _wsAll = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts.all : leads.length; %>
-        <p class="text-brand-muted dark:text-slate-400 font-medium mt-2 max-w-xl">
-          One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
-          (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
-          Drag cards on the <strong class="text-brand-dark dark:text-white">Pipeline</strong> view to move through 10 stages (New → … → Referral); table view shows status and source.
+        <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2 tabular-nums">
+          In view · <%= leads.length %> · Workspace · <%= _wsAll %>
         </p>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-3 flex flex-wrap gap-x-4 gap-y-2">
           <a href="/outreach" class="text-brand-yellow hover:underline">Cadences</a>
           <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-          <a href="/workspace" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
+          <a href="/workspace/team" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
           <% } %>
         </p>
         <% if (typeof leadSourceCounts !== 'undefined' && leadSourceCounts) { %>
@@ -97,7 +95,7 @@
           <span id="csvFileNameDisplay" class="font-mono normal-case tracking-normal text-brand-dark dark:text-white max-w-[200px] sm:max-w-xs truncate"></span>
         </p>
         </div>
-        <a href="/" class="btn-pill btn-primary">
+        <a href="/leads/find" class="btn-pill btn-primary">
           <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>

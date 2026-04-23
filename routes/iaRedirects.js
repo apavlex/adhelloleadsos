@@ -1,6 +1,6 @@
 /**
  * Phase 1 IA: canonical paths → existing routes.
- * /find → home; /pipeline → /prospecting?tab=pipeline; /outreach → /prospecting (preserves query).
+ * /find → /leads/find; /pipeline → /prospecting?tab=pipeline; /outreach → /prospecting (preserves query).
  */
 const express = require('express');
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/find', (req, res) => {
   const i = req.originalUrl.indexOf('?');
   const q = i >= 0 ? req.originalUrl.slice(i) : '';
-  res.redirect(302, `/${q}`);
+  res.redirect(302, `/leads/find${q}`);
 });
 
 router.get('/pipeline', (req, res) => {
@@ -21,13 +21,19 @@ router.get('/pipeline', (req, res) => {
 });
 
 router.get('/insights', (req, res) => {
-  res.redirect(302, '/analytics');
-});
-
-router.get('/reports', (req, res) => {
   const i = req.originalUrl.indexOf('?');
   const q = i >= 0 ? req.originalUrl.slice(i) : '';
-  res.redirect(302, `/analytics${q}`);
+  res.redirect(302, `/reports${q}`);
+});
+
+router.get('/analytics', (req, res) => {
+  const i = req.originalUrl.indexOf('?');
+  const q = i >= 0 ? req.originalUrl.slice(i) : '';
+  res.redirect(302, `/reports${q}`);
+});
+
+router.get('/scripts', (req, res) => {
+  res.redirect(302, '/sales/personas');
 });
 
 module.exports = router;

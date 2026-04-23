@@ -11,7 +11,6 @@
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Library</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Resources</h1>
-        <p class="text-brand-muted text-sm mt-2 max-w-xl">Save YouTube videos, Google Drive links, posts on X, and anything else you need one click away. Links are stored in the database for <strong class="text-brand-dark dark:text-white">this workspace</strong> — everyone on the team sees the same library.</p>
       </div>
     </div>
 
@@ -23,24 +22,29 @@
 
     <div class="brand-card p-6 md:p-8 dark:bg-slate-900 dark:border-white/10 mb-8">
       <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Add a link</h2>
-      <form action="/resources/add" method="post" class="space-y-4">
+      <form action="/resources/add" method="post" class="space-y-4" id="resourceAddForm">
+        <input type="hidden" name="kind" id="resKindSubmit" value="auto" />
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
-          <div class="lg:col-span-6">
+          <div class="lg:col-span-7">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resUrl">URL</label>
             <input id="resUrl" name="url" type="text" required maxlength="2048" placeholder="youtube.com/watch…, docs.google.com/…, x.com/…" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50" />
           </div>
-          <div class="lg:col-span-4">
+          <div class="lg:col-span-5">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resTitle">Title (optional)</label>
             <input id="resTitle" name="title" type="text" maxlength="200" placeholder="Defaults to URL" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
-          <div class="lg:col-span-2">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resKind">Type</label>
-            <select id="resKind" name="kind" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-xs font-bold text-brand-dark dark:text-white">
-              <% kindOptions.forEach((opt) => { %>
-              <option value="<%= opt.id %>"><%= opt.label %></option>
-              <% }); %>
-            </select>
-          </div>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <button type="button" id="resAdvancedToggle" class="text-xs font-bold text-brand-yellow hover:underline bg-transparent border-0 p-0 cursor-pointer" aria-expanded="false" aria-controls="resKindAdvancedPanel">Advanced: specify link type</button>
+          <span class="text-[11px] text-brand-muted">We auto-detect YouTube, Drive, and X from the URL.</span>
+        </div>
+        <div id="resKindAdvancedPanel" class="hidden rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-white/5 px-4 py-3">
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resKindSelect">Type</label>
+          <select id="resKindSelect" disabled class="w-full max-w-md rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-xs font-bold text-brand-dark dark:text-white disabled:opacity-60">
+            <% kindOptions.forEach((opt) => { %>
+            <option value="<%= opt.id %>"><%= opt.label %></option>
+            <% }); %>
+          </select>
         </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resNote">Note (optional)</label>
@@ -50,7 +54,8 @@
       </form>
     </div>
 
-    <div class="flex flex-wrap items-center gap-2 mb-6">
+    <% const _kc = typeof resourceKindCounts !== 'undefined' && resourceKindCounts ? resourceKindCounts : { all: 0, youtube: 0, drive: 0, x: 0, link: 0 }; %>
+    <div class="flex flex-wrap items-center gap-2 mb-6" role="tablist" aria-label="Filter by kind">
       <% const pills = [
         { id: 'all', label: 'All' },
         { id: 'youtube', label: 'YouTube' },
@@ -59,20 +64,31 @@
         { id: 'link', label: 'Links' },
       ]; %>
       <% pills.forEach((p) => { %>
+      <% const cnt = _kc[p.id] != null ? _kc[p.id] : 0; %>
+      <% const emptyTab = p.id !== 'all' && cnt === 0; %>
+      <% const active = kindFilter === p.id; %>
+      <% const basePill = 'inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors'; %>
+      <% if (emptyTab) { %>
+      <span class="<%= basePill %> <%= active ? 'bg-brand-yellow/90 text-brand-dark border-brand-yellow shadow-sm ring-2 ring-brand-yellow/30 cursor-default' : 'border-brand-border/40 dark:border-white/10 text-brand-muted/50 dark:text-slate-600 bg-white/40 dark:bg-slate-900/40 cursor-not-allowed' %> select-none" title="<%= active ? 'Filtered to this category — nothing saved yet' : 'Nothing saved in this category yet' %>" <%= active ? 'aria-current="page"' : '' %> aria-disabled="true"><%= p.label %> <span class="tabular-nums opacity-80" aria-hidden="true">· 0</span></span>
+      <% } else { %>
       <a href="/resources<%= p.id === 'all' ? '' : ('?kind=' + encodeURIComponent(p.id)) %>"
-         class="inline-flex items-center px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= kindFilter === p.id ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white bg-white/60 dark:bg-slate-900/60' %>">
-        <%= p.label %>
-      </a>
+         class="<%= basePill %> <%= active ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'border-brand-border dark:border-white/10 text-brand-muted hover:text-brand-dark dark:hover:text-white bg-white/60 dark:bg-slate-900/60' %>"
+         <%= active ? 'aria-current="page"' : '' %>><%= p.label %> <span class="tabular-nums opacity-90" aria-hidden="true">· <%= cnt %></span></a>
+      <% } %>
       <% }); %>
     </div>
 
     <% const kindLabels = { youtube: 'YouTube', drive: 'Drive / Docs', x: 'X / Twitter', link: 'Link' }; %>
 
     <% if (!resources.length) { %>
-    <div class="brand-card p-12 dark:bg-slate-900 dark:border-white/10 text-center">
-      <p class="text-brand-muted text-sm italic">No saved links yet — paste a URL above.</p>
-      <p class="text-[11px] text-brand-muted mt-3 max-w-md mx-auto">Supports YouTube, Google Drive/Docs, X/Twitter posts, or any web address.</p>
-    </div>
+    <%- include('partials/empty_state', {
+      emptyHeadline: 'Library · 0',
+      emptyBody: 'Paste any URL above — we spot YouTube, Drive, and X automatically.',
+      emptyCtaHref: '/leads/find',
+      emptyCtaLabel: 'Find leads',
+      emptySecondaryHref: '/today?demo=1',
+      emptySecondaryLabel: 'See Today with demo data',
+    }) %>
     <% } else { %>
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       <% resources.forEach((r) => { %>
@@ -103,5 +119,34 @@
   </main>
 
   <%- include('partials/footer') %>
+  <script>
+  (function () {
+    var btn = document.getElementById('resAdvancedToggle');
+    var panel = document.getElementById('resKindAdvancedPanel');
+    var hidden = document.getElementById('resKindSubmit');
+    var sel = document.getElementById('resKindSelect');
+    if (!btn || !panel || !hidden || !sel) return;
+    var open = false;
+    function setOpen(v) {
+      open = v;
+      panel.classList.toggle('hidden', !open);
+      sel.disabled = !open;
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      btn.textContent = open ? 'Hide type options' : 'Advanced: specify link type';
+      if (!open) {
+        hidden.value = 'auto';
+        sel.value = 'auto';
+      } else {
+        hidden.value = sel.value || 'auto';
+      }
+    }
+    btn.addEventListener('click', function () {
+      setOpen(!open);
+    });
+    sel.addEventListener('change', function () {
+      hidden.value = sel.value || 'auto';
+    });
+  })();
+  </script>
 </body>
 </html>

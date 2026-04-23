@@ -17,7 +17,7 @@ router.get('/', async (req, res, next) => {
   try {
     const tab = String(req.query.tab || 'pipeline').toLowerCase();
     if (tab === 'touches') {
-      return res.redirect(302, '/analytics?tab=tracker');
+      return res.redirect(302, '/reports?tab=tracker');
     }
     const safeTab = ['queue', 'pipeline', 'folders'].includes(tab) ? tab : 'pipeline';
 

@@ -53,18 +53,28 @@ router.get('/', async (req, res, next) => {
     const email = userEmail(req);
     await dbService.mergeUserResourcesIntoWorkspace(req.workspaceId, email);
     const filterKind = String(req.query.kind || 'all').toLowerCase();
-    let resources = await dbService.listWorkspaceResources(req.workspaceId);
+    const resourcesAll = await dbService.listWorkspaceResources(req.workspaceId);
     const allowedFilters = new Set(['all', 'youtube', 'drive', 'x', 'link']);
     const fk = allowedFilters.has(filterKind) ? filterKind : 'all';
-    if (fk !== 'all') {
-      resources = resources.filter((r) => r.kind === fk);
+    const resourceKindCounts = {
+      all: resourcesAll.length,
+      youtube: 0,
+      drive: 0,
+      x: 0,
+      link: 0,
+    };
+    for (const r of resourcesAll) {
+      const k = String(r.kind || 'link').toLowerCase();
+      if (Object.prototype.hasOwnProperty.call(resourceKindCounts, k)) resourceKindCounts[k] += 1;
     }
+    const resources = fk === 'all' ? resourcesAll : resourcesAll.filter((r) => r.kind === fk);
     res.render('resources', {
       title: 'Resources | Agency OS',
       activePage: 'resources',
       resources,
       kindFilter: fk,
       kindOptions: KIND_OPTIONS,
+      resourceKindCounts,
       saveError: req.query.error === 'invalid',
     });
   } catch (e) {
