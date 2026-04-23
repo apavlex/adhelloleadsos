@@ -336,7 +336,14 @@ function resolveWorkspaceCallMode(ws) {
   const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
   const mode = String(telephony.callMode || '').trim().toLowerCase();
   if (mode === 'browser_device') return 'browser_device';
+  if (mode === 'agent_first') return 'agent_first';
   return 'cloud_dial';
+}
+
+function resolveAgentFirstNumber(ws) {
+  if (!ws || typeof ws !== 'object') return '';
+  const telephony = ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+  return signalwire.normalizePhone(telephony.agentPhone || '');
 }
 
 async function buildContactedStagePatch(lead, workspaceId) {
@@ -592,12 +599,24 @@ router.post('/:key/call', async (req, res, next) => {
         lead: updatedLead,
       });
     }
+    if (callMode === 'agent_first') {
+      const agentTo = resolveAgentFirstNumber(ws);
+      if (!agentTo) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'Set your mobile number in Workspace → Phone number bank (Agent / your phone) for agent-first calling.',
+        });
+      }
+    }
     const call = await signalwire.createLeadCall({
       to: normalizedTo,
       leadKey: fullKey,
       workspaceId: req.workspaceId,
       action: 'call',
       from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
+      agentFirst: callMode === 'agent_first',
+      agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
     });
     const updates = appendLeadUpdate(lead, {
       type: 'call_outbound',
@@ -640,7 +659,9 @@ router.get('/telephony/call-options', async (req, res, next) => {
       options: numbers,
       activeFromNumber: resolveWorkspaceCallerNumber(ws),
       callMode,
-      relayWebrtcAvailable: callMode !== 'browser_device' && signalwire.relayWebrtcCanMint(),
+      agentPhone: resolveAgentFirstNumber(ws) || null,
+      relayWebrtcAvailable:
+        callMode !== 'browser_device' && callMode !== 'agent_first' && signalwire.relayWebrtcCanMint(),
       defaultFromNumber: defaultFrom,
     });
   } catch (err) {
@@ -725,6 +746,25 @@ router.post('/telephony/dial', async (req, res, next) => {
       });
     }
 
+    if (callMode === 'agent_first' && action === 'voicemail_drop') {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Agent-first mode only supports a normal call (voicemail drop needs Cloud dial or direct-to-lead mode in Workspace).',
+      });
+    }
+
+    if (callMode === 'agent_first') {
+      const agentTo = resolveAgentFirstNumber(ws);
+      if (!agentTo) {
+        return res.status(400).json({
+          success: false,
+          error:
+            'Set your mobile number in Workspace → Phone number bank (Agent / your phone) for agent-first calling.',
+        });
+      }
+    }
+
     if (!signalwire.configured()) {
       return res.status(400).json({
         success: false,
@@ -735,6 +775,7 @@ router.post('/telephony/dial', async (req, res, next) => {
 
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
     const { audioUrl: voicemailAudioUrl } = resolveActiveVoicemailAudioUrl(telephony);
+    const useAgent = callMode === 'agent_first';
     const call = await signalwire.createLeadCall({
       to,
       leadKey: '',
@@ -742,10 +783,12 @@ router.post('/telephony/dial', async (req, res, next) => {
       action,
       voicemailAudioUrl: action === 'voicemail_drop' ? voicemailAudioUrl : '',
       from: resolveRequestedCallerNumber(ws, req.body && req.body.fromNumber),
+      agentFirst: useAgent,
+      agentTo: useAgent ? resolveAgentFirstNumber(ws) : undefined,
     });
     return res.json({
       success: true,
-      dialMode: 'cloud_dial',
+      dialMode: useAgent ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       action,
     });
@@ -897,6 +940,13 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
       });
     }
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    if (resolveWorkspaceCallMode(ws) === 'agent_first') {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Voicemail drop needs Cloud dial. In Workspace → Phone number bank, set call routing to Cloud dial for automated voicemail, or use agent first only for live softphone calls.',
+      });
+    }
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
     const { audioUrl: voicemailAudioUrl } = resolveActiveVoicemailAudioUrl(telephony);
     const call = await signalwire.createLeadCall({

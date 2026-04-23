@@ -191,10 +191,16 @@
             <label for="wsCallMode" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Call routing mode</label>
             <select id="wsCallMode" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs">
               <option value="cloud_dial" <%= _callMode === 'cloud_dial' ? 'selected' : '' %>>Cloud dial (SignalWire auto-call)</option>
+              <option value="agent_first" <%= _callMode === 'agent_first' ? 'selected' : '' %>>Agent first — your phone, then the lead (two-way on your iPhone / Bluetooth)</option>
               <option value="browser_device" <%= _callMode === 'browser_device' ? 'selected' : '' %>>My device dialer (phone / bluetooth / softphone app)</option>
             </select>
           </div>
-          <p class="text-[11px] text-brand-muted self-end">Use <strong class="text-brand-dark dark:text-white">My device dialer</strong> to open your system dialer so calls run through your connected phone/headset app.</p>
+          <p class="text-[11px] text-brand-muted self-end">Use <strong class="text-brand-dark dark:text-white">Agent first</strong> to ring you first, then the lead, so you talk on your phone. Use <strong>My device dialer</strong> to open the system dialer; use <strong>Cloud dial</strong> to call the lead’s number directly with no agent leg.</p>
+        </div>
+        <div>
+          <label for="wsAgentPhone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Your mobile (agent) — for “Agent first”</label>
+          <input type="tel" id="wsAgentPhone" class="w-full max-w-md rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="+15551234567" value="<%= (workspace && workspace.telephony && workspace.telephony.agentPhone) || '' %>" />
+          <p class="text-[10px] text-brand-muted mt-1">E.164. Ring this number first; when you answer, the app connects the call to the lead. The browser is only a remote to start each call; audio is on this phone (e.g. Bluetooth to iPhone).</p>
         </div>
         <div id="wsPhoneBankList" class="space-y-2">
           <% _entries.forEach(function (entry, idx) { %>
@@ -321,6 +327,7 @@
       var addBtn = document.getElementById('wsPhoneBankAdd');
       var submitBtn = document.getElementById('wsPhoneBankSubmitCnam');
       var callModeInput = document.getElementById('wsCallMode');
+      var agentPhoneInput = document.getElementById('wsAgentPhone');
       if (!btn) return;
       function bindEntryRow(row) {
         if (!row) return;
@@ -383,6 +390,7 @@
             phoneBankEntries: entries,
             activeCallerId: activeNumber(),
             callMode: callModeInput ? callModeInput.value : 'cloud_dial',
+            agentPhone: agentPhoneInput ? String(agentPhoneInput.value || '').trim() : '',
           }),
         }).then(function (r) { return r.json(); }).then(function (data) {
           if (msg) {

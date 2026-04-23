@@ -537,7 +537,25 @@ router.post('/telephony/voice/amd', async (req, res) => {
 router.all('/telephony/voice/twiml', async (req, res) => {
   try {
     if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
-    const action = String((req.query && req.query.action) || 'call').trim();
+    const q = req.query || {};
+    const agentFirst = String(q.agentFirst || '').trim() === '1';
+    if (agentFirst) {
+      const dialTo = signalwire.normalizePhone(q.dialTo || '');
+      const bridgeFrom = signalwire.normalizePhone(q.bridgeFrom || '');
+      if (!dialTo) {
+        return res
+          .type('text/xml')
+          .send(
+            '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Missing destination number.</Say><Hangup/></Response>',
+          );
+      }
+      const callerId = bridgeFrom || String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim();
+      const n = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial answerOnBridge="true" timeout="45" callerId="${xmlEscape(
+        callerId,
+      )}"><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`;
+      return res.type('text/xml').send(n);
+    }
+    const action = String((q && q.action) || 'call').trim();
     const script = String(process.env.VOICEMAIL_DROP_SCRIPT || '').trim();
     const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
     const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();

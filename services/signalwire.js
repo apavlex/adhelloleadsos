@@ -363,8 +363,8 @@ function buildAppUrl(path, params) {
 }
 
 async function createLeadCall(opts) {
-  const to = normalizePhone(opts && opts.to);
-  if (!to) throw new Error('A valid destination phone number is required.');
+  const leadTo = normalizePhone(opts && opts.to);
+  if (!leadTo) throw new Error('A valid destination phone number is required.');
   const cfg = envConfig();
   const from = normalizePhone((opts && opts.from) || cfg.callerId || cfg.fromNumber);
   if (!from) throw new Error('SIGNALWIRE_FROM_NUMBER must be configured.');
@@ -376,18 +376,40 @@ async function createLeadCall(opts) {
   const leadKey = String((opts && opts.leadKey) || '').trim();
   const workspaceId = String((opts && opts.workspaceId) || '').trim();
   const voicemailAudioUrl = String((opts && opts.voicemailAudioUrl) || '').trim();
+  const agentFirst = !!(opts && opts.agentFirst);
+  const agentTo = normalizePhone(opts && opts.agentTo);
+
+  if (agentFirst) {
+    if (action === 'voicemail_drop') {
+      throw new Error(
+        'Agent-first calling is not available for voicemail drop. Use a normal call or change call routing in Workspace.',
+      );
+    }
+    if (!agentTo) {
+      throw new Error('Agent phone number is required for agent-first mode.');
+    }
+  }
 
   const statusCallback = buildAppUrl('/api/telephony/voice/status', {
     leadKey,
     workspaceId,
     action,
   });
-  const voiceUrl = buildAppUrl('/api/telephony/voice/twiml', {
-    leadKey,
-    workspaceId,
-    action,
-    audioUrl: voicemailAudioUrl,
-  });
+  const voiceUrl = agentFirst
+    ? buildAppUrl('/api/telephony/voice/twiml', {
+        leadKey,
+        workspaceId,
+        action: 'call',
+        agentFirst: '1',
+        dialTo: leadTo,
+        bridgeFrom: from,
+      })
+    : buildAppUrl('/api/telephony/voice/twiml', {
+        leadKey,
+        workspaceId,
+        action,
+        audioUrl: voicemailAudioUrl,
+      });
   if (!String(voiceUrl || '').trim() || !String(statusCallback || '').trim()) {
     throw new Error(
       'TwiML or status callback URL is empty. Set BASE_URL in the environment to your public https root (e.g. https://yourapp.com) so /api/telephony/voice routes can be reached by SignalWire.',
@@ -395,7 +417,7 @@ async function createLeadCall(opts) {
   }
 
   const body = {
-    To: to,
+    To: agentFirst ? agentTo : leadTo,
     From: from,
     Url: voiceUrl,
     StatusCallback: statusCallback,
@@ -403,7 +425,7 @@ async function createLeadCall(opts) {
     StatusCallbackEvent: 'initiated ringing answered completed',
   };
 
-  if (action === 'voicemail_drop') {
+  if (action === 'voicemail_drop' && !agentFirst) {
     body.MachineDetection = 'DetectMessageEnd';
     body.AsyncAmd = 'true';
     body.AsyncAmdStatusCallback = buildAppUrl('/api/telephony/voice/amd', {

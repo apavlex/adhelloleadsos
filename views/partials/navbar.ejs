@@ -714,6 +714,8 @@
         if (spModeLine) {
           if (res.j && res.j.callMode === 'cloud_dial') {
             spModeLine.textContent = 'Call routing: Cloud (SignalWire) — the server places the call right away. No in-tab audio; the contact’s phone rings on the network.';
+          } else if (res.j && res.j.callMode === 'agent_first') {
+            spModeLine.textContent = 'Call routing: Agent first — your mobile rings first; when you answer, the lead is dialed. Use your iPhone (Bluetooth) for two-way talk. The browser only starts the call.';
           } else if (res.j && res.j.callMode === 'browser_device') {
             spModeLine.textContent = 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
           } else if (res.j.relayWebrtcAvailable) {
@@ -782,8 +784,10 @@
         softphoneStartPolling();
         if (action === 'voicemail_drop') {
           softphoneSetStatus('Voicemail drop started (outbound to their line only — not played in this browser).');
+        } else if (res.j.dialMode === 'agent_first') {
+          softphoneSetStatus('Ringing you first on your mobile — answer, then the lead is dialed. Audio is on your phone (Bluetooth, etc.); this tab is only a remote.');
         } else {
-          softphoneSetStatus('Cloud call started. SignalWire is calling this number from your workspace. This tab does not play call audio. For sound here, use WebRTC if available, or set Call routing to "My device dialer" in Workspace → Phone / telephony settings.');
+          softphoneSetStatus('Cloud call started. SignalWire is calling this number from your workspace. This tab does not play call audio. For sound here, use WebRTC if available, or set Call routing in Workspace → Phone / telephony settings.');
         }
       });
   }
@@ -853,7 +857,8 @@
     softphoneSetCallState('dialing');
     softphoneSession.activeNumber = to;
     var p;
-    var tryWebrtc = action === 'call' && spRelayWebrtc && spWorkspaceCallMode !== 'cloud_dial';
+    var tryWebrtc =
+      action === 'call' && spRelayWebrtc && spWorkspaceCallMode !== 'cloud_dial' && spWorkspaceCallMode !== 'agent_first';
     if (tryWebrtc) {
       p = tryWebrtcSoftphone(to).then(function (ok) {
         if (ok) return;

@@ -106,6 +106,7 @@ function upsertEntryByNumber(entries, patch) {
 function normalizeCallMode(raw) {
   const mode = String(raw || '').trim().toLowerCase();
   if (mode === 'browser_device') return 'browser_device';
+  if (mode === 'agent_first') return 'agent_first';
   return 'cloud_dial';
 }
 
@@ -255,7 +256,8 @@ router.post('/settings', express.json(), async (req, res) => {
       req.body &&
       (Object.prototype.hasOwnProperty.call(req.body, 'phoneBank') ||
         Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries') ||
-        Object.prototype.hasOwnProperty.call(req.body, 'callMode'))
+        Object.prototype.hasOwnProperty.call(req.body, 'callMode') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'agentPhone'))
     ) {
       const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
       if (
@@ -281,6 +283,20 @@ router.post('/settings', express.json(), async (req, res) => {
       }
       if (Object.prototype.hasOwnProperty.call(req.body, 'callMode')) {
         telephony.callMode = normalizeCallMode(req.body.callMode);
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'agentPhone')) {
+        const raw = String(req.body.agentPhone || '').trim();
+        if (!raw) {
+          telephony.agentPhone = '';
+        } else {
+          const n = signalwire.normalizePhone(req.body.agentPhone);
+          if (!n) {
+            return res
+              .status(400)
+              .json({ success: false, error: 'Agent phone must be a valid E.164 number (e.g. +15551234567).' });
+          }
+          telephony.agentPhone = n;
+        }
       }
       ws.telephony = telephony;
     }
