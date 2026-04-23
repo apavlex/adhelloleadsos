@@ -304,6 +304,7 @@
           <button type="button" id="softphoneHoldBtn" class="flex-1 rounded-lg border border-brand-border/60 dark:border-white/15 px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Hold</button>
           <button type="button" id="softphoneHangupBtn" class="flex-1 rounded-lg bg-rose-600 text-white px-2 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-rose-500">Hang up</button>
         </div>
+        <button type="button" id="softphoneVmNowBtn" class="mt-2 w-full rounded-lg border border-violet-500/40 bg-violet-600/10 text-violet-700 dark:text-violet-300 px-2 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-violet-600/20">Drop VM + Next</button>
       </div>
       <div class="mt-3 rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Post-call wrap-up (required before next dial)</p>
@@ -412,6 +413,7 @@
   var spMute = document.getElementById('softphoneMuteBtn');
   var spHold = document.getElementById('softphoneHoldBtn');
   var spHangup = document.getElementById('softphoneHangupBtn');
+  var spVmNow = document.getElementById('softphoneVmNowBtn');
   var spDisposition = document.getElementById('softphoneDisposition');
   var spNotes = document.getElementById('softphoneNotes');
   var spAiSummary = document.getElementById('softphoneAiSummaryBtn');
@@ -750,8 +752,9 @@
     softphoneStopPolling();
     softphoneDestroyWebrtc();
   }
-  function startCloudSoftphoneDial(to, action) {
+  function startCloudSoftphoneDial(to, action, opts) {
     var body = { to: to, action: action };
+    if (opts && opts.forceCloudVoicemail) body.forceCloudVoicemail = true;
     if (spFrom && spFrom.value) body.fromNumber = spFrom.value;
     softphoneSession.isCloudPstn = false;
     return fetch('/leads/telephony/dial', {
@@ -863,10 +866,10 @@
       p = tryWebrtcSoftphone(to).then(function (ok) {
         if (ok) return;
         softphoneSetStatus('In-browser call did not start — using cloud. No audio in this tab for cloud calls.');
-        return startCloudSoftphoneDial(to, action);
+        return startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
       });
     } else {
-      p = startCloudSoftphoneDial(to, action);
+      p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
     }
     p.catch(function (err) {
       softphoneSetCallState('idle');
@@ -1033,6 +1036,39 @@
         })
         .finally(function () {
           spHangup.disabled = false;
+        });
+    });
+  }
+  if (spVmNow) {
+    spVmNow.addEventListener('click', function () {
+      var to = normalizeDial(softphoneSession.activeNumber || (spTo ? spTo.value : ''));
+      if (!to) {
+        softphoneSetStatus('Set a dial number first before Drop VM + Next.', true);
+        return;
+      }
+      spVmNow.disabled = true;
+      var beginVm = function () {
+        softphoneSetStatus('Starting automated voicemail drop to this number...');
+        return startCloudSoftphoneDial(to, 'voicemail_drop', { forceCloudVoicemail: true });
+      };
+      var hangupCurrent = Promise.resolve();
+      if (softphoneSession.webrtc && softphoneSession.relayCall) {
+        try { softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true); } catch (e) {}
+        softphoneClearWebrtcSession();
+      } else if (softphoneSession.callSid) {
+        hangupCurrent = fetch('/leads/telephony/call-control', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ action: 'hangup', callSid: softphoneSession.callSid }),
+        }).catch(function () {});
+      }
+      hangupCurrent
+        .then(beginVm)
+        .catch(function (err) {
+          softphoneSetStatus((err && err.message) || 'Voicemail drop failed.', true);
+        })
+        .finally(function () {
+          spVmNow.disabled = false;
         });
     });
   }

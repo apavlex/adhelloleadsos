@@ -728,6 +728,9 @@ router.post('/telephony/dial', async (req, res, next) => {
   try {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const callMode = resolveWorkspaceCallMode(ws);
+    const forceCloudVoicemail = ['1', 'true', 'yes', 'on'].includes(
+      String(req.body && req.body.forceCloudVoicemail).trim().toLowerCase(),
+    );
     const to = signalwire.normalizePhone(req.body && req.body.to);
     if (!to) {
       return res.status(400).json({ success: false, error: 'A valid phone number is required.' });
@@ -737,7 +740,7 @@ router.post('/telephony/dial', async (req, res, next) => {
       ? 'voicemail_drop'
       : 'call';
 
-    if (callMode === 'browser_device') {
+    if (callMode === 'browser_device' && !(action === 'voicemail_drop' && forceCloudVoicemail)) {
       return res.json({
         success: true,
         dialMode: 'browser_device',
@@ -746,11 +749,11 @@ router.post('/telephony/dial', async (req, res, next) => {
       });
     }
 
-    if (callMode === 'agent_first' && action === 'voicemail_drop') {
+    if (callMode === 'agent_first' && action === 'voicemail_drop' && !forceCloudVoicemail) {
       return res.status(400).json({
         success: false,
         error:
-          'Agent-first mode only supports a normal call (voicemail drop needs Cloud dial or direct-to-lead mode in Workspace).',
+          'Agent-first mode only supports normal calls. For voicemail drop in softphone, use the "Drop VM + Next" flow, or switch Workspace call mode to Cloud dial.',
       });
     }
 
@@ -775,7 +778,7 @@ router.post('/telephony/dial', async (req, res, next) => {
 
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
     const { audioUrl: voicemailAudioUrl } = resolveActiveVoicemailAudioUrl(telephony);
-    const useAgent = callMode === 'agent_first';
+    const useAgent = callMode === 'agent_first' && !(action === 'voicemail_drop' && forceCloudVoicemail);
     const call = await signalwire.createLeadCall({
       to,
       leadKey: '',
