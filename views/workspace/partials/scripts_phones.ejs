@@ -50,6 +50,17 @@
     syncAgentPhoneVisibility();
   }
   if (!btn) return;
+  function bindWalkthroughBtn(id, mode) {
+    var el = document.getElementById(id);
+    if (el && typeof window.openCallRoutingWalkthrough === 'function') {
+      el.addEventListener('click', function () {
+        window.openCallRoutingWalkthrough(mode);
+      });
+    }
+  }
+  bindWalkthroughBtn('callRoutingWalkthroughCloudBtn', 'cloud_dial');
+  bindWalkthroughBtn('callRoutingWalkthroughAgentBtn', 'agent_first');
+  bindWalkthroughBtn('callRoutingWalkthroughDeviceBtn', 'browser_device');
   tickBurnEtas();
   window.setInterval(tickBurnEtas, 30000);
   bindCallModeRadios();

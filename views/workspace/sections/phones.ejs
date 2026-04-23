@@ -32,6 +32,15 @@
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Phone number bank</h2>
   <p class="text-sm text-brand-muted mb-6">Manage outbound numbers, call routing mode, and CNAM request status. Active number is used for call/SMS/voicemail actions in cloud mode.</p>
+  <div class="mb-6 space-y-2">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Guided walkthroughs</p>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" id="callRoutingWalkthroughCloudBtn" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Cloud dial</button>
+      <button type="button" id="callRoutingWalkthroughAgentBtn" class="inline-flex items-center gap-1.5 rounded-full border border-brand-yellow/50 bg-brand-yellow/10 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Agent first</button>
+      <button type="button" id="callRoutingWalkthroughDeviceBtn" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">My device dialer</button>
+    </div>
+    <p class="text-[10px] text-brand-muted max-w-2xl leading-snug">Each opens a short checklist for that routing mode. If that mode is already saved and looks complete, you will see a quick “all set” message — you can still expand the full steps.</p>
+  </div>
 
   <fieldset class="mb-6">
     <legend class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Call routing mode</legend>

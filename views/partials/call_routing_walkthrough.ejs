@@ -1,0 +1,408 @@
+<% if (typeof user !== 'undefined' && user) { %>
+<div
+  id="callRoutingWalkthroughBackdrop"
+  class="hidden fixed inset-0 z-[225] bg-brand-dark/55 backdrop-blur-sm pointer-events-auto"
+  aria-hidden="true"
+></div>
+<div
+  id="callRoutingWalkthroughModal"
+  class="hidden fixed inset-0 z-[230] flex items-center justify-center p-4 pointer-events-none"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="callRoutingWalkthroughTitle"
+  aria-hidden="true"
+>
+  <div
+    class="pointer-events-auto w-full max-w-lg rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl max-h-[min(92vh,36rem)] flex flex-col"
+  >
+    <div class="flex items-start justify-between gap-3 px-6 pt-6 pb-4 border-b border-brand-border/40 dark:border-white/10 shrink-0">
+      <div class="min-w-0">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1" id="callRoutingWalkthroughProgress">Step 1 of 1</p>
+        <h2 id="callRoutingWalkthroughTitle" class="font-display font-black text-xl text-brand-dark dark:text-white leading-tight">Call routing</h2>
+        <p class="text-xs text-brand-muted mt-1" id="callRoutingWalkthroughSubtitle"></p>
+      </div>
+      <button
+        type="button"
+        id="callRoutingWalkthroughClose"
+        class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0"
+        aria-label="Close"
+      >
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+    <div id="callRoutingWalkthroughBody" class="px-6 py-5 overflow-y-auto custom-scrollbar text-sm text-brand-dark dark:text-slate-200 leading-relaxed flex-1 min-h-0"></div>
+    <div class="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-t border-brand-border/40 dark:border-white/10 shrink-0 bg-brand-cream/20 dark:bg-slate-800/40 rounded-b-[2rem]">
+      <button
+        type="button"
+        id="callRoutingWalkthroughPrev"
+        class="rounded-xl border border-brand-border dark:border-white/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-white/80 dark:hover:bg-slate-800"
+      >
+        Back
+      </button>
+      <div class="flex flex-wrap gap-2 items-center">
+        <button
+          type="button"
+          id="callRoutingWalkthroughExpand"
+          class="hidden rounded-xl border border-brand-border/60 dark:border-white/20 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white"
+        >
+          Show full checklist
+        </button>
+        <a
+          href="/workspace/phones"
+          id="callRoutingWalkthroughOpenPhones"
+          class="hidden rounded-xl border border-brand-yellow/50 bg-brand-yellow/15 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow"
+          >Open phone bank</a
+        >
+        <button
+          type="button"
+          id="callRoutingWalkthroughNext"
+          class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-2.5 text-[10px] font-black uppercase tracking-widest"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var backdrop = document.getElementById('callRoutingWalkthroughBackdrop');
+  var modal = document.getElementById('callRoutingWalkthroughModal');
+  var bodyEl = document.getElementById('callRoutingWalkthroughBody');
+  var titleEl = document.getElementById('callRoutingWalkthroughTitle');
+  var subtitleEl = document.getElementById('callRoutingWalkthroughSubtitle');
+  var titleProgress = document.getElementById('callRoutingWalkthroughProgress');
+  var btnPrev = document.getElementById('callRoutingWalkthroughPrev');
+  var btnNext = document.getElementById('callRoutingWalkthroughNext');
+  var btnClose = document.getElementById('callRoutingWalkthroughClose');
+  var linkPhones = document.getElementById('callRoutingWalkthroughOpenPhones');
+  var btnExpand = document.getElementById('callRoutingWalkthroughExpand');
+  if (!backdrop || !modal || !bodyEl || !btnPrev || !btnNext || !btnClose) return;
+
+  var meta = document.getElementById('adhelloAppMeta');
+  var canManage =
+    meta && String(meta.getAttribute('data-can-manage-workspace') || '') === '1';
+
+  var adminNote = canManage
+    ? ''
+    : '<p class="mt-3 rounded-xl border border-amber-300/50 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 text-[11px] text-amber-900 dark:text-amber-200"><strong class="font-bold">Note:</strong> Saving call routing and phone bank requires <strong>workspace admin</strong> access. Ask an admin to apply changes, or have them grant you manager access.</p>';
+
+  function normalizeMode(m) {
+    var v = String(m || '').trim().toLowerCase();
+    if (v === 'browser_device') return 'browser_device';
+    if (v === 'agent_first') return 'agent_first';
+    return 'cloud_dial';
+  }
+
+  function humanMode(mode) {
+    if (mode === 'agent_first') return 'Agent first';
+    if (mode === 'browser_device') return 'My device dialer';
+    return 'Cloud dial';
+  }
+
+  function looksLikeE164AgentPhone(p) {
+    var s = String(p || '').trim();
+    return /^\+[1-9]\d{6,14}$/.test(s);
+  }
+
+  function hasOutboundNumbers(snap) {
+    return snap && Array.isArray(snap.options) && snap.options.length > 0;
+  }
+
+  function isWalkthroughComplete(mode, snap) {
+    if (!snap) return false;
+    var saved = normalizeMode(snap.callMode);
+    var m = normalizeMode(mode);
+    if (saved !== m) return false;
+    if (m === 'browser_device') return true;
+    if (m === 'cloud_dial') return hasOutboundNumbers(snap);
+    if (m === 'agent_first') {
+      return hasOutboundNumbers(snap) && looksLikeE164AgentPhone(snap.agentPhone);
+    }
+    return false;
+  }
+
+  function mismatchBanner(snap, mode) {
+    if (!snap) return '';
+    var saved = normalizeMode(snap.callMode);
+    var m = normalizeMode(mode);
+    if (saved === m) return '';
+    return (
+      '<div class="mb-4 rounded-xl border border-amber-400/50 bg-amber-50/90 dark:bg-amber-950/25 px-3 py-2.5 text-[11px] text-amber-950 dark:text-amber-100">' +
+      '<strong class="font-bold">Heads-up:</strong> This workspace is currently saved as <strong>' +
+      humanMode(saved) +
+      '</strong>, but you opened the guide for <strong>' +
+      humanMode(m) +
+      '</strong>. Pick the matching card under <strong>Call routing mode</strong> when you save, or use the guide for the mode you actually use.</div>'
+    );
+  }
+
+  function buildStepsCloud(banner) {
+    return [
+      {
+        title: 'Choose Cloud dial',
+        html:
+          banner +
+          '<p>In <strong>Workspace → Phone number bank</strong>, under <strong>Call routing mode</strong>, select <strong>Cloud dial</strong> (left card).</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">SignalWire places the call from your workspace number. There is <strong>no in-browser call audio</strong> for PSTN — best for voicemail drop and server-managed outbound.</p>' +
+          adminNote,
+      },
+      {
+        title: 'Outbound numbers &amp; caller ID',
+        html:
+          '<p>Add at least one <strong>SignalWire / workspace</strong> number in the phone bank list.</p>' +
+          '<p class="mt-3">Click <strong>Use</strong> on the row that should appear as <strong>caller ID</strong> to leads, then <strong>Save phone bank</strong>.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">If the list is empty, buy or port numbers in SignalWire first (the dialer has a <strong>Buy number</strong> link).</p>' +
+          adminNote,
+      },
+      {
+        title: 'Dial &amp; voicemail drop',
+        html:
+          '<p>Open the <strong>AdHello</strong> dialer, choose an <strong>Outbound number</strong>, enter the lead’s number, then <strong>Call</strong> or use <strong>Voicemail drop</strong> flows as designed.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">Status in the dialer tracks the cloud leg; you will not hear the other party in the tab for normal PSTN cloud calls.</p>' +
+          adminNote,
+      },
+    ];
+  }
+
+  function buildStepsAgentFirst(banner) {
+    return [
+      {
+        title: 'Choose Agent first',
+        html:
+          banner +
+          '<p>Open <strong>Workspace → Phone number bank</strong>. Under <strong>Call routing mode</strong>, select <strong>Agent first</strong> (middle card).</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">Your mobile rings first; after you answer, the lead is dialed and bridged — best for two-way talk on your phone or Bluetooth.</p>' +
+          adminNote,
+      },
+      {
+        title: 'Your mobile (agent)',
+        html:
+          '<p>Enter the phone you will <strong>answer</strong> in <strong>E.164</strong> (e.g. <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1.5 py-0.5 rounded">+12025550108</code>).</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">SignalWire rings this number first. When you pick up, it dials the lead. Audio stays on your handset — not in the browser tab.</p>' +
+          adminNote,
+      },
+      {
+        title: 'Caller ID (workspace number)',
+        html:
+          '<p>In the same screen, keep at least one workspace outbound number and mark <strong>Use</strong> on the caller ID row leads should see.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">Agent first still uses a workspace “from” number for the PSTN leg toward the lead.</p>' +
+          adminNote,
+      },
+      {
+        title: 'Save &amp; call',
+        html:
+          '<p>Click <strong>Save phone bank</strong>. In the dialer, confirm routing shows <strong>Agent first</strong>, pick outbound, dial — <strong>answer your mobile</strong> when it rings.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">Automated voicemail drop often still uses a cloud path; use <strong>Cloud dial</strong> if voicemail drop is your primary workflow.</p>' +
+          adminNote,
+      },
+    ];
+  }
+
+  function buildStepsBrowser(banner) {
+    return [
+      {
+        title: 'Choose My device dialer',
+        html:
+          banner +
+          '<p>In <strong>Workspace → Phone number bank</strong>, select <strong>My device dialer</strong> (right card), then <strong>Save phone bank</strong>.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">AdHello will hand off to your system phone app (<code class="text-xs">tel:</code> link). Audio and carrier rules are entirely on your device.</p>' +
+          adminNote,
+      },
+      {
+        title: 'Place calls from the dialer',
+        html:
+          '<p>Enter a number in the <strong>AdHello</strong> dialer and tap <strong>Call</strong>. Your phone or desktop should open its native dialer with the number prefilled.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">Voicemail drop and other automations may still use <strong>cloud</strong> flows depending on action — read prompts in the dialer.</p>' +
+          adminNote,
+      },
+    ];
+  }
+
+  function buildSteps(mode, snap) {
+    var banner = mismatchBanner(snap, mode);
+    var m = normalizeMode(mode);
+    if (m === 'agent_first') return buildStepsAgentFirst(banner);
+    if (m === 'browser_device') return buildStepsBrowser(banner);
+    return buildStepsCloud(banner);
+  }
+
+  function buildSuccessStep(mode, snap) {
+    var m = normalizeMode(mode);
+    var lines = [];
+    if (m === 'cloud_dial') {
+      lines.push('Call routing is <strong>Cloud dial</strong> and at least one outbound number is on file.');
+      lines.push('You can still open the checklist if you are onboarding someone else or re-checking SignalWire / pacing settings.');
+    } else if (m === 'agent_first') {
+      lines.push('Call routing is <strong>Agent first</strong>, your <strong>mobile (agent)</strong> is set in E.164, and outbound numbers look configured.');
+      lines.push('If calls fail, confirm you saved phone bank after edits and that your mobile can receive PSTN calls.');
+    } else {
+      lines.push('Call routing is <strong>My device dialer</strong> — handoff to your native phone app is the expected path.');
+      lines.push('Open the full steps if you need a refresher on what happens when you press Call.');
+    }
+    return {
+      isSuccess: true,
+      title: 'Looks good — nothing required',
+      html:
+        '<div class="rounded-xl border border-emerald-400/40 bg-emerald-50/80 dark:bg-emerald-950/25 px-3 py-2.5 text-emerald-950 dark:text-emerald-100 text-[13px] mb-3">' +
+        '<p class="font-bold text-emerald-900 dark:text-emerald-200">This mode appears configured.</p>' +
+        '<ul class="mt-2 list-disc pl-4 space-y-1 text-[12px] text-brand-dark dark:text-slate-200">' +
+        lines
+          .map(function (line) {
+            return '<li>' + line + '</li>';
+          })
+          .join('') +
+        '</ul></div>' +
+        '<p class="text-xs text-brand-muted">Use <strong>Show full checklist</strong> below for the step-by-step tour, or close this window.</p>',
+    };
+  }
+
+  var steps = [];
+  var idx = 0;
+  var showingSuccessOnly = false;
+
+  function renderStep() {
+    var s = steps[idx];
+    if (!s) return;
+    showingSuccessOnly = !!s.isSuccess;
+    if (titleEl) titleEl.textContent = humanMode(window.__callRoutingWalkthroughMode || 'cloud_dial') + (showingSuccessOnly ? '' : ' setup');
+    if (subtitleEl) {
+      subtitleEl.textContent = showingSuccessOnly
+        ? 'No required checklist items detected for this routing mode.'
+        : 'Follow the steps below, then save in Phone number bank when you are done.';
+    }
+    if (titleProgress) {
+      titleProgress.textContent = showingSuccessOnly ? 'Ready' : 'Step ' + (idx + 1) + ' of ' + steps.length;
+    }
+    bodyEl.innerHTML = '<h3 class="font-bold text-brand-dark dark:text-white mb-2">' + s.title + '</h3>' + s.html;
+    btnPrev.classList.toggle('invisible', idx === 0 || showingSuccessOnly);
+    btnNext.textContent = idx >= steps.length - 1 || showingSuccessOnly ? 'Done' : 'Next';
+    if (linkPhones) {
+      linkPhones.classList.toggle('hidden', showingSuccessOnly ? true : idx !== 0);
+    }
+    if (btnExpand) {
+      btnExpand.classList.toggle('hidden', !showingSuccessOnly);
+    }
+  }
+
+  function openModal() {
+    backdrop.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    modal.classList.remove('pointer-events-none');
+    modal.setAttribute('aria-hidden', 'false');
+    backdrop.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+    renderStep();
+    try {
+      btnClose.focus();
+    } catch (e) {}
+  }
+
+  function closeWizard() {
+    backdrop.classList.add('hidden');
+    modal.classList.add('hidden');
+    modal.classList.add('pointer-events-none');
+    modal.setAttribute('aria-hidden', 'true');
+    backdrop.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function applyStepsForMode(mode, snap, opts) {
+    window.__callRoutingWalkthroughMode = normalizeMode(mode);
+    var forceFull = opts && opts.forceFull;
+    if (isWalkthroughComplete(normalizeMode(mode), snap) && !forceFull) {
+      steps = [buildSuccessStep(mode, snap)];
+      idx = 0;
+    } else {
+      steps = buildSteps(normalizeMode(mode), snap);
+      idx = 0;
+      if (opts && typeof opts.startStep === 'number' && opts.startStep > 0) {
+        idx = Math.min(steps.length - 1, Math.max(0, parseInt(opts.startStep, 10) || 0));
+      }
+    }
+  }
+
+  function fetchSnapshot(cb) {
+    fetch('/leads/telephony/call-options', { headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          cb(null);
+          return;
+        }
+        var snap = {
+          ts: Date.now(),
+          callMode: String(res.j.callMode || '').trim() || 'cloud_dial',
+          agentPhone: res.j.agentPhone != null ? String(res.j.agentPhone).trim() : '',
+          options: Array.isArray(res.j.options) ? res.j.options : [],
+          activeFromNumber: String(res.j.activeFromNumber || '').trim(),
+          defaultFromNumber: String(res.j.defaultFromNumber || '').trim(),
+          relayWebrtcAvailable: !!res.j.relayWebrtcAvailable,
+        };
+        window.__adhelloTelephonySnapshot = snap;
+        cb(snap);
+      })
+      .catch(function () {
+        cb(null);
+      });
+  }
+
+  function ensureSnapshotThen(mode, opts, done) {
+    var snap = window.__adhelloTelephonySnapshot;
+    if (snap && snap.ts && Date.now() - snap.ts < 120000) {
+      done(snap);
+      return;
+    }
+    fetchSnapshot(done);
+  }
+
+  window.openCallRoutingWalkthrough = function (mode, opts) {
+    var m = normalizeMode(mode || (window.__adhelloTelephonySnapshot && window.__adhelloTelephonySnapshot.callMode) || 'cloud_dial');
+    ensureSnapshotThen(m, opts || {}, function (snap) {
+      applyStepsForMode(m, snap, opts || {});
+      openModal();
+    });
+  };
+
+  window.closeCallRoutingWalkthrough = closeWizard;
+  window.closeAgentFirstSetupWizard = closeWizard;
+
+  window.openAgentFirstSetupWizard = function (startIdx) {
+    window.openCallRoutingWalkthrough('agent_first', { startStep: startIdx });
+  };
+
+  btnClose.addEventListener('click', closeWizard);
+  backdrop.addEventListener('click', closeWizard);
+  btnPrev.addEventListener('click', function () {
+    if (showingSuccessOnly) return;
+    if (idx > 0) {
+      idx -= 1;
+      renderStep();
+    }
+  });
+  btnNext.addEventListener('click', function () {
+    if (idx >= steps.length - 1 || showingSuccessOnly) {
+      closeWizard();
+      return;
+    }
+    idx += 1;
+    renderStep();
+  });
+  if (btnExpand) {
+    btnExpand.addEventListener('click', function () {
+      var mode = window.__callRoutingWalkthroughMode || 'cloud_dial';
+      var snap = window.__adhelloTelephonySnapshot || null;
+      steps = buildSteps(mode, snap);
+      idx = 0;
+      showingSuccessOnly = false;
+      btnExpand.classList.add('hidden');
+      renderStep();
+    });
+  }
+})();
+</script>
+<% } %>
