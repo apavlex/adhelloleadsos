@@ -280,6 +280,16 @@
           <select id="softphoneFromNumber" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-white">
             <option value="">Default workspace number</option>
           </select>
+          <div class="mt-1.5 flex items-center justify-between gap-2">
+            <p id="softphoneOutboundMeta" class="text-[10px] text-brand-muted truncate">Current outbound: —</p>
+            <a
+              href="https://dashboard.signalwire.com/phone-numbers"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline whitespace-nowrap"
+              title="Buy numbers in SignalWire Dashboard"
+            >Buy number</a>
+          </div>
         </label>
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Dial number
           <input type="tel" id="softphoneToNumber" placeholder="+15551234567" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-base font-semibold text-brand-dark dark:text-white" />
@@ -404,6 +414,7 @@
   var SOFTPHONE_POS_KEY = 'adhelloSoftphonePos';
   var spStatus = document.getElementById('softphoneStatus');
   var spFrom = document.getElementById('softphoneFromNumber');
+  var spOutboundMeta = document.getElementById('softphoneOutboundMeta');
   var spTo = document.getElementById('softphoneToNumber');
   var spCall = document.getElementById('softphoneCallBtn');
   var spVm = document.getElementById('softphoneVmBtn');
@@ -423,6 +434,7 @@
   var spRelayWebrtc = false;
   var spWorkspaceCallMode = 'cloud_dial';
   var spDefaultFrom = '';
+  var spActiveFrom = '';
   var softphoneSession = {
     state: 'idle',
     muted: false,
@@ -584,6 +596,12 @@
       spRecentList.appendChild(row);
     });
   }
+  function updateSoftphoneOutboundMeta() {
+    if (!spOutboundMeta) return;
+    var picked = spFrom && spFrom.value ? String(spFrom.value).trim() : '';
+    var current = picked || spActiveFrom || spDefaultFrom || '';
+    spOutboundMeta.textContent = 'Current outbound: ' + (current || '—');
+  }
   function softphoneSetStatus(msg, isErr) {
     if (!spStatus) return;
     spStatus.textContent = msg || '';
@@ -712,6 +730,7 @@
         if (!res.ok || !res.j || !res.j.success) return;
         spRelayWebrtc = !!res.j.relayWebrtcAvailable;
         spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
+        spActiveFrom = String(res.j.activeFromNumber || '').trim();
         if (res.j && res.j.callMode) spWorkspaceCallMode = String(res.j.callMode).trim() || 'cloud_dial';
         if (spModeLine) {
           if (res.j && res.j.callMode === 'cloud_dial') {
@@ -742,6 +761,7 @@
           opt.textContent = v;
           spFrom.appendChild(opt);
         });
+        updateSoftphoneOutboundMeta();
       })
       .catch(function () {});
   }
@@ -940,6 +960,9 @@
         runSoftphoneAction('call');
       }
     });
+  }
+  if (spFrom) {
+    spFrom.addEventListener('change', updateSoftphoneOutboundMeta);
   }
   if (spKeys && spKeys.length && spTo) {
     spKeys.forEach(function (k) {
