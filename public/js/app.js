@@ -1371,6 +1371,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /** Maps listing URL if stored; otherwise a Google Maps search URL from address/title (matches detail panel socials). */
+  function resolveGoogleMapsSocialHref(urlRaw, titleRaw, addressRaw, cityRaw) {
+    const isGoogleMapsListingUrl = (absUrl) => {
+      try {
+        const u = new URL(absUrl);
+        const h = u.hostname.replace(/^www\./, '').toLowerCase();
+        if (h === 'maps.app.goo.gl') return true;
+        if (h === 'goo.gl' && u.pathname.includes('maps')) return true;
+        if (h.endsWith('google.com') || h.endsWith('google.co.uk')) {
+          if (u.pathname.includes('/maps/')) return true;
+          if (u.search.includes('cid=') || u.search.includes('q=place_id:')) return true;
+        }
+        return false;
+      } catch {
+        return false;
+      }
+    };
+    const raw = String(urlRaw || '').trim();
+    if (raw && /^https?:\/\//i.test(raw) && isGoogleMapsListingUrl(raw)) {
+      return raw;
+    }
+    const title = String(titleRaw || '').trim();
+    const address = String(addressRaw || '').trim();
+    const city = String(cityRaw || '').trim();
+    if (address && address !== 'N/A') {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title}`.trim())}`;
+    }
+    if (title && city) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} ${city}`.trim())}`;
+    }
+    if (title) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`;
+    }
+    return null;
+  }
+
   // --- Populate panel from row data ---
   function populatePanel(row) {
     const title = row.dataset.title;
@@ -1715,40 +1751,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    const resolveGoogleBusinessProfileUrlFromRow = (r) => {
-        const isGoogleMapsListingUrl = (absUrl) => {
-            try {
-                const u = new URL(absUrl);
-                const h = u.hostname.replace(/^www\./, '').toLowerCase();
-                if (h === 'maps.app.goo.gl') return true;
-                if (h === 'goo.gl' && u.pathname.includes('maps')) return true;
-                if (h.endsWith('google.com') || h.endsWith('google.co.uk')) {
-                    if (u.pathname.includes('/maps/')) return true;
-                    if (u.search.includes('cid=') || u.search.includes('q=place_id:')) return true;
-                }
-                return false;
-            } catch {
-                return false;
-            }
-        };
-        const raw = String(r.dataset.url || '').trim();
-        if (raw && /^https?:\/\//i.test(raw) && isGoogleMapsListingUrl(raw)) {
-            return raw;
-        }
-        const title = String(r.dataset.title || '').trim();
-        const address = String(r.dataset.address || '').trim();
-        const city = String(r.dataset.city || '').trim();
-        if (address && address !== 'N/A') {
-            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title}`.trim())}`;
-        }
-        if (title && city) {
-            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} ${city}`.trim())}`;
-        }
-        if (title) {
-            return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`;
-        }
-        return null;
-    };
+    const resolveGoogleBusinessProfileUrlFromRow = (r) =>
+        resolveGoogleMapsSocialHref(r.dataset.url, r.dataset.title, r.dataset.address, r.dataset.city);
 
     // Header Socials Logic
     if (headerSocials) {
@@ -3782,8 +3786,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50 max-w-[200px]" title="${escapeHtmlAttr(w)}" data-url="${escapeHtmlAttr(w)}">${escapeHtmlText(disp)}</a>`;
   }
 
-  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter) {
-    const gm = mapsUrl && mapsUrl !== 'N/A' ? String(mapsUrl).trim() : '';
+  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter, title, address, city) {
+    const gmResolved = resolveGoogleMapsSocialHref(mapsUrl, title, address, city);
+    const gm = gmResolved ? String(gmResolved).trim() : '';
     const fb = facebook && facebook !== 'N/A' ? String(facebook).trim() : '';
     const ig = instagram && instagram !== 'N/A' ? String(instagram).trim() : '';
     const tw = twitter && twitter !== 'N/A' ? String(twitter).trim() : '';
@@ -3878,7 +3883,10 @@ document.addEventListener('DOMContentLoaded', () => {
           row.dataset.url,
           row.dataset.facebook,
           row.dataset.instagram,
-          row.dataset.twitter
+          row.dataset.twitter,
+          row.dataset.title,
+          row.dataset.address,
+          row.dataset.city
         );
         layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
         const intelBtn = row.querySelector('.email-intel-btn');

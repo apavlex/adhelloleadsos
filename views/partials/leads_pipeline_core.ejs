@@ -1,4 +1,36 @@
 <% if (leads.length > 0) { %>
+  <% 
+    function googleMapsSocialHrefForLead(lead) {
+      var raw = (lead.url && lead.url !== 'N/A') ? String(lead.url).trim() : '';
+      function isGmListing(absUrl) {
+        try {
+          var u = new URL(absUrl);
+          var h = u.hostname.replace(/^www\./i, '').toLowerCase();
+          if (h === 'maps.app.goo.gl') return true;
+          if (h === 'goo.gl' && u.pathname.includes('maps')) return true;
+          if (h.endsWith('google.com') || h.endsWith('google.co.uk')) {
+            if (u.pathname.includes('/maps/')) return true;
+            if (u.search.includes('cid=') || u.search.includes('q=place_id:')) return true;
+          }
+          return false;
+        } catch (e) { return false; }
+      }
+      if (raw && /^https?:\/\//i.test(raw) && isGmListing(raw)) return raw;
+      var title = String(lead.title || '').trim();
+      var address = String(lead.address || '').trim();
+      var city = String(lead.city || '').trim();
+      if (address && address !== 'N/A') {
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((address + ' ' + title).trim());
+      }
+      if (title && city) {
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((title + ' ' + city).trim());
+      }
+      if (title) {
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
+      }
+      return '';
+    }
+  %>
   <!-- Table View Section -->
   <div id="tableView" class="brand-card overflow-hidden w-full dark:bg-slate-900 dark:border-white/10">
     <div class="flex flex-wrap items-center justify-between gap-2 px-5 pt-4 pb-3 border-b border-brand-border/25 dark:border-white/10">
@@ -80,7 +112,7 @@
               var _em = lead.email && lead.email !== 'N/A' ? String(lead.email) : '';
               var _ws = lead.website && lead.website !== 'N/A' ? String(lead.website) : '';
               var _wsLabel = _ws ? _ws.replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, '') : '';
-              var _gm = lead.url && lead.url !== 'N/A' ? String(lead.url) : '';
+              var _gm = googleMapsSocialHrefForLead(lead);
               var _fb = lead.facebook && lead.facebook !== 'N/A' ? String(lead.facebook) : '';
               var _ig = lead.instagram && lead.instagram !== 'N/A' ? String(lead.instagram) : '';
               var _tw = lead.twitter && lead.twitter !== 'N/A' ? String(lead.twitter) : '';
