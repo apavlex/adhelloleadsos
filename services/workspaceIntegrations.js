@@ -13,6 +13,7 @@ const INTEGRATION_FIELDS = [
   'outscraperApiBase',
   'mapsSearchPrimary',
   'firecrawlApiKey',
+  'enrichPrimary',
   'crawl4aiBaseUrl',
   'crawl4aiApiToken',
 ];
@@ -24,6 +25,7 @@ const FIELD_TO_ENV = {
   outscraperApiBase: 'OUTSCRAPER_API_BASE',
   mapsSearchPrimary: 'SEARCH_MAPS_PRIMARY',
   firecrawlApiKey: 'FIRECRAWL_API_KEY',
+  enrichPrimary: 'ENRICH_PRIMARY',
   crawl4aiBaseUrl: 'CRAWL4AI_BASE_URL',
   crawl4aiApiToken: 'CRAWL4AI_API_TOKEN',
 };

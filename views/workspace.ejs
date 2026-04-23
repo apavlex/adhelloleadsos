@@ -154,6 +154,16 @@
           <% if (masks.firecrawlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="firecrawlApiKey_clear" value="1" /> Remove</label><% } %>
         </div>
         <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Enhance provider preference (Firecrawl / Crawl4AI)</label>
+          <select name="enrichPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+            <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
+            <option value="auto" <%= _enrichPrimary === 'auto' || _enrichPrimary === '' ? 'selected' : '' %>>Auto (current defaults / env flags)</option>
+            <option value="firecrawl_only" <%= _enrichPrimary === 'firecrawl_only' ? 'selected' : '' %>>Firecrawl only</option>
+            <option value="crawl4ai_first" <%= _enrichPrimary === 'crawl4ai_first' ? 'selected' : '' %>>Crawl4AI first, then Firecrawl fallback</option>
+          </select>
+          <p class="text-xs text-brand-muted mt-2">Manual override for Enhance jobs. Crawl4AI first still benefits from Firecrawl structured extraction unless you explicitly skip Firecrawl via env flag.</p>
+        </div>
+        <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Crawl4AI base URL</label>
           <% if (masks.crawl4aiBaseUrl) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.crawl4aiBaseUrl %></p><% } %>
           <input type="text" name="crawl4aiBaseUrl" autocomplete="off" placeholder="http://localhost:11235" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />

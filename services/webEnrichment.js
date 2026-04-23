@@ -23,19 +23,37 @@ function skipFirecrawlOnCrawl4Html() {
 }
 
 /**
+ * ENRICH_PRIMARY:
+ * - auto (default): keep existing env-flag behavior
+ * - firecrawl_only: skip Crawl4AI pre-step
+ * - crawl4ai_first: force Crawl4AI pre-step when configured
+ */
+function resolveEnrichPrimary(integrationEnv) {
+  const ws = String((integrationEnv && integrationEnv.ENRICH_PRIMARY) || '').toLowerCase().trim();
+  const env = String(process.env.ENRICH_PRIMARY || '').toLowerCase().trim();
+  const v = ws || env;
+  if (v === 'firecrawl_only' || v === 'crawl4ai_first') return v;
+  return 'auto';
+}
+
+/**
  * @param {string} url
  * @param {{ integrationEnv?: Record<string, string> }} [options] workspace-resolved env (Apify/Firecrawl/Outscraper/Crawl4AI)
  * @returns {Promise<object>} Same shape as firecrawl.enrichLead (schema-ish object)
  */
 async function enrichLeadSmart(url, options = {}) {
   const integrationEnv = options.integrationEnv || null;
+  const enrichPrimary = resolveEnrichPrimary(integrationEnv);
   let u = url;
   if (u && !String(u).startsWith('http')) {
     u = `https://${u}`;
   }
 
   let techMergeHtml = null;
-  if (tryCrawl4FirstEnabled() && crawl4ai.isConfigured(integrationEnv)) {
+  const shouldTryCrawl4First =
+    (enrichPrimary === 'crawl4ai_first' || (enrichPrimary === 'auto' && tryCrawl4FirstEnabled())) &&
+    crawl4ai.isConfigured(integrationEnv);
+  if (shouldTryCrawl4First) {
     try {
       const raw = await crawl4ai.crawlUrls(u, integrationEnv);
       techMergeHtml = crawl4ai.extractFirstHtmlFromCrawlResult(raw);
@@ -108,4 +126,5 @@ module.exports = {
   enrichLeadSmartWithMapsFallback,
   tryCrawl4FirstEnabled,
   skipFirecrawlOnCrawl4Html,
+  resolveEnrichPrimary,
 };
