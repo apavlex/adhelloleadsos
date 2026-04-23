@@ -3142,6 +3142,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkFolderNewName = document.getElementById('bulkFolderNewName');
   const bulkFolderNewSave = document.getElementById('bulkFolderNewSave');
   const bulkFolderNewCancel = document.getElementById('bulkFolderNewCancel');
+  const bulkVoicemailBtn = document.getElementById('bulkVoicemailBtn');
 
   let selectedKeys = new Set();
 
@@ -3164,6 +3165,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (bulkMoveFolderBtn) {
       bulkMoveFolderBtn.disabled = count === 0;
+    }
+    if (bulkVoicemailBtn) {
+      bulkVoicemailBtn.disabled = count === 0;
+      bulkVoicemailBtn.classList.toggle('opacity-40', count === 0);
+      bulkVoicemailBtn.classList.toggle('cursor-not-allowed', count === 0);
     }
 
     // Update header bar (specific to results.ejs)
@@ -3416,6 +3422,41 @@ document.addEventListener('DOMContentLoaded', () => {
         window.alert('Could not move selected leads to that folder. Please try again.');
       } finally {
         bulkMoveFolderBtn.disabled = selectedKeys.size === 0;
+      }
+    });
+  }
+
+  if (bulkVoicemailBtn) {
+    bulkVoicemailBtn.addEventListener('click', async () => {
+      if (selectedKeys.size === 0) return;
+      const keys = [...selectedKeys];
+      const n = keys.length;
+      if (!window.confirm(`Run voicemail drop for ${n} selected lead${n === 1 ? '' : 's'}?`)) return;
+      const original = bulkVoicemailBtn.textContent;
+      bulkVoicemailBtn.disabled = true;
+      bulkVoicemailBtn.textContent = 'Dropping...';
+      let ok = 0;
+      let failed = 0;
+      for (const leadKey of keys) {
+        const cb = Array.from(document.querySelectorAll('.lead-checkbox')).find((c) => c.dataset.key === leadKey);
+        const row = cb && cb.closest('.result-row');
+        try {
+          const data = await requestLeadVoicemailByKey(leadKey, {});
+          if (row && data && data.lead && data.lead.updates) {
+            row.dataset.updates = JSON.stringify(data.lead.updates);
+            if (data.lead.status) row.dataset.status = String(data.lead.status);
+          }
+          ok += 1;
+        } catch (err) {
+          failed += 1;
+          console.warn('Bulk voicemail drop failed for', leadKey, err && err.message ? err.message : err);
+        }
+      }
+      window.alert(`Voicemail drops complete: ${ok} succeeded${failed ? `, ${failed} failed` : ''}.`);
+      bulkVoicemailBtn.textContent = original;
+      bulkVoicemailBtn.disabled = selectedKeys.size === 0;
+      if (bulkVoicemailBtn.disabled) {
+        bulkVoicemailBtn.classList.add('opacity-40', 'cursor-not-allowed');
       }
     });
   }
