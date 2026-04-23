@@ -142,6 +142,11 @@ router.get('/', async (req, res, next) => {
       scrapeLive = { crawl4ai: c4, outscraper: os };
     }
     const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
+    const mapsSearchPrimary = String(
+      (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'auto',
+    )
+      .trim()
+      .toLowerCase();
     const scriptServiceLabels = Object.fromEntries(
       SCRIPT_LIBRARY_KEYS.map((k) => [k, SCRIPT_LIBRARY[k].label])
     );
@@ -157,6 +162,7 @@ router.get('/', async (req, res, next) => {
       integrationMasks,
       integrationsReady,
       integrationsMessage,
+      mapsSearchPrimary,
       scrapeAdvisor,
       scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',
       scrapeCostOnWorkspace: true,

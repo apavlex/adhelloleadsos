@@ -138,6 +138,16 @@
           <% if (masks.outscraperApiBase) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiBase_clear" value="1" /> Remove</label><% } %>
         </div>
         <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper preference</label>
+          <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+            <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>
+            <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (Outscraper first, fallback Apify)</option>
+            <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
+            <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
+          </select>
+          <p class="text-xs text-brand-muted mt-2">Manual override for Find Leads job provider in this workspace. Auto keeps current fallback behavior.</p>
+        </div>
+        <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Firecrawl API key</label>
           <% if (masks.firecrawlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.firecrawlApiKey %></p><% } %>
           <input type="password" name="firecrawlApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />

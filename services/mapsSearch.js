@@ -15,15 +15,12 @@ function isMapsSearchConfigured(integrationEnv) {
   return outscraper.isConfigured(integrationEnv) || apifyConfigured(integrationEnv);
 }
 
-/**
- * SEARCH_MAPS_PRIMARY=apify — skip Outscraper, use Apify only.
- * Otherwise: if OUTSCRAPER_API_KEY is set, try Outscraper first, then Apify when needed.
- * @param {Record<string, string>|null|undefined} [integrationEnv]
- */
-function tryOutscraperFirst(integrationEnv) {
-  const v = String(process.env.SEARCH_MAPS_PRIMARY || '').toLowerCase().trim();
-  if (v === 'apify') return false;
-  return outscraper.isConfigured(integrationEnv);
+function resolvePrimary(integrationEnv) {
+  const fromWs = String((integrationEnv && integrationEnv.SEARCH_MAPS_PRIMARY) || '').toLowerCase().trim();
+  const fromEnv = String(process.env.SEARCH_MAPS_PRIMARY || '').toLowerCase().trim();
+  const v = fromWs || fromEnv;
+  if (v === 'apify' || v === 'outscraper') return v;
+  return 'auto';
 }
 
 /**
@@ -32,7 +29,23 @@ function tryOutscraperFirst(integrationEnv) {
  */
 async function searchGoogleMaps(params) {
   const integrationEnv = params.integrationEnv || null;
-  if (tryOutscraperFirst(integrationEnv)) {
+  const primary = resolvePrimary(integrationEnv);
+
+  if (primary === 'apify') {
+    if (!apifyConfigured(integrationEnv)) {
+      throw new Error('Maps provider is set to Apify, but APIFY_API_TOKEN is missing.');
+    }
+    return apify.searchGoogleMaps(params);
+  }
+
+  if (primary === 'outscraper') {
+    if (!outscraper.isConfigured(integrationEnv)) {
+      throw new Error('Maps provider is set to Outscraper, but OUTSCRAPER_API_KEY is missing.');
+    }
+    return outscraper.searchGoogleMaps(params);
+  }
+
+  if (outscraper.isConfigured(integrationEnv)) {
     try {
       const rows = await outscraper.searchGoogleMaps(params);
       if (rows && rows.length > 0) {
@@ -56,5 +69,5 @@ async function searchGoogleMaps(params) {
 module.exports = {
   searchGoogleMaps,
   isMapsSearchConfigured,
-  tryOutscraperFirst,
+  resolvePrimary,
 };
