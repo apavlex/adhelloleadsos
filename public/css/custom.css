@@ -196,6 +196,14 @@ table {
     margin-right: auto;
 }
 
+@media (max-width: 640px) {
+    main.max-wide,
+    footer.max-wide {
+        padding-left: max(0.75rem, env(safe-area-inset-left, 0px)) !important;
+        padding-right: max(0.75rem, env(safe-area-inset-right, 0px)) !important;
+    }
+}
+
 .line-height-1 {
     line-height: 1;
 }

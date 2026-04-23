@@ -3,9 +3,9 @@
 <% const _ws = typeof workspace !== 'undefined' && workspace ? workspace : null; %>
 <% const _wsList = typeof workspaceSwitcherList !== 'undefined' && workspaceSwitcherList ? workspaceSwitcherList : []; %>
 <% const _wsAccent = typeof workspaceAccent !== 'undefined' && workspaceAccent ? workspaceAccent : '#CA8A04'; %>
-<header class="sticky top-0 z-50 w-full px-6 py-4 border-t-[3px]" style="border-top-color: <%= _wsAccent %>">
+<header class="sticky top-0 z-50 w-full px-3 sm:px-6 py-3 sm:py-4 border-t-[3px] [padding-top:max(0.75rem,env(safe-area-inset-top))]" style="border-top-color: <%= _wsAccent %>">
   <span id="adhelloAppMeta" class="sr-only" data-can-manage-workspace="<%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '1' : '0' %>" aria-hidden="true"></span>
-  <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-6 py-3 rounded-full border border-brand-border dark:border-white/10 shadow-sm">
+  <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl sm:rounded-full border border-brand-border dark:border-white/10 shadow-sm">
     <div class="relative shrink-0 min-w-0 max-w-[min(100%,20rem)] sm:max-w-xs" id="wsSwitcherWrap">
       <button type="button" id="wsSwitcherBtn" class="flex items-center gap-2 sm:gap-2.5 group h-9 sm:h-10 w-full min-w-0 text-left rounded-xl px-1 py-1 hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="wsSwitcherMenu">
         <span class="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center overflow-hidden rounded-[22%]" aria-hidden="true">
@@ -266,10 +266,11 @@
   </div>
 
   <div id="softphoneModal" class="hidden fixed z-[215] inset-0 pointer-events-none" aria-hidden="true">
-    <div id="softphonePanel" class="fixed z-[220] pointer-events-auto w-[min(100vw-1rem,24rem)] max-h-[calc(100vh-1rem)] md:max-h-[calc(100vh-4.5rem)] flex flex-col rounded-2xl border border-brand-border dark:border-white/10 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl shadow-2xl ring-1 ring-black/5 dark:ring-white/5 overflow-hidden" style="right:0.75rem;top:4.5rem;left:auto;">
-      <div id="softphoneDragHandle" class="flex items-start justify-between gap-3 px-4 pt-4 pb-3 border-b border-brand-border/30 dark:border-white/10 cursor-grab active:cursor-grabbing select-none bg-brand-cream/35 dark:bg-slate-800/35">
+    <button type="button" id="softphoneMobileBackdrop" class="md:hidden fixed inset-0 z-[218] min-h-[100dvh] bg-brand-dark/50 pointer-events-auto hidden" aria-label="Close dialer" tabindex="-1"></button>
+    <div id="softphonePanel" class="fixed z-[220] pointer-events-auto w-full max-w-none md:w-[min(100vw-1rem,24rem)] h-full min-h-0 max-h-[100dvh] md:h-auto md:max-h-[calc(100vh-4.5rem)] flex flex-col max-md:rounded-none md:rounded-2xl max-md:border-0 md:border border-brand-border dark:border-white/10 bg-white/95 dark:bg-slate-900/95 md:backdrop-blur-xl max-md:shadow-none md:shadow-2xl ring-0 md:ring-1 ring-black/5 dark:ring-white/5 overflow-hidden" style="right:0.75rem;top:4.5rem;left:auto;">
+      <div id="softphoneDragHandle" class="flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] md:pt-4 pb-3 border-b border-brand-border/30 dark:border-white/10 max-md:cursor-default md:cursor-grab md:active:cursor-grabbing max-md:select-text md:select-none bg-brand-cream/35 dark:bg-slate-800/35">
         <div class="flex items-start gap-2.5 min-w-0 flex-1">
-          <span class="shrink-0 w-3.5 mt-1 text-slate-400 dark:text-slate-500" title="Drag to move" aria-hidden="true">
+          <span class="shrink-0 w-3.5 mt-1 text-slate-400 dark:text-slate-500 max-md:hidden" title="Drag to move" aria-hidden="true">
             <svg class="w-3.5 h-4" fill="currentColor" viewBox="0 0 12 20" aria-hidden="true"><circle cx="2" cy="4" r="1.5"/><circle cx="6" cy="4" r="1.5"/><circle cx="10" cy="4" r="1.5"/><circle cx="2" cy="10" r="1.5"/><circle cx="6" cy="10" r="1.5"/><circle cx="10" cy="10" r="1.5"/><circle cx="2" cy="16" r="1.5"/><circle cx="6" cy="16" r="1.5"/><circle cx="10" cy="16" r="1.5"/></svg>
           </span>
           <div class="min-w-0 flex-1">
@@ -307,10 +308,10 @@
           <button type="button" id="softphoneClose" class="w-9 h-9 rounded-xl bg-white/80 dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white focus:outline-none focus:ring-2 focus:ring-brand-yellow/50 flex items-center justify-center" aria-label="Close AdHello dialer" title="Close">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
-          <button type="button" id="softphoneDockRight" class="text-[9px] font-bold uppercase tracking-widest text-brand-yellow hover:underline py-0.5 bg-transparent border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded" title="Snap to right">Dock right</button>
+          <button type="button" id="softphoneDockRight" class="hidden md:block text-[9px] font-bold uppercase tracking-widest text-brand-yellow hover:underline py-0.5 bg-transparent border-0 cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded" title="Snap to right">Dock right</button>
         </div>
       </div>
-      <div class="p-4 pt-3 flex-1 overflow-y-auto min-h-0 custom-scrollbar">
+      <div class="p-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] flex-1 overflow-y-auto min-h-0 custom-scrollbar">
       <div id="softphoneLiveAnnouncer" class="sr-only" role="status" aria-live="polite"></div>
       <div class="space-y-3">
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">
@@ -460,6 +461,7 @@
   if (bd) bd.addEventListener('click', closeConnectModal);
 
   var spModal = document.getElementById('softphoneModal');
+  var spMobileBackdrop = document.getElementById('softphoneMobileBackdrop');
   var spPanel = document.getElementById('softphonePanel');
   var spModeLine = document.getElementById('softphoneModeLine');
   var spCallModeSelect = document.getElementById('softphoneCallModeSelect');
@@ -922,25 +924,70 @@
     if (spCall) spCall.disabled = !!v;
     if (spVm) spVm.disabled = !!v;
   }
+  function isSoftphoneMobileViewport() {
+    return window.matchMedia('(max-width: 767px)').matches;
+  }
+  var LAYOUT_P = 'left,right,top,bottom,width,height,max-width,max-height,min-height,padding-top,padding-bottom'.split(
+    ',',
+  );
+  function clearSoftphonePanelLayout() {
+    if (!spPanel) return;
+    LAYOUT_P.forEach(function (p) {
+      spPanel.style.removeProperty(p);
+    });
+  }
+  function applyMobileSoftphoneLayout() {
+    if (!spPanel) return;
+    clearSoftphonePanelLayout();
+    spPanel.style.setProperty('left', '0', 'important');
+    spPanel.style.setProperty('right', '0', 'important');
+    spPanel.style.setProperty('top', '0', 'important');
+    spPanel.style.setProperty('bottom', '0', 'important');
+    spPanel.style.setProperty('width', '100%', 'important');
+    spPanel.style.setProperty('height', '100dvh', 'important');
+    spPanel.style.setProperty('max-width', 'none', 'important');
+    spPanel.style.setProperty('max-height', 'none', 'important');
+  }
+  function setSoftphoneMobileBackdrop(open) {
+    if (!spMobileBackdrop) return;
+    if (open && isSoftphoneMobileViewport()) spMobileBackdrop.classList.remove('hidden');
+    else spMobileBackdrop.classList.add('hidden');
+  }
   function applyDockRight() {
     if (!spPanel) return;
-    var mobile = window.matchMedia('(max-width: 767px)').matches;
-    spPanel.style.setProperty('left', mobile ? '0.5rem' : 'auto', 'important');
+    if (isSoftphoneMobileViewport()) {
+      applyMobileSoftphoneLayout();
+      return;
+    }
+    clearSoftphonePanelLayout();
+    spPanel.style.setProperty('left', 'auto', 'important');
     spPanel.style.setProperty('right', '0.75rem', 'important');
-    spPanel.style.setProperty('top', mobile ? 'auto' : '4.5rem', 'important');
-    spPanel.style.setProperty('bottom', mobile ? '0.5rem' : 'auto', 'important');
+    spPanel.style.setProperty('top', '4.5rem', 'important');
+    spPanel.style.setProperty('bottom', 'auto', 'important');
   }
   function applySoftphoneOpenPosition() {
     if (!spPanel) return;
+    if (isSoftphoneMobileViewport()) {
+      applyMobileSoftphoneLayout();
+      return;
+    }
     try {
       var raw = localStorage.getItem(SOFTPHONE_POS_KEY);
-      if (!raw) { applyDockRight(); return; }
+      if (!raw) {
+        applyDockRight();
+        return;
+      }
       var s = JSON.parse(raw);
-      if (s && s.dock === 'right') { applyDockRight(); return; }
+      if (s && s.dock === 'right') {
+        applyDockRight();
+        return;
+      }
       if (s && typeof s.left === 'number' && typeof s.top === 'number') {
+        clearSoftphonePanelLayout();
         spPanel.style.setProperty('left', s.left + 'px', 'important');
         spPanel.style.setProperty('top', s.top + 'px', 'important');
         spPanel.style.setProperty('right', 'auto', 'important');
+        spPanel.style.setProperty('bottom', 'auto', 'important');
         return;
       }
     } catch (e) {}
@@ -950,6 +997,7 @@
     if (!spModal) return;
     spModal.classList.remove('hidden');
     spModal.setAttribute('aria-hidden', 'false');
+    setSoftphoneMobileBackdrop(true);
     softphoneSession.isCloudPstn = false;
     applySoftphoneOpenPosition();
     softphoneSetStatus('Enter a number and place a call.');
@@ -1015,6 +1063,7 @@
   }
   function closeSoftphone() {
     if (!spModal) return;
+    setSoftphoneMobileBackdrop(false);
     spModal.classList.add('hidden');
     spModal.setAttribute('aria-hidden', 'true');
     softphoneStopPolling();
@@ -1175,6 +1224,22 @@
   if (spOpenMobile) spOpenMobile.addEventListener('click', openSoftphone);
   if (spClose) spClose.addEventListener('click', closeSoftphone);
   if (spClose) spClose.addEventListener('mousedown', function (e) { e.stopPropagation(); });
+  if (spMobileBackdrop) {
+    spMobileBackdrop.addEventListener('click', function (e) {
+      e.preventDefault();
+      closeSoftphone();
+    });
+  }
+  var softphoneLayoutResizeT;
+  window.addEventListener('resize', function () {
+    clearTimeout(softphoneLayoutResizeT);
+    softphoneLayoutResizeT = setTimeout(function () {
+      if (spModal && !spModal.classList.contains('hidden')) {
+        setSoftphoneMobileBackdrop(true);
+        applySoftphoneOpenPosition();
+      }
+    }, 120);
+  });
   if (spDockRight) {
     spDockRight.addEventListener('click', function (e) {
       e.preventDefault();
