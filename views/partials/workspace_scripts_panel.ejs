@@ -75,26 +75,6 @@
         </div>
       </div>
 
-      <% if (typeof PERSONAS !== 'undefined' && PERSONAS && PERSONAS.length) { %>
-      <div class="brand-card dark:bg-slate-900 dark:border-white/10 p-4 shrink-0" aria-labelledby="persona-lenses-heading">
-        <h3 id="persona-lenses-heading" class="font-display font-extrabold text-sm text-brand-dark dark:text-white">Workflow lenses</h3>
-        <p class="text-[10px] text-brand-muted font-medium mt-1 leading-relaxed">Optional mental models — jump to the tool each lens maps to. Scripts stay the same.</p>
-        <ul class="mt-3 space-y-2">
-          <% PERSONAS.forEach((p) => { %>
-            <li>
-              <a href="<%= p.href %>" class="flex items-center gap-3 rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-2.5 hover:border-brand-yellow/60 hover:bg-brand-yellow/5 transition-colors group">
-                <span class="w-9 h-9 rounded-xl bg-gradient-to-br <%= p.color %> flex items-center justify-center text-white font-display font-black text-sm shadow shrink-0"><%= p.name[0] %></span>
-                <span class="min-w-0 flex-1">
-                  <span class="block text-xs font-bold text-brand-dark dark:text-white"><%= p.name %> — <%= p.role %></span>
-                  <span class="block text-[10px] font-black uppercase tracking-wider text-brand-yellow mt-0.5"><%= p.hrefLabel %></span>
-                </span>
-              </a>
-            </li>
-          <% }) %>
-        </ul>
-      </div>
-      <% } %>
-
       <div class="brand-card dark:bg-slate-900 dark:border-white/10 p-4 shrink-0">
         <h3 class="font-display font-extrabold text-sm text-brand-dark dark:text-white">Merge tags & preview</h3>
         <p class="text-[10px] text-brand-muted font-medium mt-1">Fill a sample lead, then click a tag to insert it at the cursor in the script box (or use preview as-is).</p>
@@ -119,6 +99,26 @@
           <pre id="mergePreviewOut" class="text-xs leading-relaxed whitespace-pre-wrap font-sans text-brand-dark dark:text-slate-200 max-h-40 overflow-y-auto custom-scrollbar">—</pre>
         </div>
       </div>
+
+      <% if (typeof PERSONAS !== 'undefined' && PERSONAS && PERSONAS.length) { %>
+      <div class="brand-card dark:bg-slate-900 dark:border-white/10 p-4 shrink-0" aria-labelledby="persona-lenses-heading">
+        <h3 id="persona-lenses-heading" class="font-display font-extrabold text-sm text-brand-dark dark:text-white">Workflow lenses</h3>
+        <p class="text-[10px] text-brand-muted font-medium mt-1 leading-relaxed">Optional mental models — jump to the tool each lens maps to. Scripts stay the same.</p>
+        <ul class="mt-3 space-y-2">
+          <% PERSONAS.forEach((p) => { %>
+            <li>
+              <a href="<%= p.href %>" class="flex items-center gap-3 rounded-xl border border-brand-border/50 dark:border-white/10 px-3 py-2.5 hover:border-brand-yellow/60 hover:bg-brand-yellow/5 transition-colors group">
+                <span class="w-9 h-9 rounded-xl bg-gradient-to-br <%= p.color %> flex items-center justify-center text-white font-display font-black text-sm shadow shrink-0"><%= p.name[0] %></span>
+                <span class="min-w-0 flex-1">
+                  <span class="block text-xs font-bold text-brand-dark dark:text-white"><%= p.name %> — <%= p.role %></span>
+                  <span class="block text-[10px] font-black uppercase tracking-wider text-brand-yellow mt-0.5"><%= p.hrefLabel %></span>
+                </span>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+      <% } %>
 
     </aside>
   </div>
