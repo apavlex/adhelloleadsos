@@ -11,7 +11,8 @@
   <% const SECTION_HEADINGS = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value proposition', objectionHandling: 'Objection handling', close: 'Close' }; %>
 
   <div class="grid xl:grid-cols-[minmax(0,1fr)_min(22rem,100%)] gap-8 items-start">
-    <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden min-w-0">
+    <div class="flex flex-col gap-6 min-w-0">
+      <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden min-w-0">
       <div class="px-4 sm:px-6 py-4 border-b border-brand-border dark:border-white/10 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center sm:justify-between">
         <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white shrink-0">By offer</h3>
         <div class="flex flex-wrap gap-2" id="pitchTabs" role="tablist" aria-label="Offer">
@@ -22,7 +23,7 @@
         </div>
       </div>
 
-      <% SCRIPT_LIBRARY_KEYS.forEach((pk, idx) => { %>
+        <% SCRIPT_LIBRARY_KEYS.forEach((pk, idx) => { %>
         <% const block = SCRIPT_LIBRARY[pk]; %>
         <div class="pitch-panel <%= idx === 0 ? '' : 'hidden' %>" data-panel="<%= pk %>" role="tabpanel">
           <p class="text-sm font-bold text-brand-muted px-4 sm:px-6 pt-6 pb-2"><%= block.label %></p>
@@ -49,7 +50,17 @@
             <% }) %>
           </div>
         </div>
-      <% }) %>
+        <% }) %>
+      </div>
+
+      <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
+        <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 flex items-center justify-between flex-wrap gap-2">
+          <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Saved snippets</h3>
+          <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Workspace library (DB)</p>
+        </div>
+        <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Expand a section above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
+        <ul id="scriptLibraryList" class="divide-y divide-brand-border/50 dark:divide-white/10 hidden"></ul>
+      </div>
     </div>
 
     <aside class="flex flex-col gap-4 min-w-0 xl:sticky xl:top-24 xl:max-h-[calc(100vh-5.5rem)] xl:overflow-y-auto custom-scrollbar">
@@ -121,15 +132,6 @@
       <% } %>
 
     </aside>
-  </div>
-
-  <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden mt-10">
-    <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 flex items-center justify-between flex-wrap gap-2">
-      <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Saved snippets</h3>
-      <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Workspace library (DB)</p>
-    </div>
-    <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Expand a section above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
-    <ul id="scriptLibraryList" class="divide-y divide-brand-border/50 dark:divide-white/10 hidden"></ul>
   </div>
 
   <p class="mt-8 text-center text-[11px] text-brand-muted max-w-2xl mx-auto">
