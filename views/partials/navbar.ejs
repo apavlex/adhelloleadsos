@@ -284,6 +284,15 @@
               <span id="softphoneAudioPulse" class="hidden relative h-2.5 w-2.5 rounded-full bg-emerald-500 motion-safe:animate-pulse"></span>
               <p id="softphoneModeLine" class="text-[10px] text-brand-muted/90 leading-snug"></p>
             </div>
+            <div class="mt-2">
+              <label for="softphoneCallModeSelect" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call routing mode</label>
+              <select id="softphoneCallModeSelect" class="mt-1 w-full rounded-xl border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-3 py-2 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-yellow/45" <%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '' : 'disabled' %>>
+                <option value="cloud_dial">Cloud dial</option>
+                <option value="agent_first">Agent first</option>
+                <option value="browser_device">My device dialer</option>
+              </select>
+              <p id="softphoneCallModeSaveHint" class="text-[10px] text-brand-muted mt-1"></p>
+            </div>
           </div>
         </div>
         <div class="flex flex-col items-end gap-1 shrink-0">
@@ -444,6 +453,9 @@
   var spModal = document.getElementById('softphoneModal');
   var spPanel = document.getElementById('softphonePanel');
   var spModeLine = document.getElementById('softphoneModeLine');
+  var spCallModeSelect = document.getElementById('softphoneCallModeSelect');
+  var spCallModeSaveHint = document.getElementById('softphoneCallModeSaveHint');
+  var spCallModeLocked = !!(spCallModeSelect && spCallModeSelect.disabled);
   var spOpen = document.getElementById('navSoftphoneOpen');
   var spOpenIcon = spOpen ? spOpen.querySelector('svg') : null;
   var spOpenMobile = document.getElementById('navSoftphoneOpenMobile');
@@ -659,6 +671,26 @@
     var picked = spFrom && spFrom.value ? String(spFrom.value).trim() : '';
     var current = picked || spActiveFrom || spDefaultFrom || '';
     spOutboundMeta.textContent = 'Current outbound: ' + (current || '—');
+  }
+  function softphoneModeDescription(mode, hasRelayWebrtc) {
+    var m = String(mode || '').trim() || 'cloud_dial';
+    if (m === 'cloud_dial') {
+      return 'Call routing: Cloud (SignalWire) — the server places the call right away. No in-tab audio; the contact’s phone rings on the network.';
+    }
+    if (m === 'agent_first') {
+      return 'Call routing: Agent first — your mobile rings first; when you answer, the lead is dialed. Use your iPhone (Bluetooth) for two-way talk. The browser only starts the call.';
+    }
+    if (m === 'browser_device') {
+      return 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
+    }
+    if (hasRelayWebrtc) {
+      return 'Call may use in-browser WebRTC if enabled. In-tab audio on WebRTC only; otherwise use cloud or device mode in Workspace.';
+    }
+    return 'Tip: WebRTC not available. In Workspace, use Cloud or My device dialer, and set SIGNALWIRE_SPACE_URL if you need browser calling.';
+  }
+  function updateSoftphoneCallModeUi() {
+    if (spCallModeSelect) spCallModeSelect.value = spWorkspaceCallMode || 'cloud_dial';
+    if (spModeLine) spModeLine.textContent = softphoneModeDescription(spWorkspaceCallMode, spRelayWebrtc);
   }
   function softphoneAnnounce(msg) {
     if (!spLive) return;
@@ -916,6 +948,10 @@
     softphoneSetWrapRequired(false);
     updateControlToggles();
     syncNavBarCallIndicator();
+    if (spCallModeSaveHint) {
+      spCallModeSaveHint.textContent = spCallModeLocked ? 'Only workspace admins can change this.' : '';
+    }
+    updateSoftphoneCallModeUi();
     var mobileMenu = document.getElementById('mobileMenu');
     if (mobileMenu && !mobileMenu.classList.contains('hidden')) {
       mobileMenu.classList.add('hidden', 'opacity-0', 'pointer-events-none');
@@ -928,19 +964,7 @@
         spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
         spActiveFrom = String(res.j.activeFromNumber || '').trim();
         if (res.j && res.j.callMode) spWorkspaceCallMode = String(res.j.callMode).trim() || 'cloud_dial';
-        if (spModeLine) {
-          if (res.j && res.j.callMode === 'cloud_dial') {
-            spModeLine.textContent = 'Call routing: Cloud (SignalWire) — the server places the call right away. No in-tab audio; the contact’s phone rings on the network.';
-          } else if (res.j && res.j.callMode === 'agent_first') {
-            spModeLine.textContent = 'Call routing: Agent first — your mobile rings first; when you answer, the lead is dialed. Use your iPhone (Bluetooth) for two-way talk. The browser only starts the call.';
-          } else if (res.j && res.j.callMode === 'browser_device') {
-            spModeLine.textContent = 'Call routing: My device dialer — Call opens your system phone / headset app (audio on the device).';
-          } else if (res.j.relayWebrtcAvailable) {
-            spModeLine.textContent = 'Call may use in-browser WebRTC if enabled. In-tab audio on WebRTC only; otherwise use cloud or device mode in Workspace.';
-          } else {
-            spModeLine.textContent = 'Tip: WebRTC not available. In Workspace, use Cloud or My device dialer, and set SIGNALWIRE_SPACE_URL if you need browser calling.';
-          }
-        }
+        updateSoftphoneCallModeUi();
         if (!spFrom) return;
         var options = Array.isArray(res.j.options) ? res.j.options : [];
         var active = String(res.j.activeFromNumber || '').trim();
@@ -1167,6 +1191,38 @@
   }
   if (spFrom) {
     spFrom.addEventListener('change', updateSoftphoneOutboundMeta);
+  }
+  if (spCallModeSelect) {
+    spCallModeSelect.addEventListener('change', function () {
+      var nextMode = String(spCallModeSelect.value || '').trim() || 'cloud_dial';
+      var prevMode = spWorkspaceCallMode;
+      spWorkspaceCallMode = nextMode;
+      updateSoftphoneCallModeUi();
+      if (spCallModeSaveHint) spCallModeSaveHint.textContent = 'Saving…';
+      spCallModeSelect.disabled = true;
+      fetch('/workspace/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ callMode: nextMode }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Could not save call routing mode.');
+          }
+          if (spCallModeSaveHint) spCallModeSaveHint.textContent = 'Saved';
+        })
+        .catch(function (err) {
+          spWorkspaceCallMode = prevMode || 'cloud_dial';
+          updateSoftphoneCallModeUi();
+          if (spCallModeSaveHint) {
+            spCallModeSaveHint.textContent = (err && err.message) || 'Could not save';
+          }
+        })
+        .finally(function () {
+          spCallModeSelect.disabled = spCallModeLocked;
+        });
+    });
   }
   function softphoneIsVisible() {
     return !!(spModal && !spModal.classList.contains('hidden'));
