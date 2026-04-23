@@ -195,7 +195,14 @@
               <option value="browser_device" <%= _callMode === 'browser_device' ? 'selected' : '' %>>My device dialer (phone / bluetooth / softphone app)</option>
             </select>
           </div>
-          <p class="text-[11px] text-brand-muted self-end">Use <strong class="text-brand-dark dark:text-white">Agent first</strong> to ring you first, then the lead, so you talk on your phone. Use <strong>My device dialer</strong> to open the system dialer; use <strong>Cloud dial</strong> to call the lead’s number directly with no agent leg.</p>
+          <div class="self-end">
+            <p id="wsCallModeHelp" class="text-[11px] text-brand-muted">
+              Cloud dial: server calls the lead directly from your workspace number (no in-tab audio). Agent first: ring your phone first, then bridge to the lead. My device dialer: opens your phone app with the number prefilled.
+            </p>
+            <p id="wsCallModeHint" class="text-[10px] text-brand-muted/80 mt-1">
+              Tip: use Agent first for two-way talk on your iPhone/Bluetooth; use Cloud for automated voicemail drop.
+            </p>
+          </div>
         </div>
         <div>
           <label for="wsAgentPhone" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Your mobile (agent) — for “Agent first”</label>
@@ -250,7 +257,21 @@
 
     <div id="workspace-voicemail" class="scroll-mt-28 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8 mb-8">
       <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Weekly voicemail automation</h2>
-      <p class="text-sm text-brand-muted mb-4">Record or upload your voicemail drop audio, then schedule the weekly run window.</p>
+      <p class="text-sm text-brand-muted mb-2">Record or upload your voicemail drop audio, set one recording as active, then schedule the weekly run window.</p>
+      <div class="mb-4 rounded-xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 p-3 space-y-2">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">How to use</p>
+        <p class="text-[11px] text-brand-muted dark:text-slate-300">
+          1) <strong class="text-brand-dark dark:text-white">Start recording</strong> then <strong class="text-brand-dark dark:text-white">Stop + save</strong> (or <strong class="text-brand-dark dark:text-white">Upload audio</strong>).
+          2) In <strong class="text-brand-dark dark:text-white">Saved voicemail recordings</strong>, click <strong class="text-brand-dark dark:text-white">Set active</strong> on the exact message you want used for drops.
+          3) Pick day/time, enable weekly drops, then click <strong class="text-brand-dark dark:text-white">Save weekly settings</strong>.
+        </p>
+        <p class="text-[11px] text-brand-muted dark:text-slate-300">
+          <strong class="text-brand-dark dark:text-white">What runs on schedule:</strong> once per week at the selected day/time, the app launches automated voicemail-drop attempts using the <strong class="text-brand-dark dark:text-white">active</strong> recording (batch size limit applies).
+        </p>
+        <p class="text-[11px] text-brand-muted dark:text-slate-300">
+          <strong class="text-brand-dark dark:text-white">When to use weekly schedule:</strong> recurring outreach windows (e.g. Monday mornings). For one-off/manual drops during live dialing, use softphone <strong class="text-brand-dark dark:text-white">Drop VM + Next</strong>.
+        </p>
+      </div>
       <div class="rounded-[2rem] border border-brand-border/20 dark:border-white/10 p-5 bg-brand-cream/20 dark:bg-white/5 space-y-3">
         <div class="flex flex-wrap gap-2">
           <button type="button" id="vmRecordStartBtn" class="btn-pill bg-rose-600 text-white py-2.5 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-rose-700">Start recording</button>
@@ -259,8 +280,13 @@
           <input id="vmUploadInput" type="file" accept="audio/*" class="hidden" />
         </div>
         <p id="vmAudioStatus" class="text-[11px] text-brand-muted dark:text-slate-400">No voicemail audio uploaded yet.</p>
+        <div id="vmActiveBadge" class="inline-flex items-center gap-2 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-3 py-1.5 text-[11px] text-brand-dark dark:text-brand-yellow hidden">
+          <span class="text-[9px] font-black uppercase tracking-widest">Active recording</span>
+          <span id="vmActiveBadgeName" class="font-semibold truncate max-w-[22rem]">None selected</span>
+        </div>
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Saved voicemail recordings</p>
+          <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-2">Use <strong class="text-brand-dark dark:text-white">Set active</strong> to choose which recording is used for voicemail drops (manual + weekly schedule).</p>
           <div id="vmLibraryList" class="space-y-2"></div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -327,8 +353,42 @@
       var addBtn = document.getElementById('wsPhoneBankAdd');
       var submitBtn = document.getElementById('wsPhoneBankSubmitCnam');
       var callModeInput = document.getElementById('wsCallMode');
+      var callModeHelp = document.getElementById('wsCallModeHelp');
+      var callModeHint = document.getElementById('wsCallModeHint');
       var agentPhoneInput = document.getElementById('wsAgentPhone');
       if (!btn) return;
+      function renderCallModeHelp() {
+        if (!callModeInput || !callModeHelp) return;
+        var mode = String(callModeInput.value || 'cloud_dial').trim();
+        if (mode === 'agent_first') {
+          callModeHelp.textContent =
+            'Agent first: your mobile rings first. After you answer, the app dials and bridges the lead so you talk on your phone (great with Bluetooth).';
+          if (callModeHint)
+            callModeHint.textContent =
+              'Needs "Your mobile (agent)" in E.164 (+15551234567). Voicemail drop uses cloud flow.';
+          if (agentPhoneInput) agentPhoneInput.placeholder = '+15551234567 (your iPhone)';
+          return;
+        }
+        if (mode === 'browser_device') {
+          callModeHelp.textContent =
+            'My device dialer: click-to-call opens your system phone app with the number prefilled. Calls run on your carrier/device, not in-browser audio.';
+          if (callModeHint)
+            callModeHint.textContent =
+              'Best when you want manual dialing on your phone. Softphone voicemail drop still uses cloud automation.';
+          if (agentPhoneInput) agentPhoneInput.placeholder = '+15551234567 (optional in this mode)';
+          return;
+        }
+        callModeHelp.textContent =
+          'Cloud dial: server places calls from your workspace number directly to the lead. Fastest start for automation, but no in-tab call audio.';
+        if (callModeHint)
+          callModeHint.textContent =
+            'Use this mode for automated voicemail drops and server-managed outbound dialing.';
+        if (agentPhoneInput) agentPhoneInput.placeholder = '+15551234567 (only needed for Agent first)';
+      }
+      if (callModeInput) {
+        callModeInput.addEventListener('change', renderCallModeHelp);
+        renderCallModeHelp();
+      }
       function bindEntryRow(row) {
         if (!row) return;
         var remove = row.querySelector('.ws-phone-remove');
@@ -452,6 +512,8 @@
       window.addEventListener('hashchange', focusSectionFromHash);
 
       const vmAudioStatus = document.getElementById('vmAudioStatus');
+      const vmActiveBadge = document.getElementById('vmActiveBadge');
+      const vmActiveBadgeName = document.getElementById('vmActiveBadgeName');
       const vmWeeklyDay = document.getElementById('vmWeeklyDay');
       const vmWeeklyTime = document.getElementById('vmWeeklyTime');
       const vmWeeklyEnabled = document.getElementById('vmWeeklyEnabled');
@@ -520,6 +582,20 @@
           });
       }
 
+      function updateVmActiveBadge() {
+        if (!vmActiveBadge || !vmActiveBadgeName) return;
+        const active = (Array.isArray(vmLibrary) ? vmLibrary : []).find(function (x) {
+          return String((x && x.id) || '') === String(vmActiveId || '');
+        });
+        if (!active) {
+          vmActiveBadge.classList.add('hidden');
+          vmActiveBadgeName.textContent = 'None selected';
+          return;
+        }
+        vmActiveBadge.classList.remove('hidden');
+        vmActiveBadgeName.textContent = String(active.fileName || 'Voicemail recording');
+      }
+
       function openVmDeleteModal(item) {
         if (!vmDeleteModal || !item) return;
         vmDeletePendingId = String(item.id || '').trim();
@@ -569,6 +645,7 @@
             vmAudioStatus.textContent = 'No voicemail audio uploaded yet.';
           }
           renderVoicemailLibrary();
+          updateVmActiveBadge();
           vmSettingsLoaded = true;
         } catch (err) {
           vmAudioStatus.textContent = err.message || 'Failed to load voicemail settings.';
@@ -615,6 +692,7 @@
             vmActiveId = String(up.activeVoicemailId || vmActiveId || '');
             vmAudioStatus.innerHTML = `Active voicemail: <a class="underline text-brand-yellow" href="${up.audioUrl}" target="_blank" rel="noopener">preview</a>`;
             renderVoicemailLibrary();
+            updateVmActiveBadge();
           } catch (err) {
             vmAudioStatus.textContent = err.message || 'Upload failed.';
           } finally {
@@ -644,6 +722,7 @@
                 vmActiveId = String(up.activeVoicemailId || vmActiveId || '');
                 vmAudioStatus.innerHTML = `Active voicemail: <a class="underline text-brand-yellow" href="${up.audioUrl}" target="_blank" rel="noopener">preview</a>`;
                 renderVoicemailLibrary();
+                updateVmActiveBadge();
               } catch (err) {
                 vmAudioStatus.textContent = err.message || 'Recording upload failed.';
               }
@@ -687,6 +766,7 @@
               if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not set active voicemail.');
               vmActiveId = vmId;
               renderVoicemailLibrary();
+              updateVmActiveBadge();
               if (data.audioUrl) {
                 vmAudioStatus.innerHTML = `Active voicemail: <a class="underline text-brand-yellow" href="${data.audioUrl}" target="_blank" rel="noopener">preview</a>`;
               }
@@ -733,6 +813,7 @@
             vmLibrary = Array.isArray(data.voicemailLibrary) ? data.voicemailLibrary : [];
             vmActiveId = String(data.activeVoicemailId || '');
             renderVoicemailLibrary();
+            updateVmActiveBadge();
             if (data.audioUrl) {
               vmAudioStatus.innerHTML = `Active voicemail: <a class="underline text-brand-yellow" href="${data.audioUrl}" target="_blank" rel="noopener">preview</a>`;
             } else {
