@@ -3782,11 +3782,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50 max-w-[200px]" title="${escapeHtmlAttr(w)}" data-url="${escapeHtmlAttr(w)}">${escapeHtmlText(disp)}</a>`;
   }
 
-  function renderLeadSocialsSlotInner(facebook, instagram, twitter) {
+  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter) {
+    const gm = mapsUrl && mapsUrl !== 'N/A' ? String(mapsUrl).trim() : '';
     const fb = facebook && facebook !== 'N/A' ? String(facebook).trim() : '';
     const ig = instagram && instagram !== 'N/A' ? String(instagram).trim() : '';
     const tw = twitter && twitter !== 'N/A' ? String(twitter).trim() : '';
     let html = '<div class="flex items-center gap-2.5 pt-1.5">';
+    if (gm) {
+      html += `<a href="${escapeHtmlAttr(gm)}" target="_blank" rel="noopener noreferrer" class="w-4 h-4 text-brand-muted hover:text-[#4285F4] transition-colors" title="Google Maps"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C8.14 2 5 5.14 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.86-3.14-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z"/></svg></a>`;
+    }
     if (fb) {
       html += `<a href="${escapeHtmlAttr(fb)}" target="_blank" rel="noopener noreferrer" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
     }
@@ -3796,7 +3800,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (tw) {
       html += `<a href="${escapeHtmlAttr(tw)}" target="_blank" rel="noopener noreferrer" class="w-3.5 h-3.5 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" title="X / Twitter"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg></a>`;
     }
-    if (!fb && !ig && !tw) {
+    if (!gm && !fb && !ig && !tw) {
       html += '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
     }
     html += '</div>';
@@ -3871,6 +3875,7 @@ document.addEventListener('DOMContentLoaded', () => {
         layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
         layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
         layout.socials.innerHTML = renderLeadSocialsSlotInner(
+          row.dataset.url,
           row.dataset.facebook,
           row.dataset.instagram,
           row.dataset.twitter
