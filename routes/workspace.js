@@ -235,6 +235,9 @@ async function loadWorkspacePageLocals(req) {
 
 router.get('/settings', (req, res) => res.redirect(302, '/workspace/team'));
 router.get('/voicemail', (req, res) => res.redirect(302, '/workspace/voicemail'));
+// Tolerate common typo slugs that appeared in old/shared links.
+router.get('/voicernail', (req, res) => res.redirect(302, '/workspace/voicemail'));
+router.get('/voicenail', (req, res) => res.redirect(302, '/workspace/voicemail'));
 router.get('/scripts', (req, res) => res.redirect(302, '/scripts'));
 
 router.get('/', async (req, res, next) => {

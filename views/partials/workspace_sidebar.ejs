@@ -9,7 +9,6 @@
     <input id="wsSettingsSearch" type="search" autocomplete="off" placeholder="Search sections…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-brand-dark dark:text-white placeholder:text-brand-muted" />
   </div>
   <nav class="flex flex-col gap-1 text-[10px] font-black uppercase tracking-widest" id="wsSettingsNav">
-    <a href="/scripts" data-ws-nav="sales scripts personas library" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors">Sales scripts</a>
     <% if (_can && _hasId) { %>
     <a href="/workspace/pipeline" data-ws-nav="pipeline stages board" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'pipeline' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Pipeline</a>
     <a href="/workspace/branding" data-ws-nav="brand accent color theme" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'branding' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Brand accent</a>

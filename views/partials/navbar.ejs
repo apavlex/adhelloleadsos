@@ -296,12 +296,9 @@
       <div class="p-4 pt-3 flex-1 overflow-y-auto min-h-0 custom-scrollbar">
       <div id="softphoneLiveAnnouncer" class="sr-only" role="status" aria-live="polite"></div>
       <div class="space-y-3">
-        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Outbound number
-          <select id="softphoneFromNumber" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-yellow/40">
-            <option value="">Default workspace number</option>
-          </select>
-          <div class="mt-1.5 flex items-center justify-between gap-2">
-            <p id="softphoneOutboundMeta" class="text-[10px] text-brand-muted truncate">Current outbound: —</p>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">
+          <span class="flex items-center justify-between gap-2">
+            <span>Outbound number</span>
             <a
               href="https://dashboard.signalwire.com/phone-numbers"
               target="_blank"
@@ -309,7 +306,11 @@
               class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline whitespace-nowrap"
               title="Buy numbers in SignalWire Dashboard"
             >Buy number</a>
-          </div>
+          </span>
+          <select id="softphoneFromNumber" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-yellow/40">
+            <option value="">Default workspace number</option>
+          </select>
+          <p id="softphoneOutboundMeta" class="hidden text-[10px] text-brand-muted truncate">Current outbound: —</p>
         </label>
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Dial number
           <input type="tel" id="softphoneToNumber" placeholder="+15551234567" class="mt-1 w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-base font-semibold tabular-nums text-brand-dark dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-yellow/40" />
@@ -332,10 +333,13 @@
           <span class="inline-flex items-center gap-2 justify-center"><svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14m-6 4h2a2 2 0 002-2V8a2 2 0 00-2-2H9m0 12V6m0 12H7a4 4 0 01-4-4V10a4 4 0 014-4h2"/></svg>Voicemail drop</span>
         </button>
       </div>
-      <div class="mt-3 rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-3">
-        <div class="flex items-center justify-between gap-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call state</p>
+      <details class="mt-3 rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-3">
+        <summary class="list-none cursor-pointer flex items-center justify-between gap-2">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call controls</span>
           <span id="softphoneCallState" class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Idle</span>
+        </summary>
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-2">Call state</p>
         </div>
         <div class="mt-2 grid grid-cols-3 gap-2">
           <button type="button" id="softphoneMuteBtn" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-yellow/45" title="Toggle mute (M)" aria-label="Toggle mute">Mute</button>
@@ -349,7 +353,7 @@
           <button type="button" id="softphoneSpeakerBtn" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-1.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-yellow/45" title="Speaker">Speaker</button>
         </div>
         <button type="button" id="softphoneVmNowBtn" class="mt-2 w-full rounded-lg border border-violet-500/40 bg-violet-600/10 text-violet-700 dark:text-violet-300 px-2 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-violet-600/20">Drop VM + Next</button>
-      </div>
+      </details>
       <div class="mt-3 rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/50 p-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Post-call wrap-up (required before next dial)</p>
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted">Disposition
@@ -441,6 +445,7 @@
   var spPanel = document.getElementById('softphonePanel');
   var spModeLine = document.getElementById('softphoneModeLine');
   var spOpen = document.getElementById('navSoftphoneOpen');
+  var spOpenIcon = spOpen ? spOpen.querySelector('svg') : null;
   var spOpenMobile = document.getElementById('navSoftphoneOpenMobile');
   var spClose = document.getElementById('softphoneClose');
   var spDockRight = document.getElementById('softphoneDockRight');
@@ -688,6 +693,21 @@
       else if (state === 'ready') navCallDot.className += 'bg-brand-yellow';
       else navCallDot.className += 'bg-slate-400';
     }
+    if (spOpen) {
+      var activeCall = state === 'dialing' || state === 'in_call';
+      spOpen.classList.toggle('ring-2', activeCall);
+      spOpen.classList.toggle('ring-emerald-400/60', activeCall);
+      spOpen.classList.toggle('shadow-lg', activeCall);
+      spOpen.classList.toggle('shadow-emerald-400/30', activeCall);
+    }
+    if (spOpenIcon) {
+      spOpenIcon.classList.toggle('motion-safe:animate-pulse', state === 'dialing' || state === 'in_call');
+      spOpenIcon.classList.toggle('text-emerald-500', state === 'in_call');
+      spOpenIcon.classList.toggle('text-amber-500', state === 'dialing');
+      if (state !== 'dialing' && state !== 'in_call') {
+        spOpenIcon.classList.remove('text-emerald-500', 'text-amber-500');
+      }
+    }
   }
   function softphoneStopTimer() {
     if (softphoneSession.timerTicker) {
@@ -927,7 +947,7 @@
         spFrom.innerHTML = '';
         var d = document.createElement('option');
         d.value = '';
-        d.textContent = active ? 'Default workspace number (' + active + ')' : 'Default workspace number';
+        d.textContent = active || spDefaultFrom || 'Select outbound number';
         spFrom.appendChild(d);
         options.forEach(function (n) {
           var v = String(n || '').trim();

@@ -559,6 +559,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchNewFolderWrap = document.getElementById('searchNewFolderWrap');
   const searchNewFolderName = document.getElementById('searchNewFolderName');
   const runNowAlso = document.getElementById('runNowAlso');
+  const runNowSkipScheduleBtn = document.getElementById('runNowSkipScheduleBtn');
 
   if (userTimezoneInput) {
     userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -621,6 +622,33 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     setModeButtonClasses(searchModeInput.value === 'run' ? 'run' : 'schedule');
+  }
+
+  if (runNowSkipScheduleBtn && searchModeInput) {
+    runNowSkipScheduleBtn.addEventListener('click', () => {
+      searchModeInput.value = 'run';
+      if (modeRunNow) modeRunNow.click();
+      const wizardSetStep = (stepNo) => {
+        document.querySelectorAll('[data-step-panel]').forEach((panel) => {
+          panel.classList.toggle('hidden', String(panel.getAttribute('data-step-panel')) !== String(stepNo));
+        });
+        document.querySelectorAll('[data-step-indicator]').forEach((el) => {
+          const active = String(el.getAttribute('data-step-indicator')) === String(stepNo);
+          el.classList.toggle('bg-brand-yellow/10', active);
+          el.classList.toggle('border-brand-yellow/40', active);
+          el.classList.toggle('text-brand-dark', active);
+          el.classList.toggle('dark:text-white', active);
+          if (active) {
+            el.classList.remove('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
+          } else {
+            el.classList.remove('bg-brand-yellow/10', 'border-brand-yellow/40', 'text-brand-dark', 'dark:text-white');
+            el.classList.add('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
+          }
+        });
+      };
+      wizardSetStep(4);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
   }
 
   if (searchForm) {
@@ -2490,6 +2518,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const smsScriptSelect = document.getElementById('smsScriptSelect');
   const smsBodyInput = document.getElementById('smsBodyInput');
   const smsBodyCount = document.getElementById('smsBodyCount');
+  const smsScriptWorkspaceLabel = document.getElementById('smsScriptWorkspaceLabel');
   const smsPersonalizeBtn = document.getElementById('smsPersonalizeBtn');
   const smsScriptSendBtn = document.getElementById('smsScriptSendBtn');
   const smsScriptModalClose = document.getElementById('smsScriptModalClose');
@@ -2511,6 +2540,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!smsScriptModal) return;
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
+    if (smsScriptWorkspaceLabel) {
+      const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
+      const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
+      smsScriptWorkspaceLabel.textContent = `Workspace: ${wsName || 'Current workspace'}`;
+    }
   }
 
   function getCurrentLeadKey() {
@@ -3590,13 +3624,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const phone = row.querySelector('.lead-contact-phone-slot');
       const email = row.querySelector('.lead-contact-email-slot');
       const website = row.querySelector('.lead-contact-web-slot');
-      if (!phone || !email || !website) return null;
+      const socials = row.querySelector('.lead-cell-socials-content');
+      if (!phone || !email || !website || !socials) return null;
       return {
         kind: 'leads',
         addressEl: row.querySelector('.lead-row-address'),
         phone,
         email,
         website,
+        socials,
         reviews: reviewsInner,
       };
     }
@@ -3746,6 +3782,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50 max-w-[200px]" title="${escapeHtmlAttr(w)}" data-url="${escapeHtmlAttr(w)}">${escapeHtmlText(disp)}</a>`;
   }
 
+  function renderLeadSocialsSlotInner(facebook, instagram, twitter) {
+    const fb = facebook && facebook !== 'N/A' ? String(facebook).trim() : '';
+    const ig = instagram && instagram !== 'N/A' ? String(instagram).trim() : '';
+    const tw = twitter && twitter !== 'N/A' ? String(twitter).trim() : '';
+    let html = '<div class="flex items-center gap-2.5 pt-1.5">';
+    if (fb) {
+      html += `<a href="${escapeHtmlAttr(fb)}" target="_blank" rel="noopener noreferrer" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
+    }
+    if (ig) {
+      html += `<a href="${escapeHtmlAttr(ig)}" target="_blank" rel="noopener noreferrer" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
+    }
+    if (tw) {
+      html += `<a href="${escapeHtmlAttr(tw)}" target="_blank" rel="noopener noreferrer" class="w-3.5 h-3.5 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" title="X / Twitter"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg></a>`;
+    }
+    if (!fb && !ig && !tw) {
+      html += '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function renderLeadsReviewsInnerHtml(rating, reviews) {
     const r = parseFloat(rating) || 0;
     const c = parseInt(reviews, 10) || 0;
@@ -3813,6 +3870,11 @@ document.addEventListener('DOMContentLoaded', () => {
         setLeadPhoneSlot(layout.phone, row.dataset.phone);
         layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
         layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
+        layout.socials.innerHTML = renderLeadSocialsSlotInner(
+          row.dataset.facebook,
+          row.dataset.instagram,
+          row.dataset.twitter
+        );
         layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
         const intelBtn = row.querySelector('.email-intel-btn');
         if (intelBtn) {
@@ -3859,6 +3921,7 @@ document.addEventListener('DOMContentLoaded', () => {
         layout.phone.innerHTML = cellOriginals.phone;
         layout.email.innerHTML = cellOriginals.email;
         layout.website.innerHTML = cellOriginals.website;
+        if (cellOriginals.socials !== undefined) layout.socials.innerHTML = cellOriginals.socials;
         layout.reviews.innerHTML = cellOriginals.reviews;
       } else {
         layout.email.innerHTML = cellOriginals.email;
@@ -3951,11 +4014,13 @@ document.addEventListener('DOMContentLoaded', () => {
             cellOriginals.phone = layout.phone.innerHTML;
             cellOriginals.email = layout.email.innerHTML;
             cellOriginals.website = layout.website.innerHTML;
+            cellOriginals.socials = layout.socials.innerHTML;
             cellOriginals.reviews = layout.reviews.innerHTML;
             if (layout.addressEl) layout.addressEl.innerHTML = spinner;
             layout.phone.innerHTML = spinner;
             layout.email.innerHTML = spinner;
             layout.website.innerHTML = spinner;
+            layout.socials.innerHTML = spinner;
           } else {
             cellOriginals.email = layout.email.innerHTML;
             cellOriginals.social = layout.social.innerHTML;
@@ -4001,11 +4066,13 @@ document.addEventListener('DOMContentLoaded', () => {
           cellOriginals.phone = layout.phone.innerHTML;
           cellOriginals.email = layout.email.innerHTML;
           cellOriginals.website = layout.website.innerHTML;
+          cellOriginals.socials = layout.socials.innerHTML;
           cellOriginals.reviews = layout.reviews.innerHTML;
           if (layout.addressEl) layout.addressEl.innerHTML = spinner;
           layout.phone.innerHTML = spinner;
           layout.email.innerHTML = spinner;
           layout.website.innerHTML = spinner;
+          layout.socials.innerHTML = spinner;
         } else {
           cellOriginals.email = layout.email.innerHTML;
           cellOriginals.social = layout.social.innerHTML;

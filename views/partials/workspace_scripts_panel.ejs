@@ -53,6 +53,28 @@
     </div>
 
     <aside class="flex flex-col gap-4 min-w-0 xl:sticky xl:top-24 xl:max-h-[calc(100vh-5.5rem)] xl:overflow-y-auto custom-scrollbar">
+      <div id="sales-scripts-coach" class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden flex flex-col min-h-0 xl:flex-1 xl:min-h-[18rem]">
+        <div class="px-4 py-3 border-b border-brand-border dark:border-white/10 shrink-0">
+          <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white">AI script coach</h3>
+          <p class="text-[10px] text-brand-muted mt-1 leading-relaxed">Scoped to the section you open with <strong class="text-brand-dark dark:text-white">Coach</strong> on the left.</p>
+          <p id="coachContextLabel" class="text-[10px] font-bold text-brand-yellow mt-2 uppercase tracking-wide">Reputation · Opening</p>
+          <button type="button" id="coachResetBtn" class="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:underline">New conversation</button>
+        </div>
+        <div id="coachMessages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm min-h-[10rem] max-h-[min(40vh,18rem)] xl:max-h-[14rem] custom-scrollbar"></div>
+        <div id="coachRefinedWrap" class="hidden px-4 pb-2 shrink-0">
+          <div class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-2">Suggested script</p>
+            <pre id="coachRefinedText" class="text-xs text-brand-dark dark:text-slate-200 whitespace-pre-wrap font-sans max-h-32 overflow-y-auto"></pre>
+            <button type="button" id="coachApplyBtn" class="mt-2 w-full btn-pill bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest py-2">Apply to this section</button>
+          </div>
+        </div>
+        <div class="p-4 border-t border-brand-border dark:border-white/10 shrink-0 mt-auto">
+          <textarea id="coachInput" rows="2" placeholder="e.g. Make this shorter and more casual…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-brand-dark dark:text-slate-100 text-sm px-3 py-2 resize-none focus:ring-2 focus:ring-brand-yellow outline-none"></textarea>
+          <button type="button" id="coachSendBtn" class="mt-2 w-full btn-pill bg-brand-dark dark:bg-white dark:text-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-3">Send</button>
+          <p id="coachError" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></p>
+        </div>
+      </div>
+
       <% if (typeof PERSONAS !== 'undefined' && PERSONAS && PERSONAS.length) { %>
       <div class="brand-card dark:bg-slate-900 dark:border-white/10 p-4 shrink-0" aria-labelledby="persona-lenses-heading">
         <h3 id="persona-lenses-heading" class="font-display font-extrabold text-sm text-brand-dark dark:text-white">Workflow lenses</h3>
@@ -98,27 +120,6 @@
         </div>
       </div>
 
-      <div id="sales-scripts-coach" class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden flex flex-col min-h-0 xl:flex-1 xl:min-h-[18rem]">
-        <div class="px-4 py-3 border-b border-brand-border dark:border-white/10 shrink-0">
-          <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white">AI script coach</h3>
-          <p class="text-[10px] text-brand-muted mt-1 leading-relaxed">Scoped to the section you open with <strong class="text-brand-dark dark:text-white">Coach</strong> on the left.</p>
-          <p id="coachContextLabel" class="text-[10px] font-bold text-brand-yellow mt-2 uppercase tracking-wide">Reputation · Opening</p>
-          <button type="button" id="coachResetBtn" class="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:underline">New conversation</button>
-        </div>
-        <div id="coachMessages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm min-h-[10rem] max-h-[min(40vh,18rem)] xl:max-h-[14rem] custom-scrollbar"></div>
-        <div id="coachRefinedWrap" class="hidden px-4 pb-2 shrink-0">
-          <div class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-3">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-2">Suggested script</p>
-            <pre id="coachRefinedText" class="text-xs text-brand-dark dark:text-slate-200 whitespace-pre-wrap font-sans max-h-32 overflow-y-auto"></pre>
-            <button type="button" id="coachApplyBtn" class="mt-2 w-full btn-pill bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest py-2">Apply to this section</button>
-          </div>
-        </div>
-        <div class="p-4 border-t border-brand-border dark:border-white/10 shrink-0 mt-auto">
-          <textarea id="coachInput" rows="2" placeholder="e.g. Make this shorter and more casual…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-brand-dark dark:text-slate-100 text-sm px-3 py-2 resize-none focus:ring-2 focus:ring-brand-yellow outline-none"></textarea>
-          <button type="button" id="coachSendBtn" class="mt-2 w-full btn-pill bg-brand-dark dark:bg-white dark:text-slate-900 text-white text-[10px] font-black uppercase tracking-widest py-3">Send</button>
-          <p id="coachError" class="hidden mt-2 text-xs text-red-600 dark:text-red-400"></p>
-        </div>
-      </div>
     </aside>
   </div>
 
