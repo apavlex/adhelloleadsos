@@ -312,7 +312,14 @@ async function lamlPost(path, formBody, opts) {
   if (!asJson) {
     Object.entries(formBody || {}).forEach(([k, v]) => {
       if (v == null || v === '') return;
-      q.set(k, String(v));
+      if (Array.isArray(v)) {
+        v.forEach((item) => {
+          if (item == null || item === '') return;
+          q.append(k, String(item).trim());
+        });
+      } else {
+        q.set(k, String(v));
+      }
     });
   }
   const res = await fetch(url, {
@@ -422,7 +429,8 @@ async function createLeadCall(opts) {
     Url: voiceUrl,
     StatusCallback: statusCallback,
     StatusCallbackMethod: 'POST',
-    StatusCallbackEvent: 'initiated ringing answered completed',
+    // Twilio-compatible: send one form field per event (not a single space-separated value).
+    StatusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
   };
 
   if (action === 'voicemail_drop' && !agentFirst) {
