@@ -79,12 +79,50 @@
         </div>
       </div>
 
+      <div
+        id="focus-recommended"
+        class="hidden mb-4 rounded-2xl border border-brand-yellow/35 bg-brand-yellow/10 dark:bg-amber-500/10 dark:border-amber-500/30 px-4 py-3"
+        role="status"
+      >
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-amber-200/80 mb-1">Recommended product</p>
+        <p id="focus-recommended-text" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
+        <p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">Script drafts are angled to this offer when available.</p>
+      </div>
+
       <div class="mb-4">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Channel</p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Channel</p>
+        <p class="text-xs text-brand-muted dark:text-slate-400 mb-2">Email for written outreach; <strong>Call</strong> for a live or dialer call; <strong>Voicemail drop</strong> sends your saved workspace voicemail to this number.</p>
         <div class="flex flex-wrap gap-2" role="group" aria-label="Outreach channel">
           <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="email">Email</button>
-          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="call-script">Call</button>
-          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="voicemail-drop">Voicemail drop</button>
+          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="call-script" title="Call script and dialer">Call</button>
+          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="voicemail-drop" title="One-touch voicemail drop to this lead">Voicemail drop</button>
+        </div>
+        <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[2.5rem] leading-snug" aria-live="polite"></p>
+      </div>
+
+      <div class="mb-4 flex flex-col sm:flex-row sm:items-end gap-3 sm:gap-4">
+        <label class="block flex-1 min-w-0" for="focus-script-variant">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Script style</span>
+          <select
+            id="focus-script-variant"
+            class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white"
+          >
+            <option value="default">First touch / default</option>
+            <option value="followup">Follow-up</option>
+            <option value="reengage">Re-engagement</option>
+            <option value="short">Short &amp; punchy</option>
+          </select>
+        </label>
+        <div class="shrink-0" id="focus-dial-cta-wrap">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2 sm:text-left">AdHello dialer</span>
+          <button
+            type="button"
+            id="focus-btn-open-dialer"
+            class="w-full sm:w-auto btn-pill border-2 border-emerald-600/90 bg-emerald-600/10 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 px-4 py-2.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/50"
+            title="Fill the Dial number field in the right-side softphone"
+          >
+            Open in dialer
+          </button>
         </div>
       </div>
 
@@ -93,7 +131,7 @@
         <input id="focus-subject" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-brand-dark dark:text-white" autocomplete="off" />
       </div>
       <div class="mb-6">
-        <label for="focus-body" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Outreach draft</label>
+        <label for="focus-body" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Outreach draft</label>
         <textarea id="focus-body" rows="10" class="w-full rounded-2xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white font-medium leading-relaxed resize-y min-h-[200px]" placeholder="Draft loads here — edit before you send or log."></textarea>
       </div>
 
@@ -179,6 +217,89 @@
     var fill = document.getElementById('focus-progress-fill');
     var countEl = document.getElementById('focus-touch-count');
     var barWrap = document.getElementById('focus-progress-bar-wrap');
+    var elRecommended = document.getElementById('focus-recommended');
+    var elRecommendedText = document.getElementById('focus-recommended-text');
+    var elChannelHint = document.getElementById('focus-channel-hint');
+    var elScriptVariant = document.getElementById('focus-script-variant');
+    var elDialCta = document.getElementById('focus-dial-cta-wrap');
+    var btnOpenDialer = document.getElementById('focus-btn-open-dialer');
+    var elBodyLabel = document.getElementById('focus-body-label');
+
+    function openDialerForLead() {
+      var lead = currentLead();
+      if (!lead || !String(lead.phone || '').trim()) {
+        setCopyFeedback('No phone on this lead.', true);
+        return;
+      }
+      if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
+        if (window.__adhelloOpenSoftphoneWithDial(lead.phone)) {
+          setCopyFeedback('Number set in AdHello dialer. Press Call in the softphone to dial.');
+        } else {
+          setCopyFeedback('Could not normalize that phone number for the dialer.', true);
+        }
+      } else {
+        setCopyFeedback('Open the AdHello dialer from the header, then use Quick copy → Phone.');
+      }
+    }
+
+    function setChannelHint() {
+      if (!elChannelHint) return;
+      if (currentChannel === 'email') {
+        elChannelHint.textContent =
+          'Email: edit subject and message, then Send & advance to log a touch. Script style above swaps the copy.';
+        return;
+      }
+      if (currentChannel === 'call-script') {
+        elChannelHint.textContent =
+          'Call: rehearse the script in the box. Use “Open in dialer” to fill the right-side softphone, or Send & advance to start an outbound call from the app.';
+        return;
+      }
+      if (currentChannel === 'voicemail-drop') {
+        elChannelHint.textContent =
+          'Voicemail drop: Send & advance plays your workspace voicemail audio to this lead’s number. Use the script below to rehearse what to say in any live call.';
+        return;
+      }
+      elChannelHint.textContent = '';
+    }
+
+    function updateBodyLabel() {
+      if (!elBodyLabel) return;
+      if (currentChannel === 'email') {
+        elBodyLabel.textContent = 'Outreach draft';
+      } else if (currentChannel === 'voicemail-drop') {
+        elBodyLabel.textContent = 'Voicemail / call script (rehearsal)';
+      } else {
+        elBodyLabel.textContent = 'Call script';
+      }
+    }
+
+    function updateDialerCta() {
+      var lead = currentLead();
+      var hasPhone = Boolean(lead && String(lead.phone || '').trim() && String(lead.phone) !== 'N/A');
+      if (elDialCta) {
+        elDialCta.classList.toggle('hidden', !hasPhone);
+      }
+      if (btnSend) {
+        if (currentChannel === 'voicemail-drop') {
+          btnSend.textContent = 'Drop VM & advance';
+        } else if (currentChannel === 'call-script') {
+          btnSend.textContent = 'Call & advance';
+        } else {
+          btnSend.textContent = 'Send & advance';
+        }
+      }
+    }
+
+    function applyRecommendedFromDraft(data) {
+      if (!elRecommended || !elRecommendedText) return;
+      if (data && data.recommendedProduct && data.recommendedProduct.label) {
+        elRecommended.classList.remove('hidden');
+        elRecommendedText.textContent = data.recommendedProduct.label;
+      } else {
+        elRecommended.classList.add('hidden');
+        elRecommendedText.textContent = '—';
+      }
+    }
 
     function hrefUrl(u) {
       if (!u) return '';
@@ -223,7 +344,7 @@
         phoneBtn.removeAttribute('rel');
         phoneBtn.addEventListener('click', function (e) {
           e.preventDefault();
-          placeFocusCall();
+          openDialerForLead();
         });
         elLinks.appendChild(phoneBtn);
       }
@@ -373,6 +494,9 @@
       var isEmail = currentChannel === 'email';
       elSubjectWrap.classList.toggle('hidden', !isEmail);
       setChannelButtons();
+      setChannelHint();
+      updateBodyLabel();
+      updateDialerCta();
     }
 
     function currentLead() {
@@ -397,6 +521,7 @@
       elLast.textContent = lead.lastTouchLabel || '—';
       renderLinks(lead);
       renderBusinessInfo(lead);
+      if (elRecommended) elRecommended.classList.add('hidden');
       currentChannel = lead.defaultChannel || 'email';
       var hasEmail = Boolean(String(lead.email || '').trim());
       var hasPhone = Boolean(String(lead.phone || '').trim());
@@ -428,12 +553,21 @@
     function fetchDraft() {
       var lead = currentLead();
       if (!lead) return Promise.resolve();
+      var ch = currentChannel;
+      if (ch === 'voicemail-drop') {
+        ch = 'voicemail';
+      }
+      if (ch === 'dm' || ch === 'objection-handling') {
+        ch = 'call-script';
+      }
+      var scriptVariant = elScriptVariant && elScriptVariant.value ? elScriptVariant.value : 'default';
       return fetch('/sales/draft-outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           leadId: lead.key,
-          channel: currentChannel === 'voicemail-drop' ? 'call-script' : currentChannel,
+          channel: ch,
+          scriptVariant: scriptVariant,
         }),
       })
         .then(function (r) { return r.json(); })
@@ -441,6 +575,10 @@
           if (!data.success) return;
           elSubject.value = data.subject || '';
           elBody.value = data.body || '';
+          if (data.scriptVariant && elScriptVariant) {
+            elScriptVariant.value = data.scriptVariant;
+          }
+          applyRecommendedFromDraft(data);
         })
         .catch(function () {});
     }
@@ -558,6 +696,16 @@
         fetchDraft();
       });
     });
+    if (elScriptVariant) {
+      elScriptVariant.addEventListener('change', function () {
+        fetchDraft();
+      });
+    }
+    if (btnOpenDialer) {
+      btnOpenDialer.addEventListener('click', function () {
+        openDialerForLead();
+      });
+    }
 
     btnSend.addEventListener('click', onSendAdvance);
     btnLog.addEventListener('click', onLogNext);

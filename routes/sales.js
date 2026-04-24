@@ -477,6 +477,87 @@ router.post('/outreach-coach', async (req, res, next) => {
   }
 });
 
+const FOCUS_SCRIPT_VARIANTS = [
+  { id: 'default', label: 'First touch / default' },
+  { id: 'followup', label: 'Follow-up' },
+  { id: 'reengage', label: 'Re-engagement' },
+  { id: 'short', label: 'Short & punchy' },
+];
+
+function normalizeFocusScriptVariant(v) {
+  const id = String(v || 'default')
+    .trim()
+    .toLowerCase();
+  return FOCUS_SCRIPT_VARIANTS.some((x) => x.id === id) ? id : 'default';
+}
+
+function applyScriptPlaceholders(text, { contact, company, cityState }) {
+  return String(text || '')
+    .replace(/\{\{name\}\}/gi, contact)
+    .replace(/\{\{company\}\}/gi, company)
+    .replace(/\{\{city\}\}/gi, cityState || 'your area');
+}
+
+function buildFocusOutreachDraft({ channel, scriptVariant, company, contact, loc, cityState, objectionText, serviceBlock }) {
+  const v = scriptVariant;
+  const svcLabel = (serviceBlock && serviceBlock.label) || 'our services';
+  let subject = '';
+  let body = '';
+
+  if (channel === 'email') {
+    if (v === 'followup') {
+      subject = `Re: ${company} — quick follow-up`;
+      body = `Hi ${contact},\n\nFollowing up on my last note about ${company}${loc}. I know the inbox is crowded — the short version: we help local businesses turn more of their online visibility into booked work.\n\nWorth a two-line reply on who to loop in?\n\nThanks,\n`;
+    } else if (v === 'reengage') {
+      subject = `Still a fit for ${company}?`;
+      body = `Hi ${contact},\n\nCircling back in case this landed in spam — I work with ${company}'s type of business in ${
+        cityState || 'the area'
+      } on how you show up in search, reviews, and when someone is ready to call now.\n\nIf timing's off, no problem — a quick "not now" helps too.\n\nThanks,\n`;
+    } else if (v === 'short') {
+      subject = `One idea for ${company}`;
+      body = `Hi ${contact} — one quick reason I reached out: ${company}${loc} is visible, but most shops leak demand between maps, site, and missed calls. Happy to share the top fix we see. Reply with a yes/no?\n\nThanks,\n`;
+    } else {
+      subject = `Quick idea for ${company}`;
+      body = `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion — aligned with ${svcLabel}.\n\nThanks,\n`;
+    }
+  } else if (channel === 'dm') {
+    if (v === 'followup') {
+      body = `Hey ${contact} — small follow-up on my DM about ${company}${loc}. If you want one tactical tip (no long pitch), I can share what’s working for similar local operators.`;
+    } else if (v === 'short') {
+      body = `Hi ${contact} — re: ${company} in ${cityState || 'your market'}. Open to 1 quick tip that helps similar businesses book more calls?`;
+    } else {
+      body = `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump). (Angle: ${svcLabel}.)`;
+    }
+  } else if (channel === 'objection-handling') {
+    body =
+      objectionText ||
+      `Objection: "We're good for now."\nResponse: Totally fair. Most teams we help were already getting leads, but wanted better consistency week to week.\n\nObjection: "No budget."\nResponse: Understood. If helpful, I can outline a low-lift starting point so you can gauge ROI before committing.`;
+  } else if (channel === 'voicemail') {
+    if (v === 'followup') {
+      body = `Hi ${contact}, this is ___ with a quick follow-up for ${company}. I left a note about helping with online leads in ${cityState || 'your area'}. If you have sixty seconds, my number is…`;
+    } else if (v === 'short' || v === 'reengage') {
+      body = `Hey ${contact}, it's ___ for ${company}. I help local businesses with ${svcLabel} — a quick callback would go a long way. Thanks!`;
+    } else {
+      body = `Hi ${contact}, this is ___ — I'm reaching out to ${company}${loc} about one practical way to capture more of the people already looking for you online. I’ll send a short follow-up, but a live conversation works best. My number is [your #]. Thank you!`;
+    }
+  } else {
+    const libOpen = serviceBlock && serviceBlock.opening
+      ? applyScriptPlaceholders(serviceBlock.opening, { contact, company, cityState })
+      : '';
+    if (v === 'followup') {
+      body = `[Opener] Hi, this is ___ for ${contact} at ${company}. I tried you briefly — is now any better for a 30-second reason I called${loc}?\n\n[Bridge] Quick context: I help local service businesses with ${svcLabel}.\n\n[Ask] If you're the right person, is there a better time today I could try you back?`;
+    } else if (v === 'reengage' || v === 'short') {
+      body = `[Opener] Hi, calling ${contact} at ${company} — I’m ___. Two sentences: I help with ${svcLabel} for shops in ${cityState || 'this market'}.\n\n[Ask] Who would I talk to about growth or marketing ?`;
+    } else if (libOpen) {
+      body = `Recommended angle: ${svcLabel}\n\n[Opener] ${libOpen}\n\n[Bridge] I work with local businesses on filling the calendar and noticed you online${loc}.\n\n[Ask] Did I catch you at an okay time, or is there a better 5-minute block later?`;
+    } else {
+      body = `[Opener] Hi, this is ___ calling for ${contact} at ${company}. Did I catch you at an okay time?\n\n[Bridge] I work with local businesses on filling the calendar — noticed you online${loc} (focus: ${svcLabel}).\n\n[Ask] If it makes sense, who handles marketing day-to-day?`;
+    }
+  }
+
+  return { subject, body };
+}
+
 /** POST /sales/draft-outreach — Focus Mode copy (stub templates; replace with LLM later). */
 router.post('/draft-outreach', async (req, res, next) => {
   try {
@@ -489,8 +570,11 @@ router.post('/draft-outreach', async (req, res, next) => {
     if (!rawId) {
       return res.status(400).json({ success: false, error: 'leadId required' });
     }
-    const allowed = new Set(['email', 'dm', 'call-script', 'objection-handling']);
+    const allowed = new Set(['email', 'dm', 'call-script', 'objection-handling', 'voicemail']);
     if (!allowed.has(channel)) channel = 'email';
+    const scriptVariant = normalizeFocusScriptVariant(
+      (req.body && req.body.scriptVariant) || 'default',
+    );
 
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
@@ -503,7 +587,6 @@ router.post('/draft-outreach', async (req, res, next) => {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
 
-    // TODO: wire to LLM
     const company = String(lead.title || 'your team').trim() || 'your team';
     const em = String(lead.email || '').trim();
     const contact =
@@ -512,11 +595,18 @@ router.post('/draft-outreach', async (req, res, next) => {
       'there';
     const city = [lead.city, lead.state].filter(Boolean).join(', ');
     const loc = city ? ` in ${city}` : '';
+    const cityState = city;
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const leadServiceKey = String(lead.primaryServiceKey || '').trim();
     const fallbackServiceKey = SCRIPT_LIBRARY_KEYS[0];
     const serviceKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey) ? leadServiceKey : fallbackServiceKey;
+    const serviceBlock = mergedLibrary && mergedLibrary[serviceKey] ? mergedLibrary[serviceKey] : null;
+    const recommendedProduct = {
+      key: serviceKey,
+      label: (serviceBlock && serviceBlock.label) || serviceKey,
+      tabLabel: (serviceBlock && serviceBlock.tabLabel) || serviceKey,
+    };
     const objectionText =
       mergedLibrary &&
       mergedLibrary[serviceKey] &&
@@ -524,22 +614,25 @@ router.post('/draft-outreach', async (req, res, next) => {
         ? mergedLibrary[serviceKey].objectionHandling.trim()
         : '';
 
-    let subject = '';
-    let body = '';
-    if (channel === 'email') {
-      subject = `Quick idea for ${company}`;
-      body = `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion.\n\nThanks,\n`;
-    } else if (channel === 'dm') {
-      body = `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump).`;
-    } else if (channel === 'objection-handling') {
-      body =
-        objectionText ||
-        `Objection: "We're good for now."\nResponse: Totally fair. Most teams we help were already getting leads, but wanted better consistency week to week.\n\nObjection: "No budget."\nResponse: Understood. If helpful, I can outline a low-lift starting point so you can gauge ROI before committing.`;
-    } else {
-      body = `[Opener] Hi, this is ___ calling for ${contact} at ${company}. Did I catch you at an okay time?\n\n[Bridge] I work with local businesses on filling the calendar — noticed you online${loc}.\n\n[Ask] If it makes sense, who handles marketing day-to-day?`;
-    }
+    const { subject, body } = buildFocusOutreachDraft({
+      channel,
+      scriptVariant,
+      company,
+      contact,
+      loc,
+      cityState,
+      objectionText,
+      serviceBlock,
+    });
 
-    res.json({ success: true, subject, body });
+    res.json({
+      success: true,
+      subject,
+      body,
+      scriptVariant,
+      scriptVariants: FOCUS_SCRIPT_VARIANTS,
+      recommendedProduct,
+    });
   } catch (e) {
     next(e);
   }
