@@ -2233,10 +2233,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.lead.status) currentRow.dataset.status = String(data.lead.status);
     }
     if (data && data.dialMode === 'browser_device' && data.phone) {
-      const digits = String(data.phone || '').replace(/[^\d+]/g, '');
-      if (digits) {
-        window.location.href = `tel:${digits}`;
-      }
+      openSoftphoneOrTel(data.phone);
     }
     if (typeof window.showProspectToast === 'function') {
       window.showProspectToast(loadingLabel || 'Done');
@@ -2245,6 +2242,24 @@ document.addEventListener('DOMContentLoaded', () => {
     loadCallWidgetEvents();
     loadCallWidgetOptions();
     return data;
+  }
+
+  function openSoftphoneOrTel(rawPhone) {
+    const raw = String(rawPhone || '').trim();
+    if (!raw) return false;
+    const desktop =
+      !(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
+    if (
+      desktop &&
+      typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
+      window.__adhelloOpenSoftphoneWithDial(raw)
+    ) {
+      return true;
+    }
+    const digits = raw.replace(/[^\d+]/g, '');
+    if (!digits) return false;
+    window.location.href = `tel:${digits}`;
+    return true;
   }
 
   async function requestLeadCallByKey(leadKey, fallbackPhone, options) {
@@ -2263,8 +2278,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (data && data.dialMode === 'browser_device') {
       const raw = String((data && data.phone) || fallbackPhone || '').trim();
-      const digits = raw.replace(/[^\d+]/g, '');
-      if (digits) window.location.href = `tel:${digits}`;
+      openSoftphoneOrTel(raw);
     }
     return data;
   }
@@ -2342,8 +2356,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!row || !row.dataset || !row.dataset.leadKey) {
       const raw = String(explicitPhone || '').trim();
-      const digits = raw.replace(/\D/g, '');
-      if (digits) window.location.href = `tel:${digits}`;
+      openSoftphoneOrTel(raw);
       return;
     }
 
