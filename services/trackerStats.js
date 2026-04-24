@@ -8,6 +8,9 @@ const PERSONALIZED_TOUCH_STATUSES = new Set([
   'Closed - Lost',
 ]);
 
+/** Rep-initiated dial attempts stored on lead updates (not automated cadence logs). */
+const OUTBOUND_DIAL_UPDATE_TYPES = new Set(['call_outbound', 'call_browser_handoff']);
+
 function utcCalendarDayPrefix(iso) {
   if (!iso || typeof iso !== 'string') return '';
   return iso.slice(0, 10);
@@ -22,6 +25,9 @@ function leadHasPersonalizedTouchOnUtcDate(lead, dateStr) {
   for (const u of updates) {
     if (utcCalendarDayPrefix(u.timestamp) !== dateStr) continue;
     if (u.type === 'note' && String(u.value || '').trim()) return true;
+    if (OUTBOUND_DIAL_UPDATE_TYPES.has(String(u.type || '')) && String(u.value || '').trim()) {
+      return true;
+    }
     if (
       u.type === 'status_change' &&
       PERSONALIZED_TOUCH_STATUSES.has(String(u.value || '').trim())
@@ -29,11 +35,8 @@ function leadHasPersonalizedTouchOnUtcDate(lead, dateStr) {
       return true;
     }
   }
-  const logs = Array.isArray(lead.logs) ? lead.logs : [];
-  for (const log of logs) {
-    if (utcCalendarDayPrefix(log.timestamp) !== dateStr) continue;
-    if (String(log.type || '') === 'sequence_step') return true;
-  }
+  // Ignore lead.logs types like `sequence_step`: the cadence runner can fire day-0 steps
+  // right after import, which must not count as a rep "touch" for the daily unique-lead goal.
   return false;
 }
 
