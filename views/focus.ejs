@@ -85,6 +85,14 @@
         role="group"
         aria-label="Product and service angle"
       >
+        <% const _focusProductOptions = (typeof focusProductOptions !== 'undefined' && Array.isArray(focusProductOptions) && focusProductOptions.length) ? focusProductOptions : [
+          { key: 'reputation', label: 'Reputation management' },
+          { key: 'ai_automation', label: 'AI automation' },
+          { key: 'ai_websites', label: 'AI websites' },
+          { key: 'social_media', label: 'Social media' },
+          { key: 'ad_management', label: 'Ad management' },
+          { key: 'web_design', label: 'Web design' },
+        ]; %>
         <label for="focus-service-select" class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-amber-200/80 mb-2 block">Recommended product</label>
         <button
           type="button"
@@ -96,27 +104,23 @@
           —
         </button>
         <div id="focus-product-options" class="hidden mt-2 flex flex-wrap gap-2">
-          <% if (typeof focusProductOptions !== 'undefined' && focusProductOptions && focusProductOptions.length) { %>
-            <% focusProductOptions.forEach(function (p) { %>
-              <button
-                type="button"
-                class="focus-product-option inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors"
-                data-service-key="<%= p.key %>"
-                data-service-label="<%= p.label %>"
-              ><%= p.label %></button>
-            <% }); %>
-          <% } %>
+          <% _focusProductOptions.forEach(function (p) { %>
+            <button
+              type="button"
+              class="focus-product-option inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors"
+              data-service-key="<%= p.key %>"
+              data-service-label="<%= p.label %>"
+            ><%= p.label %></button>
+          <% }); %>
         </div>
         <select
           id="focus-service-select"
           class="hidden"
         >
           <option value="auto">Use lead’s recommended</option>
-          <% if (typeof focusProductOptions !== 'undefined' && focusProductOptions && focusProductOptions.length) { %>
-            <% focusProductOptions.forEach(function (p) { %>
-              <option value="<%= p.key %>"><%= p.label %></option>
-            <% }); %>
-          <% } %>
+          <% _focusProductOptions.forEach(function (p) { %>
+            <option value="<%= p.key %>"><%= p.label %></option>
+          <% }); %>
         </select>
         <p id="focus-recommended-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 leading-snug" aria-live="polite"></p>
       </div>
@@ -431,6 +435,8 @@
         } else {
           elRecommendedHint.textContent = 'Choose a product angle above; “Use lead’s recommended” matches this lead’s saved primary service when set.';
         }
+      } else if (elRecommendedHint) {
+        elRecommendedHint.textContent = 'Choose a product angle above, or keep “Use lead’s recommended”.';
       }
     }
 
@@ -726,7 +732,15 @@
           }
           applyRecommendedFromDraft(data);
         })
-        .catch(function () {});
+        .catch(function () {
+          if (elRecommended) elRecommended.classList.remove('hidden');
+          if (elRecommendedHint) {
+            elRecommendedHint.textContent = 'Select a product angle above.';
+          }
+          if (elRecommendedToggle) {
+            elRecommendedToggle.textContent = 'Use lead’s recommended';
+          }
+        });
     }
 
     function refreshMetrics() {
