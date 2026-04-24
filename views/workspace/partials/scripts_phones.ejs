@@ -50,6 +50,58 @@
     syncAgentPhoneVisibility();
   }
   if (!btn) return;
+  function loadSwNumberOptions() {
+    var dl = document.getElementById('swPhoneBankNumberOptions');
+    var hint = document.getElementById('swPhoneListHint');
+    if (!dl) return;
+    fetch('/workspace/phone-bank/available-numbers', {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        dl.innerHTML = '';
+        if (data && data.success && data.numbers && data.numbers.length) {
+          for (var i = 0; i < data.numbers.length; i++) {
+            var n = data.numbers[i];
+            if (!n || !n.phoneNumber) continue;
+            var opt = document.createElement('option');
+            opt.value = n.phoneNumber;
+            if (n.friendlyName) {
+              opt.appendChild(document.createTextNode(n.friendlyName + ' — ' + n.phoneNumber));
+            }
+            dl.appendChild(opt);
+          }
+          if (hint) {
+            hint.classList.add('hidden');
+            hint.textContent = '';
+          }
+        } else {
+          if (hint) {
+            var err = data && data.error;
+            if (err === 'not_configured') {
+              hint.textContent =
+                'SignalWire is not fully configured on the server, or the list could not be loaded. You can still type any number you own in E.164. Your admin should set SIGNALWIRE_SPACE_URL, SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, and SIGNALWIRE_FROM_NUMBER.';
+            } else if (err) {
+              hint.textContent = 'Could not list numbers from SignalWire: ' + err + '. You can still type a number in E.164 if you know it.';
+            } else {
+              hint.textContent =
+                'No numbers were returned for this project. Add phone numbers in the SignalWire dashboard, then refresh this page — or type a number in E.164.';
+            }
+            hint.classList.remove('hidden');
+          }
+        }
+      })
+      .catch(function () {
+        if (hint) {
+          hint.textContent = 'Could not load the number list. You can still type a number in E.164.';
+          hint.classList.remove('hidden');
+        }
+      });
+  }
+  loadSwNumberOptions();
   function bindWalkthroughBtn(id, mode) {
     var el = document.getElementById(id);
     if (el && typeof window.openCallRoutingWalkthrough === 'function') {
@@ -81,7 +133,7 @@
       var div = document.createElement('div');
       div.className = 'grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry';
       div.innerHTML = '' +
-        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label><input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="+15551234567" /></div>' +
+        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label><input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" list="swPhoneBankNumberOptions" placeholder="Choose from list or type +1555…" autocomplete="off" /></div>' +
         '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label><input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="ADHELLO AI" /></div>' +
         '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label><select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"><option value="not_submitted">not_submitted</option><option value="submitted">submitted</option><option value="in_review">in_review</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="live">live</option></select></div>' +
         '<div class="md:col-span-2"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label><label class="inline-flex items-center gap-2 text-xs"><input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="" />Use</label></div>' +

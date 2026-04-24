@@ -358,6 +358,51 @@ async function getJson(path) {
   return parseLamlJsonBody({ res, text, url, label: 'GET ' + path });
 }
 
+/**
+ * Phone numbers owned in this LaML project (same as Dashboard → Phone numbers).
+ * @returns {{ numbers: Array<{ phoneNumber: string, friendlyName: string, sid: string }>, error?: string }}
+ */
+async function listIncomingPhoneNumbers() {
+  if (!configured()) {
+    return { numbers: [], error: 'not_configured' };
+  }
+  const cfg = envConfig();
+  try {
+    const raw = await getJson('/IncomingPhoneNumbers.json?PageSize=200');
+    const arr = raw.incoming_phone_numbers || raw.IncomingPhoneNumbers;
+    const rows = Array.isArray(arr) ? arr : [];
+    const out = rows
+      .map((n) => ({
+        sid: String(n.sid || n.Sid || '').trim(),
+        phoneNumber: normalizePhone(n.phone_number || n.PhoneNumber || ''),
+        friendlyName: String(n.friendly_name || n.FriendlyName || '')
+          .trim()
+          .slice(0, 64),
+      }))
+      .filter((n) => n.phoneNumber);
+    const seen = new Set();
+    const deduped = out.filter((n) => {
+      if (seen.has(n.phoneNumber)) return false;
+      seen.add(n.phoneNumber);
+      return true;
+    });
+    const fromDefault = normalizePhone(cfg.fromNumber);
+    if (fromDefault && !deduped.some((n) => n.phoneNumber === fromDefault)) {
+      deduped.unshift({
+        sid: '',
+        phoneNumber: fromDefault,
+        friendlyName: 'Default (SIGNALWIRE_FROM_NUMBER)',
+      });
+    }
+    return { numbers: deduped };
+  } catch (e) {
+    return {
+      numbers: [],
+      error: e && e.message ? String(e.message) : 'list_failed',
+    };
+  }
+}
+
 function buildAppUrl(path, params) {
   const cfg = envConfig();
   const base = cfg.baseUrl;
@@ -541,4 +586,5 @@ module.exports = {
   sendSms,
   getCall,
   completeCall,
+  listIncomingPhoneNumbers,
 };

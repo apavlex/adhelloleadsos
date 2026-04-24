@@ -436,6 +436,19 @@ router.post('/settings', express.json(), async (req, res) => {
   }
 });
 
+/** GET JSON: phone numbers in the SignalWire project (for phone bank dropdown / datalist). */
+router.get('/phone-bank/available-numbers', async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can view this.' });
+    }
+    const { numbers, error } = await signalwire.listIncomingPhoneNumbers();
+    res.json({ success: true, numbers: numbers || [], error: error || null });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message || 'Server error' });
+  }
+});
+
 /** POST JSON: mark a number's CNAM request as submitted (and optionally notify webhook). */
 router.post('/phone-bank/cnam-submit', express.json(), async (req, res) => {
   try {

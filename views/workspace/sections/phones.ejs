@@ -129,12 +129,16 @@
     <% } %>
   </div>
 
+  <datalist id="swPhoneBankNumberOptions"></datalist>
+  <p id="swPhoneListHint" class="hidden text-[11px] text-amber-800 dark:text-amber-200/90 mb-2 leading-snug"></p>
+  <p class="text-[11px] text-brand-muted mb-3 max-w-3xl leading-relaxed">Use the number field to pick a value from the list of <strong>numbers in your SignalWire project</strong> (or type any E.164). Then set the caller name for CNAM. The list loads from the same project as this app&rsquo;s <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-700">SIGNALWIRE_</code> server keys. <a href="https://id.signalwire.com/" target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-yellow hover:underline">Open SignalWire</a> to sign in and purchase a new number, then refresh this page so it appears in the list.</p>
+
   <div id="wsPhoneBankList" class="space-y-2">
     <% _entries.forEach(function (entry, idx) { %>
     <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry" data-entry-index="<%= idx %>">
       <div class="md:col-span-3">
         <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label>
-        <input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.number || '').toString() %>" placeholder="+15551234567" />
+        <input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" list="swPhoneBankNumberOptions" value="<%= (entry.number || '').toString() %>" placeholder="Choose from list or type +1555…" autocomplete="off" />
       </div>
       <div class="md:col-span-3">
         <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label>
