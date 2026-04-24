@@ -555,11 +555,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchModeInput = document.getElementById('searchModeInput');
   const userTimezoneInput = document.getElementById('userTimezone');
   const searchBtnLabel = btn ? btn.querySelector('#searchBtnText') : null;
+  const scheduleSubmitBtn = document.getElementById('scheduleSubmitBtn');
+  const searchBackgroundNotice = document.getElementById('searchBackgroundNotice');
   const searchFolderKey = document.getElementById('searchFolderKey');
   const searchNewFolderWrap = document.getElementById('searchNewFolderWrap');
   const searchNewFolderName = document.getElementById('searchNewFolderName');
   const runNowAlso = document.getElementById('runNowAlso');
-  const runNowSkipScheduleBtn = document.getElementById('runNowSkipScheduleBtn');
 
   if (userTimezoneInput) {
     userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -601,7 +602,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dateEl) dateEl.required = false;
 
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Find Leads<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Search now<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
 
@@ -617,38 +618,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (dateElSch) dateElSch.required = true;
 
       if (searchBtnLabel) {
-        searchBtnLabel.innerHTML = 'Save schedule<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+        searchBtnLabel.innerHTML = 'Search now<svg class="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
 
     setModeButtonClasses(searchModeInput.value === 'run' ? 'run' : 'schedule');
-  }
-
-  if (runNowSkipScheduleBtn && searchModeInput) {
-    runNowSkipScheduleBtn.addEventListener('click', () => {
-      searchModeInput.value = 'run';
-      if (modeRunNow) modeRunNow.click();
-      const wizardSetStep = (stepNo) => {
-        document.querySelectorAll('[data-step-panel]').forEach((panel) => {
-          panel.classList.toggle('hidden', String(panel.getAttribute('data-step-panel')) !== String(stepNo));
-        });
-        document.querySelectorAll('[data-step-indicator]').forEach((el) => {
-          const active = String(el.getAttribute('data-step-indicator')) === String(stepNo);
-          el.classList.toggle('bg-brand-yellow/10', active);
-          el.classList.toggle('border-brand-yellow/40', active);
-          el.classList.toggle('text-brand-dark', active);
-          el.classList.toggle('dark:text-white', active);
-          if (active) {
-            el.classList.remove('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
-          } else {
-            el.classList.remove('bg-brand-yellow/10', 'border-brand-yellow/40', 'text-brand-dark', 'dark:text-white');
-            el.classList.add('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
-          }
-        });
-      };
-      wizardSetStep(4);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
   }
 
   if (searchForm) {
@@ -692,9 +666,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isSchedule && loader) {
         loader.classList.remove('hidden');
       }
+      if (!isSchedule && searchBackgroundNotice) {
+        searchBackgroundNotice.classList.remove('hidden');
+      }
+      if (!isSchedule) {
+        const bellBadge = document.getElementById('bulkEnhanceBellBadge');
+        const pingDot = document.getElementById('notificationPing');
+        if (bellBadge) {
+          bellBadge.textContent = 'RUN';
+          bellBadge.classList.remove('hidden');
+          bellBadge.setAttribute('title', 'Lead search running in background');
+        }
+        if (pingDot) pingDot.classList.remove('hidden');
+      }
       if (isSchedule && runNowAlso && runNowAlso.checked && btn) {
         btn.disabled = true;
         btn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+      if (isSchedule && scheduleSubmitBtn) {
+        scheduleSubmitBtn.disabled = true;
+        scheduleSubmitBtn.classList.add('opacity-50', 'cursor-not-allowed');
       }
     });
   }
