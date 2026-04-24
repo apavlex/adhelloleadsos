@@ -31,6 +31,29 @@
       return '';
     }
   %>
+  <style>
+    @media (max-width: 767px) {
+      #tableView .lead-sticky-check,
+      #tableView .lead-sticky-company {
+        position: static !important;
+        left: auto !important;
+        z-index: auto !important;
+        background: transparent !important;
+      }
+      #tableView #prospectLeadsTable {
+        min-width: 980px;
+      }
+      #tableView .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+      }
+      #kanbanView .kanban-column {
+        width: min(86vw, 19rem) !important;
+      }
+      #kanbanView .kanban-list {
+        min-height: 360px;
+      }
+    }
+  </style>
   <!-- Table View Section -->
   <div id="tableView" class="brand-card overflow-hidden w-full dark:bg-slate-900 dark:border-white/10">
     <div class="flex flex-wrap items-center justify-between gap-2 px-5 pt-4 pb-3 border-b border-brand-border/25 dark:border-white/10">
