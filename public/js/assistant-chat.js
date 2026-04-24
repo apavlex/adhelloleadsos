@@ -407,21 +407,39 @@
           body: JSON.stringify({ message: text, history: prior }),
         });
         let data = {};
+        let bodyWasJson = false;
         try {
           const raw = await res.text();
-          data = raw ? JSON.parse(raw) : {};
+          if (raw) {
+            data = JSON.parse(raw);
+            bodyWasJson = true;
+          } else {
+            data = {};
+          }
         } catch (parseErr) {
           data = {};
+          bodyWasJson = false;
         }
         removeLoading();
         if (!res.ok) {
           messagesEl.appendChild(
             bubble('assistant', (data && data.error) || 'Something went wrong. Try again.')
           );
+        } else if (!bodyWasJson) {
+          messagesEl.appendChild(
+            bubble(
+              'assistant',
+              'The coach could not read a response from the server. If you are using a static preview, sign in to the app or open the app URL the API is deployed on. If this persists, the server may not be able to run /api/assistant/chat.'
+            )
+          );
         } else {
-          var replyText = (data && data.reply) ? String(data.reply) : '';
+          var safe = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+          var hasKey = Object.prototype.hasOwnProperty.call(safe, 'reply');
+          var rawReply = hasKey ? safe.reply : '';
+          var replyText = rawReply == null || rawReply === '' ? '' : String(rawReply);
           if (!replyText.trim()) {
-            replyText = 'No reply text returned. Check server logs and API keys (KIE → Gemini → OpenAI).';
+            replyText =
+              'No reply from the coach. Check server logs and that an AI key is set (KIE_AI or KIE_API, GEMINI, or OPENAI) on the server, then try again.';
           }
           history.push({ role: 'user', content: text });
           history.push({ role: 'assistant', content: replyText });
@@ -429,7 +447,7 @@
             history.shift();
           }
           messagesEl.appendChild(bubble('assistant', replyText));
-          renderCitations(citeEl, data.citations);
+          renderCitations(citeEl, safe.citations);
         }
       } catch (_) {
         removeLoading();

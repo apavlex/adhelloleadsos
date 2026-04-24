@@ -59,22 +59,24 @@ How to respond:
       temperature: 0.52,
     });
 
-    let reply =
-      llm.content && !llm.error
-        ? llm.content.trim()
-        : null;
+    const COACH_FALLBACK =
+      "Hi—I'm here as your sales coach. What would you like to tackle today: finding leads, digging into someone in your pipeline, or something else? (AI replies need KIE_AI_API_KEY or KIE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY on the server.)";
 
+    let reply = '';
+    if (llm.content && !llm.error) {
+      reply = String(llm.content).replace(/\0/g, '').trim();
+    }
     if (!reply) {
-      reply =
-        "Hi—I'm here as your sales coach. What would you like to tackle today: finding leads, digging into someone in your pipeline, or something else? (AI replies need KIE_AI_API_KEY or KIE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY on the server.)";
+      reply = COACH_FALLBACK;
     }
 
     const citationsOut = citations.slice(0, 12);
 
     res.json({
-      reply,
+      reply: reply || COACH_FALLBACK,
       citations: citationsOut,
       provider: llm.provider || 'none',
+      llmDegraded: !llm.content || llm.error,
     });
   } catch (e) {
     console.warn('[assistant/chat]', e.message);

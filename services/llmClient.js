@@ -94,8 +94,12 @@ function buildGeminiBody(messages, { jsonObject, max_tokens, temperature }) {
 }
 
 function extractOpenAIStyleMessageContent(data) {
-  const msg = data && data.choices && data.choices[0] && data.choices[0].message;
+  const ch = data && data.choices && data.choices[0];
+  if (!ch) return null;
+  if (typeof ch.text === 'string' && ch.text.trim()) return ch.text;
+  const msg = ch.message;
   if (!msg) return null;
+  if (typeof msg.refusal === 'string' && msg.refusal.trim()) return msg.refusal;
   const c = msg.content;
   if (typeof c === 'string') return c;
   if (Array.isArray(c)) {
@@ -107,6 +111,7 @@ function extractOpenAIStyleMessageContent(data) {
       })
       .join('');
   }
+  if (c && typeof c === 'object' && typeof c.text === 'string') return c.text;
   return null;
 }
 
@@ -136,10 +141,19 @@ async function runGemini(prov, { messages, jsonObject, max_tokens, temperature }
     console.warn('[llmClient] Gemini HTTP', res.status, rawText.slice(0, 280));
     return { content: null, provider: 'gemini', error: true };
   }
-  const parts = data?.candidates?.[0]?.content?.parts;
+  const c0 = data?.candidates?.[0];
+  const parts = c0?.content?.parts;
   let textOut = '';
   if (Array.isArray(parts)) {
     textOut = parts.map((p) => (typeof p.text === 'string' ? p.text : '')).join('');
+  }
+  if (!textOut) {
+    const fr = c0 && c0.finishReason;
+    const err = data && (data.error || data.promptFeedback);
+    console.warn('[llmClient] Gemini empty output', {
+      finishReason: fr,
+      hasPromptFeedback: !!err,
+    });
   }
   return {
     content: textOut || null,
