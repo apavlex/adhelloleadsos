@@ -1061,6 +1061,23 @@
       })
       .catch(function () {});
   }
+  /** Fill Dial number, open softphone; user taps Call. Exposed for leads click-to-dial. */
+  function openSoftphoneWithDial(raw) {
+    var to = normalizeDial(String(raw || ''));
+    if (!to) return false;
+    if (spTo) spTo.value = to;
+    openSoftphone();
+    if (spTo) {
+      setTimeout(function () {
+        try {
+          spTo.focus();
+          spTo.select();
+        } catch (e) {}
+      }, 100);
+    }
+    return true;
+  }
+  window.__adhelloOpenSoftphoneWithDial = openSoftphoneWithDial;
   function closeSoftphone() {
     if (!spModal) return;
     setSoftphoneMobileBackdrop(false);

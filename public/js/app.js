@@ -2326,6 +2326,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const leadKey = (trigger.dataset && trigger.dataset.leadKey) || '';
     let row = trigger.closest('.result-row');
     if (!row && leadKey) row = findResultRowByLeadKey(leadKey);
+    const fromRow =
+      row && row.dataset && row.dataset.phone != null ? String(row.dataset.phone).trim() : '';
+    const phoneToFill = String(explicitPhone || fromRow || '').trim();
+    if (
+      phoneToFill &&
+      phoneToFill !== 'N/A' &&
+      typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
+      window.__adhelloOpenSoftphoneWithDial(phoneToFill)
+    ) {
+      if (row && row.dataset && row.dataset.leadKey) {
+        currentRow = row;
+      }
+      return;
+    }
     if (!row || !row.dataset || !row.dataset.leadKey) {
       const raw = String(explicitPhone || '').trim();
       const digits = raw.replace(/\D/g, '');
