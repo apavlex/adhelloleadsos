@@ -600,13 +600,33 @@ router.post('/draft-outreach', async (req, res, next) => {
     const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const leadServiceKey = String(lead.primaryServiceKey || '').trim();
     const fallbackServiceKey = SCRIPT_LIBRARY_KEYS[0];
-    const serviceKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey) ? leadServiceKey : fallbackServiceKey;
+    const recommendedKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey) ? leadServiceKey : fallbackServiceKey;
+    const requested = String((req.body && req.body.serviceKey) || '')
+      .trim()
+      .toLowerCase();
+    const useAuto =
+      !requested ||
+      requested === 'auto' ||
+      requested === 'recommended' ||
+      requested === 'default_recommended';
+    const selectedKey =
+      !useAuto && SCRIPT_LIBRARY_KEYS.includes(requested) ? requested : recommendedKey;
+    const serviceKey = selectedKey;
     const serviceBlock = mergedLibrary && mergedLibrary[serviceKey] ? mergedLibrary[serviceKey] : null;
+    const recommendedBlock = mergedLibrary[recommendedKey] ? mergedLibrary[recommendedKey] : null;
     const recommendedProduct = {
-      key: serviceKey,
-      label: (serviceBlock && serviceBlock.label) || serviceKey,
-      tabLabel: (serviceBlock && serviceBlock.tabLabel) || serviceKey,
+      key: recommendedKey,
+      label: (recommendedBlock && recommendedBlock.label) || recommendedKey,
+      tabLabel: (recommendedBlock && recommendedBlock.tabLabel) || recommendedKey,
     };
+    const productOptions = SCRIPT_LIBRARY_KEYS.map((k) => {
+      const row = mergedLibrary && mergedLibrary[k] ? mergedLibrary[k] : null;
+      return {
+        key: k,
+        label: (row && row.label) || k,
+        tabLabel: (row && row.tabLabel) || k,
+      };
+    });
     const objectionText =
       mergedLibrary &&
       mergedLibrary[serviceKey] &&
@@ -632,6 +652,9 @@ router.post('/draft-outreach', async (req, res, next) => {
       scriptVariant,
       scriptVariants: FOCUS_SCRIPT_VARIANTS,
       recommendedProduct,
+      recommendedServiceKey: recommendedKey,
+      selectedServiceKey: serviceKey,
+      productOptions,
     });
   } catch (e) {
     next(e);

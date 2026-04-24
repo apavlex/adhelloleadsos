@@ -13,6 +13,7 @@ const {
 const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
 
 const pipelineStagesService = require('../services/pipelineStagesService');
+const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 
 function stageLabelFromLead(l, sortedStages) {
   const row =
@@ -108,12 +109,18 @@ router.get('/', async (req, res, next) => {
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(visible, today);
     const touchGoal = dailyPersonalizedTouchGoal();
 
+    const focusProductOptions = SCRIPT_LIBRARY_KEYS.map((k) => ({
+      key: k,
+      label: (SCRIPT_LIBRARY[k] && SCRIPT_LIBRARY[k].label) || k,
+    }));
+
     res.render('focus', {
       title: 'Focus Mode | Agency OS',
       activePage: 'today',
       touchesToday,
       touchGoal,
       focusQueueJson: JSON.stringify(queue),
+      focusProductOptions,
     });
   } catch (e) {
     next(e);
