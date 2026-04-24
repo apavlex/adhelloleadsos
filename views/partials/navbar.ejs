@@ -1078,6 +1078,18 @@
     return true;
   }
   window.__adhelloOpenSoftphoneWithDial = openSoftphoneWithDial;
+  // Desktop convenience: any tel: link opens AdHello softphone prefilled.
+  document.addEventListener('click', function (e) {
+    var a = e && e.target && e.target.closest ? e.target.closest('a[href^="tel:"]') : null;
+    if (!a) return;
+    if (window.matchMedia && window.matchMedia('(max-width: 767px)').matches) return;
+    var href = String(a.getAttribute('href') || '');
+    var raw = href.replace(/^tel:/i, '').trim();
+    if (!raw) return;
+    if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') return;
+    if (!window.__adhelloOpenSoftphoneWithDial(raw)) return;
+    e.preventDefault();
+  });
   function closeSoftphone() {
     if (!spModal) return;
     setSoftphoneMobileBackdrop(false);
