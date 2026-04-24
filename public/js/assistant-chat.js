@@ -1,8 +1,11 @@
 /**
  * Floating workspace assistant: POST /api/assistant/chat (session + workspace scoped).
+ * Optional: Web Speech API dictation (mic) + speechSynthesis “Listen” on coach replies.
  */
 (function () {
   var _assistantAvatarId = 0;
+  var _speechRec = null;
+  var _listening = false;
 
   function escapeHtml(s) {
     return String(s || '')
@@ -79,6 +82,51 @@
     return t;
   }
 
+  function getSpeechRecognitionCtor() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  /** Raw coach text for text-to-speech; strip light markdown. */
+  function plainTextForTts(raw) {
+    var t = String(raw || '');
+    t = t.replace(/\r/g, '\n');
+    t = t.replace(/```[\s\S]*?```/g, ' ');
+    t = t.replace(/`([^`]+)`/g, '$1');
+    t = t.replace(/\*\*([^*]+)\*\*/g, '$1');
+    t = t.replace(/[*_#>]/g, ' ');
+    t = t.replace(/\n+/g, ' ');
+    t = t.replace(/\s+/g, ' ').trim();
+    return t;
+  }
+
+  function speakCoachText(raw) {
+    if (!window.speechSynthesis) return;
+    var plain = plainTextForTts(raw);
+    if (!plain) return;
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+    var u = new SpeechSynthesisUtterance(plain);
+    u.lang = /^en/i.test(String(navigator.language || '')) ? (navigator.language || 'en-US') : 'en-US';
+    u.rate = 1;
+    window.speechSynthesis.speak(u);
+  }
+
+  function makeListenButton(plain) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className =
+      'text-[10px] font-bold uppercase tracking-widest text-brand-yellow hover:underline mt-2 w-full text-left sm:w-auto sm:text-right';
+    b.setAttribute('aria-label', 'Read this reply aloud');
+    b.textContent = 'Listen';
+    b.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      speakCoachText(plain);
+    });
+    return b;
+  }
+
   function bubble(role, text) {
     const isUser = role === 'user';
     const wrap = document.createElement('div');
@@ -92,7 +140,17 @@
     if (isUser) {
       inner.innerHTML = escapeHtml(text).replace(/\n/g, '<br>');
     } else {
-      inner.innerHTML = formatAssistantMarkdown(text);
+      inner.appendChild(
+        (function () {
+          var d = document.createElement('div');
+          d.className = 'min-w-0';
+          d.innerHTML = formatAssistantMarkdown(text);
+          return d;
+        })()
+      );
+      if (window.speechSynthesis) {
+        inner.appendChild(makeListenButton(text));
+      }
       wrap.appendChild(assistantAvatarNode());
     }
     wrap.appendChild(inner);
@@ -180,7 +238,116 @@
     const sendBtn = document.getElementById('assistantSend');
     const messagesEl = document.getElementById('assistantMessages');
     const citeEl = document.getElementById('assistantCitations');
+    const mic = document.getElementById('assistantMic');
+    const voiceHint = document.getElementById('assistantVoiceHint');
     if (!fab || !panel || !form || !input || !messagesEl) return;
+
+    const SR = getSpeechRecognitionCtor();
+    if (mic) {
+      if (SR) {
+        mic.removeAttribute('disabled');
+      } else if (voiceHint) {
+        voiceHint.classList.remove('hidden');
+        voiceHint.textContent =
+          'Voice dictation is not available in this browser. Try Chrome or Edge, or use Safari 18+ on iOS.';
+      }
+    }
+
+    var dictationBase = '';
+    var dictationFinal = '';
+
+    function setListening(on) {
+      _listening = !!on;
+      if (mic) {
+        mic.setAttribute('aria-pressed', _listening ? 'true' : 'false');
+        if (_listening) {
+          mic.classList.add('ring-2', 'ring-rose-500/80', 'dark:ring-rose-400/70');
+        } else {
+          mic.classList.remove('ring-2', 'ring-rose-500/80', 'dark:ring-rose-400/70');
+        }
+      }
+      if (voiceHint && SR) {
+        if (_listening) {
+          voiceHint.classList.remove('hidden');
+          voiceHint.textContent = 'Listening — tap the mic again to stop.';
+        } else if (voiceHint.textContent.indexOf('Listening') === 0) {
+          voiceHint.classList.add('hidden');
+          voiceHint.textContent = '';
+        }
+      }
+    }
+
+    function stopDictation() {
+      if (_speechRec) {
+        try {
+          _speechRec.stop();
+        } catch (e) {
+          _speechRec = null;
+        }
+      }
+    }
+
+    function startDictation() {
+      if (!SR || !mic) return;
+      if (_speechRec) {
+        try {
+          _speechRec.abort();
+        } catch (e) {}
+      }
+      _speechRec = new SR();
+      _speechRec.continuous = true;
+      _speechRec.interimResults = true;
+      _speechRec.lang = (navigator.language || 'en-US').indexOf('en') === 0 ? navigator.language || 'en-US' : 'en-US';
+      dictationBase = String(input.value || '');
+      dictationFinal = '';
+      setListening(true);
+      _speechRec.onresult = function (event) {
+        var inter = '';
+        for (var i = event.resultIndex; i < event.results.length; i++) {
+          if (event.results[i].isFinal) {
+            dictationFinal += event.results[i][0].transcript;
+          } else {
+            inter += event.results[i][0].transcript;
+          }
+        }
+        input.value = (dictationBase + dictationFinal + inter).replace(/\s{2,}/g, ' ');
+      };
+      _speechRec.onerror = function (ev) {
+        var name = (ev && ev.error) || '';
+        if (name === 'not-allowed' && voiceHint) {
+          voiceHint.classList.remove('hidden');
+          voiceHint.textContent = 'Microphone access denied — check browser permissions to dictate.';
+        } else if (name && name !== 'aborted' && name !== 'no-speech' && name !== 'audio-capture' && voiceHint) {
+          voiceHint.classList.remove('hidden');
+          voiceHint.textContent = 'Dictation stopped: ' + name;
+        }
+      };
+      _speechRec.onend = function () {
+        setListening(false);
+        _speechRec = null;
+      };
+      try {
+        _speechRec.start();
+      } catch (e) {
+        setListening(false);
+        if (voiceHint) {
+          voiceHint.classList.remove('hidden');
+          voiceHint.textContent = 'Could not start dictation. Try again.';
+        }
+      }
+    }
+
+    if (mic && SR) {
+      mic.addEventListener('click', function (e) {
+        e.preventDefault();
+        if (sendBtn && sendBtn.disabled) return;
+        if (_listening) {
+          stopDictation();
+        } else {
+          startDictation();
+        }
+      });
+    }
 
     let open = false;
     const history = [];
@@ -193,6 +360,12 @@
         panel.classList.remove('hidden');
         input.focus();
       } else {
+        stopDictation();
+        setListening(false);
+        _speechRec = null;
+        try {
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+        } catch (e2) {}
         panel.classList.add('hidden');
       }
     }
