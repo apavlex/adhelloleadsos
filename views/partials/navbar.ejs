@@ -265,9 +265,9 @@
     </div>
   </div>
 
-  <div id="softphoneModal" class="hidden fixed z-[215] inset-0 pointer-events-none" aria-hidden="true">
-    <button type="button" id="softphoneMobileBackdrop" class="md:hidden fixed inset-0 z-[218] min-h-[100dvh] bg-brand-dark/50 pointer-events-auto hidden" aria-label="Close dialer" tabindex="-1"></button>
-    <div id="softphonePanel" class="fixed z-[220] pointer-events-auto w-full max-w-none md:w-[min(100vw-1rem,24rem)] h-full min-h-0 max-h-[100dvh] md:h-auto md:max-h-[calc(100vh-4.5rem)] flex flex-col max-md:rounded-none md:rounded-2xl max-md:border-0 md:border border-brand-border dark:border-white/10 bg-white/95 dark:bg-slate-900/95 md:backdrop-blur-xl max-md:shadow-none md:shadow-2xl ring-0 md:ring-1 ring-black/5 dark:ring-white/5 overflow-hidden" style="right:0.75rem;top:4.5rem;left:auto;">
+  <div id="softphoneModal" class="hidden fixed z-[255] inset-0 pointer-events-none" aria-hidden="true">
+    <button type="button" id="softphoneMobileBackdrop" class="md:hidden fixed inset-0 z-[258] min-h-[100dvh] bg-brand-dark/50 pointer-events-auto hidden" aria-label="Close dialer" tabindex="-1"></button>
+    <div id="softphonePanel" class="fixed z-[260] pointer-events-auto w-full max-w-none md:w-[min(100vw-1rem,24rem)] h-full min-h-0 max-h-[100dvh] md:h-auto md:max-h-[calc(100vh-4.5rem)] flex flex-col max-md:rounded-none md:rounded-2xl max-md:border-0 md:border border-brand-border dark:border-white/10 bg-white/95 dark:bg-slate-900/95 md:backdrop-blur-xl max-md:shadow-none md:shadow-2xl ring-0 md:ring-1 ring-black/5 dark:ring-white/5 overflow-hidden" style="right:0.75rem;top:4.5rem;left:auto;">
       <div id="softphoneDragHandle" class="flex items-start justify-between gap-3 px-4 pt-[max(1rem,env(safe-area-inset-top))] md:pt-4 pb-3 border-b border-brand-border/30 dark:border-white/10 max-md:cursor-default md:cursor-grab md:active:cursor-grabbing max-md:select-text md:select-none bg-brand-cream/35 dark:bg-slate-800/35">
         <div class="flex items-start gap-2.5 min-w-0 flex-1">
           <span class="shrink-0 w-3.5 mt-1 text-slate-400 dark:text-slate-500 max-md:hidden" title="Drag to move" aria-hidden="true">
@@ -1002,6 +1002,15 @@
     if (open && isSoftphoneMobileViewport()) spMobileBackdrop.classList.remove('hidden');
     else spMobileBackdrop.classList.add('hidden');
   }
+  function getOpenLeadSidebarWidth() {
+    var panel = document.getElementById('mobilePanel');
+    if (!panel || panel.classList.contains('hidden') || !panel.classList.contains('open')) return 0;
+    var side = panel.querySelector(':scope > div');
+    if (!side) return 0;
+    var rect = side.getBoundingClientRect();
+    if (!rect || !rect.width) return 0;
+    return Math.max(0, Math.round(rect.width));
+  }
   function applyDockRight() {
     if (!spPanel) return;
     if (isSoftphoneMobileViewport()) {
@@ -1009,8 +1018,11 @@
       return;
     }
     clearSoftphonePanelLayout();
+    var sidebarW = getOpenLeadSidebarWidth();
+    var baseRight = 12;
+    var rightPx = sidebarW > 0 ? (sidebarW + baseRight) : baseRight;
     spPanel.style.setProperty('left', 'auto', 'important');
-    spPanel.style.setProperty('right', '0.75rem', 'important');
+    spPanel.style.setProperty('right', rightPx + 'px', 'important');
     spPanel.style.setProperty('top', '4.5rem', 'important');
     spPanel.style.setProperty('bottom', 'auto', 'important');
   }
@@ -1127,6 +1139,7 @@
     return true;
   }
   window.__adhelloOpenSoftphoneWithDial = openSoftphoneWithDial;
+  window.__adhelloRefreshSoftphonePosition = applySoftphoneOpenPosition;
   // Desktop convenience: any tel: link opens AdHello softphone prefilled.
   document.addEventListener('click', function (e) {
     var a = e && e.target && e.target.closest ? e.target.closest('a[href^="tel:"]') : null;

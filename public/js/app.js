@@ -839,6 +839,9 @@ document.addEventListener('DOMContentLoaded', () => {
               childDiv.classList.remove('translate-y-full', 'translate-x-full');
               childDiv.style.display = 'block';
           }
+          if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+            window.__adhelloRefreshSoftphonePosition();
+          }
       }, 10);
     }
   };
@@ -907,6 +910,9 @@ document.addEventListener('DOMContentLoaded', () => {
             mobilePanel.style.pointerEvents = 'none';
             setTimeout(() => mobilePanel.classList.add('hidden'), 300);
             document.body.style.overflow = '';
+            if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+              window.__adhelloRefreshSoftphonePosition();
+            }
             rows.forEach((r) => r.classList.remove('selected'));
             currentRow = null;
             currentIndex = -1;
@@ -2366,7 +2372,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (shouldResetText) trigger.textContent = originalText;
       currentRow = originalRow || row;
     }
-  });
+  }, true);
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
   const callWidgetRefreshBtn = document.getElementById('callWidgetRefreshBtn');
