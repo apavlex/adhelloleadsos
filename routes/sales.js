@@ -520,13 +520,19 @@ function buildFocusOutreachDraft({ channel, scriptVariant, company, contact, loc
       subject = `Quick idea for ${company}`;
       body = `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion — aligned with ${svcLabel}.\n\nThanks,\n`;
     }
-  } else if (channel === 'dm') {
+  } else if (channel === 'dm' || channel === 'sms') {
     if (v === 'followup') {
-      body = `Hey ${contact} — small follow-up on my DM about ${company}${loc}. If you want one tactical tip (no long pitch), I can share what’s working for similar local operators.`;
+      body = channel === 'sms'
+        ? `Hi ${contact} — quick follow-up on ${company}${loc}. I can share one tactical idea that helps similar businesses book more calls. Open to that?`
+        : `Hey ${contact} — small follow-up on my DM about ${company}${loc}. If you want one tactical tip (no long pitch), I can share what’s working for similar local operators.`;
     } else if (v === 'short') {
-      body = `Hi ${contact} — re: ${company} in ${cityState || 'your market'}. Open to 1 quick tip that helps similar businesses book more calls?`;
+      body = channel === 'sms'
+        ? `Hi ${contact} — quick thought for ${company}${loc}: one simple fix often increases booked calls. Want the 1-line version?`
+        : `Hi ${contact} — re: ${company} in ${cityState || 'your market'}. Open to 1 quick tip that helps similar businesses book more calls?`;
     } else {
-      body = `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump). (Angle: ${svcLabel}.)`;
+      body = channel === 'sms'
+        ? `Hi ${contact}, this is [your name]. Noticed ${company}${loc} and had one practical idea around ${svcLabel} to capture more ready-to-buy demand. Want me to text it here?`
+        : `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump). (Angle: ${svcLabel}.)`;
     }
   } else if (channel === 'objection-handling') {
     body =
@@ -570,7 +576,7 @@ router.post('/draft-outreach', async (req, res, next) => {
     if (!rawId) {
       return res.status(400).json({ success: false, error: 'leadId required' });
     }
-    const allowed = new Set(['email', 'dm', 'call-script', 'objection-handling', 'voicemail']);
+    const allowed = new Set(['email', 'dm', 'sms', 'call-script', 'objection-handling', 'voicemail']);
     if (!allowed.has(channel)) channel = 'email';
     const scriptVariant = normalizeFocusScriptVariant(
       (req.body && req.body.scriptVariant) || 'default',
@@ -601,16 +607,18 @@ router.post('/draft-outreach', async (req, res, next) => {
     const leadServiceKey = String(lead.primaryServiceKey || '').trim();
     const fallbackServiceKey = SCRIPT_LIBRARY_KEYS[0];
     const recommendedKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey) ? leadServiceKey : fallbackServiceKey;
-    const requested = String((req.body && req.body.serviceKey) || '')
-      .trim()
-      .toLowerCase();
+    const requestedRaw = String((req.body && req.body.serviceKey) || '').trim();
+    const requestedLower = requestedRaw.toLowerCase();
+    const normalizedRequested = SCRIPT_LIBRARY_KEYS.find(
+      (k) => k.toLowerCase() === requestedLower,
+    );
     const useAuto =
-      !requested ||
-      requested === 'auto' ||
-      requested === 'recommended' ||
-      requested === 'default_recommended';
+      !requestedRaw ||
+      requestedLower === 'auto' ||
+      requestedLower === 'recommended' ||
+      requestedLower === 'default_recommended';
     const selectedKey =
-      !useAuto && SCRIPT_LIBRARY_KEYS.includes(requested) ? requested : recommendedKey;
+      !useAuto && normalizedRequested ? normalizedRequested : recommendedKey;
     const serviceKey = selectedKey;
     const serviceBlock = mergedLibrary && mergedLibrary[serviceKey] ? mergedLibrary[serviceKey] : null;
     const recommendedBlock = mergedLibrary[recommendedKey] ? mergedLibrary[recommendedKey] : null;

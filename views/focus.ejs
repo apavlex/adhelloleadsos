@@ -65,7 +65,12 @@
           <div>
             <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Reviews</p>
             <p id="focus-biz-reviews" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
+            <div id="focus-biz-review-stars" class="mt-1 flex items-center gap-1 text-amber-500" aria-label="Review stars"></div>
           </div>
+        </div>
+        <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+          <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">AI review summary</p>
+          <p id="focus-review-summary" class="text-[11px] text-brand-muted leading-snug">Loading review summary…</p>
         </div>
         <div id="focus-biz-socials" class="flex flex-wrap gap-2 mt-3"></div>
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
@@ -127,11 +132,12 @@
 
       <div class="mb-4">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Channel</p>
-        <p class="text-xs text-brand-muted dark:text-slate-400 mb-2">Email for written outreach; <strong>Call</strong> for a live or dialer call; <strong>Voicemail drop</strong> sends your saved workspace voicemail to this number.</p>
+        <p class="text-xs text-brand-muted dark:text-slate-400 mb-2">Use <strong>Call</strong>, <strong>Voicemail drop</strong>, <strong>SMS</strong>, or <strong>Email</strong> as separate touch channels, then log and move to the next lead.</p>
         <div class="flex flex-wrap gap-2" role="group" aria-label="Outreach channel">
           <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="email">Email</button>
           <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="call-script" title="Call script and dialer">Call</button>
           <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="voicemail-drop" title="One-touch voicemail drop to this lead">Voicemail drop</button>
+          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/60 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-channel="sms" title="SMS touch">SMS</button>
         </div>
         <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[2.5rem] leading-snug" aria-live="polite"></p>
       </div>
@@ -159,6 +165,46 @@
         <label for="focus-body" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Outreach draft</label>
         <textarea id="focus-body" rows="10" class="w-full rounded-2xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white font-medium leading-relaxed resize-y min-h-[200px]" placeholder="Draft loads here — edit before you send or log."></textarea>
       </div>
+      <div class="mb-6 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 p-4 space-y-3">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call outcome + notes</p>
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick disposition</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-outcome="no_pickup">No pickup</button>
+            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-outcome="voicemail">Voicemail</button>
+            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-outcome="talked_owner">Spoke owner</button>
+            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-outcome="callback_requested">Callback</button>
+            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-outcome="sent_sms">Sent SMS</button>
+            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50" data-outcome="sent_email">Sent email</button>
+          </div>
+        </div>
+        <div>
+          <label for="focus-outcome" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Outcome</label>
+          <select id="focus-outcome" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white">
+            <option value="">Select outcome…</option>
+            <option value="voicemail">Went to voicemail</option>
+            <option value="no_pickup">No pickup</option>
+            <option value="talked_owner">Talked to business owner</option>
+            <option value="callback_requested">Callback requested</option>
+            <option value="sent_sms">Sent SMS</option>
+            <option value="sent_email">Sent email</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div>
+          <label for="focus-outcome-notes" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Notes</label>
+          <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Owner response, objection, timing, next step…"></textarea>
+        </div>
+        <label class="inline-flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-white">
+          <input type="checkbox" id="focus-followup-enable" class="rounded border-brand-border" />
+          Schedule follow-up task
+        </label>
+        <div id="focus-followup-wrap" class="hidden">
+          <label for="focus-followup-at" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Follow-up date &amp; time</label>
+          <input id="focus-followup-at" type="datetime-local" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" />
+        </div>
+        <p id="focus-outcome-feedback" class="min-h-[1rem] text-[11px] text-brand-muted"></p>
+      </div>
 
       <div class="flex flex-col sm:flex-row flex-wrap gap-3">
         <button
@@ -169,11 +215,14 @@
         >
           Open in dialer
         </button>
-        <button type="button" id="focus-btn-send" class="btn-pill btn-primary flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest shadow-md">Send &amp; advance</button>
+        <button type="button" id="focus-btn-call" class="btn-pill btn-primary flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest shadow-md">Call</button>
+        <button type="button" id="focus-btn-voicemail" class="btn-pill border-2 border-violet-500/50 bg-violet-500/10 text-violet-800 dark:text-violet-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest">Drop voicemail</button>
+        <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-blue-500/40 bg-blue-500/10 text-blue-800 dark:text-blue-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest">SMS</button>
+        <button type="button" id="focus-btn-email" class="btn-pill border-2 border-brand-yellow/40 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest">Email</button>
         <button type="button" id="focus-btn-log" class="btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800">Log &amp; next</button>
         <button type="button" id="focus-btn-skip" class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40">Skip</button>
       </div>
-      <p class="text-[10px] text-brand-muted mt-4"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> send · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
+      <p class="text-[10px] text-brand-muted mt-4"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> run selected channel · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
     </section>
   </main>
   <div id="focus-mobile-fab-wrap" class="md:hidden fixed right-4 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-[90] hidden" aria-label="Mobile quick actions">
@@ -243,16 +292,28 @@
     var elBizLocation = document.getElementById('focus-biz-location');
     var elBizCategory = document.getElementById('focus-biz-category');
     var elBizReviews = document.getElementById('focus-biz-reviews');
+    var elBizReviewStars = document.getElementById('focus-biz-review-stars');
+    var elReviewSummary = document.getElementById('focus-review-summary');
     var elBizSocials = document.getElementById('focus-biz-socials');
     var btnCopyPhone = document.getElementById('focus-copy-phone');
     var btnCopyEmail = document.getElementById('focus-copy-email');
     var btnCopyWebsite = document.getElementById('focus-copy-website');
     var elCopyFeedback = document.getElementById('focus-copy-feedback');
+    var elOutcome = document.getElementById('focus-outcome');
+    var elQuickOutcomeBtns = document.querySelectorAll('.focus-quick-outcome');
+    var elOutcomeNotes = document.getElementById('focus-outcome-notes');
+    var elFollowupEnable = document.getElementById('focus-followup-enable');
+    var elFollowupWrap = document.getElementById('focus-followup-wrap');
+    var elFollowupAt = document.getElementById('focus-followup-at');
+    var elOutcomeFeedback = document.getElementById('focus-outcome-feedback');
     var elSubjectWrap = document.getElementById('focus-subject-wrap');
     var elSubject = document.getElementById('focus-subject');
     var elBody = document.getElementById('focus-body');
     var channelBtns = document.querySelectorAll('.focus-channel-btn');
-    var btnSend = document.getElementById('focus-btn-send');
+    var btnCall = document.getElementById('focus-btn-call');
+    var btnVoicemail = document.getElementById('focus-btn-voicemail');
+    var btnSms = document.getElementById('focus-btn-sms');
+    var btnEmail = document.getElementById('focus-btn-email');
     var btnLog = document.getElementById('focus-btn-log');
     var btnSkip = document.getElementById('focus-btn-skip');
     var modalHelp = document.getElementById('focus-modal-help');
@@ -327,17 +388,22 @@
       if (!elChannelHint) return;
       if (currentChannel === 'email') {
         elChannelHint.textContent =
-          'Email: edit subject and message, then Send & advance to log a touch. Script style above swaps the copy.';
+          'Email: edit subject and message, then click Email below to log and advance. Script style above swaps the copy.';
         return;
       }
       if (currentChannel === 'call-script') {
         elChannelHint.textContent =
-          'Call: rehearse the script in the box. Use “Open in dialer” to fill the right-side softphone, or Send & advance to start an outbound call from the app.';
+          'Call: rehearse the script in the box. Use “Open in dialer” to fill the softphone, then click Call below.';
         return;
       }
       if (currentChannel === 'voicemail-drop') {
         elChannelHint.textContent =
-          'Voicemail drop: Send & advance plays your workspace voicemail audio to this lead’s number. Use the script below to rehearse what to say in any live call.';
+          'Voicemail drop: click Drop voicemail below to run your saved workspace voicemail audio for this lead.';
+        return;
+      }
+      if (currentChannel === 'sms') {
+        elChannelHint.textContent =
+          'SMS: keep this short and direct. Run SMS to log this touch and open your device/app composer when possible.';
         return;
       }
       elChannelHint.textContent = '';
@@ -347,6 +413,8 @@
       if (!elBodyLabel) return;
       if (currentChannel === 'email') {
         elBodyLabel.textContent = 'Outreach draft';
+      } else if (currentChannel === 'sms') {
+        elBodyLabel.textContent = 'SMS script';
       } else if (currentChannel === 'voicemail-drop') {
         elBodyLabel.textContent = 'Voicemail / call script (rehearsal)';
       } else {
@@ -364,15 +432,6 @@
         var showFab = isMobileViewport() && hasPhone;
         elMobileFabWrap.classList.toggle('hidden', !showFab);
         if (!showFab) closeMobileFabActions();
-      }
-      if (btnSend) {
-        if (currentChannel === 'voicemail-drop') {
-          btnSend.textContent = 'Drop VM & advance';
-        } else if (currentChannel === 'call-script') {
-          btnSend.textContent = 'Call & advance';
-        } else {
-          btnSend.textContent = 'Send & advance';
-        }
       }
     }
 
@@ -547,6 +606,18 @@
         });
     }
 
+    function placeFocusSms() {
+      var lead = currentLead();
+      if (!lead) return Promise.resolve();
+      var body = encodeURIComponent(String((elBody && elBody.value) || '').trim());
+      var phone = normalizeTel(lead.phone || '');
+      if (isMobileViewport() && phone) {
+        window.location.href = 'sms:' + phone + (body ? '?body=' + body : '');
+      }
+      setCopyFeedback('SMS touch logged. Use your SMS tool to send this script.');
+      return Promise.resolve({ success: true });
+    }
+
     function renderBusinessInfo(lead) {
       var websiteHref = hrefUrl(lead.website || '');
       if (websiteHref) {
@@ -576,6 +647,8 @@
       } else {
         elBizReviews.textContent = '—';
       }
+      applyReviewTone(score, reviews);
+      renderReviewStars(score);
 
       elBizSocials.innerHTML = '';
       if (lead.url) elBizSocials.appendChild(socialPill('Google listing', hrefUrl(lead.url)));
@@ -591,6 +664,113 @@
       }
     }
 
+    function renderReviewStars(score) {
+      if (!elBizReviewStars) return;
+      elBizReviewStars.innerHTML = '';
+      var val = Number(score || 0);
+      if (!(val > 0)) {
+        var noData = document.createElement('span');
+        noData.className = 'text-[10px] text-brand-muted';
+        noData.textContent = 'No rating data';
+        elBizReviewStars.appendChild(noData);
+        return;
+      }
+      var rounded = Math.round(val * 2) / 2;
+      for (var i = 1; i <= 5; i += 1) {
+        var star = document.createElement('span');
+        star.className = 'text-[14px] leading-none';
+        if (rounded >= i) star.textContent = '★';
+        else if (rounded >= i - 0.5) star.textContent = '⯨';
+        else star.textContent = '☆';
+        elBizReviewStars.appendChild(star);
+      }
+    }
+
+    function applyReviewTone(score, reviews) {
+      if (!elBizReviews && !elBizReviewStars) return;
+      var s = Number(score || 0);
+      var r = parseInt(reviews, 10) || 0;
+      var tone = 'muted';
+      if (s > 0) {
+        if (s >= 4.4 && r >= 20) tone = 'good';
+        else if (s <= 3.4 || (r >= 20 && s < 3.9)) tone = 'risk';
+        else tone = 'mid';
+      }
+      var textClass = tone === 'good'
+        ? 'text-emerald-700 dark:text-emerald-300'
+        : tone === 'risk'
+          ? 'text-rose-700 dark:text-rose-300'
+          : tone === 'mid'
+            ? 'text-amber-700 dark:text-amber-300'
+            : 'text-brand-dark dark:text-slate-100';
+      var starClass = tone === 'good'
+        ? 'text-emerald-500'
+        : tone === 'risk'
+          ? 'text-rose-500'
+          : tone === 'mid'
+            ? 'text-amber-500'
+            : 'text-brand-muted';
+      if (elBizReviews) {
+        elBizReviews.classList.remove(
+          'text-brand-dark', 'dark:text-slate-100',
+          'text-emerald-700', 'dark:text-emerald-300',
+          'text-rose-700', 'dark:text-rose-300',
+          'text-amber-700', 'dark:text-amber-300'
+        );
+        textClass.split(' ').forEach(function (c) { if (c) elBizReviews.classList.add(c); });
+      }
+      if (elBizReviewStars) {
+        elBizReviewStars.classList.remove(
+          'text-amber-500', 'text-emerald-500', 'text-rose-500', 'text-brand-muted'
+        );
+        starClass.split(' ').forEach(function (c) { if (c) elBizReviewStars.classList.add(c); });
+      }
+    }
+
+    function renderReviewSummaryText(strengths, weaknesses, sourceNote) {
+      var bits = [];
+      if (Array.isArray(strengths) && strengths.length) {
+        bits.push('Strength: ' + String(strengths[0]));
+      }
+      if (Array.isArray(weaknesses) && weaknesses.length) {
+        bits.push('Risk: ' + String(weaknesses[0]));
+      }
+      if (sourceNote) bits.push(String(sourceNote));
+      return bits.join(' ');
+    }
+
+    function fetchReviewSummary() {
+      var lead = currentLead();
+      if (!elReviewSummary) return Promise.resolve();
+      if (!lead || !lead.key) {
+        elReviewSummary.textContent = 'No lead selected.';
+        return Promise.resolve();
+      }
+      var requestId = String(lead.key) + '|' + Date.now();
+      window.__focusReviewReq = requestId;
+      elReviewSummary.textContent = 'Loading review summary…';
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/review-intelligence', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({}),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (window.__focusReviewReq !== requestId) return;
+          if (!data || !data.success) {
+            elReviewSummary.textContent = 'No AI summary available yet.';
+            return;
+          }
+          var msg = renderReviewSummaryText(data.strengths, data.weaknesses, data.sourceNote);
+          elReviewSummary.textContent = msg || 'No AI summary available yet.';
+        })
+        .catch(function () {
+          if (window.__focusReviewReq === requestId) {
+            elReviewSummary.textContent = 'No AI summary available right now.';
+          }
+        });
+    }
+
     function setCopyFeedback(msg, isError) {
       if (!elCopyFeedback) return;
       elCopyFeedback.textContent = msg || '';
@@ -604,6 +784,69 @@
           elCopyFeedback.classList.add('text-brand-muted');
         }, 1800);
       }
+    }
+
+    function setOutcomeFeedback(msg, isError) {
+      if (!elOutcomeFeedback) return;
+      elOutcomeFeedback.textContent = msg || '';
+      elOutcomeFeedback.classList.toggle('text-rose-600', !!isError);
+      elOutcomeFeedback.classList.toggle('text-emerald-700', !!msg && !isError);
+      elOutcomeFeedback.classList.toggle('text-brand-muted', !msg);
+      if (window.__focusOutcomeTimer) clearTimeout(window.__focusOutcomeTimer);
+      if (!msg) return;
+      window.__focusOutcomeTimer = setTimeout(function () {
+        if (elOutcomeFeedback) {
+          elOutcomeFeedback.textContent = '';
+          elOutcomeFeedback.classList.remove('text-rose-600', 'text-emerald-700');
+          elOutcomeFeedback.classList.add('text-brand-muted');
+        }
+      }, 2800);
+    }
+
+    function outcomeLabel(v) {
+      var map = {
+        voicemail: 'Went to voicemail',
+        no_pickup: 'No pickup',
+        talked_owner: 'Talked to business owner',
+        callback_requested: 'Callback requested',
+        sent_sms: 'Sent SMS',
+        sent_email: 'Sent email',
+        other: 'Other',
+      };
+      return map[String(v || '').trim()] || '';
+    }
+
+    function ensureSuggestedOutcome() {
+      if (!elOutcome || String(elOutcome.value || '').trim()) return;
+      if (currentChannel === 'voicemail-drop') elOutcome.value = 'voicemail';
+      else if (currentChannel === 'sms') elOutcome.value = 'sent_sms';
+      else if (currentChannel === 'email') elOutcome.value = 'sent_email';
+    }
+
+    function quickSetOutcome(value) {
+      if (!elOutcome) return;
+      var v = String(value || '').trim();
+      if (!v) return;
+      elOutcome.value = v;
+      if (elOutcomeNotes) {
+        var existing = String(elOutcomeNotes.value || '').trim();
+        var templates = {
+          no_pickup: 'No pickup. Retry in next calling window.',
+          voicemail: 'Left voicemail with value prop and callback number.',
+          talked_owner: 'Spoke with owner. Interested - follow up with tailored recap.',
+          callback_requested: 'Requested callback. Confirm best time and call back as scheduled.',
+          sent_sms: 'Sent SMS follow-up with short CTA.',
+          sent_email: 'Sent follow-up email with concise summary and CTA.',
+        };
+        if (!existing && templates[v]) {
+          elOutcomeNotes.value = templates[v];
+        }
+      }
+      if (elFollowupEnable && (v === 'callback_requested' || v === 'talked_owner')) {
+        elFollowupEnable.checked = true;
+        if (elFollowupWrap) elFollowupWrap.classList.remove('hidden');
+      }
+      setOutcomeFeedback('Outcome set: ' + (outcomeLabel(v) || v.replace(/_/g, ' ')), false);
     }
 
     function copyLeadField(field, label) {
@@ -682,23 +925,72 @@
       if (currentChannel === 'dm' || currentChannel === 'objection-handling') {
         currentChannel = 'call-script';
       }
-      if (currentChannel !== 'email' && currentChannel !== 'call-script' && currentChannel !== 'voicemail-drop') {
+      if (currentChannel !== 'email' && currentChannel !== 'call-script' && currentChannel !== 'voicemail-drop' && currentChannel !== 'sms') {
         currentChannel = 'email';
       }
+      if (elOutcome) elOutcome.value = '';
+      if (elOutcomeNotes) elOutcomeNotes.value = '';
+      if (elFollowupEnable) elFollowupEnable.checked = false;
+      if (elFollowupWrap) elFollowupWrap.classList.add('hidden');
+      if (elFollowupAt) elFollowupAt.value = '';
+      setOutcomeFeedback('');
       applyChannelUI();
+      fetchReviewSummary();
     }
 
     function buildNoteText() {
       var ch = currentChannel;
       var body = (elBody.value || '').trim();
+      var out = outcomeLabel(elOutcome && elOutcome.value);
+      var outNotes = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim();
+      var note = '[Focus · call script]\n\n' + body;
       if (ch === 'email') {
         var sub = (elSubject.value || '').trim();
-        if (sub) return '[Focus · email] ' + sub + '\n\n' + body;
+        note = sub ? '[Focus · email] ' + sub + '\n\n' + body : '[Focus · email]\n\n' + body;
+      } else if (ch === 'voicemail-drop') {
+        note = '[Focus · voicemail drop]\n\n' + body;
+      } else if (ch === 'sms') {
+        note = '[Focus · sms]\n\n' + body;
+      } else if (ch === 'dm') {
+        note = '[Focus · DM]\n\n' + body;
+      } else if (ch === 'objection-handling') {
+        note = '[Focus · objection handling]\n\n' + body;
       }
-      if (ch === 'voicemail-drop') return '[Focus · voicemail drop]\n\n' + body;
-      if (ch === 'dm') return '[Focus · DM]\n\n' + body;
-      if (ch === 'objection-handling') return '[Focus · objection handling]\n\n' + body;
-      return '[Focus · call script]\n\n' + body;
+      if (out) note += '\n\nOutcome: ' + out;
+      if (outNotes) note += '\nNotes: ' + outNotes;
+      return note;
+    }
+
+    function createFollowupTaskIfRequested() {
+      var lead = currentLead();
+      if (!lead) return Promise.resolve();
+      if (!elFollowupEnable || !elFollowupEnable.checked) return Promise.resolve();
+      var when = String((elFollowupAt && elFollowupAt.value) || '').trim();
+      if (!when) {
+        setOutcomeFeedback('Choose follow-up date and time.', true);
+        return Promise.reject(new Error('missing follow-up datetime'));
+      }
+      var out = outcomeLabel(elOutcome && elOutcome.value) || 'Follow-up';
+      var notes = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim();
+      var title = 'Follow up: ' + (lead.title || 'Lead') + ' — ' + out;
+      if (notes) title += ' (' + notes.slice(0, 80) + ')';
+      return fetch('/tasks/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          title: title,
+          column: 'todo',
+          scheduledAt: when,
+          leadKey: lead.key,
+        }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Could not create follow-up task.');
+          }
+          setOutcomeFeedback('Follow-up task scheduled.', false);
+        });
     }
 
     function fetchDraft() {
@@ -817,19 +1109,27 @@
     function onSendAdvance() {
       var lead = currentLead();
       if (!lead) return;
-      btnSend.disabled = true;
+      ensureSuggestedOutcome();
+      var actionBtn = null;
+      if (currentChannel === 'call-script') actionBtn = btnCall;
+      else if (currentChannel === 'voicemail-drop') actionBtn = btnVoicemail;
+      else if (currentChannel === 'sms') actionBtn = btnSms;
+      else actionBtn = btnEmail;
+      if (actionBtn) actionBtn.disabled = true;
       var callStep = Promise.resolve();
       if (currentChannel === 'call-script') callStep = placeFocusCall();
       else if (currentChannel === 'voicemail-drop') callStep = placeFocusVoicemail();
+      else if (currentChannel === 'sms') callStep = placeFocusSms();
       callStep
         .then(function () { return postNote(); })
+        .then(function () { return createFollowupTaskIfRequested(); })
         .then(function () { return maybeAdvanceStage(); })
         .then(function () {
           nextLead();
           return refreshMetrics();
         })
         .catch(function () {})
-        .finally(function () { btnSend.disabled = false; });
+        .finally(function () { if (actionBtn) actionBtn.disabled = false; });
     }
 
     function onLogNext() {
@@ -837,6 +1137,7 @@
       if (!lead) return;
       btnLog.disabled = true;
       postNote()
+        .then(function () { return createFollowupTaskIfRequested(); })
         .then(function () {
           nextLead();
           return refreshMetrics();
@@ -910,6 +1211,18 @@
         onSkip();
       });
     }
+    if (elFollowupEnable && elFollowupWrap) {
+      elFollowupEnable.addEventListener('change', function () {
+        elFollowupWrap.classList.toggle('hidden', !elFollowupEnable.checked);
+      });
+    }
+    if (elQuickOutcomeBtns && elQuickOutcomeBtns.length) {
+      elQuickOutcomeBtns.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          quickSetOutcome(btn.getAttribute('data-outcome'));
+        });
+      });
+    }
     if (btnMobileFabToggle && elMobileFabActions) {
       btnMobileFabToggle.addEventListener('click', function () {
         var isOpen = !elMobileFabActions.classList.contains('hidden');
@@ -922,7 +1235,10 @@
       });
     }
 
-    btnSend.addEventListener('click', onSendAdvance);
+    if (btnCall) btnCall.addEventListener('click', function () { currentChannel = 'call-script'; applyChannelUI(); onSendAdvance(); });
+    if (btnVoicemail) btnVoicemail.addEventListener('click', function () { currentChannel = 'voicemail-drop'; applyChannelUI(); onSendAdvance(); });
+    if (btnSms) btnSms.addEventListener('click', function () { currentChannel = 'sms'; applyChannelUI(); onSendAdvance(); });
+    if (btnEmail) btnEmail.addEventListener('click', function () { currentChannel = 'email'; applyChannelUI(); onSendAdvance(); });
     btnLog.addEventListener('click', onLogNext);
     btnSkip.addEventListener('click', onSkip);
     if (btnCopyPhone) btnCopyPhone.addEventListener('click', function () { copyLeadField('phone', 'Phone'); });
