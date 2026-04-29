@@ -3097,6 +3097,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkFolderNewSave = document.getElementById('bulkFolderNewSave');
   const bulkFolderNewCancel = document.getElementById('bulkFolderNewCancel');
   const bulkVoicemailBtn = document.getElementById('bulkVoicemailBtn');
+  const bulkSaveBtn = document.getElementById('bulkSaveBtn');
 
   let selectedKeys = new Set();
 
@@ -3119,6 +3120,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (bulkMoveFolderBtn) {
       bulkMoveFolderBtn.disabled = count === 0;
+    }
+    if (bulkSaveBtn) {
+      bulkSaveBtn.disabled = count === 0;
     }
     if (bulkVoicemailBtn) {
       bulkVoicemailBtn.disabled = count === 0;
@@ -3416,7 +3420,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Bulk Save (to saved leads)
-  const bulkSaveBtn = document.getElementById('bulkSaveBtn');
   if (bulkSaveBtn) {
     bulkSaveBtn.addEventListener('click', async () => {
       const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
@@ -3448,6 +3451,9 @@ document.addEventListener('DOMContentLoaded', () => {
           instagram: row.dataset.instagram,
           twitter: row.dataset.twitter
         };
+        if (bulkFolderSelect && bulkFolderSelect.value) {
+          leadData.folderKey = bulkFolderSelect.value;
+        }
 
         try {
           const res = await fetch('/leads/save', {

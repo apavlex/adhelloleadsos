@@ -1128,6 +1128,14 @@ module.exports = {
       updatedAt: now,
     };
     if (resource.addedBy) payload.addedBy = String(resource.addedBy).trim().slice(0, 320);
+    if (resource.sourceType) payload.sourceType = String(resource.sourceType).trim().slice(0, 32);
+    if (resource.fileName) payload.fileName = String(resource.fileName).trim().slice(0, 320);
+    if (resource.mimeType) payload.mimeType = String(resource.mimeType).trim().slice(0, 160);
+    if (resource.storagePath) payload.storagePath = String(resource.storagePath).trim().slice(0, 1200);
+    if (resource.sizeBytes != null) {
+      const n = Number(resource.sizeBytes);
+      if (Number.isFinite(n) && n >= 0) payload.sizeBytes = Math.round(n);
+    }
     const key = this._workspaceResourceKey(wid, id);
     await db.set(key, JSON.stringify(payload));
     return payload;

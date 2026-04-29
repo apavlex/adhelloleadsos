@@ -6,7 +6,13 @@
 <% const _sl = typeof emptySecondaryLabel !== 'undefined' ? emptySecondaryLabel : ''; %>
 <div class="rounded-[2rem] border border-dashed border-brand-border dark:border-white/15 bg-brand-cream/15 dark:bg-slate-900/50 px-8 py-14 text-center" role="region" aria-label="Empty state">
   <div class="mx-auto max-w-md flex flex-col items-center gap-4">
-    <div class="w-14 h-14 rounded-2xl bg-brand-yellow/25 dark:bg-brand-yellow/10 flex items-center justify-center text-2xl leading-none" aria-hidden="true">📌</div>
+    <div class="w-14 h-14 rounded-2xl bg-brand-yellow/25 dark:bg-brand-yellow/10 flex items-center justify-center text-brand-dark dark:text-brand-yellow" aria-hidden="true">
+      <svg class="w-7 h-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="4" y="5" width="16" height="14" rx="3"></rect>
+        <path d="M8 9h8"></path>
+        <path d="M8 13h5"></path>
+      </svg>
+    </div>
     <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white"><%= _h %></h2>
     <% if (_b) { %><p class="text-sm text-brand-muted leading-relaxed"><%= _b %></p><% } %>
     <div class="flex flex-col sm:flex-row gap-3 w-full justify-center mt-2">

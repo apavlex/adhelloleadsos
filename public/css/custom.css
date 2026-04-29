@@ -525,6 +525,14 @@ table {
   min-height: 2.5rem;
 }
 
+.prospect-leads-table--comfortable .lead-col-contact-split {
+  display: none;
+}
+
+.prospect-leads-table--compact .lead-col-contact-comfortable {
+  display: none;
+}
+
 .result-row:focus-within .email-intel-btn--row,
 .lead-actions-cell:focus-within .email-intel-btn--row {
   opacity: 1 !important;
@@ -647,4 +655,47 @@ table {
 @keyframes sparkle {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* Resources library: URL badge — full address after hover/focus dwell (~480ms, see resources.ejs) */
+.res-url-reveal {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+    margin-top: 0.25rem;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.res-url-reveal .res-url-tip {
+    position: absolute;
+    left: 0;
+    top: 100%;
+    z-index: 30;
+    margin-top: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    max-width: min(100%, 22rem);
+    width: max-content;
+    border-radius: 0.75rem;
+    border: 1px solid var(--brand-border);
+    background: var(--brand-card-bg);
+    box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.12), 0 4px 12px -4px rgba(0, 0, 0, 0.08);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+    pointer-events: none;
+}
+
+.dark .res-url-reveal .res-url-tip {
+    box-shadow: 0 12px 28px -8px rgba(0, 0, 0, 0.45), 0 4px 12px -4px rgba(0, 0, 0, 0.25);
+}
+
+.res-url-reveal.res-url-open .res-url-tip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+    pointer-events: auto;
 }

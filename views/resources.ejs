@@ -19,10 +19,17 @@
       Could not save that URL. Use a valid <code class="text-xs">http://</code> or <code class="text-xs">https://</code> link (we’ll add https if you omit it).
     </div>
     <% } %>
+    <% if (typeof uploadError !== 'undefined' && uploadError) { %>
+    <div class="mb-6 rounded-2xl border border-red-300/60 bg-red-50/90 dark:bg-red-950/40 dark:border-red-500/30 px-4 py-3 text-sm text-red-900 dark:text-red-100">
+      Could not upload that file. Try a smaller file (up to 8MB).
+    </div>
+    <% } %>
 
     <div class="brand-card p-6 md:p-8 dark:bg-slate-900 dark:border-white/10 mb-8">
-      <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Add a link</h2>
+      <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Add knowledge</h2>
+      <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
       <form action="/resources/add" method="post" class="space-y-4" id="resourceAddForm">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Option A · Add a link</p>
         <input type="hidden" name="kind" id="resKindSubmit" value="auto" />
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-6">
           <div class="lg:col-span-7">
@@ -52,6 +59,24 @@
         </div>
         <button type="submit" class="btn-pill btn-primary px-8 py-3 text-[10px] font-black uppercase tracking-widest">Save resource</button>
       </form>
+      <form action="/resources/upload" method="post" enctype="multipart/form-data" class="space-y-4" id="resourceUploadForm">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Option B · Upload a file</p>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resourceFile">File</label>
+          <input id="resourceFile" name="resourceFile" type="file" required class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white file:mr-3 file:rounded-lg file:border-0 file:bg-brand-yellow file:px-3 file:py-1.5 file:text-xs file:font-black file:uppercase file:tracking-widest file:text-brand-dark" />
+          <p class="mt-1 text-[11px] text-brand-muted">Supports text/PDF/docs and other files up to 8MB.</p>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resUploadTitle">Title (optional)</label>
+          <input id="resUploadTitle" name="title" type="text" maxlength="200" placeholder="Defaults to filename" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="resUploadNote">Note (optional)</label>
+          <textarea id="resUploadNote" name="note" rows="2" maxlength="2000" placeholder="Why this file matters…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm text-brand-dark dark:text-white resize-y"></textarea>
+        </div>
+        <button type="submit" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 px-8 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Upload file</button>
+      </form>
+      </div>
     </div>
 
     <% const _kc = typeof resourceKindCounts !== 'undefined' && resourceKindCounts ? resourceKindCounts : { all: 0, youtube: 0, drive: 0, x: 0, link: 0 }; %>
@@ -79,6 +104,15 @@
     </div>
 
     <% const kindLabels = { youtube: 'YouTube', drive: 'Drive / Docs', x: 'X / Twitter', link: 'Link' }; %>
+    <% function formatResourceBytes(b) {
+      var n = Number(b);
+      if (!Number.isFinite(n) || n < 0) return '';
+      var units = ['B', 'KB', 'MB', 'GB'];
+      var i = 0;
+      while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+      var rounded = i === 0 ? Math.round(n) : Math.round(n * 10) / 10;
+      return rounded + ' ' + units[i];
+    } %>
 
     <% if (!resources.length) { %>
     <%- include('partials/empty_state', {
@@ -92,11 +126,24 @@
     <% } else { %>
     <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       <% resources.forEach((r) => { %>
+      <% const isUpload = String(r.sourceType || '') === 'upload' || !!r.storagePath; %>
+      <% const sizeLabel = isUpload && r.sizeBytes != null ? formatResourceBytes(r.sizeBytes) : ''; %>
       <article class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col gap-3">
         <div class="flex items-start justify-between gap-3">
-          <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0">
-            <%= kindLabels[r.kind] || 'Link' %>
-          </span>
+          <div class="flex flex-wrap items-center gap-2 min-w-0">
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/60 dark:bg-white/10 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10 shrink-0">
+              <%= kindLabels[r.kind] || 'Link' %>
+            </span>
+            <% if (isUpload) { %>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-emerald-50/90 dark:bg-emerald-950/30 text-emerald-900 dark:text-emerald-100/95 border border-emerald-200/55 dark:border-emerald-800/45 shrink-0">
+              Upload
+            </span>
+            <% } else { %>
+            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-100/95 dark:bg-slate-800/55 text-slate-700 dark:text-slate-200 border border-slate-200/75 dark:border-slate-600/40 shrink-0">
+              Link
+            </span>
+            <% } %>
+          </div>
           <form action="/resources/remove" method="post" class="shrink-0" onsubmit="return confirm('Remove this resource?');">
             <input type="hidden" name="id" value="<%= r.id %>" />
             <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:underline">Remove</button>
@@ -104,7 +151,24 @@
         </div>
         <div class="min-w-0">
           <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= r.title %></h3>
-          <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="text-xs text-brand-muted hover:text-brand-yellow break-all mt-1 inline-block"><%= r.url %></a>
+          <% if (isUpload && r.fileName) { %>
+          <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-1 break-all"><%= r.fileName %></p>
+          <% } %>
+          <div class="res-url-reveal w-full min-w-0" data-res-url-hover>
+            <button type="button" class="res-url-trigger inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-brand-cream/55 dark:bg-slate-800/90 text-brand-dark dark:text-slate-100 border border-brand-border/55 dark:border-white/12 hover:border-brand-yellow/45 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/50 shrink-0"
+              aria-expanded="false"
+              aria-controls="res-url-tip-<%= r.id %>"
+              aria-label="Address — hold pointer or focus here to show full link">
+              <svg class="w-3 h-3 opacity-70 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
+              URL
+            </button>
+            <div id="res-url-tip-<%= r.id %>" class="res-url-tip" role="tooltip">
+              <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-brand-dark dark:text-white hover:text-brand-yellow break-all"><%= r.url %></a>
+            </div>
+          </div>
+          <% if (sizeLabel) { %>
+          <p class="text-[10px] font-bold text-brand-muted dark:text-slate-500 mt-1">Size · <%= sizeLabel %></p>
+          <% } %>
         </div>
         <% if (r.note) { %>
         <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap"><%= r.note %></p>
@@ -145,6 +209,38 @@
     });
     sel.addEventListener('change', function () {
       hidden.value = sel.value || 'auto';
+    });
+  })();
+  (function () {
+    var DWELL_MS = 3000;
+    document.querySelectorAll('[data-res-url-hover]').forEach(function (wrap) {
+      var btn = wrap.querySelector('.res-url-trigger');
+      var tip = wrap.querySelector('.res-url-tip');
+      if (!btn || !tip) return;
+      var t = null;
+      function openNow() {
+        wrap.classList.add('res-url-open');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+      function closeNow() {
+        if (t) { clearTimeout(t); t = null; }
+        wrap.classList.remove('res-url-open');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+      function arm() {
+        if (t) clearTimeout(t);
+        t = setTimeout(openNow, DWELL_MS);
+      }
+      function disarm() {
+        if (t) { clearTimeout(t); t = null; }
+        closeNow();
+      }
+      wrap.addEventListener('mouseenter', arm);
+      wrap.addEventListener('mouseleave', disarm);
+      wrap.addEventListener('focusin', arm);
+      wrap.addEventListener('focusout', function (ev) {
+        if (!wrap.contains(ev.relatedTarget)) disarm();
+      });
     });
   })();
   </script>
