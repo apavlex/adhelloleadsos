@@ -22,6 +22,12 @@
   const vmStepDot1 = document.getElementById('vmStepDot1');
   const vmStepDot2 = document.getElementById('vmStepDot2');
   const vmStepDot3 = document.getElementById('vmStepDot3');
+  const vmScriptInput = document.getElementById('vmScriptInput');
+  const vmSaveScriptBtn = document.getElementById('vmSaveScriptBtn');
+  const vmScriptStatus = document.getElementById('vmScriptStatus');
+  const vmScriptPromptPreview = document.getElementById('vmScriptPromptPreview');
+  const vmCopyScriptPromptBtn = document.getElementById('vmCopyScriptPromptBtn');
+  const vmScriptPromptCopyStatus = document.getElementById('vmScriptPromptCopyStatus');
   let vmRecorder = null;
   let vmChunks = [];
   let vmSettingsLoaded = false;
@@ -72,6 +78,12 @@
     } catch (_) {
       return '';
     }
+  }
+
+  function syncVmScriptPromptPreview() {
+    if (!vmScriptPromptPreview) return;
+    var txt = vmScriptInput ? String(vmScriptInput.value || '').trim() : '';
+    vmScriptPromptPreview.textContent = txt || 'Write and save a voicemail script in Step 2. It will appear here while you record.';
   }
 
   function renderVoicemailLibrary() {
@@ -171,6 +183,8 @@
       if (vmWeeklyDay) vmWeeklyDay.value = String(s.dayOfWeek != null ? s.dayOfWeek : 1);
       if (vmWeeklyTime) vmWeeklyTime.value = String(s.time || '09:00');
       if (vmWeeklyEnabled) vmWeeklyEnabled.checked = !!s.enabled;
+      if (vmScriptInput) vmScriptInput.value = String(s.voicemailScript || '');
+      syncVmScriptPromptPreview();
       vmLibrary = Array.isArray(s.voicemailLibrary) ? s.voicemailLibrary : [];
       vmActiveId = String(s.activeVoicemailId || '');
       if (s.audioUrl) {
@@ -197,6 +211,7 @@
           dayOfWeek: vmWeeklyDay ? vmWeeklyDay.value : '1',
           time: vmWeeklyTime ? vmWeeklyTime.value : '09:00',
           maxLeadsPerRun: 25,
+          voicemailScript: vmScriptInput ? String(vmScriptInput.value || '').trim() : '',
         };
         const res = await fetch('/leads/telephony/voicemail/settings', {
           method: 'POST',
@@ -211,6 +226,57 @@
       } finally {
         vmSaveWeeklyBtn.disabled = false;
         vmSaveWeeklyBtn.textContent = original;
+      }
+    });
+  }
+
+  if (vmSaveScriptBtn) {
+    vmSaveScriptBtn.addEventListener('click', async () => {
+      const original = vmSaveScriptBtn.textContent;
+      vmSaveScriptBtn.disabled = true;
+      vmSaveScriptBtn.textContent = 'Saving...';
+      if (vmScriptStatus) vmScriptStatus.textContent = '';
+      try {
+        const body = {
+          enabled: !!(vmWeeklyEnabled && vmWeeklyEnabled.checked),
+          dayOfWeek: vmWeeklyDay ? vmWeeklyDay.value : '1',
+          time: vmWeeklyTime ? vmWeeklyTime.value : '09:00',
+          maxLeadsPerRun: 25,
+          voicemailScript: vmScriptInput ? String(vmScriptInput.value || '').trim() : '',
+        };
+        const res = await fetch('/leads/telephony/voicemail/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not save voicemail script');
+        if (vmScriptStatus) vmScriptStatus.textContent = 'Script saved.';
+        syncVmScriptPromptPreview();
+      } catch (err) {
+        if (vmScriptStatus) vmScriptStatus.textContent = err.message || 'Could not save script.';
+      } finally {
+        vmSaveScriptBtn.disabled = false;
+        vmSaveScriptBtn.textContent = original;
+      }
+    });
+  }
+  if (vmScriptInput) {
+    vmScriptInput.addEventListener('input', syncVmScriptPromptPreview);
+  }
+  if (vmCopyScriptPromptBtn) {
+    vmCopyScriptPromptBtn.addEventListener('click', async () => {
+      try {
+        var txt = vmScriptInput ? String(vmScriptInput.value || '').trim() : '';
+        if (!txt) throw new Error('No script to copy yet.');
+        await navigator.clipboard.writeText(txt);
+        if (vmScriptPromptCopyStatus) vmScriptPromptCopyStatus.textContent = 'Script copied.';
+      } catch (err) {
+        if (vmScriptPromptCopyStatus) vmScriptPromptCopyStatus.textContent = err.message || 'Could not copy script.';
+      } finally {
+        setTimeout(() => {
+          if (vmScriptPromptCopyStatus) vmScriptPromptCopyStatus.textContent = '';
+        }, 1800);
       }
     });
   }

@@ -9,11 +9,13 @@
     <div class="flex flex-col md:flex-row gap-8 lg:gap-12">
       <%- include('partials/workspace_sidebar') %>
       <div class="min-w-0 flex-1">
+        <% const _wsSec = typeof workspaceSection !== 'undefined' ? workspaceSection : 'team'; %>
         <nav class="text-xs text-brand-muted mb-3" aria-label="Breadcrumb">
           <a href="/workspace" class="hover:underline">Workspace</a>
           <span class="mx-1.5 opacity-60">/</span>
           <span class="font-semibold text-brand-dark dark:text-white"><%= typeof workspaceSectionTitle !== 'undefined' ? workspaceSectionTitle : 'Settings' %></span>
         </nav>
+        <% if (_wsSec !== 'team') { %>
         <header class="mb-8 pb-6 border-b border-brand-border/50 dark:border-white/10">
           <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white mb-2">
             <%= typeof workspaceSectionTitle !== 'undefined' ? workspaceSectionTitle : 'Workspace' %>
@@ -37,7 +39,7 @@
             var msg = document.getElementById('wsCopyWorkspaceIdMsg');
             if (!btn) return;
             btn.addEventListener('click', function () {
-              var id = <%- JSON.stringify(workspace.id) %>;
+              var id = <%- JSON.stringify(workspace && workspace.id ? workspace.id : '') %>;
               function flash() {
                 if (msg) { msg.classList.remove('hidden'); window.setTimeout(function () { msg.classList.add('hidden'); }, 1600); }
               }
@@ -51,7 +53,7 @@
           </script>
           <% } %>
         </header>
-        <% const _wsSec = typeof workspaceSection !== 'undefined' ? workspaceSection : 'team'; %>
+        <% } %>
         <% if (_wsSec === 'pipeline') { %><%- include('workspace/sections/pipeline') %><% } %>
         <% if (_wsSec === 'branding') { %><%- include('workspace/sections/branding') %><% } %>
         <% if (_wsSec === 'team') { %><%- include('workspace/sections/team') %><% } %>

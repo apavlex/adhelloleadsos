@@ -1922,8 +1922,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasSchema = row.dataset.hasSchemaMarkup === 'true' || row.dataset.has_schema_markup === true;
         schemaTile.innerHTML = hasSchema ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> AI Ready</span>' : '<span class="text-amber-500 font-bold underline decoration-amber-500/30 underline-offset-2 tracking-tighter">Needs GEO</span>';
     }
-    loadCallWidgetEvents();
-    loadCallWidgetOptions();
   }
 
   const renderStars = (
@@ -2236,8 +2234,6 @@ document.addEventListener('DOMContentLoaded', () => {
       window.showProspectToast(loadingLabel || 'Done');
     }
     populatePanel(currentRow);
-    loadCallWidgetEvents();
-    loadCallWidgetOptions();
     return data;
   }
 
@@ -2283,7 +2279,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function requestLeadVoicemailByKey(leadKey, options) {
     const key = String(leadKey || '').trim();
     if (!key) throw new Error('Missing lead key.');
-    const body = { ...(options || {}), ...telephonyBodyWithFrom({}) };
+    const body = { ...(options || {}) };
     const res = await fetch('/leads/' + encodeURIComponent(key) + '/voicemail-drop', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -2297,19 +2293,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
 
-  function selectedCallWidgetFromNumber() {
-    const sel = document.getElementById('callWidgetFromNumber');
-    if (!sel) return '';
-    return String(sel.value || '').trim();
-  }
-
-  function telephonyBodyWithFrom(overrides) {
-    const body = { ...(overrides || {}) };
-    const fromNumber = selectedCallWidgetFromNumber();
-    if (fromNumber) body.fromNumber = fromNumber;
-    return body;
-  }
-
   const clickToCallBtn = document.getElementById('clickToCallBtn');
   if (clickToCallBtn) {
     clickToCallBtn.addEventListener('click', async () => {
@@ -2317,7 +2300,7 @@ document.addEventListener('DOMContentLoaded', () => {
       clickToCallBtn.disabled = true;
       clickToCallBtn.textContent = 'Dialing...';
       try {
-        await runLeadTelephonyAction('/call', telephonyBodyWithFrom({}), 'Calling lead');
+        await runLeadTelephonyAction('/call', {}, 'Calling lead');
       } catch (err) {
         alert(err.message || 'Failed to start call.');
       } finally {
@@ -2364,7 +2347,7 @@ document.addEventListener('DOMContentLoaded', () => {
     trigger.classList.add('pointer-events-none', 'opacity-70');
     if (shouldResetText) trigger.textContent = 'Dialing...';
     try {
-      await runLeadTelephonyAction('/call', telephonyBodyWithFrom({}), 'Calling lead');
+      await runLeadTelephonyAction('/call', {}, 'Calling lead');
     } catch (err) {
       alert(err.message || 'Failed to start call.');
     } finally {
@@ -2375,142 +2358,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }, true);
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
-  const callWidgetRefreshBtn = document.getElementById('callWidgetRefreshBtn');
-  const callWidgetStatus = document.getElementById('callWidgetStatus');
-  const callWidgetList = document.getElementById('callWidgetList');
-  const callWidgetFromNumber = document.getElementById('callWidgetFromNumber');
-  const callWidgetFromNumberHint = document.getElementById('callWidgetFromNumberHint');
-  const callWidgetVoicemailBtn = document.getElementById('callWidgetVoicemailBtn');
-  let callWidgetActiveFromNumber = '';
-
-  function syncCallWidgetFromNumberHint() {
-    if (!callWidgetFromNumberHint) return;
-    const selected = selectedCallWidgetFromNumber();
-    if (selected) {
-      callWidgetFromNumberHint.textContent = `Using selected number: ${selected}`;
-      return;
-    }
-    if (callWidgetActiveFromNumber) {
-      callWidgetFromNumberHint.textContent = `Using active default: ${callWidgetActiveFromNumber}`;
-      return;
-    }
-    callWidgetFromNumberHint.textContent = 'Using active default workspace number.';
-  }
-
-  function formatCallEventType(type) {
-    const map = {
-      call_outbound: 'Outbound Call',
-      call_browser_handoff: 'Device Dialer',
-      call_status: 'Call Status',
-      voicemail_drop: 'Voicemail Drop',
-      voicemail_status: 'Voicemail Status',
-      voicemail_amd: 'Voicemail Detection',
-    };
-    return map[type] || 'Call Event';
-  }
-
-  function formatCallEventTime(ts) {
-    try {
-      if (!ts) return '';
-      return new Date(ts).toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      });
-    } catch (_) {
-      return '';
-    }
-  }
-
-  function renderCallWidgetEvents(events) {
-    if (!callWidgetStatus || !callWidgetList) return;
-    const list = Array.isArray(events) ? events : [];
-    callWidgetList.innerHTML = '';
-    if (!list.length) {
-      callWidgetStatus.textContent = 'No call events yet.';
-      return;
-    }
-    callWidgetStatus.textContent = `${list.length} recent call event${list.length === 1 ? '' : 's'}.`;
-    list.forEach((ev) => {
-      const type = formatCallEventType(String(ev.type || ''));
-      const value = String(ev.value || '').trim() || '—';
-      const sid = String(ev.callSid || '').trim();
-      const ts = formatCallEventTime(ev.timestamp);
-      const item = document.createElement('div');
-      item.className =
-        'rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 px-3 py-2';
-      item.innerHTML =
-        `<p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">${escapeHtmlText(type)}</p>` +
-        `<p class="text-xs font-semibold text-brand-dark dark:text-slate-100 mt-1">${escapeHtmlText(value)}</p>` +
-        `<p class="text-[10px] text-brand-muted mt-1">${escapeHtmlText(ts)}${sid ? ` · SID: ${escapeHtmlText(sid)}` : ''}</p>`;
-      callWidgetList.appendChild(item);
-    });
-  }
-
-  async function loadCallWidgetEvents() {
-    if (!callWidgetStatus || !callWidgetList || !currentRow || !currentRow.dataset || !currentRow.dataset.leadKey) return;
-    callWidgetStatus.textContent = 'Loading call activity...';
-    try {
-      const leadKey = encodeURIComponent(currentRow.dataset.leadKey);
-      const res = await fetch(`/leads/${leadKey}/call-events`, {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load call activity.');
-      renderCallWidgetEvents(data.events || []);
-    } catch (err) {
-      callWidgetStatus.textContent = err.message || 'Could not load call activity.';
-      callWidgetList.innerHTML = '';
-    }
-  }
-
-  async function loadCallWidgetOptions() {
-    if (!callWidgetFromNumber) return;
-    try {
-      const res = await fetch('/leads/telephony/call-options', {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load call options.');
-      const options = Array.isArray(data.options) ? data.options : [];
-      const active = String(data.activeFromNumber || '').trim();
-      callWidgetActiveFromNumber = active;
-      const prev = String(callWidgetFromNumber.value || '').trim();
-      callWidgetFromNumber.innerHTML = '';
-      const first = document.createElement('option');
-      first.value = '';
-      first.textContent = active ? `Default workspace number (${active})` : 'Default workspace number';
-      callWidgetFromNumber.appendChild(first);
-      options.forEach((n) => {
-        const v = String(n || '').trim();
-        if (!v) return;
-        const opt = document.createElement('option');
-        opt.value = v;
-        opt.textContent = v;
-        callWidgetFromNumber.appendChild(opt);
-      });
-      if (prev && options.includes(prev)) callWidgetFromNumber.value = prev;
-      else callWidgetFromNumber.value = '';
-      syncCallWidgetFromNumberHint();
-    } catch (_) {
-      callWidgetFromNumber.innerHTML = '<option value="">Default workspace number</option>';
-      callWidgetActiveFromNumber = '';
-      syncCallWidgetFromNumberHint();
-    }
-  }
-  if (callWidgetFromNumber) {
-    callWidgetFromNumber.addEventListener('change', syncCallWidgetFromNumberHint);
-  }
-
-  if (callWidgetRefreshBtn) {
-    callWidgetRefreshBtn.addEventListener('click', () => {
-      loadCallWidgetEvents();
-      loadCallWidgetOptions();
-    });
-  }
   if (voicemailDropBtn) {
     voicemailDropBtn.addEventListener('click', async () => {
       const ok = window.confirm(
@@ -2521,28 +2368,12 @@ document.addEventListener('DOMContentLoaded', () => {
       voicemailDropBtn.disabled = true;
       voicemailDropBtn.textContent = 'Starting...';
       try {
-        await runLeadTelephonyAction('/voicemail-drop', telephonyBodyWithFrom({}), 'Voicemail drop started');
+        await runLeadTelephonyAction('/voicemail-drop', {}, 'Voicemail drop started');
       } catch (err) {
         alert(err.message || 'Failed to start voicemail drop.');
       } finally {
         voicemailDropBtn.disabled = false;
         voicemailDropBtn.textContent = original;
-      }
-    });
-  }
-  if (callWidgetVoicemailBtn) {
-    callWidgetVoicemailBtn.addEventListener('click', async () => {
-      if (!currentRow) return;
-      const original = callWidgetVoicemailBtn.textContent;
-      callWidgetVoicemailBtn.disabled = true;
-      callWidgetVoicemailBtn.textContent = 'Starting...';
-      try {
-        await runLeadTelephonyAction('/voicemail-drop', telephonyBodyWithFrom({}), 'Voicemail drop started');
-      } catch (err) {
-        alert(err.message || 'Failed to start voicemail drop.');
-      } finally {
-        callWidgetVoicemailBtn.disabled = false;
-        callWidgetVoicemailBtn.textContent = original;
       }
     });
   }
@@ -3670,24 +3501,22 @@ document.addEventListener('DOMContentLoaded', () => {
         reviews: reviewsInner,
       };
     }
-    const contactCell = row.querySelector('.lead-cell-contact');
+    const phoneSlot = row.querySelector('.lead-contact-phone-slot');
+    const emailSlot = row.querySelector('.lead-contact-email-slot');
+    const websiteSlot = row.querySelector('.lead-contact-web-slot');
     const opportunityCell = row.querySelector('.opportunity-cell');
-    if (contactCell && opportunityCell) {
-      const phone = contactCell.querySelector('.lead-contact-phone-slot');
-      const email = contactCell.querySelector('.lead-contact-email-slot');
-      const website = contactCell.querySelector('.lead-contact-web-slot');
-      if (!phone || !email || !website) return null;
+    if (phoneSlot && emailSlot && websiteSlot && opportunityCell) {
       return {
         kind: 'results',
-        phone,
+        phone: phoneSlot,
         reviews: cells[4],
         opportunity: opportunityCell,
-        website,
-        email,
+        website: websiteSlot,
+        email: emailSlot,
         social: cells[6],
       };
     }
-    if (cells.length < 11) return null;
+    if (cells.length < 13) return null;
     return {
       kind: 'results',
       phone: cells[2],
@@ -5451,13 +5280,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const table = document.getElementById('prospectLeadsTable');
     if (!table) return;
     const key = 'prospectLeadTableDensity';
-    const saved = localStorage.getItem(key) === 'compact' ? 'compact' : 'comfortable';
+    const saved = localStorage.getItem(key) === 'comfortable' ? 'comfortable' : 'compact';
     function apply(mode) {
       const d = mode === 'compact' ? 'compact' : 'comfortable';
       table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
       table.classList.add(d === 'compact' ? 'prospect-leads-table--compact' : 'prospect-leads-table--comfortable');
       document.querySelectorAll('.lead-density-btn').forEach((btn) => {
-        const on = (btn.dataset.density || 'comfortable') === d;
+        const on = (btn.dataset.density || 'compact') === d;
         btn.classList.toggle('lead-density-btn--active', on);
       });
       try {
@@ -5468,7 +5297,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     apply(saved);
     document.querySelectorAll('.lead-density-btn').forEach((btn) => {
-      btn.addEventListener('click', () => apply(btn.dataset.density || 'comfortable'));
+      btn.addEventListener('click', () => apply(btn.dataset.density || 'compact'));
     });
   })();
 });

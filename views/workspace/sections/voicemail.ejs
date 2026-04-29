@@ -1,6 +1,6 @@
 <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
-  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Weekly voicemail automation</h2>
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Voicemail</h2>
   <p class="text-sm text-brand-muted mb-6">Work through the three steps: save at least one recording, mark which one is active, then configure the weekly schedule.</p>
 
   <div class="flex flex-wrap items-center gap-3 mb-8" aria-hidden="true">
@@ -26,6 +26,14 @@
         <label for="vmUploadInput" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border/30 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest cursor-pointer">Upload audio</label>
         <input id="vmUploadInput" type="file" accept="audio/*" class="hidden" />
       </div>
+      <div class="mb-3 rounded-xl border border-brand-border/35 dark:border-white/10 bg-white/65 dark:bg-slate-900/50 p-3">
+        <div class="flex items-center justify-between gap-2 mb-1.5">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Recording prompt helper</p>
+          <button type="button" id="vmCopyScriptPromptBtn" class="btn-pill border border-brand-border/40 dark:border-white/15 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50">Copy script</button>
+        </div>
+        <p id="vmScriptPromptPreview" class="text-[12px] leading-relaxed text-brand-dark dark:text-slate-100 whitespace-pre-wrap">Write and save a voicemail script in Step 2. It will appear here while you record.</p>
+        <p id="vmScriptPromptCopyStatus" class="text-[10px] text-brand-muted mt-1 min-h-[1rem]"></p>
+      </div>
       <p id="vmAudioStatus" class="text-[11px] text-brand-muted dark:text-slate-400 mb-3">No voicemail audio uploaded yet.</p>
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Saved library</p>
@@ -35,11 +43,19 @@
 
     <section id="vmStep2" class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-900/50 p-5 opacity-50 pointer-events-none transition-opacity">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Step 2</p>
-      <h3 class="font-bold text-brand-dark dark:text-white">Active recording</h3>
-      <p class="text-[11px] text-brand-muted mt-1 mb-3">Use <strong class="text-brand-dark dark:text-white">Set active</strong> on a clip in step 1. Weekly drops and manual drops use this file.</p>
+      <h3 class="font-bold text-brand-dark dark:text-white">Weekly voicemail automation</h3>
+      <p class="text-[11px] text-brand-muted mt-1 mb-3">Use <strong class="text-brand-dark dark:text-white">Set active</strong> on a clip in step 1. Then review/edit the script below before you record or upload updated audio.</p>
       <div id="vmActiveBadge" class="inline-flex items-center gap-2 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-3 py-1.5 text-[11px] text-brand-dark dark:text-brand-yellow hidden">
         <span class="text-[9px] font-black uppercase tracking-widest">Active</span>
         <span id="vmActiveBadgeName" class="font-semibold truncate max-w-[22rem]">None selected</span>
+      </div>
+      <div class="mt-4">
+        <label for="vmScriptInput" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Voicemail script</label>
+        <textarea id="vmScriptInput" rows="6" class="w-full rounded-xl border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Write the voicemail script your team reads while recording..."></textarea>
+        <div class="mt-2 flex flex-wrap items-center gap-2">
+          <button type="button" id="vmSaveScriptBtn" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-brand-dark py-2 px-3 text-[10px] font-black uppercase tracking-widest">Save script</button>
+          <p id="vmScriptStatus" class="text-[11px] text-brand-muted dark:text-slate-400 min-h-[1rem]"></p>
+        </div>
       </div>
     </section>
 

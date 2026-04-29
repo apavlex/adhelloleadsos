@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
@@ -110,6 +111,15 @@ function normalizeCallMode(raw) {
   return 'cloud_dial';
 }
 
+function hashInviteToken(raw) {
+  return crypto.createHash('sha256').update(String(raw || '')).digest('hex');
+}
+
+function buildInvitePublicUrl(req, token) {
+  const base = String(process.env.BASE_URL || '').trim() || `${req.protocol}://${req.get('host')}`;
+  return `${base.replace(/\/+$/, '')}/workspace/invite/${encodeURIComponent(token)}`;
+}
+
 const WORKSPACE_SECTION_SLUGS = new Set([
   'pipeline',
   'branding',
@@ -145,8 +155,8 @@ const WORKSPACE_SECTION_META = {
     description: 'Outbound numbers, routing mode, and CNAM status.',
   },
   voicemail: {
-    title: 'Weekly voicemail automation',
-    description: 'Recordings, active message, and scheduled drops.',
+    title: 'Voicemail',
+    description: 'Recordings, voicemail script, active message, and scheduled drops.',
   },
   scrape: {
     title: 'Scrape stack',
@@ -275,6 +285,197 @@ router.post('/integrations', async (req, res, next) => {
     res.redirect('/workspace/integrations?integrations=saved');
   } catch (e) {
     next(e);
+  }
+});
+
+router.post('/team/invite', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).render('error', {
+        message: 'Only workspace owners and admins can invite members.',
+        activePage: 'workspace',
+      });
+    }
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const email = String((req.body && req.body.email) || '')
+      .trim()
+      .toLowerCase();
+    const roleRaw = String((req.body && req.body.role) || 'viewer')
+      .trim()
+      .toLowerCase();
+    const allowedRoles = new Set(['viewer', 'sdr', 'admin']);
+    const role = allowedRoles.has(roleRaw) ? roleRaw : 'viewer';
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.redirect('/workspace/team?invite=invalid_email');
+    }
+    if (!email.endsWith('@adhello.ai')) {
+      return res.redirect('/workspace/team?invite=domain_restricted');
+    }
+    if (ws.members && ws.members[email]) {
+      return res.redirect('/workspace/team?invite=already_member');
+    }
+    const token = crypto.randomBytes(24).toString('hex');
+    const tokenHash = hashInviteToken(token);
+    const nowIso = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    const pending = Array.isArray(ws.pendingInvites) ? ws.pendingInvites : [];
+    const filtered = pending.filter((x) => {
+      if (!x || typeof x !== 'object') return false;
+      const accepted = !!x.acceptedAt;
+      const sameEmail = String(x.email || '').toLowerCase() === email;
+      return !accepted && !sameEmail;
+    });
+    filtered.push({
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      email,
+      role,
+      tokenHash,
+      invitedBy: workspaceService.userEmail(req),
+      invitedAt: nowIso,
+      expiresAt,
+      acceptedAt: '',
+    });
+    ws.pendingInvites = filtered.slice(-100);
+    await dbService.saveWorkspace(wid, ws);
+    const inviteLink = buildInvitePublicUrl(req, token);
+    return res.redirect(
+      `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}`,
+    );
+  } catch (e) {
+    return res.redirect('/workspace/team?invite=error');
+  }
+});
+
+router.get('/invite/:token', async (req, res, next) => {
+  try {
+    const token = String((req.params && req.params.token) || '').trim();
+    if (!token) return res.redirect('/workspace/team?invite=invalid');
+    const tokenHash = hashInviteToken(token);
+    const me = workspaceService.userEmail(req).toLowerCase();
+    const workspaceIds = await dbService.listWorkspaceIds();
+    for (const wid of workspaceIds) {
+      const ws = await dbService.getWorkspace(wid);
+      if (!ws || typeof ws !== 'object') continue;
+      const pending = Array.isArray(ws.pendingInvites) ? ws.pendingInvites : [];
+      const idx = pending.findIndex((x) => x && x.tokenHash === tokenHash);
+      if (idx === -1) continue;
+      const inv = pending[idx];
+      const invEmail = String(inv.email || '').toLowerCase();
+      if (!invEmail || invEmail !== me) {
+        return res.redirect('/workspace/team?invite=wrong_account');
+      }
+      if (inv.acceptedAt) {
+        return res.redirect('/workspace/team?invite=already_used');
+      }
+      if (inv.expiresAt && Date.parse(inv.expiresAt) < Date.now()) {
+        return res.redirect('/workspace/team?invite=expired');
+      }
+      const role = new Set(['viewer', 'sdr', 'admin']).has(String(inv.role || 'viewer'))
+        ? String(inv.role)
+        : 'viewer';
+      ws.members = {
+        ...(ws.members || {}),
+        [invEmail]: {
+          role,
+          joinedAt: new Date().toISOString(),
+          invitedAt: inv.invitedAt || new Date().toISOString(),
+          invitedBy: inv.invitedBy || '',
+          userId: invEmail,
+        },
+      };
+      if (Array.isArray(ws.roundRobinOrder)) {
+        const has = ws.roundRobinOrder.some((x) => String(x || '').toLowerCase() === invEmail);
+        if (!has && (role === 'sdr' || role === 'admin')) ws.roundRobinOrder = [...ws.roundRobinOrder, invEmail];
+      }
+      pending[idx] = { ...inv, acceptedAt: new Date().toISOString() };
+      ws.pendingInvites = pending;
+      await dbService.saveWorkspace(wid, ws);
+      await dbService.addUserWorkspaceId(invEmail, wid);
+      await dbService.saveUserPrefs(invEmail, { activeWorkspaceId: wid });
+      if (req.session) {
+        req.session.activeWorkspaceId = wid;
+        req.session.workspaceId = wid;
+      }
+      return res.redirect('/workspace/team?invite=accepted');
+    }
+    return res.redirect('/workspace/team?invite=invalid');
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Remove a pending (not yet accepted) invite. */
+router.post('/team/invite/revoke', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).render('error', {
+        message: 'Only workspace owners and admins can revoke invites.',
+        activePage: 'workspace',
+      });
+    }
+    const wid = req.workspaceId;
+    const inviteId = String((req.body && req.body.inviteId) || '').trim();
+    if (!inviteId) return res.redirect('/workspace/team?invite=revoke_error');
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const pending = Array.isArray(ws.pendingInvites) ? ws.pendingInvites : [];
+    const next = pending.filter((x) => {
+      if (!x || String(x.id || '') !== inviteId) return true;
+      if (x.acceptedAt) return true;
+      return false;
+    });
+    if (next.length === pending.length) {
+      return res.redirect('/workspace/team?invite=revoke_not_found');
+    }
+    ws.pendingInvites = next;
+    await dbService.saveWorkspace(wid, ws);
+    return res.redirect('/workspace/team?invite=revoked');
+  } catch (e) {
+    return res.redirect('/workspace/team?invite=revoke_error');
+  }
+});
+
+/** Issue a new token for an existing pending invite (invalidates old link). */
+router.post('/team/invite/regenerate', express.urlencoded({ extended: true }), async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).render('error', {
+        message: 'Only workspace owners and admins can regenerate invite links.',
+        activePage: 'workspace',
+      });
+    }
+    const wid = req.workspaceId;
+    const inviteId = String((req.body && req.body.inviteId) || '').trim();
+    if (!inviteId) return res.redirect('/workspace/team?invite=regen_error');
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const pending = Array.isArray(ws.pendingInvites) ? [...ws.pendingInvites] : [];
+    const idx = pending.findIndex((x) => x && String(x.id || '') === inviteId);
+    if (idx === -1) return res.redirect('/workspace/team?invite=regen_not_found');
+    const inv = pending[idx];
+    if (inv.acceptedAt) return res.redirect('/workspace/team?invite=already_accepted');
+    const email = String(inv.email || '')
+      .trim()
+      .toLowerCase();
+    if (!email) return res.redirect('/workspace/team?invite=regen_error');
+    const token = crypto.randomBytes(24).toString('hex');
+    const tokenHash = hashInviteToken(token);
+    const nowIso = new Date().toISOString();
+    const expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    pending[idx] = {
+      ...inv,
+      tokenHash,
+      invitedBy: workspaceService.userEmail(req),
+      invitedAt: nowIso,
+      expiresAt,
+    };
+    ws.pendingInvites = pending;
+    await dbService.saveWorkspace(wid, ws);
+    const inviteLink = buildInvitePublicUrl(req, token);
+    return res.redirect(
+      `/workspace/team?invite=created&email=${encodeURIComponent(email)}&link=${encodeURIComponent(inviteLink)}`,
+    );
+  } catch (e) {
+    return res.redirect('/workspace/team?invite=regen_error');
   }
 });
 
@@ -627,12 +828,18 @@ router.get('/:section', async (req, res, next) => {
       return res.redirect(302, '/workspace/team');
     }
     const meta = WORKSPACE_SECTION_META[section] || { title: 'Workspace', description: '' };
+    const inviteStatus = section === 'team' ? String((req.query && req.query.invite) || '') : '';
+    const inviteEmail = section === 'team' ? String((req.query && req.query.email) || '') : '';
+    const inviteLink = section === 'team' ? String((req.query && req.query.link) || '') : '';
     res.render('workspace', {
       ...locals,
       title: `${meta.title} · Workspace`,
       workspaceSection: section,
       workspaceSectionTitle: meta.title,
       workspaceSectionDescription: meta.description,
+      inviteStatus,
+      inviteEmail,
+      inviteLink,
     });
   } catch (e) {
     next(e);

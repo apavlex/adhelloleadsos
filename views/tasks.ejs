@@ -223,6 +223,11 @@
       );
     }
 
+    function leadHrefForTask(t) {
+      if (!t || !t.leadKey) return '';
+      return '/prospecting?tab=pipeline&focusLead=' + encodeURIComponent(t.leadKey);
+    }
+
     function syncFilterButtons() {
       document.querySelectorAll('.task-filter-btn').forEach(function (b) {
         var on = b.getAttribute('data-task-filter') === currentFilter;
@@ -276,13 +281,15 @@
       function row(t, isDone) {
         var id = escapeHtml(t.id);
         var rawId = String(t.id || '');
+        var leadHref = leadHrefForTask(t);
+        var rowClickable = !!leadHref;
         var schedHtml = t.scheduledAt
           ? '<p class="text-[11px] text-amber-800 dark:text-amber-200 mt-1 flex items-center gap-1.5">' +
               '<svg class="w-3.5 h-3.5 shrink-0 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>' +
               '<span>' + escapeHtml(formatScheduled(t.scheduledAt)) + '</span></p>'
           : '<p class="text-[10px] text-brand-muted mt-1">No reminder scheduled</p>';
         return (
-          '<div class="flex items-start gap-3 p-3 rounded-xl border border-brand-border/30 dark:border-white/10 bg-white/50 dark:bg-slate-950/30" data-task-id="' + id + '">' +
+          '<div class="flex items-start gap-3 p-3 rounded-xl border border-brand-border/30 dark:border-white/10 bg-white/50 dark:bg-slate-950/30 ' + (rowClickable ? 'cursor-pointer hover:border-brand-yellow/35 transition-colors' : '') + '" data-task-id="' + id + '" data-lead-href="' + escapeHtml(leadHref) + '">' +
             '<input type="checkbox" class="task-check mt-1 w-4 h-4 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" data-task-id="' + id + '" ' + (isDone ? 'checked' : '') + ' />' +
             '<div class="min-w-0 flex-1">' +
               '<p class="text-sm font-semibold text-brand-dark dark:text-white ' + (isDone ? 'line-through opacity-60' : '') + '">' + escapeHtml(t.title) + '</p>' +
@@ -321,6 +328,14 @@
           deleteTask(b.getAttribute('data-task-id'));
         });
       });
+      checklistEl.querySelectorAll('[data-task-id][data-lead-href]').forEach(function (rowEl) {
+        rowEl.addEventListener('click', function (e) {
+          var href = rowEl.getAttribute('data-lead-href');
+          if (!href) return;
+          if (e.target.closest('a, button, input, select, textarea, label')) return;
+          window.location.href = href;
+        });
+      });
     }
 
     var sortableInstances = [];
@@ -356,12 +371,13 @@
     function cardHtml(t) {
       var id = escapeHtml(t.id);
       var rawId = String(t.id || '');
+      var leadHref = leadHrefForTask(t);
       var sched =
         t.scheduledAt
           ? '<p class="text-[10px] text-amber-700 dark:text-amber-200/90 mt-1">' + escapeHtml(formatScheduled(t.scheduledAt)) + '</p>'
           : '';
       return (
-        '<li class="task-card p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing" data-task-id="' + id + '">' +
+        '<li class="task-card p-3 bg-white dark:bg-slate-900 rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing" data-task-id="' + id + '" data-lead-href="' + escapeHtml(leadHref) + '">' +
           '<p class="text-sm font-bold text-brand-dark dark:text-white leading-snug">' + escapeHtml(t.title) + '</p>' +
           leadCellHtml(t) +
           sched +
@@ -394,6 +410,14 @@
           var li = b.closest('.task-card');
           var id = li && li.getAttribute('data-task-id');
           if (id) deleteTask(id);
+        });
+      });
+      document.querySelectorAll('.task-card[data-lead-href]').forEach(function (card) {
+        card.addEventListener('click', function (e) {
+          var href = card.getAttribute('data-lead-href');
+          if (!href) return;
+          if (e.target.closest('a, button, input, select, textarea, label')) return;
+          window.location.href = href;
         });
       });
     }

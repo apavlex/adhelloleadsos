@@ -1400,6 +1400,10 @@ router.get('/telephony/voicemail/settings', async (req, res, next) => {
     const telephony = ws.telephony || {};
     const resolvedVoicemail = resolveActiveVoicemailAudioUrl(telephony);
     const weekly = telephony.weeklyVoicemail || {};
+    const voicemailScript = String(
+      telephony.voicemailScript ||
+        'Hi, this is [your name] from [your company]. We help local businesses capture more ready-to-buy demand and turn missed opportunities into booked calls. I will send a short follow-up text with one idea tailored for your business. If that is useful, please call me back at [your number]. Thank you.',
+    ).trim();
     res.json({
       success: true,
       settings: {
@@ -1411,6 +1415,7 @@ router.get('/telephony/voicemail/settings', async (req, res, next) => {
         time: parseWeeklyTime(weekly.time),
         timezone: String(weekly.timezone || ws.timezone || 'America/Los_Angeles'),
         maxLeadsPerRun: Math.max(1, parseInt(weekly.maxLeadsPerRun || '25', 10) || 25),
+        voicemailScript,
       },
     });
   } catch (err) {
@@ -1509,7 +1514,15 @@ router.post('/telephony/voicemail/settings', async (req, res, next) => {
       .trim()
       .slice(0, 64);
     weekly.maxLeadsPerRun = Math.max(1, Math.min(200, parseInt(body.maxLeadsPerRun || '25', 10) || 25));
+    const voicemailScript = String(body.voicemailScript || '')
+      .trim()
+      .slice(0, 4000);
     telephony.weeklyVoicemail = weekly;
+    if (voicemailScript) {
+      telephony.voicemailScript = voicemailScript;
+    } else if (body.voicemailScript !== undefined) {
+      telephony.voicemailScript = '';
+    }
     ws.telephony = telephony;
     await dbService.saveWorkspace(wid, ws);
     res.json({ success: true, settings: weekly });

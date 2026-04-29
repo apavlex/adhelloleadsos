@@ -12,6 +12,8 @@ const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 // POST /search — Google Maps list (Outscraper first when configured, else Apify)
 router.post('/', async (req, res, next) => {
   try {
+    const wid = req.workspaceId;
+    const { keyword, city, state, maxResults, mode } = req.body;
     const activationUserEmail = userEmail(req);
     const activationWorkspaceId = wid;
 
@@ -63,8 +65,6 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const { keyword, city, state, maxResults, mode } = req.body;
-    const wid = req.workspaceId;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const requestedFolderKey = String(req.body.folderKey || '').trim();
     const newFolderName = String(req.body.newFolderName || '').trim();

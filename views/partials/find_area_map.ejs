@@ -158,8 +158,18 @@
           setStatus('Could not resolve this spot — try moving the map to a city block.');
           return;
         }
-        var loc = parseCityStateFromGeocodeResult(results[0]);
+        var first = results[0];
+        var loc = parseCityStateFromGeocodeResult(first);
         writeSearchFormLocation(loc.city, loc.state);
+        if (searchInput) {
+          var label = '';
+          if (loc.city) {
+            label = loc.state ? loc.city + ', ' + loc.state : loc.city;
+          } else if (first.formatted_address) {
+            label = first.formatted_address.split(',').slice(0, 2).join(',').trim();
+          }
+          if (label) searchInput.value = label;
+        }
         setStatus(
           (loc.city || loc.state)
             ? 'Location updated from map center to ' + (loc.city || '—') + ', ' + (loc.state || '—') + '. Adjust keyword below, then run Find Leads.'

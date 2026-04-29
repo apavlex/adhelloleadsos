@@ -516,8 +516,13 @@ table {
   padding-bottom: 0.5rem;
 }
 
-.prospect-leads-table--compact .lead-cell-contact .flex.flex-col {
-  gap: 0.35rem;
+/* Split Phone / Email / Domain columns: rows stay single-line via inline flex in template */
+.prospect-leads-table--compact .lead-company-inline {
+  min-height: 2rem;
+}
+
+.prospect-leads-table--comfortable .lead-company-inline {
+  min-height: 2.5rem;
 }
 
 .result-row:focus-within .email-intel-btn--row,
