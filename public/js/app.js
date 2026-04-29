@@ -3098,6 +3098,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkFolderNewCancel = document.getElementById('bulkFolderNewCancel');
   const bulkVoicemailBtn = document.getElementById('bulkVoicemailBtn');
   const bulkSaveBtn = document.getElementById('bulkSaveBtn');
+  const bulkSmsBtn = document.getElementById('bulkSmsBtn');
+  const bulkFocusModeBtn = document.getElementById('bulkFocusModeBtn');
 
   let selectedKeys = new Set();
 
@@ -3128,6 +3130,22 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkVoicemailBtn.disabled = count === 0;
       bulkVoicemailBtn.classList.toggle('opacity-40', count === 0);
       bulkVoicemailBtn.classList.toggle('cursor-not-allowed', count === 0);
+    }
+    if (bulkSmsBtn) {
+      bulkSmsBtn.disabled = count === 0;
+      bulkSmsBtn.classList.toggle('opacity-40', count === 0);
+      bulkSmsBtn.classList.toggle('cursor-not-allowed', count === 0);
+    }
+    if (bulkFocusModeBtn) {
+      const firstKey = count > 0 ? [...selectedKeys][0] : '';
+      bulkFocusModeBtn.classList.toggle('opacity-40', count === 0);
+      bulkFocusModeBtn.classList.toggle('pointer-events-none', count === 0);
+      bulkFocusModeBtn.setAttribute('aria-disabled', count === 0 ? 'true' : 'false');
+      bulkFocusModeBtn.setAttribute('href', firstKey ? `/focus?lead=${encodeURIComponent(firstKey)}` : '/focus');
+      bulkFocusModeBtn.setAttribute(
+        'title',
+        firstKey ? 'Open Focus mode with selected lead first' : 'Select at least one lead to seed Focus mode',
+      );
     }
 
     // Update header bar (specific to results.ejs)
@@ -3415,6 +3433,53 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkVoicemailBtn.disabled = selectedKeys.size === 0;
       if (bulkVoicemailBtn.disabled) {
         bulkVoicemailBtn.classList.add('opacity-40', 'cursor-not-allowed');
+      }
+    });
+  }
+
+  if (bulkSmsBtn) {
+    bulkSmsBtn.addEventListener('click', async () => {
+      if (selectedKeys.size === 0) return;
+      const keys = [...selectedKeys];
+      const n = keys.length;
+      const smsBody = window.prompt(
+        `Type the SMS to send to ${n} selected lead${n === 1 ? '' : 's'}:`,
+        'Hi! Quick follow-up from Agency OS. Want a short idea for improving your local lead flow this week?',
+      );
+      if (smsBody == null) return;
+      const body = String(smsBody || '').trim();
+      if (!body) {
+        window.alert('SMS body cannot be empty.');
+        return;
+      }
+      if (!window.confirm(`Send this SMS to ${n} selected lead${n === 1 ? '' : 's'}?`)) return;
+      const original = bulkSmsBtn.textContent;
+      bulkSmsBtn.disabled = true;
+      bulkSmsBtn.textContent = 'Sending...';
+      let ok = 0;
+      let failed = 0;
+      for (const leadKey of keys) {
+        try {
+          const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ body }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error((data && data.error) || `HTTP ${res.status}`);
+          ok += 1;
+        } catch (err) {
+          failed += 1;
+          console.warn('Bulk SMS failed for', leadKey, err && err.message ? err.message : err);
+        }
+      }
+      window.alert(`Bulk SMS complete: ${ok} sent${failed ? `, ${failed} failed` : ''}.`);
+      bulkSmsBtn.textContent = original;
+      bulkSmsBtn.disabled = selectedKeys.size === 0;
+      if (bulkSmsBtn.disabled) {
+        bulkSmsBtn.classList.add('opacity-40', 'cursor-not-allowed');
+      } else {
+        bulkSmsBtn.classList.remove('opacity-40', 'cursor-not-allowed');
       }
     });
   }
