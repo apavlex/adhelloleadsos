@@ -213,10 +213,10 @@
         >
           Open in dialer
         </button>
-        <button type="button" id="focus-btn-call" class="btn-pill btn-primary flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest shadow-md">Call</button>
-        <button type="button" id="focus-btn-voicemail" class="btn-pill border-2 border-violet-500/50 bg-violet-500/10 text-violet-800 dark:text-violet-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest">Drop voicemail</button>
-        <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-blue-500/40 bg-blue-500/10 text-blue-800 dark:text-blue-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest">SMS</button>
-        <button type="button" id="focus-btn-email" class="btn-pill border-2 border-brand-yellow/40 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest">Email</button>
+        <button type="button" id="focus-btn-call" class="btn-pill border-2 border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">Call</button>
+        <button type="button" id="focus-btn-voicemail" class="btn-pill border-2 border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">Voicemail drop</button>
+        <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">SMS</button>
+        <button type="button" id="focus-btn-email" class="btn-pill border-2 border-brand-border dark:border-white/20 bg-white dark:bg-slate-900 text-brand-dark dark:text-white flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">Email</button>
         <button type="button" id="focus-btn-log" class="btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800">Log &amp; next</button>
         <button type="button" id="focus-btn-skip" class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40">Skip</button>
         </div>
@@ -920,7 +920,10 @@
           sent_sms: 'Sent SMS follow-up with short CTA.',
           sent_email: 'Sent follow-up email with concise summary and CTA.',
         };
-        if (!existing && templates[v]) {
+        var isExistingTemplate = Object.keys(templates).some(function (k) {
+          return String(templates[k]) === existing;
+        });
+        if (( !existing || isExistingTemplate ) && templates[v]) {
           elOutcomeNotes.value = templates[v];
         }
       }
@@ -981,13 +984,28 @@
       };
       [btnCall, btnVoicemail, btnSms, btnEmail].forEach(function (btn) {
         if (!btn) return;
-        btn.classList.add('opacity-55', 'saturate-50');
-        btn.classList.remove('ring-2', 'ring-brand-yellow/40', 'shadow-md', 'opacity-100', 'saturate-100');
+        btn.classList.remove(
+          'ring-2', 'ring-brand-yellow/40', 'shadow-md',
+          'border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow',
+          'border-violet-500/60', 'bg-violet-500/15', 'text-violet-800', 'dark:text-violet-200',
+          'border-blue-500/60', 'bg-blue-500/15', 'text-blue-800', 'dark:text-blue-200',
+          'border-brand-border/80', 'dark:border-white/25', 'bg-white', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-100'
+        );
+        btn.classList.add('border-brand-border', 'dark:border-white/20', 'bg-white', 'dark:bg-slate-900', 'text-brand-dark', 'dark:text-white', 'opacity-60');
       });
       var activeBtn = map[currentChannel];
       if (activeBtn) {
-        activeBtn.classList.remove('opacity-55', 'saturate-50');
-        activeBtn.classList.add('ring-2', 'ring-brand-yellow/40', 'shadow-md', 'opacity-100', 'saturate-100');
+        activeBtn.classList.remove('opacity-60');
+        activeBtn.classList.add('ring-2', 'ring-brand-yellow/40', 'shadow-md');
+        if (currentChannel === 'call-script') {
+          activeBtn.classList.add('border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
+        } else if (currentChannel === 'voicemail-drop') {
+          activeBtn.classList.add('border-violet-500/60', 'bg-violet-500/15', 'text-violet-800', 'dark:text-violet-200');
+        } else if (currentChannel === 'sms') {
+          activeBtn.classList.add('border-blue-500/60', 'bg-blue-500/15', 'text-blue-800', 'dark:text-blue-200');
+        } else if (currentChannel === 'email') {
+          activeBtn.classList.add('border-brand-border/80', 'dark:border-white/25', 'bg-white', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-100');
+        }
       }
     }
 

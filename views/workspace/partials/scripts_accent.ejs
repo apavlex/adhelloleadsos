@@ -3,23 +3,67 @@
   var btn = document.getElementById('wsAccentSave');
   var msg = document.getElementById('wsAccentMsg');
   var preview = document.getElementById('wsAccentPreview');
-  function syncPreview() {
-    var picked = document.querySelector('input[name="wsAccentChoice"]:checked');
-    if (preview && picked && picked.value) {
-      preview.style.setProperty('--preview-accent', picked.value);
-    }
+  var custom = document.getElementById('wsAccentCustom');
+  var customHex = document.getElementById('wsAccentCustomHex');
+  var selectedHex = document.getElementById('wsAccentSelectedHex');
+
+  function normalizeHex(v) {
+    var raw = String(v || '').trim();
+    if (!raw) return '';
+    if (raw.charAt(0) !== '#') raw = '#' + raw;
+    if (!/^#[0-9a-fA-F]{6}$/.test(raw)) return '';
+    return raw.toLowerCase();
   }
+
+  function getPickedColor() {
+    var picked = document.querySelector('input[name="wsAccentChoice"]:checked');
+    if (picked && picked.value) return normalizeHex(picked.value);
+    return normalizeHex(customHex && customHex.value ? customHex.value : (custom && custom.value ? custom.value : ''));
+  }
+
+  function applyPreview(hex) {
+    if (!hex) return;
+    if (preview) preview.style.setProperty('--preview-accent', hex);
+    if (custom) custom.value = hex;
+    if (customHex) customHex.value = hex;
+    if (selectedHex) selectedHex.textContent = hex;
+  }
+
+  function syncPreview() {
+    applyPreview(getPickedColor());
+  }
+
   document.querySelectorAll('input[name="wsAccentChoice"]').forEach(function (r) {
-    r.addEventListener('change', syncPreview);
+    r.addEventListener('change', function () {
+      applyPreview(normalizeHex(r.value));
+    });
   });
+  if (custom) {
+    custom.addEventListener('input', function () {
+      document.querySelectorAll('input[name="wsAccentChoice"]').forEach(function (r) { r.checked = false; });
+      applyPreview(normalizeHex(custom.value));
+    });
+  }
+  if (customHex) {
+    customHex.addEventListener('input', function () {
+      document.querySelectorAll('input[name="wsAccentChoice"]').forEach(function (r) { r.checked = false; });
+      var hex = normalizeHex(customHex.value);
+      if (hex) applyPreview(hex);
+    });
+    customHex.addEventListener('blur', function () {
+      var hex = normalizeHex(customHex.value);
+      if (hex) applyPreview(hex);
+      else syncPreview();
+    });
+  }
   syncPreview();
   if (!btn) return;
   btn.addEventListener('click', function () {
-    var picked = document.querySelector('input[name="wsAccentChoice"]:checked');
-    if (!picked) {
+    var pickedHex = getPickedColor();
+    if (!pickedHex) {
       if (msg) {
         msg.classList.remove('hidden');
-        msg.textContent = 'Choose Amber or Bright yellow.';
+        msg.textContent = 'Choose a swatch or enter a valid 6-digit hex color.';
         msg.className = 'text-sm mb-3 text-rose-600';
       }
       return;
@@ -27,7 +71,7 @@
     fetch('/workspace/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ accentColor: picked.value }),
+      body: JSON.stringify({ accentColor: pickedHex }),
     }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); }).then(function (res) {
       if (msg) {
         msg.classList.remove('hidden');

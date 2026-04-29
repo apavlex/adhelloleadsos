@@ -3,10 +3,7 @@
 <% const _accentIsUiPreset = _accentChoices.some(function (o) { return o.hex.toLowerCase() === _accentCur; }); %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-1">Brand accent</h2>
-  <p class="text-sm text-brand-muted mb-4">Choose your workspace accent (two presets). Primary buttons, nav highlights, and the workspace chip use this color.</p>
-  <% if (!_accentIsUiPreset && workspace && workspace.accentColor) { %>
-  <p class="text-xs text-brand-muted mb-4 rounded-xl border border-brand-border/60 dark:border-white/10 px-3 py-2">Your saved accent is a custom color from setup. Pick <strong class="text-brand-dark dark:text-white">Amber</strong> or <strong class="text-brand-dark dark:text-white">Bright yellow</strong> below, then save to switch.</p>
-  <% } %>
+  <p class="text-sm text-brand-muted mb-4">Choose a preset or pick any custom color. Primary buttons, nav highlights, and the workspace chip use this color.</p>
   <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Swatches</p>
   <div class="flex flex-wrap items-center gap-4 mb-6" role="radiogroup" aria-label="Accent color">
     <% _accentChoices.forEach(function (opt) { %>
@@ -19,12 +16,21 @@
     </label>
     <% }); %>
   </div>
+  <div class="mb-6 rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 bg-white/70 dark:bg-slate-900/50">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Custom color</p>
+    <div class="flex flex-wrap items-center gap-3">
+      <input id="wsAccentCustom" type="color" value="<%= _accentCur %>" class="h-11 w-14 rounded-lg border border-brand-border/50 dark:border-white/15 bg-transparent cursor-pointer" aria-label="Pick custom accent color" />
+      <input id="wsAccentCustomHex" type="text" value="<%= _accentCur %>" maxlength="7" class="w-28 rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold uppercase tracking-wider text-brand-dark dark:text-white" aria-label="Custom accent hex value" />
+      <span class="text-[11px] text-brand-muted">Tip: choosing a custom color overrides preset swatches.</span>
+    </div>
+  </div>
   <div id="wsAccentPreview" class="mb-6 rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 bg-brand-cream/20 dark:bg-slate-800/50" style="--preview-accent: <%= _accentCur %>">
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Live preview</p>
     <div class="flex flex-wrap items-center gap-3">
       <button type="button" class="ws-preview-btn rounded-xl px-4 py-2 text-xs font-black uppercase tracking-widest text-white shadow-sm" style="background: var(--preview-accent)">Primary</button>
       <span class="ws-preview-badge text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg border" style="border-color: var(--preview-accent); color: var(--preview-accent)">Badge</span>
       <span class="text-sm font-semibold ws-preview-nav" style="color: var(--preview-accent)">Nav highlight</span>
+      <span id="wsAccentSelectedHex" class="text-[10px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/40 dark:border-white/10 rounded-lg px-2 py-1"><%= _accentCur %></span>
     </div>
   </div>
   <p id="wsAccentMsg" class="hidden text-sm mb-3"></p>
