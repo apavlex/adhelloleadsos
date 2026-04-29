@@ -47,8 +47,9 @@
 
   function updateVoicemailSteps() {
     var libCount = Array.isArray(vmLibrary) ? vmLibrary.length : 0;
+    var hasScript = vmScriptInput ? String(vmScriptInput.value || '').trim().length > 0 : false;
     var hasActive = String(vmActiveId || '').trim() !== '';
-    var unlock2 = libCount > 0;
+    var unlock2 = true;
     var unlock3 = hasActive;
     if (vmStep2) {
       vmStep2.classList.toggle('opacity-50', !unlock2);
@@ -66,8 +67,8 @@
     ring(vmStep1, !unlock2);
     ring(vmStep2, unlock2 && !hasActive);
     ring(vmStep3, unlock3);
-    if (vmStepDot1) vmStepDot1.className = pillClass(unlock2, !unlock2);
-    if (vmStepDot2) vmStepDot2.className = pillClass(hasActive, unlock2 && !hasActive);
+    if (vmStepDot1) vmStepDot1.className = pillClass(libCount > 0, libCount === 0);
+    if (vmStepDot2) vmStepDot2.className = pillClass(hasScript, libCount > 0 && !hasActive);
     if (vmStepDot3) vmStepDot3.className = pillClass(false, unlock3);
   }
 
@@ -84,6 +85,7 @@
     if (!vmScriptPromptPreview) return;
     var txt = vmScriptInput ? String(vmScriptInput.value || '').trim() : '';
     vmScriptPromptPreview.textContent = txt || 'Write and save a voicemail script in Step 2. It will appear here while you record.';
+    updateVoicemailSteps();
   }
 
   function renderVoicemailLibrary() {
