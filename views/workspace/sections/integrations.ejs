@@ -91,8 +91,43 @@
       <input type="password" name="crawl4aiApiToken" autocomplete="off" placeholder="Bearer token if required" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
       <% if (masks.crawl4aiApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiApiToken_clear" value="1" /> Remove</label><% } %>
     </div>
-    <button type="submit" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save integrations</button>
+    <div class="flex flex-wrap items-center gap-3">
+      <button type="submit" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save integrations</button>
+      <button type="button" id="testIntegrationsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/20">Test APIs</button>
+    </div>
+    <div id="integrationsTestResult" class="hidden mt-4 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-900/40 px-4 py-3 text-sm text-brand-dark dark:text-slate-200"></div>
   </form>
   <% } %>
 </div>
+<script>
+(function () {
+  var btn = document.getElementById('testIntegrationsBtn');
+  var out = document.getElementById('integrationsTestResult');
+  if (!btn || !out) return;
+  btn.addEventListener('click', async function () {
+    var prev = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Testing…';
+    out.classList.remove('hidden');
+    out.textContent = 'Running provider checks…';
+    try {
+      var res = await fetch('/workspace/integrations/test', { headers: { Accept: 'application/json' } });
+      var data = await res.json();
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Integration test failed');
+      var lines = [];
+      lines.push('Working APIs: ' + data.okCount + '/' + data.total);
+      (data.providers || []).forEach(function (p) {
+        lines.push((p.ok ? '✅ ' : '❌ ') + p.id + ' — ' + (p.message || '') + ' (' + (p.elapsedMs || 0) + 'ms)');
+      });
+      out.textContent = lines.join('\n');
+      out.style.whiteSpace = 'pre-line';
+    } catch (e) {
+      out.textContent = e && e.message ? e.message : 'Integration test failed';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = prev;
+    }
+  });
+})();
+</script>
 <% } %>
