@@ -540,26 +540,34 @@ function buildFocusOutreachDraft({
       subject = `Re: ${company} — quick follow-up`;
       body = signal
         ? `Hey ${contact} — quick follow-up.\n\nStill thinking about this: ${signal}\n\nIf helpful, I can send a no-pressure teardown with the exact fix I'd start with for ${company}.\n\nWant me to send it?\n`
-        : `Hi ${contact},\n\nFollowing up on my last note about ${company}${loc}. I know the inbox is crowded — the short version: we help local businesses turn more of their online visibility into booked work.\n\nWorth a two-line reply on who to loop in?\n\nThanks,\n`;
+        : (coffee
+          ? `Hey ${contact} — quick follow-up on ${company}${loc}.\n\nI still have one simple idea to help convert more local demand into booked work.${couponSentence}\n\nWant me to send the short version?\n`
+          : `Hi ${contact},\n\nFollowing up on my last note about ${company}${loc}. I know the inbox is crowded — the short version: we help local businesses turn more of their online visibility into booked work.\n\nWorth a two-line reply on who to loop in?\n\nThanks,\n`);
     } else if (v === 'reengage') {
       subject = `Still relevant for ${company}?`;
       body = signal
         ? `Hey ${contact},\n\nCircling back because this stood out in your pipeline audit: ${signal}\n\nIf now isn't ideal, no worries. If you'd like, I can still send the 2-minute fix plan for ${company} so your team has it.\n`
-        : `Hi ${contact},\n\nCircling back in case this landed in spam — I work with ${company}'s type of business in ${
-            cityState || 'the area'
-          } on how you show up in search, reviews, and when someone is ready to call now.\n\nIf timing's off, no problem — a quick "not now" helps too.\n\nThanks,\n`;
+        : (coffee
+          ? `Hey ${contact},\n\nCircling back in case this got buried. I had one practical idea for ${company} in ${cityState || 'your market'} to help drive more calls from search.${couponSentence}\n\nIf timing is off, all good.\n`
+          : `Hi ${contact},\n\nCircling back in case this landed in spam — I work with ${company}'s type of business in ${
+              cityState || 'the area'
+            } on how you show up in search, reviews, and when someone is ready to call now.\n\nIf timing's off, no problem — a quick "not now" helps too.\n\nThanks,\n`);
     } else if (v === 'short') {
       subject = `Quick idea for ${company}`;
       body = signal
         ? `Hey ${contact} — quick one: ${signal}\n\nI mocked a simple fix for ${company}. Want me to send it over?\n`
-        : `Hi ${contact} — one quick reason I reached out: ${company}${loc} is visible, but most shops leak demand between maps, site, and missed calls. Happy to share the top fix we see. Reply with a yes/no?\n\nThanks,\n`;
+        : (coffee
+          ? `Hey ${contact} — quick one: ${company}${loc} is visible, but most shops leak demand between maps, site, and missed calls.\n\nI can send the top fix we usually start with.${couponSentence}\n`
+          : `Hi ${contact} — one quick reason I reached out: ${company}${loc} is visible, but most shops leak demand between maps, site, and missed calls. Happy to share the top fix we see. Reply with a yes/no?\n\nThanks,\n`);
     } else {
       subject = signal ? `${company} — quick thing I noticed` : `Quick idea for ${company}`;
       body = signal
         ? (coffee
           ? `Hey ${contact} — hope your week is going well.\n\nI was reviewing ${company}${loc} and noticed: ${signal}\n\nI put together a free mockup with the fix we’d start with (aligned to ${svcLabel}). If you want, I can send it over.${couponSentence}\n`
           : `Hi ${contact},\n\nI reviewed ${company}${loc} and one issue stood out: ${signal}\n\nI put together a quick mockup showing the fix we would start with (aligned to ${svcLabel}). If useful, I can send it over.\n`)
-        : `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion — aligned with ${svcLabel}.\n\nThanks,\n`;
+        : (coffee
+          ? `Hey ${contact} — hope your week is going well.\n\nI noticed ${company}${loc} and wanted to share one quick thought on getting in front of more local demand.\n\nIf you're open, I can send one concrete suggestion aligned with ${svcLabel}.${couponSentence}\n`
+          : `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion — aligned with ${svcLabel}.\n\nThanks,\n`);
     }
   } else if (channel === 'dm' || channel === 'sms') {
     if (v === 'followup') {

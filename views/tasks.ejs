@@ -27,16 +27,21 @@
             <input id="taskTitleInput" name="title" type="text" autocomplete="off" placeholder="e.g. Call back about proposal…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
           <div class="w-full min-w-0 sm:max-w-xs xl:max-w-[14rem]">
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskLeadSelect">Lead (optional)</label>
-            <input id="taskLeadSearch" type="text" autocomplete="off" placeholder="Search business name…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-[11px] font-semibold text-brand-dark dark:text-white mb-2" aria-label="Search lead by business name" />
-            <select id="taskLeadSelect" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white min-h-[46px]" aria-label="Link to lead">
-              <option value="">— No lead —</option>
+            <% let _initialLeadLabel = ''; %>
+            <% if (typeof leadChoices !== 'undefined' && leadChoices && leadChoices.length && typeof initialLeadKey !== 'undefined' && initialLeadKey) { %>
+              <% const _picked = leadChoices.find((lc) => lc.key === initialLeadKey); %>
+              <% if (_picked) _initialLeadLabel = _picked.label; %>
+            <% } %>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskLeadInput">Lead (optional)</label>
+            <input id="taskLeadInput" type="text" list="taskLeadList" autocomplete="off" value="<%= _initialLeadLabel %>" placeholder="Search business name…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white min-h-[46px]" aria-label="Link to lead by business name" />
+            <input id="taskLeadKey" type="hidden" value="<%= typeof initialLeadKey !== 'undefined' ? initialLeadKey : '' %>" />
+            <datalist id="taskLeadList">
               <% if (typeof leadChoices !== 'undefined' && leadChoices && leadChoices.length) { %>
                 <% leadChoices.forEach((lc) => { %>
-                  <option value="<%= lc.key %>" <%= typeof initialLeadKey !== 'undefined' && initialLeadKey === lc.key ? 'selected' : '' %>><%= lc.label %></option>
+                  <option value="<%= lc.label %>" data-key="<%= lc.key %>"></option>
                 <% }); %>
               <% } %>
-            </select>
+            </datalist>
           </div>
           <div class="w-full sm:w-auto">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskScheduledInput">Reminder (optional)</label>
@@ -134,51 +139,30 @@
     var form = document.getElementById('taskAddForm');
     var input = document.getElementById('taskTitleInput');
     var colSelect = document.getElementById('taskColumnSelect');
-    var leadSelect = document.getElementById('taskLeadSelect');
-    var leadSearch = document.getElementById('taskLeadSearch');
+    var leadInput = document.getElementById('taskLeadInput');
+    var leadKeyInput = document.getElementById('taskLeadKey');
     var currentFilter = 'all';
 
-    var allLeadOptions = [];
-    if (leadSelect) {
-      allLeadOptions = Array.prototype.slice.call(leadSelect.options || []).map(function (opt) {
-        return { value: String(opt.value || ''), label: String(opt.text || '') };
-      });
-    }
-
-    function renderLeadSelectOptions(query) {
-      if (!leadSelect) return;
-      var q = String(query || '').trim().toLowerCase();
-      var selected = String(leadSelect.value || '');
-      leadSelect.innerHTML = '';
-      allLeadOptions.forEach(function (row, idx) {
-        var isNoLead = idx === 0 || row.value === '';
-        if (!isNoLead && q) {
-          var hay = row.label.toLowerCase();
-          if (!hay.includes(q)) return;
-        }
-        var opt = document.createElement('option');
-        opt.value = row.value;
-        opt.textContent = row.label;
-        if (row.value === selected) opt.selected = true;
-        leadSelect.appendChild(opt);
-      });
-      if (selected && !Array.prototype.some.call(leadSelect.options, function (o) { return String(o.value) === selected; })) {
-        var fallback = allLeadOptions.find(function (x) { return String(x.value) === selected; });
-        if (fallback) {
-          var selectedOpt = document.createElement('option');
-          selectedOpt.value = fallback.value;
-          selectedOpt.textContent = fallback.label + ' (selected)';
-          selectedOpt.selected = true;
-          leadSelect.appendChild(selectedOpt);
-        }
+    function syncLeadKeyFromInput() {
+      if (!leadInput || !leadKeyInput) return;
+      var label = String(leadInput.value || '').trim();
+      if (!label) {
+        leadKeyInput.value = '';
+        return;
       }
-    }
-    if (leadSearch) {
-      leadSearch.addEventListener('input', function () {
-        renderLeadSelectOptions(leadSearch.value);
+      var opts = document.querySelectorAll('#taskLeadList option');
+      var matched = null;
+      opts.forEach(function (o) {
+        if (matched) return;
+        if (String(o.value || '').trim().toLowerCase() === label.toLowerCase()) matched = o;
       });
+      leadKeyInput.value = matched ? String(matched.getAttribute('data-key') || '').trim() : '';
     }
-    renderLeadSelectOptions('');
+    if (leadInput) {
+      leadInput.addEventListener('input', syncLeadKeyFromInput);
+      leadInput.addEventListener('change', syncLeadKeyFromInput);
+      leadInput.addEventListener('blur', syncLeadKeyFromInput);
+    }
 
     function escapeHtml(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -272,6 +256,17 @@
       return '/leads?focusLead=' + encodeURIComponent(t.leadKey);
     }
 
+    function columnLabel(columnId) {
+      var id = String(columnId || '').trim().toLowerCase();
+      var found = Array.isArray(cols) ? cols.find(function (c) { return String(c.id || '') === id; }) : null;
+      if (found && found.label) return String(found.label);
+      return id
+        .replace(/[_-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, function (m) { return m.toUpperCase(); });
+    }
+
     function syncFilterButtons() {
       document.querySelectorAll('.task-filter-btn').forEach(function (b) {
         var on = b.getAttribute('data-task-filter') === currentFilter;
@@ -337,7 +332,7 @@
             '<input type="checkbox" class="task-check mt-1 w-4 h-4 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" data-task-id="' + id + '" ' + (isDone ? 'checked' : '') + ' />' +
             '<div class="min-w-0 flex-1">' +
               '<p class="text-sm font-semibold text-brand-dark dark:text-white ' + (isDone ? 'line-through opacity-60' : '') + '">' + escapeHtml(t.title) + '</p>' +
-              '<p class="text-[10px] font-bold uppercase tracking-wider text-brand-muted mt-1">' + escapeHtml(t.column) + '</p>' +
+              '<p class="text-[10px] font-bold uppercase tracking-wider text-brand-muted mt-1">' + escapeHtml(columnLabel(t.column)) + '</p>' +
               leadCellHtml(t) +
               schedHtml +
             '</div>' +
@@ -507,7 +502,7 @@
         if (!title) return;
         var column = colSelect && colSelect.value ? colSelect.value : 'todo';
         var schedIso = datetimeLocalToIso(scheduledInput && scheduledInput.value);
-        var leadKey = leadSelect && leadSelect.value ? leadSelect.value : null;
+        var leadKey = leadKeyInput && leadKeyInput.value ? leadKeyInput.value : null;
         function post() {
           fetch('/tasks/api', {
             method: 'POST',
@@ -520,7 +515,8 @@
               tasks.push(data.task);
               if (input) input.value = '';
               if (scheduledInput) scheduledInput.value = '';
-              if (leadSelect) leadSelect.value = '';
+              if (leadInput) leadInput.value = '';
+              if (leadKeyInput) leadKeyInput.value = '';
               clearNotifyInlineIfGranted();
               if (schedIso && 'Notification' in window && Notification.permission === 'denied') showNotifyDeniedInline();
               if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();

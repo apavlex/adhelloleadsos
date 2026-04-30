@@ -518,11 +518,16 @@ table {
 
 /* Split Phone / Email / Domain columns: rows stay single-line via inline flex in template */
 .prospect-leads-table--compact .lead-company-inline {
-  min-height: 2rem;
+  min-height: 2.6rem;
 }
 
 .prospect-leads-table--comfortable .lead-company-inline {
-  min-height: 2.5rem;
+  min-height: 3rem;
+}
+
+.prospect-leads-table .lead-row-address {
+  max-width: 100%;
+  white-space: normal;
 }
 
 .prospect-leads-table--comfortable .lead-col-contact-split {

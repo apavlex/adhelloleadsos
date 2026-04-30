@@ -854,6 +854,14 @@ document.addEventListener('DOMContentLoaded', () => {
       row.style.cursor = 'pointer'; // Ensure it looks clickable
       row.addEventListener('click', (e) => {
         if (!mobilePanel) return;
+        const clickedPrimaryLeadArea =
+          e.target.closest('.lead-company-inline') ||
+          e.target.closest('.lead-row-address') ||
+          e.target.closest('.lead-owner-signal');
+        if (clickedPrimaryLeadArea) {
+          selectRow(row);
+          return;
+        }
         // Stop if clicking specific interactive elements
         if (
           e.target.type === 'checkbox' ||
@@ -915,8 +923,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (currentRow === row && typeof populatePanel === 'function') populatePanel(row);
     const rowSignal = row.querySelector('.lead-owner-signal');
     if (rowSignal) {
-      rowSignal.textContent =
-        ownerSignal || 'Run AI Analysis to generate a specific owner-facing signal.';
+      rowSignal.textContent = ownerSignal || '';
     }
     return data;
   }
@@ -3452,8 +3459,8 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute(
         'title',
         hasSelection
-          ? `Run AI analysis + enriched CSV for ${count} selected lead${count === 1 ? '' : 's'}`
-          : 'Run AI website analysis and export enriched CSV for selected leads',
+          ? `Run AI analysis for ${count} selected lead${count === 1 ? '' : 's'}`
+          : 'Run AI website analysis for selected leads',
       );
     });
 
@@ -4404,28 +4411,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const original = btn.innerHTML;
       btn.disabled = true;
       btn.classList.add('opacity-70');
-      btn.innerHTML = '<span>Analyzing + exporting…</span>';
+      btn.innerHTML = '<span>Analyzing…</span>';
       try {
-        const res = await fetch('/leads/ai-analysis/export-csv', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ leadKeys }),
-        });
-        if (!res.ok) {
-          const error = await res.json().catch(() => ({}));
-          throw new Error(error.error || 'AI CSV export failed');
+        let okCount = 0;
+        let failCount = 0;
+        for (const r of rowsWithSite.slice(0, 100)) {
+          try {
+            await runAiAnalysisForRow(r);
+            okCount += 1;
+          } catch {
+            failCount += 1;
+          }
         }
-        const blob = await res.blob();
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.setAttribute('download', `AdHello_Leads_Enriched_${new Date().toISOString().split('T')[0]}.csv`);
-        link.click();
-        if (typeof window.showAppToast === 'function') window.showAppToast(`AI enriched CSV ready for ${leadKeys.length} lead(s).`, { variant: 'success' });
-        for (const r of rowsWithSite.slice(0, 30)) {
-          try { await runAiAnalysisForRow(r); } catch {}
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(
+            `AI analysis complete: ${okCount} updated${failCount ? `, ${failCount} failed` : ''}.`,
+            { variant: failCount ? 'warning' : 'success' }
+          );
         }
       } catch (err) {
-        const msg = err && err.message ? err.message : 'AI CSV export failed';
+        const msg = err && err.message ? err.message : 'AI analysis failed';
         if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
         else window.alert(msg);
       } finally {

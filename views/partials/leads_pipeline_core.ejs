@@ -67,7 +67,7 @@
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <span>Enhance</span>
         </button>
-        <button type="button" class="js-bulk-ai-analysis inline-flex items-center gap-2 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors" title="Run AI website analysis and export enriched CSV for selected leads">
+        <button type="button" class="js-bulk-ai-analysis inline-flex items-center gap-2 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors" title="Run AI website analysis for selected leads">
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <span>AI Analysis</span>
         </button>
@@ -243,8 +243,8 @@
                         <span class="lead-ai-score-chip shrink-0 text-[8px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded-full bg-sky-100/80 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-900/50" title="AI website analysis score">AI <%= lead.aiWebsiteAnalysisScore %></span>
                       <% } %>
                     </div>
-                    <div class="mt-0.5">
-                      <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
+                    <div class="mt-1">
+                      <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-300 leading-snug block break-words rounded-md px-1.5 py-0.5 bg-white/80 dark:bg-slate-900/70 border border-brand-border/20 dark:border-white/10" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
                     </div>
                   </div>
                 </div>
@@ -371,7 +371,7 @@
                 </div>
               </td>
               <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[14rem] max-w-[20rem]">
-                <p class="lead-owner-signal text-[11px] font-semibold text-brand-muted dark:text-slate-300 leading-snug line-clamp-2"><%= lead.ownerSignal && lead.ownerSignal !== 'N/A' ? lead.ownerSignal : 'Run AI Analysis to generate a specific owner-facing signal.' %></p>
+                <p class="lead-owner-signal text-[11px] font-semibold text-brand-muted dark:text-slate-300 leading-snug line-clamp-2"><%= lead.aiWebsiteAnalysisScore != null && lead.aiWebsiteAnalysisScore !== '' ? (lead.ownerSignal && lead.ownerSignal !== 'N/A' ? lead.ownerSignal : '') : '' %></p>
               </td>
               <td class="lead-actions-cell px-2 pr-5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] text-right">
                 <div class="flex items-center justify-end gap-1">

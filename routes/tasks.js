@@ -5,7 +5,7 @@ const { userEmail, filterLeadsForRequest } = require('../services/workspaceServi
 
 const COLUMNS = [
   { id: 'backlog', label: 'Backlog' },
-  { id: 'todo', label: 'To do' },
+  { id: 'todo', label: 'To Do' },
   { id: 'doing', label: 'Doing' },
   { id: 'done', label: 'Done' },
 ];
