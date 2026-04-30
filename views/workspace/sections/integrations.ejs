@@ -17,6 +17,24 @@
   <form method="post" action="/workspace/integrations" class="space-y-6">
     <% const masks = integrationMasks || {}; %>
     <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI key</label>
+      <% if (masks.rapidapiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiKey %></p><% } %>
+      <input type="password" name="rapidapiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.rapidapiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiKey_clear" value="1" /> Remove saved key</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI host (optional)</label>
+      <% if (masks.rapidapiHost) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiHost %></p><% } %>
+      <input type="text" name="rapidapiHost" autocomplete="off" placeholder="local-business-data.p.rapidapi.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.rapidapiHost) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiHost_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI endpoint (optional)</label>
+      <% if (masks.rapidapiLocalBusinessEndpoint) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiLocalBusinessEndpoint %></p><% } %>
+      <input type="text" name="rapidapiLocalBusinessEndpoint" autocomplete="off" placeholder="https://local-business-data.p.rapidapi.com/search" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.rapidapiLocalBusinessEndpoint) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiLocalBusinessEndpoint_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Apify API token</label>
       <% if (masks.apifyApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.apifyApiToken %></p><% } %>
       <input type="password" name="apifyApiToken" autocomplete="off" placeholder="New token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
@@ -38,7 +56,8 @@
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper preference</label>
       <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
         <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>
-        <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (Outscraper first, fallback Apify)</option>
+        <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI first, fallback Outscraper, then Apify)</option>
+        <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
         <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
         <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
       </select>

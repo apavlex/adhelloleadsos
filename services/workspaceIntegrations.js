@@ -8,6 +8,9 @@ const { decryptIntegrations, encryptIntegrations, isEncryptionAvailable } = requ
 
 /** Keys stored in encrypted blob (plain object before encrypt). */
 const INTEGRATION_FIELDS = [
+  'rapidapiKey',
+  'rapidapiHost',
+  'rapidapiLocalBusinessEndpoint',
   'apifyApiToken',
   'outscraperApiKey',
   'outscraperApiBase',
@@ -20,6 +23,9 @@ const INTEGRATION_FIELDS = [
 
 /** Map stored field → process.env name used by provider clients */
 const FIELD_TO_ENV = {
+  rapidapiKey: 'RAPIDAPI_KEY',
+  rapidapiHost: 'RAPIDAPI_HOST',
+  rapidapiLocalBusinessEndpoint: 'RAPIDAPI_LOCAL_BUSINESS_ENDPOINT',
   apifyApiToken: 'APIFY_API_TOKEN',
   outscraperApiKey: 'OUTSCRAPER_API_KEY',
   outscraperApiBase: 'OUTSCRAPER_API_BASE',

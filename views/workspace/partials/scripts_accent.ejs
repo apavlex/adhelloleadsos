@@ -6,6 +6,7 @@
   var custom = document.getElementById('wsAccentCustom');
   var customHex = document.getElementById('wsAccentCustomHex');
   var selectedHex = document.getElementById('wsAccentSelectedHex');
+  var couponLinkInput = document.getElementById('wsCoffeeCouponLink');
 
   function normalizeHex(v) {
     var raw = String(v || '').trim();
@@ -71,7 +72,10 @@
     fetch('/workspace/settings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ accentColor: pickedHex }),
+      body: JSON.stringify({
+        accentColor: pickedHex,
+        coffeeCouponLink: couponLinkInput && couponLinkInput.value ? String(couponLinkInput.value).trim() : '',
+      }),
     }).then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); }).then(function (res) {
       if (msg) {
         msg.classList.remove('hidden');

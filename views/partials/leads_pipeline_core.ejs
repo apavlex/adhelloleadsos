@@ -67,6 +67,10 @@
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <span>Enhance</span>
         </button>
+        <button type="button" class="js-bulk-ai-analysis inline-flex items-center gap-2 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors" title="Run AI website analysis and export enriched CSV for selected leads">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+          <span>AI Analysis</span>
+        </button>
         <% } %>
       </div>
       <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mr-1">Density</span>
@@ -119,6 +123,9 @@
             </th>
             <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="actions" title="Sort by opportunity score">Opportunity <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[14rem]" scope="col">
+              Signal
             </th>
             <th class="px-2 py-3.5 pr-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]" scope="col">
               Actions
@@ -206,6 +213,9 @@
                 data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'
                 data-chat-history='<%= JSON.stringify(lead.chatHistory || null).replace(/'/g, "&apos;") %>'
                 data-cqi='<%= JSON.stringify(lead.cqi || null).replace(/'/g, "&apos;") %>'
+                data-ai-score="<%= lead.aiWebsiteAnalysisScore != null ? lead.aiWebsiteAnalysisScore : '' %>"
+                data-ai-analysis='<%= JSON.stringify(lead.aiWebsiteAnalysis || null).replace(/'/g, "&apos;") %>'
+                data-owner-signal="<%= (lead.ownerSignal || '').replace(/"/g, '&quot;') %>"
                 data-stitch-design-url="<%= lead.stitchDesignUrl || '' %>"
                 data-stitch-screenshot-url="<%= lead.stitchScreenshotUrl || '' %>"
                 data-stitch-screen-id="<%= lead.stitchScreenId || '' %>"
@@ -217,18 +227,25 @@
                 </div>
               </td>
               <td class="lead-sticky-company px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
-                <div class="lead-company-inline flex items-center gap-2 min-w-0 max-w-[22rem]">
+                <div class="lead-company-inline flex items-start gap-2 min-w-0 max-w-[22rem]">
                   <div class="w-8 h-8 shrink-0 bg-brand-yellow/10 dark:bg-brand-yellow/20 rounded-xl flex items-center justify-center font-display font-extrabold text-xs text-brand-dark dark:text-white border border-brand-yellow/20 group-hover/row:bg-brand-yellow/25 transition-all duration-300">
                     <%= lead.title.charAt(0).toUpperCase() %>
                   </div>
-                  <div class="min-w-0 flex-1 flex items-center gap-2 overflow-hidden flex-wrap sm:flex-nowrap">
-                    <span class="font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm truncate shrink-0 max-w-[10rem] sm:max-w-[14rem]" title="<%= lead.title %>"><%= lead.title %></span>
-                    <% if (lead.source && lead.source.startsWith('adhello_')) { %>
-                      <span class="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/40">Warm</span>
-                    <% } else { %>
-                      <span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 shrink-0 px-1.5 py-0.5 rounded-full bg-brand-cream/80 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10">Cold</span>
-                    <% } %>
-                    <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 truncate min-w-0 flex-1 basis-[8rem]" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center gap-2 overflow-hidden flex-wrap sm:flex-nowrap">
+                      <span class="font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm truncate shrink-0 max-w-[10rem] sm:max-w-[14rem]" title="<%= lead.title %>"><%= lead.title %></span>
+                      <% if (lead.source && lead.source.startsWith('adhello_')) { %>
+                        <span class="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/40">Warm</span>
+                      <% } else { %>
+                        <span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 shrink-0 px-1.5 py-0.5 rounded-full bg-brand-cream/80 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10">Cold</span>
+                      <% } %>
+                      <% if (lead.aiWebsiteAnalysisScore != null) { %>
+                        <span class="lead-ai-score-chip shrink-0 text-[8px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded-full bg-sky-100/80 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-900/50" title="AI website analysis score">AI <%= lead.aiWebsiteAnalysisScore %></span>
+                      <% } %>
+                    </div>
+                    <div class="mt-0.5">
+                      <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
+                    </div>
                   </div>
                 </div>
               </td>
@@ -353,6 +370,9 @@
                   <span class="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5 text-[9px] font-black uppercase tracking-tight">Scoring…</span>
                 </div>
               </td>
+              <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[14rem] max-w-[20rem]">
+                <p class="lead-owner-signal text-[11px] font-semibold text-brand-muted dark:text-slate-300 leading-snug line-clamp-2"><%= lead.ownerSignal && lead.ownerSignal !== 'N/A' ? lead.ownerSignal : 'Run AI Analysis to generate a specific owner-facing signal.' %></p>
+              </td>
               <td class="lead-actions-cell px-2 pr-5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] text-right">
                 <div class="flex items-center justify-end gap-1">
                     <button type="button" class="email-intel-btn email-intel-btn--row w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" 
@@ -363,6 +383,9 @@
                       aria-label="Offerings and AI recommendation">
                       <span class="sr-only">Offerings</span>
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                    </button>
+                    <button type="button" class="ai-analysis-btn w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30 flex items-center justify-center hover:bg-sky-500/20 transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" title="Run AI website analysis" aria-label="Run AI website analysis">
+                      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
                     </button>
                    <button type="button" class="view-detail-btn w-8 h-8 rounded-lg hover:bg-brand-yellow/10 text-brand-muted dark:text-slate-400 hover:text-brand-yellow dark:hover:text-brand-yellow transition-all flex items-center justify-center border border-transparent hover:border-brand-yellow/20" title="Open lead details" aria-label="Open lead details">
                       <span class="sr-only">Details</span>

@@ -24,6 +24,13 @@
       <span class="text-[11px] text-brand-muted">Tip: choosing a custom color overrides preset swatches.</span>
     </div>
   </div>
+  <div class="mb-6 rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 bg-white/70 dark:bg-slate-900/50">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Coffee coupon link</p>
+    <div class="flex flex-col gap-2">
+      <input id="wsCoffeeCouponLink" type="url" value="<%= (workspace && workspace.coffeeCouponLink) ? workspace.coffeeCouponLink : '' %>" placeholder="https://gift.example.com/your-offer" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white" aria-label="Coffee coupon URL for outreach drafts" />
+      <span class="text-[11px] text-brand-muted">Used when Focus tone is Coffee-chat and “Include coupon line” is enabled.</span>
+    </div>
+  </div>
   <div id="wsAccentPreview" class="mb-6 rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 bg-brand-cream/20 dark:bg-slate-800/50" style="--preview-accent: <%= _accentCur %>">
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Live preview</p>
     <div class="flex flex-wrap items-center gap-3">

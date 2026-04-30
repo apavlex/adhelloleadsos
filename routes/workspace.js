@@ -555,6 +555,23 @@ router.post('/settings', express.json(), async (req, res) => {
         ws.accentColor = norm;
       }
     }
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'coffeeCouponLink')) {
+      const raw = String(req.body.coffeeCouponLink || '').trim();
+      if (!raw) {
+        ws.coffeeCouponLink = '';
+      } else {
+        let parsed = null;
+        try {
+          parsed = new URL(raw);
+        } catch (e) {
+          return res.status(400).json({ success: false, error: 'Coffee coupon link must be a valid URL.' });
+        }
+        if (!/^https?:$/i.test(parsed.protocol)) {
+          return res.status(400).json({ success: false, error: 'Coffee coupon link must start with http:// or https://.' });
+        }
+        ws.coffeeCouponLink = parsed.toString();
+      }
+    }
     if (
       req.body &&
       (Object.prototype.hasOwnProperty.call(req.body, 'phoneBank') ||

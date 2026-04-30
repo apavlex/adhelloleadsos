@@ -72,6 +72,10 @@
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">AI review summary</p>
           <p id="focus-review-summary" class="text-[11px] text-brand-muted leading-snug">Loading review summary…</p>
         </div>
+        <div class="mt-3 rounded-xl border border-sky-300/40 dark:border-sky-700/40 bg-sky-50/60 dark:bg-sky-900/20 p-3">
+          <p class="text-[9px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-300 mb-1">Owner signal</p>
+          <p id="focus-owner-signal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug">Run AI Analysis in pipeline to generate a concrete signal.</p>
+        </div>
         <div id="focus-biz-socials" class="flex flex-wrap gap-2 mt-3"></div>
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
@@ -155,6 +159,20 @@
             <option value="reengage">Re-engagement</option>
             <option value="short">Short &amp; punchy</option>
           </select>
+        </label>
+        <label class="block flex-1 min-w-0" for="focus-tone">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Tone</span>
+          <select
+            id="focus-tone"
+            class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white"
+          >
+            <option value="coffee-chat">Coffee-chat</option>
+            <option value="pro">Pro</option>
+          </select>
+        </label>
+        <label class="inline-flex items-center gap-2 mt-1 sm:mt-0 sm:mb-2">
+          <input id="focus-include-coupon" type="checkbox" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Include coupon line</span>
         </label>
         </div>
       </div>
@@ -293,6 +311,7 @@
     var elBizReviews = document.getElementById('focus-biz-reviews');
     var elBizReviewStars = document.getElementById('focus-biz-review-stars');
     var elReviewSummary = document.getElementById('focus-review-summary');
+    var elOwnerSignal = document.getElementById('focus-owner-signal');
     var elBizSocials = document.getElementById('focus-biz-socials');
     var btnCopyPhone = document.getElementById('focus-copy-phone');
     var btnCopyEmail = document.getElementById('focus-copy-email');
@@ -329,6 +348,8 @@
     var elRecommendedHint = document.getElementById('focus-recommended-hint');
     var elChannelHint = document.getElementById('focus-channel-hint');
     var elScriptVariant = document.getElementById('focus-script-variant');
+    var elTone = document.getElementById('focus-tone');
+    var elIncludeCoupon = document.getElementById('focus-include-coupon');
     var btnOpenDialer = document.getElementById('focus-btn-open-dialer');
     var elBodyLabel = document.getElementById('focus-body-label');
     var elMobileFabWrap = document.getElementById('focus-mobile-fab-wrap');
@@ -696,6 +717,10 @@
       }
       applyReviewTone(score, reviews);
       renderReviewStars(score);
+      if (elOwnerSignal) {
+        var ownerSignal = String(lead.ownerSignal || '').trim();
+        elOwnerSignal.textContent = ownerSignal || 'Run AI Analysis in pipeline to generate a concrete signal.';
+      }
 
       elBizSocials.innerHTML = '';
       if (lead.url) elBizSocials.appendChild(socialPill('Google listing', hrefUrl(lead.url)));
@@ -1149,6 +1174,8 @@
         ch = 'call-script';
       }
       var scriptVariant = elScriptVariant && elScriptVariant.value ? elScriptVariant.value : 'default';
+      var tone = elTone && elTone.value ? elTone.value : 'coffee-chat';
+      var includeCouponLine = !!(elIncludeCoupon && elIncludeCoupon.checked);
       return fetch('/sales/draft-outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -1156,6 +1183,8 @@
           leadId: lead.key,
           channel: ch,
           scriptVariant: scriptVariant,
+          tone: tone,
+          includeCouponLine: includeCouponLine,
           serviceKey: elServiceSelect && elServiceSelect.value ? elServiceSelect.value : 'auto',
         }),
       })

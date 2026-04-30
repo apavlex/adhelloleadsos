@@ -8,6 +8,7 @@ const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
+const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -2058,6 +2059,102 @@ router.post('/:key/enhance', async (req, res, next) => {
   } catch (err) {
     console.error('Manual enhancement error:', err.message);
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/:key/ai-analysis', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const analysis = await websiteAiAnalysis.analyzeWebsite(lead.website || lead.url || '');
+    const ownerSignal = websiteAiAnalysis.buildOwnerSignal(lead, analysis);
+    const patch = {
+      aiWebsiteAnalysis: analysis,
+      aiWebsiteAnalysisScore: Number(analysis.analysisScore || 0),
+      ownerSignal,
+      aiWebsiteAnalysisUpdatedAt: new Date().toISOString(),
+    };
+    const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
+    res.json({ success: true, lead: updated, analysis, ownerSignal });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err && err.message ? err.message : 'Analysis failed' });
+  }
+});
+
+router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
+  try {
+    const keys = Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [];
+    if (!keys.length) return res.status(400).json({ success: false, error: 'No lead keys provided.' });
+    const rows = [];
+    const headers = [
+      'Company','Category','Phone','Website','Email','Address','Rating','Reviews','Facebook','Instagram','Twitter',
+      'AI Analysis Score','Signal','Emails Found','Phones Found','Page Title','Meta Description','Has HTTPS',
+      'Page Load Seconds','Mobile Responsive','Copyright Year','Signals','Flag 404','Flag Slow (>5s)','Flag No SSL',
+      'Google Place ID','Latitude','Longitude'
+    ];
+    for (const rawKey of keys) {
+      const fullKey = String(rawKey || '').startsWith('lead:') ? String(rawKey) : `lead:${String(rawKey || '')}`;
+      const lead = await dbService.getLead(fullKey);
+      if (!lead || String(lead.workspaceId || '') !== String(req.workspaceId || '')) continue;
+      let analysis = lead.aiWebsiteAnalysis || null;
+      let ownerSignal = String(lead.ownerSignal || '').trim();
+      if (!analysis) {
+        analysis = await websiteAiAnalysis.analyzeWebsite(lead.website || lead.url || '');
+        ownerSignal = websiteAiAnalysis.buildOwnerSignal(lead, analysis);
+        await dbService.updateLead(fullKey, {
+          aiWebsiteAnalysis: analysis,
+          aiWebsiteAnalysisScore: Number(analysis.analysisScore || 0),
+          ownerSignal,
+          aiWebsiteAnalysisUpdatedAt: new Date().toISOString(),
+        }, req.workspaceId);
+      } else if (!ownerSignal) {
+        ownerSignal = websiteAiAnalysis.buildOwnerSignal(lead, analysis);
+        await dbService.updateLead(fullKey, { ownerSignal }, req.workspaceId);
+      }
+      rows.push([
+        lead.title || '',
+        lead.categoryName || '',
+        lead.phone || '',
+        lead.website || '',
+        lead.email || '',
+        lead.address || '',
+        lead.totalScore || '',
+        lead.reviewsCount || '',
+        lead.facebook || '',
+        lead.instagram || '',
+        lead.twitter || '',
+        analysis.analysisScore || 0,
+        ownerSignal || '',
+        (analysis.emails || []).join(' | '),
+        (analysis.phones || []).join(' | '),
+        analysis.pageTitle || '',
+        analysis.metaDescription || '',
+        analysis.hasHttps ? 'yes' : 'no',
+        analysis.pageLoadSeconds != null ? analysis.pageLoadSeconds : '',
+        analysis.mobileResponsive ? 'yes' : 'no',
+        analysis.copyrightYear || '',
+        (analysis.signals || []).join(' | '),
+        analysis.flags && analysis.flags.returned404 ? 'yes' : 'no',
+        analysis.flags && analysis.flags.slowLoad ? 'yes' : 'no',
+        analysis.flags && analysis.flags.noSsl ? 'yes' : 'no',
+        lead.placeId || '',
+        lead.latitude || '',
+        lead.longitude || '',
+      ]);
+    }
+    const escapeCsv = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    const csv = [headers.map(escapeCsv).join(','), ...rows.map((r) => r.map(escapeCsv).join(','))].join('\n');
+    const filename = `AdHello_Leads_Enriched_${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.status(200).send(csv);
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err && err.message ? err.message : 'CSV export failed' });
   }
 });
 

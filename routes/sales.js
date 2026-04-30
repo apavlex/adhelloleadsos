@@ -491,6 +491,17 @@ function normalizeFocusScriptVariant(v) {
   return FOCUS_SCRIPT_VARIANTS.some((x) => x.id === id) ? id : 'default';
 }
 
+function normalizeFocusTone(v) {
+  const t = String(v || 'coffee-chat').trim().toLowerCase();
+  return t === 'pro' ? 'pro' : 'coffee-chat';
+}
+
+function normalizeIncludeCouponLine(v) {
+  if (typeof v === 'boolean') return v;
+  const s = String(v || '').trim().toLowerCase();
+  return s === '1' || s === 'true' || s === 'yes' || s === 'on';
+}
+
 function applyScriptPlaceholders(text, { contact, company, cityState }) {
   return String(text || '')
     .replace(/\{\{name\}\}/gi, contact)
@@ -498,41 +509,79 @@ function applyScriptPlaceholders(text, { contact, company, cityState }) {
     .replace(/\{\{city\}\}/gi, cityState || 'your area');
 }
 
-function buildFocusOutreachDraft({ channel, scriptVariant, company, contact, loc, cityState, objectionText, serviceBlock }) {
+function buildFocusOutreachDraft({
+  channel,
+  scriptVariant,
+  company,
+  contact,
+  loc,
+  cityState,
+  objectionText,
+  serviceBlock,
+  leadSignal,
+  tone,
+  includeCouponLine,
+  couponLink,
+}) {
   const v = scriptVariant;
   const svcLabel = (serviceBlock && serviceBlock.label) || 'our services';
+  const signal = String(leadSignal || '').trim();
+  const coffee = tone === 'coffee-chat';
+  const coupon = String(couponLink || '').trim();
+  const couponSentence =
+    includeCouponLine && coupon
+      ? `\n\nIf it helps, I can include a free coffee coupon for your team too: ${coupon}`
+      : '';
   let subject = '';
   let body = '';
 
   if (channel === 'email') {
     if (v === 'followup') {
       subject = `Re: ${company} — quick follow-up`;
-      body = `Hi ${contact},\n\nFollowing up on my last note about ${company}${loc}. I know the inbox is crowded — the short version: we help local businesses turn more of their online visibility into booked work.\n\nWorth a two-line reply on who to loop in?\n\nThanks,\n`;
+      body = signal
+        ? `Hey ${contact} — quick follow-up.\n\nStill thinking about this: ${signal}\n\nIf helpful, I can send a no-pressure teardown with the exact fix I'd start with for ${company}.\n\nWant me to send it?\n`
+        : `Hi ${contact},\n\nFollowing up on my last note about ${company}${loc}. I know the inbox is crowded — the short version: we help local businesses turn more of their online visibility into booked work.\n\nWorth a two-line reply on who to loop in?\n\nThanks,\n`;
     } else if (v === 'reengage') {
-      subject = `Still a fit for ${company}?`;
-      body = `Hi ${contact},\n\nCircling back in case this landed in spam — I work with ${company}'s type of business in ${
-        cityState || 'the area'
-      } on how you show up in search, reviews, and when someone is ready to call now.\n\nIf timing's off, no problem — a quick "not now" helps too.\n\nThanks,\n`;
+      subject = `Still relevant for ${company}?`;
+      body = signal
+        ? `Hey ${contact},\n\nCircling back because this stood out in your pipeline audit: ${signal}\n\nIf now isn't ideal, no worries. If you'd like, I can still send the 2-minute fix plan for ${company} so your team has it.\n`
+        : `Hi ${contact},\n\nCircling back in case this landed in spam — I work with ${company}'s type of business in ${
+            cityState || 'the area'
+          } on how you show up in search, reviews, and when someone is ready to call now.\n\nIf timing's off, no problem — a quick "not now" helps too.\n\nThanks,\n`;
     } else if (v === 'short') {
-      subject = `One idea for ${company}`;
-      body = `Hi ${contact} — one quick reason I reached out: ${company}${loc} is visible, but most shops leak demand between maps, site, and missed calls. Happy to share the top fix we see. Reply with a yes/no?\n\nThanks,\n`;
-    } else {
       subject = `Quick idea for ${company}`;
-      body = `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion — aligned with ${svcLabel}.\n\nThanks,\n`;
+      body = signal
+        ? `Hey ${contact} — quick one: ${signal}\n\nI mocked a simple fix for ${company}. Want me to send it over?\n`
+        : `Hi ${contact} — one quick reason I reached out: ${company}${loc} is visible, but most shops leak demand between maps, site, and missed calls. Happy to share the top fix we see. Reply with a yes/no?\n\nThanks,\n`;
+    } else {
+      subject = signal ? `${company} — quick thing I noticed` : `Quick idea for ${company}`;
+      body = signal
+        ? (coffee
+          ? `Hey ${contact} — hope your week is going well.\n\nI was reviewing ${company}${loc} and noticed: ${signal}\n\nI put together a free mockup with the fix we’d start with (aligned to ${svcLabel}). If you want, I can send it over.${couponSentence}\n`
+          : `Hi ${contact},\n\nI reviewed ${company}${loc} and one issue stood out: ${signal}\n\nI put together a quick mockup showing the fix we would start with (aligned to ${svcLabel}). If useful, I can send it over.\n`)
+        : `Hi ${contact},\n\nI noticed ${company}${loc} and wanted to reach out with a quick thought on how you're getting in front of local demand.\n\nIf you're open to it, reply with the best email for your team and I'll share one concrete suggestion — aligned with ${svcLabel}.\n\nThanks,\n`;
     }
   } else if (channel === 'dm' || channel === 'sms') {
     if (v === 'followup') {
       body = channel === 'sms'
-        ? `Hi ${contact} — quick follow-up on ${company}${loc}. I can share one tactical idea that helps similar businesses book more calls. Open to that?`
-        : `Hey ${contact} — small follow-up on my DM about ${company}${loc}. If you want one tactical tip (no long pitch), I can share what’s working for similar local operators.`;
+        ? (signal
+          ? `Hi ${contact} — quick follow-up: ${signal} Want me to text over the fix I mocked for ${company}?`
+          : `Hi ${contact} — quick follow-up on ${company}${loc}. I can share one tactical idea that helps similar businesses book more calls. Open to that?`)
+        : (signal
+          ? `Hey ${contact} — one thing I noticed for ${company}: ${signal} If useful, I can send a simple fix mockup.`
+          : `Hey ${contact} — small follow-up on my DM about ${company}${loc}. If you want one tactical tip (no long pitch), I can share what’s working for similar local operators.`);
     } else if (v === 'short') {
       body = channel === 'sms'
         ? `Hi ${contact} — quick thought for ${company}${loc}: one simple fix often increases booked calls. Want the 1-line version?`
         : `Hi ${contact} — re: ${company} in ${cityState || 'your market'}. Open to 1 quick tip that helps similar businesses book more calls?`;
     } else {
       body = channel === 'sms'
-        ? `Hi ${contact}, this is [your name]. Noticed ${company}${loc} and had one practical idea around ${svcLabel} to capture more ready-to-buy demand. Want me to text it here?`
-        : `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump). (Angle: ${svcLabel}.)`;
+        ? (signal
+          ? `Hi ${contact}, this is [your name]. Quick note on ${company}: ${signal} I can text the exact fix if helpful.`
+          : `Hi ${contact}, this is [your name]. Noticed ${company}${loc} and had one practical idea around ${svcLabel} to capture more ready-to-buy demand. Want me to text it here?`)
+        : (signal
+          ? `Hey ${contact} — looked at ${company}${loc} and noticed: ${signal} Want me to send the fix I'd start with?`
+          : `Hey ${contact} — ${company} caught my eye${loc}. Open to a quick DM swap? Happy to share one thing that's working for similar shops (no pitch dump). (Angle: ${svcLabel}.)`);
     }
   } else if (channel === 'objection-handling') {
     body =
@@ -580,6 +629,12 @@ router.post('/draft-outreach', async (req, res, next) => {
     if (!allowed.has(channel)) channel = 'email';
     const scriptVariant = normalizeFocusScriptVariant(
       (req.body && req.body.scriptVariant) || 'default',
+    );
+    const tone = normalizeFocusTone((req.body && req.body.tone) || 'coffee-chat');
+    const includeCouponLine = normalizeIncludeCouponLine(
+      req.body && Object.prototype.hasOwnProperty.call(req.body, 'includeCouponLine')
+        ? req.body.includeCouponLine
+        : true
     );
 
     const all = await dbService.getAllLeads(req.workspaceId);
@@ -651,6 +706,10 @@ router.post('/draft-outreach', async (req, res, next) => {
       cityState,
       objectionText,
       serviceBlock,
+      leadSignal: lead.ownerSignal || '',
+      tone,
+      includeCouponLine,
+      couponLink: ws && ws.coffeeCouponLink ? ws.coffeeCouponLink : '',
     });
 
     res.json({
@@ -658,6 +717,8 @@ router.post('/draft-outreach', async (req, res, next) => {
       subject,
       body,
       scriptVariant,
+      tone,
+      includeCouponLine,
       scriptVariants: FOCUS_SCRIPT_VARIANTS,
       recommendedProduct,
       recommendedServiceKey: recommendedKey,

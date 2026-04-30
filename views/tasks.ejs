@@ -28,6 +28,7 @@
           </div>
           <div class="w-full min-w-0 sm:max-w-xs xl:max-w-[14rem]">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskLeadSelect">Lead (optional)</label>
+            <input id="taskLeadSearch" type="text" autocomplete="off" placeholder="Search business name…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-[11px] font-semibold text-brand-dark dark:text-white mb-2" aria-label="Search lead by business name" />
             <select id="taskLeadSelect" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white min-h-[46px]" aria-label="Link to lead">
               <option value="">— No lead —</option>
               <% if (typeof leadChoices !== 'undefined' && leadChoices && leadChoices.length) { %>
@@ -134,7 +135,50 @@
     var input = document.getElementById('taskTitleInput');
     var colSelect = document.getElementById('taskColumnSelect');
     var leadSelect = document.getElementById('taskLeadSelect');
+    var leadSearch = document.getElementById('taskLeadSearch');
     var currentFilter = 'all';
+
+    var allLeadOptions = [];
+    if (leadSelect) {
+      allLeadOptions = Array.prototype.slice.call(leadSelect.options || []).map(function (opt) {
+        return { value: String(opt.value || ''), label: String(opt.text || '') };
+      });
+    }
+
+    function renderLeadSelectOptions(query) {
+      if (!leadSelect) return;
+      var q = String(query || '').trim().toLowerCase();
+      var selected = String(leadSelect.value || '');
+      leadSelect.innerHTML = '';
+      allLeadOptions.forEach(function (row, idx) {
+        var isNoLead = idx === 0 || row.value === '';
+        if (!isNoLead && q) {
+          var hay = row.label.toLowerCase();
+          if (!hay.includes(q)) return;
+        }
+        var opt = document.createElement('option');
+        opt.value = row.value;
+        opt.textContent = row.label;
+        if (row.value === selected) opt.selected = true;
+        leadSelect.appendChild(opt);
+      });
+      if (selected && !Array.prototype.some.call(leadSelect.options, function (o) { return String(o.value) === selected; })) {
+        var fallback = allLeadOptions.find(function (x) { return String(x.value) === selected; });
+        if (fallback) {
+          var selectedOpt = document.createElement('option');
+          selectedOpt.value = fallback.value;
+          selectedOpt.textContent = fallback.label + ' (selected)';
+          selectedOpt.selected = true;
+          leadSelect.appendChild(selectedOpt);
+        }
+      }
+    }
+    if (leadSearch) {
+      leadSearch.addEventListener('input', function () {
+        renderLeadSelectOptions(leadSearch.value);
+      });
+    }
+    renderLeadSelectOptions('');
 
     function escapeHtml(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -216,7 +260,7 @@
     function leadCellHtml(t) {
       if (!t.leadKey) return '<p class="text-[10px] text-brand-muted mt-1">No lead linked</p>';
       var label = escapeHtml(t.leadTitle || 'Lead');
-      var href = '/prospecting?tab=pipeline&focusLead=' + encodeURIComponent(t.leadKey);
+      var href = '/leads?focusLead=' + encodeURIComponent(t.leadKey);
       return (
         '<p class="text-[10px] mt-1"><span class="text-brand-muted font-bold uppercase tracking-wider mr-1">Lead</span>' +
         '<a class="font-bold text-brand-yellow hover:underline" href="' + href + '">' + label + '</a></p>'
@@ -225,7 +269,7 @@
 
     function leadHrefForTask(t) {
       if (!t || !t.leadKey) return '';
-      return '/prospecting?tab=pipeline&focusLead=' + encodeURIComponent(t.leadKey);
+      return '/leads?focusLead=' + encodeURIComponent(t.leadKey);
     }
 
     function syncFilterButtons() {

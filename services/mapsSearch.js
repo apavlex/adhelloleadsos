@@ -1,10 +1,11 @@
 /**
- * Step 1 — Google Maps lead list: prefer Outscraper when configured (often cheaper),
- * fall back to existing Apify actor on empty / errors / Apify-only preference.
+ * Step 1 — Google Maps lead list:
+ * default auto order is RapidAPI Local Business Data -> Outscraper -> Apify.
  */
 
 const apify = require('./apify');
 const outscraper = require('./outscraperClient');
+const rapidapi = require('./rapidapiLocalBusiness');
 
 function apifyConfigured(integrationEnv) {
   const t = (integrationEnv && integrationEnv.APIFY_API_TOKEN) || process.env.APIFY_API_TOKEN;
@@ -12,14 +13,14 @@ function apifyConfigured(integrationEnv) {
 }
 
 function isMapsSearchConfigured(integrationEnv) {
-  return outscraper.isConfigured(integrationEnv) || apifyConfigured(integrationEnv);
+  return rapidapi.isConfigured(integrationEnv) || outscraper.isConfigured(integrationEnv) || apifyConfigured(integrationEnv);
 }
 
 function resolvePrimary(integrationEnv) {
   const fromWs = String((integrationEnv && integrationEnv.SEARCH_MAPS_PRIMARY) || '').toLowerCase().trim();
   const fromEnv = String(process.env.SEARCH_MAPS_PRIMARY || '').toLowerCase().trim();
   const v = fromWs || fromEnv;
-  if (v === 'apify' || v === 'outscraper') return v;
+  if (v === 'rapidapi' || v === 'apify' || v === 'outscraper') return v;
   return 'auto';
 }
 
@@ -30,6 +31,13 @@ function resolvePrimary(integrationEnv) {
 async function searchGoogleMaps(params) {
   const integrationEnv = params.integrationEnv || null;
   const primary = resolvePrimary(integrationEnv);
+
+  if (primary === 'rapidapi') {
+    if (!rapidapi.isConfigured(integrationEnv)) {
+      throw new Error('Maps provider is set to RapidAPI, but RAPIDAPI_KEY is missing.');
+    }
+    return rapidapi.searchGoogleMaps(params);
+  }
 
   if (primary === 'apify') {
     if (!apifyConfigured(integrationEnv)) {
@@ -43,6 +51,18 @@ async function searchGoogleMaps(params) {
       throw new Error('Maps provider is set to Outscraper, but OUTSCRAPER_API_KEY is missing.');
     }
     return outscraper.searchGoogleMaps(params);
+  }
+
+  if (rapidapi.isConfigured(integrationEnv)) {
+    try {
+      const rows = await rapidapi.searchGoogleMaps(params);
+      if (rows && rows.length > 0) {
+        return rows;
+      }
+      console.warn('[mapsSearch] RapidAPI returned 0 places; falling back to Outscraper/Apify.');
+    } catch (e) {
+      console.warn('[mapsSearch] RapidAPI failed, falling back to Outscraper/Apify:', e.message);
+    }
   }
 
   if (outscraper.isConfigured(integrationEnv)) {
@@ -59,7 +79,7 @@ async function searchGoogleMaps(params) {
 
   if (!apifyConfigured(integrationEnv)) {
     throw new Error(
-      'No Maps search provider available: set APIFY_API_TOKEN (workspace or environment), or fix Outscraper.'
+      'No Maps search provider available: set RAPIDAPI_KEY, OUTSCRAPER_API_KEY, or APIFY_API_TOKEN.'
     );
   }
 

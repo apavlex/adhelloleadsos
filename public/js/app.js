@@ -280,6 +280,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'Address',
         'Rating',
         'Reviews',
+        'Signal',
         'Facebook',
         'Instagram',
         'Twitter',
@@ -294,6 +295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `"${l.address}"`,
         l.rating,
         l.reviews,
+        `"${(l.ownerSignal || '').replace(/"/g, '""')}"`,
         `"${l.facebook}"`,
         `"${l.instagram}"`,
         `"${l.twitter}"`,
@@ -858,6 +860,7 @@ document.addEventListener('DOMContentLoaded', () => {
           e.target.closest('.bookmark-btn') ||
           e.target.closest('.view-detail-btn') ||
           e.target.closest('.email-intel-btn') ||
+          e.target.closest('.ai-analysis-btn') ||
           e.target.closest('select') ||
           e.target.closest('form') ||
           e.target.closest('a')
@@ -878,6 +881,67 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       const row = detailBtn.closest('.result-row');
       if (row) selectRow(row);
+    }
+  });
+
+  async function runAiAnalysisForRow(row) {
+    if (!row) return null;
+    const leadKey = String(row.dataset.leadKey || '').trim();
+    const website = String(row.dataset.website || '').trim();
+    if (!leadKey) throw new Error('Lead key missing');
+    if (!website || website === 'N/A') throw new Error('This lead has no website URL');
+
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/ai-analysis`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error(data.error || 'AI analysis failed');
+    const analysis = data.analysis || {};
+    const ownerSignal = String(data.ownerSignal || (data.lead && data.lead.ownerSignal) || '').trim();
+    const score = Number(analysis.analysisScore || 0);
+    row.dataset.aiScore = String(score);
+    row.dataset.aiAnalysis = JSON.stringify(analysis);
+    if (ownerSignal) row.dataset.ownerSignal = ownerSignal;
+    const chip = row.querySelector('.lead-ai-score-chip');
+    if (chip) chip.textContent = `AI ${score}`;
+    else {
+      const holder = row.querySelector('.lead-company-inline .min-w-0.flex-1');
+      if (holder) {
+        const span = document.createElement('span');
+        span.className =
+          'lead-ai-score-chip shrink-0 text-[8px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded-full bg-sky-100/80 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-900/50';
+        span.textContent = `AI ${score}`;
+        holder.appendChild(span);
+      }
+    }
+    if (currentRow === row && typeof populatePanel === 'function') populatePanel(row);
+    const rowSignal = row.querySelector('.lead-owner-signal');
+    if (rowSignal) {
+      rowSignal.textContent =
+        ownerSignal || 'Run AI Analysis to generate a specific owner-facing signal.';
+    }
+    return data;
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.ai-analysis-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const row = btn.closest('.result-row');
+    if (!row) return;
+    const original = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="text-[9px] font-black">...</span>';
+    try {
+      const result = await runAiAnalysisForRow(row);
+      const score = Number(result && result.analysis && result.analysis.analysisScore ? result.analysis.analysisScore : 0);
+      if (typeof window.showAppToast === 'function') window.showAppToast(`AI analysis complete (score ${score})`, { variant: 'success' });
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'AI analysis failed';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      else window.alert(msg);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = original;
     }
   });
 
@@ -982,6 +1046,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const key = row.dataset.leadKey;
     const auditStatus = document.getElementById('mobilePanelAuditStatus');
     const auditSummary = document.getElementById('mobilePanelAuditSummary');
+    const aiScorePill = document.getElementById('mobilePanelAiScore');
+    const aiAnalysisBtn = document.getElementById('mobilePanelAiAnalysisBtn');
+    const ownerSignalEl = document.getElementById('mobilePanelOwnerSignal');
     const auditLoading = document.getElementById('mobilePanelAuditLoading');
     const auditProvider = document.getElementById('mobilePanelAuditProvider');
     const auditSell = document.getElementById('mobilePanelAuditSell');
@@ -1524,6 +1591,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    const manualPhoneInput = document.getElementById('manualPhoneInput');
+    const manualEmailInput = document.getElementById('manualEmailInput');
+    const manualContactState = document.getElementById('manualContactSavedState');
+    if (manualPhoneInput) manualPhoneInput.value = phone && phone !== 'N/A' ? phone : '';
+    if (manualEmailInput) manualEmailInput.value = email && email !== 'N/A' ? email : '';
+    if (manualContactState) manualContactState.textContent = '';
+
     // Website logic
     const websiteShort = document.getElementById('mobilePanelWebsiteShort');
     const websiteLink = document.getElementById('mobilePanelWebsiteLink');
@@ -1864,6 +1938,47 @@ document.addEventListener('DOMContentLoaded', () => {
         auditSummary.textContent = dynamicSummary;
         scheduleKieServiceInsight(row);
     }
+    if (aiScorePill) {
+      const aiScore = Number(row.dataset.aiScore || 0);
+      if (aiScore > 0) {
+        aiScorePill.textContent = `AI ${aiScore}`;
+        aiScorePill.classList.remove('hidden');
+      } else {
+        aiScorePill.classList.add('hidden');
+      }
+    }
+    if (ownerSignalEl) {
+      const ownerSignal = String(row.dataset.ownerSignal || '').trim();
+      ownerSignalEl.textContent =
+        ownerSignal || 'Run AI Analysis to generate a concrete signal for this business.';
+    }
+    if (aiAnalysisBtn) {
+      aiAnalysisBtn.disabled = false;
+      aiAnalysisBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      const hasWebsite = row.dataset.website && row.dataset.website !== 'N/A';
+      if (!hasWebsite) {
+        aiAnalysisBtn.disabled = true;
+        aiAnalysisBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      }
+      aiAnalysisBtn.onclick = async () => {
+        if (!hasWebsite) return;
+        const original = aiAnalysisBtn.innerHTML;
+        aiAnalysisBtn.disabled = true;
+        aiAnalysisBtn.innerHTML = 'Analyzing…';
+        try {
+          const result = await runAiAnalysisForRow(row);
+          const score = Number(result && result.analysis && result.analysis.analysisScore ? result.analysis.analysisScore : 0);
+          if (typeof window.showAppToast === 'function') window.showAppToast(`AI analysis complete (score ${score})`, { variant: 'success' });
+        } catch (err) {
+          const msg = err && err.message ? err.message : 'AI analysis failed';
+          if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+          else window.alert(msg);
+        } finally {
+          aiAnalysisBtn.disabled = false;
+          aiAnalysisBtn.innerHTML = original;
+        }
+      };
+    }
 
     scheduleReviewIntelligence(row, { refresh: false });
 
@@ -2202,6 +2317,158 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         console.error('Estimated value update failed:', err);
+      }
+    });
+  }
+
+  function sanitizeContactInput(value) {
+    return String(value || '')
+      .trim()
+      .replace(/\s+/g, ' ');
+  }
+
+  function clearManualContactErrors() {
+    const phoneErr = document.getElementById('manualPhoneError');
+    const emailErr = document.getElementById('manualEmailError');
+    const phoneInput = document.getElementById('manualPhoneInput');
+    const emailInput = document.getElementById('manualEmailInput');
+    if (phoneErr) {
+      phoneErr.textContent = '';
+      phoneErr.classList.add('hidden');
+    }
+    if (emailErr) {
+      emailErr.textContent = '';
+      emailErr.classList.add('hidden');
+    }
+    if (phoneInput) phoneInput.classList.remove('ring-2', 'ring-rose-400');
+    if (emailInput) emailInput.classList.remove('ring-2', 'ring-rose-400');
+  }
+
+  function setManualContactError(kind, message) {
+    const isPhone = kind === 'phone';
+    const errEl = document.getElementById(isPhone ? 'manualPhoneError' : 'manualEmailError');
+    const inputEl = document.getElementById(isPhone ? 'manualPhoneInput' : 'manualEmailInput');
+    if (errEl) {
+      errEl.textContent = message;
+      errEl.classList.remove('hidden');
+    }
+    if (inputEl) inputEl.classList.add('ring-2', 'ring-rose-400');
+  }
+
+  function normalizeManualPhone(raw) {
+    const s = sanitizeContactInput(raw);
+    if (!s) return '';
+    const digits = s.replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('1')) {
+      const d = digits.slice(1);
+      return `+1 (${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+    }
+    if (digits.length === 10) {
+      return `+1 (${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    if (digits.length >= 7 && digits.length <= 15) return s;
+    return null;
+  }
+
+  function normalizeManualEmail(raw) {
+    const s = sanitizeContactInput(raw).toLowerCase();
+    if (!s) return '';
+    const basic = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!basic.test(s)) return null;
+    return s;
+  }
+
+  function updateRowContactCells(row) {
+    if (!row) return;
+    const phone = sanitizeContactInput(row.dataset.phone);
+    const email = sanitizeContactInput(row.dataset.email);
+    const website = sanitizeContactInput(row.dataset.website);
+
+    const phoneSlot = row.querySelector('.lead-contact-phone-slot');
+    if (phoneSlot) {
+      if (phone && phone !== 'N/A') {
+        const key = row.dataset.leadKey || '';
+        phoneSlot.innerHTML = `<a href="#" class="js-click-to-call-number text-xs font-semibold text-brand-dark dark:text-slate-200 truncate min-w-0 hover:text-brand-yellow transition-colors" title="${escapeHtmlAttr(phone)}" data-phone="${escapeHtmlAttr(phone)}" data-lead-key="${escapeHtmlAttr(key)}" onclick="event.stopPropagation()">${escapeHtmlText(phone)}</a>`;
+      } else {
+        phoneSlot.innerHTML = '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
+      }
+    }
+
+    const emailSlot = row.querySelector('.lead-contact-email-slot');
+    if (emailSlot) {
+      if (email && email !== 'N/A') {
+        emailSlot.innerHTML = `<a href="mailto:${escapeHtmlAttr(email)}" class="text-brand-yellow hover:underline font-bold text-xs truncate block" title="${escapeHtmlAttr(email)}" onclick="event.stopPropagation()">${escapeHtmlText(email)}</a>`;
+      } else {
+        emailSlot.innerHTML = '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
+      }
+    }
+
+    const webSlot = row.querySelector('.lead-contact-web-slot');
+    if (webSlot && website && website !== 'N/A') {
+      const href = website.startsWith('http') ? website : `https://${website}`;
+      const label = website.replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, '');
+      const short = label.length > 36 ? `${label.slice(0, 36)}…` : label;
+      webSlot.innerHTML = `<a href="${escapeHtmlAttr(href)}" target="_blank" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50" title="${escapeHtmlAttr(website)}" data-url="${escapeHtmlAttr(website)}">${escapeHtmlText(short)}</a>`;
+    }
+  }
+
+  const manualContactSaveBtn = document.getElementById('manualContactSaveBtn');
+  if (manualContactSaveBtn) {
+    manualContactSaveBtn.addEventListener('click', async () => {
+      if (!currentRow) return;
+      const key = currentRow.dataset.leadKey;
+      if (!key) return;
+      const manualPhoneInput = document.getElementById('manualPhoneInput');
+      const manualEmailInput = document.getElementById('manualEmailInput');
+      const manualContactState = document.getElementById('manualContactSavedState');
+      clearManualContactErrors();
+      const normalizedPhone = normalizeManualPhone(manualPhoneInput ? manualPhoneInput.value : '');
+      const normalizedEmail = normalizeManualEmail(manualEmailInput ? manualEmailInput.value : '');
+      if (normalizedPhone === null) {
+        setManualContactError('phone', 'Enter a valid phone number (7-15 digits).');
+        return;
+      }
+      if (normalizedEmail === null) {
+        setManualContactError('email', 'Enter a valid email address.');
+        return;
+      }
+      const phone = normalizedPhone;
+      const email = normalizedEmail;
+      if (manualPhoneInput) manualPhoneInput.value = phone || '';
+      if (manualEmailInput) manualEmailInput.value = email || '';
+      const prevPhone = sanitizeContactInput(currentRow.dataset.phone || '');
+      const prevEmail = sanitizeContactInput(currentRow.dataset.email || '').toLowerCase();
+      if (phone === prevPhone && email === prevEmail) {
+        if (manualContactState) manualContactState.textContent = 'No changes';
+        return;
+      }
+      const original = manualContactSaveBtn.innerHTML;
+      manualContactSaveBtn.disabled = true;
+      manualContactSaveBtn.innerHTML = 'Saving…';
+      if (manualContactState) manualContactState.textContent = '';
+      try {
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({
+            phone: phone || 'N/A',
+            email: email || 'N/A',
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save contact');
+        currentRow.dataset.phone = phone || 'N/A';
+        currentRow.dataset.email = email || 'N/A';
+        updateRowContactCells(currentRow);
+        populatePanel(currentRow);
+        if (manualContactState) manualContactState.textContent = 'Saved';
+        if (typeof window.showProspectToast === 'function') window.showProspectToast('Contact updated');
+      } catch (err) {
+        if (manualContactState) manualContactState.textContent = 'Failed';
+        if (typeof window.showAppToast === 'function') window.showAppToast(err && err.message ? err.message : 'Contact update failed', { variant: 'error' });
+      } finally {
+        manualContactSaveBtn.disabled = false;
+        manualContactSaveBtn.innerHTML = original;
       }
     });
   }
@@ -2675,6 +2942,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Generate Mailto Email Draft ---
   const draftEmailBtn = document.getElementById('draftEmailBtn');
+  const sidebarIncludeCoupon = document.getElementById('sidebarIncludeCoupon');
+  const sidebarCouponWarning = document.getElementById('sidebarCouponWarning');
+  const workspaceCouponLinkStore = document.getElementById('workspaceCouponLinkStore');
+  const getWorkspaceCouponLink = () =>
+    String((workspaceCouponLinkStore && workspaceCouponLinkStore.dataset && workspaceCouponLinkStore.dataset.couponLink) || '').trim();
+  const syncSidebarCouponWarning = () => {
+    if (!sidebarCouponWarning || !sidebarIncludeCoupon) return;
+    const show = sidebarIncludeCoupon.checked && !getWorkspaceCouponLink();
+    sidebarCouponWarning.classList.toggle('hidden', !show);
+  };
+  if (sidebarIncludeCoupon) sidebarIncludeCoupon.addEventListener('change', syncSidebarCouponWarning);
+  syncSidebarCouponWarning();
   if (draftEmailBtn) {
     draftEmailBtn.addEventListener('click', () => {
       if (!currentRow) return;
@@ -2686,6 +2965,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const loomFromInput = loomInputEl ? loomInputEl.value.trim() : '';
       const loomFromRow = String(currentRow.dataset.loomUrl || '').trim();
       let loomLink = loomFromInput || loomFromRow;
+      const includeCoupon = !!(sidebarIncludeCoupon && sidebarIncludeCoupon.checked);
+      const couponLink = getWorkspaceCouponLink();
+      const couponLine = includeCoupon && couponLink ? `\n\nAlso, if it helps, here is a free coffee coupon link for your team: ${couponLink}` : '';
+      if (includeCoupon && !couponLink) syncSidebarCouponWarning();
 
       const statusForDraft = statusSelect ? String(statusSelect.value || '').trim() : String(currentRow.dataset.status || '').trim();
       if (statusForDraft === 'Video Recorded' && !loomLink) {
@@ -2713,9 +2996,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       let bodyText = "";
       if (loomLink) {
-        bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas and technical fixes that could help increase your conversions:\n\n${loomLink}\n\n${gapText}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
+        bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas and technical fixes that could help increase your conversions:\n\n${loomLink}\n\n${gapText}${couponLine}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
       } else {
-        bodyText = `Hey ${title} team,\n\nI was looking for local businesses in ${city} and spent some time on your website. ${gapText}\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat this week?\n\nBest,\n[Your Name]`;
+        bodyText = `Hey ${title} team,\n\nI was looking for local businesses in ${city} and spent some time on your website. ${gapText}${couponLine}\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat this week?\n\nBest,\n[Your Name]`;
       }
       
       const body = encodeURIComponent(bodyText);
@@ -3105,6 +3388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateBulkActionBar = () => {
     const count = selectedKeys.size;
+    const hasSelection = count > 0;
     
     // Update footer bar (common in leads.ejs and added to results.ejs)
     if (selectedCountCircle) selectedCountCircle.textContent = count;
@@ -3137,16 +3421,41 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkSmsBtn.classList.toggle('cursor-not-allowed', count === 0);
     }
     if (bulkFocusModeBtn) {
-      const firstKey = count > 0 ? [...selectedKeys][0] : '';
-      bulkFocusModeBtn.classList.toggle('opacity-40', count === 0);
-      bulkFocusModeBtn.classList.toggle('pointer-events-none', count === 0);
-      bulkFocusModeBtn.setAttribute('aria-disabled', count === 0 ? 'true' : 'false');
+      const firstKey = hasSelection ? [...selectedKeys][0] : '';
+      bulkFocusModeBtn.classList.toggle('opacity-40', !hasSelection);
+      bulkFocusModeBtn.classList.toggle('pointer-events-none', !hasSelection);
+      bulkFocusModeBtn.setAttribute('aria-disabled', !hasSelection ? 'true' : 'false');
       bulkFocusModeBtn.setAttribute('href', firstKey ? `/focus?lead=${encodeURIComponent(firstKey)}` : '/focus');
       bulkFocusModeBtn.setAttribute(
         'title',
         firstKey ? 'Open Focus mode with selected lead first' : 'Select at least one lead to seed Focus mode',
       );
     }
+
+    document.querySelectorAll('.js-bulk-enhance').forEach((btn) => {
+      btn.classList.toggle('ring-2', hasSelection);
+      btn.classList.toggle('ring-brand-yellow/60', hasSelection);
+      btn.classList.toggle('shadow-md', hasSelection);
+      btn.classList.toggle('bg-brand-yellow/20', hasSelection);
+      btn.classList.toggle('border-brand-yellow/60', hasSelection);
+      btn.setAttribute(
+        'title',
+        hasSelection ? `Enrich ${count} selected lead${count === 1 ? '' : 's'} (Firecrawl)` : 'Enrich selected leads (Firecrawl)',
+      );
+    });
+    document.querySelectorAll('.js-bulk-ai-analysis').forEach((btn) => {
+      btn.classList.toggle('ring-2', hasSelection);
+      btn.classList.toggle('ring-sky-400/60', hasSelection);
+      btn.classList.toggle('shadow-md', hasSelection);
+      btn.classList.toggle('bg-sky-500/20', hasSelection);
+      btn.classList.toggle('border-sky-400/65', hasSelection);
+      btn.setAttribute(
+        'title',
+        hasSelection
+          ? `Run AI analysis + enriched CSV for ${count} selected lead${count === 1 ? '' : 's'}`
+          : 'Run AI website analysis and export enriched CSV for selected leads',
+      );
+    });
 
     // Update header bar (specific to results.ejs)
     const headerBulkActions = document.getElementById('headerBulkActions');
@@ -4078,6 +4387,52 @@ document.addEventListener('DOMContentLoaded', () => {
           b.innerHTML = enhanceBtnOriginalHtml[i] || b.innerHTML;
         });
       }, 2800);
+    });
+  });
+
+  // Backfill missing phone/email (and website hints) for all leads in workspace.
+  document.querySelectorAll('.js-bulk-ai-analysis').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const checked = Array.from(document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked'));
+      const rows = checked.length
+        ? checked.map((cb) => cb.closest('.result-row')).filter(Boolean)
+        : Array.from(document.querySelectorAll('.result-row'));
+      const rowsWithSite = rows.filter((r) => r.dataset.website && r.dataset.website !== 'N/A');
+      if (!rowsWithSite.length) return window.alert('No selected leads have a website URL.');
+      const leadKeys = rowsWithSite.map((r) => r.dataset.leadKey).filter(Boolean).slice(0, 100);
+      if (!leadKeys.length) return;
+      const original = btn.innerHTML;
+      btn.disabled = true;
+      btn.classList.add('opacity-70');
+      btn.innerHTML = '<span>Analyzing + exporting…</span>';
+      try {
+        const res = await fetch('/leads/ai-analysis/export-csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ leadKeys }),
+        });
+        if (!res.ok) {
+          const error = await res.json().catch(() => ({}));
+          throw new Error(error.error || 'AI CSV export failed');
+        }
+        const blob = await res.blob();
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute('download', `AdHello_Leads_Enriched_${new Date().toISOString().split('T')[0]}.csv`);
+        link.click();
+        if (typeof window.showAppToast === 'function') window.showAppToast(`AI enriched CSV ready for ${leadKeys.length} lead(s).`, { variant: 'success' });
+        for (const r of rowsWithSite.slice(0, 30)) {
+          try { await runAiAnalysisForRow(r); } catch {}
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'AI CSV export failed';
+        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+        else window.alert(msg);
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-70');
+        btn.innerHTML = original;
+      }
     });
   });
 
