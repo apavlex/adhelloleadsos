@@ -6,10 +6,16 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark">
   <%- include('partials/navbar') %>
   <main class="max-w-5xl mx-auto px-6 pt-12 pb-24">
-    <div class="mb-10">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Cadence engine</p>
+    <div class="mb-10 rounded-[2rem] border-2 border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 dark:border-brand-yellow/30 p-8 md:p-10">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Default for cold local SMBs</p>
       <h1 class="font-display font-extrabold text-4xl md:text-5xl text-brand-dark dark:text-white leading-tight">Cadences</h1>
-      <p class="text-brand-muted mt-3 max-w-2xl">Persona-based day offsets create tasks in each lead’s activity log. Hook Instantly / Smartlead for live email send; scheduler runs due steps every 15 minutes.</p>
+      <p class="text-brand-muted mt-3 max-w-2xl text-base leading-relaxed">The <strong class="text-brand-dark dark:text-white">14-day · 8-touch audit cadence</strong> is tuned for contractors who check texts before email: Day 1 call + hosted link, Day 2 PDF email, Day 4 LinkedIn or second call, bump, value-only email, voicemail, breakup, final text. <strong class="text-brand-dark dark:text-white">Hot</strong> and <strong class="text-brand-dark dark:text-white">re-engagement</strong> variants ship too. Scheduler logs due steps every 15 minutes; pair with your dialer / inbox.</p>
+      <ul class="mt-4 text-sm text-brand-dark dark:text-slate-200 space-y-1 list-disc pl-5 max-w-2xl">
+        <li>Auto-pause when status hits engagement (meeting booked, discovery done, connected, callback requested, won) or disposition <strong>connected</strong> / <strong>callback</strong>.</li>
+        <li>Tokens merge from AI audit: <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{top_finding}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{score}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{tier}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{competitor_with_meta_desc}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{report_link}}</code></li>
+        <li>Snooze from the lead panel (90d default) → quarterly re-engagement; re-run audit before calling again.</li>
+      </ul>
+      <a href="/today" class="inline-flex mt-5 btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Open Today’s cadence queue</a>
     </div>
 
     <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-8 mb-10">
@@ -49,7 +55,7 @@
 
     <div class="mt-12 p-6 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-sm text-brand-dark dark:text-slate-300">
       <strong class="font-display text-brand-dark dark:text-white">API</strong>
-      <code class="block mt-2 text-xs bg-white/60 dark:bg-black/30 rounded-lg p-3 overflow-x-auto">POST /leads/:leadKey/sequence/start<br/>Content-Type: application/json<br/>{ "templateId": "clay_standard" }</code>
+      <code class="block mt-2 text-xs bg-white/60 dark:bg-black/30 rounded-lg p-3 overflow-x-auto">POST /leads/:leadKey/sequence/start<br/>Content-Type: application/json<br/>{ "templateId": "audit_local_14" }<br/><br/>POST /leads/:leadKey/cadence/snooze<br/>{ "days": 90, "note": "Call me in Q3" }</code>
     </div>
   </main>
   <%- include('partials/footer') %>

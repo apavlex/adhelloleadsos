@@ -1,5 +1,7 @@
 const dbService = require('./database');
 const { getTemplate, dueAtIso } = require('./sequenceTemplates');
+const { createAuditReportToken } = require('./auditReportSign');
+const { expandCadenceText } = require('./cadenceTokens');
 
 function fullLeadKey(key) {
   return key.startsWith('lead:') ? key : `lead:${key}`;
@@ -30,6 +32,17 @@ async function startSequence(leadKey, templateId, options = {}) {
     status: 'active',
     startedAt: new Date().toISOString(),
   };
+
+  if (/^audit_/i.test(String(templateId)) && lead.workspaceId) {
+    try {
+      sequenceState.publicAuditToken = createAuditReportToken({
+        leadKey: key,
+        workspaceId: lead.workspaceId,
+      });
+    } catch (e) {
+      console.warn('[sequenceEngine] audit token skipped:', e && e.message);
+    }
+  }
 
   await dbService.updateLead(key, {
     sequenceState,
@@ -66,9 +79,11 @@ async function pauseSequence(leadKey) {
   return true;
 }
 
-function formatStepMessage(step, tplName) {
+function formatStepMessage(step, tplName, lead, baseUrl) {
   const ch = (step.channel || 'task').toUpperCase();
-  return `[${ch}] ${step.title}${step.hint ? ` — ${step.hint}` : ''}`;
+  const title = expandCadenceText(step.title || '', lead, { baseUrl });
+  const hint = expandCadenceText(step.hint || '', lead, { baseUrl });
+  return `[${ch}] ${title}${hint ? ` — ${hint}` : ''}`;
 }
 
 /**
@@ -116,7 +131,8 @@ async function processLeadSequence(lead) {
   }
 
   const step = tpl.steps[idx];
-  const msg = formatStepMessage(step, tpl.name);
+  const baseUrl = String(process.env.PUBLIC_BASE_URL || '').replace(/\/$/, '');
+  const msg = formatStepMessage(step, tpl.name, lead, baseUrl);
 
   const nextIdx = idx + 1;
   let sequenceState;

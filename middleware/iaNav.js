@@ -25,7 +25,9 @@ function iaNav(req, res, next) {
     navPrimary = 'sales';
   } else if (p.startsWith('/sales/workflow')) {
     navPrimary = 'pipeline';
-  } else if (p.startsWith('/sales/') || p === '/sequences' || p.startsWith('/sequences/')) {
+  } else if (p === '/sequences' || p.startsWith('/sequences/')) {
+    navPrimary = 'sequences';
+  } else if (p.startsWith('/sales/')) {
     navPrimary = 'sales';
   } else if (p === '/outreach' || p.startsWith('/outreach/')) {
     navPrimary = 'prospecting';

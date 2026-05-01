@@ -121,11 +121,9 @@
             <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
               Last touch
             </th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="actions" title="Sort by opportunity score">Opportunity <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
-            </th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[14rem]" scope="col">
-              Signal
+            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem] max-w-[20rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="actions" title="Sort by opportunity score and AI audit gap">Opportunity <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="sr-only"> and primary signal</span>
             </th>
             <th class="px-2 py-3.5 pr-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]" scope="col">
               Actions
@@ -362,13 +360,13 @@
               <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums inline-block" title="<%= _lastTouchRaw || '' %>"><%= _lastTouchShort %></span>
               </td>
-              <td class="opportunity-cell px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
-                <div class="opportunity-badge">
-                  <span class="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5 text-[9px] font-black uppercase tracking-tight">Scoring…</span>
+              <td class="opportunity-cell px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[12rem] max-w-[22rem]">
+                <div class="flex flex-col items-center justify-center gap-1.5 py-0.5">
+                  <div class="opportunity-badge">
+                    <span class="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5 text-[9px] font-black uppercase tracking-tight">Scoring…</span>
+                  </div>
+                  <p class="lead-owner-signal text-[10px] font-semibold text-brand-muted dark:text-slate-300 leading-snug line-clamp-3 text-center w-full" title="<%= String(lead.ownerSignal || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') %>"><%= lead.ownerSignal || '' %></p>
                 </div>
-              </td>
-              <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[14rem] max-w-[20rem]">
-                <p class="lead-owner-signal text-[11px] font-semibold text-brand-muted dark:text-slate-300 leading-snug line-clamp-2"></p>
               </td>
               <td class="lead-actions-cell px-2 pr-5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] text-right">
                 <div class="flex items-center justify-end gap-1">

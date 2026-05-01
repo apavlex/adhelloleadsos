@@ -35,6 +35,7 @@ const iaRedirects = require('./routes/iaRedirects');
 const todayRoutes = require('./routes/today');
 const focusRoutes = require('./routes/focus');
 const pipelineRoutes = require('./routes/pipeline');
+const auditReportPublicRoutes = require('./routes/auditReportPublic');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -179,6 +180,9 @@ app.post('/enrich', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+// Public hosted website audit (signed token; no session — share on cold calls)
+app.use('/', auditReportPublicRoutes);
 
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);

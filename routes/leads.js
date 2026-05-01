@@ -9,6 +9,7 @@ const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
+const { createAuditReportToken } = require('../services/auditReportSign');
 const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -415,7 +416,7 @@ function resolveActiveVoicemailAudioUrl(telephony) {
 router.post('/:key/sequence/start', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
-    const templateId = (req.body && req.body.templateId) || 'clay_standard';
+    const templateId = (req.body && req.body.templateId) || 'audit_local_14';
     await sequenceEngine.startSequence(fullKey, templateId);
     await activationService.recordEvent(userEmail(req), 'sequence_started');
     res.json({ success: true, templateId });
@@ -430,6 +431,44 @@ router.post('/:key/sequence/pause', async (req, res, next) => {
     const fullKey = leadKeyFromParam(req.params.key);
     await sequenceEngine.pauseSequence(fullKey);
     res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/** Pause cadence and set a future re-engagement marker (quarterly follow-up). */
+router.post('/:key/cadence/snooze', express.json(), async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const days = Math.min(540, Math.max(7, parseInt((req.body && req.body.days) || 90, 10)));
+    const until = new Date(Date.now() + days * 86400000).toISOString();
+    await sequenceEngine.pauseSequence(fullKey);
+    await dbService.updateLead(
+      fullKey,
+      {
+        cadenceSnooze: {
+          until,
+          days,
+          note: String((req.body && req.body.note) || '').trim(),
+          setAt: new Date().toISOString(),
+        },
+        logs: [
+          {
+            type: 'cadence_snooze',
+            message: `Cadence snoozed ~${days}d — re-engage after ${until.slice(0, 10)} (re-run audit before outreach).`,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      },
+      req.workspaceId,
+    );
+    const refreshed = await dbService.getLead(fullKey);
+    return res.json({ success: true, until, days, lead: refreshed });
   } catch (err) {
     next(err);
   }
@@ -519,6 +558,13 @@ router.post('/:key/disposition', async (req, res, next) => {
         timestamp: new Date().toISOString(),
       },
     ];
+    if (code === 'connected' || code === 'callback') {
+      try {
+        await sequenceEngine.pauseSequence(fullKey);
+      } catch (_) {
+        /* ignore */
+      }
+    }
     const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
     return res.json({ success: true, lead: updated, status, nextStep, automation });
   } catch (err) {
@@ -623,6 +669,20 @@ router.post('/:key/update', async (req, res, next) => {
         timestamp: new Date().toISOString()
       });
       updateData.updates = updates;
+    }
+
+    const newStatus = updateData.status && existing ? String(updateData.status) : '';
+    const pauseCadenceOnEngagement =
+      newStatus &&
+      /(meeting|booked|proposal|signed|discovery done|closed\s*-\s*won|callback requested|connected\s*-\s*follow)/i.test(
+        newStatus,
+      );
+    if (pauseCadenceOnEngagement && existing) {
+      try {
+        await sequenceEngine.pauseSequence(fullKey);
+      } catch (_) {
+        /* ignore */
+      }
     }
 
     const updated = await dbService.updateLead(fullKey, updateData, wid);
@@ -2071,7 +2131,9 @@ router.post('/:key/ai-analysis', async (req, res) => {
     if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
-    const analysis = await websiteAiAnalysis.analyzeWebsite(lead.website || lead.url || '');
+    const prevAnalysis = lead.aiWebsiteAnalysis || null;
+    let analysis = await websiteAiAnalysis.analyzeWebsite(lead.website || lead.url || '');
+    analysis = websiteAiAnalysis.mergePriorAuditSnapshot(analysis, prevAnalysis);
     const ownerSignal = websiteAiAnalysis.buildOwnerSignal(lead, analysis);
     const patch = {
       aiWebsiteAnalysis: analysis,
@@ -2086,6 +2148,41 @@ router.post('/:key/ai-analysis', async (req, res) => {
   }
 });
 
+/** Signed public URL for hosted audit + PDF (text on cold calls, email PDF next day). */
+router.post('/:key/audit-report-link', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    if (!lead.aiWebsiteAnalysis || typeof lead.aiWebsiteAnalysis !== 'object') {
+      return res.status(400).json({ success: false, error: 'Run AI analysis first to generate a hosted report.' });
+    }
+    const token = createAuditReportToken({ leadKey: fullKey, workspaceId: req.workspaceId });
+    const base = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
+    const reportUrl = `${base}/audit/report/${token}`;
+    const pdfUrl = `${base}/audit/report/${encodeURIComponent(token)}/download.pdf`;
+    const company = String(lead.title || 'your team').trim() || 'your team';
+    const followUpSubject = 'Your audit, attached — plus the 3 fixes we discussed.';
+    const followUpBody = `Hi ${company},\n\nGreat speaking with you. Attached is the one-page website audit PDF from our call.\n\nThe three fixes we walked through are still the fastest wins — happy to implement or QA anything your dev pushes live.\n\nIf you want the deeper pass (competitor benchmark, Core Web Vitals, and a 30-day plan), grab a slot here: ${String(
+      process.env.ADHELLO_BOOK_URL || 'https://adhello.ai/book',
+    ).trim()}\n\nBest,\n`;
+    const smsSnippet = `I'll send you a quick link to your website audit now while we're on the phone — you can open it on your phone: ${reportUrl}`;
+    return res.json({
+      success: true,
+      reportUrl,
+      pdfUrl,
+      followUpEmail: { subject: followUpSubject, body: followUpBody },
+      smsSnippet,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err && err.message ? err.message : 'Link failed' });
+  }
+});
+
 router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
   try {
     const keys = Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [];
@@ -2093,8 +2190,9 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
     const rows = [];
     const headers = [
       'Company','Category','Phone','Website','Email','Address','Rating','Reviews','Facebook','Instagram','Twitter',
-      'AI Analysis Score','Signal','Emails Found','Phones Found','Page Title','Meta Description','Has HTTPS',
+      'Site health (0-100)','AI audit gap (0-10)','Signal','Primary emails (filtered)','Phones Found','Page Title','Meta Description','Has HTTPS',
       'Page Load Seconds','Mobile Responsive','Copyright Year','Signals','Flag 404','Flag Slow (>5s)','Flag No SSL',
+      'Audit rubric','Audited at','Prior site health (0-100)','Prior audited at',
       'Google Place ID','Latitude','Longitude'
     ];
     for (const rawKey of keys) {
@@ -2116,6 +2214,23 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
         ownerSignal = websiteAiAnalysis.buildOwnerSignal(lead, analysis);
         await dbService.updateLead(fullKey, { ownerSignal }, req.workspaceId);
       }
+      if (!Array.isArray(analysis.topGapLabels) || !analysis.topGapLabels.length) {
+        analysis.topGapLabels = websiteAiAnalysis.computeTopGapLabels(analysis, 5);
+      }
+      const rawAiScore = Number(analysis.analysisScore || 0);
+      const aiGapForCsv =
+        rawAiScore > 10
+          ? Math.min(10, Math.max(0, Math.round((100 - rawAiScore) / 10)))
+          : Math.min(10, Math.max(0, rawAiScore));
+      let siteHealthCsv = Number(analysis.siteHealth100);
+      if (!Number.isFinite(siteHealthCsv)) {
+        siteHealthCsv =
+          rawAiScore > 10 ? Math.min(100, Math.max(0, Math.round(rawAiScore))) : Math.min(100, Math.max(0, 100 - aiGapForCsv * 10));
+      } else {
+        siteHealthCsv = Math.min(100, Math.max(0, Math.round(siteHealthCsv)));
+      }
+      const primaryEmailCsv = websiteAiAnalysis.pickPrimaryEmail(analysis.emails || []);
+      const priorSnap = analysis.priorAuditSnapshot || null;
       rows.push([
         lead.title || '',
         lead.categoryName || '',
@@ -2128,9 +2243,10 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
         lead.facebook || '',
         lead.instagram || '',
         lead.twitter || '',
-        analysis.analysisScore || 0,
+        siteHealthCsv,
+        aiGapForCsv,
         ownerSignal || '',
-        (analysis.emails || []).join(' | '),
+        primaryEmailCsv,
         (analysis.phones || []).join(' | '),
         analysis.pageTitle || '',
         analysis.metaDescription || '',
@@ -2142,6 +2258,10 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
         analysis.flags && analysis.flags.returned404 ? 'yes' : 'no',
         analysis.flags && analysis.flags.slowLoad ? 'yes' : 'no',
         analysis.flags && analysis.flags.noSsl ? 'yes' : 'no',
+        analysis.rubricVersion || websiteAiAnalysis.AUDIT_RUBRIC_VERSION || '',
+        analysis.auditedAt || lead.aiWebsiteAnalysisUpdatedAt || '',
+        priorSnap && priorSnap.siteHealth100 != null ? priorSnap.siteHealth100 : '',
+        priorSnap && priorSnap.auditedAt ? priorSnap.auditedAt : '',
         lead.placeId || '',
         lead.latitude || '',
         lead.longitude || '',

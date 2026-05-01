@@ -27,8 +27,8 @@ const PLAN = [
   {
     id: 'd4',
     label: 'Day 4 — Start a cadence',
-    hint: 'Attach Clay / Paul / Bob cadence to a lead',
-    href: '/prospecting?tab=queue',
+    hint: 'Default is the 14-day audit hook (8 touches) — Cadences page or voicemail disposition auto-starts it',
+    href: '/sequences',
     event: 'sequence_started',
   },
   {

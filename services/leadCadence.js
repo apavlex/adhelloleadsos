@@ -6,6 +6,10 @@ function includesAny(haystack, needles) {
   return needles.some((n) => h.includes(n));
 }
 
+/**
+ * Default for cold local SMB + audit hook: 14-day / 8-touch `audit_local_14`.
+ * Keeps Clay for high-touch hospitality; Bob for regulated verticals.
+ */
 function recommendCadenceTemplate(lead, workspaceLeads) {
   const category = String((lead && lead.categoryName) || '').toLowerCase();
   const source = String((lead && lead.source) || '').toLowerCase();
@@ -28,13 +32,13 @@ function recommendCadenceTemplate(lead, workspaceLeads) {
     return c && category && c === category;
   });
 
+  if (includesAny(category, ['law', 'legal', 'medical', 'dental', 'enterprise', 'finance'])) {
+    return { templateId: 'bob_standard', family: 'enterprise_careful' };
+  }
   if (includesAny(category, ['restaurant', 'cafe', 'bar', 'food']) || source.startsWith('adhello_')) {
     if (reviews < 40 || rating < 4.3 || !hasChat || !hasSocial) {
       return { templateId: 'clay_standard', family: 'reputation_social' };
     }
-  }
-  if (includesAny(category, ['law', 'legal', 'medical', 'dental', 'enterprise', 'finance'])) {
-    return { templateId: 'bob_standard', family: 'enterprise_careful' };
   }
   if (wonCategoryMatches.length >= 2) {
     const winsByTemplate = new Map();
@@ -46,7 +50,33 @@ function recommendCadenceTemplate(lead, workspaceLeads) {
     const top = [...winsByTemplate.entries()].sort((a, b) => b[1] - a[1])[0];
     if (top && top[0]) return { templateId: top[0], family: 'won_history_match' };
   }
-  return { templateId: 'paul_standard', family: 'founder_default' };
+
+  if (
+    includesAny(category, [
+      'hvac',
+      'plumb',
+      'electric',
+      'roof',
+      'paint',
+      'landscap',
+      'clean',
+      'contract',
+      'remodel',
+      'garage',
+      'pest',
+      'locksmith',
+      'tow',
+      'pool',
+      'fence',
+      'concrete',
+      'handyman',
+      'service',
+    ])
+  ) {
+    return { templateId: 'audit_local_14', family: 'audit_local_trade' };
+  }
+
+  return { templateId: 'audit_local_14', family: 'audit_local_default' };
 }
 
 async function autoAttachCadenceIfNeeded({ leadKey, workspaceId }) {

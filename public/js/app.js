@@ -52,9 +52,17 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.min(10, score);
   };
 
+  /** AI website audit score on the row: 1–10 gap (new), or legacy 11–100 “health” saved before the scale fix. */
+  const getAiAuditGap10FromDataset = (lead) => {
+    const raw = lead && lead.aiScore != null ? Number(lead.aiScore) : NaN;
+    if (!Number.isFinite(raw) || raw <= 0) return null;
+    if (raw > 10) return Math.min(10, Math.max(0, Math.round((100 - raw) / 10)));
+    return Math.min(10, Math.max(0, raw));
+  };
+
   const getUnifiedClientScore = (lead) => {
-    const aiRaw = lead && lead.aiScore != null ? Number(lead.aiScore) : NaN;
-    if (Number.isFinite(aiRaw) && aiRaw > 0) return Math.max(0, Math.min(10, aiRaw));
+    const aiGap = getAiAuditGap10FromDataset(lead);
+    if (aiGap != null) return aiGap;
     return calculateOpportunityScore(lead || {});
   };
 
@@ -74,12 +82,16 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const updateOpportunityBadges = () => {
-    document.querySelectorAll('.result-row').forEach(row => {
+    document.querySelectorAll('.result-row').forEach((row) => {
       try {
         const badgeContainer = row.querySelector('.opportunity-badge');
         if (badgeContainer) {
           badgeContainer.innerHTML = renderOpportunityBadges(row);
           badgeContainer.dataset.score = getUnifiedClientScore(row.dataset);
+        }
+        const sigEl = row.querySelector('.lead-owner-signal');
+        if (sigEl) {
+          sigEl.textContent = String(row.dataset.ownerSignal || '').trim();
         }
       } catch (err) {
         console.error('Error rendering opportunity badge for row:', err);
@@ -278,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         'Facebook',
         'Instagram',
         'Twitter',
-        'Opportunity Score',
+        'Opportunity (unified /10)',
       ];
       const rows = leadsToExport.map((l) => [
         `"${l.title}"`,
@@ -293,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `"${l.facebook}"`,
         `"${l.instagram}"`,
         `"${l.twitter}"`,
-        calculateOpportunityScore(l),
+        getUnifiedClientScore(l),
       ]);
 
       const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -925,10 +937,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysis = data.analysis || {};
     const ownerSignal = String(data.ownerSignal || (data.lead && data.lead.ownerSignal) || '').trim();
     const score = Number(analysis.analysisScore || 0);
-    row.dataset.aiScore = String(score);
+    row.dataset.aiScore = String(Math.min(10, Math.max(0, Math.round(score))));
     row.dataset.aiAnalysis = JSON.stringify(analysis);
     if (ownerSignal) row.dataset.ownerSignal = ownerSignal;
-    row.dataset.aiScore = String(Math.round(score));
     const oppContainer = row.querySelector('.opportunity-badge');
     if (oppContainer) {
       oppContainer.innerHTML = renderOpportunityBadges(row);
@@ -936,7 +947,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (currentRow === row && typeof populatePanel === 'function') populatePanel(row);
     const rowSignal = row.querySelector('.lead-owner-signal');
-    if (rowSignal) rowSignal.textContent = '';
+    if (rowSignal) rowSignal.textContent = ownerSignal || '';
+    return data;
+  }
+
+  async function fetchAuditReportLinkBundle(row) {
+    const leadKey = String(row.dataset.leadKey || '').trim();
+    if (!leadKey) throw new Error('Lead key missing');
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/audit-report-link`, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error(data.error || 'Could not create report link');
     return data;
   }
 
@@ -958,48 +978,316 @@ document.addEventListener('DOMContentLoaded', () => {
     return [];
   }
 
+  function filterReportEmails(list) {
+    const arr = normalizeList(list);
+    return arr.filter((e) => {
+      const x = String(e || '').trim().toLowerCase();
+      if (!x.includes('@')) return false;
+      const [local, host] = x.split('@');
+      if (!host) return false;
+      const h = host.replace(/^www\./, '');
+      if (h.includes('sentry') && (h.includes('wix') || h.endsWith('wixpress.com'))) return false;
+      if (h === 'sentry.io' || h.endsWith('.sentry.io')) return false;
+      if (/^noreply|no-reply|donotreply|mailer-daemon/.test(local)) return false;
+      if (/^[0-9a-f]{24,}$/i.test(local)) return false;
+      return true;
+    });
+  }
+
+  function pickPrimaryEmailForReport(emails) {
+    const list = filterReportEmails(emails || []);
+    if (!list.length) return '';
+    for (const p of ['info', 'contact', 'hello', 'sales', 'office', 'support', 'team']) {
+      const hit = list.find((e) => e.startsWith(p + '@'));
+      if (hit) return hit;
+    }
+    return [...list].sort((a, b) => a.length - b.length)[0];
+  }
+
+  function reportDomainFromWebsite(website) {
+    const w = String(website || '').trim();
+    if (!w || w === 'N/A') return '';
+    try {
+      const u = new URL(/^https?:\/\//i.test(w) ? w : `https://${w}`);
+      return u.hostname.replace(/^www\./i, '');
+    } catch {
+      return w.replace(/^https?:\/\//i, '').split('/')[0].split('?')[0] || '';
+    }
+  }
+
+  function resolveSiteHealth100(analysis) {
+    if (!analysis || typeof analysis !== 'object') return 0;
+    if (analysis.siteHealth100 != null && Number.isFinite(Number(analysis.siteHealth100))) {
+      return Math.min(100, Math.max(0, Math.round(Number(analysis.siteHealth100))));
+    }
+    const raw = Number(analysis.analysisScore || 0);
+    if (raw > 10) return Math.min(100, Math.max(0, Math.round(raw)));
+    if (raw > 0) return Math.min(100, Math.max(0, 100 - Math.round(raw) * 10));
+    return 0;
+  }
+
+  function formatAuditDateShort(iso) {
+    const d = iso ? new Date(iso) : null;
+    if (!d || Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  /** Mirrors server `computeTopGapLabels` for saved rows missing `topGapLabels`. */
+  function computeTopGapLabelsClient(a, maxLabels) {
+    const cap = Math.min(10, Math.max(1, Number(maxLabels) || 3));
+    const out = [];
+    if (!a || typeof a !== 'object') return out;
+    const flags = a.flags || {};
+    const meta = String(a.metaDescription || '').trim();
+    const title = String(a.pageTitle || '').trim();
+    const emails = a.emails || [];
+    const phones = a.phones || [];
+    const signals = a.signals || [];
+    const copyYear = parseInt(String(a.copyrightYear || '').trim(), 10);
+    const nowYear = new Date().getFullYear();
+    const push = (label) => {
+      if (out.length >= cap) return;
+      if (label && !out.includes(label)) out.push(label);
+    };
+    if (flags.returned404) push('Homepage availability (404)');
+    if (flags.noSsl) push('HTTPS / SSL');
+    if (!meta) push('Meta description');
+    if (flags.slowLoad) push('Homepage load speed');
+    if (!a.mobileResponsive) push('Mobile viewport / responsiveness');
+    if (Number.isFinite(copyYear) && copyYear < nowYear - 1) push('Copyright / freshness signal');
+    if (!signals.length) push('Above-the-fold call to action');
+    if (!title || title.length < 2) push('Page title strength');
+    if ((!emails || !emails.length) && (!phones || !phones.length)) push('Visible contact info');
+    if (!out.length) push('No major crawl gaps flagged');
+    return out.slice(0, cap);
+  }
+
+  function getTopGapLabelsForReport(analysis, maxPick) {
+    const cap = Math.min(5, Math.max(1, Number(maxPick) || 3));
+    if (analysis && Array.isArray(analysis.topGapLabels) && analysis.topGapLabels.length) {
+      return analysis.topGapLabels.slice(0, cap);
+    }
+    return computeTopGapLabelsClient(analysis, cap);
+  }
+
+  function auditTierLabel(health) {
+    if (health >= 85) return 'Strong';
+    if (health >= 70) return 'Good';
+    if (health >= 50) return 'Needs Work';
+    return 'Critical';
+  }
+
+  /** City label for quoted search examples (e.g. "Portland" from "Portland, OR"). */
+  function auditCityLabel(row) {
+    const raw = String((row && row.dataset && row.dataset.city) || '').trim();
+    if (!raw || raw === 'N/A') return '';
+    return raw.split(',')[0].trim();
+  }
+
+  /**
+   * Plausible quoted query for the audit narrative (not a SERP claim).
+   * Example: painters + Portland → "painters Portland".
+   */
+  function buildAuditSearchQueryExample(row) {
+    const city = auditCityLabel(row);
+    const cat = String((row && row.dataset && row.dataset.category) || '')
+      .trim()
+      .toLowerCase();
+    const c = city ? city.replace(/\b\w/g, (ch) => ch.toUpperCase()) : '';
+    if (c) {
+      if (/(^|[\s,])paint/.test(cat)) return `painters ${c}`;
+      if (/plumb/.test(cat)) return `plumbers ${c}`;
+      if (/(hvac|heating|cooling|air conditioning)/.test(cat)) return `hvac ${c}`;
+      if (/roof/.test(cat)) return `roofers ${c}`;
+      if (/electric/.test(cat)) return `electricians ${c}`;
+      if (/landscap|lawn|yard/.test(cat)) return `landscaping ${c}`;
+      if (/clean/.test(cat)) return `cleaning services ${c}`;
+      if (/contract|remodel|construction|general contractor/.test(cat)) return `contractors ${c}`;
+    }
+    if (c && cat) {
+      const slug = cat
+        .replace(/[^a-z0-9\s]/g, ' ')
+        .split(/\s+/)
+        .filter((w) => w.length > 2 && !['the', 'and', 'for', 'inc', 'llc'].includes(w))
+        .slice(0, 3)
+        .join(' ');
+      if (slug) return `${slug} ${c}`;
+    }
+    return city ? `services ${c}` : 'your services';
+  }
+
+  function buildAuditHeadlineIssue(row, analysis, ownerSignal) {
+    const metaMissing = !String((analysis && analysis.metaDescription) || '').trim();
+    if (metaMissing) {
+      const q = buildAuditSearchQueryExample(row);
+      return (
+        'The headline issue: You are losing click-throughs to competitors because Google is guessing what your business does — your homepage has no meta description. ' +
+        `That means when someone Googles "${q}" (or your brand), Google auto-generates a random snippet from your page — ` +
+        "and it's almost never the sentence that converts. Competitors with a written description get more clicks from the same ranking."
+      );
+    }
+    const s = String(ownerSignal || '').trim();
+    return s ? `The headline issue: ${s}` : 'The headline issue: A few focused fixes would tighten trust and conversion on your homepage.';
+  }
+
+  function buildTopAuditFixes(analysis, copyrightYearRaw) {
+    const fixes = [];
+    const nowY = new Date().getFullYear();
+    const cyNum = parseInt(String(copyrightYearRaw || '').trim(), 10);
+    const metaOk = String((analysis && analysis.metaDescription) || '').trim().length > 0;
+    const ctas = normalizeList(analysis && (analysis.signals || analysis.bookingSignals));
+
+    if (!metaOk) {
+      fixes.push(
+        'Write a 150–160 character meta description targeting your top service + city (what you do, where you do it, one proof or offer).',
+      );
+    }
+    if (Number.isFinite(cyNum) && cyNum < nowY - 1) {
+      fixes.push(`Update the copyright year to ${nowY} — small trust signal, often a 30-second fix if it's in the footer.`);
+    }
+    if (!ctas.length) {
+      fixes.push('Add a visible "Get a Free Quote" button above the fold with a tap-to-call link on mobile.');
+    }
+    if (fixes.length < 3 && analysis && analysis.flags && analysis.flags.slowLoad) {
+      fixes.push(
+        'Improve homepage load speed (compress hero images, trim blocking scripts) so mobile visitors do not bounce before they read your pitch.',
+      );
+    }
+    if (fixes.length < 3 && analysis && analysis.flags && analysis.flags.noSsl) {
+      fixes.push('Enable HTTPS across the site so browsers never show a "Not secure" warning before the first scroll.');
+    }
+    if (!fixes.length) {
+      fixes.push('Book a short homepage review: we will prioritize the three changes that lift trust and clicks first.');
+    }
+    return fixes.slice(0, 3);
+  }
+
   function buildClientReportEmail(row, analysis, ownerSignal) {
     const company = toDisplayValue(row && row.dataset ? row.dataset.title : '', 'Business');
-    const website = toDisplayValue(row && row.dataset ? row.dataset.website : '', 'N/A');
-    const score = Number((analysis && analysis.analysisScore) || 0);
-    const summarySignal = toDisplayValue(ownerSignal || (row && row.dataset ? row.dataset.ownerSignal : ''), 'No major issue detected');
-    const emails = normalizeList(analysis && (analysis.emails || analysis.emailAddresses));
+    const website = toDisplayValue(row && row.dataset ? row.dataset.website : '', '');
+    const domain = reportDomainFromWebsite(website);
+    const summarySignal = String(ownerSignal || (row && row.dataset ? row.dataset.ownerSignal : '') || '').trim();
+
+    const health100 = resolveSiteHealth100(analysis);
+    const tier = auditTierLabel(health100);
+    const headline = buildAuditHeadlineIssue(row, analysis, summarySignal);
+    const rubric = String((analysis && analysis.rubricVersion) || 'rubric_v1.2').trim();
+    const auditedIso = analysis && analysis.auditedAt ? String(analysis.auditedAt) : '';
+    const scoreMetaLine = auditedIso
+      ? `Scored with ${rubric} on ${formatAuditDateShort(auditedIso)}.`
+      : `Scored with ${rubric}.`;
+    const prior = analysis && analysis.priorAuditSnapshot;
+    let progressLine = '';
+    if (prior && prior.auditedAt && Number.isFinite(Number(prior.siteHealth100))) {
+      const prevRv = prior.rubricVersion ? String(prior.rubricVersion) : '';
+      progressLine = `Progress vs last crawl (${formatAuditDateShort(prior.auditedAt)}${prevRv ? `, ${prevRv}` : ''}): ${Math.round(
+        Number(prior.siteHealth100),
+      )}/100 → ${health100}/100.`;
+    }
+    const gapTop3 = getTopGapLabelsForReport(analysis, 3);
+    const gapLines =
+      gapTop3.length > 0
+        ? ['Top homepage gaps (highest impact first):', '', ...gapTop3.map((g, i) => `${i + 1}. ${g}`), '']
+        : [];
+    const rubricTease = 'Full category breakdown available in the deeper audit.';
+    const estimatedLift =
+      'Estimated lift: Fixing the top three gaps typically moves this score about 15–20 points and, in many markets, organic clicks roughly 10–25% — actual lift varies by niche, geography, and how traffic is measured.';
+
+    const primaryEmail = pickPrimaryEmailForReport(analysis && (analysis.emails || analysis.emailAddresses));
     const phones = normalizeList(analysis && (analysis.phones || analysis.phoneNumbers));
-    const pages = Number((analysis && analysis.pagesCrawled) || 0);
-    const mobileReady =
-      analysis && (analysis.hasViewportMeta === true || analysis.mobileResponsive === true) ? 'Yes' : 'No';
-    const hasHttps = analysis && (analysis.hasHttps === true || analysis.https === true) ? 'Yes' : 'No';
-    const is404 = analysis && (analysis.has404 === true || analysis.returned404 === true) ? 'Yes' : 'No';
-    const slow = analysis && Number((analysis.loadTimeSeconds != null ? analysis.loadTimeSeconds : analysis.loadSeconds) || 0);
-    const metaDescription = toDisplayValue(analysis && analysis.metaDescription, 'Missing');
-    const title = toDisplayValue(analysis && analysis.pageTitle, 'Missing');
-    const copyrightYear = toDisplayValue(analysis && analysis.copyrightYear, 'Missing');
+    const primaryPhone = phones[0] || '';
+    const primaryContactParts = [];
+    if (primaryEmail) primaryContactParts.push(primaryEmail);
+    if (primaryPhone) primaryContactParts.push(primaryPhone);
+    const primaryContact =
+      primaryContactParts.length > 0 ? primaryContactParts.join(' · ') : 'None identified on the homepage crawl';
+
+    const hasHttps = !!(analysis && (analysis.hasHttps === true || analysis.https === true));
+    const mobileOk = !!(analysis && (analysis.hasViewportMeta === true || analysis.mobileResponsive === true));
+    const is404 = !!(
+      analysis &&
+      (analysis.has404 === true ||
+        analysis.returned404 === true ||
+        (analysis.flags && analysis.flags.returned404))
+    );
+    const title = toDisplayValue(analysis && analysis.pageTitle, '');
+    const metaPresent = String((analysis && analysis.metaDescription) || '').trim().length > 0;
+    const copyrightRaw = analysis && analysis.copyrightYear != null ? String(analysis.copyrightYear).trim() : '';
+    const cyNum = parseInt(copyrightRaw, 10);
+    const nowY = new Date().getFullYear();
+    let copyrightLine;
+    if (Number.isFinite(cyNum)) {
+      copyrightLine =
+        cyNum < nowY - 1
+          ? `Copyright year: ⚠️ ${cyNum} (signals the site may not be actively maintained)`
+          : `Copyright year: ✅ ${cyNum}`;
+    } else {
+      copyrightLine = 'Copyright year: — (not detected in crawl)';
+    }
     const ctaSignals = normalizeList(analysis && (analysis.signals || analysis.bookingSignals));
 
+    const compName = row && row.dataset ? String(row.dataset.competitorName || '').trim() : '';
+    const compGap = row && row.dataset ? String(row.dataset.competitorGap || '').trim() : '';
+    const customBench = row && row.dataset ? String(row.dataset.competitorMetaBenchmark || '').trim() : '';
+    let competitorBlurb;
+    if (compName && compGap) {
+      competitorBlurb = `Competitive angle: ${compGap} (vs ${compName}).`;
+    } else if (customBench) {
+      competitorBlurb = `Competitive angle: ${customBench}`;
+    } else if (!metaPresent) {
+      competitorBlurb =
+        'Competitive angle: In many local packs, the listings that earn the click already show a hand-written meta description — without one, you are often losing the same-ranking click to whoever controls that line.';
+    } else {
+      competitorBlurb =
+        'Competitive angle: Stronger nearby listings often read sharper in search and on-page — small gaps in trust signals compound into lost calls.';
+    }
+
+    const fixes = buildTopAuditFixes(analysis, copyrightRaw);
+    const fixLines = fixes.map((t, i) => `${i + 1}. ${t}`);
+
+    const titleLine =
+      title && title.length > 1
+        ? `Page title: ✅ "${title.replace(/"/g, "'")}"`
+        : 'Page title: ❌ Missing or weak';
+
     const lines = [
-      `AI Website Audit Report - ${company}`,
+      `AI Website Audit — ${company}`,
+      domain || '(no domain)',
       '',
-      `Score: ${score}/10`,
-      `Primary signal: ${summarySignal}`,
+      `Overall Score: ${health100}/100 — ${tier}`,
+      scoreMetaLine,
+      ...(progressLine ? [progressLine] : []),
       '',
-      `Website: ${website}`,
-      `Pages crawled: ${pages || 1}`,
-      `HTTPS enabled: ${hasHttps}`,
-      `404 detected: ${is404}`,
-      `Load speed: ${slow > 0 ? `${slow.toFixed(2)}s` : 'N/A'}`,
-      `Mobile responsive: ${mobileReady}`,
-      `Page title: ${title}`,
-      `Meta description: ${metaDescription}`,
-      `Copyright year: ${copyrightYear}`,
-      `Emails found: ${emails.length ? emails.join(', ') : 'None'}`,
-      `Phones found: ${phones.length ? phones.join(', ') : 'None'}`,
-      `Booking/CTA signals: ${ctaSignals.length ? ctaSignals.join(', ') : 'None found'}`,
+      ...gapLines,
+      rubricTease,
       '',
-      'Recommended next step:',
-      `- Share this finding with ${company} and propose a quick fix plan.`,
+      estimatedLift,
+      '',
+      headline,
+      '',
+      'Quick scan results',
+      '',
+      `HTTPS: ${hasHttps ? '✅ Secure' : '❌ Not secure'}`,
+      `Mobile responsive: ${mobileOk ? '✅ Yes' : '❌ No'}`,
+      `Broken links (404s): ${is404 ? '❌ Detected on homepage' : '✅ None detected on homepage'}`,
+      titleLine,
+      `Meta description: ${metaPresent ? '✅ Present' : '❌ Missing'}`,
+      copyrightLine,
+      `Booking / Call-to-Action: ${ctaSignals.length ? `✅ Detected: ${ctaSignals.join(', ')}` : '❌ No clear CTA detected above the fold'}`,
+      '',
+      `Contact info found: ${primaryContact}`,
+      '',
+      competitorBlurb,
+      '',
+      'Top 3 fixes (in priority order)',
+      '',
+      ...fixLines,
+      '',
+      'Want the full 12-point report?',
+      "Reply or call back and I'll send a deeper audit with the full category breakdown (page speed, local SEO, Google Business Profile alignment, and competitor benchmark) — no charge, no obligation.",
     ];
 
-    const subject = `AI website audit report - ${company}`;
+    const subject = `AI Website Audit — ${company}`;
     const body = lines.join('\n');
     const toEmail = toDisplayValue(row && row.dataset ? row.dataset.email : '', '');
     return { subject, body, toEmail };
@@ -1039,16 +1327,17 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.innerHTML = '<span class="text-[9px] font-black">...</span>';
     try {
       const result = await runAiAnalysisForRow(row);
-      const score = Number(result && result.analysis && result.analysis.analysisScore ? result.analysis.analysisScore : 0);
+      const analysisObj = (result && result.analysis) || {};
+      const healthToast = resolveSiteHealth100(analysisObj);
       const ownerSignal = String(result && (result.ownerSignal || (result.lead && result.lead.ownerSignal)) || '').trim();
-      const report = buildClientReportEmail(row, (result && result.analysis) || {}, ownerSignal);
+      const report = buildClientReportEmail(row, analysisObj, ownerSignal);
       const opened = openMailReport(report);
       if (opened) {
         if (typeof window.showAppToast === 'function') {
-          window.showAppToast(`Report ready (score ${score}). Email draft opened.`, { variant: 'success' });
+          window.showAppToast(`Report ready (overall ${healthToast}/100). Email draft opened.`, { variant: 'success' });
         }
       } else if (typeof window.showAppToast === 'function') {
-        window.showAppToast(`AI analysis complete (score ${score})`, { variant: 'success' });
+        window.showAppToast(`AI analysis complete (overall ${healthToast}/100)`, { variant: 'success' });
       }
     } catch (err) {
       const msg = err && err.message ? err.message : 'AI analysis failed';
@@ -1440,6 +1729,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.cmsPlatform != null) ds.cmsPlatform = L.cmsPlatform;
     if (L.competitorName != null) ds.competitorName = L.competitorName;
     if (L.competitorGap != null) ds.competitorGap = L.competitorGap;
+    if (L.competitorMetaBenchmark != null) ds.competitorMetaBenchmark = L.competitorMetaBenchmark;
     if (L.updates) ds.updates = JSON.stringify(L.updates);
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
   }
@@ -2054,9 +2344,9 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduleKieServiceInsight(row);
     }
     if (aiScorePill) {
-      const aiScore = Number(row.dataset.aiScore || 0);
-      if (aiScore > 0) {
-        aiScorePill.textContent = `AI ${aiScore}`;
+      const aiGap = getAiAuditGap10FromDataset(row.dataset);
+      if (aiGap != null && aiGap > 0) {
+        aiScorePill.textContent = `AI ${aiGap}`;
         aiScorePill.classList.remove('hidden');
       } else {
         aiScorePill.classList.add('hidden');
@@ -2082,8 +2372,16 @@ document.addEventListener('DOMContentLoaded', () => {
         aiAnalysisBtn.innerHTML = 'Analyzing…';
         try {
           const result = await runAiAnalysisForRow(row);
-          const score = Number(result && result.analysis && result.analysis.analysisScore ? result.analysis.analysisScore : 0);
-          if (typeof window.showAppToast === 'function') window.showAppToast(`AI analysis complete (score ${score})`, { variant: 'success' });
+          const ra = (result && result.analysis) || {};
+          const healthToast = resolveSiteHealth100(ra);
+          const priorT = ra.priorAuditSnapshot;
+          let toastMsg = `AI analysis complete (overall ${healthToast}/100, ${ra.rubricVersion || 'rubric_v1.2'})`;
+          if (priorT && priorT.auditedAt && Number.isFinite(Number(priorT.siteHealth100))) {
+            toastMsg += ` — up from ${Math.round(Number(priorT.siteHealth100))}/100 on last crawl`;
+          }
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(toastMsg, { variant: 'success' });
+          }
         } catch (err) {
           const msg = err && err.message ? err.message : 'AI analysis failed';
           if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
@@ -2095,14 +2393,34 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
     const sidebarReportBtn = document.getElementById('sidebarReportEmailBtn');
+    const sidebarHostedBtn = document.getElementById('sidebarHostedAuditBtn');
+    const sidebarCopyAuditLinkBtn = document.getElementById('sidebarCopyAuditLinkBtn');
+    const sidebarCopySmsAuditBtn = document.getElementById('sidebarCopySmsAuditBtn');
+    const hasSavedAnalysis = !!getAiAnalysisFromRow(row);
     if (sidebarReportBtn) {
-      const hasSavedAnalysis = !!getAiAnalysisFromRow(row);
       sidebarReportBtn.disabled = !hasSavedAnalysis;
       sidebarReportBtn.classList.toggle('opacity-50', !hasSavedAnalysis);
       sidebarReportBtn.classList.toggle('cursor-not-allowed', !hasSavedAnalysis);
       sidebarReportBtn.title = hasSavedAnalysis
         ? 'Open client report email from saved AI analysis'
         : 'Run AI analysis first to generate report email';
+    }
+    [sidebarHostedBtn, sidebarCopyAuditLinkBtn, sidebarCopySmsAuditBtn].forEach((el) => {
+      if (!el) return;
+      el.disabled = !hasSavedAnalysis;
+      el.classList.toggle('opacity-50', !hasSavedAnalysis);
+      el.classList.toggle('cursor-not-allowed', !hasSavedAnalysis);
+    });
+    if (sidebarHostedBtn) {
+      sidebarHostedBtn.title = hasSavedAnalysis
+        ? 'Open the shareable hosted audit (send by text on cold calls)'
+        : 'Run AI analysis first';
+    }
+    if (sidebarCopyAuditLinkBtn) {
+      sidebarCopyAuditLinkBtn.title = hasSavedAnalysis ? 'Copy the hosted site audit URL' : 'Run AI analysis first';
+    }
+    if (sidebarCopySmsAuditBtn) {
+      sidebarCopySmsAuditBtn.title = hasSavedAnalysis ? 'Copy a short SMS that includes the report link' : 'Run AI analysis first';
     }
 
     scheduleReviewIntelligence(row, { refresh: false });
@@ -3170,6 +3488,163 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const sidebarHostedAuditBtn = document.getElementById('sidebarHostedAuditBtn');
+  const sidebarCopyAuditLinkBtn = document.getElementById('sidebarCopyAuditLinkBtn');
+  const sidebarCopySmsAuditBtn = document.getElementById('sidebarCopySmsAuditBtn');
+
+  async function copyTextToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      document.execCommand('copy');
+    } finally {
+      document.body.removeChild(ta);
+    }
+  }
+
+  if (sidebarHostedAuditBtn) {
+    sidebarHostedAuditBtn.addEventListener('click', async () => {
+      if (!currentRow || !getAiAnalysisFromRow(currentRow)) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Run AI analysis first to create a hosted report.', { variant: 'error' });
+        }
+        return;
+      }
+      const original = sidebarHostedAuditBtn.textContent;
+      try {
+        sidebarHostedAuditBtn.disabled = true;
+        sidebarHostedAuditBtn.textContent = 'Preparing…';
+        const bundle = await fetchAuditReportLinkBundle(currentRow);
+        window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Hosted audit opened — text them the link while you are talking.', { variant: 'success' });
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Could not open hosted audit';
+        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+        else window.alert(msg);
+      } finally {
+        sidebarHostedAuditBtn.textContent = original;
+        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      }
+    });
+  }
+
+  if (sidebarCopyAuditLinkBtn) {
+    sidebarCopyAuditLinkBtn.addEventListener('click', async () => {
+      if (!currentRow || !getAiAnalysisFromRow(currentRow)) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Run AI analysis first.', { variant: 'error' });
+        }
+        return;
+      }
+      try {
+        sidebarCopyAuditLinkBtn.disabled = true;
+        const bundle = await fetchAuditReportLinkBundle(currentRow);
+        await copyTextToClipboard(bundle.reportUrl);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Report link copied.', { variant: 'success' });
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Copy failed';
+        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      } finally {
+        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      }
+    });
+  }
+
+  const sidebarCadenceSnooze90Btn = document.getElementById('sidebarCadenceSnooze90Btn');
+  const sidebarCadencePauseBtn = document.getElementById('sidebarCadencePauseBtn');
+  if (sidebarCadenceSnooze90Btn) {
+    sidebarCadenceSnooze90Btn.addEventListener('click', async () => {
+      if (!currentRow || !currentRow.dataset.leadKey) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Select a lead first.', { variant: 'error' });
+        }
+        return;
+      }
+      if (!window.confirm('Pause cadence and snooze this lead for 90 days? (Re-run audit before the next wave.)')) return;
+      const key = currentRow.dataset.leadKey;
+      try {
+        sidebarCadenceSnooze90Btn.disabled = true;
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/cadence/snooze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ days: 90 }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Snooze failed');
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Cadence snoozed 90 days.', { variant: 'success' });
+        }
+        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Snooze failed';
+        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      } finally {
+        sidebarCadenceSnooze90Btn.disabled = false;
+      }
+    });
+  }
+  if (sidebarCadencePauseBtn) {
+    sidebarCadencePauseBtn.addEventListener('click', async () => {
+      if (!currentRow || !currentRow.dataset.leadKey) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Select a lead first.', { variant: 'error' });
+        }
+        return;
+      }
+      const key = currentRow.dataset.leadKey;
+      try {
+        sidebarCadencePauseBtn.disabled = true;
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/sequence/pause`, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Pause failed');
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Cadence paused.', { variant: 'success' });
+        }
+        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Pause failed';
+        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      } finally {
+        sidebarCadencePauseBtn.disabled = false;
+      }
+    });
+  }
+
+  if (sidebarCopySmsAuditBtn) {
+    sidebarCopySmsAuditBtn.addEventListener('click', async () => {
+      if (!currentRow || !getAiAnalysisFromRow(currentRow)) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Run AI analysis first.', { variant: 'error' });
+        }
+        return;
+      }
+      try {
+        sidebarCopySmsAuditBtn.disabled = true;
+        const bundle = await fetchAuditReportLinkBundle(currentRow);
+        const snippet = String(bundle.smsSnippet || bundle.reportUrl || '').trim();
+        await copyTextToClipboard(snippet);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('SMS snippet copied.', { variant: 'success' });
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'Copy failed';
+        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      } finally {
+        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      }
+    });
+  }
+
   const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');
   if (reviewIntelRefreshBtn) {
     reviewIntelRefreshBtn.addEventListener('click', () => {
@@ -4046,7 +4521,7 @@ document.addEventListener('DOMContentLoaded', () => {
         social: cells[6],
       };
     }
-    if (cells.length < 13) return null;
+    if (cells.length < 14) return null;
     return {
       kind: 'results',
       phone: cells[2],
@@ -4075,6 +4550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const gg = d.geo_gaps ?? d.geoGaps;
     const cn = d.competitor_name ?? d.competitorName;
     const cg = d.competitor_gap ?? d.competitorGap;
+    const cmb = d.competitor_meta_benchmark ?? d.competitorMetaBenchmark;
     const au = d.audit_summary ?? d.auditSummary;
     if (sch !== undefined) row.dataset.hasSchemaMarkup = sch;
     if (chat !== undefined) row.dataset.hasChatbot = chat;
@@ -4086,6 +4562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (gg !== undefined) row.dataset.geoGaps = gg;
     if (cn !== undefined) row.dataset.competitorName = cn;
     if (cg !== undefined) row.dataset.competitorGap = cg;
+    if (cmb !== undefined) row.dataset.competitorMetaBenchmark = cmb;
     if (au !== undefined) row.dataset.auditSummary = au;
     const cmsPl = d.cms_platform ?? d.cmsPlatform;
     if (cmsPl !== undefined && cmsPl !== null) row.dataset.cmsPlatform = cmsPl;

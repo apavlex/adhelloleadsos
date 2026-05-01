@@ -33,6 +33,7 @@
       <% if (typeof outreachCoach !== 'undefined' && outreachCoach) { %>
       <%- include('partials/prospecting_coach_card', { coachCardClass: 'mb-6 md:mb-8 ring-2 ring-brand-yellow/20 shadow-lg shadow-brand-yellow/10' }) %>
       <% } %>
+      <%- include('partials/cadence_today_block') %>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
           <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Calls made</p>
@@ -98,6 +99,28 @@
             <% } %>
           </li>
         <% }) %>
+      </ul>
+    </section>
+    <% } %>
+
+    <% const _reportsOpened = typeof reportsOpened24h !== 'undefined' && reportsOpened24h ? reportsOpened24h : []; %>
+    <% if (_reportsOpened.length) { %>
+    <section class="mb-8 md:mb-10 rounded-[2rem] border border-indigo-500/30 bg-indigo-500/[0.06] dark:bg-indigo-950/40 dark:border-indigo-500/25 px-6 py-6 md:px-8 md:py-7 shadow-sm" aria-label="Reports opened today">
+      <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-4">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-200 mb-2">Hosted audit</p>
+          <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white">Reports opened today</h2>
+          <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Leads who opened your site audit link in the last 24 hours — most recent first. Row opens Focus Mode.</p>
+        </div>
+        <a href="/reports?tab=site-audit" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white whitespace-nowrap shrink-0 self-start">Site audit report</a>
+      </div>
+      <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+        <% _reportsOpened.forEach(function (row) { %>
+        <li class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+          <a href="/focus?lead=<%= encodeURIComponent(row.focusLeadParam) %>" class="text-sm font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate min-w-0"><%= row.leadTitle %></a>
+          <span class="text-[11px] text-brand-muted whitespace-nowrap sm:ml-auto tabular-nums"><%= row.lastViewedAt ? new Date(row.lastViewedAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '' %><% if (row.durationSeconds) { %> · <%= row.durationSeconds %>s<% } %></span>
+        </li>
+        <% }); %>
       </ul>
     </section>
     <% } %>

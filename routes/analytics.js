@@ -13,6 +13,60 @@ const {
 } = require('../services/trackerAutoFill');
 const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
 const { buildConversionSnapshot } = require('../services/conversionMetrics');
+const { computeCategoryBreakdown } = require('../services/auditReportModel');
+
+function buildSiteAuditReportLocals(req, leads) {
+  const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  return buildSiteAuditReportLocalsFromViews(req, leads, since24);
+}
+
+function buildSiteAuditReportLocalsFromViews(req, leads, sinceIso) {
+  const leadByKey = Object.fromEntries((leads || []).map((l) => [l.key, l]));
+  return dbService.listReportViewsForWorkspaceSince(req.workspaceId, sinceIso, 600).then((raw) => {
+    const rows = (raw || []).map((rv) => {
+      const lead = leadByKey[rv.lead_id] || null;
+      const title = lead
+        ? String(lead.title || lead.company || rv.lead_id).slice(0, 120)
+        : String(rv.lead_id || '').replace(/^lead:/i, '') || 'Lead';
+      let categories = null;
+      if (lead && lead.aiWebsiteAnalysis && typeof lead.aiWebsiteAnalysis === 'object') {
+        try {
+          categories = computeCategoryBreakdown(lead.aiWebsiteAnalysis, lead);
+        } catch (_) {
+          categories = null;
+        }
+      }
+      return {
+        id: rv.id,
+        lead_id: rv.lead_id,
+        leadTitle: title,
+        viewed_at: rv.viewed_at,
+        ip_hash: rv.ip_hash,
+        user_agent: rv.user_agent,
+        duration_seconds: Number(rv.duration_seconds) || 0,
+        categories,
+      };
+    });
+    const uniqLeads = new Set(rows.map((r) => r.lead_id)).size;
+    const durSum = rows.reduce((a, r) => a + (Number(r.duration_seconds) || 0), 0);
+    const avgDuration =
+      rows.length > 0 ? Math.round((durSum / rows.length) * 10) / 10 : 0;
+    const rubricLegend = [
+      { name: 'Findability', max: 25 },
+      { name: 'Conversion', max: 25 },
+      { name: 'Trust', max: 20 },
+      { name: 'Performance', max: 20 },
+      { name: 'Technical', max: 10 },
+    ];
+    return {
+      reportAuditViews: rows.slice(0, 150),
+      reportAuditViews24h: rows.length,
+      reportAuditUniqueLeads24h: uniqLeads,
+      reportAuditAvgDuration24h: avgDuration,
+      reportAuditRubricLegend: rubricLegend,
+    };
+  });
+}
 
 async function loadSalesTrackerLocals(req) {
   const email = userEmail(req);
@@ -99,7 +153,9 @@ function buildDemoAnalytics(visits, leads) {
 router.get('/', async (req, res) => {
   try {
     const tabQ = String(req.query.tab || 'tracker').toLowerCase();
-    const reportsTab = tabQ === 'analytics' ? 'analytics' : 'tracker';
+    let reportsTab = 'tracker';
+    if (tabQ === 'analytics') reportsTab = 'analytics';
+    else if (tabQ === 'site-audit' || tabQ === 'audit') reportsTab = 'site-audit';
     const analyticsMetric = String(req.query.metric || '').trim();
     const analyticsRange = String(req.query.range || '').trim();
 
@@ -129,6 +185,22 @@ router.get('/', async (req, res) => {
     if (demoMode) {
       const d = buildDemoAnalytics(visits, leads);
       const trackerLocals = await loadSalesTrackerLocals(req);
+      const siteAuditLocals =
+        reportsTab === 'site-audit'
+          ? await buildSiteAuditReportLocals(req, leads)
+          : {
+              reportAuditViews: [],
+              reportAuditViews24h: 0,
+              reportAuditUniqueLeads24h: 0,
+              reportAuditAvgDuration24h: 0,
+              reportAuditRubricLegend: [
+                { name: 'Findability', max: 25 },
+                { name: 'Conversion', max: 25 },
+                { name: 'Trust', max: 20 },
+                { name: 'Performance', max: 20 },
+                { name: 'Technical', max: 10 },
+              ],
+            };
       await activationService.recordEvent(userEmail(req), 'analytics_visit');
       return res.render('analytics', {
         user: req.user,
@@ -139,6 +211,7 @@ router.get('/', async (req, res) => {
         workspaceCompare,
         ...d,
         ...trackerLocals,
+        ...siteAuditLocals,
       });
     }
 
@@ -186,6 +259,23 @@ router.get('/', async (req, res) => {
 
     const trackerLocals = await loadSalesTrackerLocals(req);
 
+    const siteAuditLocals =
+      reportsTab === 'site-audit'
+        ? await buildSiteAuditReportLocals(req, leads)
+        : {
+            reportAuditViews: [],
+            reportAuditViews24h: 0,
+            reportAuditUniqueLeads24h: 0,
+            reportAuditAvgDuration24h: 0,
+            reportAuditRubricLegend: [
+              { name: 'Findability', max: 25 },
+              { name: 'Conversion', max: 25 },
+              { name: 'Trust', max: 20 },
+              { name: 'Performance', max: 20 },
+              { name: 'Technical', max: 10 },
+            ],
+          };
+
     res.render('analytics', {
       user: req.user,
       reportsTab,
@@ -201,6 +291,7 @@ router.get('/', async (req, res) => {
       leadCount: leads.length,
       isDemo: false,
       ...trackerLocals,
+      ...siteAuditLocals,
     });
   } catch (err) {
     res.status(500).send(err.message);

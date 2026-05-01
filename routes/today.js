@@ -15,6 +15,7 @@ const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapsho
 const { buildConversionSnapshot } = require('../services/conversionMetrics');
 const { buildWeekReview } = require('../services/weekReview');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
+const { buildCadenceQueue } = require('../services/cadenceQueue');
 
 function firstNameFromUser(user) {
   const raw =
@@ -131,6 +132,34 @@ router.get('/', async (req, res, next) => {
       enrichTasksWithLeadsForToday(rawTasks, workspaceLeads),
     );
 
+    const baseUrl = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
+    const cadenceQueue = buildCadenceQueue(workspaceLeads, baseUrl);
+
+    const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const reportViewsRaw = await dbService.listReportViewsForWorkspaceSince(req.workspaceId, since24, 600);
+    const byLead = new Map();
+    for (const v of reportViewsRaw) {
+      const prev = byLead.get(v.lead_id);
+      if (!prev || Date.parse(v.viewed_at || '') > Date.parse(prev.viewed_at || '')) {
+        byLead.set(v.lead_id, v);
+      }
+    }
+    const dedupedViews = [...byLead.values()].sort(
+      (a, b) => Date.parse(b.viewed_at || 0) - Date.parse(a.viewed_at || 0),
+    );
+    const leadMapForViews = Object.fromEntries(workspaceLeads.map((l) => [l.key, l]));
+    const reportsOpened24h = dedupedViews.slice(0, 25).map((v) => {
+      const L = leadMapForViews[v.lead_id];
+      const short = String(v.lead_id || '').replace(/^lead:/i, '');
+      return {
+        leadKey: v.lead_id,
+        focusLeadParam: short,
+        leadTitle: L ? String(L.title || L.company || L.email || 'Lead').slice(0, 120) : short || 'Lead',
+        lastViewedAt: v.viewed_at,
+        durationSeconds: Number(v.duration_seconds) || 0,
+      };
+    });
+
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -162,6 +191,8 @@ router.get('/', async (req, res, next) => {
       searchInProgressNotice,
       scheduleSavedNotice,
       followUpTasksToday,
+      cadenceQueue,
+      reportsOpened24h,
     });
   } catch (e) {
     next(e);

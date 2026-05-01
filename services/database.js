@@ -1,4 +1,5 @@
 const Database = require('@replit/database');
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const { clampPipelineStage, PIPELINE_SCHEMA_VERSION } = require('./pipelineConstants');
@@ -1323,5 +1324,99 @@ module.exports = {
     return keyList
       .map((k) => String(k).replace(/^workspace:/, ''))
       .filter(Boolean);
+  },
+
+  /** Hosted site-audit open tracking (KV rows: reportview:{workspaceId}:{id}). */
+  _reportViewStorageKey(workspaceId, viewId) {
+    const wid = String(workspaceId || 'default').trim();
+    return `reportview:${wid}:${String(viewId || '').trim()}`;
+  },
+
+  async createReportView({ workspaceId, leadId, ipHash, userAgent }) {
+    const wid = String(workspaceId || 'default').trim();
+    const id = `rv_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+    const viewedAt = new Date().toISOString();
+    const row = {
+      id,
+      lead_id: String(leadId || '').trim(),
+      viewed_at: viewedAt,
+      ip_hash: String(ipHash || '').slice(0, 64),
+      user_agent: String(userAgent || '').slice(0, 512),
+      duration_seconds: 0,
+      workspace_id: wid,
+    };
+    await db.set(this._reportViewStorageKey(wid, id), JSON.stringify(row));
+    return row;
+  },
+
+  async getReportView(workspaceId, viewId) {
+    const wid = String(workspaceId || 'default').trim();
+    const vid = String(viewId || '').trim();
+    if (!vid) return null;
+    const data = await db.get(this._reportViewStorageKey(wid, vid));
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async updateReportViewDuration(workspaceId, viewId, durationSeconds, expectedLeadId) {
+    const row = await this.getReportView(workspaceId, viewId);
+    if (!row) return false;
+    const wid = String(workspaceId || 'default').trim();
+    if (String(row.workspace_id || '') !== wid) return false;
+    if (expectedLeadId && String(row.lead_id) !== String(expectedLeadId)) return false;
+    const next = Math.max(
+      Number(row.duration_seconds) || 0,
+      Math.min(86400, Math.max(0, Math.round(Number(durationSeconds) || 0))),
+    );
+    row.duration_seconds = next;
+    await db.set(this._reportViewStorageKey(wid, viewId), JSON.stringify(row));
+    return true;
+  },
+
+  /**
+   * Report views for a workspace with viewed_at >= sinceIso (ISO string).
+   * Scans up to `cap` newest keys by embedded rv_<ms>_ id (best-effort under KV list limits).
+   */
+  async listReportViewsForWorkspaceSince(workspaceId, sinceIso, cap = 500) {
+    const wid = String(workspaceId || 'default').trim();
+    const prefix = `reportview:${wid}:`;
+    const keys = await db.list(prefix);
+    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const sinceMs = Date.parse(sinceIso);
+    const sinceOk = Number.isFinite(sinceMs) ? sinceMs : 0;
+    const scanLimit = Math.min(Math.max(40, cap), 2000);
+    const sortedKeys = keyList
+      .map((k) => String(k))
+      .sort((a, b) => {
+        const ida = a.split(':').pop() || '';
+        const idb = b.split(':').pop() || '';
+        const ta = parseInt((ida.match(/^rv_(\d+)_/) || [, '0'])[1], 10) || 0;
+        const tb = parseInt((idb.match(/^rv_(\d+)_/) || [, '0'])[1], 10) || 0;
+        return tb - ta;
+      })
+      .slice(0, scanLimit);
+
+    const rows = [];
+    for (const key of sortedKeys) {
+      const data = await db.get(key);
+      if (!data) continue;
+      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      if (!raw) continue;
+      try {
+        const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const t = Date.parse(r.viewed_at || '');
+        if (Number.isFinite(t) && t >= sinceOk) rows.push(r);
+      } catch {
+        /* skip corrupt */
+      }
+    }
+    rows.sort((a, b) => Date.parse(b.viewed_at || 0) - Date.parse(a.viewed_at || 0));
+    return rows;
   },
 };

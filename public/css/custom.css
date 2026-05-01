@@ -455,6 +455,9 @@ table {
   left: 0;
   z-index: 35;
   box-shadow: 1px 0 0 rgba(17, 24, 39, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255, 252, 245, 0.82) !important;
 }
 
 .prospect-leads-table th.lead-sticky-company,
@@ -463,6 +466,9 @@ table {
   left: 3rem;
   z-index: 34;
   box-shadow: 1px 0 0 rgba(17, 24, 39, 0.06);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  background: rgba(255, 252, 245, 0.82) !important;
 }
 
 .dark .prospect-leads-table th.lead-sticky-check,
@@ -470,6 +476,27 @@ table {
 .dark .prospect-leads-table th.lead-sticky-company,
 .dark .prospect-leads-table td.lead-sticky-company {
   box-shadow: 1px 0 0 rgba(255, 255, 255, 0.07);
+  background: rgba(15, 23, 42, 0.78) !important;
+}
+
+.prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-check,
+.prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-company {
+  background: rgba(250, 247, 237, 0.88) !important;
+}
+
+.prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-check,
+.prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-company {
+  background: rgba(255, 252, 245, 0.82) !important;
+}
+
+.dark .prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-check,
+.dark .prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-company {
+  background: rgba(30, 41, 59, 0.82) !important;
+}
+
+.dark .prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-check,
+.dark .prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-company {
+  background: rgba(15, 23, 42, 0.78) !important;
 }
 
 .prospect-leads-table thead th.lead-sticky-check {

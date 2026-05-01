@@ -13,7 +13,7 @@ router.get('/', async (req, res, next) => {
       (l) => l.sequenceState && l.sequenceState.status === 'active'
     );
     res.render('sequences', {
-      title: 'Cadences | Sequences',
+      title: 'Cadences | Agency OS',
       activePage: 'sequences',
       templates,
       activeSequences: active,

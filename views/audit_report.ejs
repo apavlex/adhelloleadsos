@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Website Audit — <%= vm.businessName %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --band: #111827;
+      --paper: #ffffff;
+      --green: #22c55e;
+      --lime: #84cc16;
+      --yellow: #eab308;
+      --orange: #f97316;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background: #f8fafc;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    .toolbar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: center;
+      padding: 12px 16px;
+      background: rgba(15, 23, 42, 0.92);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .toolbar a, .toolbar button {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: none;
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .toolbar a.pdf { background: #fff; color: var(--band); }
+    .toolbar button.copy { background: #334155; color: #fff; }
+    .toolbar .hint { opacity: 0.85; max-width: 520px; text-align: center; }
+    <% if (printMode) { %>
+    .toolbar { display: none !important; }
+    body { background: #fff; }
+    <% } else { %>
+    .doc { padding-top: 56px; }
+    <% } %>
+    .doc { max-width: 720px; margin: 0 auto; padding-bottom: 48px; }
+    .sheet {
+      background: var(--paper);
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      min-height: 10in;
+    }
+    .top-band {
+      height: 80px;
+      background: var(--band);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 36px;
+    }
+    .top-band img { height: 36px; width: auto; display: block; }
+    .top-band .ttl {
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .hero { text-align: center; padding: 40px 36px 28px; }
+    .hero h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+    .hero .domain { margin-top: 8px; font-size: 12px; color: var(--muted); }
+    .hero .date { margin-top: 6px; font-size: 10px; color: var(--muted); }
+    .hero .rubric { margin-top: 4px; font-size: 9px; color: #94a3b8; }
+    .gauge-wrap { display: flex; flex-direction: column; align-items: center; padding: 8px 0 20px; }
+    .gauge {
+      width: 200px;
+      height: 200px;
+      position: relative;
+    }
+    .gauge svg { display: block; }
+    .gauge .num {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding-bottom: 12px;
+    }
+    .gauge .num .big { font-size: 64px; font-weight: 800; line-height: 1; letter-spacing: -0.04em; }
+    .gauge .num .sub { font-size: 18px; font-weight: 600; color: var(--muted); margin-top: 2px; }
+    .tier-pill {
+      display: inline-block;
+      padding: 6px 18px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      color: #fff;
+    }
+    .hook {
+      max-width: 520px;
+      margin: 18px auto 0;
+      font-size: 14px;
+      font-style: italic;
+      text-align: center;
+      color: var(--ink);
+      line-height: 1.5;
+    }
+    .prior {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 12px;
+      padding: 0 24px;
+    }
+    .cats { padding: 8px 36px 28px; }
+    .cat-row { margin-bottom: 14px; }
+    .cat-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .cat-head .frac { font-weight: 800; color: var(--muted); font-variant-numeric: tabular-nums; }
+    .bar-bg {
+      height: 10px;
+      border-radius: 6px;
+      background: #e2e8f0;
+      overflow: hidden;
+    }
+    .bar-fill { height: 100%; border-radius: 6px; transition: width .4s ease; }
+    .foot1 {
+      display: flex;
+      justify-content: space-between;
+      padding: 16px 36px 28px;
+      font-size: 9px;
+      color: var(--muted);
+    }
+    .page-break { page-break-before: always; break-before: page; }
+    .p2 { padding: 28px 36px 40px; }
+    .sec-title {
+      font-size: 16px;
+      font-weight: 800;
+      margin: 0 0 16px;
+      padding-left: 12px;
+      border-left: 4px solid #111827;
+    }
+    .card {
+      display: flex;
+      gap: 14px;
+      padding: 16px 16px 16px 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      margin-bottom: 12px;
+      background: #fafafa;
+    }
+    .card .badge {
+      flex-shrink: 0;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--band);
+      color: #fff;
+      font-weight: 800;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 800; }
+    .card p { margin: 0; font-size: 11px; color: #475569; line-height: 1.5; }
+    .card .pill {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+    .qt { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    .qt td { padding: 10px 0; font-size: 11px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+    .qt td:first-child { font-weight: 600; color: #334155; width: 42%; }
+    .qt td:last-child { text-align: right; font-weight: 600; }
+    .ask {
+      margin-top: 24px;
+      padding: 20px 22px;
+      background: var(--band);
+      color: #fff;
+      border-radius: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 120px;
+    }
+    .ask h4 { margin: 0 0 6px; font-size: 15px; font-weight: 800; }
+    .ask p { margin: 0; font-size: 11px; opacity: 0.9; max-width: 360px; line-height: 1.45; }
+    .ask .cta {
+      background: #fff;
+      color: var(--band);
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-weight: 800;
+      font-size: 11px;
+      text-decoration: none;
+      text-align: center;
+      min-width: 200px;
+    }
+    .ask .cta small { display: block; margin-top: 6px; font-size: 9px; font-weight: 600; opacity: 0.85; }
+    .meth { margin-top: 20px; text-align: center; font-size: 10px; }
+    .meth a { color: #2563eb; font-weight: 600; }
+    .disc {
+      margin-top: 18px;
+      font-size: 8px;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.5;
+      padding: 0 12px 24px;
+    }
+    .foot2 {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 36px 20px;
+      font-size: 9px;
+      color: var(--muted);
+    }
+    @media print {
+      body { background: #fff; }
+      .doc { padding-top: 0; max-width: none; margin: 0; }
+      .sheet { box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <% if (!printMode) { %>
+  <div class="toolbar">
+    <span class="hint">Tip on cold calls: text this link while you are on the phone — then follow up tomorrow with the PDF (not in the first email; attachments hurt deliverability).</span>
+    <a class="pdf" href="<%= pdfHref %>">Download PDF</a>
+    <button type="button" class="copy" id="copyLinkBtn">Copy report link</button>
+    <button type="button" class="copy" id="copyFollowupBtn">Copy follow-up email</button>
+  </div>
+  <% } %>
+  <div class="doc">
+    <div class="sheet">
+      <div class="top-band">
+        <% if (vm.baseUrl) { %>
+        <img src="<%= vm.baseUrl %>/images/logo-light.svg" alt="Adhello"/>
+        <% } else { %>
+        <span style="font-weight:800;font-size:18px;letter-spacing:-.02em">Adhello</span>
+        <% } %>
+        <span class="ttl">Website Audit Report</span>
+      </div>
+      <div class="hero">
+        <h1><%= vm.businessName %></h1>
+        <div class="domain"><%= vm.domain %></div>
+        <div class="date">Audited <%= vm.auditDateFormatted %></div>
+        <div class="rubric">Model <%= vm.rubricVersion %> · Homepage crawl</div>
+      </div>
+      <% if (vm.prior && vm.prior.auditedAt && typeof vm.prior.siteHealth100 === 'number') { %>
+      <p class="prior">Progress vs last crawl: <%= vm.prior.siteHealth100 %>/100 → <%= vm.score %>/100</p>
+      <% } %>
+      <div class="gauge-wrap">
+        <div class="gauge" aria-hidden="true">
+          <svg width="200" height="200" viewBox="0 0 200 200">
+            <circle cx="100" cy="100" r="<%= vm.gaugeR %>" fill="none" stroke="#e2e8f0" stroke-width="14" />
+            <circle cx="100" cy="100" r="<%= vm.gaugeR %>" fill="none" stroke="<%= vm.tierArcColor %>" stroke-width="14"
+              stroke-dasharray="<%= vm.gaugeDash %> <%= vm.gaugeCirc %>"
+              stroke-dashoffset="0"
+              transform="rotate(-126 100 100)"
+              stroke-linecap="round"/>
+          </svg>
+          <div class="num">
+            <span class="big"><%= vm.score %></span>
+            <span class="sub">/100</span>
+          </div>
+        </div>
+        <div style="margin-top:8px"><span class="tier-pill" style="background-color:<%= vm.tierPillColor %>"><%= vm.tierLabel %></span></div>
+        <p class="hook"><%= vm.hookItalic %></p>
+      </div>
+      <div class="cats">
+        <% vm.categories.forEach(function (c) { %>
+        <div class="cat-row">
+          <div class="cat-head">
+            <span><%= c.name %></span>
+            <span class="frac"><%= c.score %>/<%= c.max %></span>
+          </div>
+          <div class="bar-bg">
+            <div class="bar-fill" style="width:<%= c.pct %>%;background:<%= c.barColor %>"></div>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+      <div class="foot1">
+        <span>Prepared by Adhello · adhello.ai</span>
+        <span>Page 1 of 2</span>
+      </div>
+
+      <div class="page-break p2">
+        <h2 class="sec-title" style="border-left-color:<%= vm.tierArcColor %>">Top 3 Priorities</h2>
+        <% vm.priorities.forEach(function (p) { %>
+        <div class="card">
+          <div class="badge"><%= p.n %></div>
+          <div>
+            <h3><%= p.title %></h3>
+            <p><%= p.impact %></p>
+            <span class="pill">⏱ <%= p.timeLabel %></span>
+          </div>
+        </div>
+        <% }); %>
+
+        <h2 class="sec-title" style="margin-top:22px;border-left-color:<%= vm.tierArcColor %>">Quick Stats</h2>
+        <table class="qt">
+          <% vm.quickStats.forEach(function (row) { %>
+          <tr>
+            <td><%= row.label %></td>
+            <td><%= row.value %></td>
+          </tr>
+          <% }); %>
+        </table>
+
+        <div class="ask">
+          <div>
+            <h4>Want to see the full report?</h4>
+            <p>Includes competitor benchmark, page speed analysis, and a custom 30-day fix plan.</p>
+          </div>
+          <div>
+            <a class="cta" href="<%= vm.bookUrl %>" target="_blank" rel="noopener">Book a 15-min call →<small><%= vm.bookUrl.replace(/^https?:\/\//,'') %></small></a>
+            <% if (vm.salesPhone) { %>
+            <small style="display:block;margin-top:8px;text-align:center;opacity:.9;font-size:10px">Or call <%= vm.salesPhone %> — mention this report.</small>
+            <% } %>
+          </div>
+        </div>
+
+        <p class="meth"><a href="<%= vm.methodologyUrl %>" target="_blank" rel="noopener">How we calculated this</a></p>
+
+        <p class="disc">This report is generated automatically by Adhello's AI audit engine. Findings reflect the homepage as audited on <%= vm.auditDateFormatted %>. A manual review may surface additional opportunities.</p>
+
+        <div class="foot2">
+          <span>Prepared by Adhello · adhello.ai</span>
+          <span>Page 2 of 2</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <% if (!printMode) { %>
+  <script>
+    (function () {
+      var reportUrl = <%- JSON.stringify(typeof reportUrl !== 'undefined' ? reportUrl : '') %>;
+      var followSubject = <%- JSON.stringify((typeof followUpEmail !== 'undefined' && followUpEmail && followUpEmail.subject) ? followUpEmail.subject : '') %>;
+      var followBody = <%- JSON.stringify((typeof followUpEmail !== 'undefined' && followUpEmail && followUpEmail.body) ? followUpEmail.body : '') %>;
+
+      function copyText(t) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          return navigator.clipboard.writeText(t);
+        }
+        var ta = document.createElement('textarea');
+        ta.value = t;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); } finally { document.body.removeChild(ta); }
+        return Promise.resolve();
+      }
+
+      document.getElementById('copyLinkBtn').addEventListener('click', function () {
+        var u = reportUrl || window.location.href.split('#')[0];
+        copyText(u).then(function () { alert('Report link copied. Send it by text while you are on the call.'); });
+      });
+      document.getElementById('copyFollowupBtn').addEventListener('click', function () {
+        var block = 'Subject: ' + followSubject + '\n\n' + (followBody || '');
+        copyText(block).then(function () { alert('Follow-up email (subject + body) copied. Attach the PDF from Download PDF tomorrow.'); });
+      });
+    })();
+  </script>
+  <script>
+    (function () {
+      var token = <%- JSON.stringify(typeof token !== 'undefined' ? token : '') %>;
+      if (!token) return;
+
+      var viewId = null;
+      var activeStart = null;
+      var accumulatedMs = 0;
+
+      function millisWhileVisible() {
+        if (document.visibilityState !== 'visible') return accumulatedMs;
+        if (!activeStart) return accumulatedMs;
+        return accumulatedMs + (Date.now() - activeStart);
+      }
+
+      function durationSeconds() {
+        return Math.round(millisWhileVisible() / 1000);
+      }
+
+      function onVisibility() {
+        if (document.visibilityState === 'visible') {
+          activeStart = Date.now();
+        } else if (activeStart) {
+          accumulatedMs += Date.now() - activeStart;
+          activeStart = null;
+        }
+      }
+
+      var telemetryUrl = '/audit/report/' + encodeURIComponent(token) + '/telemetry';
+
+      function postTelemetry(body) {
+        return fetch(telemetryUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body || {}),
+          keepalive: true,
+        }).then(function (r) {
+          return r.json().catch(function () {
+            return {};
+          });
+        });
+      }
+
+      function ping() {
+        if (!viewId) return;
+        postTelemetry({ view_id: viewId, duration_seconds: durationSeconds() });
+      }
+
+      document.addEventListener('visibilitychange', onVisibility);
+      onVisibility();
+
+      postTelemetry({}).then(function (data) {
+        if (data && data.view_id) viewId = data.view_id;
+      });
+
+      setInterval(ping, 15000);
+
+      window.addEventListener('pagehide', function () {
+        if (!viewId) return;
+        var sec = durationSeconds();
+        try {
+          fetch(telemetryUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ view_id: viewId, duration_seconds: sec }),
+            keepalive: true,
+          });
+        } catch (e) {}
+      });
+    })();
+  </script>
+  <% } %>
+</body>
+</html>

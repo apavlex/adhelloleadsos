@@ -1,0 +1,67 @@
+<% const _cq = typeof cadenceQueue !== 'undefined' && cadenceQueue ? cadenceQueue : { calls: [], emails: [], texts: [], linkedin: [], other: [], overdueCount: 0, totalDue: 0 }; %>
+<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-gradient-to-br from-brand-yellow/12 via-white to-white dark:from-brand-yellow/10 dark:via-slate-900 dark:to-slate-900 p-6 md:p-8 shadow-lg shadow-brand-yellow/10" aria-label="Cadence command center">
+  <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Cadence command center</p>
+      <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight">Today’s touches from active cadences</h2>
+      <p class="text-sm text-brand-muted mt-2 max-w-2xl">Bucketed for speed: <strong class="text-brand-dark dark:text-white">Calls</strong>, <strong class="text-brand-dark dark:text-white">Emails</strong>, <strong class="text-brand-dark dark:text-white">Texts</strong>, <strong class="text-brand-dark dark:text-white">LinkedIn</strong>. Copy uses audit tokens when AI analysis exists (<code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{score}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{top_finding}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{report_link}}</code>, …). <strong>Default: 14 days · 8 touches</strong> for cold local services.</p>
+      <% if (_cq.overdueCount > 0) { %>
+      <p class="text-xs font-bold text-amber-800 dark:text-amber-200 mt-2"><%= _cq.overdueCount %> overdue — clear these first.</p>
+      <% } %>
+      <% if (!_cq.totalDue) { %>
+      <p class="text-xs font-semibold text-brand-dark dark:text-slate-300 mt-2">No cadence steps due before end of today. Start one from a lead row, <strong>leave voicemail</strong> (auto-attaches the audit cadence), or open <a href="/sequences" class="text-brand-yellow font-bold hover:underline">Cadences</a>.</p>
+      <% } %>
+    </div>
+    <a href="/sequences" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0 self-start">Cadences &amp; playbooks</a>
+  </div>
+  <div class="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+    <% const _cols = [
+      { key: 'calls', label: 'Calls today', icon: 'M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z' },
+      { key: 'emails', label: 'Emails today', icon: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+      { key: 'texts', label: 'Texts today', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
+      { key: 'linkedin', label: 'LinkedIn today', icon: 'M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2V9z' },
+    ]; %>
+    <% _cols.forEach(function (col) { %>
+    <% const items = _cq[col.key] || []; %>
+    <div class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-4 min-h-[200px] flex flex-col">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="w-8 h-8 rounded-xl bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow flex items-center justify-center shrink-0">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="<%= col.icon %>"/></svg>
+        </span>
+        <h3 class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white"><%= col.label %></h3>
+        <span class="ml-auto text-[10px] font-bold text-brand-muted tabular-nums"><%= items.length %></span>
+      </div>
+      <% if (!items.length) { %>
+      <p class="text-xs text-brand-muted italic mt-auto">Clear for this channel.</p>
+      <% } else { %>
+      <ul class="space-y-2 flex-1 overflow-y-auto max-h-64 custom-scrollbar">
+        <% items.forEach(function (it) { %>
+        <li class="rounded-xl border border-brand-border/40 dark:border-white/10 p-2.5 bg-brand-cream/20 dark:bg-white/5">
+          <a href="/pipeline?focusLead=<%= encodeURIComponent(it.leadKey) %>" class="text-xs font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate block"><%= it.title %></a>
+          <% if (it.phone) { %><p class="text-[10px] font-mono text-brand-muted mt-0.5"><%= it.phone %></p><% } %>
+          <p class="text-[10px] font-bold text-brand-dark dark:text-slate-200 mt-1 leading-snug"><%= it.stepTitle %></p>
+          <p class="text-[9px] text-brand-muted mt-1 leading-relaxed line-clamp-4"><%= it.stepHint %></p>
+          <p class="text-[9px] mt-1 <%= it.overdue ? 'text-amber-700 dark:text-amber-300 font-bold' : 'text-brand-muted' %>">
+            <%= it.overdue ? 'Overdue · ' : '' %>Due <%= it.nextDueAt ? new Date(it.nextDueAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '' %>
+          </p>
+        </li>
+        <% }); %>
+      </ul>
+      <% } %>
+    </div>
+    <% }); %>
+  </div>
+  <% if ((_cq.other || []).length) { %>
+  <div class="mt-4 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 p-4">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Other tasks today</p>
+    <ul class="space-y-2">
+      <% (_cq.other || []).forEach(function (it) { %>
+      <li class="text-xs text-brand-dark dark:text-slate-200">
+        <a href="/pipeline?focusLead=<%= encodeURIComponent(it.leadKey) %>" class="font-bold hover:text-brand-yellow"><%= it.title %></a>
+        — <%= it.stepTitle %>
+      </li>
+      <% }); %>
+    </ul>
+  </div>
+  <% } %>
+</section>
