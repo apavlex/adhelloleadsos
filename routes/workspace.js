@@ -130,7 +130,6 @@ const WORKSPACE_SECTION_SLUGS = new Set([
   'integrations',
   'phones',
   'voicemail',
-  'scrape',
   'routing',
   'revenue',
   'advanced',
@@ -151,7 +150,8 @@ const WORKSPACE_SECTION_META = {
   },
   integrations: {
     title: 'Integrations',
-    description: 'API keys and provider preferences for this workspace.',
+    description:
+      'API keys and provider preferences for this workspace, plus a cost-aware guide to how Find Leads and Enhance use each provider.',
   },
   phones: {
     title: 'Phone number bank',
@@ -160,10 +160,6 @@ const WORKSPACE_SECTION_META = {
   voicemail: {
     title: 'Voicemail',
     description: 'Recordings, voicemail script, active message, and scheduled drops.',
-  },
-  scrape: {
-    title: 'Scrape stack',
-    description: 'Cost-aware guidance for Maps search and enrichment providers.',
   },
   routing: {
     title: 'Round-robin pool',
@@ -251,6 +247,10 @@ router.get('/settings', (req, res) => res.redirect(302, '/workspace/team'));
 router.get('/voicernail', (req, res) => res.redirect(302, '/workspace/voicemail'));
 router.get('/voicenail', (req, res) => res.redirect(302, '/workspace/voicemail'));
 router.get('/scripts', (req, res) => res.redirect(302, '/scripts'));
+/** Legacy slug: scrape stack now lives on the Integrations page. */
+router.get('/scrape', (req, res) => {
+  res.redirect(302, '/workspace/integrations#workspace-scrape-cost');
+});
 
 router.get('/', async (req, res, next) => {
   try {
@@ -920,7 +920,7 @@ router.get('/:section', async (req, res, next) => {
     }
     const locals = await loadWorkspacePageLocals(req);
     const ws = locals.workspace;
-    const managerSections = new Set(['integrations', 'phones', 'voicemail', 'revenue']);
+    const managerSections = new Set(['phones', 'voicemail', 'revenue']);
     if (managerSections.has(section) && !req.canManageWorkspace) {
       return res.redirect(302, '/workspace/team');
     }
@@ -928,9 +928,6 @@ router.get('/:section', async (req, res, next) => {
       (section === 'pipeline' || section === 'branding') &&
       (!req.canManageWorkspace || !ws || !ws.id)
     ) {
-      return res.redirect(302, '/workspace/team');
-    }
-    if (section === 'scrape' && !locals.scrapeAdvisor) {
       return res.redirect(302, '/workspace/team');
     }
     const meta = WORKSPACE_SECTION_META[section] || { title: 'Workspace', description: '' };

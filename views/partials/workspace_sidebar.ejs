@@ -2,7 +2,6 @@
 <% const _ws = typeof workspace !== 'undefined' ? workspace : null; %>
 <% const _can = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
 <% const _hasId = _ws && _ws.id; %>
-<% const _scrape = typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor; %>
 <aside class="w-full md:w-56 shrink-0 md:sticky md:top-[4.75rem] self-start space-y-4" aria-label="Workspace settings">
   <div>
     <label for="wsSettingsSearch" class="sr-only">Search settings</label>
@@ -14,13 +13,10 @@
     <a href="/workspace/branding" data-ws-nav="brand accent color theme" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'branding' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Brand accent</a>
     <% } %>
     <a href="/workspace/team" data-ws-nav="team members roles invite" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'team' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Team</a>
+    <a href="/workspace/integrations" data-ws-nav="integrations api keys apify outscraper firecrawl rapidapi scrape stack maps crawl4ai cost enrich" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'integrations' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Integrations</a>
     <% if (_can) { %>
-    <a href="/workspace/integrations" data-ws-nav="integrations api keys apify outscraper firecrawl" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'integrations' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Integrations</a>
     <a href="/workspace/phones" data-ws-nav="phone bank numbers cnam signalwire outbound" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'phones' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Phone bank</a>
     <a href="/workspace/voicemail" data-ws-nav="voicemail weekly drop recording" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'voicemail' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Voicemail</a>
-    <% } %>
-    <% if (_scrape) { %>
-    <a href="/workspace/scrape" data-ws-nav="scrape stack cost apify crawl" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'scrape' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Scrape stack</a>
     <% } %>
     <a href="/workspace/routing" data-ws-nav="round robin routing assign inbound sdr" class="ws-nav-item rounded-xl px-3 py-2.5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'routing' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Round-robin</a>
     <% if (_can) { %>

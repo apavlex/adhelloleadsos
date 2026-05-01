@@ -1,6 +1,8 @@
-<% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+<% const _sa = typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor; %>
+<% const _admin = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+<% if (_admin) { %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
-  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Integrations</h2>
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">API keys &amp; preferences</h2>
   <p class="text-sm text-brand-muted mb-4 leading-relaxed">
     Keys saved here apply to <strong>everyone</strong> in this workspace. Values you set override deployment environment variables for that integration only.
   </p>
@@ -143,4 +145,16 @@
   });
 })();
 </script>
+<% } else if (_sa) { %>
+<div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 mb-8">
+  <p class="text-sm text-brand-muted leading-relaxed max-w-2xl">
+    API keys and sensitive credentials can only be edited by <strong>workspace owners and admins</strong>. The <strong>scrape stack</strong> guide below is visible to everyone in this workspace.
+  </p>
+</div>
+<% } %>
+
+<% if (_sa) { %>
+<div class="mt-2 md:mt-4">
+  <%- include('../../partials/scrape_cost_advisor') %>
+</div>
 <% } %>

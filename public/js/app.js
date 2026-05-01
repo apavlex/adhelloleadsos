@@ -4437,76 +4437,102 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
       const enhanceBtnOriginalHtml = Array.from(enhanceBtns).map((b) => b.innerHTML);
-      updateProcessingStatus(true);
-      enhanceBtns.forEach((b) => {
-        b.disabled = true;
-        b.classList.add('loading', 'animate-magic');
-        b.innerHTML = enhanceLoadingHtml;
-      });
-
-      const spinner = '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
       let successCount = 0;
       let attemptedCount = 0;
       let lastError = '';
-
-      for (const row of leadsToProcess) {
-        const layout = getBulkEnhanceLayout(row);
-        if (!layout) continue;
-
-        const key = row.dataset.leadKey;
-        let url = row.dataset.website;
-        const title = row.dataset.title;
-        const city = row.dataset.city;
-        const state = row.dataset.state;
-
-        if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
-
-        attemptedCount += 1;
-        const cellOriginals = {};
-        if (layout.kind === 'leads') {
-          if (layout.addressEl) cellOriginals.address = layout.addressEl.innerHTML;
-          cellOriginals.phone = layout.phone.innerHTML;
-          cellOriginals.email = layout.email.innerHTML;
-          cellOriginals.website = layout.website.innerHTML;
-          cellOriginals.socials = layout.socials.innerHTML;
-          cellOriginals.reviews = layout.reviews.innerHTML;
-          if (layout.addressEl) layout.addressEl.innerHTML = spinner;
-          layout.phone.innerHTML = spinner;
-          layout.email.innerHTML = spinner;
-          layout.website.innerHTML = spinner;
-          layout.socials.innerHTML = spinner;
-        } else {
-          cellOriginals.email = layout.email.innerHTML;
-          cellOriginals.social = layout.social.innerHTML;
-          layout.social.innerHTML = `<div class="flex items-center gap-2 text-brand-muted">${spinner}</div>`;
-          if (!row.dataset.email || row.dataset.email === 'N/A') layout.email.innerHTML = spinner;
-        }
-
+      try {
         try {
-          let res;
-          if (key) {
-            res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
+          sessionStorage.setItem('agency_os_sync_enhance', '1');
+        } catch (_) {}
+        updateProcessingStatus(true);
+        const bellBadge = document.getElementById('bulkEnhanceBellBadge');
+        const pingDot = document.getElementById('notificationPing');
+        if (bellBadge) {
+          bellBadge.textContent = 'ENR';
+          bellBadge.classList.remove('hidden');
+          bellBadge.setAttribute('title', 'Enriching selected leads');
+        }
+        if (pingDot) {
+          pingDot.classList.remove('hidden');
+          pingDot.classList.add('animate-ping');
+        }
+        enhanceBtns.forEach((b) => {
+          b.disabled = true;
+          b.classList.add('loading', 'animate-magic');
+          b.innerHTML = enhanceLoadingHtml;
+        });
+
+        const spinner =
+          '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
+
+        for (const row of leadsToProcess) {
+          const layout = getBulkEnhanceLayout(row);
+          if (!layout) continue;
+
+          const key = row.dataset.leadKey;
+          let url = row.dataset.website;
+          const title = row.dataset.title;
+          const city = row.dataset.city;
+          const state = row.dataset.state;
+
+          if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
+
+          attemptedCount += 1;
+          const cellOriginals = {};
+          if (layout.kind === 'leads') {
+            if (layout.addressEl) cellOriginals.address = layout.addressEl.innerHTML;
+            cellOriginals.phone = layout.phone.innerHTML;
+            cellOriginals.email = layout.email.innerHTML;
+            cellOriginals.website = layout.website.innerHTML;
+            cellOriginals.socials = layout.socials.innerHTML;
+            cellOriginals.reviews = layout.reviews.innerHTML;
+            if (layout.addressEl) layout.addressEl.innerHTML = spinner;
+            layout.phone.innerHTML = spinner;
+            layout.email.innerHTML = spinner;
+            layout.website.innerHTML = spinner;
+            layout.socials.innerHTML = spinner;
           } else {
-            res = await fetch('/enrich', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url, title, city, state }),
-            });
+            cellOriginals.email = layout.email.innerHTML;
+            cellOriginals.social = layout.social.innerHTML;
+            layout.social.innerHTML = `<div class="flex items-center gap-2 text-brand-muted">${spinner}</div>`;
+            if (!row.dataset.email || row.dataset.email === 'N/A') layout.email.innerHTML = spinner;
           }
 
-          const result = await res.json().catch(() => ({}));
-          if (result.error) lastError = String(result.error);
-          const d = result.lead || result.data;
-          const ok = res.ok && result.success && d;
-          if (ok) successCount += 1;
-          applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, ok, result);
-        } catch (err) {
-          console.error('Enrichment error:', err);
-          applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, false, {});
+          try {
+            let res;
+            if (key) {
+              res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
+            } else {
+              res = await fetch('/enrich', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url, title, city, state }),
+              });
+            }
+
+            const result = await res.json().catch(() => ({}));
+            if (result.error) lastError = String(result.error);
+            const d = result.lead || result.data;
+            const ok = res.ok && result.success && d;
+            if (ok) successCount += 1;
+            applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, ok, result);
+          } catch (err) {
+            console.error('Enrichment error:', err);
+            applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, false, {});
+          }
+        }
+      } finally {
+        try {
+          sessionStorage.removeItem('agency_os_sync_enhance');
+        } catch (_) {}
+        updateProcessingStatus(false);
+        const pingAfterSync = document.getElementById('notificationPing');
+        if (pingAfterSync) {
+          pingAfterSync.classList.remove('animate-ping');
+          pingAfterSync.classList.add('hidden');
         }
       }
 
-      updateProcessingStatus(false);
       const summaryLabel =
         successCount > 0
           ? `✨ Updated ${successCount} lead${successCount !== 1 ? 's' : ''}`

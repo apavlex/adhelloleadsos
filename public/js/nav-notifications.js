@@ -97,6 +97,20 @@
     return !!(j && j.running === true && j.index < j.keys.length);
   }
 
+  /** Set from app.js during sequential (non-queue) bulk enrich on results so /api/status polling does not clear the bell. */
+  const SYNC_ENHANCE_SESSION_KEY = 'agency_os_sync_enhance';
+  function syncEnhanceSessionActive() {
+    try {
+      return sessionStorage.getItem(SYNC_ENHANCE_SESSION_KEY) === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function clientNavbarWorkActive() {
+    return isBulkEnhanceJobRunning() || syncEnhanceSessionActive();
+  }
+
   function updateBulkEnhanceBellBadge(currentZeroBasedIndex, total) {
     const el = document.getElementById('bulkEnhanceBellBadge');
     if (!el) return;
@@ -195,6 +209,11 @@
         window.updateProcessingStatus(false);
       }
       applyProcessingRing();
+      const enhancePingDone = document.getElementById('notificationPing');
+      if (enhancePingDone && !syncEnhanceSessionActive()) {
+        enhancePingDone.classList.remove('animate-ping');
+        enhancePingDone.classList.add('hidden');
+      }
       window.dispatchEvent(new CustomEvent('agency-os-bulk-enhance-finished', { detail: summary }));
     }
   }
@@ -218,6 +237,11 @@
       }
       updateBulkEnhanceBellBadge(0, list.length);
       if (processingIndicator) processingIndicator.classList.add('processing-active');
+      const enhancePing = document.getElementById('notificationPing');
+      if (enhancePing) {
+        enhancePing.classList.remove('hidden');
+        enhancePing.classList.add('animate-ping');
+      }
       processBulkEnhanceQueue().catch((e) => console.warn('[bulk-enhance]', e));
     },
   };
@@ -293,9 +317,11 @@
           processingIndicator.classList.add('processing-active');
           localStorage.setItem('is_searching', 'true');
         } else {
-          if (!isBulkEnhanceJobRunning()) {
+          if (!clientNavbarWorkActive()) {
             processingIndicator.classList.remove('processing-active');
             localStorage.removeItem('is_searching');
+          } else {
+            applyProcessingRing();
           }
         }
 
@@ -336,7 +362,14 @@
               '</div></div></div></div>';
           }
         } else {
-          if (notificationPing) notificationPing.classList.add('hidden');
+          const keepPingForClientWork =
+            localStorage.getItem('is_searching') === 'true' ||
+            isBulkEnhanceJobRunning() ||
+            syncEnhanceSessionActive();
+          if (notificationPing && !keepPingForClientWork) {
+            notificationPing.classList.remove('animate-ping');
+            notificationPing.classList.add('hidden');
+          }
           if (notificationList) {
             notificationList.innerHTML =
               '<div class="p-8 text-center text-brand-muted dark:text-slate-500 italic text-[11px]">No new notifications</div>';
