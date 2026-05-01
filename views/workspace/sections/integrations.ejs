@@ -25,14 +25,27 @@
     <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI host (optional)</label>
       <% if (masks.rapidapiHost) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiHost %></p><% } %>
-      <input type="text" name="rapidapiHost" autocomplete="off" placeholder="local-business-data.p.rapidapi.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <input type="text" name="rapidapiHost" autocomplete="off" placeholder="local-business-data.p.rapidapi.com or maps-data.p.rapidapi.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
       <% if (masks.rapidapiHost) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiHost_clear" value="1" /> Remove</label><% } %>
     </div>
     <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI endpoint (optional)</label>
       <% if (masks.rapidapiLocalBusinessEndpoint) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiLocalBusinessEndpoint %></p><% } %>
-      <input type="text" name="rapidapiLocalBusinessEndpoint" autocomplete="off" placeholder="https://local-business-data.p.rapidapi.com/search" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <input type="text" name="rapidapiLocalBusinessEndpoint" autocomplete="off" placeholder="https://local-business-data.p.rapidapi.com/search or https://maps-data.p.rapidapi.com/search.php" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <p class="text-xs text-brand-muted mt-2 leading-relaxed">Use the <strong>full URL to the text/business search</strong> endpoint from the API’s RapidAPI page (not <code class="text-[11px]">review.php</code>). The app appends the search string and a max-results parameter automatically.</p>
       <% if (masks.rapidapiLocalBusinessEndpoint) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiLocalBusinessEndpoint_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI search query param (optional)</label>
+      <% if (masks.rapidapiSearchQueryParam) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiSearchQueryParam %></p><% } %>
+      <input type="text" name="rapidapiSearchQueryParam" autocomplete="off" placeholder="query (default) — use q, text, keyword… if your API docs say so" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.rapidapiSearchQueryParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchQueryParam_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI search limit param (optional)</label>
+      <% if (masks.rapidapiSearchLimitParam) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiSearchLimitParam %></p><% } %>
+      <input type="text" name="rapidapiSearchLimitParam" autocomplete="off" placeholder="limit (default) — use max_results, num… if your API docs say so" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <% if (masks.rapidapiSearchLimitParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchLimitParam_clear" value="1" /> Remove</label><% } %>
     </div>
     <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Apify API token</label>

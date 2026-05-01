@@ -52,31 +52,25 @@ document.addEventListener('DOMContentLoaded', () => {
     return Math.min(10, score);
   };
 
+  const getUnifiedClientScore = (lead) => {
+    const aiRaw = lead && lead.aiScore != null ? Number(lead.aiScore) : NaN;
+    if (Number.isFinite(aiRaw) && aiRaw > 0) return Math.max(0, Math.min(10, aiRaw));
+    return calculateOpportunityScore(lead || {});
+  };
+
   const renderOpportunityBadges = (row) => {
     const l = row.dataset;
-    const badges = [];
-    
-    const score = calculateOpportunityScore(l);
-    
-    // Core Score Label
-    let label = `Cool ${score.toFixed(1)}/10`;
+    const score = getUnifiedClientScore(l);
+    const label = `${Math.round(score)}/10`;
     let scoreColor = 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5';
-    
+
     if (score >= 7) {
-        label = `Hot ${score.toFixed(1)}/10`;
         scoreColor = 'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-500/20';
     } else if (score >= 4) {
-        label = `Warm ${score.toFixed(1)}/10`;
         scoreColor = 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-brand-yellow/10 dark:text-brand-yellow dark:border-brand-yellow/20';
     }
-    
-    badges.push(`<span class="px-2 py-0.5 rounded-md ${scoreColor} text-[9px] font-black border uppercase tracking-tighter shadow-sm">${label}</span>`);
 
-    // Specific Gap Badges (Secondary)
-    if (l.isMobileFriendly === 'false') badges.push(`<span class="px-2 py-0.5 rounded-md bg-purple-50 text-purple-600 border-purple-100 text-[9px] font-bold border uppercase dark:bg-purple-500/5 dark:border-purple-500/10">Mobile Gap</span>`);
-    if (l.hasSchemaMarkup === 'false') badges.push(`<span class="px-2 py-0.5 rounded-md bg-blue-50 text-blue-600 border-blue-100 text-[9px] font-bold border uppercase dark:bg-blue-500/5 dark:border-blue-500/10">Needs GEO</span>`);
-    
-    return `<div class="flex flex-wrap gap-1 items-center justify-center">${badges.slice(0, 3).join('')}</div>`;
+    return `<div class="flex items-center justify-center"><span class="px-2 py-0.5 rounded-md ${scoreColor} text-[9px] font-black border tabular-nums tracking-tight shadow-sm">${label}</span></div>`;
   };
 
   const updateOpportunityBadges = () => {
@@ -85,7 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const badgeContainer = row.querySelector('.opportunity-badge');
         if (badgeContainer) {
           badgeContainer.innerHTML = renderOpportunityBadges(row);
-          badgeContainer.dataset.score = calculateOpportunityScore(row.dataset);
+          badgeContainer.dataset.score = getUnifiedClientScore(row.dataset);
         }
       } catch (err) {
         console.error('Error rendering opportunity badge for row:', err);
@@ -111,8 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const rows = Array.from(tableBody.querySelectorAll('.result-row'));
 
     rows.sort((a, b) => {
-      const scoreA = calculateOpportunityScore(a.dataset);
-      const scoreB = calculateOpportunityScore(b.dataset);
+      const scoreA = getUnifiedClientScore(a.dataset);
+      const scoreB = getUnifiedClientScore(b.dataset);
       return isAscending ? scoreA - scoreB : scoreB - scoreA;
     });
 
@@ -204,7 +198,7 @@ document.addEventListener('DOMContentLoaded', () => {
           c = cmpStr((a.status || '').trim(), (b.status || '').trim());
           break;
         case 'actions':
-          c = calculateOpportunityScore(a) - calculateOpportunityScore(b);
+          c = getUnifiedClientScore(a) - getUnifiedClientScore(b);
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         default:
@@ -848,6 +842,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  function shouldIgnoreRowOpenClick(target) {
+    if (!target) return true;
+    return !!(
+      target.type === 'checkbox' ||
+      target.closest('.bookmark-btn') ||
+      target.closest('.view-detail-btn') ||
+      target.closest('.email-intel-btn') ||
+      target.closest('.ai-analysis-btn') ||
+      target.closest('select') ||
+      target.closest('form') ||
+      target.closest('a') ||
+      target.closest('button')
+    );
+  }
+
   // --- Row click -> open slide-up detail panel (Universal) ---
   if (rows.length > 0) {
     rows.forEach((row) => {
@@ -862,24 +871,21 @@ document.addEventListener('DOMContentLoaded', () => {
           selectRow(row);
           return;
         }
-        // Stop if clicking specific interactive elements
-        if (
-          e.target.type === 'checkbox' ||
-          e.target.closest('.bookmark-btn') ||
-          e.target.closest('.view-detail-btn') ||
-          e.target.closest('.email-intel-btn') ||
-          e.target.closest('.ai-analysis-btn') ||
-          e.target.closest('select') ||
-          e.target.closest('form') ||
-          e.target.closest('a')
-        ) {
-          return;
-        }
+        if (shouldIgnoreRowOpenClick(e.target)) return;
 
         selectRow(row);
       });
     });
   }
+
+  // Delegated fallback for rows injected/refreshed after initial page load
+  document.addEventListener('click', (e) => {
+    if (!mobilePanel) return;
+    const row = e.target.closest('.result-row');
+    if (!row) return;
+    if (shouldIgnoreRowOpenClick(e.target)) return;
+    selectRow(row);
+  });
 
   // Specific Detail Button Trigger (Reliability)
   document.addEventListener('click', (e) => {
@@ -890,6 +896,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = detailBtn.closest('.result-row');
       if (row) selectRow(row);
     }
+  });
+
+  // Explicit right-chevron trigger fallback (covers icon wrappers/nested taps)
+  document.addEventListener('click', (e) => {
+    if (!mobilePanel) return;
+    const chevronTrigger =
+      e.target.closest('.view-detail-btn') ||
+      e.target.closest('[aria-label="Open lead details"]') ||
+      e.target.closest('[title="Open lead details"]');
+    if (!chevronTrigger) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const row = chevronTrigger.closest('.result-row');
+    if (row) selectRow(row);
   });
 
   async function runAiAnalysisForRow(row) {
@@ -908,24 +928,103 @@ document.addEventListener('DOMContentLoaded', () => {
     row.dataset.aiScore = String(score);
     row.dataset.aiAnalysis = JSON.stringify(analysis);
     if (ownerSignal) row.dataset.ownerSignal = ownerSignal;
-    const chip = row.querySelector('.lead-ai-score-chip');
-    if (chip) chip.textContent = `AI ${score}`;
-    else {
-      const holder = row.querySelector('.lead-company-inline .min-w-0.flex-1');
-      if (holder) {
-        const span = document.createElement('span');
-        span.className =
-          'lead-ai-score-chip shrink-0 text-[8px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 px-1.5 py-0.5 rounded-full bg-sky-100/80 dark:bg-sky-950/50 border border-sky-200/70 dark:border-sky-900/50';
-        span.textContent = `AI ${score}`;
-        holder.appendChild(span);
-      }
+    row.dataset.aiScore = String(Math.round(score));
+    const oppContainer = row.querySelector('.opportunity-badge');
+    if (oppContainer) {
+      oppContainer.innerHTML = renderOpportunityBadges(row);
+      oppContainer.dataset.score = row.dataset.aiScore;
     }
     if (currentRow === row && typeof populatePanel === 'function') populatePanel(row);
     const rowSignal = row.querySelector('.lead-owner-signal');
-    if (rowSignal) {
-      rowSignal.textContent = ownerSignal || '';
-    }
+    if (rowSignal) rowSignal.textContent = '';
     return data;
+  }
+
+  function toDisplayValue(value, fallback) {
+    const fb = fallback === undefined ? 'N/A' : fallback;
+    if (value == null) return fb;
+    const s = String(value).trim();
+    return s && s !== 'N/A' ? s : fb;
+  }
+
+  function normalizeList(value) {
+    if (Array.isArray(value)) return value.map((v) => String(v || '').trim()).filter(Boolean);
+    if (typeof value === 'string') {
+      return value
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean);
+    }
+    return [];
+  }
+
+  function buildClientReportEmail(row, analysis, ownerSignal) {
+    const company = toDisplayValue(row && row.dataset ? row.dataset.title : '', 'Business');
+    const website = toDisplayValue(row && row.dataset ? row.dataset.website : '', 'N/A');
+    const score = Number((analysis && analysis.analysisScore) || 0);
+    const summarySignal = toDisplayValue(ownerSignal || (row && row.dataset ? row.dataset.ownerSignal : ''), 'No major issue detected');
+    const emails = normalizeList(analysis && (analysis.emails || analysis.emailAddresses));
+    const phones = normalizeList(analysis && (analysis.phones || analysis.phoneNumbers));
+    const pages = Number((analysis && analysis.pagesCrawled) || 0);
+    const mobileReady =
+      analysis && (analysis.hasViewportMeta === true || analysis.mobileResponsive === true) ? 'Yes' : 'No';
+    const hasHttps = analysis && (analysis.hasHttps === true || analysis.https === true) ? 'Yes' : 'No';
+    const is404 = analysis && (analysis.has404 === true || analysis.returned404 === true) ? 'Yes' : 'No';
+    const slow = analysis && Number((analysis.loadTimeSeconds != null ? analysis.loadTimeSeconds : analysis.loadSeconds) || 0);
+    const metaDescription = toDisplayValue(analysis && analysis.metaDescription, 'Missing');
+    const title = toDisplayValue(analysis && analysis.pageTitle, 'Missing');
+    const copyrightYear = toDisplayValue(analysis && analysis.copyrightYear, 'Missing');
+    const ctaSignals = normalizeList(analysis && (analysis.signals || analysis.bookingSignals));
+
+    const lines = [
+      `AI Website Audit Report - ${company}`,
+      '',
+      `Score: ${score}/10`,
+      `Primary signal: ${summarySignal}`,
+      '',
+      `Website: ${website}`,
+      `Pages crawled: ${pages || 1}`,
+      `HTTPS enabled: ${hasHttps}`,
+      `404 detected: ${is404}`,
+      `Load speed: ${slow > 0 ? `${slow.toFixed(2)}s` : 'N/A'}`,
+      `Mobile responsive: ${mobileReady}`,
+      `Page title: ${title}`,
+      `Meta description: ${metaDescription}`,
+      `Copyright year: ${copyrightYear}`,
+      `Emails found: ${emails.length ? emails.join(', ') : 'None'}`,
+      `Phones found: ${phones.length ? phones.join(', ') : 'None'}`,
+      `Booking/CTA signals: ${ctaSignals.length ? ctaSignals.join(', ') : 'None found'}`,
+      '',
+      'Recommended next step:',
+      `- Share this finding with ${company} and propose a quick fix plan.`,
+    ];
+
+    const subject = `AI website audit report - ${company}`;
+    const body = lines.join('\n');
+    const toEmail = toDisplayValue(row && row.dataset ? row.dataset.email : '', '');
+    return { subject, body, toEmail };
+  }
+
+  function openMailReport(report) {
+    if (!report || !report.subject || !report.body) return false;
+    const encodedSubject = encodeURIComponent(report.subject);
+    const encodedBody = encodeURIComponent(report.body);
+    const encodedTo = encodeURIComponent(report.toEmail || '');
+    const mailto = `mailto:${encodedTo}?subject=${encodedSubject}&body=${encodedBody}`;
+    window.location.href = mailto;
+    return true;
+  }
+
+  function getAiAnalysisFromRow(row) {
+    if (!row || !row.dataset) return null;
+    const raw = String(row.dataset.aiAnalysis || '').trim();
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+      return null;
+    }
   }
 
   document.addEventListener('click', async (e) => {
@@ -941,7 +1040,16 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const result = await runAiAnalysisForRow(row);
       const score = Number(result && result.analysis && result.analysis.analysisScore ? result.analysis.analysisScore : 0);
-      if (typeof window.showAppToast === 'function') window.showAppToast(`AI analysis complete (score ${score})`, { variant: 'success' });
+      const ownerSignal = String(result && (result.ownerSignal || (result.lead && result.lead.ownerSignal)) || '').trim();
+      const report = buildClientReportEmail(row, (result && result.analysis) || {}, ownerSignal);
+      const opened = openMailReport(report);
+      if (opened) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(`Report ready (score ${score}). Email draft opened.`, { variant: 'success' });
+        }
+      } else if (typeof window.showAppToast === 'function') {
+        window.showAppToast(`AI analysis complete (score ${score})`, { variant: 'success' });
+      }
     } catch (err) {
       const msg = err && err.message ? err.message : 'AI analysis failed';
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
@@ -1986,6 +2094,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
     }
+    const sidebarReportBtn = document.getElementById('sidebarReportEmailBtn');
+    if (sidebarReportBtn) {
+      const hasSavedAnalysis = !!getAiAnalysisFromRow(row);
+      sidebarReportBtn.disabled = !hasSavedAnalysis;
+      sidebarReportBtn.classList.toggle('opacity-50', !hasSavedAnalysis);
+      sidebarReportBtn.classList.toggle('cursor-not-allowed', !hasSavedAnalysis);
+      sidebarReportBtn.title = hasSavedAnalysis
+        ? 'Open client report email from saved AI analysis'
+        : 'Run AI analysis first to generate report email';
+    }
 
     scheduleReviewIntelligence(row, { refresh: false });
 
@@ -2949,6 +3067,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Generate Mailto Email Draft ---
   const draftEmailBtn = document.getElementById('draftEmailBtn');
+  const sidebarReportEmailBtn = document.getElementById('sidebarReportEmailBtn');
   const sidebarIncludeCoupon = document.getElementById('sidebarIncludeCoupon');
   const sidebarCouponWarning = document.getElementById('sidebarCouponWarning');
   const workspaceCouponLinkStore = document.getElementById('workspaceCouponLinkStore');
@@ -3023,6 +3142,30 @@ document.addEventListener('DOMContentLoaded', () => {
       if (statusSelect) {
         statusSelect.value = 'Email Sent';
         statusSelect.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+
+  if (sidebarReportEmailBtn) {
+    sidebarReportEmailBtn.addEventListener('click', () => {
+      if (!currentRow) return;
+      const analysis = getAiAnalysisFromRow(currentRow);
+      if (!analysis) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Run AI analysis once first, then this report opens instantly from saved data.', {
+            variant: 'error',
+          });
+        }
+        return;
+      }
+      const report = buildClientReportEmail(
+        currentRow,
+        analysis,
+        String(currentRow.dataset.ownerSignal || '').trim()
+      );
+      const opened = openMailReport(report);
+      if (opened && typeof window.showAppToast === 'function') {
+        window.showAppToast('Report email draft opened from saved AI analysis.', { variant: 'success' });
       }
     });
   }
@@ -3360,7 +3503,7 @@ document.addEventListener('DOMContentLoaded', () => {
       el.id = 'prospectToast';
       el.setAttribute('role', 'status');
       el.className =
-        'fixed bottom-28 left-1/2 z-[180] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark dark:bg-slate-900 text-white text-sm font-semibold shadow-lg shadow-black/20 dark:shadow-black/40 border border-white/15 max-w-[min(90vw,20rem)] text-center';
+        'fixed bottom-28 left-1/2 z-[180] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center';
       document.body.appendChild(el);
     }
     el.textContent = message || 'Done';

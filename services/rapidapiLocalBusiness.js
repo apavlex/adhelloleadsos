@@ -24,6 +24,24 @@ function endpoint(integrationEnv) {
   return (process.env.RAPIDAPI_LOCAL_BUSINESS_ENDPOINT || DEFAULT_ENDPOINT).trim();
 }
 
+/** Query-string key for the search text (Local Business Data uses `query`; some RapidAPI hosts use `q`, `text`, etc.). */
+function searchQueryParam(integrationEnv) {
+  const fromWs = integrationEnv && integrationEnv.RAPIDAPI_SEARCH_QUERY_PARAM;
+  if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
+  const ev = process.env.RAPIDAPI_SEARCH_QUERY_PARAM;
+  if (typeof ev === 'string' && ev.trim()) return ev.trim();
+  return 'query';
+}
+
+/** Query-string key for max results (default `limit`). */
+function searchLimitParam(integrationEnv) {
+  const fromWs = integrationEnv && integrationEnv.RAPIDAPI_SEARCH_LIMIT_PARAM;
+  if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
+  const ev = process.env.RAPIDAPI_SEARCH_LIMIT_PARAM;
+  if (typeof ev === 'string' && ev.trim()) return ev.trim();
+  return 'limit';
+}
+
 function isConfigured(integrationEnv) {
   return Boolean(apiKey(integrationEnv));
 }
@@ -37,6 +55,15 @@ function safeNum(v, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function firstFiniteNum(...vals) {
+  for (const v of vals) {
+    if (v == null || v === '') continue;
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return 0;
+}
+
 function pickFirst(...vals) {
   for (const v of vals) {
     if (v == null) continue;
@@ -47,25 +74,62 @@ function pickFirst(...vals) {
 }
 
 function normalizePlace(item) {
-  const site = pickFirst(item.website, item.site);
+  const site = pickFirst(
+    item.website,
+    item.site,
+    item.domain,
+    item.website_url,
+    item.web_site,
+    item.contact_website
+  );
   const cat = pickFirst(
     item.type,
     item.category,
+    item.category_name,
+    item.business_type,
+    Array.isArray(item.types) && item.types.length ? item.types[0] : '',
     Array.isArray(item.subtypes) && item.subtypes.length ? item.subtypes[0] : ''
   );
   return {
-    title: pickFirst(item.name, item.title) || 'N/A',
-    phone: pickFirst(item.phone_number, item.phone) || 'N/A',
+    title: pickFirst(item.name, item.title, item.business_name, item.business_name_full) || 'N/A',
+    phone: pickFirst(
+      item.phone_number,
+      item.phone,
+      item.formatted_phone_number,
+      item.international_phone_number,
+      item.contact_phone
+    ) || 'N/A',
     website: site || 'N/A',
-    email: pickFirst(item.email, item.contact_email, item.contactEmail) || 'N/A',
+    email: pickFirst(item.email, item.contact_email, item.contactEmail, item.contact_email_address) || 'N/A',
     categoryName: cat || 'N/A',
-    address: pickFirst(item.full_address, item.formatted_address, item.address) || 'N/A',
-    city: pickFirst(item.city),
-    state: pickFirst(item.state, item.us_state),
-    postalCode: pickFirst(item.zipcode, item.postal_code, item.postalCode),
-    totalScore: safeNum(item.rating, 0),
-    reviewsCount: safeNum(item.review_count, 0),
-    url: pickFirst(item.place_link, item.location_link, item.google_url, item.url),
+    address: pickFirst(
+      item.full_address,
+      item.formatted_address,
+      item.address,
+      item.address_street,
+      item.vicinity,
+      item.fullAddress
+    ) || 'N/A',
+    city: pickFirst(item.city, item.locality),
+    state: pickFirst(item.state, item.us_state, item.administrative_area_level_1),
+    postalCode: pickFirst(item.zipcode, item.postal_code, item.postalCode, item.zip),
+    totalScore: firstFiniteNum(item.rating, item.stars, item.totalScore, item.star_rating),
+    reviewsCount: firstFiniteNum(
+      item.review_count,
+      item.reviews_count,
+      item.user_ratings_total,
+      item.reviewsCount,
+      item.total_reviews
+    ),
+    url: pickFirst(
+      item.place_link,
+      item.location_link,
+      item.google_url,
+      item.maps_url,
+      item.url,
+      item.link,
+      item.place_url
+    ),
     facebook: pickFirst(item.facebook, item.emails_and_contacts && item.emails_and_contacts.facebook) || 'N/A',
     instagram: pickFirst(item.instagram, item.emails_and_contacts && item.emails_and_contacts.instagram) || 'N/A',
     twitter: pickFirst(
@@ -73,20 +137,31 @@ function normalizePlace(item) {
       item.twitter_url,
       item.emails_and_contacts && item.emails_and_contacts.twitter
     ) || 'N/A',
-    placeId: pickFirst(item.place_id, item.placeId),
+    placeId: pickFirst(item.place_id, item.placeId, item.google_place_id),
   };
 }
 
 function extractItems(payload) {
-  const data = payload && payload.data;
+  if (!payload || typeof payload !== 'object') return [];
+  if (Array.isArray(payload)) return payload.filter((x) => x && typeof x === 'object');
+  for (const rootKey of ['results', 'places', 'businesses', 'items', 'data']) {
+    const block = payload[rootKey];
+    if (Array.isArray(block)) return block.filter((x) => x && typeof x === 'object');
+    if (block && typeof block === 'object') {
+      for (const k of ['data', 'results', 'businesses', 'places', 'items']) {
+        if (Array.isArray(block[k])) return block[k].filter((x) => x && typeof x === 'object');
+      }
+      if (block.place_id || block.name || block.title) return [block];
+    }
+  }
+  const data = payload.data;
   if (Array.isArray(data)) return data.filter((x) => x && typeof x === 'object');
   if (data && typeof data === 'object') {
     for (const k of ['data', 'results', 'businesses', 'places', 'items']) {
       if (Array.isArray(data[k])) return data[k].filter((x) => x && typeof x === 'object');
     }
-    if (data.place_id || data.name) return [data];
+    if (data.place_id || data.name || data.title) return [data];
   }
-  if (Array.isArray(payload)) return payload.filter((x) => x && typeof x === 'object');
   return [];
 }
 
@@ -132,8 +207,10 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
   const q = `${keyword} in ${city}, ${state}, USA`;
   const limit = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
   const u = new URL(endpoint(integrationEnv));
-  u.searchParams.set('query', q);
-  u.searchParams.set('limit', String(limit));
+  const qp = searchQueryParam(integrationEnv);
+  const lp = searchLimitParam(integrationEnv);
+  u.searchParams.set(qp, q);
+  u.searchParams.set(lp, String(limit));
   const headers = {
     'x-rapidapi-key': apiKey(integrationEnv),
     'x-rapidapi-host': apiHost(integrationEnv),
@@ -161,6 +238,8 @@ module.exports = {
   apiKey,
   apiHost,
   endpoint,
+  searchQueryParam,
+  searchLimitParam,
   isConfigured,
   searchGoogleMaps,
 };

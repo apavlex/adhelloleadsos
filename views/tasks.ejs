@@ -26,14 +26,14 @@
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskTitleInput">Task</label>
             <input id="taskTitleInput" name="title" type="text" autocomplete="off" placeholder="e.g. Call back about proposal…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
-          <div class="w-full min-w-0 sm:max-w-xs xl:max-w-[14rem]">
+          <div class="w-full min-w-0 sm:max-w-xs xl:max-w-[14rem] relative">
             <% let _initialLeadLabel = ''; %>
             <% if (typeof leadChoices !== 'undefined' && leadChoices && leadChoices.length && typeof initialLeadKey !== 'undefined' && initialLeadKey) { %>
               <% const _picked = leadChoices.find((lc) => lc.key === initialLeadKey); %>
               <% if (_picked) _initialLeadLabel = _picked.label; %>
             <% } %>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskLeadInput">Lead (optional)</label>
-            <input id="taskLeadInput" type="text" list="taskLeadList" autocomplete="off" value="<%= _initialLeadLabel %>" placeholder="Search business name…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white min-h-[46px]" aria-label="Link to lead by business name" />
+            <input id="taskLeadInput" type="text" autocomplete="off" value="<%= _initialLeadLabel %>" placeholder="Search business name…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-3 text-xs font-bold text-brand-dark dark:text-white min-h-[46px]" aria-label="Link to lead by business name" />
             <input id="taskLeadKey" type="hidden" value="<%= typeof initialLeadKey !== 'undefined' ? initialLeadKey : '' %>" />
             <datalist id="taskLeadList">
               <% if (typeof leadChoices !== 'undefined' && leadChoices && leadChoices.length) { %>
@@ -42,6 +42,9 @@
                 <% }); %>
               <% } %>
             </datalist>
+            <div id="taskLeadMenu" class="hidden absolute z-[260] left-0 right-0 mt-1 rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl overflow-hidden">
+              <div id="taskLeadMenuList" class="max-h-64 overflow-y-auto custom-scrollbar py-1"></div>
+            </div>
           </div>
           <div class="w-full sm:w-auto">
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="taskScheduledInput">Reminder (optional)</label>
@@ -141,7 +144,52 @@
     var colSelect = document.getElementById('taskColumnSelect');
     var leadInput = document.getElementById('taskLeadInput');
     var leadKeyInput = document.getElementById('taskLeadKey');
+    var leadMenu = document.getElementById('taskLeadMenu');
+    var leadMenuList = document.getElementById('taskLeadMenuList');
     var currentFilter = 'all';
+    var leadChoicesCache = [];
+
+    (function buildLeadChoices() {
+      var opts = document.querySelectorAll('#taskLeadList option');
+      leadChoicesCache = Array.prototype.map.call(opts, function (o) {
+        return {
+          label: String(o.value || '').trim(),
+          key: String(o.getAttribute('data-key') || '').trim(),
+        };
+      }).filter(function (x) { return x.label && x.key; });
+    })();
+
+    function closeLeadMenu() {
+      if (leadMenu) leadMenu.classList.add('hidden');
+    }
+
+    function openLeadMenu() {
+      if (leadMenu) leadMenu.classList.remove('hidden');
+    }
+
+    function renderLeadMenu(query) {
+      if (!leadMenuList) return;
+      var q = String(query || '').trim().toLowerCase();
+      var filtered = leadChoicesCache.filter(function (c) {
+        return !q || c.label.toLowerCase().indexOf(q) !== -1;
+      }).slice(0, 120);
+      if (!filtered.length) {
+        leadMenuList.innerHTML =
+          '<div class="px-3 py-2 text-[11px] font-semibold text-brand-muted dark:text-slate-400">No matching leads</div>';
+        return;
+      }
+      leadMenuList.innerHTML = filtered.map(function (c) {
+        return (
+          '<button type="button" class="task-lead-option w-full text-left px-3 py-2 text-[11px] font-semibold text-brand-dark dark:text-white hover:bg-brand-yellow/15 dark:hover:bg-brand-yellow/20 transition-colors" data-key="' +
+          escapeHtml(c.key) +
+          '" data-label="' +
+          escapeHtml(c.label) +
+          '">' +
+          escapeHtml(c.label) +
+          '</button>'
+        );
+      }).join('');
+    }
 
     function syncLeadKeyFromInput() {
       if (!leadInput || !leadKeyInput) return;
@@ -150,19 +198,42 @@
         leadKeyInput.value = '';
         return;
       }
-      var opts = document.querySelectorAll('#taskLeadList option');
       var matched = null;
-      opts.forEach(function (o) {
+      leadChoicesCache.forEach(function (c) {
         if (matched) return;
-        if (String(o.value || '').trim().toLowerCase() === label.toLowerCase()) matched = o;
+        if (c.label.toLowerCase() === label.toLowerCase()) matched = c;
       });
-      leadKeyInput.value = matched ? String(matched.getAttribute('data-key') || '').trim() : '';
+      leadKeyInput.value = matched ? matched.key : '';
     }
     if (leadInput) {
-      leadInput.addEventListener('input', syncLeadKeyFromInput);
+      leadInput.addEventListener('focus', function () {
+        renderLeadMenu(leadInput.value || '');
+        openLeadMenu();
+      });
+      leadInput.addEventListener('input', function () {
+        syncLeadKeyFromInput();
+        renderLeadMenu(leadInput.value || '');
+        openLeadMenu();
+      });
       leadInput.addEventListener('change', syncLeadKeyFromInput);
-      leadInput.addEventListener('blur', syncLeadKeyFromInput);
+      leadInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeLeadMenu();
+      });
     }
+    if (leadMenuList) {
+      leadMenuList.addEventListener('click', function (e) {
+        var btn = e.target.closest('.task-lead-option');
+        if (!btn || !leadInput || !leadKeyInput) return;
+        leadInput.value = String(btn.getAttribute('data-label') || '');
+        leadKeyInput.value = String(btn.getAttribute('data-key') || '');
+        closeLeadMenu();
+      });
+    }
+    document.addEventListener('click', function (e) {
+      if (!leadMenu || !leadInput) return;
+      if (e.target.closest('#taskLeadInput') || e.target.closest('#taskLeadMenu')) return;
+      closeLeadMenu();
+    });
 
     function escapeHtml(s) {
       return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

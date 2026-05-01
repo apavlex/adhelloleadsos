@@ -27,14 +27,14 @@
     el.setAttribute('role', variant === 'error' ? 'alert' : 'status');
 
     var errSkin =
-      'top-[4.5rem] bg-rose-950/72 text-rose-50 border-rose-400/35 shadow-[0_8px_32px_rgba(0,0,0,0.28)]';
+      'top-[4.5rem] bg-rose-900 text-white border-rose-300/65 shadow-[0_10px_28px_rgba(0,0,0,0.38)]';
     var infoSkin =
-      'top-[4.5rem] bg-slate-900/68 text-white border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.22)]';
+      'top-[4.5rem] bg-brand-dark text-white border-brand-yellow/55 shadow-[0_10px_28px_rgba(0,0,0,0.34)]';
     el.className = [
       'fixed left-1/2 z-[220] max-w-[min(92vw,26rem)] -translate-x-1/2',
       'translate-y-2 opacity-0 transition-all duration-200 ease-out',
       'px-5 py-3.5 rounded-2xl text-sm font-semibold leading-snug',
-      'backdrop-blur-xl backdrop-saturate-150 border',
+      'border',
       variant === 'error' ? errSkin : infoSkin,
     ].join(' ');
     el.style.whiteSpace = 'pre-line';

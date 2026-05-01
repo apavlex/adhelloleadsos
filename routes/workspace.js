@@ -322,19 +322,23 @@ router.get('/integrations/test', async (req, res) => {
     };
 
     const tests = [
-      runWithTimeout('RapidAPI', async () => {
-        if (!rapidapiClient.isConfigured(integrationEnv)) {
-          throw new Error('Missing RAPIDAPI_KEY');
-        }
-        const rows = await rapidapiClient.searchGoogleMaps({
-          keyword: 'coffee shop',
-          city: 'Austin',
-          state: 'TX',
-          maxResults: 1,
-          integrationEnv,
-        });
-        return { message: `Connected (${Array.isArray(rows) ? rows.length : 0} result sample)` };
-      }),
+      runWithTimeout(
+        'RapidAPI',
+        async () => {
+          if (!rapidapiClient.isConfigured(integrationEnv)) {
+            throw new Error('Missing RAPIDAPI_KEY');
+          }
+          const rows = await rapidapiClient.searchGoogleMaps({
+            keyword: 'coffee shop',
+            city: 'Austin',
+            state: 'TX',
+            maxResults: 1,
+            integrationEnv,
+          });
+          return { message: `Connected (${Array.isArray(rows) ? rows.length : 0} result sample)` };
+        },
+        28000
+      ),
       runWithTimeout('Outscraper', async () => {
         const health = await outscraperClient.pingHealth(integrationEnv);
         if (!health || !health.ok) throw new Error((health && health.message) || 'Outscraper unavailable');

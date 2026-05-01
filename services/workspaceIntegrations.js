@@ -11,6 +11,8 @@ const INTEGRATION_FIELDS = [
   'rapidapiKey',
   'rapidapiHost',
   'rapidapiLocalBusinessEndpoint',
+  'rapidapiSearchQueryParam',
+  'rapidapiSearchLimitParam',
   'apifyApiToken',
   'outscraperApiKey',
   'outscraperApiBase',
@@ -26,6 +28,8 @@ const FIELD_TO_ENV = {
   rapidapiKey: 'RAPIDAPI_KEY',
   rapidapiHost: 'RAPIDAPI_HOST',
   rapidapiLocalBusinessEndpoint: 'RAPIDAPI_LOCAL_BUSINESS_ENDPOINT',
+  rapidapiSearchQueryParam: 'RAPIDAPI_SEARCH_QUERY_PARAM',
+  rapidapiSearchLimitParam: 'RAPIDAPI_SEARCH_LIMIT_PARAM',
   apifyApiToken: 'APIFY_API_TOKEN',
   outscraperApiKey: 'OUTSCRAPER_API_KEY',
   outscraperApiBase: 'OUTSCRAPER_API_BASE',
@@ -127,8 +131,22 @@ async function saveWorkspaceIntegrations(workspaceId, plain) {
 function integrationMasks(workspace) {
   const p = decryptedFromWorkspace(workspace);
   const masks = {};
+  /** Only mask values that are secrets; show plain text for hosts/URLs/param names. */
+  const maskSecret = new Set([
+    'rapidapiKey',
+    'apifyApiToken',
+    'outscraperApiKey',
+    'firecrawlApiKey',
+    'crawl4aiApiToken',
+  ]);
   for (const field of INTEGRATION_FIELDS) {
-    masks[field] = p[field] && String(p[field]).trim() ? '••••••••' : '';
+    const raw = p[field];
+    const trimmed = raw != null ? String(raw).trim() : '';
+    if (!trimmed) {
+      masks[field] = '';
+      continue;
+    }
+    masks[field] = maskSecret.has(field) ? '••••••••' : trimmed;
   }
   return masks;
 }
