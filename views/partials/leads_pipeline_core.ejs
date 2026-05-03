@@ -30,7 +30,6 @@
       }
       return '';
     }
-    const { getTemplate: _seqGetTemplate } = require('../../services/sequenceTemplates');
   %>
   <style>
     @media (max-width: 767px) {
@@ -189,13 +188,12 @@
               var _seqSt = lead.sequenceState;
               var _cadShort = '';
               if (_seqSt && _seqSt.templateId) {
-                var _tplRow = _seqGetTemplate(_seqSt.templateId);
-                if (_tplRow) {
-                  var _ix = typeof _seqSt.stepIndex === 'number' ? _seqSt.stepIndex : 0;
-                  var _stp = _tplRow.steps && _tplRow.steps[_ix];
-                  _cadShort = (_seqSt.status === 'completed') ? 'Done' : ((_stp && _stp.channel) ? String(_stp.channel) : 'Active');
+                if (_seqSt.status === 'completed') {
+                  _cadShort = 'Done';
+                } else if (_ltc) {
+                  _cadShort = _ltc;
                 } else {
-                  _cadShort = _seqSt.status || '';
+                  _cadShort = (_seqSt.status === 'active') ? 'Active' : String(_seqSt.status || '').trim();
                 }
               }
             %>
