@@ -1,15 +1,18 @@
 <% const act = typeof activation !== 'undefined' && activation ? activation : { plan: [], progress: 0, total: 7, days: {} }; %>
 <% const pct = act.total ? Math.round((act.progress / act.total) * 100) : 0; %>
 <% const embed = typeof activationEmbed !== 'undefined' && activationEmbed; %>
+<% const hideEmbedChrome = embed && typeof activationHideEmbedChrome !== 'undefined' && activationHideEmbedChrome; %>
 <% const useFullPageLayout = typeof fullPage !== 'undefined' && fullPage; %>
 <% if (embed) { %>
 <div class="space-y-4 pt-1">
+  <% if (!hideEmbedChrome) { %>
   <div class="flex justify-end">
     <a href="/activation" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Full page</a>
   </div>
   <div class="h-1.5 rounded-full bg-white/40 dark:bg-slate-800 overflow-hidden">
     <div class="h-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all" style="width: <%= pct + '%' %>"></div>
   </div>
+  <% } %>
 <% } else { %>
 <section class="<%= useFullPageLayout ? '' : 'mb-10' %> rounded-[2rem] border border-brand-border dark:border-white/10 bg-gradient-to-br from-violet-500/10 to-indigo-500/5 dark:from-violet-900/30 dark:to-slate-900/50 p-6 md:p-8 shadow-lg">
   <div class="flex flex-wrap items-end justify-between gap-4 mb-6">

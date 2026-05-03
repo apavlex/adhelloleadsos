@@ -773,6 +773,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Detail panel & rows (must not depend on mobile nav; panel exists on Prospecting / leads pages) ---
   const mobilePanel = document.getElementById('mobilePanel');
+  const getLeadDetailPanel = () => document.getElementById('mobilePanel');
   const closeMobileBtn = document.getElementById('closeMobilePanel');
   const prevLeadBtn = document.getElementById('prevLeadBtn');
   const nextLeadBtn = document.getElementById('nextLeadBtn');
@@ -841,21 +842,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // OPEN SIDEBAR / PANEL
-    if (mobilePanel) {
-      mobilePanel.style.display = 'flex';
-      mobilePanel.classList.remove('hidden');
+    // OPEN SIDEBAR / PANEL (resolve at call time so hooking / late-rendered markup still works)
+    const panelRoot = getLeadDetailPanel();
+    if (panelRoot) {
+      panelRoot.style.display = 'flex';
+      panelRoot.classList.remove('hidden');
       
       // Lock scroll
       document.body.style.overflow = 'hidden'; 
       
       // Trigger entrance
       setTimeout(() => {
-          mobilePanel.classList.add('open');
-          mobilePanel.classList.replace('opacity-0', 'opacity-100');
-          mobilePanel.style.pointerEvents = 'auto';
+          panelRoot.classList.add('open');
+          panelRoot.classList.replace('opacity-0', 'opacity-100');
+          panelRoot.style.pointerEvents = 'auto';
 
-          const panelScroll = mobilePanel.querySelector('div.overflow-y-auto');
+          const panelScroll = panelRoot.querySelector('div.overflow-y-auto');
           if (panelScroll) panelScroll.scrollTop = 0;
           const stickyTitle = document.getElementById('stickyPanelTitle');
           if (stickyTitle) {
@@ -863,7 +865,7 @@ document.addEventListener('DOMContentLoaded', () => {
             stickyTitle.classList.remove('opacity-100');
           }
 
-          const childDiv = mobilePanel.querySelector('div');
+          const childDiv = panelRoot.querySelector('div');
           if (childDiv) {
               childDiv.classList.remove('translate-y-full', 'translate-x-full');
               childDiv.style.display = 'block';
@@ -887,22 +889,41 @@ document.addEventListener('DOMContentLoaded', () => {
       target.closest('select') ||
       target.closest('form') ||
       target.closest('a') ||
-      target.closest('button')
+      target.closest('button') ||
+      target.closest('.plc-col-resize')
     );
   }
 
+  // Company column: reliable open (capture) — avoids stray bubbling / overlay edge cases on sticky cells
+  document.addEventListener(
+    'click',
+    (e) => {
+      if (!getLeadDetailPanel()) return;
+      const companyTd = e.target.closest('td.lead-sticky-company');
+      if (!companyTd) return;
+      const row = companyTd.closest('.result-row');
+      if (!row || row.classList.contains('result-row--panel-source')) return;
+      if (shouldIgnoreRowOpenClick(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      selectRow(row);
+    },
+    true
+  );
+
   // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
-    if (!mobilePanel) return;
+    if (!getLeadDetailPanel()) return;
     const row = e.target.closest('.result-row');
     if (!row || row.classList.contains('result-row--panel-source')) return;
+    if (e.target.closest('td.lead-sticky-company')) return;
     if (shouldIgnoreRowOpenClick(e.target)) return;
     selectRow(row);
   });
 
   // Specific Detail Button Trigger (Reliability)
   document.addEventListener('click', (e) => {
-    if (!mobilePanel) return;
+    if (!getLeadDetailPanel()) return;
     const detailBtn = e.target.closest('.view-detail-btn');
     if (detailBtn) {
       e.stopPropagation();
@@ -913,7 +934,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Explicit right-chevron trigger fallback (covers icon wrappers/nested taps)
   document.addEventListener('click', (e) => {
-    if (!mobilePanel) return;
+    if (!getLeadDetailPanel()) return;
     const chevronTrigger =
       e.target.closest('.view-detail-btn') ||
       e.target.closest('[aria-label="Open lead details"]') ||
@@ -1351,7 +1372,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   (function openFocusLeadFromQuery() {
-    if (!mobilePanel) return;
+    if (!getLeadDetailPanel()) return;
     const params = new URLSearchParams(window.location.search);
     const raw = (params.get('focusLead') || '').trim();
     if (!raw) return;
@@ -6552,6 +6573,185 @@ document.addEventListener('DOMContentLoaded', () => {
     apply(saved);
     document.querySelectorAll('.lead-density-btn').forEach((btn) => {
       btn.addEventListener('click', () => apply(btn.dataset.density || 'compact'));
+    });
+  })();
+
+  (function initPipelineColumnPrefs() {
+    const table = document.getElementById('prospectLeadsTable');
+    const boxHost = document.getElementById('pipelineColumnsCheckboxes');
+    const colBtn = document.getElementById('pipelineColumnsBtn');
+    const pop = document.getElementById('pipelineColumnsPopover');
+    const resetW = document.getElementById('pipelineColumnsResetWidths');
+    if (!table || !boxHost || !colBtn || !pop) return;
+
+    const PLC_META = [
+      { id: 'check', label: 'Select' },
+      { id: 'company', label: 'Company' },
+      { id: 'lastTouch', label: 'Last touch' },
+      { id: 'cadence', label: 'Cadence' },
+      { id: 'category', label: 'Category' },
+      { id: 'reviews', label: 'Reviews' },
+      { id: 'contact', label: 'Contact (phone, email, domain)' },
+      { id: 'socials', label: 'Socials' },
+      { id: 'added', label: 'Added' },
+      { id: 'pipeline', label: 'Pipeline' },
+      { id: 'opportunity', label: 'Opportunity' },
+      { id: 'actions', label: 'Actions' },
+    ];
+    const VIS_KEY = 'pipelineTableColVisibility';
+    const WIDTH_KEY = 'pipelineTableColWidths';
+
+    function loadVis() {
+      try {
+        const raw = localStorage.getItem(VIS_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveVis(obj) {
+      try {
+        localStorage.setItem(VIS_KEY, JSON.stringify(obj));
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    function applyVisibility(map) {
+      PLC_META.forEach(({ id }) => {
+        const on = map[id] !== false;
+        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
+          el.classList.toggle('plc-col-hidden', !on);
+        });
+      });
+    }
+
+    function applyWidths(obj) {
+      if (!obj || typeof obj !== 'object') return;
+      Object.keys(obj).forEach((id) => {
+        const px = Number(obj[id]);
+        const ok = Number.isFinite(px) && px >= 48;
+        if (!ok) return;
+        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
+          el.style.width = `${px}px`;
+          el.style.minWidth = `${px}px`;
+          el.style.maxWidth = `${px}px`;
+        });
+      });
+    }
+
+    function clearAllWidths() {
+      table.querySelectorAll('[data-plc]').forEach((el) => {
+        el.style.width = '';
+        el.style.minWidth = '';
+        el.style.maxWidth = '';
+      });
+    }
+
+    let vis = loadVis();
+    applyVisibility(vis);
+    try {
+      applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
+    } catch (_) {
+      /* ignore */
+    }
+
+    PLC_META.forEach(({ id, label }) => {
+      const wrap = document.createElement('label');
+      wrap.className = 'flex items-center gap-2 cursor-pointer text-brand-dark dark:text-slate-200';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = vis[id] !== false;
+      cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
+      cb.addEventListener('change', () => {
+        vis[id] = cb.checked;
+        saveVis(vis);
+        applyVisibility(vis);
+      });
+      wrap.appendChild(cb);
+      const span = document.createElement('span');
+      span.textContent = label;
+      wrap.appendChild(span);
+      boxHost.appendChild(wrap);
+    });
+
+    function closePop() {
+      pop.classList.add('hidden');
+      colBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    colBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pop.classList.toggle('hidden');
+      colBtn.setAttribute('aria-expanded', pop.classList.contains('hidden') ? 'false' : 'true');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (pop.classList.contains('hidden')) return;
+      if (e.target.closest('.js-pipeline-columns-wrap')) return;
+      closePop();
+    });
+
+    if (resetW) {
+      resetW.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          localStorage.removeItem(WIDTH_KEY);
+        } catch (_) {
+          /* ignore */
+        }
+        clearAllWidths();
+      });
+    }
+
+    let dragPlc = null;
+    let dragStartX = 0;
+    let dragStartW = 0;
+
+    document.addEventListener('mousedown', (e) => {
+      const h = e.target.closest('.plc-col-resize');
+      if (!h || !table.contains(h)) return;
+      e.preventDefault();
+      const plc = h.getAttribute('data-plc-resize');
+      if (!plc) return;
+      const th = h.closest('th');
+      if (!th) return;
+      dragPlc = plc;
+      dragStartX = e.clientX;
+      dragStartW = th.getBoundingClientRect().width;
+      h.classList.add('plc-col-resize--active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!dragPlc) return;
+      e.preventDefault();
+      const dx = e.clientX - dragStartX;
+      const next = Math.max(48, dragStartW + dx);
+      let o = {};
+      try {
+        o = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
+      } catch (_) {
+        o = {};
+      }
+      o[dragPlc] = next;
+      try {
+        localStorage.setItem(WIDTH_KEY, JSON.stringify(o));
+      } catch (_) {
+        /* ignore */
+      }
+      applyWidths(o);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!dragPlc) return;
+      dragPlc = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      table.querySelectorAll('.plc-col-resize--active').forEach((x) => x.classList.remove('plc-col-resize--active'));
     });
   })();
 

@@ -180,10 +180,44 @@
     <% } %>
 
     <% if (_showDayOneHero) { %>
-    <section class="mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-900/60 p-4 md:p-6 shadow-sm" aria-label="Day one activation">
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow px-3 pt-2 mb-2">Day 1 activation</p>
-      <%- include('partials/activation-7day', { activation, activationEmbed: true }) %>
-    </section>
+    <div id="dayOneActivationWrap" class="mb-10">
+      <details id="dayOneActivationDetails" class="group rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-900/60 shadow-sm overflow-hidden">
+        <summary class="cursor-pointer list-none px-4 md:px-6 py-4 flex flex-wrap items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+          <div class="flex flex-wrap items-center gap-x-4 gap-y-1 min-w-0">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow shrink-0">Day 1 activation</span>
+            <span class="font-display font-bold text-lg text-brand-dark dark:text-white tabular-nums"><%= activation.progress %>/<%= activation.total %></span>
+            <span class="text-xs text-brand-muted hidden sm:inline">Tap to expand checklist</span>
+          </div>
+          <div class="flex items-center gap-3 shrink-0">
+            <a href="/activation" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline pointer-events-auto" onclick="event.stopPropagation()">Full page</a>
+            <button type="button" id="dayOneActivationDismiss" class="w-9 h-9 rounded-xl border border-brand-border/60 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white text-lg leading-none flex items-center justify-center" aria-label="Hide activation checklist">×</button>
+            <span class="text-brand-muted text-lg transition-transform group-open:rotate-180" aria-hidden="true">▼</span>
+          </div>
+        </summary>
+        <div class="px-3 pb-4 md:px-5 md:pb-6 pt-0 border-t border-brand-border/30 dark:border-white/10">
+          <%- include('partials/activation-7day', { activation, activationEmbed: true, activationHideEmbedChrome: true }) %>
+        </div>
+      </details>
+    </div>
+    <script>
+    (function () {
+      var wrap = document.getElementById('dayOneActivationWrap');
+      var btn = document.getElementById('dayOneActivationDismiss');
+      var KEY = 'todayDayOneActivationDismissed';
+      function hideDayOne() {
+        if (wrap) wrap.style.display = 'none';
+        try { localStorage.setItem(KEY, '1'); } catch (e) {}
+      }
+      if (btn) btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        hideDayOne();
+      });
+      try {
+        if (localStorage.getItem(KEY) === '1' && wrap) wrap.style.display = 'none';
+      } catch (e) {}
+    })();
+    </script>
     <% } %>
 
     <% if (!empty) { %>
