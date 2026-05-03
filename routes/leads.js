@@ -1211,6 +1211,23 @@ router.post('/:key/voicemail-drop', async (req, res, next) => {
   }
 });
 
+// GET /leads/:key/panel-data — full lead JSON for detail sidebar (Cadences page, etc.)
+router.get('/:key/panel-data', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    return res.json({ success: true, lead });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /leads/:key/call-events — recent call/voicemail events for call widget
 router.get('/:key/call-events', async (req, res, next) => {
   try {

@@ -63,6 +63,35 @@
         </div>
       </div>
 
+      <!-- Cadence: last touch, channel, sequence, next move, recent log lines -->
+      <section id="leadCadenceSection" class="mb-8 px-1" aria-labelledby="leadCadenceHeading">
+        <h3 id="leadCadenceHeading" class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-3">Cadence &amp; touches</h3>
+        <div class="p-5 rounded-[2rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/25 dark:bg-white/[0.04] space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last activity</p>
+              <p id="cadenceLastTouchLine" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last touch channel</p>
+              <p id="cadenceChannelLine" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
+            </div>
+          </div>
+          <div id="cadenceSequenceWrap" class="hidden rounded-2xl bg-white/50 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Sequence</p>
+            <p id="cadenceSequenceLine" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-snug">—</p>
+          </div>
+          <div class="rounded-2xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/25 p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-yellow mb-1">Recommended next</p>
+            <p id="cadenceNextStepLine" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed">Keep outreach steady until you get a reply or meeting. Log each touch so the team sees momentum.</p>
+          </div>
+          <div id="cadenceLogsWrap" class="hidden">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Recent activity log</p>
+            <ul id="cadenceLogList" class="list-none m-0 p-0 space-y-2 max-h-48 overflow-y-auto text-[11px]"></ul>
+          </div>
+        </div>
+      </section>
+
       <!-- Reviews & reputation (snippets from enrich + AI strengths/weaknesses) -->
       <section id="reviewReputationSection" class="mb-10">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4 px-1">

@@ -436,6 +436,10 @@ table {
   color: var(--brand-yellow, #e8bc1a);
 }
 
+.prospect-leads-table tr.result-row {
+  cursor: pointer;
+}
+
 /* Prospecting pipeline table: sticky header + checkbox/company, row hover actions */
 .prospect-leads-table thead th {
   position: sticky;
@@ -481,22 +485,22 @@ table {
 
 .prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-check,
 .prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-company {
-  background: rgba(250, 247, 237, 0.88) !important;
+  background: rgba(250, 247, 237, 0.45) !important;
 }
 
 .prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-check,
 .prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-company {
-  background: rgba(255, 252, 245, 0.82) !important;
+  background: var(--brand-card-bg) !important;
 }
 
 .dark .prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-check,
 .dark .prospect-leads-table tbody tr:nth-child(odd) td.lead-sticky-company {
-  background: rgba(30, 41, 59, 0.82) !important;
+  background: rgba(30, 41, 59, 0.55) !important;
 }
 
 .dark .prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-check,
 .dark .prospect-leads-table tbody tr:nth-child(even) td.lead-sticky-company {
-  background: rgba(15, 23, 42, 0.78) !important;
+  background: var(--brand-card-bg) !important;
 }
 
 .prospect-leads-table thead th.lead-sticky-check {
@@ -563,6 +567,38 @@ table {
 
 .prospect-leads-table--compact .lead-col-contact-comfortable {
   display: none;
+}
+
+.prospect-leads-table--compact .lead-col-tail-tight,
+.prospect-leads-table--compact th.lead-col-tail-tight {
+  padding-left: 0.35rem;
+  padding-right: 0.35rem;
+}
+
+.prospect-leads-table--compact .lead-col-opportunity {
+  min-width: 7.5rem;
+  max-width: 15rem;
+}
+
+.prospect-leads-table--compact .lead-actions-cell {
+  padding-right: 0.65rem;
+}
+
+.prospect-leads-table--compact .lead-col-pipeline .pipeline-inline-select {
+  font-size: 0.625rem;
+  line-height: 1.2;
+  padding-top: 0.35rem;
+  padding-bottom: 0.35rem;
+}
+
+.prospect-leads-table--comfortable .lead-col-tail-tight,
+.prospect-leads-table--comfortable th.lead-col-tail-tight {
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.prospect-leads-table--comfortable .lead-col-opportunity {
+  max-width: 20rem;
 }
 
 .result-row:focus-within .email-intel-btn--row,

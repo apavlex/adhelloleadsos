@@ -97,7 +97,7 @@ function toLeadPayload(row, originalFilename, rowIndex) {
   const email = emailRaw || 'N/A';
 
   const categoryName =
-    (r.company_type || r.subtypes || r.category || r.categoryname || r.industry || r.type || 'Imported').trim() || 'Imported';
+    (r.company_type || r.subtypes || r.category || r.categoryname || r.industry || r.type || 'Painters').trim() || 'Painters';
 
   const linkedin = (r.decision_maker_linkedin_url || r.linkedin || '').trim();
   const decisionMakerName = (r.decision_maker_name || '').trim();

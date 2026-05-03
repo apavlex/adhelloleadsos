@@ -1,11 +1,4 @@
-<section id="workspace-sales-scripts" class="scroll-mt-28 mb-16" aria-labelledby="workspace-sales-scripts-heading">
-  <div class="mb-8 max-w-3xl">
-    <h2 id="workspace-sales-scripts-heading" class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">Script <span class="text-brand-muted">library</span></h2>
-    <p class="text-brand-muted font-medium mt-2">Scripts are grouped by offer. Open a section, edit the text, and use <strong class="text-brand-dark dark:text-white">Coach</strong> for that block — the coach panel on the right always follows the section you chose. <strong class="text-brand-dark dark:text-white">Save</strong> sends a copy to your snippet library; edits to the blocks themselves sync to the workspace after you pause typing.</p>
-    <% if (typeof scriptsPanelShowPersonasCrossLink === 'undefined' || scriptsPanelShowPersonasCrossLink) { %>
-    <p class="text-xs text-brand-muted mt-3">Full-page scripts & coach: <a href="/sales/personas" class="text-brand-yellow font-bold hover:underline">Sales scripts</a>.</p>
-    <% } %>
-  </div>
+<section id="workspace-sales-scripts" class="scroll-mt-28 mb-16" aria-label="Sales scripts workspace">
 
   <% const SCRIPT_SECTION_ORDER = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close']; %>
   <% const SECTION_HEADINGS = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value proposition', objectionHandling: 'Objection handling', close: 'Close' }; %>
@@ -53,25 +46,14 @@
         <% }) %>
       </div>
 
-      <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
-        <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 flex items-center justify-between flex-wrap gap-2">
-          <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Saved snippets</h3>
-          <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Workspace library (DB)</p>
-        </div>
-        <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Expand a section above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
-        <ul id="scriptLibraryList" class="divide-y divide-brand-border/50 dark:divide-white/10 hidden"></ul>
-      </div>
-    </div>
-
-    <aside class="flex flex-col gap-4 min-w-0 xl:sticky xl:top-24 xl:max-h-[calc(100vh-5.5rem)] xl:overflow-y-auto custom-scrollbar">
-      <div id="sales-scripts-coach" class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden flex flex-col min-h-0 xl:flex-1 xl:min-h-[18rem]">
+      <div id="sales-scripts-coach" class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden flex flex-col min-w-0 min-h-0">
         <div class="px-4 py-3 border-b border-brand-border dark:border-white/10 shrink-0">
           <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white">AI script coach</h3>
           <p class="text-[10px] text-brand-muted mt-1 leading-relaxed">Scoped to the section you open with <strong class="text-brand-dark dark:text-white">Coach</strong> on the left.</p>
           <p id="coachContextLabel" class="text-[10px] font-bold text-brand-yellow mt-2 uppercase tracking-wide">Reputation · Opening</p>
           <button type="button" id="coachResetBtn" class="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:underline">New conversation</button>
         </div>
-        <div id="coachMessages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm min-h-[10rem] max-h-[min(40vh,18rem)] xl:max-h-[14rem] custom-scrollbar"></div>
+        <div id="coachMessages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm min-h-[10rem] max-h-[min(40vh,18rem)] custom-scrollbar"></div>
         <div id="coachRefinedWrap" class="hidden px-4 pb-2 shrink-0">
           <div class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-3">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow mb-2">Suggested script</p>
@@ -86,6 +68,17 @@
         </div>
       </div>
 
+      <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
+        <div class="px-6 py-4 border-b border-brand-border dark:border-white/10 flex items-center justify-between flex-wrap gap-2">
+          <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Saved snippets</h3>
+          <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Workspace library (DB)</p>
+        </div>
+        <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Expand a section above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
+        <ul id="scriptLibraryList" class="divide-y divide-brand-border/50 dark:divide-white/10 hidden"></ul>
+      </div>
+    </div>
+
+    <aside class="flex flex-col gap-4 min-w-0 xl:sticky xl:top-24 xl:self-start xl:max-h-[calc(100vh-5.5rem)] xl:overflow-y-auto custom-scrollbar">
       <div class="brand-card dark:bg-slate-900 dark:border-white/10 p-4 shrink-0">
         <h3 class="font-display font-extrabold text-sm text-brand-dark dark:text-white">Merge tags & preview</h3>
         <p class="text-[10px] text-brand-muted font-medium mt-1">Fill a sample lead, then click a tag to insert it at the cursor in the script box (or use preview as-is).</p>

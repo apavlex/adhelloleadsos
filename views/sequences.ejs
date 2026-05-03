@@ -27,26 +27,33 @@
         <a href="/pipeline" class="text-sm font-black uppercase tracking-widest text-brand-yellow hover:underline">Open Pipeline</a>
       </div>
       <% if (!activeSequences || activeSequences.length === 0) { %>
-        <p class="text-sm text-brand-muted italic">No active sequences. Open a lead in <strong>Saved Leads</strong> and start a cadence from the row actions (or wire the API).</p>
+        <p class="text-sm text-brand-muted italic">No active sequences. Open a lead on <a href="/pipeline" class="text-brand-yellow font-bold hover:underline">Pipeline</a> (saved leads), run a touch from the row (e.g. voicemail disposition auto-attaches the audit cadence), or start via the API below.</p>
       <% } else { %>
         <ul class="space-y-2">
           <% activeSequences.slice(0, 20).forEach((l) => { %>
-            <li class="flex flex-wrap justify-between gap-2 p-4 rounded-2xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/50">
-              <span class="font-bold text-brand-dark dark:text-white"><%= l.title %></span>
-              <span class="text-xs text-brand-muted"><%= (l.sequenceState && l.sequenceState.templateId) || '—' %> · next <%= (l.sequenceState && l.sequenceState.nextDueAt) ? new Date(l.sequenceState.nextDueAt).toLocaleString() : '—' %></span>
+            <li>
+              <button type="button" class="cadence-lead-open group w-full flex flex-wrap justify-between gap-2 p-4 rounded-2xl bg-brand-cream/40 dark:bg-white/5 border border-brand-border/50 text-left cursor-pointer transition-colors hover:border-brand-yellow/50 hover:bg-brand-yellow/10 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow" data-lead-key="<%= String(l.key || '').replace(/"/g, '&quot;') %>" title="Open lead details">
+                <span class="font-bold text-brand-dark dark:text-white group-hover:text-brand-dark dark:group-hover:text-brand-yellow"><%= l.title %></span>
+                <span class="text-xs text-brand-muted"><%= (l.sequenceState && l.sequenceState.templateId) || '—' %> · next <%= (l.sequenceState && l.sequenceState.nextDueAt) ? new Date(l.sequenceState.nextDueAt).toLocaleString() : '—' %></span>
+              </button>
             </li>
           <% }) %>
         </ul>
+        <p class="text-[11px] text-brand-muted mt-3">Tip: click a row to open the same business sidebar as on Pipeline.</p>
       <% } %>
     </div>
 
-    <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white mb-6">Templates (persona)</h2>
+    <div class="mb-4 max-w-3xl">
+      <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white mb-2">Templates (persona)</h2>
+      <p class="text-sm text-brand-muted leading-relaxed">Each card is a <strong class="text-brand-dark dark:text-white">named outreach playbook</strong> (persona + step sequence). They are not toggles on this screen — you <strong class="text-brand-dark dark:text-white">activate</strong> a template on a specific lead: from Pipeline row actions, Today’s queue, voicemail disposition, or <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">POST /leads/:key/sequence/start</code> with the template <code class="text-xs font-mono">id</code>. Pick the playbook that matches speed (e.g. hot 5-day vs cold 14-day). Steps schedule relative to the anchor day; merge tokens fill from the lead’s audit.</p>
+    </div>
     <div class="grid md:grid-cols-3 gap-6">
       <% (templates || []).forEach((t) => { %>
         <article class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 flex flex-col">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2"><%= t.persona %></span>
           <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-2"><%= t.name %></h3>
-          <p class="text-sm text-brand-muted flex-1 mb-4"><%= t.description %></p>
+          <p class="text-sm text-brand-muted flex-1 mb-3"><%= t.description %></p>
+          <p class="text-[11px] text-brand-muted/90 leading-relaxed border-t border-brand-border/20 dark:border-white/10 pt-3 mb-4"><span class="font-bold text-brand-dark dark:text-slate-300">How to use:</span> Start this cadence on a lead via API or from leads workflow; the scheduler advances steps. Use <code class="text-[10px] font-mono bg-brand-cream/80 dark:bg-white/10 px-1 rounded"><%= t.id %></code> in API calls.</p>
           <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest"><%= t.stepCount %> steps</p>
           <p class="text-[10px] text-brand-muted mt-2 font-mono">id: <%= t.id %></p>
         </article>
@@ -58,6 +65,28 @@
       <code class="block mt-2 text-xs bg-white/60 dark:bg-black/30 rounded-lg p-3 overflow-x-auto">POST /leads/:leadKey/sequence/start<br/>Content-Type: application/json<br/>{ "templateId": "audit_local_14" }<br/><br/>POST /leads/:leadKey/cadence/snooze<br/>{ "days": 90, "note": "Call me in Q3" }</code>
     </div>
   </main>
+
+  <%- include('partials/lead_detail_panel') %>
+  <div id="leadPanelDatasetHost" class="result-row result-row--panel-source fixed left-[-9999px] top-0 w-px h-px overflow-hidden opacity-0 pointer-events-none" aria-hidden="true" tabindex="-1"></div>
+
+  <script>
+    window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
+    window.PIPELINE_STAGE_COLORS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
+    window.INITIAL_SAVED_LEADS = [];
+  </script>
+  <script src="/js/app.js"></script>
+  <script>
+    (function () {
+      document.querySelectorAll('.cadence-lead-open').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var k = btn.getAttribute('data-lead-key');
+          if (k && typeof window.openLeadDetailFromKey === 'function') {
+            window.openLeadDetailFromKey(k);
+          }
+        });
+      });
+    })();
+  </script>
   <%- include('partials/footer') %>
 </body>
 </html>

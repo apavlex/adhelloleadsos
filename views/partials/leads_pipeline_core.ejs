@@ -30,6 +30,7 @@
       }
       return '';
     }
+    const { getTemplate: _seqGetTemplate } = require('../../services/sequenceTemplates');
   %>
   <style>
     @media (max-width: 767px) {
@@ -80,6 +81,16 @@
       </div>
     </div>
     <div class="overflow-x-auto">
+      <datalist id="lead-category-pipeline-options">
+        <option value="Painters"></option>
+        <option value="Imported"></option>
+        <option value="Roofing"></option>
+        <option value="HVAC"></option>
+        <option value="Plumbing"></option>
+        <option value="Landscaping"></option>
+        <option value="General contractor"></option>
+        <option value="Home services"></option>
+      </datalist>
       <table id="prospectLeadsTable" class="w-full text-left border-collapse prospect-leads-table prospect-leads-table--compact">
         <thead>
           <tr class="border-b border-brand-border/40 dark:border-white/10">
@@ -91,8 +102,11 @@
             <th class="lead-sticky-company px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[13rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="company" title="Sort by company name">Company <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
             </th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle w-[1%] whitespace-nowrap" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="pipeline" title="Sort by pipeline stage">Pipeline <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            <th class="lead-col-last-touch lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="lasttouch" title="Sort by last activity date">Last touch <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+            </th>
+            <th class="lead-col-cadence lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[7.5rem] max-w-[9rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="cadence" title="Sort by last outreach channel">Cadence <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
             </th>
             <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[6.5rem] max-w-[9rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="category" title="Sort by category">Category <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
@@ -118,14 +132,14 @@
             <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
               Socials
             </th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
-              Last touch
+            <th class="lead-col-pipeline lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle w-[1%] whitespace-nowrap" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="pipeline" title="Sort by pipeline stage">Pipeline <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
             </th>
-            <th class="px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem] max-w-[20rem]" scope="col">
+            <th class="lead-col-opportunity lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[9rem] max-w-[18rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="actions" title="Sort by opportunity score and AI audit gap">Opportunity <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="sr-only"> and primary signal</span>
             </th>
-            <th class="px-2 py-3.5 pr-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]" scope="col">
+            <th class="lead-col-actions lead-col-tail-tight px-1.5 py-3.5 pr-4 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 text-right align-middle w-[1%]" scope="col">
               Actions
             </th>
           </tr>
@@ -161,13 +175,28 @@
               var _rc = parseInt(String(lead.reviewsCount || 0), 10) || 0;
               var _lastTouchRaw = lead.updatedAt || lead.lastTouchAt || lead.lastContactAt || lead.createdAt || lead.savedAt || '';
               var _lastTouchShort = '—';
+              var _lastTouchSortMs = 0;
               if (_lastTouchRaw) {
                 try {
                   var _lt = new Date(_lastTouchRaw);
                   if (!Number.isNaN(_lt.getTime())) {
                     _lastTouchShort = _lt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                    _lastTouchSortMs = _lt.getTime();
                   }
                 } catch (e) {}
+              }
+              var _ltc = String(lead.lastTouchChannel || '').trim();
+              var _seqSt = lead.sequenceState;
+              var _cadShort = '';
+              if (_seqSt && _seqSt.templateId) {
+                var _tplRow = _seqGetTemplate(_seqSt.templateId);
+                if (_tplRow) {
+                  var _ix = typeof _seqSt.stepIndex === 'number' ? _seqSt.stepIndex : 0;
+                  var _stp = _tplRow.steps && _tplRow.steps[_ix];
+                  _cadShort = (_seqSt.status === 'completed') ? 'Done' : ((_stp && _stp.channel) ? String(_stp.channel) : 'Active');
+                } else {
+                  _cadShort = _seqSt.status || '';
+                }
               }
             %>
             <tr class="result-row group/row scroll-mt-28 transition-colors duration-150 border-b border-brand-border/15 dark:border-white/[0.07]"
@@ -218,7 +247,12 @@
                 data-stitch-screenshot-url="<%= lead.stitchScreenshotUrl || '' %>"
                 data-stitch-screen-id="<%= lead.stitchScreenId || '' %>"
                 data-estimated-value="<%= lead.estimatedValue != null && lead.estimatedValue !== '' ? String(lead.estimatedValue).replace(/"/g, '&quot;') : '' %>"
-                data-created-sort="<%= _createdSortMs %>">
+                data-created-sort="<%= _createdSortMs %>"
+                data-last-touch-ms="<%= _lastTouchSortMs %>"
+                data-last-touch-channel="<%= _ltc.replace(/"/g, '&quot;') %>"
+                data-cadence-sort="<%= (_cadShort || _ltc || '').replace(/"/g, '&quot;') %>"
+                data-sequence-state='<%= JSON.stringify(lead.sequenceState || null).replace(/'/g, "&apos;") %>'
+                data-logs-snippet='<%= JSON.stringify((lead.logs || []).slice(-14)).replace(/'/g, "&apos;") %>'>
               <td class="lead-sticky-check pl-5 pr-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
                 <div class="flex items-center">
                   <input type="checkbox" class="lead-checkbox w-4 h-4 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>">
@@ -231,7 +265,7 @@
                   </div>
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 overflow-hidden flex-wrap sm:flex-nowrap">
-                      <span class="font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm truncate shrink-0 max-w-[10rem] sm:max-w-[14rem] rounded-md px-1.5 py-0.5 bg-white/95 dark:bg-slate-950/85 border border-brand-border/25 dark:border-white/10 relative z-[1]" title="<%= lead.title %>"><%= lead.title %></span>
+                      <span class="company-title-text font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm truncate shrink-0 max-w-[10rem] sm:max-w-[14rem]" title="<%= lead.title %>"><%= lead.title %></span>
                       <% if (lead.source && lead.source.startsWith('adhello_')) { %>
                         <span class="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/40">Warm</span>
                       <% } else { %>
@@ -239,28 +273,32 @@
                       <% } %>
                     </div>
                     <div class="mt-1">
-                      <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-300 leading-snug block break-words rounded-md px-1.5 py-0.5 bg-white/80 dark:bg-slate-900/70 border border-brand-border/20 dark:border-white/10" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
+                      <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
                     </div>
                   </div>
                 </div>
               </td>
-              <td class="px-2 pipeline-stage-cell align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap" onclick="event.stopPropagation()">
-                <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { %>
-                <label class="sr-only">Pipeline stage for <%= lead.title %></label>
-                <div class="pipeline-stage-pill-wrap inline-block w-max max-w-[13rem] rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/60 overflow-hidden transition-shadow duration-150 align-top" style="box-shadow: inset 3px 0 0 <%= _dot %>;">
-                <select class="pipeline-inline-select w-max min-w-0 max-w-[12.5rem] text-[11px] font-black text-brand-dark dark:text-white bg-transparent border-0 rounded-lg pl-2.5 pr-7 py-2 focus:ring-2 focus:ring-brand-yellow cursor-pointer transition-colors duration-150" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
-                  <% pipelineStages.forEach((st) => { %>
-                    <% const optShort = st.name.length > 34 ? st.name.slice(0, 34) + '…' : st.name; %>
-                    <option value="<%= st.id %>" <%= activeStageId === String(st.id) ? 'selected' : '' %>><%= optShort %></option>
-                  <% }); %>
-                </select>
-                </div>
-                <% } else { %>
-                <span class="pipeline-stage-label text-[12px] font-black text-brand-yellow"><%= pipeShort %></span>
-                <% } %>
+              <td class="lead-col-last-touch lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums inline-block" title="<%= _lastTouchRaw || '' %>"><%= _lastTouchShort %></span>
               </td>
-              <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[5.5rem] max-w-[9rem]">
-                <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-snug line-clamp-2 block" title="<%= lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName : '' %>"><%= lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName : '—' %></span>
+              <td class="lead-col-cadence lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07]" onclick="event.stopPropagation()">
+                <label class="sr-only">Last outreach channel for <%= lead.title %></label>
+                <select class="lead-touch-channel-select w-full max-w-[9rem] text-[10px] font-bold text-brand-dark dark:text-white bg-transparent dark:bg-white/5 border border-brand-border/35 dark:border-white/10 rounded-lg px-1.5 py-1 focus:ring-2 focus:ring-brand-yellow cursor-pointer" title="What was the last touch?" data-lead-key="<%= lead.key %>">
+                  <option value="">Last touch…</option>
+                  <option value="call" <%= _ltc === 'call' ? 'selected' : '' %>>Call</option>
+                  <option value="email" <%= _ltc === 'email' ? 'selected' : '' %>>Email</option>
+                  <option value="sms" <%= _ltc === 'sms' ? 'selected' : '' %>>SMS</option>
+                  <option value="social_dm" <%= _ltc === 'social_dm' ? 'selected' : '' %>>Social DM</option>
+                  <option value="linkedin" <%= _ltc === 'linkedin' ? 'selected' : '' %>>LinkedIn</option>
+                  <option value="hosted_audit" <%= _ltc === 'hosted_audit' ? 'selected' : '' %>>Hosted audit</option>
+                  <option value="voicemail" <%= _ltc === 'voicemail' ? 'selected' : '' %>>Voicemail</option>
+                  <option value="meeting" <%= _ltc === 'meeting' ? 'selected' : '' %>>Meeting</option>
+                  <option value="other" <%= _ltc === 'other' ? 'selected' : '' %>>Other</option>
+                </select>
+              </td>
+              <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[5.5rem] max-w-[10rem]" onclick="event.stopPropagation()">
+                <label class="sr-only">Category for <%= lead.title %></label>
+                <input type="text" class="lead-category-input w-full max-w-[9.5rem] text-[10px] font-semibold text-brand-dark dark:text-white rounded-lg border border-brand-border/35 dark:border-white/10 bg-transparent dark:bg-white/5 px-2 py-1 placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" list="lead-category-pipeline-options" value="<%= lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName.replace(/"/g, '&quot;') : '' %>" placeholder="Category" title="Category — type or pick" data-lead-key="<%= lead.key %>" autocomplete="off" />
               </td>
               <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums inline-block"><%= _addedShort || '—' %></span>
@@ -357,10 +395,22 @@
                   <% } %>
                 </div>
               </td>
-              <td class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
-                <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums inline-block" title="<%= _lastTouchRaw || '' %>"><%= _lastTouchShort %></span>
+              <td class="lead-col-pipeline lead-col-tail-tight px-1.5 pipeline-stage-cell align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap" onclick="event.stopPropagation()">
+                <% if (typeof pipelineStages !== 'undefined' && pipelineStages && pipelineStages.length) { %>
+                <label class="sr-only">Pipeline stage for <%= lead.title %></label>
+                <div class="pipeline-stage-pill-wrap inline-block w-max max-w-[12rem] rounded-lg border border-brand-border/40 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/60 overflow-hidden transition-shadow duration-150 align-top" style="box-shadow: inset 3px 0 0 <%= _dot %>;">
+                <select class="pipeline-inline-select w-max min-w-0 max-w-[11rem] text-[10px] sm:text-[11px] font-black text-brand-dark dark:text-white bg-transparent border-0 rounded-lg pl-2 pr-6 py-1.5 sm:py-2 focus:ring-2 focus:ring-brand-yellow cursor-pointer transition-colors duration-150" title="Change pipeline stage" data-lead-key="<%= lead.key %>">
+                  <% pipelineStages.forEach((st) => { %>
+                    <% const optShort = st.name.length > 34 ? st.name.slice(0, 34) + '…' : st.name; %>
+                    <option value="<%= st.id %>" <%= activeStageId === String(st.id) ? 'selected' : '' %>><%= optShort %></option>
+                  <% }); %>
+                </select>
+                </div>
+                <% } else { %>
+                <span class="pipeline-stage-label text-[11px] font-black text-brand-yellow"><%= pipeShort %></span>
+                <% } %>
               </td>
-              <td class="opportunity-cell px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[12rem] max-w-[22rem]">
+              <td class="opportunity-cell lead-col-opportunity lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[9rem] max-w-[18rem]">
                 <div class="flex flex-col items-center justify-center gap-1.5 py-0.5">
                   <div class="opportunity-badge">
                     <span class="inline-flex px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 border border-slate-200 dark:bg-slate-800/50 dark:text-slate-400 dark:border-white/5 text-[9px] font-black uppercase tracking-tight">Scoring…</span>
@@ -368,7 +418,7 @@
                   <p class="lead-owner-signal text-[10px] font-semibold text-brand-muted dark:text-slate-300 leading-snug line-clamp-3 text-center w-full" title="<%= String(lead.ownerSignal || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;') %>"><%= lead.ownerSignal || '' %></p>
                 </div>
               </td>
-              <td class="lead-actions-cell px-2 pr-5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] text-right">
+              <td class="lead-actions-cell lead-col-tail-tight px-1.5 pr-4 sm:pr-5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] text-right">
                 <div class="flex items-center justify-end gap-1">
                     <button type="button" class="email-intel-btn email-intel-btn--row w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" 
                       data-lead-key="<%= lead.key %>"

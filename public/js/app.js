@@ -135,7 +135,11 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const prospectSortDefaultDesc = (key) =>
-    key === 'contact' || key === 'reviews' || key === 'actions' || key === 'added';
+    key === 'contact' ||
+    key === 'reviews' ||
+    key === 'actions' ||
+    key === 'added' ||
+    key === 'lasttouch';
 
   let prospectSortState = { key: null, desc: true };
 
@@ -177,6 +181,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const ta = parseInt(a.createdSort, 10) || 0;
           const tb = parseInt(b.createdSort, 10) || 0;
           c = ta - tb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'lasttouch': {
+          const ta = parseInt(a.lastTouchMs, 10) || 0;
+          const tb = parseInt(b.lastTouchMs, 10) || 0;
+          c = ta - tb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'cadence': {
+          c = cmpStr((a.cadenceSort || a.lastTouchChannel || '').trim(), (b.cadenceSort || b.lastTouchChannel || '').trim());
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         }
@@ -761,7 +777,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const prevLeadBtn = document.getElementById('prevLeadBtn');
   const nextLeadBtn = document.getElementById('nextLeadBtn');
   let rows = document.querySelectorAll('.result-row');
-  const navigableRows = () => Array.from(rows).filter((r) => !r.classList.contains('workflow-filtered-out'));
+  const navigableRows = () =>
+    Array.from(document.querySelectorAll('.result-row')).filter(
+      (r) =>
+        !r.classList.contains('workflow-filtered-out') &&
+        !r.classList.contains('result-row--panel-source')
+    );
   let currentRow = null;
   let currentIndex = -1;
 
@@ -862,6 +883,7 @@ document.addEventListener('DOMContentLoaded', () => {
       target.closest('.view-detail-btn') ||
       target.closest('.email-intel-btn') ||
       target.closest('.ai-analysis-btn') ||
+      target.closest('.lead-category-input') ||
       target.closest('select') ||
       target.closest('form') ||
       target.closest('a') ||
@@ -869,32 +891,11 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
-  // --- Row click -> open slide-up detail panel (Universal) ---
-  if (rows.length > 0) {
-    rows.forEach((row) => {
-      row.style.cursor = 'pointer'; // Ensure it looks clickable
-      row.addEventListener('click', (e) => {
-        if (!mobilePanel) return;
-        const clickedPrimaryLeadArea =
-          e.target.closest('.lead-company-inline') ||
-          e.target.closest('.lead-row-address') ||
-          e.target.closest('.lead-owner-signal');
-        if (clickedPrimaryLeadArea) {
-          selectRow(row);
-          return;
-        }
-        if (shouldIgnoreRowOpenClick(e.target)) return;
-
-        selectRow(row);
-      });
-    });
-  }
-
-  // Delegated fallback for rows injected/refreshed after initial page load
+  // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
     if (!mobilePanel) return;
     const row = e.target.closest('.result-row');
-    if (!row) return;
+    if (!row || row.classList.contains('result-row--panel-source')) return;
     if (shouldIgnoreRowOpenClick(e.target)) return;
     selectRow(row);
   });
@@ -1882,6 +1883,123 @@ document.addEventListener('DOMContentLoaded', () => {
   const GOOGLE_SOCIALS_TABLE_BTN_CLASS =
     'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25 transition-all hover:scale-105';
 
+  const CADENCE_CHANNEL_LABELS = {
+    call: 'Phone call',
+    email: 'Email',
+    sms: 'SMS',
+    social_dm: 'Social DM',
+    linkedin: 'LinkedIn',
+    hosted_audit: 'Hosted audit',
+    voicemail: 'Voicemail',
+    meeting: 'Meeting',
+    other: 'Other',
+  };
+
+  function cadenceHintFromChannel(channel) {
+    const ch = String(channel || '').trim();
+    if (ch === 'email') {
+      return 'If no reply within 48 hours, follow with a quick call or DM referencing the same hook.';
+    }
+    if (ch === 'call' || ch === 'voicemail') {
+      return 'Send a short email with one concrete observation and a soft calendar ask.';
+    }
+    if (ch === 'sms') {
+      return 'Pair SMS with email so stakeholders have something forwardable.';
+    }
+    if (ch === 'linkedin') {
+      return 'Bridge to email or phone while you have attention — send the audit link or book 15 minutes.';
+    }
+    if (ch === 'social_dm') {
+      return 'Move the thread toward email or a call for clear next steps.';
+    }
+    if (ch === 'meeting') {
+      return 'Send a recap with owners and dates before the deal goes idle.';
+    }
+    return 'Alternate channels every few days until you connect or get a clear outcome — log each touch.';
+  }
+
+  function populateCadenceSection(row) {
+    const ltEl = document.getElementById('cadenceLastTouchLine');
+    const chEl = document.getElementById('cadenceChannelLine');
+    const seqWrap = document.getElementById('cadenceSequenceWrap');
+    const seqLine = document.getElementById('cadenceSequenceLine');
+    const nextEl = document.getElementById('cadenceNextStepLine');
+    const logsWrap = document.getElementById('cadenceLogsWrap');
+    const logList = document.getElementById('cadenceLogList');
+    if (!ltEl || !chEl || !nextEl) return;
+
+    const ms = parseInt(row.dataset.lastTouchMs || '', 10);
+    let lastTouchText = '—';
+    if (ms && Number.isFinite(ms)) {
+      try {
+        lastTouchText = new Date(ms).toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          year: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        });
+      } catch (_) {
+        lastTouchText = '—';
+      }
+    }
+    ltEl.textContent = lastTouchText;
+
+    const rawCh = String(row.dataset.lastTouchChannel || '').trim();
+    chEl.textContent =
+      CADENCE_CHANNEL_LABELS[rawCh] || (rawCh ? rawCh.replace(/_/g, ' ') : 'Not set');
+
+    let seq = null;
+    try {
+      seq = JSON.parse(row.dataset.sequenceState || 'null');
+    } catch (_) {
+      seq = null;
+    }
+    if (seqWrap && seqLine) {
+      const tid = seq && seq.templateId ? String(seq.templateId) : '';
+      const st = seq && seq.status ? String(seq.status) : '';
+      const ix = seq && typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
+      if (tid || st) {
+        seqLine.textContent = tid
+          ? `${tid.replace(/_/g, ' ')} · step ${ix + 1}${st ? ` · ${st}` : ''}`
+          : st;
+        seqWrap.classList.remove('hidden');
+      } else {
+        seqLine.textContent = '—';
+        seqWrap.classList.add('hidden');
+      }
+    }
+
+    nextEl.textContent = cadenceHintFromChannel(rawCh);
+
+    let logs = [];
+    try {
+      logs = JSON.parse(row.dataset.logsSnippet || '[]');
+    } catch (_) {
+      logs = [];
+    }
+    if (logsWrap && logList) {
+      logList.innerHTML = '';
+      if (Array.isArray(logs) && logs.length) {
+        logsWrap.classList.remove('hidden');
+        logs.slice(-8).forEach((entry) => {
+          const li = document.createElement('li');
+          li.className =
+            'border-l-2 border-brand-yellow/40 pl-3 py-1 text-brand-muted dark:text-slate-400';
+          const ts = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+          const msg =
+            typeof entry.message === 'string'
+              ? entry.message
+              : JSON.stringify(entry).slice(0, 180);
+          li.textContent = ts ? `${ts} — ${msg}` : msg;
+          logList.appendChild(li);
+        });
+      } else {
+        logsWrap.classList.add('hidden');
+      }
+    }
+  }
+
   // --- Populate panel from row data ---
   function populatePanel(row) {
     const title = row.dataset.title;
@@ -1924,6 +2042,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
+
+    populateCadenceSection(row);
 
     const sourcePill = document.getElementById('mobilePanelSourcePill');
     if (sourcePill) {
@@ -2593,6 +2713,63 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch {
       sel.value = prevId;
+    } finally {
+      sel.disabled = false;
+    }
+  });
+
+  document.addEventListener('change', async (e) => {
+    const inp = e.target.closest('.lead-category-input');
+    if (!inp) return;
+    const row = inp.closest('.result-row');
+    const key = String(inp.dataset.leadKey || (row && row.dataset.leadKey) || '').trim();
+    if (!key) return;
+    const val = String(inp.value || '').trim();
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ categoryName: val || 'N/A' }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success && row) {
+        row.dataset.category = val || 'N/A';
+        if (currentRow === row) populatePanel(row);
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  });
+
+  document.addEventListener('change', async (e) => {
+    const sel = e.target.closest('.lead-touch-channel-select');
+    if (!sel) return;
+    const row = sel.closest('.result-row');
+    const key = String(sel.dataset.leadKey || (row && row.dataset.leadKey) || '').trim();
+    if (!key || !row) return;
+    const val = String(sel.value || '').trim();
+    const prevCh = String(row.dataset.lastTouchChannel || '').trim();
+    if (val === prevCh) return;
+    sel.disabled = true;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          lastTouchChannel: val || null,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.success) {
+        row.dataset.lastTouchChannel = val;
+        row.dataset.cadenceSort = val || '';
+        if (currentRow === row) populatePanel(row);
+        if (typeof window.showProspectToast === 'function') window.showProspectToast('Cadence updated');
+      } else {
+        sel.value = prevCh || '';
+      }
+    } catch (_) {
+      sel.value = prevCh || '';
     } finally {
       sel.disabled = false;
     }
@@ -6377,4 +6554,137 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => apply(btn.dataset.density || 'compact'));
     });
   })();
+
+  /** Map API lead JSON onto the hidden panel host (Cadences / pages without a table row). */
+  function applyLeadObjectToPanelHost(el, lead) {
+    if (!el || !lead) return;
+    const ds = el.dataset;
+    const str = (v, fb = '') =>
+      v != null && v !== undefined && String(v) !== 'undefined' ? String(v) : fb;
+    ds.leadKey = str(lead.key);
+    ds.title = str(lead.title);
+    ds.phone = str(lead.phone, 'N/A');
+    ds.email = str(lead.email, 'N/A');
+    ds.website = str(lead.website, 'N/A');
+    const cat = lead.categoryName;
+    ds.category = cat && cat !== 'N/A' ? str(cat) : str(lead.category, 'N/A');
+    ds.address = str(lead.address, 'N/A');
+    ds.city = str(lead.city);
+    ds.url = str(lead.url);
+    ds.facebook = str(lead.facebook, 'N/A');
+    ds.instagram = str(lead.instagram, 'N/A');
+    ds.twitter = str(lead.twitter, 'N/A');
+    ds.rating = lead.totalScore != null ? String(lead.totalScore) : '0';
+    ds.reviews = lead.reviewsCount != null ? String(lead.reviewsCount) : '0';
+    ds.status = str(lead.status, 'Not Contacted');
+    ds.source = str(lead.source);
+    ds.loomUrl = str(lead.loomUrl);
+    ds.ownerSignal = str(lead.ownerSignal);
+    ds.outreachPrompt = str(lead.outreachPrompt);
+    ds.industry = str(lead.industry);
+    ds.goal = str(lead.goal);
+    ds.vibe = str(lead.vibe);
+    ds.pipelineStage = lead.pipelineStage != null ? String(lead.pipelineStage) : '';
+    ds.stageId = str(lead.stageId);
+    ds.pipelineLabel = str(lead.pipelineLabel);
+    ds.auditUrl = str(lead.auditUrl);
+    ds.estimatedValue = lead.estimatedValue != null ? String(lead.estimatedValue) : '';
+    ds.stitchDesignUrl = str(lead.stitchDesignUrl);
+    ds.stitchScreenshotUrl = str(lead.stitchScreenshotUrl);
+    ds.stitchScreenId = str(lead.stitchScreenId);
+    ds.competitorName = str(lead.competitorName);
+    ds.competitorGap = str(lead.competitorGap);
+    ds.competitorMetaBenchmark = str(lead.competitorMetaBenchmark);
+    ds.cmsPlatform = str(lead.cmsPlatform);
+    ds.geoGaps = str(lead.geoGaps);
+    ds.auditSummary = str(lead.auditSummary);
+    ds.hasSchemaMarkup = lead.hasSchemaMarkup != null ? String(lead.hasSchemaMarkup) : '';
+    ds.hasChatbot = lead.hasChatbot != null ? String(lead.hasChatbot) : '';
+    ds.hasClickToCall = lead.hasClickToCall != null ? String(lead.hasClickToCall) : '';
+    ds.isMobileFriendly = lead.isMobileFriendly != null ? String(lead.isMobileFriendly) : '';
+    ds.isOutdated = lead.isOutdated != null ? String(lead.isOutdated) : '';
+    ds.visualModernityScore = lead.visualModernityScore != null ? String(lead.visualModernityScore) : '';
+    ds.aeoScore = lead.aeoScore != null ? String(lead.aeoScore) : '';
+    try {
+      ds.reviewSnippets = JSON.stringify(lead.reviewSnippets || []);
+    } catch (_) {
+      ds.reviewSnippets = '[]';
+    }
+    try {
+      ds.sequenceState = JSON.stringify(lead.sequenceState || null);
+    } catch (_) {
+      ds.sequenceState = 'null';
+    }
+    try {
+      ds.logsSnippet = JSON.stringify((lead.logs || []).slice(-14));
+    } catch (_) {
+      ds.logsSnippet = '[]';
+    }
+    try {
+      ds.updates = JSON.stringify(lead.updates || []);
+    } catch (_) {
+      ds.updates = '[]';
+    }
+    try {
+      ds.auditData = JSON.stringify(lead.auditData || null);
+    } catch (_) {
+      ds.auditData = 'null';
+    }
+    try {
+      ds.chatHistory = JSON.stringify(lead.chatHistory || null);
+    } catch (_) {
+      ds.chatHistory = 'null';
+    }
+    try {
+      ds.cqi = JSON.stringify(lead.cqi || null);
+    } catch (_) {
+      ds.cqi = 'null';
+    }
+    try {
+      ds.aiAnalysis = JSON.stringify(lead.aiWebsiteAnalysis || null);
+    } catch (_) {
+      ds.aiAnalysis = 'null';
+    }
+    try {
+      ds.buyingSignals = JSON.stringify(lead.buyingSignals || []);
+    } catch (_) {
+      ds.buyingSignals = '[]';
+    }
+    ds.aiScore = lead.aiWebsiteAnalysisScore != null ? String(lead.aiWebsiteAnalysisScore) : '';
+    const ltc = String(lead.lastTouchChannel || '').trim();
+    ds.lastTouchChannel = ltc;
+    ds.cadenceSort =
+      ltc || (lead.sequenceState && lead.sequenceState.templateId ? String(lead.sequenceState.templateId) : '');
+    const rawTouch = lead.updatedAt || lead.lastTouchAt || lead.lastContactAt || lead.createdAt || lead.savedAt;
+    let ms = 0;
+    if (rawTouch) {
+      const d = new Date(rawTouch);
+      if (!Number.isNaN(d.getTime())) ms = d.getTime();
+    }
+    ds.lastTouchMs = String(ms);
+    const cr = lead.createdAt || lead.savedAt;
+    let csm = 0;
+    if (cr) {
+      const d = new Date(cr);
+      if (!Number.isNaN(d.getTime())) csm = d.getTime();
+    }
+    ds.createdSort = String(csm);
+    ds.createdAt = str(cr);
+  }
+
+  window.openLeadDetailFromKey = async (rawKey) => {
+    const k = String(rawKey || '').replace(/^lead:/, '').trim();
+    if (!k) return;
+    const host = document.getElementById('leadPanelDatasetHost');
+    if (!host) return;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(k)}/panel-data`);
+      const data = await res.json().catch(() => ({}));
+      if (!data.success || !data.lead) return;
+      applyLeadObjectToPanelHost(host, data.lead);
+      selectRow(host);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 });
