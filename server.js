@@ -36,6 +36,7 @@ const todayRoutes = require('./routes/today');
 const focusRoutes = require('./routes/focus');
 const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
+const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -182,6 +183,7 @@ app.post('/enrich', async (req, res) => {
 });
 
 // Public hosted website audit (signed token; no session — share on cold calls)
+app.use('/', sharePhoneAnalyticsRoutes);
 app.use('/', auditReportPublicRoutes);
 
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)

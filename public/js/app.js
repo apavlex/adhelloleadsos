@@ -302,6 +302,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'Address',
         'Rating',
         'Reviews',
+        'Claim status',
+        'GBP optimization score',
         'Signal',
         'Facebook',
         'Instagram',
@@ -317,6 +319,8 @@ document.addEventListener('DOMContentLoaded', () => {
         `"${l.address}"`,
         l.rating,
         l.reviews,
+        `"${String(l.gbpClaimStatus || '').replace(/"/g, '""')}"`,
+        `"${String(l.gbpOptimizationScore || '').replace(/"/g, '""')}"`,
         `"${(l.ownerSignal || '').replace(/"/g, '""')}"`,
         `"${l.facebook}"`,
         `"${l.instagram}"`,
@@ -6633,6 +6637,8 @@ document.addEventListener('DOMContentLoaded', () => {
       { id: 'cadence', label: 'Cadence' },
       { id: 'category', label: 'Category' },
       { id: 'reviews', label: 'Reviews' },
+      { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
+      { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
       { id: 'contact', label: 'Contact (phone, email, domain)' },
       { id: 'socials', label: 'Socials' },
       { id: 'added', label: 'Added' },
@@ -6640,6 +6646,13 @@ document.addEventListener('DOMContentLoaded', () => {
       { id: 'opportunity', label: 'Opportunity' },
       { id: 'actions', label: 'Actions' },
     ];
+
+    function pipelineColVisible(map, id) {
+      const meta = PLC_META.find((x) => x.id === id);
+      const defaultOn = !(meta && meta.defaultHidden);
+      if (!Object.prototype.hasOwnProperty.call(map, id)) return defaultOn;
+      return map[id] !== false;
+    }
     const VIS_KEY = 'pipelineTableColVisibility';
     const WIDTH_KEY = 'pipelineTableColWidths';
 
@@ -6665,7 +6678,7 @@ document.addEventListener('DOMContentLoaded', () => {
         el.classList.remove('plc-col-hidden');
       });
       PLC_META.forEach(({ id }) => {
-        const on = map[id] !== false;
+        const on = pipelineColVisible(map, id);
         table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
           el.classList.toggle('plc-col-hidden', !on);
         });
@@ -6712,7 +6725,7 @@ document.addEventListener('DOMContentLoaded', () => {
       wrap.className = 'flex items-center gap-2 cursor-pointer text-brand-dark dark:text-slate-200';
       const cb = document.createElement('input');
       cb.type = 'checkbox';
-      cb.checked = vis[id] !== false;
+      cb.checked = pipelineColVisible(vis, id);
       cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
       cb.addEventListener('change', () => {
         vis[id] = cb.checked;
@@ -6829,6 +6842,8 @@ document.addEventListener('DOMContentLoaded', () => {
     ds.twitter = str(lead.twitter, 'N/A');
     ds.rating = lead.totalScore != null ? String(lead.totalScore) : '0';
     ds.reviews = lead.reviewsCount != null ? String(lead.reviewsCount) : '0';
+    ds.gbpClaimStatus = str(lead.gbpClaimStatus);
+    ds.gbpOptimizationScore = str(lead.gbpOptimizationScore);
     ds.status = str(lead.status, 'Not Contacted');
     ds.source = str(lead.source);
     ds.loomUrl = str(lead.loomUrl);

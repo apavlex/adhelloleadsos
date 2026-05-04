@@ -221,5 +221,112 @@
       });
     });
   }
+
+  var shareRoot = document.getElementById('wsPhoneShareRoot');
+  var shareGen = document.getElementById('wsPhoneShareGenerate');
+  var shareCopy = document.getElementById('wsPhoneShareCopy');
+  var shareDisable = document.getElementById('wsPhoneShareDisable');
+  var shareUrlEl = document.getElementById('wsPhoneShareUrl');
+  var shareMsg = document.getElementById('wsPhoneShareMsg');
+  var wsId = shareRoot ? String(shareRoot.getAttribute('data-workspace-id') || '').trim() : '';
+
+  function setShareMsg(text, ok) {
+    if (!shareMsg) return;
+    shareMsg.classList.remove('hidden');
+    shareMsg.textContent = text;
+    shareMsg.className = 'mt-2 text-[11px] ' + (ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-600');
+  }
+
+  function stashShareUrl(url) {
+    try {
+      if (wsId && url) sessionStorage.setItem('phoneAnalyticsShareUrl_' + wsId, url);
+    } catch (_) {}
+  }
+  function peekShareUrl() {
+    try {
+      if (!wsId) return '';
+      return sessionStorage.getItem('phoneAnalyticsShareUrl_' + wsId) || '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  if (shareGen) {
+    shareGen.addEventListener('click', function () {
+      fetch('/workspace/phone-analytics-share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ action: 'generate' }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.success && data.shareUrl) {
+            stashShareUrl(data.shareUrl);
+            if (shareUrlEl) {
+              shareUrlEl.textContent = data.shareUrl;
+              shareUrlEl.classList.remove('hidden');
+            }
+            if (shareCopy) shareCopy.disabled = false;
+            if (shareDisable) shareDisable.disabled = false;
+            setShareMsg('New link ready. Copy and send to your client.', true);
+            shareGen.textContent = 'Rotate link';
+          } else {
+            setShareMsg((data && data.error) || 'Could not generate link.', false);
+          }
+        })
+        .catch(function () {
+          setShareMsg('Request failed.', false);
+        });
+    });
+  }
+  if (shareCopy) {
+    shareCopy.addEventListener('click', function () {
+      var url = peekShareUrl();
+      if (!url && shareUrlEl && shareUrlEl.textContent) url = shareUrlEl.textContent.trim();
+      if (!url) {
+        setShareMsg('Generate or rotate to get a URL. If you opened this page fresh, rotate once to copy again.', false);
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () {
+          setShareMsg('Copied to clipboard.', true);
+        }).catch(function () {
+          setShareMsg('Could not copy — select the URL above.', false);
+        });
+      } else {
+        setShareMsg(url, true);
+      }
+    });
+  }
+  if (shareDisable) {
+    shareDisable.addEventListener('click', function () {
+      fetch('/workspace/phone-analytics-share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ action: 'disable' }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data && data.success) {
+            try {
+              if (wsId) sessionStorage.removeItem('phoneAnalyticsShareUrl_' + wsId);
+            } catch (_) {}
+            if (shareUrlEl) {
+              shareUrlEl.textContent = '';
+              shareUrlEl.classList.add('hidden');
+            }
+            shareCopy.disabled = true;
+            shareDisable.disabled = true;
+            shareGen.textContent = 'Generate link';
+            setShareMsg('Share link revoked.', true);
+          } else {
+            setShareMsg((data && data.error) || 'Could not revoke.', false);
+          }
+        })
+        .catch(function () {
+          setShareMsg('Request failed.', false);
+        });
+    });
+  }
 })();
 </script>

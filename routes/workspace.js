@@ -843,6 +843,56 @@ router.post('/phone-bank/cnam-submit', express.json(), async (req, res) => {
   }
 });
 
+/** POST JSON: create / rotate / disable client-facing phone analytics share link (read-only public URL). */
+router.post('/phone-analytics-share', express.json(), async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res
+        .status(403)
+        .json({ success: false, error: 'Only workspace admins can manage the share link.' });
+    }
+    const action = String((req.body && req.body.action) || '').trim().toLowerCase();
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const telephony = ws.telephony && typeof ws.telephony === 'object' ? { ...ws.telephony } : {};
+
+    function buildShareUrl(token) {
+      const base = String(process.env.BASE_URL || '').trim() || `${req.protocol}://${req.get('host')}`;
+      return `${base.replace(/\/+$/, '')}/share/phone-analytics/${encodeURIComponent(wid)}/${encodeURIComponent(token)}`;
+    }
+
+    if (action === 'disable') {
+      delete telephony.phoneAnalyticsShareTokenHash;
+      delete telephony.phoneAnalyticsShareCreatedAt;
+      ws.telephony = telephony;
+      await dbService.saveWorkspace(wid, ws);
+      return res.json({ success: true, active: false, shareUrl: null });
+    }
+
+    if (action === 'rotate' || action === 'generate') {
+      const token = crypto.randomBytes(24).toString('hex');
+      telephony.phoneAnalyticsShareTokenHash = hashInviteToken(token);
+      telephony.phoneAnalyticsShareCreatedAt = new Date().toISOString();
+      ws.telephony = telephony;
+      await dbService.saveWorkspace(wid, ws);
+      return res.json({
+        success: true,
+        active: true,
+        shareUrl: buildShareUrl(token),
+        token,
+        createdAt: telephony.phoneAnalyticsShareCreatedAt,
+      });
+    }
+
+    return res.status(400).json({
+      success: false,
+      error: 'Use action "generate", "rotate", or "disable".',
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message || 'Server error' });
+  }
+});
+
 /** GET JSON: script library + block overrides (workspace-scoped). */
 router.get('/scripts.json', async (req, res, next) => {
   try {

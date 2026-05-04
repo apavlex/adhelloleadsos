@@ -63,13 +63,42 @@ function normalizeWebsite(raw) {
 function pickPrimaryEmail(r) {
   const dm = (r.decision_maker_email || '').trim();
   const one = (r.one_email || '').trim();
+  const direct = (r.e_mail || r.email || '').trim();
   if (dm) return dm;
   if (one) return one;
+  if (direct && !/^n\/a$/i.test(direct)) return direct;
   const list = (r.company_emails || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  return list[0] || '';
+  const first = list[0] || '';
+  if (first && !/^n\/a$/i.test(first)) return first;
+  return '';
+}
+
+function parseReviewCount(r) {
+  const raw =
+    r.reviews ||
+    r.reviewscount ||
+    r.reviews_count ||
+    r.total_review ||
+    r.total_reviews ||
+    r.number_of_reviews ||
+    r.num_reviews;
+  const n = parseInt(String(raw ?? '').replace(/,/g, ''), 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function parseStarRating(r) {
+  const raw = r.rating || r.totalscore || r.stars || r.avg_rating || r.star_rating;
+  const f = parseFloat(String(raw ?? '').replace(/,/g, ''));
+  return Number.isFinite(f) && f > 0 ? f : 0;
+}
+
+function trimGbpField(raw, maxLen) {
+  const s = String(raw ?? '').trim();
+  if (!s || /^n\/a$/i.test(s)) return '';
+  return s.slice(0, maxLen);
 }
 
 function toLeadPayload(row, originalFilename, rowIndex) {
@@ -115,9 +144,11 @@ function toLeadPayload(row, originalFilename, rowIndex) {
     address: address || 'N/A',
     city: city || (r.city || '').trim(),
     state: state || (r.state || '').trim(),
-    totalScore: parseFloat(r.rating || r.totalscore || r.stars || '0') || 0,
-    reviewsCount: parseInt(r.reviews || r.reviewscount || r.reviews_count || '0', 10) || 0,
-    url: (r.google_maps_url || r.maps_url || r.url || '').trim() || '',
+    totalScore: parseStarRating(r),
+    reviewsCount: parseReviewCount(r),
+    url: (r.google_maps_url || r.maps_url || r.gbp_link || r.url || '').trim() || '',
+    gbpClaimStatus: trimGbpField(r.claim_status, 80),
+    gbpOptimizationScore: trimGbpField(r.optimization_score, 32),
     facebook: 'N/A',
     instagram: 'N/A',
     twitter: 'N/A',

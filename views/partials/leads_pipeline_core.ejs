@@ -146,6 +146,14 @@
               <button type="button" class="prospect-sort-btn" data-prospect-sort="reviews" title="Sort by rating and review count">Reviews <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="reviews" title="Resize column" aria-hidden="true"></span>
             </th>
+            <th data-plc="claimStatus" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[5.5rem] max-w-[9rem]" scope="col">
+              Claim status
+              <span class="plc-col-resize" data-plc-resize="claimStatus" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="optimizationScore" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[5rem]" scope="col">
+              GBP score
+              <span class="plc-col-resize" data-plc-resize="optimizationScore" title="Resize column" aria-hidden="true"></span>
+            </th>
             <th data-plc="contact" class="plc-th-wrap lead-col-contact-comfortable px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[12rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="contact" title="Sort by contact fields filled (phone, email, website)">Contact <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="contact" title="Resize column" aria-hidden="true"></span>
@@ -214,6 +222,8 @@
               var _tw = lead.twitter && lead.twitter !== 'N/A' ? String(lead.twitter) : '';
               var _rNum = lead.totalScore ? Number(lead.totalScore).toFixed(1) : '';
               var _rc = parseInt(String(lead.reviewsCount || 0), 10) || 0;
+              var _claimSt = lead.gbpClaimStatus ? String(lead.gbpClaimStatus).trim() : '';
+              var _gbpOpt = lead.gbpOptimizationScore ? String(lead.gbpOptimizationScore).trim() : '';
               var _lastTouchRaw = lead.updatedAt || lead.lastTouchAt || lead.lastContactAt || lead.createdAt || lead.savedAt || '';
               var _lastTouchShort = '—';
               var _lastTouchSortMs = 0;
@@ -281,6 +291,8 @@
                 data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'
                 data-chat-history='<%= JSON.stringify(lead.chatHistory || null).replace(/'/g, "&apos;") %>'
                 data-cqi='<%= JSON.stringify(lead.cqi || null).replace(/'/g, "&apos;") %>'
+                data-gbp-claim-status="<%= String(lead.gbpClaimStatus || '').replace(/"/g, '&quot;') %>"
+                data-gbp-optimization-score="<%= String(lead.gbpOptimizationScore || '').replace(/"/g, '&quot;') %>"
                 data-ai-score="<%= lead.aiWebsiteAnalysisScore != null ? lead.aiWebsiteAnalysisScore : '' %>"
                 data-ai-analysis='<%= JSON.stringify(lead.aiWebsiteAnalysis || null).replace(/'/g, "&apos;") %>'
                 data-owner-signal="<%= (lead.ownerSignal || '').replace(/"/g, '&quot;') %>"
@@ -351,6 +363,12 @@
                     <span class="text-sm font-semibold text-brand-muted/60 dark:text-slate-500">—</span>
                   <% } %>
                 </div>
+              </td>
+              <td data-plc="claimStatus" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap max-w-[10rem]">
+                <span class="text-[10px] font-semibold text-brand-dark dark:text-slate-200 truncate block" title="<%= _claimSt.replace(/"/g, '&quot;') %>"><%= _claimSt || '—' %></span>
+              </td>
+              <td data-plc="optimizationScore" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <span class="text-[10px] font-semibold tabular-nums text-brand-dark dark:text-slate-200"><%= _gbpOpt || '—' %></span>
               </td>
               <td data-plc="contact" class="lead-col-contact-comfortable px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[12rem]">
                 <div class="flex flex-col gap-2 min-w-0 py-0.5">

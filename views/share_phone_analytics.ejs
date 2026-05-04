@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Call routing &amp; inbound stats — <%= workspaceName %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --paper: #ffffff;
+      --line: #e2e8f0;
+      --band: #f8fafc;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink: #f1f5f9;
+        --muted: #94a3b8;
+        --paper: #0f172a;
+        --line: #1e293b;
+        --band: #020617;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background: var(--band);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 2rem 1.25rem 3rem; }
+    h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 0.35rem; }
+    .sub { color: var(--muted); font-size: 0.875rem; margin: 0 0 1.75rem; max-width: 42rem; }
+    .card {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 0.8125rem; }
+    th, td { text-align: left; padding: 0.75rem 1rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+    th {
+      font-size: 0.65rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--muted); background: var(--band);
+    }
+    tr:last-child td { border-bottom: none; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+    .muted { color: var(--muted); font-size: 0.75rem; }
+    .foot { margin-top: 1.25rem; font-size: 0.75rem; color: var(--muted); }
+    .empty { padding: 2rem 1rem; text-align: center; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Call routing &amp; inbound activity</h1>
+    <p class="sub">Shared view for <strong><%= workspaceName %></strong>. Shows each business number (DID), where inbound calls are forwarded, and estimated inbound outcomes when your telephony webhooks are configured.</p>
+
+    <% if (!rows || !rows.length) { %>
+      <div class="card empty">No numbers are configured yet.</div>
+    <% } else { %>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Business number</th>
+              <th>Forwards to</th>
+              <th>Display name</th>
+              <th>Inbound (total)</th>
+              <th>Connected</th>
+              <th>Missed</th>
+              <th>Voicemail</th>
+              <th>Last activity</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach(function (row) { %>
+              <% const s = row.inboundStats || {}; %>
+              <tr>
+                <td class="num"><%= row.number %></td>
+                <td><%= row.forwardNumber || '—' %></td>
+                <td><%= row.callerName || '—' %></td>
+                <td class="num"><%= s.incoming != null ? s.incoming : 0 %></td>
+                <td class="num"><%= s.connected != null ? s.connected : 0 %></td>
+                <td class="num"><%= s.missed != null ? s.missed : 0 %></td>
+                <td class="num"><%= s.voicemail != null ? s.voicemail : 0 %></td>
+                <td class="muted">
+                  <% if (row.lastInboundAt) { %>
+                    <%= new Date(row.lastInboundAt).toLocaleString() %>
+                  <% } else { %>
+                    —
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <p class="foot">
+      Page generated <%= new Date(generatedAt).toLocaleString() %>.
+      <% if (shareCreatedAt) { %>
+        Share link created <%= new Date(shareCreatedAt).toLocaleString() %>.
+      <% } %>
+    </p>
+  </div>
+</body>
+</html>

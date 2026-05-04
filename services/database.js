@@ -92,6 +92,30 @@ function mergePreferExisting(existing, incoming) {
   if (!isBlankValue(incoming?.status) && isBlankValue(existing.status)) out.status = incoming.status;
   if (incoming?.pipelineStage !== undefined && existing.pipelineStage == null) out.pipelineStage = incoming.pipelineStage;
 
+  // Re-import from LeadGorilla / GBP CSV: replace stored 0 when the file has real review stats
+  const incRev = parseInt(String(incoming?.reviewsCount ?? ''), 10);
+  const curRev = parseInt(String(existing?.reviewsCount ?? ''), 10);
+  if (Number.isFinite(incRev) && incRev > 0 && (!Number.isFinite(curRev) || curRev === 0)) {
+    out.reviewsCount = incoming.reviewsCount;
+  }
+  const incRating = parseFloat(String(incoming?.totalScore ?? ''));
+  const curRating = parseFloat(String(existing?.totalScore ?? ''));
+  if (Number.isFinite(incRating) && incRating > 0 && (!Number.isFinite(curRating) || curRating === 0)) {
+    out.totalScore = incoming.totalScore;
+  }
+  if (
+    isBlankValue(existing?.gbpClaimStatus) &&
+    !isBlankValue(incoming?.gbpClaimStatus)
+  ) {
+    out.gbpClaimStatus = incoming.gbpClaimStatus;
+  }
+  if (
+    isBlankValue(existing?.gbpOptimizationScore) &&
+    !isBlankValue(incoming?.gbpOptimizationScore)
+  ) {
+    out.gbpOptimizationScore = incoming.gbpOptimizationScore;
+  }
+
   return out;
 }
 
