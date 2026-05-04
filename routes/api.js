@@ -15,6 +15,7 @@ const { defaultPipelineStageForSource, clampPipelineStage } = require('../servic
 const signalwire = require('../services/signalwire');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const dialerPacing = require('../services/dialerPacing');
+const inboundForwardStats = require('../services/inboundForwardStats');
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -497,12 +498,19 @@ router.post('/telephony/voice/status', async (req, res) => {
   try {
     if (!telephonyAuthorized(req)) return res.status(401).json({ success: false });
     const leadKey = String((req.query && req.query.leadKey) || '').trim();
-    const workspaceId = String((req.query && req.query.workspaceId) || '').trim();
+    let workspaceId = String((req.query && req.query.workspaceId) || '').trim();
     const from = req.body.From || '';
     const to = req.body.To || '';
     const callStatus = String(req.body.CallStatus || '').trim();
     const sid = String(req.body.CallSid || '').trim();
     const action = String((req.query && req.query.action) || 'call').trim();
+    const direction = String(req.body.Direction || req.body.CallDirection || '').trim().toLowerCase();
+    const isInbound = direction.includes('inbound');
+
+    if (!workspaceId && isInbound && to) {
+      workspaceId = await inboundForwardStats.findWorkspaceIdForDid(dbService, to);
+    }
+
     const match = await findLeadForTelephonyEvent({ leadKey, workspaceId, from, to });
     if (match && callStatus) {
       await appendTelephonyUpdate(
@@ -518,7 +526,7 @@ router.post('/telephony/voice/status', async (req, res) => {
         callStatus === 'completed' ? { lastActivity: new Date().toISOString() } : null
       );
     }
-    if (workspaceId && callStatus) {
+    if (workspaceId && callStatus && !isInbound) {
       try {
         const ws = await dbService.getWorkspace(workspaceId);
         if (ws && ws.telephony && typeof ws.telephony === 'object') {
@@ -528,6 +536,17 @@ router.post('/telephony/voice/status', async (req, res) => {
             callStatus,
             callSid: sid,
           });
+          if (changed) await dbService.saveWorkspace(workspaceId, ws);
+        }
+      } catch (_) {
+        /* non-fatal */
+      }
+    }
+    if (workspaceId && isInbound) {
+      try {
+        const ws = await dbService.getWorkspace(workspaceId);
+        if (ws) {
+          const changed = inboundForwardStats.recordInboundTerminalEvent(ws, req.body);
           if (changed) await dbService.saveWorkspace(workspaceId, ws);
         }
       } catch (_) {
@@ -549,6 +568,8 @@ router.post('/telephony/voice/amd', async (req, res) => {
     const workspaceId = String((req.query && req.query.workspaceId) || '').trim();
     const from = req.body.From || '';
     const to = req.body.To || '';
+    const direction = String(req.body.Direction || req.body.CallDirection || '').trim().toLowerCase();
+    const isInbound = direction.includes('inbound');
     const result =
       String(req.body.AnsweredBy || req.body.MachineDetectionResult || req.body.AmdStatus || '').trim() ||
       'unknown';
@@ -564,7 +585,7 @@ router.post('/telephony/voice/amd', async (req, res) => {
         provider: 'signalwire',
       });
     }
-    if (workspaceId) {
+    if (workspaceId && !isInbound) {
       try {
         const ws = await dbService.getWorkspace(workspaceId);
         if (ws && ws.telephony && typeof ws.telephony === 'object') {

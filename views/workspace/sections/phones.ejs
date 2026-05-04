@@ -2,7 +2,8 @@
 <% const _tp = workspace && workspace.telephony ? workspace.telephony : {}; %>
 <% const _entryList = Array.isArray(_tp.numberBankEntries) ? _tp.numberBankEntries : []; %>
 <% const _legacyBank = Array.isArray(_tp.numberBank) ? _tp.numberBank : []; %>
-<% const _entries = _entryList.length ? _entryList : _legacyBank.map(function (n) { return { number: n, callerName: '', cnamStatus: 'not_submitted', cnamNotes: '' }; }); %>
+<% const _emptyStats = { incoming: 0, connected: 0, missed: 0, voicemail: 0 }; %>
+<% const _entries = _entryList.length ? _entryList : _legacyBank.map(function (n) { return { number: n, callerName: '', cnamStatus: 'not_submitted', cnamNotes: '', inboundStats: _emptyStats }; }); %>
 <% const _activeFrom = (_tp.activeFromNumber || '').toString(); %>
 <% const _callMode = (_tp.callMode || 'cloud_dial').toString(); %>
 <% const _pacing = _tp && _tp.dialerPacing && typeof _tp.dialerPacing === 'object' ? _tp.dialerPacing : {}; %>
@@ -131,20 +132,35 @@
 
   <datalist id="swPhoneBankNumberOptions"></datalist>
   <p id="swPhoneListHint" class="hidden text-[11px] text-amber-800 dark:text-amber-200/90 mb-2 leading-snug"></p>
+  <% const _pubBase = typeof publicAppBaseUrl !== 'undefined' ? String(publicAppBaseUrl || '').trim() : ''; %>
+  <% const _tokOn = typeof telephonyWebhookTokenConfigured !== 'undefined' && telephonyWebhookTokenConfigured; %>
+  <div class="mb-4 rounded-xl border border-sky-300/35 dark:border-sky-700/40 bg-sky-50/50 dark:bg-sky-950/20 px-4 py-3 text-[11px] text-brand-muted leading-relaxed max-w-4xl">
+    <p class="text-[10px] font-black uppercase tracking-widest text-sky-800 dark:text-sky-300 mb-1">Inbound call analytics</p>
+    <p>Set <strong>Forwards to</strong> to the mobile or desk line where SignalWire routes each DID (for your records). To fill the counters below, configure each purchased number in SignalWire so <strong>Voice · Status Callback</strong> posts to the same URL as outbound tracking:</p>
+    <p class="mt-2 font-mono text-[10px] break-all bg-white/70 dark:bg-slate-900/60 rounded-lg px-2 py-1.5 border border-brand-border/30"><%= _pubBase ? _pubBase : 'https://YOUR_PUBLIC_BASE_URL' %>/api/telephony/voice/status<% if (_tokOn) { %>?token=…<% } %></p>
+    <% if (!_tokOn) { %><p class="mt-1 text-[10px] text-amber-800 dark:text-amber-200/90">When <code class="px-1 rounded bg-brand-cream/80 dark:bg-slate-700">TELEPHONY_WEBHOOK_TOKEN</code> is set on the server, append <code class="px-1 rounded bg-brand-cream/80 dark:bg-slate-700">?token=…</code> to match your env.</p><% } %>
+    <p class="mt-2">AdHello matches inbound calls to this workspace by the called number (<strong>To</strong>). Answered / missed / voicemail are estimated from call duration and machine detection when present.</p>
+  </div>
   <p class="text-[11px] text-brand-muted mb-3 max-w-3xl leading-relaxed">Use the number field to pick a value from the list of <strong>numbers in your SignalWire project</strong> (or type any E.164). Then set the caller name for CNAM. The list loads from the same project as this app&rsquo;s <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-700">SIGNALWIRE_</code> server keys. <a href="https://id.signalwire.com/" target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-yellow hover:underline">Open SignalWire</a> to sign in and purchase a new number, then refresh this page so it appears in the list.</p>
 
   <div id="wsPhoneBankList" class="space-y-2">
     <% _entries.forEach(function (entry, idx) { %>
+    <% const _ist = entry.inboundStats && typeof entry.inboundStats === 'object' ? entry.inboundStats : {}; %>
+    <% const _inc = parseInt(_ist.incoming, 10); const _conn = parseInt(_ist.connected, 10); const _miss = parseInt(_ist.missed, 10); const _vm = parseInt(_ist.voicemail, 10); %>
     <div class="grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry" data-entry-index="<%= idx %>">
       <div class="md:col-span-3">
-        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label>
+        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number (DID)</label>
         <input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" list="swPhoneBankNumberOptions" value="<%= (entry.number || '').toString() %>" placeholder="Choose from list or type +1555…" autocomplete="off" />
       </div>
       <div class="md:col-span-3">
+        <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Forwards to</label>
+        <input type="tel" class="ws-phone-forward w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.forwardNumber || '').toString() %>" placeholder="+1555… (your cell / desk)" autocomplete="off" />
+      </div>
+      <div class="md:col-span-2">
         <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label>
         <input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" value="<%= (entry.callerName || '').toString() %>" placeholder="ADHELLO AI" />
       </div>
-      <div class="md:col-span-3">
+      <div class="md:col-span-2">
         <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label>
         <select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs">
           <% const _st = (entry.cnamStatus || 'not_submitted').toString(); %>
@@ -153,7 +169,7 @@
           <% }); %>
         </select>
       </div>
-      <div class="md:col-span-2">
+      <div class="md:col-span-1">
         <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label>
         <label class="inline-flex items-center gap-2 text-xs">
           <input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="<%= (entry.number || '').toString() %>" <%= _activeFrom && _activeFrom === (entry.number || '').toString() ? 'checked' : '' %> />
@@ -162,6 +178,14 @@
       </div>
       <div class="md:col-span-1 flex md:justify-end">
         <button type="button" class="ws-phone-remove text-[10px] font-black uppercase tracking-widest text-rose-600 hover:underline">Remove</button>
+      </div>
+      <div class="md:col-span-12 flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-brand-border/25 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-3 py-2">
+        <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Inbound</span>
+        <span class="text-xs font-bold tabular-nums text-brand-dark dark:text-white" title="Terminal inbound calls counted"><%= Number.isFinite(_inc) ? _inc : 0 %> total</span>
+        <span class="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold tabular-nums"><%= Number.isFinite(_conn) ? _conn : 0 %> connected</span>
+        <span class="text-[10px] text-rose-700 dark:text-rose-300 font-semibold tabular-nums"><%= Number.isFinite(_miss) ? _miss : 0 %> missed</span>
+        <span class="text-[10px] text-violet-700 dark:text-violet-300 font-semibold tabular-nums"><%= Number.isFinite(_vm) ? _vm : 0 %> voicemail</span>
+        <% if (entry.lastInboundAt) { %><span class="text-[10px] text-brand-muted">Last: <%= new Date(entry.lastInboundAt).toLocaleString() %></span><% } %>
       </div>
       <div class="md:col-span-12">
         <label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM notes</label>

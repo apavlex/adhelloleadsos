@@ -133,11 +133,13 @@
       var div = document.createElement('div');
       div.className = 'grid grid-cols-1 md:grid-cols-12 gap-2 items-center p-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 ws-phone-entry';
       div.innerHTML = '' +
-        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number</label><input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" list="swPhoneBankNumberOptions" placeholder="Choose from list or type +1555…" autocomplete="off" /></div>' +
-        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label><input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="ADHELLO AI" /></div>' +
-        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label><select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"><option value="not_submitted">not_submitted</option><option value="submitted">submitted</option><option value="in_review">in_review</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="live">live</option></select></div>' +
-        '<div class="md:col-span-2"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label><label class="inline-flex items-center gap-2 text-xs"><input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="" />Use</label></div>' +
+        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Number (DID)</label><input type="text" class="ws-phone-number w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" list="swPhoneBankNumberOptions" placeholder="Choose from list or type +1555…" autocomplete="off" /></div>' +
+        '<div class="md:col-span-3"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Forwards to</label><input type="tel" class="ws-phone-forward w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="+1555… (your cell / desk)" autocomplete="off" /></div>' +
+        '<div class="md:col-span-2"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Caller name</label><input type="text" class="ws-phone-caller-name w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="ADHELLO AI" /></div>' +
+        '<div class="md:col-span-2"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM status</label><select class="ws-phone-cnam-status w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs"><option value="not_submitted">not_submitted</option><option value="submitted">submitted</option><option value="in_review">in_review</option><option value="approved">approved</option><option value="rejected">rejected</option><option value="live">live</option></select></div>' +
+        '<div class="md:col-span-1"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active</label><label class="inline-flex items-center gap-2 text-xs"><input type="radio" name="wsActiveCallerRadio" class="ws-phone-active" value="" />Use</label></div>' +
         '<div class="md:col-span-1 flex md:justify-end"><button type="button" class="ws-phone-remove text-[10px] font-black uppercase tracking-widest text-rose-600 hover:underline">Remove</button></div>' +
+        '<div class="md:col-span-12 flex flex-wrap gap-x-6 gap-y-1 rounded-lg border border-brand-border/25 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-3 py-2"><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Inbound</span><span class="text-xs font-bold tabular-nums text-brand-dark dark:text-white">0 total</span><span class="text-[10px] text-emerald-700 dark:text-emerald-300 font-semibold tabular-nums">0 connected</span><span class="text-[10px] text-rose-700 dark:text-rose-300 font-semibold tabular-nums">0 missed</span><span class="text-[10px] text-violet-700 dark:text-violet-300 font-semibold tabular-nums">0 voicemail</span></div>' +
         '<div class="md:col-span-12"><label class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">CNAM notes</label><input type="text" class="ws-phone-cnam-notes w-full rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs" placeholder="Carrier ticket / support notes" /></div>';
       list.appendChild(div);
       bindEntryRow(div);
@@ -148,10 +150,11 @@
     var rows = list.querySelectorAll('.ws-phone-entry');
     return Array.prototype.map.call(rows, function (row) {
       var number = (row.querySelector('.ws-phone-number') || {}).value || '';
+      var forwardNumber = (row.querySelector('.ws-phone-forward') || {}).value || '';
       var callerName = (row.querySelector('.ws-phone-caller-name') || {}).value || '';
       var cnamStatus = (row.querySelector('.ws-phone-cnam-status') || {}).value || 'not_submitted';
       var cnamNotes = (row.querySelector('.ws-phone-cnam-notes') || {}).value || '';
-      return { number: number, callerName: callerName, cnamStatus: cnamStatus, cnamNotes: cnamNotes };
+      return { number: number, forwardNumber: forwardNumber, callerName: callerName, cnamStatus: cnamStatus, cnamNotes: cnamNotes };
     }).filter(function (x) { return x.number && x.number.trim(); });
   }
   function activeNumber() {

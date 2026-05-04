@@ -16,6 +16,7 @@ const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/wo
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const signalwire = require('../services/signalwire');
+const inboundForwardStats = require('../services/inboundForwardStats');
 const {
   sanitizeBlockOverrides,
   sanitizeLibraryItems,
@@ -39,11 +40,14 @@ function normalizePhoneBankEntries(raw) {
     const callerName = String(item.callerName || item.cnamName || '').trim().slice(0, 40);
     const cnamStatus = normalizeCnamStatus(item.cnamStatus || item.status);
     const cnamNotes = String(item.cnamNotes || item.notes || '').trim().slice(0, 280);
+    const forwardNumber = signalwire.normalizePhone(item.forwardNumber || item.forwardTo || '');
     out.push({
       number,
       callerName,
       cnamStatus,
       cnamNotes,
+      ...(forwardNumber ? { forwardNumber } : {}),
+      inboundStats: inboundForwardStats.sanitizeInboundStats(item.inboundStats),
       submittedAt: item.submittedAt ? String(item.submittedAt) : undefined,
       updatedAt: new Date().toISOString(),
     });
@@ -72,12 +76,33 @@ function numberListFromEntries(entries) {
   return entries.map((e) => e.number).filter(Boolean);
 }
 
+/** Keep server-side inbound counters when the UI saves CNAM / forward fields (client omits stats). */
+function mergePhoneBankPreservingInboundStats(normalizedEntries, prevTelephony) {
+  const prev = prevTelephony && Array.isArray(prevTelephony.numberBankEntries) ? prevTelephony.numberBankEntries : [];
+  const map = new Map();
+  prev.forEach((e) => {
+    const n = signalwire.normalizePhone(e && e.number);
+    if (n) map.set(n, e);
+  });
+  return normalizedEntries.map((e) => {
+    const old = map.get(e.number);
+    if (!old) return e;
+    const merged = { ...e };
+    if (old.inboundStats && typeof old.inboundStats === 'object') {
+      merged.inboundStats = inboundForwardStats.sanitizeInboundStats(old.inboundStats);
+    }
+    if (old.lastInboundAt && !merged.lastInboundAt) merged.lastInboundAt = old.lastInboundAt;
+    return merged;
+  });
+}
+
 function upsertEntryByNumber(entries, patch) {
   const number = signalwire.normalizePhone(patch.number || '');
   if (!number) return entries;
   const idx = entries.findIndex((e) => e.number === number);
   const now = new Date().toISOString();
   if (idx === -1) {
+    const fn = signalwire.normalizePhone(patch.forwardNumber || '');
     return [
       ...entries,
       {
@@ -85,6 +110,8 @@ function upsertEntryByNumber(entries, patch) {
         callerName: String(patch.callerName || '').trim().slice(0, 40),
         cnamStatus: normalizeCnamStatus(patch.cnamStatus || 'not_submitted'),
         cnamNotes: String(patch.cnamNotes || '').trim().slice(0, 280),
+        ...(fn ? { forwardNumber: fn } : {}),
+        inboundStats: inboundForwardStats.sanitizeInboundStats(patch.inboundStats),
         submittedAt: patch.submittedAt ? String(patch.submittedAt) : undefined,
         updatedAt: now,
       },
@@ -93,7 +120,6 @@ function upsertEntryByNumber(entries, patch) {
   const cur = entries[idx];
   const next = {
     ...cur,
-    ...patch,
     number,
     cnamStatus: normalizeCnamStatus(patch.cnamStatus || cur.cnamStatus),
     callerName:
@@ -102,6 +128,11 @@ function upsertEntryByNumber(entries, patch) {
       patch.cnamNotes != null ? String(patch.cnamNotes).trim().slice(0, 280) : String(cur.cnamNotes || ''),
     updatedAt: now,
   };
+  if (patch.forwardNumber != null) {
+    const fn = signalwire.normalizePhone(patch.forwardNumber);
+    if (fn) next.forwardNumber = fn;
+    else delete next.forwardNumber;
+  }
   const cloned = [...entries];
   cloned[idx] = next;
   return cloned;
@@ -223,10 +254,13 @@ async function loadWorkspacePageLocals(req) {
     .trim()
     .toLowerCase();
 
+  const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
   return {
     title: 'Workspace & team',
     activePage: 'workspace',
     workspace: ws,
+    publicAppBaseUrl: base,
+    telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     assignPool: pool,
     envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
     integrationMasks,
@@ -676,10 +710,13 @@ router.post('/settings', express.json(), async (req, res) => {
         Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries') ||
         Object.prototype.hasOwnProperty.call(req.body, 'phoneBank')
       ) {
-        const bankEntries = normalizePhoneBankEntries(
-          Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries')
-            ? req.body.phoneBankEntries
-            : req.body.phoneBank
+        const bankEntries = mergePhoneBankPreservingInboundStats(
+          normalizePhoneBankEntries(
+            Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries')
+              ? req.body.phoneBankEntries
+              : req.body.phoneBank,
+          ),
+          ws.telephony,
         );
         const bank = numberListFromEntries(bankEntries);
         telephony.numberBankEntries = bankEntries;

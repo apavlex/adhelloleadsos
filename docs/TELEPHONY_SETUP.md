@@ -35,8 +35,9 @@ Use URLs below (replace domain) and include `?token=YOUR_TELEPHONY_WEBHOOK_TOKEN
   - `POST https://leads.adhello.ai/api/telephony/sms/inbound`
 - SMS status callback:
   - `POST https://leads.adhello.ai/api/telephony/sms/status`
-- Voice status callback:
+- Voice status callback (outbound **and** inbound — same URL):
   - `POST https://leads.adhello.ai/api/telephony/voice/status`
+  - Set this as **Status Callback** on each purchased number so Workspace → Phone **inbound analytics** (connected / missed / voicemail) can increment. The app resolves the workspace by matching the called DID to your phone bank.
 - AMD callback (voicemail attempts):
   - `POST https://leads.adhello.ai/api/telephony/voice/amd`
 - TwiML call control endpoint:
