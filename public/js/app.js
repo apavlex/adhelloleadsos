@@ -890,40 +890,21 @@ document.addEventListener('DOMContentLoaded', () => {
       target.closest('form') ||
       target.closest('a') ||
       target.closest('button') ||
-      target.closest('.plc-col-resize')
+      target.closest('.plc-col-resize') ||
+      target.closest('.js-pipeline-columns-wrap')
     );
   }
 
-  // Company column: reliable open (capture) — avoids stray bubbling / overlay edge cases on sticky cells
-  document.addEventListener(
-    'click',
-    (e) => {
-      if (!getLeadDetailPanel()) return;
-      const companyTd = e.target.closest('td.lead-sticky-company');
-      if (!companyTd) return;
-      const row = companyTd.closest('.result-row');
-      if (!row || row.classList.contains('result-row--panel-source')) return;
-      if (shouldIgnoreRowOpenClick(e.target)) return;
-      e.preventDefault();
-      e.stopPropagation();
-      selectRow(row);
-    },
-    true
-  );
-
   // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
-    if (!getLeadDetailPanel()) return;
     const row = e.target.closest('.result-row');
     if (!row || row.classList.contains('result-row--panel-source')) return;
-    if (e.target.closest('td.lead-sticky-company')) return;
     if (shouldIgnoreRowOpenClick(e.target)) return;
     selectRow(row);
   });
 
   // Specific Detail Button Trigger (Reliability)
   document.addEventListener('click', (e) => {
-    if (!getLeadDetailPanel()) return;
     const detailBtn = e.target.closest('.view-detail-btn');
     if (detailBtn) {
       e.stopPropagation();
@@ -934,7 +915,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Explicit right-chevron trigger fallback (covers icon wrappers/nested taps)
   document.addEventListener('click', (e) => {
-    if (!getLeadDetailPanel()) return;
     const chevronTrigger =
       e.target.closest('.view-detail-btn') ||
       e.target.closest('[aria-label="Open lead details"]') ||
@@ -6585,7 +6565,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!table || !boxHost || !colBtn || !pop) return;
 
     const PLC_META = [
-      { id: 'check', label: 'Select' },
       { id: 'company', label: 'Company' },
       { id: 'lastTouch', label: 'Last touch' },
       { id: 'cadence', label: 'Cadence' },
@@ -6619,6 +6598,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyVisibility(map) {
+      table.querySelectorAll('[data-plc="check"]').forEach((el) => {
+        el.classList.remove('plc-col-hidden');
+      });
       PLC_META.forEach(({ id }) => {
         const on = map[id] !== false;
         table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
@@ -6650,6 +6632,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let vis = loadVis();
+    if (vis && vis.check === false) {
+      delete vis.check;
+      saveVis(vis);
+    }
     applyVisibility(vis);
     try {
       applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
