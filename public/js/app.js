@@ -774,6 +774,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Detail panel & rows (must not depend on mobile nav; panel exists on Prospecting / leads pages) ---
   const mobilePanel = document.getElementById('mobilePanel');
   const getLeadDetailPanel = () => document.getElementById('mobilePanel');
+  const LEAD_PANEL_INLINE_PROPS = ['display', 'opacity', 'pointer-events', 'visibility', 'z-index'];
+  function clearLeadDetailPanelForceStyles(el) {
+    if (!el || !el.style) return;
+    LEAD_PANEL_INLINE_PROPS.forEach((p) => el.style.removeProperty(p));
+  }
   const closeMobileBtn = document.getElementById('closeMobilePanel');
   const prevLeadBtn = document.getElementById('prevLeadBtn');
   const nextLeadBtn = document.getElementById('nextLeadBtn');
@@ -828,7 +833,50 @@ document.addEventListener('DOMContentLoaded', () => {
     if (prevLeadBtn) prevLeadBtn.style.opacity = currentIndex > 0 ? '1' : '0.3';
     if (nextLeadBtn) nextLeadBtn.style.opacity = currentIndex >= 0 && currentIndex < nav.length - 1 ? '1' : '0.3';
 
-    populatePanel(row);
+    // OPEN SIDEBAR / PANEL before populatePanel: if populate throws (bad row JSON, partial DOM),
+    // the sheet must still appear; previously the open block never ran after a throw.
+    const panelRoot = getLeadDetailPanel();
+    if (panelRoot) {
+      panelRoot.classList.remove('hidden');
+      panelRoot.classList.add('open');
+      panelRoot.classList.remove('opacity-0');
+      panelRoot.classList.add('opacity-100');
+      /* Defeat Tailwind `hidden` vs `flex` conflicts and ensure overlay is above app chrome */
+      panelRoot.style.setProperty('display', 'flex', 'important');
+      panelRoot.style.setProperty('opacity', '1', 'important');
+      panelRoot.style.setProperty('pointer-events', 'auto', 'important');
+      panelRoot.style.setProperty('visibility', 'visible', 'important');
+      panelRoot.style.setProperty('z-index', '400', 'important');
+
+      document.body.style.overflow = 'hidden';
+
+      const innerSheet = panelRoot.querySelector(':scope > div');
+      if (innerSheet) {
+        innerSheet.classList.remove('translate-y-full', 'translate-x-full');
+        innerSheet.style.display = 'block';
+      }
+
+      requestAnimationFrame(() => {
+        const panelScroll = panelRoot.querySelector('div.overflow-y-auto');
+        if (panelScroll) panelScroll.scrollTop = 0;
+        const stickyTitle = document.getElementById('stickyPanelTitle');
+        if (stickyTitle) {
+          stickyTitle.classList.add('opacity-0', 'pointer-events-none');
+          stickyTitle.classList.remove('opacity-100');
+        }
+        if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+          window.__adhelloRefreshSoftphonePosition();
+        }
+      });
+    } else {
+      console.warn('[Lead detail panel] #mobilePanel not found — detail sidebar cannot open on this page.');
+    }
+
+    try {
+      populatePanel(row);
+    } catch (err) {
+      console.error('[Lead detail panel] populatePanel failed:', err);
+    }
 
     // Update panel save button state (results page)
     if (isResultsPage) {
@@ -840,40 +888,6 @@ document.addEventListener('DOMContentLoaded', () => {
           markPanelBtnUnsaved(mobileSaveBtn);
         }
       }
-    }
-
-    // OPEN SIDEBAR / PANEL (resolve at call time so hooking / late-rendered markup still works)
-    const panelRoot = getLeadDetailPanel();
-    if (panelRoot) {
-      panelRoot.style.display = 'flex';
-      panelRoot.classList.remove('hidden');
-      
-      // Lock scroll
-      document.body.style.overflow = 'hidden'; 
-      
-      // Trigger entrance
-      setTimeout(() => {
-          panelRoot.classList.add('open');
-          panelRoot.classList.replace('opacity-0', 'opacity-100');
-          panelRoot.style.pointerEvents = 'auto';
-
-          const panelScroll = panelRoot.querySelector('div.overflow-y-auto');
-          if (panelScroll) panelScroll.scrollTop = 0;
-          const stickyTitle = document.getElementById('stickyPanelTitle');
-          if (stickyTitle) {
-            stickyTitle.classList.add('opacity-0', 'pointer-events-none');
-            stickyTitle.classList.remove('opacity-100');
-          }
-
-          const childDiv = panelRoot.querySelector('div');
-          if (childDiv) {
-              childDiv.classList.remove('translate-y-full', 'translate-x-full');
-              childDiv.style.display = 'block';
-          }
-          if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
-            window.__adhelloRefreshSoftphonePosition();
-          }
-      }, 10);
     }
   };
 
@@ -894,6 +908,18 @@ document.addEventListener('DOMContentLoaded', () => {
       target.closest('.js-pipeline-columns-wrap')
     );
   }
+
+  /** Pipeline table: inline row handler runs on bubble at tr before document — survives lost bubbling */
+  function pipelineRowActivateFromInline(ev, tr) {
+    if (!ev || !tr || !tr.classList || !tr.classList.contains('result-row')) return;
+    if (tr.classList.contains('result-row--panel-source')) return;
+    const t = ev.target;
+    if (!t || !t.closest) return;
+    if (shouldIgnoreRowOpenClick(t)) return;
+    ev.stopPropagation();
+    selectRow(tr);
+  }
+  window.__pipelineRowActivate = pipelineRowActivateFromInline;
 
   // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
@@ -1377,6 +1403,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeMobileBtn.addEventListener('click', () => {
             mobilePanel.classList.remove('open');
             mobilePanel.classList.replace('opacity-100', 'opacity-0');
+            clearLeadDetailPanelForceStyles(mobilePanel);
             mobilePanel.style.pointerEvents = 'none';
             setTimeout(() => mobilePanel.classList.add('hidden'), 300);
             document.body.style.overflow = '';
@@ -1413,6 +1440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target === mobilePanel) {
             mobilePanel.classList.remove('open');
             mobilePanel.classList.replace('opacity-100', 'opacity-0');
+            clearLeadDetailPanelForceStyles(mobilePanel);
             mobilePanel.style.pointerEvents = 'none';
             setTimeout(() => mobilePanel.classList.add('hidden'), 300);
             document.body.style.overflow = '';
@@ -4034,6 +4062,7 @@ document.addEventListener('DOMContentLoaded', () => {
                       if (mobilePanel) {
                           mobilePanel.classList.remove('open');
                           mobilePanel.classList.replace('opacity-100', 'opacity-0');
+                          clearLeadDetailPanelForceStyles(mobilePanel);
                           setTimeout(() => mobilePanel.classList.add('hidden'), 300);
                           document.body.style.overflow = '';
                       }
@@ -6531,6 +6560,39 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial render of stars in the table
   applyTableStars();
 
+  /** Match sticky company column `left` to measured checkbox column width (resize / density). */
+  function syncPipelineStickyColumnOffsets() {
+    const table = document.getElementById('prospectLeadsTable');
+    const host =
+      document.getElementById('prospectPipelineTableScroll') ||
+      document.querySelector('#tableView .overflow-x-auto');
+    if (!table || !host) return;
+    const th = table.querySelector('thead th[data-plc="check"]');
+    if (!th || th.classList.contains('plc-col-hidden')) {
+      host.style.setProperty('--plc-check-sticky-w', '0px');
+      return;
+    }
+    const w = th.getBoundingClientRect().width;
+    host.style.setProperty('--plc-check-sticky-w', `${Math.round(w * 1000) / 1000}px`);
+  }
+
+  let _stickyOffTimer = null;
+  function scheduleSyncPipelineStickyOffsets() {
+    if (_stickyOffTimer) clearTimeout(_stickyOffTimer);
+    _stickyOffTimer = setTimeout(() => {
+      _stickyOffTimer = null;
+      syncPipelineStickyColumnOffsets();
+    }, 50);
+  }
+
+  window.addEventListener('resize', scheduleSyncPipelineStickyOffsets, { passive: true });
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      syncPipelineStickyColumnOffsets();
+    });
+  });
+
   (function initLeadTableDensity() {
     const table = document.getElementById('prospectLeadsTable');
     if (!table) return;
@@ -6549,6 +6611,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (_) {
         /* ignore */
       }
+      scheduleSyncPipelineStickyOffsets();
     }
     apply(saved);
     document.querySelectorAll('.lead-density-btn').forEach((btn) => {
@@ -6642,6 +6705,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {
       /* ignore */
     }
+    scheduleSyncPipelineStickyOffsets();
 
     PLC_META.forEach(({ id, label }) => {
       const wrap = document.createElement('label');
@@ -6654,6 +6718,7 @@ document.addEventListener('DOMContentLoaded', () => {
         vis[id] = cb.checked;
         saveVis(vis);
         applyVisibility(vis);
+        scheduleSyncPipelineStickyOffsets();
       });
       wrap.appendChild(cb);
       const span = document.createElement('span');
@@ -6689,6 +6754,7 @@ document.addEventListener('DOMContentLoaded', () => {
           /* ignore */
         }
         clearAllWidths();
+        scheduleSyncPipelineStickyOffsets();
       });
     }
 
@@ -6738,6 +6804,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       table.querySelectorAll('.plc-col-resize--active').forEach((x) => x.classList.remove('plc-col-resize--active'));
+      scheduleSyncPipelineStickyOffsets();
     });
   })();
 

@@ -1,5 +1,6 @@
   <!-- Mobile Detail Panel / Desktop Sidebar -->
-  <div id="mobilePanel" class="fixed inset-0 z-[160] bg-brand-dark/60 backdrop-blur-md hidden flex flex-col justify-end lg:flex-row lg:justify-end items-center lg:items-stretch opacity-0 transition-opacity duration-300 pointer-events-none">
+  <!-- Layout flex-* lives in custom.css for #mobilePanel.open only — avoids Tailwind `hidden` vs `flex` both setting display -->
+  <div id="mobilePanel" class="fixed inset-0 z-[400] bg-brand-dark/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 pointer-events-none">
     <div class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto overflow-y-auto shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
       
       <!-- Nav (sticky) -->
