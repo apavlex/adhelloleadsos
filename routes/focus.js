@@ -68,6 +68,7 @@ function leadToFocusPayload(l, sortedStages) {
     url: l.url && l.url !== 'N/A' ? l.url : '',
     reviewsCount: Number.isFinite(parseInt(l.reviewsCount, 10)) ? parseInt(l.reviewsCount, 10) : 0,
     totalScore: Number.isFinite(parseFloat(l.totalScore)) ? parseFloat(l.totalScore) : 0,
+    ownerSignal: String(l.ownerSignal || '').trim(),
     defaultChannel,
   };
 }

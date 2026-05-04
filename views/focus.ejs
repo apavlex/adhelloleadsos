@@ -76,7 +76,10 @@
           <p class="text-[9px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-300 mb-1">Owner signal</p>
           <p id="focus-owner-signal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug">Run AI Analysis in pipeline to generate a concrete signal.</p>
         </div>
-        <div id="focus-biz-socials" class="flex flex-wrap gap-2 mt-3"></div>
+        <div class="mt-3">
+          <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Socials</p>
+          <div id="focus-biz-socials" class="flex flex-wrap items-center gap-2 lead-cell-socials-content" aria-label="Social profile links"></div>
+        </div>
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
           <div class="flex flex-wrap gap-2">
@@ -528,6 +531,127 @@
       return 'https://' + s.replace(/^\/\//, '');
     }
 
+    /** Same rules as pipeline `googleMapsSocialHrefForLead` (views/partials/leads_pipeline_core.ejs). */
+    function googleMapsSocialHrefFromLead(lead) {
+      var raw = lead.url && lead.url !== 'N/A' ? String(lead.url).trim() : '';
+      function isGmListing(absUrl) {
+        try {
+          var u = new URL(absUrl);
+          var h = u.hostname.replace(/^www\./i, '').toLowerCase();
+          if (h === 'maps.app.goo.gl') return true;
+          if (h === 'goo.gl' && u.pathname.indexOf('maps') !== -1) return true;
+          if (h.endsWith('google.com') || h.endsWith('google.co.uk')) {
+            if (u.pathname.indexOf('/maps/') !== -1) return true;
+            if (u.search.indexOf('cid=') !== -1 || u.search.indexOf('q=place_id:') !== -1) return true;
+          }
+          return false;
+        } catch (e) {
+          return false;
+        }
+      }
+      if (raw && /^https?:\/\//i.test(raw) && isGmListing(raw)) return raw;
+      var title = String(lead.title || '').trim();
+      var address = String(lead.address || '').trim();
+      var city = String(lead.city || '').trim();
+      if (address && address !== 'N/A') {
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((address + ' ' + title).trim());
+      }
+      if (title && city) {
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent((title + ' ' + city).trim());
+      }
+      if (title) {
+        return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
+      }
+      return '';
+    }
+
+    var FOCUS_SVG_GOOGLE_MAPS =
+      '<svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>';
+
+    function renderFocusPipelineSocials(container, lead) {
+      if (!container) return;
+      container.innerHTML = '';
+      var gm = googleMapsSocialHrefFromLead(lead);
+      var fb = lead.facebook && lead.facebook !== 'N/A' ? String(lead.facebook).trim() : '';
+      var ig = lead.instagram && lead.instagram !== 'N/A' ? String(lead.instagram).trim() : '';
+      var tw = lead.twitter && lead.twitter !== 'N/A' ? String(lead.twitter).trim() : '';
+      var li = lead.linkedin && lead.linkedin !== 'N/A' ? String(lead.linkedin).trim() : '';
+
+      if (gm) {
+        var aG = document.createElement('a');
+        aG.href = gm;
+        aG.target = '_blank';
+        aG.rel = 'noopener noreferrer';
+        aG.className =
+          'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25 transition-all hover:scale-105';
+        aG.title = 'Google Maps / Business Profile';
+        aG.setAttribute('aria-label', 'Google Business Profile (opens in Maps)');
+        aG.innerHTML = FOCUS_SVG_GOOGLE_MAPS;
+        container.appendChild(aG);
+      }
+      function brandLink(href, title, aria, className, svgInner) {
+        var a = document.createElement('a');
+        a.href = hrefUrl(href);
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.title = title;
+        a.setAttribute('aria-label', aria);
+        a.className = className;
+        a.innerHTML = svgInner;
+        return a;
+      }
+      if (fb) {
+        container.appendChild(
+          brandLink(
+            fb,
+            'Facebook',
+            'Facebook',
+            'inline-flex w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors',
+            '<svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>'
+          )
+        );
+      }
+      if (ig) {
+        container.appendChild(
+          brandLink(
+            ig,
+            'Instagram',
+            'Instagram',
+            'inline-flex w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors',
+            '<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg>'
+          )
+        );
+      }
+      if (tw) {
+        container.appendChild(
+          brandLink(
+            tw,
+            'X / Twitter',
+            'X',
+            'inline-flex w-3.5 h-3.5 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors',
+            '<svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>'
+          )
+        );
+      }
+      if (li) {
+        container.appendChild(
+          brandLink(
+            li,
+            'LinkedIn',
+            'LinkedIn',
+            'inline-flex w-4 h-4 text-brand-muted hover:text-[#0A66C2] transition-colors',
+            '<svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>'
+          )
+        );
+      }
+      if (!container.children.length) {
+        var dash = document.createElement('span');
+        dash.className = 'text-xs font-semibold text-brand-muted/60 dark:text-slate-500';
+        dash.textContent = '—';
+        container.appendChild(dash);
+      }
+    }
+
     function iconLink(href, label, svgPath) {
       var a = document.createElement('a');
       a.href = href;
@@ -544,16 +668,6 @@
       return String(raw).replace(/^https?:\/\//i, '').replace(/\/$/, '');
     }
 
-    function socialPill(label, href) {
-      var a = document.createElement('a');
-      a.href = href;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      a.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors';
-      a.textContent = label;
-      return a;
-    }
-
     function renderLinks(lead) {
       elLinks.innerHTML = '';
       if (lead.website) elLinks.appendChild(iconLink(hrefUrl(lead.website), 'Website', '<path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"/>'));
@@ -568,10 +682,6 @@
         elLinks.appendChild(phoneBtn);
       }
       if (lead.email) elLinks.appendChild(iconLink('mailto:' + encodeURIComponent(lead.email), 'Email', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>'));
-      if (lead.linkedin) elLinks.appendChild(iconLink(hrefUrl(lead.linkedin), 'LinkedIn', '<path stroke-linecap="round" stroke-linejoin="round" d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6zM2 9h4v12H2V9zM4 6a2 2 0 100-4 2 2 0 000 4z"/>'));
-      if (lead.instagram) elLinks.appendChild(iconLink(hrefUrl(lead.instagram), 'Instagram', '<path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>'));
-      if (lead.facebook) elLinks.appendChild(iconLink(hrefUrl(lead.facebook), 'Facebook', '<path stroke-linecap="round" stroke-linejoin="round" d="M18 2h-3a5 5 0 00-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 011-1h3V2z"/>'));
-      if (lead.twitter) elLinks.appendChild(iconLink(hrefUrl(lead.twitter), 'X / Twitter', '<path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>'));
     }
 
     function placeFocusCall() {
@@ -722,18 +832,7 @@
         elOwnerSignal.textContent = ownerSignal || 'Run AI Analysis in pipeline to generate a concrete signal.';
       }
 
-      elBizSocials.innerHTML = '';
-      if (lead.url) elBizSocials.appendChild(socialPill('Google listing', hrefUrl(lead.url)));
-      if (lead.facebook) elBizSocials.appendChild(socialPill('Facebook', hrefUrl(lead.facebook)));
-      if (lead.instagram) elBizSocials.appendChild(socialPill('Instagram', hrefUrl(lead.instagram)));
-      if (lead.twitter) elBizSocials.appendChild(socialPill('X', hrefUrl(lead.twitter)));
-      if (lead.linkedin) elBizSocials.appendChild(socialPill('LinkedIn', hrefUrl(lead.linkedin)));
-      if (!elBizSocials.children.length) {
-        var empty = document.createElement('span');
-        empty.className = 'text-[11px] text-brand-muted';
-        empty.textContent = 'No social/profile links found';
-        elBizSocials.appendChild(empty);
-      }
+      renderFocusPipelineSocials(elBizSocials, lead);
     }
 
     function renderReviewStars(score) {

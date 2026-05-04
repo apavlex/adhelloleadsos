@@ -511,6 +511,33 @@ table {
   z-index: 44;
 }
 
+/*
+ * Sticky `left` on thead cells does not track auto table column widths, so “Company”
+ * can drift over “Last touch”. Keep horizontal stickiness for tbody only; thead still
+ * sticks vertically via .prospect-leads-table thead th { top: 0 }.
+ */
+.prospect-leads-table thead th.lead-sticky-check,
+.prospect-leads-table thead th.lead-sticky-company {
+  left: auto !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  background: var(--brand-card-bg) !important;
+}
+
+.dark .prospect-leads-table thead th.lead-sticky-check,
+.dark .prospect-leads-table thead th.lead-sticky-company {
+  background: var(--brand-card-bg) !important;
+}
+
+/* Match checkbox column width to w-12 (3rem) so tbody sticky company `left: 3rem` lines up. */
+.prospect-leads-table td.lead-sticky-check {
+  width: 3rem;
+  min-width: 3rem;
+  max-width: 3rem;
+  box-sizing: border-box;
+}
+
 .prospect-leads-table tbody tr:nth-child(odd) td {
   background-color: rgba(250, 247, 237, 0.45);
 }
