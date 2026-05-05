@@ -1500,6 +1500,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const heuristic = auditSummary.textContent;
 
+    const manualKey = String(row.dataset.primaryServiceKey || '').trim();
+    const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
+    const picked = offers.find((o) => o && String(o.key) === manualKey);
+    if (picked && auditSell) {
+      if (auditLoading) auditLoading.classList.add('hidden');
+      if (auditProvider) auditProvider.classList.add('hidden');
+      auditSell.textContent = picked.label || manualKey;
+      auditStatus.textContent = picked.label || manualKey;
+      auditStatus.className = 'text-[10px] font-black uppercase tracking-widest text-brand-yellow';
+      auditSummary.textContent =
+        'Using your selected offer. Clear the dropdown to let AI suggest again, or run Enhance / AI Analysis for deeper gaps.';
+      if (openerWrap) openerWrap.classList.add('hidden');
+      if (openerEl) openerEl.textContent = '';
+      return;
+    }
+
     if (!key) {
       if (auditLoading) auditLoading.classList.add('hidden');
       if (auditProvider) auditProvider.classList.add('hidden');
@@ -1772,6 +1788,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
     if (L.ownerFirstName != null) ds.ownerFirstName = String(L.ownerFirstName || '');
     if (L.doNotCall !== undefined) ds.doNotCall = L.doNotCall ? '1' : '';
+    if (L.primaryServiceKey !== undefined) {
+      ds.primaryServiceKey = L.primaryServiceKey ? String(L.primaryServiceKey).trim() : '';
+    }
     if (L.contacts != null) {
       try {
         ds.contacts = JSON.stringify(Array.isArray(L.contacts) ? L.contacts : []);
@@ -2110,6 +2129,30 @@ document.addEventListener('DOMContentLoaded', () => {
       a.href = '#';
       a.classList.add('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
     }
+  }
+
+  let leadPrimaryServiceSelectPopulated = false;
+  function ensureLeadPanelPrimaryServiceSelectOptions() {
+    const sel = document.getElementById('leadPanelPrimaryServiceSelect');
+    if (!sel || leadPrimaryServiceSelectPopulated) return;
+    const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
+    offers.forEach((o) => {
+      if (!o || !o.key) return;
+      const opt = document.createElement('option');
+      opt.value = String(o.key);
+      opt.textContent = o.label || o.key;
+      sel.appendChild(opt);
+    });
+    leadPrimaryServiceSelectPopulated = true;
+  }
+
+  function syncLeadPrimaryServiceSelect(row) {
+    ensureLeadPanelPrimaryServiceSelectOptions();
+    const sel = document.getElementById('leadPanelPrimaryServiceSelect');
+    if (!sel || !row) return;
+    const v = String(row.dataset.primaryServiceKey || '').trim();
+    const has = Array.from(sel.options).some((o) => o.value === v);
+    sel.value = has ? v : '';
   }
 
   function syncOwnerFirstNameAndDnc(row) {
@@ -2457,6 +2500,27 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    const primaryServSel = document.getElementById('leadPanelPrimaryServiceSelect');
+    if (primaryServSel && !primaryServSel.dataset.adhelloBound) {
+      primaryServSel.dataset.adhelloBound = '1';
+      primaryServSel.addEventListener('change', async () => {
+        if (!currentRow || !currentRow.dataset.leadKey) return;
+        const val = String(primaryServSel.value || '').trim();
+        try {
+          await postLeadJsonUpdate(currentRow, { primaryServiceKey: val || null });
+          scheduleKieServiceInsight(currentRow);
+          if (typeof window.showProspectToast === 'function') {
+            window.showProspectToast(val ? 'Offer focus saved' : 'AI recommendation enabled');
+          }
+        } catch (e) {
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(e && e.message ? e.message : 'Failed', { variant: 'error' });
+          }
+          syncLeadPrimaryServiceSelect(currentRow);
+        }
+      });
+    }
+
     const addContactBtn = document.getElementById('leadContactAddBtn');
     if (addContactBtn) {
       addContactBtn.addEventListener('click', async () => {
@@ -2792,6 +2856,102 @@ document.addEventListener('DOMContentLoaded', () => {
     // Stars & rating (larger stars in panel for visibility)
     renderStars(rating, reviews, 'mobilePanelStars', 'mobilePanelRatingText', 'w-4 h-4');
 
+    syncGoogleReviewsLink(row);
+
+    const mapsLink = document.getElementById('mobilePanelMapsLink');
+    if (mapsLink) {
+      if (address && address !== 'N/A') {
+        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title || ''}`.trim())}`;
+        mapsLink.classList.remove('opacity-20', 'pointer-events-none');
+      } else {
+        mapsLink.href = '#';
+        mapsLink.classList.add('opacity-20', 'pointer-events-none');
+      }
+    }
+
+    const headerAddress = document.getElementById('mobilePanelHeaderAddress');
+    const headerPhone = document.getElementById('mobilePanelHeaderPhone');
+    const headerSocials = document.getElementById('mobilePanelHeaderSocials');
+
+    if (headerAddress) {
+      headerAddress.textContent = address && address !== 'N/A' ? address : '—';
+    }
+    if (headerPhone) {
+      if (phone && phone !== 'N/A') {
+        headerPhone.textContent = phone;
+        headerPhone.classList.remove('opacity-40');
+      } else {
+        headerPhone.textContent = '—';
+        headerPhone.classList.add('opacity-40');
+      }
+    }
+
+    const resolveGoogleBusinessProfileUrlFromRow = (r) =>
+      resolveGoogleMapsSocialHref(r.dataset.url, r.dataset.title, r.dataset.address, r.dataset.city);
+
+    if (headerSocials) {
+      headerSocials.innerHTML = '';
+      let socialCount = 0;
+      const socialPlatforms = [
+        {
+          key: 'googleBusiness',
+          ariaLabel: 'Google Business Profile (opens in Maps)',
+          title: 'Google Maps / Business Profile',
+          icon: GOOGLE_BUSINESS_ICON_SVG,
+          color: 'hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25',
+          hrefFrom: resolveGoogleBusinessProfileUrlFromRow,
+        },
+        {
+          key: 'facebook',
+          icon:
+            '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>',
+          color: 'hover:bg-[#1877F2]',
+        },
+        {
+          key: 'instagram',
+          icon:
+            '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg>',
+          color: 'hover:bg-[#E4405F]',
+        },
+        {
+          key: 'twitter',
+          icon:
+            '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>',
+          color: 'hover:bg-black',
+        },
+      ];
+
+      socialPlatforms.forEach((p) => {
+        let href = null;
+        if (typeof p.hrefFrom === 'function') {
+          href = p.hrefFrom(row);
+        } else {
+          const link = row.dataset[p.key];
+          if (link && link !== 'N/A' && link !== 'undefined') {
+            href = link.startsWith('http') ? link : `https://${link}`;
+          }
+        }
+        if (!href) return;
+        const a = document.createElement('a');
+        a.href = href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        if (p.ariaLabel) a.setAttribute('aria-label', p.ariaLabel);
+        if (p.title) a.title = p.title;
+        a.className = `w-8 h-8 rounded-lg bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-white transition-all hover:scale-110 shadow-sm border border-brand-border/10 ${p.color}`;
+        a.innerHTML = p.icon;
+        headerSocials.appendChild(a);
+        socialCount++;
+      });
+
+      if (socialCount === 0) {
+        headerSocials.innerHTML =
+          '<span class="text-[10px] font-bold text-brand-muted/40 uppercase tracking-widest italic">No social profiles detected</span>';
+      }
+    }
+
+    syncLeadPrimaryServiceSelect(row);
+
     // Phone logic
     const phoneEl = document.getElementById('mobilePanelPhone');
     const phoneLink = document.getElementById('mobilePanelPhoneLink');
@@ -2867,9 +3027,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Address & Maps logic
+    // Address & Maps logic (tile below engagement center)
     const addressEl = document.getElementById('mobilePanelAddress');
-    const mapsLink = document.getElementById('mobilePanelMapsLink');
     if (addressEl) addressEl.textContent = (address && address !== 'N/A') ? address : 'Location Hidden';
 
     // Audit Report Insights Section (Dynamic)
@@ -3030,81 +3189,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             chatContainer.classList.add('hidden');
             chatMessageList.innerHTML = '';
-        }
-    }
-
-    if (mapsLink) {
-        if (address && address !== 'N/A') {
-            mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address + ' ' + title)}`;
-            mapsLink.classList.remove('opacity-20', 'pointer-events-none');
-        } else {
-            mapsLink.href = '#';
-            mapsLink.classList.add('opacity-20', 'pointer-events-none');
-        }
-    }
-
-    // Header Contact Info
-    const headerAddress = document.getElementById('mobilePanelHeaderAddress');
-    const headerPhone = document.getElementById('mobilePanelHeaderPhone');
-    const headerSocials = document.getElementById('mobilePanelHeaderSocials');
-
-    if (headerAddress) headerAddress.textContent = (address && address !== 'N/A') ? address : 'Address Not Available';
-    if (headerPhone) {
-        if (phone && phone !== 'N/A') {
-            headerPhone.textContent = phone;
-            headerPhone.classList.remove('opacity-40');
-        } else {
-            headerPhone.textContent = 'No phone on file';
-            headerPhone.classList.add('opacity-40');
-        }
-    }
-
-    const resolveGoogleBusinessProfileUrlFromRow = (r) =>
-        resolveGoogleMapsSocialHref(r.dataset.url, r.dataset.title, r.dataset.address, r.dataset.city);
-
-    // Header Socials Logic
-    if (headerSocials) {
-        headerSocials.innerHTML = '';
-        let socialCount = 0;
-        const socialPlatforms = [
-            {
-                key: 'googleBusiness',
-                ariaLabel: 'Google Business Profile (opens in Maps)',
-                title: 'Google Maps / Business Profile',
-                icon: GOOGLE_BUSINESS_ICON_SVG,
-                color: 'hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25',
-                hrefFrom: resolveGoogleBusinessProfileUrlFromRow,
-            },
-            { key: 'facebook', icon: '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>', color: 'hover:bg-[#1877F2]' },
-            { key: 'instagram', icon: '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg>', color: 'hover:bg-[#E4405F]' },
-            { key: 'twitter', icon: '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>', color: 'hover:bg-black' }
-        ];
-
-        socialPlatforms.forEach((p) => {
-            let href = null;
-            if (typeof p.hrefFrom === 'function') {
-                href = p.hrefFrom(row);
-            } else {
-                const link = row.dataset[p.key];
-                if (link && link !== 'N/A' && link !== 'undefined') {
-                    href = link.startsWith('http') ? link : `https://${link}`;
-                }
-            }
-            if (!href) return;
-            const a = document.createElement('a');
-            a.href = href;
-            a.target = '_blank';
-            a.rel = 'noopener noreferrer';
-            if (p.ariaLabel) a.setAttribute('aria-label', p.ariaLabel);
-            if (p.title) a.title = p.title;
-            a.className = `w-8 h-8 rounded-lg bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-white transition-all hover:scale-110 shadow-sm border border-brand-border/10 ${p.color}`;
-            a.innerHTML = p.icon;
-            headerSocials.appendChild(a);
-            socialCount++;
-        });
-
-        if (socialCount === 0) {
-            headerSocials.innerHTML = '<span class="text-[10px] font-bold text-brand-muted/40 uppercase tracking-widest italic">No social profiles detected</span>';
         }
     }
 
@@ -3309,7 +3393,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
-    syncGoogleReviewsLink(row);
     syncOwnerFirstNameAndDnc(row);
     syncLeadContactsList(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
@@ -3662,6 +3745,10 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/\s+/g, ' ');
   }
 
+  function phoneDigitsOnly(value) {
+    return String(value || '').replace(/\D/g, '');
+  }
+
   function clearManualContactErrors() {
     const phoneErr = document.getElementById('manualPhoneError');
     const emailErr = document.getElementById('manualEmailError');
@@ -3773,7 +3860,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (manualEmailInput) manualEmailInput.value = email || '';
       const prevPhone = sanitizeContactInput(currentRow.dataset.phone || '');
       const prevEmail = sanitizeContactInput(currentRow.dataset.email || '').toLowerCase();
-      if (phone === prevPhone && email === prevEmail) {
+      if (phoneDigitsOnly(phone) === phoneDigitsOnly(prevPhone) && email === prevEmail) {
         if (manualContactState) manualContactState.textContent = 'No changes';
         return;
       }
@@ -3785,6 +3872,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
           body: JSON.stringify({
             phone: phone || 'N/A',
             email: email || 'N/A',

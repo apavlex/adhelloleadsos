@@ -2,6 +2,10 @@
 <%- include('/partials/lead_detail_panel') %>
 
 <script>
+  window.ADHELLO_SERVICE_OFFERS = <%- JSON.stringify(typeof scriptLibraryOfferPicklist !== 'undefined' ? scriptLibraryOfferPicklist : []) %>;
+</script>
+
+<script>
   window.INITIAL_SAVED_LEADS = <%- JSON.stringify(leads || []) %>;
   window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.PIPELINE_STAGE_COLORS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;

@@ -12,6 +12,7 @@ const {
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
 } = require('../services/leadListFilters');
+const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -121,6 +122,7 @@ router.get('/', async (req, res, next) => {
       importNotice,
       importError,
       pipelineStages,
+      scriptLibraryOfferPicklist,
       canManageWorkspace: req.canManageWorkspace,
     });
   } catch (e) {

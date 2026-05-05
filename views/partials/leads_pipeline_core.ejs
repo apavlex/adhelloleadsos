@@ -30,6 +30,18 @@
       }
       return '';
     }
+    function plcEscAttr(v) {
+      return String(v == null ? '' : v)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+    }
+    function plcEscJson(obj) {
+      return JSON.stringify(obj === undefined ? null : obj)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;');
+    }
   %>
   <style>
     .plc-col-resize {
@@ -248,33 +260,38 @@
                   _cadShort = (_seqSt.status === 'active') ? 'Active' : String(_seqSt.status || '').trim();
                 }
               }
+              var _psk = '';
+              if (lead.primaryServiceKey) _psk = String(lead.primaryServiceKey).trim();
+              else if (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) {
+                _psk = String(lead.kieServiceInsight.primaryServiceKey).trim();
+              }
             %>
             <tr class="result-row group/row scroll-mt-28 transition-colors duration-150 border-b border-brand-border/15 dark:border-white/[0.07]"
                 onclick="if(window.__pipelineRowActivate){window.__pipelineRowActivate(event,this);}"
                 id="lead-row-<%= rowAnchor %>"
                 data-index="<%= i %>"
                 data-lead-key="<%= lead.key %>"
-                data-stage-id="<%= (activeStageId || '').replace(/"/g, '&quot;') %>"
+                data-stage-id="<%= plcEscAttr(activeStageId || '') %>"
                 data-pipeline-stage="<%= psRow %>"
-                data-pipeline-label="<%= pipeShort.replace(/"/g, '&quot;') %>"
-                data-title="<%= lead.title %>"
-                data-phone="<%= lead.phone || 'N/A' %>"
-                data-website="<%= lead.website || 'N/A' %>"
-                data-email="<%= lead.email || 'N/A' %>"
-                data-category="<%= lead.categoryName || 'N/A' %>"
-                data-address="<%= lead.address || 'N/A' %>"
-                data-city="<%= lead.city || '' %>"
+                data-pipeline-label="<%= plcEscAttr(pipeShort) %>"
+                data-title="<%= plcEscAttr(lead.title) %>"
+                data-phone="<%= plcEscAttr(lead.phone || 'N/A') %>"
+                data-website="<%= plcEscAttr(lead.website || 'N/A') %>"
+                data-email="<%= plcEscAttr(lead.email || 'N/A') %>"
+                data-category="<%= plcEscAttr(lead.categoryName || 'N/A') %>"
+                data-address="<%= plcEscAttr(lead.address || 'N/A') %>"
+                data-city="<%= plcEscAttr(lead.city || '') %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
-                data-review-snippets='<%= JSON.stringify(lead.reviewSnippets || []).replace(/'/g, "&apos;") %>'
-                data-url="<%= lead.url || '' %>"
-                data-facebook="<%= lead.facebook || 'N/A' %>"
-                data-instagram="<%= lead.instagram || 'N/A' %>"
-                data-twitter="<%= lead.twitter || 'N/A' %>"
-                data-status="<%= deliveryStatusDisplay %>"
-                data-loom-url="<%= lead.loomUrl || '' %>"
-                data-outreach-prompt="<%= lead.outreachPrompt || '' %>"
-                data-updates='<%= JSON.stringify(lead.updates || []).replace(/'/g, "&apos;") %>'
+                data-review-snippets="<%= plcEscJson(lead.reviewSnippets || []) %>"
+                data-url="<%= plcEscAttr(lead.url || '') %>"
+                data-facebook="<%= plcEscAttr(lead.facebook || 'N/A') %>"
+                data-instagram="<%= plcEscAttr(lead.instagram || 'N/A') %>"
+                data-twitter="<%= plcEscAttr(lead.twitter || 'N/A') %>"
+                data-status="<%= plcEscAttr(deliveryStatusDisplay) %>"
+                data-loom-url="<%= plcEscAttr(lead.loomUrl || '') %>"
+                data-outreach-prompt="<%= plcEscAttr(lead.outreachPrompt || '') %>"
+                data-updates="<%= plcEscJson(lead.updates || []) %>"
                 data-has-schema-markup="<%= lead.hasSchemaMarkup %>"
                 data-has-chatbot="<%= lead.hasChatbot %>"
                 data-has-click-to-call="<%= lead.hasClickToCall %>"
@@ -282,33 +299,34 @@
                 data-is-outdated="<%= lead.isOutdated %>"
                 data-visual-modernity-score="<%= lead.visualModernityScore %>"
                 data-aeo-score="<%= lead.aeoScore %>"
-                data-geo-gaps="<%= lead.geoGaps %>"
-                data-audit-summary="<%= lead.auditSummary %>"
-                data-cms-platform="<%= lead.cmsPlatform || '' %>"
-                data-buying-signals='<%= JSON.stringify(lead.buyingSignals || []).replace(/'/g, "&apos;") %>'
-                data-source="<%= lead.source || '' %>"
-                data-created-at="<%= (_createdRaw || '').toString().replace(/"/g, '&quot;') %>"
-                data-audit-data='<%= JSON.stringify(lead.auditData || null).replace(/'/g, "&apos;") %>'
-                data-chat-history='<%= JSON.stringify(lead.chatHistory || null).replace(/'/g, "&apos;") %>'
-                data-cqi='<%= JSON.stringify(lead.cqi || null).replace(/'/g, "&apos;") %>'
-                data-gbp-claim-status="<%= String(lead.gbpClaimStatus || '').replace(/"/g, '&quot;') %>"
-                data-gbp-optimization-score="<%= String(lead.gbpOptimizationScore || '').replace(/"/g, '&quot;') %>"
+                data-geo-gaps="<%= plcEscAttr(lead.geoGaps) %>"
+                data-audit-summary="<%= plcEscAttr(lead.auditSummary) %>"
+                data-cms-platform="<%= plcEscAttr(lead.cmsPlatform || '') %>"
+                data-buying-signals="<%= plcEscJson(lead.buyingSignals || []) %>"
+                data-source="<%= plcEscAttr(lead.source || '') %>"
+                data-created-at="<%= plcEscAttr((_createdRaw || '').toString()) %>"
+                data-audit-data="<%= plcEscJson(lead.auditData || null) %>"
+                data-chat-history="<%= plcEscJson(lead.chatHistory || null) %>"
+                data-cqi="<%= plcEscJson(lead.cqi || null) %>"
+                data-gbp-claim-status="<%= plcEscAttr(String(lead.gbpClaimStatus || '')) %>"
+                data-gbp-optimization-score="<%= plcEscAttr(String(lead.gbpOptimizationScore || '')) %>"
                 data-ai-score="<%= lead.aiWebsiteAnalysisScore != null ? lead.aiWebsiteAnalysisScore : '' %>"
-                data-ai-analysis='<%= JSON.stringify(lead.aiWebsiteAnalysis || null).replace(/'/g, "&apos;") %>'
-                data-owner-signal="<%= (lead.ownerSignal || '').replace(/"/g, '&quot;') %>"
-                data-stitch-design-url="<%= lead.stitchDesignUrl || '' %>"
-                data-stitch-screenshot-url="<%= lead.stitchScreenshotUrl || '' %>"
-                data-stitch-screen-id="<%= lead.stitchScreenId || '' %>"
-                data-estimated-value="<%= lead.estimatedValue != null && lead.estimatedValue !== '' ? String(lead.estimatedValue).replace(/"/g, '&quot;') : '' %>"
+                data-ai-analysis="<%= plcEscJson(lead.aiWebsiteAnalysis || null) %>"
+                data-owner-signal="<%= plcEscAttr(lead.ownerSignal || '') %>"
+                data-stitch-design-url="<%= plcEscAttr(lead.stitchDesignUrl || '') %>"
+                data-stitch-screenshot-url="<%= plcEscAttr(lead.stitchScreenshotUrl || '') %>"
+                data-stitch-screen-id="<%= plcEscAttr(lead.stitchScreenId || '') %>"
+                data-estimated-value="<%= lead.estimatedValue != null && lead.estimatedValue !== '' ? plcEscAttr(String(lead.estimatedValue)) : '' %>"
                 data-created-sort="<%= _createdSortMs %>"
                 data-last-touch-ms="<%= _lastTouchSortMs %>"
-                data-last-touch-channel="<%= _ltc.replace(/"/g, '&quot;') %>"
-                data-cadence-sort="<%= (_cadShort || _ltc || '').replace(/"/g, '&quot;') %>"
-                data-sequence-state='<%= JSON.stringify(lead.sequenceState || null).replace(/'/g, "&apos;") %>'
-                data-logs-snippet='<%= JSON.stringify((lead.logs || []).slice(-14)).replace(/'/g, "&apos;") %>'
-                data-owner-first-name="<%= String(lead.ownerFirstName || '').replace(/"/g, '&quot;') %>"
+                data-last-touch-channel="<%= plcEscAttr(_ltc) %>"
+                data-cadence-sort="<%= plcEscAttr(_cadShort || _ltc || '') %>"
+                data-sequence-state="<%= plcEscJson(lead.sequenceState || null) %>"
+                data-logs-snippet="<%= plcEscJson((lead.logs || []).slice(-14)) %>"
+                data-owner-first-name="<%= plcEscAttr(String(lead.ownerFirstName || '')) %>"
                 data-do-not-call="<%= lead.doNotCall ? '1' : '' %>"
-                data-contacts='<%= JSON.stringify(lead.contacts || []).replace(/'/g, "&apos;") %>'>
+                data-primary-service-key="<%= plcEscAttr(_psk) %>"
+                data-contacts="<%= plcEscJson(lead.contacts || []) %>">
               <td data-plc="check" class="lead-sticky-check pl-5 pr-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
                 <div class="flex items-center">
                   <input type="checkbox" class="lead-checkbox w-4 h-4 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>">
