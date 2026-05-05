@@ -102,6 +102,11 @@ router.get('/', async (req, res, next) => {
     const queueListLeads = pipelineVisible.map(mapLeadListJson);
     const folderListLeads = visible.map(mapLeadListJson);
 
+    const scriptLibraryOfferPicklist = SCRIPT_LIBRARY_KEYS.map((k) => ({
+      key: k,
+      label: (SCRIPT_LIBRARY[k] && SCRIPT_LIBRARY[k].label) || k,
+    }));
+
     res.render('prospecting', {
       title: 'Prospecting | Agency OS',
       activePage: 'prospecting',

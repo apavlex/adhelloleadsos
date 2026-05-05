@@ -85,7 +85,7 @@
   </main>
 
   <% if (activeTab === 'pipeline') { %>
-  <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], pipelineStages, folders, activeFolderKey: typeof activeFolderKey !== 'undefined' ? activeFolderKey : '', scriptLibraryOfferPicklist }) %>
+  <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], pipelineStages, folders, activeFolderKey: typeof activeFolderKey !== 'undefined' ? activeFolderKey : '', scriptLibraryOfferPicklist: Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : [] }) %>
   <script>
   (function () {
     document.addEventListener('DOMContentLoaded', function () {
