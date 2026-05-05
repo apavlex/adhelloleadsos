@@ -2885,6 +2885,62 @@ document.addEventListener('DOMContentLoaded', () => {
     mobileAvatar.classList.remove('hidden');
   }
 
+  /** Hoisted above populatePanel so early callers (e.g. focusLead query sync IIFE) never hit TDZ on panel helpers. */
+  function renderStarsInElement(element, rating, starSizeClass = 'w-3 h-3') {
+    if (!element) return;
+    element.innerHTML = '';
+    const r = Math.max(0, Math.min(5, Number(rating) || 0));
+    const fullStars = Math.floor(r);
+    const hasHalf = r % 1 >= 0.5;
+
+    for (let i = 0; i < 5; i++) {
+      const lit = i < fullStars || (i === fullStars && hasHalf);
+      const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      star.setAttribute(
+        'class',
+        `${starSizeClass} shrink-0 ${lit ? 'text-amber-400 dark:text-brand-yellow' : 'text-slate-300 dark:text-slate-600'}`
+      );
+      star.setAttribute('viewBox', '0 0 20 20');
+      star.setAttribute('fill', 'currentColor');
+      star.setAttribute('aria-hidden', 'true');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute(
+        'd',
+        'M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z'
+      );
+      star.appendChild(path);
+      element.appendChild(star);
+    }
+  }
+
+  function renderStars(
+    rating,
+    reviews,
+    containerId = 'mobilePanelStars',
+    textId = 'mobilePanelRatingText',
+    starSizeClass = 'w-3 h-3'
+  ) {
+    const starsContainer = document.getElementById(containerId);
+    if (starsContainer) {
+      renderStarsInElement(starsContainer, rating, starSizeClass);
+    }
+    const ratingText = document.getElementById(textId);
+    if (ratingText) {
+      const rc = reviews !== undefined && reviews !== null ? parseInt(reviews, 10) || 0 : null;
+      if (rc !== null) {
+        if (rating > 0) {
+          ratingText.textContent = `${Number(rating).toFixed(1)} (${rc} reviews)`;
+        } else if (rc > 0) {
+          ratingText.textContent = `— (${rc} reviews)`;
+        } else {
+          ratingText.textContent = 'No rating';
+        }
+      } else {
+        ratingText.textContent = rating > 0 ? Number(rating).toFixed(1) : 'No rating';
+      }
+    }
+  }
+
   // --- Populate panel from row data ---
   function populatePanel(row) {
     const title = row.dataset.title;
@@ -2906,8 +2962,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (
       lkHydrate &&
       row.dataset.panelHydrateAttempted !== '1' &&
-      !phone &&
-      !address
+      (!phone || !address)
     ) {
       row.dataset.panelHydrateAttempted = '1';
       fetch(`/leads/${encodeURIComponent(lkHydrate)}/panel-data`, {
@@ -3523,61 +3578,6 @@ document.addEventListener('DOMContentLoaded', () => {
     renderLeadActivityTimeline(row, window.__leadActivityFilter);
     syncLeadPanelTouchSummary(row);
   }
-
-  const renderStars = (
-    rating,
-    reviews,
-    containerId = 'mobilePanelStars',
-    textId = 'mobilePanelRatingText',
-    starSizeClass = 'w-3 h-3'
-  ) => {
-    const starsContainer = document.getElementById(containerId);
-    if (starsContainer) {
-        renderStarsInElement(starsContainer, rating, starSizeClass);
-    }
-    const ratingText = document.getElementById(textId);
-    if (ratingText) {
-        const rc = reviews !== undefined && reviews !== null ? parseInt(reviews, 10) || 0 : null;
-        if (rc !== null) {
-          if (rating > 0) {
-            ratingText.textContent = `${Number(rating).toFixed(1)} (${rc} reviews)`;
-          } else if (rc > 0) {
-            ratingText.textContent = `— (${rc} reviews)`;
-          } else {
-            ratingText.textContent = 'No rating';
-          }
-        } else {
-          ratingText.textContent = rating > 0 ? Number(rating).toFixed(1) : 'No rating';
-        }
-    }
-  };
-
-  const renderStarsInElement = (element, rating, starSizeClass = 'w-3 h-3') => {
-    if (!element) return;
-    element.innerHTML = '';
-    const r = Math.max(0, Math.min(5, Number(rating) || 0));
-    const fullStars = Math.floor(r);
-    const hasHalf = (r % 1) >= 0.5;
-
-    for (let i = 0; i < 5; i++) {
-      const lit = i < fullStars || (i === fullStars && hasHalf);
-      const star = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      star.setAttribute(
-        'class',
-        `${starSizeClass} shrink-0 ${lit ? 'text-amber-400 dark:text-brand-yellow' : 'text-slate-300 dark:text-slate-600'}`
-      );
-      star.setAttribute('viewBox', '0 0 20 20');
-      star.setAttribute('fill', 'currentColor');
-      star.setAttribute('aria-hidden', 'true');
-      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute(
-        'd',
-        'M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z'
-      );
-      star.appendChild(path);
-      element.appendChild(star);
-    }
-  };
 
   const applyTableStars = () => {
     document.querySelectorAll('.result-row').forEach((row) => {
@@ -7847,7 +7847,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const host = document.getElementById('leadPanelDatasetHost');
     if (!host) return;
     try {
-      const res = await fetch(`/leads/${encodeURIComponent(k)}/panel-data`);
+      const res = await fetch(`/leads/${encodeURIComponent(k)}/panel-data`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
       const data = await res.json().catch(() => ({}));
       if (!data.success || !data.lead) return;
       applyLeadObjectToPanelHost(host, data.lead);
