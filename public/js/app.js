@@ -2668,6 +2668,54 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    const bannerWrap = document.getElementById('leadPanelHeaderMapBannerWrap');
+    const bannerLink = document.getElementById('leadPanelHeaderMapBannerLink');
+    const bannerImg = document.getElementById('leadPanelHeaderMapBannerImg');
+    const bannerFallback = document.getElementById('leadPanelHeaderMapBannerFallback');
+    let headerMapBannerActive = false;
+    if (bannerWrap && bannerLink && bannerImg && bannerFallback) {
+      bannerImg.onload = null;
+      bannerImg.onerror = null;
+      bannerImg.removeAttribute('src');
+      bannerImg.classList.add('hidden');
+      bannerFallback.classList.add('hidden');
+      bannerFallback.classList.remove('flex', 'flex-col');
+
+      if (!chipHref && !center) {
+        bannerWrap.classList.add('hidden');
+      } else {
+        headerMapBannerActive = true;
+        bannerLink.href = chipHref || mapsUrl || '#';
+        bannerWrap.classList.remove('hidden');
+
+        const showBannerFallback = () => {
+          bannerImg.classList.add('hidden');
+          bannerFallback.classList.remove('hidden');
+          bannerFallback.classList.add('flex', 'flex-col');
+        };
+
+        if (mapKey && center) {
+          const bannerUrl = buildGoogleStaticMapUrl(center, mapKey, 640, 160);
+          bannerImg.onload = () => {
+            bannerImg.classList.remove('hidden');
+            bannerFallback.classList.add('hidden');
+            bannerFallback.classList.remove('flex', 'flex-col');
+          };
+          bannerImg.onerror = () => showBannerFallback();
+          bannerImg.alt = address
+            ? `Map near ${address.slice(0, 120)}`
+            : title
+              ? `Location of ${title}`
+              : 'Location map';
+          requestAnimationFrame(() => {
+            bannerImg.src = bannerUrl;
+          });
+        } else {
+          showBannerFallback();
+        }
+      }
+    }
+
     const wrap = document.getElementById('mobilePanelMapWideWrap');
     const wideLink = document.getElementById('mobilePanelMapWideLink');
     const wideImg = document.getElementById('mobilePanelMapWideImg');
@@ -2681,6 +2729,11 @@ document.addEventListener('DOMContentLoaded', () => {
     fallback.style.display = 'none';
 
     if (!chipHref && !center) {
+      wrap.classList.add('hidden');
+      return;
+    }
+
+    if (headerMapBannerActive) {
       wrap.classList.add('hidden');
       return;
     }
