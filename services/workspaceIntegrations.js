@@ -16,6 +16,7 @@ const INTEGRATION_FIELDS = [
   'apifyApiToken',
   'outscraperApiKey',
   'outscraperApiBase',
+  'searchapiApiKey',
   'mapsSearchPrimary',
   'firecrawlApiKey',
   'enrichPrimary',
@@ -33,6 +34,7 @@ const FIELD_TO_ENV = {
   apifyApiToken: 'APIFY_API_TOKEN',
   outscraperApiKey: 'OUTSCRAPER_API_KEY',
   outscraperApiBase: 'OUTSCRAPER_API_BASE',
+  searchapiApiKey: 'SEARCHAPI_API_KEY',
   mapsSearchPrimary: 'SEARCH_MAPS_PRIMARY',
   firecrawlApiKey: 'FIRECRAWL_API_KEY',
   enrichPrimary: 'ENRICH_PRIMARY',
@@ -136,6 +138,7 @@ function integrationMasks(workspace) {
     'rapidapiKey',
     'apifyApiToken',
     'outscraperApiKey',
+    'searchapiApiKey',
     'firecrawlApiKey',
     'crawl4aiApiToken',
   ]);

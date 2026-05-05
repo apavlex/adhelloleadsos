@@ -5,6 +5,7 @@
 
 const crawl4ai = require('./crawl4aiClient');
 const outscraper = require('./outscraperClient');
+const searchapiGoogleLocal = require('./searchapiGoogleLocal');
 
 /** @param {Record<string, string>|null|undefined} [resolvedEnv] workspace-resolved env */
 function apifyConfigured(resolvedEnv) {
@@ -69,8 +70,19 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: os,
       live: live.outscraper || null,
       tip: os
-        ? 'With the key set, Find Leads step 1 calls Outscraper Google Maps search first (async + poll); Apify is the fallback.'
-        : 'Set OUTSCRAPER_API_KEY to use Outscraper as the first Maps search step (Apify remains fallback).',
+        ? 'Runs after RapidAPI and SearchAPI.io in Auto mode when those return zero rows or error.'
+        : 'Set OUTSCRAPER_API_KEY as another Maps list provider before Apify-only fallback.',
+    },
+    {
+      id: 'searchapi',
+      name: 'SearchAPI.io (Google Local)',
+      role: 'Find Leads — Google Local / local pack listings.',
+      cost: 'Per SearchAPI.io plan and credits.',
+      configured: searchapi,
+      live: null,
+      tip: searchapi
+        ? 'Runs after RapidAPI in Auto mode when SEARCHAPI_API_KEY is set. Force with SEARCH_MAPS_PRIMARY=searchapi.'
+        : 'Set SEARCHAPI_API_KEY from SearchAPI.io to enable Google Local as a Maps list source.',
     },
     {
       id: 'leadsgorilla',
@@ -92,10 +104,10 @@ function buildTaskRows() {
     {
       task: 'Build a territory list from Google Maps',
       startCheap:
-        'Compare Outscraper vs Apify unit price for the same query size; keep both keys and run small test batches.',
+        'Compare SearchAPI.io vs Outscraper vs Apify unit price for the same query; keep keys you like and run small test batches.',
       keepPaid:
         'If you need the least ops friction, Apify (already integrated on Find Leads) stays the fastest path.',
-      inApp: 'Find Leads: Outscraper first when configured (workspace keys or env); Apify fallback. Workspace → API integrations applies the same keys to all members.',
+      inApp: 'Find Leads: RapidAPI → SearchAPI.io → Outscraper → Apify in Auto (workspace keys or env). Workspace → API integrations applies the same keys to all members.',
     },
     {
       task: 'Deep website audit + structured fields on a lead',

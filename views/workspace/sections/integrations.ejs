@@ -62,6 +62,13 @@
       <% if (masks.outscraperApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiKey_clear" value="1" /> Remove</label><% } %>
     </div>
     <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SearchAPI.io API key (Google Local)</label>
+      <% if (masks.searchapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.searchapiApiKey %></p><% } %>
+      <input type="password" name="searchapiApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <p class="text-xs text-brand-muted mt-2 leading-relaxed"><a href="https://www.searchapi.io/docs/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local API</a> — optional Find Leads provider; used after RapidAPI in Auto mode when configured.</p>
+      <% if (masks.searchapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="searchapiApiKey_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outscraper API base (optional)</label>
       <% if (masks.outscraperApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiBase %></p><% } %>
       <input type="text" name="outscraperApiBase" autocomplete="off" placeholder="https://api.app.outscraper.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
@@ -71,8 +78,9 @@
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper preference</label>
       <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
         <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>
-        <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI first, fallback Outscraper, then Apify)</option>
+        <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → Outscraper → Apify)</option>
         <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
+        <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io (Google Local) only</option>
         <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
         <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
       </select>

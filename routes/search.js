@@ -9,7 +9,7 @@ const { userEmail, filterLeadsForRequest } = require('../services/workspaceServi
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 
-// POST /search — Google Maps list (RapidAPI first when configured, then Outscraper, then Apify)
+// POST /search — Google Maps list (RapidAPI → SearchAPI.io → Outscraper → Apify in Auto)
 router.post('/', async (req, res, next) => {
   try {
     const wid = req.workspaceId;
@@ -91,7 +91,7 @@ router.post('/', async (req, res, next) => {
     if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).render('error', {
         message:
-          'Maps search is not configured for this workspace. Add keys under Workspace → API integrations, or set RAPIDAPI_KEY / OUTSCRAPER_API_KEY / APIFY_API_TOKEN on the server.',
+          'Maps search is not configured for this workspace. Add keys under Workspace → API integrations, or set RAPIDAPI_KEY / SEARCHAPI_API_KEY / OUTSCRAPER_API_KEY / APIFY_API_TOKEN on the server.',
         activePage: 'search',
       });
     }
@@ -186,13 +186,15 @@ router.post('/', async (req, res, next) => {
 
     if (err.message && err.message.includes('401')) {
       return res.status(401).render('error', {
-        message: 'Invalid API credentials for Maps search. Check RAPIDAPI_KEY, OUTSCRAPER_API_KEY, and/or APIFY_API_TOKEN.',
+        message:
+          'Invalid API credentials for Maps search. Check RAPIDAPI_KEY, SEARCHAPI_API_KEY, OUTSCRAPER_API_KEY, and/or APIFY_API_TOKEN.',
         activePage: 'search',
       });
     }
     if (err.message && err.message.includes('402')) {
       return res.status(402).render('error', {
-        message: 'Billing issue or insufficient credits on RapidAPI, Outscraper, or Apify. Check the provider that ran last in server logs.',
+        message:
+          'Billing issue or insufficient credits on RapidAPI, SearchAPI.io, Outscraper, or Apify. Check the provider that ran last in server logs.',
         activePage: 'search',
       });
     }
