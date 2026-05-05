@@ -34,6 +34,9 @@
           <p class="px-4 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-brand-muted">Workspace</p>
           <a href="/scripts" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 pl-6">Script library</a>
           <a href="/workspace/voicemail" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 pl-6">Voicemail</a>
+          <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+          <a href="/workspace/phones" class="block px-4 py-2.5 text-sm text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 pl-6">Phone forwarding</a>
+          <% } %>
           <a href="/workspace/team" class="block px-4 py-2.5 text-sm text-brand-muted hover:bg-brand-cream/40 dark:hover:bg-white/10 pl-6">Workspace settings</a>
         </div>
       </div>
@@ -181,6 +184,9 @@
       <nav class="flex flex-col gap-2 mb-8">
         <a href="/scripts" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Script library</a>
         <a href="/workspace/voicemail" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Voicemail</a>
+        <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+        <a href="/workspace/phones" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Phone forwarding</a>
+        <% } %>
         <a href="/workspace/team" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Team &amp; workspace</a>
         <a href="/activation" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">7-day activation</a>
         <button type="button" id="connectAiOpenMobile" class="w-full text-left px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Connect AI</button>
