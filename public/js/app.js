@@ -2902,6 +2902,27 @@ document.addEventListener('DOMContentLoaded', () => {
     const category = row.dataset.category;
     const loomUrl = row.dataset.loomUrl;
 
+    const lkHydrate = row.dataset.leadKey || '';
+    if (
+      lkHydrate &&
+      row.dataset.panelHydrateAttempted !== '1' &&
+      !phone &&
+      !address
+    ) {
+      row.dataset.panelHydrateAttempted = '1';
+      fetch(`/leads/${encodeURIComponent(lkHydrate)}/panel-data`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then((r) => r.json())
+        .then((data) => {
+          if (!data || !data.success || !data.lead) return;
+          syncPersistedLeadToRowDataset(row, data.lead);
+          if (currentRow === row) populatePanel(row);
+        })
+        .catch(() => {});
+    }
+
     // Avatar & Sticky Title Logic
     const mobileAvatar = document.getElementById('mobilePanelAvatar');
     const stickyPanelTitle = document.getElementById('stickyPanelTitle');
@@ -2930,8 +2951,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
 
-    populateCadenceSection(row);
-
     const sourcePill = document.getElementById('mobilePanelSourcePill');
     if (sourcePill) {
       const src = row.dataset.source || '';
@@ -2951,9 +2970,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    syncMobilePanelCqi(row);
-
-    // Stars & rating (larger stars in panel for visibility)
+    // Stars, maps chip, and header contact lines must run before cadence — cadence DOM/JSON edge cases must not block them.
     renderStars(rating, reviews, 'mobilePanelStars', 'mobilePanelRatingText', 'w-4 h-4');
 
     syncGoogleReviewsLink(row);
@@ -2987,6 +3004,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncLeadPanelWideMapAndGoogleChip(row);
+
+    try {
+      populateCadenceSection(row);
+    } catch (cadenceErr) {
+      console.error('[Lead detail panel] populateCadenceSection failed:', cadenceErr);
+    }
+
+    syncMobilePanelCqi(row);
 
     const resolveGoogleBusinessProfileUrlFromRow = (r) =>
       resolveGoogleMapsSocialHref(
