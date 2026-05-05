@@ -223,7 +223,7 @@
 
   <% if (activeTab === 'pipeline') { %>
   <%- include('partials/leads_interactive_tail', { leads: typeof pipelineBoardLeads !== 'undefined' ? pipelineBoardLeads : [], pipelineStages }) %>
-  <script src="/js/app.js"></script>
+  <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <% } else { %>
   <div id="folderCreateModal" class="fixed inset-0 z-[6000] hidden items-center justify-center p-4" aria-hidden="true">
     <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>

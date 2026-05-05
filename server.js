@@ -39,6 +39,11 @@ const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 
 const app = express();
+try {
+  app.locals.assetVersion = process.env.ASSET_VERSION || require('./package.json').version;
+} catch (_) {
+  app.locals.assetVersion = '1';
+}
 const PORT = process.env.PORT || 3000;
 
 // Cloud Run / reverse proxy: required for secure cookies and req.protocol

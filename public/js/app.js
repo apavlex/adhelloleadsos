@@ -2019,12 +2019,19 @@ document.addEventListener('DOMContentLoaded', () => {
   function readPipelineRowDisplayPhone(row) {
     if (!row || !row.dataset) return '';
     let p = String(row.dataset.phone || '').trim();
-    if ((!p || p === 'N/A') && typeof row.querySelector === 'function') {
-      const slot = row.querySelector('a.lead-contact-phone-slot.js-click-to-call-number');
-      if (slot) p = String(slot.dataset.phone || slot.textContent || '').trim();
+    if (p && p !== 'N/A') return p.replace(/\s+/g, ' ').trim();
+
+    if (typeof row.querySelector === 'function') {
+      const slot =
+        row.querySelector('a.lead-contact-phone-slot.js-click-to-call-number') ||
+        row.querySelector('a.js-click-to-call-number[data-phone][data-lead-key]') ||
+        row.querySelector('a.js-click-to-call-number[data-phone]');
+      if (slot) {
+        p = String(slot.dataset.phone || slot.textContent || '').trim();
+      }
     }
-    if (p === 'N/A') return '';
-    return p.trim();
+    if (!p || p === 'N/A' || p === '—') return '';
+    return p.replace(/\s+/g, ' ').trim();
   }
 
   function readPipelineRowReviewsSnapshot(row) {
