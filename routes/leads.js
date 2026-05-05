@@ -1112,19 +1112,41 @@ router.post('/telephony/call-control', async (req, res, next) => {
   try {
     const action = String((req.body && req.body.action) || '').trim().toLowerCase();
     const callSid = String((req.body && req.body.callSid) || '').trim();
-    if (!callSid) {
-      return res.status(400).json({ success: false, error: 'callSid is required.' });
-    }
+    const recordingSidBody = String((req.body && req.body.recordingSid) || '').trim();
     if (!signalwire.configured()) {
       return res.status(400).json({ success: false, error: 'Telephony is not configured.' });
+    }
+    if (action === 'record_stop') {
+      if (!recordingSidBody) {
+        return res.status(400).json({ success: false, error: 'recordingSid is required.' });
+      }
+      await signalwire.stopCallRecording(recordingSidBody);
+      return res.json({ success: true, action: 'record_stop', recordingSid: recordingSidBody });
+    }
+    if (!callSid) {
+      return res.status(400).json({ success: false, error: 'callSid is required.' });
     }
     if (action === 'hangup') {
       await signalwire.completeCall(callSid);
       return res.json({ success: true, action: 'hangup', callSid });
     }
+    if (action === 'record_start') {
+      const cb = signalwire.buildAppUrl('/api/telephony/voice/recording-status', {});
+      const raw = await signalwire.startCallRecording(callSid, {
+        recordingStatusCallback: cb || undefined,
+      });
+      const recordingSid = signalwire.extractRecordingSid(raw);
+      if (!recordingSid) {
+        return res.status(502).json({
+          success: false,
+          error: 'Telephony provider did not return a recording id.',
+        });
+      }
+      return res.json({ success: true, action: 'record_start', callSid, recordingSid });
+    }
     return res.status(400).json({
       success: false,
-      error: 'Action not supported by provider control endpoint yet. Use hangup.',
+      error: 'Unsupported action. Use hangup, record_start, or record_stop.',
     });
   } catch (err) {
     next(err);

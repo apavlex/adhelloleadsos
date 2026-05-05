@@ -560,6 +560,17 @@ router.post('/telephony/voice/status', async (req, res) => {
   }
 });
 
+// POST /api/telephony/voice/recording-status — optional RecordingStatusCallback for live recordings
+router.post('/telephony/voice/recording-status', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).json({ success: false });
+    res.status(204).end();
+  } catch (err) {
+    console.error('[telephony:voice:recording-status]', err.message);
+    res.status(204).end();
+  }
+});
+
 // POST /api/telephony/voice/amd — machine-detection updates
 router.post('/telephony/voice/amd', async (req, res) => {
   try {

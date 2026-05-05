@@ -24,8 +24,18 @@
       <% sa.sources.forEach((s) => { %>
       <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/40 p-5">
         <div class="flex items-center justify-between gap-2 mb-2">
-          <h3 class="font-display font-bold text-sm text-brand-dark dark:text-white"><%= s.name %></h3>
+          <h3 class="font-display font-bold text-sm text-brand-dark dark:text-white">
+            <% if (s.href) { %>
+              <a href="<%= s.href %>" target="_blank" rel="noopener noreferrer" class="hover:text-brand-yellow hover:underline decoration-brand-yellow/50 underline-offset-2"><%= s.name %></a>
+            <% } else { %>
+              <%= s.name %>
+            <% } %>
+          </h3>
+          <% if (s.external) { %>
+          <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-sky-500/12 text-sky-900 dark:text-sky-200 border border-sky-500/25">External</span>
+          <% } else { %>
           <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg <%= s.configured ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-300 border border-emerald-500/25' : 'bg-brand-border/20 text-brand-muted border border-brand-border/40' %>"><%= s.configured ? 'Configured' : 'Not set' %></span>
+          <% } %>
         </div>
         <p class="text-[11px] font-bold text-brand-muted uppercase tracking-wide mb-1"><%= s.role %></p>
         <p class="text-xs text-brand-muted mb-2"><%= s.cost %></p>

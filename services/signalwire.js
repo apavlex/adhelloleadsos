@@ -526,6 +526,41 @@ async function completeCall(callSid) {
 }
 
 /**
+ * Recording resource SID from create/update responses (Twilio/SignalWire LaML).
+ */
+function extractRecordingSid(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  return String(obj.sid || obj.Sid || '').trim();
+}
+
+/**
+ * Start recording an in-progress call (LaML).
+ * @see https://www.twilio.com/docs/voice/api/recording#create-a-recording-resource
+ */
+async function startCallRecording(callSid, opts) {
+  const sid = String(callSid || '').trim();
+  if (!sid) throw new Error('Call SID is required.');
+  const o = opts && typeof opts === 'object' ? opts : {};
+  const body = {};
+  if (o.recordingStatusCallback) {
+    body.RecordingStatusCallback = String(o.recordingStatusCallback).trim();
+    body.RecordingStatusCallbackMethod = 'POST';
+    body.RecordingStatusCallbackEvent = ['in-progress', 'completed'];
+  }
+  return postForm(`/Calls/${encodeURIComponent(sid)}/Recordings.json`, body);
+}
+
+/**
+ * Stop an in-flight recording.
+ * @see https://www.twilio.com/docs/voice/api/recording#update-a-recording-resource
+ */
+async function stopCallRecording(recordingSid) {
+  const rsid = String(recordingSid || '').trim();
+  if (!rsid) throw new Error('Recording SID is required.');
+  return postForm(`/Recordings/${encodeURIComponent(rsid)}.json`, { Status: 'stopped' });
+}
+
+/**
  * Create a short-lived Relay JWT for @signalwire/js (v1) browser softphone.
  * @see https://signalwire.com/docs/browser-sdk/v2/js#authentication-using-jwt
  */
@@ -586,5 +621,8 @@ module.exports = {
   sendSms,
   getCall,
   completeCall,
+  extractRecordingSid,
+  startCallRecording,
+  stopCallRecording,
   listIncomingPhoneNumbers,
 };

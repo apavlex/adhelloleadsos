@@ -1,7 +1,10 @@
+  <% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
+  <script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>;</script>
+  <% } %>
   <!-- Mobile Detail Panel / Desktop Sidebar -->
   <!-- Layout flex-* lives in custom.css for #mobilePanel.open only — avoids Tailwind `hidden` vs `flex` both setting display -->
   <div id="mobilePanel" class="fixed inset-0 z-[400] bg-brand-dark/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 pointer-events-none">
-    <div class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto overflow-y-auto shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
+    <div id="leadPanelSheet" class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto overflow-hidden flex flex-col min-h-0 shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
       
       <!-- Nav (sticky) -->
       <div class="flex items-center justify-between mb-6 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-2 z-10 px-1 gap-2">
@@ -19,17 +22,23 @@
         </button>
       </div>
 
-      <!-- Hero: avatar + name + reviews (name to the right of icon) -->
+      <!-- Hero: map preview / avatar + name + reviews (name to the right of icon) -->
       <div class="mb-8">
         <div class="flex items-start gap-4">
-          <div id="mobilePanelAvatar" class="w-16 h-16 lg:w-[4.5rem] lg:h-[4.5rem] bg-brand-yellow rounded-2xl flex items-center justify-center font-display font-black text-3xl lg:text-4xl shadow-brutal text-brand-dark shrink-0">A</div>
+          <a id="mobilePanelMapLink" href="#" class="relative shrink-0 w-16 h-16 lg:w-[4.5rem] lg:h-[4.5rem] rounded-2xl overflow-hidden shadow-brutal border border-brand-border/25 dark:border-white/10 bg-brand-cream dark:bg-slate-800 block ring-0 focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:outline-none pointer-events-none" aria-label="Open location in Google Maps" target="_blank" rel="noopener noreferrer">
+            <img id="mobilePanelStaticMapImg" class="absolute inset-0 w-full h-full object-cover hidden" alt="" loading="lazy" width="256" height="256" decoding="async" />
+            <div id="mobilePanelAvatar" class="absolute inset-0 flex items-center justify-center font-display font-black text-3xl lg:text-4xl text-brand-dark bg-brand-yellow">A</div>
+            <div id="mobilePanelMapPin" class="absolute bottom-1 right-1 z-10 w-7 h-7 rounded-md bg-white/95 dark:bg-slate-900/95 shadow-md border border-black/[0.06] dark:border-white/10 flex items-center justify-center pointer-events-none hidden" aria-hidden="true">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+            </div>
+          </a>
           <div class="flex-1 min-w-0 pt-0.5">
             <h2 id="mobilePanelTitle" class="font-display font-black text-2xl lg:text-3xl text-brand-dark dark:text-white leading-tight">Company Name</h2>
             <div class="flex flex-wrap items-center gap-x-2 gap-y-2 mt-2">
-              <div class="flex items-center gap-1.5 bg-brand-cream/50 dark:bg-white/5 px-2.5 py-1.5 rounded-full border border-brand-border/20 shrink-0 shadow-sm">
+              <a id="mobilePanelReviewsLink" href="#" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 bg-brand-cream/50 dark:bg-white/5 px-2.5 py-1.5 rounded-full border border-brand-border/20 shrink-0 shadow-sm hover:border-brand-yellow/50 transition-colors cursor-pointer">
                 <div id="mobilePanelStars" class="flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
                 <span id="mobilePanelRatingText" class="text-[11px] font-black text-brand-dark dark:text-slate-200 whitespace-nowrap">No rating</span>
-              </div>
+              </a>
               <div id="mobilePanelTagRow" class="flex items-center gap-2 min-w-0 flex-1 overflow-x-auto pb-0.5 -mb-0.5 [&::-webkit-scrollbar]:h-0 [&::-webkit-scrollbar]:w-0">
                 <span id="mobilePanelSourcePill" class="hidden shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest"></span>
                 <span id="mobilePanelCategory" class="shrink min-w-0 truncate max-w-[11rem] px-3 py-1 rounded-full bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 text-[10px] font-bold uppercase tracking-widest">Category</span>
@@ -52,7 +61,7 @@
             <div class="w-5 h-5 rounded-md bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted group-hover/item:text-brand-yellow transition-colors">
               <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
             </div>
-            <a href="#" id="mobilePanelHeaderPhone" class="text-sm font-bold text-brand-dark dark:text-white hover:text-brand-yellow transition-colors underline decoration-brand-yellow/30 decoration-2 underline-offset-4">Phone placeholder</a>
+            <span id="mobilePanelHeaderPhone" class="text-sm font-bold text-brand-dark dark:text-white">Phone placeholder</span>
           </div>
 
           <!-- Header Socials -->
@@ -63,6 +72,64 @@
           </div>
         </div>
       </div>
+
+      <!-- Sticky call dock: tabs + owner + phone + dial (stays above tab scroll) -->
+      <div id="leadPanelStickyDock" class="shrink-0 mb-4 space-y-3 border-b border-brand-border/20 dark:border-white/10 pb-4 -mx-1 px-1">
+        <div class="flex rounded-xl bg-brand-cream/45 dark:bg-slate-800/80 p-1 gap-1 shadow-inner" role="tablist" aria-label="Lead detail mode">
+          <button type="button" class="lead-panel-tab-btn flex-1 rounded-lg py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors bg-white dark:bg-slate-900 text-brand-dark dark:text-white shadow-sm" data-lead-tab="call" aria-selected="true">Call</button>
+          <button type="button" class="lead-panel-tab-btn flex-1 rounded-lg py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors text-brand-muted hover:text-brand-dark dark:hover:text-white" data-lead-tab="insights" aria-selected="false">Insights</button>
+          <button type="button" class="lead-panel-tab-btn flex-1 rounded-lg py-2.5 text-[10px] font-black uppercase tracking-widest transition-colors text-brand-muted hover:text-brand-dark dark:hover:text-white" data-lead-tab="history" aria-selected="false">History</button>
+        </div>
+        <p id="leadPanelStickyMeta" class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 leading-snug line-clamp-2">—</p>
+        <p id="leadPanelTouchSummary" class="text-[10px] font-bold text-brand-dark dark:text-slate-200">—</p>
+        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
+          <div class="flex-1 min-w-0 max-w-full sm:max-w-[14rem]">
+            <label for="leadPanelOwnerFirstName" class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Owner / contact first name</label>
+            <input id="leadPanelOwnerFirstName" type="text" autocomplete="given-name" placeholder="e.g. Maria" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+          </div>
+          <div class="flex flex-wrap items-center gap-2 sm:justify-end">
+            <span id="leadPanelStickyLocalTime" class="hidden text-[10px] font-bold text-brand-muted dark:text-slate-400 tabular-nums"></span>
+            <label class="inline-flex items-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/5 dark:bg-rose-950/30 px-3 py-2 cursor-pointer shrink-0">
+              <input id="leadPanelDoNotCall" type="checkbox" class="rounded border-rose-400 text-rose-600 focus:ring-rose-500" />
+              <span class="text-[9px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300">Do not call</span>
+            </label>
+            <div class="flex items-center gap-2 min-w-0 flex-1 sm:flex-initial sm:max-w-[min(100%,18rem)] justify-end">
+              <a href="#" id="leadPanelStickyPhone" class="js-click-to-call-number text-base font-black text-brand-dark dark:text-white truncate underline decoration-brand-yellow/40 min-w-0" data-phone="" data-lead-key="">—</a>
+              <button type="button" id="leadPanelStickyDialBtn" class="rounded-xl bg-emerald-600 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white hover:bg-emerald-700 shrink-0">Dial</button>
+              <button type="button" id="leadPanelRecordToggle" disabled class="rounded-xl border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white shrink-0 opacity-40 pointer-events-none hover:bg-brand-cream dark:hover:bg-slate-700" title="Recording: connect a cloud PSTN call first" aria-pressed="false" aria-label="Toggle carrier call recording">Rec</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="leadPanelMiddle" class="flex flex-col flex-1 min-h-0">
+      <div id="leadPanelTabScroll" class="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pr-1 -mr-1 custom-scrollbar">
+      <div id="lead-tab-call" class="lead-tab-panel space-y-8" data-lead-tab-panel="call">
+
+      <!-- First 30 seconds: opener + pitch (IDs preserved for existing JS) -->
+      <section class="rounded-[2rem] border border-brand-yellow/35 bg-brand-yellow/5 dark:bg-brand-yellow/10 p-5 space-y-3" aria-label="Call opener">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call mode · first 30 seconds</p>
+          <span id="leadPanelCallCountsBadge" class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/70 dark:bg-slate-900/60 border border-brand-border/20 text-brand-muted hidden"></span>
+        </div>
+        <ul id="leadCallTalkingPoints" class="list-none m-0 p-0 space-y-1.5 text-[11px] font-semibold text-brand-dark dark:text-slate-200"></ul>
+        <div class="mt-3 space-y-3">
+          <div class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">What to sell</p>
+            <p id="mobilePanelAuditSell" class="text-sm font-black text-brand-dark dark:text-white leading-snug">—</p>
+          </div>
+          <div id="mobilePanelAuditOpenerWrap" class="hidden rounded-2xl bg-brand-yellow/10 border border-brand-yellow/25 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Suggested opener</p>
+            <p id="mobilePanelAuditOpener" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed italic"></p>
+          </div>
+          <div class="rounded-2xl bg-brand-cream/20 dark:bg-white/5 border border-brand-border/15 dark:border-white/10 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Why this first</p>
+            <p id="mobilePanelAuditSummary" class="text-xs font-semibold text-brand-muted dark:text-slate-400 leading-relaxed">
+              Analyzing this business's digital footprint for GEO and AEO gaps. Run enhancement to unlock deeper insights.
+            </p>
+          </div>
+        </div>
+      </section>
 
       <!-- Cadence: last touch, channel, sequence, next move, recent log lines -->
       <section id="leadCadenceSection" class="mb-8 px-1" aria-labelledby="leadCadenceHeading">
@@ -93,7 +160,150 @@
         </div>
       </section>
 
+      <!-- Contacts (multi; primary for dial context) -->
+      <section id="leadContactsCard" class="mb-8 px-1 rounded-[2rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/20 dark:bg-white/[0.04] p-5">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">Contacts</h3>
+          <button type="button" id="leadContactAddBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">+ Add</button>
+        </div>
+        <ul id="leadContactsList" class="list-none m-0 p-0 space-y-2"></ul>
+        <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-2">Mark one as primary; dial uses primary phone when set.</p>
+      </section>
+
+      <!-- Engagement Command Center (call tab — phone tile hidden; use sticky dial) -->
+      <section class="mb-10">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center border-t border-brand-border/10 pt-6">Engagement Command Center</h3>
+        
+        <div id="mobilePanelPhoneRow" class="hidden" aria-hidden="true">
+                <a href="#" id="mobilePanelPhoneLink" class="hidden"></a>
+                <span id="mobilePanelPhone" class="hidden"></span>
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <!-- Email Action Tile -->
+            <div id="mobilePanelEmailRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <button class="quick-outreach-btn w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform" id="mobilePanelEmailBtn">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                </button>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Send Email</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelEmail">No Email</div>
+            </div>
+
+            <!-- Website Action Tile -->
+            <div id="mobilePanelWebsiteRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <a href="#" id="mobilePanelWebsiteLink" target="_blank" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
+                </a>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Visit Site</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelWebsiteShort">Website</div>
+            </div>
+
+            <!-- Location Action Tile -->
+            <a href="#" id="mobilePanelMapsLink" target="_blank" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
+                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
+                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </div>
+                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Map View</div>
+                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelAddress">Address</div>
+            </a>
+        </div>
+      </section>
+
+      <!-- Outreach Actions (grouped rows) -->
+      <section class="mb-10">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-4 px-1">Outreach Intelligence</h3>
+        <div class="flex flex-col gap-3">
+            <div>
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2 px-0.5">Voice</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Call</button>
+                <button type="button" id="voicemailDropBtn" class="btn-pill bg-violet-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">Voicemail drop</button>
+              </div>
+            </div>
+            <div>
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2 px-0.5">Text</p>
+              <div class="grid grid-cols-2 gap-2">
+                <button type="button" id="sendSmsBtn" class="btn-pill bg-blue-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors">SMS</button>
+                <button id="sidebarCopySmsAuditBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-colors">SMS snippet</button>
+              </div>
+            </div>
+            <div>
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2 px-0.5">Email &amp; report</p>
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button id="draftEmailBtn" class="btn-pill btn-primary py-3 text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg hover:shadow-brand-yellow/30">
+                  <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                  Draft email
+                </button>
+                <button id="sidebarReportEmailBtn" type="button" class="btn-pill bg-sky-600 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-sky-700 transition-colors flex items-center justify-center gap-1">
+                  Report email
+                </button>
+                <button id="sidebarCopyAuditLinkBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-colors">Copy link</button>
+              </div>
+            </div>
+            <button id="sidebarHostedAuditBtn" type="button" class="w-full btn-pill bg-indigo-600 text-white py-3 text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
+              Open hosted audit
+            </button>
+            <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-3 py-2.5">
+              <label class="inline-flex items-center gap-2">
+                <input id="sidebarIncludeCoupon" type="checkbox" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
+                <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Include coupon line</span>
+              </label>
+              <p id="sidebarCouponWarning" class="hidden mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">No workspace coupon link saved yet. Add it in Workspace → Branding.</p>
+              <span id="workspaceCouponLinkStore" class="hidden" data-coupon-link="<%= (workspace && workspace.coffeeCouponLink) ? workspace.coffeeCouponLink.replace(/"/g, '&quot;') : '' %>"></span>
+            </div>
+            <button type="button" id="deepEnhanceBtn" aria-busy="false" class="w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex items-center justify-center gap-3 group relative overflow-hidden">
+              <svg class="deep-enhance-icon w-5 h-5 text-brand-yellow shrink-0 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9" /></svg>
+              <span class="deep-enhance-label">Hunt for more contact data</span>
+            </button>
+            <div id="huntProgressWrap" class="hidden mt-1 rounded-2xl border border-brand-yellow/30 bg-brand-yellow/5 dark:bg-brand-yellow/10 px-4 py-3" aria-live="polite">
+              <div class="h-1.5 rounded-full bg-brand-border/40 dark:bg-white/10 overflow-hidden mb-2">
+                <div class="hunt-progress-indeterminate h-full w-2/5 rounded-full bg-brand-yellow"></div>
+              </div>
+              <p class="text-[10px] font-bold uppercase tracking-widest text-brand-dark dark:text-white">Hunting…</p>
+              <p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">Searching for email, phone, and social profiles (may take 30–90s).</p>
+            </div>
+        </div>
+
+        <div class="mt-5 p-4 bg-brand-cream/30 dark:bg-white/5 rounded-3xl border border-brand-border/20 dark:border-white/10">
+          <div class="flex items-center justify-between gap-2 mb-3">
+            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Manual contact update</h4>
+            <span id="manualContactSavedState" class="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400"></span>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="manualPhoneInput" class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 block mb-1.5">Phone</label>
+              <input id="manualPhoneInput" type="text" placeholder="(555) 123-4567" class="w-full bg-white dark:bg-slate-800 border border-brand-border/50 dark:border-white/10 rounded-2xl px-3 py-2.5 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow transition-all" />
+              <p id="manualPhoneError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400"></p>
+            </div>
+            <div>
+              <label for="manualEmailInput" class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 block mb-1.5">Email</label>
+              <input id="manualEmailInput" type="email" placeholder="owner@company.com" class="w-full bg-white dark:bg-slate-800 border border-brand-border/50 dark:border-white/10 rounded-2xl px-3 py-2.5 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow transition-all" />
+              <p id="manualEmailError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400"></p>
+            </div>
+          </div>
+          <div class="mt-3 flex justify-end">
+            <button type="button" id="manualContactSaveBtn" class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest hover:brightness-105 active:scale-[0.99] transition-all">
+              Save contact
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Cadence controls -->
+      <section class="mb-8 rounded-2xl border border-violet-500/35 bg-violet-500/[0.06] dark:bg-violet-950/40 dark:border-violet-500/25 p-5">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-violet-800 dark:text-violet-200 mb-3 px-0.5">Cadence</h3>
+        <p class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed mb-4">Default <strong class="text-brand-dark dark:text-white">14-day audit sequence</strong> auto-starts after voicemail disposition. Pause fires on engagement status or when they pick up / request callback. Snooze for “call me next quarter.”</p>
+        <div class="flex flex-col sm:flex-row flex-wrap gap-2">
+          <button type="button" id="sidebarCadenceSnooze90Btn" class="btn-pill bg-violet-600 text-white py-2.5 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">Snooze 90 days</button>
+          <button type="button" id="sidebarCadencePauseBtn" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 hover:border-violet-500 transition-colors">Pause cadence</button>
+          <a href="/sequences" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 text-center hover:border-violet-500 transition-colors">View playbooks</a>
+        </div>
+      </section>
+
+      </div><!-- /lead-tab-call -->
+
       <!-- Reviews & reputation (snippets from enrich + AI strengths/weaknesses) -->
+      <div id="lead-tab-insights" class="lead-tab-panel hidden space-y-8" data-lead-tab-panel="insights">
       <section id="reviewReputationSection" class="mb-10">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4 px-1">
           <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">Reviews &amp; reputation</h3>
@@ -149,22 +359,7 @@
                 <p id="mobilePanelOwnerSignal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-200 leading-relaxed mb-2">Run AI Analysis to generate a concrete signal for this business.</p>
                 <p id="mobilePanelAuditProvider" class="text-[9px] font-bold uppercase tracking-widest text-brand-muted/70 dark:text-slate-500 mb-1 hidden"></p>
                 <p id="mobilePanelAuditLoading" class="text-[11px] font-semibold text-brand-yellow mb-2 hidden">Connecting to AI for service recommendation…</p>
-                <div class="mt-3 space-y-3">
-                    <div class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">What to sell</p>
-                        <p id="mobilePanelAuditSell" class="text-sm font-black text-brand-dark dark:text-white leading-snug">—</p>
-                    </div>
-                    <div id="mobilePanelAuditOpenerWrap" class="hidden rounded-2xl bg-brand-yellow/10 border border-brand-yellow/25 p-4">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Suggested opener</p>
-                        <p id="mobilePanelAuditOpener" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed italic"></p>
-                    </div>
-                    <div class="rounded-2xl bg-brand-cream/20 dark:bg-white/5 border border-brand-border/15 dark:border-white/10 p-4">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Why this first</p>
-                        <p id="mobilePanelAuditSummary" class="text-xs font-semibold text-brand-muted dark:text-slate-400 leading-relaxed">
-                            Analyzing this business's digital footprint for GEO and AEO gaps. Run enhancement to unlock deeper insights.
-                        </p>
-                    </div>
-                </div>
+                <p class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed mt-2">Opener, “what to sell,” and “why this first” stay pinned on the <strong class="text-brand-dark dark:text-white">Call</strong> tab for live dialing.</p>
                 <div id="strategyDetails" class="hidden mt-4 pt-4 border-t border-brand-yellow/20 space-y-2">
                     <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-brand-muted">
                         <span>Industry Focus</span>
@@ -271,49 +466,6 @@
         </div>
       </section>
 
-      <!-- Engagement Command Center -->
-      <section class="mb-10">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center border-t border-brand-border/10 pt-6">Engagement Command Center</h3>
-        
-        <div class="grid grid-cols-2 gap-4">
-            <!-- Phone Action Tile -->
-            <div id="mobilePanelPhoneRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <a href="#" id="mobilePanelPhoneLink" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                </a>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Call Lead</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelPhone">Phone</div>
-            </div>
-
-            <!-- Email Action Tile -->
-            <div id="mobilePanelEmailRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <button class="quick-outreach-btn w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform" id="mobilePanelEmailBtn">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                </button>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Send Email</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelEmail">No Email</div>
-            </div>
-
-            <!-- Website Action Tile -->
-            <div id="mobilePanelWebsiteRow" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <a href="#" id="mobilePanelWebsiteLink" target="_blank" class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg>
-                </a>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Visit Site</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelWebsiteShort">Website</div>
-            </div>
-
-            <!-- Location Action Tile -->
-            <a href="#" id="mobilePanelMapsLink" target="_blank" class="bg-brand-cream/30 dark:bg-white/5 p-5 rounded-3xl border border-brand-border/20 dark:border-white/5 flex flex-col items-center text-center group hover:bg-brand-yellow/10 transition-all cursor-pointer">
-                <div class="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center text-brand-yellow shadow-sm border border-brand-border/10 mb-3 group-hover:scale-110 transition-transform">
-                    <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-1">Map View</div>
-                <div class="text-sm font-bold text-brand-dark dark:text-white truncate w-full px-2" id="mobilePanelAddress">Address</div>
-            </a>
-        </div>
-      </section>
-
       <!-- Action Section: Status & Video -->
       <section class="space-y-4 mb-10">
         <div class="p-6 bg-brand-cream/50 dark:bg-slate-800/50 rounded-3xl border border-brand-border/40 dark:border-white/5 shadow-sm">
@@ -370,138 +522,105 @@
           <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-2">Used for pipeline value metrics. Saves when you leave the field.</p>
         </section>
 
-        <!-- CQI (Client Qualification Interview) -->
+        <!-- CQI (Client Qualification Interview) — structured discovery + free notes -->
         <section id="mobilePanelCqiSection" class="mb-10">
           <div class="flex items-center justify-between gap-3 mb-4 px-1">
             <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">CQI · Discovery</h3>
             <a href="/sales/workflow" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Log on workflow</a>
           </div>
-          <div class="p-5 rounded-[2rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/25 dark:bg-white/5">
-            <p id="mobilePanelCqiEmpty" class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed">No Client Qualification Interview logged yet. Capture revenue, marketing spend, and discovery notes after your call.</p>
-            <div id="mobilePanelCqiDetails" class="hidden space-y-4">
-              <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                <div class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
-                  <dt class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Monthly revenue</dt>
-                  <dd id="mobilePanelCqiRevenue" class="font-bold text-brand-dark dark:text-white">—</dd>
+          <div class="p-5 rounded-[2rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/25 dark:bg-white/5 space-y-4">
+            <p id="mobilePanelCqiEmpty" class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed">Tab through the fields during the call; values save when you leave each field.</p>
+            <div id="mobilePanelCqiDetails" class="space-y-4">
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label for="cqiFieldDecisionMaker" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Decision maker name</label>
+                  <input id="cqiFieldDecisionMaker" type="text" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
                 </div>
-                <div class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
-                  <dt class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Marketing spend</dt>
-                  <dd id="mobilePanelCqiSpend" class="font-bold text-brand-dark dark:text-white">—</dd>
+                <div>
+                  <label for="cqiFieldYearsInBusiness" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Years in business</label>
+                  <input id="cqiFieldYearsInBusiness" type="text" inputmode="numeric" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
                 </div>
-              </dl>
+                <div>
+                  <label for="cqiFieldMonthlyRevenue" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Monthly revenue</label>
+                  <input id="cqiFieldMonthlyRevenue" type="text" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+                </div>
+                <div>
+                  <label for="cqiFieldMarketingSpend" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Current marketing spend</label>
+                  <input id="cqiFieldMarketingSpend" type="text" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+                </div>
+                <div>
+                  <label for="cqiFieldBiggestPain" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Biggest pain point</label>
+                  <input id="cqiFieldBiggestPain" type="text" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+                </div>
+                <div>
+                  <label for="cqiFieldCurrentlyUsing" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Currently using</label>
+                  <input id="cqiFieldCurrentlyUsing" type="text" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+                </div>
+                <div>
+                  <label for="cqiFieldBudgetRange" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Budget range</label>
+                  <input id="cqiFieldBudgetRange" type="text" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+                </div>
+                <div>
+                  <label for="cqiFieldTimeline" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Timeline</label>
+                  <input id="cqiFieldTimeline" type="text" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+                </div>
+              </div>
               <div>
-                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Notes</p>
-                <p id="mobilePanelCqiNotes" class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed whitespace-pre-wrap max-h-40 overflow-y-auto custom-scrollbar"></p>
+                <label for="cqiFieldNotes" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Color / free-form notes</label>
+                <textarea id="cqiFieldNotes" rows="3" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow resize-y"></textarea>
               </div>
               <p id="mobilePanelCqiRecorded" class="text-[10px] font-bold text-brand-muted dark:text-slate-500"></p>
+              <span id="mobilePanelCqiRevenue" class="hidden" aria-hidden="true">—</span>
+              <span id="mobilePanelCqiSpend" class="hidden" aria-hidden="true">—</span>
+              <span id="mobilePanelCqiNotes" class="hidden" aria-hidden="true"></span>
             </div>
           </div>
         </section>
       </section>
 
-      <!-- Cadence controls -->
-      <section class="mb-8 rounded-2xl border border-violet-500/35 bg-violet-500/[0.06] dark:bg-violet-950/40 dark:border-violet-500/25 p-5">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-violet-800 dark:text-violet-200 mb-3 px-0.5">Cadence</h3>
-        <p class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed mb-4">Default <strong class="text-brand-dark dark:text-white">14-day audit sequence</strong> auto-starts after voicemail disposition. Pause fires on engagement status or when they pick up / request callback. Snooze for “call me next quarter.”</p>
-        <div class="flex flex-col sm:flex-row flex-wrap gap-2">
-          <button type="button" id="sidebarCadenceSnooze90Btn" class="btn-pill bg-violet-600 text-white py-2.5 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">Snooze 90 days</button>
-          <button type="button" id="sidebarCadencePauseBtn" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 hover:border-violet-500 transition-colors">Pause cadence</button>
-          <a href="/sequences" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 text-center hover:border-violet-500 transition-colors">View playbooks</a>
-        </div>
-      </section>
+      </div><!-- /lead-tab-insights -->
 
-      <!-- Outreach Actions -->
-      <section class="mb-10">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1">Outreach Intelligence</h3>
-        <div class="flex flex-col gap-3">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">
-                Click to call
-              </button>
-              <button type="button" id="sendSmsBtn" class="btn-pill bg-blue-600 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors">
-                Send SMS
-              </button>
-              <button type="button" id="voicemailDropBtn" class="btn-pill bg-violet-600 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">
-                Voicemail drop
-              </button>
-            </div>
-            <button id="draftEmailBtn" class="w-full btn-pill btn-primary py-5 text-sm flex items-center justify-center gap-3 shadow-lg hover:shadow-brand-yellow/30">
-              <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-              Generate Draft Email
-            </button>
-            <button id="sidebarHostedAuditBtn" type="button" class="w-full btn-pill bg-indigo-600 text-white py-3.5 text-[11px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
-              <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-              Open hosted audit
-            </button>
-            <div class="grid grid-cols-2 gap-2">
-              <button id="sidebarCopyAuditLinkBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-colors">
-                Copy report link
-              </button>
-              <button id="sidebarCopySmsAuditBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-colors">
-                Copy SMS snippet
-              </button>
-            </div>
-            <button id="sidebarReportEmailBtn" type="button" class="w-full btn-pill bg-sky-600 text-white py-3.5 text-[11px] font-black uppercase tracking-widest hover:bg-sky-700 transition-colors flex items-center justify-center gap-2">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 3h6a1.5 1.5 0 011.5 1.5V6H9a1.5 1.5 0 00-1.5 1.5V21h-3A1.5 1.5 0 013 19.5v-15A1.5 1.5 0 014.5 3H7.5z" /><path stroke-linecap="round" stroke-linejoin="round" d="M9 7.5A1.5 1.5 0 0110.5 6h9A1.5 1.5 0 0121 7.5v12a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 019 19.5v-12z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 10.5h6M12 13.5h6M12 16.5h4.5" /></svg>
-              Generate report email
-            </button>
-            <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-3 py-2.5">
-              <label class="inline-flex items-center gap-2">
-                <input id="sidebarIncludeCoupon" type="checkbox" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
-                <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Include coupon line</span>
-              </label>
-              <p id="sidebarCouponWarning" class="hidden mt-1 text-[10px] font-semibold text-amber-700 dark:text-amber-300">No workspace coupon link saved yet. Add it in Workspace → Branding.</p>
-              <span id="workspaceCouponLinkStore" class="hidden" data-coupon-link="<%= (workspace && workspace.coffeeCouponLink) ? workspace.coffeeCouponLink.replace(/"/g, '&quot;') : '' %>"></span>
-            </div>
-            <button type="button" id="deepEnhanceBtn" aria-busy="false" class="w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex items-center justify-center gap-3 group relative overflow-hidden">
-              <svg class="deep-enhance-icon w-5 h-5 text-brand-yellow shrink-0 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9" /></svg>
-              <span class="deep-enhance-label">Hunt for more contact data</span>
-            </button>
-            <div id="huntProgressWrap" class="hidden mt-3 rounded-2xl border border-brand-yellow/30 bg-brand-yellow/5 dark:bg-brand-yellow/10 px-4 py-3" aria-live="polite">
-              <div class="h-1.5 rounded-full bg-brand-border/40 dark:bg-white/10 overflow-hidden mb-2">
-                <div class="hunt-progress-indeterminate h-full w-2/5 rounded-full bg-brand-yellow"></div>
-              </div>
-              <p class="text-[10px] font-bold uppercase tracking-widest text-brand-dark dark:text-white">Hunting…</p>
-              <p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">Searching for email, phone, and social profiles (may take 30–90s).</p>
-            </div>
-        </div>
+      <div id="lead-tab-history" class="lead-tab-panel hidden space-y-8" data-lead-tab-panel="history">
 
-        <div class="mt-5 p-4 bg-brand-cream/30 dark:bg-white/5 rounded-3xl border border-brand-border/20 dark:border-white/10">
-          <div class="flex items-center justify-between gap-2 mb-3">
-            <h4 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Manual contact update</h4>
-            <span id="manualContactSavedState" class="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400"></span>
+      <section class="mb-8 rounded-[2rem] border border-sky-500/25 bg-sky-500/5 dark:bg-sky-950/30 p-5">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-800 dark:text-sky-200 mb-3">Schedule callback</h3>
+        <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-4 leading-relaxed">Creates a dated task on <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Tasks</a> so warm callbacks do not get lost in sequence-only flows.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="leadCallbackDate" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Date</label>
+            <input type="date" id="leadCallbackDate" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label for="manualPhoneInput" class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 block mb-1.5">Phone</label>
-              <input id="manualPhoneInput" type="text" placeholder="(555) 123-4567" class="w-full bg-white dark:bg-slate-800 border border-brand-border/50 dark:border-white/10 rounded-2xl px-3 py-2.5 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow transition-all" />
-              <p id="manualPhoneError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400"></p>
-            </div>
-            <div>
-              <label for="manualEmailInput" class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 block mb-1.5">Email</label>
-              <input id="manualEmailInput" type="email" placeholder="owner@company.com" class="w-full bg-white dark:bg-slate-800 border border-brand-border/50 dark:border-white/10 rounded-2xl px-3 py-2.5 text-xs font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow transition-all" />
-              <p id="manualEmailError" class="hidden mt-1 text-[10px] font-semibold text-rose-600 dark:text-rose-400"></p>
-            </div>
+          <div>
+            <label for="leadCallbackTime" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Time</label>
+            <input type="time" id="leadCallbackTime" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
           </div>
-          <div class="mt-3 flex justify-end">
-            <button type="button" id="manualContactSaveBtn" class="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest hover:brightness-105 active:scale-[0.99] transition-all">
-              Save contact
-            </button>
-          </div>
+        </div>
+        <div class="mt-3">
+          <label for="leadCallbackReason" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Reason</label>
+          <input type="text" id="leadCallbackReason" placeholder="e.g. Call back after 3pm — asked for pricing" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
+        </div>
+        <label class="mt-3 inline-flex items-center gap-2 text-[10px] font-bold text-brand-muted cursor-pointer select-none">
+          <input type="checkbox" id="leadCallbackRemind15" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
+          Remind me 15 minutes before (note in task title)
+        </label>
+        <p id="leadCallbackTaskHint" class="text-[10px] text-emerald-700 dark:text-emerald-300 mt-2 hidden font-semibold"></p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button type="button" id="leadCallbackSaveBtn" class="btn-pill bg-sky-600 text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-sky-700">Create callback task</button>
         </div>
       </section>
 
       <!-- Activity Timeline -->
       <section class="mb-12">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1">Activity & History</h3>
-        <div id="activityLog" class="space-y-6 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-brand-border/40 dark:before:bg-white/10 mb-8">
-            <!-- Timeline items will be injected here via JS -->
-            <div class="pl-10 text-xs text-brand-muted italic">Initializing timeline...</div>
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4 px-1">
+          <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">Activity &amp; history</h3>
+          <div class="inline-flex rounded-full border border-brand-border/40 dark:border-white/10 p-0.5 bg-brand-cream/40 dark:bg-slate-800/80" role="group" aria-label="Activity filter">
+            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-white dark:bg-slate-900 text-brand-dark dark:text-white shadow-sm" data-activity-filter="all">All</button>
+            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="calls">Calls</button>
+            <button type="button" class="lead-activity-filter px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white" data-activity-filter="notes">My notes</button>
+          </div>
         </div>
-        
-        <div class="flex gap-2 p-2 bg-brand-cream/30 dark:bg-white/5 rounded-3xl border border-brand-border/20 dark:border-white/5">
-            <input type="text" id="noteInput" placeholder="Add a quick note..." class="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 px-4 dark:text-white placeholder:text-brand-muted/40">
-            <button id="addNoteBtn" class="bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark rounded-2xl px-6 py-2 text-xs font-black uppercase tracking-widest transition-transform hover:scale-95 active:scale-90">Post</button>
+        <div id="activityLog" class="space-y-6 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-brand-border/40 dark:before:bg-white/10 mb-4">
+            <div class="pl-10 text-xs text-brand-muted italic">Initializing timeline...</div>
         </div>
       </section>
 
@@ -509,8 +628,29 @@
       <div class="space-y-4 pt-6 border-t border-brand-border/20 dark:border-white/5">
         <button id="mobilePanelRemoveBtn" class="w-full text-center py-4 text-xs font-black uppercase tracking-[0.2em] text-red-500 hover:text-red-600 transition-colors">Discard this Lead</button>
       </div>
-    </div>
-  </div>
+
+      </div><!-- /lead-tab-history -->
+      </div><!-- /leadPanelTabScroll -->
+
+      <div id="leadPanelNotepad" class="shrink-0 border-t border-brand-border/20 dark:border-white/10 pt-4 mt-1 space-y-3">
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-0.5">Quick log <span class="text-brand-muted/60 font-semibold normal-case">(always visible)</span></p>
+        <div class="flex flex-wrap gap-1.5" id="leadNotepadTagRow">
+          <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Gatekeeper">Gatekeeper</button>
+          <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Left VM">Left VM</button>
+          <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Not interested">Not interested</button>
+          <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Callback requested">Callback requested</button>
+          <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="DM connected">DM connected</button>
+          <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Send info">Send info</button>
+        </div>
+        <div class="flex gap-2 p-2 bg-brand-cream/30 dark:bg-white/5 rounded-2xl border border-brand-border/20 dark:border-white/5">
+            <input type="text" id="noteInput" placeholder="Add a quick note…" class="flex-1 bg-transparent border-none focus:ring-0 text-sm py-3 px-4 dark:text-white placeholder:text-brand-muted/40" />
+            <button type="button" id="addNoteBtn" class="bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark rounded-2xl px-5 py-2 text-xs font-black uppercase tracking-widest transition-transform hover:scale-95 active:scale-90 shrink-0">Post</button>
+        </div>
+      </div>
+
+      </div><!-- /leadPanelMiddle -->
+    </div><!-- /leadPanelSheet -->
+  </div><!-- /mobilePanel -->
 
   <!-- Website Preview Tooltip -->
     <div id="websitePreview" class="fixed hidden z-[200] w-[400px] h-[300px] bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 rounded-xl shadow-2xl overflow-hidden pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-15px] transition-opacity duration-200 opacity-0">

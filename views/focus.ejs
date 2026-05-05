@@ -6,6 +6,9 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>
 
+  <% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
+  <script>window.__FOCUS_GOOGLE_MAPS_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>;</script>
+  <% } %>
   <main class="max-wide px-6 py-8 pb-28 md:pb-10 md:py-10">
     <header class="mb-8">
       <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-3">
@@ -36,7 +39,7 @@
       </div>
     </div>
 
-    <section id="focus-card-section" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/85 dark:bg-slate-900/75 shadow-sm p-6 md:p-8 max-w-3xl mx-auto" aria-label="Current lead">
+    <section id="focus-card-section" class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/85 dark:bg-slate-900/75 shadow-sm p-6 md:p-8 max-w-3xl lg:max-w-4xl mx-auto" aria-label="Current lead">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div class="min-w-0">
           <h2 id="focus-company" class="font-display font-black text-2xl text-brand-dark dark:text-white truncate">—</h2>
@@ -49,7 +52,12 @@
       <div id="focus-links" class="flex flex-wrap gap-2 mb-6" aria-label="Contact links"></div>
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+        <div class="flex flex-col md:flex-row gap-4 items-stretch">
+          <div id="focus-map-wrap" class="hidden w-full md:w-[min(100%,280px)] shrink-0 rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner">
+            <iframe id="focus-map-iframe" class="absolute inset-0 w-full h-full border-0" title="Business location on Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen="allowfullscreen"></iframe>
+          </div>
+          <div class="flex-1 min-w-0 w-full">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div>
             <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Website</p>
             <a id="focus-biz-website" href="#" target="_blank" rel="noopener noreferrer" class="font-semibold text-brand-dark dark:text-slate-100 hover:text-brand-yellow transition-colors truncate block">—</a>
@@ -66,6 +74,8 @@
             <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Reviews</p>
             <p id="focus-biz-reviews" class="font-semibold text-brand-dark dark:text-slate-100 truncate">—</p>
             <div id="focus-biz-review-stars" class="mt-1 flex items-center gap-1 text-amber-500" aria-label="Review stars"></div>
+          </div>
+            </div>
           </div>
         </div>
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
@@ -796,6 +806,46 @@
       }
     }
 
+    function mapQueryFromFocusLead(lead) {
+      var addr = String((lead && lead.address) || '').trim();
+      if (addr) return addr;
+      var cs = [lead.city || '', lead.state || ''].filter(Boolean).join(', ');
+      var title = String((lead && lead.title) || '').trim();
+      return [title, cs].filter(Boolean).join(' ').trim();
+    }
+
+    function renderFocusMap(lead) {
+      var wrap = document.getElementById('focus-map-wrap');
+      var iframe = document.getElementById('focus-map-iframe');
+      if (!wrap || !iframe) return;
+      var q = mapQueryFromFocusLead(lead);
+      if (!q) {
+        wrap.classList.add('hidden');
+        iframe.removeAttribute('src');
+        return;
+      }
+      var key =
+        typeof window !== 'undefined' && window.__FOCUS_GOOGLE_MAPS_KEY__
+          ? String(window.__FOCUS_GOOGLE_MAPS_KEY__).trim()
+          : '';
+      var src;
+      if (key) {
+        src =
+          'https://www.google.com/maps/embed/v1/place?key=' +
+          encodeURIComponent(key) +
+          '&q=' +
+          encodeURIComponent(q) +
+          '&zoom=15&maptype=roadmap';
+      } else {
+        src =
+          'https://www.google.com/maps?q=' +
+          encodeURIComponent(q) +
+          '&hl=en&z=15&output=embed';
+      }
+      wrap.classList.remove('hidden');
+      iframe.src = src;
+    }
+
     function renderBusinessInfo(lead) {
       var websiteHref = hrefUrl(lead.website || '');
       if (websiteHref) {
@@ -833,6 +883,7 @@
       }
 
       renderFocusPipelineSocials(elBizSocials, lead);
+      renderFocusMap(lead);
     }
 
     function renderReviewStars(score) {
@@ -1135,6 +1186,12 @@
         elEmptyReload.classList.add('hidden');
         elEmptyTitle.textContent = 'No leads in this queue';
         elEmptyDesc.textContent = 'Add or import leads to your pipeline, then come back.';
+        var fwEmpty = document.getElementById('focus-map-wrap');
+        var fiEmpty = document.getElementById('focus-map-iframe');
+        if (fwEmpty && fiEmpty) {
+          fwEmpty.classList.add('hidden');
+          fiEmpty.removeAttribute('src');
+        }
         return;
       }
       elEmpty.classList.add('hidden');

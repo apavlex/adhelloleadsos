@@ -367,7 +367,7 @@
         <div class="mt-2 grid grid-cols-4 gap-2">
           <button type="button" id="softphoneKeypadBtn" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-1.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-yellow/45" title="Keypad">Keypad</button>
           <button type="button" id="softphoneTransferBtn" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-1.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-yellow/45" title="Transfer (coming soon)" aria-label="Transfer call">Transfer</button>
-          <button type="button" id="softphoneRecordBtn" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-1.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-yellow/45" title="Record (coming soon)" aria-label="Record call">Record</button>
+          <button type="button" id="softphoneRecordBtn" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-1.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-yellow/45 opacity-40 pointer-events-none" title="Recording: cloud PSTN call must be connected" aria-pressed="false" aria-label="Toggle carrier call recording">Rec</button>
           <button type="button" id="softphoneSpeakerBtn" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-1.5 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream dark:hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-brand-yellow/45" title="Speaker">Speaker</button>
         </div>
         <button type="button" id="softphoneVmNowBtn" class="mt-2 w-full rounded-lg border border-violet-500/40 bg-violet-600/10 text-violet-700 dark:text-violet-300 px-2 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-violet-600/20">Drop VM + Next</button>
@@ -564,6 +564,8 @@
     wrapRequired: false,
     activeNumber: '',
     callSid: '',
+    recordingSid: '',
+    recordingPending: false,
     pollTimer: null,
     webrtcDialWatchdog: null,
     timerTicker: null,
@@ -867,6 +869,138 @@
       spSpeaker.classList.toggle('border-brand-yellow/60', !!softphoneSession.speaker);
     }
   }
+  function softphoneResetRecordingState() {
+    softphoneSession.recordingSid = '';
+    softphoneSession.recordingPending = false;
+    updateRecordingToggle();
+  }
+  function updateRecordingToggle() {
+    if (!spRecord) return;
+    var can =
+      softphoneSession.state === 'in_call' &&
+      !!String(softphoneSession.callSid || '').trim() &&
+      !!softphoneSession.isCloudPstn;
+    var active = !!String(softphoneSession.recordingSid || '').trim();
+    var busy = !!softphoneSession.recordingPending;
+    var enable = can && !busy;
+    spRecord.disabled = !enable;
+    spRecord.classList.toggle('opacity-40', !enable);
+    spRecord.classList.toggle('pointer-events-none', !enable);
+    spRecord.setAttribute('aria-pressed', active ? 'true' : 'false');
+    if (active) {
+      spRecord.classList.add('bg-rose-600', 'text-white', 'border-rose-500/80', 'dark:bg-rose-600');
+      spRecord.classList.remove('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+      spRecord.textContent = 'On';
+    } else {
+      spRecord.classList.remove('bg-rose-600', 'text-white', 'border-rose-500/80', 'dark:bg-rose-600');
+      spRecord.classList.add('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+      spRecord.textContent = 'Rec';
+    }
+    if (can) {
+      spRecord.title = active
+        ? 'Stop recording (SignalWire carrier capture)'
+        : 'Start recording (SignalWire carrier capture)';
+    } else if (softphoneSession.state === 'in_call' && softphoneSession.webrtc) {
+      spRecord.title =
+        'In-browser WebRTC has no server call id — set Workspace call routing to Cloud dial to record via the carrier.';
+    } else if (softphoneSession.state === 'in_call' && !softphoneSession.callSid) {
+      spRecord.title =
+        'This call has no server call id — use Cloud dial from the softphone to enable carrier recording.';
+    } else {
+      spRecord.title = 'Recording is available when a cloud PSTN call is connected.';
+    }
+    var lp = document.getElementById('leadPanelRecordToggle');
+    if (lp) {
+      lp.disabled = !enable;
+      lp.classList.toggle('opacity-40', !enable);
+      lp.classList.toggle('pointer-events-none', !enable);
+      lp.setAttribute('aria-pressed', active ? 'true' : 'false');
+      if (active) {
+        lp.classList.add('bg-rose-600', 'text-white', 'border-rose-500', 'dark:bg-rose-600');
+        lp.classList.remove('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+        lp.textContent = 'On';
+      } else {
+        lp.classList.remove('bg-rose-600', 'text-white', 'border-rose-500', 'dark:bg-rose-600');
+        lp.classList.add('bg-white/80', 'dark:bg-slate-800/80', 'text-brand-dark', 'dark:text-white');
+        lp.textContent = 'Rec';
+      }
+      lp.title = spRecord.title;
+    }
+  }
+  function performCloudRecordingToggle() {
+    if (softphoneSession.recordingPending) return;
+    if (
+      softphoneSession.state !== 'in_call' ||
+      !String(softphoneSession.callSid || '').trim() ||
+      !softphoneSession.isCloudPstn
+    ) {
+      softphoneSetStatus(
+        softphoneSession.webrtc
+          ? 'Recording uses SignalWire on the carrier leg. Switch Workspace call routing to Cloud dial, or continue without recording.'
+          : 'Recording needs an active cloud (PSTN) call with a server call id.',
+        true,
+      );
+      return;
+    }
+    var recSid = String(softphoneSession.recordingSid || '').trim();
+    if (recSid) {
+      softphoneSession.recordingPending = true;
+      updateRecordingToggle();
+      fetch('/leads/telephony/call-control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ action: 'record_stop', recordingSid: recSid }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Stop recording failed.');
+          }
+          softphoneSession.recordingSid = '';
+          softphoneSetStatus('Recording stopped.');
+        })
+        .catch(function (err) {
+          softphoneSetStatus((err && err.message) || 'Stop recording failed.', true);
+        })
+        .finally(function () {
+          softphoneSession.recordingPending = false;
+          updateRecordingToggle();
+        });
+      return;
+    }
+    softphoneSession.recordingPending = true;
+    updateRecordingToggle();
+    fetch('/leads/telephony/call-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'record_start', callSid: softphoneSession.callSid }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          throw new Error((res.j && res.j.error) || 'Start recording failed.');
+        }
+        softphoneSession.recordingSid = String((res.j && res.j.recordingSid) || '').trim();
+        softphoneSetStatus('Recording started (carrier capture).');
+      })
+      .catch(function (err) {
+        softphoneSetStatus((err && err.message) || 'Start recording failed.', true);
+      })
+      .finally(function () {
+        softphoneSession.recordingPending = false;
+        updateRecordingToggle();
+      });
+  }
+  window.__adhelloToggleCloudRecording = performCloudRecordingToggle;
+  window.__adhelloSyncRecordingControls = updateRecordingToggle;
   function softphoneSetStatus(msg, isErr) {
     if (!spStatus) return;
     spStatus.textContent = msg || '';
@@ -904,6 +1038,7 @@
     updateStatusPill();
     updateAudioPulse();
     updateControlToggles();
+    updateRecordingToggle();
     syncNavBarCallIndicator();
   }
   function softphoneStopPolling() {
@@ -920,6 +1055,7 @@
       softphoneSetStatus('Call ended (' + st + '). Complete wrap-up to unlock next dial.');
       softphoneStopPolling();
       softphoneSession.isCloudPstn = false;
+      softphoneResetRecordingState();
       return;
     }
     softphoneSession.stateVerbose = st;
@@ -1067,6 +1203,7 @@
     softphoneSession.muted = false;
     softphoneSession.hold = false;
     softphoneSession.speaker = false;
+    softphoneResetRecordingState();
     if (spMute) spMute.textContent = 'Mute';
     if (spHold) spHold.textContent = 'Hold';
     softphoneSetTimerSeconds(0);
@@ -1163,6 +1300,7 @@
     syncNavBarCallIndicator();
   }
   function startCloudSoftphoneDial(to, action, opts) {
+    softphoneResetRecordingState();
     var body = { to: to, action: action };
     if (opts && opts.forceCloudVoicemail) body.forceCloudVoicemail = true;
     if (spFrom && spFrom.value) body.fromNumber = spFrom.value;
@@ -1206,6 +1344,7 @@
       });
   }
   function tryWebrtcSoftphone(to) {
+    softphoneResetRecordingState();
     var fromPick = (spFrom && spFrom.value) || spDefaultFrom;
     var q = '/leads/telephony/webrtc-token?fromNumber=' + encodeURIComponent(String(fromPick || ''));
     return fetch(q, { headers: { Accept: 'application/json' } })
@@ -1269,6 +1408,7 @@
     var originalHtml = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = action === 'voicemail_drop' ? 'Dropping…' : 'Dialing…'; }
     softphoneSession.stateVerbose = '';
+    softphoneResetRecordingState();
     softphoneSession.startedAtMs = 0;
     softphoneSetTimerSeconds(0);
     softphoneSetCallState('dialing');
@@ -1531,7 +1671,7 @@
   }
   if (spRecord) {
     spRecord.addEventListener('click', function () {
-      softphoneSetStatus('Recording workflow is coming soon.');
+      performCloudRecordingToggle();
     });
   }
   if (spHangup) {
@@ -1544,6 +1684,7 @@
         spHangup.disabled = true;
         try { softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true); } catch (e) {}
         softphoneClearWebrtcSession();
+        softphoneResetRecordingState();
         softphoneSetCallState('ended');
         softphoneSetWrapRequired(true);
         softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
@@ -1551,6 +1692,7 @@
         return;
       }
       if (!softphoneSession.callSid) {
+        softphoneResetRecordingState();
         softphoneSetCallState('ended');
         softphoneSetWrapRequired(true);
         softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
@@ -1566,6 +1708,7 @@
         .then(function (res) {
           if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'Hangup failed.');
           softphoneStopPolling();
+          softphoneResetRecordingState();
           softphoneSetCallState('ended');
           softphoneSetWrapRequired(true);
           softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
@@ -1629,6 +1772,7 @@
     else next = 'Auto workflow: update pipeline status and assign follow-up owner.';
     if (spNextStep) spNextStep.textContent = next;
     softphoneSession.callSid = '';
+    softphoneResetRecordingState();
     softphoneStopPolling();
     softphoneClearWebrtcSession();
     softphoneSetWrapRequired(false);

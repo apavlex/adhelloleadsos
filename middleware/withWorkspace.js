@@ -91,6 +91,7 @@ async function withWorkspace(req, res, next) {
     res.locals.canManageWorkspace = req.canManageWorkspace;
     res.locals.workspaceSwitcherList = summaries;
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
+    res.locals.googleMapsStaticKey = String(process.env.GOOGLE_MAPS_API_KEY || '').trim() || null;
 
     next();
   } catch (err) {

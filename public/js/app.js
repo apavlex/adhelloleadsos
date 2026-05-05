@@ -857,17 +857,19 @@ document.addEventListener('DOMContentLoaded', () => {
       const innerSheet = panelRoot.querySelector(':scope > div');
       if (innerSheet) {
         innerSheet.classList.remove('translate-y-full', 'translate-x-full');
-        innerSheet.style.display = 'block';
+        innerSheet.style.display = 'flex';
       }
 
       requestAnimationFrame(() => {
-        const panelScroll = panelRoot.querySelector('div.overflow-y-auto');
+        const panelScroll = document.getElementById('leadPanelTabScroll');
         if (panelScroll) panelScroll.scrollTop = 0;
         const stickyTitle = document.getElementById('stickyPanelTitle');
         if (stickyTitle) {
           stickyTitle.classList.add('opacity-0', 'pointer-events-none');
           stickyTitle.classList.remove('opacity-100');
         }
+        const callTabBtn = document.querySelector('.lead-panel-tab-btn[data-lead-tab="call"]');
+        if (callTabBtn) callTabBtn.click();
         if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
           window.__adhelloRefreshSoftphonePosition();
         }
@@ -1454,28 +1456,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Sticky title: show compact name in the nav row after scrolling past the hero
-    if (mobilePanel) {
-      const panelContent = mobilePanel.querySelector('div.overflow-y-auto');
-      const stickyTitle = document.getElementById('stickyPanelTitle');
-      if (panelContent && stickyTitle) {
-        const STICKY_THRESHOLD = 96;
-        panelContent.addEventListener(
-          'scroll',
-          () => {
-            const show = panelContent.scrollTop > STICKY_THRESHOLD;
-            if (show) {
-              stickyTitle.classList.remove('opacity-0', 'pointer-events-none');
-              stickyTitle.classList.add('opacity-100');
-            } else {
-              stickyTitle.classList.add('opacity-0', 'pointer-events-none');
-              stickyTitle.classList.remove('opacity-100');
-            }
-          },
-          { passive: true }
-        );
-      }
+    // Sticky title: show compact name in the nav row after scrolling the tab body past the hero
+    const panelScroll = document.getElementById('leadPanelTabScroll');
+    const stickyTitle = document.getElementById('stickyPanelTitle');
+    if (panelScroll && stickyTitle) {
+      const STICKY_THRESHOLD = 96;
+      panelScroll.addEventListener(
+        'scroll',
+        () => {
+          const show = panelScroll.scrollTop > STICKY_THRESHOLD;
+          if (show) {
+            stickyTitle.classList.remove('opacity-0', 'pointer-events-none');
+            stickyTitle.classList.add('opacity-100');
+          } else {
+            stickyTitle.classList.add('opacity-0', 'pointer-events-none');
+            stickyTitle.classList.remove('opacity-100');
+          }
+        },
+        { passive: true }
+      );
     }
+  }
+
+  if (document.getElementById('leadPanelStickyDock')) {
+    initLeadDetailPanelChrome();
   }
 
   let kieInsightRequestId = 0;
@@ -1766,6 +1770,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.competitorMetaBenchmark != null) ds.competitorMetaBenchmark = L.competitorMetaBenchmark;
     if (L.updates) ds.updates = JSON.stringify(L.updates);
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
+    if (L.ownerFirstName != null) ds.ownerFirstName = String(L.ownerFirstName || '');
+    if (L.doNotCall !== undefined) ds.doNotCall = L.doNotCall ? '1' : '';
+    if (L.contacts != null) {
+      try {
+        ds.contacts = JSON.stringify(Array.isArray(L.contacts) ? L.contacts : []);
+      } catch {
+        ds.contacts = '[]';
+      }
+    }
+    if (L.logs != null) {
+      try {
+        ds.logsSnippet = JSON.stringify((L.logs || []).slice(-14));
+      } catch {
+        ds.logsSnippet = '[]';
+      }
+    }
   }
 
   /** Show pitch video URL when status is Video Recorded, or when a URL is already saved (any status). */
@@ -1815,23 +1835,70 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function cqiHasContent(cqi) {
     if (!cqi) return false;
-    const r = (cqi.monthlyRevenue || '').toString().trim();
-    const s = (cqi.marketingSpend || '').toString().trim();
-    const n = (cqi.notes || '').toString().trim();
-    return !!(r || s || n);
+    const keys = [
+      'monthlyRevenue',
+      'marketingSpend',
+      'notes',
+      'decisionMakerName',
+      'yearsInBusiness',
+      'biggestPain',
+      'currentlyUsing',
+      'budgetRange',
+      'timeline',
+    ];
+    return keys.some((k) => String(cqi[k] || '').trim());
+  }
+
+  function readCqiFormFromDom() {
+    const g = (id) => {
+      const el = document.getElementById(id);
+      return el && 'value' in el ? String(el.value || '').trim() : '';
+    };
+    return {
+      decisionMakerName: g('cqiFieldDecisionMaker'),
+      yearsInBusiness: g('cqiFieldYearsInBusiness'),
+      monthlyRevenue: g('cqiFieldMonthlyRevenue'),
+      marketingSpend: g('cqiFieldMarketingSpend'),
+      biggestPain: g('cqiFieldBiggestPain'),
+      currentlyUsing: g('cqiFieldCurrentlyUsing'),
+      budgetRange: g('cqiFieldBudgetRange'),
+      timeline: g('cqiFieldTimeline'),
+      notes: g('cqiFieldNotes'),
+    };
+  }
+
+  function fillCqiFormFromObject(cqi) {
+    const c = cqi && typeof cqi === 'object' ? cqi : {};
+    const setv = (id, v) => {
+      const el = document.getElementById(id);
+      if (el && 'value' in el) el.value = v != null ? String(v) : '';
+    };
+    setv('cqiFieldDecisionMaker', c.decisionMakerName || '');
+    setv('cqiFieldYearsInBusiness', c.yearsInBusiness || '');
+    setv('cqiFieldMonthlyRevenue', c.monthlyRevenue || '');
+    setv('cqiFieldMarketingSpend', c.marketingSpend || '');
+    setv('cqiFieldBiggestPain', c.biggestPain || '');
+    setv('cqiFieldCurrentlyUsing', c.currentlyUsing || '');
+    setv('cqiFieldBudgetRange', c.budgetRange || '');
+    setv('cqiFieldTimeline', c.timeline || '');
+    setv('cqiFieldNotes', c.notes || '');
+    const revEl = document.getElementById('mobilePanelCqiRevenue');
+    const spendEl = document.getElementById('mobilePanelCqiSpend');
+    const notesEl = document.getElementById('mobilePanelCqiNotes');
+    if (revEl) revEl.textContent = (c.monthlyRevenue && String(c.monthlyRevenue).trim()) || '—';
+    if (spendEl) spendEl.textContent = (c.marketingSpend && String(c.marketingSpend).trim()) || '—';
+    if (notesEl) notesEl.textContent = (c.notes && String(c.notes).trim()) || '—';
   }
 
   function syncMobilePanelCqi(row) {
     const pill = document.getElementById('mobilePanelCqiPill');
     const emptyEl = document.getElementById('mobilePanelCqiEmpty');
     const detailsEl = document.getElementById('mobilePanelCqiDetails');
-    const revEl = document.getElementById('mobilePanelCqiRevenue');
-    const spendEl = document.getElementById('mobilePanelCqiSpend');
-    const notesEl = document.getElementById('mobilePanelCqiNotes');
     const recEl = document.getElementById('mobilePanelCqiRecorded');
     if (!pill || !emptyEl || !detailsEl) return;
 
     const cqi = parseRowCqi(row);
+    fillCqiFormFromObject(cqi);
     const filled = cqiHasContent(cqi);
     const ps = parseInt(row.dataset.pipelineStage, 10);
     const stage = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
@@ -1850,27 +1917,567 @@ document.addEventListener('DOMContentLoaded', () => {
         'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400 border-brand-border/30 dark:border-white/10';
     }
 
-    if (filled) {
-      emptyEl.classList.add('hidden');
-      detailsEl.classList.remove('hidden');
-      if (revEl) revEl.textContent = (cqi.monthlyRevenue && String(cqi.monthlyRevenue).trim()) || '—';
-      if (spendEl) spendEl.textContent = (cqi.marketingSpend && String(cqi.marketingSpend).trim()) || '—';
-      if (notesEl) notesEl.textContent = (cqi.notes && String(cqi.notes).trim()) || '—';
-      if (recEl) {
-        if (cqi.recordedAt) {
-          try {
-            recEl.textContent = `Recorded ${new Date(cqi.recordedAt).toLocaleDateString()}`;
-          } catch {
-            recEl.textContent = '';
-          }
-        } else {
+    emptyEl.classList.toggle('hidden', filled);
+    detailsEl.classList.remove('hidden');
+    if (recEl) {
+      if (cqi && cqi.recordedAt) {
+        try {
+          recEl.textContent = `Last saved ${new Date(cqi.recordedAt).toLocaleString()}`;
+        } catch {
           recEl.textContent = '';
         }
+      } else {
+        recEl.textContent = '';
       }
+    }
+  }
+
+  const US_STATE_TZ = {
+    AL: 'America/Chicago',
+    AK: 'America/Anchorage',
+    AZ: 'America/Phoenix',
+    AR: 'America/Chicago',
+    CA: 'America/Los_Angeles',
+    CO: 'America/Denver',
+    CT: 'America/New_York',
+    DE: 'America/New_York',
+    FL: 'America/New_York',
+    GA: 'America/New_York',
+    HI: 'Pacific/Honolulu',
+    ID: 'America/Boise',
+    IL: 'America/Chicago',
+    IN: 'America/Indiana/Indianapolis',
+    IA: 'America/Chicago',
+    KS: 'America/Chicago',
+    KY: 'America/New_York',
+    LA: 'America/Chicago',
+    ME: 'America/New_York',
+    MD: 'America/New_York',
+    MA: 'America/New_York',
+    MI: 'America/Detroit',
+    MN: 'America/Chicago',
+    MS: 'America/Chicago',
+    MO: 'America/Chicago',
+    MT: 'America/Denver',
+    NE: 'America/Chicago',
+    NV: 'America/Los_Angeles',
+    NH: 'America/New_York',
+    NJ: 'America/New_York',
+    NM: 'America/Denver',
+    NY: 'America/New_York',
+    NC: 'America/New_York',
+    ND: 'America/Chicago',
+    OH: 'America/New_York',
+    OK: 'America/Chicago',
+    OR: 'America/Los_Angeles',
+    PA: 'America/New_York',
+    RI: 'America/New_York',
+    SC: 'America/New_York',
+    SD: 'America/Chicago',
+    TN: 'America/Chicago',
+    TX: 'America/Chicago',
+    UT: 'America/Denver',
+    VT: 'America/New_York',
+    VA: 'America/New_York',
+    WA: 'America/Los_Angeles',
+    WV: 'America/New_York',
+    WI: 'America/Chicago',
+    WY: 'America/Denver',
+    DC: 'America/New_York',
+  };
+
+  function guessLeadPanelTimeZone(row) {
+    const addr = String((row && row.dataset && row.dataset.address) || '');
+    const m = addr.match(/\b([A-Z]{2})\s+\d{5}\b/);
+    if (m && US_STATE_TZ[m[1]]) return US_STATE_TZ[m[1]];
+    return 'America/Los_Angeles';
+  }
+
+  async function postLeadJsonUpdate(row, patch) {
+    const key = row && row.dataset && row.dataset.leadKey;
+    if (!key) throw new Error('Save this lead before updating.');
+    const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(patch || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Update failed');
+    if (data.lead) syncPersistedLeadToRowDataset(row, data.lead);
+    return data;
+  }
+
+  function syncLeadPanelLocalTime(row) {
+    const el = document.getElementById('leadPanelStickyLocalTime');
+    if (!el) return;
+    try {
+      const tz = guessLeadPanelTimeZone(row);
+      const now = new Date();
+      const s = now.toLocaleTimeString(undefined, { timeZone: tz, hour: 'numeric', minute: '2-digit' });
+      el.textContent = `There now: ${s} (${tz.replace(/^America\//, '').replace(/_/g, ' ')})`;
+      el.classList.remove('hidden');
+    } catch {
+      el.classList.add('hidden');
+    }
+  }
+
+  function syncLeadPanelStickyDock(row) {
+    const meta = document.getElementById('leadPanelStickyMeta');
+    const phoneA = document.getElementById('leadPanelStickyPhone');
+    const phone = String(row.dataset.phone || '').trim();
+    const lk = row.dataset.leadKey || '';
+    if (phoneA) {
+      if (phone && phone !== 'N/A') {
+        phoneA.textContent = phone;
+        phoneA.href = '#';
+        phoneA.classList.add('js-click-to-call-number');
+        phoneA.dataset.phone = phone;
+        if (lk) phoneA.dataset.leadKey = lk;
+        phoneA.classList.remove('opacity-40', 'pointer-events-none');
+      } else {
+        phoneA.textContent = 'No phone';
+        phoneA.href = '#';
+        phoneA.classList.remove('js-click-to-call-number');
+        delete phoneA.dataset.phone;
+        delete phoneA.dataset.leadKey;
+        phoneA.classList.add('opacity-40', 'pointer-events-none');
+      }
+    }
+    if (meta) {
+      const pipe = String(row.dataset.pipelineLabel || row.dataset.pipelineStage || '').trim();
+      const st = String(row.dataset.status || '').trim();
+      const ms = parseInt(row.dataset.lastTouchMs || '', 10);
+      let last = '—';
+      if (ms && Number.isFinite(ms)) {
+        try {
+          last = new Date(ms).toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+        } catch (_) {
+          last = '—';
+        }
+      }
+      const bits = [];
+      if (pipe) bits.push(pipe);
+      if (st) bits.push(st);
+      bits.push(`Last activity ${last}`);
+      meta.textContent = bits.join(' · ');
+    }
+    syncLeadPanelLocalTime(row);
+    if (typeof window.__adhelloSyncRecordingControls === 'function') {
+      window.__adhelloSyncRecordingControls();
+    }
+  }
+
+  function syncLeadCallTalkingPoints(row) {
+    const ul = document.getElementById('leadCallTalkingPoints');
+    if (!ul) return;
+    ul.innerHTML = '';
+    const reviews = parseInt(row.dataset.reviews, 10) || 0;
+    const rating = parseFloat(row.dataset.rating) || 0;
+    const web = String(row.dataset.website || '').trim();
+    const hasWeb = web && web !== 'N/A' && web.length > 2;
+    const add = (text) => {
+      const li = document.createElement('li');
+      li.className = 'pl-3 border-l-2 border-brand-yellow/50 text-brand-dark dark:text-slate-200';
+      li.textContent = text;
+      ul.appendChild(li);
+    };
+    if (reviews > 0) {
+      add(`${reviews} Google reviews${rating > 0 ? ` at ${rating.toFixed(1)}★` : ''} — social proof angle.`);
+    }
+    add(hasWeb ? 'Website on file — reference something specific from their site.' : 'No website on file — lead with missed calls / credibility gap.');
+    const flags = [];
+    if (row.dataset.hasChatbot === 'false') flags.push('no chatbot');
+    if (row.dataset.isMobileFriendly === 'false') flags.push('mobile issues');
+    if (row.dataset.hasClickToCall === 'false') flags.push('click-to-call broken');
+    if (row.dataset.hasSchemaMarkup === 'false') flags.push('GEO schema weak');
+    if (flags.length) add(`Technical hooks: ${flags.join(', ')}.`);
+  }
+
+  function syncGoogleReviewsLink(row) {
+    const a = document.getElementById('mobilePanelReviewsLink');
+    if (!a) return;
+    const href = resolveGoogleMapsSocialHref(row.dataset.url, row.dataset.title, row.dataset.address, row.dataset.city);
+    if (href) {
+      a.href = href;
+      a.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
     } else {
-      emptyEl.classList.remove('hidden');
-      detailsEl.classList.add('hidden');
-      if (recEl) recEl.textContent = '';
+      a.href = '#';
+      a.classList.add('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
+    }
+  }
+
+  function syncOwnerFirstNameAndDnc(row) {
+    const inp = document.getElementById('leadPanelOwnerFirstName');
+    const dnc = document.getElementById('leadPanelDoNotCall');
+    const raw = String(row.dataset.ownerFirstName || '').trim();
+    const cqi = parseRowCqi(row);
+    const fromCqi = cqi && String(cqi.decisionMakerName || '').trim();
+    const firstFromFull = (full) => {
+      const t = String(full || '').trim();
+      if (!t) return '';
+      return t.split(/\s+/)[0];
+    };
+    const fallback = firstFromFull(fromCqi);
+    if (inp) inp.value = raw || fallback;
+    if (dnc) dnc.checked = row.dataset.doNotCall === '1' || row.dataset.doNotCall === 'true';
+  }
+
+  function parseRowContacts(row) {
+    try {
+      const raw = row.dataset.contacts;
+      if (!raw || raw === 'undefined') return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function syncLeadContactsList(row) {
+    const ul = document.getElementById('leadContactsList');
+    if (!ul) return;
+    let list = parseRowContacts(row);
+    if (!list.length) {
+      const phone = String(row.dataset.phone || '').trim();
+      if (phone && phone !== 'N/A') {
+        list = [{ role: 'Primary', name: '', phone, email: String(row.dataset.email || '').trim(), primary: true }];
+      }
+    }
+    ul.innerHTML = '';
+    list.forEach((c, i) => {
+      const li = document.createElement('li');
+      li.className =
+        'flex flex-wrap items-center gap-2 rounded-xl border border-brand-border/25 dark:border-white/10 bg-white/80 dark:bg-slate-900/50 px-3 py-2 text-xs';
+      const role = String(c.role || 'Contact').trim();
+      const name = String(c.name || '').trim();
+      const ph = String(c.phone || '').trim();
+      const em = String(c.email || '').trim();
+      const isPri = !!c.primary;
+      li.innerHTML = `<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${role}${isPri ? ' · primary' : ''}</span>
+        <span class="font-bold text-brand-dark dark:text-white">${name || '—'}</span>
+        <span class="text-brand-muted">${ph || '—'}</span>
+        <button type="button" class="ml-auto text-[9px] font-black uppercase text-brand-yellow lead-contact-primary-btn" data-idx="${i}">Primary</button>`;
+      ul.appendChild(li);
+    });
+    ul.querySelectorAll('.lead-contact-primary-btn').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        const idx = parseInt(btn.getAttribute('data-idx'), 10);
+        if (!row.dataset.leadKey || Number.isNaN(idx)) return;
+        const next = parseRowContacts(row).map((c, j) => ({ ...c, primary: j === idx }));
+        try {
+          await postLeadJsonUpdate(row, { contacts: next });
+          syncLeadContactsList(row);
+          populatePanel(row);
+        } catch (err) {
+          if (typeof window.showAppToast === 'function') window.showAppToast(err.message, { variant: 'error' });
+        }
+      });
+    });
+  }
+
+  function mergeActivityEntries(row) {
+    const out = [];
+    let updates = [];
+    try {
+      updates = JSON.parse(row.dataset.updates || '[]');
+    } catch {
+      updates = [];
+    }
+    (Array.isArray(updates) ? updates : []).forEach((u) => {
+      const ts = u.timestamp || u.ts || '';
+      const val = u.value != null ? String(u.value) : '';
+      const typ = String(u.type || 'update');
+      out.push({ ts, typ, text: val, raw: u });
+    });
+    let logs = [];
+    try {
+      logs = JSON.parse(row.dataset.logsSnippet || '[]');
+    } catch {
+      logs = [];
+    }
+    (Array.isArray(logs) ? logs : []).forEach((e) => {
+      const ts = e.timestamp || '';
+      const msg = typeof e.message === 'string' ? e.message : JSON.stringify(e).slice(0, 220);
+      const typ = String(e.type || 'log');
+      out.push({ ts, typ, text: msg, raw: e });
+    });
+    out.sort((a, b) => {
+      const ta = Date.parse(a.ts) || 0;
+      const tb = Date.parse(b.ts) || 0;
+      return tb - ta;
+    });
+    return out;
+  }
+
+  function renderLeadActivityTimeline(row, filter) {
+    const host = document.getElementById('activityLog');
+    if (!host) return;
+    const entries = mergeActivityEntries(row);
+    const f = String(filter || 'all');
+    const filtered = entries.filter((e) => {
+      if (f === 'all') return true;
+      const t = `${e.typ} ${e.text}`.toLowerCase();
+      if (f === 'calls') return /\bcall|dial|voicemail|phone\b/i.test(t);
+      if (f === 'notes') return e.typ === 'note' || /\bnote\b/i.test(e.typ);
+      return true;
+    });
+    if (!filtered.length) {
+      host.innerHTML =
+        '<div class="pl-10 text-xs text-brand-muted italic">No entries for this filter yet.</div>';
+      return;
+    }
+    host.innerHTML = filtered
+      .map((e) => {
+        const when = e.ts
+          ? new Date(e.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+          : '—';
+        const label = String(e.typ || '').replace(/_/g, ' ');
+        return `<div class="relative pl-10">
+          <div class="absolute left-1 top-1 w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-sm ring-2 ring-white dark:ring-slate-900"></div>
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${when} · ${label}</p>
+          <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${String(e.text || '')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')}</p>
+        </div>`;
+      })
+      .join('');
+  }
+
+  function syncLeadPanelTouchSummary(row) {
+    const el = document.getElementById('leadPanelTouchSummary');
+    if (!el) return;
+    let logs = [];
+    try {
+      logs = JSON.parse(row.dataset.logsSnippet || '[]');
+    } catch {
+      logs = [];
+    }
+    const total = Array.isArray(logs) ? logs.length : 0;
+    let calls = 0;
+    let connects = 0;
+    (Array.isArray(logs) ? logs : []).forEach((e) => {
+      const blob = `${e.type || ''} ${e.message || ''}`.toLowerCase();
+      if (/\bcall|dial|voicemail|phone\b/.test(blob)) calls += 1;
+      if (/connect|picked up|answered|meeting booked/.test(blob)) connects += 1;
+    });
+    const ms = parseInt(row.dataset.lastTouchMs || '', 10);
+    let ago = '—';
+    if (ms && Number.isFinite(ms)) {
+      const days = Math.max(0, Math.round((Date.now() - ms) / 86400000));
+      ago = days === 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`;
+    }
+    el.textContent = `${calls} call-ish touches · ${connects} connect signals · ${total} log lines · last touch ${ago}`;
+    const badge = document.getElementById('leadPanelCallCountsBadge');
+    if (badge) {
+      badge.textContent = `${calls} dials · ${total} events`;
+      badge.classList.remove('hidden');
+    }
+  }
+
+  let leadDetailChromeDidInit = false;
+  function initLeadDetailPanelChrome() {
+    if (leadDetailChromeDidInit) return;
+    leadDetailChromeDidInit = true;
+
+    document.querySelectorAll('.lead-panel-tab-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-lead-tab');
+        document.querySelectorAll('.lead-panel-tab-btn').forEach((b) => {
+          const on = b.getAttribute('data-lead-tab') === tab;
+          b.setAttribute('aria-selected', on ? 'true' : 'false');
+          b.classList.toggle('bg-white', on);
+          b.classList.toggle('dark:bg-slate-900', on);
+          b.classList.toggle('text-brand-dark', on);
+          b.classList.toggle('dark:text-white', on);
+          b.classList.toggle('shadow-sm', on);
+          b.classList.toggle('text-brand-muted', !on);
+        });
+        document.querySelectorAll('[data-lead-tab-panel]').forEach((panel) => {
+          const on = panel.getAttribute('data-lead-tab-panel') === tab;
+          panel.classList.toggle('hidden', !on);
+        });
+      });
+    });
+
+    document.querySelectorAll('.lead-activity-filter').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        window.__leadActivityFilter = btn.getAttribute('data-activity-filter') || 'all';
+        document.querySelectorAll('.lead-activity-filter').forEach((b) => {
+          const on = b.getAttribute('data-activity-filter') === window.__leadActivityFilter;
+          b.classList.toggle('bg-white', on);
+          b.classList.toggle('dark:bg-slate-900', on);
+          b.classList.toggle('text-brand-dark', on);
+          b.classList.toggle('dark:text-white', on);
+          b.classList.toggle('shadow-sm', on);
+          b.classList.toggle('text-brand-muted', !on);
+        });
+        if (currentRow) renderLeadActivityTimeline(currentRow, window.__leadActivityFilter);
+      });
+    });
+
+    const cqiIds = [
+      'cqiFieldDecisionMaker',
+      'cqiFieldYearsInBusiness',
+      'cqiFieldMonthlyRevenue',
+      'cqiFieldMarketingSpend',
+      'cqiFieldBiggestPain',
+      'cqiFieldCurrentlyUsing',
+      'cqiFieldBudgetRange',
+      'cqiFieldTimeline',
+      'cqiFieldNotes',
+    ];
+    let cqiTimer = null;
+    const scheduleCqiSave = () => {
+      if (cqiTimer) clearTimeout(cqiTimer);
+      cqiTimer = setTimeout(async () => {
+        if (!currentRow || !currentRow.dataset.leadKey) return;
+        const prev = parseRowCqi(currentRow) || {};
+        const next = { ...prev, ...readCqiFormFromDom(), recordedAt: new Date().toISOString() };
+        try {
+          await postLeadJsonUpdate(currentRow, { cqi: next });
+          currentRow.dataset.cqi = JSON.stringify(next);
+          syncMobilePanelCqi(currentRow);
+        } catch (e) {
+          if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'CQI save failed', { variant: 'error' });
+        }
+      }, 500);
+    };
+    cqiIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', scheduleCqiSave);
+      el.addEventListener('blur', scheduleCqiSave);
+    });
+
+    const ownerInp = document.getElementById('leadPanelOwnerFirstName');
+    if (ownerInp) {
+      const saveOwner = async () => {
+        if (!currentRow || !currentRow.dataset.leadKey) return;
+        const v = String(ownerInp.value || '').trim();
+        try {
+          await postLeadJsonUpdate(currentRow, { ownerFirstName: v });
+          currentRow.dataset.ownerFirstName = v;
+        } catch (e) {
+          if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'Save failed', { variant: 'error' });
+        }
+      };
+      ownerInp.addEventListener('blur', saveOwner);
+    }
+    const dnc = document.getElementById('leadPanelDoNotCall');
+    if (dnc) {
+      dnc.addEventListener('change', async () => {
+        if (!currentRow || !currentRow.dataset.leadKey) return;
+        try {
+          await postLeadJsonUpdate(currentRow, { doNotCall: !!dnc.checked });
+          currentRow.dataset.doNotCall = dnc.checked ? '1' : '';
+        } catch (e) {
+          if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'Save failed', { variant: 'error' });
+        }
+      });
+    }
+
+    const dial = document.getElementById('leadPanelStickyDialBtn');
+    if (dial) {
+      dial.addEventListener('click', async () => {
+        const ctc = document.getElementById('clickToCallBtn');
+        if (ctc) ctc.click();
+      });
+    }
+    const leadRec = document.getElementById('leadPanelRecordToggle');
+    if (leadRec) {
+      leadRec.addEventListener('click', () => {
+        if (typeof window.__adhelloToggleCloudRecording === 'function') {
+          window.__adhelloToggleCloudRecording();
+        }
+      });
+    }
+
+    const cbBtn = document.getElementById('leadCallbackSaveBtn');
+    if (cbBtn) {
+      cbBtn.addEventListener('click', async () => {
+        if (!currentRow || !currentRow.dataset.leadKey) {
+          if (typeof window.showAppToast === 'function') window.showAppToast('Save the lead first.', { variant: 'error' });
+          return;
+        }
+        const d = document.getElementById('leadCallbackDate');
+        const t = document.getElementById('leadCallbackTime');
+        const r = document.getElementById('leadCallbackReason');
+        const rem = document.getElementById('leadCallbackRemind15');
+        const dateStr = d && d.value ? d.value : '';
+        const timeStr = t && t.value ? t.value : '';
+        if (!dateStr || !timeStr) {
+          if (typeof window.showAppToast === 'function') window.showAppToast('Pick a date and time.', { variant: 'error' });
+          return;
+        }
+        const iso = new Date(`${dateStr}T${timeStr}:00`).toISOString();
+        const titleBits = [`Callback: ${currentRow.dataset.title || 'Lead'}`];
+        if (rem && rem.checked) titleBits.push('(remind T-15)');
+        if (r && r.value.trim()) titleBits.push(`— ${r.value.trim()}`);
+        try {
+          const res = await fetch('/tasks/api', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              title: titleBits.join(' '),
+              scheduledAt: iso,
+              leadKey: currentRow.dataset.leadKey,
+              column: 'todo',
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error((data && data.error) || 'Task create failed');
+          const hint = document.getElementById('leadCallbackTaskHint');
+          if (hint) {
+            hint.textContent = 'Task created — open Tasks to see it on your day.';
+            hint.classList.remove('hidden');
+          }
+          if (typeof window.showAppToast === 'function') window.showAppToast('Callback scheduled', { variant: 'success' });
+        } catch (e) {
+          if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'Failed', { variant: 'error' });
+        }
+      });
+    }
+
+    document.querySelectorAll('.lead-notepad-tag').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tag = btn.getAttribute('data-tag') || '';
+        const stamp = new Date().toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
+        const line = `[${stamp}] ${tag}: `;
+        const inp = document.getElementById('noteInput');
+        if (inp) inp.value = `${line}${inp.value || ''}`.trimStart();
+        inp && inp.focus();
+      });
+    });
+
+    const addContactBtn = document.getElementById('leadContactAddBtn');
+    if (addContactBtn) {
+      addContactBtn.addEventListener('click', async () => {
+        if (!currentRow || !currentRow.dataset.leadKey) {
+          if (typeof window.showAppToast === 'function') window.showAppToast('Save the lead first.', { variant: 'error' });
+          return;
+        }
+        const role = window.prompt('Role (e.g. Owner, Office manager)', 'Contact');
+        if (role == null) return;
+        const name = window.prompt('Name', '') || '';
+        const phone = window.prompt('Phone', '') || '';
+        const email = window.prompt('Email', '') || '';
+        const list = parseRowContacts(currentRow);
+        list.push({ role: role || 'Contact', name, phone, email, primary: list.length === 0 });
+        try {
+          await postLeadJsonUpdate(currentRow, { contacts: list });
+          syncLeadContactsList(currentRow);
+        } catch (e) {
+          if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'Failed', { variant: 'error' });
+        }
+      });
     }
   }
 
@@ -2033,6 +2640,88 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function buildGoogleStaticMapUrl(center, key) {
+    const c = String(center || '').trim();
+    const k = String(key || '').trim();
+    if (!c || !k) return '';
+    const encCenter = encodeURIComponent(c);
+    const encKey = encodeURIComponent(k);
+    const encMarkers = encodeURIComponent(`color:0xEAB308|${c}`);
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${encCenter}&zoom=15&size=256x256&scale=2&maptype=roadmap&markers=${encMarkers}&key=${encKey}`;
+  }
+
+  function syncMobilePanelHeroMap(row) {
+    const mapKey =
+      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
+    const mapImg = document.getElementById('mobilePanelStaticMapImg');
+    const mapLink = document.getElementById('mobilePanelMapLink');
+    const mapPin = document.getElementById('mobilePanelMapPin');
+    const mobileAvatar = document.getElementById('mobilePanelAvatar');
+    if (!mobileAvatar) return;
+
+    const title = String(row.dataset.title || '').trim();
+    const address =
+      row.dataset.address && row.dataset.address !== 'N/A' ? String(row.dataset.address).trim() : '';
+    const city = String(row.dataset.city || '').trim();
+    const center = address || [title, city].filter(Boolean).join(', ').trim();
+    const mapsUrl = center
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(center)}`
+      : '';
+
+    if (mapLink) {
+      if (mapsUrl) {
+        mapLink.href = mapsUrl;
+        mapLink.target = '_blank';
+        mapLink.rel = 'noopener noreferrer';
+        mapLink.setAttribute('aria-label', 'Open location in Google Maps');
+        mapLink.classList.remove('pointer-events-none');
+        mapLink.classList.add('cursor-pointer');
+      } else {
+        mapLink.href = '#';
+        mapLink.removeAttribute('target');
+        mapLink.removeAttribute('rel');
+        mapLink.setAttribute('aria-label', 'Location not available');
+        mapLink.classList.add('pointer-events-none');
+        mapLink.classList.remove('cursor-pointer');
+      }
+    }
+
+    if (mapPin) {
+      if (mapsUrl) mapPin.classList.remove('hidden');
+      else mapPin.classList.add('hidden');
+    }
+
+    if (!mapImg) return;
+
+    mapImg.onload = null;
+    mapImg.onerror = null;
+    mapImg.removeAttribute('src');
+    if (mapKey && center) {
+      const staticUrl = buildGoogleStaticMapUrl(center, mapKey);
+      mapImg.classList.add('hidden');
+      mobileAvatar.classList.remove('hidden');
+      mapImg.onload = () => {
+        mapImg.classList.remove('hidden');
+        mobileAvatar.classList.add('hidden');
+      };
+      mapImg.onerror = () => {
+        mapImg.classList.add('hidden');
+        mobileAvatar.classList.remove('hidden');
+      };
+      mapImg.alt = address
+        ? `Map near ${address.slice(0, 120)}`
+        : title
+          ? `Location of ${title}`
+          : 'Map preview';
+      requestAnimationFrame(() => {
+        mapImg.src = staticUrl;
+      });
+    } else {
+      mapImg.classList.add('hidden');
+      mobileAvatar.classList.remove('hidden');
+    }
+  }
+
   // --- Populate panel from row data ---
   function populatePanel(row) {
     const title = row.dataset.title;
@@ -2055,6 +2744,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (mobileAvatar) {
         mobileAvatar.textContent = (title || 'A').charAt(0).toUpperCase();
     }
+    syncMobilePanelHeroMap(row);
     if (stickyPanelTitle) {
         stickyPanelTitle.textContent = title || 'Company Details';
     }
@@ -2108,12 +2798,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const phoneRow = document.getElementById('mobilePanelPhoneRow');
     
     if (phoneEl) {
-        if (phone && phone !== 'N/A') {
-            const leadKey = row.dataset.leadKey || '';
-            phoneEl.innerHTML = `<a href="#" class="js-click-to-call-number hover:text-brand-yellow transition-colors" data-phone="${escapeHtmlAttr(phone)}" data-lead-key="${escapeHtmlAttr(leadKey)}">${escapeHtmlText(phone)}</a>`;
-        } else {
-            phoneEl.textContent = 'No Phone';
-        }
+        phoneEl.textContent = phone && phone !== 'N/A' ? phone : '—';
     }
     
     if (phoneLink) {
@@ -2365,24 +3050,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (headerAddress) headerAddress.textContent = (address && address !== 'N/A') ? address : 'Address Not Available';
     if (headerPhone) {
-        headerPhone.onclick = null;
         if (phone && phone !== 'N/A') {
-            headerPhone.href = '#';
             headerPhone.textContent = phone;
-            headerPhone.classList.add('js-click-to-call-number');
-            headerPhone.dataset.phone = phone;
-            if (row.dataset.leadKey) headerPhone.dataset.leadKey = row.dataset.leadKey;
-            headerPhone.classList.remove('opacity-40', 'pointer-events-none', 'no-underline');
-            headerPhone.classList.add('underline', 'decoration-brand-yellow/30', 'decoration-2', 'underline-offset-4');
-            headerPhone.onclick = (e) => { e.preventDefault(); e.stopPropagation(); };
+            headerPhone.classList.remove('opacity-40');
         } else {
-            headerPhone.textContent = 'No Phone Number';
-            headerPhone.href = '#';
-            headerPhone.classList.remove('js-click-to-call-number');
-            delete headerPhone.dataset.phone;
-            delete headerPhone.dataset.leadKey;
-            headerPhone.classList.add('opacity-40', 'pointer-events-none', 'no-underline');
-            headerPhone.classList.remove('underline', 'decoration-brand-yellow/30', 'decoration-2', 'underline-offset-4');
+            headerPhone.textContent = 'No phone on file';
+            headerPhone.classList.add('opacity-40');
         }
     }
 
@@ -2633,6 +3306,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasSchema = row.dataset.hasSchemaMarkup === 'true' || row.dataset.has_schema_markup === true;
         schemaTile.innerHTML = hasSchema ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> AI Ready</span>' : '<span class="text-amber-500 font-bold underline decoration-amber-500/30 underline-offset-2 tracking-tighter">Needs GEO</span>';
     }
+
+    syncLeadPanelStickyDock(row);
+    syncLeadCallTalkingPoints(row);
+    syncGoogleReviewsLink(row);
+    syncOwnerFirstNameAndDnc(row);
+    syncLeadContactsList(row);
+    window.__leadActivityFilter = window.__leadActivityFilter || 'all';
+    renderLeadActivityTimeline(row, window.__leadActivityFilter);
+    syncLeadPanelTouchSummary(row);
   }
 
   const renderStars = (
@@ -6907,6 +7589,13 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.cqi = JSON.stringify(lead.cqi || null);
     } catch (_) {
       ds.cqi = 'null';
+    }
+    ds.ownerFirstName = str(lead.ownerFirstName);
+    ds.doNotCall = lead.doNotCall ? '1' : '';
+    try {
+      ds.contacts = JSON.stringify(lead.contacts || []);
+    } catch (_) {
+      ds.contacts = '[]';
     }
     try {
       ds.aiAnalysis = JSON.stringify(lead.aiWebsiteAnalysis || null);

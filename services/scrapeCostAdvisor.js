@@ -72,6 +72,17 @@ function buildSourceCards(live = {}, resolvedEnv) {
         ? 'With the key set, Find Leads step 1 calls Outscraper Google Maps search first (async + poll); Apify is the fallback.'
         : 'Set OUTSCRAPER_API_KEY to use Outscraper as the first Maps search step (Apify remains fallback).',
     },
+    {
+      id: 'leadsgorilla',
+      name: 'LeadsGorilla',
+      href: 'https://app.leadsgorilla.io/',
+      external: true,
+      role: 'Bulk Google Business Profile lists — export, then import here.',
+      cost: 'Separate product (LeadsGorilla subscription). No API key in AdHello.',
+      configured: false,
+      live: null,
+      tip: 'Build lists in LeadsGorilla, download CSV, then use Prospecting → import. AdHello maps columns like Rating, Total Review, GBP Link, Claim status, and Optimization score.',
+    },
   ];
 }
 
