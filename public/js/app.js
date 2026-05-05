@@ -2005,8 +2005,48 @@ document.addEventListener('DOMContentLoaded', () => {
     DC: 'America/New_York',
   };
 
+  function readPipelineRowDisplayAddress(row) {
+    if (!row || !row.dataset) return '';
+    let a = String(row.dataset.address || '').trim();
+    if ((!a || a === 'N/A') && typeof row.querySelector === 'function') {
+      const el = row.querySelector('.lead-row-address');
+      const t = el ? String(el.textContent || '').replace(/\s+/g, ' ').trim() : '';
+      if (t && t !== '—' && t !== '-') a = t;
+    }
+    return a && a !== 'N/A' ? a : '';
+  }
+
+  function readPipelineRowDisplayPhone(row) {
+    if (!row || !row.dataset) return '';
+    let p = String(row.dataset.phone || '').trim();
+    if ((!p || p === 'N/A') && typeof row.querySelector === 'function') {
+      const slot = row.querySelector('a.lead-contact-phone-slot.js-click-to-call-number');
+      if (slot) p = String(slot.dataset.phone || slot.textContent || '').trim();
+    }
+    if (p === 'N/A') return '';
+    return p.trim();
+  }
+
+  function readPipelineRowReviewsSnapshot(row) {
+    let rating = parseFloat(row.dataset.rating) || 0;
+    let reviews = parseInt(row.dataset.reviews, 10) || 0;
+    if (row && typeof row.querySelector === 'function') {
+      const line = row.querySelector('.lead-reviews-line');
+      const txt = line ? line.textContent : '';
+      const m = txt.match(/([\d]+(?:\.[\d]+)?)\s*\(\s*(\d+)\s*\)/);
+      if (m) {
+        rating = parseFloat(m[1]) || rating;
+        reviews = parseInt(m[2], 10) || reviews;
+      } else {
+        const m2 = txt.match(/\(\s*(\d+)\s*\)/);
+        if (m2) reviews = parseInt(m2[1], 10) || reviews;
+      }
+    }
+    return { rating, reviews };
+  }
+
   function guessLeadPanelTimeZone(row) {
-    const addr = String((row && row.dataset && row.dataset.address) || '');
+    const addr = readPipelineRowDisplayAddress(row) || String((row && row.dataset && row.dataset.address) || '');
     const m = addr.match(/\b([A-Z]{2})\s+\d{5}\b/);
     if (m && US_STATE_TZ[m[1]]) return US_STATE_TZ[m[1]];
     return 'America/Los_Angeles';
@@ -2044,10 +2084,10 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncLeadPanelStickyDock(row) {
     const meta = document.getElementById('leadPanelStickyMeta');
     const phoneA = document.getElementById('leadPanelStickyPhone');
-    const phone = String(row.dataset.phone || '').trim();
+    const phone = readPipelineRowDisplayPhone(row) || String(row.dataset.phone || '').trim();
     const lk = row.dataset.leadKey || '';
     if (phoneA) {
-      if (phone && phone !== 'N/A') {
+      if (phone) {
         phoneA.textContent = phone;
         phoneA.href = '#';
         phoneA.classList.add('js-click-to-call-number');
@@ -2096,8 +2136,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const ul = document.getElementById('leadCallTalkingPoints');
     if (!ul) return;
     ul.innerHTML = '';
-    const reviews = parseInt(row.dataset.reviews, 10) || 0;
-    const rating = parseFloat(row.dataset.rating) || 0;
+    const revDom = readPipelineRowReviewsSnapshot(row);
+    const reviews = revDom.reviews || parseInt(row.dataset.reviews, 10) || 0;
+    const rating = revDom.rating || parseFloat(row.dataset.rating) || 0;
     const web = String(row.dataset.website || '').trim();
     const hasWeb = web && web !== 'N/A' && web.length > 2;
     const add = (text) => {
@@ -2121,7 +2162,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncGoogleReviewsLink(row) {
     const a = document.getElementById('mobilePanelReviewsLink');
     if (!a) return;
-    const href = resolveGoogleMapsSocialHref(row.dataset.url, row.dataset.title, row.dataset.address, row.dataset.city);
+    const addr = readPipelineRowDisplayAddress(row);
+    const href = resolveGoogleMapsSocialHref(row.dataset.url, row.dataset.title, addr || row.dataset.address, row.dataset.city);
     if (href) {
       a.href = href;
       a.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
@@ -2587,6 +2629,85 @@ document.addEventListener('DOMContentLoaded', () => {
   const GOOGLE_SOCIALS_TABLE_BTN_CLASS =
     'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25 transition-all hover:scale-105';
 
+  function syncLeadPanelWideMapAndGoogleChip(row) {
+    const mapKey =
+      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
+    const title = String(row.dataset.title || '').trim();
+    const address = readPipelineRowDisplayAddress(row);
+    const city = String(row.dataset.city || '').trim();
+    const center = address || [title, city].filter(Boolean).join(', ').trim();
+    const mapsUrl = center
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(center)}`
+      : '';
+    const gmListing = resolveGoogleMapsSocialHref(
+      row.dataset.url,
+      row.dataset.title,
+      address || row.dataset.address,
+      row.dataset.city
+    );
+    const chipHref = gmListing || mapsUrl || '';
+
+    const chipRow = document.getElementById('mobilePanelGoogleMapsChipRow');
+    const chip = document.getElementById('mobilePanelGoogleMapsChip');
+    if (chip && chipRow) {
+      if (chipHref) {
+        chip.href = chipHref;
+        chip.innerHTML = `${GOOGLE_BUSINESS_ICON_SVG}<span class="text-[11px] font-bold normal-case tracking-normal text-brand-dark dark:text-slate-200">Google Maps</span>`;
+        chipRow.classList.remove('hidden');
+      } else {
+        chip.innerHTML = '';
+        chip.href = '#';
+        chipRow.classList.add('hidden');
+      }
+    }
+
+    const wrap = document.getElementById('mobilePanelMapWideWrap');
+    const wideLink = document.getElementById('mobilePanelMapWideLink');
+    const wideImg = document.getElementById('mobilePanelMapWideImg');
+    const fallback = document.getElementById('mobilePanelMapWideFallback');
+    if (!wrap || !wideLink || !wideImg || !fallback) return;
+
+    wideImg.onload = null;
+    wideImg.onerror = null;
+    wideImg.removeAttribute('src');
+    wideImg.classList.add('hidden');
+    fallback.style.display = 'none';
+
+    if (!chipHref && !center) {
+      wrap.classList.add('hidden');
+      return;
+    }
+
+    wideLink.href = chipHref || mapsUrl || '#';
+    wrap.classList.remove('hidden');
+
+    const showStaticFallback = () => {
+      wideImg.classList.add('hidden');
+      fallback.style.display = 'flex';
+    };
+
+    if (mapKey && center) {
+      const staticUrl = buildGoogleStaticMapUrl(center, mapKey, 640, 280);
+      wideImg.onload = () => {
+        wideImg.classList.remove('hidden');
+        fallback.style.display = 'none';
+      };
+      wideImg.onerror = () => {
+        showStaticFallback();
+      };
+      wideImg.alt = address
+        ? `Map near ${address.slice(0, 120)}`
+        : title
+          ? `Location of ${title}`
+          : 'Location map';
+      requestAnimationFrame(() => {
+        wideImg.src = staticUrl;
+      });
+    } else {
+      showStaticFallback();
+    }
+  }
+
   const CADENCE_CHANNEL_LABELS = {
     call: 'Phone call',
     email: 'Email',
@@ -2704,28 +2825,26 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function buildGoogleStaticMapUrl(center, key) {
+  function buildGoogleStaticMapUrl(center, key, width, height) {
     const c = String(center || '').trim();
     const k = String(key || '').trim();
+    const w = Math.min(640, Math.max(100, parseInt(width, 10) || 256));
+    const h = Math.min(640, Math.max(100, parseInt(height, 10) || 256));
     if (!c || !k) return '';
     const encCenter = encodeURIComponent(c);
     const encKey = encodeURIComponent(k);
     const encMarkers = encodeURIComponent(`color:0xEAB308|${c}`);
-    return `https://maps.googleapis.com/maps/api/staticmap?center=${encCenter}&zoom=15&size=256x256&scale=2&maptype=roadmap&markers=${encMarkers}&key=${encKey}`;
+    return `https://maps.googleapis.com/maps/api/staticmap?center=${encCenter}&zoom=15&size=${w}x${h}&scale=2&maptype=roadmap&markers=${encMarkers}&key=${encKey}`;
   }
 
   function syncMobilePanelHeroMap(row) {
-    const mapKey =
-      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
     const mapImg = document.getElementById('mobilePanelStaticMapImg');
     const mapLink = document.getElementById('mobilePanelMapLink');
-    const mapPin = document.getElementById('mobilePanelMapPin');
     const mobileAvatar = document.getElementById('mobilePanelAvatar');
     if (!mobileAvatar) return;
 
     const title = String(row.dataset.title || '').trim();
-    const address =
-      row.dataset.address && row.dataset.address !== 'N/A' ? String(row.dataset.address).trim() : '';
+    const address = readPipelineRowDisplayAddress(row);
     const city = String(row.dataset.city || '').trim();
     const center = address || [title, city].filter(Boolean).join(', ').trim();
     const mapsUrl = center
@@ -2750,55 +2869,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (mapPin) {
-      if (mapsUrl) mapPin.classList.remove('hidden');
-      else mapPin.classList.add('hidden');
-    }
-
-    if (!mapImg) return;
-
-    mapImg.onload = null;
-    mapImg.onerror = null;
-    mapImg.removeAttribute('src');
-    if (mapKey && center) {
-      const staticUrl = buildGoogleStaticMapUrl(center, mapKey);
+    if (mapImg) {
+      mapImg.onload = null;
+      mapImg.onerror = null;
+      mapImg.removeAttribute('src');
       mapImg.classList.add('hidden');
-      mobileAvatar.classList.remove('hidden');
-      mapImg.onload = () => {
-        mapImg.classList.remove('hidden');
-        mobileAvatar.classList.add('hidden');
-      };
-      mapImg.onerror = () => {
-        mapImg.classList.add('hidden');
-        mobileAvatar.classList.remove('hidden');
-      };
-      mapImg.alt = address
-        ? `Map near ${address.slice(0, 120)}`
-        : title
-          ? `Location of ${title}`
-          : 'Map preview';
-      requestAnimationFrame(() => {
-        mapImg.src = staticUrl;
-      });
-    } else {
-      mapImg.classList.add('hidden');
-      mobileAvatar.classList.remove('hidden');
     }
+    mobileAvatar.classList.remove('hidden');
   }
 
   // --- Populate panel from row data ---
   function populatePanel(row) {
     const title = row.dataset.title;
-    const phone = row.dataset.phone;
+    const phone = readPipelineRowDisplayPhone(row);
     const website = row.dataset.website;
-    const rating = parseFloat(row.dataset.rating) || 0;
-    const reviews = parseInt(row.dataset.reviews, 10) || 0;
+    const revSnap = readPipelineRowReviewsSnapshot(row);
+    const rating = revSnap.rating;
+    const reviews = revSnap.reviews;
     const url = row.dataset.url;
     const email = row.dataset.email;
     const facebook = row.dataset.facebook;
     const instagram = row.dataset.instagram;
     const twitter = row.dataset.twitter;
-    const address = row.dataset.address;
+    const address = readPipelineRowDisplayAddress(row);
     const category = row.dataset.category;
     const loomUrl = row.dataset.loomUrl;
 
@@ -2860,7 +2953,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const mapsLink = document.getElementById('mobilePanelMapsLink');
     if (mapsLink) {
-      if (address && address !== 'N/A') {
+      if (address) {
         mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title || ''}`.trim())}`;
         mapsLink.classList.remove('opacity-20', 'pointer-events-none');
       } else {
@@ -2874,10 +2967,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerSocials = document.getElementById('mobilePanelHeaderSocials');
 
     if (headerAddress) {
-      headerAddress.textContent = address && address !== 'N/A' ? address : '—';
+      headerAddress.textContent = address ? address : '—';
     }
     if (headerPhone) {
-      if (phone && phone !== 'N/A') {
+      if (phone) {
         headerPhone.textContent = phone;
         headerPhone.classList.remove('opacity-40');
       } else {
@@ -2886,21 +2979,20 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    syncLeadPanelWideMapAndGoogleChip(row);
+
     const resolveGoogleBusinessProfileUrlFromRow = (r) =>
-      resolveGoogleMapsSocialHref(r.dataset.url, r.dataset.title, r.dataset.address, r.dataset.city);
+      resolveGoogleMapsSocialHref(
+        r.dataset.url,
+        r.dataset.title,
+        readPipelineRowDisplayAddress(r) || r.dataset.address,
+        r.dataset.city
+      );
 
     if (headerSocials) {
       headerSocials.innerHTML = '';
       let socialCount = 0;
       const socialPlatforms = [
-        {
-          key: 'googleBusiness',
-          ariaLabel: 'Google Business Profile (opens in Maps)',
-          title: 'Google Maps / Business Profile',
-          icon: GOOGLE_BUSINESS_ICON_SVG,
-          color: 'hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25',
-          hrefFrom: resolveGoogleBusinessProfileUrlFromRow,
-        },
         {
           key: 'facebook',
           icon:
@@ -2958,11 +3050,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const phoneRow = document.getElementById('mobilePanelPhoneRow');
     
     if (phoneEl) {
-        phoneEl.textContent = phone && phone !== 'N/A' ? phone : '—';
+        phoneEl.textContent = phone ? phone : '—';
     }
     
     if (phoneLink) {
-        if (phone && phone !== 'N/A') {
+        if (phone) {
             phoneLink.href = '#';
             phoneLink.classList.add('js-click-to-call-number');
             phoneLink.dataset.phone = phone;
@@ -2997,7 +3089,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const manualPhoneInput = document.getElementById('manualPhoneInput');
     const manualEmailInput = document.getElementById('manualEmailInput');
     const manualContactState = document.getElementById('manualContactSavedState');
-    if (manualPhoneInput) manualPhoneInput.value = phone && phone !== 'N/A' ? phone : '';
+    if (manualPhoneInput) manualPhoneInput.value = phone ? phone : '';
     if (manualEmailInput) manualEmailInput.value = email && email !== 'N/A' ? email : '';
     if (manualContactState) manualContactState.textContent = '';
 
@@ -3029,7 +3121,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Address & Maps logic (tile below engagement center)
     const addressEl = document.getElementById('mobilePanelAddress');
-    if (addressEl) addressEl.textContent = (address && address !== 'N/A') ? address : 'Location Hidden';
+    if (addressEl) addressEl.textContent = address ? address : 'Location Hidden';
 
     // Audit Report Insights Section (Dynamic)
     const auditDataRaw = row.dataset.auditData;
