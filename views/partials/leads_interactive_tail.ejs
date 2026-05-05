@@ -2,7 +2,7 @@
 <%- include('/partials/lead_detail_panel') %>
 
 <script>
-  window.ADHELLO_SERVICE_OFFERS = <%- JSON.stringify(typeof scriptLibraryOfferPicklist !== 'undefined' ? scriptLibraryOfferPicklist : []) %>;
+  window.ADHELLO_SERVICE_OFFERS = <%- JSON.stringify(Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : []) %>;
 </script>
 
 <script>
