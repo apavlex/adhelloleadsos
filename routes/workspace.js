@@ -9,6 +9,7 @@ const crawl4aiClient = require('../services/crawl4aiClient');
 const outscraperClient = require('../services/outscraperClient');
 const rapidapiClient = require('../services/rapidapiLocalBusiness');
 const searchapiGoogleLocal = require('../services/searchapiGoogleLocal');
+const serpapiGoogleLocal = require('../services/serpapiGoogleLocal');
 const firecrawl = require('../services/firecrawl');
 const { ApifyClient } = require('apify-client');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
@@ -381,6 +382,23 @@ router.get('/integrations/test', async (req, res) => {
             throw new Error('Missing SEARCHAPI_API_KEY');
           }
           const rows = await searchapiGoogleLocal.searchGoogleMaps({
+            keyword: 'coffee shop',
+            city: 'Austin',
+            state: 'TX',
+            maxResults: 1,
+            integrationEnv,
+          });
+          return { message: `Connected (${Array.isArray(rows) ? rows.length : 0} Google Local sample)` };
+        },
+        28000
+      ),
+      runWithTimeout(
+        'SerpAPI',
+        async () => {
+          if (!serpapiGoogleLocal.isConfigured(integrationEnv)) {
+            throw new Error('Missing SERPAPI_API_KEY');
+          }
+          const rows = await serpapiGoogleLocal.searchGoogleMaps({
             keyword: 'coffee shop',
             city: 'Austin',
             state: 'TX',

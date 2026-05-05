@@ -6,6 +6,7 @@
 const crawl4ai = require('./crawl4aiClient');
 const outscraper = require('./outscraperClient');
 const searchapiGoogleLocal = require('./searchapiGoogleLocal');
+const serpapiGoogleLocal = require('./serpapiGoogleLocal');
 
 /** @param {Record<string, string>|null|undefined} [resolvedEnv] workspace-resolved env */
 function apifyConfigured(resolvedEnv) {
@@ -27,6 +28,8 @@ function buildSourceCards(live = {}, resolvedEnv) {
   const fc = firecrawlConfigured(resolvedEnv);
   const c4 = crawl4ai.isConfigured(resolvedEnv);
   const os = outscraper.isConfigured(resolvedEnv);
+  const searchapi = searchapiGoogleLocal.isConfigured(resolvedEnv);
+  const serpapi = serpapiGoogleLocal.isConfigured(resolvedEnv);
 
   return [
     {
@@ -37,8 +40,8 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: apify,
       live: null,
       tip: apify
-        ? 'Find Leads uses Outscraper first when OUTSCRAPER_API_KEY is set; Apify runs if Outscraper errors or returns no rows. Set SEARCH_MAPS_PRIMARY=apify to skip Outscraper.'
-        : 'Set APIFY_API_TOKEN (and optionally OUTSCRAPER_API_KEY) to run lead searches from Find Leads.',
+        ? 'Auto mode order: RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify. Override with SEARCH_MAPS_PRIMARY.'
+        : 'Set APIFY_API_TOKEN (and optionally other Maps keys) to run lead searches from Find Leads.',
     },
     {
       id: 'firecrawl',
@@ -85,6 +88,17 @@ function buildSourceCards(live = {}, resolvedEnv) {
         : 'Set SEARCHAPI_API_KEY from SearchAPI.io to enable Google Local as a Maps list source.',
     },
     {
+      id: 'serpapi',
+      name: 'SerpAPI (Google Local)',
+      role: 'Find Leads — Google Local via SerpAPI.',
+      cost: 'Per SerpAPI searches/month.',
+      configured: serpapi,
+      live: null,
+      tip: serpapi
+        ? 'Runs after SearchAPI.io in Auto mode when SERPAPI_API_KEY is set. Force with SEARCH_MAPS_PRIMARY=serpapi.'
+        : 'Set SERPAPI_API_KEY from serpapi.com for Google Local as a Maps list source.',
+    },
+    {
       id: 'leadsgorilla',
       name: 'LeadsGorilla',
       href: 'https://app.leadsgorilla.io/',
@@ -104,10 +118,10 @@ function buildTaskRows() {
     {
       task: 'Build a territory list from Google Maps',
       startCheap:
-        'Compare SearchAPI.io vs Outscraper vs Apify unit price for the same query; keep keys you like and run small test batches.',
+        'Compare SearchAPI.io vs SerpAPI vs Outscraper vs Apify unit price for the same query; keep keys you like and run small test batches.',
       keepPaid:
         'If you need the least ops friction, Apify (already integrated on Find Leads) stays the fastest path.',
-      inApp: 'Find Leads: RapidAPI → SearchAPI.io → Outscraper → Apify in Auto (workspace keys or env). Workspace → API integrations applies the same keys to all members.',
+      inApp: 'Find Leads: RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto (workspace keys or env). Workspace → API integrations applies the same keys to all members.',
     },
     {
       task: 'Deep website audit + structured fields on a lead',
@@ -133,7 +147,7 @@ function getDashboardPayload(live = {}, resolvedEnv) {
     sources: buildSourceCards(live, resolvedEnv),
     tasks: buildTaskRows(),
     principle:
-      'Cheaper lanes stack on top of what you already have: Maps search can try Outscraper first, then Apify; Enhance can try Crawl4AI HTML before Firecrawl. Keep paid tools when they save time or unblock quality.',
+      'Cheaper lanes stack on top of what you already have: Maps search can chain RapidAPI, SearchAPI.io, SerpAPI, Outscraper, then Apify; Enhance can try Crawl4AI HTML before Firecrawl. Keep paid tools when they save time or unblock quality.',
   };
 }
 
