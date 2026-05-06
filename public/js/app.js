@@ -2024,6 +2024,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return s;
   }
 
+  /** Pretty-print NANP-style numbers for the panel; keep `dataset.phone` as raw digits for click-to-call. */
+  function formatLeadPanelPhoneDisplay(raw) {
+    const d = String(raw || '').replace(/\D/g, '');
+    if (d.length === 10) return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+    if (d.length === 11 && d[0] === '1') return `(${d.slice(1, 4)}) ${d.slice(4, 7)}-${d.slice(7)}`;
+    const s = String(raw || '').trim();
+    return s || '';
+  }
+
   function readPipelineRowDisplayPhone(row) {
     if (!row || !row.dataset) return '';
     let p = String(row.dataset.phone || '').trim();
@@ -2103,10 +2112,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const lk = row.dataset.leadKey || '';
     if (phoneA) {
       if (phone) {
-        phoneA.textContent = phone;
+        phoneA.textContent = formatLeadPanelPhoneDisplay(phone);
         phoneA.href = '#';
         phoneA.classList.add('js-click-to-call-number');
-        phoneA.dataset.phone = phone;
+        phoneA.dataset.phone = phone.trim();
         if (lk) phoneA.dataset.leadKey = lk;
         phoneA.classList.remove('opacity-40', 'pointer-events-none');
       } else {
@@ -2691,8 +2700,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const chipHref = gmListing || mapsUrl || '';
 
     const hrefOpen = chipHref || mapsUrl || '';
-    const heroCard = document.getElementById('leadPanelHeroCard');
-    if (heroCard) heroCard.classList.toggle('lead-panel-hero-map', !!hrefOpen);
+    const mapStripWrap = document.getElementById('leadPanelMapStripWrap');
+    if (mapStripWrap) {
+      mapStripWrap.classList.toggle('lead-panel-hero-map', !!hrefOpen);
+      mapStripWrap.classList.toggle('hidden', !hrefOpen);
+    }
 
     const heroLink = document.getElementById('leadPanelHeroBackdropLink');
     const heroImg = document.getElementById('leadPanelHeroBackdropImg');
@@ -2700,8 +2712,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const heroFallback = document.getElementById('leadPanelHeroBackdropFallback');
     let headerMapBannerActive = false;
 
-    const googleHeroEmbedUrl = (query) =>
-      `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed&iwloc=near`;
+    /** Matches Focus page embed behavior; Embed API when key is configured (enable Maps Embed API on the key). */
+    const heroEmbedSrcForQuery = (centerQuery) => {
+      const q = encodeURIComponent(centerQuery);
+      if (mapKey) {
+        return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(mapKey)}&q=${q}&zoom=15&maptype=roadmap`;
+      }
+      return `https://www.google.com/maps?q=${q}&hl=en&z=15&output=embed`;
+    };
 
     if (heroLink && heroImg && heroFallback && heroEmbed) {
       heroImg.onload = null;
@@ -2735,7 +2753,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (!center) return false;
           heroImg.classList.add('hidden');
           heroImg.removeAttribute('src');
-          heroEmbed.src = googleHeroEmbedUrl(center);
+          heroEmbed.src = heroEmbedSrcForQuery(center);
           heroEmbed.title = address
             ? `Map · ${address.slice(0, 100)}`
             : title
@@ -3179,7 +3197,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (headerPhone) {
       if (phone) {
-        headerPhone.textContent = phone;
+        headerPhone.textContent = formatLeadPanelPhoneDisplay(phone);
         headerPhone.classList.remove('opacity-40');
       } else {
         headerPhone.textContent = '—';
