@@ -843,3 +843,16 @@ table {
 #leadPanelHeroBackdropEmbed:not(.hidden) {
     opacity: 1;
 }
+
+/* Embedded iframe maps: don't paint a heavy slate wash on top of blank iframe chrome */
+#leadPanelMapStripWrap.lead-panel-map-embed-mode.lead-panel-hero-map #leadPanelHeroBackdropTint {
+    background: transparent !important;
+}
+
+.dark #leadPanelMapStripWrap.lead-panel-map-embed-mode.lead-panel-hero-map #leadPanelHeroBackdropTint {
+    background: rgba(15, 23, 42, 0.28) !important;
+}
+
+.lead-panel-sticky-phone {
+    font-variant-numeric: tabular-nums;
+}

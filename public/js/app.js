@@ -2701,6 +2701,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const hrefOpen = chipHref || mapsUrl || '';
     const mapStripWrap = document.getElementById('leadPanelMapStripWrap');
+    const setLeadPanelMapEmbedMode = (on) => {
+      if (!mapStripWrap) return;
+      mapStripWrap.classList.toggle('lead-panel-map-embed-mode', !!on);
+    };
     if (mapStripWrap) {
       mapStripWrap.classList.toggle('lead-panel-hero-map', !!hrefOpen);
       mapStripWrap.classList.toggle('hidden', !hrefOpen);
@@ -2718,10 +2722,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (mapKey) {
         return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(mapKey)}&q=${q}&zoom=15&maptype=roadmap`;
       }
-      return `https://www.google.com/maps?q=${q}&hl=en&z=15&output=embed`;
+      return `https://maps.google.com/maps?q=${q}&hl=en&z=15&output=embed`;
     };
 
     if (heroLink && heroImg && heroFallback && heroEmbed) {
+      setLeadPanelMapEmbedMode(false);
       heroImg.onload = null;
       heroImg.onerror = null;
       heroImg.removeAttribute('src');
@@ -2741,6 +2746,7 @@ document.addEventListener('DOMContentLoaded', () => {
         heroLink.classList.remove('pointer-events-none');
 
         const showHeroPinFallback = () => {
+          setLeadPanelMapEmbedMode(false);
           heroImg.classList.add('hidden');
           heroImg.removeAttribute('src');
           heroEmbed.removeAttribute('src');
@@ -2760,6 +2766,7 @@ document.addEventListener('DOMContentLoaded', () => {
               ? `Location · ${title}`
               : 'Business location';
           heroEmbed.classList.remove('hidden');
+          setLeadPanelMapEmbedMode(true);
           heroFallback.classList.add('hidden');
           heroFallback.classList.remove('flex', 'flex-col');
           return true;
@@ -2768,6 +2775,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mapKey && center) {
           const heroMapUrl = buildGoogleStaticMapUrl(center, mapKey, 640, 320);
           heroImg.onload = () => {
+            setLeadPanelMapEmbedMode(false);
             heroImg.classList.remove('hidden');
             heroEmbed.removeAttribute('src');
             heroEmbed.classList.add('hidden');
