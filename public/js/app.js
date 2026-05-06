@@ -885,20 +885,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function openLeadPanelPostDrawer() {
-    const d = document.getElementById('leadPanelPostDrawer');
-    const btn = document.getElementById('leadPanelPostDrawerToggle');
-    const ch = document.getElementById('leadPanelPostDrawerChevron');
-    if (d) d.classList.add('lead-panel-post-drawer--open');
+  function openLeadPanelComposer() {
+    const d = document.getElementById('leadPanelComposerDrawer');
+    const btn = document.getElementById('leadPanelComposerToggle');
+    const ch = document.getElementById('leadPanelComposerChevron');
+    if (d) d.classList.add('lead-panel-composer-drawer--open');
     if (btn) btn.setAttribute('aria-expanded', 'true');
     if (ch) ch.style.transform = 'rotate(180deg)';
   }
 
-  function closeLeadPanelPostDrawer() {
-    const d = document.getElementById('leadPanelPostDrawer');
-    const btn = document.getElementById('leadPanelPostDrawerToggle');
-    const ch = document.getElementById('leadPanelPostDrawerChevron');
-    if (d) d.classList.remove('lead-panel-post-drawer--open');
+  function closeLeadPanelComposer() {
+    const d = document.getElementById('leadPanelComposerDrawer');
+    const btn = document.getElementById('leadPanelComposerToggle');
+    const ch = document.getElementById('leadPanelComposerChevron');
+    if (d) d.classList.remove('lead-panel-composer-drawer--open');
     if (btn) btn.setAttribute('aria-expanded', 'false');
     if (ch) ch.style.transform = '';
   }
@@ -2696,21 +2696,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const stamp = new Date().toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
         const line = `[${stamp}] ${tag}: `;
         const inp = document.getElementById('noteInput');
-        openLeadPanelPostDrawer();
+        openLeadPanelComposer();
         if (inp) inp.value = `${line}${inp.value || ''}`.trimStart();
         inp && inp.focus();
       });
     });
 
-    const leadPostDrawerToggle = document.getElementById('leadPanelPostDrawerToggle');
-    const leadPostDrawer = document.getElementById('leadPanelPostDrawer');
-    if (leadPostDrawerToggle && leadPostDrawer && !leadPostDrawerToggle.dataset.adhelloBound) {
-      leadPostDrawerToggle.dataset.adhelloBound = '1';
-      leadPostDrawerToggle.addEventListener('click', () => {
-        if (leadPostDrawer.classList.contains('lead-panel-post-drawer--open')) {
-          closeLeadPanelPostDrawer();
+    const leadComposerToggle = document.getElementById('leadPanelComposerToggle');
+    const leadComposerDrawer = document.getElementById('leadPanelComposerDrawer');
+    if (leadComposerToggle && leadComposerDrawer && !leadComposerToggle.dataset.adhelloBound) {
+      leadComposerToggle.dataset.adhelloBound = '1';
+      leadComposerToggle.addEventListener('click', () => {
+        if (leadComposerDrawer.classList.contains('lead-panel-composer-drawer--open')) {
+          closeLeadPanelComposer();
         } else {
-          openLeadPanelPostDrawer();
+          openLeadPanelComposer();
           const ni = document.getElementById('noteInput');
           if (ni) ni.focus();
         }
@@ -2735,7 +2735,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const raw = leadNotepadScriptOptions[idx].text || '';
         const filled = fillLeadScriptPlaceholdersForNote(raw, currentRow);
-        openLeadPanelPostDrawer();
+        openLeadPanelComposer();
         const cur = String(inp.value || '').trim();
         inp.value = cur ? `${cur}\n\n${filled}` : filled;
         inp.focus();
@@ -2892,22 +2892,6 @@ document.addEventListener('DOMContentLoaded', () => {
     __leadPanelJsControlsBound = true;
     const zIn = document.getElementById('leadPanelMapZoomIn');
     const zOut = document.getElementById('leadPanelMapZoomOut');
-    const searchIn = document.getElementById('leadPanelMapSearch');
-    const searchBtn = document.getElementById('leadPanelMapSearchBtn');
-    const runSearch = () => {
-      const q = searchIn && String(searchIn.value || '').trim();
-      if (!q || !__leadPanelJsGeocoder || !__leadPanelJsMap) return;
-      __leadPanelJsGeocoder.geocode({ address: q }, (results, status) => {
-        if (status !== 'OK' || !results || !results[0]) return;
-        const g = results[0].geometry;
-        if (g.viewport) __leadPanelJsMap.fitBounds(g.viewport);
-        else if (g.location) {
-          __leadPanelJsMap.setCenter(g.location);
-          __leadPanelJsMap.setZoom(15);
-        }
-        resizeLeadPanelJsMapSoon();
-      });
-    };
     if (zIn) {
       zIn.addEventListener('click', () => {
         if (!__leadPanelJsMap) return;
@@ -2920,34 +2904,45 @@ document.addEventListener('DOMContentLoaded', () => {
         __leadPanelJsMap.setZoom(Math.max(4, (__leadPanelJsMap.getZoom() || 12) - 1));
       });
     }
-    if (searchBtn) searchBtn.addEventListener('click', runSearch);
-    if (searchIn) {
-      searchIn.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          runSearch();
-        }
-      });
-    }
   }
 
   function resizeLeadPanelJsMapSoon() {
     if (!__leadPanelJsMap || typeof google === 'undefined' || !google.maps) return;
+    const trigger = () => {
+      try {
+        google.maps.event.trigger(__leadPanelJsMap, 'resize');
+      } catch (_) {}
+    };
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        try {
-          google.maps.event.trigger(__leadPanelJsMap, 'resize');
-        } catch (_) {}
-      });
+      requestAnimationFrame(trigger);
     });
+    [80, 240, 600].forEach((ms) => setTimeout(trigger, ms));
   }
 
-  function syncLeadPanelInteractiveGoogleMap(opts, onFail) {
+  function syncLeadPanelInteractiveGoogleMap(opts, onFail, layoutAttempt) {
     const el = document.getElementById('leadPanelJsMap');
     const openLink = document.getElementById('leadPanelJsMapOpenLink');
     const centerQ = opts && String(opts.center || '').trim();
+    const attempt = typeof layoutAttempt === 'number' ? layoutAttempt : 0;
     if (!el || !centerQ) {
       if (typeof onFail === 'function') onFail();
+      return;
+    }
+    const minPx = 48;
+    const layoutNotReady = el.offsetWidth < minPx || el.offsetHeight < minPx;
+    if (layoutNotReady) {
+      if (attempt === 0) {
+        requestAnimationFrame(() =>
+          syncLeadPanelInteractiveGoogleMap(opts, onFail, 1)
+        );
+      } else if (attempt < 8) {
+        setTimeout(
+          () => syncLeadPanelInteractiveGoogleMap(opts, onFail, attempt + 1),
+          100 + attempt * 40
+        );
+      } else if (typeof onFail === 'function') {
+        onFail();
+      }
       return;
     }
     if (openLink && opts.mapsHref) openLink.href = opts.mapsHref;
@@ -2963,6 +2958,7 @@ document.addEventListener('DOMContentLoaded', () => {
           __leadPanelJsMap = new google.maps.Map(el, {
             zoom: 15,
             center: { lat: 45.5152, lng: -122.6784 },
+            gestureHandling: 'greedy',
             mapTypeControl: true,
             mapTypeControlOptions: {
               position: google.maps.ControlPosition.TOP_RIGHT,
@@ -2976,6 +2972,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           __leadPanelJsGeocoder = new google.maps.Geocoder();
         }
+        resizeLeadPanelJsMapSoon();
         __leadPanelJsGeocoder.geocode({ address: centerQ }, (results, status) => {
           if (status !== 'OK' || !results || !results[0]) {
             if (typeof onFail === 'function') onFail();
@@ -3462,7 +3459,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Populate panel from row data ---
   function populatePanel(row) {
-    closeLeadPanelPostDrawer();
+    closeLeadPanelComposer();
 
     const title = row.dataset.title;
     const phone = readPipelineRowDisplayPhone(row);

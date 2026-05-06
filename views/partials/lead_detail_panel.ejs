@@ -29,29 +29,21 @@
         <section id="leadPanelCallerGlance" class="rounded-[2rem] border border-brand-border/20 dark:border-white/10 shadow-md ring-1 ring-black/[0.04] dark:ring-white/10 overflow-hidden bg-brand-cream/25 dark:bg-slate-800/35">
           <div id="leadPanelMapStripWrap" class="hidden relative w-full shrink-0 border-b border-brand-border/15 dark:border-white/10">
             <!-- Interactive map (Maps JavaScript API — same key as prospecting Step 1 when configured) -->
-            <div id="leadPanelJsMapWrap" class="hidden relative w-full h-[min(280px,42vh)] min-h-[200px] sm:h-[min(320px,45vh)] sm:min-h-[240px] bg-brand-cream/20 dark:bg-slate-900/50">
-              <div id="leadPanelJsMap" class="absolute inset-0 w-full h-full z-0" role="application" aria-label="Lead location map"></div>
-              <div class="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4">
-                <div class="pointer-events-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:max-w-xl">
-                  <div class="rounded-full border border-brand-border/40 dark:border-white/15 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted shadow-sm">
-                    Pan or zoom — opens below for directions
-                  </div>
-                  <label for="leadPanelMapSearch" class="sr-only">Search address on map</label>
-                  <div class="flex flex-1 min-w-0 rounded-2xl border-2 border-brand-dark/20 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg backdrop-blur-sm overflow-hidden focus-within:border-brand-yellow focus-within:ring-2 focus-within:ring-brand-yellow/40">
-                    <input type="search" id="leadPanelMapSearch" autocomplete="off" placeholder="Search neighborhood or refine…" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-2.5 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted focus:outline-none focus:ring-0" />
-                    <button type="button" id="leadPanelMapSearchBtn" class="shrink-0 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest bg-brand-yellow text-brand-dark hover:brightness-105 active:scale-[0.98] transition-all border-l border-brand-dark/10 dark:border-white/10">
-                      Go
-                    </button>
-                  </div>
+            <div id="leadPanelJsMapWrap" class="hidden relative w-full h-[280px] sm:h-[300px] shrink-0 bg-slate-200 dark:bg-slate-950">
+              <!-- Explicit height + corner-only overlays so Maps JS can measure tiles (full-sheet overlays caused blank maps). -->
+              <div id="leadPanelJsMap" class="absolute inset-0 z-0 min-h-[240px]" role="application" aria-label="Lead location map"></div>
+              <div class="pointer-events-none absolute top-3 left-3 z-[1] max-w-[min(100%,18rem)]">
+                <div class="rounded-full border border-brand-border/40 dark:border-white/15 bg-white/92 dark:bg-slate-900/92 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted shadow-md pointer-events-auto">
+                  Pan or zoom
                 </div>
-                <div class="pointer-events-none flex justify-between items-end gap-2 pb-0.5">
-                  <a id="leadPanelJsMapOpenLink" href="#" target="_blank" rel="noopener noreferrer" class="pointer-events-auto inline-flex items-center rounded-full border-2 border-brand-dark/80 dark:border-white/25 bg-white/95 dark:bg-slate-900/95 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white shadow-md hover:border-brand-yellow transition-colors">
-                    Open in Maps
-                  </a>
-                  <div class="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border-2 border-brand-dark/25 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg">
-                    <button type="button" id="leadPanelMapZoomIn" class="flex h-10 w-10 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 border-b border-brand-border/40 dark:border-white/10 transition-colors" aria-label="Zoom in">+</button>
-                    <button type="button" id="leadPanelMapZoomOut" class="flex h-10 w-10 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 transition-colors" aria-label="Zoom out">−</button>
-                  </div>
+              </div>
+              <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[1] flex justify-between items-end gap-2">
+                <a id="leadPanelJsMapOpenLink" href="#" target="_blank" rel="noopener noreferrer" class="pointer-events-auto inline-flex items-center rounded-full border-2 border-brand-dark/80 dark:border-white/25 bg-white/95 dark:bg-slate-900/95 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white shadow-md hover:border-brand-yellow transition-colors">
+                  Open in Maps
+                </a>
+                <div class="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border-2 border-brand-dark/25 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg">
+                  <button type="button" id="leadPanelMapZoomIn" class="flex h-10 w-10 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 border-b border-brand-border/40 dark:border-white/10 transition-colors" aria-label="Zoom in">+</button>
+                  <button type="button" id="leadPanelMapZoomOut" class="flex h-10 w-10 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 transition-colors" aria-label="Zoom out">−</button>
                 </div>
               </div>
             </div>
@@ -673,16 +665,28 @@
       </div><!-- /leadPanelTabScroll -->
 
       <div id="leadPanelNotepad" class="shrink-0 border-t border-brand-border/20 dark:border-white/10 pt-3 mt-2 flex flex-col gap-3 bg-white/98 dark:bg-slate-900/98 backdrop-blur-md pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] rounded-t-2xl sm:rounded-t-[1.75rem] shadow-[0_-10px_40px_-18px_rgba(15,23,42,0.18)] dark:shadow-[0_-12px_48px_-16px_rgba(0,0,0,0.55)] -mx-2 px-2 sm:-mx-1 sm:px-1 relative z-[28]">
-        <!-- Note composer slides open above outreach; outreach stays at bottom of sidebar -->
+        <!-- Bundled: scripts + note/post (tap to expand). Outreach stays below quick log. -->
         <div class="rounded-2xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 overflow-hidden shadow-sm ring-1 ring-black/[0.03] dark:ring-white/5">
-          <button type="button" id="leadPanelPostDrawerToggle" aria-expanded="false" aria-controls="leadPanelPostDrawer" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
-            <span class="text-[10px] font-black uppercase tracking-[0.14em] text-brand-dark dark:text-white">Quick note · Post</span>
-            <svg id="leadPanelPostDrawerChevron" class="w-4 h-4 shrink-0 text-brand-muted transition-transform duration-300 ease-out" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+          <button type="button" id="leadPanelComposerToggle" aria-expanded="false" aria-controls="leadPanelComposerDrawer" class="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-brand-cream/50 dark:hover:bg-slate-800/80 transition-colors">
+            <span class="text-[10px] font-black uppercase tracking-[0.12em] text-brand-dark dark:text-white leading-snug">Note · Scripts · Post</span>
+            <svg id="leadPanelComposerChevron" class="w-4 h-4 shrink-0 text-brand-muted transition-transform duration-300 ease-out" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
           </button>
-          <div id="leadPanelPostDrawer" class="lead-panel-post-drawer border-t border-brand-border/15 dark:border-white/10" role="region" aria-label="Quick note">
-            <div class="flex gap-2 p-2 bg-brand-cream/30 dark:bg-white/5">
-              <input type="text" id="noteInput" placeholder="Add a quick note…" class="flex-1 rounded-xl border border-brand-border/35 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted/40 focus:ring-2 focus:ring-brand-yellow focus:outline-none min-w-0" />
-              <button type="button" id="addNoteBtn" class="bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark rounded-xl px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-transform hover:scale-[0.98] active:scale-95 shrink-0">Post</button>
+          <div id="leadPanelComposerDrawer" class="lead-panel-composer-drawer border-t border-brand-border/15 dark:border-white/10" role="region" aria-label="Note and scripts">
+            <div class="p-3 space-y-3 bg-brand-cream/25 dark:bg-white/[0.03]">
+              <div class="space-y-1.5">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                  <label for="leadNotepadScriptSelect" class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500">Scripts</label>
+                  <a href="/sales/personas" target="_blank" rel="noopener noreferrer" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Edit scripts ↗</a>
+                </div>
+                <select id="leadNotepadScriptSelect" aria-describedby="leadNotepadScriptHint" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-[11px] font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow">
+                  <option value="">Choose script…</option>
+                </select>
+                <p id="leadNotepadScriptHint" class="text-[9px] font-semibold text-brand-muted dark:text-slate-500 leading-snug">Inserts into the note field — edit, then Post.</p>
+              </div>
+              <div class="flex gap-2 pt-0.5 border-t border-brand-border/15 dark:border-white/10">
+                <input type="text" id="noteInput" placeholder="Add a quick note…" class="flex-1 rounded-xl border border-brand-border/35 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white placeholder:text-brand-muted/40 focus:ring-2 focus:ring-brand-yellow focus:outline-none min-w-0" />
+                <button type="button" id="addNoteBtn" class="bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark rounded-xl px-5 py-2.5 text-xs font-black uppercase tracking-widest transition-transform hover:scale-[0.98] active:scale-95 shrink-0">Post</button>
+              </div>
             </div>
           </div>
         </div>
@@ -697,19 +701,6 @@
             <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="DM connected">DM connected</button>
             <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Send info">Send info</button>
           </div>
-        </div>
-
-        <div class="flex flex-col gap-2 px-0.5">
-          <div class="flex flex-wrap items-end gap-2">
-            <div class="flex-1 min-w-[min(100%,14rem)] flex flex-col gap-1">
-              <label for="leadNotepadScriptSelect" class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500">Scripts</label>
-              <select id="leadNotepadScriptSelect" aria-describedby="leadNotepadScriptHint" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800 px-3 py-2.5 text-[11px] font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow">
-                <option value="">Choose script…</option>
-              </select>
-            </div>
-            <a href="/sales/personas" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center rounded-xl border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:border-brand-yellow/60 transition-colors whitespace-nowrap shrink-0">Edit scripts</a>
-          </div>
-          <p id="leadNotepadScriptHint" class="text-[9px] font-semibold text-brand-muted dark:text-slate-500 leading-snug">Pick a line to drop into your note, then open Quick note above and tap Post.</p>
         </div>
 
         <div class="space-y-2 pt-2 mt-auto border-t border-brand-border/20 dark:border-white/10">

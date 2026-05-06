@@ -868,8 +868,8 @@ table {
     border-color: rgba(255, 255, 255, 0.08);
 }
 
-/* Lead panel: quick note drawer — collapsed by default, expands above outreach strip */
-#leadPanelPostDrawer.lead-panel-post-drawer {
+/* Lead panel: bundled note + scripts drawer — collapsed by default */
+#leadPanelComposerDrawer.lead-panel-composer-drawer {
     max-height: 0;
     opacity: 0;
     transition:
@@ -878,12 +878,12 @@ table {
     overflow: hidden;
     pointer-events: none;
 }
-#leadPanelPostDrawer.lead-panel-post-drawer.lead-panel-post-drawer--open {
-    max-height: 200px;
+#leadPanelComposerDrawer.lead-panel-composer-drawer.lead-panel-composer-drawer--open {
+    max-height: 380px;
     opacity: 1;
     pointer-events: auto;
 }
-#leadPanelPostDrawerChevron {
+#leadPanelComposerChevron {
     transform-origin: center;
     transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
 }
