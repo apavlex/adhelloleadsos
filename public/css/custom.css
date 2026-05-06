@@ -867,3 +867,23 @@ table {
 .dark #leadPanelMapStripWrap.lead-panel-js-map-mode {
     border-color: rgba(255, 255, 255, 0.08);
 }
+
+/* Lead panel: quick note drawer — collapsed by default, expands above outreach strip */
+#leadPanelPostDrawer.lead-panel-post-drawer {
+    max-height: 0;
+    opacity: 0;
+    transition:
+        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
+        opacity 0.22s ease;
+    overflow: hidden;
+    pointer-events: none;
+}
+#leadPanelPostDrawer.lead-panel-post-drawer.lead-panel-post-drawer--open {
+    max-height: 200px;
+    opacity: 1;
+    pointer-events: auto;
+}
+#leadPanelPostDrawerChevron {
+    transform-origin: center;
+    transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+}

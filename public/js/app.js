@@ -796,6 +796,113 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentRow = null;
   let currentIndex = -1;
 
+  /** Workspace SMS-style scripts → quick-log note (declared early — populatePanel may run before later callbacks execute). */
+  let leadNotepadScriptOptions = [];
+
+  function fillLeadScriptPlaceholdersForNote(text, row) {
+    if (!text) return '';
+    const title = String((row && row.dataset && row.dataset.title) || '').trim();
+    const city = String((row && row.dataset && row.dataset.city) || '').trim();
+    const storedOwner = String((row && row.dataset && row.dataset.ownerFirstName) || '').trim();
+    const ownerInp = document.getElementById('leadPanelOwnerFirstName');
+    const typedOwner = ownerInp ? String(ownerInp.value || '').trim() : '';
+    const ownerTok = (typedOwner || storedOwner).split(/\s+/)[0] || '';
+    let t = String(text);
+    t = t.replace(/\{\{company\}\}/gi, title || 'your business');
+    t = t.replace(/\{\{name\}\}/gi, ownerTok || title || 'there');
+    t = t.replace(/\{\{city\}\}/gi, city || 'your area');
+    return t;
+  }
+
+  function defaultLeadNotepadScriptFallback(row) {
+    const biz = String((row && row.dataset && row.dataset.title) || 'there').trim();
+    return [
+      {
+        id: 'fallback',
+        label: 'Short outreach',
+        text: `Hi ${biz} team — [your name] here. Had a quick thought on your local visibility; open to two minutes when you're between jobs?`,
+      },
+    ];
+  }
+
+  function normalizeLeadKeyForScriptsFetch(raw) {
+    const k = String(raw || '').trim();
+    if (!k) return '';
+    return k.replace(/^lead:/i, '').trim();
+  }
+
+  async function syncLeadNotepadScripts(row) {
+    const sel = document.getElementById('leadNotepadScriptSelect');
+    if (!sel) return;
+
+    const applyOptions = (opts, placeholderLabel) => {
+      leadNotepadScriptOptions = Array.isArray(opts) ? opts : [];
+      sel.innerHTML = '';
+      const ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = placeholderLabel || 'Choose script…';
+      sel.appendChild(ph);
+      leadNotepadScriptOptions.forEach((opt, idx) => {
+        const o = document.createElement('option');
+        o.value = String(idx);
+        o.textContent = opt.label || `Script ${idx + 1}`;
+        sel.appendChild(o);
+      });
+      sel.value = '';
+    };
+
+    sel.disabled = true;
+    sel.innerHTML = '<option value="">Loading scripts…</option>';
+    leadNotepadScriptOptions = [];
+
+    try {
+      const leadKeyRaw =
+        row && row.dataset ? String(row.dataset.leadKey || '').trim() : '';
+      const leadKey = normalizeLeadKeyForScriptsFetch(leadKeyRaw);
+
+      if (leadKey) {
+        const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-script-options`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin',
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'scripts');
+        const opts = Array.isArray(data.options) ? data.options : [];
+        if (!opts.length) {
+          applyOptions(defaultLeadNotepadScriptFallback(row), 'Choose script…');
+        } else {
+          applyOptions(opts, 'Choose script…');
+        }
+      } else {
+        applyOptions(defaultLeadNotepadScriptFallback(row), 'Choose script…');
+      }
+    } catch (err) {
+      console.warn('[Lead panel] Script options:', err && err.message ? err.message : err);
+      applyOptions(defaultLeadNotepadScriptFallback(row), 'Choose script…');
+    } finally {
+      sel.disabled = false;
+    }
+  }
+
+  function openLeadPanelPostDrawer() {
+    const d = document.getElementById('leadPanelPostDrawer');
+    const btn = document.getElementById('leadPanelPostDrawerToggle');
+    const ch = document.getElementById('leadPanelPostDrawerChevron');
+    if (d) d.classList.add('lead-panel-post-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (ch) ch.style.transform = 'rotate(180deg)';
+  }
+
+  function closeLeadPanelPostDrawer() {
+    const d = document.getElementById('leadPanelPostDrawer');
+    const btn = document.getElementById('leadPanelPostDrawerToggle');
+    const ch = document.getElementById('leadPanelPostDrawerChevron');
+    if (d) d.classList.remove('lead-panel-post-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (ch) ch.style.transform = '';
+  }
+
   // Determine page type
   const isLeadsPage = !!document.getElementById('mobilePanelRemoveBtn');
   const isResultsPage = !!document.getElementById('mobilePanelSaveBtn');
@@ -2589,10 +2696,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const stamp = new Date().toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
         const line = `[${stamp}] ${tag}: `;
         const inp = document.getElementById('noteInput');
+        openLeadPanelPostDrawer();
         if (inp) inp.value = `${line}${inp.value || ''}`.trimStart();
         inp && inp.focus();
       });
     });
+
+    const leadPostDrawerToggle = document.getElementById('leadPanelPostDrawerToggle');
+    const leadPostDrawer = document.getElementById('leadPanelPostDrawer');
+    if (leadPostDrawerToggle && leadPostDrawer && !leadPostDrawerToggle.dataset.adhelloBound) {
+      leadPostDrawerToggle.dataset.adhelloBound = '1';
+      leadPostDrawerToggle.addEventListener('click', () => {
+        if (leadPostDrawer.classList.contains('lead-panel-post-drawer--open')) {
+          closeLeadPanelPostDrawer();
+        } else {
+          openLeadPanelPostDrawer();
+          const ni = document.getElementById('noteInput');
+          if (ni) ni.focus();
+        }
+      });
+    }
 
     const leadNotepadScriptSelect = document.getElementById('leadNotepadScriptSelect');
     if (leadNotepadScriptSelect && !leadNotepadScriptSelect.dataset.adhelloBound) {
@@ -2612,6 +2735,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const raw = leadNotepadScriptOptions[idx].text || '';
         const filled = fillLeadScriptPlaceholdersForNote(raw, currentRow);
+        openLeadPanelPostDrawer();
         const cur = String(inp.value || '').trim();
         inp.value = cur ? `${cur}\n\n${filled}` : filled;
         inp.focus();
@@ -3336,86 +3460,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  /** Workspace SMS-style scripts → quick-log note (same API as SMS modal). */
-  let leadNotepadScriptOptions = [];
-
-  function fillLeadScriptPlaceholdersForNote(text, row) {
-    if (!text) return '';
-    const title = String((row && row.dataset && row.dataset.title) || '').trim();
-    const city = String((row && row.dataset && row.dataset.city) || '').trim();
-    const storedOwner = String((row && row.dataset && row.dataset.ownerFirstName) || '').trim();
-    const ownerInp = document.getElementById('leadPanelOwnerFirstName');
-    const typedOwner = ownerInp ? String(ownerInp.value || '').trim() : '';
-    const ownerTok = (typedOwner || storedOwner).split(/\s+/)[0] || '';
-    let t = String(text);
-    t = t.replace(/\{\{company\}\}/gi, title || 'your business');
-    t = t.replace(/\{\{name\}\}/gi, ownerTok || title || 'there');
-    t = t.replace(/\{\{city\}\}/gi, city || 'your area');
-    return t;
-  }
-
-  function defaultLeadNotepadScriptFallback(row) {
-    const biz = String((row && row.dataset && row.dataset.title) || 'there').trim();
-    return [
-      {
-        id: 'fallback',
-        label: 'Short outreach',
-        text: `Hi ${biz} team — [your name] here. Had a quick thought on your local visibility; open to two minutes when you're between jobs?`,
-      },
-    ];
-  }
-
-  async function syncLeadNotepadScripts(row) {
-    const sel = document.getElementById('leadNotepadScriptSelect');
-    if (!sel) return;
-
-    const leadKey =
-      row && row.dataset ? String(row.dataset.leadKey || '').trim() : '';
-    sel.disabled = true;
-    sel.innerHTML = '<option value="">Scripts — loading…</option>';
-    leadNotepadScriptOptions = [];
-
-    const applyOptions = (opts, placeholderLabel) => {
-      leadNotepadScriptOptions = Array.isArray(opts) ? opts : [];
-      sel.innerHTML = '';
-      const ph = document.createElement('option');
-      ph.value = '';
-      ph.textContent = placeholderLabel || 'Insert script…';
-      sel.appendChild(ph);
-      leadNotepadScriptOptions.forEach((opt, idx) => {
-        const o = document.createElement('option');
-        o.value = String(idx);
-        o.textContent = opt.label || `Script ${idx + 1}`;
-        sel.appendChild(o);
-      });
-      sel.value = '';
-      sel.disabled = false;
-    };
-
-    try {
-      if (leadKey) {
-        const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-script-options`, {
-          method: 'GET',
-          headers: { Accept: 'application/json' },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) throw new Error((data && data.error) || 'scripts');
-        const opts = Array.isArray(data.options) ? data.options : [];
-        if (!opts.length) {
-          applyOptions(defaultLeadNotepadScriptFallback(row), 'Insert script…');
-          return;
-        }
-        applyOptions(opts, 'Insert script…');
-        return;
-      }
-      applyOptions(defaultLeadNotepadScriptFallback(row), 'Insert script…');
-    } catch (_) {
-      applyOptions(defaultLeadNotepadScriptFallback(row), 'Insert script…');
-    }
-  }
-
   // --- Populate panel from row data ---
   function populatePanel(row) {
+    closeLeadPanelPostDrawer();
+
     const title = row.dataset.title;
     const phone = readPipelineRowDisplayPhone(row);
     const website = row.dataset.website;
@@ -3544,7 +3592,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     syncMobilePanelCqi(row);
 
-    syncLeadNotepadScripts(row).catch(() => {});
+    syncLeadNotepadScripts(row).catch((err) => {
+      console.warn('[Lead panel] syncLeadNotepadScripts failed:', err);
+      const sel = document.getElementById('leadNotepadScriptSelect');
+      if (!sel || !currentRow) return;
+      try {
+        sel.disabled = false;
+        sel.innerHTML = '';
+        const ph = document.createElement('option');
+        ph.value = '';
+        ph.textContent = 'Choose script…';
+        sel.appendChild(ph);
+        leadNotepadScriptOptions = defaultLeadNotepadScriptFallback(currentRow);
+        leadNotepadScriptOptions.forEach((opt, idx) => {
+          const o = document.createElement('option');
+          o.value = String(idx);
+          o.textContent = opt.label || `Script ${idx + 1}`;
+          sel.appendChild(o);
+        });
+      } catch (_) {}
+    });
 
     const resolveGoogleBusinessProfileUrlFromRow = (r) =>
       resolveGoogleMapsSocialHref(
