@@ -1460,7 +1460,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const panelScroll = document.getElementById('leadPanelTabScroll');
     const stickyTitle = document.getElementById('stickyPanelTitle');
     if (panelScroll && stickyTitle) {
-      const STICKY_THRESHOLD = 96;
+      const STICKY_THRESHOLD = 200;
       panelScroll.addEventListener(
         'scroll',
         () => {
@@ -2594,6 +2594,31 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
+    const leadNotepadScriptSelect = document.getElementById('leadNotepadScriptSelect');
+    if (leadNotepadScriptSelect && !leadNotepadScriptSelect.dataset.adhelloBound) {
+      leadNotepadScriptSelect.dataset.adhelloBound = '1';
+      leadNotepadScriptSelect.addEventListener('change', () => {
+        const idx = parseInt(leadNotepadScriptSelect.value, 10);
+        const inp = document.getElementById('noteInput');
+        if (
+          !Number.isFinite(idx) ||
+          idx < 0 ||
+          !leadNotepadScriptOptions[idx] ||
+          !inp ||
+          !currentRow
+        ) {
+          leadNotepadScriptSelect.value = '';
+          return;
+        }
+        const raw = leadNotepadScriptOptions[idx].text || '';
+        const filled = fillLeadScriptPlaceholdersForNote(raw, currentRow);
+        const cur = String(inp.value || '').trim();
+        inp.value = cur ? `${cur}\n\n${filled}` : filled;
+        inp.focus();
+        leadNotepadScriptSelect.value = '';
+      });
+    }
+
     const primaryServSel = document.getElementById('leadPanelPrimaryServiceSelect');
     if (primaryServSel && !primaryServSel.dataset.adhelloBound) {
       primaryServSel.dataset.adhelloBound = '1';
@@ -2681,7 +2706,182 @@ document.addEventListener('DOMContentLoaded', () => {
   const GOOGLE_SOCIALS_TABLE_BTN_CLASS =
     'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25 transition-all hover:scale-105';
 
-  function syncLeadPanelWideMapAndGoogleChip(row) {
+  let __leadPanelMapsJsBootLoading = false;
+  function loadAdhelloGoogleMapsJs(cb) {
+    const key =
+      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
+    if (!key) {
+      cb(new Error('no_maps_key'));
+      return;
+    }
+    if (typeof window !== 'undefined' && window.google && window.google.maps) {
+      cb(null);
+      return;
+    }
+    window.__adhelloMapsJsCallbacks = window.__adhelloMapsJsCallbacks || [];
+    window.__adhelloMapsJsCallbacks.push(cb);
+    if (__leadPanelMapsJsBootLoading) return;
+    const existing = document.querySelector('script[data-adhello-google-maps-js-boot]');
+    if (existing) {
+      __leadPanelMapsJsBootLoading = true;
+      return;
+    }
+    __leadPanelMapsJsBootLoading = true;
+    const s = document.createElement('script');
+    s.async = true;
+    s.defer = true;
+    s.setAttribute('data-adhello-google-maps-js-boot', '1');
+    window.__adhelloGoogleMapsJsBoot = function mapsJsBoot() {
+      __leadPanelMapsJsBootLoading = false;
+      const q = window.__adhelloMapsJsCallbacks || [];
+      window.__adhelloMapsJsCallbacks = [];
+      q.forEach((fn) => {
+        try {
+          fn(null);
+        } catch (e) {
+          console.warn('[Google Maps JS]', e);
+        }
+      });
+      try {
+        delete window.__adhelloGoogleMapsJsBoot;
+      } catch (_) {
+        window.__adhelloGoogleMapsJsBoot = undefined;
+      }
+    };
+    s.onerror = function mapsJsOnErr() {
+      __leadPanelMapsJsBootLoading = false;
+      const q = window.__adhelloMapsJsCallbacks || [];
+      window.__adhelloMapsJsCallbacks = [];
+      q.forEach((fn) => fn(new Error('maps_script_failed')));
+    };
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__adhelloGoogleMapsJsBoot`;
+    document.head.appendChild(s);
+  }
+
+  let __leadPanelJsMap = null;
+  let __leadPanelJsMarker = null;
+  let __leadPanelJsGeocoder = null;
+  let __leadPanelJsControlsBound = false;
+
+  function bindLeadPanelJsMapControlsOnce() {
+    if (__leadPanelJsControlsBound) return;
+    __leadPanelJsControlsBound = true;
+    const zIn = document.getElementById('leadPanelMapZoomIn');
+    const zOut = document.getElementById('leadPanelMapZoomOut');
+    const searchIn = document.getElementById('leadPanelMapSearch');
+    const searchBtn = document.getElementById('leadPanelMapSearchBtn');
+    const runSearch = () => {
+      const q = searchIn && String(searchIn.value || '').trim();
+      if (!q || !__leadPanelJsGeocoder || !__leadPanelJsMap) return;
+      __leadPanelJsGeocoder.geocode({ address: q }, (results, status) => {
+        if (status !== 'OK' || !results || !results[0]) return;
+        const g = results[0].geometry;
+        if (g.viewport) __leadPanelJsMap.fitBounds(g.viewport);
+        else if (g.location) {
+          __leadPanelJsMap.setCenter(g.location);
+          __leadPanelJsMap.setZoom(15);
+        }
+        resizeLeadPanelJsMapSoon();
+      });
+    };
+    if (zIn) {
+      zIn.addEventListener('click', () => {
+        if (!__leadPanelJsMap) return;
+        __leadPanelJsMap.setZoom((__leadPanelJsMap.getZoom() || 12) + 1);
+      });
+    }
+    if (zOut) {
+      zOut.addEventListener('click', () => {
+        if (!__leadPanelJsMap) return;
+        __leadPanelJsMap.setZoom(Math.max(4, (__leadPanelJsMap.getZoom() || 12) - 1));
+      });
+    }
+    if (searchBtn) searchBtn.addEventListener('click', runSearch);
+    if (searchIn) {
+      searchIn.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          runSearch();
+        }
+      });
+    }
+  }
+
+  function resizeLeadPanelJsMapSoon() {
+    if (!__leadPanelJsMap || typeof google === 'undefined' || !google.maps) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        try {
+          google.maps.event.trigger(__leadPanelJsMap, 'resize');
+        } catch (_) {}
+      });
+    });
+  }
+
+  function syncLeadPanelInteractiveGoogleMap(opts, onFail) {
+    const el = document.getElementById('leadPanelJsMap');
+    const openLink = document.getElementById('leadPanelJsMapOpenLink');
+    const centerQ = opts && String(opts.center || '').trim();
+    if (!el || !centerQ) {
+      if (typeof onFail === 'function') onFail();
+      return;
+    }
+    if (openLink && opts.mapsHref) openLink.href = opts.mapsHref;
+    bindLeadPanelJsMapControlsOnce();
+
+    loadAdhelloGoogleMapsJs((err) => {
+      if (err || typeof google === 'undefined' || !google.maps) {
+        if (typeof onFail === 'function') onFail();
+        return;
+      }
+      try {
+        if (!__leadPanelJsMap) {
+          __leadPanelJsMap = new google.maps.Map(el, {
+            zoom: 15,
+            center: { lat: 45.5152, lng: -122.6784 },
+            mapTypeControl: true,
+            mapTypeControlOptions: {
+              position: google.maps.ControlPosition.TOP_RIGHT,
+            },
+            zoomControl: false,
+            streetViewControl: false,
+            fullscreenControl: true,
+            fullscreenControlOptions: {
+              position: google.maps.ControlPosition.TOP_RIGHT,
+            },
+          });
+          __leadPanelJsGeocoder = new google.maps.Geocoder();
+        }
+        __leadPanelJsGeocoder.geocode({ address: centerQ }, (results, status) => {
+          if (status !== 'OK' || !results || !results[0]) {
+            if (typeof onFail === 'function') onFail();
+            return;
+          }
+          const geo = results[0].geometry;
+          const loc = geo.location;
+          if (geo.viewport) __leadPanelJsMap.fitBounds(geo.viewport);
+          else {
+            __leadPanelJsMap.setCenter(loc);
+            __leadPanelJsMap.setZoom(15);
+          }
+          if (__leadPanelJsMarker) __leadPanelJsMarker.setMap(null);
+          __leadPanelJsMarker = new google.maps.Marker({
+            map: __leadPanelJsMap,
+            position: loc,
+            title: opts.title || opts.address || '',
+          });
+          resizeLeadPanelJsMapSoon();
+        });
+      } catch (e) {
+        console.warn('[Lead panel interactive map]', e);
+        if (typeof onFail === 'function') onFail();
+      }
+    });
+  }
+
+  function syncLeadPanelWideMapAndGoogleChip(row, opts) {
+    opts = opts || {};
+    const skipInteractive = !!opts.skipInteractive;
     const mapKey =
       (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
     const title = String(row.dataset.title || '').trim();
@@ -2705,9 +2905,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!mapStripWrap) return;
       mapStripWrap.classList.toggle('lead-panel-map-embed-mode', !!on);
     };
+    const jsMapWrap = document.getElementById('leadPanelJsMapWrap');
+    const heroBackdropEl = document.getElementById('leadPanelHeroBackdrop');
+    const preferJsMap =
+      !skipInteractive && !!(mapKey && hrefOpen && String(center || '').trim());
+
     if (mapStripWrap) {
       mapStripWrap.classList.toggle('lead-panel-hero-map', !!hrefOpen);
       mapStripWrap.classList.toggle('hidden', !hrefOpen);
+      mapStripWrap.classList.toggle('lead-panel-js-map-mode', !!(hrefOpen && preferJsMap));
     }
 
     const heroLink = document.getElementById('leadPanelHeroBackdropLink');
@@ -2726,80 +2932,114 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (heroLink && heroImg && heroFallback && heroEmbed) {
-      setLeadPanelMapEmbedMode(false);
-      heroImg.onload = null;
-      heroImg.onerror = null;
-      heroImg.removeAttribute('src');
-      heroImg.classList.add('hidden');
-      heroEmbed.removeAttribute('src');
-      heroEmbed.classList.add('hidden');
-      heroFallback.classList.add('hidden');
-      heroFallback.classList.remove('flex', 'flex-col');
+      const paintHeroBackdrop = () => {
+        setLeadPanelMapEmbedMode(false);
+        heroImg.onload = null;
+        heroImg.onerror = null;
+        heroImg.removeAttribute('src');
+        heroImg.classList.add('hidden');
+        heroEmbed.removeAttribute('src');
+        heroEmbed.classList.add('hidden');
+        heroFallback.classList.add('hidden');
+        heroFallback.classList.remove('flex', 'flex-col');
 
-      if (!hrefOpen) {
-        heroLink.href = '#';
-        heroLink.classList.add('pointer-events-none');
-        headerMapBannerActive = false;
-      } else {
-        headerMapBannerActive = true;
-        heroLink.href = hrefOpen;
-        heroLink.classList.remove('pointer-events-none');
+        if (!hrefOpen) {
+          heroLink.href = '#';
+          heroLink.classList.add('pointer-events-none');
+          headerMapBannerActive = false;
+        } else {
+          headerMapBannerActive = true;
+          heroLink.href = hrefOpen;
+          heroLink.classList.remove('pointer-events-none');
 
-        const showHeroPinFallback = () => {
-          setLeadPanelMapEmbedMode(false);
-          heroImg.classList.add('hidden');
-          heroImg.removeAttribute('src');
-          heroEmbed.removeAttribute('src');
-          heroEmbed.classList.add('hidden');
-          heroFallback.classList.remove('hidden');
-          heroFallback.classList.add('flex', 'flex-col');
-        };
-
-        const openHeroEmbed = () => {
-          if (!center) return false;
-          heroImg.classList.add('hidden');
-          heroImg.removeAttribute('src');
-          heroEmbed.src = heroEmbedSrcForQuery(center);
-          heroEmbed.title = address
-            ? `Map · ${address.slice(0, 100)}`
-            : title
-              ? `Location · ${title}`
-              : 'Business location';
-          heroEmbed.classList.remove('hidden');
-          setLeadPanelMapEmbedMode(true);
-          heroFallback.classList.add('hidden');
-          heroFallback.classList.remove('flex', 'flex-col');
-          return true;
-        };
-
-        if (mapKey && center) {
-          const heroMapUrl = buildGoogleStaticMapUrl(center, mapKey, 640, 320);
-          heroImg.onload = () => {
+          const showHeroPinFallback = () => {
             setLeadPanelMapEmbedMode(false);
-            heroImg.classList.remove('hidden');
-            heroEmbed.removeAttribute('src');
-            heroEmbed.classList.add('hidden');
-            heroFallback.classList.add('hidden');
-            heroFallback.classList.remove('flex', 'flex-col');
-          };
-          heroImg.onerror = () => {
             heroImg.classList.add('hidden');
             heroImg.removeAttribute('src');
-            if (!openHeroEmbed()) showHeroPinFallback();
+            heroEmbed.removeAttribute('src');
+            heroEmbed.classList.add('hidden');
+            heroFallback.classList.remove('hidden');
+            heroFallback.classList.add('flex', 'flex-col');
           };
-          heroImg.alt = address
-            ? `Map near ${address.slice(0, 120)}`
-            : title
-              ? `Location of ${title}`
-              : 'Location map';
-          requestAnimationFrame(() => {
-            heroImg.src = heroMapUrl;
-          });
-        } else if (openHeroEmbed()) {
-          /* embedded map, no static API key */
-        } else {
-          showHeroPinFallback();
+
+          const openHeroEmbed = () => {
+            if (!center) return false;
+            heroImg.classList.add('hidden');
+            heroImg.removeAttribute('src');
+            heroEmbed.src = heroEmbedSrcForQuery(center);
+            heroEmbed.title = address
+              ? `Map · ${address.slice(0, 100)}`
+              : title
+                ? `Location · ${title}`
+                : 'Business location';
+            heroEmbed.classList.remove('hidden');
+            setLeadPanelMapEmbedMode(true);
+            heroFallback.classList.add('hidden');
+            heroFallback.classList.remove('flex', 'flex-col');
+            return true;
+          };
+
+          if (mapKey && center) {
+            const heroMapUrl = buildGoogleStaticMapUrl(center, mapKey, 640, 320);
+            heroImg.onload = () => {
+              setLeadPanelMapEmbedMode(false);
+              heroImg.classList.remove('hidden');
+              heroEmbed.removeAttribute('src');
+              heroEmbed.classList.add('hidden');
+              heroFallback.classList.add('hidden');
+              heroFallback.classList.remove('flex', 'flex-col');
+            };
+            heroImg.onerror = () => {
+              heroImg.classList.add('hidden');
+              heroImg.removeAttribute('src');
+              if (!openHeroEmbed()) showHeroPinFallback();
+            };
+            heroImg.alt = address
+              ? `Map near ${address.slice(0, 120)}`
+              : title
+                ? `Location of ${title}`
+                : 'Location map';
+            requestAnimationFrame(() => {
+              heroImg.src = heroMapUrl;
+            });
+          } else if (openHeroEmbed()) {
+            /* embedded map, no static API key */
+          } else {
+            showHeroPinFallback();
+          }
         }
+      };
+
+      if (!hrefOpen) {
+        if (jsMapWrap) jsMapWrap.classList.add('hidden');
+        if (heroBackdropEl) heroBackdropEl.classList.add('hidden');
+        paintHeroBackdrop();
+      } else if (preferJsMap) {
+        if (jsMapWrap) jsMapWrap.classList.remove('hidden');
+        if (heroBackdropEl) heroBackdropEl.classList.add('hidden');
+        setLeadPanelMapEmbedMode(false);
+        heroImg.onload = null;
+        heroImg.onerror = null;
+        heroImg.removeAttribute('src');
+        heroImg.classList.add('hidden');
+        heroEmbed.removeAttribute('src');
+        heroEmbed.classList.add('hidden');
+        heroFallback.classList.add('hidden');
+        heroFallback.classList.remove('flex', 'flex-col');
+        heroLink.href = hrefOpen;
+        heroLink.classList.remove('pointer-events-none');
+        headerMapBannerActive = true;
+
+        syncLeadPanelInteractiveGoogleMap(
+          { center, mapsHref: hrefOpen, title, address },
+          () => {
+            syncLeadPanelWideMapAndGoogleChip(row, { skipInteractive: true });
+          }
+        );
+      } else {
+        if (jsMapWrap) jsMapWrap.classList.add('hidden');
+        if (heroBackdropEl) heroBackdropEl.classList.remove('hidden');
+        paintHeroBackdrop();
       }
     }
 
@@ -3096,6 +3336,84 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /** Workspace SMS-style scripts → quick-log note (same API as SMS modal). */
+  let leadNotepadScriptOptions = [];
+
+  function fillLeadScriptPlaceholdersForNote(text, row) {
+    if (!text) return '';
+    const title = String((row && row.dataset && row.dataset.title) || '').trim();
+    const city = String((row && row.dataset && row.dataset.city) || '').trim();
+    const storedOwner = String((row && row.dataset && row.dataset.ownerFirstName) || '').trim();
+    const ownerInp = document.getElementById('leadPanelOwnerFirstName');
+    const typedOwner = ownerInp ? String(ownerInp.value || '').trim() : '';
+    const ownerTok = (typedOwner || storedOwner).split(/\s+/)[0] || '';
+    let t = String(text);
+    t = t.replace(/\{\{company\}\}/gi, title || 'your business');
+    t = t.replace(/\{\{name\}\}/gi, ownerTok || title || 'there');
+    t = t.replace(/\{\{city\}\}/gi, city || 'your area');
+    return t;
+  }
+
+  function defaultLeadNotepadScriptFallback(row) {
+    const biz = String((row && row.dataset && row.dataset.title) || 'there').trim();
+    return [
+      {
+        id: 'fallback',
+        label: 'Short outreach',
+        text: `Hi ${biz} team — [your name] here. Had a quick thought on your local visibility; open to two minutes when you're between jobs?`,
+      },
+    ];
+  }
+
+  async function syncLeadNotepadScripts(row) {
+    const sel = document.getElementById('leadNotepadScriptSelect');
+    if (!sel) return;
+
+    const leadKey =
+      row && row.dataset ? String(row.dataset.leadKey || '').trim() : '';
+    sel.disabled = true;
+    sel.innerHTML = '<option value="">Scripts — loading…</option>';
+    leadNotepadScriptOptions = [];
+
+    const applyOptions = (opts, placeholderLabel) => {
+      leadNotepadScriptOptions = Array.isArray(opts) ? opts : [];
+      sel.innerHTML = '';
+      const ph = document.createElement('option');
+      ph.value = '';
+      ph.textContent = placeholderLabel || 'Insert script…';
+      sel.appendChild(ph);
+      leadNotepadScriptOptions.forEach((opt, idx) => {
+        const o = document.createElement('option');
+        o.value = String(idx);
+        o.textContent = opt.label || `Script ${idx + 1}`;
+        sel.appendChild(o);
+      });
+      sel.value = '';
+      sel.disabled = false;
+    };
+
+    try {
+      if (leadKey) {
+        const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-script-options`, {
+          method: 'GET',
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'scripts');
+        const opts = Array.isArray(data.options) ? data.options : [];
+        if (!opts.length) {
+          applyOptions(defaultLeadNotepadScriptFallback(row), 'Insert script…');
+          return;
+        }
+        applyOptions(opts, 'Insert script…');
+        return;
+      }
+      applyOptions(defaultLeadNotepadScriptFallback(row), 'Insert script…');
+    } catch (_) {
+      applyOptions(defaultLeadNotepadScriptFallback(row), 'Insert script…');
+    }
+  }
+
   // --- Populate panel from row data ---
   function populatePanel(row) {
     const title = row.dataset.title;
@@ -3214,6 +3532,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncLeadPanelWideMapAndGoogleChip(row);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resizeLeadPanelJsMapSoon());
+    });
 
     try {
       populateCadenceSection(row);
@@ -3222,6 +3543,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncMobilePanelCqi(row);
+
+    syncLeadNotepadScripts(row).catch(() => {});
 
     const resolveGoogleBusinessProfileUrlFromRow = (r) =>
       resolveGoogleMapsSocialHref(

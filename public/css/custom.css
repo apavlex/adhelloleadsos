@@ -856,3 +856,14 @@ table {
 .lead-panel-sticky-phone {
     font-variant-numeric: tabular-nums;
 }
+
+/* Lead panel: interactive Maps JS strip (scrolls with tab body) */
+#leadPanelJsMapWrap:not(.hidden) {
+    touch-action: pan-x pan-y pinch-zoom;
+}
+#leadPanelMapStripWrap.lead-panel-js-map-mode {
+    border-color: rgba(148, 163, 184, 0.22);
+}
+.dark #leadPanelMapStripWrap.lead-panel-js-map-mode {
+    border-color: rgba(255, 255, 255, 0.08);
+}
