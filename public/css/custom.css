@@ -809,3 +809,90 @@ table {
     transform: translateY(0);
     pointer-events: auto;
 }
+
+/* ========= Lead detail hero: map tiles + plain panel (Tailwind CDN–safe) ========= */
+#leadPanelHeroBackdropTint {
+    background: linear-gradient(145deg, var(--brand-cream) 0%, #ffffff 48%, var(--brand-cream) 100%);
+}
+.dark #leadPanelHeroBackdropTint {
+    background: linear-gradient(145deg, rgb(15 23 42) 0%, rgb(30 41 59) 52%, rgb(15 23 42) 100%);
+}
+
+#leadPanelHeroCard.lead-panel-hero-map #leadPanelHeroBackdropTint {
+    background: linear-gradient(145deg, rgb(71 85 105), rgb(51 65 85), rgb(30 41 59));
+}
+.dark #leadPanelHeroCard.lead-panel-hero-map #leadPanelHeroBackdropTint {
+    background: linear-gradient(145deg, rgb(15 23 42), rgb(30 41 59), rgb(2 6 23));
+}
+
+.lead-panel-hero-scrim {
+    opacity: 0;
+}
+#leadPanelHeroCard.lead-panel-hero-map .lead-panel-hero-scrim {
+    opacity: 1;
+}
+
+.lead-panel-hero-backdrop-link {
+    display: none !important;
+}
+#leadPanelHeroCard.lead-panel-hero-map .lead-panel-hero-backdrop-link {
+    display: block !important;
+}
+
+.lead-panel-hero-backdrop-img {
+    opacity: 0;
+    transition: opacity 0.35s ease;
+}
+#leadPanelHeroCard.lead-panel-hero-map .lead-panel-hero-backdrop-img:not(.hidden) {
+    opacity: 1;
+}
+
+/* Light-on-dark foreground when map is shown */
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelTitle {
+    color: #fff !important;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), 0 2px 14px rgba(0, 0, 0, 0.28);
+}
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelHeaderAddress {
+    color: rgba(255, 255, 255, 0.92) !important;
+}
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelHeaderPhone {
+    color: #fff !important;
+}
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelRatingText {
+    color: #fff !important;
+}
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelReviewsLink {
+    background: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(8px);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelReviewsLink:hover {
+    background: rgba(255, 255, 255, 0.22);
+}
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelCategory {
+    background: rgba(253, 214, 68, 0.22);
+    border-color: rgba(253, 214, 68, 0.45);
+}
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelCqiPill {
+    background: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.92) !important;
+    border-color: rgba(255, 255, 255, 0.22);
+}
+
+#leadPanelHeroCard.lead-panel-hero-map .lead-panel-hero-icon-well {
+    background: rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.88);
+}
+
+#leadPanelHeroCard.lead-panel-hero-map #mobilePanelMapLink {
+    border-color: rgba(255, 255, 255, 0.42);
+    box-shadow: 0 4px 22px rgba(0, 0, 0, 0.28);
+}
+
+#leadPanelHeroCard.lead-panel-hero-map .lead-panel-hero-fallback-label {
+    color: rgba(255, 255, 255, 0.88) !important;
+}
+
+#leadPanelHeroBackdropEmbed:not(.hidden) {
+    opacity: 1;
+}

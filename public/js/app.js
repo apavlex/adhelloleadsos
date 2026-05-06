@@ -2016,6 +2016,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return a && a !== 'N/A' ? a : '';
   }
 
+  /** Normalize scraped addresses that use hyphens between segments (e.g. "Ave- City- ST"). */
+  function formatLeadPanelAddress(raw) {
+    let s = String(raw || '').trim();
+    if (!s || s === '—' || s === 'N/A') return s;
+    s = s.replace(/\s*-\s*/g, ', ').replace(/,\s*,+/g, ', ').replace(/^,\s*|,\s*$/g, '').trim();
+    return s;
+  }
+
   function readPipelineRowDisplayPhone(row) {
     if (!row || !row.dataset) return '';
     let p = String(row.dataset.phone || '').trim();
@@ -2114,24 +2122,32 @@ document.addEventListener('DOMContentLoaded', () => {
       const pipe = String(row.dataset.pipelineLabel || row.dataset.pipelineStage || '').trim();
       const st = String(row.dataset.status || '').trim();
       const ms = parseInt(row.dataset.lastTouchMs || '', 10);
-      let last = '—';
-      if (ms && Number.isFinite(ms)) {
-        try {
-          last = new Date(ms).toLocaleString(undefined, {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          });
-        } catch (_) {
-          last = '—';
-        }
-      }
       const bits = [];
       if (pipe) bits.push(pipe);
       if (st) bits.push(st);
-      bits.push(`Last activity ${last}`);
-      meta.textContent = bits.join(' · ');
+      if (ms && Number.isFinite(ms)) {
+        try {
+          bits.push(
+            `Last activity ${new Date(ms).toLocaleString(undefined, {
+              month: 'short',
+              day: 'numeric',
+              hour: 'numeric',
+              minute: '2-digit',
+            })}`
+          );
+        } catch (_) {
+          /* skip last activity if date invalid */
+        }
+      }
+      if (!bits.length) {
+        meta.textContent = '';
+        meta.classList.add('hidden');
+        meta.setAttribute('aria-hidden', 'true');
+      } else {
+        meta.textContent = bits.join(' · ');
+        meta.classList.remove('hidden');
+        meta.removeAttribute('aria-hidden');
+      }
     }
     syncLeadPanelLocalTime(row);
     if (typeof window.__adhelloSyncRecordingControls === 'function') {
@@ -2360,16 +2376,36 @@ document.addEventListener('DOMContentLoaded', () => {
       if (/connect|picked up|answered|meeting booked/.test(blob)) connects += 1;
     });
     const ms = parseInt(row.dataset.lastTouchMs || '', 10);
-    let ago = '—';
-    if (ms && Number.isFinite(ms)) {
+    const hasTouchMs = !!(ms && Number.isFinite(ms));
+    let ago = '';
+    if (hasTouchMs) {
       const days = Math.max(0, Math.round((Date.now() - ms) / 86400000));
       ago = days === 0 ? 'today' : days === 1 ? '1 day ago' : `${days} days ago`;
     }
-    el.textContent = `${calls} call-ish touches · ${connects} connect signals · ${total} log lines · last touch ${ago}`;
+    const hasActivityNoise = total > 0 || calls > 0 || connects > 0;
+    if (!hasActivityNoise && !hasTouchMs) {
+      el.textContent = '';
+      el.classList.add('hidden');
+      el.setAttribute('aria-hidden', 'true');
+    } else {
+      const segments = [];
+      if (hasActivityNoise) {
+        segments.push(`${calls} phone touches · ${connects} connect signals · ${total} log lines`);
+      }
+      if (hasTouchMs && ago) segments.push(`Last touch ${ago}`);
+      el.textContent = segments.join(' · ');
+      el.classList.remove('hidden');
+      el.removeAttribute('aria-hidden');
+    }
     const badge = document.getElementById('leadPanelCallCountsBadge');
     if (badge) {
-      badge.textContent = `${calls} dials · ${total} events`;
-      badge.classList.remove('hidden');
+      if (!hasActivityNoise) {
+        badge.textContent = '';
+        badge.classList.add('hidden');
+      } else {
+        badge.textContent = `${calls} dials · ${total} events`;
+        badge.classList.remove('hidden');
+      }
     }
   }
 
@@ -2654,65 +2690,105 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     const chipHref = gmListing || mapsUrl || '';
 
-    const chipRow = document.getElementById('mobilePanelGoogleMapsChipRow');
-    const chip = document.getElementById('mobilePanelGoogleMapsChip');
-    if (chip && chipRow) {
-      if (chipHref) {
-        chip.href = chipHref;
-        chip.innerHTML = `${GOOGLE_BUSINESS_ICON_SVG}<span class="text-[11px] font-bold normal-case tracking-normal text-brand-dark dark:text-slate-200">Google Maps</span>`;
-        chipRow.classList.remove('hidden');
-      } else {
-        chip.innerHTML = '';
-        chip.href = '#';
-        chipRow.classList.add('hidden');
-      }
-    }
+    const hrefOpen = chipHref || mapsUrl || '';
+    const heroCard = document.getElementById('leadPanelHeroCard');
+    if (heroCard) heroCard.classList.toggle('lead-panel-hero-map', !!hrefOpen);
 
-    const bannerWrap = document.getElementById('leadPanelHeaderMapBannerWrap');
-    const bannerLink = document.getElementById('leadPanelHeaderMapBannerLink');
-    const bannerImg = document.getElementById('leadPanelHeaderMapBannerImg');
-    const bannerFallback = document.getElementById('leadPanelHeaderMapBannerFallback');
+    const heroLink = document.getElementById('leadPanelHeroBackdropLink');
+    const heroImg = document.getElementById('leadPanelHeroBackdropImg');
+    const heroEmbed = document.getElementById('leadPanelHeroBackdropEmbed');
+    const heroFallback = document.getElementById('leadPanelHeroBackdropFallback');
     let headerMapBannerActive = false;
-    if (bannerWrap && bannerLink && bannerImg && bannerFallback) {
-      bannerImg.onload = null;
-      bannerImg.onerror = null;
-      bannerImg.removeAttribute('src');
-      bannerImg.classList.add('hidden');
-      bannerFallback.classList.add('hidden');
-      bannerFallback.classList.remove('flex', 'flex-col');
 
-      if (!chipHref && !center) {
-        bannerWrap.classList.add('hidden');
+    const googleHeroEmbedUrl = (query) =>
+      `https://www.google.com/maps?q=${encodeURIComponent(query)}&z=16&output=embed&iwloc=near`;
+
+    if (heroLink && heroImg && heroFallback && heroEmbed) {
+      heroImg.onload = null;
+      heroImg.onerror = null;
+      heroImg.removeAttribute('src');
+      heroImg.classList.add('hidden');
+      heroEmbed.removeAttribute('src');
+      heroEmbed.classList.add('hidden');
+      heroFallback.classList.add('hidden');
+      heroFallback.classList.remove('flex', 'flex-col');
+
+      if (!hrefOpen) {
+        heroLink.href = '#';
+        heroLink.classList.add('pointer-events-none');
+        headerMapBannerActive = false;
       } else {
         headerMapBannerActive = true;
-        bannerLink.href = chipHref || mapsUrl || '#';
-        bannerWrap.classList.remove('hidden');
+        heroLink.href = hrefOpen;
+        heroLink.classList.remove('pointer-events-none');
 
-        const showBannerFallback = () => {
-          bannerImg.classList.add('hidden');
-          bannerFallback.classList.remove('hidden');
-          bannerFallback.classList.add('flex', 'flex-col');
+        const showHeroPinFallback = () => {
+          heroImg.classList.add('hidden');
+          heroImg.removeAttribute('src');
+          heroEmbed.removeAttribute('src');
+          heroEmbed.classList.add('hidden');
+          heroFallback.classList.remove('hidden');
+          heroFallback.classList.add('flex', 'flex-col');
+        };
+
+        const openHeroEmbed = () => {
+          if (!center) return false;
+          heroImg.classList.add('hidden');
+          heroImg.removeAttribute('src');
+          heroEmbed.src = googleHeroEmbedUrl(center);
+          heroEmbed.title = address
+            ? `Map · ${address.slice(0, 100)}`
+            : title
+              ? `Location · ${title}`
+              : 'Business location';
+          heroEmbed.classList.remove('hidden');
+          heroFallback.classList.add('hidden');
+          heroFallback.classList.remove('flex', 'flex-col');
+          return true;
         };
 
         if (mapKey && center) {
-          const bannerUrl = buildGoogleStaticMapUrl(center, mapKey, 640, 160);
-          bannerImg.onload = () => {
-            bannerImg.classList.remove('hidden');
-            bannerFallback.classList.add('hidden');
-            bannerFallback.classList.remove('flex', 'flex-col');
+          const heroMapUrl = buildGoogleStaticMapUrl(center, mapKey, 640, 320);
+          heroImg.onload = () => {
+            heroImg.classList.remove('hidden');
+            heroEmbed.removeAttribute('src');
+            heroEmbed.classList.add('hidden');
+            heroFallback.classList.add('hidden');
+            heroFallback.classList.remove('flex', 'flex-col');
           };
-          bannerImg.onerror = () => showBannerFallback();
-          bannerImg.alt = address
+          heroImg.onerror = () => {
+            heroImg.classList.add('hidden');
+            heroImg.removeAttribute('src');
+            if (!openHeroEmbed()) showHeroPinFallback();
+          };
+          heroImg.alt = address
             ? `Map near ${address.slice(0, 120)}`
             : title
               ? `Location of ${title}`
               : 'Location map';
           requestAnimationFrame(() => {
-            bannerImg.src = bannerUrl;
+            heroImg.src = heroMapUrl;
           });
+        } else if (openHeroEmbed()) {
+          /* embedded map, no static API key */
         } else {
-          showBannerFallback();
+          showHeroPinFallback();
         }
+      }
+    }
+
+    const chipRow = document.getElementById('mobilePanelGoogleMapsChipRow');
+    const chip = document.getElementById('mobilePanelGoogleMapsChip');
+    const hideDuplicateMapsChip = !!(chipHref && hrefOpen && center.trim());
+    if (chip && chipRow) {
+      if (chipHref) {
+        chip.href = chipHref;
+        chip.innerHTML = `${GOOGLE_BUSINESS_ICON_SVG}<span class="text-[11px] font-bold normal-case tracking-normal text-brand-dark dark:text-slate-200">Google Maps</span>`;
+        chipRow.classList.toggle('hidden', hideDuplicateMapsChip);
+      } else {
+        chip.innerHTML = '';
+        chip.href = '#';
+        chipRow.classList.add('hidden');
       }
     }
 
@@ -3099,7 +3175,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const headerSocials = document.getElementById('mobilePanelHeaderSocials');
 
     if (headerAddress) {
-      headerAddress.textContent = address ? address : '—';
+      headerAddress.textContent = address ? formatLeadPanelAddress(address) : '—';
     }
     if (headerPhone) {
       if (phone) {
