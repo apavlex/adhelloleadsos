@@ -1,8 +1,10 @@
 /**
  * Server-side opportunity scoring — aligned with public/js/app.js calculateOpportunityScore.
  * Higher score = more gaps = better prospect for agency / SaaS offers.
+ * Merges Local Client Prospector–style Hot/Warm/Low/Skip via {@link scoreLocalProspect}.
  */
 
+const { scoreLocalProspect } = require('./localProspectScore');
 function hasSocial(val) {
   return !!(val && String(val).trim() && String(val).trim() !== 'N/A');
 }
@@ -108,11 +110,36 @@ function scoreLeadRecord(lead) {
 
   score = Math.min(10, score);
 
-  let tier = 'low';
-  if (score >= 7) tier = 'high';
-  else if (score >= 4) tier = 'medium';
+  const localProspect = scoreLocalProspect(lead);
 
-  return { score, tier, reasons: reasons.slice(0, 8) };
+  let adjusted = score;
+  if (localProspect.prospectTier === 'Skip') {
+    adjusted = Math.min(adjusted, 2);
+  } else if (localProspect.prospectTier === 'Hot') {
+    adjusted = Math.max(adjusted, 7);
+  } else if (localProspect.prospectTier === 'Warm') {
+    adjusted = Math.max(adjusted, 4.5);
+  }
+
+  adjusted = Math.min(10, Math.max(0, adjusted));
+
+  let tierAdj = 'low';
+  if (adjusted >= 7) tierAdj = 'high';
+  else if (adjusted >= 4) tierAdj = 'medium';
+
+  const mergedReasons = [];
+  for (const r of [...localProspect.reasons, ...reasons]) {
+    const s = String(r || '').trim();
+    if (!s) continue;
+    if (!mergedReasons.some((x) => x === s)) mergedReasons.push(s);
+  }
+
+  return {
+    score: adjusted,
+    tier: tierAdj,
+    reasons: mergedReasons.slice(0, 10),
+    localProspect,
+  };
 }
 
 function anchorFromKey(key) {
@@ -234,4 +261,5 @@ module.exports = {
   scoreLeadRecord,
   getLeadsCoachPayload,
   anchorFromKey,
+  scoreLocalProspect,
 };

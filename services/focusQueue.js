@@ -3,6 +3,7 @@
  */
 
 const { scoreLeadRecord } = require('./opportunityScore');
+const { scoreLocalProspect, prospectTierSortRank } = require('./localProspectScore');
 
 function isOverdueCadence(l) {
   const st = l.sequenceState;
@@ -34,8 +35,10 @@ function stage2AgingOver3Days(l) {
 
 function priorityBucket(l) {
   if (isOverdueCadence(l)) return 0;
+  const lp = scoreLocalProspect(l);
+  if (lp.prospectTier === 'Skip') return 5;
   if (stage2AgingOver3Days(l)) return 1;
-  const { tier, score } = scoreLeadRecord(l);
+  const { tier } = scoreLeadRecord(l);
   if (tier === 'high') return 2;
   const ps = parseInt(l.pipelineStage, 10);
   const n = !Number.isNaN(ps) && ps >= 1 && ps <= 10 ? ps : 1;
@@ -44,15 +47,17 @@ function priorityBucket(l) {
 }
 
 function sortKey(l) {
-  const bucket = priorityBucket(l);
+  const lpRank = prospectTierSortRank(scoreLocalProspect(l).prospectTier);
   const { score } = scoreLeadRecord(l);
+  const bucket = priorityBucket(l);
   const last = lastActivityMs(l);
   const due = l.sequenceState && l.sequenceState.nextDueAt ? Date.parse(l.sequenceState.nextDueAt) : 0;
-  if (bucket === 0) return { bucket, a: due, b: -score };
-  if (bucket === 1) return { bucket, a: 0, b: last };
-  if (bucket === 2) return { bucket, a: 0, b: -score };
-  if (bucket === 3) return { bucket, a: 0, b: last };
-  return { bucket, a: 0, b: last };
+  if (bucket === 0) return { bucket, a: due, b: -score, c: lpRank };
+  if (bucket === 1) return { bucket, a: 0, b: last, c: lpRank };
+  if (bucket === 2) return { bucket, a: 0, b: -score, c: lpRank };
+  if (bucket === 3) return { bucket, a: 0, b: last, c: lpRank };
+  if (bucket === 5) return { bucket, a: 0, b: 0, c: lpRank };
+  return { bucket, a: 0, b: last, c: lpRank };
 }
 
 /**
@@ -67,6 +72,7 @@ function buildFocusQueue(leads, cap = 200) {
     const sy = sortKey(y);
     if (sx.bucket !== sy.bucket) return sx.bucket - sy.bucket;
     if (sx.a !== sy.a) return sx.a - sy.a;
+    if (sx.c !== sy.c) return sx.c - sy.c;
     return sx.b - sy.b;
   });
   return list.slice(0, cap);

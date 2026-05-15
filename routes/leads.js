@@ -1726,6 +1726,7 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
       cmsPlatform: lead.cmsPlatform,
       gapTier: scored.tier,
       gapReasons: scored.reasons,
+      localProspect: scored.localProspect,
     };
 
     let prompt = '';
@@ -2232,7 +2233,8 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
       'Site health (0-100)','AI audit gap (0-10)','Signal','Primary emails (filtered)','Phones Found','Page Title','Meta Description','Has HTTPS',
       'Page Load Seconds','Mobile Responsive','Copyright Year','Signals','Flag 404','Flag Slow (>5s)','Flag No SSL',
       'Audit rubric','Audited at','Prior site health (0-100)','Prior audited at',
-      'Google Place ID','Latitude','Longitude'
+      'Google Place ID','Latitude','Longitude',
+      'Local prospect (Hot/Warm/Low/Skip)','Website status','Prospect confidence','Why prospect',
     ];
     for (const rawKey of keys) {
       const fullKey = String(rawKey || '').startsWith('lead:') ? String(rawKey) : `lead:${String(rawKey || '')}`;
@@ -2270,6 +2272,8 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
       }
       const primaryEmailCsv = websiteAiAnalysis.pickPrimaryEmail(analysis.emails || []);
       const priorSnap = analysis.priorAuditSnapshot || null;
+      const leadForProspect = { ...lead, aiWebsiteAnalysis: analysis };
+      const lp = scoreLeadRecord(leadForProspect).localProspect;
       rows.push([
         lead.title || '',
         lead.categoryName || '',
@@ -2304,6 +2308,10 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
         lead.placeId || '',
         lead.latitude || '',
         lead.longitude || '',
+        lp.prospectTier || '',
+        lp.websiteStatusLabel || '',
+        lp.confidence || '',
+        lp.why || '',
       ]);
     }
     const escapeCsv = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;

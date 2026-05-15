@@ -81,7 +81,8 @@ function buildTodayContactQueue(leads, baseUrl, max = 20) {
   const cap = Math.min(Math.max(5, max), 50);
 
   return ordered.slice(0, cap).map((lead) => {
-    const { tier, score } = scoreLeadRecord(lead);
+    const scored = scoreLeadRecord(lead);
+    const { tier, score, localProspect } = scored;
     const cadence = nextCadencePresentation(lead, baseUrl);
     const short = shortLeadKey(lead);
     return {
@@ -94,6 +95,10 @@ function buildTodayContactQueue(leads, baseUrl, max = 20) {
       email: lead.email && lead.email !== 'N/A' ? lead.email : '',
       opportunityTier: tier,
       opportunityScore: score,
+      prospectTier: localProspect.prospectTier,
+      websiteStatusLabel: localProspect.websiteStatusLabel,
+      prospectConfidence: localProspect.confidence,
+      prospectWhy: localProspect.why,
       cadence,
     };
   });
