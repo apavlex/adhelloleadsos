@@ -1,7 +1,11 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
-if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
+const isGoogleAuthConfigured = Boolean(
+  process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
+);
+
+if (isGoogleAuthConfigured) {
   passport.use(new GoogleStrategy({
       clientID: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -38,4 +42,9 @@ function ensureAuthenticated(req, res, next) {
   res.redirect('/auth/login');
 }
 
-module.exports = { passport, ensureAuthenticated };
+function requireGoogleAuth(req, res, next) {
+  if (isGoogleAuthConfigured) return next();
+  return res.redirect('/auth/login?error=auth_not_configured');
+}
+
+module.exports = { passport, ensureAuthenticated, isGoogleAuthConfigured, requireGoogleAuth };

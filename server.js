@@ -3,11 +3,12 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
-const { passport, ensureAuthenticated } = require('./services/auth');
+const { passport, ensureAuthenticated, isGoogleAuthConfigured, requireGoogleAuth } = require('./services/auth');
 const webEnrichment = require('./services/webEnrichment');
 const mapsEnrichFallback = require('./services/mapsEnrichFallback');
 const workspaceIntegrations = require('./services/workspaceIntegrations');
 const scheduler = require('./services/scheduler');
+const nightlyPrepService = require('./services/nightlyPrep');
 const { migrateLegacyPipelineStages } = require('./services/pipelineMigration');
 const { runGlobalPipelineSeedOnce } = require('./services/pipelineStagesService');
 
@@ -88,14 +89,19 @@ app.get('/health', (req, res) => {
 
 // Auth Routes
 app.get('/auth/login', (req, res) => {
-  res.render('login', { error: req.query.error });
+  res.render('login', {
+    error: req.query.error,
+    googleAuthConfigured: isGoogleAuthConfigured,
+  });
 });
 
 app.get('/auth/google',
+  requireGoogleAuth,
   passport.authenticate('google', { scope: ['profile', 'email'] })
 );
 
-app.get('/auth/google/callback', 
+app.get('/auth/google/callback',
+  requireGoogleAuth,
   passport.authenticate('google', { failureRedirect: '/auth/login?error=unauthorized' }),
   function(req, res) {
     res.redirect('/today');
@@ -125,6 +131,48 @@ app.get('/api/cron/heartbeat', async (req, res) => {
     // if there are many jobs to process.
     scheduler.runDueSchedules();
     res.json({ success: true, message: 'Heartbeat received, jobs processing in background.' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/** Render cron / external scheduler: overnight Maps prep for workspaces with nightly prep enabled */
+app.get('/api/cron/nightly-prep', async (req, res) => {
+  const secret = req.headers['x-cron-secret'] || req.query.secret;
+  const expectedSecret = process.env.CRON_SECRET || 'fallback-secret-for-setup-only';
+
+  if (!secret || secret !== expectedSecret) {
+    console.warn('[SECURITY] Unauthorized nightly-prep cron rejected.');
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { ids, skipEnabledCheck } = await nightlyPrepService.getCronNightlyPrepTargets();
+    if (!ids.length) {
+      return res.json({
+        success: true,
+        message: 'No workspaces to process (enable nightly prep on /today or set NIGHTLY_PREP_WORKSPACE_IDS).',
+        workspaces: [],
+      });
+    }
+
+    setImmediate(() => {
+      (async () => {
+        for (const wid of ids) {
+          try {
+            await nightlyPrepService.runNightlyPrep(wid, { skipEnabledCheck });
+          } catch (e) {
+            console.error('[API-CRON] nightly-prep failed for', wid, e && e.message);
+          }
+        }
+      })().catch((e) => console.error('[API-CRON] nightly-prep runner:', e));
+    });
+
+    res.json({
+      success: true,
+      message: 'Nightly prep queued (runs in background).',
+      workspaces: ids,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -20,6 +20,16 @@
       <% } %>
     </div>
     <% } %>
+    <% if (typeof nightlyPrepSavedNotice !== 'undefined' && nightlyPrepSavedNotice) { %>
+    <div class="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-50/90 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-950 dark:text-emerald-100">
+      Overnight prep settings saved. Cron must call <code class="text-xs opacity-90">GET /api/cron/nightly-prep</code> with your <code class="text-xs opacity-90">CRON_SECRET</code>.
+    </div>
+    <% } %>
+    <% if (typeof nightlyPrepStartedNotice !== 'undefined' && nightlyPrepStartedNotice) { %>
+    <div class="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-3 text-sm text-brand-dark dark:text-brand-yellow">
+      Prep run started in the background. Refresh in a few minutes — new leads appear in Pipeline with source <span class="font-bold">nightly_prep</span>.
+    </div>
+    <% } %>
 
     <% const _csHeader = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
     <% const _pvHeader = typeof _csHeader.pipelineValueCreated7d === 'number' ? _csHeader.pipelineValueCreated7d : 0; %>
@@ -33,6 +43,7 @@
       <% if (typeof outreachCoach !== 'undefined' && outreachCoach) { %>
       <%- include('partials/prospecting_coach_card', { coachCardClass: 'mb-6 md:mb-8 ring-2 ring-brand-yellow/20 shadow-lg shadow-brand-yellow/10' }) %>
       <% } %>
+      <%- include('partials/today_contact_queue') %>
       <%- include('partials/cadence_today_block') %>
       <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
         <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
@@ -74,6 +85,8 @@
       }
     })();
     </script>
+
+    <%- include('partials/today_nightly_prep') %>
 
     <% const _fuTasks = typeof followUpTasksToday !== 'undefined' && followUpTasksToday ? followUpTasksToday : []; %>
     <% if (_fuTasks.length) { %>

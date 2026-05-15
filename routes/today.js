@@ -16,6 +16,8 @@ const { buildConversionSnapshot } = require('../services/conversionMetrics');
 const { buildWeekReview } = require('../services/weekReview');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
+const { buildTodayContactQueue } = require('../services/todayContactQueue');
+const nightlyPrepService = require('../services/nightlyPrep');
 
 function firstNameFromUser(user) {
   const raw =
@@ -134,6 +136,8 @@ router.get('/', async (req, res, next) => {
 
     const baseUrl = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
     const cadenceQueue = buildCadenceQueue(workspaceLeads, baseUrl);
+    const contactQueue = buildTodayContactQueue(workspaceLeads, baseUrl, 20);
+    const nightlyPrepMeta = (workspaceDoc && workspaceDoc.nightlyPrep) || {};
 
     const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const reportViewsRaw = await dbService.listReportViewsForWorkspaceSince(req.workspaceId, since24, 600);
@@ -192,7 +196,12 @@ router.get('/', async (req, res, next) => {
       scheduleSavedNotice,
       followUpTasksToday,
       cadenceQueue,
+      contactQueue,
+      nightlyPrepMeta,
+      nightlyPrepSavedNotice: req.query.nightlyPrepSaved === '1',
+      nightlyPrepStartedNotice: req.query.nightlyPrepStarted === '1',
       reportsOpened24h,
+      cronPrepUrl: `${req.protocol}://${req.get('host')}/api/cron/nightly-prep`,
     });
   } catch (e) {
     next(e);
@@ -282,6 +291,35 @@ router.post('/seed-demo', express.urlencoded({ extended: true }), async (req, re
     }
 
     res.redirect('/today?demo=1');
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Toggle overnight Maps prep for this workspace (cron must hit /api/cron/nightly-prep). */
+router.post('/nightly-prep-settings', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const enabled = String(req.body.enabled || '').trim() === '1';
+    ws.nightlyPrep = { ...(ws.nightlyPrep || {}), enabled };
+    await dbService.saveWorkspace(wid, ws);
+    res.redirect('/today?nightlyPrepSaved=1');
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** Manual run: same job as cron (does not require nightlyPrep.enabled). */
+router.post('/nightly-prep-run', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    setImmediate(() => {
+      nightlyPrepService.runNightlyPrep(wid, { skipEnabledCheck: true }).catch((err) => {
+        console.error('[NIGHTLY-PREP] Manual run failed:', err && err.message);
+      });
+    });
+    res.redirect('/today?nightlyPrepStarted=1');
   } catch (e) {
     next(e);
   }

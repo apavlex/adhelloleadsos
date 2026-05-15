@@ -1,0 +1,56 @@
+<% const _cq = typeof contactQueue !== 'undefined' && contactQueue ? contactQueue : []; %>
+<% if (_cq.length) { %>
+<section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/35 bg-white dark:bg-slate-900/85 px-6 py-6 md:px-8 md:py-7 shadow-md shadow-brand-yellow/10" aria-label="Highest ROI contacts">
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Today’s queue</p>
+      <h2 class="font-display font-extrabold text-xl text-brand-dark dark:text-white">Highest‑ROI leads to contact</h2>
+      <p class="text-sm text-brand-muted dark:text-slate-400 mt-1">Sorted by overdue cadence, aging pipeline, and opportunity score. Next channel follows your sequence template.</p>
+    </div>
+    <a href="/focus" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0 self-start text-center">Focus mode</a>
+  </div>
+  <ul class="divide-y divide-brand-border/40 dark:divide-white/10 space-y-0">
+    <% _cq.forEach(function (row, idx) { %>
+    <% const ch = row.cadence && row.cadence.channelLabel ? row.cadence.channelLabel : '—'; %>
+    <% const tier = row.opportunityTier || 'low'; %>
+    <% const tierCls = tier === 'high' ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/25' : tier === 'medium' ? 'bg-amber-500/12 text-amber-900 dark:text-amber-100 border-amber-500/25' : 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20'; %>
+    <li class="py-4 first:pt-0">
+      <div class="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-6">
+        <div class="flex items-start gap-3 min-w-0 flex-1">
+          <span class="tabular-nums text-[11px] font-black text-brand-muted w-6 shrink-0 pt-1"><%= idx + 1 %></span>
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <a href="/focus?lead=<%= encodeURIComponent(row.focusParam) %>" class="text-base font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate"><%= row.title %></a>
+              <% if (row.city || row.state) { %>
+              <span class="text-[11px] text-brand-muted truncate"><%= row.city %><% if (row.city && row.state) { %>, <% } %><%= row.state %></span>
+              <% } %>
+            </div>
+            <div class="flex flex-wrap items-center gap-2 mb-2">
+              <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border <%= tierCls %>"><%= tier %> opp · <%= Number(row.opportunityScore || 0).toFixed(1) %>/10</span>
+              <% if (row.cadence && row.cadence.overdue) { %>
+              <span class="text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400">Due now</span>
+              <% } else if (row.cadence && row.cadence.dueAt) { %>
+              <span class="text-[10px] text-brand-muted">Next step · <%= new Date(row.cadence.dueAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) %></span>
+              <% } %>
+            </div>
+            <p class="text-xs font-bold text-brand-dark dark:text-white"><span class="text-brand-yellow"><%= ch %>:</span> <%= row.cadence ? row.cadence.stepTitle : '' %></p>
+            <% if (row.cadence && row.cadence.stepHint) { %>
+            <p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 line-clamp-3 leading-relaxed"><%= row.cadence.stepHint %></p>
+            <% } %>
+            <% if (row.phone || row.email) { %>
+            <p class="text-[10px] text-brand-muted mt-2 font-mono tabular-nums">
+              <% if (row.phone) { %><span class="mr-3"><%= row.phone %></span><% } %>
+              <% if (row.email) { %><span class="break-all"><%= row.email %></span><% } %>
+            </p>
+            <% } %>
+          </div>
+        </div>
+        <div class="flex flex-row lg:flex-col gap-2 shrink-0 lg:items-end">
+          <a href="/focus?lead=<%= encodeURIComponent(row.focusParam) %>" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open</a>
+        </div>
+      </div>
+    </li>
+    <% }); %>
+  </ul>
+</section>
+<% } %>

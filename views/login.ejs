@@ -30,14 +30,18 @@
         <h1 class="font-display font-extrabold text-[2.75rem] text-[#0F172A] mb-4 tracking-tight leading-tight">Welcome Back</h1>
         <p class="text-[11px] font-bold tracking-[0.15em] uppercase text-slate-500 mb-14 px-4 leading-relaxed line-height-1">Access is restricted to authorized @adhello.ai workspace members.</p>
 
-        <% if (error === 'unauthorized') { %>
+        <% if (error === 'auth_not_configured' || !googleAuthConfigured) { %>
+            <div class="bg-amber-50 text-amber-800 p-5 rounded-2xl text-[11px] font-bold mb-10 border border-amber-100/50 leading-relaxed normal-case tracking-normal">
+                Google sign-in is not configured on this server. Add GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and BASE_URL in Render environment settings.
+            </div>
+        <% } else if (error === 'unauthorized') { %>
             <div class="bg-red-50 text-red-600 p-5 rounded-2xl text-[10px] uppercase tracking-widest font-black mb-10 border border-red-100/50 animate-shake flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
                 Access Denied: Use an @adhello.ai email
             </div>
         <% } %>
 
-        <a href="/auth/google" class="w-full h-16 flex items-center justify-center gap-4 bg-[#FFDB3A] hover:bg-[#FFD600] active:scale-[0.98] transition-all rounded-full text-lg font-bold text-[#111827] shadow-lg shadow-yellow-400/20">
+        <a href="/auth/google" class="w-full h-16 flex items-center justify-center gap-4 bg-[#FFDB3A] hover:bg-[#FFD600] active:scale-[0.98] transition-all rounded-full text-lg font-bold text-[#111827] shadow-lg shadow-yellow-400/20<%= googleAuthConfigured ? '' : ' pointer-events-none opacity-50' %>">
             <svg class="w-6 h-6" viewBox="0 0 21 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M19.982 10.23c0-.7-.063-1.371-.18-2.02H10.194v3.82h5.485c-.237 1.275-.956 2.356-2.036 3.078v2.558h3.298c1.93-1.776 3.04-4.39 3.04-7.436z" fill="#4285F4"/>
                 <path d="M10.194 20c2.7 0 4.964-.896 6.619-2.422l-3.298-2.559c-.914.613-2.084.976-3.321.976-2.554 0-4.714-1.725-5.487-4.04H1.309v2.624C2.973 17.842 6.36 20 10.194 20z" fill="#34A853"/>
