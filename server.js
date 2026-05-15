@@ -226,19 +226,25 @@ app.use((err, req, res, next) => {
   });
 });
 
-async function boot() {
-  await migrateLegacyPipelineStages();
-  runGlobalPipelineSeedOnce();
-
+function startServer() {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`Server running on 0.0.0.0:${PORT}`);
   });
-
   server.setTimeout(600000);
   scheduler.init();
+  return server;
 }
 
-boot().catch((err) => {
-  console.error('[BOOT] Fatal:', err);
-  process.exit(1);
-});
+async function runStartupTasks() {
+  await migrateLegacyPipelineStages();
+  runGlobalPipelineSeedOnce();
+}
+
+function boot() {
+  startServer();
+  runStartupTasks().catch((err) => {
+    console.error('[BOOT] Startup task failed:', err);
+  });
+}
+
+boot();
