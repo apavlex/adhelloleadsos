@@ -50,6 +50,11 @@
             </svg>
             Sign in with Google
         </a>
+        <% if (googleAuthConfigured) { %>
+        <p class="mt-6 text-left text-[10px] text-slate-500 leading-relaxed normal-case tracking-normal font-medium">
+            <strong class="text-slate-600">Drive import:</strong> In Google Cloud Console, add authorized redirect URI <code class="text-[9px] bg-slate-100 px-1 py-0.5 rounded">&lt;BASE_URL&gt;/auth/google/drive/callback</code> (same OAuth client). Set <code class="text-[9px] bg-slate-100 px-1 py-0.5 rounded">GOOGLE_PICKER_API_KEY</code> on the server for the file picker.
+        </p>
+        <% } %>
         
         <div class="mt-14 pt-10 border-t border-slate-100 text-slate-400 text-[10px] font-black uppercase tracking-[0.25em] flex items-center justify-center gap-4">
             <span>AdHello.ai | Leads</span>

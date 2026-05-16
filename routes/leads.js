@@ -30,8 +30,73 @@ const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const dialerPacing = require('../services/dialerPacing');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const googleDriveAccess = require('../services/googleDriveAccess');
+const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const signalwire = require('../services/signalwire');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+
+async function importLeadRecordsFromBuffer(buffer, originalFilename, req, importOptions = {}) {
+  const parseOpts =
+    typeof importOptions.leadSource === 'string' && importOptions.leadSource.trim()
+      ? { leadSource: importOptions.leadSource.trim() }
+      : {};
+  const records = parseCsvToLeadRecords(buffer, originalFilename || 'import.csv', parseOpts);
+  const wid = req.workspaceId;
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  for (const rec of records) {
+    if (!rec.title) {
+      skipped += 1;
+      continue;
+    }
+    let willMerge = false;
+    if (rec.email && rec.email !== 'N/A') {
+      const ex = await dbService.findLeadByEmail(rec.email, wid);
+      willMerge = !!ex;
+    } else if (rec.ip) {
+      const ex = await dbService.findLeadByIp(rec.ip, wid);
+      willMerge = !!ex;
+    }
+    try {
+      const key = await dbService.saveLead({
+        ...rec,
+        workspaceId: wid,
+      });
+      try {
+        await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid });
+      } catch (_) {
+        /* non-fatal */
+      }
+      if (willMerge) updated += 1;
+      else created += 1;
+    } catch (e) {
+      console.error('[CSV import] row error:', rec.title, e.message);
+      failed += 1;
+    }
+  }
+
+  const applied = created + updated;
+  if (applied > 0) {
+    const ev =
+      typeof importOptions.activationEvent === 'string' && importOptions.activationEvent.trim()
+        ? importOptions.activationEvent.trim()
+        : 'csv_import';
+    await activationService.recordEvent(userEmail(req), ev);
+  }
+
+  return {
+    records,
+    created,
+    updated,
+    skipped,
+    failed,
+    applied,
+    rows: records.length,
+  };
+}
 
 function appendLeadUpdate(lead, entry) {
   const updates = Array.isArray(lead && lead.updates) ? [...lead.updates] : [];
@@ -211,6 +276,72 @@ router.post('/save', async (req, res, next) => {
   }
 });
 
+// GET /leads/google-drive/status — whether user linked Drive + Picker can run in browser
+router.get('/google-drive/status', async (req, res) => {
+  try {
+    const email = userEmail(req);
+    const row = email ? await dbService.getGoogleDriveTokens(email) : null;
+    res.json({
+      pickerReady: Boolean(
+        process.env.GOOGLE_CLIENT_ID &&
+          process.env.GOOGLE_CLIENT_SECRET &&
+          process.env.GOOGLE_PICKER_API_KEY
+      ),
+      connected: !!(row && row.refreshToken),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message || 'status failed' });
+  }
+});
+
+// GET /leads/google-drive/access-token — short-lived token for Google Picker (same-origin only)
+router.get('/google-drive/access-token', async (req, res) => {
+  try {
+    const token = await googleDriveAccess.getValidAccessToken(userEmail(req));
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        connected: false,
+        error: 'Connect Google Drive from the Pipeline tab first.',
+      });
+    }
+    res.json({ success: true, accessToken: token });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message || 'token failed' });
+  }
+});
+
+// POST /leads/drive-import/google — import CSV or Google Sheet by Drive file id (after Picker)
+router.post('/drive-import/google', async (req, res, next) => {
+  try {
+    const fileId = String((req.body && req.body.fileId) || '').trim();
+    if (!fileId) {
+      return res.status(400).json({ success: false, error: 'fileId is required.' });
+    }
+    const access = await googleDriveAccess.getValidAccessToken(userEmail(req));
+    if (!access) {
+      return res.status(401).json({ success: false, error: 'Google Drive is not connected for this account.' });
+    }
+    const { buffer, name } = await downloadDriveFileAsCsvBuffer(access, fileId);
+    const pack = await importLeadRecordsFromBuffer(buffer, name, req, {
+      leadSource: 'google_drive',
+      activationEvent: 'drive_csv_import',
+    });
+    res.json({
+      success: true,
+      imported: pack.applied,
+      created: pack.created,
+      updated: pack.updated,
+      skipped: pack.skipped,
+      failed: pack.failed,
+      totalRows: pack.rows,
+    });
+  } catch (e) {
+    console.error('[drive-import]', e);
+    res.status(400).json({ success: false, error: e.message || 'Drive import failed' });
+  }
+});
+
 // POST /leads/import — bulk import from CSV (Agency OS / enrichment export shape)
 router.post('/import', (req, res, next) => {
   upload.single('csvfile')(req, res, (err) => {
@@ -233,50 +364,9 @@ router.post('/import', (req, res, next) => {
       return res.redirect('/prospecting?tab=pipeline&rows=0&created=0&updated=0&imported=0&skipped=0&failed=0');
     }
 
-    const records = parseCsvToLeadRecords(req.file.buffer, req.file.originalname || 'import.csv');
-    const wid = req.workspaceId;
-    let created = 0;
-    let updated = 0;
-    let skipped = 0;
-    let failed = 0;
-
-    for (const rec of records) {
-      if (!rec.title) {
-        skipped += 1;
-        continue;
-      }
-      let willMerge = false;
-      if (rec.email && rec.email !== 'N/A') {
-        const ex = await dbService.findLeadByEmail(rec.email, wid);
-        willMerge = !!ex;
-      } else if (rec.ip) {
-        const ex = await dbService.findLeadByIp(rec.ip, wid);
-        willMerge = !!ex;
-      }
-      try {
-        const key = await dbService.saveLead({
-          ...rec,
-          workspaceId: wid,
-        });
-        try {
-          await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid });
-        } catch (_) {
-          /* non-fatal */
-        }
-        if (willMerge) updated += 1;
-        else created += 1;
-      } catch (e) {
-        console.error('[CSV import] row error:', rec.title, e.message);
-        failed += 1;
-      }
-    }
-
-    const applied = created + updated;
-    if (applied > 0) {
-      await activationService.recordEvent(userEmail(req), 'csv_import');
-    }
-
-    const rows = records.length;
+    const pack = await importLeadRecordsFromBuffer(req.file.buffer, req.file.originalname || 'import.csv', req);
+    const { created, updated, skipped, failed, rows } = pack;
+    const applied = pack.applied;
     const q = `rows=${rows}&created=${created}&updated=${updated}&imported=${applied}&skipped=${skipped}&failed=${failed}`;
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
       return res.json({

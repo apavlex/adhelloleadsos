@@ -470,6 +470,46 @@ module.exports = {
     return next;
   },
 
+  /** Google Drive read scope tokens (per user email) for CSV import from Drive. */
+  async getGoogleDriveTokens(email) {
+    const fragment = this._emailKeyFragment(email);
+    const key = `gdrv_oauth:${fragment}`;
+    const data = await db.get(key);
+    if (!data) return null;
+    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async mergeGoogleDriveTokens(email, { accessToken, refreshToken, expiresIn }) {
+    const fragment = this._emailKeyFragment(email);
+    const key = `gdrv_oauth:${fragment}`;
+    const cur = (await this.getGoogleDriveTokens(email)) || {};
+    const ttl = Number(expiresIn);
+    const expiresAt =
+      Date.now() + (Number.isFinite(ttl) && ttl > 0 ? ttl * 1000 : 3600 * 1000);
+    const next = {
+      ...cur,
+      accessToken: accessToken || cur.accessToken || '',
+      refreshToken: refreshToken || cur.refreshToken || '',
+      expiresAt,
+      updatedAt: new Date().toISOString(),
+    };
+    if (!next.refreshToken && cur.refreshToken) next.refreshToken = cur.refreshToken;
+    await db.set(key, JSON.stringify(next));
+    return next;
+  },
+
+  async clearGoogleDriveTokens(email) {
+    const fragment = this._emailKeyFragment(email);
+    const key = `gdrv_oauth:${fragment}`;
+    await db.delete(key);
+  },
+
   async getUserWorkspaceIds(email) {
     const fragment = this._emailKeyFragment(email);
     const storageKey = `userwork:${fragment}`;

@@ -40,7 +40,8 @@ function isWarmSource(l) {
 }
 
 function isCsvImported(l) {
-  return String(l.source || '') === 'csv_import';
+  const s = String(l.source || '');
+  return s === 'csv_import' || s === 'google_drive';
 }
 
 function isManualSource(l) {
@@ -48,7 +49,7 @@ function isManualSource(l) {
   return s === 'manual_offline' || s.startsWith('manual');
 }
 
-/** Maps / search saves: cold workspace leads not from CSV or manual entry. */
+/** Maps / search saves: cold workspace leads not from file import (CSV/Drive) or manual entry. */
 function isSearchedSource(l) {
   if (isWarmSource(l)) return false;
   if (isCsvImported(l)) return false;

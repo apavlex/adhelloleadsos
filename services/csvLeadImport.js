@@ -101,9 +101,13 @@ function trimGbpField(raw, maxLen) {
   return s.slice(0, maxLen);
 }
 
-function toLeadPayload(row, originalFilename, rowIndex) {
+function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   const r = normalizeKeys(row);
   const importFields = collectImportFields(row);
+  const leadSource =
+    typeof options.leadSource === 'string' && options.leadSource.trim()
+      ? options.leadSource.trim()
+      : 'csv_import';
 
   const title =
     (r.company_name || r.business_name || r.title || r.name || '').trim() ||
@@ -155,7 +159,7 @@ function toLeadPayload(row, originalFilename, rowIndex) {
     status: 'Not Contacted',
     loomUrl: '',
     savedAt: new Date().toISOString(),
-    source: 'csv_import',
+    source: leadSource,
     importFilename: originalFilename || 'upload.csv',
     importRowIndex: rowIndex,
     importFields,
@@ -176,7 +180,7 @@ function toLeadPayload(row, originalFilename, rowIndex) {
  * @param {string} originalFilename
  * @returns {Array<Record<string, unknown>>}
  */
-function parseCsvToLeadRecords(buffer, originalFilename) {
+function parseCsvToLeadRecords(buffer, originalFilename, options = {}) {
   const textRaw = buffer.toString('utf8');
   const text = stripTablePreamble(textRaw);
   if (!text.trim()) return [];
@@ -192,7 +196,7 @@ function parseCsvToLeadRecords(buffer, originalFilename) {
   const leads = [];
   let i = 0;
   for (const row of rows) {
-    const lead = toLeadPayload(row, originalFilename, i);
+    const lead = toLeadPayload(row, originalFilename, i, options);
     if (lead) leads.push(lead);
     i += 1;
   }

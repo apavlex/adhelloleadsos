@@ -145,6 +145,120 @@
     });
   })();
   </script>
+  <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady && driveImport.connected) { %>
+  <script>
+  (function () {
+    window.__DRIVE_IMPORT__ = <%- JSON.stringify({ developerKey: driveImport.pickerApiKey || '' }) %>;
+    function loadScript(src) {
+      return new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.async = true;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+    function ensurePicker(cb) {
+      if (window.google && google.picker) return cb();
+      if (window.gapi && gapi.load) {
+        gapi.load('picker', function () { cb(); });
+        return;
+      }
+      loadScript('https://apis.google.com/js/api.js').then(function () {
+        gapi.load('picker', function () { cb(); });
+      }).catch(function () { alert('Could not load Google Picker.'); });
+    }
+    function driveImportPick() {
+      var btn = document.getElementById('driveImportPickBtn');
+      var dk = window.__DRIVE_IMPORT__ && window.__DRIVE_IMPORT__.developerKey;
+      if (!dk) {
+        alert('Picker API key is not configured.');
+        return;
+      }
+      if (btn) {
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+      }
+      fetch('/leads/google-drive/access-token', { credentials: 'same-origin' })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (pack) {
+          if (!pack.ok || !pack.j || !pack.j.success || !pack.j.accessToken) {
+            throw new Error((pack.j && pack.j.error) || 'Not signed in to Google Drive. Use Connect Google Drive.');
+          }
+          var oauthToken = pack.j.accessToken;
+          ensurePicker(function () {
+            var view = new google.picker.DocsView(google.picker.ViewId.DOCUMENTS)
+              .setIncludeFolders(true)
+              .setMimeTypes('text/csv,application/vnd.google-apps.spreadsheet');
+            var picker = new google.picker.PickerBuilder()
+              .setOAuthToken(oauthToken)
+              .setDeveloperKey(dk)
+              .addView(view)
+              .setTitle('Select CSV or Google Sheet')
+              .setCallback(function (data) {
+                var action = data[google.picker.Response.ACTION];
+                if (action === google.picker.Action.CANCEL) {
+                  if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+                  return;
+                }
+                if (action !== google.picker.Action.PICKED) {
+                  if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+                  return;
+                }
+                var docs = data[google.picker.Response.DOCUMENTS];
+                var doc = docs && docs[0];
+                var fileId = doc && doc[google.picker.Document.ID];
+                if (!fileId) {
+                  if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+                  return;
+                }
+                if (btn) {
+                  btn.disabled = true;
+                  btn.setAttribute('aria-busy', 'true');
+                }
+                fetch('/leads/drive-import/google', {
+                  method: 'POST',
+                  credentials: 'same-origin',
+                  headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                  body: JSON.stringify({ fileId: fileId })
+                })
+                  .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                  .then(function (imp) {
+                    if (!imp.ok || !imp.j || !imp.j.success) {
+                      throw new Error((imp.j && imp.j.error) || 'Import failed');
+                    }
+                    var j = imp.j;
+                    var q = 'tab=pipeline&rows=' + encodeURIComponent(j.totalRows || 0)
+                      + '&created=' + encodeURIComponent(j.created || 0)
+                      + '&updated=' + encodeURIComponent(j.updated || 0)
+                      + '&imported=' + encodeURIComponent(j.imported || 0)
+                      + '&skipped=' + encodeURIComponent(j.skipped || 0)
+                      + '&failed=' + encodeURIComponent(j.failed || 0);
+                    window.location.href = '/prospecting?' + q;
+                  })
+                  .catch(function (e) {
+                    alert(e && e.message ? e.message : 'Import failed');
+                    if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+                  });
+              })
+              .build();
+            picker.setVisible(true);
+            if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+          });
+        })
+        .catch(function (e) {
+          alert(e && e.message ? e.message : 'Could not open Drive');
+          if (btn) { btn.disabled = false; btn.removeAttribute('aria-busy'); }
+        });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      var b = document.getElementById('driveImportPickBtn');
+      if (b) b.addEventListener('click', driveImportPick);
+    });
+  })();
+  </script>
+  <% } %>
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <% } else if (activeTab === 'folders') { %>
   <div id="folderCreateModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderCreateTitle">

@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 const dbService = require('../services/database');
-const pipelineStagesService = require('../services/pipelineStagesService');
-const { filterLeadsForRequest } = require('../services/workspaceService');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const {
   displayStatus,
   applyLeadListFilters,
@@ -107,6 +106,23 @@ router.get('/', async (req, res, next) => {
       label: (SCRIPT_LIBRARY[k] && SCRIPT_LIBRARY[k].label) || k,
     }));
 
+    const email = userEmail(req);
+    const driveTokens = email ? await dbService.getGoogleDriveTokens(email) : null;
+    const driveImport = {
+      pickerReady: Boolean(
+        process.env.GOOGLE_CLIENT_ID &&
+          process.env.GOOGLE_CLIENT_SECRET &&
+          process.env.GOOGLE_PICKER_API_KEY
+      ),
+      connected: !!(driveTokens && driveTokens.refreshToken),
+      driveConnectedBanner: req.query.driveConnected === '1',
+      googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+      pickerApiKey: process.env.GOOGLE_PICKER_API_KEY || '',
+      setupHint:
+        Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) &&
+        !process.env.GOOGLE_PICKER_API_KEY,
+    };
+
     res.render('prospecting', {
       title: 'Prospecting | Agency OS',
       activePage: 'prospecting',
@@ -129,6 +145,7 @@ router.get('/', async (req, res, next) => {
       pipelineStages,
       scriptLibraryOfferPicklist,
       canManageWorkspace: req.canManageWorkspace,
+      driveImport,
     });
   } catch (e) {
     next(e);
