@@ -1,6 +1,7 @@
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
+const { wantsJsonResponse } = require('../lib/httpRequest');
 
 /**
  * After auth: bootstrap workspaces, resolve active workspace (?ws= slug → session → user prefs → first),
@@ -21,6 +22,9 @@ async function withWorkspace(req, res, next) {
         !wsSlug ||
         !workspaceBootstrap.userCanAccessWorkspace(wsSlug, email)
       ) {
+        if (wantsJsonResponse(req)) {
+          return res.status(404).json({ success: false, error: 'Workspace not found.' });
+        }
         return res.status(404).render('error', {
           message: 'Workspace not found.',
           activePage: '',

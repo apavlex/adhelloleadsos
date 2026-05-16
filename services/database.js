@@ -81,6 +81,10 @@ function mergePreferExisting(existing, incoming) {
     if (k === 'key' || k === 'workspaceId' || k === 'createdAt') continue;
     if (k === 'logs' || k === 'chatHistory') continue;
     if (k === 'updates') continue;
+    if (k === 'importFields' && incoming.importFields && typeof incoming.importFields === 'object') {
+      out.importFields = { ...(existing.importFields || {}), ...incoming.importFields };
+      continue;
+    }
     if (k === 'pipelineStage' || k === 'status') continue;
     if (isBlankValue(v)) continue;
     const cur = existing ? existing[k] : undefined;

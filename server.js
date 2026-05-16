@@ -62,10 +62,18 @@ app.set('views', path.join(__dirname, 'views'));
 // Root-relative EJS includes: `include('/partials/foo')` resolves under views/ from any nested partial (Replit-safe).
 app.set('view options', { root: path.join(__dirname, 'views') });
 
+const { wantsJsonResponse } = require('./lib/httpRequest');
+
 // Middleware
 app.use(cors());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+app.use((req, res, next) => {
+  const largeBody =
+    req.method === 'POST' &&
+    (req.path === '/leads/google-drive/upload-csv' ||
+      req.path === '/leads/ai-analysis/export-csv');
+  express.json({ limit: largeBody ? '15mb' : '1mb' })(req, res, next);
+});
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(session({
   secret: process.env.SESSION_SECRET || 'adhello-secret-key',
@@ -308,7 +316,15 @@ app.use('/api/assistant', assistantRoutes);
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).render('error', {
+  const status = err.status || err.statusCode || 500;
+  if (wantsJsonResponse(req)) {
+    const msg =
+      status === 413
+        ? 'Request too large. Try exporting fewer leads or use Download CSV.'
+        : err.message || 'Something went wrong';
+    return res.status(status).json({ success: false, error: msg });
+  }
+  res.status(status >= 400 && status < 600 ? status : 500).render('error', {
     message: err.message || 'Something went wrong',
     activePage: '',
   });

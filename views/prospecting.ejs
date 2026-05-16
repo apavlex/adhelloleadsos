@@ -173,6 +173,7 @@
     });
   })();
   </script>
+  <script src="/js/httpJson.js?v=<%= assetVersion %>"></script>
   <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>
   <script>
   (function () {
@@ -217,8 +218,16 @@
         btn.disabled = true;
         btn.setAttribute('aria-busy', 'true');
       }
-      fetch('/leads/google-drive/access-token', { credentials: 'same-origin' })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      var fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
+      var tokenReq = fetchJsonFn
+        ? fetchJsonFn('/leads/google-drive/access-token', {
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          })
+        : fetch('/leads/google-drive/access-token', { credentials: 'same-origin' }).then(function (r) {
+            return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+          });
+      tokenReq
         .then(function (pack) {
           if (!pack.ok || !pack.j || !pack.j.success || !pack.j.accessToken) {
             throw new Error((pack.j && pack.j.error) || 'Not signed in to Google Drive. Use Connect Google Drive.');
@@ -255,13 +264,22 @@
                   btn.disabled = true;
                   btn.setAttribute('aria-busy', 'true');
                 }
-                fetch('/leads/drive-import/google', {
-                  method: 'POST',
-                  credentials: 'same-origin',
-                  headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                  body: JSON.stringify({ fileId: fileId })
-                })
-                  .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+                var importReq = fetchJsonFn
+                  ? fetchJsonFn('/leads/drive-import/google', {
+                      method: 'POST',
+                      credentials: 'same-origin',
+                      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                      body: JSON.stringify({ fileId: fileId }),
+                    })
+                  : fetch('/leads/drive-import/google', {
+                      method: 'POST',
+                      credentials: 'same-origin',
+                      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+                      body: JSON.stringify({ fileId: fileId }),
+                    }).then(function (r) {
+                      return r.json().then(function (j) { return { ok: r.ok, j: j }; });
+                    });
+                importReq
                   .then(function (imp) {
                     if (!imp.ok || !imp.j || !imp.j.success) {
                       throw new Error((imp.j && imp.j.error) || 'Import failed');

@@ -93,9 +93,14 @@ passport.deserializeUser((user, done) => {
   done(null, user);
 });
 
+const { wantsJsonResponse } = require('../lib/httpRequest');
+
 function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated && req.isAuthenticated()) {
     return next();
+  }
+  if (wantsJsonResponse(req)) {
+    return res.status(401).json({ success: false, error: 'Sign in required.' });
   }
   res.redirect('/auth/login');
 }

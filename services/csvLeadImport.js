@@ -1,5 +1,6 @@
 const { parse } = require('csv-parse/sync');
 const XLSX = require('xlsx');
+const { scoreLocalProspect } = require('./localProspectScore');
 
 const XLSX_EXT = /\.xlsx?$/i;
 
@@ -87,34 +88,146 @@ function parseCsvRawRows(buffer) {
   });
 }
 
+function isPlaceholderValue(v) {
+  const s = String(v ?? '').trim();
+  if (!s) return true;
+  if (/^(n\/a|na|none|null|—|-|\.)$/i.test(s)) return true;
+  if (/^not\s+found$/i.test(s)) return true;
+  return false;
+}
+
+function firstNonEmpty(r, keys) {
+  for (const key of keys) {
+    const v = r[key];
+    if (!isPlaceholderValue(v)) return String(v).trim();
+  }
+  return '';
+}
+
 function collectImportFields(row) {
   const normalized = normalizeKeys(row);
   const out = {};
   for (const [k, v] of Object.entries(normalized)) {
-    if (v == null) continue;
-    const s = String(v).trim();
-    if (!s) continue;
-    out[k] = s;
+    if (isPlaceholderValue(v)) continue;
+    out[k] = String(v).trim();
   }
   return out;
 }
 
 function parseCityStateFromLocation(address) {
-  if (!address || address === 'N/A') {
+  if (isPlaceholderValue(address)) {
     return { city: '', state: '' };
   }
   const m = address.match(/,\s*([^,]+),\s*([A-Z]{2})(?:\s+\d{5}(?:-\d{4})?)?\s*$/i);
   if (m) {
     return { city: m[1].trim(), state: m[2].toUpperCase() };
   }
+  const tail = address.match(/,\s*([A-Z]{2})\s*$/i);
+  if (tail) {
+    const state = tail[1].toUpperCase();
+    const before = address.slice(0, tail.index).trim();
+    const parts = before.split(/\s*\/\s*/).map((p) => p.trim()).filter(Boolean);
+    const city = parts.length ? parts[parts.length - 1] : before;
+    return { city, state };
+  }
   return { city: '', state: '' };
 }
 
+function parseAreaField(r) {
+  const area = firstNonEmpty(r, [
+    'area',
+    'service_area',
+    'market',
+    'territory',
+    'company_location',
+    'location',
+    'address',
+  ]);
+  if (!area) {
+    return { address: '', city: '', state: '' };
+  }
+  const { city, state } = parseCityStateFromLocation(area);
+  return { address: area, city, state };
+}
+
+function safeHostname(raw) {
+  const s = String(raw || '').trim();
+  if (!s || isPlaceholderValue(s)) return '';
+  try {
+    const u = new URL(s.includes('://') ? s : `https://${s}`);
+    return u.hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function isGoogleMapsUrl(u) {
+  const s = String(u || '').toLowerCase();
+  return (
+    s.includes('google.com/maps') ||
+    s.includes('maps.app.goo.gl') ||
+    s.includes('goo.gl/maps') ||
+    s.includes('maps.google.com')
+  );
+}
+
+function splitUrlList(raw) {
+  if (isPlaceholderValue(raw)) return [];
+  return String(raw)
+    .split(/[\s,;|]+/)
+    .map((s) => s.trim())
+    .filter((s) => /^https?:\/\//i.test(s) || /^www\./i.test(s) || /^[a-z0-9][-a-z0-9]*\.[a-z]{2,}/i.test(s));
+}
+
 function normalizeWebsite(raw) {
-  if (!raw || !String(raw).trim()) return 'N/A';
+  if (isPlaceholderValue(raw)) return 'N/A';
   let u = String(raw).trim();
   if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
   return u;
+}
+
+function parseSocialUrls(raw) {
+  const out = { facebook: 'N/A', instagram: 'N/A', twitter: 'N/A', linkedin: '' };
+  for (const token of splitUrlList(raw)) {
+    const url = normalizeWebsite(token);
+    if (url === 'N/A') continue;
+    const host = safeHostname(url);
+    if (!host) continue;
+    if (host.includes('facebook.com') || host === 'fb.com') out.facebook = url;
+    else if (host.includes('instagram.com')) out.instagram = url;
+    else if (host.includes('twitter.com') || host === 'x.com') out.twitter = url;
+    else if (host.includes('linkedin.com')) out.linkedin = url;
+  }
+  return out;
+}
+
+function pickMapsUrlFromSources(r) {
+  const direct = firstNonEmpty(r, [
+    'google_maps_url',
+    'maps_url',
+    'gbp_link',
+    'google_business_profile',
+    'gbp_url',
+    'place_url',
+  ]);
+  if (direct) return direct;
+  for (const key of ['source_urls', 'source_url', 'sources', 'listing_url', 'url']) {
+    for (const u of splitUrlList(r[key])) {
+      if (isGoogleMapsUrl(u)) return u;
+    }
+  }
+  return '';
+}
+
+function normalizeProspectTier(raw) {
+  const s = String(raw || '')
+    .trim()
+    .toLowerCase();
+  if (s === 'hot') return 'Hot';
+  if (s === 'warm') return 'Warm';
+  if (s === 'low' || s === 'cold') return 'Low';
+  if (s === 'skip') return 'Skip';
+  return '';
 }
 
 function pickPrimaryEmail(r) {
@@ -185,7 +298,14 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     ).trim() || (r.company_domain || '').trim();
 
   if (!title) {
-    const websiteRaw = (r.company_website || r.website || r.domain || '').trim();
+    const websiteRaw = firstNonEmpty(r, [
+      'company_website',
+      'website',
+      'website_url',
+      'website_link',
+      'site_url',
+      'domain',
+    ]);
     if (websiteRaw) {
       title = websiteRaw
         .replace(/^https?:\/\//i, '')
@@ -206,48 +326,85 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   }
   if (!title) return null;
 
-  const companyLocation = (r.company_location || r.address || '').trim();
-  const { city, state } = parseCityStateFromLocation(companyLocation);
+  const areaPack = parseAreaField(r);
+  const companyLocation = firstNonEmpty(r, ['company_location', 'address', 'full_address']);
   const address =
+    areaPack.address ||
     companyLocation ||
-    [r.address_line_1, r.city, r.state].filter(Boolean).join(', ').trim() ||
+    [r.address_line_1, r.city, r.state].filter((x) => !isPlaceholderValue(x)).join(', ').trim() ||
     'N/A';
 
-  const websiteRaw = (r.company_website || r.website || '').trim();
+  const websiteRaw = firstNonEmpty(r, [
+    'company_website',
+    'website',
+    'website_url',
+    'website_link',
+    'site_url',
+    'web',
+    'domain',
+  ]);
   const website = websiteRaw ? normalizeWebsite(websiteRaw) : 'N/A';
 
-  const phone = (r.phone_number || r.phone || r.telephone || '').trim() || 'N/A';
+  const phone = firstNonEmpty(r, ['phone_number', 'phone', 'telephone', 'mobile', 'tel']) || 'N/A';
 
   const emailRaw = pickPrimaryEmail(r);
   const email = emailRaw || 'N/A';
 
   const categoryName =
-    (r.company_type || r.subtypes || r.category || r.categoryname || r.industry || r.type || 'Painters').trim() || 'Painters';
+    firstNonEmpty(r, [
+      'company_type',
+      'subtypes',
+      'category',
+      'categoryname',
+      'industry',
+      'type',
+      'business_type',
+    ]) || 'Painters';
 
-  const linkedin = (r.decision_maker_linkedin_url || r.linkedin || '').trim();
-  const decisionMakerName = (r.decision_maker_name || '').trim();
-  const decisionMakerTitle = (r.decision_maker_job_title || '').trim();
+  const socials = parseSocialUrls(
+    firstNonEmpty(r, ['social_urls', 'socials', 'social_links', 'social_profiles'])
+  );
+  const linkedin =
+    firstNonEmpty(r, ['decision_maker_linkedin_url', 'linkedin', 'linkedin_url']) ||
+    socials.linkedin ||
+    '';
+  const decisionMakerName = firstNonEmpty(r, ['decision_maker_name', 'contact_name', 'owner_name']);
+  const decisionMakerTitle = firstNonEmpty(r, ['decision_maker_job_title', 'contact_title', 'title_role']);
 
-  const lat = (r.latitude || '').trim();
-  const lng = (r.longitude || '').trim();
+  const lat = firstNonEmpty(r, ['latitude', 'lat']);
+  const lng = firstNonEmpty(r, ['longitude', 'lng', 'lon']);
 
-  return {
+  const mapsUrl = pickMapsUrlFromSources(r);
+  const whyProspect = firstNonEmpty(r, ['why_prospect', 'why', 'prospect_reason', 'notes', 'note']);
+  const importedTier = normalizeProspectTier(
+    firstNonEmpty(r, ['score', 'prospect_tier', 'tier', 'priority', 'lead_score'])
+  );
+  const importedWebsiteStatus = firstNonEmpty(r, ['website_status', 'website_status_label', 'site_status']);
+  const distanceKm = firstNonEmpty(r, ['distance_km', 'distance', 'distance_miles']);
+
+  const lead = {
     title,
     phone,
     website,
     email,
     categoryName,
     address: address || 'N/A',
-    city: city || (r.city || '').trim(),
-    state: state || (r.state || '').trim(),
+    city: areaPack.city || firstNonEmpty(r, ['city']) || '',
+    state: areaPack.state || firstNonEmpty(r, ['state', 'region']) || '',
     totalScore: parseStarRating(r),
     reviewsCount: parseReviewCount(r),
-    url: (r.google_maps_url || r.maps_url || r.gbp_link || r.url || '').trim() || '',
-    gbpClaimStatus: trimGbpField(r.claim_status, 80),
-    gbpOptimizationScore: trimGbpField(r.optimization_score, 32),
-    facebook: 'N/A',
-    instagram: 'N/A',
-    twitter: 'N/A',
+    url: mapsUrl,
+    gbpClaimStatus: trimGbpField(
+      firstNonEmpty(r, ['claim_status', 'gbp_claim_status', 'claimed']),
+      80
+    ),
+    gbpOptimizationScore: trimGbpField(
+      firstNonEmpty(r, ['optimization_score', 'gbp_optimization_score', 'gbp_score']),
+      32
+    ),
+    facebook: socials.facebook,
+    instagram: socials.instagram,
+    twitter: socials.twitter,
     status: 'Not Contacted',
     loomUrl: '',
     savedAt: new Date().toISOString(),
@@ -258,12 +415,33 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     linkedin: linkedin || undefined,
     decisionMakerName: decisionMakerName || undefined,
     decisionMakerTitle: decisionMakerTitle || undefined,
-    companyEmails: (r.company_emails || '').trim() || undefined,
-    companyDomain: (r.company_domain || '').trim() || undefined,
+    companyEmails: firstNonEmpty(r, ['company_emails']) || undefined,
+    companyDomain: firstNonEmpty(r, ['company_domain']) || undefined,
     latitude: lat || undefined,
     longitude: lng || undefined,
-    emailValidationStatus: (r.email_validation_status || '').trim() || undefined,
+    emailValidationStatus: firstNonEmpty(r, ['email_validation_status']) || undefined,
+    ownerSignal: whyProspect || undefined,
+    prospectTier: importedTier || undefined,
+    websiteStatusLabel: importedWebsiteStatus || undefined,
+    distanceKm: distanceKm || undefined,
   };
+
+  if (whyProspect) {
+    lead.updates = [
+      {
+        type: 'import',
+        message: whyProspect.slice(0, 2000),
+        timestamp: new Date().toISOString(),
+      },
+    ];
+  }
+
+  const scored = scoreLocalProspect(lead);
+  if (!lead.prospectTier) lead.prospectTier = scored.prospectTier;
+  if (!lead.websiteStatusLabel) lead.websiteStatusLabel = scored.websiteStatusLabel;
+  lead.websiteStatus = scored.websiteStatus;
+
+  return lead;
 }
 
 /**
@@ -309,4 +487,7 @@ module.exports = {
   parseXlsxRows,
   parseCsvRawRows,
   detectCsvDelimiter,
+  isPlaceholderValue,
+  parseSocialUrls,
+  parseAreaField,
 };

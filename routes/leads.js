@@ -334,7 +334,7 @@ router.get('/google-drive/access-token', async (req, res) => {
 });
 
 // POST /leads/google-drive/upload-csv — save a lead list CSV to the user's Google Drive
-router.post('/google-drive/upload-csv', express.json({ limit: '15mb' }), async (req, res) => {
+router.post('/google-drive/upload-csv', async (req, res) => {
   try {
     const csv = req.body && req.body.csv;
     if (csv == null || !String(csv).trim()) {

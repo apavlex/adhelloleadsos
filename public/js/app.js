@@ -357,13 +357,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const filename = defaultLeadsExportFilename();
       saveBtn.disabled = true;
       saveBtn.setAttribute('aria-busy', 'true');
-      fetch('/leads/google-drive/upload-csv', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ csv: csvContent, filename }),
-      })
-        .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+      const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
+      const uploadReq = fetchJsonFn
+        ? fetchJsonFn('/leads/google-drive/upload-csv', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ csv: csvContent, filename }),
+          })
+        : fetch('/leads/google-drive/upload-csv', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ csv: csvContent, filename }),
+          }).then((r) => r.json().then((j) => ({ ok: r.ok, j })));
+      uploadReq
         .then((pack) => {
           if (!pack.ok || !pack.j || !pack.j.success) {
             const msg = (pack.j && pack.j.error) || 'Could not save to Google Drive.';

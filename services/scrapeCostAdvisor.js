@@ -7,6 +7,7 @@ const crawl4ai = require('./crawl4aiClient');
 const outscraper = require('./outscraperClient');
 const searchapiGoogleLocal = require('./searchapiGoogleLocal');
 const serpapiGoogleLocal = require('./serpapiGoogleLocal');
+const rapidapiLocalBusiness = require('./rapidapiLocalBusiness');
 
 /** @param {Record<string, string>|null|undefined} [resolvedEnv] workspace-resolved env */
 function apifyConfigured(resolvedEnv) {
@@ -30,17 +31,29 @@ function buildSourceCards(live = {}, resolvedEnv) {
   const os = outscraper.isConfigured(resolvedEnv);
   const searchapi = searchapiGoogleLocal.isConfigured(resolvedEnv);
   const serpapi = serpapiGoogleLocal.isConfigured(resolvedEnv);
+  const rapidapi = rapidapiLocalBusiness.isConfigured(resolvedEnv);
 
   return [
     {
+      id: 'rapidapi',
+      name: 'RapidAPI (Local Business Data)',
+      role: 'Find Leads — Google Maps via RapidAPI (first in Auto mode).',
+      cost: 'Per your RapidAPI plan and per-request credits on the API you subscribe to.',
+      configured: rapidapi,
+      live: null,
+      tip: rapidapi
+        ? 'Runs first in Auto when SEARCH_MAPS_PRIMARY is auto (default). Falls through to SearchAPI.io, SerpAPI, Outscraper, then Apify if this returns zero rows or errors. Force only RapidAPI with SEARCH_MAPS_PRIMARY=rapidapi.'
+        : 'Subscribe to a Local Business / Google Maps API on rapidapi.com, then set RAPIDAPI_KEY in Workspace → API integrations (or server env). Optional: RAPIDAPI_HOST and endpoint URL if you use a different marketplace API.',
+    },
+    {
       id: 'apify',
       name: 'Apify (Google Maps)',
-      role: 'Find Leads — already wired in this app.',
+      role: 'Find Leads — last fallback in Auto mode.',
       cost: 'Paid per Apify usage (actor run time + results).',
       configured: apify,
       live: null,
       tip: apify
-        ? 'Auto mode order: RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify. Override with SEARCH_MAPS_PRIMARY.'
+        ? 'Used after RapidAPI, SearchAPI.io, SerpAPI, and Outscraper when earlier providers return nothing or fail. Override chain with SEARCH_MAPS_PRIMARY.'
         : 'Set APIFY_API_TOKEN (and optionally other Maps keys) to run lead searches from Find Leads.',
     },
     {
@@ -168,8 +181,13 @@ function getDashboardPayload(live = {}, resolvedEnv) {
   };
 }
 
+function rapidapiConfigured(resolvedEnv) {
+  return rapidapiLocalBusiness.isConfigured(resolvedEnv);
+}
+
 module.exports = {
   getDashboardPayload,
   apifyConfigured,
   firecrawlConfigured,
+  rapidapiConfigured,
 };
