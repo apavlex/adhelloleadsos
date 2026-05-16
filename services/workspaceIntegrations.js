@@ -23,6 +23,7 @@ const INTEGRATION_FIELDS = [
   'enrichPrimary',
   'crawl4aiBaseUrl',
   'crawl4aiApiToken',
+  'bettercontactApiKey',
 ];
 
 /** Map stored field → process.env name used by provider clients */
@@ -42,6 +43,7 @@ const FIELD_TO_ENV = {
   enrichPrimary: 'ENRICH_PRIMARY',
   crawl4aiBaseUrl: 'CRAWL4AI_BASE_URL',
   crawl4aiApiToken: 'CRAWL4AI_API_TOKEN',
+  bettercontactApiKey: 'BETTERCONTACT_API_KEY',
 };
 
 /**
@@ -144,6 +146,7 @@ function integrationMasks(workspace) {
     'serpapiApiKey',
     'firecrawlApiKey',
     'crawl4aiApiToken',
+    'bettercontactApiKey',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

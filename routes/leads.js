@@ -8,6 +8,7 @@ const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
+const betterContact = require('../services/betterContactClient');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { createAuditReportToken } = require('../services/auditReportSign');
 const { parseImportFile } = require('../services/csvLeadImport');
@@ -2155,18 +2156,29 @@ async function runLeadEnhancement(lead, workspaceId) {
   let deepData = null;
   let firecrawlViaSearch = false;
   let mapsFallbackUsed = false;
+  let betterContactUsed = false;
   let urlToSave = null;
 
   const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
   const leadProfile = { title: lead.title, city: lead.city, state: lead.state };
 
+  const bcPromise =
+    betterContact.isConfigured(integrationEnv) ?
+      betterContact
+        .enrichLeadForBusiness(lead, integrationEnv)
+        .catch((e) => {
+          console.warn('[ENHANCE] BetterContact failed:', e.message);
+          return null;
+        })
+    : Promise.resolve(null);
+
   if (lead.website && lead.website !== 'N/A') {
     console.log(`[ENHANCE] Triggering enrich for ${lead.title} (${lead.website})...`);
     const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(lead.website, leadProfile, {
       integrationEnv,
     });
-    deepData = pack.merged;
+    deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(pack.merged, deepData || {});
     mapsFallbackUsed = pack.mapsUsed;
   } else {
     console.log(`[ENHANCE] Website missing. Firecrawl search + Maps fallback for ${lead.title}...`);
@@ -2211,10 +2223,18 @@ async function runLeadEnhancement(lead, workspaceId) {
         mapsFallbackUsed = true;
       }
     }
-    deepData = searchExtract;
+    deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, deepData || {});
     if (!lead.website || lead.website === 'N/A') {
       urlToSave = websiteHint || firecrawlFoundUrl || null;
     }
+  }
+
+  let bcExtract = null;
+  const bcPack = await bcPromise;
+  if (bcPack && bcPack.extract && betterContact.extractHasSignal(bcPack.extract)) {
+    bcExtract = bcPack.extract;
+    betterContactUsed = true;
+    deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(deepData || {}, bcExtract);
   }
 
   const baseUpdates = [...(lead.updates || [])];
@@ -2231,6 +2251,12 @@ async function runLeadEnhancement(lead, workspaceId) {
     if ((!lead.instagram || lead.instagram === 'N/A') && deepData.instagram) patch.instagram = deepData.instagram;
     if ((!lead.twitter || lead.twitter === 'N/A') && deepData.twitter) patch.twitter = deepData.twitter;
     if (!lead.linkedin && deepData.linkedin) patch.linkedin = deepData.linkedin;
+    if (!lead.decisionMakerName && deepData.decision_maker_name) {
+      patch.decisionMakerName = deepData.decision_maker_name;
+    }
+    if (!lead.decisionMakerTitle && deepData.decision_maker_title) {
+      patch.decisionMakerTitle = deepData.decision_maker_title;
+    }
 
     if (lead.phone && lead.phone !== 'N/A') delete patch.phone;
     if (lead.address && lead.address !== 'N/A') delete patch.address;
@@ -2243,8 +2269,13 @@ async function runLeadEnhancement(lead, workspaceId) {
     patch.website = urlToSave;
   }
 
-  if (hadExtract || urlToSave || mapsFallbackUsed) {
-    const via = [firecrawlViaSearch ? 'web search' : null, mapsFallbackUsed ? 'Maps backup' : null]
+  if (hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed) {
+    const via = [
+      betterContactUsed ? 'BetterContact' : null,
+      firecrawlViaSearch ? 'web search' : null,
+      !firecrawlViaSearch && lead.website && lead.website !== 'N/A' && hadExtract ? 'website' : null,
+      mapsFallbackUsed ? 'Maps backup' : null,
+    ]
       .filter(Boolean)
       .join(' + ');
     baseUpdates.push({
@@ -2262,7 +2293,15 @@ async function runLeadEnhancement(lead, workspaceId) {
     return { success: true, lead: updatedLead };
   }
 
-  return { success: false, error: 'No new contact data discovered yet.' };
+  if (!betterContact.isConfigured(integrationEnv)) {
+    return {
+      success: false,
+      error:
+        'No new contact data discovered yet. Add BETTERCONTACT_API_KEY under Workspace → API integrations to enable BetterContact waterfall enrichment.',
+    };
+  }
+
+  return { success: false, error: 'No new contact data discovered yet. BetterContact and website search did not find new contacts.' };
 }
 
 // POST /leads/enhance-missing-contacts — admin backfill for leads missing phone/email

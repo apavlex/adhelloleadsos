@@ -95,6 +95,13 @@
       <p class="text-xs text-brand-muted mt-2">Manual override for Find Leads job provider in this workspace.</p>
     </div>
     <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">BetterContact API key</label>
+      <% if (masks.bettercontactApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.bettercontactApiKey %></p><% } %>
+      <input type="password" name="bettercontactApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+      <p class="text-xs text-brand-muted mt-2 leading-relaxed"><a href="https://bettercontact.rocks/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">BetterContact</a> powers <strong>Hunt for more contact data</strong> — verified work email and mobile via waterfall enrichment.</p>
+      <% if (masks.bettercontactApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="bettercontactApiKey_clear" value="1" /> Remove</label><% } %>
+    </div>
+    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Firecrawl API key</label>
       <% if (masks.firecrawlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.firecrawlApiKey %></p><% } %>
       <input type="password" name="firecrawlApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
