@@ -6,6 +6,7 @@
 const firecrawl = require('./firecrawl');
 const crawl4ai = require('./crawl4aiClient');
 const mapsEnrichFallback = require('./mapsEnrichFallback');
+const localPageExtract = require('./localPageExtract');
 const { detectTechSignalsFromHtml, mergeHtmlTechIntoExtract } = require('./techSignals');
 
 function truthyEnv(v) {
@@ -20,6 +21,10 @@ function tryCrawl4FirstEnabled() {
 /** Aggressive: no Firecrawl call when Crawl4AI returned HTML — tech signals only (no LLM extract). */
 function skipFirecrawlOnCrawl4Html() {
   return truthyEnv(process.env.ENRICH_SKIP_FIRECRAWL_ON_CRAWL4AI_HTML);
+}
+
+function skipFirecrawlOnLocalHtml() {
+  return truthyEnv(process.env.ENRICH_SKIP_FIRECRAWL_ON_LOCAL_SCRAPE);
 }
 
 /**
@@ -64,6 +69,24 @@ async function enrichLeadSmart(url, options = {}) {
       }
     } catch (e) {
       console.warn('[webEnrichment] Crawl4AI pre-step failed, using Firecrawl path only:', e.message);
+    }
+  }
+
+  if (!techMergeHtml && localPageExtract.localScrapeEnrichEnabled(integrationEnv)) {
+    try {
+      const local = await localPageExtract.extractFromLocalScrape(u);
+      if (local && local.html) {
+        techMergeHtml = local.html;
+        console.log(
+          `[webEnrichment] Local scrape primed HTML (${techMergeHtml.length} chars, ${local.method}) for ${u}`
+        );
+        if (skipFirecrawlOnLocalHtml() && local.extract && mapsEnrichFallback.extractHasContactSignal(local.extract)) {
+          const signals = detectTechSignalsFromHtml(techMergeHtml, u);
+          return mergeHtmlTechIntoExtract(local.extract, signals);
+        }
+      }
+    } catch (e) {
+      console.warn('[webEnrichment] Local scrape pre-step failed:', e.message);
     }
   }
 
@@ -126,5 +149,6 @@ module.exports = {
   enrichLeadSmartWithMapsFallback,
   tryCrawl4FirstEnabled,
   skipFirecrawlOnCrawl4Html,
+  skipFirecrawlOnLocalHtml,
   resolveEnrichPrimary,
 };

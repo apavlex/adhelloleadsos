@@ -99,6 +99,15 @@ function buildSourceCards(live = {}, resolvedEnv) {
         : 'Set SERPAPI_API_KEY from serpapi.com for Google Local as a Maps list source.',
     },
     {
+      id: 'local_scrape',
+      name: 'Local scrape (Cheerio + Puppeteer)',
+      role: 'Find Leads directory supplement + optional Enhance pre-step (no API credits).',
+      cost: 'Free software; you pay server CPU/RAM (Puppeteer is heavier than fetch-only).',
+      configured: true,
+      live: null,
+      tip: 'Find Leads: enable “Also mine directory listings” (Yelp, Yellow Pages, BBB). Enhance: ENRICH_TRY_LOCAL_SCRAPE=1 pulls contacts/tech from HTML before Firecrawl. Set BROWSER_SCRAPER=playwright if you install playwright.',
+    },
+    {
       id: 'leadsgorilla',
       name: 'LeadsGorilla',
       href: 'https://app.leadsgorilla.io/',
@@ -138,6 +147,14 @@ function buildTaskRows() {
       keepPaid:
         'Firecrawl or managed vendors when time-to-value beats engineering time.',
       inApp: 'Still use Firecrawl for default Enhance; escalate to Crawl4AI only when justified.',
+    },
+    {
+      task: 'Extra leads from Yelp / Yellow Pages / BBB',
+      startCheap:
+        'Built-in directory supplement: fetch + Cheerio for static HTML, Puppeteer scroll for dynamic listings.',
+      keepPaid:
+        'Paid Maps APIs when you need Google-native ratings/reviews at scale.',
+      inApp: 'Find Leads checkbox “Also mine directory listings” (on by default). Disable with SEARCH_DIRECTORY_SUPPLEMENT=0.',
     },
   ];
 }

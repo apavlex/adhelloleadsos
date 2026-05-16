@@ -2,6 +2,7 @@ const express = require('express');
 const { DateTime } = require('luxon');
 const router = express.Router();
 const mapsSearch = require('../services/mapsSearch');
+const directoryLeadSearch = require('../services/directoryLeadSearch');
 const dbService = require('../services/database');
 const enricher = require('../services/enricher');
 const activationService = require('../services/activationService');
@@ -13,9 +14,13 @@ const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 router.post('/', async (req, res, next) => {
   try {
     const wid = req.workspaceId;
-    const { keyword, city, state, maxResults, mode } = req.body;
+    const { keyword, city, state, maxResults, mode, directorySupplement } = req.body;
     const activationUserEmail = userEmail(req);
     const activationWorkspaceId = wid;
+
+    const wantDirectorySupplement =
+      String(directorySupplement || '').toLowerCase() === 'on' ||
+      (directorySupplement == null && directoryLeadSearch.directorySupplementEnabled(integrationEnv));
 
     async function startBackgroundSearchRun() {
       await dbService.setActiveJob({
@@ -33,13 +38,32 @@ router.post('/', async (req, res, next) => {
             return;
           }
           console.log(`[SEARCH-BG] Starting Maps search for "${keyword}" in "${city}, ${state}"...`);
+          const maxRes = parseInt(maxResults, 10) || 20;
           let results = await mapsSearch.searchGoogleMaps({
             keyword,
             city,
             state,
-            maxResults: maxResults || 20,
+            maxResults: maxRes,
             integrationEnv,
           });
+          if (wantDirectorySupplement) {
+            console.log('[SEARCH-BG] Supplementing with directory listings (Yelp / Yellow Pages / BBB)...');
+            try {
+              const directoryLeads = await directoryLeadSearch.searchDirectoryLeads({
+                keyword,
+                city,
+                state,
+                maxResults: Math.min(25, maxRes),
+              });
+              const before = results.length;
+              results = directoryLeadSearch.mergeMapsAndDirectoryLeads(results, directoryLeads, maxRes);
+              console.log(
+                `[SEARCH-BG] Directory supplement: +${Math.max(0, results.length - before)} leads (${results.length} total)`
+              );
+            } catch (dirErr) {
+              console.warn('[SEARCH-BG] Directory supplement failed (Maps results kept):', dirErr.message);
+            }
+          }
           console.log('[SEARCH-BG] Starting deep enrichment pass...');
           results = await enricher.enrichLeads(results, { workspaceId: activationWorkspaceId });
           const searchRecord = {
