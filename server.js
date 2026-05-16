@@ -9,7 +9,6 @@ const {
   isGoogleAuthConfigured,
   requireGoogleAuth,
   getPublicBaseUrl,
-  googleOAuthRedirectUris,
 } = require('./services/auth');
 const webEnrichment = require('./services/webEnrichment');
 const mapsEnrichFallback = require('./services/mapsEnrichFallback');
@@ -96,11 +95,9 @@ app.get('/health', (req, res) => {
 
 // Auth Routes
 app.get('/auth/login', (req, res) => {
-  const oauthBase = getPublicBaseUrl(req);
   res.render('login', {
     error: req.query.error,
     googleAuthConfigured: isGoogleAuthConfigured,
-    googleOAuthRedirects: googleOAuthRedirectUris(oauthBase),
   });
 });
 
