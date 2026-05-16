@@ -52,7 +52,7 @@
         </a>
         <% if (googleAuthConfigured) { %>
         <p class="mt-6 text-left text-[10px] text-slate-500 leading-relaxed normal-case tracking-normal font-medium">
-            <strong class="text-slate-600">Drive import:</strong> In Google Cloud Console, add authorized redirect URI <code class="text-[9px] bg-slate-100 px-1 py-0.5 rounded">&lt;BASE_URL&gt;/auth/google/drive/callback</code> (same OAuth client). Set <code class="text-[9px] bg-slate-100 px-1 py-0.5 rounded">GOOGLE_PICKER_API_KEY</code> on the server for the file picker.
+            <strong class="text-slate-600">Drive import/export:</strong> In Google Cloud Console, add redirect URI <code class="text-[9px] bg-slate-100 px-1 py-0.5 rounded">&lt;BASE_URL&gt;/auth/google/drive/callback</code> (same OAuth client). Enable Drive API. Set <code class="text-[9px] bg-slate-100 px-1 py-0.5 rounded">GOOGLE_PICKER_API_KEY</code> for the file picker.
         </p>
         <% } %>
         

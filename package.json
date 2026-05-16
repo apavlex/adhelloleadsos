@@ -25,6 +25,7 @@
     "passport": "^0.7.0",
     "passport-google-oauth20": "^2.0.0",
     "puppeteer": "^24.42.0",
+    "xlsx": "^0.18.5",
     "zod": "^4.3.6"
   }
 }

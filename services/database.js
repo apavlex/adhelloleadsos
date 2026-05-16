@@ -472,7 +472,8 @@ module.exports = {
 
   /** Google Drive read scope tokens (per user email) for CSV import from Drive. */
   async getGoogleDriveTokens(email) {
-    const fragment = this._emailKeyFragment(email);
+    const em = String(email || '').trim().toLowerCase();
+    const fragment = this._emailKeyFragment(em);
     const key = `gdrv_oauth:${fragment}`;
     const data = await db.get(key);
     if (!data) return null;
@@ -486,9 +487,10 @@ module.exports = {
   },
 
   async mergeGoogleDriveTokens(email, { accessToken, refreshToken, expiresIn }) {
-    const fragment = this._emailKeyFragment(email);
+    const em = String(email || '').trim().toLowerCase();
+    const fragment = this._emailKeyFragment(em);
     const key = `gdrv_oauth:${fragment}`;
-    const cur = (await this.getGoogleDriveTokens(email)) || {};
+    const cur = (await this.getGoogleDriveTokens(em)) || {};
     const ttl = Number(expiresIn);
     const expiresAt =
       Date.now() + (Number.isFinite(ttl) && ttl > 0 ? ttl * 1000 : 3600 * 1000);
@@ -505,7 +507,8 @@ module.exports = {
   },
 
   async clearGoogleDriveTokens(email) {
-    const fragment = this._emailKeyFragment(email);
+    const em = String(email || '').trim().toLowerCase();
+    const fragment = this._emailKeyFragment(em);
     const key = `gdrv_oauth:${fragment}`;
     await db.delete(key);
   },

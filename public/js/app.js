@@ -274,66 +274,126 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function collectLeadDatasetsForBulkExport() {
+    const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
+    const leadsToExport = [];
+    if (selectedCheckboxes.length > 0) {
+      selectedCheckboxes.forEach((cb) => {
+        const row = cb.closest('.result-row');
+        if (row) leadsToExport.push(row.dataset);
+      });
+    } else {
+      document.querySelectorAll('.result-row').forEach((row) => {
+        leadsToExport.push(row.dataset);
+      });
+    }
+    return leadsToExport;
+  }
+
+  function buildLeadsCsvFromDatasets(leadsToExport) {
+    const headers = [
+      'Company',
+      'Category',
+      'Phone',
+      'Website',
+      'Email',
+      'Address',
+      'Rating',
+      'Reviews',
+      'Claim status',
+      'GBP optimization score',
+      'Signal',
+      'Facebook',
+      'Instagram',
+      'Twitter',
+      'Opportunity (unified /10)',
+    ];
+    const rows = leadsToExport.map((l) => [
+      `"${l.title}"`,
+      `"${l.category}"`,
+      `"${l.phone}"`,
+      `"${l.website}"`,
+      `"${l.email}"`,
+      `"${l.address}"`,
+      l.rating,
+      l.reviews,
+      `"${String(l.gbpClaimStatus || '').replace(/"/g, '""')}"`,
+      `"${String(l.gbpOptimizationScore || '').replace(/"/g, '""')}"`,
+      `"${(l.ownerSignal || '').replace(/"/g, '""')}"`,
+      `"${l.facebook}"`,
+      `"${l.instagram}"`,
+      `"${l.twitter}"`,
+      getUnifiedClientScore(l),
+    ]);
+    return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  }
+
+  function defaultLeadsExportFilename() {
+    return `AdHello_Leads_${new Date().toISOString().split('T')[0]}.csv`;
+  }
+
   // Export CSV — all `.js-bulk-export-csv` buttons (avoids duplicate id on /leads floating bar vs header bar)
   document.querySelectorAll('.js-bulk-export-csv').forEach((exportBtn) => {
-    exportBtn.addEventListener('click', () => {
-      const selectedCheckboxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
-      const leadsToExport = [];
-
-      if (selectedCheckboxes.length > 0) {
-        selectedCheckboxes.forEach((cb) => {
-          const row = cb.closest('.result-row');
-          if (row) leadsToExport.push(row.dataset);
-        });
-      } else {
-        document.querySelectorAll('.result-row').forEach((row) => {
-          leadsToExport.push(row.dataset);
-        });
-      }
-
+    exportBtn.addEventListener('click', (e) => {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      const leadsToExport = collectLeadDatasetsForBulkExport();
       if (leadsToExport.length === 0) return alert('No leads found to export.');
-
-      const headers = [
-        'Company',
-        'Category',
-        'Phone',
-        'Website',
-        'Email',
-        'Address',
-        'Rating',
-        'Reviews',
-        'Claim status',
-        'GBP optimization score',
-        'Signal',
-        'Facebook',
-        'Instagram',
-        'Twitter',
-        'Opportunity (unified /10)',
-      ];
-      const rows = leadsToExport.map((l) => [
-        `"${l.title}"`,
-        `"${l.category}"`,
-        `"${l.phone}"`,
-        `"${l.website}"`,
-        `"${l.email}"`,
-        `"${l.address}"`,
-        l.rating,
-        l.reviews,
-        `"${String(l.gbpClaimStatus || '').replace(/"/g, '""')}"`,
-        `"${String(l.gbpOptimizationScore || '').replace(/"/g, '""')}"`,
-        `"${(l.ownerSignal || '').replace(/"/g, '""')}"`,
-        `"${l.facebook}"`,
-        `"${l.instagram}"`,
-        `"${l.twitter}"`,
-        getUnifiedClientScore(l),
-      ]);
-
-      const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+      const csvContent = buildLeadsCsvFromDatasets(leadsToExport);
       const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement('a');
       link.href = URL.createObjectURL(blob);
-      link.setAttribute('download', `AdHello_Leads_${new Date().toISOString().split('T')[0]}.csv`);
+      link.setAttribute('download', defaultLeadsExportFilename());
       link.click();
+    });
+  });
+
+  // Save list to Google Drive (Pipeline — requires Connect Google Drive)
+  document.querySelectorAll('.js-bulk-save-drive').forEach((saveBtn) => {
+    saveBtn.addEventListener('click', (e) => {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      const leadsToExport = collectLeadDatasetsForBulkExport();
+      if (leadsToExport.length === 0) return alert('No leads found to save.');
+      const csvContent = buildLeadsCsvFromDatasets(leadsToExport);
+      const filename = defaultLeadsExportFilename();
+      saveBtn.disabled = true;
+      saveBtn.setAttribute('aria-busy', 'true');
+      fetch('/leads/google-drive/upload-csv', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ csv: csvContent, filename }),
+      })
+        .then((r) => r.json().then((j) => ({ ok: r.ok, j })))
+        .then((pack) => {
+          if (!pack.ok || !pack.j || !pack.j.success) {
+            const msg = (pack.j && pack.j.error) || 'Could not save to Google Drive.';
+            if (pack.j && pack.j.needsReconnect) {
+              if (
+                window.confirm(
+                  msg + '\n\nOpen Google Drive connection now? (You may need to approve save access.)'
+                )
+              ) {
+                window.location.href = '/auth/google/drive-link';
+              }
+              return;
+            }
+            throw new Error(msg);
+          }
+          const link = pack.j.webViewLink;
+          const name = pack.j.name || filename;
+          if (link && window.confirm(`Saved "${name}" to Google Drive (AdHello Leads folder).\n\nOpen in Drive?`)) {
+            window.open(link, '_blank', 'noopener,noreferrer');
+          } else {
+            alert(`Saved "${name}" to your Google Drive (AdHello Leads folder).`);
+          }
+        })
+        .catch((e) => {
+          alert(e && e.message ? e.message : 'Could not save to Google Drive.');
+        })
+        .finally(() => {
+          saveBtn.disabled = false;
+          saveBtn.removeAttribute('aria-busy');
+        });
     });
   });
 

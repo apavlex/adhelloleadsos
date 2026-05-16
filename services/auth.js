@@ -61,7 +61,7 @@ if (isGoogleAuthConfigured) {
           return done(null, false, { message: 'Access restricted to adhello.ai workspace.' });
         }
         try {
-          await dbService.mergeGoogleDriveTokens(gate.email, {
+          await dbService.mergeGoogleDriveTokens(String(gate.email).trim().toLowerCase(), {
             accessToken,
             refreshToken,
             expiresIn: 3600,

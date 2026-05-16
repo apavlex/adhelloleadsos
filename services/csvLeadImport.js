@@ -1,4 +1,24 @@
 const { parse } = require('csv-parse/sync');
+const XLSX = require('xlsx');
+
+const XLSX_EXT = /\.xlsx?$/i;
+
+function isExcelImportFilename(filename) {
+  return XLSX_EXT.test(String(filename || ''));
+}
+
+/**
+ * @param {Buffer} buffer
+ * @returns {Array<Record<string, unknown>>}
+ */
+function parseXlsxRows(buffer) {
+  const wb = XLSX.read(buffer, { type: 'buffer', cellDates: true });
+  const sheetName = wb.SheetNames && wb.SheetNames[0];
+  if (!sheetName) return [];
+  const sheet = wb.Sheets[sheetName];
+  if (!sheet) return [];
+  return XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+}
 
 /**
  * Normalize CSV header keys for flexible column matching.
@@ -180,7 +200,23 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
  * @param {string} originalFilename
  * @returns {Array<Record<string, unknown>>}
  */
+function rowsToLeadRecords(rows, originalFilename, options = {}) {
+  const leads = [];
+  let i = 0;
+  for (const row of rows) {
+    const lead = toLeadPayload(row, originalFilename, i, options);
+    if (lead) leads.push(lead);
+    i += 1;
+  }
+  return leads;
+}
+
 function parseCsvToLeadRecords(buffer, originalFilename, options = {}) {
+  if (isExcelImportFilename(originalFilename)) {
+    const rows = parseXlsxRows(buffer);
+    return rowsToLeadRecords(rows, originalFilename, options);
+  }
+
   const textRaw = buffer.toString('utf8');
   const text = stripTablePreamble(textRaw);
   if (!text.trim()) return [];
@@ -193,17 +229,12 @@ function parseCsvToLeadRecords(buffer, originalFilename, options = {}) {
     relax_quotes: true,
   });
 
-  const leads = [];
-  let i = 0;
-  for (const row of rows) {
-    const lead = toLeadPayload(row, originalFilename, i, options);
-    if (lead) leads.push(lead);
-    i += 1;
-  }
-  return leads;
+  return rowsToLeadRecords(rows, originalFilename, options);
 }
 
 module.exports = {
   parseCsvToLeadRecords,
   toLeadPayload,
+  isExcelImportFilename,
+  parseXlsxRows,
 };

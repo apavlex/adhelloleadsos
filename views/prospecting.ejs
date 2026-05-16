@@ -92,45 +92,73 @@
       var input = document.getElementById('leadsCsvFile');
       var hint = document.getElementById('csvFileAttachHint');
       var nameEl = document.getElementById('csvFileNameDisplay');
-      var labelWrap = document.getElementById('leadsCsvLabelWrap');
-      var labelText = document.getElementById('leadsCsvLabelText');
       var form = document.getElementById('leadsCsvImportForm');
       var uploadButton = document.getElementById('leadsCsvUploadButton');
       var uploadSpinner = document.getElementById('leadsCsvUploadSpinner');
-      var uploadButtonText = document.getElementById('leadsCsvUploadButtonText');
-      if (!input || !hint || !nameEl) return;
-      function sync() {
-        var f = input.files && input.files[0];
-        if (f && f.name) {
-          nameEl.textContent = f.name;
+      if (!input) return;
+
+      function closePipelineMenus(except) {
+        document.querySelectorAll('[data-pipeline-menu]').forEach(function (menu) {
+          if (except && menu === except) return;
+          var panel = menu.querySelector('[data-pipeline-menu-panel]');
+          var trigger = menu.querySelector('[data-pipeline-menu-trigger]');
+          if (panel) panel.classList.add('hidden');
+          if (trigger) trigger.setAttribute('aria-expanded', 'false');
+        });
+      }
+
+      document.querySelectorAll('[data-pipeline-menu]').forEach(function (menu) {
+        var trigger = menu.querySelector('[data-pipeline-menu-trigger]');
+        var panel = menu.querySelector('[data-pipeline-menu-panel]');
+        if (!trigger || !panel) return;
+        trigger.addEventListener('click', function (e) {
+          e.stopPropagation();
+          var open = !panel.classList.contains('hidden');
+          closePipelineMenus();
+          if (!open) {
+            panel.classList.remove('hidden');
+            trigger.setAttribute('aria-expanded', 'true');
+          }
+        });
+        panel.querySelectorAll('button, a').forEach(function (item) {
+          item.addEventListener('click', function () {
+            closePipelineMenus();
+          });
+        });
+      });
+      document.addEventListener('click', function () {
+        closePipelineMenus();
+      });
+
+      document.querySelectorAll('.js-import-computer').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          input.click();
+        });
+      });
+
+      function beginImportUi(filename) {
+        if (nameEl && filename) nameEl.textContent = filename;
+        if (hint) {
           hint.classList.remove('hidden');
           hint.classList.add('flex');
-          if (labelWrap) {
-            labelWrap.classList.add('border-emerald-500/70', 'dark:border-emerald-400/60', 'ring-2', 'ring-emerald-500/25', 'dark:ring-emerald-400/20');
-          }
-          if (labelText) labelText.textContent = 'Change file';
-        } else {
-          nameEl.textContent = '';
-          hint.classList.add('hidden');
-          hint.classList.remove('flex');
-          if (labelWrap) {
-            labelWrap.classList.remove('border-emerald-500/70', 'dark:border-emerald-400/60', 'ring-2', 'ring-emerald-500/25', 'dark:ring-emerald-400/20');
-          }
-          if (labelText) labelText.textContent = 'Import CSV';
         }
+        if (uploadButton) uploadButton.disabled = true;
+        if (uploadSpinner) uploadSpinner.classList.remove('hidden');
       }
-      input.addEventListener('change', sync);
-      sync();
+
+      input.addEventListener('change', function () {
+        var f = input.files && input.files[0];
+        if (!f || !form) return;
+        beginImportUi(f.name);
+        if (typeof form.requestSubmit === 'function') form.requestSubmit();
+        else form.submit();
+      });
+
       if (form && uploadButton) {
         form.addEventListener('submit', function () {
           uploadButton.disabled = true;
           uploadButton.setAttribute('aria-busy', 'true');
-          if (uploadSpinner) {
-            uploadSpinner.classList.remove('hidden');
-          }
-          if (uploadButtonText) {
-            uploadButtonText.textContent = 'Uploading...';
-          }
+          if (uploadSpinner) uploadSpinner.classList.remove('hidden');
         });
       }
       var params = new URLSearchParams(window.location.search);
@@ -145,10 +173,13 @@
     });
   })();
   </script>
-  <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady && driveImport.connected) { %>
+  <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>
   <script>
   (function () {
-    window.__DRIVE_IMPORT__ = <%- JSON.stringify({ developerKey: driveImport.pickerApiKey || '' }) %>;
+    window.__DRIVE_IMPORT__ = <%- JSON.stringify({
+      developerKey: driveImport.pickerApiKey || '',
+      appId: driveImport.googleClientId || ''
+    }) %>;
     function loadScript(src) {
       return new Promise(function (resolve, reject) {
         var s = document.createElement('script');
@@ -169,11 +200,17 @@
         gapi.load('picker', function () { cb(); });
       }).catch(function () { alert('Could not load Google Picker.'); });
     }
-    function driveImportPick() {
-      var btn = document.getElementById('driveImportPickBtn');
-      var dk = window.__DRIVE_IMPORT__ && window.__DRIVE_IMPORT__.developerKey;
+    function driveImportPick(btn) {
+      if (!btn) btn = document.querySelector('.js-drive-import-pick');
+      var cfg = window.__DRIVE_IMPORT__ || {};
+      var dk = cfg.developerKey;
+      var appId = cfg.appId;
       if (!dk) {
         alert('Picker API key is not configured.');
+        return;
+      }
+      if (!appId) {
+        alert('Google OAuth client ID is not configured.');
         return;
       }
       if (btn) {
@@ -190,12 +227,13 @@
           ensurePicker(function () {
             var view = new google.picker.DocsView(google.picker.ViewId.DOCUMENTS)
               .setIncludeFolders(true)
-              .setMimeTypes('text/csv,application/vnd.google-apps.spreadsheet');
+              .setMimeTypes('text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.google-apps.spreadsheet');
             var picker = new google.picker.PickerBuilder()
               .setOAuthToken(oauthToken)
               .setDeveloperKey(dk)
+              .setAppId(appId)
               .addView(view)
-              .setTitle('Select CSV or Google Sheet')
+              .setTitle('Select CSV, XLSX, or Google Sheet')
               .setCallback(function (data) {
                 var action = data[google.picker.Response.ACTION];
                 if (action === google.picker.Action.CANCEL) {
@@ -253,8 +291,9 @@
         });
     }
     document.addEventListener('DOMContentLoaded', function () {
-      var b = document.getElementById('driveImportPickBtn');
-      if (b) b.addEventListener('click', driveImportPick);
+      document.querySelectorAll('.js-drive-import-pick').forEach(function (b) {
+        b.addEventListener('click', function () { driveImportPick(b); });
+      });
     });
   })();
   </script>

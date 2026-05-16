@@ -108,13 +108,18 @@ app.get('/auth/google/callback',
   }
 );
 
-/** OAuth with Drive read scope — stores refresh token for CSV import from Google Drive. */
+/** OAuth with Drive read + file scope — import from Drive and export lists back to Drive. */
 app.get(
   '/auth/google/drive-link',
   ensureAuthenticated,
   requireGoogleAuth,
   passport.authenticate('googleDrive', {
-    scope: ['profile', 'email', 'https://www.googleapis.com/auth/drive.readonly'],
+    scope: [
+      'profile',
+      'email',
+      'https://www.googleapis.com/auth/drive.readonly',
+      'https://www.googleapis.com/auth/drive.file',
+    ],
     accessType: 'offline',
     prompt: 'consent',
   })

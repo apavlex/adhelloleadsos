@@ -32,6 +32,7 @@ const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const googleDriveAccess = require('../services/googleDriveAccess');
 const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
+const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const signalwire = require('../services/signalwire');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 
@@ -114,11 +115,15 @@ const upload = multer({
     const name = (file.originalname || '').toLowerCase();
     const ok =
       name.endsWith('.csv') ||
+      name.endsWith('.xlsx') ||
+      name.endsWith('.xls') ||
       file.mimetype === 'text/csv' ||
       file.mimetype === 'application/csv' ||
-      file.mimetype === 'application/vnd.ms-excel';
+      file.mimetype === 'application/vnd.ms-excel' ||
+      file.mimetype ===
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     if (ok) cb(null, true);
-    else cb(new Error('Upload a .csv file only.'));
+    else cb(new Error('Upload a .csv or .xlsx file only.'));
   },
 });
 
@@ -308,6 +313,54 @@ router.get('/google-drive/access-token', async (req, res) => {
     res.json({ success: true, accessToken: token });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message || 'token failed' });
+  }
+});
+
+// POST /leads/google-drive/upload-csv — save a lead list CSV to the user's Google Drive
+router.post('/google-drive/upload-csv', express.json({ limit: '15mb' }), async (req, res) => {
+  try {
+    const csv = req.body && req.body.csv;
+    if (csv == null || !String(csv).trim()) {
+      return res.status(400).json({ success: false, error: 'csv content is required.' });
+    }
+    const access = await googleDriveAccess.getValidAccessToken(userEmail(req));
+    if (!access) {
+      return res.status(401).json({
+        success: false,
+        connected: false,
+        error: 'Connect Google Drive from the Pipeline tab first (import & export).',
+      });
+    }
+    const date = new Date().toISOString().slice(0, 10);
+    const filename = safeDriveFileName(
+      (req.body && req.body.filename) || `AdHello_Leads_${date}.csv`
+    );
+    const folderId =
+      req.body && req.body.folderId ? String(req.body.folderId).trim() : '';
+    const uploaded = await uploadCsvToDrive(access, {
+      name: filename,
+      content: String(csv),
+      folderId: folderId || undefined,
+      useDefaultFolder: !folderId,
+    });
+    res.json({
+      success: true,
+      fileId: uploaded.id,
+      name: uploaded.name,
+      webViewLink: uploaded.webViewLink || null,
+    });
+  } catch (e) {
+    console.error('[drive-upload]', e);
+    const scope = e && e.code === 'DRIVE_SCOPE';
+    res.status(scope ? 403 : 400).json({
+      success: false,
+      error:
+        e.message ||
+        (scope
+          ? 'Reconnect Google Drive to allow saving files (Connect Google Drive).'
+          : 'Drive upload failed'),
+      needsReconnect: scope,
+    });
   }
 });
 
