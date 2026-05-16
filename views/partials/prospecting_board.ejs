@@ -27,6 +27,20 @@
     <a href="/prospecting?tab=pipeline" class="mt-2 inline-block text-xs font-black uppercase text-rose-800 dark:text-rose-200 underline">Dismiss</a>
   </div>
 <% } %>
+<% if (typeof driveImport !== 'undefined' && driveImport && driveImport.driveOAuthError) { %>
+  <div class="mb-8 rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800 px-6 py-4">
+    <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Google Drive connection failed (<code class="text-xs font-mono">redirect_uri_mismatch</code>).</p>
+    <p class="mt-2 text-sm text-amber-900/90 dark:text-amber-100/90">In <strong>Google Cloud Console</strong> → your OAuth client → <strong>Authorized redirect URIs</strong>, add both URLs below (must match exactly, including <code class="text-xs">https://</code>):</p>
+    <% if (driveImport.oauthRedirects) { %>
+    <ul class="mt-2 text-xs font-mono break-all text-amber-950 dark:text-amber-50 space-y-1">
+      <li><%= driveImport.oauthRedirects.signIn %></li>
+      <li><%= driveImport.oauthRedirects.drive %></li>
+    </ul>
+    <% } %>
+    <p class="mt-2 text-xs text-amber-900/80 dark:text-amber-200/80">On Render, set <code class="font-mono">BASE_URL</code> to your live app URL (e.g. <code class="font-mono">https://your-service.onrender.com</code>), redeploy, then try <strong>Export → My Google Drive</strong> again.</p>
+    <a href="/prospecting?tab=pipeline" class="mt-3 inline-block text-xs font-black uppercase text-amber-900 dark:text-amber-200 underline">Dismiss</a>
+  </div>
+<% } %>
 <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.driveConnectedBanner) { %>
   <div class="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-4">
     <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Google Drive is connected. Use <strong>Import → My Google Drive</strong> or <strong>Export → My Google Drive</strong>; files save to the <em>AdHello Leads</em> folder.</p>

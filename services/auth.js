@@ -1,12 +1,13 @@
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const dbService = require('./database');
+const { getPublicBaseUrl, googleOAuthRedirectUris } = require('../lib/publicBaseUrl');
 
 const isGoogleAuthConfigured = Boolean(
   process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
 );
 
-const baseUrl = (process.env.BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+const baseUrl = getPublicBaseUrl();
 
 function slimGoogleProfile(profile) {
   return {
@@ -77,6 +78,13 @@ if (isGoogleAuthConfigured) {
   console.log('Google Auth: Missing credentials. Login page will be accessible but login will fail.');
 }
 
+if (isGoogleAuthConfigured) {
+  const uris = googleOAuthRedirectUris(baseUrl);
+  console.log('[Google OAuth] Register these Authorized redirect URIs in Google Cloud Console:');
+  console.log(`  - ${uris.signIn}`);
+  console.log(`  - ${uris.drive}`);
+}
+
 passport.serializeUser((user, done) => {
   done(null, user);
 });
@@ -97,4 +105,11 @@ function requireGoogleAuth(req, res, next) {
   return res.redirect('/auth/login?error=auth_not_configured');
 }
 
-module.exports = { passport, ensureAuthenticated, isGoogleAuthConfigured, requireGoogleAuth };
+module.exports = {
+  passport,
+  ensureAuthenticated,
+  isGoogleAuthConfigured,
+  requireGoogleAuth,
+  getPublicBaseUrl,
+  googleOAuthRedirectUris,
+};

@@ -3,7 +3,14 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const session = require('express-session');
-const { passport, ensureAuthenticated, isGoogleAuthConfigured, requireGoogleAuth } = require('./services/auth');
+const {
+  passport,
+  ensureAuthenticated,
+  isGoogleAuthConfigured,
+  requireGoogleAuth,
+  getPublicBaseUrl,
+  googleOAuthRedirectUris,
+} = require('./services/auth');
 const webEnrichment = require('./services/webEnrichment');
 const mapsEnrichFallback = require('./services/mapsEnrichFallback');
 const workspaceIntegrations = require('./services/workspaceIntegrations');
@@ -89,9 +96,11 @@ app.get('/health', (req, res) => {
 
 // Auth Routes
 app.get('/auth/login', (req, res) => {
+  const oauthBase = getPublicBaseUrl(req);
   res.render('login', {
     error: req.query.error,
     googleAuthConfigured: isGoogleAuthConfigured,
+    googleOAuthRedirects: googleOAuthRedirectUris(oauthBase),
   });
 });
 
@@ -109,10 +118,12 @@ app.get('/auth/google/callback',
 );
 
 /** OAuth with Drive read + file scope — import from Drive and export lists back to Drive. */
-app.get(
-  '/auth/google/drive-link',
-  ensureAuthenticated,
-  requireGoogleAuth,
+function driveOAuthCallbackUrl(req) {
+  return `${getPublicBaseUrl(req)}/auth/google/drive/callback`;
+}
+
+app.get('/auth/google/drive-link', ensureAuthenticated, requireGoogleAuth, (req, res, next) => {
+  const callbackURL = driveOAuthCallbackUrl(req);
   passport.authenticate('googleDrive', {
     scope: [
       'profile',
@@ -122,13 +133,19 @@ app.get(
     ],
     accessType: 'offline',
     prompt: 'consent',
-  })
-);
+    callbackURL,
+  })(req, res, next);
+});
 
 app.get(
   '/auth/google/drive/callback',
   requireGoogleAuth,
-  passport.authenticate('googleDrive', { failureRedirect: '/auth/login?error=unauthorized' }),
+  (req, res, next) => {
+    passport.authenticate('googleDrive', {
+      failureRedirect: '/prospecting?tab=pipeline&driveError=oauth',
+      callbackURL: driveOAuthCallbackUrl(req),
+    })(req, res, next);
+  },
   function (req, res) {
     res.redirect('/prospecting?tab=pipeline&driveConnected=1');
   }

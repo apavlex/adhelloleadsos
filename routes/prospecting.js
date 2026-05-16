@@ -4,6 +4,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const { getPublicBaseUrl, googleOAuthRedirectUris } = require('../lib/publicBaseUrl');
 const {
   displayStatus,
   applyLeadListFilters,
@@ -109,6 +110,7 @@ router.get('/', async (req, res, next) => {
 
     const email = userEmail(req);
     const driveTokens = email ? await dbService.getGoogleDriveTokens(email) : null;
+    const oauthBase = getPublicBaseUrl(req);
     const driveImport = {
       pickerReady: Boolean(
         process.env.GOOGLE_CLIENT_ID &&
@@ -117,6 +119,8 @@ router.get('/', async (req, res, next) => {
       ),
       connected: !!(driveTokens && driveTokens.refreshToken),
       driveConnectedBanner: req.query.driveConnected === '1',
+      driveOAuthError: req.query.driveError === 'oauth',
+      oauthRedirects: googleOAuthRedirectUris(oauthBase),
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
       pickerApiKey: process.env.GOOGLE_PICKER_API_KEY || '',
       setupHint:
