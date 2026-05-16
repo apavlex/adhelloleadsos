@@ -78,13 +78,15 @@ router.get('/', async (req, res, next) => {
 
     let importNotice = null;
     if (
-      ['imported', 'skipped', 'failed', 'rows', 'created', 'updated'].some(
+      ['imported', 'skipped', 'failed', 'rows', 'created', 'updated', 'rawRows', 'rejected'].some(
         (k) => req.query[k] != null && req.query[k] !== ''
       )
     ) {
       const rowsQ = parseInt(req.query.rows, 10);
       const createdQ = parseInt(req.query.created, 10);
       const updatedQ = parseInt(req.query.updated, 10);
+      const rawRowsQ = parseInt(req.query.rawRows, 10);
+      const rejectedQ = parseInt(req.query.rejected, 10);
       importNotice = {
         imported: Math.max(0, parseInt(req.query.imported, 10) || 0),
         skipped: Math.max(0, parseInt(req.query.skipped, 10) || 0),
@@ -92,6 +94,8 @@ router.get('/', async (req, res, next) => {
         rows: Number.isNaN(rowsQ) ? null : rowsQ,
         created: Number.isNaN(createdQ) ? null : createdQ,
         updated: Number.isNaN(updatedQ) ? null : updatedQ,
+        rawRows: Number.isNaN(rawRowsQ) ? null : rawRowsQ,
+        rejected: Number.isNaN(rejectedQ) ? null : rejectedQ,
       };
     }
 

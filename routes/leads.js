@@ -10,7 +10,7 @@ const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormali
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { createAuditReportToken } = require('../services/auditReportSign');
-const { parseCsvToLeadRecords } = require('../services/csvLeadImport');
+const { parseImportFile } = require('../services/csvLeadImport');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { scoreLeadRecord } = require('../services/opportunityScore');
@@ -41,7 +41,9 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
     typeof importOptions.leadSource === 'string' && importOptions.leadSource.trim()
       ? { leadSource: importOptions.leadSource.trim() }
       : {};
-  const records = parseCsvToLeadRecords(buffer, originalFilename || 'import.csv', parseOpts);
+  const parsed = parseImportFile(buffer, originalFilename || 'import.csv', parseOpts);
+  const records = parsed.leads;
+  const rawRowCount = parsed.rawRowCount;
   const wid = req.workspaceId;
   let created = 0;
   let updated = 0;
@@ -88,8 +90,22 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
     await activationService.recordEvent(userEmail(req), ev);
   }
 
+  const rejected = Math.max(0, rawRowCount - records.length);
+  if (rawRowCount === 0) {
+    console.warn('[CSV import] No data rows parsed from file:', originalFilename);
+  } else if (records.length === 0) {
+    console.warn(
+      '[CSV import] Parsed',
+      rawRowCount,
+      'row(s) but 0 importable leads — check column headers (company_name, business_name, title, name, website, email):',
+      originalFilename
+    );
+  }
+
   return {
     records,
+    rawRowCount,
+    rejected,
     created,
     updated,
     skipped,
@@ -388,6 +404,8 @@ router.post('/drive-import/google', async (req, res, next) => {
       skipped: pack.skipped,
       failed: pack.failed,
       totalRows: pack.rows,
+      rawRows: pack.rawRowCount,
+      rejected: pack.rejected,
     });
   } catch (e) {
     console.error('[drive-import]', e);
@@ -414,13 +432,15 @@ router.post('/import', (req, res, next) => {
       if (req.headers.accept && req.headers.accept.includes('application/json')) {
         return res.status(400).json({ success: false, error: 'No CSV file received (field name: csvfile).' });
       }
-      return res.redirect('/prospecting?tab=pipeline&rows=0&created=0&updated=0&imported=0&skipped=0&failed=0');
+      return res.redirect(
+        '/prospecting?tab=pipeline&rows=0&rawRows=0&rejected=0&created=0&updated=0&imported=0&skipped=0&failed=0'
+      );
     }
 
     const pack = await importLeadRecordsFromBuffer(req.file.buffer, req.file.originalname || 'import.csv', req);
-    const { created, updated, skipped, failed, rows } = pack;
+    const { created, updated, skipped, failed, rows, rawRowCount, rejected } = pack;
     const applied = pack.applied;
-    const q = `rows=${rows}&created=${created}&updated=${updated}&imported=${applied}&skipped=${skipped}&failed=${failed}`;
+    const q = `rows=${rows}&rawRows=${rawRowCount}&rejected=${rejected}&created=${created}&updated=${updated}&imported=${applied}&skipped=${skipped}&failed=${failed}`;
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
       return res.json({
         success: true,

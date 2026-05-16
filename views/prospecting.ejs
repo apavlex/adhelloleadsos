@@ -268,6 +268,8 @@
                     }
                     var j = imp.j;
                     var q = 'tab=pipeline&rows=' + encodeURIComponent(j.totalRows || 0)
+                      + '&rawRows=' + encodeURIComponent(j.rawRows != null ? j.rawRows : j.totalRows || 0)
+                      + '&rejected=' + encodeURIComponent(j.rejected || 0)
                       + '&created=' + encodeURIComponent(j.created || 0)
                       + '&updated=' + encodeURIComponent(j.updated || 0)
                       + '&imported=' + encodeURIComponent(j.imported || 0)

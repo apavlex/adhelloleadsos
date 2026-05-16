@@ -50,6 +50,43 @@ function stripTablePreamble(text) {
   return text;
 }
 
+function stripUtf8Bom(text) {
+  return String(text || '').replace(/^\uFEFF/, '');
+}
+
+function detectCsvDelimiter(headerLine) {
+  const line = String(headerLine || '');
+  const candidates = [
+    [',', (line.match(/,/g) || []).length],
+    [';', (line.match(/;/g) || []).length],
+    ['\t', (line.match(/\t/g) || []).length],
+  ];
+  candidates.sort((a, b) => b[1] - a[1]);
+  return candidates[0][1] > 0 ? candidates[0][0] : ',';
+}
+
+/**
+ * @param {Buffer} buffer
+ * @returns {Array<Record<string, unknown>>}
+ */
+function parseCsvRawRows(buffer) {
+  const textRaw = stripUtf8Bom(buffer.toString('utf8'));
+  const text = stripTablePreamble(textRaw);
+  if (!text.trim()) return [];
+
+  const headerLine = text.split(/\r?\n/).find((l) => String(l).trim()) || '';
+  const delimiter = detectCsvDelimiter(headerLine);
+
+  return parse(text, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+    relax_quotes: true,
+    delimiter,
+  });
+}
+
 function collectImportFields(row) {
   const normalized = normalizeKeys(row);
   const out = {};
@@ -129,9 +166,44 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
       ? options.leadSource.trim()
       : 'csv_import';
 
-  const title =
-    (r.company_name || r.business_name || r.title || r.name || '').trim() ||
-    (r.company_domain || '').trim();
+  let title =
+    (
+      r.company_name ||
+      r.business_name ||
+      r.business ||
+      r.company ||
+      r.account_name ||
+      r.organization ||
+      r.org_name ||
+      r.lead_name ||
+      r.contact_name ||
+      r.full_name ||
+      r.title ||
+      r.name ||
+      r.companyname ||
+      ''
+    ).trim() || (r.company_domain || '').trim();
+
+  if (!title) {
+    const websiteRaw = (r.company_website || r.website || r.domain || '').trim();
+    if (websiteRaw) {
+      title = websiteRaw
+        .replace(/^https?:\/\//i, '')
+        .replace(/^www\./i, '')
+        .split('/')[0]
+        .trim();
+    }
+  }
+  if (!title) {
+    const emailRaw = pickPrimaryEmail(r);
+    if (emailRaw && emailRaw.includes('@')) {
+      title = emailRaw.split('@')[0].replace(/[._-]+/g, ' ').trim();
+    }
+  }
+  if (!title) {
+    const phone = (r.phone_number || r.phone || r.telephone || '').trim();
+    if (phone) title = `Lead ${phone}`;
+  }
   if (!title) return null;
 
   const companyLocation = (r.company_location || r.address || '').trim();
@@ -211,30 +283,30 @@ function rowsToLeadRecords(rows, originalFilename, options = {}) {
   return leads;
 }
 
-function parseCsvToLeadRecords(buffer, originalFilename, options = {}) {
+/**
+ * @returns {{ leads: Array<Record<string, unknown>>, rawRowCount: number }}
+ */
+function parseImportFile(buffer, originalFilename, options = {}) {
+  let rawRows = [];
   if (isExcelImportFilename(originalFilename)) {
-    const rows = parseXlsxRows(buffer);
-    return rowsToLeadRecords(rows, originalFilename, options);
+    rawRows = parseXlsxRows(buffer);
+  } else {
+    rawRows = parseCsvRawRows(buffer);
   }
+  const leads = rowsToLeadRecords(rawRows, originalFilename, options);
+  return { leads, rawRowCount: rawRows.length };
+}
 
-  const textRaw = buffer.toString('utf8');
-  const text = stripTablePreamble(textRaw);
-  if (!text.trim()) return [];
-
-  const rows = parse(text, {
-    columns: true,
-    skip_empty_lines: true,
-    trim: true,
-    relax_column_count: true,
-    relax_quotes: true,
-  });
-
-  return rowsToLeadRecords(rows, originalFilename, options);
+function parseCsvToLeadRecords(buffer, originalFilename, options = {}) {
+  return parseImportFile(buffer, originalFilename, options).leads;
 }
 
 module.exports = {
   parseCsvToLeadRecords,
+  parseImportFile,
   toLeadPayload,
   isExcelImportFilename,
   parseXlsxRows,
+  parseCsvRawRows,
+  detectCsvDelimiter,
 };

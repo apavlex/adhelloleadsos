@@ -48,23 +48,39 @@
   </div>
 <% } %>
 <% if (typeof importNotice !== 'undefined' && importNotice) { %>
-  <div class="mb-8 rounded-2xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-    <% const hasRowBreakdown = importNotice.rows != null && importNotice.created != null && importNotice.updated != null; %>
-    <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100 max-w-3xl">
-      <% if (hasRowBreakdown) { %>
-        CSV import finished: <strong><%= importNotice.rows %></strong> rows processed —
-        <strong><%= importNotice.created %></strong> new lead<%= importNotice.created === 1 ? '' : 's' %>,
-        <strong><%= importNotice.updated %></strong> merged into an existing lead (duplicate email in this workspace).
-        <% if (importNotice.skipped > 0) { %> <strong><%= importNotice.skipped %></strong> skipped.<% } %>
-        <% if (importNotice.failed > 0) { %> <strong><%= importNotice.failed %></strong> failed.<% } %>
+  <% const _impRows = importNotice.rows != null ? Number(importNotice.rows) : null;
+     const _impRaw = importNotice.rawRows != null ? Number(importNotice.rawRows) : null;
+     const _impCreated = importNotice.created != null ? Number(importNotice.created) : 0;
+     const _impUpdated = importNotice.updated != null ? Number(importNotice.updated) : 0;
+     const _impApplied = (_impCreated + _impUpdated) || Number(importNotice.imported || 0);
+     const _impEmpty = _impRows === 0 && (_impRaw == null || _impRaw === 0);
+     const _impUnmapped = _impRaw > 0 && _impRows === 0;
+     const _impBannerClass = _impApplied > 0
+       ? 'border-emerald-200 bg-emerald-50 dark:bg-emerald-950/30 dark:border-emerald-800'
+       : 'border-amber-200 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-800';
+     const _impTextClass = _impApplied > 0
+       ? 'text-emerald-900 dark:text-emerald-100'
+       : 'text-amber-950 dark:text-amber-100'; %>
+  <div class="mb-8 rounded-2xl <%= _impBannerClass %> px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="max-w-3xl space-y-2">
+      <% if (_impEmpty) { %>
+        <p class="text-sm font-semibold <%= _impTextClass %>">Import could not read any rows from that file.</p>
+        <p class="text-sm <%= _impTextClass %> opacity-90">Use a <strong>.csv</strong> or <strong>.xlsx</strong> with a header row and at least one data row. Supported name columns include <code class="text-xs font-mono">company_name</code>, <code class="text-xs font-mono">business_name</code>, <code class="text-xs font-mono">title</code>, or <code class="text-xs font-mono">name</code> (plus optional phone, email, website).</p>
+      <% } else if (_impUnmapped) { %>
+        <p class="text-sm font-semibold <%= _impTextClass %>">Found <strong><%= _impRaw %></strong> row<%= _impRaw === 1 ? '' : 's' %> in the file, but none could be imported.</p>
+        <p class="text-sm <%= _impTextClass %> opacity-90">Add a column such as <code class="text-xs font-mono">company_name</code>, <code class="text-xs font-mono">business_name</code>, <code class="text-xs font-mono">title</code>, or <code class="text-xs font-mono">name</code>, or include <code class="text-xs font-mono">company_website</code> / <code class="text-xs font-mono">email</code> so we can derive a business name.</p>
+      <% } else if (_impApplied > 0) { %>
+        <p class="text-sm font-semibold <%= _impTextClass %>">
+          Import finished: <strong><%= _impCreated %></strong> new lead<%= _impCreated === 1 ? '' : 's' %><% if (_impUpdated > 0) { %>, <strong><%= _impUpdated %></strong> updated (matched by email)<% } %>.
+          <% if (importNotice.skipped > 0) { %> <strong><%= importNotice.skipped %></strong> skipped.<% } %>
+          <% if (importNotice.failed > 0) { %> <strong><%= importNotice.failed %></strong> failed.<% } %>
+        </p>
       <% } else { %>
-        CSV import finished:
-        <strong><%= importNotice.imported %></strong> saved
-        <% if (importNotice.skipped > 0) { %>, <strong><%= importNotice.skipped %></strong> skipped<% } %>
-        <% if (importNotice.failed > 0) { %>, <strong><%= importNotice.failed %></strong> failed<% } %>.
+        <p class="text-sm font-semibold <%= _impTextClass %>">Import finished but no leads were saved (<%= _impRows %> row<%= _impRows === 1 ? '' : 's' %> parsed).</p>
+        <% if (importNotice.failed > 0) { %><p class="text-sm <%= _impTextClass %> opacity-90"><strong><%= importNotice.failed %></strong> row<%= importNotice.failed === 1 ? '' : 's' %> failed — check server logs.</p><% } %>
       <% } %>
-    </p>
-    <a href="/prospecting?tab=pipeline" class="text-xs font-black uppercase text-emerald-800 dark:text-emerald-200 underline shrink-0">Dismiss</a>
+    </div>
+    <a href="/prospecting?tab=pipeline" class="text-xs font-black uppercase <%= _impApplied > 0 ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-900 dark:text-amber-200' %> underline shrink-0">Dismiss</a>
   </div>
 <% } %>
 <div class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-10 md:mb-12">
