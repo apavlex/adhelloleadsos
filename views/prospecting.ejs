@@ -15,15 +15,17 @@
     </div>
 
     <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
-    <nav class="flex flex-wrap gap-8 mb-10 border-b border-brand-border/50 dark:border-white/10 pb-px" aria-label="Leads sections">
-      <a href="/leads/find" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200">Find</a>
-      <a href="/prospecting?tab=queue" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'queue' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Queue</a>
-      <a href="/pipeline" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'pipeline' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Pipeline</a>
-      <a href="/prospecting?tab=folders" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'folders' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Folders</a>
+    <nav class="flex flex-wrap items-end justify-between gap-x-8 gap-y-2 mb-10 border-b border-brand-border/50 dark:border-white/10 pb-px" aria-label="Leads sections">
+      <div class="flex flex-wrap gap-8">
+        <a href="/leads/find" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200">Find</a>
+        <a href="/prospecting?tab=queue" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'queue' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Queue</a>
+        <a href="/pipeline" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'pipeline' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Pipeline</a>
+        <a href="/prospecting?tab=folders" class="pb-3 -mb-px text-[10px] font-black uppercase tracking-widest transition-colors border-b-2 <%= activeTab === 'folders' ? 'border-brand-yellow text-brand-dark dark:text-white' : 'border-transparent text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-slate-200' %>">Folders</a>
+      </div>
+      <%- include('partials/google_drive_nav_status') %>
     </nav>
 
     <% if (activeTab === 'pipeline') { %>
-      <%- include('partials/google_drive_connection_banner') %>
       <%- include('partials/prospecting_board') %>
     <% } else if (activeTab === 'queue') { %>
       <%- include('partials/scheduled_jobs_content', {
