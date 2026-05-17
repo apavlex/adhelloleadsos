@@ -611,6 +611,20 @@ table {
   display: none;
 }
 
+/* Social icons render under phone; hide the legacy standalone column */
+.prospect-leads-table .lead-cell-socials,
+.prospect-leads-table th[data-plc="socials"] {
+  display: none !important;
+}
+
+.prospect-leads-table .lead-cell-socials-under-phone:empty {
+  display: none;
+}
+
+.prospect-leads-table .lead-cell-socials-under-phone .text-brand-muted\/60 {
+  display: none;
+}
+
 .prospect-leads-table--compact .lead-col-tail-tight,
 .prospect-leads-table--compact th.lead-col-tail-tight {
   padding-left: 0.35rem;

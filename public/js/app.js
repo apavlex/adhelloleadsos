@@ -2371,6 +2371,63 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function renderRowSocialBrandLinksHtml(row, gradSuffix) {
+    if (!row || !row.dataset) return '';
+    const suffix =
+      gradSuffix != null
+        ? String(gradSuffix)
+        : String(row.dataset.leadKey || row.id || 'row').replace(/[^a-z0-9]+/gi, '-');
+    const mapsHref = resolveGoogleMapsSocialHref(
+      row.dataset.url,
+      row.dataset.title,
+      readPipelineRowDisplayAddress(row) || row.dataset.address,
+      row.dataset.city
+    );
+    const links = {
+      gm: mapsHref || '',
+      fb: row.dataset.facebook,
+      ig: row.dataset.instagram,
+      tw: row.dataset.twitter,
+      gradSuffix: suffix,
+    };
+    if (__socialBrand) {
+      const html = __socialBrand.renderLinks(links);
+      return html && html.includes('<a ') ? html : '';
+    }
+    const slot = renderLeadSocialsSlotInner(
+      mapsHref,
+      row.dataset.facebook,
+      row.dataset.instagram,
+      row.dataset.twitter,
+      row.dataset.title,
+      row.dataset.address,
+      row.dataset.city,
+      suffix
+    );
+    const m = slot.match(/<div[^>]*>([\s\S]*)<\/div>/);
+    if (m) return m[1].includes('<a ') ? m[1] : '';
+    return slot.includes('<a ') ? slot : '';
+  }
+
+  function syncHeaderSocialsRow(row) {
+    const el = document.getElementById('mobilePanelHeaderSocials');
+    const rowWrap = document.getElementById('headerSocialsRow');
+    if (!el) return;
+    const html = renderRowSocialBrandLinksHtml(row, `panel-${String(row.dataset.leadKey || row.id || 'x').replace(/[^a-z0-9]+/gi, '-')}`);
+    el.innerHTML = html;
+    if (rowWrap) rowWrap.classList.toggle('hidden', !html);
+  }
+
+  function syncRowSocialsUnderPhone(row) {
+    if (!row || typeof row.querySelector !== 'function') return;
+    const html = renderRowSocialBrandLinksHtml(row);
+    row.querySelectorAll('.lead-cell-socials-under-phone').forEach((slot) => {
+      slot.innerHTML = html;
+    });
+    const legacy = row.querySelector('.lead-cell-socials-content');
+    if (legacy) legacy.innerHTML = html;
+  }
+
   function syncLeadCallAiAnalyzeCta(row) {
     const wrap = document.getElementById('leadCallAiAnalyzeWrap');
     const btn = document.getElementById('leadCallAiAnalyzeBtn');
@@ -3712,12 +3769,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const headerAddress = document.getElementById('mobilePanelHeaderAddress');
-    const headerSocials = document.getElementById('mobilePanelHeaderSocials');
-
     if (headerAddress) {
       headerAddress.textContent = address ? formatLeadPanelAddress(address) : '—';
     }
     syncHeaderPhoneRow(row);
+    syncHeaderSocialsRow(row);
     syncLeadCallAiAnalyzeCta(row);
 
     syncLeadPanelWideMapAndGoogleChip(row);
@@ -3762,64 +3818,6 @@ document.addEventListener('DOMContentLoaded', () => {
         r.dataset.city
       );
 
-    if (headerSocials) {
-      headerSocials.innerHTML = '';
-      let socialCount = 0;
-      const panelGradSuffix = String(row.dataset.leadKey || row.id || 'panel').replace(/[^a-z0-9]+/gi, '-');
-      const mapsHref = resolveGoogleMapsSocialHref(
-        row.dataset.url,
-        row.dataset.title,
-        readPipelineRowDisplayAddress(row) || row.dataset.address,
-        row.dataset.city
-      );
-      if (__socialBrand && mapsHref) {
-        const wrap = document.createElement('div');
-        wrap.innerHTML = __socialBrand.linkHtml('google', mapsHref, {
-          gradId: `igGradPanel${panelGradSuffix}`,
-          stopPropagation: false,
-        });
-        const gmLink = wrap.firstElementChild;
-        if (gmLink) {
-          headerSocials.appendChild(gmLink);
-          socialCount++;
-        }
-      }
-      const socialPlatforms = [
-        { key: 'facebook', platform: 'facebook' },
-        { key: 'instagram', platform: 'instagram' },
-        { key: 'twitter', platform: 'twitter' },
-      ];
-
-      socialPlatforms.forEach((p) => {
-        const link = row.dataset[p.key];
-        if (!link || link === 'N/A' || link === 'undefined') return;
-        const href = link.startsWith('http') ? link : `https://${link}`;
-        if (__socialBrand) {
-          const wrap = document.createElement('div');
-          wrap.innerHTML = __socialBrand.linkHtml(p.platform, href, {
-            gradId: `igGradPanel${panelGradSuffix}-${p.platform}`,
-            stopPropagation: false,
-          });
-          const a = wrap.firstElementChild;
-          if (a) {
-            headerSocials.appendChild(a);
-            socialCount++;
-          }
-          return;
-        }
-        const a = document.createElement('a');
-        a.href = href;
-        a.target = '_blank';
-        a.rel = 'noopener noreferrer';
-        a.className =
-          'w-8 h-8 rounded-lg bg-brand-cream dark:bg-slate-800 flex items-center justify-center shadow-sm border border-brand-border/10 transition-all hover:scale-105';
-        headerSocials.appendChild(a);
-        socialCount++;
-      });
-
-      const headerSocialsRow = document.getElementById('headerSocialsRow');
-      if (headerSocialsRow) headerSocialsRow.classList.toggle('hidden', socialCount === 0);
-    }
 
     syncLeadPrimaryServiceSelect(row);
 
@@ -6221,8 +6219,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const phone = row.querySelector('.lead-contact-phone-slot');
       const email = row.querySelector('.lead-contact-email-slot');
       const website = row.querySelector('.lead-contact-web-slot');
-      const socials = row.querySelector('.lead-cell-socials-content');
-      if (!phone || !email || !website || !socials) return null;
+      const socials =
+        row.querySelector('.lead-cell-socials-under-phone') || row.querySelector('.lead-cell-socials-content');
+      if (!phone || !email || !website) return null;
       return {
         kind: 'leads',
         addressEl: row.querySelector('.lead-row-address'),
@@ -6471,16 +6470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setLeadPhoneSlot(layout.phone, row.dataset.phone);
         layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
         layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
-        layout.socials.innerHTML = renderLeadSocialsSlotInner(
-          row.dataset.url,
-          row.dataset.facebook,
-          row.dataset.instagram,
-          row.dataset.twitter,
-          row.dataset.title,
-          row.dataset.address,
-          row.dataset.city,
-          row.dataset.leadKey || row.id
-        );
+        syncRowSocialsUnderPhone(row);
         layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
         const intelBtn = row.querySelector('.email-intel-btn');
         if (intelBtn) {
