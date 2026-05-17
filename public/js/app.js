@@ -949,15 +949,26 @@ document.addEventListener('DOMContentLoaded', () => {
     return t;
   }
 
-  let leadOutreachScriptsCache = { leadKey: '', data: null, loading: null, loadingKey: '' };
+  let leadOutreachScriptsCache = {
+    leadKey: '',
+    data: null,
+    loading: null,
+    loadingKey: '',
+    workspaceData: null,
+    workspaceLoading: null,
+  };
   if (!window.__leadOutreachChannel) window.__leadOutreachChannel = 'call';
+
+  function outreachLibraryHasScripts(library) {
+    return !!(library && typeof library === 'object' && Object.keys(library).length > 0);
+  }
 
   function getEmbeddedOutreachScriptsPayload(row) {
     const library =
       typeof window !== 'undefined' && window.__ADHELLO_OUTREACH_LIBRARY__
         ? window.__ADHELLO_OUTREACH_LIBRARY__
         : null;
-    if (!library || typeof library !== 'object') return null;
+    if (!outreachLibraryHasScripts(library)) return null;
     const services = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
     const keys = services.map((s) => s && s.key).filter(Boolean);
     const rowKey = String((row && row.dataset && row.dataset.primaryServiceKey) || '').trim();
@@ -974,6 +985,52 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
+  async function fetchWorkspaceOutreachLibrary() {
+    if (leadOutreachScriptsCache.workspaceData) return leadOutreachScriptsCache.workspaceData;
+    if (leadOutreachScriptsCache.workspaceLoading) return leadOutreachScriptsCache.workspaceLoading;
+    const p = (async () => {
+      const url = '/leads/outreach-library';
+      const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
+      let data;
+      if (fetchJsonFn) {
+        const { ok, j } = await fetchJsonFn(url, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        if (!ok || !j.success) throw new Error((j && j.error) || 'Scripts failed');
+        data = j;
+      } else {
+        const res = await fetch(url, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Scripts failed');
+      }
+      if (!outreachLibraryHasScripts(data.library)) {
+        throw new Error('No scripts in library');
+      }
+      if (Array.isArray(data.services) && data.services.length) {
+        window.ADHELLO_SERVICE_OFFERS = data.services.map((s) => ({
+          key: s.key,
+          label: s.label || s.key,
+        }));
+        ensureLeadPanelPrimaryServiceSelectOptions(true);
+      }
+      window.__ADHELLO_OUTREACH_LIBRARY__ = data.library;
+      leadOutreachScriptsCache.workspaceData = data;
+      return data;
+    })();
+    leadOutreachScriptsCache.workspaceLoading = p;
+    try {
+      return await p;
+    } finally {
+      leadOutreachScriptsCache.workspaceLoading = null;
+    }
+  }
+
   function resolveLeadPanelServiceKey(row, data) {
     const sel = document.getElementById('leadPanelPrimaryServiceSelect');
     let serviceKey = sel ? String(sel.value || '').trim() : '';
@@ -987,10 +1044,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applyLeadPanelSellingScriptFromData(row, data) {
     const scriptEl = document.getElementById('leadPanelSellingScript');
-    if (!scriptEl || !row || !data || !data.library) return;
+    if (!scriptEl || !row) return;
+    const library = data && data.library && typeof data.library === 'object' ? data.library : null;
+    if (!outreachLibraryHasScripts(library)) {
+      scriptEl.textContent = 'Add scripts in Sales → Script library to use this panel.';
+      return;
+    }
     const channel = window.__leadOutreachChannel || 'call';
     const serviceKey = resolveLeadPanelServiceKey(row, data);
-    const svc = serviceKey && data.library ? data.library[serviceKey] : null;
+    const svc = serviceKey && library ? library[serviceKey] : null;
     const auditSell = document.getElementById('mobilePanelAuditSell');
     if (auditSell && svc && svc.label) auditSell.textContent = svc.label;
     const raw =
@@ -998,16 +1060,29 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!raw) {
       scriptEl.textContent = serviceKey
         ? 'No script for this channel yet. Add one in Sales → Script library.'
-        : 'Pick a service above, or run AI analyze for a recommendation.';
+        : 'Pick a service above to load your script.';
       return;
     }
     scriptEl.textContent = formatSellingScriptForChannel(raw, channel, row);
   }
 
+  function refreshLeadPanelSellingScript(row) {
+    const target = row || currentRow;
+    if (!target) return Promise.resolve();
+    return syncLeadPanelSellingScript(target);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.refreshLeadPanelSellingScript = refreshLeadPanelSellingScript;
+  }
+
   async function fetchLeadOutreachScripts(row) {
     const key = normalizeLeadKeyForScriptsFetch(row && row.dataset ? row.dataset.leadKey : '');
     const embedded = getEmbeddedOutreachScriptsPayload(row);
-    if (!key) return embedded;
+    if (!key) {
+      if (embedded) return embedded;
+      return fetchWorkspaceOutreachLibrary();
+    }
     if (leadOutreachScriptsCache.leadKey === key && leadOutreachScriptsCache.data) {
       return leadOutreachScriptsCache.data;
     }
@@ -1038,7 +1113,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       } catch (err) {
         if (embedded) return embedded;
-        throw err;
+        try {
+          return await fetchWorkspaceOutreachLibrary();
+        } catch (_) {
+          throw err;
+        }
       }
       if (Array.isArray(data.services) && data.services.length) {
         window.ADHELLO_SERVICE_OFFERS = data.services.map((s) => ({
@@ -1047,7 +1126,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }));
         ensureLeadPanelPrimaryServiceSelectOptions(true);
       }
-      leadOutreachScriptsCache = { leadKey: key, data, loading: null, loadingKey: key };
+      if (outreachLibraryHasScripts(data.library)) {
+        window.__ADHELLO_OUTREACH_LIBRARY__ = data.library;
+      }
+      leadOutreachScriptsCache = {
+        leadKey: key,
+        data,
+        loading: null,
+        loadingKey: key,
+        workspaceData: leadOutreachScriptsCache.workspaceData,
+        workspaceLoading: null,
+      };
       return data;
     })();
     leadOutreachScriptsCache.loading = p;
@@ -1059,7 +1148,11 @@ document.addEventListener('DOMContentLoaded', () => {
         leadOutreachScriptsCache.loading = null;
       }
       if (embedded) return embedded;
-      throw err;
+      try {
+        return await fetchWorkspaceOutreachLibrary();
+      } catch (_) {
+        throw err;
+      }
     }
   }
 
@@ -1083,9 +1176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const scriptEl = document.getElementById('leadPanelSellingScript');
     if (!scriptEl || !row) return;
     syncLeadOutreachChannelButtons();
-    const embedded = getEmbeddedOutreachScriptsPayload(row);
-    if (embedded) applyLeadPanelSellingScriptFromData(row, embedded);
-    else scriptEl.textContent = 'Loading script…';
+    scriptEl.textContent = 'Loading script…';
     try {
       const data = await fetchLeadOutreachScripts(row);
       if (!data) {
@@ -1094,7 +1185,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       applyLeadPanelSellingScriptFromData(row, data);
     } catch (e) {
-      if (!embedded) scriptEl.textContent = (e && e.message) || 'Could not load script.';
+      scriptEl.textContent = (e && e.message) || 'Could not load script.';
     }
   }
 
@@ -1337,6 +1428,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
+    const chBtn = e.target.closest('#leadPanelWhatToSellCard .lead-outreach-channel');
+    if (chBtn) {
+      e.preventDefault();
+      window.__leadOutreachChannel = chBtn.getAttribute('data-outreach-channel') || 'call';
+      syncLeadOutreachChannelButtons();
+      refreshLeadPanelSellingScript().catch(() => {});
+      return;
+    }
     const row = e.target.closest('.result-row');
     if (!row || row.classList.contains('result-row--panel-source')) return;
     if (shouldIgnoreRowOpenClick(e.target)) return;
@@ -2014,15 +2113,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const auditSell = document.getElementById('mobilePanelAuditSell');
     const openerWrap = document.getElementById('mobilePanelAuditOpenerWrap');
     const openerEl = document.getElementById('mobilePanelAuditOpener');
+    const serviceSel = document.getElementById('leadPanelPrimaryServiceSelect');
+    const manualKey = String(
+      (serviceSel && serviceSel.value) || row.dataset.primaryServiceKey || '',
+    ).trim();
+    const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
+    const picked = offers.find((o) => o && String(o.key) === manualKey);
+    if (picked) {
+      refreshLeadPanelSellingScript(row).catch(() => {});
+    }
     if (!auditStatus) return;
 
     const heuristic = auditSummary
       ? auditSummary.textContent
       : 'Analyzing this business for outreach angles.';
 
-    const manualKey = String(row.dataset.primaryServiceKey || '').trim();
-    const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
-    const picked = offers.find((o) => o && String(o.key) === manualKey);
     if (picked && auditSell) {
       if (auditLoading) auditLoading.classList.add('hidden');
       if (auditProvider) auditProvider.classList.add('hidden');
@@ -3330,7 +3435,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       ownerInp.addEventListener('blur', saveOwner);
       ownerInp.addEventListener('input', () => {
-        if (currentRow) syncLeadPanelSellingScript(currentRow).catch(() => {});
+        if (currentRow) refreshLeadPanelSellingScript(currentRow).catch(() => {});
       });
     }
     const dnc = document.getElementById('leadPanelDoNotCall');
@@ -3447,7 +3552,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentRow) return;
         const val = String(primaryServSel.value || '').trim();
         if (currentRow.dataset) currentRow.dataset.primaryServiceKey = val || '';
-        syncLeadPanelSellingScript(currentRow).catch(() => {});
+        refreshLeadPanelSellingScript(currentRow).catch(() => {});
         if (!currentRow.dataset.leadKey) return;
         try {
           await postLeadJsonUpdate(currentRow, { primaryServiceKey: val || null });
@@ -3513,7 +3618,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => {
         window.__leadOutreachChannel = btn.getAttribute('data-outreach-channel') || 'call';
         syncLeadOutreachChannelButtons();
-        if (currentRow) syncLeadPanelSellingScript(currentRow).catch(() => {});
+        refreshLeadPanelSellingScript().catch(() => {});
       });
     });
 
@@ -4366,10 +4471,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     syncLeadPrimaryServiceSelect(row);
-    leadOutreachScriptsCache = { leadKey: '', data: null, loading: null, loadingKey: '' };
-    syncLeadPanelSellingScript(row).catch((err) => {
-      console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
-    });
 
     // Phone logic
     const phoneEl = document.getElementById('mobilePanelPhone');
@@ -4634,6 +4735,18 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     renderLeadActivityTimeline(row, window.__leadActivityFilter);
     syncLeadPanelTouchSummary(row);
+
+    leadOutreachScriptsCache = {
+      leadKey: '',
+      data: null,
+      loading: null,
+      loadingKey: '',
+      workspaceData: leadOutreachScriptsCache.workspaceData,
+      workspaceLoading: null,
+    };
+    refreshLeadPanelSellingScript(row).catch((err) => {
+      console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
+    });
   }
 
   const applyTableStars = () => {

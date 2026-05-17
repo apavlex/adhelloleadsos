@@ -10,9 +10,9 @@
         connected
       </span>
     <% } else if (_gdReady && !_gdOAuthErr) { %>
-      <a href="/auth/google/drive-link" class="<%= _gdPillBase %> text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-blue-300/80 dark:hover:border-blue-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950" title="Connect Google Drive to import and export lead lists">
+      <a href="/auth/google/drive-link" class="<%= _gdPillBase %> whitespace-nowrap text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-blue-300/80 dark:hover:border-blue-500/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950" title="Connect Google Drive to import and export lead lists">
         <span class="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-500 shrink-0" aria-hidden="true"></span>
-        connect
+        connect google drive
       </a>
     <% } else if (_gdOAuthErr) { %>
       <a href="/auth/google/drive-link" class="<%= _gdPillBase %> text-amber-800 dark:text-amber-200 border-amber-200/80 dark:border-amber-800/60 hover:border-amber-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950" title="Google Drive connection failed — try connecting again">
