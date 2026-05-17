@@ -653,8 +653,8 @@ table {
   max-width: 20rem;
 }
 
-.result-row:focus-within .email-intel-btn--row,
-.lead-actions-cell:focus-within .email-intel-btn--row {
+.result-row:focus-within .ai-analysis-btn,
+.lead-actions-cell:focus-within .ai-analysis-btn {
   opacity: 1 !important;
   pointer-events: auto !important;
 }

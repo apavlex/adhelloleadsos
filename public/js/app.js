@@ -618,6 +618,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Theme toggle: public/js/theme-toggle.js (included from partials/navbar on all app pages)
 
+  const __socialBrand =
+    typeof window !== 'undefined' && window.AdhelloSocialBrand ? window.AdhelloSocialBrand : null;
+
   // --- Track saved leads (title -> key mapping) ---
   const savedLeads = new Map();
   if (window.INITIAL_SAVED_LEADS && Array.isArray(window.INITIAL_SAVED_LEADS)) {
@@ -851,6 +854,43 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!el || !el.style) return;
     LEAD_PANEL_INLINE_PROPS.forEach((p) => el.style.removeProperty(p));
   }
+
+  function dismissLeadDetailPanel() {
+    const panel = getLeadDetailPanel();
+    if (!panel) return;
+    panel.classList.remove('open');
+    panel.classList.replace('opacity-100', 'opacity-0');
+    panel.classList.add('hidden', 'pointer-events-none');
+    clearLeadDetailPanelForceStyles(panel);
+    panel.style.pointerEvents = 'none';
+    document.body.style.overflow = '';
+    const innerSheet = panel.querySelector(':scope > div');
+    if (innerSheet) {
+      innerSheet.classList.add('translate-y-full', 'translate-x-full');
+      innerSheet.style.removeProperty('display');
+    }
+    rows.forEach((r) => r.classList.remove('selected'));
+    currentRow = null;
+    currentIndex = -1;
+  }
+
+  function ensureLeadDetailPanelNotBlockingPage() {
+    const panel = getLeadDetailPanel();
+    if (!panel) return;
+    if (new URLSearchParams(window.location.search).get('focusLead')) return;
+    const intentionallyOpen =
+      panel.classList.contains('open') &&
+      !panel.classList.contains('hidden') &&
+      panel.classList.contains('opacity-100');
+    if (intentionallyOpen) return;
+    const inlineDisplay = panel.style.getPropertyValue('display');
+    const inlinePe = panel.style.getPropertyValue('pointer-events');
+    const stuckOverlay =
+      inlinePe === 'auto' ||
+      (inlineDisplay && inlineDisplay.includes('flex') && !panel.classList.contains('hidden'));
+    if (stuckOverlay) dismissLeadDetailPanel();
+  }
+
   const closeMobileBtn = document.getElementById('closeMobilePanel');
   const prevLeadBtn = document.getElementById('prevLeadBtn');
   const nextLeadBtn = document.getElementById('nextLeadBtn');
@@ -1270,7 +1310,6 @@ document.addEventListener('DOMContentLoaded', () => {
       target.type === 'checkbox' ||
       target.closest('.bookmark-btn') ||
       target.closest('.view-detail-btn') ||
-      target.closest('.email-intel-btn') ||
       target.closest('.ai-analysis-btn') ||
       target.closest('.lead-category-input') ||
       target.closest('select') ||
@@ -1293,6 +1332,8 @@ document.addEventListener('DOMContentLoaded', () => {
     selectRow(tr);
   }
   window.__pipelineRowActivate = pipelineRowActivateFromInline;
+
+  ensureLeadDetailPanelNotBlockingPage();
 
   // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
@@ -1876,52 +1917,9 @@ document.addEventListener('DOMContentLoaded', () => {
     e.stopPropagation();
     const row = btn.closest('.result-row');
     if (!row) return;
-    const original = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="text-[9px] font-black">...</span>';
-    try {
-      const result = await runAiAnalysisForRow(row);
-      const analysisObj = (result && result.analysis) || {};
-      const healthToast = resolveSiteHealth100(analysisObj);
-      const ownerSignal = String(result && (result.ownerSignal || (result.lead && result.lead.ownerSignal)) || '').trim();
-      const report = buildClientReportEmail(row, analysisObj, ownerSignal);
-      const opened = openMailReport(report);
-      if (opened) {
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(`Report ready (overall ${healthToast}/100). Email draft opened.`, { variant: 'success' });
-        }
-      } else if (typeof window.showAppToast === 'function') {
-        window.showAppToast(`AI analysis complete (overall ${healthToast}/100)`, { variant: 'success' });
-      }
-    } catch (err) {
-      const msg = err && err.message ? err.message : 'AI analysis failed';
-      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-      else window.alert(msg);
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = original;
-    }
+    currentRow = row;
+    await runContactHuntForRow(row, { triggerBtn: btn, fromRowAction: true });
   });
-
-  (function openFocusLeadFromQuery() {
-    if (!getLeadDetailPanel()) return;
-    const params = new URLSearchParams(window.location.search);
-    const raw = (params.get('focusLead') || '').trim();
-    if (!raw) return;
-    const short = raw.replace(/^lead:/i, '');
-    let target = null;
-    document.querySelectorAll('.result-row').forEach((row) => {
-      const k = row.getAttribute('data-lead-key') || '';
-      const norm = k.startsWith('lead:') ? k.slice(5) : k;
-      if (k === raw || k === `lead:${short}` || norm === short) target = row;
-    });
-    if (target) {
-      selectRow(target);
-      params.delete('focusLead');
-      const clean = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
-      window.history.replaceState({}, '', clean);
-    }
-  })();
 
   if (mobilePanel && rows.length > 0) {
 
@@ -3393,8 +3391,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  const __socialBrand =
-    typeof window !== 'undefined' && window.AdhelloSocialBrand ? window.AdhelloSocialBrand : null;
   const GOOGLE_BUSINESS_ICON_SVG =
     (__socialBrand && __socialBrand.GOOGLE_BUSINESS_ICON_SVG) ||
     '<svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>';
@@ -4937,11 +4933,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (phoneSlot) {
       if (phone && phone !== 'N/A') {
         const key = row.dataset.leadKey || '';
-        phoneSlot.innerHTML = `<a href="#" class="js-click-to-call-number text-xs font-semibold text-brand-dark dark:text-slate-200 truncate min-w-0 hover:text-brand-yellow transition-colors" title="${escapeHtmlAttr(phone)}" data-phone="${escapeHtmlAttr(phone)}" data-lead-key="${escapeHtmlAttr(key)}" onclick="event.stopPropagation()">${escapeHtmlText(phone)}</a>`;
+        if (phoneSlot.tagName === 'A') {
+          setLeadPhoneSlot(phoneSlot, phone);
+        } else {
+          phoneSlot.innerHTML = `<a href="#" class="lead-contact-phone-slot js-click-to-call-number text-xs font-semibold text-brand-dark dark:text-slate-200 truncate min-w-0 hover:text-brand-yellow transition-colors" title="${escapeHtmlAttr(phone)}" data-phone="${escapeHtmlAttr(phone)}" data-lead-key="${escapeHtmlAttr(key)}" onclick="event.stopPropagation()">${escapeHtmlText(phone)}</a>`;
+        }
       } else {
         phoneSlot.innerHTML = '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
       }
     }
+    syncPipelineRowCallButton(row, phone);
 
     const emailSlot = row.querySelector('.lead-contact-email-slot');
     if (emailSlot) {
@@ -4995,19 +4996,21 @@ document.addEventListener('DOMContentLoaded', () => {
   function openSoftphoneOrTel(rawPhone) {
     const raw = String(rawPhone || '').trim();
     if (!raw) return false;
-    const desktop =
-      !(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
     if (
-      desktop &&
       typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
       window.__adhelloOpenSoftphoneWithDial(raw)
     ) {
       return true;
     }
-    const digits = raw.replace(/[^\d+]/g, '');
-    if (!digits) return false;
-    window.location.href = `tel:${digits}`;
-    return true;
+    const desktop =
+      !(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
+    if (!desktop) {
+      const digits = raw.replace(/[^\d+]/g, '');
+      if (!digits) return false;
+      window.location.href = `tel:${digits}`;
+      return true;
+    }
+    return false;
   }
 
   async function requestLeadCallByKey(leadKey, fallbackPhone, options) {
@@ -5065,7 +5068,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.addEventListener('click', async (e) => {
+  document.addEventListener('click', (e) => {
     const trigger = e.target && e.target.closest ? e.target.closest('.js-click-to-call-number') : null;
     if (!trigger) return;
     e.preventDefault();
@@ -5078,38 +5081,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const fromRow =
       row && row.dataset && row.dataset.phone != null ? String(row.dataset.phone).trim() : '';
     const phoneToFill = String(explicitPhone || fromRow || '').trim();
-    if (
-      phoneToFill &&
-      phoneToFill !== 'N/A' &&
-      typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
-      window.__adhelloOpenSoftphoneWithDial(phoneToFill)
-    ) {
-      if (row && row.dataset && row.dataset.leadKey) {
-        currentRow = row;
-      }
-      return;
-    }
-    if (!row || !row.dataset || !row.dataset.leadKey) {
-      const raw = String(explicitPhone || '').trim();
-      openSoftphoneOrTel(raw);
-      return;
+    if (!phoneToFill || phoneToFill === 'N/A') return;
+
+    if (row && row.dataset && row.dataset.leadKey) {
+      currentRow = row;
     }
 
-    const originalRow = currentRow;
-    const originalText = trigger.textContent;
-    const shouldResetText = trigger.tagName === 'A' || trigger.tagName === 'BUTTON';
-    currentRow = row;
-    trigger.classList.add('pointer-events-none', 'opacity-70');
-    if (shouldResetText) trigger.textContent = 'Dialing...';
-    try {
-      await runLeadTelephonyAction('/call', {}, 'Calling lead');
-    } catch (err) {
-      alert(err.message || 'Failed to start call.');
-    } finally {
-      trigger.classList.remove('pointer-events-none', 'opacity-70');
-      if (shouldResetText) trigger.textContent = originalText;
-      currentRow = originalRow || row;
+    if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
+      window.__adhelloOpenSoftphoneWithDial(phoneToFill);
+      return;
     }
+    openSoftphoneOrTel(phoneToFill);
   }, true);
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
@@ -5744,12 +5726,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- Manual Deep Enhance with Firecrawl ---
-  const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
-  const huntProgressWrap = document.getElementById('huntProgressWrap');
-  if (deepEnhanceBtn) {
-    deepEnhanceBtn.addEventListener('click', async () => {
-      if (!currentRow) {
+  // --- Manual Deep Enhance with Firecrawl (sidebar + pipeline row AI button) ---
+  async function runContactHuntForRow(row, options) {
+    const opts = options || {};
+    const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
+    const huntProgressWrap = document.getElementById('huntProgressWrap');
+    const triggerBtn = opts.triggerBtn || deepEnhanceBtn;
+    const fromRowAction = !!opts.fromRowAction;
+    const useSidebarUi = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
+
+    if (!row) {
+      if (useSidebarUi && deepEnhanceBtn) {
         const hint =
           '<span class="flex items-center justify-center gap-2 text-[11px] font-bold text-brand-muted normal-case tracking-normal"><svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Select a lead first</span>';
         const prev = deepEnhanceBtn.innerHTML;
@@ -5757,101 +5744,153 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
           deepEnhanceBtn.innerHTML = prev;
         }, 2200);
-        return;
+      } else if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'warning' });
       }
-      if (deepEnhanceBtn.getAttribute('aria-busy') === 'true') return;
+      return { success: false };
+    }
 
-      const key = currentRow.dataset.leadKey;
-      const title = currentRow.dataset.title;
-      const city = currentRow.dataset.city;
-      const state = currentRow.dataset.state;
-      const url = currentRow.dataset.website;
+    if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
+      return { success: false, error: 'busy' };
+    }
 
-      const originalHTML = deepEnhanceBtn.innerHTML;
+    currentRow = row;
 
-      const clearHuntBusy = () => {
-        deepEnhanceBtn.disabled = false;
-        deepEnhanceBtn.removeAttribute('aria-busy');
-        deepEnhanceBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+    const key = row.dataset.leadKey;
+    const title = row.dataset.title;
+    const city = row.dataset.city;
+    const state = row.dataset.state;
+    const url = row.dataset.website;
+
+    const originalHTML = triggerBtn ? triggerBtn.innerHTML : '';
+
+    const clearHuntBusy = () => {
+      if (!triggerBtn) return;
+      triggerBtn.disabled = false;
+      triggerBtn.removeAttribute('aria-busy');
+      if (useSidebarUi) {
+        triggerBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
         if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
-      };
+      }
+    };
 
-      updateProcessingStatus(true);
-      deepEnhanceBtn.disabled = true;
-      deepEnhanceBtn.setAttribute('aria-busy', 'true');
-      deepEnhanceBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-      if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
-      deepEnhanceBtn.innerHTML = `
+    const setHuntBusy = () => {
+      if (!triggerBtn) return;
+      triggerBtn.disabled = true;
+      triggerBtn.setAttribute('aria-busy', 'true');
+      if (useSidebarUi) {
+        triggerBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+        if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
+        triggerBtn.innerHTML = `
         <svg class="deep-enhance-icon w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
         <span class="deep-enhance-label animate-pulse text-[11px] font-black uppercase tracking-wider">Searching…</span>
       `;
+      } else {
+        triggerBtn.innerHTML =
+          '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+      }
+    };
 
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    updateProcessingStatus(true);
+    setHuntBusy();
 
-      try {
-        let res;
-        if (key) {
-          res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
-        } else {
-          res = await fetch('/enrich', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ url, title, city, state }),
-          });
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+    try {
+      let res;
+      if (key) {
+        res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
+      } else {
+        res = await fetch('/enrich', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ url, title, city, state }),
+        });
+      }
+
+      const data = await res.json().catch(() => ({}));
+
+      if (data.success) {
+        const d = data.lead || data.data;
+        if (data.lead && typeof data.lead === 'object') {
+          syncPersistedLeadToRowDataset(row, data.lead);
+        } else if (d) {
+          if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
+          if (data.foundUrl) row.dataset.website = data.foundUrl;
+          if (d.email && d.email !== 'N/A') row.dataset.email = d.email;
+          if (d.facebook && d.facebook !== 'N/A') row.dataset.facebook = d.facebook;
+          if (d.instagram && d.instagram !== 'N/A') row.dataset.instagram = d.instagram;
+          if (d.twitter && d.twitter !== 'N/A') row.dataset.twitter = d.twitter;
+          if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
         }
 
-        const data = await res.json().catch(() => ({}));
+        updateRowContactCells(row);
 
-        if (data.success) {
-          const d = data.lead || data.data;
-          if (data.lead && typeof data.lead === 'object') {
-            syncPersistedLeadToRowDataset(currentRow, data.lead);
-          } else if (d) {
-            if (d.website && d.website !== 'N/A') currentRow.dataset.website = d.website;
-            if (data.foundUrl) currentRow.dataset.website = data.foundUrl;
-            if (d.email && d.email !== 'N/A') currentRow.dataset.email = d.email;
-            if (d.facebook && d.facebook !== 'N/A') currentRow.dataset.facebook = d.facebook;
-            if (d.instagram && d.instagram !== 'N/A') currentRow.dataset.instagram = d.instagram;
-            if (d.twitter && d.twitter !== 'N/A') currentRow.dataset.twitter = d.twitter;
-            if (d.updates) currentRow.dataset.updates = JSON.stringify(d.updates);
-          }
+        const keyAfter = row.dataset.leadKey;
+        if (keyAfter) {
+          fetch(`/leads/${encodeURIComponent(keyAfter)}/insights`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ refresh: true }),
+          }).catch(() => {});
+        }
 
-          const keyAfter = currentRow.dataset.leadKey;
-          if (keyAfter) {
-            fetch(`/leads/${encodeURIComponent(keyAfter)}/insights`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-              body: JSON.stringify({ refresh: true }),
-            }).catch(() => {});
-          }
+        populatePanel(row);
 
-          populatePanel(currentRow);
+        clearHuntBusy();
+        updateProcessingStatus(false);
 
-          clearHuntBusy();
+        if (useSidebarUi && deepEnhanceBtn) {
           deepEnhanceBtn.disabled = true;
           deepEnhanceBtn.innerHTML =
             '<span class="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400"><svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Data found</span>';
-          updateProcessingStatus(false);
           setTimeout(() => {
             deepEnhanceBtn.disabled = false;
             deepEnhanceBtn.innerHTML = originalHTML;
           }, 2600);
-        } else {
-          alert(data.error || 'No additional contact data discovered yet.');
-          updateProcessingStatus(false);
-          clearHuntBusy();
-          deepEnhanceBtn.innerHTML = originalHTML;
+        } else if (fromRowAction && typeof window.showAppToast === 'function') {
+          window.showAppToast('Contact hunt complete — check phone, email, and socials.', { variant: 'success' });
         }
-      } catch (err) {
-        console.error('Enhancement failed:', err);
-        alert('Enhancement failed. Please try again later.');
-        updateProcessingStatus(false);
-        clearHuntBusy();
-        deepEnhanceBtn.innerHTML = originalHTML;
+
+        if (triggerBtn && !useSidebarUi) {
+          triggerBtn.innerHTML = originalHTML;
+        }
+
+        return { success: true, data };
       }
+
+      const errMsg = data.error || 'No additional contact data discovered yet.';
+      if (fromRowAction && typeof window.showAppToast === 'function') {
+        window.showAppToast(errMsg, { variant: 'warning' });
+      } else {
+        alert(errMsg);
+      }
+      updateProcessingStatus(false);
+      clearHuntBusy();
+      if (triggerBtn) triggerBtn.innerHTML = originalHTML;
+      return { success: false, error: errMsg };
+    } catch (err) {
+      console.error('Enhancement failed:', err);
+      const failMsg = 'Enhancement failed. Please try again later.';
+      if (fromRowAction && typeof window.showAppToast === 'function') {
+        window.showAppToast(failMsg, { variant: 'error' });
+      } else {
+        alert(failMsg);
+      }
+      updateProcessingStatus(false);
+      clearHuntBusy();
+      if (triggerBtn) triggerBtn.innerHTML = originalHTML;
+      return { success: false, error: failMsg };
+    }
+  }
+
+  const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
+  if (deepEnhanceBtn) {
+    deepEnhanceBtn.addEventListener('click', async () => {
+      await runContactHuntForRow(currentRow, { triggerBtn: deepEnhanceBtn });
     });
   }
 
@@ -6712,6 +6751,8 @@ document.addEventListener('DOMContentLoaded', () => {
       el.removeAttribute('data-phone');
       el.removeAttribute('data-lead-key');
       if (el.tagName === 'A') el.setAttribute('href', '#');
+      const rowEmpty = el.closest('.result-row');
+      if (rowEmpty) syncPipelineRowCallButton(rowEmpty, '');
       return;
     }
     const row = el.closest('.result-row');
@@ -6723,6 +6764,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.tagName === 'A') el.setAttribute('href', '#');
     el.textContent = p;
     el.setAttribute('title', p);
+    if (row) syncPipelineRowCallButton(row, p);
+  }
+
+  function syncPipelineRowCallButton(row, phone) {
+    if (!row || typeof row.querySelector !== 'function') return;
+    const callBtn = row.querySelector('.js-click-to-call-btn');
+    if (!callBtn) return;
+    const p = phone && phone !== 'N/A' ? String(phone).trim() : '';
+    const key = row.dataset.leadKey || '';
+    if (p) {
+      callBtn.classList.remove('hidden');
+      callBtn.dataset.phone = p;
+      if (key) callBtn.dataset.leadKey = key;
+      else callBtn.removeAttribute('data-lead-key');
+    } else {
+      callBtn.classList.add('hidden');
+      delete callBtn.dataset.phone;
+      delete callBtn.dataset.leadKey;
+    }
   }
 
   function renderLeadEmailSlotInner(email) {
@@ -6838,10 +6898,7 @@ document.addEventListener('DOMContentLoaded', () => {
         layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
         syncRowSocialsUnderPhone(row);
         layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
-        const intelBtn = row.querySelector('.email-intel-btn');
-        if (intelBtn) {
-          intelBtn.dataset.email = row.dataset.email && row.dataset.email !== 'N/A' ? row.dataset.email : '';
-        }
+        syncPipelineRowCallButton(row, row.dataset.phone);
       } else {
         if (row.dataset.email && row.dataset.email !== 'N/A') {
           layout.email.innerHTML = `<a href="mailto:${row.dataset.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${row.dataset.email}">${row.dataset.email}</a>`;
@@ -6952,7 +7009,15 @@ document.addEventListener('DOMContentLoaded', () => {
   document.querySelectorAll('.js-bulk-enhance').forEach((bulkEnhanceBtn) => {
     bulkEnhanceBtn.addEventListener('click', async () => {
       const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
-      if (checkedBoxes.length === 0) return;
+      if (checkedBoxes.length === 0) {
+        const msg = 'Select one or more leads (checkboxes) to enhance.';
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'info' });
+        } else {
+          window.alert(msg);
+        }
+        return;
+      }
 
       const selectedRows = Array.from(checkedBoxes).map((cb) => cb.closest('.result-row')).filter(Boolean);
 
@@ -6985,13 +7050,13 @@ document.addEventListener('DOMContentLoaded', () => {
             cellOriginals.phone = layout.phone.innerHTML;
             cellOriginals.email = layout.email.innerHTML;
             cellOriginals.website = layout.website.innerHTML;
-            cellOriginals.socials = layout.socials.innerHTML;
+            if (layout.socials) cellOriginals.socials = layout.socials.innerHTML;
             cellOriginals.reviews = layout.reviews.innerHTML;
             if (layout.addressEl) layout.addressEl.innerHTML = spinner;
             layout.phone.innerHTML = spinner;
             layout.email.innerHTML = spinner;
             layout.website.innerHTML = spinner;
-            layout.socials.innerHTML = spinner;
+            if (layout.socials) layout.socials.innerHTML = spinner;
           } else {
             cellOriginals.email = layout.email.innerHTML;
             cellOriginals.social = layout.social.innerHTML;
@@ -7053,13 +7118,13 @@ document.addEventListener('DOMContentLoaded', () => {
             cellOriginals.phone = layout.phone.innerHTML;
             cellOriginals.email = layout.email.innerHTML;
             cellOriginals.website = layout.website.innerHTML;
-            cellOriginals.socials = layout.socials.innerHTML;
+            if (layout.socials) cellOriginals.socials = layout.socials.innerHTML;
             cellOriginals.reviews = layout.reviews.innerHTML;
             if (layout.addressEl) layout.addressEl.innerHTML = spinner;
             layout.phone.innerHTML = spinner;
             layout.email.innerHTML = spinner;
             layout.website.innerHTML = spinner;
-            layout.socials.innerHTML = spinner;
+            if (layout.socials) layout.socials.innerHTML = spinner;
           } else {
             cellOriginals.email = layout.email.innerHTML;
             cellOriginals.social = layout.social.innerHTML;
@@ -7226,6 +7291,259 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
+
+
+  /** Pipeline toolbar + column prefs (early init so toolbar buttons always work). */
+  /** Match sticky company column `left` to measured checkbox column width (resize / density). */
+  function syncPipelineStickyColumnOffsets() {
+    const table = document.getElementById('prospectLeadsTable');
+    const host =
+      document.getElementById('prospectPipelineTableScroll') ||
+      document.querySelector('#tableView .overflow-x-auto');
+    if (!table || !host) return;
+    const th = table.querySelector('thead th[data-plc="check"]');
+    if (!th || th.classList.contains('plc-col-hidden')) {
+      host.style.setProperty('--plc-check-sticky-w', '0px');
+      return;
+    }
+    const w = th.getBoundingClientRect().width;
+    host.style.setProperty('--plc-check-sticky-w', `${Math.round(w * 1000) / 1000}px`);
+  }
+
+  let _stickyOffTimer = null;
+  function scheduleSyncPipelineStickyOffsets() {
+    if (_stickyOffTimer) clearTimeout(_stickyOffTimer);
+    _stickyOffTimer = setTimeout(() => {
+      _stickyOffTimer = null;
+      syncPipelineStickyColumnOffsets();
+    }, 50);
+  }
+
+  window.addEventListener('resize', scheduleSyncPipelineStickyOffsets, { passive: true });
+
+  (function initLeadTableDensity() {
+    const table = document.getElementById('prospectLeadsTable');
+    if (!table) return;
+    const key = 'prospectLeadTableDensity';
+    const saved = localStorage.getItem(key) === 'comfortable' ? 'comfortable' : 'compact';
+    function apply(mode) {
+      const d = mode === 'compact' ? 'compact' : 'comfortable';
+      table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
+      table.classList.add(d === 'compact' ? 'prospect-leads-table--compact' : 'prospect-leads-table--comfortable');
+      document.querySelectorAll('.lead-density-btn').forEach((btn) => {
+        const on = (btn.dataset.density || 'compact') === d;
+        btn.classList.toggle('lead-density-btn--active', on);
+      });
+      try {
+        localStorage.setItem(key, d);
+      } catch (_) {
+        /* ignore */
+      }
+      scheduleSyncPipelineStickyOffsets();
+    }
+    apply(saved);
+    document.querySelectorAll('.lead-density-btn').forEach((btn) => {
+      btn.addEventListener('click', () => apply(btn.dataset.density || 'compact'));
+    });
+  })();
+
+  (function initPipelineColumnPrefs() {
+    const table = document.getElementById('prospectLeadsTable');
+    const boxHost = document.getElementById('pipelineColumnsCheckboxes');
+    const colBtn = document.getElementById('pipelineColumnsBtn');
+    const pop = document.getElementById('pipelineColumnsPopover');
+    const resetW = document.getElementById('pipelineColumnsResetWidths');
+    if (!table || !boxHost || !colBtn || !pop) return;
+
+    const PLC_META = [
+      { id: 'company', label: 'Company' },
+      { id: 'lastTouch', label: 'Last touch' },
+      { id: 'cadence', label: 'Cadence' },
+      { id: 'category', label: 'Category' },
+      { id: 'reviews', label: 'Reviews' },
+      { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
+      { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
+      { id: 'contact', label: 'Contact (phone, email, domain)' },
+      { id: 'socials', label: 'Socials' },
+      { id: 'added', label: 'Added' },
+      { id: 'pipeline', label: 'Pipeline' },
+      { id: 'opportunity', label: 'Opportunity' },
+      { id: 'actions', label: 'Actions' },
+    ];
+
+    function pipelineColVisible(map, id) {
+      const meta = PLC_META.find((x) => x.id === id);
+      const defaultOn = !(meta && meta.defaultHidden);
+      if (!Object.prototype.hasOwnProperty.call(map, id)) return defaultOn;
+      return map[id] !== false;
+    }
+    const VIS_KEY = 'pipelineTableColVisibility';
+    const WIDTH_KEY = 'pipelineTableColWidths';
+
+    function loadVis() {
+      try {
+        const raw = localStorage.getItem(VIS_KEY);
+        return raw ? JSON.parse(raw) : {};
+      } catch (_) {
+        return {};
+      }
+    }
+
+    function saveVis(obj) {
+      try {
+        localStorage.setItem(VIS_KEY, JSON.stringify(obj));
+      } catch (_) {
+        /* ignore */
+      }
+    }
+
+    function applyVisibility(map) {
+      table.querySelectorAll('[data-plc="check"]').forEach((el) => {
+        el.classList.remove('plc-col-hidden');
+      });
+      PLC_META.forEach(({ id }) => {
+        const on = pipelineColVisible(map, id);
+        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
+          el.classList.toggle('plc-col-hidden', !on);
+        });
+      });
+    }
+
+    function applyWidths(obj) {
+      if (!obj || typeof obj !== 'object') return;
+      Object.keys(obj).forEach((id) => {
+        const px = Number(obj[id]);
+        const ok = Number.isFinite(px) && px >= 48;
+        if (!ok) return;
+        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
+          el.style.width = `${px}px`;
+          el.style.minWidth = `${px}px`;
+          el.style.maxWidth = `${px}px`;
+        });
+      });
+    }
+
+    function clearAllWidths() {
+      table.querySelectorAll('[data-plc]').forEach((el) => {
+        el.style.width = '';
+        el.style.minWidth = '';
+        el.style.maxWidth = '';
+      });
+    }
+
+    let vis = loadVis();
+    if (vis && vis.check === false) {
+      delete vis.check;
+      saveVis(vis);
+    }
+    applyVisibility(vis);
+    try {
+      applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
+    } catch (_) {
+      /* ignore */
+    }
+    scheduleSyncPipelineStickyOffsets();
+
+    PLC_META.forEach(({ id, label }) => {
+      const wrap = document.createElement('label');
+      wrap.className = 'flex items-center gap-2 cursor-pointer text-brand-dark dark:text-slate-200';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = pipelineColVisible(vis, id);
+      cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
+      cb.addEventListener('change', () => {
+        vis[id] = cb.checked;
+        saveVis(vis);
+        applyVisibility(vis);
+        scheduleSyncPipelineStickyOffsets();
+      });
+      wrap.appendChild(cb);
+      const span = document.createElement('span');
+      span.textContent = label;
+      wrap.appendChild(span);
+      boxHost.appendChild(wrap);
+    });
+
+    function closePop() {
+      pop.classList.add('hidden');
+      colBtn.setAttribute('aria-expanded', 'false');
+    }
+
+    colBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      pop.classList.toggle('hidden');
+      colBtn.setAttribute('aria-expanded', pop.classList.contains('hidden') ? 'false' : 'true');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (pop.classList.contains('hidden')) return;
+      if (e.target.closest('.js-pipeline-columns-wrap')) return;
+      closePop();
+    });
+
+    if (resetW) {
+      resetW.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        try {
+          localStorage.removeItem(WIDTH_KEY);
+        } catch (_) {
+          /* ignore */
+        }
+        clearAllWidths();
+        scheduleSyncPipelineStickyOffsets();
+      });
+    }
+
+    let dragPlc = null;
+    let dragStartX = 0;
+    let dragStartW = 0;
+
+    document.addEventListener('mousedown', (e) => {
+      const h = e.target.closest('.plc-col-resize');
+      if (!h || !table.contains(h)) return;
+      e.preventDefault();
+      const plc = h.getAttribute('data-plc-resize');
+      if (!plc) return;
+      const th = h.closest('th');
+      if (!th) return;
+      dragPlc = plc;
+      dragStartX = e.clientX;
+      dragStartW = th.getBoundingClientRect().width;
+      h.classList.add('plc-col-resize--active');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (!dragPlc) return;
+      e.preventDefault();
+      const dx = e.clientX - dragStartX;
+      const next = Math.max(48, dragStartW + dx);
+      let o = {};
+      try {
+        o = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
+      } catch (_) {
+        o = {};
+      }
+      o[dragPlc] = next;
+      try {
+        localStorage.setItem(WIDTH_KEY, JSON.stringify(o));
+      } catch (_) {
+        /* ignore */
+      }
+      applyWidths(o);
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!dragPlc) return;
+      dragPlc = null;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      table.querySelectorAll('.plc-col-resize--active').forEach((x) => x.classList.remove('plc-col-resize--active'));
+      scheduleSyncPipelineStickyOffsets();
+    });
+  })();
 
   // --- Website Preview Hover Logic Removed ---
 
@@ -8298,7 +8616,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const row = cb.closest('.result-row');
       if (row && isColdLeadRow(row)) warRoomRowEls.push(row);
     });
-    warRoomTotal.textContent = String(warRoomRowEls.length);
+    if (warRoomTotal) warRoomTotal.textContent = String(warRoomRowEls.length);
     warRoomIndex = 0;
     warRoomAutoDialCalled = new Set();
     warRoomResetSessionStats();
@@ -8445,262 +8763,17 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initial render of stars in the table
   applyTableStars();
 
-  /** Match sticky company column `left` to measured checkbox column width (resize / density). */
-  function syncPipelineStickyColumnOffsets() {
-    const table = document.getElementById('prospectLeadsTable');
-    const host =
-      document.getElementById('prospectPipelineTableScroll') ||
-      document.querySelector('#tableView .overflow-x-auto');
-    if (!table || !host) return;
-    const th = table.querySelector('thead th[data-plc="check"]');
-    if (!th || th.classList.contains('plc-col-hidden')) {
-      host.style.setProperty('--plc-check-sticky-w', '0px');
-      return;
-    }
-    const w = th.getBoundingClientRect().width;
-    host.style.setProperty('--plc-check-sticky-w', `${Math.round(w * 1000) / 1000}px`);
-  }
-
-  let _stickyOffTimer = null;
-  function scheduleSyncPipelineStickyOffsets() {
-    if (_stickyOffTimer) clearTimeout(_stickyOffTimer);
-    _stickyOffTimer = setTimeout(() => {
-      _stickyOffTimer = null;
-      syncPipelineStickyColumnOffsets();
-    }, 50);
-  }
-
-  window.addEventListener('resize', scheduleSyncPipelineStickyOffsets, { passive: true });
-
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      syncPipelineStickyColumnOffsets();
+  const schedulePipelineFrame =
+    typeof requestAnimationFrame === 'function'
+      ? requestAnimationFrame
+      : (fn) => setTimeout(fn, 16);
+  schedulePipelineFrame(() => {
+    schedulePipelineFrame(() => {
+      if (typeof syncPipelineStickyColumnOffsets === 'function') {
+        syncPipelineStickyColumnOffsets();
+      }
     });
   });
-
-  (function initLeadTableDensity() {
-    const table = document.getElementById('prospectLeadsTable');
-    if (!table) return;
-    const key = 'prospectLeadTableDensity';
-    const saved = localStorage.getItem(key) === 'comfortable' ? 'comfortable' : 'compact';
-    function apply(mode) {
-      const d = mode === 'compact' ? 'compact' : 'comfortable';
-      table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
-      table.classList.add(d === 'compact' ? 'prospect-leads-table--compact' : 'prospect-leads-table--comfortable');
-      document.querySelectorAll('.lead-density-btn').forEach((btn) => {
-        const on = (btn.dataset.density || 'compact') === d;
-        btn.classList.toggle('lead-density-btn--active', on);
-      });
-      try {
-        localStorage.setItem(key, d);
-      } catch (_) {
-        /* ignore */
-      }
-      scheduleSyncPipelineStickyOffsets();
-    }
-    apply(saved);
-    document.querySelectorAll('.lead-density-btn').forEach((btn) => {
-      btn.addEventListener('click', () => apply(btn.dataset.density || 'compact'));
-    });
-  })();
-
-  (function initPipelineColumnPrefs() {
-    const table = document.getElementById('prospectLeadsTable');
-    const boxHost = document.getElementById('pipelineColumnsCheckboxes');
-    const colBtn = document.getElementById('pipelineColumnsBtn');
-    const pop = document.getElementById('pipelineColumnsPopover');
-    const resetW = document.getElementById('pipelineColumnsResetWidths');
-    if (!table || !boxHost || !colBtn || !pop) return;
-
-    const PLC_META = [
-      { id: 'company', label: 'Company' },
-      { id: 'lastTouch', label: 'Last touch' },
-      { id: 'cadence', label: 'Cadence' },
-      { id: 'category', label: 'Category' },
-      { id: 'reviews', label: 'Reviews' },
-      { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
-      { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
-      { id: 'contact', label: 'Contact (phone, email, domain)' },
-      { id: 'socials', label: 'Socials' },
-      { id: 'added', label: 'Added' },
-      { id: 'pipeline', label: 'Pipeline' },
-      { id: 'opportunity', label: 'Opportunity' },
-      { id: 'actions', label: 'Actions' },
-    ];
-
-    function pipelineColVisible(map, id) {
-      const meta = PLC_META.find((x) => x.id === id);
-      const defaultOn = !(meta && meta.defaultHidden);
-      if (!Object.prototype.hasOwnProperty.call(map, id)) return defaultOn;
-      return map[id] !== false;
-    }
-    const VIS_KEY = 'pipelineTableColVisibility';
-    const WIDTH_KEY = 'pipelineTableColWidths';
-
-    function loadVis() {
-      try {
-        const raw = localStorage.getItem(VIS_KEY);
-        return raw ? JSON.parse(raw) : {};
-      } catch (_) {
-        return {};
-      }
-    }
-
-    function saveVis(obj) {
-      try {
-        localStorage.setItem(VIS_KEY, JSON.stringify(obj));
-      } catch (_) {
-        /* ignore */
-      }
-    }
-
-    function applyVisibility(map) {
-      table.querySelectorAll('[data-plc="check"]').forEach((el) => {
-        el.classList.remove('plc-col-hidden');
-      });
-      PLC_META.forEach(({ id }) => {
-        const on = pipelineColVisible(map, id);
-        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
-          el.classList.toggle('plc-col-hidden', !on);
-        });
-      });
-    }
-
-    function applyWidths(obj) {
-      if (!obj || typeof obj !== 'object') return;
-      Object.keys(obj).forEach((id) => {
-        const px = Number(obj[id]);
-        const ok = Number.isFinite(px) && px >= 48;
-        if (!ok) return;
-        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
-          el.style.width = `${px}px`;
-          el.style.minWidth = `${px}px`;
-          el.style.maxWidth = `${px}px`;
-        });
-      });
-    }
-
-    function clearAllWidths() {
-      table.querySelectorAll('[data-plc]').forEach((el) => {
-        el.style.width = '';
-        el.style.minWidth = '';
-        el.style.maxWidth = '';
-      });
-    }
-
-    let vis = loadVis();
-    if (vis && vis.check === false) {
-      delete vis.check;
-      saveVis(vis);
-    }
-    applyVisibility(vis);
-    try {
-      applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
-    } catch (_) {
-      /* ignore */
-    }
-    scheduleSyncPipelineStickyOffsets();
-
-    PLC_META.forEach(({ id, label }) => {
-      const wrap = document.createElement('label');
-      wrap.className = 'flex items-center gap-2 cursor-pointer text-brand-dark dark:text-slate-200';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = pipelineColVisible(vis, id);
-      cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
-      cb.addEventListener('change', () => {
-        vis[id] = cb.checked;
-        saveVis(vis);
-        applyVisibility(vis);
-        scheduleSyncPipelineStickyOffsets();
-      });
-      wrap.appendChild(cb);
-      const span = document.createElement('span');
-      span.textContent = label;
-      wrap.appendChild(span);
-      boxHost.appendChild(wrap);
-    });
-
-    function closePop() {
-      pop.classList.add('hidden');
-      colBtn.setAttribute('aria-expanded', 'false');
-    }
-
-    colBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      pop.classList.toggle('hidden');
-      colBtn.setAttribute('aria-expanded', pop.classList.contains('hidden') ? 'false' : 'true');
-    });
-
-    document.addEventListener('click', (e) => {
-      if (pop.classList.contains('hidden')) return;
-      if (e.target.closest('.js-pipeline-columns-wrap')) return;
-      closePop();
-    });
-
-    if (resetW) {
-      resetW.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        try {
-          localStorage.removeItem(WIDTH_KEY);
-        } catch (_) {
-          /* ignore */
-        }
-        clearAllWidths();
-        scheduleSyncPipelineStickyOffsets();
-      });
-    }
-
-    let dragPlc = null;
-    let dragStartX = 0;
-    let dragStartW = 0;
-
-    document.addEventListener('mousedown', (e) => {
-      const h = e.target.closest('.plc-col-resize');
-      if (!h || !table.contains(h)) return;
-      e.preventDefault();
-      const plc = h.getAttribute('data-plc-resize');
-      if (!plc) return;
-      const th = h.closest('th');
-      if (!th) return;
-      dragPlc = plc;
-      dragStartX = e.clientX;
-      dragStartW = th.getBoundingClientRect().width;
-      h.classList.add('plc-col-resize--active');
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      if (!dragPlc) return;
-      e.preventDefault();
-      const dx = e.clientX - dragStartX;
-      const next = Math.max(48, dragStartW + dx);
-      let o = {};
-      try {
-        o = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
-      } catch (_) {
-        o = {};
-      }
-      o[dragPlc] = next;
-      try {
-        localStorage.setItem(WIDTH_KEY, JSON.stringify(o));
-      } catch (_) {
-        /* ignore */
-      }
-      applyWidths(o);
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (!dragPlc) return;
-      dragPlc = null;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      table.querySelectorAll('.plc-col-resize--active').forEach((x) => x.classList.remove('plc-col-resize--active'));
-      scheduleSyncPipelineStickyOffsets();
-    });
-  })();
 
   /** Map API lead JSON onto the hidden panel host (Cadences / pages without a table row). */
   function applyLeadObjectToPanelHost(el, lead) {
@@ -8846,4 +8919,30 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(err);
     }
   };
+
+  (function openFocusLeadFromQuery() {
+    if (!getLeadDetailPanel()) return;
+    const params = new URLSearchParams(window.location.search);
+    const raw = (params.get('focusLead') || '').trim();
+    if (!raw) return;
+    const short = raw.replace(/^lead:/i, '');
+    let target = null;
+    document.querySelectorAll('.result-row').forEach((row) => {
+      const k = row.getAttribute('data-lead-key') || '';
+      const norm = k.startsWith('lead:') ? k.slice(5) : k;
+      if (k === raw || k === `lead:${short}` || norm === short) target = row;
+    });
+    if (target) {
+      try {
+        selectRow(target);
+      } catch (err) {
+        console.error('[focusLead] Could not open lead panel:', err);
+      }
+      params.delete('focusLead');
+      const clean = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, '', clean);
+    }
+  })();
+
+  ensureLeadDetailPanelNotBlockingPage();
 });
