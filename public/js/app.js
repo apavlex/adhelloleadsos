@@ -882,6 +882,140 @@ document.addEventListener('DOMContentLoaded', () => {
     return t;
   }
 
+  function formatSellingScriptForChannel(rawText, channel, row) {
+    let t = fillLeadScriptPlaceholdersForNote(rawText, row);
+    const ch = String(channel || 'call').toLowerCase();
+    const ownerInp = document.getElementById('leadPanelOwnerFirstName');
+    const owner = ownerInp
+      ? String(ownerInp.value || '').trim().split(/\s+/)[0]
+      : String((row && row.dataset && row.dataset.ownerFirstName) || '')
+          .trim()
+          .split(/\s+/)[0];
+    if (ch === 'voicemail') {
+      const hi = owner ? `Hi ${owner}, ` : 'Hi, ';
+      if (!/^hi\b/i.test(t.trim())) {
+        t = `${hi}this is [your name] with [agency]. ${t}`;
+      }
+      if (!/call\s+back/i.test(t)) {
+        t = `${t.trim()} Give me a call back at [your number] when you have a minute.`;
+      }
+    }
+    if (ch === 'email') {
+      const title = String((row && row.dataset && row.dataset.title) || 'your business').trim();
+      if (!/^subject:/im.test(t)) {
+        t = `Subject: Quick idea for ${title}\n\n${t}`;
+      }
+    }
+    return t;
+  }
+
+  let leadOutreachScriptsCache = { leadKey: '', data: null, loading: null, loadingKey: '' };
+  if (!window.__leadOutreachChannel) window.__leadOutreachChannel = 'call';
+
+  async function fetchLeadOutreachScripts(row) {
+    const key = normalizeLeadKeyForScriptsFetch(row && row.dataset ? row.dataset.leadKey : '');
+    if (!key) return null;
+    if (leadOutreachScriptsCache.leadKey === key && leadOutreachScriptsCache.data) {
+      return leadOutreachScriptsCache.data;
+    }
+    if (leadOutreachScriptsCache.loading && leadOutreachScriptsCache.loadingKey === key) {
+      return leadOutreachScriptsCache.loading;
+    }
+    const p = (async () => {
+      const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
+      const url = `/leads/${encodeURIComponent(key)}/outreach-scripts`;
+      let data;
+      if (fetchJsonFn) {
+        const { ok, j } = await fetchJsonFn(url, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        if (!ok || !j.success) throw new Error((j && j.error) || 'Scripts failed');
+        data = j;
+      } else {
+        const res = await fetch(url, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) throw new Error(data.error || 'Scripts failed');
+      }
+      if (Array.isArray(data.services) && data.services.length) {
+        window.ADHELLO_SERVICE_OFFERS = data.services.map((s) => ({
+          key: s.key,
+          label: s.label || s.key,
+        }));
+        ensureLeadPanelPrimaryServiceSelectOptions(true);
+      }
+      leadOutreachScriptsCache = { leadKey: key, data, loading: null, loadingKey: key };
+      return data;
+    })();
+    leadOutreachScriptsCache.loading = p;
+    leadOutreachScriptsCache.loadingKey = key;
+    try {
+      return await p;
+    } catch (err) {
+      if (leadOutreachScriptsCache.loadingKey === key) {
+        leadOutreachScriptsCache.loading = null;
+      }
+      throw err;
+    }
+  }
+
+  function syncLeadOutreachChannelButtons() {
+    const channel = window.__leadOutreachChannel || 'call';
+    document.querySelectorAll('.lead-outreach-channel').forEach((btn) => {
+      const on = btn.getAttribute('data-outreach-channel') === channel;
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.classList.toggle('border-brand-yellow/50', on);
+      btn.classList.toggle('bg-white', on);
+      btn.classList.toggle('dark:bg-slate-900', on);
+      btn.classList.toggle('text-brand-dark', on);
+      btn.classList.toggle('dark:text-white', on);
+      btn.classList.toggle('shadow-sm', on);
+      btn.classList.toggle('border-brand-border/30', !on);
+      btn.classList.toggle('text-brand-muted', !on);
+    });
+  }
+
+  async function syncLeadPanelSellingScript(row) {
+    const scriptEl = document.getElementById('leadPanelSellingScript');
+    if (!scriptEl || !row) return;
+    const channel = window.__leadOutreachChannel || 'call';
+    syncLeadOutreachChannelButtons();
+    const sel = document.getElementById('leadPanelPrimaryServiceSelect');
+    let serviceKey = sel ? String(sel.value || '').trim() : '';
+    scriptEl.textContent = 'Loading script…';
+    try {
+      const data = await fetchLeadOutreachScripts(row);
+      if (!data) {
+        scriptEl.textContent = 'Save this lead to load scripts.';
+        return;
+      }
+      if (!serviceKey) {
+        const rowKey = String(row.dataset.primaryServiceKey || '').trim();
+        if (rowKey && data.library && data.library[rowKey]) serviceKey = rowKey;
+        else serviceKey = String(data.defaultServiceKey || '').trim();
+      }
+      const svc = serviceKey && data.library ? data.library[serviceKey] : null;
+      const auditSell = document.getElementById('mobilePanelAuditSell');
+      if (auditSell && svc && svc.label) auditSell.textContent = svc.label;
+      const raw =
+        svc && svc.channels && svc.channels[channel] ? String(svc.channels[channel]) : '';
+      if (!raw) {
+        scriptEl.textContent = serviceKey
+          ? 'No script for this channel yet. Add one in Sales → Script library.'
+          : 'Choose a service above, or run AI analyze for a recommendation.';
+        return;
+      }
+      scriptEl.textContent = formatSellingScriptForChannel(raw, channel, row);
+    } catch (e) {
+      scriptEl.textContent = (e && e.message) || 'Could not load script.';
+    }
+  }
+
   function defaultLeadNotepadScriptFallback(row) {
     const biz = String((row && row.dataset && row.dataset.title) || 'there').trim();
     return [
@@ -959,7 +1093,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const ch = document.getElementById('leadPanelComposerChevron');
     if (d) d.classList.add('lead-panel-composer-drawer--open');
     if (btn) btn.setAttribute('aria-expanded', 'true');
-    if (ch) ch.style.transform = 'rotate(180deg)';
+    if (ch) {
+      ch.classList.remove('rotate-180');
+      ch.style.transform = '';
+    }
   }
 
   function closeLeadPanelComposer() {
@@ -968,7 +1105,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const ch = document.getElementById('leadPanelComposerChevron');
     if (d) d.classList.remove('lead-panel-composer-drawer--open');
     if (btn) btn.setAttribute('aria-expanded', 'false');
-    if (ch) ch.style.transform = '';
+    if (ch) {
+      ch.classList.add('rotate-180');
+      ch.style.transform = '';
+    }
+  }
+
+  function toggleLeadPanelComposer() {
+    const drawer = document.getElementById('leadPanelComposerDrawer');
+    if (!drawer) return;
+    if (drawer.classList.contains('lead-panel-composer-drawer--open')) {
+      closeLeadPanelComposer();
+    } else {
+      openLeadPanelComposer();
+      const ni = document.getElementById('noteInput');
+      if (ni) ni.focus();
+    }
   }
 
   // Determine page type
@@ -1043,8 +1195,6 @@ document.addEventListener('DOMContentLoaded', () => {
           stickyTitle.classList.add('opacity-0', 'pointer-events-none');
           stickyTitle.classList.remove('opacity-100');
         }
-        const callTabBtn = document.querySelector('.lead-panel-tab-btn[data-lead-tab="call"]');
-        if (callTabBtn) callTabBtn.click();
         if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
           window.__adhelloRefreshSoftphonePosition();
         }
@@ -1140,9 +1290,27 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!leadKey) throw new Error('Lead key missing');
     if (!website || website === 'N/A') throw new Error('This lead has no website URL');
 
-    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/ai-analysis`, { method: 'POST' });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) throw new Error(data.error || 'AI analysis failed');
+    const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
+    let data;
+    if (fetchJsonFn) {
+      const { ok, j } = await fetchJsonFn(`/leads/${encodeURIComponent(leadKey)}/ai-analysis`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!ok || !j.success) throw new Error((j && j.error) || 'AI analysis failed');
+      data = j;
+    } else {
+      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/ai-analysis`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({}),
+      });
+      data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || 'AI analysis failed');
+    }
     const analysis = data.analysis || {};
     const ownerSignal = String(data.ownerSignal || (data.lead && data.lead.ownerSignal) || '').trim();
     const score = Number(analysis.analysisScore || 0);
@@ -1155,8 +1323,12 @@ document.addEventListener('DOMContentLoaded', () => {
       oppContainer.dataset.score = row.dataset.aiScore;
     }
     if (currentRow === row) {
+      leadOutreachScriptsCache = { leadKey: '', data: null, loading: null, loadingKey: '' };
       if (typeof populatePanel === 'function') populatePanel(row);
-      else syncLeadCallAiAnalyzeCta(row);
+      else {
+        syncLeadCallAiAnalyzeCta(row);
+        syncLeadPanelSellingScript(row).catch(() => {});
+      }
     }
     const rowSignal = row.querySelector('.lead-owner-signal');
     if (rowSignal) rowSignal.textContent = ownerSignal || '';
@@ -1166,10 +1338,56 @@ document.addEventListener('DOMContentLoaded', () => {
   async function fetchAuditReportLinkBundle(row) {
     const leadKey = String(row.dataset.leadKey || '').trim();
     if (!leadKey) throw new Error('Lead key missing');
-    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/audit-report-link`, { method: 'POST' });
+    const url = `/leads/${encodeURIComponent(leadKey)}/audit-report-link`;
+    const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
+    if (fetchJsonFn) {
+      const { ok, j } = await fetchJsonFn(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (!ok || !j.success) throw new Error((j && j.error) || 'Could not create report link');
+      return j;
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({}),
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) throw new Error(data.error || 'Could not create report link');
     return data;
+  }
+
+  function getWorkspaceCouponLink() {
+    const store = document.getElementById('workspaceCouponLinkStore');
+    return String((store && store.dataset && store.dataset.couponLink) || '').trim();
+  }
+
+  function appendCouponLineToReportBody(body) {
+    const includeCoupon = document.getElementById('sidebarIncludeCoupon');
+    const couponLink = getWorkspaceCouponLink();
+    if (!includeCoupon || !includeCoupon.checked || !couponLink) return body;
+    return `${body}\n\nAlso, if it helps, here is a free coffee coupon link for your team: ${couponLink}`;
+  }
+
+  async function ensureLeadAiAnalysis(row, opts) {
+    const options = opts && typeof opts === 'object' ? opts : {};
+    let analysis = getAiAnalysisFromRow(row);
+    if (analysis) return analysis;
+    const hasWebsite = row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A';
+    if (!hasWebsite) {
+      throw new Error('This lead needs a website URL. Add one or run AI analyze from call mode.');
+    }
+    if (options.toast !== false && typeof window.showAppToast === 'function') {
+      window.showAppToast('Running AI analysis to build your report…', { variant: 'info' });
+    }
+    const result = await runAiAnalysisForRow(row);
+    analysis = (result && result.analysis) || getAiAnalysisFromRow(row);
+    if (!analysis) throw new Error('AI analysis did not return usable data. Try again in a moment.');
+    return analysis;
   }
 
   function toDisplayValue(value, fallback) {
@@ -1500,7 +1718,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     const subject = `AI Website Audit — ${company}`;
-    const body = lines.join('\n');
+    const body = appendCouponLineToReportBody(lines.join('\n'));
     const toEmail = toDisplayValue(row && row.dataset ? row.dataset.email : '', '');
     return { subject, body, toEmail };
   }
@@ -1517,17 +1735,99 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getAiAnalysisFromRow(row) {
     if (!row || !row.dataset) return null;
-    const raw = String(row.dataset.aiAnalysis || '').trim();
-    if (!raw) return null;
+    let raw = String(row.dataset.aiAnalysis || '').trim();
+    if (!raw || raw === 'null' || raw === 'undefined') {
+      const attr = row.getAttribute('data-ai-analysis');
+      if (attr && attr.trim() && attr.trim() !== 'null') raw = attr.trim();
+    }
+    if (!raw || raw === 'null' || raw === 'undefined') return null;
     try {
       const parsed = JSON.parse(raw);
-      return parsed && typeof parsed === 'object' ? parsed : null;
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (Array.isArray(parsed)) return null;
+      return Object.keys(parsed).length ? parsed : null;
     } catch (_) {
       return null;
     }
   }
 
+  function syncSidebarOutreachButtons(row) {
+    const couponWarning = document.getElementById('sidebarCouponWarning');
+    const includeCoupon = document.getElementById('sidebarIncludeCoupon');
+    if (couponWarning && includeCoupon) {
+      const show = includeCoupon.checked && !getWorkspaceCouponLink();
+      couponWarning.classList.toggle('hidden', !show);
+    }
+    if (!row) return;
+    const hasAnalysis = !!getAiAnalysisFromRow(row);
+    const hasWebsite = row.dataset && row.dataset.website && row.dataset.website !== 'N/A';
+    const ready = hasAnalysis || hasWebsite;
+    const ids = [
+      'sidebarReportEmailBtn',
+      'sidebarHostedAuditBtn',
+      'sidebarCopyAuditLinkBtn',
+      'sidebarCopySmsAuditBtn',
+    ];
+    ids.forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = false;
+      el.classList.toggle('opacity-50', !ready);
+      el.classList.toggle('cursor-not-allowed', !ready);
+      el.title = hasAnalysis
+        ? el.getAttribute('data-title-ready') || el.title
+        : hasWebsite
+          ? 'Runs AI analysis first if needed, then completes this action'
+          : 'Add a website URL to this lead first';
+    });
+    const reportBtn = document.getElementById('sidebarReportEmailBtn');
+    if (reportBtn) {
+      reportBtn.title = hasAnalysis
+        ? 'Open client report email from saved AI analysis'
+        : hasWebsite
+          ? 'Generate report email (runs AI analysis if needed)'
+          : 'Add a website URL first';
+    }
+  }
+
   document.addEventListener('click', async (e) => {
+    if (e.target.closest('#leadPanelComposerToggle')) {
+      e.preventDefault();
+      toggleLeadPanelComposer();
+      return;
+    }
+
+    const callAiBtn = e.target.closest('#leadCallAiAnalyzeBtn');
+    if (callAiBtn) {
+      e.preventDefault();
+      const row = currentRow;
+      if (!row) return;
+      const hasWebsite = row.dataset.website && row.dataset.website !== 'N/A';
+      if (!hasWebsite) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('This lead has no website URL.', { variant: 'error' });
+        }
+        return;
+      }
+      const original = callAiBtn.textContent;
+      callAiBtn.disabled = true;
+      callAiBtn.textContent = 'Analyzing…';
+      try {
+        await runAiAnalysisForRow(row);
+        syncLeadCallAiAnalyzeCta(row);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('AI analysis complete.', { variant: 'success' });
+        }
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'AI analysis failed';
+        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      } finally {
+        callAiBtn.disabled = false;
+        callAiBtn.textContent = original;
+      }
+      return;
+    }
+
     const btn = e.target.closest('.ai-analysis-btn');
     if (!btn) return;
     e.preventDefault();
@@ -1656,7 +1956,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (document.getElementById('leadPanelStickyDock')) {
+  if (document.getElementById('leadPanelTabScroll')) {
     initLeadDetailPanelChrome();
   }
 
@@ -1674,9 +1974,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const auditSell = document.getElementById('mobilePanelAuditSell');
     const openerWrap = document.getElementById('mobilePanelAuditOpenerWrap');
     const openerEl = document.getElementById('mobilePanelAuditOpener');
-    if (!auditStatus || !auditSummary) return;
+    if (!auditStatus) return;
 
-    const heuristic = auditSummary.textContent;
+    const heuristic = auditSummary
+      ? auditSummary.textContent
+      : 'Analyzing this business for outreach angles.';
 
     const manualKey = String(row.dataset.primaryServiceKey || '').trim();
     const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
@@ -1687,10 +1989,13 @@ document.addEventListener('DOMContentLoaded', () => {
       auditSell.textContent = picked.label || manualKey;
       auditStatus.textContent = picked.label || manualKey;
       auditStatus.className = 'text-[10px] font-black uppercase tracking-widest text-brand-yellow';
-      auditSummary.textContent =
-        'Using your selected offer. Clear the dropdown to let AI suggest again, or run Enhance / AI Analysis for deeper gaps.';
+      if (auditSummary) {
+        auditSummary.textContent =
+          'Using your selected offer. Clear the dropdown to let AI suggest again, or run Enhance / AI Analysis for deeper gaps.';
+      }
       if (openerWrap) openerWrap.classList.add('hidden');
       if (openerEl) openerEl.textContent = '';
+      syncLeadPanelSellingScript(row).catch(() => {});
       return;
     }
 
@@ -1720,17 +2025,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (reqId !== kieInsightRequestId) return;
         if (auditLoading) auditLoading.classList.add('hidden');
         if (!data.success) {
-          auditSummary.textContent = heuristic;
+          if (auditSummary) auditSummary.textContent = heuristic;
           if (auditSell) auditSell.textContent = auditStatus.textContent || '—';
           if (openerWrap) openerWrap.classList.add('hidden');
           if (openerEl) openerEl.textContent = '';
+          syncLeadPanelSellingScript(row).catch(() => {});
           return;
         }
         const sellLabel = data.primaryServiceLabel || 'Recommended offer';
         auditStatus.textContent = sellLabel;
         auditStatus.className = 'text-[10px] font-black uppercase tracking-widest text-brand-yellow';
         if (auditSell) auditSell.textContent = sellLabel;
-        auditSummary.textContent = data.rationale || heuristic;
+        if (auditSummary) auditSummary.textContent = data.rationale || heuristic;
+        if (data.primaryServiceKey && row.dataset) {
+          row.dataset.primaryServiceKey = String(data.primaryServiceKey);
+          syncLeadPrimaryServiceSelect(row);
+        }
+        syncLeadPanelSellingScript(row).catch(() => {});
         if (openerWrap && openerEl) {
           const tt = typeof data.talkTrack === 'string' ? data.talkTrack.trim() : '';
           if (tt) {
@@ -1749,10 +2060,11 @@ document.addEventListener('DOMContentLoaded', () => {
       .catch(() => {
         if (reqId !== kieInsightRequestId) return;
         if (auditLoading) auditLoading.classList.add('hidden');
-        auditSummary.textContent = heuristic;
+        if (auditSummary) auditSummary.textContent = heuristic;
         if (auditSell) auditSell.textContent = auditStatus.textContent || '—';
         if (openerWrap) openerWrap.classList.add('hidden');
         if (openerEl) openerEl.textContent = '';
+        syncLeadPanelSellingScript(row).catch(() => {});
       });
   }
 
@@ -2434,8 +2746,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!wrap || !btn) return;
     const hasAnalysis = !!getAiAnalysisFromRow(row);
     const hasWebsite = row.dataset.website && row.dataset.website !== 'N/A';
-    if (!hasAnalysis && hasWebsite) {
+    if (hasWebsite) {
       wrap.classList.remove('hidden');
+      btn.textContent = hasAnalysis ? 'Re-run AI analyze' : 'AI analyze';
     } else {
       wrap.classList.add('hidden');
     }
@@ -2522,10 +2835,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let leadPrimaryServiceSelectPopulated = false;
-  function ensureLeadPanelPrimaryServiceSelectOptions() {
+  function ensureLeadPanelPrimaryServiceSelectOptions(force) {
     const sel = document.getElementById('leadPanelPrimaryServiceSelect');
-    if (!sel || leadPrimaryServiceSelectPopulated) return;
+    if (!sel) return;
     const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
+    if (!offers.length) return;
+    const needRebuild = force || sel.options.length <= 1;
+    if (!needRebuild && leadPrimaryServiceSelectPopulated) return;
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Let AI recommend…</option>';
     offers.forEach((o) => {
       if (!o || !o.key) return;
       const opt = document.createElement('option');
@@ -2534,6 +2852,7 @@ document.addEventListener('DOMContentLoaded', () => {
       sel.appendChild(opt);
     });
     leadPrimaryServiceSelectPopulated = true;
+    if (prev && Array.from(sel.options).some((o) => o.value === prev)) sel.value = prev;
   }
 
   function syncLeadPrimaryServiceSelect(row) {
@@ -2696,24 +3015,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (leadDetailChromeDidInit) return;
     leadDetailChromeDidInit = true;
 
-    document.querySelectorAll('.lead-panel-tab-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tab = btn.getAttribute('data-lead-tab');
-        document.querySelectorAll('.lead-panel-tab-btn').forEach((b) => {
-          const on = b.getAttribute('data-lead-tab') === tab;
-          b.setAttribute('aria-selected', on ? 'true' : 'false');
-          b.classList.toggle('bg-white', on);
-          b.classList.toggle('dark:bg-slate-900', on);
-          b.classList.toggle('text-brand-dark', on);
-          b.classList.toggle('dark:text-white', on);
-          b.classList.toggle('shadow-sm', on);
-          b.classList.toggle('text-brand-muted', !on);
-        });
-        document.querySelectorAll('[data-lead-tab-panel]').forEach((panel) => {
-          const on = panel.getAttribute('data-lead-tab-panel') === tab;
-          panel.classList.toggle('hidden', !on);
-        });
-      });
+    document.querySelectorAll('[data-lead-tab-panel]').forEach((panel) => {
+      panel.classList.remove('hidden');
     });
 
     document.querySelectorAll('.lead-activity-filter').forEach((btn) => {
@@ -2779,6 +3082,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
       ownerInp.addEventListener('blur', saveOwner);
+      ownerInp.addEventListener('input', () => {
+        if (currentRow) syncLeadPanelSellingScript(currentRow).catch(() => {});
+      });
     }
     const dnc = document.getElementById('leadPanelDoNotCall');
     if (dnc) {
@@ -2861,21 +3167,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    const leadComposerToggle = document.getElementById('leadPanelComposerToggle');
-    const leadComposerDrawer = document.getElementById('leadPanelComposerDrawer');
-    if (leadComposerToggle && leadComposerDrawer && !leadComposerToggle.dataset.adhelloBound) {
-      leadComposerToggle.dataset.adhelloBound = '1';
-      leadComposerToggle.addEventListener('click', () => {
-        if (leadComposerDrawer.classList.contains('lead-panel-composer-drawer--open')) {
-          closeLeadPanelComposer();
-        } else {
-          openLeadPanelComposer();
-          const ni = document.getElementById('noteInput');
-          if (ni) ni.focus();
-        }
-      });
-    }
-
     const leadNotepadScriptSelect = document.getElementById('leadNotepadScriptSelect');
     if (leadNotepadScriptSelect && !leadNotepadScriptSelect.dataset.adhelloBound) {
       leadNotepadScriptSelect.dataset.adhelloBound = '1';
@@ -2910,7 +3201,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const val = String(primaryServSel.value || '').trim();
         try {
           await postLeadJsonUpdate(currentRow, { primaryServiceKey: val || null });
+          currentRow.dataset.primaryServiceKey = val || '';
           scheduleKieServiceInsight(currentRow);
+          syncLeadPanelSellingScript(currentRow).catch(() => {});
           if (typeof window.showProspectToast === 'function') {
             window.showProspectToast(val ? 'Offer focus saved' : 'AI recommendation enabled');
           }
@@ -2966,28 +3259,32 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    const leadCallAiBtn = document.getElementById('leadCallAiAnalyzeBtn');
-    if (leadCallAiBtn && !leadCallAiBtn.dataset.bound) {
-      leadCallAiBtn.dataset.bound = '1';
-      leadCallAiBtn.addEventListener('click', async () => {
-        if (!currentRow) return;
-        const hasWebsite = currentRow.dataset.website && currentRow.dataset.website !== 'N/A';
-        if (!hasWebsite) return;
-        const original = leadCallAiBtn.innerHTML;
-        leadCallAiBtn.disabled = true;
-        leadCallAiBtn.innerHTML = 'Analyzing…';
+    document.querySelectorAll('.lead-outreach-channel').forEach((btn) => {
+      if (btn.dataset.adhelloBound) return;
+      btn.dataset.adhelloBound = '1';
+      btn.addEventListener('click', () => {
+        window.__leadOutreachChannel = btn.getAttribute('data-outreach-channel') || 'call';
+        syncLeadOutreachChannelButtons();
+        if (currentRow) syncLeadPanelSellingScript(currentRow).catch(() => {});
+      });
+    });
+
+    const sellingCopyBtn = document.getElementById('leadPanelSellingScriptCopy');
+    if (sellingCopyBtn && !sellingCopyBtn.dataset.adhelloBound) {
+      sellingCopyBtn.dataset.adhelloBound = '1';
+      sellingCopyBtn.addEventListener('click', async () => {
+        const scriptEl = document.getElementById('leadPanelSellingScript');
+        const text = scriptEl ? String(scriptEl.textContent || '').trim() : '';
+        if (!text) return;
         try {
-          await runAiAnalysisForRow(currentRow);
-          syncLeadCallAiAnalyzeCta(currentRow);
+          await navigator.clipboard.writeText(text);
           if (typeof window.showAppToast === 'function') {
-            window.showAppToast('AI analysis complete.', { variant: 'success' });
+            window.showAppToast('Script copied.', { variant: 'success' });
           }
-        } catch (err) {
-          const msg = err && err.message ? err.message : 'AI analysis failed';
-          if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-        } finally {
-          leadCallAiBtn.disabled = false;
-          leadCallAiBtn.innerHTML = original;
+        } catch (_) {
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Could not copy script.', { variant: 'error' });
+          }
         }
       });
     }
@@ -3820,6 +4117,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     syncLeadPrimaryServiceSelect(row);
+    leadOutreachScriptsCache = { leadKey: '', data: null, loading: null, loadingKey: '' };
+    syncLeadPanelSellingScript(row).catch((err) => {
+      console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
+    });
 
     // Phone logic
     const phoneEl = document.getElementById('mobilePanelPhone');
@@ -4075,10 +4376,8 @@ document.addEventListener('DOMContentLoaded', () => {
       evInput.value = raw || '';
     }
 
-    // Logic for Audit Insight Box in Panel (if exists)
     const auditStatus = document.getElementById('mobilePanelAuditStatus');
-    const auditSummary = document.getElementById('mobilePanelAuditSummary');
-    if (auditStatus && auditSummary) {
+    if (auditStatus) {
         let statusText = '';
         let statusColor = '';
         const score = calculateOpportunityScore(row.dataset);
@@ -4092,27 +4391,8 @@ document.addEventListener('DOMContentLoaded', () => {
             statusText = 'Low Opportunity';
             statusColor = 'text-brand-muted';
         }
-        
         auditStatus.textContent = statusText;
         auditStatus.className = `text-[10px] font-black uppercase tracking-widest ${statusColor}`;
-        
-        // Dynamic summary generation if deep audit hasn't filled it yet
-        let dynamicSummary = row.dataset.auditSummary;
-        if (!dynamicSummary || dynamicSummary === 'Analyzing website structure and GEO/AEO readiness...') {
-            const gaps = [];
-            const website = row.dataset.website && row.dataset.website !== 'N/A';
-            if (!website) gaps.push('no website');
-            if (row.dataset.hasChatbot === 'false' || row.dataset.has_chatbot === false) gaps.push('no chatbot');
-            if (row.dataset.isMobileFriendly === 'false' || row.dataset.is_mobile_friendly === false) gaps.push('technical SEO issues');
-            if (row.dataset.hasClickToCall === 'false' || row.dataset.has_click_to_call === false) gaps.push('broken click-to-call');
-            
-            if (gaps.length > 0) {
-                dynamicSummary = `High-value lead because of ${gaps.join(', ')}. Perfect candidate for a technical layout overhaul and conversion optimization.`;
-            } else {
-                dynamicSummary = 'Solid digital presence found. Focus on high-level strategy and scaling existing performance.';
-            }
-        }
-        auditSummary.textContent = dynamicSummary;
         scheduleKieServiceInsight(row);
     }
     if (aiScorePill) {
@@ -4164,36 +4444,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       };
     }
-    const sidebarReportBtn = document.getElementById('sidebarReportEmailBtn');
-    const sidebarHostedBtn = document.getElementById('sidebarHostedAuditBtn');
-    const sidebarCopyAuditLinkBtn = document.getElementById('sidebarCopyAuditLinkBtn');
-    const sidebarCopySmsAuditBtn = document.getElementById('sidebarCopySmsAuditBtn');
-    const hasSavedAnalysis = !!getAiAnalysisFromRow(row);
-    if (sidebarReportBtn) {
-      sidebarReportBtn.disabled = !hasSavedAnalysis;
-      sidebarReportBtn.classList.toggle('opacity-50', !hasSavedAnalysis);
-      sidebarReportBtn.classList.toggle('cursor-not-allowed', !hasSavedAnalysis);
-      sidebarReportBtn.title = hasSavedAnalysis
-        ? 'Open client report email from saved AI analysis'
-        : 'Run AI analysis first to generate report email';
-    }
-    [sidebarHostedBtn, sidebarCopyAuditLinkBtn, sidebarCopySmsAuditBtn].forEach((el) => {
-      if (!el) return;
-      el.disabled = !hasSavedAnalysis;
-      el.classList.toggle('opacity-50', !hasSavedAnalysis);
-      el.classList.toggle('cursor-not-allowed', !hasSavedAnalysis);
-    });
-    if (sidebarHostedBtn) {
-      sidebarHostedBtn.title = hasSavedAnalysis
-        ? 'Open the shareable hosted audit (send by text on cold calls)'
-        : 'Run AI analysis first';
-    }
-    if (sidebarCopyAuditLinkBtn) {
-      sidebarCopyAuditLinkBtn.title = hasSavedAnalysis ? 'Copy the hosted site audit URL' : 'Run AI analysis first';
-    }
-    if (sidebarCopySmsAuditBtn) {
-      sidebarCopySmsAuditBtn.title = hasSavedAnalysis ? 'Copy a short SMS that includes the report link' : 'Run AI analysis first';
-    }
+    syncSidebarOutreachButtons(row);
 
     scheduleReviewIntelligence(row, { refresh: false });
 
@@ -5112,13 +5363,12 @@ document.addEventListener('DOMContentLoaded', () => {
   const sidebarReportEmailBtn = document.getElementById('sidebarReportEmailBtn');
   const sidebarIncludeCoupon = document.getElementById('sidebarIncludeCoupon');
   const sidebarCouponWarning = document.getElementById('sidebarCouponWarning');
-  const workspaceCouponLinkStore = document.getElementById('workspaceCouponLinkStore');
-  const getWorkspaceCouponLink = () =>
-    String((workspaceCouponLinkStore && workspaceCouponLinkStore.dataset && workspaceCouponLinkStore.dataset.couponLink) || '').trim();
   const syncSidebarCouponWarning = () => {
-    if (!sidebarCouponWarning || !sidebarIncludeCoupon) return;
-    const show = sidebarIncludeCoupon.checked && !getWorkspaceCouponLink();
-    sidebarCouponWarning.classList.toggle('hidden', !show);
+    if (currentRow) syncSidebarOutreachButtons(currentRow);
+    else if (sidebarCouponWarning && sidebarIncludeCoupon) {
+      const show = sidebarIncludeCoupon.checked && !getWorkspaceCouponLink();
+      sidebarCouponWarning.classList.toggle('hidden', !show);
+    }
   };
   if (sidebarIncludeCoupon) sidebarIncludeCoupon.addEventListener('change', syncSidebarCouponWarning);
   syncSidebarCouponWarning();
@@ -5188,18 +5438,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (sidebarReportEmailBtn) {
-    sidebarReportEmailBtn.addEventListener('click', () => {
-      if (!currentRow) return;
-      const analysis = getAiAnalysisFromRow(currentRow);
-      if (!analysis) {
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Run AI analysis once first, then this report opens instantly from saved data.', {
-            variant: 'error',
-          });
-        }
-        return;
+  async function handleSidebarReportEmailClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
       }
+      return;
+    }
+    const btn = document.getElementById('sidebarReportEmailBtn');
+    const original = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Preparing…';
+    }
+    try {
+      const analysis = await ensureLeadAiAnalysis(currentRow);
+      syncSidebarOutreachButtons(currentRow);
       const report = buildClientReportEmail(
         currentRow,
         analysis,
@@ -5207,9 +5461,17 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       const opened = openMailReport(report);
       if (opened && typeof window.showAppToast === 'function') {
-        window.showAppToast('Report email draft opened from saved AI analysis.', { variant: 'success' });
+        window.showAppToast('Report email draft opened.', { variant: 'success' });
       }
-    });
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Could not open report email';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
   }
 
   const sidebarHostedAuditBtn = document.getElementById('sidebarHostedAuditBtn');
@@ -5232,56 +5494,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (sidebarHostedAuditBtn) {
-    sidebarHostedAuditBtn.addEventListener('click', async () => {
-      if (!currentRow || !getAiAnalysisFromRow(currentRow)) {
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Run AI analysis first to create a hosted report.', { variant: 'error' });
-        }
-        return;
+  async function handleSidebarHostedAuditClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
       }
-      const original = sidebarHostedAuditBtn.textContent;
-      try {
-        sidebarHostedAuditBtn.disabled = true;
-        sidebarHostedAuditBtn.textContent = 'Preparing…';
-        const bundle = await fetchAuditReportLinkBundle(currentRow);
-        window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Hosted audit opened — text them the link while you are talking.', { variant: 'success' });
-        }
-      } catch (err) {
-        const msg = err && err.message ? err.message : 'Could not open hosted audit';
-        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-        else window.alert(msg);
-      } finally {
-        sidebarHostedAuditBtn.textContent = original;
-        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      return;
+    }
+    const btn = document.getElementById('sidebarHostedAuditBtn');
+    const original = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Preparing…';
+    }
+    try {
+      await ensureLeadAiAnalysis(currentRow);
+      syncSidebarOutreachButtons(currentRow);
+      const bundle = await fetchAuditReportLinkBundle(currentRow);
+      window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Hosted audit opened — text them the link while you are talking.', {
+          variant: 'success',
+        });
       }
-    });
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Could not open hosted audit';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      else window.alert(msg);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
   }
 
-  if (sidebarCopyAuditLinkBtn) {
-    sidebarCopyAuditLinkBtn.addEventListener('click', async () => {
-      if (!currentRow || !getAiAnalysisFromRow(currentRow)) {
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Run AI analysis first.', { variant: 'error' });
-        }
-        return;
+  async function handleSidebarCopyAuditLinkClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
       }
-      try {
-        sidebarCopyAuditLinkBtn.disabled = true;
-        const bundle = await fetchAuditReportLinkBundle(currentRow);
-        await copyTextToClipboard(bundle.reportUrl);
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Report link copied.', { variant: 'success' });
-        }
-      } catch (err) {
-        const msg = err && err.message ? err.message : 'Copy failed';
-        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-      } finally {
-        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      return;
+    }
+    const btn = document.getElementById('sidebarCopyAuditLinkBtn');
+    if (btn) btn.disabled = true;
+    try {
+      await ensureLeadAiAnalysis(currentRow);
+      syncSidebarOutreachButtons(currentRow);
+      const bundle = await fetchAuditReportLinkBundle(currentRow);
+      await copyTextToClipboard(bundle.reportUrl);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Report link copied.', { variant: 'success' });
       }
-    });
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Copy failed';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   const sidebarCadenceSnooze90Btn = document.getElementById('sidebarCadenceSnooze90Btn');
@@ -5344,30 +5614,57 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (sidebarCopySmsAuditBtn) {
-    sidebarCopySmsAuditBtn.addEventListener('click', async () => {
-      if (!currentRow || !getAiAnalysisFromRow(currentRow)) {
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Run AI analysis first.', { variant: 'error' });
-        }
-        return;
+  async function handleSidebarCopySmsAuditClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
       }
-      try {
-        sidebarCopySmsAuditBtn.disabled = true;
-        const bundle = await fetchAuditReportLinkBundle(currentRow);
-        const snippet = String(bundle.smsSnippet || bundle.reportUrl || '').trim();
-        await copyTextToClipboard(snippet);
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast('SMS snippet copied.', { variant: 'success' });
-        }
-      } catch (err) {
-        const msg = err && err.message ? err.message : 'Copy failed';
-        if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-      } finally {
-        if (currentRow && typeof populatePanel === 'function') populatePanel(currentRow);
+      return;
+    }
+    const btn = document.getElementById('sidebarCopySmsAuditBtn');
+    if (btn) btn.disabled = true;
+    try {
+      await ensureLeadAiAnalysis(currentRow);
+      syncSidebarOutreachButtons(currentRow);
+      const bundle = await fetchAuditReportLinkBundle(currentRow);
+      const snippet = String(bundle.smsSnippet || bundle.reportUrl || '').trim();
+      await copyTextToClipboard(snippet);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('SMS snippet copied.', { variant: 'success' });
       }
-    });
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Copy failed';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#sidebarReportEmailBtn')) {
+      e.preventDefault();
+      handleSidebarReportEmailClick();
+      return;
+    }
+    if (e.target.closest('#sidebarHostedAuditBtn')) {
+      e.preventDefault();
+      handleSidebarHostedAuditClick();
+      return;
+    }
+    if (e.target.closest('#sidebarCopyAuditLinkBtn')) {
+      e.preventDefault();
+      handleSidebarCopyAuditLinkClick();
+      return;
+    }
+    if (e.target.closest('#sidebarCopySmsAuditBtn')) {
+      e.preventDefault();
+      handleSidebarCopySmsAuditClick();
+      return;
+    }
+    if (e.target.closest('#sidebarIncludeCoupon') || e.target.closest('label[for="sidebarIncludeCoupon"]')) {
+      syncSidebarOutreachButtons(currentRow || null);
+    }
+  });
 
   const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');
   if (reviewIntelRefreshBtn) {

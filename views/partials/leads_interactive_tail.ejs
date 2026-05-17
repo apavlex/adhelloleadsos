@@ -1,5 +1,5 @@
 <%# Root-relative include: requires app.set('view options', { root: views }) in server.js %>
-<%- include('/partials/lead_detail_panel') %>
+<%- include('/partials/lead_detail_panel', { scriptLibraryOfferPicklist: Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : [] }) %>
 
 <script>
   window.ADHELLO_SERVICE_OFFERS = <%- JSON.stringify(Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : []) %>;

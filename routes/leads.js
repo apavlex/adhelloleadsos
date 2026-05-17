@@ -13,6 +13,7 @@ const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { createAuditReportToken } = require('../services/auditReportSign');
 const { parseImportFile } = require('../services/csvLeadImport');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
+const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion } = require('../services/llmClient');
@@ -1485,6 +1486,40 @@ router.post('/:key/sms', async (req, res, next) => {
       ],
     });
     res.json({ success: true, messageSid: sms.sid || null, lead: updatedLead });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/:key/outreach-scripts — per-service scripts for call / text / voicemail / email
+router.get('/:key/outreach-scripts', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const services = SCRIPT_LIBRARY_KEYS.map((k) => ({
+      key: k,
+      label: (mergedLibrary[k] && mergedLibrary[k].label) || k,
+    }));
+    const library = buildOutreachLibrary(mergedLibrary, SCRIPT_LIBRARY_KEYS);
+
+    const leadServiceKey =
+      (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
+    const defaultServiceKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey)
+      ? leadServiceKey
+      : SCRIPT_LIBRARY_KEYS[0];
+
+    return res.json({
+      success: true,
+      channels: OUTREACH_CHANNELS,
+      services,
+      library,
+      defaultServiceKey,
+    });
   } catch (err) {
     next(err);
   }
