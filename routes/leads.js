@@ -606,13 +606,24 @@ function resolveActiveVoicemailAudioUrl(telephony) {
 }
 
 // POST /leads/:key/sequence/start — attach persona cadence (Clay / Paul / Bob templates)
-router.post('/:key/sequence/start', async (req, res, next) => {
+router.post('/:key/sequence/start', express.json(), async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
     const templateId = (req.body && req.body.templateId) || 'audit_local_14';
-    await sequenceEngine.startSequence(fullKey, templateId);
+    const result = await sequenceEngine.startSequence(fullKey, templateId);
     await activationService.recordEvent(userEmail(req), 'sequence_started');
-    res.json({ success: true, templateId });
+    const refreshed = await dbService.getLead(fullKey);
+    res.json({
+      success: true,
+      templateId,
+      sequenceState: result && result.sequenceState,
+      lead: refreshed,
+    });
   } catch (err) {
     next(err);
   }
@@ -622,8 +633,14 @@ router.post('/:key/sequence/start', async (req, res, next) => {
 router.post('/:key/sequence/pause', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
     await sequenceEngine.pauseSequence(fullKey);
-    res.json({ success: true });
+    const refreshed = await dbService.getLead(fullKey);
+    res.json({ success: true, lead: refreshed });
   } catch (err) {
     next(err);
   }

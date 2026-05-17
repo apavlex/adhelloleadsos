@@ -47,11 +47,26 @@ const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 
 const app = express();
+const { DEFAULT_SEQUENCE_TEMPLATES } = require('./services/sequenceTemplates');
 try {
   app.locals.assetVersion = process.env.ASSET_VERSION || require('./package.json').version;
 } catch (_) {
   app.locals.assetVersion = '1';
 }
+/** Outreach playbooks for lead sidebar + sequences page (id, steps, hints). */
+app.locals.sequenceTemplates = DEFAULT_SEQUENCE_TEMPLATES.map((t) => ({
+  id: t.id,
+  persona: t.persona,
+  name: t.name,
+  description: t.description,
+  stepCount: t.steps.length,
+  steps: t.steps.map((s) => ({
+    dayOffset: s.dayOffset,
+    channel: s.channel,
+    title: s.title,
+    hint: s.hint || '',
+  })),
+}));
 const PORT = process.env.PORT || 3000;
 
 // Cloud Run / reverse proxy: required for secure cookies and req.protocol

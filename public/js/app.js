@@ -904,9 +904,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentRow = null;
   let currentIndex = -1;
 
-  /** Workspace SMS-style scripts → quick-log note (declared early — populatePanel may run before later callbacks execute). */
-  let leadNotepadScriptOptions = [];
-
   function fillLeadScriptPlaceholdersForNote(text, row) {
     if (!text) return '';
     const title = String((row && row.dataset && row.dataset.title) || '').trim();
@@ -957,7 +954,61 @@ document.addEventListener('DOMContentLoaded', () => {
     workspaceData: null,
     workspaceLoading: null,
   };
+  let leadPanelSellingScriptSyncGen = 0;
   if (!window.__leadOutreachChannel) window.__leadOutreachChannel = 'call';
+
+  function seedLeadOutreachScriptsCacheFromEmbedded(row) {
+    const embedded = getEmbeddedOutreachScriptsPayload(row);
+    if (!embedded) return;
+    const key = normalizeLeadKeyForScriptsFetch(row && row.dataset ? row.dataset.leadKey : '');
+    if (key) {
+      leadOutreachScriptsCache.leadKey = key;
+      leadOutreachScriptsCache.data = embedded;
+    } else if (!leadOutreachScriptsCache.workspaceData) {
+      leadOutreachScriptsCache.workspaceData = embedded;
+    }
+  }
+
+  function getActiveOutreachScriptsData(row) {
+    const key = normalizeLeadKeyForScriptsFetch(row && row.dataset ? row.dataset.leadKey : '');
+    if (
+      key &&
+      leadOutreachScriptsCache.leadKey === key &&
+      leadOutreachScriptsCache.data &&
+      outreachLibraryHasScripts(leadOutreachScriptsCache.data.library)
+    ) {
+      return leadOutreachScriptsCache.data;
+    }
+    if (
+      !key &&
+      leadOutreachScriptsCache.workspaceData &&
+      outreachLibraryHasScripts(leadOutreachScriptsCache.workspaceData.library)
+    ) {
+      return leadOutreachScriptsCache.workspaceData;
+    }
+    const embedded = getEmbeddedOutreachScriptsPayload(row);
+    if (embedded) return embedded;
+    if (leadOutreachScriptsCache.workspaceData) return leadOutreachScriptsCache.workspaceData;
+    return null;
+  }
+
+  function applyLeadPanelSellingScriptFromCache(row) {
+    const target = row || currentRow;
+    if (!target) return false;
+    const data = getActiveOutreachScriptsData(target);
+    if (!data) return false;
+    syncLeadOutreachChannelButtons();
+    applyLeadPanelSellingScriptFromData(target, data);
+    return true;
+  }
+
+  function onLeadPanelOutreachScriptInputsChanged(row, opts) {
+    const target = row || currentRow;
+    if (!target) return;
+    const hadCache = applyLeadPanelSellingScriptFromCache(target);
+    const fetchOpts = { ...(opts || {}), skipLoading: hadCache };
+    syncLeadPanelSellingScript(target, fetchOpts).catch(() => {});
+  }
 
   function outreachLibraryHasScripts(library) {
     return !!(library && typeof library === 'object' && Object.keys(library).length > 0);
@@ -1066,10 +1117,14 @@ document.addEventListener('DOMContentLoaded', () => {
     scriptEl.textContent = formatSellingScriptForChannel(raw, channel, row);
   }
 
-  function refreshLeadPanelSellingScript(row) {
+  function refreshLeadPanelSellingScript(row, opts) {
     const target = row || currentRow;
     if (!target) return Promise.resolve();
-    return syncLeadPanelSellingScript(target);
+    if (opts && opts.cacheOnly) {
+      applyLeadPanelSellingScriptFromCache(target);
+      return Promise.resolve();
+    }
+    return syncLeadPanelSellingScript(target, opts);
   }
 
   if (typeof window !== 'undefined') {
@@ -1172,92 +1227,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  async function syncLeadPanelSellingScript(row) {
+  async function syncLeadPanelSellingScript(row, opts) {
     const scriptEl = document.getElementById('leadPanelSellingScript');
     if (!scriptEl || !row) return;
+    const gen = ++leadPanelSellingScriptSyncGen;
     syncLeadOutreachChannelButtons();
-    scriptEl.textContent = 'Loading script…';
+    if (!(opts && opts.skipLoading)) {
+      scriptEl.textContent = 'Loading script…';
+    }
     try {
       const data = await fetchLeadOutreachScripts(row);
+      if (gen !== leadPanelSellingScriptSyncGen) return;
       if (!data) {
         scriptEl.textContent = 'Add scripts in Sales → Script library to use this panel.';
         return;
       }
       applyLeadPanelSellingScriptFromData(row, data);
     } catch (e) {
+      if (gen !== leadPanelSellingScriptSyncGen) return;
       scriptEl.textContent = (e && e.message) || 'Could not load script.';
     }
-  }
-
-  function defaultLeadNotepadScriptFallback(row) {
-    const biz = String((row && row.dataset && row.dataset.title) || 'there').trim();
-    return [
-      {
-        id: 'fallback',
-        label: 'Short outreach',
-        text: `Hi ${biz} team — [your name] here. Had a quick thought on your local visibility; open to two minutes when you're between jobs?`,
-      },
-    ];
   }
 
   function normalizeLeadKeyForScriptsFetch(raw) {
     const k = String(raw || '').trim();
     if (!k) return '';
     return k.replace(/^lead:/i, '').trim();
-  }
-
-  async function syncLeadNotepadScripts(row) {
-    const sel = document.getElementById('leadNotepadScriptSelect');
-    if (!sel) return;
-
-    const applyOptions = (opts, placeholderLabel) => {
-      leadNotepadScriptOptions = Array.isArray(opts) ? opts : [];
-      sel.innerHTML = '';
-      const ph = document.createElement('option');
-      ph.value = '';
-      ph.textContent = placeholderLabel || 'Choose script…';
-      sel.appendChild(ph);
-      leadNotepadScriptOptions.forEach((opt, idx) => {
-        const o = document.createElement('option');
-        o.value = String(idx);
-        o.textContent = opt.label || `Script ${idx + 1}`;
-        sel.appendChild(o);
-      });
-      sel.value = '';
-    };
-
-    sel.disabled = true;
-    sel.innerHTML = '<option value="">Loading scripts…</option>';
-    leadNotepadScriptOptions = [];
-
-    try {
-      const leadKeyRaw =
-        row && row.dataset ? String(row.dataset.leadKey || '').trim() : '';
-      const leadKey = normalizeLeadKeyForScriptsFetch(leadKeyRaw);
-
-      if (leadKey) {
-        const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-script-options`, {
-          method: 'GET',
-          headers: { Accept: 'application/json' },
-          credentials: 'same-origin',
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) throw new Error((data && data.error) || 'scripts');
-        const opts = Array.isArray(data.options) ? data.options : [];
-        if (!opts.length) {
-          applyOptions(defaultLeadNotepadScriptFallback(row), 'Choose script…');
-        } else {
-          applyOptions(opts, 'Choose script…');
-        }
-      } else {
-        applyOptions(defaultLeadNotepadScriptFallback(row), 'Choose script…');
-      }
-    } catch (err) {
-      console.warn('[Lead panel] Script options:', err && err.message ? err.message : err);
-      applyOptions(defaultLeadNotepadScriptFallback(row), 'Choose script…');
-    } finally {
-      sel.disabled = false;
-    }
   }
 
   function openLeadPanelComposer() {
@@ -1293,6 +1288,40 @@ document.addEventListener('DOMContentLoaded', () => {
       openLeadPanelComposer();
       const ni = document.getElementById('noteInput');
       if (ni) ni.focus();
+    }
+  }
+
+  function openLeadPanelOutreach() {
+    const d = document.getElementById('leadPanelOutreachDrawer');
+    const btn = document.getElementById('leadPanelOutreachToggle');
+    const ch = document.getElementById('leadPanelOutreachChevron');
+    if (d) d.classList.add('lead-panel-outreach-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (ch) {
+      ch.classList.remove('rotate-180');
+      ch.style.transform = '';
+    }
+  }
+
+  function closeLeadPanelOutreach() {
+    const d = document.getElementById('leadPanelOutreachDrawer');
+    const btn = document.getElementById('leadPanelOutreachToggle');
+    const ch = document.getElementById('leadPanelOutreachChevron');
+    if (d) d.classList.remove('lead-panel-outreach-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (ch) {
+      ch.classList.add('rotate-180');
+      ch.style.transform = '';
+    }
+  }
+
+  function toggleLeadPanelOutreach() {
+    const drawer = document.getElementById('leadPanelOutreachDrawer');
+    if (!drawer) return;
+    if (drawer.classList.contains('lead-panel-outreach-drawer--open')) {
+      closeLeadPanelOutreach();
+    } else {
+      openLeadPanelOutreach();
     }
   }
 
@@ -1428,12 +1457,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
+    const activityFilterBtn = e.target.closest('.lead-activity-filter');
+    if (activityFilterBtn && activityFilterBtn.closest('#mobilePanel')) {
+      e.preventDefault();
+      e.stopPropagation();
+      window.__leadActivityFilter = activityFilterBtn.getAttribute('data-activity-filter') || 'all';
+      syncLeadActivityFilterButtons(window.__leadActivityFilter);
+      if (currentRow) renderLeadActivityTimeline(currentRow, window.__leadActivityFilter);
+      return;
+    }
     const chBtn = e.target.closest('#leadPanelWhatToSellCard .lead-outreach-channel');
     if (chBtn) {
       e.preventDefault();
+      e.stopPropagation();
       window.__leadOutreachChannel = chBtn.getAttribute('data-outreach-channel') || 'call';
-      syncLeadOutreachChannelButtons();
-      refreshLeadPanelSellingScript().catch(() => {});
+      onLeadPanelOutreachScriptInputsChanged(currentRow);
       return;
     }
     const row = e.target.closest('.result-row');
@@ -1979,6 +2017,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (e.target.closest('#leadPanelOutreachToggle')) {
+      e.preventDefault();
+      toggleLeadPanelOutreach();
+      return;
+    }
+
     const callAiBtn = e.target.closest('#leadCallAiAnalyzeBtn');
     if (callAiBtn) {
       e.preventDefault();
@@ -2439,6 +2483,17 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch {
         ds.logsSnippet = '[]';
       }
+    }
+    if (L.sequenceState !== undefined) {
+      try {
+        ds.sequenceState =
+          L.sequenceState == null ? 'null' : JSON.stringify(L.sequenceState);
+      } catch {
+        ds.sequenceState = 'null';
+      }
+    }
+    if (L.lastTouchChannel != null) {
+      ds.lastTouchChannel = String(L.lastTouchChannel || '').trim();
     }
     if (L.pageSpeedAudit != null) {
       try {
@@ -3277,18 +3332,52 @@ document.addEventListener('DOMContentLoaded', () => {
     return out;
   }
 
-  function renderLeadActivityTimeline(row, filter) {
-    const host = document.getElementById('activityLog');
-    if (!host) return;
-    const entries = mergeActivityEntries(row);
+  function getLeadActivityLogHost() {
+    const panel = getLeadDetailPanel();
+    if (panel) {
+      const scoped = panel.querySelector('#activityLog');
+      if (scoped) return scoped;
+    }
+    return document.getElementById('activityLog');
+  }
+
+  function activityEntryMatchesFilter(entry, filter) {
     const f = String(filter || 'all');
-    const filtered = entries.filter((e) => {
-      if (f === 'all') return true;
-      const t = `${e.typ} ${e.text}`.toLowerCase();
-      if (f === 'calls') return /\bcall|dial|voicemail|phone\b/i.test(t);
-      if (f === 'notes') return e.typ === 'note' || /\bnote\b/i.test(e.typ);
-      return true;
+    if (f === 'all') return true;
+    const typ = String(entry.typ || '').toLowerCase();
+    const text = String(entry.text || '').toLowerCase();
+    const blob = `${typ} ${text}`;
+    if (f === 'calls') {
+      return (
+        /(^|_)(call|dial|phone|voicemail|sms|text_message|telephony)(_|$|\b)/i.test(typ) ||
+        /\b(called|calling|dialed|dial|voicemail|softphone|telephony|phone touch)\b/i.test(blob)
+      );
+    }
+    if (f === 'notes') {
+      return typ === 'note' || typ === 'post' || typ === 'user_note' || /\bnote\b/i.test(typ);
+    }
+    return true;
+  }
+
+  function syncLeadActivityFilterButtons(filter) {
+    const f = String(filter || 'all');
+    document.querySelectorAll('#mobilePanel .lead-activity-filter').forEach((b) => {
+      const on = (b.getAttribute('data-activity-filter') || 'all') === f;
+      b.classList.toggle('bg-white', on);
+      b.classList.toggle('dark:bg-slate-900', on);
+      b.classList.toggle('text-brand-dark', on);
+      b.classList.toggle('dark:text-white', on);
+      b.classList.toggle('shadow-sm', on);
+      b.classList.toggle('text-brand-muted', !on);
     });
+  }
+
+  function renderLeadActivityTimeline(row, filter) {
+    const host = getLeadActivityLogHost();
+    if (!host || !row) return;
+    const entries = mergeActivityEntries(row);
+    const f = String(filter || window.__leadActivityFilter || 'all');
+    const filtered = entries.filter((e) => activityEntryMatchesFilter(e, f));
     if (!filtered.length) {
       host.innerHTML =
         '<div class="pl-10 text-xs text-brand-muted italic">No entries for this filter yet.</div>';
@@ -3371,22 +3460,6 @@ document.addEventListener('DOMContentLoaded', () => {
       panel.classList.remove('hidden');
     });
 
-    document.querySelectorAll('.lead-activity-filter').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        window.__leadActivityFilter = btn.getAttribute('data-activity-filter') || 'all';
-        document.querySelectorAll('.lead-activity-filter').forEach((b) => {
-          const on = b.getAttribute('data-activity-filter') === window.__leadActivityFilter;
-          b.classList.toggle('bg-white', on);
-          b.classList.toggle('dark:bg-slate-900', on);
-          b.classList.toggle('text-brand-dark', on);
-          b.classList.toggle('dark:text-white', on);
-          b.classList.toggle('shadow-sm', on);
-          b.classList.toggle('text-brand-muted', !on);
-        });
-        if (currentRow) renderLeadActivityTimeline(currentRow, window.__leadActivityFilter);
-      });
-    });
-
     const cqiIds = [
       'cqiFieldDecisionMaker',
       'cqiFieldYearsInBusiness',
@@ -3435,7 +3508,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       ownerInp.addEventListener('blur', saveOwner);
       ownerInp.addEventListener('input', () => {
-        if (currentRow) refreshLeadPanelSellingScript(currentRow).catch(() => {});
+        if (currentRow) refreshLeadPanelSellingScript(currentRow, { cacheOnly: true });
       });
     }
     const dnc = document.getElementById('leadPanelDoNotCall');
@@ -3519,32 +3592,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     });
 
-    const leadNotepadScriptSelect = document.getElementById('leadNotepadScriptSelect');
-    if (leadNotepadScriptSelect && !leadNotepadScriptSelect.dataset.adhelloBound) {
-      leadNotepadScriptSelect.dataset.adhelloBound = '1';
-      leadNotepadScriptSelect.addEventListener('change', () => {
-        const idx = parseInt(leadNotepadScriptSelect.value, 10);
-        const inp = document.getElementById('noteInput');
-        if (
-          !Number.isFinite(idx) ||
-          idx < 0 ||
-          !leadNotepadScriptOptions[idx] ||
-          !inp ||
-          !currentRow
-        ) {
-          leadNotepadScriptSelect.value = '';
-          return;
-        }
-        const raw = leadNotepadScriptOptions[idx].text || '';
-        const filled = fillLeadScriptPlaceholdersForNote(raw, currentRow);
-        openLeadPanelComposer();
-        const cur = String(inp.value || '').trim();
-        inp.value = cur ? `${cur}\n\n${filled}` : filled;
-        inp.focus();
-        leadNotepadScriptSelect.value = '';
-      });
-    }
-
     const primaryServSel = document.getElementById('leadPanelPrimaryServiceSelect');
     if (primaryServSel && !primaryServSel.dataset.adhelloBound) {
       primaryServSel.dataset.adhelloBound = '1';
@@ -3552,7 +3599,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentRow) return;
         const val = String(primaryServSel.value || '').trim();
         if (currentRow.dataset) currentRow.dataset.primaryServiceKey = val || '';
-        refreshLeadPanelSellingScript(currentRow).catch(() => {});
+        onLeadPanelOutreachScriptInputsChanged(currentRow);
         if (!currentRow.dataset.leadKey) return;
         try {
           await postLeadJsonUpdate(currentRow, { primaryServiceKey: val || null });
@@ -3611,16 +3658,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
-
-    document.querySelectorAll('.lead-outreach-channel').forEach((btn) => {
-      if (btn.dataset.adhelloBound) return;
-      btn.dataset.adhelloBound = '1';
-      btn.addEventListener('click', () => {
-        window.__leadOutreachChannel = btn.getAttribute('data-outreach-channel') || 'call';
-        syncLeadOutreachChannelButtons();
-        refreshLeadPanelSellingScript().catch(() => {});
-      });
-    });
 
     const sellingCopyBtn = document.getElementById('leadPanelSellingScriptCopy');
     if (sellingCopyBtn && !sellingCopyBtn.dataset.adhelloBound) {
@@ -4104,6 +4141,158 @@ document.addEventListener('DOMContentLoaded', () => {
     other: 'Other',
   };
 
+  function getSequenceTemplates() {
+    return Array.isArray(window.ADHELLO_SEQUENCE_TEMPLATES)
+      ? window.ADHELLO_SEQUENCE_TEMPLATES
+      : [];
+  }
+
+  function findSequenceTemplate(templateId) {
+    const id = String(templateId || '').trim();
+    if (!id) return null;
+    return getSequenceTemplates().find((t) => t && t.id === id) || null;
+  }
+
+  function parseRowSequenceState(row) {
+    if (!row || !row.dataset) return null;
+    try {
+      const raw = row.dataset.sequenceState;
+      if (!raw || raw === 'null' || raw === 'undefined') return null;
+      const o = JSON.parse(raw);
+      return o && typeof o === 'object' ? o : null;
+    } catch {
+      return null;
+    }
+  }
+
+  let cadencePlaybookSelectPopulated = false;
+
+  function ensureCadencePlaybookSelectOptions() {
+    const sel = document.getElementById('leadCadencePlaybookSelect');
+    if (!sel) return;
+    const templates = getSequenceTemplates();
+    if (!templates.length) {
+      sel.innerHTML = '<option value="">No playbooks loaded</option>';
+      return;
+    }
+    if (cadencePlaybookSelectPopulated && sel.options.length > 1) return;
+    const prev = sel.value;
+    sel.innerHTML = '';
+    templates.forEach((t) => {
+      if (!t || !t.id) return;
+      const opt = document.createElement('option');
+      opt.value = String(t.id);
+      const steps = t.stepCount != null ? t.stepCount : (t.steps && t.steps.length) || 0;
+      opt.textContent = `${t.persona || 'Cadence'} · ${t.name || t.id} (${steps} steps)`;
+      sel.appendChild(opt);
+    });
+    cadencePlaybookSelectPopulated = true;
+    if (prev && Array.from(sel.options).some((o) => o.value === prev)) sel.value = prev;
+    else if (!prev && sel.options.length) sel.value = sel.options[0].value;
+  }
+
+  function syncCadencePlaybookPanel(row) {
+    ensureCadencePlaybookSelectOptions();
+    const sel = document.getElementById('leadCadencePlaybookSelect');
+    const desc = document.getElementById('leadCadencePlaybookDesc');
+    const status = document.getElementById('leadCadenceActiveStatus');
+    const startBtn = document.getElementById('sidebarCadenceStartBtn');
+    if (!sel) return;
+
+    const seq = row ? parseRowSequenceState(row) : null;
+    const active = !!(seq && seq.status === 'active');
+    const paused = !!(seq && seq.status === 'paused');
+    const completed = !!(seq && seq.status === 'completed');
+
+    let selectedId = String(sel.value || '').trim();
+    if (seq && seq.templateId) {
+      selectedId = String(seq.templateId);
+      if (Array.from(sel.options).some((o) => o.value === selectedId)) sel.value = selectedId;
+    } else if (!selectedId && sel.options.length) {
+      selectedId = sel.options[0].value;
+      sel.value = selectedId;
+    }
+
+    const tpl = findSequenceTemplate(selectedId);
+    if (desc) {
+      desc.textContent = tpl
+        ? tpl.description || tpl.name || selectedId
+        : selectedId
+          ? `Playbook ${selectedId}`
+          : 'Choose a playbook, then start it for this lead.';
+    }
+
+    if (status) {
+      if (seq && (active || paused || completed) && seq.templateId) {
+        const t = findSequenceTemplate(seq.templateId);
+        const label = t ? t.name : String(seq.templateId).replace(/_/g, ' ');
+        const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
+        const total = t && t.steps ? t.steps.length : t && t.stepCount ? t.stepCount : null;
+        const bits = [label];
+        if (active && total != null) bits.push(`step ${ix + 1} of ${total}`);
+        if (seq.status) bits.push(String(seq.status));
+        if (seq.nextDueAt && active) {
+          try {
+            bits.push(
+              `next due ${new Date(seq.nextDueAt).toLocaleString(undefined, {
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}`
+            );
+          } catch {
+            bits.push(`next due ${seq.nextDueAt}`);
+          }
+        }
+        status.textContent = bits.join(' · ');
+        status.classList.remove('hidden');
+      } else {
+        status.textContent = '';
+        status.classList.add('hidden');
+      }
+    }
+
+    if (startBtn) {
+      const hasKey = !!(row && row.dataset && row.dataset.leadKey);
+      startBtn.disabled = !hasKey || !selectedId;
+      startBtn.textContent = active ? 'Restart playbook' : 'Start playbook';
+      startBtn.title = !hasKey
+        ? 'Save this lead before starting a cadence'
+        : active
+          ? 'Replaces the current active sequence from step 1'
+          : 'Attach this playbook and schedule step 1';
+    }
+  }
+
+  function cadenceNextStepFromSequence(row, seq) {
+    if (!seq || seq.status !== 'active') return '';
+    const tpl = findSequenceTemplate(seq.templateId);
+    if (!tpl || !Array.isArray(tpl.steps) || !tpl.steps.length) return '';
+    const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
+    const step = tpl.steps[ix];
+    if (!step) return '';
+    const ch = step.channel ? String(step.channel).replace(/_/g, ' ') : 'touch';
+    let line = `Step ${ix + 1}/${tpl.steps.length}: ${step.title || ch} (${ch})`;
+    if (seq.nextDueAt) {
+      try {
+        const due = new Date(seq.nextDueAt);
+        if (!Number.isNaN(due.getTime())) {
+          line += ` · due ${due.toLocaleString(undefined, {
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          })}`;
+        }
+      } catch {
+        /* skip */
+      }
+    }
+    if (step.hint) line += `. ${String(step.hint).slice(0, 160)}${step.hint.length > 160 ? '…' : ''}`;
+    return line;
+  }
+
   function cadenceHintFromChannel(channel) {
     const ch = String(channel || '').trim();
     if (ch === 'email') {
@@ -4128,6 +4317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function populateCadenceSection(row) {
+    syncCadencePlaybookPanel(row);
     const ltEl = document.getElementById('cadenceLastTouchLine');
     const chEl = document.getElementById('cadenceChannelLine');
     const seqWrap = document.getElementById('cadenceSequenceWrap');
@@ -4158,20 +4348,18 @@ document.addEventListener('DOMContentLoaded', () => {
     chEl.textContent =
       CADENCE_CHANNEL_LABELS[rawCh] || (rawCh ? rawCh.replace(/_/g, ' ') : 'Not set');
 
-    let seq = null;
-    try {
-      seq = JSON.parse(row.dataset.sequenceState || 'null');
-    } catch (_) {
-      seq = null;
-    }
+    const seq = parseRowSequenceState(row);
     if (seqWrap && seqLine) {
       const tid = seq && seq.templateId ? String(seq.templateId) : '';
       const st = seq && seq.status ? String(seq.status) : '';
       const ix = seq && typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
       if (tid || st) {
-        seqLine.textContent = tid
-          ? `${tid.replace(/_/g, ' ')} · step ${ix + 1}${st ? ` · ${st}` : ''}`
-          : st;
+        const tpl = findSequenceTemplate(tid);
+        const name = tpl ? tpl.name : tid.replace(/_/g, ' ');
+        const total = tpl && tpl.steps ? tpl.steps.length : '';
+        seqLine.textContent = total
+          ? `${name} · step ${ix + 1} of ${total}${st ? ` · ${st}` : ''}`
+          : `${name}${st ? ` · ${st}` : ''}`;
         seqWrap.classList.remove('hidden');
       } else {
         seqLine.textContent = '—';
@@ -4179,7 +4367,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    nextEl.textContent = cadenceHintFromChannel(rawCh);
+    const seqNext = cadenceNextStepFromSequence(row, seq);
+    nextEl.textContent = seqNext || cadenceHintFromChannel(rawCh);
 
     let logs = [];
     try {
@@ -4318,7 +4507,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Populate panel from row data ---
   function populatePanel(row) {
+    if (!row) return;
     closeLeadPanelComposer();
+    window.__leadActivityFilter = window.__leadActivityFilter || 'all';
+    const paintActivityTimeline = () => {
+      try {
+        renderLeadActivityTimeline(row, window.__leadActivityFilter);
+        syncLeadActivityFilterButtons(window.__leadActivityFilter);
+      } catch (timelineErr) {
+        console.warn('[Lead panel] activity timeline failed:', timelineErr);
+      }
+    };
+    paintActivityTimeline();
 
     const title = row.dataset.title;
     const phone = readPipelineRowDisplayPhone(row);
@@ -4439,27 +4639,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncMobilePanelCqi(row);
-
-    syncLeadNotepadScripts(row).catch((err) => {
-      console.warn('[Lead panel] syncLeadNotepadScripts failed:', err);
-      const sel = document.getElementById('leadNotepadScriptSelect');
-      if (!sel || !currentRow) return;
-      try {
-        sel.disabled = false;
-        sel.innerHTML = '';
-        const ph = document.createElement('option');
-        ph.value = '';
-        ph.textContent = 'Choose script…';
-        sel.appendChild(ph);
-        leadNotepadScriptOptions = defaultLeadNotepadScriptFallback(currentRow);
-        leadNotepadScriptOptions.forEach((opt, idx) => {
-          const o = document.createElement('option');
-          o.value = String(idx);
-          o.textContent = opt.label || `Script ${idx + 1}`;
-          sel.appendChild(o);
-        });
-      } catch (_) {}
-    });
 
     const resolveGoogleBusinessProfileUrlFromRow = (r) =>
       resolveGoogleMapsSocialHref(
@@ -4732,8 +4911,6 @@ document.addEventListener('DOMContentLoaded', () => {
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
     syncOwnerFirstNameAndDnc(row);
-    window.__leadActivityFilter = window.__leadActivityFilter || 'all';
-    renderLeadActivityTimeline(row, window.__leadActivityFilter);
     syncLeadPanelTouchSummary(row);
 
     leadOutreachScriptsCache = {
@@ -4744,9 +4921,13 @@ document.addEventListener('DOMContentLoaded', () => {
       workspaceData: leadOutreachScriptsCache.workspaceData,
       workspaceLoading: null,
     };
-    refreshLeadPanelSellingScript(row).catch((err) => {
+    seedLeadOutreachScriptsCacheFromEmbedded(row);
+    applyLeadPanelSellingScriptFromCache(row);
+    syncLeadPanelSellingScript(row, { skipLoading: true }).catch((err) => {
       console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
     });
+
+    paintActivityTimeline();
   }
 
   const applyTableStars = () => {
@@ -5836,6 +6017,78 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const sidebarCadenceSnooze90Btn = document.getElementById('sidebarCadenceSnooze90Btn');
   const sidebarCadencePauseBtn = document.getElementById('sidebarCadencePauseBtn');
+  const sidebarCadenceStartBtn = document.getElementById('sidebarCadenceStartBtn');
+  const leadCadencePlaybookSelect = document.getElementById('leadCadencePlaybookSelect');
+
+  if (leadCadencePlaybookSelect && !leadCadencePlaybookSelect.dataset.adhelloBound) {
+    leadCadencePlaybookSelect.dataset.adhelloBound = '1';
+    leadCadencePlaybookSelect.addEventListener('change', () => {
+      syncCadencePlaybookPanel(currentRow);
+    });
+  }
+
+  async function startCadencePlaybookForCurrentRow() {
+    if (!currentRow || !currentRow.dataset.leadKey) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Save this lead before starting a cadence.', { variant: 'error' });
+      }
+      return;
+    }
+    const sel = document.getElementById('leadCadencePlaybookSelect');
+    const templateId = sel ? String(sel.value || '').trim() : '';
+    if (!templateId) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Choose a playbook first.', { variant: 'error' });
+      }
+      return;
+    }
+    const seq = parseRowSequenceState(currentRow);
+    if (seq && seq.status === 'active') {
+      const tpl = findSequenceTemplate(seq.templateId);
+      const currentName = tpl ? tpl.name : seq.templateId;
+      const nextTpl = findSequenceTemplate(templateId);
+      const nextName = nextTpl ? nextTpl.name : templateId;
+      const ok = window.confirm(
+        `${currentName} is active. Replace it with ${nextName} and restart from step 1?`
+      );
+      if (!ok) return;
+    }
+    const key = currentRow.dataset.leadKey;
+    const btn = document.getElementById('sidebarCadenceStartBtn');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/sequence/start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ templateId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not start playbook');
+      if (data.lead) syncPersistedLeadToRowDataset(currentRow, data.lead);
+      else if (data.sequenceState) {
+        currentRow.dataset.sequenceState = JSON.stringify(data.sequenceState);
+      }
+      if (typeof window.showAppToast === 'function') {
+        const t = findSequenceTemplate(templateId);
+        window.showAppToast(t ? `Started: ${t.name}` : 'Cadence started', { variant: 'success' });
+      }
+      if (typeof populatePanel === 'function') populatePanel(currentRow);
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Start failed';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      syncCadencePlaybookPanel(currentRow);
+    }
+  }
+
+  if (sidebarCadenceStartBtn && !sidebarCadenceStartBtn.dataset.adhelloBound) {
+    sidebarCadenceStartBtn.dataset.adhelloBound = '1';
+    sidebarCadenceStartBtn.addEventListener('click', () => {
+      startCadencePlaybookForCurrentRow();
+    });
+  }
+
   if (sidebarCadenceSnooze90Btn) {
     sidebarCadenceSnooze90Btn.addEventListener('click', async () => {
       if (!currentRow || !currentRow.dataset.leadKey) {
@@ -5855,6 +6108,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) throw new Error(data.error || 'Snooze failed');
+        if (data.lead && currentRow) syncPersistedLeadToRowDataset(currentRow, data.lead);
         if (typeof window.showAppToast === 'function') {
           window.showAppToast('Cadence snoozed 90 days.', { variant: 'success' });
         }
@@ -5881,6 +6135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const res = await fetch(`/leads/${encodeURIComponent(key)}/sequence/pause`, { method: 'POST' });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) throw new Error(data.error || 'Pause failed');
+        if (data.lead && currentRow) syncPersistedLeadToRowDataset(currentRow, data.lead);
         if (typeof window.showAppToast === 'function') {
           window.showAppToast('Cadence paused.', { variant: 'success' });
         }
@@ -5892,6 +6147,10 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarCadencePauseBtn.disabled = false;
       }
     });
+  }
+
+  if (document.getElementById('leadPanelTabScroll')) {
+    ensureCadencePlaybookSelectOptions();
   }
 
   async function handleSidebarCopySmsAuditClick() {

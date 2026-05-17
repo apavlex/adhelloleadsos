@@ -9,7 +9,15 @@ router.get('/', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, all);
-    const templates = sequenceEngine.listTemplates();
+    const templates = (req.app.locals.sequenceTemplates || sequenceEngine.listTemplates()).map(
+      (t) => ({
+        id: t.id,
+        persona: t.persona,
+        name: t.name,
+        description: t.description,
+        stepCount: t.stepCount != null ? t.stepCount : (t.steps && t.steps.length) || 0,
+      })
+    );
     const active = leads.filter(
       (l) => l.sequenceState && l.sequenceState.status === 'active'
     );

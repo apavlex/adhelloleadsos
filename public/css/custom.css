@@ -897,3 +897,23 @@ table {
     transform-origin: center;
     transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
 }
+
+/* Lead panel: outreach actions drawer — open by default */
+#leadPanelOutreachDrawer.lead-panel-outreach-drawer {
+    max-height: 0;
+    opacity: 0;
+    transition:
+        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
+        opacity 0.22s ease;
+    overflow: hidden;
+    pointer-events: none;
+}
+#leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open {
+    max-height: 120px;
+    opacity: 1;
+    pointer-events: auto;
+}
+#leadPanelOutreachChevron {
+    transform-origin: center;
+    transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+}
