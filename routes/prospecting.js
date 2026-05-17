@@ -14,6 +14,8 @@ const {
   excludeOutreachFolderLeads,
 } = require('../services/leadListFilters');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
+const salesScriptsStorage = require('../services/salesScriptsStorage');
+const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -107,10 +109,13 @@ router.get('/', async (req, res, next) => {
     const queueListLeads = pipelineVisible.map(mapLeadListJson);
     const folderListLeads = visible.map(mapLeadListJson);
 
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const scriptLibraryOfferPicklist = SCRIPT_LIBRARY_KEYS.map((k) => ({
       key: k,
-      label: (SCRIPT_LIBRARY[k] && SCRIPT_LIBRARY[k].label) || k,
+      label: (mergedScriptLibrary[k] && mergedScriptLibrary[k].label) || k,
     }));
+    const outreachChannelLibrary = buildOutreachLibrary(mergedScriptLibrary, SCRIPT_LIBRARY_KEYS);
 
     const email = userEmail(req);
     const driveTokens = email ? await dbService.getGoogleDriveTokens(email) : null;
@@ -153,6 +158,7 @@ router.get('/', async (req, res, next) => {
       importError,
       pipelineStages,
       scriptLibraryOfferPicklist,
+      outreachChannelLibrary,
       canManageWorkspace: req.canManageWorkspace,
       driveImport,
     });

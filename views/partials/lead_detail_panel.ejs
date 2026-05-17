@@ -148,33 +148,30 @@
         </div>
         <ul id="leadCallTalkingPoints" class="list-none m-0 p-0 space-y-1.5 text-[11px] font-semibold text-brand-dark dark:text-slate-200"></ul>
         <div class="mt-3 space-y-3">
-          <div class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
-            <label for="leadPanelPrimaryServiceSelect" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">What to sell</label>
-            <select id="leadPanelPrimaryServiceSelect" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow mb-2" aria-describedby="mobilePanelAuditSellHint">
+          <div id="leadPanelWhatToSellCard" class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label for="leadPanelPrimaryServiceSelect" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">What to sell</label>
+              <button type="button" id="leadPanelSellingScriptCopy" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors">Copy</button>
+            </div>
+            <select id="leadPanelPrimaryServiceSelect" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" aria-describedby="mobilePanelAuditSellHint">
               <option value="">Let AI recommend…</option>
               <% serviceOfferPicklist.forEach(function (o) { if (!o || !o.key) return; %>
               <option value="<%= o.key %>"><%= o.label || o.key %></option>
               <% }); %>
             </select>
-            <p id="mobilePanelAuditSellHint" class="text-[10px] font-semibold text-brand-muted dark:text-slate-500 mb-1">Pick any service, or leave blank for AI recommendation.</p>
-            <p id="mobilePanelAuditSell" class="text-sm font-black text-brand-dark dark:text-white leading-snug">—</p>
-          </div>
-          <div id="mobilePanelAuditOpenerWrap" class="hidden rounded-2xl bg-brand-yellow/10 border border-brand-yellow/25 p-4">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Suggested opener</p>
-            <p id="mobilePanelAuditOpener" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed italic"></p>
-          </div>
-          <div class="rounded-2xl bg-brand-cream/20 dark:bg-white/5 border border-brand-border/15 dark:border-white/10 p-4 space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Selling script</p>
-              <button type="button" id="leadPanelSellingScriptCopy" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors">Copy</button>
-            </div>
-            <div class="flex flex-wrap gap-1.5" role="group" aria-label="Outreach channel">
+            <p id="mobilePanelAuditSellHint" class="text-[10px] font-semibold text-brand-muted dark:text-slate-500">Pick any service, or leave blank for AI recommendation. Scripts load from your library when you pick Call, Text, Voicemail, or Email.</p>
+            <p id="mobilePanelAuditSell" class="sr-only" aria-hidden="true">—</p>
+            <div class="flex flex-wrap gap-1.5 pt-1 border-t border-brand-border/15 dark:border-white/10" role="group" aria-label="Outreach channel">
               <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-white dark:bg-slate-900 text-brand-dark dark:text-white shadow-sm" data-outreach-channel="call" aria-pressed="true">Call</button>
               <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="text" aria-pressed="false">Text</button>
               <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="voicemail" aria-pressed="false">Voicemail</button>
               <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="email" aria-pressed="false">Email</button>
             </div>
-            <pre id="leadPanelSellingScript" class="text-xs font-semibold text-brand-dark dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-sans m-0">Choose a service above to load your script.</pre>
+            <pre id="leadPanelSellingScript" class="text-xs font-semibold text-brand-dark dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-sans m-0 min-h-[4.5rem]">Select a service to load your script.</pre>
+          </div>
+          <div id="mobilePanelAuditOpenerWrap" class="hidden rounded-2xl bg-brand-yellow/10 border border-brand-yellow/25 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Suggested opener</p>
+            <p id="mobilePanelAuditOpener" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed italic"></p>
           </div>
         </div>
       </section>

@@ -3,6 +3,7 @@
 
 <script>
   window.ADHELLO_SERVICE_OFFERS = <%- JSON.stringify(Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : []) %>;
+  window.__ADHELLO_OUTREACH_LIBRARY__ = <%- JSON.stringify(locals.outreachChannelLibrary && typeof locals.outreachChannelLibrary === 'object' ? locals.outreachChannelLibrary : {}) %>;
 </script>
 
 <script>

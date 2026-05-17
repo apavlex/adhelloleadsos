@@ -912,9 +912,62 @@ document.addEventListener('DOMContentLoaded', () => {
   let leadOutreachScriptsCache = { leadKey: '', data: null, loading: null, loadingKey: '' };
   if (!window.__leadOutreachChannel) window.__leadOutreachChannel = 'call';
 
+  function getEmbeddedOutreachScriptsPayload(row) {
+    const library =
+      typeof window !== 'undefined' && window.__ADHELLO_OUTREACH_LIBRARY__
+        ? window.__ADHELLO_OUTREACH_LIBRARY__
+        : null;
+    if (!library || typeof library !== 'object') return null;
+    const services = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
+    const keys = services.map((s) => s && s.key).filter(Boolean);
+    const rowKey = String((row && row.dataset && row.dataset.primaryServiceKey) || '').trim();
+    let defaultServiceKey = keys.includes(rowKey) ? rowKey : keys[0] || '';
+    if (!defaultServiceKey) {
+      const libKeys = Object.keys(library);
+      defaultServiceKey = libKeys[0] || '';
+    }
+    return {
+      success: true,
+      library,
+      services,
+      defaultServiceKey,
+    };
+  }
+
+  function resolveLeadPanelServiceKey(row, data) {
+    const sel = document.getElementById('leadPanelPrimaryServiceSelect');
+    let serviceKey = sel ? String(sel.value || '').trim() : '';
+    if (!serviceKey && row && row.dataset) {
+      const rowKey = String(row.dataset.primaryServiceKey || '').trim();
+      if (rowKey && data.library && data.library[rowKey]) serviceKey = rowKey;
+    }
+    if (!serviceKey) serviceKey = String(data.defaultServiceKey || '').trim();
+    return serviceKey;
+  }
+
+  function applyLeadPanelSellingScriptFromData(row, data) {
+    const scriptEl = document.getElementById('leadPanelSellingScript');
+    if (!scriptEl || !row || !data || !data.library) return;
+    const channel = window.__leadOutreachChannel || 'call';
+    const serviceKey = resolveLeadPanelServiceKey(row, data);
+    const svc = serviceKey && data.library ? data.library[serviceKey] : null;
+    const auditSell = document.getElementById('mobilePanelAuditSell');
+    if (auditSell && svc && svc.label) auditSell.textContent = svc.label;
+    const raw =
+      svc && svc.channels && svc.channels[channel] ? String(svc.channels[channel]) : '';
+    if (!raw) {
+      scriptEl.textContent = serviceKey
+        ? 'No script for this channel yet. Add one in Sales → Script library.'
+        : 'Pick a service above, or run AI analyze for a recommendation.';
+      return;
+    }
+    scriptEl.textContent = formatSellingScriptForChannel(raw, channel, row);
+  }
+
   async function fetchLeadOutreachScripts(row) {
     const key = normalizeLeadKeyForScriptsFetch(row && row.dataset ? row.dataset.leadKey : '');
-    if (!key) return null;
+    const embedded = getEmbeddedOutreachScriptsPayload(row);
+    if (!key) return embedded;
     if (leadOutreachScriptsCache.leadKey === key && leadOutreachScriptsCache.data) {
       return leadOutreachScriptsCache.data;
     }
@@ -925,22 +978,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const fetchJsonFn = typeof window.fetchJson === 'function' ? window.fetchJson : null;
       const url = `/leads/${encodeURIComponent(key)}/outreach-scripts`;
       let data;
-      if (fetchJsonFn) {
-        const { ok, j } = await fetchJsonFn(url, {
-          method: 'GET',
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        });
-        if (!ok || !j.success) throw new Error((j && j.error) || 'Scripts failed');
-        data = j;
-      } else {
-        const res = await fetch(url, {
-          method: 'GET',
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        });
-        data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) throw new Error(data.error || 'Scripts failed');
+      try {
+        if (fetchJsonFn) {
+          const { ok, j } = await fetchJsonFn(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          if (!ok || !j.success) throw new Error((j && j.error) || 'Scripts failed');
+          data = j;
+        } else {
+          const res = await fetch(url, {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error(data.error || 'Scripts failed');
+        }
+      } catch (err) {
+        if (embedded) return embedded;
+        throw err;
       }
       if (Array.isArray(data.services) && data.services.length) {
         window.ADHELLO_SERVICE_OFFERS = data.services.map((s) => ({
@@ -960,6 +1018,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (leadOutreachScriptsCache.loadingKey === key) {
         leadOutreachScriptsCache.loading = null;
       }
+      if (embedded) return embedded;
       throw err;
     }
   }
@@ -983,36 +1042,19 @@ document.addEventListener('DOMContentLoaded', () => {
   async function syncLeadPanelSellingScript(row) {
     const scriptEl = document.getElementById('leadPanelSellingScript');
     if (!scriptEl || !row) return;
-    const channel = window.__leadOutreachChannel || 'call';
     syncLeadOutreachChannelButtons();
-    const sel = document.getElementById('leadPanelPrimaryServiceSelect');
-    let serviceKey = sel ? String(sel.value || '').trim() : '';
-    scriptEl.textContent = 'Loading script…';
+    const embedded = getEmbeddedOutreachScriptsPayload(row);
+    if (embedded) applyLeadPanelSellingScriptFromData(row, embedded);
+    else scriptEl.textContent = 'Loading script…';
     try {
       const data = await fetchLeadOutreachScripts(row);
       if (!data) {
-        scriptEl.textContent = 'Save this lead to load scripts.';
+        scriptEl.textContent = 'Add scripts in Sales → Script library to use this panel.';
         return;
       }
-      if (!serviceKey) {
-        const rowKey = String(row.dataset.primaryServiceKey || '').trim();
-        if (rowKey && data.library && data.library[rowKey]) serviceKey = rowKey;
-        else serviceKey = String(data.defaultServiceKey || '').trim();
-      }
-      const svc = serviceKey && data.library ? data.library[serviceKey] : null;
-      const auditSell = document.getElementById('mobilePanelAuditSell');
-      if (auditSell && svc && svc.label) auditSell.textContent = svc.label;
-      const raw =
-        svc && svc.channels && svc.channels[channel] ? String(svc.channels[channel]) : '';
-      if (!raw) {
-        scriptEl.textContent = serviceKey
-          ? 'No script for this channel yet. Add one in Sales → Script library.'
-          : 'Choose a service above, or run AI analyze for a recommendation.';
-        return;
-      }
-      scriptEl.textContent = formatSellingScriptForChannel(raw, channel, row);
+      applyLeadPanelSellingScriptFromData(row, data);
     } catch (e) {
-      scriptEl.textContent = (e && e.message) || 'Could not load script.';
+      if (!embedded) scriptEl.textContent = (e && e.message) || 'Could not load script.';
     }
   }
 
@@ -2506,6 +2548,31 @@ document.addEventListener('DOMContentLoaded', () => {
     return a && a !== 'N/A' ? a : '';
   }
 
+  /** Geocoding / map query: street address, else city/metro, else title + city. */
+  function readPipelineRowMapCenter(row) {
+    if (!row || !row.dataset) return '';
+    const addr = readPipelineRowDisplayAddress(row);
+    if (addr) return addr;
+    const city = String(row.dataset.city || '').trim();
+    if (city && city !== 'N/A') return city;
+    const title = String(row.dataset.title || '').trim();
+    if (title && city) return `${title}, ${city}`;
+    return title || '';
+  }
+
+  function readPipelineRowLocationLine(row) {
+    const addr = readPipelineRowDisplayAddress(row);
+    if (addr) return formatLeadPanelAddress(addr);
+    const city = String((row && row.dataset && row.dataset.city) || '').trim();
+    if (city && city !== 'N/A') return city;
+    return '';
+  }
+
+  function sanitizeSocialUrl(raw) {
+    const s = String(raw || '').trim();
+    return s && s !== 'N/A' && s !== 'undefined' ? s : '';
+  }
+
   /** Normalize scraped addresses that use hyphens between segments (e.g. "Ave- City- ST"). */
   function formatLeadPanelAddress(raw) {
     let s = String(raw || '').trim();
@@ -2689,17 +2756,18 @@ document.addEventListener('DOMContentLoaded', () => {
       gradSuffix != null
         ? String(gradSuffix)
         : String(row.dataset.leadKey || row.id || 'row').replace(/[^a-z0-9]+/gi, '-');
+    const mapCenter = readPipelineRowMapCenter(row);
     const mapsHref = resolveGoogleMapsSocialHref(
       row.dataset.url,
       row.dataset.title,
-      readPipelineRowDisplayAddress(row) || row.dataset.address,
+      mapCenter || readPipelineRowDisplayAddress(row) || row.dataset.address,
       row.dataset.city
     );
     const links = {
       gm: mapsHref || '',
-      fb: row.dataset.facebook,
-      ig: row.dataset.instagram,
-      tw: row.dataset.twitter,
+      fb: sanitizeSocialUrl(row.dataset.facebook),
+      ig: sanitizeSocialUrl(row.dataset.instagram),
+      tw: sanitizeSocialUrl(row.dataset.twitter),
       gradSuffix: suffix,
     };
     if (__socialBrand) {
@@ -2727,7 +2795,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!el) return;
     const html = renderRowSocialBrandLinksHtml(row, `panel-${String(row.dataset.leadKey || row.id || 'x').replace(/[^a-z0-9]+/gi, '-')}`);
     el.innerHTML = html;
-    if (rowWrap) rowWrap.classList.toggle('hidden', !html);
+    const hasLinks = html && html.includes('<a ');
+    if (rowWrap) rowWrap.classList.toggle('hidden', !hasLinks);
   }
 
   function syncRowSocialsUnderPhone(row) {
@@ -3197,13 +3266,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (primaryServSel && !primaryServSel.dataset.adhelloBound) {
       primaryServSel.dataset.adhelloBound = '1';
       primaryServSel.addEventListener('change', async () => {
-        if (!currentRow || !currentRow.dataset.leadKey) return;
+        if (!currentRow) return;
         const val = String(primaryServSel.value || '').trim();
+        if (currentRow.dataset) currentRow.dataset.primaryServiceKey = val || '';
+        syncLeadPanelSellingScript(currentRow).catch(() => {});
+        if (!currentRow.dataset.leadKey) return;
         try {
           await postLeadJsonUpdate(currentRow, { primaryServiceKey: val || null });
-          currentRow.dataset.primaryServiceKey = val || '';
           scheduleKieServiceInsight(currentRow);
-          syncLeadPanelSellingScript(currentRow).catch(() => {});
           if (typeof window.showProspectToast === 'function') {
             window.showProspectToast(val ? 'Offer focus saved' : 'AI recommendation enabled');
           }
@@ -3514,14 +3584,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const title = String(row.dataset.title || '').trim();
     const address = readPipelineRowDisplayAddress(row);
     const city = String(row.dataset.city || '').trim();
-    const center = address || [title, city].filter(Boolean).join(', ').trim();
+    const center = readPipelineRowMapCenter(row);
     const mapsUrl = center
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(center)}`
       : '';
     const gmListing = resolveGoogleMapsSocialHref(
       row.dataset.url,
       row.dataset.title,
-      address || row.dataset.address,
+      center || address || row.dataset.address,
       row.dataset.city
     );
     const chipHref = gmListing || mapsUrl || '';
@@ -3534,8 +3604,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const jsMapWrap = document.getElementById('leadPanelJsMapWrap');
     const heroBackdropEl = document.getElementById('leadPanelHeroBackdrop');
+    const preferInteractiveLeadMap =
+      typeof window !== 'undefined' && window.__ADHELLO_LEAD_PANEL_JS_MAP__ === true;
     const preferJsMap =
-      !skipInteractive && !!(mapKey && hrefOpen && String(center || '').trim());
+      preferInteractiveLeadMap &&
+      !skipInteractive &&
+      !!(mapKey && hrefOpen && String(center || '').trim());
 
     if (mapStripWrap) {
       mapStripWrap.classList.toggle('lead-panel-hero-map', !!hrefOpen);
@@ -3873,9 +3947,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!mobileAvatar) return;
 
     const title = String(row.dataset.title || '').trim();
-    const address = readPipelineRowDisplayAddress(row);
-    const city = String(row.dataset.city || '').trim();
-    const center = address || [title, city].filter(Boolean).join(', ').trim();
+    const center = readPipelineRowMapCenter(row);
     const mapsUrl = center
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(center)}`
       : '';
@@ -4067,7 +4139,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const headerAddress = document.getElementById('mobilePanelHeaderAddress');
     if (headerAddress) {
-      headerAddress.textContent = address ? formatLeadPanelAddress(address) : '—';
+      const locationLine = readPipelineRowLocationLine(row);
+      headerAddress.textContent = locationLine || '—';
     }
     syncHeaderPhoneRow(row);
     syncHeaderSocialsRow(row);
