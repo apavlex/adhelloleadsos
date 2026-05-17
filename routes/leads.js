@@ -543,6 +543,33 @@ async function buildContactedStagePatch(lead, workspaceId) {
   return pipelineStagesService.patchLeadStageFields(lead, sortedStages, contacted.id);
 }
 
+/** Log outbound call on a lead (softphone dial with leadKey, or shared call flows). */
+async function logLeadOutboundCallInitiated(req, fullKey, lead, opts = {}) {
+  if (!fullKey || !lead) return lead;
+  const updates = appendLeadUpdate(lead, {
+    type: opts.updateType || 'call_outbound',
+    value:
+      opts.updateValue ||
+      `Outbound call initiated (${opts.normalizedTo || lead.phone || 'unknown number'}).`,
+    callSid: opts.callSid || '',
+    provider: opts.provider || 'signalwire',
+    to: opts.normalizedTo,
+  });
+  const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+  return dbService.updateLead(fullKey, {
+    ...contactedPatch,
+    status: opts.status || 'Called Lead',
+    updates,
+    logs: [
+      {
+        type: opts.logType || 'call_outbound',
+        message: opts.logMessage || `Call initiated (${opts.callSid || 'no sid'})`,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+}
+
 function normalizeVoicemailLibrary(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
@@ -1096,12 +1123,45 @@ router.post('/telephony/dial', async (req, res, next) => {
       ? 'voicemail_drop'
       : 'call';
 
+    const rawLeadKey = String((req.body && req.body.leadKey) || '').trim();
+    let fullLeadKey = '';
+    let leadForDial = null;
+    if (rawLeadKey) {
+      const stripped = rawLeadKey.replace(/^lead:/, '');
+      fullLeadKey = leadKeyFromParam(stripped);
+      leadForDial = await dbService.getLead(fullLeadKey);
+      if (!leadForDial) fullLeadKey = '';
+    }
+
     if (callMode === 'browser_device' && !(action === 'voicemail_drop' && forceCloudVoicemail)) {
+      let updatedLead = leadForDial;
+      if (fullLeadKey && leadForDial && action === 'call') {
+        const updates = appendLeadUpdate(leadForDial, {
+          type: 'call_browser_handoff',
+          value: `Opened device dialer for ${to}.`,
+          to,
+          provider: 'device',
+        });
+        const contactedPatch = await buildContactedStagePatch(leadForDial, req.workspaceId);
+        updatedLead = await dbService.updateLead(fullLeadKey, {
+          ...contactedPatch,
+          status: 'Call Started (Device)',
+          updates,
+          logs: [
+            {
+              type: 'call_browser_handoff',
+              message: `Device dialer initiated (${to})`,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        });
+      }
       return res.json({
         success: true,
         dialMode: 'browser_device',
         phone: to,
         action,
+        lead: updatedLead || undefined,
       });
     }
 
@@ -1138,7 +1198,7 @@ router.post('/telephony/dial', async (req, res, next) => {
     const fromPick = dialerPacing.selectCallerIdForDial({
       workspace: ws,
       telephony,
-      lead: null,
+      lead: leadForDial,
       requestedFrom: req.body && req.body.fromNumber,
       now: new Date(),
     });
@@ -1147,7 +1207,7 @@ router.post('/telephony/dial', async (req, res, next) => {
     }
     const call = await signalwire.createLeadCall({
       to,
-      leadKey: '',
+      leadKey: fullLeadKey,
       workspaceId: req.workspaceId,
       action,
       voicemailAudioUrl: action === 'voicemail_drop' ? voicemailAudioUrl : '',
@@ -1159,16 +1219,25 @@ router.post('/telephony/dial', async (req, res, next) => {
       from: fromPick.from,
       to,
       action,
-      leadKey: '',
+      leadKey: fullLeadKey,
       callSid: call.sid || '',
     });
     await dbService.saveWorkspace(req.workspaceId, ws);
+    let updatedLead = leadForDial;
+    if (fullLeadKey && leadForDial && action === 'call') {
+      updatedLead = await logLeadOutboundCallInitiated(req, fullLeadKey, leadForDial, {
+        callSid: call.sid || '',
+        normalizedTo: to,
+        logMessage: `SignalWire call initiated (${call.sid || 'no sid'})`,
+      });
+    }
     return res.json({
       success: true,
       dialMode: useAgent ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       action,
       callerId: fromPick.from,
+      lead: updatedLead && action === 'call' ? updatedLead : undefined,
     });
   } catch (err) {
     console.error('[POST /leads/telephony/dial]', err && err.message ? err.message : err);

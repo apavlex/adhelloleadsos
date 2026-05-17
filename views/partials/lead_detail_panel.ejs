@@ -125,89 +125,9 @@
         </div>
       </div>
 
-      <div id="lead-tab-call" class="lead-tab-panel space-y-8" data-lead-tab-panel="call">
-
-      <!-- First 30 seconds: opener + pitch (IDs preserved for existing JS) -->
-      <section class="rounded-[2rem] border border-brand-yellow/35 bg-brand-yellow/5 dark:bg-brand-yellow/10 p-5 space-y-3" aria-label="Call opener">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call mode · first 30 seconds</p>
-          <div class="flex flex-wrap items-center gap-2">
-            <span id="leadPanelCallCountsBadge" class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/70 dark:bg-slate-900/60 border border-brand-border/20 text-brand-muted hidden"></span>
-            <div id="leadCallAiAnalyzeWrap" class="hidden">
-              <button type="button" id="leadCallAiAnalyzeBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-sky-400/40 bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors">
-                AI analyze
-              </button>
-            </div>
-          </div>
-        </div>
-        <div class="flex flex-wrap items-end gap-2 mb-1">
-          <div class="flex-1 min-w-[min(100%,12rem)] max-w-sm">
-            <label for="leadPanelOwnerFirstName" class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Owner first name</label>
-            <input id="leadPanelOwnerFirstName" type="text" autocomplete="given-name" placeholder="e.g. Maria" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
-          </div>
-        </div>
-        <ul id="leadCallTalkingPoints" class="list-none m-0 p-0 space-y-1.5 text-[11px] font-semibold text-brand-dark dark:text-slate-200"></ul>
-        <div class="mt-3 space-y-3">
-          <div id="leadPanelWhatToSellCard" class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4 space-y-3">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <label for="leadPanelPrimaryServiceSelect" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">What to sell</label>
-              <button type="button" id="leadPanelSellingScriptCopy" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors">Copy</button>
-            </div>
-            <select id="leadPanelPrimaryServiceSelect" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" aria-describedby="mobilePanelAuditSellHint">
-              <option value="">Let AI recommend…</option>
-              <% serviceOfferPicklist.forEach(function (o) { if (!o || !o.key) return; %>
-              <option value="<%= o.key %>"><%= o.label || o.key %></option>
-              <% }); %>
-            </select>
-            <p id="mobilePanelAuditSellHint" class="text-[10px] font-semibold text-brand-muted dark:text-slate-500">Pick any service, or leave blank for AI recommendation. Scripts load from your library when you pick Call, Text, Voicemail, or Email.</p>
-            <p id="mobilePanelAuditSell" class="sr-only" aria-hidden="true">—</p>
-            <div class="flex flex-wrap gap-1.5 pt-1 border-t border-brand-border/15 dark:border-white/10" role="group" aria-label="Outreach channel">
-              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-white dark:bg-slate-900 text-brand-dark dark:text-white shadow-sm" data-outreach-channel="call" aria-pressed="true">Call</button>
-              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="text" aria-pressed="false">Text</button>
-              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="voicemail" aria-pressed="false">Voicemail</button>
-              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="email" aria-pressed="false">Email</button>
-            </div>
-            <pre id="leadPanelSellingScript" class="text-xs font-semibold text-brand-dark dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-sans m-0 min-h-[4.5rem]">Loading script…</pre>
-          </div>
-          <div id="mobilePanelAuditOpenerWrap" class="hidden rounded-2xl bg-brand-yellow/10 border border-brand-yellow/25 p-4">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Suggested opener</p>
-            <p id="mobilePanelAuditOpener" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed italic"></p>
-          </div>
-        </div>
-      </section>
-
-      <!-- Cadence: last touch, channel, sequence, next move, recent log lines -->
-      <section id="leadCadenceSection" class="mb-8 px-1" aria-labelledby="leadCadenceHeading">
-        <h3 id="leadCadenceHeading" class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-3">Cadence &amp; touches</h3>
-        <div class="p-5 rounded-[2rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/25 dark:bg-white/[0.04] space-y-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last activity</p>
-              <p id="cadenceLastTouchLine" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
-            </div>
-            <div>
-              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last touch channel</p>
-              <p id="cadenceChannelLine" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
-            </div>
-          </div>
-          <div id="cadenceSequenceWrap" class="hidden rounded-2xl bg-white/50 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Sequence</p>
-            <p id="cadenceSequenceLine" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-snug">—</p>
-          </div>
-          <div class="rounded-2xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/25 p-4">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-yellow mb-1">Recommended next</p>
-            <p id="cadenceNextStepLine" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed">Keep outreach steady until you get a reply or meeting. Log each touch so the team sees momentum.</p>
-          </div>
-          <div id="cadenceLogsWrap" class="hidden">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Recent activity log</p>
-            <ul id="cadenceLogList" class="list-none m-0 p-0 space-y-2 max-h-48 overflow-y-auto text-[11px]"></ul>
-          </div>
-        </div>
-      </section>
-
       <!-- Engagement Command Center (call tab — phone tile hidden; use sticky dial) -->
       <section class="mb-10">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center border-t border-brand-border/10 pt-6">Quick outreach</h3>
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1 text-center">Quick outreach</h3>
         
         <div id="mobilePanelPhoneRow" class="hidden" aria-hidden="true">
                 <a href="#" id="mobilePanelPhoneLink" class="hidden"></a>
@@ -281,17 +201,56 @@
               <p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1">BetterContact waterfall + website search for email, phone, LinkedIn, and socials (may take 30–90s).</p>
             </div>
         </div>
-
       </section>
 
-      <!-- Cadence controls -->
-      <section class="mb-8 rounded-2xl border border-violet-500/35 bg-violet-500/[0.06] dark:bg-violet-950/40 dark:border-violet-500/25 p-5">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-violet-800 dark:text-violet-200 mb-3 px-0.5">Cadence</h3>
-        <p class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed mb-4">Default <strong class="text-brand-dark dark:text-white">14-day audit sequence</strong> auto-starts after voicemail disposition. Pause fires on engagement status or when they pick up / request callback. Snooze for “call me next quarter.”</p>
-        <div class="flex flex-col sm:flex-row flex-wrap gap-2">
-          <button type="button" id="sidebarCadenceSnooze90Btn" class="btn-pill bg-violet-600 text-white py-2.5 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">Snooze 90 days</button>
-          <button type="button" id="sidebarCadencePauseBtn" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 hover:border-violet-500 transition-colors">Pause cadence</button>
-          <a href="/sequences" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 text-center hover:border-violet-500 transition-colors">View playbooks</a>
+      <div id="lead-tab-call" class="lead-tab-panel space-y-8" data-lead-tab-panel="call">
+
+      <!-- First 30 seconds: opener + pitch (IDs preserved for existing JS) -->
+      <section class="rounded-[2rem] border border-brand-yellow/35 bg-brand-yellow/5 dark:bg-brand-yellow/10 p-5 space-y-3" aria-label="Call opener">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call mode · first 30 seconds</p>
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="leadPanelCallCountsBadge" class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-white/70 dark:bg-slate-900/60 border border-brand-border/20 text-brand-muted hidden"></span>
+            <div id="leadCallAiAnalyzeWrap" class="hidden">
+              <button type="button" id="leadCallAiAnalyzeBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-sky-400/40 bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors">
+                AI analyze
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap items-end gap-2 mb-1">
+          <div class="flex-1 min-w-[min(100%,12rem)] max-w-sm">
+            <label for="leadPanelOwnerFirstName" class="block text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Owner first name</label>
+            <input id="leadPanelOwnerFirstName" type="text" autocomplete="given-name" placeholder="e.g. Maria" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" />
+          </div>
+        </div>
+        <ul id="leadCallTalkingPoints" class="list-none m-0 p-0 space-y-1.5 text-[11px] font-semibold text-brand-dark dark:text-slate-200"></ul>
+        <div class="mt-3 space-y-3">
+          <div id="leadPanelWhatToSellCard" class="rounded-2xl bg-white/60 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4 space-y-3">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <label for="leadPanelPrimaryServiceSelect" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">What to sell</label>
+              <button type="button" id="leadPanelSellingScriptCopy" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/50 transition-colors">Copy</button>
+            </div>
+            <select id="leadPanelPrimaryServiceSelect" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow" aria-describedby="mobilePanelAuditSellHint">
+              <option value="">Let AI recommend…</option>
+              <% serviceOfferPicklist.forEach(function (o) { if (!o || !o.key) return; %>
+              <option value="<%= o.key %>"><%= o.label || o.key %></option>
+              <% }); %>
+            </select>
+            <p id="mobilePanelAuditSellHint" class="text-[10px] font-semibold text-brand-muted dark:text-slate-500">Pick any service, or leave blank for AI recommendation. Scripts load from your library when you pick Call, Text, Voicemail, or Email.</p>
+            <p id="mobilePanelAuditSell" class="sr-only" aria-hidden="true">—</p>
+            <div class="flex flex-wrap gap-1.5 pt-1 border-t border-brand-border/15 dark:border-white/10" role="group" aria-label="Outreach channel">
+              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-white dark:bg-slate-900 text-brand-dark dark:text-white shadow-sm" data-outreach-channel="call" aria-pressed="true">Call</button>
+              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="text" aria-pressed="false">Text</button>
+              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="voicemail" aria-pressed="false">Voicemail</button>
+              <button type="button" class="lead-outreach-channel px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/30 text-brand-muted hover:border-brand-yellow/40 transition-colors" data-outreach-channel="email" aria-pressed="false">Email</button>
+            </div>
+            <pre id="leadPanelSellingScript" class="text-xs font-semibold text-brand-dark dark:text-slate-300 leading-relaxed whitespace-pre-wrap font-sans m-0 min-h-[4.5rem]">Loading script…</pre>
+          </div>
+          <div id="mobilePanelAuditOpenerWrap" class="hidden rounded-2xl bg-brand-yellow/10 border border-brand-yellow/25 p-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Suggested opener</p>
+            <p id="mobilePanelAuditOpener" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed italic"></p>
+          </div>
         </div>
       </section>
 
@@ -365,26 +324,8 @@
         </div>
       </section>
 
-      <!-- Action Section: Status & Video -->
+      <!-- Action Section: Video pitch & deal value (pipeline state in sticky quick log) -->
       <section class="space-y-4 mb-10">
-        <div class="p-6 bg-brand-cream/50 dark:bg-slate-800/50 rounded-3xl border border-brand-border/40 dark:border-white/5 shadow-sm">
-            <label class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-4 block">Sales Pipelines State</label>
-            <div class="relative">
-                <select id="leadStatusSelect" class="w-full bg-white dark:bg-slate-800 border-none rounded-2xl px-5 py-4 font-bold text-sm shadow-sm ring-1 ring-brand-border/50 dark:ring-white/10 focus:ring-2 focus:ring-brand-yellow appearance-none transition-all dark:text-white">
-                    <option value="Not Contacted">Not Contacted</option>
-                    <option value="Video Recorded">Video Recorded</option>
-                    <option value="Called Lead">Called Lead</option>
-                    <option value="Email Sent">Email Sent</option>
-                    <option value="Follow-up">Follow-up</option>
-                    <option value="Closed - Won">Closed - Won</option>
-                    <option value="Closed - Lost">Closed - Lost</option>
-                </select>
-                <div class="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-brand-muted">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                </div>
-            </div>
-        </div>
-
         <div id="quickPitchSection" class="hidden p-6 bg-brand-cream/50 dark:bg-slate-800/50 rounded-3xl border border-brand-border/40 dark:border-white/5 shadow-sm">
             <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
               <label for="loomUrlInput" class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 flex items-center gap-2">
@@ -508,6 +449,46 @@
         </div>
       </section>
 
+      <!-- Cadence controls -->
+      <section class="mb-8 rounded-2xl border border-violet-500/35 bg-violet-500/[0.06] dark:bg-violet-950/40 dark:border-violet-500/25 p-5">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-violet-800 dark:text-violet-200 mb-3 px-0.5">Cadence</h3>
+        <p class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed mb-4">Default <strong class="text-brand-dark dark:text-white">14-day audit sequence</strong> auto-starts after voicemail disposition. Pause fires on engagement status or when they pick up / request callback. Snooze for “call me next quarter.”</p>
+        <div class="flex flex-col sm:flex-row flex-wrap gap-2">
+          <button type="button" id="sidebarCadenceSnooze90Btn" class="btn-pill bg-violet-600 text-white py-2.5 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">Snooze 90 days</button>
+          <button type="button" id="sidebarCadencePauseBtn" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 hover:border-violet-500 transition-colors">Pause cadence</button>
+          <a href="/sequences" class="btn-pill bg-white dark:bg-slate-800 border border-violet-300 dark:border-violet-700 py-2.5 px-4 text-[10px] font-black uppercase tracking-widest text-violet-900 dark:text-violet-100 text-center hover:border-violet-500 transition-colors">View playbooks</a>
+        </div>
+
+      <!-- Cadence: last touch, channel, sequence, next move, recent log lines -->
+      <div id="leadCadenceSection" class="mt-6 pt-6 border-t border-violet-300/40 dark:border-violet-600/40" aria-labelledby="leadCadenceHeading">
+        <h3 id="leadCadenceHeading" class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-3">Cadence &amp; touches</h3>
+        <div class="p-5 rounded-[2rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/25 dark:bg-white/[0.04] space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last activity</p>
+              <p id="cadenceLastTouchLine" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
+            </div>
+            <div>
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last touch channel</p>
+              <p id="cadenceChannelLine" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
+            </div>
+          </div>
+          <div id="cadenceSequenceWrap" class="hidden rounded-2xl bg-white/50 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Sequence</p>
+            <p id="cadenceSequenceLine" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-snug">—</p>
+          </div>
+          <div class="rounded-2xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/25 p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-yellow mb-1">Recommended next</p>
+            <p id="cadenceNextStepLine" class="text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed">Keep outreach steady until you get a reply or meeting. Log each touch so the team sees momentum.</p>
+          </div>
+          <div id="cadenceLogsWrap" class="hidden">
+            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Recent activity log</p>
+            <ul id="cadenceLogList" class="list-none m-0 p-0 space-y-2 max-h-48 overflow-y-auto text-[11px]"></ul>
+          </div>
+        </div>
+      </div>
+      </section>
+
       <!-- Activity Timeline -->
       <section class="mb-12">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4 px-1">
@@ -541,12 +522,27 @@
               <span class="text-[9px] font-black uppercase tracking-widest text-rose-700 dark:text-rose-300">DNC</span>
             </label>
           </div>
-          <p class="text-[9px] text-brand-muted dark:text-slate-500 leading-snug px-0.5">DNC is compliance only — it does not hang up or block dialers. Use <span class="font-semibold text-brand-dark dark:text-slate-300">Call</span> or tap the number in the header.</p>
+          <p class="text-[9px] text-brand-muted dark:text-slate-500 leading-snug px-0.5">DNC is compliance only — it does not hang up or block dialers. <span class="font-semibold text-brand-dark dark:text-slate-300">Call</span> opens the AdHello dialer and starts the call; you can also tap the number in the header.</p>
         </div>
 
-        <div class="space-y-2">
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-0.5">Quick log <span class="text-brand-muted/60 font-semibold normal-case">(always visible)</span></p>
-          <div class="flex flex-wrap gap-1.5" id="leadNotepadTagRow">
+        <div class="space-y-2.5 rounded-2xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/50 p-3 ring-1 ring-black/[0.03] dark:ring-white/5">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-0.5">Quick log · pipeline <span class="text-brand-muted/60 font-semibold normal-case">(always visible)</span></p>
+          <div class="relative">
+            <label for="leadStatusSelect" class="sr-only">Sales pipeline state</label>
+            <select id="leadStatusSelect" class="w-full bg-white dark:bg-slate-900 border border-brand-border/40 dark:border-white/10 rounded-xl px-4 py-2.5 pr-10 font-bold text-xs shadow-sm focus:ring-2 focus:ring-brand-yellow appearance-none transition-all dark:text-white">
+              <option value="Not Contacted">Not Contacted</option>
+              <option value="Video Recorded">Video Recorded</option>
+              <option value="Called Lead">Called Lead</option>
+              <option value="Email Sent">Email Sent</option>
+              <option value="Follow-up">Follow-up</option>
+              <option value="Closed - Won">Closed - Won</option>
+              <option value="Closed - Lost">Closed - Lost</option>
+            </select>
+            <div class="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-brand-muted" aria-hidden="true">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-1.5 pt-0.5 border-t border-brand-border/15 dark:border-white/10" id="leadNotepadTagRow">
             <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Gatekeeper">Gatekeeper</button>
             <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Left VM">Left VM</button>
             <button type="button" class="lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow" data-tag="Not interested">Not interested</button>

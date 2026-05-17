@@ -5164,12 +5164,42 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
 
-  function openSoftphoneOrTel(rawPhone) {
+  function resolveCurrentLeadDialPhone() {
+    if (!currentRow) return '';
+    const fromRow = String(currentRow.dataset.phone || '').trim();
+    if (fromRow && fromRow !== 'N/A') return fromRow;
+    const header = document.getElementById('mobilePanelHeaderPhone');
+    if (header) {
+      const fromData = (header.dataset && header.dataset.phone) || '';
+      if (fromData && fromData !== 'N/A') return String(fromData).trim();
+    }
+    return '';
+  }
+
+  function applyTelephonyLeadUpdate(lead) {
+    if (!lead || !currentRow) return;
+    if (Array.isArray(lead.updates)) {
+      currentRow.dataset.updates = JSON.stringify(lead.updates);
+    }
+    if (lead.status) currentRow.dataset.status = String(lead.status);
+    populatePanel(currentRow);
+  }
+
+  document.addEventListener('adhello-telephony-lead-updated', (e) => {
+    if (e && e.detail && e.detail.lead) {
+      applyTelephonyLeadUpdate(e.detail.lead);
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast('Call started');
+      }
+    }
+  });
+
+  function openSoftphoneOrTel(rawPhone, opts) {
     const raw = String(rawPhone || '').trim();
     if (!raw) return false;
     if (
       typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
-      window.__adhelloOpenSoftphoneWithDial(raw)
+      window.__adhelloOpenSoftphoneWithDial(raw, opts || undefined)
     ) {
       return true;
     }
@@ -5225,11 +5255,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const clickToCallBtn = document.getElementById('clickToCallBtn');
   if (clickToCallBtn) {
     clickToCallBtn.addEventListener('click', async () => {
+      if (!currentRow) {
+        alert('Select a lead first.');
+        return;
+      }
+      const key = currentRow.dataset.leadKey;
+      if (!key) {
+        alert('Save this lead first before calling.');
+        return;
+      }
+      const phone = resolveCurrentLeadDialPhone();
+      if (!phone) {
+        alert('This lead has no valid phone number.');
+        return;
+      }
       const original = clickToCallBtn.textContent;
       clickToCallBtn.disabled = true;
-      clickToCallBtn.textContent = 'Dialing...';
+      clickToCallBtn.textContent = 'Opening dialer…';
       try {
-        await runLeadTelephonyAction('/call', {}, 'Calling lead');
+        const opened =
+          typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
+          window.__adhelloOpenSoftphoneWithDial(phone, { autoDial: true, leadKey: key });
+        if (!opened) {
+          await requestLeadCallByKey(key, phone);
+          if (typeof window.showProspectToast === 'function') {
+            window.showProspectToast('Calling lead');
+          }
+          populatePanel(currentRow);
+        }
       } catch (err) {
         alert(err.message || 'Failed to start call.');
       } finally {
@@ -5258,11 +5311,15 @@ document.addEventListener('DOMContentLoaded', () => {
       currentRow = row;
     }
 
+    const dialOpts = {};
+    const lk =
+      (row && row.dataset && row.dataset.leadKey) || leadKey || '';
+    if (lk) dialOpts.leadKey = lk;
     if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
-      window.__adhelloOpenSoftphoneWithDial(phoneToFill);
+      window.__adhelloOpenSoftphoneWithDial(phoneToFill, dialOpts);
       return;
     }
-    openSoftphoneOrTel(phoneToFill);
+    openSoftphoneOrTel(phoneToFill, dialOpts);
   }, true);
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');

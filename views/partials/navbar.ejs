@@ -582,6 +582,7 @@
     relayClient: null,
     relayCall: null,
     isCloudPstn: false,
+    leadKey: '',
   };
   var RELAY_SDK_SRC = 'https://unpkg.com/@signalwire/js@1.5.0/dist/index.min.js';
   function loadRelayScript() {
@@ -1265,10 +1266,12 @@
       })
       .catch(function () {});
   }
-  /** Fill Dial number, open softphone; user taps Call. Exposed for leads click-to-dial. */
-  function openSoftphoneWithDial(raw) {
+  /** Fill Dial number, open softphone; optional auto-dial + lead context. Exposed for leads click-to-dial. */
+  function openSoftphoneWithDial(raw, opts) {
+    opts = opts && typeof opts === 'object' ? opts : {};
     var to = normalizeDial(String(raw || ''));
     if (!to) return false;
+    softphoneSession.leadKey = opts.leadKey ? String(opts.leadKey).trim() : '';
     if (spTo) spTo.value = to;
     openSoftphone();
     if (spTo) {
@@ -1279,9 +1282,17 @@
         } catch (e) {}
       }, 100);
     }
+    if (opts.autoDial) {
+      setTimeout(function () {
+        runSoftphoneAction('call');
+      }, 160);
+    }
     return true;
   }
   window.__adhelloOpenSoftphoneWithDial = openSoftphoneWithDial;
+  window.__adhelloSoftphoneDialNow = function () {
+    runSoftphoneAction('call');
+  };
   window.__adhelloRefreshSoftphonePosition = applySoftphoneOpenPosition;
   // Desktop convenience: any tel: link opens AdHello softphone prefilled.
   document.addEventListener('click', function (e) {
@@ -1300,6 +1311,7 @@
     setSoftphoneMobileBackdrop(false);
     spModal.classList.add('hidden');
     spModal.setAttribute('aria-hidden', 'true');
+    softphoneSession.leadKey = '';
     softphoneStopPolling();
     softphoneStopTimer();
     softphoneDestroyWebrtc();
@@ -1309,6 +1321,7 @@
     softphoneResetRecordingState();
     var body = { to: to, action: action };
     if (opts && opts.forceCloudVoicemail) body.forceCloudVoicemail = true;
+    if (softphoneSession.leadKey) body.leadKey = softphoneSession.leadKey;
     if (spFrom && spFrom.value) body.fromNumber = spFrom.value;
     softphoneSession.isCloudPstn = false;
     return fetch('/leads/telephony/dial', {
@@ -1326,7 +1339,17 @@
           softphoneSession.callSid = '';
           softphoneStopPolling();
           addRecentDial(to);
+          if (res.j.lead && typeof window.dispatchEvent === 'function') {
+            window.dispatchEvent(
+              new CustomEvent('adhello-telephony-lead-updated', { detail: { lead: res.j.lead } })
+            );
+          }
           return;
+        }
+        if (res.j.lead && typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(
+            new CustomEvent('adhello-telephony-lead-updated', { detail: { lead: res.j.lead } })
+          );
         }
         softphoneSession.isCloudPstn = true;
         softphoneSession.callSid = String((res.j && res.j.callSid) || '').trim();
