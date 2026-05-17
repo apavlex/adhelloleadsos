@@ -2335,6 +2335,189 @@ document.addEventListener('DOMContentLoaded', () => {
         ds.logsSnippet = '[]';
       }
     }
+    if (L.pageSpeedAudit != null) {
+      try {
+        ds.pageSpeedAudit =
+          typeof L.pageSpeedAudit === 'object'
+            ? JSON.stringify(L.pageSpeedAudit)
+            : String(L.pageSpeedAudit || '');
+      } catch {
+        ds.pageSpeedAudit = '';
+      }
+    }
+    if (L.pageSpeedAuditAt != null) ds.pageSpeedAuditAt = String(L.pageSpeedAuditAt || '');
+    if (L.ownerSignal != null) ds.ownerSignal = String(L.ownerSignal || '');
+  }
+
+  function parsePageSpeedAuditFromRow(row) {
+    if (!row || !row.dataset) return null;
+    try {
+      const raw = row.dataset.pageSpeedAudit;
+      if (!raw || raw === 'null' || raw === '') return null;
+      const o = JSON.parse(raw);
+      return o && typeof o === 'object' ? o : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function scoreColorClass(score) {
+    if (score == null || !Number.isFinite(Number(score))) return 'text-brand-dark dark:text-white';
+    const n = Number(score);
+    if (n >= 90) return 'text-emerald-600 dark:text-emerald-400';
+    if (n >= 50) return 'text-amber-600 dark:text-amber-400';
+    return 'text-rose-600 dark:text-rose-400';
+  }
+
+  function syncPageSpeedAuditPanel(row) {
+    const empty = document.getElementById('pageSpeedAuditEmpty');
+    const loading = document.getElementById('pageSpeedAuditLoading');
+    const errEl = document.getElementById('pageSpeedAuditError');
+    const results = document.getElementById('pageSpeedAuditResults');
+    const runBtn = document.getElementById('pageSpeedAuditRunBtn');
+    const rerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
+    if (!empty && !runBtn) return;
+
+    const hasWebsite = row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A';
+    const audit = row ? parsePageSpeedAuditFromRow(row) : null;
+
+    if (runBtn) {
+      runBtn.disabled = !hasWebsite || !row.dataset.leadKey;
+      runBtn.classList.toggle('opacity-50', runBtn.disabled);
+      runBtn.classList.toggle('cursor-not-allowed', runBtn.disabled);
+      runBtn.title = !hasWebsite
+        ? 'Add a website URL first'
+        : !row.dataset.leadKey
+          ? 'Save this lead first'
+          : 'Run Lighthouse via Google PageSpeed';
+    }
+    if (rerunBtn) {
+      rerunBtn.disabled = runBtn ? runBtn.disabled : false;
+      rerunBtn.classList.toggle('opacity-50', rerunBtn.disabled);
+      rerunBtn.classList.toggle('cursor-not-allowed', rerunBtn.disabled);
+    }
+
+    if (loading) loading.classList.add('hidden');
+    if (errEl) {
+      errEl.classList.add('hidden');
+      errEl.textContent = '';
+    }
+
+    if (!audit) {
+      if (empty) empty.classList.remove('hidden');
+      if (results) results.classList.add('hidden');
+      if (rerunBtn) rerunBtn.classList.add('hidden');
+      return;
+    }
+
+    if (empty) empty.classList.add('hidden');
+    if (results) results.classList.remove('hidden');
+    if (rerunBtn) rerunBtn.classList.remove('hidden');
+
+    const scores = audit.scores || {};
+    const setScore = (id, val) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (val == null || !Number.isFinite(Number(val))) {
+        el.textContent = '—';
+        el.className = 'text-xl font-black text-brand-dark dark:text-white tabular-nums';
+        return;
+      }
+      const n = Math.round(Number(val));
+      el.textContent = String(n);
+      el.className = `text-xl font-black tabular-nums ${scoreColorClass(n)}`;
+    };
+    setScore('pageSpeedScorePerformance', scores.performance);
+    setScore('pageSpeedScoreSeo', scores.seo);
+    setScore('pageSpeedScoreAccessibility', scores.accessibility);
+    setScore('pageSpeedScoreBestPractices', scores.bestPractices);
+
+    const meta = document.getElementById('pageSpeedAuditMeta');
+    if (meta) {
+      let when = '';
+      try {
+        when = audit.fetchedAt
+          ? new Date(audit.fetchedAt).toLocaleString(undefined, {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })
+          : '';
+      } catch {
+        when = audit.fetchedAt || '';
+      }
+      const strat = audit.strategy === 'desktop' ? 'Desktop' : 'Mobile';
+      meta.textContent = when
+        ? `Last run ${when} · ${strat} · ${audit.url || ''}`
+        : `${strat} · ${audit.url || ''}`;
+    }
+
+    const summary = document.getElementById('pageSpeedAuditSummary');
+    if (summary) {
+      const avg =
+        audit.averageScore != null && Number.isFinite(Number(audit.averageScore))
+          ? Math.round(Number(audit.averageScore))
+          : null;
+      const ownerSignal = String((row && row.dataset.ownerSignal) || '').trim();
+      summary.textContent =
+        ownerSignal ||
+        (avg != null
+          ? `Average Lighthouse score ${avg}/100 across core categories.`
+          : 'Lighthouse audit saved on this lead.');
+    }
+
+    const issuesUl = document.getElementById('pageSpeedAuditIssues');
+    const issues = Array.isArray(audit.topIssues) ? audit.topIssues : [];
+    if (issuesUl) {
+      issuesUl.innerHTML = '';
+      if (issues.length) {
+        issuesUl.classList.remove('hidden');
+        for (const t of issues.slice(0, 6)) {
+          const li = document.createElement('li');
+          li.className = 'pl-3 border-l-2 border-brand-yellow/40';
+          li.textContent = String(t);
+          issuesUl.appendChild(li);
+        }
+      } else {
+        issuesUl.classList.add('hidden');
+      }
+    }
+
+    const link = document.getElementById('pageSpeedAuditReportLink');
+    if (link && audit.reportUrl) {
+      link.href = audit.reportUrl;
+      link.classList.remove('hidden', 'pointer-events-none', 'opacity-40');
+    } else if (link) {
+      link.href = '#';
+      link.classList.add('pointer-events-none', 'opacity-40');
+    }
+  }
+
+  async function runPageSpeedAuditForRow(row) {
+    if (!row) throw new Error('No lead selected.');
+    const key = String(row.dataset.leadKey || '').trim();
+    if (!key) throw new Error('Save this lead before running an audit.');
+    const res = await fetch(`/leads/${encodeURIComponent(key)}/pagespeed-audit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ strategy: 'mobile' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'PageSpeed audit failed');
+    }
+    if (data.lead) syncPersistedLeadToRowDataset(row, data.lead);
+    else if (data.audit) {
+      row.dataset.pageSpeedAudit = JSON.stringify(data.audit);
+      if (data.audit.fetchedAt) row.dataset.pageSpeedAuditAt = data.audit.fetchedAt;
+    }
+    if (data.ownerSignal) {
+      row.dataset.ownerSignal = data.ownerSignal;
+      const rowSignal = row.querySelector('.lead-owner-signal');
+      if (rowSignal) rowSignal.textContent = data.ownerSignal;
+    }
+    if (currentRow === row) populatePanel(row);
+    return data;
   }
 
   /** Show pitch video URL when status is Video Recorded, or when a URL is already saved (any status). */
@@ -4442,133 +4625,8 @@ document.addEventListener('DOMContentLoaded', () => {
       evInput.value = raw || '';
     }
 
-    const auditStatus = document.getElementById('mobilePanelAuditStatus');
-    if (auditStatus) {
-        let statusText = '';
-        let statusColor = '';
-        const score = calculateOpportunityScore(row.dataset);
-        if (score >= 7) { 
-            statusText = 'High Opportunity'; 
-            statusColor = 'text-rose-500'; 
-        } else if (score >= 4) { 
-            statusText = 'Medium Opportunity'; 
-            statusColor = 'text-amber-500'; 
-        } else {
-            statusText = 'Low Opportunity';
-            statusColor = 'text-brand-muted';
-        }
-        auditStatus.textContent = statusText;
-        auditStatus.className = `text-[10px] font-black uppercase tracking-widest ${statusColor}`;
-        scheduleKieServiceInsight(row);
-    }
-    if (aiScorePill) {
-      const aiGap = getAiAuditGap10FromDataset(row.dataset);
-      if (aiGap != null && aiGap > 0) {
-        aiScorePill.textContent = `AI ${aiGap}`;
-        aiScorePill.classList.remove('hidden');
-      } else {
-        aiScorePill.classList.add('hidden');
-      }
-    }
-    if (ownerSignalEl) {
-      const ownerSignal = String(row.dataset.ownerSignal || '').trim();
-      ownerSignalEl.textContent =
-        ownerSignal || 'Run AI Analysis to generate a concrete signal for this business.';
-    }
-    if (aiAnalysisBtn) {
-      aiAnalysisBtn.disabled = false;
-      aiAnalysisBtn.classList.remove('opacity-50', 'cursor-not-allowed');
-      const hasWebsite = row.dataset.website && row.dataset.website !== 'N/A';
-      if (!hasWebsite) {
-        aiAnalysisBtn.disabled = true;
-        aiAnalysisBtn.classList.add('opacity-50', 'cursor-not-allowed');
-      }
-      aiAnalysisBtn.onclick = async () => {
-        if (!hasWebsite) return;
-        const original = aiAnalysisBtn.innerHTML;
-        aiAnalysisBtn.disabled = true;
-        aiAnalysisBtn.innerHTML = 'Analyzing…';
-        try {
-          const result = await runAiAnalysisForRow(row);
-          const ra = (result && result.analysis) || {};
-          const healthToast = resolveSiteHealth100(ra);
-          const priorT = ra.priorAuditSnapshot;
-          let toastMsg = `AI analysis complete (overall ${healthToast}/100, ${ra.rubricVersion || 'rubric_v1.2'})`;
-          if (priorT && priorT.auditedAt && Number.isFinite(Number(priorT.siteHealth100))) {
-            toastMsg += ` — up from ${Math.round(Number(priorT.siteHealth100))}/100 on last crawl`;
-          }
-          if (typeof window.showAppToast === 'function') {
-            window.showAppToast(toastMsg, { variant: 'success' });
-          }
-        } catch (err) {
-          const msg = err && err.message ? err.message : 'AI analysis failed';
-          if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-          else window.alert(msg);
-        } finally {
-          aiAnalysisBtn.disabled = false;
-          aiAnalysisBtn.innerHTML = original;
-        }
-      };
-    }
     syncSidebarOutreachButtons(row);
-
-    scheduleReviewIntelligence(row, { refresh: false });
-
-    // Stitch AI Design Logic
-    const stitchPreviewSection = document.getElementById('stitchPreviewSection');
-    const stitchScreenshot = document.getElementById('stitchScreenshot');
-    const stitchDesignLink = document.getElementById('stitchDesignLink');
-    
-    const stitchUrl = row.dataset.stitchDesignUrl;
-    const stitchImg = row.dataset.stitchScreenshotUrl;
-    
-    if (stitchPreviewSection && stitchScreenshot && stitchDesignLink) {
-        if (stitchUrl && stitchUrl !== '' && stitchUrl !== 'null') {
-            stitchScreenshot.src = stitchImg || 'https://via.placeholder.com/400x250?text=AI+Design+Blueprint';
-            stitchDesignLink.href = stitchUrl;
-            stitchPreviewSection.classList.remove('hidden');
-        } else {
-            stitchPreviewSection.classList.add('hidden');
-        }
-    }
-
-    // Competitor Comparison Logic
-    const competitorNameEl = document.getElementById('competitorName');
-    const competitorGapEl = document.getElementById('competitorGap');
-    const competitorSection = document.getElementById('competitorSection');
-
-    if (competitorSection) {
-        if (row.dataset.competitorName && row.dataset.competitorName !== 'N/A' && row.dataset.competitorName !== 'undefined') {
-            competitorSection.classList.remove('hidden');
-            if (competitorNameEl) competitorNameEl.textContent = row.dataset.competitorName;
-            if (competitorGapEl) competitorGapEl.textContent = row.dataset.competitorGap || 'General competitive gap detected.';
-        } else {
-            competitorSection.classList.add('hidden');
-        }
-    }
-
-    // Technical Audit Tiles
-    const chatbotTile = document.getElementById('chatbotStatus');
-    const clickToCallTile = document.getElementById('clickToCallStatus');
-    const mobileFriendlyTile = document.getElementById('mobileFriendlyStatus');
-    const schemaTile = document.getElementById('schemaStatus');
-
-    if (chatbotTile) {
-        const hasChat = row.dataset.hasChatbot === 'true' || row.dataset.has_chatbot === true;
-        chatbotTile.innerHTML = hasChat ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Active</span>' : '<span class="text-red-400">Missing</span>';
-    }
-    if (clickToCallTile) {
-        const hasClick = row.dataset.hasClickToCall === 'true' || row.dataset.has_click_to_call === true;
-        clickToCallTile.innerHTML = hasClick ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Optimized</span>' : '<span class="text-red-400 font-bold underline decoration-red-400/30 underline-offset-2">Broken</span>';
-    }
-    if (mobileFriendlyTile) {
-        const isMobile = row.dataset.isMobileFriendly === 'true' || row.dataset.is_mobile_friendly === true;
-        mobileFriendlyTile.innerHTML = isMobile ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> Fully Responsive</span>' : '<span class="text-red-400 font-bold underline decoration-red-400/30 underline-offset-2">Non-Responsive</span>';
-    }
-    if (schemaTile) {
-        const hasSchema = row.dataset.hasSchemaMarkup === 'true' || row.dataset.has_schema_markup === true;
-        schemaTile.innerHTML = hasSchema ? '<span class="text-green-500 flex items-center gap-1"><svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 100 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path></svg> AI Ready</span>' : '<span class="text-amber-500 font-bold underline decoration-amber-500/30 underline-offset-2 tracking-tighter">Needs GEO</span>';
-    }
+    syncPageSpeedAuditPanel(row);
 
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
@@ -5718,11 +5776,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');
-  if (reviewIntelRefreshBtn) {
-    reviewIntelRefreshBtn.addEventListener('click', () => {
-      if (!currentRow || !currentRow.dataset.leadKey) return;
-      scheduleReviewIntelligence(currentRow, { refresh: true });
+  async function handlePageSpeedAuditClick() {
+    const row = currentRow;
+    if (!row) return;
+    const loading = document.getElementById('pageSpeedAuditLoading');
+    const empty = document.getElementById('pageSpeedAuditEmpty');
+    const results = document.getElementById('pageSpeedAuditResults');
+    const errEl = document.getElementById('pageSpeedAuditError');
+    const runBtn = document.getElementById('pageSpeedAuditRunBtn');
+    const rerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
+    if (loading) loading.classList.remove('hidden');
+    if (empty) empty.classList.add('hidden');
+    if (results) results.classList.add('hidden');
+    if (errEl) errEl.classList.add('hidden');
+    if (runBtn) runBtn.disabled = true;
+    if (rerunBtn) rerunBtn.disabled = true;
+    try {
+      await runPageSpeedAuditForRow(row);
+      if (typeof window.showAppToast === 'function') {
+        const audit = parsePageSpeedAuditFromRow(row);
+        const avg = audit && audit.averageScore != null ? audit.averageScore : '—';
+        window.showAppToast(`Lighthouse audit saved (avg ${avg}/100).`, { variant: 'success' });
+      }
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'PageSpeed audit failed';
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.classList.remove('hidden');
+      }
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      if (loading) loading.classList.add('hidden');
+      if (runBtn) runBtn.disabled = false;
+      if (rerunBtn) rerunBtn.disabled = false;
+      syncPageSpeedAuditPanel(row);
+    }
+  }
+
+  const pageSpeedAuditRunBtn = document.getElementById('pageSpeedAuditRunBtn');
+  if (pageSpeedAuditRunBtn) {
+    pageSpeedAuditRunBtn.addEventListener('click', () => {
+      handlePageSpeedAuditClick();
+    });
+  }
+  const pageSpeedAuditRerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
+  if (pageSpeedAuditRerunBtn) {
+    pageSpeedAuditRerunBtn.addEventListener('click', () => {
+      handlePageSpeedAuditClick();
     });
   }
 

@@ -297,132 +297,60 @@
 
       </div><!-- /lead-tab-call -->
 
-      <!-- Reviews & reputation (snippets from enrich + AI strengths/weaknesses) -->
       <div id="lead-tab-insights" class="lead-tab-panel space-y-8" data-lead-tab-panel="insights">
-      <section id="reviewReputationSection" class="mb-10">
+      <section id="pageSpeedAuditSection" class="mb-10">
         <div class="flex flex-wrap items-center justify-between gap-2 mb-4 px-1">
-          <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">Reviews &amp; reputation</h3>
-          <div class="flex items-center gap-3">
-            <button type="button" id="reviewIntelRefreshBtn" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline bg-transparent border-0 cursor-pointer p-0 shrink-0">
-              Refresh analysis
+          <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">Website audit (Lighthouse)</h3>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="pageSpeedAuditRunBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">
+              Run Lighthouse audit
             </button>
-            <button type="button" id="mobilePanelAiAnalysisBtn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-sky-400/40 bg-sky-500/10 text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors">
-              AI Analysis
+            <button type="button" id="pageSpeedAuditRerunBtn" class="hidden inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 text-brand-muted dark:text-slate-300 hover:border-brand-yellow/40 transition-colors">
+              Re-run
             </button>
           </div>
         </div>
         <div class="p-6 rounded-[2.5rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/20 dark:bg-white/5 space-y-4">
-          <div id="reviewSnippetsWrap" class="hidden">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Quotes we could read</p>
-            <ul id="reviewSnippetsList" class="space-y-2 list-none m-0 p-0"></ul>
-            <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-3 leading-relaxed">From website or search enrich. Run <strong class="text-brand-dark dark:text-white">Hunt for more contact data</strong> to capture more.</p>
-          </div>
-          <div id="reviewIntelLoading" class="flex items-center gap-3 text-xs font-semibold text-brand-yellow">
+          <p id="pageSpeedAuditEmpty" class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed">Run a Lighthouse audit when you need scores for the pitch. Results are saved on this lead (typically 30–60 seconds).</p>
+          <div id="pageSpeedAuditLoading" class="hidden flex items-center gap-3 text-xs font-semibold text-brand-yellow">
             <svg class="animate-spin h-4 w-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
               <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span>Reading review signals…</span>
+            <span>Running Lighthouse via PageSpeed…</span>
           </div>
-          <div id="reviewIntelGrid" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div class="rounded-2xl bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 p-4">
-              <p class="text-[9px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 mb-2">Strengths</p>
-              <ul id="reviewStrengthsList" class="list-none m-0 p-0 space-y-2"></ul>
+          <p id="pageSpeedAuditError" class="hidden text-[11px] text-rose-600 dark:text-rose-400 leading-relaxed"></p>
+          <div id="pageSpeedAuditResults" class="hidden space-y-4">
+            <p id="pageSpeedAuditMeta" class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400"></p>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div class="p-4 rounded-2xl bg-white dark:bg-slate-900/50 border border-brand-border/15 dark:border-white/10 text-center">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted/70 mb-1">Performance</p>
+                <p id="pageSpeedScorePerformance" class="text-xl font-black text-brand-dark dark:text-white tabular-nums">—</p>
+              </div>
+              <div class="p-4 rounded-2xl bg-white dark:bg-slate-900/50 border border-brand-border/15 dark:border-white/10 text-center">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted/70 mb-1">SEO</p>
+                <p id="pageSpeedScoreSeo" class="text-xl font-black text-brand-dark dark:text-white tabular-nums">—</p>
+              </div>
+              <div class="p-4 rounded-2xl bg-white dark:bg-slate-900/50 border border-brand-border/15 dark:border-white/10 text-center">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted/70 mb-1">Accessibility</p>
+                <p id="pageSpeedScoreAccessibility" class="text-xl font-black text-brand-dark dark:text-white tabular-nums">—</p>
+              </div>
+              <div class="p-4 rounded-2xl bg-white dark:bg-slate-900/50 border border-brand-border/15 dark:border-white/10 text-center">
+                <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted/70 mb-1">Best practices</p>
+                <p id="pageSpeedScoreBestPractices" class="text-xl font-black text-brand-dark dark:text-white tabular-nums">—</p>
+              </div>
             </div>
-            <div class="rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/25 p-4">
-              <p class="text-[9px] font-black uppercase tracking-widest text-amber-900 dark:text-amber-200 mb-2">Weaknesses</p>
-              <ul id="reviewWeaknessesList" class="list-none m-0 p-0 space-y-2"></ul>
-            </div>
+            <p id="pageSpeedAuditSummary" class="text-[12px] font-semibold text-brand-dark dark:text-slate-200 leading-relaxed"></p>
+            <ul id="pageSpeedAuditIssues" class="hidden list-none m-0 p-0 space-y-1.5 text-[11px] text-brand-muted dark:text-slate-400"></ul>
+            <a id="pageSpeedAuditReportLink" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">
+              View full report on PageSpeed
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+            </a>
           </div>
-          <p id="reviewIntelFootnote" class="text-[10px] text-brand-muted dark:text-slate-500 leading-relaxed hidden"></p>
-          <p id="reviewIntelError" class="text-[11px] text-rose-600 dark:text-rose-400 leading-relaxed hidden"></p>
         </div>
       </section>
 
-      <!-- AI Opportunity Audit -->
-      <section class="mb-10">
-        <div class="p-6 bg-brand-dark/5 dark:bg-white/5 rounded-[2.5rem] border border-brand-yellow/30 relative overflow-hidden group">
-            <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform duration-500">
-                <svg class="w-12 h-12 text-brand-yellow" fill="currentColor" viewBox="0 0 24 24"><path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.25 15L18 16.125l-.25-1.125a1.125 1.125 0 00-.75-.75L15.875 14l1.125-.25a1.125 1.125 0 00.75-.75L18 11.875l.25 1.125a1.125 1.125 0 00.75.75l1.125.25-1.125.25a1.125 1.125 0 00-.75.75z" /></svg>
-            </div>
-            <div class="relative z-10">
-                <div class="flex items-center gap-2 mb-2">
-                    <span id="mobilePanelAuditStatus" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Calculating Opportunity...</span>
-                    <span id="mobilePanelAiScore" class="hidden text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full border border-sky-400/35 bg-sky-500/10 text-sky-700 dark:text-sky-300">AI 0</span>
-                </div>
-                <h3 class="text-lg font-black text-brand-dark dark:text-white mb-2 leading-tight">AI Audit Insight</h3>
-                <p id="mobilePanelOwnerSignal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-200 leading-relaxed mb-2">Run AI Analysis to generate a concrete signal for this business.</p>
-                <p id="mobilePanelAuditProvider" class="text-[9px] font-bold uppercase tracking-widest text-brand-muted/70 dark:text-slate-500 mb-1 hidden"></p>
-                <p id="mobilePanelAuditLoading" class="text-[11px] font-semibold text-brand-yellow mb-2 hidden">Connecting to AI for service recommendation…</p>
-                <p class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed mt-2">Opener, “what to sell,” and “why this first” stay pinned on the <strong class="text-brand-dark dark:text-white">Call</strong> tab for live dialing.</p>
-                <div id="strategyDetails" class="hidden mt-4 pt-4 border-t border-brand-yellow/20 space-y-2">
-                    <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                        <span>Industry Focus</span>
-                        <span id="strategyIndustry" class="text-brand-dark dark:text-white">Trade</span>
-                    </div>
-                    <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                        <span>Growth Goal</span>
-                        <span id="strategyGoal" class="text-brand-dark dark:text-white">Expansion</span>
-                    </div>
-                    <div class="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-brand-muted">
-                        <span>Brand Vibe</span>
-                        <span id="strategyVibe" class="text-brand-dark dark:text-white">Premium</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Competitor Comparison Section (New) -->
-        <div id="competitorSection" class="hidden mt-4 p-5 bg-rose-500/10 dark:bg-rose-500/20 rounded-[2.5rem] border border-rose-500/20 relative overflow-hidden group/comp">
-            <div class="absolute -right-4 -top-4 w-20 h-20 bg-rose-500/10 rounded-full blur-2xl group-hover/comp:bg-rose-500/20 transition-all"></div>
-            <div class="relative z-10">
-                <div class="flex items-center gap-2 mb-3">
-                    <div class="w-6 h-6 rounded-lg bg-rose-500 text-white flex items-center justify-center shadow-lg shadow-rose-500/20">
-                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
-                    </div>
-                    <span class="text-[10px] font-black uppercase tracking-[0.2em] text-rose-600 dark:text-rose-400">Competitive Edge</span>
-                </div>
-                <h4 class="text-sm font-black text-brand-dark dark:text-white mb-2 underline decoration-rose-500/30 underline-offset-4 decoration-2">Beating <span id="competitorName" class="text-rose-600 dark:text-rose-400">Rival Business</span></h4>
-                <p id="competitorGap" class="text-[11px] font-bold text-rose-700/80 dark:text-rose-300/80 leading-relaxed italic">
-                    This competitor is outperforming you because they already utilize a modern chatbot for lead capture.
-                </p>
-                <div class="mt-4 pt-4 border-t border-rose-500/10 text-[9px] font-black uppercase tracking-widest text-rose-600/70 dark:text-rose-400/50">LEVERAGE THIS IN YOUR OUTREACH</div>
-            </div>
-        </div>
-
-        <!-- Stitch AI Design Blueprint (New) -->
-        <div id="stitchPreviewSection" class="hidden mt-6 overflow-hidden rounded-[2.5rem] border border-primary/20 bg-primary/5 dark:bg-white/5 relative group/stitch">
-            <div class="absolute -top-10 -left-10 w-32 h-32 bg-primary/10 rounded-full blur-3xl pointer-events-none group-hover/stitch:scale-110 transition-transform duration-700"></div>
-            <div class="p-6 relative z-10">
-                <div class="flex items-center justify-between mb-4">
-                    <div class="flex items-center gap-2">
-                        <div class="w-6 h-6 rounded-lg bg-primary text-white flex items-center justify-center shadow-lg shadow-primary/20">
-                            <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17h-2v-2h2v2zm2.07-7.75l-.9.92C13.45 12.9 13 13.5 13 15h-2v-.5c0-1.1.45-2.1 1.17-2.83l1.24-1.26c.37-.36.59-.86.59-1.41 0-1.1-.9-2-2-2s-2 .9-2 2H8c0-2.21 1.79-4 4-4s4 1.79 4 4c0 .88-.36 1.68-.93 2.25z" /></svg>
-                        </div>
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-primary">AI Design Blueprint</span>
-                    </div>
-                    <span class="text-[9px] font-bold text-primary italic uppercase tracking-widest opacity-60">Ready to Ship</span>
-                </div>
-                
-                <h4 class="text-sm font-black text-brand-dark dark:text-white mb-3">Custom Conversion Blueprint</h4>
-                
-                <div class="aspect-[16/10] bg-brand-cream/50 dark:bg-slate-800 rounded-2xl border border-brand-border/10 overflow-hidden relative group/img cursor-pointer shadow-sm">
-                    <img id="stitchScreenshot" src="" alt="AI Blueprint" class="w-full h-full object-cover">
-                    <div class="absolute inset-0 bg-brand-dark/60 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
-                         <a id="stitchDesignLink" href="#" target="_blank" class="bg-primary text-white text-[10px] font-black uppercase tracking-[0.2em] px-6 py-3 rounded-xl shadow-lg transform translate-y-2 group-hover/img:translate-y-0 transition-all">
-                            Open Blueprint
-                         </a>
-                    </div>
-                </div>
-                
-                <div class="mt-4 flex items-center gap-2 text-[10px] font-bold text-brand-muted dark:text-slate-400">
-                    <svg class="w-3.5 h-3.5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Fully responsive code ready to launch.
-                </div>
-            </div>
-        </div>
-      </section>
-
-      <!-- Audit Intelligence Container (Dynamic) -->
+      <!-- Audit Intelligence Container (Dynamic — AdHello import only) -->
       <section id="auditInsightsContainer" class="hidden mb-6"></section>
 
       <!-- Chat History Section -->
@@ -430,33 +358,9 @@
         <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1">Chat Conversation</h3>
         <div class="bg-brand-cream/30 dark:bg-slate-800/50 rounded-[2.5rem] border border-brand-border/20 dark:border-white/5 p-6 relative">
             <div id="chatMessageList" class="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                <!-- Chat bubbles will be injected here -->
             </div>
             <div class="absolute -top-3 -right-3 w-10 h-10 bg-brand-yellow rounded-xl flex items-center justify-center text-brand-dark shadow-lg shadow-brand-yellow/20">
                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
-            </div>
-        </div>
-      </section>
-
-      <!-- Technical Health Check -->
-      <section class="mb-10">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-6 px-1">Technical Health Check</h3>
-        <div class="grid grid-cols-2 gap-4">
-            <div class="p-4 bg-brand-cream/30 dark:bg-white/5 rounded-3xl border border-brand-border/10">
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-2">Chatbot</div>
-                <div id="chatbotStatus" class="text-xs font-bold text-brand-dark dark:text-white">Scanning...</div>
-            </div>
-            <div class="p-4 bg-brand-cream/30 dark:bg-white/5 rounded-3xl border border-brand-border/10">
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-2">Click-to-Call</div>
-                <div id="clickToCallStatus" class="text-xs font-bold text-brand-dark dark:text-white">Scanning...</div>
-            </div>
-            <div class="p-4 bg-brand-cream/30 dark:bg-white/5 rounded-3xl border border-brand-border/10">
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-2">Mobile Ready</div>
-                <div id="mobileFriendlyStatus" class="text-xs font-bold text-brand-dark dark:text-white">Scanning...</div>
-            </div>
-            <div class="p-4 bg-brand-cream/30 dark:bg-white/5 rounded-3xl border border-brand-border/10">
-                <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted/60 mb-2">GEO Schema</div>
-                <div id="schemaStatus" class="text-xs font-bold text-brand-dark dark:text-white">Scanning...</div>
             </div>
         </div>
       </section>

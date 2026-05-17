@@ -312,6 +312,8 @@
                 data-gbp-optimization-score="<%= plcEscAttr(String(lead.gbpOptimizationScore || '')) %>"
                 data-ai-score="<%= lead.aiWebsiteAnalysisScore != null ? lead.aiWebsiteAnalysisScore : '' %>"
                 data-ai-analysis="<%= plcEscJson(lead.aiWebsiteAnalysis || null) %>"
+                data-page-speed-audit="<%= plcEscJson(lead.pageSpeedAudit || null) %>"
+                data-page-speed-audit-at="<%= plcEscAttr(lead.pageSpeedAuditAt || '') %>"
                 data-owner-signal="<%= plcEscAttr(lead.ownerSignal || '') %>"
                 data-stitch-design-url="<%= plcEscAttr(lead.stitchDesignUrl || '') %>"
                 data-stitch-screenshot-url="<%= plcEscAttr(lead.stitchScreenshotUrl || '') %>"

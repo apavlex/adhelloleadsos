@@ -24,6 +24,7 @@ const INTEGRATION_FIELDS = [
   'crawl4aiBaseUrl',
   'crawl4aiApiToken',
   'bettercontactApiKey',
+  'pagespeedApiKey',
 ];
 
 /** Map stored field → process.env name used by provider clients */
@@ -44,6 +45,7 @@ const FIELD_TO_ENV = {
   crawl4aiBaseUrl: 'CRAWL4AI_BASE_URL',
   crawl4aiApiToken: 'CRAWL4AI_API_TOKEN',
   bettercontactApiKey: 'BETTERCONTACT_API_KEY',
+  pagespeedApiKey: 'PAGESPEED_API_KEY',
 };
 
 /**
@@ -147,6 +149,7 @@ function integrationMasks(workspace) {
     'firecrawlApiKey',
     'crawl4aiApiToken',
     'bettercontactApiKey',
+    'pagespeedApiKey',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

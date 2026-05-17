@@ -10,6 +10,7 @@ const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormali
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const betterContact = require('../services/betterContactClient');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
+const pageSpeedInsights = require('../services/pageSpeedInsights');
 const { createAuditReportToken } = require('../services/auditReportSign');
 const { parseImportFile } = require('../services/csvLeadImport');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
@@ -2422,6 +2423,66 @@ router.post('/:key/ai-analysis', async (req, res) => {
     res.json({ success: true, lead: updated, analysis, ownerSignal });
   } catch (err) {
     res.status(500).json({ success: false, error: err && err.message ? err.message : 'Analysis failed' });
+  }
+});
+
+/** POST /leads/:key/pagespeed-audit — on-demand Lighthouse via Google PageSpeed Insights API */
+router.post('/:key/pagespeed-audit', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const apiKey =
+      integrationEnv.PAGESPEED_API_KEY ||
+      process.env.PAGESPEED_API_KEY ||
+      process.env.GOOGLE_PAGESPEED_API_KEY ||
+      '';
+
+    const strategy =
+      req.body && String(req.body.strategy || '').toLowerCase() === 'desktop' ? 'desktop' : 'mobile';
+
+    const { audit } = await pageSpeedInsights.runPageSpeedAudit(lead.website || lead.url || '', {
+      apiKey,
+      strategy,
+    });
+
+    const ownerSignal = pageSpeedInsights.buildOwnerSignalFromAudit(lead.title, audit);
+    const updated = await dbService.updateLead(
+      fullKey,
+      {
+        pageSpeedAudit: audit,
+        pageSpeedAuditAt: audit.fetchedAt,
+        ownerSignal,
+        logs: [
+          {
+            type: 'pagespeed_audit',
+            message: `Lighthouse (PageSpeed, ${strategy}): average ${audit.averageScore ?? '—'}/100`,
+            timestamp: audit.fetchedAt,
+          },
+        ],
+      },
+      req.workspaceId
+    );
+
+    return res.json({ success: true, lead: updated, audit, ownerSignal });
+  } catch (err) {
+    const code = err && err.code;
+    if (code === 'PAGESPEED_NOT_CONFIGURED') {
+      return res.status(503).json({ success: false, error: err.message });
+    }
+    if (code === 'NO_WEBSITE') {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'PageSpeed audit failed',
+    });
   }
 });
 
