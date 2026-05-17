@@ -136,6 +136,20 @@ const SCRIPT_LIBRARY = {
     close:
       "I'd suggest a 14-day account review plus one new creative angle and conversion event fix. If we don't see a credible path to efficiency, we part friends. Worth a quick look at the account together?",
   },
+  speedToLeadAgent: {
+    tabLabel: 'Speed to lead',
+    label: 'Speed to Lead Agent',
+    opening:
+      "Hi {{name}}, quick question about {{company}} in {{city}} — when a new lead comes in after hours or while your crew is on a job, how fast does someone actually respond? I'm asking because most owners lose 30–40% of inbound just from slow follow-up.",
+    discovery:
+      'Where do leads land today — phone, web form, Google, Facebook? What is your average response time, and who owns the first reply when you are busy? How many quotes or jobs do you think slip because nobody answered fast enough?',
+    valueProp:
+      'We deploy a Speed to Lead Agent that replies in under 60 seconds on missed calls, texts, and form fills — qualifies the lead, books or routes to your team, and logs everything in one place so hot prospects never sit in limbo.',
+    objectionHandling:
+      "Totally fair — you do not want a robot embarrassing the brand. We use your tone, your FAQs, and clear handoff rules; humans take over on anything complex. We start with one channel (usually missed-call text-back), measure response time and booked conversations, and pause if it does not pay for itself.",
+    close:
+      "I'd suggest a 14-day pilot: we wire up instant text-back on missed calls plus one form source, and you get a simple dashboard showing speed-to-lead and booked outcomes. If response time does not improve and you do not see more conversations, we stop. Open to a 15-minute walkthrough?",
+  },
 };
 
 /** Ordered keys for personas / scripting tabs (insights catalog uses all SCRIPT_LIBRARY keys). */

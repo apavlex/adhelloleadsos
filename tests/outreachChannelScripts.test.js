@@ -28,3 +28,15 @@ test('buildOutreachLibrary builds channel map', () => {
   assert.equal(lib.reputation.channels.call, 'Hi');
   assert.equal(lib.reputation.channels.email, 'We help');
 });
+
+test('Speed to Lead Agent is in default script library with all channels', () => {
+  const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
+  assert.ok(SCRIPT_LIBRARY_KEYS.includes('speedToLeadAgent'));
+  const lib = buildOutreachLibrary(SCRIPT_LIBRARY, ['speedToLeadAgent']);
+  const entry = lib.speedToLeadAgent;
+  assert.equal(entry.label, 'Speed to Lead Agent');
+  assert.ok(entry.channels.call.includes('{{name}}'));
+  assert.ok(entry.channels.text);
+  assert.ok(entry.channels.voicemail);
+  assert.ok(entry.channels.email);
+});
