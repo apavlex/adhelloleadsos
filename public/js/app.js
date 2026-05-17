@@ -241,6 +241,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const prospectTable = document.getElementById('prospectLeadsTable');
   if (prospectTable) {
+    (function initPipelineToolbarEarly() {
+      const table = prospectTable;
+      const densityKey = 'prospectLeadTableDensity';
+      function applyTableDensity(mode) {
+        const d = mode === 'compact' ? 'compact' : 'comfortable';
+        table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
+        table.classList.add(
+          d === 'compact' ? 'prospect-leads-table--compact' : 'prospect-leads-table--comfortable'
+        );
+        document.querySelectorAll('#tableView .lead-density-btn').forEach((btn) => {
+          const on = (btn.dataset.density || 'compact') === d;
+          btn.classList.toggle('lead-density-btn--active', on);
+        });
+        try {
+          localStorage.setItem(densityKey, d);
+        } catch (_) {
+          /* ignore */
+        }
+        if (typeof window.__syncPipelineStickyColumnOffsets === 'function') {
+          window.__syncPipelineStickyColumnOffsets();
+        }
+      }
+      const savedDensity =
+        localStorage.getItem(densityKey) === 'comfortable' ? 'comfortable' : 'compact';
+      applyTableDensity(savedDensity);
+      document.addEventListener('click', (e) => {
+        const btn = e.target.closest('#tableView .lead-density-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        applyTableDensity(btn.dataset.density || 'compact');
+      });
+    })();
+
     document.querySelectorAll('#prospectLeadsTable [data-prospect-sort]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -996,18 +1030,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const target = row || currentRow;
     if (!target) return false;
     const data = getActiveOutreachScriptsData(target);
-    if (!data) return false;
+    if (!data || !outreachLibraryHasScripts(data.library)) return false;
     syncLeadOutreachChannelButtons();
     applyLeadPanelSellingScriptFromData(target, data);
     return true;
   }
 
+  /** Sync script for current service + channel without re-fetch when library is already loaded. */
+  function applyLeadPanelSellingScriptNow(row) {
+    return applyLeadPanelSellingScriptFromCache(row);
+  }
+
   function onLeadPanelOutreachScriptInputsChanged(row, opts) {
     const target = row || currentRow;
     if (!target) return;
-    const hadCache = applyLeadPanelSellingScriptFromCache(target);
-    const fetchOpts = { ...(opts || {}), skipLoading: hadCache };
+    if (applyLeadPanelSellingScriptNow(target) && !(opts && opts.forceFetch)) {
+      return;
+    }
+    const fetchOpts = { ...(opts || {}), skipLoading: !!(opts && opts.skipLoading) };
     syncLeadPanelSellingScript(target, fetchOpts).catch(() => {});
+  }
+
+  function setLeadOutreachChannel(channel) {
+    const ch = String(channel || 'call').toLowerCase();
+    window.__leadOutreachChannel = ['call', 'text', 'voicemail', 'email'].includes(ch) ? ch : 'call';
+    syncLeadOutreachChannelButtons();
   }
 
   function outreachLibraryHasScripts(library) {
@@ -1084,13 +1131,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function resolveLeadPanelServiceKey(row, data) {
     const sel = document.getElementById('leadPanelPrimaryServiceSelect');
-    let serviceKey = sel ? String(sel.value || '').trim() : '';
-    if (!serviceKey && row && row.dataset) {
+    const library = data && data.library && typeof data.library === 'object' ? data.library : {};
+    const explicit = sel ? String(sel.value || '').trim() : '';
+    if (explicit && library[explicit]) return explicit;
+    if (!explicit && row && row.dataset) {
       const rowKey = String(row.dataset.primaryServiceKey || '').trim();
-      if (rowKey && data.library && data.library[rowKey]) serviceKey = rowKey;
+      if (rowKey && library[rowKey]) return rowKey;
     }
-    if (!serviceKey) serviceKey = String(data.defaultServiceKey || '').trim();
-    return serviceKey;
+    const def = String((data && data.defaultServiceKey) || '').trim();
+    if (def && library[def]) return def;
+    const first = Object.keys(library)[0] || '';
+    return first;
   }
 
   function applyLeadPanelSellingScriptFromData(row, data) {
@@ -1325,6 +1376,206 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const QUICK_LOG_TAG_CONFIG = {
+    Gatekeeper: { disposition: 'gatekeeper' },
+    'Left VM': { disposition: 'voicemail' },
+    'Not interested': { status: 'Closed - Lost' },
+    'Callback requested': { disposition: 'callback' },
+    'DM connected': { disposition: 'connected' },
+    'Send info': { status: 'Email Sent' },
+  };
+
+  async function postLeadPanelNote(key, content) {
+    const res = await fetch(`/leads/${encodeURIComponent(key)}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ content }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not save note');
+    }
+    if (currentRow && data.updates) {
+      currentRow.dataset.updates = JSON.stringify(data.updates);
+    }
+    return data;
+  }
+
+  async function applyLeadPanelDisposition(code, notes) {
+    if (!currentRow || !currentRow.dataset.leadKey) {
+      throw new Error('Save this lead before logging a disposition.');
+    }
+    const key = String(currentRow.dataset.leadKey).trim();
+    const res = await fetch(`/leads/${encodeURIComponent(key)}/disposition`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ code, notes: notes || '' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Disposition failed');
+    }
+    if (data.lead && data.lead.status) currentRow.dataset.status = String(data.lead.status);
+    if (data.lead && data.lead.updates) {
+      currentRow.dataset.updates = JSON.stringify(data.lead.updates);
+    }
+    const statusSel = document.getElementById('leadStatusSelect');
+    if (statusSel && data.status) statusSel.value = data.status;
+    return data;
+  }
+
+  async function applyLeadPanelQuickLogTag(tag) {
+    const label = String(tag || '').trim();
+    if (!label) return;
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
+      }
+      return;
+    }
+    const key = String(currentRow.dataset.leadKey || '').trim();
+    if (!key) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Save this lead before using Quick log.', { variant: 'error' });
+      }
+      return;
+    }
+    const cfg = QUICK_LOG_TAG_CONFIG[label] || {};
+    const stamp = new Date().toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+    const noteLine = `[${stamp}] ${label}`;
+    const tagBtns = document.querySelectorAll('.lead-notepad-tag');
+    tagBtns.forEach((b) => {
+      b.classList.toggle('ring-2', (b.getAttribute('data-tag') || '') === label);
+      b.classList.toggle('ring-brand-yellow/60', (b.getAttribute('data-tag') || '') === label);
+    });
+    try {
+      if (cfg.disposition) {
+        const data = await applyLeadPanelDisposition(cfg.disposition, noteLine);
+        await postLeadPanelNote(key, noteLine).catch(() => null);
+        populatePanel(currentRow);
+        const msg = data.automation || data.status || label;
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(`Logged: ${label} — ${msg}`, { variant: 'success' });
+        }
+      } else if (cfg.status) {
+        const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ status: cfg.status }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || 'Status update failed');
+        }
+        currentRow.dataset.status = cfg.status;
+        const statusSel = document.getElementById('leadStatusSelect');
+        if (statusSel) statusSel.value = cfg.status;
+        await postLeadPanelNote(key, noteLine);
+        populatePanel(currentRow);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(`Logged: ${label}`, { variant: 'success' });
+        }
+      } else {
+        await postLeadPanelNote(key, noteLine);
+        populatePanel(currentRow);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(`Note added: ${label}`, { variant: 'success' });
+        }
+      }
+      openLeadPanelComposer();
+      const inp = document.getElementById('noteInput');
+      if (inp && !String(inp.value || '').includes(label)) {
+        inp.value = `${noteLine}${inp.value ? `\n${inp.value}` : ''}`;
+      }
+    } catch (err) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(err.message || 'Quick log failed', { variant: 'error' });
+      } else {
+        alert(err.message || 'Quick log failed');
+      }
+    } finally {
+      setTimeout(() => {
+        tagBtns.forEach((b) => b.classList.remove('ring-2', 'ring-brand-yellow/60'));
+      }, 1200);
+    }
+  }
+
+  async function triggerLeadPanelCall() {
+    if (!currentRow) {
+      alert('Select a lead first.');
+      return;
+    }
+    const key = currentRow.dataset.leadKey;
+    if (!key) {
+      alert('Save this lead first before calling.');
+      return;
+    }
+    const phone = resolveCurrentLeadDialPhone();
+    if (!phone) {
+      alert('This lead has no valid phone number.');
+      return;
+    }
+    const clickToCallBtn = document.getElementById('clickToCallBtn');
+    const original = clickToCallBtn ? clickToCallBtn.textContent : 'Call';
+    if (clickToCallBtn) {
+      clickToCallBtn.disabled = true;
+      clickToCallBtn.textContent = 'Opening dialer…';
+    }
+    try {
+      const opened =
+        typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
+        window.__adhelloOpenSoftphoneWithDial(phone, { autoDial: true, leadKey: key });
+      if (!opened) {
+        await requestLeadCallByKey(key, phone);
+        if (typeof window.showProspectToast === 'function') {
+          window.showProspectToast('Calling lead');
+        }
+        populatePanel(currentRow);
+      }
+    } catch (err) {
+      alert(err.message || 'Failed to start call.');
+    } finally {
+      if (clickToCallBtn) {
+        clickToCallBtn.disabled = false;
+        clickToCallBtn.textContent = original;
+      }
+    }
+  }
+
+  function bindLeadPanelBottomActions() {
+    if (window.__leadPanelBottomActionsBound) return;
+    window.__leadPanelBottomActionsBound = true;
+    document.addEventListener('click', async (e) => {
+      const panelRoot = e.target.closest('#mobilePanel');
+      if (!panelRoot || panelRoot.classList.contains('hidden')) return;
+      const inBottom =
+        e.target.closest('#leadPanelNotepad') || e.target.closest('#leadPanelOutreachDrawer');
+      if (!inBottom) return;
+
+      const tagBtn = e.target.closest('.lead-notepad-tag');
+      if (tagBtn) {
+        e.preventDefault();
+        e.stopPropagation();
+        await applyLeadPanelQuickLogTag(tagBtn.getAttribute('data-tag') || '');
+        return;
+      }
+
+      if (e.target.closest('#clickToCallBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await triggerLeadPanelCall();
+      }
+    });
+  }
+
   // Determine page type
   const isLeadsPage = !!document.getElementById('mobilePanelRemoveBtn');
   const isResultsPage = !!document.getElementById('mobilePanelSaveBtn');
@@ -1400,10 +1651,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
           window.__adhelloRefreshSoftphonePosition();
         }
+        openLeadPanelOutreach();
       });
     } else {
       console.warn('[Lead detail panel] #mobilePanel not found — detail sidebar cannot open on this page.');
     }
+
+    openLeadPanelOutreach();
 
     try {
       populatePanel(row);
@@ -1470,7 +1724,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (chBtn) {
       e.preventDefault();
       e.stopPropagation();
-      window.__leadOutreachChannel = chBtn.getAttribute('data-outreach-channel') || 'call';
+      setLeadOutreachChannel(chBtn.getAttribute('data-outreach-channel') || 'call');
       onLeadPanelOutreachScriptInputsChanged(currentRow);
       return;
     }
@@ -2140,6 +2394,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (document.getElementById('leadPanelTabScroll')) {
+    bindLeadPanelBottomActions();
     initLeadDetailPanelChrome();
   }
 
@@ -2164,7 +2419,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
     const picked = offers.find((o) => o && String(o.key) === manualKey);
     if (picked) {
-      refreshLeadPanelSellingScript(row).catch(() => {});
+      applyLeadPanelSellingScriptNow(row);
     }
     if (!auditStatus) return;
 
@@ -2184,7 +2439,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (openerWrap) openerWrap.classList.add('hidden');
       if (openerEl) openerEl.textContent = '';
-      syncLeadPanelSellingScript(row).catch(() => {});
+      applyLeadPanelSellingScriptNow(row);
       return;
     }
 
@@ -2529,6 +2784,54 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'text-rose-600 dark:text-rose-400';
   }
 
+  let pageSpeedAuditInFlight = false;
+
+  function setPageSpeedAuditRunning(running) {
+    pageSpeedAuditInFlight = !!running;
+    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
+    const empty = document.getElementById('pageSpeedAuditEmpty');
+    const results = document.getElementById('pageSpeedAuditResults');
+    const errEl = document.getElementById('pageSpeedAuditError');
+    const runBtn = document.getElementById('pageSpeedAuditRunBtn');
+    const rerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
+    const runBtnDefaultLabel = 'Run audit';
+
+    if (progressWrap) {
+      progressWrap.classList.toggle('hidden', !running);
+      progressWrap.setAttribute('aria-busy', running ? 'true' : 'false');
+    }
+    if (running) {
+      if (empty) empty.classList.add('hidden');
+      if (results) results.classList.add('hidden');
+      if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+      }
+    }
+    if (runBtn) {
+      if (running) {
+        runBtn.disabled = true;
+        runBtn.textContent = 'Running…';
+        runBtn.classList.add('opacity-70', 'cursor-wait');
+      } else {
+        runBtn.textContent = runBtnDefaultLabel;
+        runBtn.classList.remove('opacity-70', 'cursor-wait');
+      }
+    }
+    if (rerunBtn) {
+      rerunBtn.disabled = running;
+      if (running) rerunBtn.classList.add('opacity-70', 'cursor-wait');
+      else rerunBtn.classList.remove('opacity-70', 'cursor-wait');
+    }
+  }
+
+  function syncLeadPanelEmailReportSection(row) {
+    const section = document.getElementById('leadPanelEmailReportSection');
+    if (!section) return;
+    const audit = row ? parsePageSpeedAuditFromRow(row) : null;
+    section.classList.toggle('hidden', !audit);
+  }
+
   function syncPageSpeedAuditPanel(row) {
     const empty = document.getElementById('pageSpeedAuditEmpty');
     const loading = document.getElementById('pageSpeedAuditLoading');
@@ -2541,7 +2844,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasWebsite = row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A';
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
 
-    if (runBtn) {
+    if (runBtn && !pageSpeedAuditInFlight) {
       runBtn.disabled = !hasWebsite || !row.dataset.leadKey;
       runBtn.classList.toggle('opacity-50', runBtn.disabled);
       runBtn.classList.toggle('cursor-not-allowed', runBtn.disabled);
@@ -2551,13 +2854,16 @@ document.addEventListener('DOMContentLoaded', () => {
           ? 'Save this lead first'
           : 'Run Lighthouse via Google PageSpeed';
     }
-    if (rerunBtn) {
+    if (rerunBtn && !pageSpeedAuditInFlight) {
       rerunBtn.disabled = runBtn ? runBtn.disabled : false;
       rerunBtn.classList.toggle('opacity-50', rerunBtn.disabled);
       rerunBtn.classList.toggle('cursor-not-allowed', rerunBtn.disabled);
     }
 
-    if (loading) loading.classList.add('hidden');
+    if (pageSpeedAuditInFlight) return;
+
+    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
+    if (progressWrap) progressWrap.classList.add('hidden');
     if (errEl) {
       errEl.classList.add('hidden');
       errEl.textContent = '';
@@ -2676,7 +2982,11 @@ document.addEventListener('DOMContentLoaded', () => {
       const rowSignal = row.querySelector('.lead-owner-signal');
       if (rowSignal) rowSignal.textContent = data.ownerSignal;
     }
-    if (currentRow === row) populatePanel(row);
+    if (currentRow === row) {
+      syncLeadPanelEmailReportSection(row);
+      syncPageSpeedAuditPanel(row);
+      if (!pageSpeedAuditInFlight) populatePanel(row);
+    }
     return data;
   }
 
@@ -3456,6 +3766,26 @@ document.addEventListener('DOMContentLoaded', () => {
     if (leadDetailChromeDidInit) return;
     leadDetailChromeDidInit = true;
 
+    bindLeadPanelBottomActions();
+    void ensureCadencePlaybookSelectOptions();
+
+    document.querySelectorAll('#leadPanelWhatToSellCard .lead-outreach-channel').forEach((btn) => {
+      if (btn.dataset.adhelloChannelBound) return;
+      btn.dataset.adhelloChannelBound = '1';
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        setLeadOutreachChannel(btn.getAttribute('data-outreach-channel') || 'call');
+        onLeadPanelOutreachScriptInputsChanged(currentRow);
+      });
+    });
+
+    void fetchWorkspaceOutreachLibrary()
+      .catch(() => null)
+      .then(() => {
+        if (currentRow) applyLeadPanelSellingScriptNow(currentRow);
+      });
+
     document.querySelectorAll('[data-lead-tab-panel]').forEach((panel) => {
       panel.classList.remove('hidden');
     });
@@ -3580,18 +3910,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    document.querySelectorAll('.lead-notepad-tag').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tag = btn.getAttribute('data-tag') || '';
-        const stamp = new Date().toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' });
-        const line = `[${stamp}] ${tag}: `;
-        const inp = document.getElementById('noteInput');
-        openLeadPanelComposer();
-        if (inp) inp.value = `${line}${inp.value || ''}`.trimStart();
-        inp && inp.focus();
-      });
-    });
-
     const primaryServSel = document.getElementById('leadPanelPrimaryServiceSelect');
     if (primaryServSel && !primaryServSel.dataset.adhelloBound) {
       primaryServSel.dataset.adhelloBound = '1';
@@ -3599,7 +3917,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentRow) return;
         const val = String(primaryServSel.value || '').trim();
         if (currentRow.dataset) currentRow.dataset.primaryServiceKey = val || '';
-        onLeadPanelOutreachScriptInputsChanged(currentRow);
+        onLeadPanelOutreachScriptInputsChanged(currentRow, { skipLoading: true });
         if (!currentRow.dataset.leadKey) return;
         try {
           await postLeadJsonUpdate(currentRow, { primaryServiceKey: val || null });
@@ -4166,20 +4484,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let cadencePlaybookSelectPopulated = false;
+  let cadencePlaybookFetchPromise = null;
 
-  function ensureCadencePlaybookSelectOptions() {
-    const sel = document.getElementById('leadCadencePlaybookSelect');
+  function cadencePlaybookSelectNeedsOptions(sel) {
+    if (!sel || !sel.options || !sel.options.length) return true;
+    if (sel.options.length > 1) return false;
+    const only = sel.options[0];
+    const label = only ? String(only.textContent || '').trim() : '';
+    const val = only ? String(only.value || '').trim() : '';
+    if (!val || /loading playbooks/i.test(label) || /no playbooks loaded/i.test(label)) return true;
+    return false;
+  }
+
+  function applyCadencePlaybookTemplatesToSelect(templates, sel) {
     if (!sel) return;
-    const templates = getSequenceTemplates();
-    if (!templates.length) {
+    const list = Array.isArray(templates) ? templates.filter((t) => t && t.id) : [];
+    if (!list.length) {
       sel.innerHTML = '<option value="">No playbooks loaded</option>';
+      cadencePlaybookSelectPopulated = false;
       return;
     }
-    if (cadencePlaybookSelectPopulated && sel.options.length > 1) return;
     const prev = sel.value;
     sel.innerHTML = '';
-    templates.forEach((t) => {
-      if (!t || !t.id) return;
+    list.forEach((t) => {
       const opt = document.createElement('option');
       opt.value = String(t.id);
       const steps = t.stepCount != null ? t.stepCount : (t.steps && t.steps.length) || 0;
@@ -4188,11 +4515,59 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     cadencePlaybookSelectPopulated = true;
     if (prev && Array.from(sel.options).some((o) => o.value === prev)) sel.value = prev;
-    else if (!prev && sel.options.length) sel.value = sel.options[0].value;
+    else if (sel.options.length) sel.value = sel.options[0].value;
+  }
+
+  async function fetchCadencePlaybookTemplates() {
+    if (cadencePlaybookFetchPromise) return cadencePlaybookFetchPromise;
+    cadencePlaybookFetchPromise = fetch('/sequences/templates.json', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then((r) => r.json().catch(() => ({})))
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.templates) && data.templates.length) {
+          window.ADHELLO_SEQUENCE_TEMPLATES = data.templates;
+          return data.templates;
+        }
+        return [];
+      })
+      .catch(() => [])
+      .finally(() => {
+        cadencePlaybookFetchPromise = null;
+      });
+    return cadencePlaybookFetchPromise;
+  }
+
+  function ensureCadencePlaybookSelectOptions(opts) {
+    const options = opts || {};
+    const sel = document.getElementById('leadCadencePlaybookSelect');
+    if (!sel) return Promise.resolve();
+
+    const prerendered = sel.dataset.playbooksPrerendered === '1';
+    if (prerendered && !cadencePlaybookSelectNeedsOptions(sel)) {
+      cadencePlaybookSelectPopulated = true;
+      return Promise.resolve();
+    }
+
+    let templates = getSequenceTemplates();
+    if (!templates.length && !options.skipFetch) {
+      return fetchCadencePlaybookTemplates().then((fetched) => {
+        templates = fetched.length ? fetched : getSequenceTemplates();
+        applyCadencePlaybookTemplatesToSelect(templates, sel);
+      });
+    }
+
+    if (!cadencePlaybookSelectNeedsOptions(sel) && cadencePlaybookSelectPopulated) {
+      return Promise.resolve();
+    }
+
+    applyCadencePlaybookTemplatesToSelect(templates, sel);
+    return Promise.resolve();
   }
 
   function syncCadencePlaybookPanel(row) {
-    ensureCadencePlaybookSelectOptions();
+    void ensureCadencePlaybookSelectOptions();
     const sel = document.getElementById('leadCadencePlaybookSelect');
     const desc = document.getElementById('leadCadencePlaybookDesc');
     const status = document.getElementById('leadCadenceActiveStatus');
@@ -4317,7 +4692,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function populateCadenceSection(row) {
-    syncCadencePlaybookPanel(row);
+    ensureCadencePlaybookSelectOptions().then(() => syncCadencePlaybookPanel(row));
     const ltEl = document.getElementById('cadenceLastTouchLine');
     const chEl = document.getElementById('cadenceChannelLine');
     const seqWrap = document.getElementById('cadenceSequenceWrap');
@@ -4907,6 +5282,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     syncSidebarOutreachButtons(row);
     syncPageSpeedAuditPanel(row);
+    syncLeadPanelEmailReportSection(row);
 
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
@@ -4922,10 +5298,17 @@ document.addEventListener('DOMContentLoaded', () => {
       workspaceLoading: null,
     };
     seedLeadOutreachScriptsCacheFromEmbedded(row);
-    applyLeadPanelSellingScriptFromCache(row);
-    syncLeadPanelSellingScript(row, { skipLoading: true }).catch((err) => {
-      console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
-    });
+    if (!applyLeadPanelSellingScriptNow(row)) {
+      const scriptEl = document.getElementById('leadPanelSellingScript');
+      if (scriptEl) scriptEl.textContent = 'Loading script…';
+    }
+    syncLeadPanelSellingScript(row, { skipLoading: true })
+      .then(() => {
+        if (currentRow === row) applyLeadPanelSellingScriptNow(row);
+      })
+      .catch((err) => {
+        console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
+      });
 
     paintActivityTimeline();
   }
@@ -5474,7 +5857,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', (e) => {
-    const trigger = e.target && e.target.closest ? e.target.closest('.js-click-to-call-number') : null;
+    const trigger =
+      e.target && e.target.closest
+        ? e.target.closest('.js-click-to-call-number, .js-click-to-call-btn')
+        : null;
     if (!trigger) return;
     e.preventDefault();
     e.stopPropagation();
@@ -5496,6 +5882,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const lk =
       (row && row.dataset && row.dataset.leadKey) || leadKey || '';
     if (lk) dialOpts.leadKey = lk;
+    if (trigger.closest('#prospectLeadsTable')) dialOpts.autoDial = true;
     if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
       window.__adhelloOpenSoftphoneWithDial(phoneToFill, dialOpts);
       return;
@@ -6150,8 +6537,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (document.getElementById('leadPanelTabScroll')) {
-    ensureCadencePlaybookSelectOptions();
+    void ensureCadencePlaybookSelectOptions();
   }
+
+  window.__adhelloEnsureCadencePlaybookSelectOptions = ensureCadencePlaybookSelectOptions;
 
   async function handleSidebarCopySmsAuditClick() {
     if (!currentRow) {
@@ -6207,19 +6596,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function handlePageSpeedAuditClick() {
     const row = currentRow;
-    if (!row) return;
-    const loading = document.getElementById('pageSpeedAuditLoading');
-    const empty = document.getElementById('pageSpeedAuditEmpty');
-    const results = document.getElementById('pageSpeedAuditResults');
+    if (!row) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a saved lead first.', { variant: 'error' });
+      }
+      return;
+    }
+    if (!row.dataset.leadKey) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Save this lead before running an audit.', { variant: 'error' });
+      }
+      return;
+    }
+    if (pageSpeedAuditInFlight) return;
+
     const errEl = document.getElementById('pageSpeedAuditError');
-    const runBtn = document.getElementById('pageSpeedAuditRunBtn');
-    const rerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
-    if (loading) loading.classList.remove('hidden');
-    if (empty) empty.classList.add('hidden');
-    if (results) results.classList.add('hidden');
-    if (errEl) errEl.classList.add('hidden');
-    if (runBtn) runBtn.disabled = true;
-    if (rerunBtn) rerunBtn.disabled = true;
+    setPageSpeedAuditRunning(true);
     try {
       await runPageSpeedAuditForRow(row);
       if (typeof window.showAppToast === 'function') {
@@ -6233,27 +6625,22 @@ document.addEventListener('DOMContentLoaded', () => {
         errEl.textContent = msg;
         errEl.classList.remove('hidden');
       }
+      const empty = document.getElementById('pageSpeedAuditEmpty');
+      if (empty) empty.classList.remove('hidden');
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
-      if (loading) loading.classList.add('hidden');
-      if (runBtn) runBtn.disabled = false;
-      if (rerunBtn) rerunBtn.disabled = false;
+      setPageSpeedAuditRunning(false);
       syncPageSpeedAuditPanel(row);
+      syncLeadPanelEmailReportSection(row);
     }
   }
 
-  const pageSpeedAuditRunBtn = document.getElementById('pageSpeedAuditRunBtn');
-  if (pageSpeedAuditRunBtn) {
-    pageSpeedAuditRunBtn.addEventListener('click', () => {
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('#pageSpeedAuditRunBtn') || e.target.closest('#pageSpeedAuditRerunBtn')) {
+      e.preventDefault();
       handlePageSpeedAuditClick();
-    });
-  }
-  const pageSpeedAuditRerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
-  if (pageSpeedAuditRerunBtn) {
-    pageSpeedAuditRerunBtn.addEventListener('click', () => {
-      handlePageSpeedAuditClick();
-    });
-  }
+    }
+  });
 
   // --- Manual Deep Enhance with Firecrawl (sidebar + pipeline row AI button) ---
   async function runContactHuntForRow(row, options) {
@@ -7847,33 +8234,14 @@ document.addEventListener('DOMContentLoaded', () => {
       syncPipelineStickyColumnOffsets();
     }, 50);
   }
+  window.__syncPipelineStickyColumnOffsets = scheduleSyncPipelineStickyOffsets;
 
   window.addEventListener('resize', scheduleSyncPipelineStickyOffsets, { passive: true });
 
   (function initLeadTableDensity() {
     const table = document.getElementById('prospectLeadsTable');
     if (!table) return;
-    const key = 'prospectLeadTableDensity';
-    const saved = localStorage.getItem(key) === 'comfortable' ? 'comfortable' : 'compact';
-    function apply(mode) {
-      const d = mode === 'compact' ? 'compact' : 'comfortable';
-      table.classList.remove('prospect-leads-table--comfortable', 'prospect-leads-table--compact');
-      table.classList.add(d === 'compact' ? 'prospect-leads-table--compact' : 'prospect-leads-table--comfortable');
-      document.querySelectorAll('.lead-density-btn').forEach((btn) => {
-        const on = (btn.dataset.density || 'compact') === d;
-        btn.classList.toggle('lead-density-btn--active', on);
-      });
-      try {
-        localStorage.setItem(key, d);
-      } catch (_) {
-        /* ignore */
-      }
-      scheduleSyncPipelineStickyOffsets();
-    }
-    apply(saved);
-    document.querySelectorAll('.lead-density-btn').forEach((btn) => {
-      btn.addEventListener('click', () => apply(btn.dataset.density || 'compact'));
-    });
+    scheduleSyncPipelineStickyOffsets();
   })();
 
   (function initPipelineColumnPrefs() {
@@ -7998,11 +8366,28 @@ document.addEventListener('DOMContentLoaded', () => {
       colBtn.setAttribute('aria-expanded', 'false');
     }
 
+    function positionColumnsPopover() {
+      const rect = colBtn.getBoundingClientRect();
+      pop.style.top = `${Math.round(rect.bottom + 8)}px`;
+      pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
+      pop.style.left = 'auto';
+    }
+
     colBtn.addEventListener('click', (e) => {
       e.stopPropagation();
+      const willOpen = pop.classList.contains('hidden');
       pop.classList.toggle('hidden');
+      if (willOpen) positionColumnsPopover();
       colBtn.setAttribute('aria-expanded', pop.classList.contains('hidden') ? 'false' : 'true');
     });
+
+    window.addEventListener(
+      'resize',
+      () => {
+        if (!pop.classList.contains('hidden')) positionColumnsPopover();
+      },
+      { passive: true }
+    );
 
     document.addEventListener('click', (e) => {
       if (pop.classList.contains('hidden')) return;

@@ -5,19 +5,41 @@ const sequenceEngine = require('../services/sequenceEngine');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 
+function serializeSequenceTemplates(req) {
+  const raw = req.app.locals.sequenceTemplates || sequenceEngine.listTemplates();
+  return (Array.isArray(raw) ? raw : []).map((t) => ({
+    id: t.id,
+    persona: t.persona,
+    name: t.name,
+    description: t.description,
+    stepCount: t.stepCount != null ? t.stepCount : (t.steps && t.steps.length) || 0,
+    steps: Array.isArray(t.steps)
+      ? t.steps.map((s) => ({
+          dayOffset: s.dayOffset,
+          channel: s.channel,
+          title: s.title,
+          hint: s.hint || '',
+        }))
+      : [],
+  }));
+}
+
+/** JSON playbook list for lead panel cadence picker (and other clients). */
+router.get('/templates.json', (req, res) => {
+  res.json({ success: true, templates: serializeSequenceTemplates(req) });
+});
+
 router.get('/', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, all);
-    const templates = (req.app.locals.sequenceTemplates || sequenceEngine.listTemplates()).map(
-      (t) => ({
-        id: t.id,
-        persona: t.persona,
-        name: t.name,
-        description: t.description,
-        stepCount: t.stepCount != null ? t.stepCount : (t.steps && t.steps.length) || 0,
-      })
-    );
+    const templates = serializeSequenceTemplates(req).map((t) => ({
+      id: t.id,
+      persona: t.persona,
+      name: t.name,
+      description: t.description,
+      stepCount: t.stepCount,
+    }));
     const active = leads.filter(
       (l) => l.sequenceState && l.sequenceState.status === 'active'
     );

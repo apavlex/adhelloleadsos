@@ -909,8 +909,17 @@ table {
     pointer-events: none;
 }
 #leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open {
-    max-height: 120px;
+    max-height: 160px;
     opacity: 1;
+    pointer-events: auto;
+}
+#mobilePanel.open #leadPanelNotepad,
+#mobilePanel.open #leadPanelNotepad button,
+#mobilePanel.open #leadPanelNotepad select,
+#mobilePanel.open #leadPanelNotepad input,
+#mobilePanel.open #leadPanelNotepad label,
+#mobilePanel.open #leadPanelOutreachDrawer.lead-panel-outreach-drawer--open,
+#mobilePanel.open #leadPanelOutreachDrawer.lead-panel-outreach-drawer--open * {
     pointer-events: auto;
 }
 #leadPanelOutreachChevron {
