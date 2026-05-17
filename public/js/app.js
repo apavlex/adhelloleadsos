@@ -1154,7 +1154,10 @@ document.addEventListener('DOMContentLoaded', () => {
       oppContainer.innerHTML = renderOpportunityBadges(row);
       oppContainer.dataset.score = row.dataset.aiScore;
     }
-    if (currentRow === row && typeof populatePanel === 'function') populatePanel(row);
+    if (currentRow === row) {
+      if (typeof populatePanel === 'function') populatePanel(row);
+      else syncLeadCallAiAnalyzeCta(row);
+    }
     const rowSignal = row.querySelector('.lead-owner-signal');
     if (rowSignal) rowSignal.textContent = ownerSignal || '';
     return data;
@@ -2208,8 +2211,49 @@ document.addEventListener('DOMContentLoaded', () => {
     return s || '';
   }
 
+  function leadPhoneDigits(raw) {
+    return String(raw || '').replace(/\D/g, '');
+  }
+
+  function leadPhonesMatch(a, b) {
+    const da = leadPhoneDigits(a);
+    const db = leadPhoneDigits(b);
+    return !!(da && db && da === db);
+  }
+
+  function getLeadContactsList(row) {
+    let list = parseRowContacts(row);
+    const phone = String(row.dataset.phone || '').trim();
+    if (!list.length && phone && phone !== 'N/A') {
+      return [
+        {
+          role: 'Primary',
+          name: '',
+          phone,
+          email: String(row.dataset.email || '').trim(),
+          primary: true,
+        },
+      ];
+    }
+    return list;
+  }
+
+  function getPrimaryPhoneFromRow(row) {
+    const list = getLeadContactsList(row);
+    const pri = list.find((c) => c.primary && String(c.phone || '').trim());
+    return pri ? String(pri.phone).trim() : '';
+  }
+
+  function isHeaderPhonePrimary(row, displayPhone) {
+    const pri = getLeadContactsList(row).find((c) => c.primary && String(c.phone || '').trim());
+    if (!pri) return false;
+    return leadPhonesMatch(pri.phone, displayPhone);
+  }
+
   function readPipelineRowDisplayPhone(row) {
     if (!row || !row.dataset) return '';
+    const primary = getPrimaryPhoneFromRow(row);
+    if (primary && primary !== 'N/A') return primary.replace(/\s+/g, ' ').trim();
     let p = String(row.dataset.phone || '').trim();
     if (p && p !== 'N/A') return p.replace(/\s+/g, ' ').trim();
 
@@ -2280,28 +2324,68 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function syncLeadPanelStickyDock(row) {
-    const meta = document.getElementById('leadPanelStickyMeta');
-    const phoneA = document.getElementById('leadPanelStickyPhone');
-    const phone = readPipelineRowDisplayPhone(row) || String(row.dataset.phone || '').trim();
+  function syncHeaderPhoneRow(row) {
+    const phone = readPipelineRowDisplayPhone(row);
+    const headerPhone = document.getElementById('mobilePanelHeaderPhone');
+    const starBtn = document.getElementById('headerPhonePrimaryStar');
     const lk = row.dataset.leadKey || '';
-    if (phoneA) {
+    if (headerPhone) {
       if (phone) {
-        phoneA.textContent = formatLeadPanelPhoneDisplay(phone);
-        phoneA.href = '#';
-        phoneA.classList.add('js-click-to-call-number');
-        phoneA.dataset.phone = phone.trim();
-        if (lk) phoneA.dataset.leadKey = lk;
-        phoneA.classList.remove('opacity-40', 'pointer-events-none');
+        headerPhone.textContent = formatLeadPanelPhoneDisplay(phone);
+        headerPhone.href = '#';
+        headerPhone.classList.add('js-click-to-call-number');
+        headerPhone.dataset.phone = phone.trim();
+        if (lk) headerPhone.dataset.leadKey = lk;
+        headerPhone.classList.remove('opacity-40', 'pointer-events-none');
       } else {
-        phoneA.textContent = 'No phone';
-        phoneA.href = '#';
-        phoneA.classList.remove('js-click-to-call-number');
-        delete phoneA.dataset.phone;
-        delete phoneA.dataset.leadKey;
-        phoneA.classList.add('opacity-40', 'pointer-events-none');
+        headerPhone.textContent = '—';
+        headerPhone.href = '#';
+        headerPhone.classList.remove('js-click-to-call-number');
+        delete headerPhone.dataset.phone;
+        delete headerPhone.dataset.leadKey;
+        headerPhone.classList.add('opacity-40');
       }
     }
+    if (starBtn) {
+      const isPri = !!(phone && isHeaderPhonePrimary(row, phone));
+      const icon = starBtn.querySelector('.header-phone-star-icon');
+      starBtn.disabled = !phone;
+      starBtn.classList.toggle('opacity-40', !phone);
+      starBtn.classList.toggle('pointer-events-none', !phone);
+      starBtn.classList.toggle('text-brand-yellow', isPri);
+      starBtn.classList.toggle('border-brand-yellow/50', isPri);
+      starBtn.classList.toggle('bg-brand-yellow/10', isPri);
+      starBtn.classList.toggle('text-brand-muted', !isPri);
+      if (icon) {
+        if (isPri) {
+          icon.setAttribute('fill', 'currentColor');
+          icon.removeAttribute('stroke');
+        } else {
+          icon.setAttribute('fill', 'none');
+          icon.setAttribute('stroke', 'currentColor');
+          icon.setAttribute('stroke-width', '2');
+        }
+      }
+      starBtn.setAttribute('aria-pressed', isPri ? 'true' : 'false');
+      starBtn.title = isPri ? 'Primary dial number' : 'Set as primary dial number';
+    }
+  }
+
+  function syncLeadCallAiAnalyzeCta(row) {
+    const wrap = document.getElementById('leadCallAiAnalyzeWrap');
+    const btn = document.getElementById('leadCallAiAnalyzeBtn');
+    if (!wrap || !btn) return;
+    const hasAnalysis = !!getAiAnalysisFromRow(row);
+    const hasWebsite = row.dataset.website && row.dataset.website !== 'N/A';
+    if (!hasAnalysis && hasWebsite) {
+      wrap.classList.remove('hidden');
+    } else {
+      wrap.classList.add('hidden');
+    }
+  }
+
+  function syncLeadPanelStickyDock(row) {
+    const meta = document.getElementById('leadPanelStickyMeta');
     if (meta) {
       const pipe = String(row.dataset.pipelineLabel || row.dataset.pipelineStage || '').trim();
       const st = String(row.dataset.status || '').trim();
@@ -2429,49 +2513,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch {
       return [];
     }
-  }
-
-  function syncLeadContactsList(row) {
-    const ul = document.getElementById('leadContactsList');
-    if (!ul) return;
-    let list = parseRowContacts(row);
-    if (!list.length) {
-      const phone = String(row.dataset.phone || '').trim();
-      if (phone && phone !== 'N/A') {
-        list = [{ role: 'Primary', name: '', phone, email: String(row.dataset.email || '').trim(), primary: true }];
-      }
-    }
-    ul.innerHTML = '';
-    list.forEach((c, i) => {
-      const li = document.createElement('li');
-      li.className =
-        'flex flex-wrap items-center gap-2 rounded-xl border border-brand-border/25 dark:border-white/10 bg-white/80 dark:bg-slate-900/50 px-3 py-2 text-xs';
-      const role = String(c.role || 'Contact').trim();
-      const name = String(c.name || '').trim();
-      const ph = String(c.phone || '').trim();
-      const em = String(c.email || '').trim();
-      const isPri = !!c.primary;
-      li.innerHTML = `<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${role}${isPri ? ' · primary' : ''}</span>
-        <span class="font-bold text-brand-dark dark:text-white">${name || '—'}</span>
-        <span class="text-brand-muted">${ph || '—'}</span>
-        <button type="button" class="ml-auto text-[9px] font-black uppercase text-brand-yellow lead-contact-primary-btn" data-idx="${i}">Primary</button>`;
-      ul.appendChild(li);
-    });
-    ul.querySelectorAll('.lead-contact-primary-btn').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        const idx = parseInt(btn.getAttribute('data-idx'), 10);
-        if (!row.dataset.leadKey || Number.isNaN(idx)) return;
-        const next = parseRowContacts(row).map((c, j) => ({ ...c, primary: j === idx }));
-        try {
-          await postLeadJsonUpdate(row, { contacts: next });
-          syncLeadContactsList(row);
-          populatePanel(row);
-        } catch (err) {
-          if (typeof window.showAppToast === 'function') window.showAppToast(err.message, { variant: 'error' });
-        }
-      });
-    });
   }
 
   function mergeActivityEntries(row) {
@@ -2695,13 +2736,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    const dial = document.getElementById('leadPanelStickyDialBtn');
-    if (dial) {
-      dial.addEventListener('click', async () => {
-        const ctc = document.getElementById('clickToCallBtn');
-        if (ctc) ctc.click();
-      });
-    }
     const leadRec = document.getElementById('leadPanelRecordToggle');
     if (leadRec) {
       leadRec.addEventListener('click', () => {
@@ -2832,25 +2866,71 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    const addContactBtn = document.getElementById('leadContactAddBtn');
-    if (addContactBtn) {
-      addContactBtn.addEventListener('click', async () => {
-        if (!currentRow || !currentRow.dataset.leadKey) {
-          if (typeof window.showAppToast === 'function') window.showAppToast('Save the lead first.', { variant: 'error' });
+    const headerPhoneStar = document.getElementById('headerPhonePrimaryStar');
+    if (headerPhoneStar && !headerPhoneStar.dataset.bound) {
+      headerPhoneStar.dataset.bound = '1';
+      headerPhoneStar.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!currentRow || !currentRow.dataset.leadKey) return;
+        const displayPhone = readPipelineRowDisplayPhone(currentRow);
+        if (!displayPhone) return;
+        if (isHeaderPhonePrimary(currentRow, displayPhone)) {
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('This number is already your primary dial number.', { variant: 'info' });
+          }
           return;
         }
-        const role = window.prompt('Role (e.g. Owner, Office manager)', 'Contact');
-        if (role == null) return;
-        const name = window.prompt('Name', '') || '';
-        const phone = window.prompt('Phone', '') || '';
-        const email = window.prompt('Email', '') || '';
-        const list = parseRowContacts(currentRow);
-        list.push({ role: role || 'Contact', name, phone, email, primary: list.length === 0 });
+        let list = getLeadContactsList(currentRow).map((c) => ({ ...c }));
+        let idx = list.findIndex((c) => leadPhonesMatch(c.phone, displayPhone));
+        if (idx < 0) {
+          list.push({
+            role: 'Primary',
+            name: '',
+            phone: displayPhone,
+            email: String(currentRow.dataset.email || '').trim(),
+            primary: true,
+          });
+          idx = list.length - 1;
+        }
+        const next = list.map((c, j) => ({ ...c, primary: j === idx }));
         try {
-          await postLeadJsonUpdate(currentRow, { contacts: list });
-          syncLeadContactsList(currentRow);
-        } catch (e) {
-          if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'Failed', { variant: 'error' });
+          await postLeadJsonUpdate(currentRow, { contacts: next });
+          currentRow.dataset.contacts = JSON.stringify(next);
+          syncHeaderPhoneRow(currentRow);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Primary dial number saved.', { variant: 'success' });
+          }
+        } catch (err) {
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(err && err.message ? err.message : 'Could not save primary number', { variant: 'error' });
+          }
+        }
+      });
+    }
+
+    const leadCallAiBtn = document.getElementById('leadCallAiAnalyzeBtn');
+    if (leadCallAiBtn && !leadCallAiBtn.dataset.bound) {
+      leadCallAiBtn.dataset.bound = '1';
+      leadCallAiBtn.addEventListener('click', async () => {
+        if (!currentRow) return;
+        const hasWebsite = currentRow.dataset.website && currentRow.dataset.website !== 'N/A';
+        if (!hasWebsite) return;
+        const original = leadCallAiBtn.innerHTML;
+        leadCallAiBtn.disabled = true;
+        leadCallAiBtn.innerHTML = 'Analyzing…';
+        try {
+          await runAiAnalysisForRow(currentRow);
+          syncLeadCallAiAnalyzeCta(currentRow);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('AI analysis complete.', { variant: 'success' });
+          }
+        } catch (err) {
+          const msg = err && err.message ? err.message : 'AI analysis failed';
+          if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+        } finally {
+          leadCallAiBtn.disabled = false;
+          leadCallAiBtn.innerHTML = original;
         }
       });
     }
@@ -2892,10 +2972,14 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
+  const __socialBrand =
+    typeof window !== 'undefined' && window.AdhelloSocialBrand ? window.AdhelloSocialBrand : null;
   const GOOGLE_BUSINESS_ICON_SVG =
+    (__socialBrand && __socialBrand.GOOGLE_BUSINESS_ICON_SVG) ||
     '<svg class="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>';
 
   const GOOGLE_SOCIALS_TABLE_BTN_CLASS =
+    (__socialBrand && __socialBrand.GOOGLE_SOCIALS_TABLE_BTN_CLASS) ||
     'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25 transition-all hover:scale-105';
 
   let __leadPanelMapsJsBootLoading = false;
@@ -3628,21 +3712,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const headerAddress = document.getElementById('mobilePanelHeaderAddress');
-    const headerPhone = document.getElementById('mobilePanelHeaderPhone');
     const headerSocials = document.getElementById('mobilePanelHeaderSocials');
 
     if (headerAddress) {
       headerAddress.textContent = address ? formatLeadPanelAddress(address) : '—';
     }
-    if (headerPhone) {
-      if (phone) {
-        headerPhone.textContent = formatLeadPanelPhoneDisplay(phone);
-        headerPhone.classList.remove('opacity-40');
-      } else {
-        headerPhone.textContent = '—';
-        headerPhone.classList.add('opacity-40');
-      }
-    }
+    syncHeaderPhoneRow(row);
+    syncLeadCallAiAnalyzeCta(row);
 
     syncLeadPanelWideMapAndGoogleChip(row);
     requestAnimationFrame(() => {
@@ -3689,54 +3765,60 @@ document.addEventListener('DOMContentLoaded', () => {
     if (headerSocials) {
       headerSocials.innerHTML = '';
       let socialCount = 0;
+      const panelGradSuffix = String(row.dataset.leadKey || row.id || 'panel').replace(/[^a-z0-9]+/gi, '-');
+      const mapsHref = resolveGoogleMapsSocialHref(
+        row.dataset.url,
+        row.dataset.title,
+        readPipelineRowDisplayAddress(row) || row.dataset.address,
+        row.dataset.city
+      );
+      if (__socialBrand && mapsHref) {
+        const wrap = document.createElement('div');
+        wrap.innerHTML = __socialBrand.linkHtml('google', mapsHref, {
+          gradId: `igGradPanel${panelGradSuffix}`,
+          stopPropagation: false,
+        });
+        const gmLink = wrap.firstElementChild;
+        if (gmLink) {
+          headerSocials.appendChild(gmLink);
+          socialCount++;
+        }
+      }
       const socialPlatforms = [
-        {
-          key: 'facebook',
-          icon:
-            '<svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg>',
-          color: 'hover:bg-[#1877F2]',
-        },
-        {
-          key: 'instagram',
-          icon:
-            '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg>',
-          color: 'hover:bg-[#E4405F]',
-        },
-        {
-          key: 'twitter',
-          icon:
-            '<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg>',
-          color: 'hover:bg-black',
-        },
+        { key: 'facebook', platform: 'facebook' },
+        { key: 'instagram', platform: 'instagram' },
+        { key: 'twitter', platform: 'twitter' },
       ];
 
       socialPlatforms.forEach((p) => {
-        let href = null;
-        if (typeof p.hrefFrom === 'function') {
-          href = p.hrefFrom(row);
-        } else {
-          const link = row.dataset[p.key];
-          if (link && link !== 'N/A' && link !== 'undefined') {
-            href = link.startsWith('http') ? link : `https://${link}`;
+        const link = row.dataset[p.key];
+        if (!link || link === 'N/A' || link === 'undefined') return;
+        const href = link.startsWith('http') ? link : `https://${link}`;
+        if (__socialBrand) {
+          const wrap = document.createElement('div');
+          wrap.innerHTML = __socialBrand.linkHtml(p.platform, href, {
+            gradId: `igGradPanel${panelGradSuffix}-${p.platform}`,
+            stopPropagation: false,
+          });
+          const a = wrap.firstElementChild;
+          if (a) {
+            headerSocials.appendChild(a);
+            socialCount++;
           }
+          return;
         }
-        if (!href) return;
         const a = document.createElement('a');
         a.href = href;
         a.target = '_blank';
         a.rel = 'noopener noreferrer';
-        if (p.ariaLabel) a.setAttribute('aria-label', p.ariaLabel);
-        if (p.title) a.title = p.title;
-        a.className = `w-8 h-8 rounded-lg bg-brand-cream dark:bg-slate-800 flex items-center justify-center text-brand-muted hover:text-white transition-all hover:scale-110 shadow-sm border border-brand-border/10 ${p.color}`;
-        a.innerHTML = p.icon;
+        a.className =
+          'w-8 h-8 rounded-lg bg-brand-cream dark:bg-slate-800 flex items-center justify-center shadow-sm border border-brand-border/10 transition-all hover:scale-105';
         headerSocials.appendChild(a);
         socialCount++;
       });
 
-      if (socialCount === 0) {
-        headerSocials.innerHTML =
-          '<span class="text-[10px] font-bold text-brand-muted/40 uppercase tracking-widest italic">No social profiles detected</span>';
-      }
+      const headerSocialsRow = document.getElementById('headerSocialsRow');
+      if (headerSocialsRow) headerSocialsRow.classList.toggle('hidden', socialCount === 0);
     }
 
     syncLeadPrimaryServiceSelect(row);
@@ -3782,13 +3864,6 @@ document.addEventListener('DOMContentLoaded', () => {
             emailBtn.classList.add('opacity-20', 'pointer-events-none');
         }
     }
-
-    const manualPhoneInput = document.getElementById('manualPhoneInput');
-    const manualEmailInput = document.getElementById('manualEmailInput');
-    const manualContactState = document.getElementById('manualContactSavedState');
-    if (manualPhoneInput) manualPhoneInput.value = phone ? phone : '';
-    if (manualEmailInput) manualEmailInput.value = email && email !== 'N/A' ? email : '';
-    if (manualContactState) manualContactState.textContent = '';
 
     // Website logic
     const websiteShort = document.getElementById('mobilePanelWebsiteShort');
@@ -4183,7 +4258,6 @@ document.addEventListener('DOMContentLoaded', () => {
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
     syncOwnerFirstNameAndDnc(row);
-    syncLeadContactsList(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     renderLeadActivityTimeline(row, window.__leadActivityFilter);
     syncLeadPanelTouchSummary(row);
@@ -4566,68 +4640,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const short = label.length > 36 ? `${label.slice(0, 36)}…` : label;
       webSlot.innerHTML = `<a href="${escapeHtmlAttr(href)}" target="_blank" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50" title="${escapeHtmlAttr(website)}" data-url="${escapeHtmlAttr(website)}">${escapeHtmlText(short)}</a>`;
     }
-  }
-
-  const manualContactSaveBtn = document.getElementById('manualContactSaveBtn');
-  if (manualContactSaveBtn) {
-    manualContactSaveBtn.addEventListener('click', async () => {
-      if (!currentRow) return;
-      const key = currentRow.dataset.leadKey;
-      if (!key) return;
-      const manualPhoneInput = document.getElementById('manualPhoneInput');
-      const manualEmailInput = document.getElementById('manualEmailInput');
-      const manualContactState = document.getElementById('manualContactSavedState');
-      clearManualContactErrors();
-      const normalizedPhone = normalizeManualPhone(manualPhoneInput ? manualPhoneInput.value : '');
-      const normalizedEmail = normalizeManualEmail(manualEmailInput ? manualEmailInput.value : '');
-      if (normalizedPhone === null) {
-        setManualContactError('phone', 'Enter a valid phone number (7-15 digits).');
-        return;
-      }
-      if (normalizedEmail === null) {
-        setManualContactError('email', 'Enter a valid email address.');
-        return;
-      }
-      const phone = normalizedPhone;
-      const email = normalizedEmail;
-      if (manualPhoneInput) manualPhoneInput.value = phone || '';
-      if (manualEmailInput) manualEmailInput.value = email || '';
-      const prevPhone = sanitizeContactInput(currentRow.dataset.phone || '');
-      const prevEmail = sanitizeContactInput(currentRow.dataset.email || '').toLowerCase();
-      if (phoneDigitsOnly(phone) === phoneDigitsOnly(prevPhone) && email === prevEmail) {
-        if (manualContactState) manualContactState.textContent = 'No changes';
-        return;
-      }
-      const original = manualContactSaveBtn.innerHTML;
-      manualContactSaveBtn.disabled = true;
-      manualContactSaveBtn.innerHTML = 'Saving…';
-      if (manualContactState) manualContactState.textContent = '';
-      try {
-        const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          credentials: 'same-origin',
-          body: JSON.stringify({
-            phone: phone || 'N/A',
-            email: email || 'N/A',
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save contact');
-        currentRow.dataset.phone = phone || 'N/A';
-        currentRow.dataset.email = email || 'N/A';
-        updateRowContactCells(currentRow);
-        populatePanel(currentRow);
-        if (manualContactState) manualContactState.textContent = 'Saved';
-        if (typeof window.showProspectToast === 'function') window.showProspectToast('Contact updated');
-      } catch (err) {
-        if (manualContactState) manualContactState.textContent = 'Failed';
-        if (typeof window.showAppToast === 'function') window.showAppToast(err && err.message ? err.message : 'Contact update failed', { variant: 'error' });
-      } finally {
-        manualContactSaveBtn.disabled = false;
-        manualContactSaveBtn.innerHTML = original;
-      }
-    });
   }
 
   async function runLeadTelephonyAction(path, body, loadingLabel) {
@@ -6367,24 +6379,23 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="website-link text-xs font-semibold text-brand-dark dark:text-slate-300 hover:text-brand-yellow truncate block border-b border-transparent hover:border-brand-yellow/50 max-w-[200px]" title="${escapeHtmlAttr(w)}" data-url="${escapeHtmlAttr(w)}">${escapeHtmlText(disp)}</a>`;
   }
 
-  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter, title, address, city) {
+  function renderLeadSocialsSlotInner(mapsUrl, facebook, instagram, twitter, title, address, city, gradSuffix) {
     const gmResolved = resolveGoogleMapsSocialHref(mapsUrl, title, address, city);
     const gm = gmResolved ? String(gmResolved).trim() : '';
     const fb = facebook && facebook !== 'N/A' ? String(facebook).trim() : '';
     const ig = instagram && instagram !== 'N/A' ? String(instagram).trim() : '';
     const tw = twitter && twitter !== 'N/A' ? String(twitter).trim() : '';
+    const suffix = gradSuffix != null ? String(gradSuffix) : 'slot';
+    if (__socialBrand) {
+      return (
+        '<div class="flex items-center gap-2.5 pt-1.5">' +
+        __socialBrand.renderLinks({ gm, fb, ig, tw, gradSuffix: suffix }) +
+        '</div>'
+      );
+    }
     let html = '<div class="flex items-center gap-2.5 pt-1.5">';
     if (gm) {
       html += `<a href="${escapeHtmlAttr(gm)}" target="_blank" rel="noopener noreferrer" class="${GOOGLE_SOCIALS_TABLE_BTN_CLASS}" title="Google Maps / Business Profile" aria-label="Google Business Profile (opens in Maps)" onclick="event.stopPropagation()">${GOOGLE_BUSINESS_ICON_SVG}</a>`;
-    }
-    if (fb) {
-      html += `<a href="${escapeHtmlAttr(fb)}" target="_blank" rel="noopener noreferrer" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
-    }
-    if (ig) {
-      html += `<a href="${escapeHtmlAttr(ig)}" target="_blank" rel="noopener noreferrer" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
-    }
-    if (tw) {
-      html += `<a href="${escapeHtmlAttr(tw)}" target="_blank" rel="noopener noreferrer" class="w-3.5 h-3.5 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" title="X / Twitter"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.045 4.126H5.078z" /></svg></a>`;
     }
     if (!gm && !fb && !ig && !tw) {
       html += '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
@@ -6467,7 +6478,8 @@ document.addEventListener('DOMContentLoaded', () => {
           row.dataset.twitter,
           row.dataset.title,
           row.dataset.address,
-          row.dataset.city
+          row.dataset.city,
+          row.dataset.leadKey || row.id
         );
         layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
         const intelBtn = row.querySelector('.email-intel-btn');
@@ -6480,12 +6492,21 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           layout.email.innerHTML = cellOriginals.email;
         }
+        const gmBulk = resolveGoogleMapsSocialHref(
+          row.dataset.url,
+          row.dataset.title,
+          row.dataset.address,
+          row.dataset.city
+        );
         let socialsHtml = '<div class="flex items-center justify-center gap-2.5">';
-        if (row.dataset.facebook && row.dataset.facebook !== 'N/A') {
-          socialsHtml += `<a href="${row.dataset.facebook}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#1877F2] transition-colors" title="Facebook"><svg fill="currentColor" viewBox="0 0 24 24"><path d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z" /></svg></a>`;
-        }
-        if (row.dataset.instagram && row.dataset.instagram !== 'N/A') {
-          socialsHtml += `<a href="${row.dataset.instagram}" target="_blank" class="w-4 h-4 text-brand-muted hover:text-[#E4405F] transition-colors" title="Instagram"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7.75 2h8.5A5.75 5.75 0 0122 7.75v8.5A5.75 5.75 0 0116.25 22h-8.5A5.75 5.75 0 012 16.25v-8.5A5.75 5.75 0 017.75 2z" /><path stroke-linecap="round" stroke-linejoin="round" d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z" /><path stroke-linecap="round" stroke-linejoin="round" d="M17.5 6.5h.01" /></svg></a>`;
+        if (__socialBrand) {
+          socialsHtml += __socialBrand.renderLinks({
+            gm: gmBulk,
+            fb: row.dataset.facebook,
+            ig: row.dataset.instagram,
+            tw: row.dataset.twitter,
+            gradSuffix: row.dataset.leadKey || 'bulk',
+          });
         }
         socialsHtml += '</div>';
         layout.social.innerHTML = socialsHtml;

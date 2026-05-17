@@ -37,6 +37,7 @@ const outreachRoutes = require('./routes/outreach');
 const prospectingRoutes = require('./routes/prospecting');
 const foldersRoutes = require('./routes/folders');
 const attachWorkspace = require('./middleware/attachWorkspace');
+const socialBrandIcons = require('./services/socialBrandIcons');
 const iaNav = require('./middleware/iaNav');
 const iaRedirects = require('./routes/iaRedirects');
 const todayRoutes = require('./routes/today');
@@ -87,6 +88,8 @@ app.use(session({
 }));
 app.use(passport.initialize());
 app.use(passport.session());
+
+app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
 
 // Global middleware for templates
 app.use((req, res, next) => {
