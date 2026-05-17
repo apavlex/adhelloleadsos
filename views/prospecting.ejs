@@ -23,6 +23,7 @@
     </nav>
 
     <% if (activeTab === 'pipeline') { %>
+      <%- include('partials/google_drive_connection_banner') %>
       <%- include('partials/prospecting_board') %>
     <% } else if (activeTab === 'queue') { %>
       <%- include('partials/scheduled_jobs_content', {
