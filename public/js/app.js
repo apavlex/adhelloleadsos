@@ -2802,11 +2802,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncRowSocialsUnderPhone(row) {
     if (!row || typeof row.querySelector !== 'function') return;
     const html = renderRowSocialBrandLinksHtml(row);
-    row.querySelectorAll('.lead-cell-socials-under-phone').forEach((slot) => {
-      slot.innerHTML = html;
-    });
-    const legacy = row.querySelector('.lead-cell-socials-content');
-    if (legacy) legacy.innerHTML = html;
+    const slot = row.querySelector('.lead-cell-socials-content');
+    if (slot) slot.innerHTML = html;
   }
 
   function syncLeadCallAiAnalyzeCta(row) {
@@ -6589,8 +6586,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const phone = row.querySelector('.lead-contact-phone-slot');
       const email = row.querySelector('.lead-contact-email-slot');
       const website = row.querySelector('.lead-contact-web-slot');
-      const socials =
-        row.querySelector('.lead-cell-socials-under-phone') || row.querySelector('.lead-cell-socials-content');
+      const socials = row.querySelector('.lead-cell-socials-content');
       if (!phone || !email || !website) return null;
       return {
         kind: 'leads',
