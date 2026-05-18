@@ -692,6 +692,10 @@ table {
   border-color: var(--brand-yellow);
 }
 
+.prospect-leads-table tr.result-row.pipeline-row-page-hidden {
+  display: none !important;
+}
+
 /* Search Container 2.0 Animations */
 #searchContainer {
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
@@ -931,7 +935,7 @@ table {
     pointer-events: none;
 }
 #leadPanelOutreachDrawer.lead-panel-outreach-drawer.lead-panel-outreach-drawer--open {
-    max-height: 160px;
+    max-height: min(22rem, 70vh);
     opacity: 1;
     pointer-events: auto;
 }

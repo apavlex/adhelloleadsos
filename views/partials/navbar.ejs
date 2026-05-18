@@ -1315,7 +1315,12 @@
       applyDockRight();
     }
     openSoftphone();
+    syncSoftphoneStacking();
+    if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+      window.__adhelloRefreshSoftphonePosition();
+    }
     setTimeout(function () {
+      syncSoftphoneStacking();
       spTo = document.getElementById('softphoneToNumber');
       if (!spTo) return;
       if (spTo.value !== to) setSoftphoneDialNumber(to);

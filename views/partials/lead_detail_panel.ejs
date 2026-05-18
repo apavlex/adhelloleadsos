@@ -452,10 +452,6 @@
           </select>
           <p id="leadCadencePlaybookDesc" class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed">—</p>
           <p id="leadCadenceActiveStatus" class="hidden text-[11px] font-semibold text-violet-900 dark:text-violet-100 leading-relaxed rounded-xl bg-white/60 dark:bg-slate-900/50 border border-violet-300/30 dark:border-violet-600/30 px-3 py-2"></p>
-          <div id="cadencePlaybookStepsWrap" class="hidden rounded-2xl border border-violet-300/35 dark:border-violet-600/35 bg-white/70 dark:bg-slate-900/50 p-4">
-            <p class="text-[9px] font-black uppercase tracking-widest text-violet-800 dark:text-violet-200 mb-2">Playbook steps</p>
-            <ol id="cadencePlaybookStepsList" class="list-none m-0 p-0 space-y-2" role="list" aria-label="Playbook steps"></ol>
-          </div>
         </div>
         <div class="flex flex-col sm:flex-row flex-wrap gap-2">
           <button type="button" id="sidebarCadenceStartBtn" class="btn-pill bg-violet-600 text-white py-2.5 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Start playbook</button>
@@ -477,6 +473,11 @@
               <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Last touch channel</p>
               <p id="cadenceChannelLine" class="text-sm font-bold text-brand-dark dark:text-white">—</p>
             </div>
+          </div>
+          <div id="cadencePlaybookStepsWrap" class="hidden rounded-2xl border border-violet-300/35 dark:border-violet-600/35 bg-white/70 dark:bg-slate-900/50 p-4">
+            <p id="cadencePlaybookStepsHeading" class="text-[9px] font-black uppercase tracking-widest text-violet-800 dark:text-violet-200 mb-2">Touches in this playbook</p>
+            <p id="cadencePlaybookStepsHint" class="hidden text-[10px] text-brand-muted dark:text-slate-400 mb-2 leading-relaxed">Complete each step and log activity on the lead. Your current step is highlighted.</p>
+            <ol id="cadencePlaybookStepsList" class="list-none m-0 p-0 space-y-2" role="list" aria-label="Playbook touches"></ol>
           </div>
           <div id="cadenceSequenceWrap" class="hidden rounded-2xl bg-white/50 dark:bg-slate-900/40 border border-brand-border/15 dark:border-white/10 p-4">
             <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Sequence</p>

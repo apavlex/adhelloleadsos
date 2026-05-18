@@ -1,0 +1,21 @@
+<% const npm = typeof nightlyPrepMeta !== 'undefined' && nightlyPrepMeta ? nightlyPrepMeta : {}; %>
+<form method="post" action="/leads/find/nightly-prep-settings" id="findNightlyPrepForm" class="find-nightly-prep-toggle shrink-0">
+  <input type="hidden" name="enabled" id="findNightlyPrepEnabled" value="<%= npm.enabled ? '1' : '0' %>" />
+  <label class="inline-flex items-center gap-2 cursor-pointer text-[10px] font-bold text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white whitespace-nowrap" title="Run overnight Maps prep using your workspace ICP (same keyword/city/state as Find leads). Requires Render cron on /api/cron/nightly-prep.">
+    <input type="checkbox" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" aria-label="Run overnight Maps prep nightly for this workspace" <%= npm.enabled ? 'checked' : '' %> />
+    <span class="hidden sm:inline">Nightly Maps prep</span>
+  </label>
+</form>
+<script>
+(function () {
+  var form = document.getElementById('findNightlyPrepForm');
+  if (!form) return;
+  var hidden = document.getElementById('findNightlyPrepEnabled');
+  var cb = form.querySelector('input[type="checkbox"]');
+  if (!hidden || !cb) return;
+  cb.addEventListener('change', function () {
+    hidden.value = cb.checked ? '1' : '0';
+    form.submit();
+  });
+})();
+</script>

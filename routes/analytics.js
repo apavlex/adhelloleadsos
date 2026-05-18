@@ -3,16 +3,8 @@ const router = express.Router();
 const dbService = require('../services/database');
 const activationService = require('../services/activationService');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
-const { buildDayRollup } = require('../services/trackerStats');
-const {
-  inferDailyTouchCountsFromLeads,
-  displayTouchTotalsForDay,
-  buildDailyChartDisplaySeries,
-  enrichRollupWithLeadInference,
-  computeOutreachStreakWithLeads,
-} = require('../services/trackerAutoFill');
-const { buildOutreachCoachSnapshot } = require('../services/outreachCoachSnapshot');
 const { buildConversionSnapshot } = require('../services/conversionMetrics');
+const { loadSalesTrackerLocals } = require('../services/salesTrackerLocals');
 const { computeCategoryBreakdown } = require('../services/auditReportModel');
 
 function buildSiteAuditReportLocals(req, leads) {
@@ -66,45 +58,6 @@ function buildSiteAuditReportLocalsFromViews(req, leads, sinceIso) {
       reportAuditRubricLegend: rubricLegend,
     };
   });
-}
-
-async function loadSalesTrackerLocals(req) {
-  const email = userEmail(req);
-  const wid = req.workspaceId;
-  const today = new Date().toISOString().slice(0, 10);
-  const todayRow = await dbService.getDailyTracker(wid, email, today);
-  const history = await dbService.listDailyTrackers(wid, email, 14);
-  const history60 = await dbService.listDailyTrackers(wid, email, 62);
-  const allLeads = await dbService.getAllLeads(wid);
-  const leadsScoped = filterLeadsForRequest(req, allLeads);
-  const chartSeries = buildDailyChartDisplaySeries(today, history, 14, leadsScoped);
-  const streak = computeOutreachStreakWithLeads(history60, today, leadsScoped);
-  const checklistWeek = enrichRollupWithLeadInference(buildDayRollup(today, history60, 7), leadsScoped);
-  const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
-  const outreachCoach = await buildOutreachCoachSnapshot(req);
-  const trackerInferred = inferDailyTouchCountsFromLeads(leadsScoped, today);
-  const trackerDisplayToday = displayTouchTotalsForDay(todayRow || null, leadsScoped, today);
-  return {
-    today,
-    todayRow: todayRow || {
-      coldEmails: 0,
-      coldDms: 0,
-      coldCalls: 0,
-      upworkBids: 0,
-      socialPosts: 0,
-      adCreatives: 0,
-      notes: '',
-      callNotes: '',
-    },
-    chartSeries,
-    streak,
-    checklistWeek,
-    checklistMonth,
-    outreachCoach,
-    trackerInferred,
-    trackerDisplayToday,
-    trackerReturnTo: `/reports?tab=tracker&scope=${String(req.query.scope || 'workspace')}`,
-  };
 }
 
 /**

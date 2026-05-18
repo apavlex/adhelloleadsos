@@ -1,6 +1,6 @@
 /**
  * Nightly prospecting prep: Maps search + enrichment → saved search + pipeline leads.
- * Triggered by Render cron (GET /api/cron/nightly-prep) or manual POST from /today.
+ * Triggered by Render cron (GET /api/cron/nightly-prep) when workspace nightlyPrep.enabled is set on Find leads.
  */
 
 const mapsSearch = require('./mapsSearch');

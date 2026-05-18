@@ -201,7 +201,9 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
     }
     const returnTo = (req.body.returnTo || '').toString().trim();
     const dest = (() => {
-      if (['/sales/tracker', '/reports', '/analytics', '/outreach?tab=touches', '/prospecting?tab=queue'].includes(returnTo)) return returnTo;
+      if (['/sales/tracker', '/reports', '/analytics', '/today', '/outreach?tab=touches', '/prospecting?tab=queue'].includes(returnTo)) {
+        return returnTo === '/today' ? '/today?trackerSaved=1' : returnTo;
+      }
       if (returnTo.startsWith('/reports?') || returnTo.startsWith('/analytics?')) {
         try {
           const u = new URL(returnTo, 'http://localhost');

@@ -12,6 +12,11 @@
       Sample leads were added to your Pipeline. You can edit or delete them anytime.
     </div>
     <% } %>
+    <% if (typeof trackerSavedNotice !== 'undefined' && trackerSavedNotice) { %>
+    <div class="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-50/90 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-950 dark:text-emerald-100">
+      Daily tracker saved. The same numbers appear on Reports → Daily action tracker.
+    </div>
+    <% } %>
     <% if (typeof searchInProgressNotice !== 'undefined' && searchInProgressNotice) { %>
     <div class="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 dark:border-brand-yellow/30 px-4 py-3 text-sm text-brand-dark dark:text-brand-yellow">
       Lead run in progress. You can keep working here — we’ll notify you in-app when results are ready.
@@ -20,17 +25,6 @@
       <% } %>
     </div>
     <% } %>
-    <% if (typeof nightlyPrepSavedNotice !== 'undefined' && nightlyPrepSavedNotice) { %>
-    <div class="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-50/90 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-950 dark:text-emerald-100">
-      Overnight prep settings saved. Cron must call <code class="text-xs opacity-90">GET /api/cron/nightly-prep</code> with your <code class="text-xs opacity-90">CRON_SECRET</code>.
-    </div>
-    <% } %>
-    <% if (typeof nightlyPrepStartedNotice !== 'undefined' && nightlyPrepStartedNotice) { %>
-    <div class="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-3 text-sm text-brand-dark dark:text-brand-yellow">
-      Prep run started in the background. Refresh in a few minutes — new leads appear in Pipeline with source <span class="font-bold">nightly_prep</span>.
-    </div>
-    <% } %>
-
     <% const _csHeader = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
     <% const _pvHeader = typeof _csHeader.pipelineValueCreated7d === 'number' ? _csHeader.pipelineValueCreated7d : 0; %>
     <% const _touchesToday = typeof touchesToday !== 'undefined' ? touchesToday : 0; %>
@@ -86,7 +80,7 @@
     })();
     </script>
 
-    <%- include('partials/today_nightly_prep') %>
+    <%- include('partials/review_today_widget') %>
 
     <% const _fuTasks = typeof followUpTasksToday !== 'undefined' && followUpTasksToday ? followUpTasksToday : []; %>
     <% if (_fuTasks.length) { %>

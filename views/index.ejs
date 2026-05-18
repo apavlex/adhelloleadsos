@@ -27,12 +27,15 @@
       </p>
 
       <div class="sticky top-20 z-20 mb-6 max-w-5xl mx-auto rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md px-4 py-3 shadow-sm">
-        <nav class="flex flex-wrap gap-5 pb-3 mb-3 border-b border-brand-border/30 dark:border-white/10 text-[10px] font-black uppercase tracking-widest" aria-label="Leads navigation">
-          <a href="/leads/find" class="text-brand-dark dark:text-white">Find</a>
-          <a href="/prospecting?tab=queue" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Queue</a>
-          <a href="/prospecting?tab=pipeline" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Pipeline</a>
-          <a href="/prospecting?tab=folders" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Folders</a>
-        </nav>
+        <div class="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-brand-border/30 dark:border-white/10">
+          <nav class="flex flex-wrap gap-5 text-[10px] font-black uppercase tracking-widest" aria-label="Leads navigation">
+            <a href="/leads/find" class="text-brand-dark dark:text-white">Find</a>
+            <a href="/prospecting?tab=queue" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Queue</a>
+            <a href="/prospecting?tab=pipeline" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Pipeline</a>
+            <a href="/prospecting?tab=folders" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Folders</a>
+          </nav>
+          <%- include('partials/find_nightly_prep_checkbox') %>
+        </div>
       </div>
 
       <!-- Map + search hub: map first, then keyword row -->

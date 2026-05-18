@@ -39,6 +39,8 @@ async function renderFindLeads(req, res, next) {
         }
       : { keyword: '', city: '', state: '', qty: 20 };
 
+    const nightlyPrepMeta = workspace.nightlyPrep || {};
+
     return res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'search',
@@ -54,6 +56,7 @@ async function renderFindLeads(req, res, next) {
       folders,
       searchPrefill,
       presetIcp,
+      nightlyPrepMeta,
     });
   } catch (e) {
     return next(e);
@@ -64,6 +67,20 @@ router.get('/', (req, res) => {
   res.redirect(302, '/today');
 });
 router.get('/leads/find', renderFindLeads);
+
+/** Toggle overnight Maps prep for this workspace (cron: GET /api/cron/nightly-prep). */
+router.post('/leads/find/nightly-prep-settings', express.urlencoded({ extended: true }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const enabled = String(req.body.enabled || '').trim() === '1';
+    ws.nightlyPrep = { ...(ws.nightlyPrep || {}), enabled };
+    await dbService.saveWorkspace(wid, ws);
+    res.redirect('/leads/find');
+  } catch (e) {
+    next(e);
+  }
+});
 
 // GET /schedules — canonical UI is Prospecting → Queue (scheduled jobs table)
 router.get('/schedules', (req, res) => {

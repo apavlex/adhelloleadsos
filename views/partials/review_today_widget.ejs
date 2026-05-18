@@ -1,0 +1,129 @@
+<% const _ti = typeof trackerInferred !== 'undefined' && trackerInferred ? trackerInferred : { coldCalls: 0, coldEmails: 0, coldDms: 0, upworkBids: 0, socialPosts: 0, adCreatives: 0 }; %>
+<% const _tiTot = (_ti.coldCalls || 0) + (_ti.coldEmails || 0) + (_ti.coldDms || 0) + (_ti.upworkBids || 0) + (_ti.socialPosts || 0) + (_ti.adCreatives || 0); %>
+<% const _todayStr = typeof today !== 'undefined' && today ? today : new Date().toISOString().slice(0, 10); %>
+<% const _todayRow = typeof todayRow !== 'undefined' && todayRow ? todayRow : {}; %>
+<% const _returnTo = typeof trackerReturnTo !== 'undefined' && trackerReturnTo ? trackerReturnTo : '/reports?tab=tracker'; %>
+
+<section class="mb-8 md:mb-10 scroll-mt-24" id="review-today" aria-label="Review today">
+  <% if (_tiTot > 0) { %>
+  <div class="brand-card p-6 dark:bg-slate-900 dark:border-white/10 mb-6 border border-brand-yellow/25 bg-brand-yellow/5 dark:bg-brand-yellow/10">
+    <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Detected today (UTC)</p>
+        <p class="text-sm text-brand-dark dark:text-white font-semibold">From lead logs: <%= _ti.coldCalls %> calls · <%= _ti.coldEmails %> email steps · <%= _ti.coldDms %> LinkedIn / DM steps</p>
+        <p class="text-[11px] text-brand-muted mt-2 max-w-2xl">Softphone and sequence events already feed your chart and checklist. Use the button only if you want the same numbers reflected in the saved fields below (we take the higher of saved vs. detected per channel — no double-count).</p>
+      </div>
+      <button type="button" id="trackerApplyInferred" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0">Align form with activity</button>
+    </div>
+  </div>
+  <script type="application/json" id="tracker-inferred-json"><%- JSON.stringify(_ti) %></script>
+  <% } %>
+
+  <div id="tracker" class="grid lg:grid-cols-2 gap-8">
+    <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <div class="flex flex-wrap items-start justify-between gap-3 mb-1">
+        <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Review today · <%= _todayStr %></h2>
+        <a href="/reports?tab=tracker" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Full tracker →</a>
+      </div>
+      <p class="text-xs text-brand-muted mb-6">These fields are for adjustments and notes — calls and cadence steps from the pipeline already lift your chart, streak, and checklist. Only change a number if you need to correct or add something that did not hit a lead timeline.</p>
+      <form action="/sales/tracker" method="post" class="space-y-4">
+        <input type="hidden" name="date" value="<%= _todayStr %>" />
+        <input type="hidden" name="returnTo" value="<%= _returnTo %>" />
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold emails</label>
+            <input id="trackerInputColdEmails" name="coldEmails" type="number" min="0" value="<%= _todayRow.coldEmails != null ? _todayRow.coldEmails : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold DMs</label>
+            <input id="trackerInputColdDms" name="coldDms" type="number" min="0" value="<%= _todayRow.coldDms != null ? _todayRow.coldDms : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Cold calls</label>
+            <input id="trackerInputColdCalls" name="coldCalls" type="number" min="0" value="<%= _todayRow.coldCalls != null ? _todayRow.coldCalls : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Upwork / bids</label>
+            <input name="upworkBids" type="number" min="0" value="<%= _todayRow.upworkBids != null ? _todayRow.upworkBids : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Social posts</label>
+            <input name="socialPosts" type="number" min="0" value="<%= _todayRow.socialPosts != null ? _todayRow.socialPosts : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Ad creatives</label>
+            <input name="adCreatives" type="number" min="0" value="<%= _todayRow.adCreatives != null ? _todayRow.adCreatives : 0 %>" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white" />
+          </div>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Call / dialer notes</label>
+          <textarea name="callNotes" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Numbers dialed, outcomes, follow-ups…"><%= _todayRow.callNotes || '' %></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Day notes</label>
+          <textarea name="notes" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Wins, blockers, tomorrow’s focus…"><%= _todayRow.notes || '' %></textarea>
+        </div>
+        <button type="submit" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Save adjustments</button>
+      </form>
+    </div>
+
+    <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
+      <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Today’s picture</h2>
+      <p class="text-[11px] text-brand-muted mb-4">Higher of <strong class="text-brand-dark dark:text-white">saved</strong> vs <strong class="text-brand-dark dark:text-white">detected</strong> from lead activity (per channel).</p>
+      <% const t = _todayRow; %>
+      <% const _td = typeof trackerDisplayToday !== 'undefined' && trackerDisplayToday ? trackerDisplayToday : null; %>
+      <% const _de = _td ? _td.emails : (parseInt(t.coldEmails,10)||0); %>
+      <% const _dd = _td ? _td.dms : (parseInt(t.coldDms,10)||0); %>
+      <% const _dc = _td ? _td.calls : (parseInt(t.coldCalls,10)||0); %>
+      <% const _db = _td ? _td.bids : (parseInt(t.upworkBids,10)||0); %>
+      <% const _ds = _td ? _td.socialPosts : (parseInt(t.socialPosts,10)||0); %>
+      <% const _da = _td ? _td.adCreatives : (parseInt(t.adCreatives,10)||0); %>
+      <dl class="grid grid-cols-2 gap-4 text-sm">
+        <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
+          <dt class="text-[10px] font-black uppercase text-brand-muted">Emails + DMs</dt>
+          <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _de + _dd %></dd>
+        </div>
+        <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
+          <dt class="text-[10px] font-black uppercase text-brand-muted">Calls</dt>
+          <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _dc %></dd>
+        </div>
+        <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
+          <dt class="text-[10px] font-black uppercase text-brand-muted">Bids</dt>
+          <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _db %></dd>
+        </div>
+        <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
+          <dt class="text-[10px] font-black uppercase text-brand-muted">Social posts</dt>
+          <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _ds %></dd>
+        </div>
+        <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10 col-span-2">
+          <dt class="text-[10px] font-black uppercase text-brand-muted">Ad creatives</dt>
+          <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _da %></dd>
+        </div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  var applyBtn = document.getElementById('trackerApplyInferred');
+  var jsonEl = document.getElementById('tracker-inferred-json');
+  if (!applyBtn || !jsonEl) return;
+  applyBtn.addEventListener('click', function () {
+    var j = {};
+    try {
+      j = JSON.parse(jsonEl.textContent || '{}');
+    } catch (e) {}
+    function setMax(id, key) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var cur = parseInt(el.value, 10) || 0;
+      var det = parseInt(j[key], 10) || 0;
+      el.value = String(Math.max(cur, det));
+    }
+    setMax('trackerInputColdEmails', 'coldEmails');
+    setMax('trackerInputColdDms', 'coldDms');
+    setMax('trackerInputColdCalls', 'coldCalls');
+  });
+})();
+</script>

@@ -237,10 +237,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
     rows.forEach((row) => tableBody.appendChild(row));
     updateProspectSortHeaderUi(columnKey, descending);
+    if (typeof window.__pipelineTablePagingApply === 'function') {
+      window.__pipelineTablePagingApply();
+    }
   };
+
+  const PIPELINE_LEADS_PAGE_SIZE = 54;
 
   const prospectTable = document.getElementById('prospectLeadsTable');
   if (prospectTable) {
+    (function initPipelineTablePaging() {
+      const table = prospectTable;
+      const tbody = table.querySelector('tbody');
+      const statusEl = document.getElementById('pipelineTablePageStatus');
+      const loadMoreBtn = document.getElementById('pipelineTableLoadMore');
+      const pagingWrap = document.getElementById('pipelineTablePaging');
+      if (!tbody || !statusEl || !loadMoreBtn || !pagingWrap) return;
+
+      let visibleLimit = PIPELINE_LEADS_PAGE_SIZE;
+
+      function pipelineRows() {
+        return Array.from(tbody.querySelectorAll('tr.result-row'));
+      }
+
+      function applyPipelinePaging() {
+        const rows = pipelineRows();
+        const total = rows.length;
+        rows.forEach((row, index) => {
+          row.classList.toggle('pipeline-row-page-hidden', index >= visibleLimit);
+        });
+        const shown = Math.min(visibleLimit, total);
+        statusEl.textContent =
+          total > 0
+            ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${PIPELINE_LEADS_PAGE_SIZE} per page`
+            : '';
+        const hasMore = total > visibleLimit;
+        loadMoreBtn.classList.toggle('hidden', !hasMore);
+        pagingWrap.classList.toggle('hidden', total === 0);
+        if (hasMore) {
+          const nextBatch = Math.min(PIPELINE_LEADS_PAGE_SIZE, total - visibleLimit);
+          loadMoreBtn.textContent = `Load more (${nextBatch} more)`;
+          loadMoreBtn.disabled = false;
+        }
+        if (typeof window.__syncSelectAllLeadCheckbox === 'function') {
+          window.__syncSelectAllLeadCheckbox();
+        }
+      }
+
+      loadMoreBtn.addEventListener('click', () => {
+        visibleLimit += PIPELINE_LEADS_PAGE_SIZE;
+        applyPipelinePaging();
+      });
+
+      window.__pipelineTablePagingApply = applyPipelinePaging;
+      applyPipelinePaging();
+    })();
+
     (function initPipelineToolbarEarly() {
       const table = prospectTable;
       const densityKey = 'prospectLeadTableDensity';
@@ -1936,19 +1988,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function notifyLeadPanelDial(message, variant) {
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { variant: variant || 'info' });
+    } else if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(message);
+    } else {
+      alert(message);
+    }
+  }
+
+  function openLeadPanelSoftphone(phone, leadKey, options) {
+    const raw = String(phone || '').trim();
+    if (!raw) return false;
+    if (typeof openLeadPanelOutreach === 'function') openLeadPanelOutreach();
+    const opts = { autoDial: true, leadKey: String(leadKey || '').trim(), ...(options || {}) };
+    if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') return false;
+    const opened = window.__adhelloOpenSoftphoneWithDial(raw, opts);
+    if (!opened) return false;
+    requestAnimationFrame(() => {
+      if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+        window.__adhelloRefreshSoftphonePosition();
+      }
+      if (typeof window.__adhelloFocusSoftphone === 'function') {
+        window.__adhelloFocusSoftphone();
+      }
+    });
+    return true;
+  }
+
   async function triggerLeadPanelCall() {
     if (!currentRow) {
-      alert('Select a lead first.');
+      notifyLeadPanelDial('Select a lead first.', 'error');
       return;
     }
     const key = currentRow.dataset.leadKey;
     if (!key) {
-      alert('Save this lead first before calling.');
+      notifyLeadPanelDial('Save this lead first before calling.', 'error');
       return;
     }
     const phone = resolveCurrentLeadDialPhone();
     if (!phone) {
-      alert('This lead has no valid phone number.');
+      notifyLeadPanelDial('This lead has no valid phone number.', 'error');
       return;
     }
     const clickToCallBtn = document.getElementById('clickToCallBtn');
@@ -1958,18 +2039,24 @@ document.addEventListener('DOMContentLoaded', () => {
       clickToCallBtn.textContent = 'Opening dialer…';
     }
     try {
-      const opened =
-        typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
-        window.__adhelloOpenSoftphoneWithDial(phone, { autoDial: true, leadKey: key });
-      if (!opened) {
-        await requestLeadCallByKey(key, phone);
-        if (typeof window.showProspectToast === 'function') {
-          window.showProspectToast('Calling lead');
-        }
-        populatePanel(currentRow);
+      const opened = openLeadPanelSoftphone(phone, key, { autoDial: true });
+      if (opened) {
+        notifyLeadPanelDial('AdHello dialer opened — number loaded.', 'success');
+        return;
       }
+      if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') {
+        notifyLeadPanelDial(
+          'Dialer is still loading. Use the phone icon in the top bar, or refresh and try again.',
+          'error'
+        );
+        return;
+      }
+      notifyLeadPanelDial('Could not open the dialer for this number. Check the phone format.', 'error');
+      await requestLeadCallByKey(key, phone);
+      notifyLeadPanelDial('Calling lead via workspace routing…', 'success');
+      populatePanel(currentRow);
     } catch (err) {
-      alert(err.message || 'Failed to start call.');
+      notifyLeadPanelDial(err.message || 'Failed to start call.', 'error');
     } finally {
       if (clickToCallBtn) {
         clickToCallBtn.disabled = false;
@@ -5279,7 +5366,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Attach this playbook and schedule step 1';
     }
 
-    renderCadencePlaybookSteps(row);
+    renderCadencePlaybookSteps(row, { requireActive: false });
   }
 
   function cadenceNextStepFromSequence(row, seq) {
@@ -5369,23 +5456,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return stepIndex === 0 ? 'preview' : 'upcoming';
   }
 
-  function renderCadencePlaybookSteps(row) {
+  function renderCadencePlaybookSteps(row, opts) {
+    const options = opts || {};
     const wrap = document.getElementById('cadencePlaybookStepsWrap');
     const list = document.getElementById('cadencePlaybookStepsList');
+    const stepsHeading = document.getElementById('cadencePlaybookStepsHeading');
+    const stepsHint = document.getElementById('cadencePlaybookStepsHint');
+    const nextLineEl = document.getElementById('cadenceNextStepLine');
+    const nextWrap = nextLineEl ? nextLineEl.closest('.rounded-2xl') : null;
     if (!wrap || !list) return;
 
     const sel = document.getElementById('leadCadencePlaybookSelect');
     const selectedId = sel ? String(sel.value || '').trim() : '';
     const tpl = findSequenceTemplate(selectedId);
     const steps = resolveTemplateSteps(tpl);
+    const seq = row ? parseRowSequenceState(row) : null;
+    const seqMatches = !!(seq && seq.templateId && String(seq.templateId) === selectedId);
+    const seqActive =
+      seqMatches && seq && (seq.status === 'active' || seq.status === 'paused' || seq.status === 'completed');
+
     if (!tpl || !steps.length) {
       wrap.classList.add('hidden');
       list.innerHTML = '';
+      if (stepsHint) stepsHint.classList.add('hidden');
+      if (nextWrap) nextWrap.classList.remove('hidden');
       return;
     }
 
-    const seq = row ? parseRowSequenceState(row) : null;
-    const seqMatches = !!(seq && seq.templateId && String(seq.templateId) === selectedId);
+    if (options.requireActive && !seqActive) {
+      wrap.classList.add('hidden');
+      list.innerHTML = '';
+      if (stepsHint) stepsHint.classList.add('hidden');
+      if (nextWrap) nextWrap.classList.remove('hidden');
+      return;
+    }
     const activeOther =
       seq &&
       seq.templateId &&
@@ -5394,6 +5498,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     wrap.classList.remove('hidden');
     list.innerHTML = '';
+
+    if (stepsHeading) {
+      stepsHeading.textContent = seqActive
+        ? 'Touches to complete'
+        : 'Touches in this playbook';
+    }
+    if (stepsHint) {
+      if (seqActive && seq.status === 'active') {
+        stepsHint.textContent =
+          'Complete each step and log activity on the lead. Your current step is highlighted.';
+        stepsHint.classList.remove('hidden');
+      } else if (seqActive && seq.status === 'paused') {
+        stepsHint.textContent = 'Cadence is paused — resume when you are ready to continue the steps below.';
+        stepsHint.classList.remove('hidden');
+      } else if (seqActive && seq.status === 'completed') {
+        stepsHint.textContent = 'This playbook is complete. You can restart from the cadence controls above.';
+        stepsHint.classList.remove('hidden');
+      } else {
+        stepsHint.textContent =
+          'Press Start playbook above to schedule these touches. Step 1 is where you begin.';
+        stepsHint.classList.remove('hidden');
+      }
+    }
+    if (nextWrap) {
+      if (seqActive && seq.status === 'active') nextWrap.classList.add('hidden');
+      else nextWrap.classList.remove('hidden');
+    }
 
     if (activeOther) {
       const otherTpl = findSequenceTemplate(seq.templateId);
@@ -5511,6 +5642,14 @@ document.addEventListener('DOMContentLoaded', () => {
       li.appendChild(body);
       list.appendChild(li);
     });
+
+    if (options.scrollIntoView) {
+      try {
+        wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      } catch {
+        wrap.scrollIntoView();
+      }
+    }
   }
 
   function ensureCadencePlaybookDataReady() {
@@ -6601,46 +6740,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
 
-  const clickToCallBtn = document.getElementById('clickToCallBtn');
-  if (clickToCallBtn) {
-    clickToCallBtn.addEventListener('click', async () => {
-      if (!currentRow) {
-        alert('Select a lead first.');
-        return;
-      }
-      const key = currentRow.dataset.leadKey;
-      if (!key) {
-        alert('Save this lead first before calling.');
-        return;
-      }
-      const phone = resolveCurrentLeadDialPhone();
-      if (!phone) {
-        alert('This lead has no valid phone number.');
-        return;
-      }
-      const original = clickToCallBtn.textContent;
-      clickToCallBtn.disabled = true;
-      clickToCallBtn.textContent = 'Opening dialer…';
-      try {
-        const opened =
-          typeof window.__adhelloOpenSoftphoneWithDial === 'function' &&
-          window.__adhelloOpenSoftphoneWithDial(phone, { autoDial: true, leadKey: key });
-        if (!opened) {
-          await requestLeadCallByKey(key, phone);
-          if (typeof window.showProspectToast === 'function') {
-            window.showProspectToast('Calling lead');
-          }
-          populatePanel(currentRow);
-        }
-      } catch (err) {
-        alert(err.message || 'Failed to start call.');
-      } finally {
-        clickToCallBtn.disabled = false;
-        clickToCallBtn.textContent = original;
-      }
-    });
-  }
-
   document.addEventListener('click', (e) => {
     const trigger =
       e.target && e.target.closest
@@ -6675,6 +6774,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const lk = (row && row.dataset && row.dataset.leadKey) || leadKey || '';
     if (lk) dialOpts.leadKey = lk;
     if (trigger.closest('#prospectLeadsTable')) dialOpts.autoDial = false;
+    if (openLeadPanelSoftphone(phoneToFill, lk, dialOpts)) return;
     if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
       window.__adhelloOpenSoftphoneWithDial(phoneToFill, dialOpts);
       return;
@@ -7257,12 +7357,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = findSequenceTemplate(templateId);
         window.showAppToast(t ? `Started: ${t.name}` : 'Cadence started', { variant: 'success' });
       }
+      await ensureCadencePlaybookDataReady();
       if (typeof populatePanel === 'function') populatePanel(currentRow);
+      else {
+        syncCadencePlaybookPanel(currentRow);
+        renderCadencePlaybookSteps(currentRow, { scrollIntoView: true });
+      }
     } catch (err) {
       const msg = err && err.message ? err.message : 'Start failed';
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
+      if (btn) btn.disabled = false;
       syncCadencePlaybookPanel(currentRow);
+      renderCadencePlaybookSteps(currentRow, { scrollIntoView: true });
     }
   }
 
@@ -7854,7 +7961,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Bulk Selection & Actions ---
   const selectAllLeads = document.getElementById('selectAllLeads');
-  const leadCheckboxes = document.querySelectorAll('.lead-checkbox');
   const bulkActionBar = document.getElementById('bulkActionBar');
   const selectedCountCircle = document.getElementById('selectedCountCircle');
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
@@ -7871,6 +7977,53 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkFocusModeBtn = document.getElementById('bulkFocusModeBtn');
 
   let selectedKeys = new Set();
+  let bulkSelectSyncing = false;
+
+  /** Row checkboxes for the current table page (pipeline, inbound, or search results). */
+  function getPageLeadCheckboxes() {
+    const pipelineTable = document.getElementById('prospectLeadsTable');
+    if (pipelineTable) {
+      return Array.from(
+        pipelineTable.querySelectorAll(
+          'tbody tr.result-row:not(.pipeline-row-page-hidden) .lead-checkbox',
+        ),
+      );
+    }
+    const tableView = document.getElementById('tableView');
+    if (tableView) {
+      return Array.from(tableView.querySelectorAll('tbody tr.result-row .lead-checkbox'));
+    }
+    return Array.from(document.querySelectorAll('tbody tr.result-row .lead-checkbox'));
+  }
+
+  function syncSelectAllLeadCheckbox() {
+    const header = document.getElementById('selectAllLeads');
+    const boxes = getPageLeadCheckboxes();
+    if (!header || !boxes.length) return;
+    const checkedCount = boxes.filter((cb) => cb.checked).length;
+    header.checked = checkedCount > 0 && checkedCount === boxes.length;
+    header.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  }
+  window.__syncSelectAllLeadCheckbox = syncSelectAllLeadCheckbox;
+
+  function setPageLeadSelection(checked) {
+    bulkSelectSyncing = true;
+    try {
+      getPageLeadCheckboxes().forEach((cb) => {
+        cb.checked = checked;
+        const key = cb.dataset.key;
+        if (checked) {
+          if (key) selectedKeys.add(key);
+        } else if (key) {
+          selectedKeys.delete(key);
+        }
+      });
+    } finally {
+      bulkSelectSyncing = false;
+    }
+    syncSelectAllLeadCheckbox();
+    updateBulkActionBar();
+  }
 
   const updateBulkActionBar = () => {
     const count = selectedKeys.size;
@@ -8060,45 +8213,46 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  document.addEventListener(
+    'click',
+    (e) => {
+      if (e.target.matches('.lead-checkbox, #selectAllLeads')) {
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
+
+  document.addEventListener('change', (e) => {
+    const target = e.target;
+    if (target && target.id === 'selectAllLeads') {
+      if (bulkSelectSyncing) return;
+      setPageLeadSelection(!!target.checked);
+      return;
+    }
+    if (!target.classList || !target.classList.contains('lead-checkbox')) return;
+    if (bulkSelectSyncing) return;
+    const cb = target;
+    const key = cb.dataset.key;
+    if (cb.checked) {
+      if (key) selectedKeys.add(key);
+    } else if (key) {
+      selectedKeys.delete(key);
+    }
+    syncSelectAllLeadCheckbox();
+    updateBulkActionBar();
+  });
+
   if (selectAllLeads) {
-    selectAllLeads.addEventListener('change', (e) => {
-      const isChecked = e.target.checked;
-      const allCheckboxes = document.querySelectorAll('.lead-checkbox');
-      
-      allCheckboxes.forEach(cb => {
-        cb.checked = isChecked;
-        const key = cb.dataset.key;
-        if (isChecked) {
-          if (key) selectedKeys.add(key);
-        } else {
-          if (key) selectedKeys.delete(key);
-        }
-      });
-      updateBulkActionBar();
+    selectAllLeads.addEventListener('click', (e) => {
+      e.stopPropagation();
     });
   }
-
-  // Delegate checkbox clicks for better reliability
-  document.addEventListener('change', (e) => {
-    if (e.target.classList.contains('lead-checkbox')) {
-      const cb = e.target;
-      const key = cb.dataset.key;
-      if (cb.checked) {
-        if (key) selectedKeys.add(key);
-      } else {
-        if (key) selectedKeys.delete(key);
-        if (selectAllLeads) selectAllLeads.checked = false;
-      }
-      updateBulkActionBar();
-    }
-  });
 
   if (cancelSelectionBtn) {
     cancelSelectionBtn.addEventListener('click', () => {
       selectedKeys.clear();
-      document.querySelectorAll('.lead-checkbox').forEach(cb => cb.checked = false);
-      if (selectAllLeads) selectAllLeads.checked = false;
-      updateBulkActionBar();
+      setPageLeadSelection(false);
     });
   }
 
@@ -8137,6 +8291,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (selectAllLeads) selectAllLeads.checked = false;
       updateBulkActionBar();
+      if (typeof window.__pipelineTablePagingApply === 'function') {
+        window.__pipelineTablePagingApply();
+      }
 
       const remaining = document.querySelectorAll('.result-row').length;
       const countEl = document.querySelector('.text-brand-muted.font-medium');

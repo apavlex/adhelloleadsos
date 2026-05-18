@@ -217,7 +217,7 @@ app.get('/api/cron/nightly-prep', async (req, res) => {
     if (!ids.length) {
       return res.json({
         success: true,
-        message: 'No workspaces to process (enable nightly prep on /today or set NIGHTLY_PREP_WORKSPACE_IDS).',
+        message: 'No workspaces to process (enable nightly prep on Find leads or set NIGHTLY_PREP_WORKSPACE_IDS).',
         workspaces: [],
       });
     }
