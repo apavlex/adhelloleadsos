@@ -621,6 +621,28 @@ table {
   min-width: 5.5rem;
 }
 
+.prospect-leads-table--comfortable th[data-plc="socials"],
+.prospect-leads-table--comfortable td[data-plc="socials"] {
+  min-width: 7.5rem;
+}
+
+.prospect-leads-table--comfortable .lead-cell-socials-content {
+  display: inline-flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.prospect-leads-table--comfortable .lead-cell-socials-content > a,
+.prospect-leads-table--comfortable .lead-cell-socials-content > span {
+  flex-shrink: 0;
+}
+
+.prospect-leads-table--comfortable .lead-contact-phone-slot.js-click-to-call-number {
+  flex-wrap: nowrap;
+}
+
 .prospect-leads-table--compact .lead-col-tail-tight,
 .prospect-leads-table--compact th.lead-col-tail-tight {
   padding-left: 0.35rem;

@@ -94,22 +94,9 @@
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <span>Backfill missing contacts</span>
         </button>
-        <button type="button" class="js-bulk-enhance inline-flex items-center gap-2 rounded-full border border-brand-yellow/35 bg-brand-yellow/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" title="Enrich selected leads (Firecrawl)">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-          <span>Enhance</span>
-        </button>
-        <button type="button" class="js-bulk-ai-analysis inline-flex items-center gap-2 rounded-full border border-sky-400/40 bg-sky-500/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 hover:bg-sky-500/20 transition-colors" title="Run AI website analysis for selected leads">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-          <span>AI Analysis</span>
-        </button>
         <% } %>
       </div>
-      <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mr-1">Density</span>
-      <div class="inline-flex rounded-full border border-brand-border/40 dark:border-white/10 p-0.5 bg-brand-cream/30 dark:bg-slate-800/80" role="group" aria-label="Table row density">
-        <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="compact">Compact</button>
-        <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="comfortable">Comfortable</button>
-      </div>
-      <div class="relative js-pipeline-columns-wrap">
+      <div class="relative js-pipeline-columns-wrap ml-auto">
         <button type="button" id="pipelineColumnsBtn" class="inline-flex items-center gap-2 rounded-full border border-brand-border/40 dark:border-white/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/40 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="pipelineColumnsPopover">Columns</button>
         <div id="pipelineColumnsPopover" class="pipeline-columns-popover hidden fixed z-[10000] w-[min(100vw-2rem,17rem)] rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl p-4" role="dialog" aria-label="Choose pipeline columns">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-3">Visible columns</p>
@@ -397,7 +384,7 @@
                 <div class="flex flex-col gap-2 min-w-0 py-0.5">
                   <div class="flex items-center gap-2 min-w-0 w-full">
                     <% if (_ph) { %>
-                      <button type="button" class="lead-contact-phone-slot js-click-to-call-btn js-click-to-call-number flex items-center gap-2 min-w-0 w-full max-w-full text-left text-xs font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded-md" title="<%= _ph %>" data-phone="<%= _ph %>" data-lead-key="<%= lead.key %>" aria-label="Call <%= _ph %>" onclick="event.stopPropagation()">
+                      <button type="button" class="lead-contact-phone-slot js-click-to-call-btn js-click-to-call-number flex flex-nowrap items-center gap-2 min-w-0 w-full max-w-full text-left text-xs font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded-md" title="<%= _ph %>" data-phone="<%= _ph %>" data-lead-key="<%= lead.key %>" aria-label="Call <%= _ph %>" onclick="event.stopPropagation()">
                         <span class="shrink-0 w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center justify-center hover:bg-emerald-500/25 transition-colors pointer-events-none" aria-hidden="true">
                           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                         </span>
@@ -428,7 +415,7 @@
               <td data-plc="contact" class="lead-col-contact-split lead-cell-phone px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] max-w-[11rem]">
                 <div class="flex items-center gap-2 min-w-0 w-full py-0.5">
                   <% if (_ph) { %>
-                    <button type="button" class="lead-contact-phone-slot js-click-to-call-btn js-click-to-call-number flex items-center gap-2 min-w-0 w-full max-w-full text-left text-xs font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded-md" title="<%= _ph %>" data-phone="<%= _ph %>" data-lead-key="<%= lead.key %>" aria-label="Call <%= _ph %>" onclick="event.stopPropagation()">
+                    <button type="button" class="lead-contact-phone-slot js-click-to-call-btn js-click-to-call-number flex flex-nowrap items-center gap-2 min-w-0 w-full max-w-full text-left text-xs font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded-md" title="<%= _ph %>" data-phone="<%= _ph %>" data-lead-key="<%= lead.key %>" aria-label="Call <%= _ph %>" onclick="event.stopPropagation()">
                       <span class="shrink-0 w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center justify-center hover:bg-emerald-500/25 transition-colors pointer-events-none" aria-hidden="true">
                         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                       </span>
@@ -464,7 +451,7 @@
                 </div>
               </td>
               <td data-plc="socials" class="lead-cell-socials px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap min-w-[5.5rem]" onclick="event.stopPropagation()">
-                <div class="lead-cell-socials-content flex items-center gap-2 py-0.5">
+                <div class="lead-cell-socials-content inline-flex flex-nowrap items-center gap-2 py-0.5">
                   <%- typeof renderSocialBrandLinks === 'function' ? renderSocialBrandLinks({ gm: _gm, fb: _fb, ig: _ig, tw: _tw, gradSuffix: rowAnchor }) : '' %>
                 </div>
               </td>

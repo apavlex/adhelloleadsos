@@ -275,6 +275,259 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     })();
 
+    (function initPipelineTableToolbar() {
+      const table = prospectTable;
+      const boxHost = document.getElementById('pipelineColumnsCheckboxes');
+      const colBtn = document.getElementById('pipelineColumnsBtn');
+      const pop = document.getElementById('pipelineColumnsPopover');
+      const resetW = document.getElementById('pipelineColumnsResetWidths');
+      if (!table || !boxHost || !colBtn || !pop) return;
+
+      function syncPipelineStickyColumnOffsets() {
+        const host =
+          document.getElementById('prospectPipelineTableScroll') ||
+          document.querySelector('#tableView .overflow-x-auto');
+        if (!host) return;
+        const th = table.querySelector('thead th[data-plc="check"]');
+        if (!th || th.classList.contains('plc-col-hidden')) {
+          host.style.setProperty('--plc-check-sticky-w', '0px');
+          return;
+        }
+        const w = th.getBoundingClientRect().width;
+        host.style.setProperty('--plc-check-sticky-w', `${Math.round(w * 1000) / 1000}px`);
+      }
+
+      let _stickyOffTimer = null;
+      function scheduleSyncPipelineStickyOffsets() {
+        if (_stickyOffTimer) clearTimeout(_stickyOffTimer);
+        _stickyOffTimer = setTimeout(() => {
+          _stickyOffTimer = null;
+          syncPipelineStickyColumnOffsets();
+        }, 50);
+      }
+      window.__syncPipelineStickyColumnOffsets = scheduleSyncPipelineStickyOffsets;
+      window.addEventListener('resize', scheduleSyncPipelineStickyOffsets, { passive: true });
+      scheduleSyncPipelineStickyOffsets();
+
+      const PLC_META = [
+        { id: 'company', label: 'Company' },
+        { id: 'lastTouch', label: 'Last touch' },
+        { id: 'cadence', label: 'Cadence' },
+        { id: 'category', label: 'Category' },
+        { id: 'reviews', label: 'Reviews' },
+        { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
+        { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
+        { id: 'contact', label: 'Contact (phone, email, domain)' },
+        { id: 'socials', label: 'Socials' },
+        { id: 'added', label: 'Added' },
+        { id: 'pipeline', label: 'Pipeline' },
+        { id: 'opportunity', label: 'Opportunity' },
+        { id: 'actions', label: 'Actions' },
+      ];
+      const PLC_MIN_WIDTH = { socials: 120, contact: 168 };
+
+      function pipelineColVisible(map, id) {
+        const meta = PLC_META.find((x) => x.id === id);
+        const defaultOn = !(meta && meta.defaultHidden);
+        if (!Object.prototype.hasOwnProperty.call(map, id)) return defaultOn;
+        return map[id] !== false;
+      }
+      const VIS_KEY = 'pipelineTableColVisibility';
+      const WIDTH_KEY = 'pipelineTableColWidths';
+
+      function loadVis() {
+        try {
+          const raw = localStorage.getItem(VIS_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function saveVis(obj) {
+        try {
+          localStorage.setItem(VIS_KEY, JSON.stringify(obj));
+        } catch (_) {
+          /* ignore */
+        }
+      }
+
+      function applyVisibility(map) {
+        table.querySelectorAll('[data-plc="check"]').forEach((el) => {
+          el.classList.remove('plc-col-hidden');
+        });
+        PLC_META.forEach(({ id }) => {
+          const on = pipelineColVisible(map, id);
+          table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
+            el.classList.toggle('plc-col-hidden', !on);
+          });
+        });
+      }
+
+      function applyWidths(obj) {
+        if (!obj || typeof obj !== 'object') return;
+        Object.keys(obj).forEach((id) => {
+          let px = Number(obj[id]);
+          const floor = PLC_MIN_WIDTH[id] || 48;
+          if (!Number.isFinite(px)) return;
+          px = Math.max(floor, px);
+          table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
+            el.style.width = `${px}px`;
+            el.style.minWidth = `${px}px`;
+            el.style.maxWidth = `${px}px`;
+          });
+        });
+      }
+
+      function clearAllWidths() {
+        table.querySelectorAll('[data-plc]').forEach((el) => {
+          el.style.width = '';
+          el.style.minWidth = '';
+          el.style.maxWidth = '';
+        });
+      }
+
+      let vis = loadVis();
+      if (vis && vis.check === false) {
+        delete vis.check;
+        saveVis(vis);
+      }
+      applyVisibility(vis);
+      try {
+        applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
+      } catch (_) {
+        /* ignore */
+      }
+      scheduleSyncPipelineStickyOffsets();
+
+      PLC_META.forEach(({ id, label }) => {
+        const wrap = document.createElement('label');
+        wrap.className = 'flex items-center gap-2 cursor-pointer text-brand-dark dark:text-slate-200';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = pipelineColVisible(vis, id);
+        cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
+        cb.addEventListener('change', () => {
+          vis[id] = cb.checked;
+          saveVis(vis);
+          applyVisibility(vis);
+          scheduleSyncPipelineStickyOffsets();
+        });
+        wrap.appendChild(cb);
+        const span = document.createElement('span');
+        span.textContent = label;
+        wrap.appendChild(span);
+        boxHost.appendChild(wrap);
+      });
+
+      function closePop() {
+        pop.classList.add('hidden');
+        colBtn.setAttribute('aria-expanded', 'false');
+      }
+
+      function positionColumnsPopover() {
+        if (pop.parentElement !== document.body) {
+          document.body.appendChild(pop);
+        }
+        const rect = colBtn.getBoundingClientRect();
+        pop.style.top = `${Math.round(rect.bottom + 8)}px`;
+        pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
+        pop.style.left = 'auto';
+      }
+
+      function toggleColumnsPopover() {
+        const willOpen = pop.classList.contains('hidden');
+        pop.classList.toggle('hidden');
+        if (willOpen) positionColumnsPopover();
+        colBtn.setAttribute('aria-expanded', pop.classList.contains('hidden') ? 'false' : 'true');
+      }
+      window.__togglePipelineColumnsPopover = toggleColumnsPopover;
+
+      colBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleColumnsPopover();
+      });
+
+      window.addEventListener(
+        'resize',
+        () => {
+          if (!pop.classList.contains('hidden')) positionColumnsPopover();
+        },
+        { passive: true }
+      );
+
+      document.addEventListener('click', (e) => {
+        if (pop.classList.contains('hidden')) return;
+        if (e.target.closest('.js-pipeline-columns-wrap') || e.target.closest('#pipelineColumnsPopover')) return;
+        closePop();
+      });
+
+      if (resetW) {
+        resetW.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            localStorage.removeItem(WIDTH_KEY);
+          } catch (_) {
+            /* ignore */
+          }
+          clearAllWidths();
+          scheduleSyncPipelineStickyOffsets();
+        });
+      }
+
+      let dragPlc = null;
+      let dragStartX = 0;
+      let dragStartW = 0;
+
+      document.addEventListener('mousedown', (e) => {
+        const h = e.target.closest('.plc-col-resize');
+        if (!h || !table.contains(h)) return;
+        e.preventDefault();
+        const plc = h.getAttribute('data-plc-resize');
+        if (!plc) return;
+        const th = h.closest('th');
+        if (!th) return;
+        dragPlc = plc;
+        dragStartX = e.clientX;
+        dragStartW = th.getBoundingClientRect().width;
+        h.classList.add('plc-col-resize--active');
+        document.body.style.cursor = 'col-resize';
+        document.body.style.userSelect = 'none';
+      });
+
+      document.addEventListener('mousemove', (e) => {
+        if (!dragPlc) return;
+        e.preventDefault();
+        const dx = e.clientX - dragStartX;
+        const floor = PLC_MIN_WIDTH[dragPlc] || 48;
+        const next = Math.max(floor, dragStartW + dx);
+        let o = {};
+        try {
+          o = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
+        } catch (_) {
+          o = {};
+        }
+        o[dragPlc] = next;
+        try {
+          localStorage.setItem(WIDTH_KEY, JSON.stringify(o));
+        } catch (_) {
+          /* ignore */
+        }
+        applyWidths(o);
+      });
+
+      document.addEventListener('mouseup', () => {
+        if (!dragPlc) return;
+        dragPlc = null;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        table.querySelectorAll('.plc-col-resize--active').forEach((x) => x.classList.remove('plc-col-resize--active'));
+        scheduleSyncPipelineStickyOffsets();
+      });
+    })();
+
     document.querySelectorAll('#prospectLeadsTable [data-prospect-sort]').forEach((btn) => {
       btn.addEventListener('click', (e) => {
         e.preventDefault();
@@ -465,7 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return '<span class="lead-contact-phone-slot text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
     }
     const keyAttr = leadKey ? ` data-lead-key="${escapeHtmlAttr(leadKey)}"` : '';
-    return `<button type="button" class="lead-contact-phone-slot js-click-to-call-btn js-click-to-call-number flex items-center gap-2 min-w-0 w-full max-w-full text-left text-xs font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded-md" title="${escapeHtmlAttr(
+    return `<button type="button" class="lead-contact-phone-slot js-click-to-call-btn js-click-to-call-number flex flex-nowrap items-center gap-2 min-w-0 w-full max-w-full text-left text-xs font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded-md" title="${escapeHtmlAttr(
       p
     )}" data-phone="${escapeHtmlAttr(p)}"${keyAttr} aria-label="Call ${escapeHtmlAttr(
       p
@@ -8404,257 +8657,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   });
-
-
-  /** Pipeline toolbar + column prefs (early init so toolbar buttons always work). */
-  /** Match sticky company column `left` to measured checkbox column width (resize / density). */
-  function syncPipelineStickyColumnOffsets() {
-    const table = document.getElementById('prospectLeadsTable');
-    const host =
-      document.getElementById('prospectPipelineTableScroll') ||
-      document.querySelector('#tableView .overflow-x-auto');
-    if (!table || !host) return;
-    const th = table.querySelector('thead th[data-plc="check"]');
-    if (!th || th.classList.contains('plc-col-hidden')) {
-      host.style.setProperty('--plc-check-sticky-w', '0px');
-      return;
-    }
-    const w = th.getBoundingClientRect().width;
-    host.style.setProperty('--plc-check-sticky-w', `${Math.round(w * 1000) / 1000}px`);
-  }
-
-  let _stickyOffTimer = null;
-  function scheduleSyncPipelineStickyOffsets() {
-    if (_stickyOffTimer) clearTimeout(_stickyOffTimer);
-    _stickyOffTimer = setTimeout(() => {
-      _stickyOffTimer = null;
-      syncPipelineStickyColumnOffsets();
-    }, 50);
-  }
-  window.__syncPipelineStickyColumnOffsets = scheduleSyncPipelineStickyOffsets;
-
-  window.addEventListener('resize', scheduleSyncPipelineStickyOffsets, { passive: true });
-
-  (function initLeadTableDensity() {
-    const table = document.getElementById('prospectLeadsTable');
-    if (!table) return;
-    scheduleSyncPipelineStickyOffsets();
-  })();
-
-  (function initPipelineColumnPrefs() {
-    const table = document.getElementById('prospectLeadsTable');
-    const boxHost = document.getElementById('pipelineColumnsCheckboxes');
-    const colBtn = document.getElementById('pipelineColumnsBtn');
-    const pop = document.getElementById('pipelineColumnsPopover');
-    const resetW = document.getElementById('pipelineColumnsResetWidths');
-    if (!table || !boxHost || !colBtn || !pop) return;
-
-    const PLC_META = [
-      { id: 'company', label: 'Company' },
-      { id: 'lastTouch', label: 'Last touch' },
-      { id: 'cadence', label: 'Cadence' },
-      { id: 'category', label: 'Category' },
-      { id: 'reviews', label: 'Reviews' },
-      { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
-      { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
-      { id: 'contact', label: 'Contact (phone, email, domain)' },
-      { id: 'socials', label: 'Socials' },
-      { id: 'added', label: 'Added' },
-      { id: 'pipeline', label: 'Pipeline' },
-      { id: 'opportunity', label: 'Opportunity' },
-      { id: 'actions', label: 'Actions' },
-    ];
-
-    function pipelineColVisible(map, id) {
-      const meta = PLC_META.find((x) => x.id === id);
-      const defaultOn = !(meta && meta.defaultHidden);
-      if (!Object.prototype.hasOwnProperty.call(map, id)) return defaultOn;
-      return map[id] !== false;
-    }
-    const VIS_KEY = 'pipelineTableColVisibility';
-    const WIDTH_KEY = 'pipelineTableColWidths';
-
-    function loadVis() {
-      try {
-        const raw = localStorage.getItem(VIS_KEY);
-        return raw ? JSON.parse(raw) : {};
-      } catch (_) {
-        return {};
-      }
-    }
-
-    function saveVis(obj) {
-      try {
-        localStorage.setItem(VIS_KEY, JSON.stringify(obj));
-      } catch (_) {
-        /* ignore */
-      }
-    }
-
-    function applyVisibility(map) {
-      table.querySelectorAll('[data-plc="check"]').forEach((el) => {
-        el.classList.remove('plc-col-hidden');
-      });
-      PLC_META.forEach(({ id }) => {
-        const on = pipelineColVisible(map, id);
-        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
-          el.classList.toggle('plc-col-hidden', !on);
-        });
-      });
-    }
-
-    function applyWidths(obj) {
-      if (!obj || typeof obj !== 'object') return;
-      Object.keys(obj).forEach((id) => {
-        const px = Number(obj[id]);
-        const ok = Number.isFinite(px) && px >= 48;
-        if (!ok) return;
-        table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
-          el.style.width = `${px}px`;
-          el.style.minWidth = `${px}px`;
-          el.style.maxWidth = `${px}px`;
-        });
-      });
-    }
-
-    function clearAllWidths() {
-      table.querySelectorAll('[data-plc]').forEach((el) => {
-        el.style.width = '';
-        el.style.minWidth = '';
-        el.style.maxWidth = '';
-      });
-    }
-
-    let vis = loadVis();
-    if (vis && vis.check === false) {
-      delete vis.check;
-      saveVis(vis);
-    }
-    applyVisibility(vis);
-    try {
-      applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
-    } catch (_) {
-      /* ignore */
-    }
-    scheduleSyncPipelineStickyOffsets();
-
-    PLC_META.forEach(({ id, label }) => {
-      const wrap = document.createElement('label');
-      wrap.className = 'flex items-center gap-2 cursor-pointer text-brand-dark dark:text-slate-200';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox';
-      cb.checked = pipelineColVisible(vis, id);
-      cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
-      cb.addEventListener('change', () => {
-        vis[id] = cb.checked;
-        saveVis(vis);
-        applyVisibility(vis);
-        scheduleSyncPipelineStickyOffsets();
-      });
-      wrap.appendChild(cb);
-      const span = document.createElement('span');
-      span.textContent = label;
-      wrap.appendChild(span);
-      boxHost.appendChild(wrap);
-    });
-
-    function closePop() {
-      pop.classList.add('hidden');
-      colBtn.setAttribute('aria-expanded', 'false');
-    }
-
-    function positionColumnsPopover() {
-      const rect = colBtn.getBoundingClientRect();
-      pop.style.top = `${Math.round(rect.bottom + 8)}px`;
-      pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
-      pop.style.left = 'auto';
-    }
-
-    colBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const willOpen = pop.classList.contains('hidden');
-      pop.classList.toggle('hidden');
-      if (willOpen) positionColumnsPopover();
-      colBtn.setAttribute('aria-expanded', pop.classList.contains('hidden') ? 'false' : 'true');
-    });
-
-    window.addEventListener(
-      'resize',
-      () => {
-        if (!pop.classList.contains('hidden')) positionColumnsPopover();
-      },
-      { passive: true }
-    );
-
-    document.addEventListener('click', (e) => {
-      if (pop.classList.contains('hidden')) return;
-      if (e.target.closest('.js-pipeline-columns-wrap')) return;
-      closePop();
-    });
-
-    if (resetW) {
-      resetW.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        try {
-          localStorage.removeItem(WIDTH_KEY);
-        } catch (_) {
-          /* ignore */
-        }
-        clearAllWidths();
-        scheduleSyncPipelineStickyOffsets();
-      });
-    }
-
-    let dragPlc = null;
-    let dragStartX = 0;
-    let dragStartW = 0;
-
-    document.addEventListener('mousedown', (e) => {
-      const h = e.target.closest('.plc-col-resize');
-      if (!h || !table.contains(h)) return;
-      e.preventDefault();
-      const plc = h.getAttribute('data-plc-resize');
-      if (!plc) return;
-      const th = h.closest('th');
-      if (!th) return;
-      dragPlc = plc;
-      dragStartX = e.clientX;
-      dragStartW = th.getBoundingClientRect().width;
-      h.classList.add('plc-col-resize--active');
-      document.body.style.cursor = 'col-resize';
-      document.body.style.userSelect = 'none';
-    });
-
-    document.addEventListener('mousemove', (e) => {
-      if (!dragPlc) return;
-      e.preventDefault();
-      const dx = e.clientX - dragStartX;
-      const next = Math.max(48, dragStartW + dx);
-      let o = {};
-      try {
-        o = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
-      } catch (_) {
-        o = {};
-      }
-      o[dragPlc] = next;
-      try {
-        localStorage.setItem(WIDTH_KEY, JSON.stringify(o));
-      } catch (_) {
-        /* ignore */
-      }
-      applyWidths(o);
-    });
-
-    document.addEventListener('mouseup', () => {
-      if (!dragPlc) return;
-      dragPlc = null;
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      table.querySelectorAll('.plc-col-resize--active').forEach((x) => x.classList.remove('plc-col-resize--active'));
-      scheduleSyncPipelineStickyOffsets();
-    });
-  })();
 
   // --- Website Preview Hover Logic Removed ---
 

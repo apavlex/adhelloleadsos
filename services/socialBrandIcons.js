@@ -100,7 +100,7 @@ function renderLinks(links = {}) {
   if (!parts.length) {
     return '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
   }
-  return parts.join('');
+  return `<span class="inline-flex flex-nowrap items-center gap-2">${parts.join('')}</span>`;
 }
 
 module.exports = {
