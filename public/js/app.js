@@ -3223,6 +3223,33 @@ document.addEventListener('DOMContentLoaded', () => {
     else runBtn.textContent = label;
   }
 
+  function syncPageSpeedAuditPanelBodyVisibility() {
+    const body = document.getElementById('pageSpeedAuditPanelBody');
+    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
+    const results = document.getElementById('pageSpeedAuditResults');
+    const errEl = document.getElementById('pageSpeedAuditError');
+    if (!body) return;
+    const showProgress = !!(progressWrap && !progressWrap.classList.contains('hidden'));
+    const showResults = !!(results && !results.classList.contains('hidden'));
+    const showError = !!(errEl && !errEl.classList.contains('hidden') && String(errEl.textContent || '').trim());
+    body.classList.toggle('hidden', !(pageSpeedAuditInFlight || showProgress || showResults || showError));
+  }
+
+  function showPageSpeedAuditError(message) {
+    const errEl = document.getElementById('pageSpeedAuditError');
+    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
+    if (progressWrap) progressWrap.classList.add('hidden');
+    if (errEl) {
+      errEl.textContent = String(message || '').trim();
+      if (errEl.textContent) errEl.classList.remove('hidden');
+      else errEl.classList.add('hidden');
+      try {
+        errEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (_) {}
+    }
+    syncPageSpeedAuditPanelBodyVisibility();
+  }
+
   function setPageSpeedAuditRunning(running) {
     pageSpeedAuditInFlight = !!running;
     const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
@@ -3255,10 +3282,12 @@ document.addEventListener('DOMContentLoaded', () => {
         setPageSpeedAuditButtonLabel(runBtn, 'Running audit…');
         if (icon) icon.classList.add('animate-spin');
       } else {
+        runBtn.disabled = false;
         runBtn.classList.remove('opacity-70', 'cursor-wait', 'border-brand-yellow/50');
         if (icon) icon.classList.remove('animate-spin');
       }
     }
+    syncPageSpeedAuditPanelBodyVisibility();
   }
 
   function syncLeadPanelEmailReportSection(row) {
@@ -3301,7 +3330,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!audit) {
       if (results) results.classList.add('hidden');
+      syncPageSpeedAuditPanelBodyVisibility();
       return;
+    }
+
+    if (errEl) {
+      errEl.classList.add('hidden');
+      errEl.textContent = '';
     }
 
     if (results) {
@@ -3387,17 +3422,19 @@ document.addEventListener('DOMContentLoaded', () => {
       link.href = '#';
       link.classList.add('pointer-events-none', 'opacity-40');
     }
+    syncPageSpeedAuditPanelBodyVisibility();
   }
 
   async function runPageSpeedAuditForRow(row) {
     if (!row) throw new Error('No lead selected.');
     const key = String(row.dataset.leadKey || '').trim();
     if (!key) throw new Error('Save this lead before running an audit.');
+    const website = resolveRowWebsiteForAudit(row);
     const res = await fetch(`/leads/${encodeURIComponent(key)}/pagespeed-audit`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ strategy: 'mobile' }),
+      body: JSON.stringify({ strategy: 'mobile', website }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
@@ -7301,16 +7338,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ev.stopPropagation();
     }
     const row = currentRow;
-    const errEl = document.getElementById('pageSpeedAuditError');
-    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
 
     if (!row) {
       const msg = 'Select a saved lead first.';
-      if (errEl) {
-        errEl.textContent = msg;
-        errEl.classList.remove('hidden');
-      }
-      if (progressWrap) progressWrap.classList.remove('hidden');
+      showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
       }
@@ -7318,11 +7349,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!row.dataset.leadKey) {
       const msg = 'Save this lead before running an audit.';
-      if (errEl) {
-        errEl.textContent = msg;
-        errEl.classList.remove('hidden');
-      }
-      if (progressWrap) progressWrap.classList.remove('hidden');
+      showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
       }
@@ -7330,12 +7357,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const websiteUrl = resolveRowWebsiteForAudit(row);
     if (!websiteUrl) {
-      const msg = 'Add a website URL to this lead first.';
-      if (errEl) {
-        errEl.textContent = msg;
-        errEl.classList.remove('hidden');
-      }
-      if (progressWrap) progressWrap.classList.remove('hidden');
+      const msg = 'Add a website URL to this lead first (Visit Site tile or website field).';
+      showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
       }
@@ -7357,14 +7380,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       const msg = err && err.message ? err.message : 'PageSpeed audit failed';
-      if (errEl) {
-        errEl.textContent = msg;
-        errEl.classList.remove('hidden');
-        try {
-          errEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        } catch (_) {}
-      }
-      if (progressWrap) progressWrap.classList.remove('hidden');
+      showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
       setPageSpeedAuditRunning(false);
@@ -7376,9 +7392,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__adhelloRunPageSpeedAudit = handlePageSpeedAuditClick;
 
   document.addEventListener('click', (e) => {
-    if (e.target.closest('#pageSpeedAuditRunBtn')) {
-      handlePageSpeedAuditClick(e);
-    }
+    const btn = e.target.closest('#pageSpeedAuditRunBtn');
+    if (!btn || btn.disabled) return;
+    handlePageSpeedAuditClick(e);
   });
 
   // --- Manual Deep Enhance with Firecrawl (sidebar + pipeline row AI button) ---

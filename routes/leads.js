@@ -2539,37 +2539,38 @@ router.post('/:key/pagespeed-audit', async (req, res) => {
     }
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
-    const apiKey =
-      integrationEnv.PAGESPEED_API_KEY ||
-      process.env.PAGESPEED_API_KEY ||
-      process.env.GOOGLE_PAGESPEED_API_KEY ||
-      '';
+    const apiKey = pageSpeedInsights.resolvePageSpeedApiKey(integrationEnv);
 
     const strategy =
       req.body && String(req.body.strategy || '').toLowerCase() === 'desktop' ? 'desktop' : 'mobile';
 
-    const { audit } = await pageSpeedInsights.runPageSpeedAudit(lead.website || lead.url || '', {
+    const websiteFromBody =
+      req.body && req.body.website != null ? String(req.body.website).trim() : '';
+    const websiteRaw = websiteFromBody || lead.website || lead.url || '';
+    const websiteNorm = pageSpeedInsights.normalizeWebsiteUrl(websiteRaw);
+
+    const { audit } = await pageSpeedInsights.runPageSpeedAudit(websiteNorm || websiteRaw, {
       apiKey,
       strategy,
     });
 
     const ownerSignal = pageSpeedInsights.buildOwnerSignalFromAudit(lead.title, audit);
-    const updated = await dbService.updateLead(
-      fullKey,
-      {
-        pageSpeedAudit: audit,
-        pageSpeedAuditAt: audit.fetchedAt,
-        ownerSignal,
-        logs: [
-          {
-            type: 'pagespeed_audit',
-            message: `Lighthouse (PageSpeed, ${strategy}): average ${audit.averageScore ?? '—'}/100`,
-            timestamp: audit.fetchedAt,
-          },
-        ],
-      },
-      req.workspaceId
-    );
+    const leadPatch = {
+      pageSpeedAudit: audit,
+      pageSpeedAuditAt: audit.fetchedAt,
+      ownerSignal,
+      logs: [
+        {
+          type: 'pagespeed_audit',
+          message: `Lighthouse (PageSpeed, ${strategy}): average ${audit.averageScore ?? '—'}/100`,
+          timestamp: audit.fetchedAt,
+        },
+      ],
+    };
+    if (websiteNorm && websiteNorm !== String(lead.website || '').trim()) {
+      leadPatch.website = websiteNorm;
+    }
+    const updated = await dbService.updateLead(fullKey, leadPatch, req.workspaceId);
 
     return res.json({ success: true, lead: updated, audit, ownerSignal });
   } catch (err) {

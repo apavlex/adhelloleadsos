@@ -161,6 +161,18 @@ async function runPageSpeedAudit(websiteUrl, opts) {
   return { audit, raw: body };
 }
 
+/** Workspace env + deployment fallbacks (same GCP key often works if PageSpeed Insights API is enabled). */
+function resolvePageSpeedApiKey(integrationEnv) {
+  const env = integrationEnv && typeof integrationEnv === 'object' ? integrationEnv : {};
+  return String(
+    env.PAGESPEED_API_KEY ||
+      process.env.PAGESPEED_API_KEY ||
+      process.env.GOOGLE_PAGESPEED_API_KEY ||
+      process.env.GOOGLE_MAPS_API_KEY ||
+      ''
+  ).trim();
+}
+
 module.exports = {
   PAGESPEED_ENDPOINT,
   CATEGORY_IDS,
@@ -168,5 +180,6 @@ module.exports = {
   parsePageSpeedResponse,
   buildPublicReportUrl,
   buildOwnerSignalFromAudit,
+  resolvePageSpeedApiKey,
   runPageSpeedAudit,
 };

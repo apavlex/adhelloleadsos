@@ -178,11 +178,11 @@
       </section>
 
       <section id="pageSpeedAuditSection" class="mb-10">
-        <button type="button" id="pageSpeedAuditRunBtn" aria-busy="false" onclick="if(window.__adhelloRunPageSpeedAudit){window.__adhelloRunPageSpeedAudit(event);}else{event.stopPropagation();}" class="w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex items-center justify-center gap-3 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed">
+        <button type="button" id="pageSpeedAuditRunBtn" aria-busy="false" class="w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex items-center justify-center gap-3 group relative overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed">
           <svg class="page-speed-audit-icon w-5 h-5 text-brand-yellow shrink-0 group-hover:scale-110 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" /></svg>
           <span id="pageSpeedAuditBtnLabel" class="page-speed-audit-label">Audit business website</span>
         </button>
-        <div class="p-6 rounded-[2.5rem] border border-brand-border/20 dark:border-white/10 bg-brand-cream/20 dark:bg-white/5 space-y-4">
+        <div id="pageSpeedAuditPanelBody" class="hidden mt-3 space-y-3">
           <div id="pageSpeedAuditProgressWrap" class="hidden space-y-3 rounded-2xl border border-brand-yellow/30 bg-brand-yellow/5 dark:bg-brand-yellow/10 px-4 py-3" aria-live="polite" aria-busy="false">
             <div class="h-1.5 rounded-full bg-brand-border/40 dark:bg-white/10 overflow-hidden">
               <div class="hunt-progress-indeterminate h-full w-2/5 rounded-full bg-brand-yellow"></div>
