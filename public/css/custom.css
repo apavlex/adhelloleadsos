@@ -336,6 +336,7 @@ table {
 
 /* Floating bulk bar — Apple-style frosted glass */
 #bulkActionBar {
+  z-index: 190;
   background: rgba(32, 32, 36, 0.55) !important;
   -webkit-backdrop-filter: saturate(180%) blur(22px);
   backdrop-filter: saturate(180%) blur(22px);

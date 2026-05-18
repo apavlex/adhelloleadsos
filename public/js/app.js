@@ -282,6 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__syncSelectAllLeadCheckbox === 'function') {
           window.__syncSelectAllLeadCheckbox();
         }
+        if (typeof window.__updateBulkActionBar === 'function') {
+          window.__updateBulkActionBar();
+        }
       }
 
       loadMoreBtn.addEventListener('click', () => {
@@ -8006,6 +8009,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__syncSelectAllLeadCheckbox = syncSelectAllLeadCheckbox;
 
+  /** All checked row boxes in the pipeline/results table (includes rows hidden by paging). */
+  function syncSelectedKeysFromDom() {
+    selectedKeys.clear();
+    const table = document.getElementById('prospectLeadsTable');
+    const scope = table || document.getElementById('tableView') || document;
+    scope.querySelectorAll('.lead-checkbox:checked, .row-checkbox:checked').forEach((cb) => {
+      const key = cb.dataset && cb.dataset.key ? String(cb.dataset.key).trim() : '';
+      if (key) selectedKeys.add(key);
+    });
+  }
+
   function setPageLeadSelection(checked) {
     bulkSelectSyncing = true;
     try {
@@ -8026,6 +8040,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const updateBulkActionBar = () => {
+    syncSelectedKeysFromDom();
     const count = selectedKeys.size;
     const hasSelection = count > 0;
     
@@ -8110,6 +8125,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   };
+  window.__updateBulkActionBar = updateBulkActionBar;
 
   function rebuildBulkFolderSelect(preferredValue) {
     if (!bulkFolderSelect) return;
@@ -8142,6 +8158,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
       : undefined;
   rebuildBulkFolderSelect(initialBulkFolderPref);
+  updateBulkActionBar();
 
   function setBulkFolderNewRowVisible(show) {
     if (!bulkFolderNewRow) return;
@@ -8232,16 +8249,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!target.classList || !target.classList.contains('lead-checkbox')) return;
     if (bulkSelectSyncing) return;
-    const cb = target;
-    const key = cb.dataset.key;
-    if (cb.checked) {
-      if (key) selectedKeys.add(key);
-    } else if (key) {
-      selectedKeys.delete(key);
-    }
     syncSelectAllLeadCheckbox();
     updateBulkActionBar();
   });
+
+  document.addEventListener(
+    'click',
+    (e) => {
+      const cb = e.target && e.target.closest ? e.target.closest('.lead-checkbox') : null;
+      if (!cb || bulkSelectSyncing) return;
+      requestAnimationFrame(() => {
+        syncSelectAllLeadCheckbox();
+        updateBulkActionBar();
+      });
+    },
+    true,
+  );
 
   if (selectAllLeads) {
     selectAllLeads.addEventListener('click', (e) => {
