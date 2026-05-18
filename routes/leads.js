@@ -914,7 +914,8 @@ router.post('/:key/notes', async (req, res, next) => {
     updates.push({
       type: 'note',
       value: content,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      source: 'panel_post',
     });
 
     await dbService.updateLead(fullKey, { updates });

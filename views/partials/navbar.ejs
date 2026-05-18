@@ -819,6 +819,19 @@
         spOpenIcon.classList.remove('text-emerald-500', 'text-amber-500');
       }
     }
+    if (typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(
+        new CustomEvent('adhello-softphone-state', {
+          detail: {
+            state: state,
+            timer: timerText,
+            number: String(softphoneSession.activeNumber || ''),
+            leadKey: String(softphoneSession.leadKey || ''),
+            modalOpen: !!(spModal && !spModal.classList.contains('hidden')),
+          },
+        })
+      );
+    }
   }
   function softphoneStopTimer() {
     if (softphoneSession.timerTicker) {
@@ -1145,6 +1158,22 @@
     if (open && isSoftphoneMobileViewport()) spMobileBackdrop.classList.remove('hidden');
     else spMobileBackdrop.classList.add('hidden');
   }
+  function isLeadDetailPanelOpen() {
+    var panel = document.getElementById('mobilePanel');
+    return !!(panel && panel.classList.contains('open') && !panel.classList.contains('hidden'));
+  }
+  function syncSoftphoneStacking() {
+    var leadOpen = isLeadDetailPanelOpen();
+    var modalOpen = spModal && !spModal.classList.contains('hidden');
+    if (spModal) {
+      if (leadOpen && modalOpen) spModal.style.setProperty('z-index', '410', 'important');
+      else spModal.style.removeProperty('z-index');
+    }
+    if (spPanel) {
+      if (leadOpen && modalOpen) spPanel.style.setProperty('z-index', '411', 'important');
+      else spPanel.style.removeProperty('z-index');
+    }
+  }
   function getOpenLeadSidebarWidth() {
     var panel = document.getElementById('mobilePanel');
     if (!panel || panel.classList.contains('hidden') || !panel.classList.contains('open')) return 0;
@@ -1170,6 +1199,7 @@
     spPanel.style.setProperty('bottom', 'auto', 'important');
   }
   function applySoftphoneOpenPosition() {
+    syncSoftphoneStacking();
     if (!spPanel) return;
     if (isSoftphoneMobileViewport()) {
       applyMobileSoftphoneLayout();
@@ -1266,34 +1296,83 @@
       })
       .catch(function () {});
   }
+  function setSoftphoneDialNumber(num) {
+    spTo = document.getElementById('softphoneToNumber');
+    if (!spTo) return;
+    spTo.value = String(num || '');
+    try {
+      spTo.dispatchEvent(new Event('input', { bubbles: true }));
+    } catch (e) {}
+  }
   /** Fill Dial number, open softphone; optional auto-dial + lead context. Exposed for leads click-to-dial. */
   function openSoftphoneWithDial(raw, opts) {
     opts = opts && typeof opts === 'object' ? opts : {};
     var to = normalizeDial(String(raw || ''));
     if (!to) return false;
     softphoneSession.leadKey = opts.leadKey ? String(opts.leadKey).trim() : '';
-    if (spTo) spTo.value = to;
-    openSoftphone();
-    if (spTo) {
-      setTimeout(function () {
-        try {
-          spTo.focus();
-          spTo.select();
-        } catch (e) {}
-      }, 100);
+    setSoftphoneDialNumber(to);
+    if (opts.leadKey && !isSoftphoneMobileViewport()) {
+      applyDockRight();
     }
+    openSoftphone();
+    setTimeout(function () {
+      spTo = document.getElementById('softphoneToNumber');
+      if (!spTo) return;
+      if (spTo.value !== to) setSoftphoneDialNumber(to);
+      try {
+        spTo.focus();
+        spTo.select();
+      } catch (e) {}
+    }, 100);
     if (opts.autoDial) {
       setTimeout(function () {
         runSoftphoneAction('call');
-      }, 160);
+      }, 220);
     }
     return true;
   }
+  function adhelloPipelinePhoneClick(btn, ev) {
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
+    if (!btn) return false;
+    var raw = btn.getAttribute('data-phone') || (btn.dataset && btn.dataset.phone) || '';
+    var labelEl = btn.querySelector ? btn.querySelector('.lead-contact-phone-label') : null;
+    if ((!raw || raw === 'N/A') && labelEl) raw = String(labelEl.textContent || '').trim();
+    var row = btn.closest ? btn.closest('.result-row') : null;
+    if ((!raw || raw === 'N/A') && row && row.dataset && row.dataset.phone) {
+      raw = String(row.dataset.phone).trim();
+    }
+    if (!raw || raw === 'N/A') return false;
+    var lk = btn.getAttribute('data-lead-key') || (btn.dataset && btn.dataset.leadKey) || '';
+    if (!lk && row && row.dataset && row.dataset.leadKey) lk = String(row.dataset.leadKey).trim();
+    var opts = { leadKey: lk };
+    if (btn.closest && btn.closest('#prospectLeadsTable')) opts.autoDial = false;
+    return openSoftphoneWithDial(raw, opts);
+  }
   window.__adhelloOpenSoftphoneWithDial = openSoftphoneWithDial;
+  window.__adhelloPipelinePhoneClick = adhelloPipelinePhoneClick;
   window.__adhelloSoftphoneDialNow = function () {
     runSoftphoneAction('call');
   };
   window.__adhelloRefreshSoftphonePosition = applySoftphoneOpenPosition;
+  window.__adhelloFocusSoftphone = function () {
+    if (!spModal || spModal.classList.contains('hidden')) {
+      openSoftphone();
+      return;
+    }
+    syncSoftphoneStacking();
+    applySoftphoneOpenPosition();
+    if (spTo) {
+      try {
+        spTo.focus();
+      } catch (e) {}
+    }
+  };
+  window.__adhelloSoftphoneHangup = function () {
+    if (spHangup) spHangup.click();
+  };
   // Desktop convenience: any tel: link opens AdHello softphone prefilled.
   document.addEventListener('click', function (e) {
     var a = e && e.target && e.target.closest ? e.target.closest('a[href^="tel:"]') : null;
@@ -1311,6 +1390,7 @@
     setSoftphoneMobileBackdrop(false);
     spModal.classList.add('hidden');
     spModal.setAttribute('aria-hidden', 'true');
+    syncSoftphoneStacking();
     softphoneSession.leadKey = '';
     softphoneStopPolling();
     softphoneStopTimer();

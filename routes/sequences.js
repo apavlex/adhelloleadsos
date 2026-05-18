@@ -2,26 +2,38 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const sequenceEngine = require('../services/sequenceEngine');
+const sequenceTemplates = require('../services/sequenceTemplates');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 
+function mapTemplateSteps(steps) {
+  return (Array.isArray(steps) ? steps : []).map((s) => ({
+    dayOffset: s.dayOffset,
+    channel: s.channel,
+    title: s.title,
+    hint: s.hint || '',
+  }));
+}
+
 function serializeSequenceTemplates(req) {
   const raw = req.app.locals.sequenceTemplates || sequenceEngine.listTemplates();
-  return (Array.isArray(raw) ? raw : []).map((t) => ({
-    id: t.id,
-    persona: t.persona,
-    name: t.name,
-    description: t.description,
-    stepCount: t.stepCount != null ? t.stepCount : (t.steps && t.steps.length) || 0,
-    steps: Array.isArray(t.steps)
-      ? t.steps.map((s) => ({
-          dayOffset: s.dayOffset,
-          channel: s.channel,
-          title: s.title,
-          hint: s.hint || '',
-        }))
-      : [],
-  }));
+  return (Array.isArray(raw) ? raw : []).map((t) => {
+    if (!t || !t.id) return null;
+    let steps = mapTemplateSteps(t.steps);
+    if (!steps.length) {
+      const full = sequenceTemplates.getTemplate(t.id);
+      if (full && Array.isArray(full.steps)) steps = mapTemplateSteps(full.steps);
+    }
+    const stepCount = steps.length || (t.stepCount != null ? t.stepCount : 0);
+    return {
+      id: t.id,
+      persona: t.persona,
+      name: t.name,
+      description: t.description,
+      stepCount,
+      steps,
+    };
+  }).filter(Boolean);
 }
 
 /** JSON playbook list for lead panel cadence picker (and other clients). */

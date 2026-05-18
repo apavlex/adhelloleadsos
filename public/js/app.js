@@ -722,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
       p
     )}" data-phone="${escapeHtmlAttr(p)}"${keyAttr} aria-label="Call ${escapeHtmlAttr(
       p
-    )}" onclick="event.stopPropagation()"><span class="shrink-0 w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center justify-center hover:bg-emerald-500/25 transition-colors pointer-events-none" aria-hidden="true">${PIPELINE_PHONE_CALL_ICON_SVG}</span><span class="lead-contact-phone-label truncate flex-1 min-w-0 tabular-nums pointer-events-none">${escapeHtmlText(
+    )}" onclick="if(window.__adhelloPipelinePhoneClick){window.__adhelloPipelinePhoneClick(this,event);}else{event.stopPropagation();}"><span class="shrink-0 w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center justify-center hover:bg-emerald-500/25 transition-colors pointer-events-none" aria-hidden="true">${PIPELINE_PHONE_CALL_ICON_SVG}</span><span class="lead-contact-phone-label truncate flex-1 min-w-0 tabular-nums pointer-events-none">${escapeHtmlText(
       p
     )}</span></button>`;
   }
@@ -1677,7 +1677,7 @@ document.addEventListener('DOMContentLoaded', () => {
       throw new Error((data && data.error) || 'Could not save note');
     }
     if (currentRow && data.updates) {
-      currentRow.dataset.updates = JSON.stringify(data.updates);
+      applyServerUpdatesToRow(currentRow, data.updates);
     }
     return data;
   }
@@ -1697,13 +1697,65 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || 'Disposition failed');
     }
-    if (data.lead && data.lead.status) currentRow.dataset.status = String(data.lead.status);
-    if (data.lead && data.lead.updates) {
-      currentRow.dataset.updates = JSON.stringify(data.lead.updates);
-    }
+    if (data.lead) syncPersistedLeadToRowDataset(currentRow, data.lead);
     const statusSel = document.getElementById('leadStatusSelect');
     if (statusSel && data.status) statusSel.value = data.status;
     return data;
+  }
+
+  function readRowUpdatesArray(row) {
+    if (!row || !row.dataset) return [];
+    try {
+      const parsed = JSON.parse(row.dataset.updates || '[]');
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function writeRowUpdatesArray(row, updates) {
+    if (!row || !row.dataset) return;
+    row.dataset.updates = JSON.stringify(Array.isArray(updates) ? updates : []);
+  }
+
+  function applyServerUpdatesToRow(row, serverUpdates) {
+    if (!row) return;
+    const existing = readRowUpdatesArray(row);
+    const localQuick = existing.filter((u) => u && String(u.type) === 'quick_log');
+    const server = Array.isArray(serverUpdates) ? serverUpdates : [];
+    const merged = server.slice();
+    localQuick.forEach((ql) => {
+      const exists = merged.some(
+        (u) =>
+          u &&
+          String(u.type) === 'quick_log' &&
+          String(u.timestamp || '') === String(ql.timestamp || '') &&
+          String(u.value || '') === String(ql.value || '')
+      );
+      if (!exists) merged.push(ql);
+    });
+    merged.sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
+    writeRowUpdatesArray(row, merged);
+  }
+
+  function appendRowActivityEntry(row, entry) {
+    if (!row || !entry) return;
+    const updates = readRowUpdatesArray(row);
+    updates.push({
+      type: entry.type || 'quick_log',
+      value: entry.value != null ? String(entry.value) : '',
+      timestamp: entry.timestamp || new Date().toISOString(),
+      disposition: entry.disposition || '',
+      statusChange: entry.statusChange || '',
+    });
+    writeRowUpdatesArray(row, updates);
+  }
+
+  function refreshLeadActivityTimeline(row) {
+    if (!row) return;
+    window.__leadActivityFilter = window.__leadActivityFilter || 'all';
+    renderLeadActivityTimeline(row, window.__leadActivityFilter);
+    syncLeadActivityFilterButtons(window.__leadActivityFilter);
   }
 
   async function applyLeadPanelQuickLogTag(tag) {
@@ -1723,9 +1775,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const cfg = QUICK_LOG_TAG_CONFIG[label] || {};
-    const stamp = new Date().toLocaleString(undefined, {
+    const clickedAt = new Date().toISOString();
+    const stamp = new Date(clickedAt).toLocaleString(undefined, {
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
       hour: 'numeric',
       minute: '2-digit',
     });
@@ -1735,11 +1789,22 @@ document.addEventListener('DOMContentLoaded', () => {
       b.classList.toggle('ring-2', (b.getAttribute('data-tag') || '') === label);
       b.classList.toggle('ring-brand-yellow/60', (b.getAttribute('data-tag') || '') === label);
     });
+
+    appendRowActivityEntry(currentRow, {
+      type: 'quick_log',
+      value: label,
+      timestamp: clickedAt,
+      disposition: cfg.disposition || '',
+      statusChange: cfg.status || '',
+    });
+    refreshLeadActivityTimeline(currentRow);
+
     try {
       if (cfg.disposition) {
         const data = await applyLeadPanelDisposition(cfg.disposition, noteLine);
-        await postLeadPanelNote(key, noteLine).catch(() => null);
+        if (data.lead) syncPersistedLeadToRowDataset(currentRow, data.lead);
         populatePanel(currentRow);
+        refreshLeadActivityTimeline(currentRow);
         const msg = data.automation || data.status || label;
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(`Logged: ${label} — ${msg}`, { variant: 'success' });
@@ -1755,19 +1820,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!res.ok || !data.success) {
           throw new Error((data && data.error) || 'Status update failed');
         }
-        currentRow.dataset.status = cfg.status;
+        if (data.lead) syncPersistedLeadToRowDataset(currentRow, data.lead);
+        else currentRow.dataset.status = cfg.status;
         const statusSel = document.getElementById('leadStatusSelect');
         if (statusSel) statusSel.value = cfg.status;
-        await postLeadPanelNote(key, noteLine);
         populatePanel(currentRow);
+        refreshLeadActivityTimeline(currentRow);
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(`Logged: ${label}`, { variant: 'success' });
         }
       } else {
-        await postLeadPanelNote(key, noteLine);
         populatePanel(currentRow);
+        refreshLeadActivityTimeline(currentRow);
         if (typeof window.showAppToast === 'function') {
-          window.showAppToast(`Note added: ${label}`, { variant: 'success' });
+          window.showAppToast(`Logged: ${label}`, { variant: 'success' });
         }
       }
       openLeadPanelComposer();
@@ -1830,9 +1896,64 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function syncLeadPanelCallDock(detail) {
+    const dock = document.getElementById('leadPanelCallDock');
+    if (!dock) return;
+    const d = detail && typeof detail === 'object' ? detail : {};
+    const state = String(d.state || 'idle').toLowerCase();
+    const active = state === 'dialing' || state === 'in_call' || state === 'ended';
+    const sessionLead = String(d.leadKey || '').trim();
+    const rowLead = currentRow ? String(currentRow.dataset.leadKey || '').trim() : '';
+    const forThisLead = !sessionLead || !rowLead || sessionLead === rowLead;
+    const show = !!d.modalOpen && active && forThisLead;
+    dock.classList.toggle('hidden', !show);
+    const statusEl = document.getElementById('leadPanelCallDockStatus');
+    const numberEl = document.getElementById('leadPanelCallDockNumber');
+    if (statusEl) {
+      let label = 'Call active';
+      if (state === 'dialing') label = `Dialing · ${d.timer || '00:00'}`;
+      else if (state === 'in_call') label = `On call · ${d.timer || '00:00'}`;
+      else if (state === 'ended') label = 'Wrap-up';
+      statusEl.textContent = label;
+    }
+    if (numberEl) {
+      const num = String(d.number || resolveCurrentLeadDialPhone() || '').trim();
+      numberEl.textContent = num || '—';
+    }
+  }
+
   function bindLeadPanelBottomActions() {
     if (window.__leadPanelBottomActionsBound) return;
     window.__leadPanelBottomActionsBound = true;
+
+    document.addEventListener('adhello-softphone-state', (e) => {
+      syncLeadPanelCallDock((e && e.detail) || {});
+    });
+
+    const dockFocus = document.getElementById('leadPanelCallDockFocus');
+    if (dockFocus) {
+      dockFocus.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.__adhelloFocusSoftphone === 'function') {
+          window.__adhelloFocusSoftphone();
+        } else if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
+          const phone = resolveCurrentLeadDialPhone();
+          if (phone) window.__adhelloOpenSoftphoneWithDial(phone, { autoDial: false });
+        }
+      });
+    }
+    const dockHangup = document.getElementById('leadPanelCallDockHangup');
+    if (dockHangup) {
+      dockHangup.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (typeof window.__adhelloSoftphoneHangup === 'function') {
+          window.__adhelloSoftphoneHangup();
+        }
+      });
+    }
+
     document.addEventListener('click', async (e) => {
       const panelRoot = e.target.closest('#mobilePanel');
       if (!panelRoot || panelRoot.classList.contains('hidden')) return;
@@ -2998,7 +3119,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.competitorName != null) ds.competitorName = L.competitorName;
     if (L.competitorGap != null) ds.competitorGap = L.competitorGap;
     if (L.competitorMetaBenchmark != null) ds.competitorMetaBenchmark = L.competitorMetaBenchmark;
-    if (L.updates) ds.updates = JSON.stringify(L.updates);
+    if (L.updates) applyServerUpdatesToRow(row, L.updates);
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
     if (L.ownerFirstName != null) ds.ownerFirstName = String(L.ownerFirstName || '');
     if (L.doNotCall !== undefined) ds.doNotCall = L.doNotCall ? '1' : '';
@@ -3056,6 +3177,29 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function resolveRowWebsiteForAudit(row) {
+    if (!row || !row.dataset) return '';
+    const fromDs = String(row.dataset.website || '').trim();
+    if (fromDs && fromDs !== 'N/A') return fromDs;
+    const link = row.querySelector('.website-link[data-url], a.website-link');
+    if (link) {
+      const u = link.getAttribute('data-url') || link.getAttribute('href') || '';
+      const t = String(u).trim();
+      if (t && t !== 'N/A' && !/^#$/i.test(t)) return t.replace(/\/$/, '');
+    }
+    if (row === currentRow) {
+      const short = document.getElementById('mobilePanelWebsiteShort');
+      const panelLink = document.getElementById('mobilePanelWebsite');
+      const fromPanel =
+        (panelLink && panelLink.getAttribute('href')) ||
+        (short && short.textContent) ||
+        '';
+      const p = String(fromPanel || '').trim();
+      if (p && p !== 'N/A' && p !== 'Website' && !/^#$/i.test(p)) return p;
+    }
+    return '';
+  }
+
   function scoreColorClass(score) {
     if (score == null || !Number.isFinite(Number(score))) return 'text-brand-dark dark:text-white';
     const n = Number(score);
@@ -3090,6 +3234,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (progressWrap) {
       progressWrap.classList.toggle('hidden', !running);
       progressWrap.setAttribute('aria-busy', running ? 'true' : 'false');
+      if (running) {
+        try {
+          progressWrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (_) {}
+      }
     }
     if (running) {
       if (results) results.classList.add('hidden');
@@ -3123,10 +3272,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const errEl = document.getElementById('pageSpeedAuditError');
     const results = document.getElementById('pageSpeedAuditResults');
     const runBtn = document.getElementById('pageSpeedAuditRunBtn');
+    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
     if (!runBtn) return;
 
-    const hasWebsite =
-      row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A';
+    const websiteUrl = resolveRowWebsiteForAudit(row);
+    const hasWebsite = !!websiteUrl;
     const hasKey = !!(row && row.dataset && row.dataset.leadKey);
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
 
@@ -3147,19 +3297,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (pageSpeedAuditInFlight) return;
 
-    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
-    if (progressWrap) progressWrap.classList.add('hidden');
-    if (errEl) {
-      errEl.classList.add('hidden');
-      errEl.textContent = '';
-    }
+    if (progressWrap && !pageSpeedAuditInFlight) progressWrap.classList.add('hidden');
 
     if (!audit) {
       if (results) results.classList.add('hidden');
       return;
     }
 
-    if (results) results.classList.remove('hidden');
+    if (results) {
+      results.classList.remove('hidden');
+      try {
+        results.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (_) {}
+    }
 
     const scores = audit.scores || {};
     const setScore = (id, val) => {
@@ -3263,10 +3413,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const rowSignal = row.querySelector('.lead-owner-signal');
       if (rowSignal) rowSignal.textContent = data.ownerSignal;
     }
-    if (currentRow === row) {
+    if (currentRow === row && !pageSpeedAuditInFlight) {
       syncLeadPanelEmailReportSection(row);
       syncPageSpeedAuditPanel(row);
-      if (!pageSpeedAuditInFlight) populatePanel(row);
     }
     return data;
   }
@@ -3893,14 +4042,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function formatActivityTypeLabel(typ, raw) {
+    const t = String(typ || '').toLowerCase();
+    const map = {
+      quick_log: 'Quick log',
+      note: 'Note',
+      call_disposition: 'Call',
+      status_change: 'Pipeline',
+      call_browser_handoff: 'Call',
+    };
+    if (map[t]) return map[t];
+    if (t === 'quick_log' && raw && raw.disposition) return 'Quick log · call';
+    return String(typ || 'update').replace(/_/g, ' ');
+  }
+
+  function formatActivityEntryText(entry) {
+    const u = entry && entry.raw ? entry.raw : {};
+    const typ = String(entry.typ || '').toLowerCase();
+    if (typ === 'quick_log') {
+      const label = String(u.value || entry.text || '').trim();
+      const bits = [label];
+      if (u.disposition) bits.push(`Disposition: ${String(u.disposition).replace(/_/g, ' ')}`);
+      if (u.statusChange) bits.push(`Status → ${u.statusChange}`);
+      return bits.filter(Boolean).join(' · ');
+    }
+    return String(entry.text || '').trim();
+  }
+
   function mergeActivityEntries(row) {
     const out = [];
-    let updates = [];
-    try {
-      updates = JSON.parse(row.dataset.updates || '[]');
-    } catch {
-      updates = [];
-    }
+    const updates = readRowUpdatesArray(row);
     (Array.isArray(updates) ? updates : []).forEach((u) => {
       const ts = u.timestamp || u.ts || '';
       const val = u.value != null ? String(u.value) : '';
@@ -3936,6 +4107,32 @@ document.addEventListener('DOMContentLoaded', () => {
     return document.getElementById('activityLog');
   }
 
+  const QUICK_LOG_PILL_LABELS =
+    'Gatekeeper|Left VM|Not interested|Callback requested|DM connected|Send info';
+
+  function isQuickLogMirroredNote(entry) {
+    const typ = String(entry.typ || '').toLowerCase();
+    if (typ === 'quick_log') return true;
+    const raw = entry.raw || {};
+    if (raw.disposition || raw.statusChange) return true;
+    const text = String(entry.text || '').trim();
+    if (
+      new RegExp(`^\\[[^\\]]+\\]\\s+(${QUICK_LOG_PILL_LABELS})\\s*$`, 'i').test(text)
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  function isManualPanelNote(entry) {
+    const typ = String(entry.typ || '').toLowerCase();
+    const raw = entry.raw || {};
+    if (typ === 'quick_log') return false;
+    if (isQuickLogMirroredNote(entry)) return false;
+    if (raw.source === 'panel_post' || raw.manual === true) return true;
+    return typ === 'note' || typ === 'user_note' || typ === 'post';
+  }
+
   function activityEntryMatchesFilter(entry, filter) {
     const f = String(filter || 'all');
     if (f === 'all') return true;
@@ -3943,13 +4140,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const text = String(entry.text || '').toLowerCase();
     const blob = `${typ} ${text}`;
     if (f === 'calls') {
+      if (typ === 'quick_log' && entry.raw && entry.raw.disposition) return true;
       return (
         /(^|_)(call|dial|phone|voicemail|sms|text_message|telephony)(_|$|\b)/i.test(typ) ||
         /\b(called|calling|dialed|dial|voicemail|softphone|telephony|phone touch)\b/i.test(blob)
       );
     }
     if (f === 'notes') {
-      return typ === 'note' || typ === 'post' || typ === 'user_note' || /\bnote\b/i.test(typ);
+      return isManualPanelNote(entry);
     }
     return true;
   }
@@ -3976,23 +4174,44 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filtered.length) {
       host.innerHTML =
         '<div class="pl-10 text-xs text-brand-muted italic">No entries for this filter yet.</div>';
+      const countElEmpty = document.getElementById('activityLogCount');
+      if (countElEmpty) {
+        countElEmpty.textContent = '';
+        countElEmpty.classList.add('hidden');
+      }
       return;
     }
+
+    const scrollHost = document.getElementById('activityLogScroll');
+    if (scrollHost) scrollHost.scrollTop = 0;
+
     host.innerHTML = filtered
       .map((e) => {
         const when = e.ts
           ? new Date(e.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
           : '—';
-        const label = String(e.typ || '').replace(/_/g, ' ');
-        return `<div class="relative pl-10">
+        const typeLabel = formatActivityTypeLabel(e.typ, e.raw);
+        const body = formatActivityEntryText(e)
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;');
+        return `<div class="relative pl-10 pb-1">
           <div class="absolute left-1 top-1 w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-sm ring-2 ring-white dark:ring-slate-900"></div>
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${when} · ${label}</p>
-          <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${String(e.text || '')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')}</p>
+          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${when} · ${typeLabel}</p>
+          <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${body}</p>
         </div>`;
       })
       .join('');
+
+    const countEl = document.getElementById('activityLogCount');
+    if (countEl) {
+      if (filtered.length > 4) {
+        countEl.textContent = `${filtered.length} entries — scroll for more`;
+        countEl.classList.remove('hidden');
+      } else {
+        countEl.textContent = '';
+        countEl.classList.add('hidden');
+      }
+    }
   }
 
   function syncLeadPanelTouchSummary(row) {
@@ -4052,7 +4271,9 @@ document.addEventListener('DOMContentLoaded', () => {
     leadDetailChromeDidInit = true;
 
     bindLeadPanelBottomActions();
-    void ensureCadencePlaybookSelectOptions();
+    ensureCadencePlaybookDataReady().then(() => {
+      if (currentRow) syncCadencePlaybookPanel(currentRow);
+    });
 
     document.querySelectorAll('#leadPanelWhatToSellCard .lead-outreach-channel').forEach((btn) => {
       if (btn.dataset.adhelloChannelBound) return;
@@ -4756,6 +4977,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return getSequenceTemplates().find((t) => t && t.id === id) || null;
   }
 
+  function resolveTemplateSteps(tpl) {
+    if (!tpl) return [];
+    if (Array.isArray(tpl.steps) && tpl.steps.length) return tpl.steps;
+    const id = String(tpl.id || '').trim();
+    if (!id) return [];
+    const full = getSequenceTemplates().find(
+      (t) => t && t.id === id && Array.isArray(t.steps) && t.steps.length
+    );
+    if (full) return full.steps;
+    const n = tpl.stepCount != null ? Number(tpl.stepCount) : 0;
+    if (Number.isFinite(n) && n > 0) {
+      return Array.from({ length: n }, (_, i) => ({
+        dayOffset: i,
+        channel: '',
+        title: `Step ${i + 1}`,
+        hint: '',
+      }));
+    }
+    return [];
+  }
+
   function parseRowSequenceState(row) {
     if (!row || !row.dataset) return null;
     try {
@@ -4803,7 +5045,13 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (sel.options.length) sel.value = sel.options[0].value;
   }
 
+  function cadenceTemplatesIncludeSteps() {
+    const templates = getSequenceTemplates();
+    return templates.some((t) => t && Array.isArray(t.steps) && t.steps.length > 0);
+  }
+
   async function fetchCadencePlaybookTemplates() {
+    if (cadenceTemplatesIncludeSteps()) return getSequenceTemplates();
     if (cadencePlaybookFetchPromise) return cadencePlaybookFetchPromise;
     cadencePlaybookFetchPromise = fetch('/sequences/templates.json', {
       credentials: 'same-origin',
@@ -4852,7 +5100,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncCadencePlaybookPanel(row) {
-    void ensureCadencePlaybookSelectOptions();
     const sel = document.getElementById('leadCadencePlaybookSelect');
     const desc = document.getElementById('leadCadencePlaybookDesc');
     const status = document.getElementById('leadCadenceActiveStatus');
@@ -4887,7 +5134,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const t = findSequenceTemplate(seq.templateId);
         const label = t ? t.name : String(seq.templateId).replace(/_/g, ' ');
         const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
-        const total = t && t.steps ? t.steps.length : t && t.stepCount ? t.stepCount : null;
+        const totalSteps = t ? resolveTemplateSteps(t).length : 0;
+        const total = totalSteps || (t && t.stepCount ? t.stepCount : null);
         const bits = [label];
         if (active && total != null) bits.push(`step ${ix + 1} of ${total}`);
         if (seq.status) bits.push(String(seq.status));
@@ -4930,12 +5178,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function cadenceNextStepFromSequence(row, seq) {
     if (!seq || seq.status !== 'active') return '';
     const tpl = findSequenceTemplate(seq.templateId);
-    if (!tpl || !Array.isArray(tpl.steps) || !tpl.steps.length) return '';
+    const steps = resolveTemplateSteps(tpl);
+    if (!steps.length) return '';
     const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
-    const step = tpl.steps[ix];
+    const step = steps[ix];
     if (!step) return '';
     const ch = step.channel ? String(step.channel).replace(/_/g, ' ') : 'touch';
-    let line = `Step ${ix + 1}/${tpl.steps.length}: ${step.title || ch} (${ch})`;
+    let line = `Step ${ix + 1}/${steps.length}: ${step.title || ch} (${ch})`;
     if (seq.nextDueAt) {
       try {
         const due = new Date(seq.nextDueAt);
@@ -5021,7 +5270,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const sel = document.getElementById('leadCadencePlaybookSelect');
     const selectedId = sel ? String(sel.value || '').trim() : '';
     const tpl = findSequenceTemplate(selectedId);
-    if (!tpl || !Array.isArray(tpl.steps) || !tpl.steps.length) {
+    const steps = resolveTemplateSteps(tpl);
+    if (!tpl || !steps.length) {
       wrap.classList.add('hidden');
       list.innerHTML = '';
       return;
@@ -5048,7 +5298,7 @@ document.addEventListener('DOMContentLoaded', () => {
       list.appendChild(note);
     }
 
-    tpl.steps.forEach((step, i) => {
+    steps.forEach((step, i) => {
       const state = resolveCadenceStepState(i, seq, seqMatches);
       const ch = String(step.channel || '').trim();
       const chLabel = CADENCE_CHANNEL_LABELS[ch] || ch.replace(/_/g, ' ') || 'Touch';
@@ -5097,7 +5347,7 @@ document.addEventListener('DOMContentLoaded', () => {
         marker.setAttribute('aria-label', `Step ${i + 1}`);
       }
 
-      const body = document.createElement('motion');
+      const body = document.createElement('div');
       body.className = 'min-w-0 flex-1';
       const head = document.createElement('div');
       head.className = 'flex flex-wrap items-center gap-2 mb-0.5';
@@ -5156,8 +5406,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function ensureCadencePlaybookDataReady() {
+    return ensureCadencePlaybookSelectOptions().then(() => fetchCadencePlaybookTemplates());
+  }
+
   function populateCadenceSection(row) {
-    ensureCadencePlaybookSelectOptions().then(() => syncCadencePlaybookPanel(row));
+    ensureCadencePlaybookDataReady().then(() => syncCadencePlaybookPanel(row));
     const ltEl = document.getElementById('cadenceLastTouchLine');
     const chEl = document.getElementById('cadenceChannelLine');
     const seqWrap = document.getElementById('cadenceSequenceWrap');
@@ -5196,7 +5450,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (tid || st) {
         const tpl = findSequenceTemplate(tid);
         const name = tpl ? tpl.name : tid.replace(/_/g, ' ');
-        const total = tpl && tpl.steps ? tpl.steps.length : '';
+        const total = tpl ? resolveTemplateSteps(tpl).length : '';
         seqLine.textContent = total
           ? `${name} · step ${ix + 1} of ${total}${st ? ` · ${st}` : ''}`
           : `${name}${st ? ` · ${st}` : ''}`;
@@ -6319,13 +6573,21 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     e.stopPropagation();
 
+    if (typeof window.__adhelloPipelinePhoneClick === 'function') {
+      const row = trigger.closest('.result-row');
+      if (row && row.dataset && row.dataset.leadKey) currentRow = row;
+      if (window.__adhelloPipelinePhoneClick(trigger, e)) return;
+    }
+
     const explicitPhone = (trigger.dataset && trigger.dataset.phone) || '';
     const leadKey = (trigger.dataset && trigger.dataset.leadKey) || '';
     let row = trigger.closest('.result-row');
     if (!row && leadKey) row = findResultRowByLeadKey(leadKey);
+    const labelEl = trigger.querySelector && trigger.querySelector('.lead-contact-phone-label');
+    const fromLabel = labelEl ? String(labelEl.textContent || '').trim() : '';
     const fromRow =
       row && row.dataset && row.dataset.phone != null ? String(row.dataset.phone).trim() : '';
-    const phoneToFill = String(explicitPhone || fromRow || '').trim();
+    const phoneToFill = String(explicitPhone || fromLabel || fromRow || '').trim();
     if (!phoneToFill || phoneToFill === 'N/A') return;
 
     if (row && row.dataset && row.dataset.leadKey) {
@@ -6333,10 +6595,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const dialOpts = {};
-    const lk =
-      (row && row.dataset && row.dataset.leadKey) || leadKey || '';
+    const lk = (row && row.dataset && row.dataset.leadKey) || leadKey || '';
     if (lk) dialOpts.leadKey = lk;
-    if (trigger.closest('#prospectLeadsTable')) dialOpts.autoDial = true;
+    if (trigger.closest('#prospectLeadsTable')) dialOpts.autoDial = false;
     if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
       window.__adhelloOpenSoftphoneWithDial(phoneToFill, dialOpts);
       return;
@@ -6347,7 +6608,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(err.message || 'Could not open dialer.');
       });
     }
-  }, true);
+  });
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
   if (voicemailDropBtn) {
@@ -6869,7 +7130,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (leadCadencePlaybookSelect && !leadCadencePlaybookSelect.dataset.adhelloBound) {
     leadCadencePlaybookSelect.dataset.adhelloBound = '1';
     leadCadencePlaybookSelect.addEventListener('change', () => {
-      syncCadencePlaybookPanel(currentRow);
+      ensureCadencePlaybookDataReady().then(() => syncCadencePlaybookPanel(currentRow));
     });
   }
 
@@ -7053,23 +7314,58 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  async function handlePageSpeedAuditClick() {
+  async function handlePageSpeedAuditClick(ev) {
+    if (ev) {
+      ev.preventDefault();
+      ev.stopPropagation();
+    }
     const row = currentRow;
+    const errEl = document.getElementById('pageSpeedAuditError');
+    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
+
     if (!row) {
+      const msg = 'Select a saved lead first.';
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.classList.remove('hidden');
+      }
+      if (progressWrap) progressWrap.classList.remove('hidden');
       if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Select a saved lead first.', { variant: 'error' });
+        window.showAppToast(msg, { variant: 'error' });
       }
       return;
     }
     if (!row.dataset.leadKey) {
+      const msg = 'Save this lead before running an audit.';
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.classList.remove('hidden');
+      }
+      if (progressWrap) progressWrap.classList.remove('hidden');
       if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Save this lead before running an audit.', { variant: 'error' });
+        window.showAppToast(msg, { variant: 'error' });
+      }
+      return;
+    }
+    const websiteUrl = resolveRowWebsiteForAudit(row);
+    if (!websiteUrl) {
+      const msg = 'Add a website URL to this lead first.';
+      if (errEl) {
+        errEl.textContent = msg;
+        errEl.classList.remove('hidden');
+      }
+      if (progressWrap) progressWrap.classList.remove('hidden');
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'error' });
       }
       return;
     }
     if (pageSpeedAuditInFlight) return;
 
-    const errEl = document.getElementById('pageSpeedAuditError');
+    if (websiteUrl && (!row.dataset.website || row.dataset.website === 'N/A')) {
+      row.dataset.website = websiteUrl;
+    }
+
     setPageSpeedAuditRunning(true);
     try {
       await runPageSpeedAuditForRow(row);
@@ -7083,7 +7379,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (errEl) {
         errEl.textContent = msg;
         errEl.classList.remove('hidden');
+        try {
+          errEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (_) {}
       }
+      if (progressWrap) progressWrap.classList.remove('hidden');
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
       setPageSpeedAuditRunning(false);
@@ -7092,11 +7392,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  window.__adhelloRunPageSpeedAudit = handlePageSpeedAuditClick;
+
   document.addEventListener('click', (e) => {
     if (e.target.closest('#pageSpeedAuditRunBtn')) {
-      e.preventDefault();
-      e.stopPropagation();
-      handlePageSpeedAuditClick();
+      handlePageSpeedAuditClick(e);
     }
   });
 

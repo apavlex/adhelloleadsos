@@ -159,6 +159,7 @@ router.get('/', async (req, res, next) => {
       pipelineStages,
       scriptLibraryOfferPicklist,
       outreachChannelLibrary,
+      sequenceTemplates: req.app.locals.sequenceTemplates || [],
       canManageWorkspace: req.canManageWorkspace,
       driveImport,
     });
