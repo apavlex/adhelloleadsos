@@ -3404,14 +3404,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function syncPageSpeedAuditPanelBodyVisibility() {
     const body = document.getElementById('pageSpeedAuditPanelBody');
-    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
     const results = document.getElementById('pageSpeedAuditResults');
     const errEl = document.getElementById('pageSpeedAuditError');
     if (!body) return;
-    const showProgress = !!(progressWrap && !progressWrap.classList.contains('hidden'));
     const showResults = !!(results && !results.classList.contains('hidden'));
     const showError = !!(errEl && !errEl.classList.contains('hidden') && String(errEl.textContent || '').trim());
-    body.classList.toggle('hidden', !(pageSpeedAuditInFlight || showProgress || showResults || showError));
+    body.classList.toggle('hidden', !(showResults || showError));
   }
 
   function showPageSpeedAuditError(message) {
