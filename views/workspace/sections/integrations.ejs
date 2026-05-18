@@ -34,7 +34,7 @@
       <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI endpoint (optional)</label>
       <% if (masks.rapidapiLocalBusinessEndpoint) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiLocalBusinessEndpoint %></p><% } %>
       <input type="text" name="rapidapiLocalBusinessEndpoint" autocomplete="off" placeholder="https://local-business-data.p.rapidapi.com/search or https://maps-data.p.rapidapi.com/search.php" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <p class="text-xs text-brand-muted mt-2 leading-relaxed">Use the <strong>full URL to the text/business search</strong> endpoint from the API’s RapidAPI page (not <code class="text-[11px]">review.php</code>). The app appends the search string and a max-results parameter automatically.</p>
+      <p class="text-xs text-brand-muted mt-2 leading-relaxed">Use the <strong>full URL to the text/business search</strong> endpoint from the API’s RapidAPI page (not <code class="text-[11px]">review.php</code>). The app appends the search string and a max-results parameter automatically. If you only set the endpoint URL, the <strong>host header is taken from that URL</strong> — you do not need to fill RapidAPI host unless you use a proxy or custom domain.</p>
       <% if (masks.rapidapiLocalBusinessEndpoint) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiLocalBusinessEndpoint_clear" value="1" /> Remove</label><% } %>
     </div>
     <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">

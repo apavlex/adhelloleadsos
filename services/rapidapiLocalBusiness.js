@@ -6,6 +6,16 @@
 const DEFAULT_HOST = 'local-business-data.p.rapidapi.com';
 const DEFAULT_ENDPOINT = 'https://local-business-data.p.rapidapi.com/search';
 
+/** RapidAPI requires x-rapidapi-host to match the API host in the request URL. */
+function hostFromEndpointUrl(urlStr) {
+  if (!urlStr || typeof urlStr !== 'string') return '';
+  try {
+    return new URL(urlStr.trim()).hostname || '';
+  } catch {
+    return '';
+  }
+}
+
 function apiKey(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.RAPIDAPI_KEY;
   if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
@@ -15,7 +25,11 @@ function apiKey(integrationEnv) {
 function apiHost(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.RAPIDAPI_HOST;
   if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
-  return (process.env.RAPIDAPI_HOST || DEFAULT_HOST).trim();
+  const fromEnv = process.env.RAPIDAPI_HOST;
+  if (typeof fromEnv === 'string' && fromEnv.trim()) return fromEnv.trim();
+  const fromEndpoint = hostFromEndpointUrl(endpoint(integrationEnv));
+  if (fromEndpoint) return fromEndpoint;
+  return DEFAULT_HOST;
 }
 
 function endpoint(integrationEnv) {
@@ -185,7 +199,10 @@ async function requestWithBackoff(url, headers, maxAttempts = 6) {
         await sleep(waitMs);
         continue;
       }
-      throw new Error((json && (json.message || json.error)) || `HTTP ${res.status}`);
+      const detail =
+        (json && (json.message || json.error)) ||
+        (text && text.length < 280 ? text : text ? `${text.slice(0, 200)}…` : '');
+      throw new Error(detail ? `HTTP ${res.status}: ${detail}` : `HTTP ${res.status}`);
     } catch (err) {
       if (attempt === maxAttempts - 1) throw err;
       const waitMs = Math.min(15000, (2 ** attempt) * 1000 + Math.floor(Math.random() * 500));
@@ -216,7 +233,8 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
     'x-rapidapi-host': apiHost(integrationEnv),
     accept: 'application/json',
   };
-  console.log(`[RapidAPI] Local business search: "${q}" (limit=${limit})`);
+  const host = headers['x-rapidapi-host'];
+  console.log(`[RapidAPI] GET ${u.origin}${u.pathname} host=${host} query="${q}" limit=${limit}`);
   const payload = await requestWithBackoff(u.toString(), headers);
   const raw = extractItems(payload);
   const seen = new Set();
@@ -238,6 +256,7 @@ module.exports = {
   apiKey,
   apiHost,
   endpoint,
+  hostFromEndpointUrl,
   searchQueryParam,
   searchLimitParam,
   isConfigured,

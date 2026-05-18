@@ -84,6 +84,8 @@ async function searchGoogleMaps(params) {
     return outscraper.searchGoogleMaps(params);
   }
 
+  let lastAutoError = null;
+
   if (rapidapi.isConfigured(integrationEnv)) {
     try {
       const rows = await rapidapi.searchGoogleMaps(params);
@@ -92,6 +94,7 @@ async function searchGoogleMaps(params) {
       }
       console.warn('[mapsSearch] RapidAPI returned 0 places; falling back.');
     } catch (e) {
+      lastAutoError = e;
       console.warn('[mapsSearch] RapidAPI failed, falling back:', e.message);
     }
   }
@@ -133,6 +136,9 @@ async function searchGoogleMaps(params) {
   }
 
   if (!apifyConfigured(integrationEnv)) {
+    if (lastAutoError && lastAutoError.message) {
+      throw new Error(`Maps search failed (RapidAPI): ${lastAutoError.message}`);
+    }
     throw new Error(
       'No Maps search provider available: set RAPIDAPI_KEY, SEARCHAPI_API_KEY, SERPAPI_API_KEY, OUTSCRAPER_API_KEY, or APIFY_API_TOKEN.'
     );

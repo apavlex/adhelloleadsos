@@ -866,17 +866,39 @@ module.exports = {
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   },
 
-  async clearActiveJob() {
-    // Before clearing, we store it as the latest completed job for notifications
+  /**
+   * @param {{ failed?: boolean, error?: string, resultCount?: number, searchKey?: string }} [meta]
+   */
+  async clearActiveJob(meta = {}) {
     const active = await this.getActiveJob();
     if (active) {
-      await db.set('latest_finished_job', JSON.stringify({
-        ...active,
-        status: 'completed',
-        finishedAt: new Date().toISOString(),
-        isRead: false,
-        source: 'run',
-      }));
+      const finishedAt = new Date().toISOString();
+      if (meta.failed) {
+        await db.set(
+          'latest_finished_job',
+          JSON.stringify({
+            ...active,
+            status: 'failed',
+            error: String(meta.error || 'Search failed'),
+            finishedAt,
+            isRead: false,
+            source: 'run',
+          })
+        );
+      } else {
+        await db.set(
+          'latest_finished_job',
+          JSON.stringify({
+            ...active,
+            status: 'completed',
+            finishedAt,
+            isRead: false,
+            source: 'run',
+            resultCount: meta.resultCount != null ? meta.resultCount : active.resultCount,
+            searchKey: meta.searchKey != null ? meta.searchKey : active.searchKey,
+          })
+        );
+      }
     }
     await db.delete('active_job');
   },

@@ -18,6 +18,8 @@ router.post('/', async (req, res, next) => {
     const activationUserEmail = userEmail(req);
     const activationWorkspaceId = wid;
 
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+
     const wantDirectorySupplement =
       String(directorySupplement || '').toLowerCase() === 'on' ||
       (directorySupplement == null && directoryLeadSearch.directorySupplementEnabled(integrationEnv));
@@ -34,7 +36,11 @@ router.post('/', async (req, res, next) => {
         try {
           if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
             console.error('[SEARCH-BG] No Maps provider for workspace:', activationWorkspaceId);
-            await dbService.clearActiveJob();
+            await dbService.clearActiveJob({
+              failed: true,
+              error:
+                'Maps search is not configured. Add a RapidAPI, SearchAPI.io, SerpAPI, Outscraper, or Apify key under Workspace → API integrations.',
+            });
             return;
           }
           console.log(`[SEARCH-BG] Starting Maps search for "${keyword}" in "${city}, ${state}"...`);
@@ -81,15 +87,15 @@ router.post('/', async (req, res, next) => {
           const searchKey = await dbService.saveSearch(searchRecord);
           console.log(`[SEARCH-BG] Saved results to DB with key: ${searchKey}`);
           if (activationUserEmail) await activationService.recordEvent(activationUserEmail, 'search_saved');
-          await dbService.clearActiveJob();
+          await dbService.clearActiveJob({ resultCount: results.length, searchKey });
         } catch (err) {
           console.error('[SEARCH-BG] Background search failed:', err);
-          await dbService.clearActiveJob();
+          const msg = err && err.message ? String(err.message) : 'Search failed';
+          await dbService.clearActiveJob({ failed: true, error: msg });
         }
       });
     }
 
-    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const requestedFolderKey = String(req.body.folderKey || '').trim();
     const newFolderName = String(req.body.newFolderName || '').trim();
     let targetFolderKey = '';

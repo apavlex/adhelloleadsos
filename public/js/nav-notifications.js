@@ -294,11 +294,16 @@
         var kw = String(data.notification.keyword || '').slice(0, 120);
         var rc = data.notification.resultCount;
         var wsn = String(data.notification.workspaceName || '').trim();
-        var body =
-          (wsn ? '[' + wsn.slice(0, 40) + '] ' : '') +
-          (kw ? '"' + kw + '"' : 'Your search') +
-          (typeof rc === 'number' ? ' — ' + rc + ' leads.' : ' is ready to review.');
-        new Notification(src + ' complete', {
+        var failed = data.notification.status === 'failed';
+        var body = failed
+          ? (wsn ? '[' + wsn.slice(0, 40) + '] ' : '') +
+            (kw ? '"' + kw + '"' : 'Your search') +
+            ' failed. ' +
+            String(data.notification.error || 'Check Workspace → API integrations.').slice(0, 120)
+          : (wsn ? '[' + wsn.slice(0, 40) + '] ' : '') +
+            (kw ? '"' + kw + '"' : 'Your search') +
+            (typeof rc === 'number' ? ' — ' + rc + ' leads.' : ' is ready to review.');
+        new Notification(failed ? src + ' failed' : src + ' complete', {
           body: body.slice(0, 180),
           tag: 'agency-os-' + fid,
         });
@@ -334,18 +339,33 @@
           if (notificationList) {
             const n = data.notification;
             const kw = String(n.keyword || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-            const headline =
-              n.source === 'scheduled' ? 'Scheduled scrape ready' : 'Ready for Review';
-            const sub =
-              n.source === 'scheduled'
+            const failed = n.status === 'failed';
+            const headline = failed
+              ? 'Search failed'
+              : n.source === 'scheduled'
+                ? 'Scheduled scrape ready'
+                : 'Ready for Review';
+            const err = String(n.error || '')
+              .replace(/</g, '&lt;')
+              .replace(/"/g, '&quot;');
+            const sub = failed
+              ? 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
+                kw +
+                '"</span> did not finish. ' +
+                (err ? '<span class="text-red-700 dark:text-red-300">' + err + '</span> ' : '') +
+                'Open Workspace → API integrations and use <strong>Test APIs</strong>.'
+              : n.source === 'scheduled'
                 ? 'Scheduled run for <span class="text-brand-dark dark:text-slate-200">"' +
                   kw +
                   '"</span> finished. Open history to review.'
                 : 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
                   kw +
                   '"</span> is complete. Link to results is ready.';
+            const notifHref = failed ? '/workspace/integrations' : '/history';
             notificationList.innerHTML =
-              '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" onclick="window.location.href=\'/history\'">' +
+              '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" onclick="window.location.href=\'' +
+              notifHref +
+              '\'">' +
               '<div class="flex items-start gap-3">' +
               '<div class="w-8 h-8 rounded-full bg-brand-yellow/10 flex items-center justify-center text-brand-yellow shrink-0">' +
               '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' +
