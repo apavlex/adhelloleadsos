@@ -490,14 +490,21 @@ module.exports = {
     }
   },
 
-  async mergeGoogleDriveTokens(email, { accessToken, refreshToken, expiresIn }) {
+  async mergeGoogleDriveTokens(
+    email,
+    { accessToken, refreshToken, expiresIn, googleAccountEmail, googleAccountName }
+  ) {
     const em = String(email || '').trim().toLowerCase();
     const fragment = this._emailKeyFragment(em);
     const key = `gdrv_oauth:${fragment}`;
     const cur = (await this.getGoogleDriveTokens(em)) || {};
-    const ttl = Number(expiresIn);
-    const expiresAt =
-      Date.now() + (Number.isFinite(ttl) && ttl > 0 ? ttl * 1000 : 3600 * 1000);
+    const ttl = expiresIn != null ? Number(expiresIn) : NaN;
+    let expiresAt = cur.expiresAt;
+    if (accessToken && Number.isFinite(ttl) && ttl > 0) {
+      expiresAt = Date.now() + ttl * 1000;
+    } else if (accessToken && !expiresAt) {
+      expiresAt = Date.now() + 3600 * 1000;
+    }
     const next = {
       ...cur,
       accessToken: accessToken || cur.accessToken || '',
@@ -506,6 +513,8 @@ module.exports = {
       updatedAt: new Date().toISOString(),
     };
     if (!next.refreshToken && cur.refreshToken) next.refreshToken = cur.refreshToken;
+    if (googleAccountEmail) next.googleAccountEmail = String(googleAccountEmail).trim().toLowerCase();
+    if (googleAccountName) next.googleAccountName = String(googleAccountName).trim();
     await db.set(key, JSON.stringify(next));
     return next;
   },

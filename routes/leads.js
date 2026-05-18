@@ -34,6 +34,7 @@ const dialerPacing = require('../services/dialerPacing');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const googleDriveAccess = require('../services/googleDriveAccess');
+const { getGoogleDriveAccount } = googleDriveAccess;
 const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const signalwire = require('../services/signalwire');
@@ -305,13 +306,25 @@ router.get('/google-drive/status', async (req, res) => {
   try {
     const email = userEmail(req);
     const row = email ? await dbService.getGoogleDriveTokens(email) : null;
+    const connected = !!(row && row.refreshToken);
+    let googleAccountEmail = (row && row.googleAccountEmail) || '';
+    let googleAccountName = (row && row.googleAccountName) || '';
+    if (connected && !googleAccountEmail) {
+      const acct = await getGoogleDriveAccount(email);
+      if (acct) {
+        googleAccountEmail = acct.email;
+        googleAccountName = acct.displayName;
+      }
+    }
     res.json({
       pickerReady: Boolean(
         process.env.GOOGLE_CLIENT_ID &&
           process.env.GOOGLE_CLIENT_SECRET &&
           process.env.GOOGLE_PICKER_API_KEY
       ),
-      connected: !!(row && row.refreshToken),
+      connected,
+      googleAccountEmail,
+      googleAccountName,
     });
   } catch (e) {
     res.status(500).json({ error: e.message || 'status failed' });

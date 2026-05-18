@@ -180,10 +180,6 @@
             <option value="pro">Pro</option>
           </select>
         </label>
-        <label class="inline-flex items-center gap-2 mt-1 sm:mt-0 sm:mb-2">
-          <input id="focus-include-coupon" type="checkbox" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
-          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Include coupon line</span>
-        </label>
         </div>
       </div>
 
@@ -359,7 +355,6 @@
     var elChannelHint = document.getElementById('focus-channel-hint');
     var elScriptVariant = document.getElementById('focus-script-variant');
     var elTone = document.getElementById('focus-tone');
-    var elIncludeCoupon = document.getElementById('focus-include-coupon');
     var btnOpenDialer = document.getElementById('focus-btn-open-dialer');
     var elBodyLabel = document.getElementById('focus-body-label');
     var elMobileFabWrap = document.getElementById('focus-mobile-fab-wrap');
@@ -1318,7 +1313,6 @@
       }
       var scriptVariant = elScriptVariant && elScriptVariant.value ? elScriptVariant.value : 'default';
       var tone = elTone && elTone.value ? elTone.value : 'coffee-chat';
-      var includeCouponLine = !!(elIncludeCoupon && elIncludeCoupon.checked);
       return fetch('/sales/draft-outreach', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -1327,7 +1321,7 @@
           channel: ch,
           scriptVariant: scriptVariant,
           tone: tone,
-          includeCouponLine: includeCouponLine,
+          includeCouponLine: false,
           serviceKey: elServiceSelect && elServiceSelect.value ? elServiceSelect.value : 'auto',
         }),
       })
@@ -1484,11 +1478,6 @@
     }
     if (elTone) {
       elTone.addEventListener('change', function () {
-        fetchDraft();
-      });
-    }
-    if (elIncludeCoupon) {
-      elIncludeCoupon.addEventListener('change', function () {
         fetchDraft();
       });
     }

@@ -62,10 +62,14 @@ if (isGoogleAuthConfigured) {
           return done(null, false, { message: 'Access restricted to adhello.ai workspace.' });
         }
         try {
+          const driveEmail =
+            (profile.emails && profile.emails[0] && profile.emails[0].value) || gate.email;
           await dbService.mergeGoogleDriveTokens(String(gate.email).trim().toLowerCase(), {
             accessToken,
             refreshToken,
             expiresIn: 3600,
+            googleAccountEmail: driveEmail,
+            googleAccountName: profile.displayName || driveEmail,
           });
         } catch (e) {
           return done(e);

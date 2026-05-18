@@ -3,6 +3,9 @@
 <% const _todayStr = typeof today !== 'undefined' && today ? today : new Date().toISOString().slice(0, 10); %>
 <% const _todayRow = typeof todayRow !== 'undefined' && todayRow ? todayRow : {}; %>
 <% const _returnTo = typeof trackerReturnTo !== 'undefined' && trackerReturnTo ? trackerReturnTo : '/reports?tab=tracker'; %>
+<% const _touchesToday = typeof touchesToday !== 'undefined' ? touchesToday : null; %>
+<% const _touchGoal = typeof touchGoal !== 'undefined' ? touchGoal : 54; %>
+<% const _touchPct = _touchGoal > 0 && _touchesToday != null ? Math.min(100, Math.round((_touchesToday / _touchGoal) * 100)) : 0; %>
 
 <section class="mb-8 md:mb-10 scroll-mt-24" id="review-today" aria-label="Review today">
   <% if (_tiTot > 0) { %>
@@ -69,7 +72,22 @@
 
     <div class="brand-card p-8 dark:bg-slate-900 dark:border-white/10">
       <h2 class="font-display font-extrabold text-lg mb-1 text-brand-dark dark:text-white">Today’s picture</h2>
-      <p class="text-[11px] text-brand-muted mb-4">Higher of <strong class="text-brand-dark dark:text-white">saved</strong> vs <strong class="text-brand-dark dark:text-white">detected</strong> from lead activity (per channel).</p>
+      <p class="text-[11px] text-brand-muted mb-4">Unique leads touched toward your daily goal, plus channel volume (higher of saved vs detected per channel).</p>
+      <% if (_touchesToday != null) { %>
+      <a href="/reports?tab=tracker&amp;metric=touches_today&amp;range=1d" class="block rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 p-4 mb-4 hover:border-brand-yellow/60 transition-colors group">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted group-hover:text-brand-dark dark:group-hover:text-white">Leads touched (daily goal)</p>
+            <p class="text-3xl font-display font-black text-brand-yellow mt-1 tabular-nums"><%= _touchesToday %><span class="text-sm font-bold text-brand-muted"> / <%= _touchGoal %></span></p>
+            <p class="text-[11px] text-brand-muted mt-1">Unique leads with outreach today — same number on Reports.</p>
+          </div>
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow shrink-0">Reports →</span>
+        </div>
+        <div class="mt-3 h-2 rounded-full bg-brand-cream/80 dark:bg-slate-800 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="<%= _touchGoal %>" aria-valuenow="<%= _touchesToday %>">
+          <div class="h-full bg-brand-yellow rounded-full transition-[width] duration-300" style="width: <%= _touchPct %>%"></div>
+        </div>
+      </a>
+      <% } %>
       <% const t = _todayRow; %>
       <% const _td = typeof trackerDisplayToday !== 'undefined' && trackerDisplayToday ? trackerDisplayToday : null; %>
       <% const _de = _td ? _td.emails : (parseInt(t.coldEmails,10)||0); %>
@@ -84,7 +102,7 @@
           <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _de + _dd %></dd>
         </div>
         <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">
-          <dt class="text-[10px] font-black uppercase text-brand-muted">Calls</dt>
+          <dt class="text-[10px] font-black uppercase text-brand-muted">Cold calls (volume)</dt>
           <dd class="text-2xl font-black text-brand-dark dark:text-white mt-1"><%= _dc %></dd>
         </div>
         <div class="rounded-2xl bg-brand-cream/40 dark:bg-white/5 p-4 border border-brand-border/30 dark:border-white/10">

@@ -3,7 +3,11 @@
  */
 const dbService = require('./database');
 const { filterLeadsForRequest, userEmail } = require('./workspaceService');
-const { buildDayRollup } = require('./trackerStats');
+const {
+  buildDayRollup,
+  countUniqueLeadsTouchedOnUtcDate,
+  dailyPersonalizedTouchGoal,
+} = require('./trackerStats');
 const {
   inferDailyTouchCountsFromLeads,
   displayTouchTotalsForDay,
@@ -59,6 +63,8 @@ async function loadSalesTrackerLocals(req) {
   const checklistWeek = enrichRollupWithLeadInference(buildDayRollup(today, history60, 7), leadsScoped);
   const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
   const outreachCoach = await buildOutreachCoachSnapshot(req);
+  const touchesToday = countUniqueLeadsTouchedOnUtcDate(leadsScoped, today);
+  const touchGoal = dailyPersonalizedTouchGoal();
   return {
     today,
     todayRow,
@@ -69,6 +75,8 @@ async function loadSalesTrackerLocals(req) {
     outreachCoach,
     trackerInferred,
     trackerDisplayToday,
+    touchesToday,
+    touchGoal,
     trackerReturnTo: `/reports?tab=tracker&scope=${String(req.query.scope || 'workspace')}`,
   };
 }

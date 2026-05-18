@@ -38,12 +38,7 @@
       <%- include('partials/prospecting_coach_card', { coachCardClass: 'mb-6 md:mb-8 ring-2 ring-brand-yellow/20 shadow-lg shadow-brand-yellow/10' }) %>
       <% } %>
       <%- include('partials/today_contact_queue') %>
-      <%- include('partials/cadence_today_block') %>
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Calls made</p>
-          <p class="font-display font-black text-xl text-brand-dark dark:text-white tabular-nums"><%= _touchesToday %><span class="text-xs text-brand-muted"> / <%= _touchGoal %></span></p>
-        </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
         <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
           <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Replies received</p>
           <p class="font-display font-black text-xl text-brand-dark dark:text-white tabular-nums"><%= typeof repliesWaiting !== 'undefined' ? repliesWaiting : 0 %></p>
@@ -80,7 +75,11 @@
     })();
     </script>
 
-    <%- include('partials/review_today_widget') %>
+    <%- include('partials/review_today_widget', {
+      touchesToday: _touchesToday,
+      touchGoal: _touchGoal,
+      streak: typeof streak !== 'undefined' ? streak : 0,
+    }) %>
 
     <% const _fuTasks = typeof followUpTasksToday !== 'undefined' && followUpTasksToday ? followUpTasksToday : []; %>
     <% if (_fuTasks.length) { %>
@@ -244,12 +243,7 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-6">Day at a glance</p>
         <% const _cs = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
         <% const _pv = typeof _cs.pipelineValueCreated7d === 'number' ? _cs.pipelineValueCreated7d : 0; %>
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-          <a href="/reports?tab=tracker&amp;metric=touches_today&amp;range=1d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/50 transition-colors text-left">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 group-hover:text-brand-dark dark:group-hover:text-white">Touches today</p>
-            <p class="text-2xl md:text-3xl font-display font-black text-brand-yellow"><%= typeof touchesToday !== 'undefined' ? touchesToday : 0 %><span class="text-sm font-bold text-brand-muted"> / <%= typeof touchGoal !== 'undefined' ? touchGoal : 54 %></span></p>
-            <p class="text-[11px] text-brand-muted mt-2">Unique leads touched today</p>
-          </a>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
           <a href="/reports?tab=tracker&amp;metric=reply_rate&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Reply rate (7d)</p>
             <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-violet-300"><%= _cs.replyRate7dDisplay || '0%' %></p>
@@ -375,21 +369,17 @@
       </div>
     </div>
     <% } %>
+
+    <%- include('partials/cadence_today_block') %>
   </main>
 
   <% const _eq = typeof outreachCoach !== 'undefined' && outreachCoach && outreachCoach.entrepreneurQuote ? outreachCoach.entrepreneurQuote : null; %>
   <% if (_eq) { %>
   <footer class="max-wide mx-auto px-6 pb-10 md:pb-14">
-    <details class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-4 py-3">
-      <summary class="cursor-pointer list-none text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white flex items-center justify-between gap-2 [&::-webkit-details-marker]:hidden">
-        <span>Show quote</span>
-        <span class="text-brand-muted group-open:rotate-180 transition-transform" aria-hidden="true">▼</span>
-      </summary>
-      <blockquote class="mt-4 pt-4 border-t border-brand-border/30 dark:border-white/10 text-brand-dark dark:text-slate-100">
-        <p class="font-display font-bold text-base leading-snug">“<%= _eq.text %>”</p>
-        <footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— <%= _eq.author %></footer>
-      </blockquote>
-    </details>
+    <blockquote class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/50 dark:bg-slate-900/40 px-5 py-5 md:px-6 md:py-6 text-brand-dark dark:text-slate-100">
+      <p class="font-display font-bold text-base md:text-lg leading-snug">“<%= _eq.text %>”</p>
+      <footer class="mt-3 text-sm font-bold text-brand-muted dark:text-slate-400">— <%= _eq.author %></footer>
+    </blockquote>
   </footer>
   <% } else { %>
   <footer class="max-wide mx-auto px-6 pb-10 md:pb-14"></footer>

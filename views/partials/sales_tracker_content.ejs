@@ -39,7 +39,10 @@
   </div>
 </div>
 
-<%- include('partials/review_today_widget') %>
+<%- include('partials/review_today_widget', {
+  touchesToday: typeof touchesToday !== 'undefined' ? touchesToday : null,
+  touchGoal: typeof touchGoal !== 'undefined' ? touchGoal : 54,
+}) %>
 
 
 <% const cw = typeof checklistWeek !== 'undefined' && checklistWeek ? checklistWeek : { days: [], sumTotal: 0, daysWithActivity: 0 }; %>

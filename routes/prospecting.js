@@ -4,7 +4,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
-const { getPublicBaseUrl, googleOAuthRedirectUris } = require('../lib/publicBaseUrl');
+const { buildDriveImportBundle } = require('../services/googleDriveAccess');
 const {
   displayStatus,
   applyLeadListFilters,
@@ -118,24 +118,7 @@ router.get('/', async (req, res, next) => {
     const outreachChannelLibrary = buildOutreachLibrary(mergedScriptLibrary, SCRIPT_LIBRARY_KEYS);
 
     const email = userEmail(req);
-    const driveTokens = email ? await dbService.getGoogleDriveTokens(email) : null;
-    const oauthBase = getPublicBaseUrl(req);
-    const driveImport = {
-      pickerReady: Boolean(
-        process.env.GOOGLE_CLIENT_ID &&
-          process.env.GOOGLE_CLIENT_SECRET &&
-          process.env.GOOGLE_PICKER_API_KEY
-      ),
-      connected: !!(driveTokens && driveTokens.refreshToken),
-      driveConnectedBanner: req.query.driveConnected === '1',
-      driveOAuthError: req.query.driveError === 'oauth',
-      oauthRedirects: googleOAuthRedirectUris(oauthBase),
-      googleClientId: process.env.GOOGLE_CLIENT_ID || '',
-      pickerApiKey: process.env.GOOGLE_PICKER_API_KEY || '',
-      setupHint:
-        Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) &&
-        !process.env.GOOGLE_PICKER_API_KEY,
-    };
+    const driveImport = await buildDriveImportBundle(req, email);
 
     res.render('prospecting', {
       title: 'Prospecting | Agency OS',

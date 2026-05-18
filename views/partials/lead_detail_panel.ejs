@@ -410,33 +410,6 @@
 
       <div id="lead-tab-history" class="lead-tab-panel space-y-8" data-lead-tab-panel="history">
 
-      <section class="mb-8 rounded-[2rem] border border-sky-500/25 bg-sky-500/5 dark:bg-sky-950/30 p-5">
-        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-800 dark:text-sky-200 mb-3">Schedule callback</h3>
-        <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-4 leading-relaxed">Creates a dated task on <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Tasks</a> so warm callbacks do not get lost in sequence-only flows.</p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <label for="leadCallbackDate" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Date</label>
-            <input type="date" id="leadCallbackDate" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
-          </div>
-          <div>
-            <label for="leadCallbackTime" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Time</label>
-            <input type="time" id="leadCallbackTime" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
-          </div>
-        </div>
-        <div class="mt-3">
-          <label for="leadCallbackReason" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Reason</label>
-          <input type="text" id="leadCallbackReason" placeholder="e.g. Call back after 3pm — asked for pricing" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
-        </div>
-        <label class="mt-3 inline-flex items-center gap-2 text-[10px] font-bold text-brand-muted cursor-pointer select-none">
-          <input type="checkbox" id="leadCallbackRemind15" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
-          Remind me 15 minutes before (note in task title)
-        </label>
-        <p id="leadCallbackTaskHint" class="text-[10px] text-emerald-700 dark:text-emerald-300 mt-2 hidden font-semibold"></p>
-        <div class="mt-4 flex flex-wrap gap-2">
-          <button type="button" id="leadCallbackSaveBtn" class="btn-pill bg-sky-600 text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-sky-700">Create callback task</button>
-        </div>
-      </section>
-
       <!-- Cadence controls -->
       <section class="mb-8 rounded-2xl border border-violet-500/35 bg-violet-500/[0.06] dark:bg-violet-950/40 dark:border-violet-500/25 p-5">
         <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-violet-800 dark:text-violet-200 mb-3 px-0.5">Cadence</h3>
@@ -452,6 +425,10 @@
           </select>
           <p id="leadCadencePlaybookDesc" class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed">—</p>
           <p id="leadCadenceActiveStatus" class="hidden text-[11px] font-semibold text-violet-900 dark:text-violet-100 leading-relaxed rounded-xl bg-white/60 dark:bg-slate-900/50 border border-violet-300/30 dark:border-violet-600/30 px-3 py-2"></p>
+          <div id="cadencePlaybookStepsWrap" class="hidden rounded-2xl border border-violet-300/35 dark:border-violet-600/35 bg-white/70 dark:bg-slate-900/50 p-4">
+            <p class="text-[9px] font-black uppercase tracking-widest text-violet-800 dark:text-violet-200 mb-2">Playbook steps</p>
+            <ol id="cadencePlaybookStepsList" class="list-none m-0 p-0 space-y-2" role="list" aria-label="Playbook steps"></ol>
+          </div>
         </div>
         <div class="flex flex-col sm:flex-row flex-wrap gap-2">
           <button type="button" id="sidebarCadenceStartBtn" class="btn-pill bg-violet-600 text-white py-2.5 px-4 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">Start playbook</button>
@@ -493,6 +470,33 @@
           </div>
         </div>
       </div>
+      </section>
+
+      <section class="mb-8 rounded-[2rem] border border-sky-500/25 bg-sky-500/5 dark:bg-sky-950/30 p-5">
+        <h3 class="text-[10px] font-black uppercase tracking-[0.2em] text-sky-800 dark:text-sky-200 mb-3">Schedule callback</h3>
+        <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-4 leading-relaxed">Creates a dated task on <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Tasks</a> so warm callbacks do not get lost in sequence-only flows.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label for="leadCallbackDate" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Date</label>
+            <input type="date" id="leadCallbackDate" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+          <div>
+            <label for="leadCallbackTime" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Time</label>
+            <input type="time" id="leadCallbackTime" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
+          </div>
+        </div>
+        <div class="mt-3">
+          <label for="leadCallbackReason" class="text-[9px] font-black uppercase tracking-widest text-brand-muted block mb-1">Reason</label>
+          <input type="text" id="leadCallbackReason" placeholder="e.g. Call back after 3pm — asked for pricing" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm text-brand-dark dark:text-white" />
+        </div>
+        <label class="mt-3 inline-flex items-center gap-2 text-[10px] font-bold text-brand-muted cursor-pointer select-none">
+          <input type="checkbox" id="leadCallbackRemind15" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
+          Remind me 15 minutes before (note in task title)
+        </label>
+        <p id="leadCallbackTaskHint" class="text-[10px] text-emerald-700 dark:text-emerald-300 mt-2 hidden font-semibold"></p>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button type="button" id="leadCallbackSaveBtn" class="btn-pill bg-sky-600 text-white px-4 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-sky-700">Create callback task</button>
+        </div>
       </section>
 
       <!-- Activity Timeline -->
