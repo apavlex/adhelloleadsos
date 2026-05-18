@@ -4548,56 +4548,23 @@ document.addEventListener('DOMContentLoaded', () => {
     (__socialBrand && __socialBrand.GOOGLE_SOCIALS_TABLE_BTN_CLASS) ||
     'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 hover:bg-[#4285F4]/15 dark:hover:bg-[#4285F4]/25 transition-all hover:scale-105';
 
-  let __leadPanelMapsJsBootLoading = false;
   function loadAdhelloGoogleMapsJs(cb) {
-    const key =
-      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
+    const key = String(
+      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || ''
+    ).trim();
     if (!key) {
       cb(new Error('no_maps_key'));
+      return;
+    }
+    if (typeof window !== 'undefined' && window.AdhelloMaps && typeof window.AdhelloMaps.load === 'function') {
+      window.AdhelloMaps.load(key, cb);
       return;
     }
     if (typeof window !== 'undefined' && window.google && window.google.maps) {
       cb(null);
       return;
     }
-    window.__adhelloMapsJsCallbacks = window.__adhelloMapsJsCallbacks || [];
-    window.__adhelloMapsJsCallbacks.push(cb);
-    if (__leadPanelMapsJsBootLoading) return;
-    const existing = document.querySelector('script[data-adhello-google-maps-js-boot]');
-    if (existing) {
-      __leadPanelMapsJsBootLoading = true;
-      return;
-    }
-    __leadPanelMapsJsBootLoading = true;
-    const s = document.createElement('script');
-    s.async = true;
-    s.defer = true;
-    s.setAttribute('data-adhello-google-maps-js-boot', '1');
-    window.__adhelloGoogleMapsJsBoot = function mapsJsBoot() {
-      __leadPanelMapsJsBootLoading = false;
-      const q = window.__adhelloMapsJsCallbacks || [];
-      window.__adhelloMapsJsCallbacks = [];
-      q.forEach((fn) => {
-        try {
-          fn(null);
-        } catch (e) {
-          console.warn('[Google Maps JS]', e);
-        }
-      });
-      try {
-        delete window.__adhelloGoogleMapsJsBoot;
-      } catch (_) {
-        window.__adhelloGoogleMapsJsBoot = undefined;
-      }
-    };
-    s.onerror = function mapsJsOnErr() {
-      __leadPanelMapsJsBootLoading = false;
-      const q = window.__adhelloMapsJsCallbacks || [];
-      window.__adhelloMapsJsCallbacks = [];
-      q.forEach((fn) => fn(new Error('maps_script_failed')));
-    };
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&callback=__adhelloGoogleMapsJsBoot`;
-    document.head.appendChild(s);
+    cb(new Error('maps_loader_missing'));
   }
 
   let __leadPanelJsMap = null;
@@ -4766,12 +4733,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let headerMapBannerActive = false;
 
     /** Matches Focus page embed behavior; Embed API when key is configured (enable Maps Embed API on the key). */
-    const heroEmbedSrcForQuery = (centerQuery) => {
-      const q = encodeURIComponent(centerQuery);
-      if (mapKey) {
-        return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(mapKey)}&q=${q}&zoom=15&maptype=roadmap`;
+    const heroEmbedSrcForQuery = (centerQuery, useKeyless) => {
+      const q = String(centerQuery || '').trim();
+      if (!q) return '';
+      const k = useKeyless ? '' : mapKey;
+      if (typeof window !== 'undefined' && window.AdhelloMaps && window.AdhelloMaps.embedSrc) {
+        return window.AdhelloMaps.embedSrc(q, k);
       }
-      return `https://maps.google.com/maps?q=${q}&hl=en&z=15&output=embed`;
+      if (k) {
+        return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&zoom=15&maptype=roadmap`;
+      }
+      return `https://www.google.com/maps?q=${encodeURIComponent(q)}&hl=en&z=15&output=embed`;
     };
 
     if (heroLink && heroImg && heroFallback && heroEmbed) {
@@ -4805,11 +4777,20 @@ document.addEventListener('DOMContentLoaded', () => {
             heroFallback.classList.add('flex', 'flex-col');
           };
 
-          const openHeroEmbed = () => {
+          const openHeroEmbed = (useKeyless) => {
             if (!center) return false;
             heroImg.classList.add('hidden');
             heroImg.removeAttribute('src');
-            heroEmbed.src = heroEmbedSrcForQuery(center);
+            heroEmbed.onload = null;
+            heroEmbed.onerror = null;
+            const src = heroEmbedSrcForQuery(center, useKeyless);
+            if (!src) return false;
+            heroEmbed.onerror = function onHeroEmbedErr() {
+              heroEmbed.onerror = null;
+              if (!useKeyless && mapKey) openHeroEmbed(true);
+              else showHeroPinFallback();
+            };
+            heroEmbed.src = src;
             heroEmbed.title = address
               ? `Map · ${address.slice(0, 100)}`
               : title

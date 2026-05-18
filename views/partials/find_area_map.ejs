@@ -182,7 +182,43 @@
     if (btn) btn.addEventListener('click', applyCenter);
   }
 </script>
-<script async defer src="https://maps.googleapis.com/maps/api/js?key=<%= encodeURIComponent(googleMapsKey) %>&callback=initFindAreaMap"></script>
+<script>
+  (function () {
+    var key = <%- JSON.stringify(googleMapsKey) %>;
+    function showFindAreaMapError(msg) {
+      var el = document.getElementById('findAreaMap');
+      var statusEl = document.getElementById('findAreaMapStatus');
+      var text =
+        msg ||
+        'Google Maps could not load. In Google Cloud Console, enable Maps JavaScript API + Geocoding API, turn on billing, and add this site to your API key HTTP referrer list.';
+      if (statusEl) statusEl.textContent = text;
+      if (el) {
+        el.innerHTML =
+          '<div class="flex flex-col items-center justify-center h-full min-h-[220px] px-6 text-center gap-3">' +
+          '<p class="text-sm font-semibold text-brand-dark dark:text-white">Map unavailable</p>' +
+          '<p class="text-xs text-brand-muted leading-relaxed max-w-md">' +
+          text +
+          '</p></div>';
+      }
+    }
+    function boot() {
+      if (!window.AdhelloMaps || typeof window.AdhelloMaps.load !== 'function') {
+        showFindAreaMapError('Maps loader failed to start. Hard-refresh the page.');
+        return;
+      }
+      window.AdhelloMaps.load(key, function (err) {
+        if (err) {
+          showFindAreaMapError();
+          return;
+        }
+        if (typeof initFindAreaMap === 'function') initFindAreaMap();
+        else showFindAreaMapError('Map initializer missing.');
+      });
+    }
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+  })();
+</script>
 <% } else { %>
 <div class="w-full border-b border-brand-border/15 dark:border-white/10 px-5 py-6 sm:px-7 sm:py-8">
   <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Step 1 · Map (optional)</p>

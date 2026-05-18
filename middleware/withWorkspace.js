@@ -2,6 +2,7 @@ const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { wantsJsonResponse } = require('../lib/httpRequest');
+const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 
 /**
  * After auth: bootstrap workspaces, resolve active workspace (?ws= slug → session → user prefs → first),
@@ -95,7 +96,7 @@ async function withWorkspace(req, res, next) {
     res.locals.canManageWorkspace = req.canManageWorkspace;
     res.locals.workspaceSwitcherList = summaries;
     res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
-    res.locals.googleMapsStaticKey = String(process.env.GOOGLE_MAPS_API_KEY || '').trim() || null;
+    res.locals.googleMapsStaticKey = getGoogleMapsApiKey();
 
     next();
   } catch (err) {

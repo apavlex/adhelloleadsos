@@ -2,9 +2,6 @@
   <% const playbookTemplates = (typeof sequenceTemplates !== 'undefined' && Array.isArray(sequenceTemplates))
     ? sequenceTemplates
     : (typeof locals !== 'undefined' && Array.isArray(locals.sequenceTemplates) ? locals.sequenceTemplates : []); %>
-  <% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
-  <script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>;</script>
-  <% } %>
   <!-- Mobile Detail Panel / Desktop Sidebar -->
   <!-- Layout flex-* lives in custom.css for #mobilePanel.open only — avoids Tailwind `hidden` vs `flex` both setting display -->
   <div id="mobilePanel" class="fixed inset-0 z-[400] bg-brand-dark/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 pointer-events-none">

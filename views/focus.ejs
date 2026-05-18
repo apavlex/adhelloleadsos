@@ -6,9 +6,6 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>
 
-  <% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
-  <script>window.__FOCUS_GOOGLE_MAPS_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>;</script>
-  <% } %>
   <main class="max-wide px-6 py-8 pb-28 md:pb-10 md:py-10">
     <header class="mb-8">
       <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-3">
@@ -825,25 +822,35 @@
         return;
       }
       var key =
-        typeof window !== 'undefined' && window.__FOCUS_GOOGLE_MAPS_KEY__
-          ? String(window.__FOCUS_GOOGLE_MAPS_KEY__).trim()
+        typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__
+          ? String(window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__).trim()
           : '';
-      var src;
-      if (key) {
-        src =
-          'https://www.google.com/maps/embed/v1/place?key=' +
-          encodeURIComponent(key) +
-          '&q=' +
-          encodeURIComponent(q) +
-          '&zoom=15&maptype=roadmap';
-      } else {
-        src =
+      function setFocusMapSrc(useKeyless) {
+        if (typeof window.AdhelloMaps !== 'undefined' && window.AdhelloMaps.embedSrc) {
+          return window.AdhelloMaps.embedSrc(q, useKeyless ? '' : key);
+        }
+        if (key && !useKeyless) {
+          return (
+            'https://www.google.com/maps/embed/v1/place?key=' +
+            encodeURIComponent(key) +
+            '&q=' +
+            encodeURIComponent(q) +
+            '&zoom=15&maptype=roadmap'
+          );
+        }
+        return (
           'https://www.google.com/maps?q=' +
           encodeURIComponent(q) +
-          '&hl=en&z=15&output=embed';
+          '&hl=en&z=15&output=embed'
+        );
       }
       wrap.classList.remove('hidden');
-      iframe.src = src;
+      iframe.onerror = null;
+      iframe.onerror = function () {
+        iframe.onerror = null;
+        if (key) iframe.src = setFocusMapSrc(true);
+      };
+      iframe.src = setFocusMapSrc(false);
     }
 
     function renderBusinessInfo(lead) {

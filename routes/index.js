@@ -3,6 +3,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
+const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -45,7 +46,7 @@ async function renderFindLeads(req, res, next) {
       workspaceLeadsCount: workspaceLeads.length,
       warmInboundCount: adhelloLeads.length,
       totalPipelineCount: leads.length,
-      googleMapsKey: process.env.GOOGLE_MAPS_API_KEY || null,
+      googleMapsKey: getGoogleMapsApiKey(),
       mapDefaultLat,
       mapDefaultLng,
       mapDefaultZoom,
