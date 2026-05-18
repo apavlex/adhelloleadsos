@@ -940,6 +940,8 @@ table {
 #mobilePanel.open #leadPanelNotepad select,
 #mobilePanel.open #leadPanelNotepad input,
 #mobilePanel.open #leadPanelNotepad label,
+#mobilePanel.open #leadPanelComposerDrawer.lead-panel-composer-drawer--open,
+#mobilePanel.open #leadPanelComposerDrawer.lead-panel-composer-drawer--open *,
 #mobilePanel.open #leadPanelOutreachDrawer.lead-panel-outreach-drawer--open,
 #mobilePanel.open #leadPanelOutreachDrawer.lead-panel-outreach-drawer--open * {
     pointer-events: auto;

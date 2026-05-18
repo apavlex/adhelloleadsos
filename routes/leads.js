@@ -907,19 +907,27 @@ router.post('/:key/notes', async (req, res, next) => {
   try {
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
-    const { content } = req.body;
-    
+    const content = String((req.body && req.body.content) || '').trim();
+    if (!content) {
+      return res.status(400).json({ success: false, error: 'Note text is required.' });
+    }
+
     const lead = await dbService.getLead(fullKey);
-    const updates = lead.updates || [];
-    updates.push({
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const updates = appendLeadUpdate(lead, {
       type: 'note',
       value: content,
-      timestamp: new Date().toISOString(),
       source: 'panel_post',
     });
 
-    await dbService.updateLead(fullKey, { updates });
-    res.json({ success: true, updates });
+    const updated = await dbService.updateLead(fullKey, { updates }, req.workspaceId);
+    res.json({ success: true, updates: updated.updates || updates, lead: updated });
   } catch (err) {
     next(err);
   }

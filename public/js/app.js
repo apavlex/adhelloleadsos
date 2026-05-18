@@ -1665,6 +1665,88 @@ document.addEventListener('DOMContentLoaded', () => {
     'Send info': { status: 'Email Sent' },
   };
 
+  async function submitLeadPanelNote() {
+    const row = currentRow;
+    const noteInput = document.getElementById('noteInput');
+    const addNoteBtn = document.getElementById('addNoteBtn');
+    const content = noteInput ? String(noteInput.value || '').trim() : '';
+    if (!content) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Type a note first.', { variant: 'error' });
+      }
+      return false;
+    }
+    if (!row) {
+      const msg = 'Select a lead first.';
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'error' });
+      }
+      return false;
+    }
+
+    const originalBtnText = addNoteBtn ? addNoteBtn.innerHTML : 'Post';
+    if (addNoteBtn) {
+      addNoteBtn.disabled = true;
+      addNoteBtn.innerHTML =
+        '<svg class="animate-spin h-4 w-4 text-white dark:text-brand-dark mx-auto" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+    }
+
+    try {
+      let key = String(row.dataset.leadKey || '').trim();
+      if (!key) {
+        await saveLead(row);
+        key = String(row.dataset.leadKey || '').trim();
+        if (!key) {
+          throw new Error('Could not save lead to add note. Save the lead first.');
+        }
+      }
+
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ content }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `Could not save note (${res.status})`);
+      }
+
+      if (data.lead) {
+        syncPersistedLeadToRowDataset(row, data.lead);
+      } else if (Array.isArray(data.updates)) {
+        row.dataset.updates = JSON.stringify(data.updates);
+      }
+
+      if (noteInput) noteInput.value = '';
+      window.__leadActivityFilter = 'notes';
+      syncLeadActivityFilterButtons('notes');
+      refreshLeadActivityTimeline(row);
+      populatePanel(row);
+
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Note saved.', { variant: 'success' });
+      }
+      return true;
+    } catch (err) {
+      console.error('Note addition failed:', err);
+      const msg = err && err.message ? err.message : 'Failed to add note.';
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'error' });
+      } else {
+        alert(msg);
+      }
+      return false;
+    } finally {
+      if (addNoteBtn) {
+        addNoteBtn.disabled = false;
+        addNoteBtn.innerHTML = originalBtnText;
+      }
+    }
+  }
+
+  window.__adhelloSubmitLeadPanelNote = submitLeadPanelNote;
+
   async function postLeadPanelNote(key, content) {
     const res = await fetch(`/leads/${encodeURIComponent(key)}/notes`, {
       method: 'POST',
@@ -1973,6 +2055,13 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         await triggerLeadPanelCall();
+        return;
+      }
+
+      if (e.target.closest('#addNoteBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await submitLeadPanelNote();
       }
     });
   }
@@ -6222,50 +6311,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const addNoteBtn = document.getElementById('addNoteBtn');
+  const noteInputEl = document.getElementById('noteInput');
   if (addNoteBtn) {
-    addNoteBtn.addEventListener('click', async () => {
-      if (!currentRow) return;
-      
-      const noteInput = document.getElementById('noteInput');
-      const content = noteInput.value.trim();
-      if (!content) return;
-
-      const originalBtnText = addNoteBtn.innerHTML;
-      addNoteBtn.disabled = true;
-      addNoteBtn.innerHTML = '<svg class="animate-spin h-4 w-4 text-white dark:text-brand-dark mx-auto" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
-
-      try {
-        let key = currentRow.dataset.leadKey;
-        
-        // If lead isn't saved yet, save it first to get a key
-        if (!key) {
-           await saveLead(currentRow);
-           key = currentRow.dataset.leadKey;
-           // If it still fails to save, stop
-           if (!key) {
-             alert("Could not save lead to add note. Please try saving it manually first.");
-             throw new Error("Lead save failed before note addition");
-           }
-        }
-
-        const res = await fetch(`/leads/${key}/notes`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content })
-        });
-        const data = await res.json();
-        if (data.success) {
-          currentRow.dataset.updates = JSON.stringify(data.updates);
-          noteInput.value = '';
-          populatePanel(currentRow);
-        }
-      } catch (err) { 
-        console.error('Note addition failed:', err);
-        alert("Failed to add note. Please ensure the lead is saved.");
-      } finally {
-        addNoteBtn.disabled = false;
-        addNoteBtn.innerHTML = originalBtnText;
-      }
+    addNoteBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      void submitLeadPanelNote();
+    });
+  }
+  if (noteInputEl) {
+    noteInputEl.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      e.preventDefault();
+      e.stopPropagation();
+      void submitLeadPanelNote();
     });
   }
 
