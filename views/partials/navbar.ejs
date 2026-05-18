@@ -59,10 +59,16 @@
         <span class="shrink-0 w-2 h-2 rounded-full bg-slate-400" id="navCallStatusDot" aria-hidden="true"></span>
         <span class="truncate text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white" id="navCallStatusLine">Idle</span>
       </button>
-      <button type="button" id="manualLeadOpen" class="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-yellow text-slate-900 px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-yellow/40 hover:shadow-xl hover:shadow-brand-yellow/55 hover:brightness-105 active:scale-[0.98] transition-all border border-amber-400/30 dark:border-amber-300/20">
-        <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-        <span>Add lead</span>
-      </button>
+      <div class="inline-flex items-center gap-1.5 sm:gap-2">
+        <a href="/leads/find" class="inline-flex items-center justify-center gap-1.5 rounded-full border px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest transition-all active:scale-[0.98] <%= np === 'find' ? 'border-brand-yellow bg-brand-yellow/15 text-brand-dark dark:text-white shadow-sm shadow-brand-yellow/20' : 'border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" title="Search and import leads">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+          <span>Find leads</span>
+        </a>
+        <button type="button" id="manualLeadOpen" class="inline-flex items-center justify-center gap-1.5 rounded-full bg-brand-yellow text-slate-900 px-3 sm:px-4 py-2 text-[10px] sm:text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-yellow/40 hover:shadow-xl hover:shadow-brand-yellow/55 hover:brightness-105 active:scale-[0.98] transition-all border border-amber-400/30 dark:border-amber-300/20">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+          <span>Add lead</span>
+        </button>
+      </div>
       <% } %>
       <div id="processingIndicator" class="bell-icon-wrapper nav-bell w-10 h-10 flex items-center justify-center text-brand-dark dark:text-gray-300 rounded-full hover:bg-brand-cream dark:hover:bg-gray-800 transition-all cursor-pointer relative">
         <div class="processing-ring"></div>
@@ -152,7 +158,8 @@
 
       <nav class="flex flex-col gap-3 mb-8" aria-label="Mobile primary">
         <a href="/today" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'today' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Today</span></a>
-        <a href="/pipeline" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= _leadNavActive ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Leads</span></a>
+        <a href="/pipeline" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= _leadNavActive && np !== 'find' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Leads</span></a>
+        <a href="/leads/find" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'find' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Find leads</span></a>
         <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
         <% if (user) { %>
         <button type="button" id="navSoftphoneOpenMobile" class="flex items-center justify-center gap-2 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-dark dark:text-white font-display font-bold text-lg text-left w-full">
