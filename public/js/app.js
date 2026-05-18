@@ -456,6 +456,33 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/>/g, '&gt;');
   }
 
+  const PIPELINE_PHONE_CALL_ICON_SVG =
+    '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>';
+
+  function renderPipelinePhoneControlHtml(phone, leadKey) {
+    const p = phone && phone !== 'N/A' ? String(phone).trim() : '';
+    if (!p) {
+      return '<span class="lead-contact-phone-slot text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
+    }
+    const keyAttr = leadKey ? ` data-lead-key="${escapeHtmlAttr(leadKey)}"` : '';
+    return `<button type="button" class="lead-contact-phone-slot js-click-to-call-btn js-click-to-call-number flex items-center gap-2 min-w-0 w-full max-w-full text-left text-xs font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors focus:outline-none focus:ring-2 focus:ring-brand-yellow/40 rounded-md" title="${escapeHtmlAttr(
+      p
+    )}" data-phone="${escapeHtmlAttr(p)}"${keyAttr} aria-label="Call ${escapeHtmlAttr(
+      p
+    )}" onclick="event.stopPropagation()"><span class="shrink-0 w-7 h-7 rounded-md bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25 flex items-center justify-center hover:bg-emerald-500/25 transition-colors pointer-events-none" aria-hidden="true">${PIPELINE_PHONE_CALL_ICON_SVG}</span><span class="lead-contact-phone-label truncate flex-1 min-w-0 tabular-nums pointer-events-none">${escapeHtmlText(
+      p
+    )}</span></button>`;
+  }
+
+  function replacePipelinePhoneSlot(row, phone) {
+    if (!row || typeof row.querySelector !== 'function') return;
+    const slot = row.querySelector('.lead-contact-phone-slot');
+    if (!slot) return;
+    const key = row.dataset.leadKey || '';
+    slot.outerHTML = renderPipelinePhoneControlHtml(phone, key);
+    syncPipelineRowCallButton(row, phone);
+  }
+
   function closeEmailIntelModal() {
     const modal = document.getElementById('emailIntelModal');
     if (modal) {
@@ -2786,22 +2813,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let pageSpeedAuditInFlight = false;
 
+  function pageSpeedAuditButtonLabel(hasAudit, running) {
+    if (running) return 'Running audit…';
+    if (hasAudit) return 'Re-run audit';
+    return 'Audit business website';
+  }
+
+  function setPageSpeedAuditButtonLabel(runBtn, label) {
+    if (!runBtn) return;
+    const labelEl = document.getElementById('pageSpeedAuditBtnLabel');
+    if (labelEl) labelEl.textContent = label;
+    else runBtn.textContent = label;
+  }
+
   function setPageSpeedAuditRunning(running) {
     pageSpeedAuditInFlight = !!running;
     const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
-    const empty = document.getElementById('pageSpeedAuditEmpty');
     const results = document.getElementById('pageSpeedAuditResults');
     const errEl = document.getElementById('pageSpeedAuditError');
     const runBtn = document.getElementById('pageSpeedAuditRunBtn');
-    const rerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
-    const runBtnDefaultLabel = 'Run audit';
+    const icon = runBtn ? runBtn.querySelector('.page-speed-audit-icon') : null;
 
     if (progressWrap) {
       progressWrap.classList.toggle('hidden', !running);
       progressWrap.setAttribute('aria-busy', running ? 'true' : 'false');
     }
     if (running) {
-      if (empty) empty.classList.add('hidden');
       if (results) results.classList.add('hidden');
       if (errEl) {
         errEl.classList.add('hidden');
@@ -2809,19 +2846,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     if (runBtn) {
+      runBtn.setAttribute('aria-busy', running ? 'true' : 'false');
       if (running) {
         runBtn.disabled = true;
-        runBtn.textContent = 'Running…';
-        runBtn.classList.add('opacity-70', 'cursor-wait');
+        runBtn.classList.add('opacity-70', 'cursor-wait', 'border-brand-yellow/50');
+        setPageSpeedAuditButtonLabel(runBtn, 'Running audit…');
+        if (icon) icon.classList.add('animate-spin');
       } else {
-        runBtn.textContent = runBtnDefaultLabel;
-        runBtn.classList.remove('opacity-70', 'cursor-wait');
+        runBtn.classList.remove('opacity-70', 'cursor-wait', 'border-brand-yellow/50');
+        if (icon) icon.classList.remove('animate-spin');
       }
-    }
-    if (rerunBtn) {
-      rerunBtn.disabled = running;
-      if (running) rerunBtn.classList.add('opacity-70', 'cursor-wait');
-      else rerunBtn.classList.remove('opacity-70', 'cursor-wait');
     }
   }
 
@@ -2833,31 +2867,29 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncPageSpeedAuditPanel(row) {
-    const empty = document.getElementById('pageSpeedAuditEmpty');
-    const loading = document.getElementById('pageSpeedAuditLoading');
     const errEl = document.getElementById('pageSpeedAuditError');
     const results = document.getElementById('pageSpeedAuditResults');
     const runBtn = document.getElementById('pageSpeedAuditRunBtn');
-    const rerunBtn = document.getElementById('pageSpeedAuditRerunBtn');
-    if (!empty && !runBtn) return;
+    if (!runBtn) return;
 
-    const hasWebsite = row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A';
+    const hasWebsite =
+      row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A';
+    const hasKey = !!(row && row.dataset && row.dataset.leadKey);
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
 
-    if (runBtn && !pageSpeedAuditInFlight) {
-      runBtn.disabled = !hasWebsite || !row.dataset.leadKey;
-      runBtn.classList.toggle('opacity-50', runBtn.disabled);
-      runBtn.classList.toggle('cursor-not-allowed', runBtn.disabled);
+    if (!pageSpeedAuditInFlight) {
+      const disabled = !hasWebsite || !hasKey;
+      runBtn.disabled = disabled;
+      runBtn.classList.toggle('opacity-50', disabled);
+      runBtn.classList.toggle('cursor-not-allowed', disabled);
       runBtn.title = !hasWebsite
         ? 'Add a website URL first'
-        : !row.dataset.leadKey
+        : !hasKey
           ? 'Save this lead first'
-          : 'Run Lighthouse via Google PageSpeed';
-    }
-    if (rerunBtn && !pageSpeedAuditInFlight) {
-      rerunBtn.disabled = runBtn ? runBtn.disabled : false;
-      rerunBtn.classList.toggle('opacity-50', rerunBtn.disabled);
-      rerunBtn.classList.toggle('cursor-not-allowed', rerunBtn.disabled);
+          : audit
+            ? 'Re-run Lighthouse via Google PageSpeed'
+            : 'Run Lighthouse via Google PageSpeed';
+      setPageSpeedAuditButtonLabel(runBtn, pageSpeedAuditButtonLabel(!!audit, false));
     }
 
     if (pageSpeedAuditInFlight) return;
@@ -2870,15 +2902,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!audit) {
-      if (empty) empty.classList.remove('hidden');
       if (results) results.classList.add('hidden');
-      if (rerunBtn) rerunBtn.classList.add('hidden');
       return;
     }
 
-    if (empty) empty.classList.add('hidden');
     if (results) results.classList.remove('hidden');
-    if (rerunBtn) rerunBtn.classList.remove('hidden');
 
     const scores = audit.scores || {};
     const setScore = (id, val) => {
@@ -3289,11 +3317,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (typeof row.querySelector === 'function') {
       const slot =
+        row.querySelector('.lead-contact-phone-slot.js-click-to-call-number') ||
         row.querySelector('a.lead-contact-phone-slot.js-click-to-call-number') ||
-        row.querySelector('a.js-click-to-call-number[data-phone][data-lead-key]') ||
-        row.querySelector('a.js-click-to-call-number[data-phone]');
+        row.querySelector('.js-click-to-call-number[data-phone][data-lead-key]') ||
+        row.querySelector('.js-click-to-call-number[data-phone]');
       if (slot) {
-        p = String(slot.dataset.phone || slot.textContent || '').trim();
+        const label = slot.querySelector && slot.querySelector('.lead-contact-phone-label');
+        p = String(
+          slot.dataset.phone || (label && label.textContent) || slot.textContent || ''
+        ).trim();
       }
     }
     if (!p || p === 'N/A' || p === '—') return '';
@@ -4453,7 +4485,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sms: 'SMS',
     social_dm: 'Social DM',
     linkedin: 'LinkedIn',
-    hosted_audit: 'Hosted audit',
+    hosted_audit: 'Emailed Audit',
     voicemail: 'Voicemail',
     meeting: 'Meeting',
     other: 'Other',
@@ -4638,6 +4670,8 @@ document.addEventListener('DOMContentLoaded', () => {
           ? 'Replaces the current active sequence from step 1'
           : 'Attach this playbook and schedule step 1';
     }
+
+    renderCadencePlaybookSteps(row);
   }
 
   function cadenceNextStepFromSequence(row, seq) {
@@ -4689,6 +4723,184 @@ document.addEventListener('DOMContentLoaded', () => {
       return 'Send a recap with owners and dates before the deal goes idle.';
     }
     return 'Alternate channels every few days until you connect or get a clear outcome — log each touch.';
+  }
+
+  function cadenceChannelBadgeClass(channel) {
+    const ch = String(channel || '').trim();
+    const map = {
+      call: 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/25',
+      voicemail: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/20',
+      email: 'bg-sky-500/15 text-sky-800 dark:text-sky-200 border-sky-500/25',
+      sms: 'bg-amber-500/15 text-amber-900 dark:text-amber-200 border-amber-500/25',
+      linkedin: 'bg-blue-500/15 text-blue-800 dark:text-blue-200 border-blue-500/25',
+      social_dm: 'bg-fuchsia-500/15 text-fuchsia-800 dark:text-fuchsia-200 border-fuchsia-500/25',
+      meeting: 'bg-violet-500/15 text-violet-800 dark:text-violet-200 border-violet-500/25',
+      hosted_audit: 'bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow border-brand-yellow/30',
+      task: 'bg-slate-500/15 text-slate-700 dark:text-slate-200 border-slate-500/25',
+    };
+    return map[ch] || 'bg-brand-cream/80 text-brand-muted dark:text-slate-300 border-brand-border/40';
+  }
+
+  function resolveCadenceStepState(stepIndex, seq, seqMatches) {
+    if (!seqMatches || !seq) {
+      return stepIndex === 0 ? 'preview' : 'upcoming';
+    }
+    if (seq.status === 'completed') return 'done';
+    const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
+    if (seq.status === 'paused') {
+      if (stepIndex < ix) return 'done';
+      if (stepIndex === ix) return 'paused';
+      return 'upcoming';
+    }
+    if (seq.status === 'active') {
+      if (stepIndex < ix) return 'done';
+      if (stepIndex === ix) return 'current';
+      return 'upcoming';
+    }
+    return stepIndex === 0 ? 'preview' : 'upcoming';
+  }
+
+  function renderCadencePlaybookSteps(row) {
+    const wrap = document.getElementById('cadencePlaybookStepsWrap');
+    const list = document.getElementById('cadencePlaybookStepsList');
+    if (!wrap || !list) return;
+
+    const sel = document.getElementById('leadCadencePlaybookSelect');
+    const selectedId = sel ? String(sel.value || '').trim() : '';
+    const tpl = findSequenceTemplate(selectedId);
+    if (!tpl || !Array.isArray(tpl.steps) || !tpl.steps.length) {
+      wrap.classList.add('hidden');
+      list.innerHTML = '';
+      return;
+    }
+
+    const seq = row ? parseRowSequenceState(row) : null;
+    const seqMatches = !!(seq && seq.templateId && String(seq.templateId) === selectedId);
+    const activeOther =
+      seq &&
+      seq.templateId &&
+      String(seq.templateId) !== selectedId &&
+      (seq.status === 'active' || seq.status === 'paused');
+
+    wrap.classList.remove('hidden');
+    list.innerHTML = '';
+
+    if (activeOther) {
+      const otherTpl = findSequenceTemplate(seq.templateId);
+      const otherName = otherTpl ? otherTpl.name : String(seq.templateId).replace(/_/g, ' ');
+      const note = document.createElement('li');
+      note.className =
+        'text-[10px] font-semibold text-amber-800 dark:text-amber-200 rounded-lg border border-amber-400/35 bg-amber-50/80 dark:bg-amber-950/30 px-3 py-2 mb-1 list-none';
+      note.textContent = `Another playbook is active (${otherName}). Steps below are for the selected playbook — start it to switch.`;
+      list.appendChild(note);
+    }
+
+    tpl.steps.forEach((step, i) => {
+      const state = resolveCadenceStepState(i, seq, seqMatches);
+      const ch = String(step.channel || '').trim();
+      const chLabel = CADENCE_CHANNEL_LABELS[ch] || ch.replace(/_/g, ' ') || 'Touch';
+      const title = step.title || `Step ${i + 1}`;
+      const day =
+        step.dayOffset != null && step.dayOffset !== ''
+          ? `Day ${Number(step.dayOffset) + 1}`
+          : `Step ${i + 1}`;
+
+      const li = document.createElement('li');
+      li.className = 'cadence-playbook-step flex gap-3 rounded-xl border px-3 py-2.5 transition-colors';
+      li.setAttribute('role', 'listitem');
+      li.dataset.stepIndex = String(i);
+      li.dataset.stepState = state;
+
+      const stateStyles = {
+        done: 'border-emerald-500/30 bg-emerald-500/[0.06] dark:bg-emerald-950/25 opacity-90',
+        current:
+          'border-violet-500 ring-2 ring-violet-500/35 bg-violet-500/[0.12] dark:bg-violet-950/40 shadow-sm',
+        paused:
+          'border-amber-500/40 ring-2 ring-amber-500/25 bg-amber-500/[0.08] dark:bg-amber-950/30',
+        preview: 'border-violet-300/40 bg-violet-500/[0.05] dark:bg-violet-950/20 border-dashed',
+        upcoming: 'border-brand-border/25 dark:border-white/10 bg-white/40 dark:bg-slate-900/30',
+      };
+      li.className += ` ${stateStyles[state] || stateStyles.upcoming}`;
+
+      const marker = document.createElement('div');
+      marker.className =
+        'shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black tabular-nums';
+      if (state === 'done') {
+        marker.className += ' bg-emerald-600 text-white';
+        marker.innerHTML =
+          '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        marker.setAttribute('aria-label', `Step ${i + 1} complete`);
+      } else if (state === 'current') {
+        marker.className += ' bg-violet-600 text-white animate-pulse';
+        marker.textContent = String(i + 1);
+        marker.setAttribute('aria-label', `Step ${i + 1}, current`);
+      } else if (state === 'paused') {
+        marker.className += ' bg-amber-500 text-white';
+        marker.textContent = String(i + 1);
+        marker.setAttribute('aria-label', `Step ${i + 1}, paused`);
+      } else {
+        marker.className += ' bg-brand-cream dark:bg-slate-800 text-brand-muted dark:text-slate-400 border border-brand-border/40';
+        marker.textContent = String(i + 1);
+        marker.setAttribute('aria-label', `Step ${i + 1}`);
+      }
+
+      const body = document.createElement('motion');
+      body.className = 'min-w-0 flex-1';
+      const head = document.createElement('div');
+      head.className = 'flex flex-wrap items-center gap-2 mb-0.5';
+      const titleEl = document.createElement('p');
+      titleEl.className =
+        state === 'current' || state === 'paused'
+          ? 'text-xs font-black text-brand-dark dark:text-white leading-snug'
+          : 'text-xs font-bold text-brand-dark dark:text-slate-200 leading-snug';
+      titleEl.textContent = title;
+      const badge = document.createElement('span');
+      badge.className = `inline-flex px-1.5 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-wider ${cadenceChannelBadgeClass(
+        ch
+      )}`;
+      badge.textContent = chLabel;
+      const dayEl = document.createElement('span');
+      dayEl.className = 'text-[9px] font-bold text-brand-muted dark:text-slate-400 tabular-nums';
+      dayEl.textContent = day;
+      head.appendChild(titleEl);
+      head.appendChild(badge);
+      head.appendChild(dayEl);
+
+      if (state === 'current') {
+        const now = document.createElement('span');
+        now.className =
+          'inline-flex px-1.5 py-0.5 rounded-md bg-violet-600 text-white text-[8px] font-black uppercase tracking-widest';
+        now.textContent = 'Current';
+        head.appendChild(now);
+      } else if (state === 'paused') {
+        const paused = document.createElement('span');
+        paused.className =
+          'inline-flex px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[8px] font-black uppercase tracking-widest';
+        paused.textContent = 'Paused here';
+        head.appendChild(paused);
+      } else if (state === 'preview' && i === 0) {
+        const start = document.createElement('span');
+        start.className =
+          'inline-flex px-1.5 py-0.5 rounded-md border border-violet-400/50 text-violet-800 dark:text-violet-200 text-[8px] font-black uppercase tracking-widest';
+        start.textContent = 'Starts here';
+        head.appendChild(start);
+      }
+
+      body.appendChild(head);
+      if (step.hint) {
+        const hint = document.createElement('p');
+        hint.className =
+          state === 'current' || state === 'paused'
+            ? 'text-[10px] text-brand-dark/80 dark:text-slate-300 leading-relaxed mt-1'
+            : 'text-[10px] text-brand-muted dark:text-slate-400 leading-relaxed mt-1 line-clamp-2';
+        hint.textContent = String(step.hint);
+        body.appendChild(hint);
+      }
+
+      li.appendChild(marker);
+      li.appendChild(body);
+      list.appendChild(li);
+    });
   }
 
   function populateCadenceSection(row) {
@@ -4744,6 +4956,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const seqNext = cadenceNextStepFromSequence(row, seq);
     nextEl.textContent = seqNext || cadenceHintFromChannel(rawCh);
+
+    renderCadencePlaybookSteps(row);
 
     let logs = [];
     try {
@@ -5664,20 +5878,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const email = sanitizeContactInput(row.dataset.email);
     const website = sanitizeContactInput(row.dataset.website);
 
-    const phoneSlot = row.querySelector('.lead-contact-phone-slot');
-    if (phoneSlot) {
-      if (phone && phone !== 'N/A') {
-        const key = row.dataset.leadKey || '';
-        if (phoneSlot.tagName === 'A') {
-          setLeadPhoneSlot(phoneSlot, phone);
-        } else {
-          phoneSlot.innerHTML = `<a href="#" class="lead-contact-phone-slot js-click-to-call-number text-xs font-semibold text-brand-dark dark:text-slate-200 truncate min-w-0 hover:text-brand-yellow transition-colors" title="${escapeHtmlAttr(phone)}" data-phone="${escapeHtmlAttr(phone)}" data-lead-key="${escapeHtmlAttr(key)}" onclick="event.stopPropagation()">${escapeHtmlText(phone)}</a>`;
-        }
-      } else {
-        phoneSlot.innerHTML = '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
-      }
-    }
-    syncPipelineRowCallButton(row, phone);
+    replacePipelinePhoneSlot(row, phone);
 
     const emailSlot = row.querySelector('.lead-contact-email-slot');
     if (emailSlot) {
@@ -5887,7 +6088,12 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__adhelloOpenSoftphoneWithDial(phoneToFill, dialOpts);
       return;
     }
-    openSoftphoneOrTel(phoneToFill, dialOpts);
+    if (openSoftphoneOrTel(phoneToFill, dialOpts)) return;
+    if (lk) {
+      requestLeadCallByKey(lk, phoneToFill).catch((err) => {
+        alert(err.message || 'Could not open dialer.');
+      });
+    }
   }, true);
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
@@ -6625,8 +6831,6 @@ document.addEventListener('DOMContentLoaded', () => {
         errEl.textContent = msg;
         errEl.classList.remove('hidden');
       }
-      const empty = document.getElementById('pageSpeedAuditEmpty');
-      if (empty) empty.classList.remove('hidden');
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
       setPageSpeedAuditRunning(false);
@@ -6636,8 +6840,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.addEventListener('click', (e) => {
-    if (e.target.closest('#pageSpeedAuditRunBtn') || e.target.closest('#pageSpeedAuditRerunBtn')) {
+    if (e.target.closest('#pageSpeedAuditRunBtn')) {
       e.preventDefault();
+      e.stopPropagation();
       handlePageSpeedAuditClick();
     }
   });
@@ -7647,55 +7852,47 @@ document.addEventListener('DOMContentLoaded', () => {
     return `<a href="${href}" target="_blank" class="website-link text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white transition-colors border-b border-transparent hover:border-brand-dark dark:hover:border-white pb-0.5 inline-block max-w-[150px] truncate" title="${w}" data-url="${w}">${label}</a>`;
   }
 
-  function renderLeadsTablePhoneCell(phone) {
-    const p = phone && phone !== 'N/A' ? phone : '';
-    if (p) {
-      return `<a href="#" class="js-click-to-call-number block text-sm font-medium text-brand-muted dark:text-slate-300 hover:text-brand-yellow transition-colors" data-phone="${escapeHtmlAttr(
-        p
-      )}" onclick="event.stopPropagation()">${escapeHtmlText(p)}</a>`;
-    }
-    return '<span class="block text-sm text-brand-muted/60">-</span>';
+  function renderLeadsTablePhoneCell(phone, leadKey) {
+    return renderPipelinePhoneControlHtml(phone, leadKey || '');
   }
 
   function setLeadPhoneSlot(el, phone) {
     if (!el) return;
-    const p = phone && phone !== 'N/A' ? String(phone).trim() : '';
-    if (!p) {
-      el.textContent = '—';
-      el.removeAttribute('title');
-      el.classList.remove('js-click-to-call-number');
-      el.removeAttribute('data-phone');
-      el.removeAttribute('data-lead-key');
-      if (el.tagName === 'A') el.setAttribute('href', '#');
-      const rowEmpty = el.closest('.result-row');
-      if (rowEmpty) syncPipelineRowCallButton(rowEmpty, '');
+    const row = el.closest('.result-row');
+    if (row) {
+      replacePipelinePhoneSlot(row, phone);
       return;
     }
-    const row = el.closest('.result-row');
-    const key = row && row.dataset ? row.dataset.leadKey || '' : '';
-    el.classList.add('js-click-to-call-number');
-    el.setAttribute('data-phone', p);
-    if (key) el.setAttribute('data-lead-key', key);
-    else el.removeAttribute('data-lead-key');
-    if (el.tagName === 'A') el.setAttribute('href', '#');
-    el.textContent = p;
-    el.setAttribute('title', p);
-    if (row) syncPipelineRowCallButton(row, p);
+    const p = phone && phone !== 'N/A' ? String(phone).trim() : '';
+    if (!p) {
+      el.outerHTML = renderPipelinePhoneControlHtml('', '');
+      return;
+    }
+    if (el.classList && el.classList.contains('lead-contact-phone-slot')) {
+      const key = '';
+      el.outerHTML = renderPipelinePhoneControlHtml(p, key);
+    }
   }
 
   function syncPipelineRowCallButton(row, phone) {
     if (!row || typeof row.querySelector !== 'function') return;
-    const callBtn = row.querySelector('.js-click-to-call-btn');
+    const callBtn = row.querySelector('.lead-contact-phone-slot.js-click-to-call-btn');
     if (!callBtn) return;
     const p = phone && phone !== 'N/A' ? String(phone).trim() : '';
     const key = row.dataset.leadKey || '';
     if (p) {
       callBtn.classList.remove('hidden');
+      callBtn.disabled = false;
       callBtn.dataset.phone = p;
       if (key) callBtn.dataset.leadKey = key;
       else callBtn.removeAttribute('data-lead-key');
+      const label = callBtn.querySelector('.lead-contact-phone-label');
+      if (label) label.textContent = p;
+      callBtn.setAttribute('title', p);
+      callBtn.setAttribute('aria-label', `Call ${p}`);
     } else {
       callBtn.classList.add('hidden');
+      callBtn.disabled = true;
       delete callBtn.dataset.phone;
       delete callBtn.dataset.leadKey;
     }
