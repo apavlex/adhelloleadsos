@@ -7,11 +7,7 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
 const crawl4aiClient = require('../services/crawl4aiClient');
 const outscraperClient = require('../services/outscraperClient');
-const rapidapiClient = require('../services/rapidapiLocalBusiness');
-const searchapiGoogleLocal = require('../services/searchapiGoogleLocal');
-const serpapiGoogleLocal = require('../services/serpapiGoogleLocal');
-const firecrawl = require('../services/firecrawl');
-const { ApifyClient } = require('apify-client');
+const integrationProviderTests = require('../services/integrationProviderTests');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/workspaceAccent');
@@ -327,114 +323,18 @@ router.post('/integrations', async (req, res, next) => {
   }
 });
 
+async function integrationEnvForTest(req) {
+  const base = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+  return integrationProviderTests.mergeBodyIntoIntegrationEnv(base, req.body);
+}
+
 router.get('/integrations/test', async (req, res) => {
   try {
     if (!req.canManageWorkspace) {
       return res.status(403).json({ success: false, error: 'Only admins can test integrations.' });
     }
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
-
-    const runWithTimeout = async (label, fn, ms = 12000) => {
-      const started = Date.now();
-      const timeout = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error(`${label} test timed out`)), ms);
-      });
-      try {
-        const result = await Promise.race([fn(), timeout]);
-        return {
-          id: label,
-          ok: true,
-          message: (result && result.message) || 'Connected',
-          elapsedMs: Date.now() - started,
-        };
-      } catch (e) {
-        return {
-          id: label,
-          ok: false,
-          message: e && e.message ? String(e.message) : 'Failed',
-          elapsedMs: Date.now() - started,
-        };
-      }
-    };
-
-    const tests = [
-      runWithTimeout(
-        'RapidAPI',
-        async () => {
-          if (!rapidapiClient.isConfigured(integrationEnv)) {
-            throw new Error('Missing RAPIDAPI_KEY');
-          }
-          const rows = await rapidapiClient.searchGoogleMaps({
-            keyword: 'coffee shop',
-            city: 'Austin',
-            state: 'TX',
-            maxResults: 1,
-            integrationEnv,
-          });
-          return { message: `Connected (${Array.isArray(rows) ? rows.length : 0} result sample)` };
-        },
-        28000
-      ),
-      runWithTimeout(
-        'SearchAPI.io',
-        async () => {
-          if (!searchapiGoogleLocal.isConfigured(integrationEnv)) {
-            throw new Error('Missing SEARCHAPI_API_KEY');
-          }
-          const rows = await searchapiGoogleLocal.searchGoogleMaps({
-            keyword: 'coffee shop',
-            city: 'Austin',
-            state: 'TX',
-            maxResults: 1,
-            integrationEnv,
-          });
-          return { message: `Connected (${Array.isArray(rows) ? rows.length : 0} Google Local sample)` };
-        },
-        28000
-      ),
-      runWithTimeout(
-        'SerpAPI',
-        async () => {
-          if (!serpapiGoogleLocal.isConfigured(integrationEnv)) {
-            throw new Error('Missing SERPAPI_API_KEY');
-          }
-          const rows = await serpapiGoogleLocal.searchGoogleMaps({
-            keyword: 'coffee shop',
-            city: 'Austin',
-            state: 'TX',
-            maxResults: 1,
-            integrationEnv,
-          });
-          return { message: `Connected (${Array.isArray(rows) ? rows.length : 0} Google Local sample)` };
-        },
-        28000
-      ),
-      runWithTimeout('Outscraper', async () => {
-        const health = await outscraperClient.pingHealth(integrationEnv);
-        if (!health || !health.ok) throw new Error((health && health.message) || 'Outscraper unavailable');
-        return { message: health.message || 'Connected' };
-      }),
-      runWithTimeout('Apify', async () => {
-        const token = String((integrationEnv && integrationEnv.APIFY_API_TOKEN) || '').trim();
-        if (!token) throw new Error('Missing APIFY_API_TOKEN');
-        const client = new ApifyClient({ token });
-        const user = await client.user().get();
-        return { message: `Connected as ${user && user.username ? user.username : 'account'}` };
-      }),
-      runWithTimeout('Firecrawl', async () => {
-        const key = String((integrationEnv && integrationEnv.FIRECRAWL_API_KEY) || '').trim();
-        if (!key) throw new Error('Missing FIRECRAWL_API_KEY');
-        await firecrawl.searchBusiness('plumber dallas tx', integrationEnv);
-        return { message: 'Connected (search ok)' };
-      }),
-      runWithTimeout('Crawl4AI', async () => {
-        const health = await crawl4aiClient.pingHealth(integrationEnv);
-        if (!health || !health.ok) throw new Error((health && health.message) || 'Crawl4AI unavailable');
-        return { message: health.message || 'Connected' };
-      }),
-    ];
-
-    const providers = await Promise.all(tests);
+    const providers = await integrationProviderTests.runAllProviderTests(integrationEnv);
     const okCount = providers.filter((p) => p.ok).length;
     return res.json({
       success: true,
@@ -444,6 +344,30 @@ router.get('/integrations/test', async (req, res) => {
     });
   } catch (e) {
     return res.status(500).json({ success: false, error: e && e.message ? e.message : 'Test failed' });
+  }
+});
+
+router.post('/integrations/test/:provider', async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can test integrations.' });
+    }
+    const providerId = String(req.params.provider || '').toLowerCase();
+    if (!integrationProviderTests.PROVIDERS[providerId]) {
+      return res.status(400).json({ success: false, error: `Unknown provider: ${providerId}` });
+    }
+    const integrationEnv = await integrationEnvForTest(req);
+    const result = await integrationProviderTests.runProviderTest(providerId, integrationEnv);
+    return res.json({
+      success: result.ok,
+      provider: providerId,
+      ...result,
+    });
+  } catch (e) {
+    return res.status(500).json({
+      success: false,
+      error: e && e.message ? e.message : 'Test failed',
+    });
   }
 });
 

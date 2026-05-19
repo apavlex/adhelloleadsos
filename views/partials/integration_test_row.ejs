@@ -1,0 +1,11 @@
+<% const _provider = typeof provider !== 'undefined' ? String(provider) : ''; %>
+<div class="flex flex-wrap items-start gap-3 pt-4 mt-2 border-t border-brand-border/40 dark:border-white/10">
+  <button
+    type="button"
+    class="js-integration-test shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50"
+    data-provider="<%= _provider %>"
+  >
+    Test connection
+  </button>
+  <p class="js-integration-test-msg text-xs leading-relaxed min-h-[2rem] flex-1 text-brand-muted dark:text-slate-400" data-provider="<%= _provider %>" aria-live="polite"></p>
+</div>

@@ -5,6 +5,7 @@
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">API keys &amp; preferences</h2>
   <p class="text-sm text-brand-muted mb-4 leading-relaxed">
     Keys saved here apply to <strong>everyone</strong> in this workspace. Values you set override deployment environment variables for that integration only.
+    Use <strong>Test connection</strong> on each card to run a live check (Find Leads providers run a sample coffee-shop search). Tests use saved keys plus anything you typed in the form — click <strong>Save integrations</strong> to keep changes.
   </p>
   <% if (!integrationsReady) { %>
   <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-4 mb-6 text-sm text-amber-950 dark:text-amber-100">
@@ -77,6 +78,7 @@
               <% if (masks.rapidapiSearchLimitParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchLimitParam_clear" value="1" /> Remove</label><% } %>
             </div>
           </div>
+          <%- include('../../partials/integration_test_row', { provider: 'rapidapi' }) %>
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
@@ -90,6 +92,7 @@
             <input type="password" name="searchapiApiKey" autocomplete="off" placeholder="Paste SearchAPI.io key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
             <% if (masks.searchapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="searchapiApiKey_clear" value="1" /> Remove</label><% } %>
           </div>
+          <%- include('../../partials/integration_test_row', { provider: 'searchapi' }) %>
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
@@ -103,6 +106,7 @@
             <input type="password" name="serpapiApiKey" autocomplete="off" placeholder="Paste SerpAPI key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
             <% if (masks.serpapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="serpapiApiKey_clear" value="1" /> Remove</label><% } %>
           </div>
+          <%- include('../../partials/integration_test_row', { provider: 'serpapi' }) %>
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
@@ -122,6 +126,7 @@
             <input type="text" name="outscraperApiBase" autocomplete="off" placeholder="https://api.app.outscraper.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
             <% if (masks.outscraperApiBase) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiBase_clear" value="1" /> Remove</label><% } %>
           </div>
+          <%- include('../../partials/integration_test_row', { provider: 'outscraper' }) %>
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
@@ -135,6 +140,7 @@
             <input type="password" name="apifyApiToken" autocomplete="off" placeholder="Paste Apify token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
             <% if (masks.apifyApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="apifyApiToken_clear" value="1" /> Remove saved token</label><% } %>
           </div>
+          <%- include('../../partials/integration_test_row', { provider: 'apify' }) %>
         </section>
       </div>
     </div>
@@ -153,6 +159,7 @@
             <input type="password" name="bettercontactApiKey" autocomplete="off" placeholder="Paste BetterContact key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
             <% if (masks.bettercontactApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="bettercontactApiKey_clear" value="1" /> Remove</label><% } %>
           </div>
+          <%- include('../../partials/integration_test_row', { provider: 'bettercontact' }) %>
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 space-y-4">
@@ -176,6 +183,7 @@
               <input type="password" name="firecrawlApiKey" autocomplete="off" placeholder="Paste Firecrawl key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
               <% if (masks.firecrawlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="firecrawlApiKey_clear" value="1" /> Remove</label><% } %>
             </div>
+            <%- include('../../partials/integration_test_row', { provider: 'firecrawl' }) %>
           </div>
           <div class="pt-2 border-t border-brand-border/40 dark:border-white/10 space-y-4">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Crawl4AI (self-hosted)</p>
@@ -191,6 +199,7 @@
               <input type="password" name="crawl4aiApiToken" autocomplete="off" placeholder="Bearer token if required" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
               <% if (masks.crawl4aiApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiApiToken_clear" value="1" /> Remove</label><% } %>
             </div>
+            <%- include('../../partials/integration_test_row', { provider: 'crawl4ai' }) %>
           </div>
         </section>
       </div>
@@ -209,13 +218,14 @@
           <input type="password" name="pagespeedApiKey" autocomplete="off" placeholder="Google Cloud API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
           <% if (masks.pagespeedApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="pagespeedApiKey_clear" value="1" /> Remove</label><% } %>
         </div>
+        <%- include('../../partials/integration_test_row', { provider: 'pagespeed' }) %>
       </section>
       <p class="text-xs text-brand-muted mt-3 leading-relaxed">The interactive map on Find Leads uses <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server (Render env), not this form.</p>
     </div>
 
     <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-brand-border/40 dark:border-white/10">
       <button type="submit" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save integrations</button>
-      <button type="button" id="testIntegrationsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/20">Test APIs</button>
+      <button type="button" id="testIntegrationsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/20">Test all APIs</button>
     </div>
     <div id="integrationsTestResult" class="hidden rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-900/40 px-4 py-3 text-sm text-brand-dark dark:text-slate-200"></div>
   </form>
@@ -223,15 +233,74 @@
 </div>
 <script>
 (function () {
-  var btn = document.getElementById('testIntegrationsBtn');
-  var out = document.getElementById('integrationsTestResult');
-  if (!btn || !out) return;
-  btn.addEventListener('click', async function () {
-    var prev = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'Testing…';
-    out.classList.remove('hidden');
-    out.textContent = 'Running provider checks…';
+  var form = document.querySelector('form[action="/workspace/integrations"]');
+  var testAllBtn = document.getElementById('testIntegrationsBtn');
+  var testAllOut = document.getElementById('integrationsTestResult');
+
+  function formBodyObject() {
+    if (!form) return {};
+    var fd = new FormData(form);
+    var body = {};
+    fd.forEach(function (value, key) {
+      if (key.indexOf('_clear') !== -1) return;
+      body[key] = value;
+    });
+    return body;
+  }
+
+  function setProviderMsg(provider, text, ok) {
+    var el = document.querySelector('.js-integration-test-msg[data-provider="' + provider + '"]');
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-red-700', 'dark:text-red-300');
+    if (!text) return;
+    if (ok) el.classList.add('text-emerald-700', 'dark:text-emerald-300');
+    else el.classList.add('text-red-700', 'dark:text-red-300');
+  }
+
+  document.querySelectorAll('.js-integration-test').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var provider = btn.getAttribute('data-provider');
+      if (!provider) return;
+      var prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Testing…';
+      setProviderMsg(provider, 'Running sample check…', true);
+      try {
+        var res = await fetch('/workspace/integrations/test/' + encodeURIComponent(provider), {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify(formBodyObject()),
+        });
+        var data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error((data && (data.message || data.error)) || 'Test failed');
+        }
+        setProviderMsg(
+          provider,
+          '✅ ' + (data.message || 'Connected') + ' (' + (data.elapsedMs || 0) + 'ms)',
+          true
+        );
+      } catch (e) {
+        setProviderMsg(provider, '❌ ' + (e && e.message ? e.message : 'Test failed'), false);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
+  });
+
+  if (!testAllBtn || !testAllOut) return;
+  testAllBtn.addEventListener('click', async function () {
+    var prev = testAllBtn.textContent;
+    testAllBtn.disabled = true;
+    testAllBtn.textContent = 'Testing…';
+    testAllOut.classList.remove('hidden');
+    testAllOut.textContent = 'Running all provider checks…';
+    document.querySelectorAll('.js-integration-test-msg').forEach(function (el) {
+      el.textContent = '';
+      el.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-red-700', 'dark:text-red-300');
+    });
     try {
       var res = await fetch('/workspace/integrations/test', { headers: { Accept: 'application/json' } });
       var data = await res.json();
@@ -239,15 +308,18 @@
       var lines = [];
       lines.push('Working APIs: ' + data.okCount + '/' + data.total);
       (data.providers || []).forEach(function (p) {
-        lines.push((p.ok ? '✅ ' : '❌ ') + p.id + ' — ' + (p.message || '') + ' (' + (p.elapsedMs || 0) + 'ms)');
+        var pid = String(p.provider || p.id || '').toLowerCase();
+        var line = (p.ok ? '✅ ' : '❌ ') + (p.id || pid) + ' — ' + (p.message || '') + ' (' + (p.elapsedMs || 0) + 'ms)';
+        lines.push(line);
+        if (pid) setProviderMsg(pid, line, p.ok);
       });
-      out.textContent = lines.join('\n');
-      out.style.whiteSpace = 'pre-line';
+      testAllOut.textContent = lines.join('\n');
+      testAllOut.style.whiteSpace = 'pre-line';
     } catch (e) {
-      out.textContent = e && e.message ? e.message : 'Integration test failed';
+      testAllOut.textContent = e && e.message ? e.message : 'Integration test failed';
     } finally {
-      btn.disabled = false;
-      btn.textContent = prev;
+      testAllBtn.disabled = false;
+      testAllBtn.textContent = prev;
     }
   });
 })();
