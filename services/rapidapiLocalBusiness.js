@@ -3,6 +3,12 @@
  * Provider for Maps search step in Find Leads.
  */
 
+const {
+  buildMapsSearchQuery,
+  geocodeCityState,
+  countryForState,
+} = require('./geocodeLocation');
+
 const DEFAULT_HOST = 'local-business-data.p.rapidapi.com';
 const DEFAULT_ENDPOINT = 'https://local-business-data.p.rapidapi.com/search';
 
@@ -276,32 +282,87 @@ async function requestWithBackoff(url, headers, maxAttempts = 6) {
   return {};
 }
 
-/**
- * Search Google Maps via RapidAPI Local Business Data.
- * @param {{ keyword: string, city: string, state: string, maxResults?: number, integrationEnv?: Record<string, string> }} params
- * @returns {Promise<object[]>}
- */
-async function searchGoogleMaps({ keyword, city, state, maxResults, integrationEnv }) {
-  if (!isConfigured(integrationEnv)) {
-    throw new Error('RapidAPI is not configured (set RAPIDAPI_KEY).');
+function normText(v) {
+  return String(v || '')
+    .trim()
+    .toLowerCase();
+}
+
+function extractNextToken(payload) {
+  if (!payload || typeof payload !== 'object') return '';
+  const data = payload.data && typeof payload.data === 'object' ? payload.data : payload;
+  return pickFirst(
+    data.next_page_token,
+    data.nextPageToken,
+    payload.next_page_token,
+    payload.nextPageToken,
+    data.cursor,
+    payload.cursor,
+    data.next_cursor
+  );
+}
+
+function appendGeoParams(url, geo) {
+  if (!geo || geo.lat == null || geo.lng == null) return;
+  const pairs = [
+    ['lat', 'lng'],
+    ['latitude', 'longitude'],
+  ];
+  for (const [latKey, lngKey] of pairs) {
+    if (!url.searchParams.has(latKey)) url.searchParams.set(latKey, String(geo.lat));
+    if (!url.searchParams.has(lngKey)) url.searchParams.set(lngKey, String(geo.lng));
   }
-  const q = `${keyword} in ${city}, ${state}, USA`;
-  const limit = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
-  const u = new URL(endpoint(integrationEnv));
-  const qp = searchQueryParam(integrationEnv);
-  const lp = searchLimitParam(integrationEnv);
-  u.searchParams.set(qp, q);
-  u.searchParams.set(lp, String(limit));
-  const headers = {
-    'x-rapidapi-key': apiKey(integrationEnv),
-    'x-rapidapi-host': apiHost(integrationEnv),
-    accept: 'application/json',
-  };
-  const host = headers['x-rapidapi-host'];
-  console.log(`[RapidAPI] GET ${u.origin}${u.pathname} host=${host} query="${q}" limit=${limit}`);
-  const payload = await requestWithBackoff(u.toString(), headers);
+}
+
+/** Drop businesses clearly outside the requested city/state (e.g. Lyon when searching Vancouver, BC). */
+function rowMatchesTarget(row, city, state) {
+  const tCity = normText(city);
+  const tState = String(state || '')
+    .trim()
+    .toUpperCase();
+  const addr = normText(row.address);
+  const rCity = normText(row.city);
+  const targetCountry = countryForState(tState);
+
+  if (targetCountry === 'Canada') {
+    if (/\bfrance\b|, fr\b|69006\b/.test(addr) && !addr.includes('canada')) return false;
+    if (/\blyon\b|\bparis\b/.test(addr) && !addr.includes(tCity) && !rCity.includes(tCity)) return false;
+  } else if (/\bfrance\b|, fr\b|69006\b/.test(addr)) {
+    return false;
+  }
+
+  if (tCity) {
+    const inAddr = addr.includes(tCity);
+    const inCityField =
+      rCity && (rCity === tCity || rCity.includes(tCity) || tCity.includes(rCity));
+    if (!inAddr && !inCityField) return false;
+  }
+
+  if (tState) {
+    const stLow = tState.toLowerCase();
+    const rState = String(row.state || '')
+      .trim()
+      .toUpperCase();
+    if (rState && rState !== tState && rState.slice(0, 2) !== tState.slice(0, 2)) {
+      if (!addr.includes(stLow) && !addr.includes(tState)) return false;
+    }
+  }
+
+  return true;
+}
+
+function filterByTargetArea(rows, city, state) {
+  const filtered = rows.filter((r) => rowMatchesTarget(r, city, state));
+  if (filtered.length < rows.length) {
+    console.log(
+      `[RapidAPI] Dropped ${rows.length - filtered.length} place(s) outside ${city}, ${state}.`
+    );
+  }
+  return filtered;
+}
+
+function rowsFromPayload(payload, seen) {
   const raw = extractItems(payload);
-  const seen = new Set();
   const out = [];
   for (const r of raw) {
     const row = normalizePlace(r);
@@ -312,7 +373,99 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
     }
     out.push(row);
   }
-  console.log(`[RapidAPI] Returned ${out.length} places.`);
+  return out;
+}
+
+/**
+ * Search Google Maps via RapidAPI Local Business Data.
+ * @param {{ keyword: string, city: string, state: string, maxResults?: number, integrationEnv?: Record<string, string> }} params
+ * @returns {Promise<object[]>}
+ */
+async function searchGoogleMaps({ keyword, city, state, maxResults, integrationEnv }) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('RapidAPI is not configured (set RAPIDAPI_KEY).');
+  }
+
+  const c = String(city || '').trim();
+  const st = String(state || '').trim();
+  if (!c || !st) {
+    throw new Error('City and state/province are required (e.g. Vancouver + BC or Austin + TX).');
+  }
+
+  const q = buildMapsSearchQuery(keyword, c, st);
+  const limit = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
+  const baseEndpoint = endpoint(integrationEnv);
+  assertSearchEndpoint(baseEndpoint);
+
+  const geo = await geocodeCityState(c, st);
+  if (geo) {
+    console.log(
+      `[RapidAPI] Geocoded ${c}, ${st} → ${geo.lat},${geo.lng} (${geo.formattedAddress || geo.countryCode || ''})`
+    );
+  }
+
+  const lp = searchLimitParam(integrationEnv);
+  const headers = {
+    'x-rapidapi-key': apiKey(integrationEnv),
+    'x-rapidapi-host': apiHost(integrationEnv),
+    accept: 'application/json',
+  };
+  const host = headers['x-rapidapi-host'];
+  const seen = new Set();
+  let out = [];
+  let lastPayload = null;
+  let lastApiMsg = '';
+  const pageSize = Math.min(20, limit);
+  const paramAttempts = queryParamAttempts(integrationEnv);
+
+  for (let attemptIdx = 0; attemptIdx < paramAttempts.length && out.length < limit; attemptIdx += 1) {
+    const qp = paramAttempts[attemptIdx];
+    let nextToken = '';
+
+    while (out.length < limit) {
+      const u = new URL(baseEndpoint);
+      u.searchParams.set(qp, q);
+      u.searchParams.set(lp, String(Math.min(pageSize, limit - out.length)));
+      appendGeoParams(u, geo);
+      if (nextToken) u.searchParams.set('next_page_token', nextToken);
+
+      console.log(
+        `[RapidAPI] GET ${u.origin}${u.pathname} host=${host} ${qp}="${q}" ${lp}=${u.searchParams.get(lp)}` +
+          (nextToken ? ' page=next' : '') +
+          (attemptIdx > 0 ? ' (param retry)' : '')
+      );
+
+      const payload = await requestWithBackoff(u.toString(), headers);
+      lastPayload = payload;
+      lastApiMsg = messageFromPayload(payload);
+      const batch = rowsFromPayload(payload, seen);
+      out = out.concat(batch);
+      nextToken = extractNextToken(payload);
+
+      if (!batch.length || !nextToken || out.length >= limit) break;
+    }
+
+    if (out.length > 0) {
+      if (qp !== paramAttempts[0]) {
+        console.log(
+          `[RapidAPI] ${out.length} places using query param "${qp}". Save RAPIDAPI_SEARCH_QUERY_PARAM=${qp} in integrations if needed.`
+        );
+      }
+      break;
+    }
+    if (lastApiMsg) break;
+  }
+
+  out = filterByTargetArea(out, c, st).slice(0, limit);
+
+  if (out.length === 0) {
+    const detail = lastApiMsg || describeEmptyPayload(lastPayload);
+    throw new Error(
+      `RapidAPI returned no businesses in ${c}, ${st} for "${q}". ${detail} Use BC for Vancouver Canada (not USA). Test connection under Workspace → API integrations.`
+    );
+  }
+
+  console.log(`[RapidAPI] Returning ${out.length} place(s) in target area.`);
   return out;
 }
 

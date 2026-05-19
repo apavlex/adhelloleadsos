@@ -28,8 +28,9 @@ module.exports = {
    */
   async searchGoogleMaps({ keyword, city, state, maxResults, integrationEnv }) {
     const client = clientFor(integrationEnv);
-    const searchString = `${keyword} in ${city}, ${state}`;
-    const locationQuery = `${city}, ${state}, USA`;
+    const { buildMapsSearchQuery, buildLocationLabel } = require('./geocodeLocation');
+    const searchString = buildMapsSearchQuery(keyword, city, state);
+    const locationQuery = buildLocationLabel(city, state);
 
     const input = {
       searchStringsArray: [searchString],

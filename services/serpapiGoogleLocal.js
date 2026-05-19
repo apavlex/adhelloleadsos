@@ -113,8 +113,10 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
   if (!kw || !c || !st) throw new Error('keyword, city, and state are required');
 
   const max = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
-  const q = `${kw} in ${c}, ${st}`;
-  const location = `${c}, ${st}, United States`;
+  const { buildLocationLabel, buildMapsSearchQuery, countryForState } = require('./geocodeLocation');
+  const q = buildMapsSearchQuery(kw, c, st);
+  const country = countryForState(st);
+  const location = country === 'Canada' ? `${c}, ${st}, Canada` : `${c}, ${st}, United States`;
 
   const out = [];
   let start = 0;

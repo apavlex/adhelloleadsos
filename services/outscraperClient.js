@@ -4,6 +4,8 @@
  * @see https://outscraper.com/
  */
 
+const { buildMapsSearchQuery } = require('./geocodeLocation');
+
 const DEFAULT_BASE = 'https://api.app.outscraper.com';
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAPS_INIT_TIMEOUT_MS = Math.max(15000, parseInt(process.env.OUTSCRAPER_MAPS_INIT_TIMEOUT_MS || '60000', 10) || 60000);
@@ -185,7 +187,8 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
     throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
   }
   const limit = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
-  const query = `${keyword} in ${city}, ${state}, USA`;
+  const { buildMapsSearchQuery } = require('./geocodeLocation');
+  const query = buildMapsSearchQuery(keyword, city, state);
   const syncMode = ['1', 'true', 'yes'].includes(String(process.env.OUTSCRAPER_MAPS_SYNC || '').toLowerCase().trim());
   const useAsync = !syncMode;
 

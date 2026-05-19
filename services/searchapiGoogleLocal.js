@@ -91,8 +91,10 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
   const max = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
   const perPage = 20;
   const pagesNeeded = Math.ceil(max / perPage);
-  const locationParam = `${c}, ${st}, USA`;
-  const q = `${kw} in ${c}, ${st}`;
+  const { buildLocationLabel, buildMapsSearchQuery, countryForState } = require('./geocodeLocation');
+  const locationParam = buildLocationLabel(c, st);
+  const q = buildMapsSearchQuery(kw, c, st);
+  const gl = countryForState(st) === 'Canada' ? 'ca' : 'us';
 
   const out = [];
   for (let page = 1; page <= pagesNeeded && out.length < max; page++) {
@@ -102,7 +104,7 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
       api_key: key,
       location: locationParam,
       hl: 'en',
-      gl: 'us',
+      gl,
       page: String(page),
     });
 
