@@ -16,131 +16,208 @@
     <p class="text-sm mb-4 rounded-xl px-4 py-3 <%= integrationsMessage.type === 'ok' ? 'bg-emerald-500/10 text-emerald-900 dark:text-emerald-200' : 'bg-amber-500/10 text-amber-900 dark:text-amber-100' %>"><%= integrationsMessage.text %></p>
   <% } %>
   <% if (integrationsReady) { %>
-  <form method="post" action="/workspace/integrations" class="space-y-6">
-    <% const masks = integrationMasks || {}; %>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI key</label>
-      <% if (masks.rapidapiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiKey %></p><% } %>
-      <input type="password" name="rapidapiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.rapidapiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiKey_clear" value="1" /> Remove saved key</label><% } %>
+  <% const masks = integrationMasks || {}; %>
+  <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>
+  <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
+  <form method="post" action="/workspace/integrations" class="space-y-8">
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find Leads — maps search</p>
+      <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Connect one or more providers below. In <strong>Auto</strong> mode the app tries them in order until results are returned.</p>
+
+      <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 mb-4">
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Maps provider preference</h3>
+        <p class="text-xs text-brand-muted mt-1 mb-4">Which service to use for Find Leads (or Auto to run the chain).</p>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
+        <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+          <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify)</option>
+          <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
+          <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io only</option>
+          <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI only</option>
+          <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
+          <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
+        </select>
+      </section>
+
+      <div class="space-y-4">
+        <section class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Local Business / Google Maps search on RapidAPI. Default first provider in Auto mode. Subscribe on <a href="https://rapidapi.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">rapidapi.com</a>.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.rapidapiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiKey %></p><% } %>
+            <input type="password" name="rapidapiKey" autocomplete="off" placeholder="Paste RapidAPI key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.rapidapiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiKey_clear" value="1" /> Remove saved key</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Host <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+            <% if (masks.rapidapiHost) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiHost %></p><% } %>
+            <input type="text" name="rapidapiHost" autocomplete="off" placeholder="local-business-data.p.rapidapi.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.rapidapiHost) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiHost_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Search endpoint URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+            <% if (masks.rapidapiLocalBusinessEndpoint) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiLocalBusinessEndpoint %></p><% } %>
+            <input type="text" name="rapidapiLocalBusinessEndpoint" autocomplete="off" placeholder="https://local-business-data.p.rapidapi.com/search" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-xs text-brand-muted mt-2 leading-relaxed">Full URL to the <strong>search</strong> endpoint from your API’s RapidAPI page (not <code class="text-[11px]">review.php</code>). Host header is inferred from this URL if host is empty.</p>
+            <% if (masks.rapidapiLocalBusinessEndpoint) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiLocalBusinessEndpoint_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Query param <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <% if (masks.rapidapiSearchQueryParam) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiSearchQueryParam %></p><% } %>
+              <input type="text" name="rapidapiSearchQueryParam" autocomplete="off" placeholder="query" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.rapidapiSearchQueryParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchQueryParam_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Limit param <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <% if (masks.rapidapiSearchLimitParam) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiSearchLimitParam %></p><% } %>
+              <input type="text" name="rapidapiSearchLimitParam" autocomplete="off" placeholder="limit" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.rapidapiSearchLimitParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchLimitParam_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SearchAPI.io</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://www.searchapi.io/docs/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local API</a> — optional; runs after RapidAPI in Auto mode.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.searchapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.searchapiApiKey %></p><% } %>
+            <input type="password" name="searchapiApiKey" autocomplete="off" placeholder="Paste SearchAPI.io key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.searchapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="searchapiApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SerpAPI</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://serpapi.com/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local</a> — optional; runs after SearchAPI.io in Auto mode.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.serpapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.serpapiApiKey %></p><% } %>
+            <input type="password" name="serpapiApiKey" autocomplete="off" placeholder="Paste SerpAPI key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.serpapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="serpapiApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Outscraper</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps listings via Outscraper — optional fallback in Auto mode.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.outscraperApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiKey %></p><% } %>
+            <input type="password" name="outscraperApiKey" autocomplete="off" placeholder="Paste Outscraper key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.outscraperApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API base URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+            <% if (masks.outscraperApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiBase %></p><% } %>
+            <input type="text" name="outscraperApiBase" autocomplete="off" placeholder="https://api.app.outscraper.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.outscraperApiBase) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiBase_clear" value="1" /> Remove</label><% } %>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Apify</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps actor — last fallback in Auto mode when other providers fail or return no rows.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API token</label>
+            <% if (masks.apifyApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.apifyApiToken %></p><% } %>
+            <input type="password" name="apifyApiToken" autocomplete="off" placeholder="Paste Apify token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.apifyApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="apifyApiToken_clear" value="1" /> Remove saved token</label><% } %>
+          </div>
+        </section>
+      </div>
     </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI host (optional)</label>
-      <% if (masks.rapidapiHost) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiHost %></p><% } %>
-      <input type="text" name="rapidapiHost" autocomplete="off" placeholder="local-business-data.p.rapidapi.com or maps-data.p.rapidapi.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.rapidapiHost) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiHost_clear" value="1" /> Remove</label><% } %>
+
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Enrich &amp; contact data</p>
+      <div class="space-y-4">
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">BetterContact</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://bettercontact.rocks/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">BetterContact</a> — <strong>Hunt for more contact data</strong> (verified email and mobile).</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.bettercontactApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.bettercontactApiKey %></p><% } %>
+            <input type="password" name="bettercontactApiKey" autocomplete="off" placeholder="Paste BetterContact key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.bettercontactApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="bettercontactApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+        </section>
+
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 space-y-4">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Website enhance</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Firecrawl and/or Crawl4AI for Enhance jobs on lead websites.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Enhance provider preference</label>
+            <select name="enrichPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+              <option value="auto" <%= _enrichPrimary === 'auto' || _enrichPrimary === '' ? 'selected' : '' %>>Auto (current defaults / env flags)</option>
+              <option value="firecrawl_only" <%= _enrichPrimary === 'firecrawl_only' ? 'selected' : '' %>>Firecrawl only</option>
+              <option value="crawl4ai_first" <%= _enrichPrimary === 'crawl4ai_first' ? 'selected' : '' %>>Crawl4AI first, then Firecrawl fallback</option>
+            </select>
+          </div>
+          <div class="pt-2 border-t border-brand-border/40 dark:border-white/10 space-y-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Firecrawl</p>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+              <% if (masks.firecrawlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.firecrawlApiKey %></p><% } %>
+              <input type="password" name="firecrawlApiKey" autocomplete="off" placeholder="Paste Firecrawl key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.firecrawlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="firecrawlApiKey_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+          <div class="pt-2 border-t border-brand-border/40 dark:border-white/10 space-y-4">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Crawl4AI (self-hosted)</p>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Base URL</label>
+              <% if (masks.crawl4aiBaseUrl) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.crawl4aiBaseUrl %></p><% } %>
+              <input type="text" name="crawl4aiBaseUrl" autocomplete="off" placeholder="http://localhost:11235" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.crawl4aiBaseUrl) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiBaseUrl_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API token <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+              <% if (masks.crawl4aiApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.crawl4aiApiToken %></p><% } %>
+              <input type="password" name="crawl4aiApiToken" autocomplete="off" placeholder="Bearer token if required" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.crawl4aiApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiApiToken_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI endpoint (optional)</label>
-      <% if (masks.rapidapiLocalBusinessEndpoint) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiLocalBusinessEndpoint %></p><% } %>
-      <input type="text" name="rapidapiLocalBusinessEndpoint" autocomplete="off" placeholder="https://local-business-data.p.rapidapi.com/search or https://maps-data.p.rapidapi.com/search.php" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <p class="text-xs text-brand-muted mt-2 leading-relaxed">Use the <strong>full URL to the text/business search</strong> endpoint from the API’s RapidAPI page (not <code class="text-[11px]">review.php</code>). The app appends the search string and a max-results parameter automatically. If you only set the endpoint URL, the <strong>host header is taken from that URL</strong> — you do not need to fill RapidAPI host unless you use a proxy or custom domain.</p>
-      <% if (masks.rapidapiLocalBusinessEndpoint) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiLocalBusinessEndpoint_clear" value="1" /> Remove</label><% } %>
+
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Audits</p>
+      <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+        <header>
+          <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Google PageSpeed Insights</h3>
+          <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://developers.google.com/speed/docs/insights/v5/get-started" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">PageSpeed Insights API</a> — powers <strong>Run Lighthouse audit</strong> on the lead Insights tab. Often the same Google Cloud key as Maps.</p>
+        </header>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+          <% if (masks.pagespeedApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.pagespeedApiKey %></p><% } %>
+          <input type="password" name="pagespeedApiKey" autocomplete="off" placeholder="Google Cloud API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          <% if (masks.pagespeedApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="pagespeedApiKey_clear" value="1" /> Remove</label><% } %>
+        </div>
+      </section>
+      <p class="text-xs text-brand-muted mt-3 leading-relaxed">The interactive map on Find Leads uses <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server (Render env), not this form.</p>
     </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI search query param (optional)</label>
-      <% if (masks.rapidapiSearchQueryParam) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiSearchQueryParam %></p><% } %>
-      <input type="text" name="rapidapiSearchQueryParam" autocomplete="off" placeholder="query (default) — use q, text, keyword… if your API docs say so" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.rapidapiSearchQueryParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchQueryParam_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">RapidAPI search limit param (optional)</label>
-      <% if (masks.rapidapiSearchLimitParam) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.rapidapiSearchLimitParam %></p><% } %>
-      <input type="text" name="rapidapiSearchLimitParam" autocomplete="off" placeholder="limit (default) — use max_results, num… if your API docs say so" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.rapidapiSearchLimitParam) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="rapidapiSearchLimitParam_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Apify API token</label>
-      <% if (masks.apifyApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.apifyApiToken %></p><% } %>
-      <input type="password" name="apifyApiToken" autocomplete="off" placeholder="New token (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.apifyApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="apifyApiToken_clear" value="1" /> Remove saved token</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outscraper API key</label>
-      <% if (masks.outscraperApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiKey %></p><% } %>
-      <input type="password" name="outscraperApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.outscraperApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiKey_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SearchAPI.io API key (Google Local)</label>
-      <% if (masks.searchapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.searchapiApiKey %></p><% } %>
-      <input type="password" name="searchapiApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <p class="text-xs text-brand-muted mt-2 leading-relaxed"><a href="https://www.searchapi.io/docs/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local API</a> — optional Find Leads provider after RapidAPI in Auto mode (before SerpAPI).</p>
-      <% if (masks.searchapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="searchapiApiKey_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SerpAPI API key (Google Local)</label>
-      <% if (masks.serpapiApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.serpapiApiKey %></p><% } %>
-      <input type="password" name="serpapiApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <p class="text-xs text-brand-muted mt-2 leading-relaxed"><a href="https://serpapi.com/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">SerpAPI Google Local</a> — optional Find Leads provider after SearchAPI.io in Auto mode.</p>
-      <% if (masks.serpapiApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="serpapiApiKey_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outscraper API base (optional)</label>
-      <% if (masks.outscraperApiBase) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.outscraperApiBase %></p><% } %>
-      <input type="text" name="outscraperApiBase" autocomplete="off" placeholder="https://api.app.outscraper.com" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.outscraperApiBase) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="outscraperApiBase_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper preference</label>
-      <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-        <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>
-        <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify)</option>
-        <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
-        <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io (Google Local) only</option>
-        <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI (Google Local) only</option>
-        <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
-        <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
-      </select>
-      <p class="text-xs text-brand-muted mt-2">Manual override for Find Leads job provider in this workspace.</p>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">BetterContact API key</label>
-      <% if (masks.bettercontactApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.bettercontactApiKey %></p><% } %>
-      <input type="password" name="bettercontactApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <p class="text-xs text-brand-muted mt-2 leading-relaxed"><a href="https://bettercontact.rocks/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">BetterContact</a> powers <strong>Hunt for more contact data</strong> — verified work email and mobile via waterfall enrichment.</p>
-      <% if (masks.bettercontactApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="bettercontactApiKey_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">PageSpeed Insights API key</label>
-      <% if (masks.pagespeedApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.pagespeedApiKey %></p><% } %>
-      <input type="password" name="pagespeedApiKey" autocomplete="off" placeholder="Google Cloud API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <p class="text-xs text-brand-muted mt-2 leading-relaxed"><a href="https://developers.google.com/speed/docs/insights/v5/get-started" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">PageSpeed Insights API</a> powers <strong>Run Lighthouse audit</strong> on the lead Insights tab.</p>
-      <% if (masks.pagespeedApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="pagespeedApiKey_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Firecrawl API key</label>
-      <% if (masks.firecrawlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.firecrawlApiKey %></p><% } %>
-      <input type="password" name="firecrawlApiKey" autocomplete="off" placeholder="New key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.firecrawlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="firecrawlApiKey_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Enhance provider preference (Firecrawl / Crawl4AI)</label>
-      <select name="enrichPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-        <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
-        <option value="auto" <%= _enrichPrimary === 'auto' || _enrichPrimary === '' ? 'selected' : '' %>>Auto (current defaults / env flags)</option>
-        <option value="firecrawl_only" <%= _enrichPrimary === 'firecrawl_only' ? 'selected' : '' %>>Firecrawl only</option>
-        <option value="crawl4ai_first" <%= _enrichPrimary === 'crawl4ai_first' ? 'selected' : '' %>>Crawl4AI first, then Firecrawl fallback</option>
-      </select>
-      <p class="text-xs text-brand-muted mt-2">Manual override for Enhance jobs in this workspace.</p>
-    </div>
-    <div class="border-b border-brand-border/40 dark:border-white/10 pb-4">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Crawl4AI base URL</label>
-      <% if (masks.crawl4aiBaseUrl) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.crawl4aiBaseUrl %></p><% } %>
-      <input type="text" name="crawl4aiBaseUrl" autocomplete="off" placeholder="http://localhost:11235" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.crawl4aiBaseUrl) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiBaseUrl_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="pb-2">
-      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Crawl4AI API token (optional)</label>
-      <% if (masks.crawl4aiApiToken) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.crawl4aiApiToken %></p><% } %>
-      <input type="password" name="crawl4aiApiToken" autocomplete="off" placeholder="Bearer token if required" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
-      <% if (masks.crawl4aiApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="crawl4aiApiToken_clear" value="1" /> Remove</label><% } %>
-    </div>
-    <div class="flex flex-wrap items-center gap-3">
+
+    <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-brand-border/40 dark:border-white/10">
       <button type="submit" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save integrations</button>
       <button type="button" id="testIntegrationsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/20">Test APIs</button>
     </div>
-    <div id="integrationsTestResult" class="hidden mt-4 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-900/40 px-4 py-3 text-sm text-brand-dark dark:text-slate-200"></div>
+    <div id="integrationsTestResult" class="hidden rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-900/40 px-4 py-3 text-sm text-brand-dark dark:text-slate-200"></div>
   </form>
   <% } %>
 </div>

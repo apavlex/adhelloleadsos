@@ -70,6 +70,23 @@
     var zoomInBtn = document.getElementById('findAreaMapZoomIn');
     var zoomOutBtn = document.getElementById('findAreaMapZoomOut');
     function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
+    function geocodeStatusMessage(gStatus) {
+      var s = String(gStatus || '');
+      if (s === 'ZERO_RESULTS') {
+        return 'No results — try another spelling or be more specific.';
+      }
+      if (s === 'REQUEST_DENIED' || s === 'OVER_QUERY_LIMIT' || s === 'INVALID_REQUEST') {
+        return (
+          'Google could not look up that place (' +
+          s +
+          '). Enable billing on your Google Cloud project, turn on Geocoding API, and check API key HTTP referrer restrictions for this site.'
+        );
+      }
+      if (s) {
+        return 'Location lookup failed (' + s + '). Check Google Maps API key, billing, and Geocoding API in Cloud Console.';
+      }
+      return 'No results — try another spelling or be more specific.';
+    }
     function parseCityStateFromGeocodeResult(result) {
       var city = '';
       var state = '';
@@ -108,7 +125,7 @@
       setStatus('Searching…');
       geocoder.geocode({ address: q }, function (results, gStatus) {
         if (gStatus !== 'OK' || !results || !results[0]) {
-          setStatus('No results — try another spelling or be more specific.');
+          setStatus(geocodeStatusMessage(gStatus));
           return;
         }
         var first = results[0];
@@ -155,7 +172,11 @@
       setStatus('Looking up address…');
       geocoder.geocode({ location: c }, function (results, status) {
         if (status !== 'OK' || !results || !results[0]) {
-          setStatus('Could not resolve this spot — try moving the map to a city block.');
+          setStatus(
+            status === 'ZERO_RESULTS'
+              ? 'Could not resolve this spot — try moving the map to a city block.'
+              : geocodeStatusMessage(status)
+          );
           return;
         }
         var first = results[0];
