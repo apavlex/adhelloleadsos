@@ -144,7 +144,17 @@ async function searchGoogleMaps(params) {
     );
   }
 
-  return apify.searchGoogleMaps(params);
+  const apifyRows = await apify.searchGoogleMaps(params);
+  if (!apifyRows || apifyRows.length === 0) {
+    const hint =
+      lastAutoError && lastAutoError.message
+        ? lastAutoError.message
+        : 'All configured Maps providers returned 0 results.';
+    throw new Error(
+      `No businesses found for "${params.keyword}" in ${params.city}, ${params.state}. ${hint}`
+    );
+  }
+  return apifyRows;
 }
 
 module.exports = {

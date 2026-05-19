@@ -340,20 +340,29 @@
             const n = data.notification;
             const kw = String(n.keyword || '').replace(/</g, '&lt;').replace(/"/g, '&quot;');
             const failed = n.status === 'failed';
-            const headline = failed
-              ? 'Search failed'
+            const zeroResults =
+              !failed && typeof n.resultCount === 'number' && n.resultCount === 0;
+            const treatAsFailed = failed || zeroResults;
+            const headline = treatAsFailed
+              ? zeroResults
+                ? 'No leads found'
+                : 'Search failed'
               : n.source === 'scheduled'
                 ? 'Scheduled scrape ready'
                 : 'Ready for Review';
             const err = String(n.error || '')
               .replace(/</g, '&lt;')
               .replace(/"/g, '&quot;');
-            const sub = failed
-              ? 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
-                kw +
-                '"</span> did not finish. ' +
-                (err ? '<span class="text-red-700 dark:text-red-300">' + err + '</span> ' : '') +
-                'Open Workspace → API integrations and use <strong>Test APIs</strong>.'
+            const sub = treatAsFailed
+              ? zeroResults
+                ? 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
+                  kw +
+                  '"</span> finished with 0 leads. Check RapidAPI endpoint (/search not review), host, and query param — use <strong>Test connection</strong> on the RapidAPI card.'
+                : 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
+                  kw +
+                  '"</span> did not finish. ' +
+                  (err ? '<span class="text-red-700 dark:text-red-300">' + err + '</span> ' : '') +
+                  'Open Workspace → API integrations and use <strong>Test connection</strong>.'
               : n.source === 'scheduled'
                 ? 'Scheduled run for <span class="text-brand-dark dark:text-slate-200">"' +
                   kw +
@@ -361,7 +370,7 @@
                 : 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
                   kw +
                   '"</span> is complete. Link to results is ready.';
-            const notifHref = failed ? '/workspace/integrations' : '/history';
+            const notifHref = treatAsFailed ? '/workspace/integrations' : '/history';
             notificationList.innerHTML =
               '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" onclick="window.location.href=\'' +
               notifHref +

@@ -155,6 +155,70 @@ function normalizePlace(item) {
   };
 }
 
+/** Reject review/detail endpoints saved by mistake in Workspace → Integrations. */
+function assertSearchEndpoint(urlStr) {
+  let u;
+  try {
+    u = new URL(String(urlStr || '').trim());
+  } catch {
+    throw new Error('RapidAPI endpoint URL is invalid.');
+  }
+  const path = u.pathname.toLowerCase();
+  if (
+    /review|business[-_]?details?|place[-_]?details?|\/detail\b|\/place\.php/i.test(path) &&
+    !/\/search/i.test(path)
+  ) {
+    throw new Error(
+      'RapidAPI endpoint looks like a review/details URL, not search. Use the /search URL from your API’s RapidAPI page (e.g. …/search or …/search.php).'
+    );
+  }
+}
+
+function messageFromPayload(payload) {
+  if (!payload || typeof payload !== 'object') return '';
+  const msg = pickFirst(
+    payload.message,
+    payload.error,
+    payload.status_message,
+    payload.msg,
+    payload.reason,
+    payload.detail
+  );
+  if (msg) return String(msg);
+  if (payload.success === false) return 'API reported success=false';
+  const st = payload.status;
+  if (st != null && String(st).toLowerCase() === 'error') return 'API status=error';
+  return '';
+}
+
+function describeEmptyPayload(payload) {
+  if (!payload || typeof payload !== 'object') return 'Empty response body.';
+  const keys = Object.keys(payload).slice(0, 8);
+  return keys.length
+    ? `Response keys: ${keys.join(', ')}. Check endpoint URL and query/limit param names.`
+    : 'Empty JSON object.';
+}
+
+function usesDefaultQueryParam(integrationEnv) {
+  const fromWs = integrationEnv && integrationEnv.RAPIDAPI_SEARCH_QUERY_PARAM;
+  if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim() === 'query';
+  const ev = process.env.RAPIDAPI_SEARCH_QUERY_PARAM;
+  if (typeof ev === 'string' && ev.trim()) return ev.trim() === 'query';
+  return true;
+}
+
+/** When query param is still default, try common RapidAPI aliases after 0 results. */
+function queryParamAttempts(integrationEnv) {
+  const primary = searchQueryParam(integrationEnv);
+  const attempts = [primary];
+  if (usesDefaultQueryParam(integrationEnv)) {
+    for (const alt of ['q', 'text', 'search']) {
+      if (!attempts.includes(alt)) attempts.push(alt);
+    }
+  }
+  return attempts;
+}
+
 function extractItems(payload) {
   if (!payload || typeof payload !== 'object') return [];
   if (Array.isArray(payload)) return payload.filter((x) => x && typeof x === 'object');
@@ -257,6 +321,8 @@ module.exports = {
   apiHost,
   endpoint,
   hostFromEndpointUrl,
+  assertSearchEndpoint,
+  messageFromPayload,
   searchQueryParam,
   searchLimitParam,
   isConfigured,

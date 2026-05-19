@@ -52,6 +52,11 @@ router.post('/', async (req, res, next) => {
             maxResults: maxRes,
             integrationEnv,
           });
+          if (!results || results.length === 0) {
+            throw new Error(
+              'No businesses found for this keyword and area. Try a broader keyword, check city/state, and run Test connection on RapidAPI under Workspace → API integrations.'
+            );
+          }
           if (wantDirectorySupplement) {
             console.log('[SEARCH-BG] Supplementing with directory listings (Yelp / Yellow Pages / BBB)...');
             try {

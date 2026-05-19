@@ -15,6 +15,22 @@ describe('rapidapiLocalBusiness hostFromEndpointUrl', () => {
   });
 });
 
+describe('rapidapiLocalBusiness assertSearchEndpoint', () => {
+  test('rejects review.php style URLs', () => {
+    assert.throws(
+      () =>
+        rapidapi.assertSearchEndpoint('https://maps-data.p.rapidapi.com/review.php?place_id=abc'),
+      /review\/details URL/i
+    );
+  });
+
+  test('allows search.php URLs', () => {
+    assert.doesNotThrow(() =>
+      rapidapi.assertSearchEndpoint('https://maps-data.p.rapidapi.com/search.php')
+    );
+  });
+});
+
 describe('rapidapiLocalBusiness apiHost', () => {
   test('derives host from endpoint when RAPIDAPI_HOST unset', () => {
     const prevHost = process.env.RAPIDAPI_HOST;
