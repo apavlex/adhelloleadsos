@@ -125,7 +125,7 @@
           <tr class="border-b border-brand-border/40 dark:border-white/10">
             <th data-plc="check" class="plc-th-wrap lead-sticky-check pl-5 pr-2 py-3.5 w-12 align-middle">
               <div class="flex items-center">
-                <input type="checkbox" id="selectAllLeads" class="w-4 h-4 rounded-md border-brand-border dark:border-slate-500 text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" title="Select all leads on this page" aria-label="Select all leads on this page" onclick="event.stopPropagation()">
+                <input type="checkbox" id="selectAllLeads" class="w-4 h-4 rounded-md border-brand-border dark:border-slate-500 text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" title="Select all leads on this page" aria-label="Select all leads on this page" onclick="event.stopPropagation(); if (window.__applySelectAllLeads) { requestAnimationFrame(function () { window.__applySelectAllLeads(this); }.bind(this)); }">
               </div>
               <span class="plc-col-resize" data-plc-resize="check" title="Resize column" aria-hidden="true"></span>
             </th>

@@ -190,7 +190,15 @@ table {
     box-shadow: inset 4px 0 0 var(--brand-yellow);
 }
 
+.result-row.bulk-selected > td {
+    background-color: rgba(253, 224, 71, 0.14) !important;
+}
+
 .result-row.bulk-selected:hover {
+    background-color: rgba(253, 224, 71, 0.22) !important;
+}
+
+.result-row.bulk-selected:hover > td {
     background-color: rgba(253, 224, 71, 0.22) !important;
 }
 
@@ -200,6 +208,10 @@ table.bulk-select-all-active .result-row.bulk-selected {
 }
 
 html.dark .result-row.bulk-selected {
+    background-color: rgba(253, 224, 71, 0.12) !important;
+}
+
+html.dark .result-row.bulk-selected > td {
     background-color: rgba(253, 224, 71, 0.12) !important;
 }
 

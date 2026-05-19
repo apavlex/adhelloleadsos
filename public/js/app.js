@@ -240,6 +240,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof window.__pipelineTablePagingApply === 'function') {
       window.__pipelineTablePagingApply();
     }
+    if (typeof window.__updateBulkActionBar === 'function') {
+      window.__updateBulkActionBar();
+    }
   };
 
   const PIPELINE_LEADS_PAGE_SIZE = 54;
@@ -8188,53 +8191,66 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
 
-  /** Row checkboxes for the current table page (pipeline, inbound, or search results). */
-  function getPageLeadCheckboxes() {
-    const pipelineTable = document.getElementById('prospectLeadsTable');
-    if (pipelineTable) {
-      return Array.from(
-        pipelineTable.querySelectorAll(
-          'tbody tr.result-row:not(.pipeline-row-page-hidden) .lead-checkbox',
-        ),
-      );
-    }
+  /** Table that owns the visible #selectAllLeads header (search results, pipeline, inbound). */
+  function getActiveLeadsTable() {
     const header = document.getElementById('selectAllLeads');
     if (header) {
-      const scopedTable = header.closest('table');
-      if (scopedTable) {
-        return Array.from(scopedTable.querySelectorAll('tbody tr.result-row .lead-checkbox'));
-      }
+      const table = header.closest('table');
+      if (table) return table;
     }
-    const tableView = document.getElementById('tableView');
-    if (tableView) {
-      return Array.from(tableView.querySelectorAll('tbody tr.result-row .lead-checkbox'));
-    }
-    return Array.from(document.querySelectorAll('tbody tr.result-row .lead-checkbox'));
+    return (
+      document.getElementById('prospectLeadsTable') ||
+      document.getElementById('searchResultsLeadsTable') ||
+      null
+    );
+  }
+
+  function getVisibleResultRowsInTable(table) {
+    if (!table) return [];
+    const isPipeline = table.id === 'prospectLeadsTable';
+    const rowSel = isPipeline
+      ? 'tbody tr.result-row:not(.pipeline-row-page-hidden)'
+      : 'tbody tr.result-row';
+    return Array.from(table.querySelectorAll(rowSel));
+  }
+
+  /** Row checkboxes for the current table page (pipeline, inbound, or search results). */
+  function getPageLeadCheckboxes() {
+    return getVisibleResultRowsInTable(getActiveLeadsTable())
+      .map((row) => row.querySelector('.lead-checkbox, .row-checkbox'))
+      .filter(Boolean);
   }
 
   function syncBulkRowHighlights() {
-    const boxes = getPageLeadCheckboxes();
     const header = document.getElementById('selectAllLeads');
+    const table = getActiveLeadsTable();
+    const rows = getVisibleResultRowsInTable(table);
     const allChecked =
-      !!header && header.checked && !header.indeterminate && boxes.length > 0;
+      !!header && header.checked && !header.indeterminate && rows.length > 0;
 
-    boxes.forEach((cb) => {
-      const row = cb.closest('tr.result-row');
-      if (!row) return;
-      const on = allChecked || !!cb.checked;
+    rows.forEach((row) => {
+      const cb = row.querySelector('.lead-checkbox, .row-checkbox');
+      const on = allChecked || !!(cb && cb.checked);
       row.classList.toggle('bulk-selected', on);
       row.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 
-    const tbody = boxes[0] ? boxes[0].closest('tbody') : null;
+    const tbody =
+      rows[0] && rows[0].closest ? rows[0].closest('tbody') : table ? table.querySelector('tbody') : null;
     if (tbody) {
       tbody.classList.toggle('bulk-select-all-active', allChecked);
     }
-    const table = tbody ? tbody.closest('table') : null;
     if (table) {
       table.classList.toggle('bulk-select-all-active', allChecked);
     }
   }
+
+  function applySelectAllFromHeader(headerEl) {
+    const header = headerEl || document.getElementById('selectAllLeads');
+    if (!header || bulkSelectSyncing) return;
+    setPageLeadSelection(!!header.checked);
+  }
+  window.__applySelectAllLeads = applySelectAllFromHeader;
 
   function syncSelectAllLeadCheckbox() {
     const header = document.getElementById('selectAllLeads');
@@ -8254,8 +8270,8 @@ document.addEventListener('DOMContentLoaded', () => {
   /** All checked row boxes in the pipeline/results table (includes rows hidden by paging). */
   function syncSelectedKeysFromDom() {
     selectedKeys.clear();
-    const table = document.getElementById('prospectLeadsTable');
-    const scope = table || document.getElementById('tableView') || document;
+    const table = getActiveLeadsTable();
+    const scope = table || document;
     scope.querySelectorAll('.lead-checkbox:checked, .row-checkbox:checked').forEach((cb) => {
       const key = cb.dataset && cb.dataset.key ? String(cb.dataset.key).trim() : '';
       if (key) selectedKeys.add(key);
@@ -8486,8 +8502,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('change', (e) => {
     const target = e.target;
     if (target && target.id === 'selectAllLeads') {
-      if (bulkSelectSyncing) return;
-      setPageLeadSelection(!!target.checked);
+      applySelectAllFromHeader(target);
       return;
     }
     if (!target.classList || !target.classList.contains('lead-checkbox')) return;
@@ -8510,18 +8525,17 @@ document.addEventListener('DOMContentLoaded', () => {
   );
 
   if (selectAllLeads) {
-    const onSelectAllHeader = () => {
-      if (bulkSelectSyncing) return;
-      setPageLeadSelection(!!selectAllLeads.checked);
-    };
     selectAllLeads.addEventListener('click', (e) => {
       e.stopPropagation();
-      requestAnimationFrame(() => {
-        onSelectAllHeader();
-      });
+      const header = e.currentTarget;
+      requestAnimationFrame(() => applySelectAllFromHeader(header));
     });
-    selectAllLeads.addEventListener('change', onSelectAllHeader);
-    selectAllLeads.addEventListener('input', onSelectAllHeader);
+    selectAllLeads.addEventListener('change', (e) => {
+      applySelectAllFromHeader(e.currentTarget);
+    });
+    selectAllLeads.addEventListener('input', (e) => {
+      applySelectAllFromHeader(e.currentTarget);
+    });
   }
 
   if (cancelSelectionBtn) {
