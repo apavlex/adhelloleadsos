@@ -255,6 +255,7 @@ router.get('/:key', async (req, res, next) => {
 
     // Get all bookmarked leads to sync bookmark status on the results page
     const savedLeads = filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
+    const folders = await dbService.listFolders(req.workspaceId);
 
     res.render('results', {
       title: `Results: ${data.keyword} in ${data.city}, ${data.state}`,
@@ -268,6 +269,7 @@ router.get('/:key', async (req, res, next) => {
       targetFolderKey: data.targetFolderKey || '',
       targetFolderName: data.targetFolderName || '',
       savedLeads,
+      folders,
       message: null,
     });
   } catch (err) {

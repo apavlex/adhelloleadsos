@@ -217,41 +217,21 @@
       </div>
     <% } %>
     <%- include('partials/lead_detail_panel') %>
-    
-    <!-- Floating Bulk Actions Bar -->
-    <div id="bulkActionBar" class="fixed bottom-6 left-1/2 -translate-x-1/2 text-white px-6 py-4 sm:px-8 sm:py-5 rounded-[2.5rem] z-[190] flex flex-col gap-3 max-w-[calc(100vw-2rem)] opacity-0 translate-y-24 pointer-events-none transition-all duration-300 ease-out border border-white/10" role="toolbar" aria-label="Bulk lead actions">
-      <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-        <div class="flex items-center gap-4 sm:border-r sm:border-white/10 sm:pr-8">
-          <div id="selectedCountCircle" class="w-10 h-10 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center font-black text-sm shadow-lg">0</div>
-          <div class="text-sm font-bold text-white/90">Leads Selected</div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-4">
-          <button type="button" class="js-bulk-enhance flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-brand-yellow transition-all group overflow-hidden relative">
-             <svg class="w-4 h-4 text-brand-yellow group-hover:animate-sparkle" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-             <span class="text-xs font-black uppercase tracking-widest">Enhance</span>
-          </button>
-          <button type="button" class="js-bulk-export-csv flex items-center gap-2.5 px-6 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-blue-400 transition-all group">
-             <svg class="w-4 h-4 text-blue-400 group-hover:translate-y-[-2px] transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M7.5 12L12 16.5m0 0l4.5-4.5M12 16.5V3" /></svg>
-             <span class="text-xs font-black uppercase tracking-widest">Export CSV</span>
-          </button>
-          <button id="bulkSaveBtn" class="flex items-center gap-2.5 px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark text-[10px] font-black uppercase tracking-widest hover:brightness-105 active:scale-[0.98] transition-all">
-             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" /></svg>
-             <span>Save Leads</span>
-          </button>
-          <div class="hidden sm:block w-px h-6 bg-white/10"></div>
-          <button id="cancelSelectionBtn" class="text-xs font-bold text-white/50 hover:text-white transition-colors uppercase tracking-widest">Cancel</button>
-        </div>
-      </div>
-    </div>
   </main>
 
+
   <%- include('partials/footer') %>
+
+  <% if (results.length > 0) { %>
+  <%- include('partials/bulk_action_bar', { bulkBarMode: 'search' }) %>
+  <% } %>
+
 
   <script>
     // Inject saved leads from server to app.js context
     window.INITIAL_SAVED_LEADS = <%- JSON.stringify(savedLeads || []) %>;
     window.SEARCH_TARGET_FOLDER_KEY = <%- JSON.stringify(targetFolderKey || '') %>;
+    window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %>;
   </script>
 
   <script src="/js/app.js?v=<%= assetVersion %>"></script>

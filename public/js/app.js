@@ -8172,8 +8172,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --- Bulk Selection & Actions ---
+  function mountBulkActionBarToBody() {
+    const bar = document.getElementById('bulkActionBar');
+    if (bar && bar.parentElement !== document.body) {
+      document.body.appendChild(bar);
+    }
+    return bar;
+  }
   const selectAllLeads = document.getElementById('selectAllLeads');
-  const bulkActionBar = document.getElementById('bulkActionBar');
+  const bulkActionBar = mountBulkActionBarToBody();
   const selectedCountCircle = document.getElementById('selectedCountCircle');
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
   const bulkFolderSelect = document.getElementById('bulkFolderSelect');
@@ -8273,8 +8280,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const table = getActiveLeadsTable();
     const scope = table || document;
     scope.querySelectorAll('.lead-checkbox:checked, .row-checkbox:checked').forEach((cb) => {
-      const key = cb.dataset && cb.dataset.key ? String(cb.dataset.key).trim() : '';
-      if (key) selectedKeys.add(key);
+      if (!cb.hasAttribute('data-key')) return;
+      const key = String(cb.getAttribute('data-key') ?? '').trim();
+      if (key !== '') selectedKeys.add(key);
     });
   }
 
@@ -8306,7 +8314,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update footer bar (common in leads.ejs and added to results.ejs)
     if (selectedCountCircle) selectedCountCircle.textContent = count;
     if (bulkActionBar) {
-      if (count > 0) {
+      const visible = count > 0;
+      bulkActionBar.dataset.visible = visible ? 'true' : 'false';
+      bulkActionBar.classList.toggle('bulk-action-bar--visible', visible);
+      bulkActionBar.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      if (visible) {
         bulkActionBar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
         bulkActionBar.classList.add('opacity-100', 'translate-y-0');
         bulkActionBar.style.pointerEvents = 'auto';
@@ -8415,7 +8427,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const initialBulkFolderPref =
     typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
       ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
-      : undefined;
+      : typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' && window.SEARCH_TARGET_FOLDER_KEY.trim()
+        ? window.SEARCH_TARGET_FOLDER_KEY.trim()
+        : undefined;
   rebuildBulkFolderSelect(initialBulkFolderPref);
   updateBulkActionBar();
 
@@ -8506,6 +8520,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (!target.classList || !target.classList.contains('lead-checkbox')) return;
+    if (bulkSelectSyncing) return;
+    syncSelectAllLeadCheckbox();
+    updateBulkActionBar();
+  });
+
+  document.addEventListener('input', (e) => {
+    const target = e.target;
+    if (!target || !target.classList || !target.classList.contains('lead-checkbox')) return;
     if (bulkSelectSyncing) return;
     syncSelectAllLeadCheckbox();
     updateBulkActionBar();
@@ -8757,9 +8779,10 @@ document.addEventListener('DOMContentLoaded', () => {
           instagram: row.dataset.instagram,
           twitter: row.dataset.twitter
         };
-        if (bulkFolderSelect && bulkFolderSelect.value) {
-          leadData.folderKey = bulkFolderSelect.value;
-        }
+        const folderFromBar = bulkFolderSelect && bulkFolderSelect.value ? bulkFolderSelect.value : '';
+        const folderFromSearch =
+          typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '';
+        leadData.folderKey = folderFromBar || folderFromSearch;
 
         try {
           const res = await fetch('/leads/save', {
