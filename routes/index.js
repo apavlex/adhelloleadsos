@@ -43,7 +43,7 @@ async function renderFindLeads(req, res, next) {
 
     return res.render('index', {
       title: 'Agency OS | Daily Leads',
-      activePage: 'search',
+      activePage: 'find',
       savedLeadsCount: adhelloLeads.length,
       workspaceLeadsCount: workspaceLeads.length,
       warmInboundCount: adhelloLeads.length,

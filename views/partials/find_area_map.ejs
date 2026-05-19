@@ -1,41 +1,34 @@
 <% if (typeof googleMapsKey === 'string' && googleMapsKey) { %>
-<div class="w-full border-b border-brand-border/15 dark:border-white/10" aria-label="Map area picker">
-  <div class="flex flex-col gap-4 px-5 pt-6 pb-4 sm:px-7 sm:pt-7">
-    <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-      <div>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Step 1 · Area</p>
-        <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white mt-1">Choose the area</h2>
-        <p class="text-sm text-brand-muted mt-1 max-w-xl">Pan or zoom the map, then set area from map.</p>
+<div class="find-area-map relative w-full" aria-label="Map area picker">
+  <div class="relative w-full border-b border-brand-border/10 dark:border-white/5 lg:border-b-0">
+    <div id="findAreaMap" class="w-full h-[min(280px,42vh)] min-h-[220px] sm:h-[min(360px,48vh)] sm:min-h-[260px] bg-slate-200/50 dark:bg-slate-800/60" role="application" aria-label="Google Map — drag to choose search area"></div>
+    <!-- Center pin -->
+    <div class="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center" aria-hidden="true">
+      <div class="relative -mt-8">
+        <svg class="w-10 h-10 text-brand-dark dark:text-brand-yellow drop-shadow-md" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z"/></svg>
+        <span class="absolute left-1/2 -translate-x-1/2 top-9 w-3 h-1 rounded-full bg-black/20 blur-sm"></span>
       </div>
-      <button type="button" id="applyMapLocationBtn" class="shrink-0 w-full sm:w-auto px-5 py-3 rounded-full text-[10px] font-black uppercase tracking-widest bg-white dark:bg-slate-900 text-brand-dark dark:text-white border-2 border-brand-dark dark:border-brand-yellow shadow-md hover:shadow-lg hover:border-brand-yellow dark:hover:border-brand-yellow ring-2 ring-brand-yellow/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950 transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:ring-offset-2">
-        Set area from map
-      </button>
     </div>
-  </div>
-  <div class="relative w-full border-t border-b border-brand-border/20 dark:border-white/10">
-    <div id="findAreaMap" class="w-full h-[min(340px,48vh)] min-h-[220px] sm:h-[min(400px,52vh)] sm:min-h-[280px] bg-brand-cream/20 dark:bg-slate-800/40" role="application" aria-label="Google Map — drag to choose search area"></div>
     <div class="pointer-events-none absolute inset-0 z-10 flex flex-col justify-between p-3 sm:p-4">
-      <div class="pointer-events-auto flex flex-col gap-2 sm:flex-row sm:items-center sm:max-w-xl">
-        <div class="rounded-full border border-brand-border/40 dark:border-white/15 bg-white/90 dark:bg-slate-900/90 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted">
-          Pan or zoom here → applies to search
-        </div>
+      <div class="pointer-events-auto flex flex-col sm:flex-row gap-2 sm:items-stretch sm:max-w-md">
         <label for="findAreaMapSearch" class="sr-only">Search city or address on map</label>
-        <div class="flex flex-1 min-w-0 rounded-2xl border-2 border-brand-dark/20 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg backdrop-blur-sm overflow-hidden focus-within:border-brand-yellow focus-within:ring-2 focus-within:ring-brand-yellow/40">
-          <input type="search" id="findAreaMapSearch" autocomplete="off" placeholder="Search city, neighborhood, or address…" class="min-w-0 flex-1 border-0 bg-transparent px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted focus:outline-none focus:ring-0" />
-          <button type="button" id="findAreaMapSearchBtn" class="shrink-0 px-4 py-3 text-[10px] font-black uppercase tracking-widest bg-brand-yellow text-brand-dark hover:brightness-105 active:scale-[0.98] transition-all border-l border-brand-dark/10 dark:border-white/10">
-            Go
-          </button>
+        <div class="flex flex-1 min-w-0 rounded-xl border border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg backdrop-blur-md overflow-hidden focus-within:ring-2 focus-within:ring-brand-yellow/50">
+          <input type="search" id="findAreaMapSearch" autocomplete="off" placeholder="Search city or address…" class="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted focus:outline-none focus:ring-0" />
+          <button type="button" id="findAreaMapSearchBtn" class="shrink-0 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest bg-brand-yellow text-brand-dark hover:brightness-105 border-l border-brand-dark/10">Go</button>
         </div>
       </div>
-      <div class="pointer-events-none flex justify-end pb-1">
-        <div class="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border-2 border-brand-dark/25 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg">
-          <button type="button" id="findAreaMapZoomIn" class="flex h-11 w-11 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 border-b border-brand-border/40 dark:border-white/10 transition-colors" aria-label="Zoom in">+</button>
-          <button type="button" id="findAreaMapZoomOut" class="flex h-11 w-11 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 transition-colors" aria-label="Zoom out">−</button>
+      <div class="pointer-events-auto flex justify-between items-end gap-2">
+        <button type="button" id="applyMapLocationBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2.5 text-[10px] font-black uppercase tracking-widest shadow-lg hover:brightness-110 active:scale-[0.98] transition-all">
+          Use map center
+        </button>
+        <div class="flex flex-col overflow-hidden rounded-xl border border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg">
+          <button type="button" id="findAreaMapZoomIn" class="flex h-9 w-9 items-center justify-center text-lg font-bold hover:bg-brand-yellow/20 border-b border-brand-border/30" aria-label="Zoom in">+</button>
+          <button type="button" id="findAreaMapZoomOut" class="flex h-9 w-9 items-center justify-center text-lg font-bold hover:bg-brand-yellow/20" aria-label="Zoom out">−</button>
         </div>
       </div>
     </div>
   </div>
-  <p id="findAreaMapStatus" class="text-[12px] text-brand-muted px-5 sm:px-7 py-3 min-h-[2.75rem] border-b border-brand-border/10 dark:border-white/5" aria-live="polite"></p>
+  <p id="findAreaMapStatus" class="text-[11px] text-brand-muted px-4 py-2.5 min-h-[2.25rem] border-t border-brand-border/10 dark:border-white/5 bg-white/50 dark:bg-slate-900/30" aria-live="polite"></p>
 </div>
 <script>
   window.__MAP_DEFAULT__ = {
@@ -52,16 +45,11 @@
     var map = new google.maps.Map(el, {
       center: { lat: d.lat, lng: d.lng },
       zoom: d.zoom,
-      mapTypeControl: true,
-      mapTypeControlOptions: {
-        position: google.maps.ControlPosition.TOP_RIGHT
-      },
+      mapTypeControl: false,
       zoomControl: false,
       streetViewControl: false,
       fullscreenControl: true,
-      fullscreenControlOptions: {
-        position: google.maps.ControlPosition.TOP_RIGHT
-      }
+      fullscreenControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT }
     });
     window.__findAreaMap = map;
     var geocoder = new google.maps.Geocoder();
@@ -72,20 +60,12 @@
     function setStatus(msg) { if (statusEl) statusEl.textContent = msg || ''; }
     function geocodeStatusMessage(gStatus) {
       var s = String(gStatus || '');
-      if (s === 'ZERO_RESULTS') {
-        return 'No results — try another spelling or be more specific.';
-      }
+      if (s === 'ZERO_RESULTS') return 'No results — try another spelling.';
       if (s === 'REQUEST_DENIED' || s === 'OVER_QUERY_LIMIT' || s === 'INVALID_REQUEST') {
-        return (
-          'Google could not look up that place (' +
-          s +
-          '). Enable billing on your Google Cloud project, turn on Geocoding API, and check API key HTTP referrer restrictions for this site.'
-        );
+        return 'Google geocoding failed (' + s + '). Check Maps API key, billing, and Geocoding API on the server.';
       }
-      if (s) {
-        return 'Location lookup failed (' + s + '). Check Google Maps API key, billing, and Geocoding API in Cloud Console.';
-      }
-      return 'No results — try another spelling or be more specific.';
+      if (s) return 'Location lookup failed (' + s + ').';
+      return 'No results — try another spelling.';
     }
     function parseCityStateFromGeocodeResult(result) {
       var city = '';
@@ -105,23 +85,20 @@
           }
         }
       }
-      return {
-        city: city || '',
-        state: (state || '').slice(0, 2).toUpperCase()
-      };
+      return { city: city || '', state: (state || '').slice(0, 2).toUpperCase() };
     }
     function writeSearchFormLocation(city, state) {
       var cityIn = document.querySelector('#searchForm input[name="city"]');
       var stateIn = document.querySelector('#searchForm input[name="state"]');
       if (cityIn) cityIn.value = city || '';
       if (stateIn) stateIn.value = state || '';
+      try {
+        document.dispatchEvent(new CustomEvent('find:locationUpdated', { detail: { city: city || '', state: state || '' } }));
+      } catch (e) { /* ignore */ }
     }
     function runMapSearch() {
       var q = searchInput && String(searchInput.value || '').trim();
-      if (!q) {
-        setStatus('Type a city or address, then tap Go.');
-        return;
-      }
+      if (!q) { setStatus('Type a place, then tap Go.'); return; }
       setStatus('Searching…');
       geocoder.geocode({ address: q }, function (results, gStatus) {
         if (gStatus !== 'OK' || !results || !results[0]) {
@@ -130,74 +107,44 @@
         }
         var first = results[0];
         var g = first.geometry;
-        if (g.viewport) {
-          map.fitBounds(g.viewport);
-        } else if (g.location) {
-          map.setCenter(g.location);
-          map.setZoom(11);
-        }
+        if (g.viewport) map.fitBounds(g.viewport);
+        else if (g.location) { map.setCenter(g.location); map.setZoom(11); }
         var loc = parseCityStateFromGeocodeResult(first);
         writeSearchFormLocation(loc.city, loc.state);
-        setStatus(
-          (loc.city || loc.state)
-            ? 'Location set to ' + (loc.city || '—') + ', ' + (loc.state || '—') + '. Pan or zoom if needed, then Set area from map to override.'
-            : 'Map updated — zoom to a neighborhood or use Set area from map to set city/state.'
-        );
+        setStatus((loc.city || loc.state) ? 'Set to ' + (loc.city || '—') + ', ' + (loc.state || '—') : 'Map moved — tap Use map center if needed.');
       });
     }
     if (searchBtn) searchBtn.addEventListener('click', runMapSearch);
     if (searchInput) {
       searchInput.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          runMapSearch();
-        }
+        if (e.key === 'Enter') { e.preventDefault(); runMapSearch(); }
       });
     }
-    if (zoomInBtn) {
-      zoomInBtn.addEventListener('click', function () {
-        var z = map.getZoom();
-        if (z != null) map.setZoom(Math.min(z + 1, 21));
-      });
-    }
-    if (zoomOutBtn) {
-      zoomOutBtn.addEventListener('click', function () {
-        var z = map.getZoom();
-        if (z != null) map.setZoom(Math.max(z - 1, 2));
-      });
-    }
+    if (zoomInBtn) zoomInBtn.addEventListener('click', function () {
+      var z = map.getZoom();
+      if (z != null) map.setZoom(Math.min(z + 1, 21));
+    });
+    if (zoomOutBtn) zoomOutBtn.addEventListener('click', function () {
+      var z = map.getZoom();
+      if (z != null) map.setZoom(Math.max(z - 1, 2));
+    });
     function applyCenter() {
       var c = map.getCenter();
       if (!c) return;
       setStatus('Looking up address…');
       geocoder.geocode({ location: c }, function (results, status) {
         if (status !== 'OK' || !results || !results[0]) {
-          setStatus(
-            status === 'ZERO_RESULTS'
-              ? 'Could not resolve this spot — try moving the map to a city block.'
-              : geocodeStatusMessage(status)
-          );
+          setStatus(status === 'ZERO_RESULTS' ? 'Could not resolve — zoom closer to a town.' : geocodeStatusMessage(status));
           return;
         }
         var first = results[0];
         var loc = parseCityStateFromGeocodeResult(first);
         writeSearchFormLocation(loc.city, loc.state);
         if (searchInput) {
-          var label = '';
-          if (loc.city) {
-            label = loc.state ? loc.city + ', ' + loc.state : loc.city;
-          } else if (first.formatted_address) {
-            label = first.formatted_address.split(',').slice(0, 2).join(',').trim();
-          }
+          var label = loc.city ? (loc.state ? loc.city + ', ' + loc.state : loc.city) : (first.formatted_address || '').split(',').slice(0, 2).join(',').trim();
           if (label) searchInput.value = label;
         }
-        setStatus(
-          (loc.city || loc.state)
-            ? 'Location updated from map center to ' + (loc.city || '—') + ', ' + (loc.state || '—') + '. Adjust keyword below, then run Find Leads.'
-            : 'Could not find city/state — zoom closer to a town.'
-        );
-        var hub = document.getElementById('searchKeywordField');
-        if (hub) hub.focus({ preventScroll: false });
+        setStatus((loc.city || loc.state) ? 'Location: ' + (loc.city || '—') + ', ' + (loc.state || '—') : 'Zoom closer to a city.');
       });
     }
     if (btn) btn.addEventListener('click', applyCenter);
@@ -209,29 +156,19 @@
     function showFindAreaMapError(msg) {
       var el = document.getElementById('findAreaMap');
       var statusEl = document.getElementById('findAreaMapStatus');
-      var text =
-        msg ||
-        'Google Maps could not load. In Google Cloud Console, enable Maps JavaScript API + Geocoding API, turn on billing, and add this site to your API key HTTP referrer list.';
+      var text = msg || 'Google Maps could not load. Set GOOGLE_MAPS_API_KEY on the server (Maps JavaScript + Geocoding APIs, billing enabled).';
       if (statusEl) statusEl.textContent = text;
       if (el) {
-        el.innerHTML =
-          '<div class="flex flex-col items-center justify-center h-full min-h-[220px] px-6 text-center gap-3">' +
-          '<p class="text-sm font-semibold text-brand-dark dark:text-white">Map unavailable</p>' +
-          '<p class="text-xs text-brand-muted leading-relaxed max-w-md">' +
-          text +
-          '</p></div>';
+        el.innerHTML = '<div class="flex flex-col items-center justify-center h-full min-h-[220px] px-6 text-center gap-2"><p class="text-sm font-semibold text-brand-dark dark:text-white">Map unavailable</p><p class="text-xs text-brand-muted max-w-sm">' + text + '</p><p class="text-xs text-brand-muted">Use the city and state fields on the right.</p></div>';
       }
     }
     function boot() {
       if (!window.AdhelloMaps || typeof window.AdhelloMaps.load !== 'function') {
-        showFindAreaMapError('Maps loader failed to start. Hard-refresh the page.');
+        showFindAreaMapError('Maps loader failed. Hard-refresh the page.');
         return;
       }
       window.AdhelloMaps.load(key, function (err) {
-        if (err) {
-          showFindAreaMapError();
-          return;
-        }
+        if (err) { showFindAreaMapError(); return; }
         if (typeof initFindAreaMap === 'function') initFindAreaMap();
         else showFindAreaMapError('Map initializer missing.');
       });
@@ -241,9 +178,8 @@
   })();
 </script>
 <% } else { %>
-<div class="w-full border-b border-brand-border/15 dark:border-white/10 px-5 py-6 sm:px-7 sm:py-8">
-  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Step 1 · Map (optional)</p>
-  <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Pick an area on a map</h2>
-  <p class="text-sm text-brand-muted mt-2 max-w-2xl">Add <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> and enable <strong class="text-brand-dark dark:text-white">Maps JavaScript API</strong> + <strong class="text-brand-dark dark:text-white">Geocoding API</strong>. Until then, type city and state in the location fields below.</p>
+<div class="find-area-map-no-key flex flex-col items-center justify-center h-[min(240px,40vh)] min-h-[200px] px-6 text-center bg-brand-cream/30 dark:bg-slate-800/40 border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10">
+  <p class="text-sm font-semibold text-brand-dark dark:text-white">Map not configured</p>
+  <p class="text-xs text-brand-muted mt-2 max-w-xs leading-relaxed">Add <code class="text-[10px] px-1 rounded bg-white dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server. Use the city and state fields on the right.</p>
 </div>
 <% } %>

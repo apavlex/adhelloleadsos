@@ -1158,33 +1158,77 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Find Leads wizard (progressive flow)
+  // Find Leads wizard (2-step: area → search)
   const wizardPanels = document.querySelectorAll('[data-step-panel]');
   if (wizardPanels && wizardPanels.length) {
+    const findWizardScrollTarget = document.getElementById('searchContainer');
+
+    function hasFindLocation() {
+      const city = document.getElementById('findManualCity');
+      const state = document.getElementById('findManualState');
+      return Boolean(
+        city && state && String(city.value || '').trim() && String(state.value || '').trim()
+      );
+    }
+
+    function showFindLocationRequired() {
+      const summary = document.getElementById('findLocationSummaryText');
+      if (summary) {
+        summary.textContent = 'Enter city and state (or use Use map center).';
+        summary.classList.remove('text-brand-muted');
+        summary.classList.add('text-brand-dark', 'dark:text-white');
+      }
+      const city = document.getElementById('findManualCity');
+      if (city) city.focus();
+    }
+
     const setStep = (stepNo) => {
       wizardPanels.forEach((panel) => {
         panel.classList.toggle('hidden', String(panel.getAttribute('data-step-panel')) !== String(stepNo));
       });
       document.querySelectorAll('[data-step-indicator]').forEach((el) => {
         const active = String(el.getAttribute('data-step-indicator')) === String(stepNo);
-        el.classList.toggle('bg-brand-yellow/10', active);
-        el.classList.toggle('border-brand-yellow/40', active);
+        const num = el.querySelector('span.flex.h-7');
+        el.classList.toggle('border-brand-yellow/50', active);
+        el.classList.toggle('bg-brand-yellow/15', active);
         el.classList.toggle('text-brand-dark', active);
         el.classList.toggle('dark:text-white', active);
+        if (num) {
+          num.classList.toggle('bg-brand-yellow', active);
+          num.classList.toggle('text-brand-dark', active);
+          num.classList.toggle('bg-brand-cream', !active);
+          num.classList.toggle('dark:bg-slate-800', !active);
+        }
         if (active) {
           el.classList.remove('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
         } else {
-          el.classList.remove('bg-brand-yellow/10', 'border-brand-yellow/40', 'text-brand-dark', 'dark:text-white');
+          el.classList.remove('border-brand-yellow/50', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-white');
           el.classList.add('border-brand-border/40', 'dark:border-white/10', 'text-brand-muted');
         }
       });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const scrollEl = findWizardScrollTarget || document.getElementById('searchForm');
+      if (scrollEl && typeof scrollEl.scrollIntoView === 'function') {
+        scrollEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
     };
+
+    const trySetStep = (stepNo) => {
+      const step = String(stepNo);
+      if (step === '2' && !hasFindLocation()) {
+        showFindLocationRequired();
+        return;
+      }
+      setStep(step);
+    };
+
     document.querySelectorAll('[data-step-next]').forEach((btnNext) => {
-      btnNext.addEventListener('click', () => setStep(btnNext.getAttribute('data-step-next')));
+      btnNext.addEventListener('click', () => trySetStep(btnNext.getAttribute('data-step-next')));
     });
     document.querySelectorAll('[data-step-prev]').forEach((btnPrev) => {
       btnPrev.addEventListener('click', () => setStep(btnPrev.getAttribute('data-step-prev')));
+    });
+    document.querySelectorAll('[data-step-goto]').forEach((btnGoto) => {
+      btnGoto.addEventListener('click', () => trySetStep(btnGoto.getAttribute('data-step-goto')));
     });
     setStep(1);
   }
