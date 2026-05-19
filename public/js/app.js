@@ -8190,18 +8190,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Row checkboxes for the current table page (pipeline, inbound, or search results). */
   function getPageLeadCheckboxes() {
-    const header = document.getElementById('selectAllLeads');
-    if (header) {
-      const scopedTable = header.closest('table');
-      if (scopedTable) {
-        const hiddenSel = scopedTable.id === 'prospectLeadsTable'
-          ? ':not(.pipeline-row-page-hidden)'
-          : '';
-        return Array.from(
-          scopedTable.querySelectorAll(`tbody tr.result-row${hiddenSel} .lead-checkbox`),
-        );
-      }
-    }
     const pipelineTable = document.getElementById('prospectLeadsTable');
     if (pipelineTable) {
       return Array.from(
@@ -8209,6 +8197,13 @@ document.addEventListener('DOMContentLoaded', () => {
           'tbody tr.result-row:not(.pipeline-row-page-hidden) .lead-checkbox',
         ),
       );
+    }
+    const header = document.getElementById('selectAllLeads');
+    if (header) {
+      const scopedTable = header.closest('table');
+      if (scopedTable) {
+        return Array.from(scopedTable.querySelectorAll('tbody tr.result-row .lead-checkbox'));
+      }
     }
     const tableView = document.getElementById('tableView');
     if (tableView) {
@@ -8226,7 +8221,7 @@ document.addEventListener('DOMContentLoaded', () => {
     boxes.forEach((cb) => {
       const row = cb.closest('tr.result-row');
       if (!row) return;
-      const on = !!cb.checked;
+      const on = allChecked || !!cb.checked;
       row.classList.toggle('bulk-selected', on);
       row.setAttribute('aria-selected', on ? 'true' : 'false');
     });
@@ -8244,7 +8239,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncSelectAllLeadCheckbox() {
     const header = document.getElementById('selectAllLeads');
     const boxes = getPageLeadCheckboxes();
-    if (!header || !boxes.length) return;
+    if (!header) return;
+    if (!boxes.length) {
+      header.checked = false;
+      header.indeterminate = false;
+      return;
+    }
     const checkedCount = boxes.filter((cb) => cb.checked).length;
     header.checked = checkedCount > 0 && checkedCount === boxes.length;
     header.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
@@ -8476,7 +8476,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener(
     'click',
     (e) => {
-      if (e.target.matches('.lead-checkbox, #selectAllLeads')) {
+      if (e.target.matches('.lead-checkbox')) {
         e.stopPropagation();
       }
     },
@@ -8510,13 +8510,16 @@ document.addEventListener('DOMContentLoaded', () => {
   );
 
   if (selectAllLeads) {
-    selectAllLeads.addEventListener('click', (e) => {
-      e.stopPropagation();
-    });
     const onSelectAllHeader = () => {
       if (bulkSelectSyncing) return;
       setPageLeadSelection(!!selectAllLeads.checked);
     };
+    selectAllLeads.addEventListener('click', (e) => {
+      e.stopPropagation();
+      requestAnimationFrame(() => {
+        onSelectAllHeader();
+      });
+    });
     selectAllLeads.addEventListener('change', onSelectAllHeader);
     selectAllLeads.addEventListener('input', onSelectAllHeader);
   }
