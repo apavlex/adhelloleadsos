@@ -15,6 +15,51 @@ function isConfigured(integrationEnv) {
   return Boolean(apiKeyFromEnv(integrationEnv));
 }
 
+/**
+ * Verify API key via GET /account (see doc.bettercontact.rocks/api-reference/endpoint/account).
+ * @returns {Promise<{ creditsLeft: number|null, email: string|null }>}
+ */
+async function checkApiConnection(integrationEnv) {
+  const apiKey = apiKeyFromEnv(integrationEnv);
+  if (!apiKey) {
+    throw new Error('BetterContact is not configured. Set BETTERCONTACT_API_KEY in Workspace → API integrations.');
+  }
+
+  const res = await fetch(`${BASE_URL}/account`, {
+    method: 'GET',
+    headers: { 'X-API-Key': apiKey, Accept: 'application/json' },
+  });
+  const body = await res.json().catch(() => ({}));
+
+  if (res.status === 401) {
+    throw new Error(
+      (body && (body.error || body.message)) || 'BetterContact API key is invalid or unauthorized.'
+    );
+  }
+  if (res.status === 404) {
+    throw new Error(
+      'BetterContact API path not found. Contact support — expected GET /api/v2/account.'
+    );
+  }
+  if (!res.ok) {
+    throw new Error(
+      (body && (body.error || body.message)) || `BetterContact check failed (HTTP ${res.status})`
+    );
+  }
+
+  const creditsLeft =
+    body && body.credits_left != null
+      ? Number(body.credits_left)
+      : body && body.credits != null
+        ? Number(body.credits)
+        : null;
+
+  return {
+    creditsLeft: Number.isFinite(creditsLeft) ? creditsLeft : null,
+    email: body && body.email ? String(body.email) : null,
+  };
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -203,6 +248,7 @@ async function enrichLeadForBusiness(lead, integrationEnv) {
 module.exports = {
   isConfigured,
   apiKeyFromEnv,
+  checkApiConnection,
   buildLeadInput,
   betterContactRowToExtract,
   extractHasSignal,

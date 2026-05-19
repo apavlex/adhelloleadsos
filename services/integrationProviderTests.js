@@ -174,29 +174,14 @@ async function testCrawl4ai(integrationEnv) {
 
 async function testBetterContact(integrationEnv) {
   if (!betterContactClient.isConfigured(integrationEnv)) {
-    throw new Error('Missing BETTERCONTACT_API_KEY');
+    throw new Error('Missing BETTERCONTACT_API_KEY — paste your key and save, or type it before testing.');
   }
-  const apiKey = String(integrationEnv.BETTERCONTACT_API_KEY || '').trim();
-  const res = await fetch('https://app.bettercontact.rocks/api/v2/credits', {
-    headers: { 'X-API-Key': apiKey, Accept: 'application/json' },
-  });
-  const body = await res.json().catch(() => ({}));
-  if (res.status === 401) throw new Error('BetterContact API key is invalid or unauthorized.');
-  if (!res.ok) {
-    throw new Error(
-      (body && (body.error || body.message)) || `BetterContact check failed (${res.status})`
-    );
+  const { creditsLeft, email } = await betterContactClient.checkApiConnection(integrationEnv);
+  if (creditsLeft != null) {
+    const who = email ? ` for ${email}` : '';
+    return { message: `Connected${who} — ${creditsLeft} credits remaining` };
   }
-  const credits =
-    body && (body.credits != null || body.remaining_credits != null)
-      ? body.credits != null
-        ? body.credits
-        : body.remaining_credits
-      : null;
-  return {
-    message:
-      credits != null ? `Connected (${credits} credits remaining)` : 'Connected (API key accepted)',
-  };
+  return { message: 'Connected (API key accepted)' };
 }
 
 async function testPageSpeed(integrationEnv) {

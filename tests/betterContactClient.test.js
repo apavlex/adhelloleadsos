@@ -40,3 +40,27 @@ describe('betterContactClient', () => {
     assert.equal(extractDomain('https://www.example.com/about'), 'example.com');
   });
 });
+
+describe('betterContactClient.checkApiConnection', () => {
+  it('uses /account not deprecated /credits path', async () => {
+    const originalFetch = global.fetch;
+    let requestedUrl = '';
+    global.fetch = async (url) => {
+      requestedUrl = String(url);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ success: true, credits_left: 100, email: 'a@b.com' }),
+      };
+    };
+    try {
+      const { checkApiConnection } = require('../services/betterContactClient');
+      const out = await checkApiConnection({ BETTERCONTACT_API_KEY: 'test-key' });
+      assert.ok(requestedUrl.includes('/account'));
+      assert.ok(!requestedUrl.includes('/credits'));
+      assert.equal(out.creditsLeft, 100);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
