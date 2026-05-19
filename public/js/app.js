@@ -8029,6 +8029,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Row checkboxes for the current table page (pipeline, inbound, or search results). */
   function getPageLeadCheckboxes() {
+    const header = document.getElementById('selectAllLeads');
+    if (header) {
+      const scopedTable = header.closest('table');
+      if (scopedTable) {
+        const hiddenSel = scopedTable.id === 'prospectLeadsTable'
+          ? ':not(.pipeline-row-page-hidden)'
+          : '';
+        return Array.from(
+          scopedTable.querySelectorAll(`tbody tr.result-row${hiddenSel} .lead-checkbox`),
+        );
+      }
+    }
     const pipelineTable = document.getElementById('prospectLeadsTable');
     if (pipelineTable) {
       return Array.from(
@@ -8042,6 +8054,30 @@ document.addEventListener('DOMContentLoaded', () => {
       return Array.from(tableView.querySelectorAll('tbody tr.result-row .lead-checkbox'));
     }
     return Array.from(document.querySelectorAll('tbody tr.result-row .lead-checkbox'));
+  }
+
+  function syncBulkRowHighlights() {
+    const boxes = getPageLeadCheckboxes();
+    const header = document.getElementById('selectAllLeads');
+    const allChecked =
+      !!header && header.checked && !header.indeterminate && boxes.length > 0;
+
+    boxes.forEach((cb) => {
+      const row = cb.closest('tr.result-row');
+      if (!row) return;
+      const on = !!cb.checked;
+      row.classList.toggle('bulk-selected', on);
+      row.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+
+    const tbody = boxes[0] ? boxes[0].closest('tbody') : null;
+    if (tbody) {
+      tbody.classList.toggle('bulk-select-all-active', allChecked);
+    }
+    const table = tbody ? tbody.closest('table') : null;
+    if (table) {
+      table.classList.toggle('bulk-select-all-active', allChecked);
+    }
   }
 
   function syncSelectAllLeadCheckbox() {
@@ -8086,6 +8122,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const updateBulkActionBar = () => {
     syncSelectedKeysFromDom();
+    syncBulkRowHighlights();
     const count = selectedKeys.size;
     const hasSelection = count > 0;
     
@@ -8315,6 +8352,12 @@ document.addEventListener('DOMContentLoaded', () => {
     selectAllLeads.addEventListener('click', (e) => {
       e.stopPropagation();
     });
+    const onSelectAllHeader = () => {
+      if (bulkSelectSyncing) return;
+      setPageLeadSelection(!!selectAllLeads.checked);
+    };
+    selectAllLeads.addEventListener('change', onSelectAllHeader);
+    selectAllLeads.addEventListener('input', onSelectAllHeader);
   }
 
   if (cancelSelectionBtn) {

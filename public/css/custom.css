@@ -184,9 +184,37 @@ table {
     transform: scale(1.002);
 }
 
+/* Bulk checkbox selection (search results, pipeline, inbound) */
+.result-row.bulk-selected {
+    background-color: rgba(253, 224, 71, 0.14) !important;
+    box-shadow: inset 4px 0 0 var(--brand-yellow);
+}
+
+.result-row.bulk-selected:hover {
+    background-color: rgba(253, 224, 71, 0.22) !important;
+}
+
+tbody.bulk-select-all-active .result-row.bulk-selected,
+table.bulk-select-all-active .result-row.bulk-selected {
+    background-color: rgba(253, 224, 71, 0.1) !important;
+}
+
+html.dark .result-row.bulk-selected {
+    background-color: rgba(253, 224, 71, 0.12) !important;
+}
+
+html.dark tbody.bulk-select-all-active .result-row.bulk-selected,
+html.dark table.bulk-select-all-active .result-row.bulk-selected {
+    background-color: rgba(253, 224, 71, 0.08) !important;
+}
+
 .result-row.selected {
     background-color: var(--brand-cream) !important;
     position: relative;
+}
+
+.result-row.selected.bulk-selected {
+    box-shadow: inset 4px 0 0 var(--brand-yellow);
 }
 
 .result-row.selected::after {
