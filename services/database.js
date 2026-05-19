@@ -358,11 +358,18 @@ module.exports = {
   },
 
   async getLead(key) {
-    const data = await db.get(key);
+    const storageKey = String(key || '').trim();
+    if (!storageKey) return null;
+    const data = await db.get(storageKey);
     if (!data) return null;
     const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
     if (!raw) return null;
-    return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      ...parsed,
+      key: parsed.key || storageKey,
+    };
   },
 
   /** @param {string} [workspaceId] When omitted, only allowed for trusted internal callers via {@link getAllLeadsUnscoped}. */
@@ -613,7 +620,10 @@ module.exports = {
     }
     
     await db.set(key, JSON.stringify(updated));
-    return updated;
+    return {
+      ...updated,
+      key: updated.key || key,
+    };
   },
 
   async deleteLead(key) {

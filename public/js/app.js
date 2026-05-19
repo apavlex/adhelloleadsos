@@ -7698,6 +7698,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const data = await res.json().catch(() => ({}));
 
+      if (!res.ok && !data.success) {
+        const httpErr = data.error || `Request failed (${res.status})`;
+        if (fromRowAction && typeof window.showAppToast === 'function') {
+          window.showAppToast(httpErr, { variant: res.status === 404 ? 'error' : 'warning' });
+        } else {
+          alert(httpErr);
+        }
+        updateProcessingStatus(false);
+        clearHuntBusy();
+        if (triggerBtn) triggerBtn.innerHTML = originalHTML;
+        return { success: false, error: httpErr };
+      }
+
       if (data.success) {
         const d = data.lead || data.data;
         if (data.lead && typeof data.lead === 'object') {

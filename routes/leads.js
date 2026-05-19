@@ -2507,6 +2507,12 @@ router.post('/:key/enhance', async (req, res, next) => {
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
     const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
     const result = await runLeadEnhancement(lead, req.workspaceId);
     if (result && result.success) {
       const refreshed = await dbService.getLead(fullKey);
