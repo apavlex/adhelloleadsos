@@ -39,6 +39,7 @@ const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const signalwire = require('../services/signalwire');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const contactHuntJobs = require('../services/contactHuntJobs');
 
 async function importLeadRecordsFromBuffer(buffer, originalFilename, req, importOptions = {}) {
   const parseOpts =
@@ -2501,7 +2502,41 @@ router.post('/enhance-missing-contacts', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/enhance — Firecrawl scrape/search + Maps (Outscraper/Apify) fallback
+// GET /leads/:key/enhance-status — poll background contact hunt
+router.get('/:key/enhance-status', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ status: 'idle', success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ status: 'idle', success: false, error: 'Forbidden' });
+    }
+
+    const job = contactHuntJobs.get(fullKey);
+    if (!job) {
+      return res.json({ status: 'idle' });
+    }
+    if (job.status === 'processing') {
+      return res.json({ status: 'processing', startedAt: job.startedAt });
+    }
+    if (job.status === 'error') {
+      const errMsg = job.error || 'Contact hunt failed.';
+      contactHuntJobs.clear(fullKey);
+      return res.json({ status: 'error', success: false, error: errMsg });
+    }
+
+    const result = job.result || { success: false, error: 'Contact hunt finished with no result.' };
+    contactHuntJobs.clear(fullKey);
+    return res.json({ status: 'done', ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/enhance — Firecrawl scrape/search + Maps (Outscraper/Apify) fallback (async)
 router.post('/:key/enhance', async (req, res, next) => {
   try {
     const key = req.params.key;
@@ -2513,17 +2548,49 @@ router.post('/:key/enhance', async (req, res, next) => {
     if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
-    const result = await runLeadEnhancement(lead, req.workspaceId);
-    if (result && result.success) {
-      const refreshed = await dbService.getLead(fullKey);
-      const contactedPatch = await buildContactedStagePatch(refreshed || lead, req.workspaceId);
-      if (Object.keys(contactedPatch).length) {
-        await dbService.updateLead(fullKey, contactedPatch);
-      }
+
+    const existing = contactHuntJobs.get(fullKey);
+    if (existing && existing.status === 'processing') {
+      return res.json({
+        success: true,
+        processing: true,
+        message: 'Contact hunt already in progress.',
+      });
     }
-    res.json(result);
+
+    contactHuntJobs.start(fullKey);
+    res.json({
+      success: true,
+      processing: true,
+      message: 'Contact hunt started. BetterContact and website search may take up to 90 seconds.',
+    });
+
+    setImmediate(async () => {
+      try {
+        const freshLead = await dbService.getLead(fullKey);
+        if (!freshLead) {
+          contactHuntJobs.finish(fullKey, { success: false, error: 'Lead not found.' });
+          return;
+        }
+        const result = await runLeadEnhancement(freshLead, req.workspaceId);
+        if (result && result.success) {
+          const refreshed = await dbService.getLead(fullKey);
+          const contactedPatch = await buildContactedStagePatch(refreshed || freshLead, req.workspaceId);
+          if (Object.keys(contactedPatch).length) {
+            await dbService.updateLead(fullKey, contactedPatch);
+            if (result.lead) {
+              result.lead = { ...result.lead, ...contactedPatch };
+            }
+          }
+        }
+        contactHuntJobs.finish(fullKey, result);
+      } catch (err) {
+        console.error('Manual enhancement error:', err.message);
+        contactHuntJobs.fail(fullKey, err.message || 'Contact hunt failed.');
+      }
+    });
   } catch (err) {
-    console.error('Manual enhancement error:', err.message);
+    console.error('Manual enhancement start error:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

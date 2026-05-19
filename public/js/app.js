@@ -3377,6 +3377,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.lastTouchChannel != null) {
       ds.lastTouchChannel = String(L.lastTouchChannel || '').trim();
     }
+    if (L.lastContactHuntAt != null) {
+      ds.lastContactHuntAt = String(L.lastContactHuntAt || '').trim();
+    }
     if (L.pageSpeedAudit != null) {
       try {
         ds.pageSpeedAudit =
@@ -6297,6 +6300,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     syncSidebarOutreachButtons(row);
     syncPageSpeedAuditPanel(row);
+    syncContactHuntPanel(row);
     syncLeadPanelEmailReportSection(row);
 
     syncLeadPanelStickyDock(row);
@@ -7611,28 +7615,158 @@ document.addEventListener('DOMContentLoaded', () => {
     handlePageSpeedAuditClick(e);
   });
 
-  // --- Manual Deep Enhance with Firecrawl (sidebar + pipeline row AI button) ---
+  // --- Contact hunt (sidebar + pipeline row sparkle) ---
+  window.__contactHuntInFlight = window.__contactHuntInFlight || new Set();
+  let deepEnhanceBtnDefaultHtml = '';
+
+  const DEEP_ENHANCE_BUSY_HTML = `
+        <svg class="deep-enhance-icon w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="deep-enhance-label animate-pulse text-[11px] font-black uppercase tracking-wider">Searching…</span>
+      `;
+
+  function readLastContactHuntAtFromRow(row) {
+    if (!row) return '';
+    const raw = (row.dataset.lastContactHuntAt || '').trim();
+    if (raw) return raw;
+    try {
+      const updates = JSON.parse(row.dataset.updates || '[]');
+      if (!Array.isArray(updates)) return '';
+      for (let i = updates.length - 1; i >= 0; i--) {
+        const u = updates[i];
+        if (u && u.type === 'enrichment' && u.timestamp) return String(u.timestamp);
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    return '';
+  }
+
+  function isContactHuntInFlightForRow(row) {
+    const key = row && row.dataset && row.dataset.leadKey;
+    return !!(key && window.__contactHuntInFlight && window.__contactHuntInFlight.has(key));
+  }
+
+  function setSidebarContactHuntBusy(busy) {
+    const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
+    const huntProgressWrap = document.getElementById('huntProgressWrap');
+    if (!deepEnhanceBtn) return;
+    if (!deepEnhanceBtnDefaultHtml) {
+      deepEnhanceBtnDefaultHtml = deepEnhanceBtn.innerHTML;
+    }
+    if (busy) {
+      deepEnhanceBtn.disabled = true;
+      deepEnhanceBtn.setAttribute('aria-busy', 'true');
+      deepEnhanceBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+      if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
+      deepEnhanceBtn.innerHTML = DEEP_ENHANCE_BUSY_HTML;
+    } else {
+      deepEnhanceBtn.disabled = false;
+      deepEnhanceBtn.removeAttribute('aria-busy');
+      deepEnhanceBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+      if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
+      deepEnhanceBtn.innerHTML = deepEnhanceBtnDefaultHtml;
+    }
+  }
+
+  function syncContactHuntPanel(row) {
+    const meta = document.getElementById('huntLastRunMeta');
+    if (!row || currentRow !== row) return;
+
+    const inFlight = isContactHuntInFlightForRow(row);
+    if (inFlight) {
+      setSidebarContactHuntBusy(true);
+      if (meta) {
+        meta.textContent = 'Contact hunt in progress…';
+        meta.classList.remove('hidden');
+      }
+      return;
+    }
+
+    setSidebarContactHuntBusy(false);
+    const at = readLastContactHuntAtFromRow(row);
+    if (meta) {
+      if (at) {
+        meta.textContent = `Last contact hunt: ${formatAuditDateShort(at)}`;
+        meta.classList.remove('hidden');
+      } else {
+        meta.textContent = '';
+        meta.classList.add('hidden');
+      }
+    }
+  }
+
+  async function pollContactHuntStatus(leadKey, opts) {
+    const maxMs = opts && opts.maxMs != null ? opts.maxMs : 130000;
+    const interval = opts && opts.interval != null ? opts.interval : 2500;
+    const deadline = Date.now() + maxMs;
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, interval));
+      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/enhance-status`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      const d = await res.json().catch(() => ({}));
+      if (d.status === 'processing') continue;
+      if (d.status === 'done') {
+        return {
+          success: !!d.success,
+          lead: d.lead,
+          data: d.data,
+          error: d.error,
+        };
+      }
+      if (d.status === 'error') {
+        return { success: false, error: d.error || 'Contact hunt failed.' };
+      }
+      if (d.status === 'idle') {
+        return {
+          success: false,
+          error: 'Contact hunt ended before results were ready. Refresh and try again.',
+        };
+      }
+    }
+    throw new Error(
+      'Contact hunt is taking longer than expected. Refresh this lead in a minute to see new data.'
+    );
+  }
+
   async function runContactHuntForRow(row, options) {
     const opts = options || {};
     const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
-    const huntProgressWrap = document.getElementById('huntProgressWrap');
     const triggerBtn = opts.triggerBtn || deepEnhanceBtn;
     const fromRowAction = !!opts.fromRowAction;
-    const useSidebarUi = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
+    const syncSidebarForRow = (busy) => {
+      if (currentRow === row) {
+        if (busy) setSidebarContactHuntBusy(true);
+        else syncContactHuntPanel(row);
+      }
+    };
 
     if (!row) {
-      if (useSidebarUi && deepEnhanceBtn) {
+      if (deepEnhanceBtn) {
         const hint =
           '<span class="flex items-center justify-center gap-2 text-[11px] font-bold text-brand-muted normal-case tracking-normal"><svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Select a lead first</span>';
         const prev = deepEnhanceBtn.innerHTML;
         deepEnhanceBtn.innerHTML = hint;
         setTimeout(() => {
-          deepEnhanceBtn.innerHTML = prev;
+          deepEnhanceBtn.innerHTML = deepEnhanceBtnDefaultHtml || prev;
         }, 2200);
       } else if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead first.', { variant: 'warning' });
       }
       return { success: false };
+    }
+
+    const key = row.dataset.leadKey;
+    if (key && window.__contactHuntInFlight.has(key)) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Contact hunt already running for this lead.', { variant: 'info' });
+      }
+      syncSidebarForRow(true);
+      return { success: false, error: 'busy' };
     }
 
     if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
@@ -7641,41 +7775,54 @@ document.addEventListener('DOMContentLoaded', () => {
 
     currentRow = row;
 
-    const key = row.dataset.leadKey;
     const title = row.dataset.title;
     const city = row.dataset.city;
     const state = row.dataset.state;
     const url = row.dataset.website;
 
     const originalHTML = triggerBtn ? triggerBtn.innerHTML : '';
+    const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
 
     const clearHuntBusy = () => {
-      if (!triggerBtn) return;
-      triggerBtn.disabled = false;
-      triggerBtn.removeAttribute('aria-busy');
-      if (useSidebarUi) {
-        triggerBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-        if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
+      if (key) window.__contactHuntInFlight.delete(key);
+      if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.removeAttribute('aria-busy');
+        if (isSidebarTrigger) {
+          triggerBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+        } else {
+          triggerBtn.innerHTML = originalHTML;
+        }
       }
+      syncSidebarForRow(false);
     };
 
     const setHuntBusy = () => {
-      if (!triggerBtn) return;
-      triggerBtn.disabled = true;
-      triggerBtn.setAttribute('aria-busy', 'true');
-      if (useSidebarUi) {
-        triggerBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-        if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
-        triggerBtn.innerHTML = `
-        <svg class="deep-enhance-icon w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-        </svg>
-        <span class="deep-enhance-label animate-pulse text-[11px] font-black uppercase tracking-wider">Searching…</span>
-      `;
+      if (key) window.__contactHuntInFlight.add(key);
+      if (triggerBtn) {
+        triggerBtn.disabled = true;
+        triggerBtn.setAttribute('aria-busy', 'true');
+        if (isSidebarTrigger) {
+          triggerBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+          triggerBtn.innerHTML = DEEP_ENHANCE_BUSY_HTML;
+        } else {
+          triggerBtn.innerHTML =
+            '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+        }
+      }
+      syncSidebarForRow(true);
+      const meta = document.getElementById('huntLastRunMeta');
+      if (meta && currentRow === row) {
+        meta.textContent = 'Contact hunt in progress…';
+        meta.classList.remove('hidden');
+      }
+    };
+
+    const notifyHunt = (msg, variant) => {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: variant || 'warning' });
       } else {
-        triggerBtn.innerHTML =
-          '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+        alert(msg);
       }
     };
 
@@ -7687,28 +7834,32 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       let res;
       if (key) {
-        res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
+        res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
       } else {
         res = await fetch('/enrich', {
           method: 'POST',
+          credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           body: JSON.stringify({ url, title, city, state }),
         });
       }
 
-      const data = await res.json().catch(() => ({}));
+      let data = await res.json().catch(() => ({}));
 
-      if (!res.ok && !data.success) {
+      if (!res.ok && !data.success && !data.processing) {
         const httpErr = data.error || `Request failed (${res.status})`;
-        if (fromRowAction && typeof window.showAppToast === 'function') {
-          window.showAppToast(httpErr, { variant: res.status === 404 ? 'error' : 'warning' });
-        } else {
-          alert(httpErr);
-        }
+        notifyHunt(httpErr, res.status === 404 ? 'error' : 'warning');
         updateProcessingStatus(false);
         clearHuntBusy();
-        if (triggerBtn) triggerBtn.innerHTML = originalHTML;
         return { success: false, error: httpErr };
+      }
+
+      if (data.processing && key) {
+        data = await pollContactHuntStatus(key);
       }
 
       if (data.success) {
@@ -7722,7 +7873,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (d.facebook && d.facebook !== 'N/A') row.dataset.facebook = d.facebook;
           if (d.instagram && d.instagram !== 'N/A') row.dataset.instagram = d.instagram;
           if (d.twitter && d.twitter !== 'N/A') row.dataset.twitter = d.twitter;
+          if (d.lastContactHuntAt) row.dataset.lastContactHuntAt = d.lastContactHuntAt;
           if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
+        }
+
+        if (!row.dataset.lastContactHuntAt) {
+          row.dataset.lastContactHuntAt = new Date().toISOString();
         }
 
         updateRowContactCells(row);
@@ -7736,51 +7892,43 @@ document.addEventListener('DOMContentLoaded', () => {
           }).catch(() => {});
         }
 
-        populatePanel(row);
-
         clearHuntBusy();
         updateProcessingStatus(false);
+        populatePanel(row);
 
-        if (useSidebarUi && deepEnhanceBtn) {
+        if (currentRow === row && deepEnhanceBtn) {
           deepEnhanceBtn.disabled = true;
           deepEnhanceBtn.innerHTML =
             '<span class="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400"><svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Data found</span>';
           setTimeout(() => {
-            deepEnhanceBtn.disabled = false;
-            deepEnhanceBtn.innerHTML = originalHTML;
+            syncContactHuntPanel(row);
           }, 2600);
-        } else if (fromRowAction && typeof window.showAppToast === 'function') {
-          window.showAppToast('Contact hunt complete — check phone, email, and socials.', { variant: 'success' });
-        }
-
-        if (triggerBtn && !useSidebarUi) {
-          triggerBtn.innerHTML = originalHTML;
+        } else if (fromRowAction) {
+          notifyHunt('Contact hunt complete — check phone, email, and socials.', 'success');
         }
 
         return { success: true, data };
       }
 
       const errMsg = data.error || 'No additional contact data discovered yet.';
-      if (fromRowAction && typeof window.showAppToast === 'function') {
-        window.showAppToast(errMsg, { variant: 'warning' });
+      if (data.lead && typeof data.lead === 'object') {
+        syncPersistedLeadToRowDataset(row, data.lead);
+        populatePanel(row);
       } else {
-        alert(errMsg);
+        row.dataset.lastContactHuntAt = new Date().toISOString();
+        syncContactHuntPanel(row);
       }
+      notifyHunt(errMsg, 'warning');
       updateProcessingStatus(false);
       clearHuntBusy();
-      if (triggerBtn) triggerBtn.innerHTML = originalHTML;
       return { success: false, error: errMsg };
     } catch (err) {
       console.error('Enhancement failed:', err);
-      const failMsg = 'Enhancement failed. Please try again later.';
-      if (fromRowAction && typeof window.showAppToast === 'function') {
-        window.showAppToast(failMsg, { variant: 'error' });
-      } else {
-        alert(failMsg);
-      }
+      const failMsg =
+        err && err.message ? String(err.message) : 'Enhancement failed. Please try again later.';
+      notifyHunt(failMsg, 'error');
       updateProcessingStatus(false);
       clearHuntBusy();
-      if (triggerBtn) triggerBtn.innerHTML = originalHTML;
       return { success: false, error: failMsg };
     }
   }
