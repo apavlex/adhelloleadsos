@@ -8467,7 +8467,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function rebuildBulkFolderSelect(preferredValue) {
-    if (!bulkFolderSelect) return;
+    const selectEl = document.getElementById('bulkFolderSelect') || bulkFolderSelect;
+    if (!selectEl) return;
     if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
     const folders = [...window.WORKSPACE_FOLDERS].sort((a, b) =>
       String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
@@ -8475,22 +8476,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const prev =
       preferredValue !== undefined && preferredValue !== null
         ? String(preferredValue)
-        : bulkFolderSelect.value;
-    bulkFolderSelect.innerHTML = '';
+        : selectEl.value;
+    selectEl.innerHTML = '';
     const emptyOpt = document.createElement('option');
     emptyOpt.value = '';
     emptyOpt.textContent = 'No folder';
-    bulkFolderSelect.appendChild(emptyOpt);
+    selectEl.appendChild(emptyOpt);
     folders.forEach((f) => {
       if (!f || !f.key) return;
       const opt = document.createElement('option');
       opt.value = f.key;
       opt.textContent = f.name || 'Folder';
-      bulkFolderSelect.appendChild(opt);
+      selectEl.appendChild(opt);
     });
-    const valid = prev && Array.from(bulkFolderSelect.options).some((o) => o.value === prev);
-    bulkFolderSelect.value = valid ? prev : '';
+    const valid = prev && Array.from(selectEl.options).some((o) => o.value === prev);
+    selectEl.value = valid ? prev : '';
   }
+  window.__rebuildBulkFolderSelect = rebuildBulkFolderSelect;
 
   const initialBulkFolderPref =
     typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()

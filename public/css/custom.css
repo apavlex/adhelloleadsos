@@ -383,6 +383,10 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   pointer-events: auto !important;
 }
 
+#bulkFolderNewRow:not(.hidden) {
+  display: flex !important;
+}
+
 #bulkActionBar {
   z-index: 220;
   background: rgba(32, 32, 36, 0.55) !important;

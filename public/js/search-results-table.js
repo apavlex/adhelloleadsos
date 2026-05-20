@@ -77,6 +77,109 @@
     }
   }
 
+  function setBulkFolderNewRowVisible(show) {
+    const row = document.getElementById('bulkFolderNewRow');
+    const nameInput = document.getElementById('bulkFolderNewName');
+    const toggle = document.getElementById('bulkFolderNewToggle');
+    if (!row) return;
+    if (show) {
+      row.classList.remove('hidden');
+      row.classList.add('flex');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      if (nameInput) {
+        requestAnimationFrame(() => nameInput.focus());
+      }
+    } else {
+      row.classList.add('hidden');
+      row.classList.remove('flex');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      if (nameInput) nameInput.value = '';
+    }
+  }
+
+  function initBulkBarFolderActions() {
+    const bar = mountBulkBar();
+    if (!bar || bar.dataset.folderActionsBound === '1') return;
+    bar.dataset.folderActionsBound = '1';
+
+    if (typeof window.__rebuildBulkFolderSelect === 'function') {
+      window.__rebuildBulkFolderSelect(
+        typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '',
+      );
+    }
+
+    bar.addEventListener('click', async (e) => {
+      if (e.target.closest('#bulkFolderNewToggle')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const row = document.getElementById('bulkFolderNewRow');
+        const show = !!(row && row.classList.contains('hidden'));
+        setBulkFolderNewRowVisible(show);
+        return;
+      }
+      if (e.target.closest('#bulkFolderNewCancel')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setBulkFolderNewRowVisible(false);
+        return;
+      }
+      if (e.target.closest('#bulkFolderNewSave')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const nameInput = document.getElementById('bulkFolderNewName');
+        const name = nameInput ? String(nameInput.value || '').trim() : '';
+        if (!name) {
+          window.alert('Enter a folder name.');
+          return;
+        }
+        const saveBtn = document.getElementById('bulkFolderNewSave');
+        if (saveBtn) saveBtn.disabled = true;
+        try {
+          const res = await fetch('/folders', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ name }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success || !data.folder || !data.folder.key) {
+            throw new Error((data && data.error) || `HTTP ${res.status}`);
+          }
+          const { key, name: folderName } = data.folder;
+          if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+          if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
+            window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
+          }
+          if (typeof window.__rebuildBulkFolderSelect === 'function') {
+            window.__rebuildBulkFolderSelect(key);
+          }
+          setBulkFolderNewRowVisible(false);
+          if (typeof window.showProspectToast === 'function') {
+            window.showProspectToast('Folder created');
+          }
+        } catch (err) {
+          console.error('[search-results-table] create folder failed:', err);
+          window.alert(err.message || 'Could not create folder.');
+        } finally {
+          if (saveBtn) saveBtn.disabled = false;
+        }
+      }
+    });
+
+    bar.addEventListener('keydown', (e) => {
+      if (e.target.id !== 'bulkFolderNewName') return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setBulkFolderNewRowVisible(false);
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const save = document.getElementById('bulkFolderNewSave');
+        if (save && !save.disabled) save.click();
+      }
+    });
+  }
+
   function markSaved(btn) {
     if (!btn) return;
     btn.dataset.saved = '1';
@@ -213,6 +316,7 @@
     }
 
     mountBulkBar();
+    initBulkBarFolderActions();
 
     table.addEventListener('change', (e) => {
       const t = e.target;
