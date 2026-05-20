@@ -309,6 +309,13 @@ app.use('/', auditReportPublicRoutes);
 // Autonomous prospecting API (API key auth, no session required)
 app.use('/autonomous', autonomousRoutes);
 
+// GBP Audit Generator (public API + page, no session required)
+const auditRoutes = require('./routes/audit');
+app.use('/api/audit', auditRoutes);
+app.get('/audit', (req, res) => {
+  res.render('audit', { title: 'GBP Audit | Agency OS', activePage: 'audit' });
+});
+
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);

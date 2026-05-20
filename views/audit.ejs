@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GBP Audit Generator | Agency OS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    .container { max-width: 900px; margin: 0 auto; padding: 40px 20px; }
+    h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; }
+    .card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+    .card h2 { font-size: 18px; margin-bottom: 16px; color: #fff; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .form-row.full { grid-template-columns: 1fr; }
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; font-weight: 500; }
+    input, select { width: 100%; padding: 10px 14px; background: #0f1117; border: 1px solid #2d3148; border-radius: 8px; color: #e2e8f0; font-size: 14px; }
+    input:focus, select:focus { outline: none; border-color: #6366f1; }
+    .btn { display: inline-block; padding: 12px 24px; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn:hover { background: #4f46e5; }
+    .btn:disabled { background: #374151; cursor: not-allowed; }
+    .btn-block { display: block; width: 100%; text-align: center; }
+
+    /* Score Circle */
+    .score-container { display: flex; align-items: center; gap: 32px; margin-bottom: 24px; }
+    .score-circle { width: 120px; height: 120px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
+    .score-circle .number { font-size: 36px; line-height: 1; }
+    .score-circle .grade { font-size: 14px; margin-top: 4px; }
+    .score-circle.grade-a { background: linear-gradient(135deg, #059669, #10b981); color: #fff; }
+    .score-circle.grade-b { background: linear-gradient(135deg, #0284c7, #0ea5e9); color: #fff; }
+    .score-circle.grade-c { background: linear-gradient(135deg, #d97706, #f59e0b); color: #fff; }
+    .score-circle.grade-d { background: linear-gradient(135deg, #dc2626, #ef4444); color: #fff; }
+    .score-circle.grade-f { background: linear-gradient(135deg, #991b1b, #b91c1c); color: #fff; }
+    .score-details { flex: 1; }
+    .score-details h3 { font-size: 20px; margin-bottom: 4px; }
+    .score-details p { color: #94a3b8; font-size: 14px; }
+
+    /* Score Bars */
+    .score-bars { margin-top: 16px; }
+    .score-bar-row { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .score-bar-label { width: 100px; font-size: 13px; color: #94a3b8; flex-shrink: 0; }
+    .score-bar-track { flex: 1; height: 8px; background: #2d3148; border-radius: 4px; overflow: hidden; }
+    .score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+    .score-bar-fill.high { background: #10b981; }
+    .score-bar-fill.medium { background: #f59e0b; }
+    .score-bar-fill.low { background: #ef4444; }
+    .score-bar-value { width: 40px; text-align: right; font-size: 13px; font-weight: 600; }
+
+    /* Recommendations */
+    .rec-item { border-left: 3px solid; padding: 16px; margin-bottom: 12px; background: #0f1117; border-radius: 0 8px 8px 0; }
+    .rec-item.high { border-color: #ef4444; }
+    .rec-item.medium { border-color: #f59e0b; }
+    .rec-item.low { border-color: #10b981; }
+    .rec-priority { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; margin-bottom: 8px; }
+    .rec-priority.high { background: #ef444420; color: #ef4444; }
+    .rec-priority.medium { background: #f59e0b20; color: #f59e0b; }
+    .rec-priority.low { background: #10b98120; color: #10b981; }
+    .rec-category { font-size: 12px; color: #6366f1; font-weight: 600; margin-bottom: 4px; }
+    .rec-issue { font-size: 14px; font-weight: 600; margin-bottom: 8px; color: #fff; }
+    .rec-action { font-size: 13px; color: #94a3b8; margin-bottom: 6px; }
+    .rec-action strong { color: #e2e8f0; }
+    .rec-impact { font-size: 12px; color: #64748b; font-style: italic; }
+
+    /* Business Info */
+    .biz-info { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .biz-info-item { padding: 10px 14px; background: #0f1117; border-radius: 8px; }
+    .biz-info-item .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .biz-info-item .value { font-size: 14px; color: #e2e8f0; }
+    .biz-info-item .value a { color: #6366f1; text-decoration: none; }
+    .biz-info-item .value a:hover { text-decoration: underline; }
+
+    /* Competitors */
+    .competitor-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #0f1117; border-radius: 8px; margin-bottom: 8px; }
+    .competitor-name { font-weight: 600; font-size: 14px; }
+    .competitor-stats { display: flex; gap: 16px; font-size: 13px; color: #94a3b8; }
+    .competitor-stat { display: flex; align-items: center; gap: 4px; }
+    .star { color: #f59e0b; }
+
+    /* Loading */
+    .loading { text-align: center; padding: 40px; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #2d3148; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error { background: #ef444420; border: 1px solid #ef4444; border-radius: 8px; padding: 16px; color: #ef4444; }
+
+    /* Print */
+    @media print { body { background: #fff; color: #000; } .card { border-color: #ddd; background: #fff; } .btn { display: none; } }
+
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 GBP Audit Generator</h1>
+    <p class="subtitle">Generate a Google Business Profile audit for any home service business. Use this as a sales tool to show prospects what they're missing.</p>
+
+    <!-- Search Form -->
+    <div class="card" id="searchCard">
+      <h2>Business Lookup</h2>
+      <div class="form-row">
+        <div>
+          <label>Business Name *</label>
+          <input type="text" id="businessName" placeholder="e.g. Johnson Plumbing">
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="category">
+            <option value="">Auto-detect</option>
+            <option value="plumber">Plumber</option>
+            <option value="HVAC contractor">HVAC</option>
+            <option value="landscaping">Landscaping</option>
+            <option value="house cleaning">House Cleaning</option>
+            <option value="roofing">Roofing</option>
+            <option value="electrician">Electrician</option>
+            <option value="tree service">Tree Service</option>
+            <option value="pressure washing">Pressure Washing</option>
+            <option value="junk removal">Junk Removal</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>City *</label>
+          <input type="text" id="city" placeholder="e.g. Vancouver">
+        </div>
+        <div>
+          <label>State *</label>
+          <input type="text" id="state" placeholder="e.g. WA" maxlength="2">
+        </div>
+      </div>
+      <button class="btn btn-block" id="generateBtn" onclick="generateAudit()">Generate Audit</button>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading hidden" id="loading">
+      <div class="spinner"></div>
+      <p>Analyzing Google Business Profile and competitors...</p>
+    </div>
+
+    <!-- Error -->
+    <div class="error hidden" id="error"></div>
+
+    <!-- Results -->
+    <div id="results" class="hidden">
+      <!-- Score Overview -->
+      <div class="card">
+        <div class="score-container">
+          <div class="score-circle" id="scoreCircle">
+            <div class="number" id="scoreNumber">0</div>
+            <div class="grade" id="scoreGrade">F</div>
+          </div>
+          <div class="score-details">
+            <h3 id="bizTitle">Business Name</h3>
+            <p id="bizAddress">Address</p>
+            <div class="score-bars" id="scoreBars"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Business Info -->
+      <div class="card">
+        <h2>📋 Business Information</h2>
+        <div class="biz-info" id="bizInfo"></div>
+      </div>
+
+      <!-- Recommendations -->
+      <div class="card">
+        <h2>🎯 Recommendations</h2>
+        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">Sorted by priority. Focus on HIGH items first for maximum impact.</p>
+        <div id="recommendations"></div>
+      </div>
+
+      <!-- Competitors -->
+      <div class="card">
+        <h2>🏆 Competitor Comparison</h2>
+        <p style="color: #94a3b8; font-size: 13px; margin-bottom: 16px;">How this business stacks up against top competitors in the area.</p>
+        <div id="competitors"></div>
+      </div>
+
+      <!-- CTA -->
+      <div class="card" style="text-align: center;">
+        <h2>Ready to fix these issues?</h2>
+        <p style="color: #94a3b8; margin: 12px 0 20px;">This audit shows exactly what's holding this business back on Google. Use it as your sales pitch.</p>
+        <button class="btn" onclick="window.print()">📄 Print / Save PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = '<%= typeof apiKey !== "undefined" ? apiKey : "" %>';
+
+    async function generateAudit() {
+      const businessName = document.getElementById('businessName').value.trim();
+      const city = document.getElementById('city').value.trim();
+      const state = document.getElementById('state').value.trim();
+      const category = document.getElementById('category').value.trim();
+
+      if (!businessName || !city || !state) {
+        showError('Please fill in Business Name, City, and State.');
+        return;
+      }
+
+      document.getElementById('searchCard').classList.add('hidden');
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('error').classList.add('hidden');
+      document.getElementById('results').classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/audit/gbp', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': API_KEY,
+          },
+          body: JSON.stringify({ businessName, city, state, category }),
+        });
+
+        const data = await res.json();
+
+        if (!data.success) {
+          throw new Error(data.error || 'Audit failed');
+        }
+
+        renderAudit(data.audit);
+      } catch (err) {
+        showError(err.message);
+        document.getElementById('searchCard').classList.remove('hidden');
+      } finally {
+        document.getElementById('loading').classList.add('hidden');
+      }
+    }
+
+    function renderAudit(audit) {
+      document.getElementById('results').classList.remove('hidden');
+
+      // Score circle
+      const scoreCircle = document.getElementById('scoreCircle');
+      scoreCircle.className = 'score-circle grade-' + audit.grade.toLowerCase();
+      document.getElementById('scoreNumber').textContent = audit.totalScore;
+      document.getElementById('scoreGrade').textContent = audit.grade;
+
+      // Business info
+      document.getElementById('bizTitle').textContent = audit.business.title;
+      document.getElementById('bizAddress').textContent = audit.business.address;
+
+      // Score bars
+      const scoreLabels = {
+        reviews: 'Reviews',
+        rating: 'Rating',
+        website: 'Website',
+        phone: 'Phone',
+        address: 'Address',
+        category: 'Category',
+        social: 'Social',
+        mapsPresence: 'Maps',
+        email: 'Email',
+        position: 'Position',
+      };
+      const scoreBars = document.getElementById('scoreBars');
+      scoreBars.innerHTML = '';
+      for (const [key, label] of Object.entries(scoreLabels)) {
+        const value = audit.scores[key] || 0;
+        const max = key === 'reviews' ? 20 : key === 'rating' ? 15 : key === 'social' ? 10 : key === 'position' ? 10 : key === 'category' ? 10 : 5;
+        const pct = (value / max) * 100;
+        const fillClass = pct >= 70 ? 'high' : pct >= 40 ? 'medium' : 'low';
+        scoreBars.innerHTML += `
+          <div class="score-bar-row">
+            <span class="score-bar-label">${label}</span>
+            <div class="score-bar-track"><div class="score-bar-fill ${fillClass}" style="width:${pct}%"></div></div>
+            <span class="score-bar-value">${value}/${max}</span>
+          </div>`;
+      }
+
+      // Business details
+      const bizInfo = document.getElementById('bizInfo');
+      const biz = audit.business;
+      bizInfo.innerHTML = `
+        <div class="biz-info-item"><div class="label">Phone</div><div class="value">${biz.phone || 'N/A'}</div></div>
+        <div class="biz-info-item"><div class="label">Website</div><div class="value">${biz.website && biz.website !== 'N/A' ? '<a href="' + biz.website + '" target="_blank">' + biz.website + '</a>' : 'N/A'}</div></div>
+        <div class="biz-info-item"><div class="label">Email</div><div class="value">${biz.email || 'N/A'}</div></div>
+        <div class="biz-info-item"><div class="label">Category</div><div class="value">${biz.categoryName || 'N/A'}</div></div>
+        <div class="biz-info-item"><div class="label">Rating</div><div class="value">${biz.rating ? '⭐ ' + biz.rating + ' (' + biz.reviewsCount + ' reviews)' : 'No rating'}</div></div>
+        <div class="biz-info-item"><div class="label">Google Maps</div><div class="value">${biz.mapsUrl ? '<a href="' + biz.mapsUrl + '" target="_blank">View on Maps</a>' : 'N/A'}</div></div>
+        <div class="biz-info-item"><div class="label">Facebook</div><div class="value">${biz.facebook && biz.facebook !== 'N/A' ? '<a href="' + biz.facebook + '" target="_blank">View</a>' : 'N/A'}</div></div>
+        <div class="biz-info-item"><div class="label">Instagram</div><div class="value">${biz.instagram && biz.instagram !== 'N/A' ? '<a href="' + biz.instagram + '" target="_blank">View</a>' : 'N/A'}</div></div>`;
+
+      // Recommendations
+      const recs = document.getElementById('recommendations');
+      recs.innerHTML = '';
+      if (audit.recommendations.length === 0) {
+        recs.innerHTML = '<p style="color: #10b981; font-weight: 600;">✅ This business has a well-optimized Google Business Profile!</p>';
+      } else {
+        for (const rec of audit.recommendations) {
+          recs.innerHTML += `
+            <div class="rec-item ${rec.priority.toLowerCase()}">
+              <span class="rec-priority ${rec.priority.toLowerCase()}">${rec.priority}</span>
+              <div class="rec-category">${rec.category}</div>
+              <div class="rec-issue">${rec.issue}</div>
+              <div class="rec-action"><strong>→</strong> ${rec.action}</div>
+              <div class="rec-impact">💡 ${rec.impact}</div>
+            </div>`;
+        }
+      }
+
+      // Competitors
+      const comps = document.getElementById('competitors');
+      comps.innerHTML = '';
+      if (audit.competitors.length === 0) {
+        comps.innerHTML = '<p style="color: #94a3b8;">No competitors found in the area.</p>';
+      } else {
+        for (const c of audit.competitors) {
+          comps.innerHTML += `
+            <div class="competitor-row">
+              <span class="competitor-name">${c.title}</span>
+              <div class="competitor-stats">
+                <span class="competitor-stat">⭐ ${c.rating || 'N/A'}</span>
+                <span class="competitor-stat">💬 ${c.reviewsCount || 0} reviews</span>
+                ${c.website && c.website !== 'N/A' ? '<span class="competitor-stat">🌐 Website</span>' : ''}
+              </div>
+            </div>`;
+        }
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = '❌ ' + msg;
+      el.classList.remove('hidden');
+    }
+
+    // Allow Enter key to submit
+    document.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') generateAudit();
+    });
+  </script>
+</body>
+</html>
