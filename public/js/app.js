@@ -1006,11 +1006,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+  window.__savedLeadsByTitle = savedLeads;
 
   function isLeadTitleSaved(title) {
     const key = normalizeLeadTitleKey(title);
     return key !== '' && savedLeads.has(key);
   }
+  window.__isLeadTitleSaved = isLeadTitleSaved;
 
   // Sync bookmark icons in table on load
   const syncBookmarkIcons = () => {
@@ -2222,7 +2224,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Fetch saved leads on results page to pre-fill bookmark states ---
   if (isResultsPage && rows.length > 0) {
-    fetch('/leads/saved')
+    fetch('/leads/saved', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
       .then((res) => res.json())
       .then((savedList) => {
         savedList.forEach(({ key, title }) => {
@@ -8102,7 +8104,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch('/leads/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify(leadData),
       });
       const data = await res.json();
@@ -8128,6 +8131,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return false;
   }
+  window.__saveSearchResultLead = saveLead;
 
   // --- Unsave a lead ---
   async function unsaveLead(row) {
@@ -8138,7 +8142,8 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const res = await fetch(`/leads/${leadKey}/delete`, {
         method: 'POST',
-        headers: { 'Accept': 'application/json' },
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
       });
       const data = await res.json();
 
@@ -8154,7 +8159,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       console.error('Failed to unsave lead:', err);
     }
+    return false;
   }
+  window.__unsaveSearchResultLead = unsaveLead;
 
   // --- UI helpers ---
   function markBookmarkSaved(btn) {
@@ -8448,6 +8455,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
   window.__updateBulkActionBar = updateBulkActionBar;
+  window.__syncBulkSelectionFromDom = function syncBulkSelectionFromDom() {
+    syncSelectedKeysFromDom();
+    syncBulkRowHighlights();
+    syncSelectAllLeadCheckbox();
+    updateBulkActionBar();
+  };
 
   function rebuildBulkFolderSelect(preferredValue) {
     if (!bulkFolderSelect) return;
