@@ -313,7 +313,9 @@ app.use('/autonomous', autonomousRoutes);
 const auditRoutes = require('./routes/audit');
 app.use('/api/audit', auditRoutes);
 app.get('/audit', (req, res) => {
-  res.render('audit', { title: 'GBP Audit | Agency OS', activePage: 'audit' });
+  // Allow API key via query param for public access, or use env default
+  const apiKey = req.query.api_key || process.env.API_INGEST_KEY || '';
+  res.render('audit', { title: 'GBP Audit | Agency OS', activePage: 'audit', apiKey });
 });
 
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
