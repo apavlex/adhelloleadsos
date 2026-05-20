@@ -46,6 +46,7 @@ const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 const autonomousRoutes = require('./routes/autonomous');
+const demoGenerator = require('./services/demoGenerator');
 
 const app = express();
 const { DEFAULT_SEQUENCE_TEMPLATES } = require('./services/sequenceTemplates');
@@ -313,9 +314,27 @@ app.use('/autonomous', autonomousRoutes);
 const auditRoutes = require('./routes/audit');
 app.use('/api/audit', auditRoutes);
 app.get('/audit', (req, res) => {
-  // Allow API key via query param for public access, or use env default
   const apiKey = req.query.api_key || process.env.API_INGEST_KEY || '';
   res.render('audit', { title: 'GBP Audit | Agency OS', activePage: 'audit', apiKey });
+});
+
+// Prospecting Enrichment API (buying signals, outreach, demos)
+const prospectingApiRoutes = require('./routes/prospectingApi');
+app.use('/api/prospecting', prospectingApiRoutes);
+
+// Demo page renderer
+app.get('/demo/:type', (req, res) => {
+  const demoType = req.params.type;
+  const business = {
+    title: req.query.business || 'Your Business',
+    categoryName: req.query.category || 'Home Service',
+    city: req.query.city || '',
+    state: req.query.state || '',
+    phone: req.query.phone || '',
+    website: req.query.website || '',
+  };
+  const demo = demoGenerator.generateDemo(business, demoType);
+  res.render('demo', { title: `${demo.title} | AdHello`, demo });
 });
 
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)

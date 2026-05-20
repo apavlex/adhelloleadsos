@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %></title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    .container { max-width: 800px; margin: 0 auto; padding: 40px 20px; }
+    .header { text-align: center; margin-bottom: 40px; }
+    .header h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
+    .header p { color: #94a3b8; }
+    .demo-card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 16px; padding: 32px; margin-bottom: 24px; }
+    .demo-card h2 { font-size: 20px; margin-bottom: 16px; color: #fff; }
+    .benefits { list-style: none; margin: 16px 0; }
+    .benefits li { padding: 8px 0; padding-left: 28px; position: relative; color: #94a3b8; }
+    .benefits li::before { content: '✓'; position: absolute; left: 0; color: #10b981; font-weight: 700; }
+    .chat-container { background: #0f1117; border-radius: 12px; padding: 20px; margin: 20px 0; border: 1px solid #2d3148; }
+    .chat-bubble { padding: 12px 16px; border-radius: 12px; margin-bottom: 12px; max-width: 80%; }
+    .chat-bubble.bot { background: #6366f1; color: #fff; margin-right: auto; }
+    .chat-bubble.user { background: #2d3148; color: #e2e8f0; margin-left: auto; }
+    .chat-options { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .chat-option { padding: 8px 16px; background: #1a1d27; border: 1px solid #6366f1; border-radius: 20px; color: #6366f1; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+    .chat-option:hover { background: #6366f1; color: #fff; }
+    .cta-box { background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 12px; padding: 24px; text-align: center; margin-top: 24px; }
+    .cta-box h3 { font-size: 18px; margin-bottom: 8px; }
+    .cta-box p { color: #e2e8f0; margin-bottom: 16px; }
+    .cta-btn { display: inline-block; padding: 12px 32px; background: #fff; color: #6366f1; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 14px; }
+    .powered-by { text-align: center; margin-top: 32px; color: #64748b; font-size: 12px; }
+    .powered-by a { color: #6366f1; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><%= demo.icon %> <%= demo.title %></h1>
+      <p>Personalized for <strong><%= demo.business.title %></strong> in <%= demo.business.city %>, <%= demo.business.state %></p>
+    </div>
+
+    <div class="demo-card">
+      <h2>What this does</h2>
+      <p style="color: #94a3b8; margin-bottom: 16px;"><%= demo.description %></p>
+      <ul class="benefits">
+        <% demo.benefits.forEach(function(benefit) { %>
+          <li><%= benefit %></li>
+        <% }); %>
+      </ul>
+    </div>
+
+    <div class="demo-card">
+      <h2>💬 See it in action</h2>
+      <div class="chat-container">
+        <div class="chat-bubble bot"><%= demo.script.greeting %></div>
+        <% if (demo.script.questions && demo.script.questions.length > 0) { %>
+          <div class="chat-bubble bot"><%= demo.script.questions[0].q %></div>
+          <div class="chat-options">
+            <% demo.script.questions[0].options.forEach(function(opt) { %>
+              <span class="chat-option"><%= opt %></span>
+            <% }); %>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="cta-box">
+      <h3>Want this for <%= demo.business.title %>?</h3>
+      <p>This is a live demo. The real version would be customized with your branding, services, and booking system.</p>
+      <a href="mailto:alex@adhello.ai?subject=Interested in <%= encodeURIComponent(demo.title) %>&body=Hi Alex, I saw the demo for <%= demo.business.title %> and I'm interested. Can we talk?" class="cta-btn">📧 Let's Talk</a>
+    </div>
+
+    <div class="powered-by">
+      Powered by <a href="https://adhello.ai">AdHello</a> — AI for Home Service Businesses
+    </div>
+  </div>
+</body>
+</html>
