@@ -1,0 +1,11 @@
+<% const _connected = typeof connected !== 'undefined' && !!connected; %>
+<% const _label = typeof label !== 'undefined' ? String(label) : 'Provider'; %>
+<% const _pillBase = 'inline-flex items-center gap-1.5 shrink-0 rounded-full border border-brand-border/60 dark:border-white/15 bg-white/80 dark:bg-slate-800 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest transition-colors'; %>
+<span
+  class="<%= _pillBase %> <%= _connected ? 'text-brand-dark dark:text-white' : 'text-brand-muted dark:text-slate-400' %>"
+  role="status"
+  title="<%= _connected ? _label + ' — connected' : _label + ' — not connected' %>"
+>
+  <span class="w-2 h-2 rounded-full shrink-0 <%= _connected ? 'bg-emerald-500' : 'bg-rose-500' %>" aria-hidden="true"></span>
+  <%= _label %>
+</span>

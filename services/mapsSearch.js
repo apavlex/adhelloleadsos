@@ -186,8 +186,40 @@ async function searchGoogleMaps(params) {
   return runAutoMapsSearch(params, integrationEnv);
 }
 
+/** Status row for Workspace → Integrations (Auto chain order). */
+function getMapsProviderStatusList(integrationEnv) {
+  return [
+    {
+      id: 'rapidapi',
+      label: 'RapidAPI',
+      configured: rapidapi.isConfigured(integrationEnv),
+    },
+    {
+      id: 'searchapi',
+      label: 'SearchAPI.io',
+      configured: searchapiConfigured(integrationEnv),
+    },
+    {
+      id: 'serpapi',
+      label: 'SerpAPI',
+      configured: serpapiConfigured(integrationEnv),
+    },
+    {
+      id: 'outscraper',
+      label: 'Outscraper',
+      configured: outscraper.isConfigured(integrationEnv),
+    },
+    {
+      id: 'apify',
+      label: 'Apify',
+      configured: apifyConfigured(integrationEnv),
+    },
+  ];
+}
+
 module.exports = {
   searchGoogleMaps,
   isMapsSearchConfigured,
   resolvePrimary,
+  getMapsProviderStatusList,
 };

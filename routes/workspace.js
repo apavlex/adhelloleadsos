@@ -5,6 +5,7 @@ const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
+const mapsSearch = require('../services/mapsSearch');
 const crawl4aiClient = require('../services/crawl4aiClient');
 const outscraperClient = require('../services/outscraperClient');
 const integrationProviderTests = require('../services/integrationProviderTests');
@@ -241,6 +242,7 @@ async function loadWorkspacePageLocals(req) {
     scrapeLive = { crawl4ai: c4, outscraper: os };
   }
   const scrapeAdvisor = scrapeCostAdvisor.getDashboardPayload(scrapeLive, resolvedEnv);
+  const mapsProviderStatus = mapsSearch.getMapsProviderStatusList(resolvedEnv);
   const mapsSearchPrimary = String(
     (resolvedEnv && resolvedEnv.SEARCH_MAPS_PRIMARY) || process.env.SEARCH_MAPS_PRIMARY || 'auto',
   )
@@ -265,6 +267,7 @@ async function loadWorkspacePageLocals(req) {
     integrationsReady,
     integrationsMessage,
     mapsSearchPrimary,
+    mapsProviderStatus,
     enrichPrimary,
     scrapeAdvisor,
     scrapeSourcesLivePing: process.env.SCRAPE_SOURCES_LIVE_PING === '1',

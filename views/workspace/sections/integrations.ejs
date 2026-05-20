@@ -20,6 +20,8 @@
   <% const masks = integrationMasks || {}; %>
   <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>
   <% const _enrichPrimary = (enrichPrimary || 'auto').toString().toLowerCase(); %>
+  <% const _mapsProviders = Array.isArray(mapsProviderStatus) ? mapsProviderStatus : []; %>
+  <% const _mapsProviderById = {}; _mapsProviders.forEach(function (p) { if (p && p.id) _mapsProviderById[p.id] = p; }); %>
   <form method="post" action="/workspace/integrations" class="space-y-8">
     <div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find Leads — maps search</p>
@@ -27,7 +29,14 @@
 
       <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 mb-4">
         <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Maps provider preference</h3>
-        <p class="text-xs text-brand-muted mt-1 mb-4">Which service to use for Find Leads (or Auto to run the chain).</p>
+        <p class="text-xs text-brand-muted mt-1 mb-3">Which service to use for Find Leads (or Auto to run the chain).</p>
+        <div class="flex flex-wrap items-center gap-2 mb-4" role="list" aria-label="Maps search providers">
+          <% _mapsProviders.forEach(function (p) { %>
+          <span role="listitem">
+            <%- include('../../partials/integration_provider_status_pill', { label: p.label, connected: p.configured }) %>
+          </span>
+          <% }); %>
+        </div>
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
         <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
           <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify)</option>
@@ -41,8 +50,9 @@
 
       <div class="space-y-4">
         <section class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-          <header>
+          <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI</h3>
+            <% if (_mapsProviderById.rapidapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.rapidapi.label, connected: _mapsProviderById.rapidapi.configured }) %><% } %>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed">Local Business / Google Maps search on RapidAPI. Default first provider in Auto mode. Subscribe on <a href="https://rapidapi.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">rapidapi.com</a>.</p>
           </header>
           <div>
@@ -82,8 +92,9 @@
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-          <header>
+          <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SearchAPI.io</h3>
+            <% if (_mapsProviderById.searchapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.searchapi.label, connected: _mapsProviderById.searchapi.configured }) %><% } %>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://www.searchapi.io/docs/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local API</a> — optional; runs after RapidAPI in Auto mode.</p>
           </header>
           <div>
@@ -96,8 +107,9 @@
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-          <header>
+          <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SerpAPI</h3>
+            <% if (_mapsProviderById.serpapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.serpapi.label, connected: _mapsProviderById.serpapi.configured }) %><% } %>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://serpapi.com/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local</a> — optional; runs after SearchAPI.io in Auto mode.</p>
           </header>
           <div>
@@ -110,8 +122,9 @@
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-          <header>
+          <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Outscraper</h3>
+            <% if (_mapsProviderById.outscraper) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.outscraper.label, connected: _mapsProviderById.outscraper.configured }) %><% } %>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps listings via Outscraper — optional fallback in Auto mode.</p>
           </header>
           <div>
@@ -130,9 +143,12 @@
         </section>
 
         <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-          <header>
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Apify</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps actor — last fallback in Auto mode when other providers fail or return no rows.</p>
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Apify</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps actor — last fallback in Auto mode when other providers fail or return no rows.</p>
+            </div>
+            <% if (_mapsProviderById.apify) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.apify.label, connected: _mapsProviderById.apify.configured }) %><% } %>
           </header>
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API token</label>
