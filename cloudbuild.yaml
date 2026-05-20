@@ -1,4 +1,5 @@
-# One-shot deploy (from repo root):
+# Preferred deploy: push to `main` — GitHub Actions (.github/workflows/deploy.yml).
+# Manual fallback only:
 #   gcloud builds submit --config cloudbuild.yaml .
 #
 substitutions:
