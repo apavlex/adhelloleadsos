@@ -1,11 +1,32 @@
-const Database = require('@replit/database');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const Database = require('better-sqlite3');
 const { clampPipelineStage, PIPELINE_SCHEMA_VERSION } = require('./pipelineConstants');
 
-let db;
+// ── SQLite setup ──────────────────────────────────────────────────────────────
+const DB_DIR = path.join(__dirname, '..', 'data');
+if (!fs.existsSync(DB_DIR)) {
+  fs.mkdirSync(DB_DIR, { recursive: true });
+}
+const DB_PATH = path.join(DB_DIR, 'app.db');
 
+const sqlite = new Database(DB_PATH);
+sqlite.pragma('journal_mode = WAL');
+sqlite.pragma('foreign_keys = ON');
+
+// ── Schema ────────────────────────────────────────────────────────────────────
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS kv (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_kv_key_prefix ON kv(key);
+`);
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 function isBlankValue(v) {
   if (v == null) return true;
   if (typeof v === 'string') {
@@ -96,7 +117,6 @@ function mergePreferExisting(existing, incoming) {
   if (!isBlankValue(incoming?.status) && isBlankValue(existing.status)) out.status = incoming.status;
   if (incoming?.pipelineStage !== undefined && existing.pipelineStage == null) out.pipelineStage = incoming.pipelineStage;
 
-  // Re-import from LeadGorilla / GBP CSV: replace stored 0 when the file has real review stats
   const incRev = parseInt(String(incoming?.reviewsCount ?? ''), 10);
   const curRev = parseInt(String(existing?.reviewsCount ?? ''), 10);
   if (Number.isFinite(incRev) && incRev > 0 && (!Number.isFinite(curRev) || curRev === 0)) {
@@ -107,58 +127,36 @@ function mergePreferExisting(existing, incoming) {
   if (Number.isFinite(incRating) && incRating > 0 && (!Number.isFinite(curRating) || curRating === 0)) {
     out.totalScore = incoming.totalScore;
   }
-  if (
-    isBlankValue(existing?.gbpClaimStatus) &&
-    !isBlankValue(incoming?.gbpClaimStatus)
-  ) {
+  if (isBlankValue(existing?.gbpClaimStatus) && !isBlankValue(incoming?.gbpClaimStatus)) {
     out.gbpClaimStatus = incoming.gbpClaimStatus;
   }
-  if (
-    isBlankValue(existing?.gbpOptimizationScore) &&
-    !isBlankValue(incoming?.gbpOptimizationScore)
-  ) {
+  if (isBlankValue(existing?.gbpOptimizationScore) && !isBlankValue(incoming?.gbpOptimizationScore)) {
     out.gbpOptimizationScore = incoming.gbpOptimizationScore;
   }
 
   return out;
 }
 
-// On Replit, auto-connects via REPLIT_DB_URL env var
-// For local dev, falls back to a file-backed store so data persists across restarts
-if (process.env.REPLIT_DB_URL) {
-  db = new Database();
-} else {
-  const DB_FILE = path.join(__dirname, '..', 'data', 'local-db.json');
-
-  // Ensure data directory exists
-  const dataDir = path.dirname(DB_FILE);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-
-  // Load existing data from file
-  let store = {};
-  if (fs.existsSync(DB_FILE)) {
-    try {
-      store = JSON.parse(fs.readFileSync(DB_FILE, 'utf-8'));
-    } catch {
-      store = {};
-    }
-  }
-
-  function persist() {
-    fs.writeFileSync(DB_FILE, JSON.stringify(store, null, 2));
-  }
-
-  console.log('REPLIT_DB_URL not found. Using file-backed local database (data/local-db.json).');
-  db = {
-    get: async (key) => store[key] || null,
-    set: async (key, value) => { store[key] = value; persist(); },
-    list: async (prefix = '') => Object.keys(store).filter((k) => k.startsWith(prefix)),
-    delete: async (key) => { delete store[key]; persist(); },
-  };
+// ── KV helpers (SQLite-backed) ────────────────────────────────────────────────
+function kvGet(key) {
+  const row = sqlite.prepare('SELECT value FROM kv WHERE key = ?').get(key);
+  return row ? row.value : null;
 }
 
+function kvSet(key, value) {
+  sqlite.prepare('INSERT OR REPLACE INTO kv (key, value, updated_at) VALUES (?, ?, datetime(\'now\'))').run(key, value);
+}
+
+function kvList(prefix = '') {
+  const rows = sqlite.prepare('SELECT key FROM kv WHERE key LIKE ? ORDER BY key').all(`${prefix}%`);
+  return rows.map(r => r.key);
+}
+
+function kvDelete(key) {
+  sqlite.prepare('DELETE FROM kv WHERE key = ?').run(key);
+}
+
+// ── Workspace helper ──────────────────────────────────────────────────────────
 function assertLeadScopedWorkspaceId(workspaceId, methodName) {
   const ok = workspaceId != null && String(workspaceId).trim() !== '';
   if (ok) return;
@@ -168,27 +166,23 @@ function assertLeadScopedWorkspaceId(workspaceId, methodName) {
   console.warn(msg);
 }
 
+// ── Module exports (identical API surface) ────────────────────────────────────
 module.exports = {
   async saveSearch(searchData) {
     const key = `search:${Date.now()}`;
-    await db.set(key, JSON.stringify(searchData));
+    kvSet(key, JSON.stringify(searchData));
     return key;
   },
 
   async getSearch(key) {
-    const data = await db.get(key);
-    if (!data) return null;
-    // Handle both v2 (raw string) and v3 ({ ok, value }) return formats
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(key);
     if (!raw) return null;
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   },
 
   async listSearches() {
-    const keys = await db.list('search:');
-    // Handle v3 format if needed
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
-    return keyList.sort((a, b) => {
+    const keys = kvList('search:');
+    return keys.sort((a, b) => {
       const tsA = parseInt(a.split(':')[1]);
       const tsB = parseInt(b.split(':')[1]);
       return tsB - tsA;
@@ -208,7 +202,7 @@ module.exports = {
   },
 
   async deleteSearch(key) {
-    await db.delete(key);
+    kvDelete(key);
   },
 
   // --- Leads (bookmarked businesses) ---
@@ -216,9 +210,7 @@ module.exports = {
   async _resolveWorkspaceIdForWrite(raw) {
     let wid = raw != null && raw !== '' ? String(raw).trim() : '';
     if (wid === 'default' || wid === '') {
-      const aliasRaw = await db.get('sys:legacy_default_workspace_id');
-      const alias =
-        aliasRaw && typeof aliasRaw === 'object' && 'ok' in aliasRaw ? aliasRaw.value : aliasRaw;
+      const alias = kvGet('sys:legacy_default_workspace_id');
       const a = typeof alias === 'string' ? alias.trim() : '';
       if (a) return a;
     }
@@ -237,7 +229,6 @@ module.exports = {
     incoming.geoNorm = normalizeGeo(incoming.city, incoming.state);
     incoming.dedupeKey = computeDedupeKey(incoming);
 
-    // Find existing lead to merge into (workspace-scoped)
     const leads = await this.getAllLeads(wid);
     const sameWorkspace = (l) => (l.workspaceId || 'default') === wid;
     const findBy = (pred) => leads.find((l) => sameWorkspace(l) && pred(l)) || null;
@@ -256,7 +247,6 @@ module.exports = {
     if (existing) {
       const patch = mergePreferExisting(existing, incoming);
 
-      // Persist canonical keys for future dedupe and analytics
       patch.emailNorm = existing.emailNorm || incoming.emailNorm || undefined;
       patch.domainNorm = existing.domainNorm || incoming.domainNorm || undefined;
       patch.phoneNorm = existing.phoneNorm || incoming.phoneNorm || undefined;
@@ -264,10 +254,8 @@ module.exports = {
       patch.geoNorm = existing.geoNorm || incoming.geoNorm || undefined;
       patch.dedupeKey = existing.dedupeKey || incoming.dedupeKey || undefined;
 
-      // Merge updates (notes/enrichment updates)
       patch.updates = appendUpdates(existing.updates, incoming.updates);
 
-      // Log merge source (updateLead already merges logs arrays)
       patch.logs = [
         {
           type: 'merge',
@@ -291,10 +279,10 @@ module.exports = {
           : 1
       ),
       status: leadData.status || 'Lead Captured',
-      logs: [{ 
-        type: 'creation', 
-        message: `Lead created from ${leadData.source || 'ingest'}`, 
-        timestamp: new Date().toISOString() 
+      logs: [{
+        type: 'creation',
+        message: `Lead created from ${leadData.source || 'ingest'}`,
+        timestamp: new Date().toISOString()
       }]
     };
 
@@ -318,14 +306,10 @@ module.exports = {
       }
     }
 
-    await db.set(key, JSON.stringify(newLead));
+    kvSet(key, JSON.stringify(newLead));
     return key;
   },
 
-  /**
-   * @param {string} email
-   * @param {string} [workspaceId] When set, only match leads in that workspace (recommended for imports).
-   */
   async findLeadByEmail(email, workspaceId) {
     if (!email || email === 'N/A') return null;
     const em = String(email).trim().toLowerCase();
@@ -360,9 +344,7 @@ module.exports = {
   async getLead(key) {
     const storageKey = String(key || '').trim();
     if (!storageKey) return null;
-    const data = await db.get(storageKey);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(storageKey);
     if (!raw) return null;
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!parsed || typeof parsed !== 'object') return null;
@@ -372,30 +354,22 @@ module.exports = {
     };
   },
 
-  /** @param {string} [workspaceId] When omitted, only allowed for trusted internal callers via {@link getAllLeadsUnscoped}. */
   async listLeads(workspaceId) {
     return this.getAllLeads(workspaceId);
   },
 
-  /**
-   * All leads in one workspace (efficient: skips other workspaces on disk).
-   * @param {string} workspaceId
-   */
   async getAllLeads(workspaceId) {
     const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
     assertLeadScopedWorkspaceId(wid, 'getAllLeads');
-    const aliasRaw = await db.get('sys:legacy_default_workspace_id');
-    const aliasVal =
-      aliasRaw && typeof aliasRaw === 'object' && 'ok' in aliasRaw ? aliasRaw.value : aliasRaw;
+    const aliasVal = kvGet('sys:legacy_default_workspace_id');
     const aliasStr = typeof aliasVal === 'string' ? aliasVal.trim() : '';
     const normLeadW = (lw) => {
       const x = lw || 'default';
       if (x === 'default' && aliasStr) return aliasStr;
       return x;
     };
-    const keys = await db.list('lead:');
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
-    const sorted = keyList.sort((a, b) => {
+    const keys = kvList('lead:');
+    const sorted = keys.sort((a, b) => {
       const tsA = parseInt(a.split(':')[1]);
       const tsB = parseInt(b.split(':')[1]);
       return tsB - tsA;
@@ -410,11 +384,9 @@ module.exports = {
     return leads;
   },
 
-  /** Migration, cron, and sequence runner only — loads every lead row. */
   async getAllLeadsUnscoped() {
-    const keys = await db.list('lead:');
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
-    const sorted = keyList.sort((a, b) => {
+    const keys = kvList('lead:');
+    const sorted = keys.sort((a, b) => {
       const tsA = parseInt(a.split(':')[1]);
       const tsB = parseInt(b.split(':')[1]);
       return tsB - tsA;
@@ -430,33 +402,26 @@ module.exports = {
   },
 
   async listStorageKeysWithPrefix(prefix) {
-    const keys = await db.list(prefix);
-    return Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    return kvList(prefix);
   },
 
   async deleteStorageKey(key) {
-    await db.delete(key);
+    kvDelete(key);
   },
 
-  /** Low-level read for migrations (string or JSON-serialized value). */
   async peekStorageKey(key) {
-    const data = await db.get(key);
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
-    return raw != null ? raw : null;
+    return kvGet(key);
   },
 
-  /** Low-level write for migrations. */
   async putStorageKey(key, value) {
     const payload = typeof value === 'string' ? value : JSON.stringify(value);
-    await db.set(key, payload);
+    kvSet(key, payload);
   },
 
   async getUserPrefs(email) {
     const fragment = this._emailKeyFragment(email);
     const storageKey = `userprefs:${fragment}`;
-    const data = await db.get(storageKey);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(storageKey);
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -477,18 +442,15 @@ module.exports = {
       updatedAt: new Date().toISOString(),
     };
     if (!cur.createdAt) next.createdAt = new Date().toISOString();
-    await db.set(storageKey, JSON.stringify(next));
+    kvSet(storageKey, JSON.stringify(next));
     return next;
   },
 
-  /** Google Drive read scope tokens (per user email) for CSV import from Drive. */
   async getGoogleDriveTokens(email) {
     const em = String(email || '').trim().toLowerCase();
     const fragment = this._emailKeyFragment(em);
     const key = `gdrv_oauth:${fragment}`;
-    const data = await db.get(key);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(key);
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -522,7 +484,7 @@ module.exports = {
     if (!next.refreshToken && cur.refreshToken) next.refreshToken = cur.refreshToken;
     if (googleAccountEmail) next.googleAccountEmail = String(googleAccountEmail).trim().toLowerCase();
     if (googleAccountName) next.googleAccountName = String(googleAccountName).trim();
-    await db.set(key, JSON.stringify(next));
+    kvSet(key, JSON.stringify(next));
     return next;
   },
 
@@ -530,15 +492,13 @@ module.exports = {
     const em = String(email || '').trim().toLowerCase();
     const fragment = this._emailKeyFragment(em);
     const key = `gdrv_oauth:${fragment}`;
-    await db.delete(key);
+    kvDelete(key);
   },
 
   async getUserWorkspaceIds(email) {
     const fragment = this._emailKeyFragment(email);
     const storageKey = `userwork:${fragment}`;
-    const data = await db.get(storageKey);
-    if (!data) return [];
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(storageKey);
     if (!raw) return [];
     try {
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -552,7 +512,7 @@ module.exports = {
     const fragment = this._emailKeyFragment(email);
     const storageKey = `userwork:${fragment}`;
     const list = Array.isArray(ids) ? [...new Set(ids.map(String).filter(Boolean))] : [];
-    await db.set(storageKey, JSON.stringify(list));
+    kvSet(storageKey, JSON.stringify(list));
     return list;
   },
 
@@ -565,23 +525,18 @@ module.exports = {
   },
 
   async getWorkspaceIdForSlug(slug) {
-    const s = String(slug || '')
-      .trim()
-      .toLowerCase();
+    const s = String(slug || '').trim().toLowerCase();
     if (!s) return null;
-    const data = await db.get(`wslug:${s}`);
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(`wslug:${s}`);
     if (raw == null) return null;
     const id = typeof raw === 'string' ? raw.trim() : String(raw);
     return id || null;
   },
 
   async saveWorkspaceSlug(slug, workspaceId) {
-    const s = String(slug || '')
-      .trim()
-      .toLowerCase();
+    const s = String(slug || '').trim().toLowerCase();
     if (!s) throw new Error('slug required');
-    await db.set(`wslug:${s}`, String(workspaceId));
+    kvSet(`wslug:${s}`, String(workspaceId));
   },
 
   async updateLead(key, updateData, expectWorkspaceId) {
@@ -598,13 +553,12 @@ module.exports = {
         throw new Error(`[workspace] updateLead: workspace mismatch for ${key}`);
       }
     }
-    
-    // Merge arrays (chatHistory, logs) instead of overwriting
+
     const chatHistory = [...(existing.chatHistory || []), ...(updateData.chatHistory || [])];
     const logs = [...(existing.logs || []), ...(updateData.logs || [])];
-    
-    const updated = { 
-      ...existing, 
+
+    const updated = {
+      ...existing,
       ...updateData,
       chatHistory: chatHistory.length > 0 ? chatHistory : existing.chatHistory,
       logs: logs.length > 0 ? logs : existing.logs,
@@ -618,8 +572,8 @@ module.exports = {
     if (updated.pipelineStage === 8 && !existing.enteredStage8At) {
       updated.enteredStage8At = new Date().toISOString();
     }
-    
-    await db.set(key, JSON.stringify(updated));
+
+    kvSet(key, JSON.stringify(updated));
     return {
       ...updated,
       key: updated.key || key,
@@ -627,19 +581,26 @@ module.exports = {
   },
 
   async deleteLead(key) {
-    await db.delete(key);
+    kvDelete(key);
   },
 
-  // --- Folders (user-defined lead buckets) ---
+  // --- Add log entry to a lead (used by stitch-sync and other routes) ---
+
+  async addLog(leadKey, logEntry) {
+    const existing = await this.getLead(leadKey);
+    if (!existing) return null;
+    const logs = [...(existing.logs || []), logEntry];
+    return this.updateLead(leadKey, { logs });
+  },
+
+  // --- Folders ---
 
   async listFolders(workspaceId) {
     const wid = workspaceId || 'default';
-    const keys = await db.list(`folder:${wid}:`);
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const keys = kvList(`folder:${wid}:`);
     const out = [];
-    for (const key of keyList) {
-      const data = await db.get(key);
-      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    for (const key of keys) {
+      const raw = kvGet(key);
       if (!raw) continue;
       const f = typeof raw === 'string' ? JSON.parse(raw) : raw;
       out.push({ key, ...f });
@@ -655,57 +616,52 @@ module.exports = {
       workspaceId: wid,
       createdAt: new Date().toISOString(),
     };
-    await db.set(key, JSON.stringify(folder));
+    kvSet(key, JSON.stringify(folder));
     return { key, ...folder };
   },
 
   async renameFolder(workspaceId, folderKey, name) {
     const wid = workspaceId || 'default';
     const fullKey = folderKey.startsWith('folder:') ? folderKey : `folder:${wid}:${folderKey}`;
-    const data = await db.get(fullKey);
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(fullKey);
     if (!raw) return null;
     const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if ((existing.workspaceId || 'default') !== wid) return null;
     const updated = { ...existing, name: String(name || '').trim(), updatedAt: new Date().toISOString() };
-    await db.set(fullKey, JSON.stringify(updated));
+    kvSet(fullKey, JSON.stringify(updated));
     return { key: fullKey, ...updated };
   },
 
   async deleteFolder(workspaceId, folderKey) {
     const wid = workspaceId || 'default';
     const fullKey = folderKey.startsWith('folder:') ? folderKey : `folder:${wid}:${folderKey}`;
-    const data = await db.get(fullKey);
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(fullKey);
     if (raw) {
       const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
       if ((existing.workspaceId || 'default') === wid) {
-        await db.delete(fullKey);
+        kvDelete(fullKey);
       }
     }
   },
 
-  // --- Schedules (recurring scrapes) ---
+  // --- Schedules ---
 
   async saveSchedule(scheduleData) {
     const key = `schedule:${Date.now()}`;
-    await db.set(key, JSON.stringify({ ...scheduleData, lastRun: null }));
+    kvSet(key, JSON.stringify({ ...scheduleData, lastRun: null }));
     return key;
   },
 
   async getSchedule(key) {
-    const data = await db.get(key);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(key);
     if (!raw) return null;
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   },
 
   async listSchedules() {
-    const keys = await db.list('schedule:');
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const keys = kvList('schedule:');
     const schedules = [];
-    for (const key of keyList) {
+    for (const key of keys) {
       const data = await this.getSchedule(key);
       if (data) {
         schedules.push({ key, ...data });
@@ -718,23 +674,21 @@ module.exports = {
     const existing = await this.getSchedule(key);
     if (!existing) return null;
     const updated = { ...existing, ...updateData };
-    await db.set(key, JSON.stringify(updated));
+    kvSet(key, JSON.stringify(updated));
     return updated;
   },
 
   async deleteSchedule(key) {
-    await db.delete(key);
+    kvDelete(key);
   },
 
-  // --- Site Metadata Cache (Enrichment) ---
+  // --- Site Metadata Cache ---
 
   async getSiteMetadata(url) {
     if (!url || url === 'N/A') return null;
     const domain = url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0].toLowerCase();
     const key = `site_meta:${domain}`;
-    const data = await db.get(key);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(key);
     if (!raw) return null;
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   },
@@ -743,17 +697,16 @@ module.exports = {
     if (!url || url === 'N/A') return;
     const domain = url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "").split('/')[0].toLowerCase();
     const key = `site_meta:${domain}`;
-    const enriched = { 
-      ...metaData, 
-      lastEnriched: new Date().toISOString() 
+    const enriched = {
+      ...metaData,
+      lastEnriched: new Date().toISOString()
     };
-    await db.set(key, JSON.stringify(enriched));
+    kvSet(key, JSON.stringify(enriched));
     return key;
   },
 
   // --- Analytics (Visits) ---
 
-  /** Strip query/hash and trailing slash so / and /?x match for dedupe. */
   normalizeVisitPath(p) {
     if (!p || typeof p !== 'string') return '/';
     let s = p.trim() || '/';
@@ -772,10 +725,6 @@ module.exports = {
     return s;
   },
 
-  /**
-   * Stores one row per “visit burst”: same IP + path within VISIT_DEDUPE_WINDOW_MS (default 2m)
-   * counts once. Stops React double-mount / duplicate beacons from inflating totals.
-   */
   async saveVisit(visitData) {
     const windowMs = Math.max(
       5000,
@@ -791,16 +740,13 @@ module.exports = {
       !ipNorm || ipNorm === '127.0.0.1' || ipNorm === '::1' || ipNorm === 'unknown';
 
     if (!skipDedupe) {
-      const keys = await db.list('visit:');
-      const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
-      const sortedKeys = keyList
+      const keys = kvList('visit:');
+      const sortedKeys = keys
         .sort((a, b) => parseInt(b.split(':')[1], 10) - parseInt(a.split(':')[1], 10))
         .slice(0, scanCap);
 
       for (const key of sortedKeys) {
-        const data = await db.get(key);
-        if (!data) continue;
-        const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+        const raw = kvGet(key);
         if (!raw) continue;
         try {
           const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -825,32 +771,27 @@ module.exports = {
       path: pathNorm,
       timestamp,
     };
-    await db.set(key, JSON.stringify(payload));
+    kvSet(key, JSON.stringify(payload));
     return { key, deduped: false };
   },
 
   async getAllVisits() {
-    const keys = await db.list('visit:');
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
-    const sortedKeys = keyList.sort((a, b) => {
+    const keys = kvList('visit:');
+    const sortedKeys = keys.sort((a, b) => {
       const tsA = parseInt(a.split(':')[1]);
       const tsB = parseInt(b.split(':')[1]);
       return tsB - tsA;
     });
-    
+
     const visits = [];
     for (const key of sortedKeys) {
-      const data = await db.get(key);
-      if (data) {
-        // Support Replit DB v3 format
-        const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
-        if (raw) {
-          try {
-            const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            visits.push(parsed);
-          } catch (e) {
-            console.error(`Error parsing visit ${key}:`, e.message);
-          }
+      const raw = kvGet(key);
+      if (raw) {
+        try {
+          const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          visits.push(parsed);
+        } catch (e) {
+          console.error(`Error parsing visit ${key}:`, e.message);
         }
       }
     }
@@ -861,30 +802,25 @@ module.exports = {
 
   async setActiveJob(jobData) {
     const key = 'active_job';
-    await db.set(key, JSON.stringify({ 
-      ...jobData, 
+    kvSet(key, JSON.stringify({
+      ...jobData,
       status: 'processing',
-      startedAt: new Date().toISOString() 
+      startedAt: new Date().toISOString()
     }));
   },
 
   async getActiveJob() {
-    const data = await db.get('active_job');
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet('active_job');
     if (!raw) return null;
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   },
 
-  /**
-   * @param {{ failed?: boolean, error?: string, resultCount?: number, searchKey?: string }} [meta]
-   */
   async clearActiveJob(meta = {}) {
     const active = await this.getActiveJob();
     if (active) {
       const finishedAt = new Date().toISOString();
       if (meta.failed) {
-        await db.set(
+        kvSet(
           'latest_finished_job',
           JSON.stringify({
             ...active,
@@ -896,7 +832,7 @@ module.exports = {
           })
         );
       } else {
-        await db.set(
+        kvSet(
           'latest_finished_job',
           JSON.stringify({
             ...active,
@@ -910,13 +846,11 @@ module.exports = {
         );
       }
     }
-    await db.delete('active_job');
+    kvDelete('active_job');
   },
 
   async getLatestFinishedJob() {
-    const data = await db.get('latest_finished_job');
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet('latest_finished_job');
     if (!raw) return null;
     return typeof raw === 'string' ? JSON.parse(raw) : raw;
   },
@@ -924,13 +858,10 @@ module.exports = {
   async markNotificationRead() {
     const data = await this.getLatestFinishedJob();
     if (data) {
-      await db.set('latest_finished_job', JSON.stringify({ ...data, isRead: true }));
+      kvSet('latest_finished_job', JSON.stringify({ ...data, isRead: true }));
     }
   },
 
-  /**
-   * Publish bell + /api/status when a server-side scheduled scrape completes.
-   */
   async recordCompletedSearchNotification({
     keyword,
     city,
@@ -942,7 +873,7 @@ module.exports = {
     workspaceName,
   }) {
     const finishedAt = new Date().toISOString();
-    await db.set(
+    kvSet(
       'latest_finished_job',
       JSON.stringify({
         type: 'search',
@@ -961,7 +892,7 @@ module.exports = {
     );
   },
 
-  // --- Daily action tracker (per user email, per calendar day) ---
+  // --- Daily action tracker ---
 
   _emailKeyFragment(email) {
     return String(email || 'anon').replace(/[^a-zA-Z0-9]/g, '_');
@@ -972,16 +903,11 @@ module.exports = {
     assertLeadScopedWorkspaceId(wid, 'saveDailyTracker');
     const fragment = this._emailKeyFragment(email);
     const key = `daily_tracker:${wid}:${fragment}:${dateStr}`;
-    const existingRaw = await db.get(key);
-    const existingParsed =
-      existingRaw &&
-      (typeof existingRaw === 'object' && 'ok' in existingRaw
-        ? existingRaw.value
-        : existingRaw);
+    const existingRaw = kvGet(key);
     let existing = {};
-    if (existingParsed) {
+    if (existingRaw) {
       try {
-        existing = typeof existingParsed === 'string' ? JSON.parse(existingParsed) : existingParsed;
+        existing = typeof existingRaw === 'string' ? JSON.parse(existingRaw) : existingRaw;
       } catch {
         existing = {};
       }
@@ -1000,7 +926,7 @@ module.exports = {
       date: dateStr,
       updatedAt: new Date().toISOString(),
     };
-    await db.set(key, JSON.stringify(merged));
+    kvSet(key, JSON.stringify(merged));
     return merged;
   },
 
@@ -1009,13 +935,11 @@ module.exports = {
     assertLeadScopedWorkspaceId(wid, 'getDailyTracker');
     const fragment = this._emailKeyFragment(email);
     const key = `daily_tracker:${wid}:${fragment}:${dateStr}`;
-    let data = await db.get(key);
-    if (!data) {
+    let raw = kvGet(key);
+    if (!raw) {
       const legacyKey = `daily_tracker:${fragment}:${dateStr}`;
-      data = await db.get(legacyKey);
+      raw = kvGet(legacyKey);
     }
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1029,9 +953,8 @@ module.exports = {
     assertLeadScopedWorkspaceId(wid, 'listDailyTrackers');
     const fragment = this._emailKeyFragment(email);
     const prefix = `daily_tracker:${wid}:${fragment}:`;
-    const keys = await db.list(prefix);
-    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
-    const sorted = keyList.sort((a, b) => {
+    const keys = kvList(prefix);
+    const sorted = keys.sort((a, b) => {
       const da = (a && a.split(':').pop()) || '';
       const db = (b && b.split(':').pop()) || '';
       return db.localeCompare(da);
@@ -1039,9 +962,7 @@ module.exports = {
     const slice = sorted.slice(0, limit);
     const rows = [];
     for (const key of slice) {
-      const data = await db.get(key);
-      if (!data) continue;
-      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      const raw = kvGet(key);
       if (!raw) continue;
       try {
         const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1053,7 +974,7 @@ module.exports = {
     return rows;
   },
 
-  // --- Personal tasks (checklist + kanban, per workspace + user email) ---
+  // --- Personal tasks (checklist + kanban) ---
 
   _userTaskKey(workspaceId, email, taskId) {
     const wid = workspaceId || 'default';
@@ -1065,13 +986,10 @@ module.exports = {
     const wid = workspaceId || 'default';
     const frag = this._emailKeyFragment(email);
     const prefix = `user_task:${wid}:${frag}:`;
-    const keys = await db.list(prefix);
-    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    const keys = kvList(prefix);
     const tasks = [];
-    for (const key of keyList) {
-      const data = await db.get(key);
-      if (!data) continue;
-      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    for (const key of keys) {
+      const raw = kvGet(key);
       if (!raw) continue;
       try {
         const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1115,16 +1033,16 @@ module.exports = {
       leadKey,
     };
     const key = this._userTaskKey(workspaceId, email, id);
-    await db.set(key, JSON.stringify(payload));
+    kvSet(key, JSON.stringify(payload));
     return payload;
   },
 
   async deleteUserTask(workspaceId, email, taskId) {
     const key = this._userTaskKey(workspaceId, email, taskId);
-    await db.delete(key);
+    kvDelete(key);
   },
 
-  // --- Saved resources (links: YouTube, Drive, X, etc.; per workspace + user) ---
+  // --- Saved resources (per workspace + user) ---
 
   _userResourceKey(workspaceId, email, resourceId) {
     const wid = workspaceId || 'default';
@@ -1136,13 +1054,10 @@ module.exports = {
     const wid = workspaceId || 'default';
     const frag = this._emailKeyFragment(email);
     const prefix = `user_resource:${wid}:${frag}:`;
-    const keys = await db.list(prefix);
-    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    const keys = kvList(prefix);
     const resources = [];
-    for (const key of keyList) {
-      const data = await db.get(key);
-      if (!data) continue;
-      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    for (const key of keys) {
+      const raw = kvGet(key);
       if (!raw) continue;
       try {
         const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1178,16 +1093,16 @@ module.exports = {
       updatedAt: now,
     };
     const key = this._userResourceKey(workspaceId, email, id);
-    await db.set(key, JSON.stringify(payload));
+    kvSet(key, JSON.stringify(payload));
     return payload;
   },
 
   async deleteUserResource(workspaceId, email, resourceId) {
     const key = this._userResourceKey(workspaceId, email, resourceId);
-    await db.delete(key);
+    kvDelete(key);
   },
 
-  // --- Workspace resources (shared links; same shape as user resources) ---
+  // --- Workspace resources (shared links) ---
 
   _workspaceResourceKey(workspaceId, resourceId) {
     const wid = String(workspaceId || 'default').trim();
@@ -1198,13 +1113,10 @@ module.exports = {
   async listWorkspaceResources(workspaceId) {
     const wid = String(workspaceId || 'default').trim();
     const prefix = `ws_resource:${wid}:`;
-    const keys = await db.list(prefix);
-    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
+    const keys = kvList(prefix);
     const resources = [];
-    for (const key of keyList) {
-      const data = await db.get(key);
-      if (!data) continue;
-      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    for (const key of keys) {
+      const raw = kvGet(key);
       if (!raw) continue;
       try {
         const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1250,51 +1162,44 @@ module.exports = {
       if (Number.isFinite(n) && n >= 0) payload.sizeBytes = Math.round(n);
     }
     const key = this._workspaceResourceKey(wid, id);
-    await db.set(key, JSON.stringify(payload));
+    kvSet(key, JSON.stringify(payload));
     return payload;
   },
 
   async deleteWorkspaceResource(workspaceId, resourceId) {
     const wid = String(workspaceId || 'default').trim();
     const key = this._workspaceResourceKey(wid, resourceId);
-    await db.delete(key);
+    kvDelete(key);
   },
 
-  /**
-   * One-time style migration: copy this user's legacy user_resource:* rows into ws_resource:*,
-   * then delete the legacy keys. Skips URLs already present on the workspace list.
-   */
   async mergeUserResourcesIntoWorkspace(workspaceId, email) {
     const wid = String(workspaceId || 'default').trim();
     if (!wid || !email) return;
     const frag = this._emailKeyFragment(email);
     const legacyPrefix = `user_resource:${wid}:${frag}:`;
-    const keys = await db.list(legacyPrefix);
-    const keyList = Array.isArray(keys) ? keys : keys && keys.ok ? keys.value : [];
-    if (!keyList.length) return;
+    const keys = kvList(legacyPrefix);
+    if (!keys.length) return;
 
     const workspaceList = await this.listWorkspaceResources(wid);
     const urls = new Set(workspaceList.map((r) => r.url).filter(Boolean));
 
-    for (const key of keyList) {
-      const data = await db.get(key);
-      if (!data) continue;
-      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    for (const key of keys) {
+      const raw = kvGet(key);
       if (!raw) continue;
       let r;
       try {
         r = typeof raw === 'string' ? JSON.parse(raw) : raw;
       } catch {
-        await db.delete(key);
+        kvDelete(key);
         continue;
       }
       if (!r || !r.url) {
-        await db.delete(key);
+        kvDelete(key);
         continue;
       }
       const urlNorm = String(r.url).trim();
       if (urls.has(urlNorm)) {
-        await db.delete(key);
+        kvDelete(key);
         continue;
       }
       const newId = `${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
@@ -1305,7 +1210,7 @@ module.exports = {
           addedBy: email,
         });
         urls.add(urlNorm);
-        await db.delete(key);
+        kvDelete(key);
       } catch {
         /* keep legacy key if save failed */
       }
@@ -1317,10 +1222,7 @@ module.exports = {
   async getWorkspace(workspaceId) {
     const id = workspaceId != null ? String(workspaceId).trim() : '';
     if (!id) return null;
-    const key = `workspace:${id}`;
-    const data = await db.get(key);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(`workspace:${id}`);
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1332,7 +1234,7 @@ module.exports = {
   async saveWorkspace(workspaceId, doc) {
     const id = workspaceId != null ? String(workspaceId).trim() : '';
     if (!id) throw new Error('saveWorkspace requires workspaceId');
-    await db.set(`workspace:${id}`, JSON.stringify({ ...doc, id }));
+    kvSet(`workspace:${id}`, JSON.stringify({ ...doc, id }));
   },
 
   // --- 7-day activation ---
@@ -1340,9 +1242,7 @@ module.exports = {
   async getActivationState(email) {
     const fragment = this._emailKeyFragment(email);
     const key = `activation:${fragment}`;
-    const data = await db.get(key);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(key);
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1354,7 +1254,7 @@ module.exports = {
   async saveActivationState(email, state) {
     const fragment = this._emailKeyFragment(email);
     const key = `activation:${fragment}`;
-    await db.set(key, JSON.stringify(state));
+    kvSet(key, JSON.stringify(state));
   },
 
   _morningBriefKey(workspaceId, ymd) {
@@ -1363,9 +1263,7 @@ module.exports = {
 
   async getMorningBrief(workspaceId, ymd) {
     const key = this._morningBriefKey(workspaceId, ymd);
-    const data = await db.get(key);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(key);
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1377,7 +1275,7 @@ module.exports = {
   async setMorningBrief(workspaceId, ymd, payload) {
     const id = workspaceId || 'default';
     const key = this._morningBriefKey(id, ymd);
-    await db.set(
+    kvSet(
       key,
       JSON.stringify({
         ...payload,
@@ -1389,19 +1287,16 @@ module.exports = {
   },
 
   async deleteMorningBrief(workspaceId, ymd) {
-    await db.delete(this._morningBriefKey(workspaceId, ymd));
+    kvDelete(this._morningBriefKey(workspaceId, ymd));
   },
 
-  /** Last good prospecting coach (Today page). Fallback if morningBrief key missing; same workspace calendar day. */
   _prospectingCoachKey(workspaceId) {
     return `pc_coach:${String(workspaceId || 'default').trim()}`;
   },
 
   async getProspectingCoachCache(workspaceId) {
     const key = this._prospectingCoachKey(workspaceId);
-    const data = await db.get(key);
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(key);
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1415,7 +1310,7 @@ module.exports = {
     const y = String(ymd || '').slice(0, 10);
     const key = this._prospectingCoachKey(id);
     const base = payload && typeof payload === 'object' ? payload : {};
-    await db.set(
+    kvSet(
       key,
       JSON.stringify({
         ...base,
@@ -1427,18 +1322,18 @@ module.exports = {
   },
 
   async deleteProspectingCoachCache(workspaceId) {
-    await db.delete(this._prospectingCoachKey(workspaceId));
+    kvDelete(this._prospectingCoachKey(workspaceId));
   },
 
   async listWorkspaceIds() {
-    const keys = await db.list('workspace:');
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
-    return keyList
+    const keys = kvList('workspace:');
+    return keys
       .map((k) => String(k).replace(/^workspace:/, ''))
       .filter(Boolean);
   },
 
-  /** Hosted site-audit open tracking (KV rows: reportview:{workspaceId}:{id}). */
+  // --- Hosted site-audit open tracking ---
+
   _reportViewStorageKey(workspaceId, viewId) {
     const wid = String(workspaceId || 'default').trim();
     return `reportview:${wid}:${String(viewId || '').trim()}`;
@@ -1451,13 +1346,13 @@ module.exports = {
     const row = {
       id,
       lead_id: String(leadId || '').trim(),
-      viewed_at: viewedAt,
+      viewedAt,
       ip_hash: String(ipHash || '').slice(0, 64),
       user_agent: String(userAgent || '').slice(0, 512),
       duration_seconds: 0,
       workspace_id: wid,
     };
-    await db.set(this._reportViewStorageKey(wid, id), JSON.stringify(row));
+    kvSet(this._reportViewStorageKey(wid, id), JSON.stringify(row));
     return row;
   },
 
@@ -1465,9 +1360,7 @@ module.exports = {
     const wid = String(workspaceId || 'default').trim();
     const vid = String(viewId || '').trim();
     if (!vid) return null;
-    const data = await db.get(this._reportViewStorageKey(wid, vid));
-    if (!data) return null;
-    const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+    const raw = kvGet(this._reportViewStorageKey(wid, vid));
     if (!raw) return null;
     try {
       return typeof raw === 'string' ? JSON.parse(raw) : raw;
@@ -1487,23 +1380,18 @@ module.exports = {
       Math.min(86400, Math.max(0, Math.round(Number(durationSeconds) || 0))),
     );
     row.duration_seconds = next;
-    await db.set(this._reportViewStorageKey(wid, viewId), JSON.stringify(row));
+    kvSet(this._reportViewStorageKey(wid, viewId), JSON.stringify(row));
     return true;
   },
 
-  /**
-   * Report views for a workspace with viewed_at >= sinceIso (ISO string).
-   * Scans up to `cap` newest keys by embedded rv_<ms>_ id (best-effort under KV list limits).
-   */
   async listReportViewsForWorkspaceSince(workspaceId, sinceIso, cap = 500) {
     const wid = String(workspaceId || 'default').trim();
     const prefix = `reportview:${wid}:`;
-    const keys = await db.list(prefix);
-    const keyList = Array.isArray(keys) ? keys : (keys && keys.ok ? keys.value : []);
+    const keys = kvList(prefix);
     const sinceMs = Date.parse(sinceIso);
     const sinceOk = Number.isFinite(sinceMs) ? sinceMs : 0;
     const scanLimit = Math.min(Math.max(40, cap), 2000);
-    const sortedKeys = keyList
+    const sortedKeys = keys
       .map((k) => String(k))
       .sort((a, b) => {
         const ida = a.split(':').pop() || '';
@@ -1516,9 +1404,7 @@ module.exports = {
 
     const rows = [];
     for (const key of sortedKeys) {
-      const data = await db.get(key);
-      if (!data) continue;
-      const raw = data && typeof data === 'object' && 'ok' in data ? data.value : data;
+      const raw = kvGet(key);
       if (!raw) continue;
       try {
         const r = typeof raw === 'string' ? JSON.parse(raw) : raw;
