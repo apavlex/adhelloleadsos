@@ -10,7 +10,66 @@
       .replace(/\s+/g, ' ');
   }
 
-  function syncBulkUi() {
+  function mountBulkBar() {
+    const bar = document.getElementById('bulkActionBar');
+    if (bar && bar.parentElement !== document.body) {
+      document.body.appendChild(bar);
+    }
+    return bar;
+  }
+
+  function countCheckedRows(table) {
+    const tbody = table.querySelector('tbody');
+    if (!tbody) return 0;
+    return tbody.querySelectorAll('input.lead-checkbox:checked').length;
+  }
+
+  /** Show the floating bulk bar (folder + save) when rows are selected on search results. */
+  function syncBulkBar(table) {
+    const n = countCheckedRows(table);
+    const bar = mountBulkBar();
+    if (bar) {
+      const circle = document.getElementById('selectedCountCircle');
+      if (circle) circle.textContent = String(n);
+      const visible = n > 0;
+      bar.dataset.visible = visible ? 'true' : 'false';
+      bar.classList.toggle('bulk-action-bar--visible', visible);
+      bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      if (visible) {
+        bar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.add('opacity-100', 'translate-y-0');
+        bar.style.pointerEvents = 'auto';
+      } else {
+        bar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.remove('opacity-100', 'translate-y-0');
+        bar.style.pointerEvents = 'none';
+      }
+      const saveBtn = document.getElementById('bulkSaveBtn');
+      if (saveBtn) saveBtn.disabled = n === 0;
+    }
+
+    const headerBulk = document.getElementById('headerBulkActions');
+    const headerCount = document.getElementById('headerSelectedCount');
+    if (headerBulk) {
+      if (n > 0) {
+        headerBulk.classList.remove('hidden');
+        headerBulk.classList.add('flex');
+        if (headerCount) headerCount.textContent = String(n);
+      } else {
+        headerBulk.classList.add('hidden');
+        headerBulk.classList.remove('flex');
+      }
+    }
+
+    document.querySelectorAll('.js-bulk-enhance').forEach((btn) => {
+      btn.classList.toggle('ring-2', n > 0);
+      btn.classList.toggle('ring-brand-yellow/60', n > 0);
+    });
+  }
+
+  function syncBulkUi(table) {
+    const tbl = table || document.getElementById('searchResultsLeadsTable');
+    if (tbl) syncBulkBar(tbl);
     if (typeof window.__syncBulkSelectionFromDom === 'function') {
       window.__syncBulkSelectionFromDom();
     } else if (typeof window.__updateBulkActionBar === 'function') {
@@ -150,8 +209,10 @@
         cb.checked = checked;
       });
       syncHeaderFromRows();
-      syncBulkUi();
+      syncBulkUi(table);
     }
+
+    mountBulkBar();
 
     table.addEventListener('change', (e) => {
       const t = e.target;
@@ -164,7 +225,7 @@
       if (t.classList.contains('lead-checkbox')) {
         e.stopPropagation();
         syncHeaderFromRows();
-        syncBulkUi();
+        syncBulkUi(table);
       }
     });
 

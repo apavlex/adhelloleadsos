@@ -8331,11 +8331,11 @@ document.addEventListener('DOMContentLoaded', () => {
   /** All checked row boxes in the pipeline/results table (includes rows hidden by paging). */
   function syncSelectedKeysFromDom() {
     selectedKeys.clear();
-    const table = getActiveLeadsTable();
+    const searchTable = document.getElementById('searchResultsLeadsTable');
+    const table = searchTable || getActiveLeadsTable();
     const scope = table || document;
-    scope.querySelectorAll('.lead-checkbox:checked, .row-checkbox:checked').forEach((cb) => {
-      if (!cb.hasAttribute('data-key')) return;
-      const key = String(cb.getAttribute('data-key') ?? '').trim();
+    scope.querySelectorAll('tbody .lead-checkbox:checked, tbody .row-checkbox:checked').forEach((cb) => {
+      const key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
       if (key !== '') selectedKeys.add(key);
     });
   }
@@ -8368,30 +8368,34 @@ document.addEventListener('DOMContentLoaded', () => {
     syncBulkRowHighlights();
     const count = selectedKeys.size;
     const hasSelection = count > 0;
+
+    const bar = mountBulkActionBarToBody();
     
     // Update footer bar (common in leads.ejs and added to results.ejs)
-    if (selectedCountCircle) selectedCountCircle.textContent = count;
-    if (bulkActionBar) {
+    const countEl = selectedCountCircle || document.getElementById('selectedCountCircle');
+    if (countEl) countEl.textContent = count;
+    if (bar) {
       const visible = count > 0;
-      bulkActionBar.dataset.visible = visible ? 'true' : 'false';
-      bulkActionBar.classList.toggle('bulk-action-bar--visible', visible);
-      bulkActionBar.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      bar.dataset.visible = visible ? 'true' : 'false';
+      bar.classList.toggle('bulk-action-bar--visible', visible);
+      bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
       if (visible) {
-        bulkActionBar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
-        bulkActionBar.classList.add('opacity-100', 'translate-y-0');
-        bulkActionBar.style.pointerEvents = 'auto';
+        bar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.add('opacity-100', 'translate-y-0');
+        bar.style.pointerEvents = 'auto';
       } else {
-        bulkActionBar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
-        bulkActionBar.classList.remove('opacity-100', 'translate-y-0');
-        bulkActionBar.style.pointerEvents = 'none';
+        bar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.remove('opacity-100', 'translate-y-0');
+        bar.style.pointerEvents = 'none';
       }
     }
 
     if (bulkMoveFolderBtn) {
       bulkMoveFolderBtn.disabled = count === 0;
     }
-    if (bulkSaveBtn) {
-      bulkSaveBtn.disabled = count === 0;
+    const saveBtn = bulkSaveBtn || document.getElementById('bulkSaveBtn');
+    if (saveBtn) {
+      saveBtn.disabled = count === 0;
     }
     if (bulkVoicemailBtn) {
       bulkVoicemailBtn.disabled = count === 0;
