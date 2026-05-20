@@ -45,6 +45,7 @@ const focusRoutes = require('./routes/focus');
 const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
+const autonomousRoutes = require('./routes/autonomous');
 
 const app = express();
 const { DEFAULT_SEQUENCE_TEMPLATES } = require('./services/sequenceTemplates');
@@ -304,6 +305,9 @@ app.post('/enrich', async (req, res) => {
 // Public hosted website audit (signed token; no session — share on cold calls)
 app.use('/', sharePhoneAnalyticsRoutes);
 app.use('/', auditReportPublicRoutes);
+
+// Autonomous prospecting API (API key auth, no session required)
+app.use('/autonomous', autonomousRoutes);
 
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);
