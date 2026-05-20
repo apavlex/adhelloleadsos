@@ -111,6 +111,7 @@ app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(link
 // Global middleware for templates
 app.use((req, res, next) => {
   res.locals.user = req.user || null;
+  res.locals.hermesWebUiUrl = process.env.HERMES_WEBUI_URL || '';
   next();
 });
 
