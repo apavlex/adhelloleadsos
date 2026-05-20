@@ -415,7 +415,8 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
   let out = [];
   let lastPayload = null;
   let lastApiMsg = '';
-  const pageSize = Math.min(20, limit);
+  // Local Business Data API accepts limit 1–500 per request; avoid capping at 20 when user asks for more.
+  const pageSize = Math.min(500, limit);
   const paramAttempts = queryParamAttempts(integrationEnv);
 
   for (let attemptIdx = 0; attemptIdx < paramAttempts.length && out.length < limit; attemptIdx += 1) {

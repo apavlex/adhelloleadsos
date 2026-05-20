@@ -41,6 +41,105 @@ function resolvePrimary(integrationEnv) {
   return 'auto';
 }
 
+function maxResultsCap(params) {
+  return Math.min(500, Math.max(1, parseInt(params.maxResults, 10) || 20));
+}
+
+function leadDedupeKey(row) {
+  const pid = String(row.placeId || row.google_place_id || '').trim();
+  if (pid) return `pid:${pid}`;
+  return `t:${String(row.title || '').toLowerCase()}|p:${String(row.phone || '').replace(/\D/g, '')}`;
+}
+
+function mergeMapsLeadLists(primary, extra, maxTotal) {
+  const cap = Math.max(1, parseInt(maxTotal, 10) || 20);
+  const merged = [...(Array.isArray(primary) ? primary : [])];
+  const seen = new Set(merged.map(leadDedupeKey));
+  for (const row of Array.isArray(extra) ? extra : []) {
+    const k = leadDedupeKey(row);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    merged.push(row);
+    if (merged.length >= cap) break;
+  }
+  return merged.slice(0, cap);
+}
+
+async function runAutoMapsSearch(params, integrationEnv) {
+  const cap = maxResultsCap(params);
+  let accumulated = [];
+  let lastAutoError = null;
+
+  const providers = [
+    {
+      label: 'RapidAPI',
+      configured: () => rapidapi.isConfigured(integrationEnv),
+      search: (p) => rapidapi.searchGoogleMaps(p),
+    },
+    {
+      label: 'SearchAPI.io',
+      configured: () => searchapiConfigured(integrationEnv),
+      search: (p) => searchapi.searchGoogleMaps(p),
+    },
+    {
+      label: 'SerpAPI',
+      configured: () => serpapiConfigured(integrationEnv),
+      search: (p) => serpapi.searchGoogleMaps(p),
+    },
+    {
+      label: 'Outscraper',
+      configured: () => outscraper.isConfigured(integrationEnv),
+      search: (p) => outscraper.searchGoogleMaps(p),
+    },
+    {
+      label: 'Apify',
+      configured: () => apifyConfigured(integrationEnv),
+      search: (p) => apify.searchGoogleMaps(p),
+    },
+  ];
+
+  for (const prov of providers) {
+    if (accumulated.length >= cap) break;
+    if (!prov.configured()) continue;
+
+    try {
+      const need = cap - accumulated.length;
+      const rows = await prov.search({ ...params, maxResults: need });
+      if (!rows || !rows.length) {
+        console.warn(`[mapsSearch] ${prov.label} returned 0 places; trying next provider.`);
+        continue;
+      }
+      const before = accumulated.length;
+      accumulated = mergeMapsLeadLists(accumulated, rows, cap);
+      if (accumulated.length > before) {
+        console.log(
+          `[mapsSearch] ${prov.label} added ${accumulated.length - before} place(s); total ${accumulated.length}/${cap}.`
+        );
+      }
+      if (accumulated.length >= cap) break;
+    } catch (e) {
+      if (prov.label === 'RapidAPI') lastAutoError = e;
+      console.warn(`[mapsSearch] ${prov.label} failed, trying next:`, e.message);
+    }
+  }
+
+  if (accumulated.length > 0) {
+    if (accumulated.length < cap) {
+      console.log(
+        `[mapsSearch] Found ${accumulated.length} of ${cap} requested for "${params.keyword}" in ${params.city}, ${params.state} (no more listings from configured providers).`
+      );
+    }
+    return accumulated;
+  }
+
+  if (lastAutoError && lastAutoError.message) {
+    throw new Error(`Maps search failed (RapidAPI): ${lastAutoError.message}`);
+  }
+  throw new Error(
+    'No Maps search provider available: set RAPIDAPI_KEY, SEARCHAPI_API_KEY, SERPAPI_API_KEY, OUTSCRAPER_API_KEY, or APIFY_API_TOKEN.'
+  );
+}
+
 /**
  * @param {{ keyword: string, city: string, state: string, maxResults?: number, integrationEnv?: Record<string, string> }} params
  * @returns {Promise<object[]>} same shape as apify.searchGoogleMaps
@@ -84,77 +183,7 @@ async function searchGoogleMaps(params) {
     return outscraper.searchGoogleMaps(params);
   }
 
-  let lastAutoError = null;
-
-  if (rapidapi.isConfigured(integrationEnv)) {
-    try {
-      const rows = await rapidapi.searchGoogleMaps(params);
-      if (rows && rows.length > 0) {
-        return rows;
-      }
-      console.warn('[mapsSearch] RapidAPI returned 0 places; falling back.');
-    } catch (e) {
-      lastAutoError = e;
-      console.warn('[mapsSearch] RapidAPI failed, falling back:', e.message);
-    }
-  }
-
-  if (searchapiConfigured(integrationEnv)) {
-    try {
-      const rows = await searchapi.searchGoogleMaps(params);
-      if (rows && rows.length > 0) {
-        return rows;
-      }
-      console.warn('[mapsSearch] SearchAPI.io returned 0 places; falling back.');
-    } catch (e) {
-      console.warn('[mapsSearch] SearchAPI.io failed, falling back:', e.message);
-    }
-  }
-
-  if (serpapiConfigured(integrationEnv)) {
-    try {
-      const rows = await serpapi.searchGoogleMaps(params);
-      if (rows && rows.length > 0) {
-        return rows;
-      }
-      console.warn('[mapsSearch] SerpAPI returned 0 places; falling back.');
-    } catch (e) {
-      console.warn('[mapsSearch] SerpAPI failed, falling back:', e.message);
-    }
-  }
-
-  if (outscraper.isConfigured(integrationEnv)) {
-    try {
-      const rows = await outscraper.searchGoogleMaps(params);
-      if (rows && rows.length > 0) {
-        return rows;
-      }
-      console.warn('[mapsSearch] Outscraper returned 0 places; falling back to Apify.');
-    } catch (e) {
-      console.warn('[mapsSearch] Outscraper failed, falling back to Apify:', e.message);
-    }
-  }
-
-  if (!apifyConfigured(integrationEnv)) {
-    if (lastAutoError && lastAutoError.message) {
-      throw new Error(`Maps search failed (RapidAPI): ${lastAutoError.message}`);
-    }
-    throw new Error(
-      'No Maps search provider available: set RAPIDAPI_KEY, SEARCHAPI_API_KEY, SERPAPI_API_KEY, OUTSCRAPER_API_KEY, or APIFY_API_TOKEN.'
-    );
-  }
-
-  const apifyRows = await apify.searchGoogleMaps(params);
-  if (!apifyRows || apifyRows.length === 0) {
-    const hint =
-      lastAutoError && lastAutoError.message
-        ? lastAutoError.message
-        : 'All configured Maps providers returned 0 results.';
-    throw new Error(
-      `No businesses found for "${params.keyword}" in ${params.city}, ${params.state}. ${hint}`
-    );
-  }
-  return apifyRows;
+  return runAutoMapsSearch(params, integrationEnv);
 }
 
 module.exports = {

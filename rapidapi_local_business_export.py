@@ -254,7 +254,7 @@ def main() -> None:
 
     search_text = f"{args.query} in {args.city}".strip()
     max_results = args.max_results
-    page_size = min(20, max_results)
+    page_size = min(500, max_results)
 
     seen_place_ids = set()
     out_rows: List[Dict[str, Any]] = []

@@ -57,7 +57,7 @@
               <tr class="bg-gray-50/50 dark:bg-white/5 border-b border-brand-border dark:border-white/10">
                 <th class="pl-8 pr-4 py-5 w-10">
                   <div class="flex items-center">
-                    <input type="checkbox" id="selectAllLeads" class="w-4 h-4 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" title="Select all leads on this page" aria-label="Select all leads on this page" onclick="event.stopPropagation(); if (window.__applySelectAllLeads) { requestAnimationFrame(function () { window.__applySelectAllLeads(this); }.bind(this)); }">
+                    <input type="checkbox" data-select-all-leads class="w-4 h-4 rounded-md border-brand-border dark:border-slate-500 text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" title="Select all leads on this page" aria-label="Select all leads on this page">
                   </div>
                 </th>
                 <th class="px-6 py-5 text-[10px] font-bold uppercase tracking-widest text-brand-muted">Inbound Prospect</th>

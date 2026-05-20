@@ -8074,7 +8074,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Save a lead ---
   async function saveLead(row) {
-    const targetFolderKey = String(window.SEARCH_TARGET_FOLDER_KEY || '').trim();
+    const folderEl = document.getElementById('bulkFolderSelect');
+    const folderFromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    const targetFolderKey =
+      folderFromBar ||
+      (typeof window.SEARCH_TARGET_FOLDER_KEY === 'string'
+        ? window.SEARCH_TARGET_FOLDER_KEY.trim()
+        : '');
     const titleKey = normalizeLeadTitleKey(row.dataset.title);
     const leadData = {
       title: row.dataset.title,
@@ -8211,7 +8217,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return bar;
   }
-  const selectAllLeads = document.getElementById('selectAllLeads');
   const bulkActionBar = mountBulkActionBarToBody();
   const selectedCountCircle = document.getElementById('selectedCountCircle');
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
@@ -8230,18 +8235,27 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
 
-  /** Table that owns the visible #selectAllLeads header (search results, pipeline, inbound). */
+  /** Table that owns the visible select-all header (search results, pipeline, inbound). */
   function getActiveLeadsTable() {
     const searchTable = document.getElementById('searchResultsLeadsTable');
-    if (searchTable && searchTable.querySelector('#selectAllLeads')) {
-      return searchTable;
-    }
-    const header = document.getElementById('selectAllLeads');
+    if (searchTable) return searchTable;
+    const pipelineTable = document.getElementById('prospectLeadsTable');
+    if (pipelineTable) return pipelineTable;
+    const header = document.querySelector('table thead input[data-select-all-leads]');
     if (header) {
       const table = header.closest('table');
       if (table) return table;
     }
-    return document.getElementById('prospectLeadsTable') || searchTable || null;
+    return null;
+  }
+
+  function getSelectAllHeader() {
+    const table = getActiveLeadsTable();
+    if (table) {
+      const inTable = table.querySelector('thead input[data-select-all-leads]');
+      if (inTable) return inTable;
+    }
+    return document.querySelector('input[data-select-all-leads]');
   }
 
   function getVisibleResultRowsInTable(table) {
@@ -8284,15 +8298,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function applySelectAllFromHeader(headerEl) {
-    const header = headerEl || document.getElementById('selectAllLeads');
+  function applySelectAllFromHeader(headerEl, forceChecked) {
+    const header = headerEl || getSelectAllHeader();
     if (!header || bulkSelectSyncing) return;
-    setPageLeadSelection(!!header.checked);
+    const checked = forceChecked != null ? !!forceChecked : !!header.checked;
+    setPageLeadSelection(checked);
   }
   window.__applySelectAllLeads = applySelectAllFromHeader;
 
   function syncSelectAllLeadCheckbox() {
-    const header = document.getElementById('selectAllLeads');
+    const header = getSelectAllHeader();
     const boxes = getPageLeadCheckboxes();
     if (!header) return;
     if (!boxes.length) {
@@ -8542,7 +8557,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener(
     'click',
     (e) => {
-      if (e.target.matches('.lead-checkbox')) {
+      if (
+        e.target.matches('.lead-checkbox') ||
+        e.target.matches('input[data-select-all-leads]')
+      ) {
         e.stopPropagation();
       }
     },
@@ -8551,7 +8569,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('change', (e) => {
     const target = e.target;
-    if (target && target.id === 'selectAllLeads') {
+    if (target && target.matches && target.matches('input[data-select-all-leads]')) {
       applySelectAllFromHeader(target);
       return;
     }
@@ -8581,20 +8599,6 @@ document.addEventListener('DOMContentLoaded', () => {
     },
     true,
   );
-
-  if (selectAllLeads) {
-    selectAllLeads.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const header = e.currentTarget;
-      requestAnimationFrame(() => applySelectAllFromHeader(header));
-    });
-    selectAllLeads.addEventListener('change', (e) => {
-      applySelectAllFromHeader(e.currentTarget);
-    });
-    selectAllLeads.addEventListener('input', (e) => {
-      applySelectAllFromHeader(e.currentTarget);
-    });
-  }
 
   if (cancelSelectionBtn) {
     cancelSelectionBtn.addEventListener('click', () => {
@@ -8636,7 +8640,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      if (selectAllLeads) selectAllLeads.checked = false;
+      const selectAllHeader = getSelectAllHeader();
+      if (selectAllHeader) selectAllHeader.checked = false;
       updateBulkActionBar();
       if (typeof window.__pipelineTablePagingApply === 'function') {
         window.__pipelineTablePagingApply();
@@ -8690,7 +8695,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         selectedKeys.clear();
         document.querySelectorAll('.lead-checkbox').forEach((cb) => { cb.checked = false; });
-        if (selectAllLeads) selectAllLeads.checked = false;
+        const selectAllHeader = getSelectAllHeader();
+        if (selectAllHeader) selectAllHeader.checked = false;
         updateBulkActionBar();
       } catch (e) {
         console.error('Bulk move to folder failed:', e);
@@ -8783,73 +8789,66 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Bulk Save (to saved leads)
-  if (bulkSaveBtn) {
-    bulkSaveBtn.addEventListener('click', async () => {
-      const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
-      if (checkedBoxes.length === 0) return;
-      
-      const selectedRows = Array.from(checkedBoxes).map(cb => cb.closest('.result-row'));
+  async function bulkSaveSelectedLeads(triggerBtn) {
+    const table = getActiveLeadsTable();
+    const scope = table || document;
+    const checkedBoxes = scope.querySelectorAll(
+      'tbody .row-checkbox:checked, tbody .lead-checkbox:checked',
+    );
+    if (checkedBoxes.length === 0) return;
 
-      const originalText = bulkSaveBtn.textContent;
-      bulkSaveBtn.textContent = 'Saving...';
-      bulkSaveBtn.disabled = true;
+    const selectedRows = Array.from(checkedBoxes)
+      .map((cb) => cb.closest('.result-row'))
+      .filter(Boolean);
 
-      let savedCount = 0;
-
-      for (const row of selectedRows) {
-        if (isLeadTitleSaved(row.dataset.title)) continue;
-
-        const leadData = {
-          title: row.dataset.title,
-          phone: row.dataset.phone,
-          website: row.dataset.website,
-          email: row.dataset.email,
-          categoryName: row.dataset.category,
-          address: row.dataset.address,
-          city: row.dataset.city,
-          totalScore: parseFloat(row.dataset.rating),
-          reviewsCount: parseInt(row.dataset.reviews),
-          url: row.dataset.url,
-          facebook: row.dataset.facebook,
-          instagram: row.dataset.instagram,
-          twitter: row.dataset.twitter
-        };
-        const folderFromBar = bulkFolderSelect && bulkFolderSelect.value ? bulkFolderSelect.value : '';
-        const folderFromSearch =
-          typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '';
-        leadData.folderKey = folderFromBar || folderFromSearch;
-
-        try {
-          const res = await fetch('/leads/save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(leadData)
-          });
-          if (res.ok) {
-            const data = await res.json();
-            savedLeads.set(normalizeLeadTitleKey(row.dataset.title), data.key);
-            row.dataset.leadKey = data.key;
-            const bookmarkBtn = row.querySelector('.bookmark-btn');
-            if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
-            savedCount++;
-          }
-        } catch (err) {
-          console.error('Error saving lead:', err);
-        }
-      }
-
-      bulkSaveBtn.textContent = `Saved ${savedCount}`;
-      setTimeout(() => {
-        bulkSaveBtn.textContent = originalText;
-        bulkSaveBtn.disabled = false;
-        
-        // Optional: Uncheck all after saving
-        // if (selectAllLeads) selectAllLeads.checked = false;
-        // checkedBoxes.forEach(cb => cb.checked = false);
-        // updateBulkActionBar();
-      }, 2000);
+    const buttons = [triggerBtn, bulkSaveBtn, document.getElementById('headerBulkSaveBtn')].filter(Boolean);
+    const originalTexts = buttons.map((b) => b.textContent);
+    buttons.forEach((b) => {
+      b.disabled = true;
+      b.textContent = 'Saving...';
     });
+
+    let savedCount = 0;
+
+    for (const row of selectedRows) {
+      if (isLeadTitleSaved(row.dataset.title)) {
+        const bookmarkBtn = row.querySelector('.bookmark-btn');
+        if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
+        continue;
+      }
+      const ok = await saveLead(row);
+      if (ok) savedCount += 1;
+    }
+
+    const doneLabel = savedCount > 0 ? `Saved ${savedCount}` : 'No new saves';
+    buttons.forEach((b) => {
+      b.textContent = doneLabel;
+    });
+    updateBulkActionBar();
+    if (typeof window.showProspectToast === 'function' && savedCount > 0) {
+      window.showProspectToast(
+        `Saved ${savedCount} lead${savedCount === 1 ? '' : 's'} to your pipeline`,
+      );
+    }
+    setTimeout(() => {
+      buttons.forEach((b, i) => {
+        b.textContent = originalTexts[i] || 'Save';
+        b.disabled = selectedKeys.size === 0;
+      });
+    }, 2000);
+  }
+
+  if (bulkSaveBtn) {
+    bulkSaveBtn.addEventListener('click', () => bulkSaveSelectedLeads(bulkSaveBtn));
+  }
+  const headerBulkSaveBtn = document.getElementById('headerBulkSaveBtn');
+  if (headerBulkSaveBtn) {
+    headerBulkSaveBtn.addEventListener('click', () => bulkSaveSelectedLeads(headerBulkSaveBtn));
+  }
+
+  if (document.getElementById('searchResultsLeadsTable')) {
+    syncSelectAllLeadCheckbox();
+    updateBulkActionBar();
   }
 
   function getBulkEnhanceLayout(row) {
