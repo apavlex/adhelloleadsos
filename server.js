@@ -322,6 +322,14 @@ app.get('/audit', (req, res) => {
 const prospectingApiRoutes = require('./routes/prospectingApi');
 app.use('/api/prospecting', prospectingApiRoutes);
 
+// Prospect Research API + page
+const researchRoutes = require('./routes/research');
+app.use('/api/research', researchRoutes);
+app.get('/research', (req, res) => {
+  const apiKey = req.query.api_key || process.env.API_INGEST_KEY || '';
+  res.render('research', { title: 'Prospect Research | Agency OS', activePage: 'research', apiKey });
+});
+
 // Demo page renderer
 app.get('/demo/:type', (req, res) => {
   const demoType = req.params.type;

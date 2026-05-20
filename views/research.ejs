@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospect Research | Agency OS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1117; color: #e2e8f0; min-height: 100vh; }
+    .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px; }
+    h1 { font-size: 28px; margin-bottom: 8px; color: #fff; }
+    .subtitle { color: #94a3b8; margin-bottom: 32px; }
+    .card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+    .card h2 { font-size: 16px; margin-bottom: 16px; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    label { display: block; font-size: 13px; color: #94a3b8; margin-bottom: 6px; font-weight: 500; }
+    input, select { width: 100%; padding: 10px 14px; background: #0f1117; border: 1px solid #2d3148; border-radius: 8px; color: #e2e8f0; font-size: 14px; }
+    input:focus, select:focus { outline: none; border-color: #6366f1; }
+    .btn { display: inline-block; padding: 12px 24px; background: #6366f1; color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+    .btn:hover { background: #4f46e5; }
+    .btn:disabled { background: #374151; cursor: not-allowed; }
+    .btn-block { display: block; width: 100%; text-align: center; }
+
+    /* Score */
+    .score-row { display: flex; align-items: center; gap: 24px; margin-bottom: 20px; }
+    .score-badge { padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 14px; }
+    .score-badge.hot { background: #ef444420; color: #ef4444; border: 1px solid #ef4444; }
+    .score-badge.warm { background: #f59e0b20; color: #f59e0b; border: 1px solid #f59e0b; }
+    .score-badge.qualified { background: #0ea5e920; color: #0ea5e9; border: 1px solid #0ea5e9; }
+    .score-badge.cold { background: #64748b20; color: #64748b; border: 1px solid #64748b; }
+    .score-number { font-size: 36px; font-weight: 700; color: #fff; }
+
+    /* Signals */
+    .signal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .signal-item { padding: 10px 14px; background: #0f1117; border-radius: 8px; font-size: 13px; display: flex; align-items: center; gap: 8px; }
+    .signal-icon { font-size: 16px; }
+
+    /* Sections */
+    .biz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .biz-item { padding: 10px 14px; background: #0f1117; border-radius: 8px; }
+    .biz-item .label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+    .biz-item .value { font-size: 14px; color: #e2e8f0; }
+    .biz-item .value a { color: #6366f1; text-decoration: none; }
+
+    /* Outreach */
+    .outreach-section { background: #0f1117; border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+    .outreach-section h4 { font-size: 13px; color: #6366f1; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .outreach-subject { font-weight: 600; margin-bottom: 8px; color: #fff; }
+    .outreach-body { font-size: 13px; color: #94a3b8; white-space: pre-wrap; line-height: 1.6; }
+    .copy-btn { padding: 6px 12px; background: #2d3148; border: 1px solid #374151; border-radius: 6px; color: #94a3b8; cursor: pointer; font-size: 12px; margin-top: 8px; }
+    .copy-btn:hover { background: #374151; color: #e2e8f0; }
+
+    /* Web results */
+    .web-item { padding: 10px 14px; background: #0f1117; border-radius: 8px; margin-bottom: 8px; }
+    .web-item .title { font-size: 13px; font-weight: 600; color: #6366f1; margin-bottom: 4px; }
+    .web-item .snippet { font-size: 12px; color: #64748b; }
+
+    /* Loading & Error */
+    .loading { text-align: center; padding: 40px; }
+    .spinner { width: 40px; height: 40px; border: 3px solid #2d3148; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .error { background: #ef444420; border: 1px solid #ef4444; border-radius: 8px; padding: 16px; color: #ef4444; }
+    .hidden { display: none; }
+
+    @media print { .btn, .form-row { display: none; } .card { break-inside: avoid; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔬 Prospect Research</h1>
+    <p class="subtitle">Deep research on any business — Google data, website analysis, web search, buying signals, and personalized outreach.</p>
+
+    <!-- Search Form -->
+    <div class="card" id="searchCard">
+      <div class="form-row">
+        <div>
+          <label>Business Name *</label>
+          <input type="text" id="businessName" placeholder="e.g. Johnson Plumbing">
+        </div>
+        <div>
+          <label>Category</label>
+          <select id="category">
+            <option value="">Auto-detect</option>
+            <option value="plumber">Plumber</option>
+            <option value="HVAC contractor">HVAC</option>
+            <option value="landscaping">Landscaping</option>
+            <option value="house cleaning">House Cleaning</option>
+            <option value="roofing">Roofing</option>
+            <option value="electrician">Electrician</option>
+            <option value="tree service">Tree Service</option>
+            <option value="pressure washing">Pressure Washing</option>
+            <option value="junk removal">Junk Removal</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>City *</label>
+          <input type="text" id="city" placeholder="e.g. Vancouver">
+        </div>
+        <div>
+          <label>State *</label>
+          <input type="text" id="state" placeholder="e.g. WA" maxlength="2">
+        </div>
+      </div>
+      <button class="btn btn-block" id="researchBtn" onclick="runResearch()">🔬 Research This Business</button>
+    </div>
+
+    <!-- Loading -->
+    <div class="loading hidden" id="loading">
+      <div class="spinner"></div>
+      <p>Researching... This takes about 10-15 seconds.<br>Analyzing Google data, website, and web search results.</p>
+    </div>
+
+    <!-- Error -->
+    <div class="error hidden" id="error"></div>
+
+    <!-- Results -->
+    <div id="results" class="hidden">
+      <!-- Score -->
+      <div class="card">
+        <div class="score-row">
+          <div>
+            <div class="score-number" id="scoreNumber">0</div>
+            <div style="color: #64748b; font-size: 13px;">Buying Score</div>
+          </div>
+          <div class="score-badge" id="scoreBadge">❄️ COLD</div>
+        </div>
+        <p style="color: #94a3b8; font-size: 13px;" id="scoreExplanation"></p>
+      </div>
+
+      <!-- Business Info -->
+      <div class="card">
+        <h2>📋 Business Profile</h2>
+        <div class="biz-grid" id="bizGrid"></div>
+      </div>
+
+      <!-- Buying Signals -->
+      <div class="card">
+        <h2>🎯 Buying Signals & Opportunities</h2>
+        <div class="signal-grid" id="signalGrid"></div>
+      </div>
+
+      <!-- Website Analysis -->
+      <div class="card" id="websiteCard">
+        <h2>🌐 Website Analysis</h2>
+        <div id="websiteAnalysis"></div>
+      </div>
+
+      <!-- Web Search Results -->
+      <div class="card">
+        <h2>🔍 Web Intelligence</h2>
+        <div id="webResults"></div>
+      </div>
+
+      <!-- Competitors -->
+      <div class="card">
+        <h2>🏆 Competitor Snapshot</h2>
+        <div id="competitors"></div>
+      </div>
+
+      <!-- Outreach -->
+      <div class="card">
+        <h2>✉️ Personalized Outreach</h2>
+        <div id="outreach"></div>
+      </div>
+
+      <!-- Demo -->
+      <div class="card" style="text-align: center;">
+        <h2>🤖 AI Demo</h2>
+        <p style="color: #94a3b8; margin-bottom: 16px;">Share this personalized demo link with the prospect.</p>
+        <a id="demoLink" href="#" target="_blank" class="btn">Open Demo →</a>
+      </div>
+
+      <!-- Actions -->
+      <div class="card" style="text-align: center;">
+        <button class="btn" onclick="window.print()">📄 Print / Save PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = '<%= typeof apiKey !== "undefined" ? apiKey : "" %>';
+
+    async function runResearch() {
+      const businessName = document.getElementById('businessName').value.trim();
+      const city = document.getElementById('city').value.trim();
+      const state = document.getElementById('state').value.trim();
+      const category = document.getElementById('category').value.trim();
+
+      if (!businessName || !city || !state) {
+        showError('Please fill in Business Name, City, and State.');
+        return;
+      }
+
+      document.getElementById('searchCard').classList.add('hidden');
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('error').classList.add('hidden');
+      document.getElementById('results').classList.add('hidden');
+
+      try {
+        const res = await fetch('/api/research', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+          body: JSON.stringify({ businessName, city, state, category }),
+        });
+        const data = await res.json();
+        if (!data.success) throw new Error(data.error || 'Research failed');
+        renderResearch(data.research);
+      } catch (err) {
+        showError(err.message);
+        document.getElementById('searchCard').classList.remove('hidden');
+      } finally {
+        document.getElementById('loading').classList.add('hidden');
+      }
+    }
+
+    function renderResearch(r) {
+      document.getElementById('results').classList.remove('hidden');
+
+      // Score
+      document.getElementById('scoreNumber').textContent = r.buyingScore;
+      const badge = document.getElementById('scoreBadge');
+      badge.textContent = r.priority;
+      badge.className = 'score-badge ' + (r.priority.includes('HOT') ? 'hot' : r.priority.includes('WARM') ? 'warm' : r.priority.includes('QUALIFIED') ? 'qualified' : 'cold');
+      document.getElementById('scoreExplanation').textContent = `Based on ${r.signals.length} signals detected across Google data, website analysis, and web search.`;
+
+      // Business info
+      const biz = r.business;
+      document.getElementById('bizGrid').innerHTML = `
+        <div class="biz-item"><div class="label">Business</div><div class="value">${biz.title}</div></div>
+        <div class="biz-item"><div class="label">Phone</div><div class="value">${biz.phone || 'N/A'}</div></div>
+        <div class="biz-item"><div class="label">Website</div><div class="value">${biz.website && biz.website !== 'N/A' ? '<a href="' + biz.website + '" target="_blank">' + biz.website + '</a>' : 'N/A'}</div></div>
+        <div class="biz-item"><div class="label">Email</div><div class="value">${biz.email || 'N/A'}</div></div>
+        <div class="biz-item"><div class="label">Rating</div><div class="value">${biz.rating ? '⭐ ' + biz.rating + ' (' + biz.reviewsCount + ' reviews)' : 'No rating'}</div></div>
+        <div class="biz-item"><div class="label">Category</div><div class="value">${biz.categoryName || 'N/A'}</div></div>
+        <div class="biz-item"><div class="label">Location</div><div class="value">${biz.city}, ${biz.state}</div></div>
+        <div class="biz-item"><div class="label">Google Maps</div><div class="value">${biz.mapsUrl ? '<a href="' + biz.mapsUrl + '" target="_blank">View</a>' : 'N/A'}</div></div>`;
+
+      // Signals
+      const signalGrid = document.getElementById('signalGrid');
+      signalGrid.innerHTML = '';
+      for (const s of r.signals) {
+        const icon = s.category === 'buying_signal' ? '🚀' : s.category === 'opportunity' ? '⚡' : s.category === 'contact' ? '📧' : '✅';
+        signalGrid.innerHTML += `<div class="signal-item"><span class="signal-icon">${icon}</span><span>${s.label}: ${s.description}</span></div>`;
+      }
+
+      // Website
+      const websiteCard = document.getElementById('websiteCard');
+      if (r.website) {
+        websiteCard.classList.remove('hidden');
+        const w = r.website;
+        document.getElementById('websiteAnalysis').innerHTML = `
+          <div class="biz-grid">
+            <div class="biz-item"><div class="label">CMS</div><div class="value">${w.cms}</div></div>
+            <div class="biz-item"><div class="label">Modernity</div><div class="value">${w.modernityScore}/10 ${w.isOutdated ? '⚠️ Outdated' : '✅ Modern'}</div></div>
+            <div class="biz-item"><div class="label">Schema Markup</div><div class="value">${w.hasSchema ? '✅ Yes' : '❌ No'}</div></div>
+            <div class="biz-item"><div class="label">Chatbot</div><div class="value">${w.hasChatbot ? '✅ Yes' : '❌ No'}</div></div>
+            <div class="biz-item"><div class="label">Mobile Friendly</div><div class="value">${w.isMobileFriendly ? '✅ Yes' : '❌ No'}</div></div>
+            <div class="biz-item"><div class="label">AEO Score</div><div class="value">${w.aeoScore}/5</div></div>
+          </div>
+          ${w.auditSummary ? '<p style="margin-top: 12px; color: #94a3b8; font-size: 13px;">💡 ' + w.auditSummary + '</p>' : ''}`;
+      } else {
+        websiteCard.classList.add('hidden');
+      }
+
+      // Web results
+      const ws = r.webSearch;
+      document.getElementById('webResults').innerHTML = `
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div><strong>📰 News:</strong> ${ws.newsCount} found</div>
+          <div><strong>💼 Jobs:</strong> ${ws.jobPostingsCount} found</div>
+          <div><strong>📢 Press:</strong> ${ws.pressReleasesCount} found</div>
+          <div><strong>🔗 Social:</strong> ${ws.socialLinksFound} found</div>
+        </div>
+        ${ws.topNews.length > 0 ? '<div style="margin-top: 12px;"><strong>Top News:</strong>' + ws.topNews.map(n => '<div class="web-item"><div class="title"><a href="' + n.url + '" target="_blank" style="color:#6366f1;text-decoration:none;">' + n.title + '</a></div><div class="snippet">' + (n.snippet || '').slice(0, 100) + '</div></div>').join('') + '</div>' : ''}
+        ${ws.topJobPostings.length > 0 ? '<div style="margin-top: 12px;"><strong>Job Postings:</strong>' + ws.topJobPostings.map(j => '<div class="web-item"><div class="title"><a href="' + j.url + '" target="_blank" style="color:#6366f1;text-decoration:none;">' + j.title + '</a></div><div class="snippet">' + (j.snippet || '').slice(0, 100) + '</div></div>').join('') + '</div>' : ''}`;
+
+      // Competitors
+      const comps = document.getElementById('competitors');
+      comps.innerHTML = '';
+      if (r.competitors.length === 0) {
+        comps.innerHTML = '<p style="color: #64748b;">No competitors found.</p>';
+      } else {
+        for (const c of r.competitors) {
+          comps.innerHTML += `<div class="signal-item"><span>🏆</span><span><strong>${c.title}</strong> — ⭐ ${c.rating || 'N/A'} (${c.reviewsCount || 0} reviews) ${c.website ? '🌐' : ''}</span></div>`;
+        }
+      }
+
+      // Outreach
+      const out = r.outreach;
+      const outreachDiv = document.getElementById('outreach');
+      outreachDiv.innerHTML = '';
+
+      if (out.email) {
+        outreachDiv.innerHTML += `
+          <div class="outreach-section">
+            <h4>📧 Email</h4>
+            <div class="outreach-subject">Subject: ${out.email.subject}</div>
+            <div class="outreach-body">${out.email.body}</div>
+            <button class="copy-btn" onclick="copyToClipboard(this.previousElementSibling.textContent)">📋 Copy Email</button>
+          </div>`;
+      }
+
+      if (out.linkedin) {
+        outreachDiv.innerHTML += `
+          <div class="outreach-section">
+            <h4>💼 LinkedIn DM</h4>
+            <div class="outreach-body">${out.linkedin.short}</div>
+            <button class="copy-btn" onclick="copyToClipboard(this.previousElementSibling.textContent)">📋 Copy DM</button>
+          </div>`;
+      }
+
+      if (out.phone) {
+        outreachDiv.innerHTML += `
+          <div class="outreach-section">
+            <h4>📞 Phone Script</h4>
+            <div class="outreach-body"><strong>Opening:</strong> ${out.phone.opening}<br><br><strong>Value:</strong> ${out.phone.value}<br><br><strong>CTA:</strong> ${out.phone.cta}</div>
+          </div>`;
+      }
+
+      if (out.followUps) {
+        outreachDiv.innerHTML += `
+          <div class="outreach-section">
+            <h4>🔄 Follow-up Sequence</h4>
+            <p style="color: #64748b; font-size: 12px; margin-bottom: 8px;">Day 3, 7, 14 — send if no response</p>
+            ${Object.entries(out.followUps).map(([day, f]) => `
+              <div style="margin-bottom: 8px;">
+                <strong>${day}:</strong> ${f.subject}
+                <button class="copy-btn" onclick="copyToClipboard('Subject: ${f.subject}\\n\\n${f.body}')">📋 Copy</button>
+              </div>`).join('')}
+          </div>`;
+      }
+
+      // Demo link
+      document.getElementById('demoLink').href = r.demoUrl || '#';
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        alert('Copied to clipboard!');
+      });
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = '❌ ' + msg;
+      el.classList.remove('hidden');
+    }
+
+    document.addEventListener('keypress', (e) => { if (e.key === 'Enter') runResearch(); });
+  </script>
+</body>
+</html>
