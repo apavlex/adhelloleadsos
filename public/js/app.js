@@ -994,22 +994,32 @@ document.addEventListener('DOMContentLoaded', () => {
     typeof window !== 'undefined' && window.AdhelloSocialBrand ? window.AdhelloSocialBrand : null;
 
   // --- Track saved leads (title -> key mapping) ---
+  function normalizeLeadTitleKey(title) {
+    return String(title || '').trim().replace(/\s+/g, ' ');
+  }
+
   const savedLeads = new Map();
   if (window.INITIAL_SAVED_LEADS && Array.isArray(window.INITIAL_SAVED_LEADS)) {
     window.INITIAL_SAVED_LEADS.forEach(l => {
       if (l.title && l.key) {
-        savedLeads.set(l.title.trim(), l.key);
+        savedLeads.set(normalizeLeadTitleKey(l.title), l.key);
       }
     });
+  }
+
+  function isLeadTitleSaved(title) {
+    const key = normalizeLeadTitleKey(title);
+    return key !== '' && savedLeads.has(key);
   }
 
   // Sync bookmark icons in table on load
   const syncBookmarkIcons = () => {
       document.querySelectorAll('.result-row').forEach(row => {
           const title = row.dataset.title;
-          if (title && savedLeads.has(title.trim())) {
-              const key = savedLeads.get(title.trim());
-              row.dataset.leadKey = key;
+          if (title && isLeadTitleSaved(title)) {
+              const mapKey = normalizeLeadTitleKey(title);
+              const leadKey = savedLeads.get(mapKey);
+              row.dataset.leadKey = leadKey;
               const bookmarkBtn = row.querySelector('.bookmark-btn');
               if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
           }
@@ -2216,13 +2226,13 @@ document.addEventListener('DOMContentLoaded', () => {
       .then((res) => res.json())
       .then((savedList) => {
         savedList.forEach(({ key, title }) => {
-          savedLeads.set(title.trim(), key);
+          savedLeads.set(normalizeLeadTitleKey(title), key);
         });
         // Pre-fill bookmark icons for already-saved leads
         rows.forEach((row) => {
-          const title = (row.dataset.title || "").trim();
-          if (savedLeads.has(title)) {
-            row.dataset.leadKey = savedLeads.get(title);
+          const title = row.dataset.title;
+          if (isLeadTitleSaved(title)) {
+            row.dataset.leadKey = savedLeads.get(normalizeLeadTitleKey(title));
             const bookmarkBtn = row.querySelector('.bookmark-btn');
             if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
           }
@@ -2299,7 +2309,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isResultsPage) {
       const mobileSaveBtn = document.getElementById('mobilePanelSaveBtn');
       if (mobileSaveBtn) {
-        if (savedLeads.has(row.dataset.title)) {
+        if (isLeadTitleSaved(row.dataset.title)) {
           markPanelBtnSaved(mobileSaveBtn);
         } else {
           markPanelBtnUnsaved(mobileSaveBtn);
@@ -7951,8 +7961,7 @@ document.addEventListener('DOMContentLoaded', () => {
           btn.addEventListener('click', async () => {
               if (!currentRow) return;
 
-              const title = currentRow.dataset.title;
-              const isSaved = savedLeads.has(title);
+              const isSaved = isLeadTitleSaved(currentRow.dataset.title);
 
               if (isSaved) {
                   await unsaveLead(currentRow);
@@ -7984,9 +7993,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const title = row.dataset.title;
     if (!title) return;
-    
-    const isSaved = savedLeads.has(title.trim());
-    console.log(`[BOOKMARK] Action for: ${title} (Currently Saved: ${isSaved})`);
+
+    const titleKey = normalizeLeadTitleKey(title);
+    const isSaved = isLeadTitleSaved(title);
 
     if (isSaved) {
       await unsaveLead(row);
@@ -7998,7 +8007,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
     } else {
-      await saveLead(row);
+      markBookmarkSaved(bookmarkBtn);
+      const ok = await saveLead(row);
+      if (!ok) markBookmarkUnsaved(bookmarkBtn);
       // Sync panel button if this row is currently selected
       if (currentRow === row) {
         panelSaveButtons.forEach(id => {
@@ -8064,6 +8075,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Save a lead ---
   async function saveLead(row) {
     const targetFolderKey = String(window.SEARCH_TARGET_FOLDER_KEY || '').trim();
+    const titleKey = normalizeLeadTitleKey(row.dataset.title);
     const leadData = {
       title: row.dataset.title,
       phone: row.dataset.phone,
@@ -8089,21 +8101,32 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json();
 
-      if (data.success) {
-        savedLeads.set(leadData.title.trim(), data.key);
+      if (data.success && data.key) {
+        savedLeads.set(titleKey, data.key);
         row.dataset.leadKey = data.key;
         const bookmarkBtn = row.querySelector('.bookmark-btn');
         if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
+        if (typeof window.showProspectToast === 'function') {
+          window.showProspectToast('Lead saved');
+        }
+        return true;
+      }
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast((data && data.error) || 'Could not save lead', { variant: 'error' });
       }
     } catch (err) {
       console.error('Failed to save lead:', err);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(err.message || 'Could not save lead', { variant: 'error' });
+      }
     }
+    return false;
   }
 
   // --- Unsave a lead ---
   async function unsaveLead(row) {
-    const title = row.dataset.title.trim();
-    const leadKey = savedLeads.get(title);
+    const titleKey = normalizeLeadTitleKey(row.dataset.title);
+    const leadKey = savedLeads.get(titleKey) || row.dataset.leadKey;
     if (!leadKey) return;
 
     try {
@@ -8114,10 +8137,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       if (data.success) {
-        savedLeads.delete(title);
+        savedLeads.delete(titleKey);
         delete row.dataset.leadKey;
         const bookmarkBtn = row.querySelector('.bookmark-btn');
         if (bookmarkBtn) markBookmarkUnsaved(bookmarkBtn);
+        if (typeof window.showProspectToast === 'function') {
+          window.showProspectToast('Removed from saved leads');
+        }
       }
     } catch (err) {
       console.error('Failed to unsave lead:', err);
@@ -8126,15 +8152,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- UI helpers ---
   function markBookmarkSaved(btn) {
+    if (!btn) return;
+    btn.dataset.saved = '1';
     btn.classList.add('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow');
     btn.classList.remove('text-brand-muted', 'border-brand-border');
+    btn.setAttribute('title', 'Saved — click to remove');
     const svg = btn.querySelector('svg');
     if (svg) svg.setAttribute('fill', 'currentColor');
   }
 
   function markBookmarkUnsaved(btn) {
+    if (!btn) return;
+    delete btn.dataset.saved;
     btn.classList.remove('bg-brand-yellow', 'text-brand-dark', 'border-brand-yellow');
     btn.classList.add('text-brand-muted', 'border-brand-border');
+    btn.setAttribute('title', 'Save lead');
     const svg = btn.querySelector('svg');
     if (svg) svg.setAttribute('fill', 'none');
   }
@@ -8200,16 +8232,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Table that owns the visible #selectAllLeads header (search results, pipeline, inbound). */
   function getActiveLeadsTable() {
+    const searchTable = document.getElementById('searchResultsLeadsTable');
+    if (searchTable && searchTable.querySelector('#selectAllLeads')) {
+      return searchTable;
+    }
     const header = document.getElementById('selectAllLeads');
     if (header) {
       const table = header.closest('table');
       if (table) return table;
     }
-    return (
-      document.getElementById('prospectLeadsTable') ||
-      document.getElementById('searchResultsLeadsTable') ||
-      null
-    );
+    return document.getElementById('prospectLeadsTable') || searchTable || null;
   }
 
   function getVisibleResultRowsInTable(table) {
@@ -8229,19 +8261,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncBulkRowHighlights() {
-    const header = document.getElementById('selectAllLeads');
     const table = getActiveLeadsTable();
     const rows = getVisibleResultRowsInTable(table);
-    const allChecked =
-      !!header && header.checked && !header.indeterminate && rows.length > 0;
+    let checkedCount = 0;
 
     rows.forEach((row) => {
       const cb = row.querySelector('.lead-checkbox, .row-checkbox');
-      const on = allChecked || !!(cb && cb.checked);
+      const on = !!(cb && cb.checked);
+      if (on) checkedCount += 1;
       row.classList.toggle('bulk-selected', on);
       row.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 
+    const allChecked = rows.length > 0 && checkedCount === rows.length;
     const tbody =
       rows[0] && rows[0].closest ? rows[0].closest('tbody') : table ? table.querySelector('tbody') : null;
     if (tbody) {
@@ -8289,7 +8321,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function setPageLeadSelection(checked) {
     bulkSelectSyncing = true;
     try {
-      getPageLeadCheckboxes().forEach((cb) => {
+      const table = getActiveLeadsTable();
+      const boxes = table
+        ? Array.from(table.querySelectorAll('tbody .lead-checkbox, tbody .row-checkbox'))
+        : getPageLeadCheckboxes();
+      boxes.forEach((cb) => {
         cb.checked = checked;
         const key = cb.dataset.key;
         if (checked) {
@@ -8592,7 +8628,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = row.dataset.title ? row.dataset.title.trim() : '';
             if (row.classList.contains('selected') && closePanel) closePanel.click();
             row.remove();
-            if (title) savedLeads.delete(title);
+            if (title) savedLeads.delete(normalizeLeadTitleKey(title));
           }
           selectedKeys.delete(leadKey);
         } catch (err) {
@@ -8762,7 +8798,7 @@ document.addEventListener('DOMContentLoaded', () => {
       let savedCount = 0;
 
       for (const row of selectedRows) {
-        if (savedLeads.has(row.dataset.title)) continue;
+        if (isLeadTitleSaved(row.dataset.title)) continue;
 
         const leadData = {
           title: row.dataset.title,
@@ -8792,7 +8828,7 @@ document.addEventListener('DOMContentLoaded', () => {
           });
           if (res.ok) {
             const data = await res.json();
-            savedLeads.set(row.dataset.title.trim(), data.key);
+            savedLeads.set(normalizeLeadTitleKey(row.dataset.title), data.key);
             row.dataset.leadKey = data.key;
             const bookmarkBtn = row.querySelector('.bookmark-btn');
             if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);

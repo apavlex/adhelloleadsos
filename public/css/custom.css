@@ -741,6 +741,16 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   border-color: var(--brand-yellow);
 }
 
+.bookmark-btn[data-saved='1'] {
+  background-color: var(--brand-yellow) !important;
+  color: #111827 !important;
+  border-color: var(--brand-yellow) !important;
+}
+
+.bookmark-btn[data-saved='1'] svg {
+  fill: currentColor;
+}
+
 .prospect-leads-table tr.result-row.pipeline-row-page-hidden {
   display: none !important;
 }
