@@ -45,6 +45,7 @@ const focusRoutes = require('./routes/focus');
 const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
+const ceoRoutes = require('./routes/ceo');
 const autonomousRoutes = require('./routes/autonomous');
 const demoGenerator = require('./services/demoGenerator');
 
@@ -371,6 +372,7 @@ app.use('/activation', activationRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/resources', resourcesRoutes);
 app.use('/api/assistant', assistantRoutes);
+app.use('/ceo', ceoRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

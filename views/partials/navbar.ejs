@@ -49,6 +49,7 @@
       <a href="/scripts" class="nav-link text-sm <%= np === 'sales' ? 'active' : '' %>">Scripts</a>
       <a href="/tasks" class="nav-link text-sm <%= np === 'tasks' ? 'active' : '' %>">Tasks</a>
       <a href="/reports" class="nav-link text-sm <%= np === 'reports' ? 'active' : '' %>">Reports</a>
+      <a href="/ceo" class="nav-link text-sm <%= np === 'ceo' ? 'active' : '' %>">CEO</a>
       <a href="/resources" class="nav-link text-sm <%= np === 'resources' ? 'active' : '' %>">Resources</a>
       <% if (typeof hermesWebUiUrl !== 'undefined' && hermesWebUiUrl) { %>
       <a href="<%= hermesWebUiUrl %>" target="_blank" rel="noopener noreferrer" class="nav-link text-sm flex items-center gap-1.5">
@@ -179,6 +180,7 @@
           </summary>
           <div class="px-3 pb-3 flex flex-col gap-2">
             <a href="/reports" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'reports' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">Reports</a>
+            <a href="/ceo" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'ceo' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">CEO</a>
             <a href="/scripts" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'sales' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">Scripts</a>
             <a href="/resources" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'resources' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">Resources</a>
             <% if (typeof hermesWebUiUrl !== 'undefined' && hermesWebUiUrl) { %>
