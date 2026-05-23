@@ -25,42 +25,16 @@
       'shrink-0 w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden border border-slate-200/90 dark:border-white/20 bg-white dark:bg-slate-800 shadow-sm ring-2 ring-slate-200/80 dark:ring-white/10';
     span.setAttribute('aria-hidden', 'true');
     span.innerHTML =
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none" class="w-full h-full" role="img" aria-label="Sales coach">' +
-      '<defs>' +
-      '<linearGradient id="' +
-      gh +
-      '" x1="4" y1="4" x2="44" y2="30" gradientUnits="userSpaceOnUse">' +
-      '<stop stop-color="#c4a08f"/><stop offset="0.45" stop-color="#8f6652"/><stop offset="1" stop-color="#5c3f32"/>' +
-      '</linearGradient>' +
-      '<linearGradient id="' +
-      gs +
-      '" x1="16" y1="16" x2="32" y2="42" gradientUnits="userSpaceOnUse">' +
-      '<stop stop-color="#f0d0c4"/><stop offset="1" stop-color="#d4a08f"/>' +
-      '</linearGradient>' +
-      '</defs>' +
-      '<rect width="48" height="48" fill="#f8f1e8" rx="24" />' +
-      '<path fill="url(#' +
-      gh +
-      ')" d="M24 3C12 3 5 12 5 24c0 5 1.2 9.5 3.5 13 0.5-7 4.5-12 11.5-13.5 1.2 0.8 2.5 1.2 4 1.2s2.8-0.4 4-1.2c7 1.5 11 6.5 11.5 13.5 2.3-3.5 3.5-8 3.5-13C43 12 36 3 24 3z"/>' +
-      '<path fill="#4a3a32" d="M14 19c2.5-7 8.5-11 10-11s7.5 4 10 11c-2-4.5-6-7.5-10-7.5s-8 3-10 7.5z"/>' +
-      '<ellipse cx="24" cy="25" rx="9.5" ry="11" fill="url(#' +
-      gs +
-      ')"/>' +
-      '<path fill="url(#' +
-      gh +
-      ')" d="M11 24c0-8 5.5-14 13-14s13 6 13 14c0 2-0.5 4-1.5 5.5-1-6-5.5-10-11.5-10s-10.5 4-11.5 10c-1-1.5-1.5-3.5-1.5-5.5z"/>' +
-      '<ellipse cx="19.5" cy="23.5" rx="1.7" ry="2.1" fill="#3a2820"/>' +
-      '<ellipse cx="28.5" cy="23.5" rx="1.7" ry="2.1" fill="#3a2820"/>' +
-      '<circle cx="20.3" cy="22.6" r="0.6" fill="#fff" opacity="0.92"/>' +
-      '<circle cx="29.3" cy="22.6" r="0.6" fill="#fff" opacity="0.92"/>' +
-      '<path stroke="#6a4a3c" stroke-width="0.85" stroke-linecap="round" fill="none" d="M16.8 20.2q2.8-1.2 5.6 0M25.6 20.2q2.8-1.2 5.6 0" opacity="0.4"/>' +
-      '<path stroke="#b87868" stroke-width="0.9" stroke-linecap="round" fill="none" d="M24 26.2v2.8" opacity="0.5"/>' +
-      '<path stroke="#b06055" stroke-width="1.05" stroke-linecap="round" fill="none" d="M19.5 31.2q4.5 3 9 0"/>' +
-      '<ellipse cx="17.2" cy="27.5" rx="2.2" ry="1.3" fill="#e8a898" opacity="0.32"/>' +
-      '<ellipse cx="30.8" cy="27.5" rx="2.2" ry="1.3" fill="#e8a898" opacity="0.32"/>' +
-      '<path fill="url(#' +
-      gs +
-      ')" d="M17.5 35.5h13v4.5c0 1.8-2.2 3.5-6.5 3.5s-6.5-1.7-6.5-3.5v-4.5z"/>' +
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex">' +
+      '<circle cx="24" cy="24" r="22" fill="#FFD644"/>' +
+      '<circle cx="24" cy="24" r="20" fill="#FFC107"/>' +
+      '<ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/>' +
+      '<ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/>' +
+      '<circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/>' +
+      '<circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/>' +
+      '<path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/>' +
+      '<ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>' +
+      '<ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>' +
       '</svg>';
     return span;
   }
