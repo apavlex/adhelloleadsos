@@ -22,6 +22,19 @@ const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 /** @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>} */
 function providersInFallbackOrder() {
   const list = [];
+
+  // OpenRouter — same provider as the Hermes agent (primary)
+  const orKey = process.env.OPENROUTER_API_KEY;
+  if (orKey && String(orKey).trim()) {
+    list.push({
+      name: 'openrouter',
+      apiKey: orKey.trim(),
+      url: 'https://openrouter.ai/api/v1/chat/completions',
+      model: process.env.OPENROUTER_MODEL || 'openrouter/owl-alpha',
+    });
+  }
+
+  // KIE.ai
   const kieKey = process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY;
   if (kieKey && String(kieKey).trim()) {
     list.push({
@@ -32,6 +45,8 @@ function providersInFallbackOrder() {
       model: process.env.KIE_AI_MODEL || DEFAULT_KIE_MODEL,
     });
   }
+
+  // Gemini
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey && String(geminiKey).trim()) {
     list.push({
@@ -40,6 +55,8 @@ function providersInFallbackOrder() {
       model: (process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL).replace(/^models\//, ''),
     });
   }
+
+  // OpenAI
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey && String(openaiKey).trim()) {
     list.push({
@@ -49,6 +66,7 @@ function providersInFallbackOrder() {
       model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
     });
   }
+
   return list;
 }
 

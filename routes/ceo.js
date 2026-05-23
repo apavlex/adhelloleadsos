@@ -174,8 +174,29 @@ router.get('/', async (req, res) => {
 
 /**
  * POST /ceo/chat — AI chat endpoint for the CEO dashboard widget.
- * Uses the same LLM client as the rest of the app.
+ *
+ * Uses the SAME memory files and LLM provider as the Hermes agent
+ * so context is shared across Telegram, CEO dashboard, and any
+ * other channel. Reads /opt/data/memories/MEMORY.md and USER.md
+ * on every turn so the AI always has current context.
  */
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+const MEMORY_FILE = '/opt/data/memories/MEMORY.md';
+const USER_FILE = '/opt/data/memories/USER.md';
+
+function readMemoryFile(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    // Split on § delimiter used by Hermes memory format
+    return raw.split('§').map(s => s.trim()).filter(Boolean).join('\n');
+  } catch {
+    return '';
+  }
+}
+
 router.post('/chat', express.json(), async (req, res) => {
   try {
     const { message, history = [] } = req.body;
@@ -183,17 +204,43 @@ router.post('/chat', express.json(), async (req, res) => {
       return res.status(400).json({ error: 'Message is required.' });
     }
 
-    const systemPrompt = `You are OWL, the AI assistant for AdHello's CEO Command Center. You help Alex Pavlenko manage his agency ventures, leads, tasks, and operations. Be concise, direct, and actionable. You have access to the AdHello leads OS and can help with prospecting, pipeline management, content ideas, and business strategy. Keep responses under 300 words unless asked for detail.`;
+    // ── Build system prompt from live memory files ──
+    const memoryCtx = readMemoryFile(MEMORY_FILE);
+    const userCtx = readMemoryFile(USER_FILE);
+
+    const systemPrompt = `You are OWL, the AI Chief of Staff for Alex Pavlenko. You operate across all his ventures: AdHello.ai agency, personal brand, futures trading coach, coffee shop, and client consulting.
+
+You have the SAME memory and context as the Hermes agent on Telegram. When Alex talks to you here, it should feel identical to talking to you on Telegram — same knowledge, same tasks, same personality.
+
+USER PROFILE:
+${userCtx}
+
+MEMORY / CONTEXT:
+${memoryCtx}
+
+CURRENT SESSION:
+- Platform: CEO Command Center (web dashboard)
+- User: Alex Pavlenko (logged in)
+- Time: ${new Date().toISOString()}
+
+RULES:
+- Be extremely concise. One-word directions from Alex are normal.
+- Immediate action over analysis. Strategy → execute.
+- You can reference leads, tasks, pipeline data visible on the dashboard.
+- If Alex asks you to do something (create task, research, write content), DO it — don't just suggest.
+- Keep responses under 300 words unless asked for detail.
+- Same tone as Telegram: direct, pragmatic, no hand-holding.`;
 
     const messages = [{ role: 'system', content: systemPrompt }];
-    (history || []).forEach(m => {
+    // Keep last 10 exchanges for context
+    (history || []).slice(-10).forEach(m => {
       if (m.role && m.content) messages.push({ role: m.role, content: m.content });
     });
     messages.push({ role: 'user', content: String(message).trim() });
 
     const { content, error } = await chatCompletion({
       messages,
-      max_tokens: 800,
+      max_tokens: 1200,
       temperature: 0.7,
     });
 
