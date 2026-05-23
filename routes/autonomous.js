@@ -1,7 +1,7 @@
 /**
  * Autonomous Prospecting API
  * 
- * API-key-authenticated endpoints for OWL/Hermes to run prospecting
+ * API-key-authenticated endpoints for Pavlex/Hermes to run prospecting
  * without browser login. Trigger searches, save leads, export to Drive.
  *
  * Auth: x-api-key header or ?api_key= query param

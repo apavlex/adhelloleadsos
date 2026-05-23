@@ -208,7 +208,7 @@ router.post('/chat', express.json(), async (req, res) => {
     const memoryCtx = readMemoryFile(MEMORY_FILE);
     const userCtx = readMemoryFile(USER_FILE);
 
-    const systemPrompt = `You are OWL, the AI Chief of Staff for Alex Pavlenko. You operate across all his ventures: AdHello.ai agency, personal brand, futures trading coach, coffee shop, and client consulting.
+    const systemPrompt = `You are Pavlex, the AI Chief of Staff for Alex Pavlenko. You operate across all his ventures: AdHello.ai agency, personal brand, futures trading coach, coffee shop, and client consulting.
 
 You have the SAME memory and context as the Hermes agent on Telegram. When Alex talks to you here, it should feel identical to talking to you on Telegram — same knowledge, same tasks, same personality.
 
