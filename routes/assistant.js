@@ -3,6 +3,19 @@ const router = express.Router();
 const workspaceService = require('../services/workspaceService');
 const { chatCompletion } = require('../services/llmClient');
 const { buildAssistantContext } = require('../services/assistantSearch');
+const fs = require('fs');
+
+const MEMORY_FILE = '/opt/data/memories/MEMORY.md';
+const USER_FILE = '/opt/data/memories/USER.md';
+
+function readMemoryFile(filePath) {
+  try {
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return raw.split('§').map(s => s.trim()).filter(Boolean).join('\n');
+  } catch {
+    return '';
+  }
+}
 
 router.post('/chat', express.json({ limit: '120kb' }), async (req, res) => {
   try {
@@ -29,23 +42,41 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res) => {
       return res.status(400).json({ error: 'message is required' });
     }
 
+    // ── Build shared context: memory files + workspace data ──
+    const memoryCtx = readMemoryFile(MEMORY_FILE);
+    const userCtx = readMemoryFile(USER_FILE);
     const { contextText, citations } = await buildAssistantContext({
       workspaceId: wid,
       email,
       query: lastMsg,
     });
 
-    const systemContent = `You are a friendly sales coach inside Agency OS (lead & prospecting CRM). Your tone is warm, confident, and curious—not robotic.
+    const systemContent = `You are OWL, the AI Chief of Staff for Alex Pavlenko. You operate across all his ventures: AdHello.ai agency, personal brand, futures trading coach, coffee shop, and client consulting.
 
-WORKSPACE DATA (search-ranked; may omit some rows):
+You have the SAME memory and context as the Hermes agent on Telegram and the CEO Command Center chat. When Alex talks to you here, it should feel identical — same knowledge, same tasks, same personality.
+
+USER PROFILE:
+${userCtx}
+
+MEMORY / CONTEXT:
+${memoryCtx}
+
+CURRENT SESSION:
+- Platform: Agency OS floating chat (sales coach widget)
+- User: Alex Pavlenko (logged in)
+- Time: ${new Date().toISOString()}
+
+WORKSPACE DATA (leads, pipeline, resources):
 ${contextText}
 
-How to respond:
-- **Lead with the human**: especially for short or vague messages (e.g. "hey", "hi"), reply in 1–2 sentences as a coach, then ask ONE open-ended question about what they want to achieve (e.g. find new leads, review a prospect, prep outreach, check saved links, hit a revenue goal).
-- **Then** use the workspace data when it helps: name specific leads or resources when relevant. If the data is empty or thin, acknowledge it briefly but stay encouraging—suggest what they could do next (Prospecting, Find Leads, Resources) without sounding like an error message.
-- Keep replies concise unless they ask for depth. Often end with a follow-up question to keep the conversation moving.
-- **Formatting**: do not use markdown. No asterisks for bold. No backticks. Plain sentences only. When naming app areas, use normal words (e.g. Prospecting, Resources).
-- Never invent emails, URLs, or pipeline details not shown in the data above.`;
+RULES:
+- Be extremely concise. One-word directions from Alex are normal.
+- Immediate action over analysis. Strategy → execute.
+- You can see the user's leads, pipeline, and resources above. Reference them naturally.
+- If Alex asks you to do something (create task, research, write content), DO it — don't suggest.
+- Keep responses under 300 words unless asked for detail.
+- Same tone as Telegram: direct, pragmatic, no hand-holding.
+- Plain text only. No markdown asterisks or backticks. Normal sentences.`;
 
     const messages = [{ role: 'system', content: systemContent }];
     for (const m of history) {
@@ -59,21 +90,18 @@ How to respond:
       temperature: 0.52,
     });
 
-    const COACH_FALLBACK =
-      "Hi—I'm here as your sales coach. What would you like to tackle today: finding leads, digging into someone in your pipeline, or something else? (AI replies need KIE_AI_API_KEY or KIE_API_KEY, GEMINI_API_KEY, or OPENAI_API_KEY on the server.)";
-
     let reply = '';
     if (llm.content && !llm.error) {
       reply = String(llm.content).replace(/\0/g, '').trim();
     }
     if (!reply) {
-      reply = COACH_FALLBACK;
+      reply = "I'm here. What do you want to work on?";
     }
 
     const citationsOut = citations.slice(0, 12);
 
     res.json({
-      reply: reply || COACH_FALLBACK,
+      reply: reply,
       citations: citationsOut,
       provider: llm.provider || 'none',
       llmDegraded: !llm.content || llm.error,

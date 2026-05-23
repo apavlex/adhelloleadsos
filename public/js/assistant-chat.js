@@ -183,8 +183,8 @@
     const textCol = document.createElement('div');
     textCol.className = 'min-w-0 pt-0.5';
     textCol.innerHTML =
-      '<p class="text-xs font-black uppercase tracking-wide text-brand-dark dark:text-white">Coach is thinking</p>' +
-      '<p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 leading-snug">Skimming your workspace and drafting a thoughtful reply…</p>';
+      '<p class="text-xs font-black uppercase tracking-wide text-brand-dark dark:text-white">OWL is thinking</p>' +
+      '<p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 leading-snug">Checking your workspace and crafting a reply…</p>';
 
     inner.appendChild(spinWrap);
     inner.appendChild(textCol);
