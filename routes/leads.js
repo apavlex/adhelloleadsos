@@ -2621,6 +2621,45 @@ router.post('/:key/ai-analysis', async (req, res) => {
   }
 });
 
+/** POST /leads/:key/ai-readiness — AI Readiness Assessment (inline score + CTA for full $1k report) */
+router.post('/:key/ai-readiness', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const aiReadiness = require('../services/aiReadinessAssessment');
+    const enrichmentData = {
+      hasSchemaMarkup: req.body && req.body.hasSchemaMarkup !== undefined ? req.body.hasSchemaMarkup : undefined,
+      hasChatbot: req.body && req.body.hasChatbot !== undefined ? req.body.hasChatbot : undefined,
+      hasClickToCall: req.body && req.body.hasClickToCall !== undefined ? req.body.hasClickToCall : undefined,
+      isOutdated: req.body && req.body.isOutdated !== undefined ? req.body.isOutdated : undefined,
+    };
+
+    const assessment = await aiReadiness.assessLead(lead, enrichmentData);
+    if (!assessment) {
+      return res.status(502).json({ success: false, error: 'AI assessment unavailable. Try again in a moment.' });
+    }
+
+    // Persist the score on the lead record
+    const patch = {
+      aiReadinessScore: assessment.overallScore,
+      aiReadinessGrade: assessment.grade,
+      aiReadinessAssessedAt: new Date().toISOString(),
+    };
+    await dbService.updateLead(fullKey, patch, req.workspaceId);
+
+    return res.json({ success: true, assessment });
+  } catch (err) {
+    console.error('[ai-readiness] error:', err);
+    return res.status(500).json({ success: false, error: err && err.message ? err.message : 'Assessment failed' });
+  }
+});
+
 /** POST /leads/:key/pagespeed-audit — on-demand Lighthouse via Google PageSpeed Insights API */
 router.post('/:key/pagespeed-audit', async (req, res) => {
   try {

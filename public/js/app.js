@@ -7563,7 +7563,92 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#sidebarIncludeCoupon') || e.target.closest('label[for="sidebarIncludeCoupon"]')) {
       syncSidebarOutreachButtons(currentRow || null);
     }
+
+    // --- AI Readiness Assessment ---
+    if (e.target.closest('#aiReadinessRunBtn')) {
+      e.preventDefault();
+      handleAiReadinessClick();
+      return;
+    }
   });
+
+  // --- AI Readiness Assessment handler ---
+  async function handleAiReadinessClick() {
+    if (!currentRow || !currentRow.dataset.leadKey) {
+      window.showAppToast('Select a lead first.', { variant: 'warning' });
+      return;
+    }
+    const key = String(currentRow.dataset.leadKey).trim();
+    const btn = document.getElementById('aiReadinessRunBtn');
+    const btnLabel = document.getElementById('aiReadinessBtnLabel');
+    const progressWrap = document.getElementById('aiReadinessProgressWrap');
+    const statusText = document.getElementById('aiReadinessStatusText');
+    const statusDetail = document.getElementById('aiReadinessStatusDetail');
+    const resultEl = document.getElementById('aiReadinessResult');
+    const errorEl = document.getElementById('aiReadinessError');
+
+    if (resultEl) resultEl.classList.add('hidden');
+    if (errorEl) errorEl.classList.add('hidden');
+    if (progressWrap) progressWrap.classList.remove('hidden');
+    if (btn) { btn.setAttribute('aria-busy', 'true'); btn.disabled = true; }
+    if (btnLabel) btnLabel.textContent = 'Assessing…';
+    if (statusText) statusText.textContent = 'Crunching data…';
+    if (statusDetail) statusDetail.textContent = 'Analyzing website, signals, and AI search readiness.';
+
+    try {
+      const enrichment = {
+        hasSchemaMarkup: currentRow.dataset.hasSchemaMarkup === 'true',
+        hasChatbot: currentRow.dataset.hasChatbot === 'true',
+        hasClickToCall: currentRow.dataset.hasClickToCall === 'true',
+        isOutdated: currentRow.dataset.isOutdated === 'true',
+      };
+      const resp = await window.httpJsonPost('/leads/' + encodeURIComponent(key) + '/ai-readiness', enrichment);
+      if (!resp.ok || !resp.body || !resp.body.success) {
+        throw new Error((resp.body && resp.body.error) || 'Assessment failed');
+      }
+      const a = resp.body.assessment;
+      if (!a) throw new Error('Empty assessment response');
+      renderAiReadinessResult(a, resultEl, statusText, statusDetail);
+    } catch (err) {
+      console.error('[ai-readiness] click error:', err);
+      if (progressWrap) progressWrap.classList.add('hidden');
+      if (errorEl) { errorEl.textContent = err.message || 'Something went wrong. Please try again.'; errorEl.classList.remove('hidden'); }
+    } finally {
+      if (btn) { btn.setAttribute('aria-busy', 'false'); btn.disabled = false; }
+      if (btnLabel) btnLabel.textContent = 'Run AI Readiness Assessment';
+    }
+  }
+
+  function renderAiReadinessResult(a, resultEl, statusText, statusDetail) {
+    if (!resultEl) return;
+    const score = a.overallScore || 0;
+    let scoreColor = 'text-rose-500';
+    if (score >= 85) scoreColor = 'text-emerald-500';
+    else if (score >= 70) scoreColor = 'text-sky-500';
+    else if (score >= 55) scoreColor = 'text-amber-500';
+
+    const catBars = (a.categories || []).map(function(cat) {
+      let barColor = 'bg-rose-500';
+      if (cat.score >= 85) barColor = 'bg-emerald-500';
+      else if (cat.score >= 70) barColor = 'bg-sky-500';
+      else if (cat.score >= 55) barColor = 'bg-amber-500';
+      const findingsHtml = (cat.findings || []).map(function(f) { return '<li class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed">' + f + '</li>'; }).join('');
+      return '<div class="mb-3"><div class="flex items-center justify-between mb-1"><span class="text-[10px] font-bold uppercase tracking-widest text-brand-dark dark:text-white">' + cat.name + '</span><span class="text-[11px] font-black">' + cat.score + '/100</span></div><div class="h-1.5 rounded-full bg-brand-border/40 dark:bg-white/10 overflow-hidden"><div class="h-full rounded-full ' + barColor + '" style="width:' + cat.score + '%"></div></div><ul class="mt-1.5 space-y-0.5 ml-0.5">' + findingsHtml + '</ul></div>';
+    }).join('');
+
+    const quickWinsHtml = (a.quickWins || []).map(function(w) { return '<li class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed">' + w + '</li>'; }).join('');
+    const bizTitle = (currentRow && currentRow.dataset) ? (currentRow.dataset.title || '') : '';
+    const mailtoSubject = encodeURIComponent('AI Readiness Blueprint — ' + bizTitle);
+    const mailtoBody = encodeURIComponent('Hi AdHello team, I would like to order the Full AI Readiness Blueprint for ' + bizTitle + '. The AI Readiness score was ' + a.overallScore + '/100 (Grade ' + a.grade + '). Please send me the details.');
+
+    resultEl.innerHTML = '<div class="mt-4 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900/60 p-4 space-y-3"><div class="flex items-center justify-between"><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">AI Readiness Score</p><p class="text-[28px] font-black leading-none ' + scoreColor + '">' + a.overallScore + '<span class="text-sm font-bold text-brand-muted dark:text-slate-500">/100</span></p></div><div class="text-right"><span class="inline-block px-3 py-1 rounded-full text-[14px] font-black ' + (score >= 70 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : score >= 55 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400') + '">' + a.grade + '</span></div></div><p class="text-[12px] font-semibold text-brand-dark dark:text-slate-200 leading-relaxed">' + a.headline + '</p><div class="space-y-1">' + catBars + '</div><div class="rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 px-3 py-2"><p class="text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-0.5">Top Risk</p><p class="text-[11px] font-semibold text-rose-700 dark:text-rose-300 leading-relaxed">' + a.topRisk + '</p></div><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Quick Wins</p><ul class="space-y-0.5">' + quickWinsHtml + '</ul></div><div class="rounded-xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/30 px-3 py-3 text-center"><p class="text-[12px] font-bold text-brand-dark dark:text-white mb-1">Get the Full AI Readiness Blueprint</p><p class="text-[10px] text-brand-muted dark:text-slate-400 mb-2 leading-relaxed">' + (a.fullAssessmentCTA || 'Comprehensive AI citation audit, structured data roadmap, content gap analysis, competitive benchmark, and a private strategy call.') + '</p><a href="mailto:hello@adhello.ai?subject=' + mailtoSubject + '&body=' + mailtoBody + '" class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-yellow text-brand-dark rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-brand-yellow/20"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>Order Full Assessment — $1,000</a></div></div>';
+
+    resultEl.classList.remove('hidden');
+    var pw = document.getElementById('aiReadinessProgressWrap');
+    if (pw) pw.classList.add('hidden');
+    if (statusText) statusText.textContent = 'Assessment complete';
+    if (statusDetail) statusDetail.textContent = 'Grade: ' + a.grade + ' · Generated just now';
+  }
 
   async function handlePageSpeedAuditClick(ev) {
     if (ev) {
