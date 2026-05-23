@@ -2,15 +2,17 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail } = require('../services/workspaceService');
+const { chatCompletion } = require('../services/llmClient');
 
 /**
  * GET /ceo — CEO Dashboard showing all ventures in one view.
  */
 router.get('/', async (req, res) => {
   try {
+    const email = userEmail(req);
     const leads = await dbService.getAllLeads(req.workspaceId);
     const visits = await dbService.getAllVisits();
-    const tasksAll = []; // getAllTasks not available yet
+    const tasks = await dbService.listUserTasks(req.workspaceId, email);
 
     // ── Agency Metrics ──────────────────────────────────────────────────────
     const totalLeads = leads.length;
@@ -22,7 +24,8 @@ router.get('/', async (req, res) => {
       const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
       return d.getTime() > weekAgo;
     }).length;
-    const openTasks = tasksAll.filter(t => !t.completed && t.status !== 'done').length;
+    const openTasks = tasks.filter(t => t.column !== 'done').length;
+    const doneTasks = tasks.filter(t => t.column === 'done').length;
 
     // Pipeline estimate: leads with a stage
     const pipelineLeads = leads.filter(l => l.stage || l.pipelineStage);
@@ -32,8 +35,7 @@ router.get('/', async (req, res) => {
       stages[st] = (stages[st] || 0) + 1;
     });
 
-    // Recurring revenue estimate
-    // Count leads with active status as potential clients
+    // Active clients
     const activeClients = leads.filter(l => {
       const st = (l.stage || l.pipelineStage || '').toLowerCase();
       return st === 'client' || st === 'won' || st === 'active' || st === 'closed_won';
@@ -42,8 +44,10 @@ router.get('/', async (req, res) => {
     // ── Daily Activity ──────────────────────────────────────────────────────
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const todayISO = today.toISOString();
-    const visitsToday = visits.filter(v => new Date(v.timestamp) >= today).length;
+    const visitsToday = visits.filter(v => {
+      const d = new Date(v.timestamp || v.created_at || 0);
+      return d >= today;
+    }).length;
     const leadsToday = leads.filter(l => {
       const d = new Date(l.created_at || l.createdAt || 0);
       return d >= today;
@@ -88,7 +92,7 @@ router.get('/', async (req, res) => {
       dailyVisits[d.toISOString().split('T')[0]] = 0;
     }
     visits.forEach(v => {
-      const key = new Date(v.timestamp).toISOString().split('T')[0];
+      const key = new Date(v.timestamp || v.created_at || 0).toISOString().split('T')[0];
       if (dailyVisits[key] !== undefined) dailyVisits[key]++;
     });
 
@@ -102,6 +106,20 @@ router.get('/', async (req, res) => {
       { name: 'Google Drive Sync', status: 'active' },
       { name: 'GHL Integration', status: 'pending' },
     ];
+
+    // ── Tasks by column for kanban ──────────────────────────────────────────
+    const taskColumns = [
+      { id: 'backlog', label: 'Backlog' },
+      { id: 'todo', label: 'To Do' },
+      { id: 'doing', label: 'Doing' },
+      { id: 'done', label: 'Done' },
+    ];
+    const tasksByColumn = {};
+    taskColumns.forEach(c => { tasksByColumn[c.id] = []; });
+    tasks.forEach(t => {
+      const col = tasksByColumn[t.column] ? t.column : 'todo';
+      tasksByColumn[col].push(t);
+    });
 
     res.render('ceo', {
       user: req.user,
@@ -117,6 +135,7 @@ router.get('/', async (req, res) => {
       conversionRate,
       leadsThisWeek,
       openTasks,
+      doneTasks,
       activeClients,
       pipelineLeads: pipelineLeads.length,
       stages: Object.entries(stages).sort((a, b) => b[1] - a[1]),
@@ -136,6 +155,11 @@ router.get('/', async (req, res) => {
       // Systems
       systems,
 
+      // Tasks
+      tasks,
+      taskColumns,
+      tasksByColumn,
+
       // External links
       adhelloUrl: 'https://adhello.ai',
       leadsUrl: 'https://adhelloleadsos.onrender.com',
@@ -145,6 +169,42 @@ router.get('/', async (req, res) => {
   } catch (err) {
     console.error('[CEO] Dashboard error:', err.message);
     res.status(500).send(err.message);
+  }
+});
+
+/**
+ * POST /ceo/chat — AI chat endpoint for the CEO dashboard widget.
+ * Uses the same LLM client as the rest of the app.
+ */
+router.post('/chat', express.json(), async (req, res) => {
+  try {
+    const { message, history = [] } = req.body;
+    if (!message || !String(message).trim()) {
+      return res.status(400).json({ error: 'Message is required.' });
+    }
+
+    const systemPrompt = `You are OWL, the AI assistant for AdHello's CEO Command Center. You help Alex Pavlenko manage his agency ventures, leads, tasks, and operations. Be concise, direct, and actionable. You have access to the AdHello leads OS and can help with prospecting, pipeline management, content ideas, and business strategy. Keep responses under 300 words unless asked for detail.`;
+
+    const messages = [{ role: 'system', content: systemPrompt }];
+    (history || []).forEach(m => {
+      if (m.role && m.content) messages.push({ role: m.role, content: m.content });
+    });
+    messages.push({ role: 'user', content: String(message).trim() });
+
+    const { content, error } = await chatCompletion({
+      messages,
+      max_tokens: 800,
+      temperature: 0.7,
+    });
+
+    if (error || !content) {
+      return res.status(502).json({ error: 'AI unavailable. Try again in a moment.' });
+    }
+
+    res.json({ success: true, reply: content });
+  } catch (err) {
+    console.error('[CEO CHAT] Error:', err.message);
+    res.status(500).json({ error: 'Chat failed.' });
   }
 });
 

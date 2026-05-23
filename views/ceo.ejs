@@ -35,31 +35,31 @@
     <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
       <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Active Clients</div>
       <div class="text-2xl font-black text-brand-dark"><%= activeClients %></div>
-      <div class="text-[10px] font-bold text-brand-muted">Estimated</div>
+      <div class="text-[10px] font-bold text-brand-muted"><%= pipelineLeads %> in pipeline</div>
     </div>
     <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Pipeline Leads</div>
-      <div class="text-2xl font-black text-brand-dark"><%= pipelineLeads %></div>
-      <div class="text-[10px] font-bold text-brand-muted">In pipeline</div>
-    </div>
-    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Traffic</div>
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Traffic (IPs)</div>
       <div class="text-2xl font-black text-brand-dark"><%= uniqueIPs %></div>
       <div class="text-[10px] font-bold text-brand-muted"><%= conversionRate %>% → lead</div>
     </div>
     <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
-      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Today</div>
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Visits Today</div>
       <div class="text-2xl font-black text-brand-dark"><%= visitsToday %></div>
       <div class="text-[10px] font-bold text-brand-muted"><%= leadsToday %> new leads</div>
     </div>
     <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
       <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Open Tasks</div>
       <div class="text-2xl font-black text-brand-dark"><%= openTasks %></div>
-      <div class="text-[10px] font-bold text-amber-600">Needs attention</div>
+      <div class="text-[10px] font-bold text-amber-600"><%= doneTasks %> done</div>
+    </div>
+    <div class="bg-white rounded-2xl p-4 border border-brand-border/40 shadow-sm hover:border-brand-yellow/50 transition-all">
+      <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Total Visits</div>
+      <div class="text-2xl font-black text-brand-dark"><%= totalVisits %></div>
+      <div class="text-[10px] font-bold text-brand-muted">All time</div>
     </div>
   </div>
 
-  <!-- Row 1: Pipeline + Chart -->
+  <!-- Row 1: Pipeline + Chart + Top Cities -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10">
 
     <!-- Pipeline Stages -->
@@ -68,28 +68,134 @@
       <div class="space-y-3">
         <% if (typeof stages !== 'undefined' && stages.length) { %>
           <% stages.forEach(function(s) { %>
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-brand-dark capitalize"><%= s[0].replace(/_/g, ' ') %></span>
-            <span class="text-lg font-black text-brand-dark"><%= s[1] %></span>
-          </div>
-          <div class="h-1.5 rounded-full bg-brand-border/20 overflow-hidden">
-            <div class="h-full rounded-full bg-brand-yellow" style="width: <%= (s[1] / pipelineLeads * 100).toFixed(0) %>%"></div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm font-bold text-brand-dark capitalize"><%= s[0].replace(/_/g, ' ') %></span>
+              <span class="text-lg font-black text-brand-dark"><%= s[1] %></span>
+            </div>
+            <div class="h-1.5 rounded-full bg-brand-border/20 overflow-hidden">
+              <div class="h-full rounded-full bg-brand-yellow" style="width: <%= pipelineLeads > 0 ? (s[1] / pipelineLeads * 100).toFixed(0) : 0 %>%"></div>
+            </div>
           </div>
           <% }); %>
         <% } else { %>
-          <div class="text-sm text-brand-muted italic py-8 text-center">No pipeline stages — start adding leads!</div>
+          <div class="text-sm text-brand-muted italic py-8 text-center">No pipeline data yet — start adding leads with stages!</div>
         <% } %>
       </div>
     </div>
 
     <!-- Traffic Trend -->
-    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm lg:col-span-2">
+    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
       <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">14-Day Traffic</h3>
       <div id="trafficSpark" class="h-40 w-full"></div>
     </div>
+
+    <!-- Top Cities -->
+    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
+      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">Top Markets</h3>
+      <div class="space-y-3">
+        <% if (typeof topCities !== 'undefined' && topCities.length) { %>
+          <% topCities.forEach(function(c) { %>
+          <div class="flex items-center justify-between p-2 rounded-xl hover:bg-brand-cream/30 transition-all">
+            <span class="text-sm font-bold text-brand-dark"><%= c.name %></span>
+            <span class="text-sm font-black text-brand-muted"><%= c.count %> leads</span>
+          </div>
+          <% }); %>
+        <% } else { %>
+          <p class="text-sm text-brand-muted italic py-8 text-center">No geo data yet — add leads with cities!</p>
+        <% } %>
+      </div>
+    </div>
   </div>
 
-  <!-- Row 2: Ventures + Recent Activity -->
+  <!-- Row 2: Kanban Board + Recent Leads -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+
+    <!-- Kanban Board -->
+    <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Task Board</h3>
+        <span class="text-[10px] font-bold text-brand-muted"><%= openTasks %> open · <%= doneTasks %> done</span>
+      </div>
+
+      <!-- Add task form -->
+      <form id="ceoTaskForm" class="mb-4 flex gap-2">
+        <input id="ceoTaskInput" type="text" placeholder="Add a task…" class="flex-1 rounded-xl border border-brand-border/40 bg-brand-cream/30 px-3 py-2 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+        <select id="ceoTaskCol" class="rounded-xl border border-brand-border/40 bg-white px-2 py-2 text-[10px] font-bold text-brand-dark">
+          <% taskColumns.forEach(function(c) { %>
+          <option value="<%= c.id %>"><%= c.label %></option>
+          <% }); %>
+        </select>
+        <button type="submit" class="bg-brand-dark text-brand-yellow px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">Add</button>
+      </form>
+
+      <!-- Kanban columns -->
+      <div class="flex gap-3 overflow-x-auto pb-2">
+        <% taskColumns.forEach(function(col) { %>
+        <div class="ceo-kanban-col w-[14rem] shrink-0 flex flex-col gap-2" data-column="<%= col.id %>">
+          <div class="flex items-center justify-between px-1">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-dark"><%= col.label %></span>
+            <span class="ceo-col-count px-2 py-0.5 rounded-full bg-brand-cream text-[10px] font-bold text-brand-muted"><%= (tasksByColumn[col.id] || []).length %></span>
+          </div>
+          <ul class="ceo-kanban-list min-h-[120px] flex flex-col gap-2 p-2 bg-brand-cream/20 rounded-xl border border-dashed border-brand-border/30">
+            <% (tasksByColumn[col.id] || []).forEach(function(t) { %>
+            <li class="ceo-task-card p-3 bg-white rounded-lg border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group" data-task-id="<%= t.id %>">
+              <p class="text-xs font-bold text-brand-dark leading-snug"><%= t.title %></p>
+              <div class="flex items-center justify-between mt-2">
+                <span class="text-[9px] font-bold text-brand-muted"><%= t.column %></span>
+                <button type="button" class="ceo-task-del text-[9px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button>
+              </div>
+            </li>
+            <% }); %>
+          </ul>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+
+    <!-- Recent Leads -->
+    <div class="space-y-4">
+      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Recent Leads</h3>
+      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
+        <div class="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+          <% if (typeof recentLeads !== 'undefined' && recentLeads.length) { %>
+            <% recentLeads.forEach(function(l) { %>
+            <div class="p-3 rounded-xl bg-brand-cream/40 border border-brand-border/20 hover:border-brand-yellow/30 transition-all">
+              <div class="flex items-center justify-between gap-2">
+                <span class="font-bold text-sm text-brand-dark truncate"><%= l.title %></span>
+                <span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/10 px-2 py-0.5 rounded-full capitalize"><%= (l.stage || 'new').replace(/_/g, ' ') %></span>
+              </div>
+              <div class="flex items-center gap-3 mt-1 text-[10px] text-brand-muted font-bold">
+                <% if (l.city) { %><span><%= l.city %></span><% } %>
+                <span><%= new Date(l.created).toLocaleDateString([], { month: 'short', day: 'numeric' }) %></span>
+              </div>
+            </div>
+            <% }); %>
+          <% } else { %>
+            <div class="py-10 text-center text-sm text-brand-muted italic">No leads yet. Import some to get started!</div>
+          <% } %>
+        </div>
+      </div>
+
+      <!-- System Status -->
+      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
+        <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">System Status</h3>
+        <div class="space-y-2">
+          <% (typeof systems !== 'undefined' ? systems : []).forEach(function(s) { %>
+          <div class="flex items-center justify-between">
+            <span class="text-sm font-bold text-brand-dark"><%= s.name %></span>
+            <span class="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest <%= s.status === 'live' || s.status === 'active' ? 'text-emerald-600' : s.status === 'pending' ? 'text-amber-500' : 'text-red-500' %>">
+              <span class="w-1.5 h-1.5 rounded-full <%= s.status === 'live' || s.status === 'active' ? 'bg-emerald-500' : s.status === 'pending' ? 'bg-amber-400' : 'bg-red-500' %>"></span>
+              <%= s.status %>
+            </span>
+          </div>
+          <% }); %>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Row 3: Ventures + AI Chat Widget -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
 
     <!-- Venture Cards -->
@@ -106,22 +212,10 @@
           <a href="<%= leadsUrl %>/reports" target="_blank" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Reports →</a>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Leads</div>
-            <div class="text-xl font-black text-brand-dark"><%= totalLeads %></div>
-          </div>
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Traffic</div>
-            <div class="text-xl font-black text-brand-dark"><%= totalVisits %></div>
-          </div>
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Conversion</div>
-            <div class="text-xl font-black text-brand-dark"><%= conversionRate %>%</div>
-          </div>
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Clients</div>
-            <div class="text-xl font-black text-brand-dark"><%= activeClients %></div>
-          </div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Leads</div><div class="text-xl font-black text-brand-dark"><%= totalLeads %></div></div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Traffic</div><div class="text-xl font-black text-brand-dark"><%= totalVisits %></div></div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Conversion</div><div class="text-xl font-black text-brand-dark"><%= conversionRate %>%</div></div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Clients</div><div class="text-xl font-black text-brand-dark"><%= activeClients %></div></div>
         </div>
         <div class="mt-4 flex items-center gap-2">
           <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
@@ -139,18 +233,9 @@
           <span class="text-[10px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 px-3 py-1 rounded-full">Setup needed</span>
         </div>
         <div class="grid grid-cols-3 gap-3 text-center">
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">X Followers</div>
-            <div class="text-lg font-black text-brand-dark">—</div>
-          </div>
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Posts</div>
-            <div class="text-lg font-black text-brand-dark">0</div>
-          </div>
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Impressions</div>
-            <div class="text-lg font-black text-brand-dark">—</div>
-          </div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">X Followers</div><div class="text-lg font-black text-brand-dark">—</div></div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Posts</div><div class="text-lg font-black text-brand-dark">0</div></div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Impressions</div><div class="text-lg font-black text-brand-dark">—</div></div>
         </div>
         <p class="mt-3 text-[10px] text-brand-muted italic">Connect your X developer account to populate this.</p>
       </div>
@@ -177,18 +262,9 @@
           <a href="https://www.pressocoffee.co" target="_blank" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Site →</a>
         </div>
         <div class="grid grid-cols-2 gap-3">
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Locations</div>
-            <div class="text-xl font-black text-brand-dark">3</div>
-          </div>
-          <div>
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">GBP Audit</div>
-            <div class="text-xl font-black text-brand-dark bg-amber-100 px-2 py-0.5 rounded inline-block text-amber-700">Pending</div>
-          </div>
-          <div class="col-span-2">
-            <div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Next Steps</div>
-            <div class="text-sm font-bold text-brand-dark mt-1">GBP optimization · Google Maps listing · Local SEO · Review system</div>
-          </div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Locations</div><div class="text-xl font-black text-brand-dark">3</div></div>
+          <div><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">GBP Audit</div><div class="text-xl font-black text-brand-dark bg-amber-100 px-2 py-0.5 rounded inline-block text-amber-700">Pending</div></div>
+          <div class="col-span-2"><div class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Next Steps</div><div class="text-sm font-bold text-brand-dark mt-1">GBP optimization · Google Maps listing · Local SEO · Review system</div></div>
         </div>
         <div class="mt-4 flex flex-wrap gap-1.5">
           <span class="text-[9px] font-black px-2 py-1 rounded-full bg-amber-100 text-amber-700">GBP Setup</span>
@@ -198,62 +274,41 @@
       </div>
     </div>
 
-    <!-- Right Column: Recent Activity + Systems -->
+    <!-- AI Chat Widget -->
     <div class="space-y-4">
-      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Recent Activity</h3>
-
-      <!-- Recent Leads -->
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-        <div class="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-          <% if (typeof recentLeads !== 'undefined' && recentLeads.length) { %>
-            <% recentLeads.forEach(function(l) { %>
-            <div class="p-3 rounded-xl bg-brand-cream/40 border border-brand-border/20 hover:border-brand-yellow/30 transition-all">
-              <div class="flex items-center justify-between gap-2">
-                <span class="font-bold text-sm text-brand-dark truncate"><%= l.title %></span>
-                <span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/10 px-2 py-0.5 rounded-full capitalize"><%= (l.stage || 'new').replace(/_/g, ' ') %></span>
-              </div>
-              <div class="flex items-center gap-3 mt-1 text-[10px] text-brand-muted font-bold">
-                <% if (l.city) { %><span><%= l.city %></span><% } %>
-                <span><%= new Date(l.created).toLocaleDateString([], { month: 'short', day: 'numeric' }) %></span>
-              </div>
-            </div>
-            <% }); %>
-          <% } else { %>
-            <div class="py-10 text-center text-sm text-brand-muted italic">No leads yet. Import some to get started!</div>
-          <% } %>
-        </div>
-      </div>
-
-      <!-- Top Cities -->
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-        <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">Top Markets</h3>
-        <div class="space-y-3">
-          <% if (typeof topCities !== 'undefined' && topCities.length) { %>
-            <% topCities.forEach(function(c) { %>
-            <div class="flex items-center justify-between p-2 rounded-xl hover:bg-brand-cream/30 transition-all">
-              <span class="text-sm font-bold text-brand-dark"><%= c.name %></span>
-              <span class="text-sm font-black text-brand-muted"><%= c.count %></span>
-            </div>
-            <% }); %>
-          <% } else { %>
-            <p class="text-sm text-brand-muted italic">No geo data yet.</p>
-          <% } %>
-        </div>
-      </div>
-
-      <!-- System Status -->
-      <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-        <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">System Status</h3>
-        <div class="space-y-2">
-          <% (typeof systems !== 'undefined' ? systems : []).forEach(function(s) { %>
-          <div class="flex items-center justify-between">
-            <span class="text-sm font-bold text-brand-dark"><%= s.name %></span>
-            <span class="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest <%= s.status === 'live' || s.status === 'active' ? 'text-emerald-600' : s.status === 'pending' ? 'text-amber-500' : 'text-red-500' %>">
-              <span class="w-1.5 h-1.5 rounded-full <%= s.status === 'live' || s.status === 'active' ? 'bg-emerald-500' : s.status === 'pending' ? 'bg-amber-400' : 'bg-red-500' %>"></span>
-              <%= s.status %>
-            </span>
+      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">AI Assistant</h3>
+      <div class="bg-white rounded-[2rem] border border-brand-border/40 shadow-sm flex flex-col h-[600px] overflow-hidden">
+        <!-- Chat header -->
+        <div class="px-6 py-4 border-b border-brand-border/20 flex items-center gap-3">
+          <div class="w-8 h-8 bg-brand-dark rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
           </div>
-          <% }); %>
+          <div>
+            <div class="text-sm font-black text-brand-dark">OWL · CEO Assistant</div>
+            <div class="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Online</div>
+          </div>
+        </div>
+
+        <!-- Chat messages -->
+        <div id="ceoChatMessages" class="flex-1 overflow-y-auto p-4 space-y-3">
+          <div class="flex gap-2">
+            <div class="w-6 h-6 bg-brand-dark rounded-md flex items-center justify-center shrink-0 mt-0.5">
+              <svg class="w-3 h-3 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            </div>
+            <div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark leading-relaxed">
+              Hey Alex! I'm your CEO assistant. Ask me about your leads, pipeline, tasks, or any business decisions. I can help with prospecting strategy, content ideas, and operations.
+            </div>
+          </div>
+        </div>
+
+        <!-- Chat input -->
+        <div class="px-4 py-3 border-t border-brand-border/20">
+          <form id="ceoChatForm" class="flex gap-2">
+            <input id="ceoChatInput" type="text" placeholder="Ask me anything…" class="flex-1 rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+            <button type="submit" class="bg-brand-dark text-brand-yellow px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">Send</button>
+          </form>
         </div>
       </div>
     </div>
@@ -275,12 +330,10 @@
         <div class="text-2xl mb-2">📈</div>
         <div class="text-xs font-black uppercase tracking-widest">Reports</div>
       </a>
-      <% if (hermesWebUiUrl) { %>
-      <a href="<%= hermesWebUiUrl %>" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="text-2xl mb-2">🤖</div>
-        <div class="text-xs font-black uppercase tracking-widest">AI Chat</div>
+      <a href="<%= leadsUrl %>/tasks" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
+        <div class="text-2xl mb-2">✅</div>
+        <div class="text-xs font-black uppercase tracking-widest">Full Tasks</div>
       </a>
-      <% } %>
     </div>
   </div>
 
@@ -290,50 +343,181 @@
 
 <!-- Chart Script -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+  // ── Traffic Chart ──
   const chartData = <%- JSON.stringify(chartData) %>;
   if (chartData && chartData.labels && chartData.labels.length) {
     const options = {
       series: [{ name: 'Visits', data: chartData.values }],
-      chart: {
-        type: 'area',
-        height: 160,
-        toolbar: { show: false },
-        sparkline: { enabled: true },
-        fontFamily: 'Inter, sans-serif',
-      },
+      chart: { type: 'area', height: 160, toolbar: { show: false }, sparkline: { enabled: true }, fontFamily: 'Inter, sans-serif' },
       dataLabels: { enabled: false },
-      stroke: {
-        curve: 'smooth',
-        width: 3,
-        colors: ['#FFD644'],
-      },
-      fill: {
-        type: 'gradient',
-        gradient: {
-          shadeIntensity: 1,
-          opacityFrom: 0.5,
-          opacityTo: 0.05,
-          stops: [0, 100],
-          colorStops: [
-            { offset: 0, color: '#FFD644', opacity: 0.4 },
-            { offset: 100, color: '#FFD644', opacity: 0 }
-          ]
-        }
-      },
+      stroke: { curve: 'smooth', width: 3, colors: ['#FFD644'] },
+      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.5, opacityTo: 0.05, stops: [0, 100], colorStops: [{ offset: 0, color: '#FFD644', opacity: 0.4 }, { offset: 100, color: '#FFD644', opacity: 0 }] } },
       markers: { size: 0 },
-      tooltip: {
-        theme: 'dark',
-        x: { show: true },
-        y: { formatter: v => v + ' visits' },
-      },
+      tooltip: { theme: 'dark', x: { show: true }, y: { formatter: v => v + ' visits' } },
       grid: { show: false },
       xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
       yaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
     };
     const chart = new ApexCharts(document.querySelector("#trafficSpark"), options);
     chart.render();
+  }
+
+  // ── Kanban Drag & Drop ──
+  if (typeof Sortable !== 'undefined') {
+    document.querySelectorAll('.ceo-kanban-list').forEach(function(ul) {
+      Sortable.create(ul, {
+        group: 'ceo-tasks',
+        animation: 150,
+        ghostClass: 'opacity-40',
+        onEnd: function(evt) {
+          var card = evt.item;
+          var taskId = card.getAttribute('data-task-id');
+          var toCol = evt.to.closest('.ceo-kanban-col');
+          if (!taskId || !toCol) return;
+          var newColumn = toCol.getAttribute('data-column');
+          // Update via API
+          fetch('/tasks/api/' + encodeURIComponent(taskId), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ column: newColumn }),
+          }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) {
+              // Update column counts
+              document.querySelectorAll('.ceo-kanban-col').forEach(function(col) {
+                var count = col.querySelectorAll('.ceo-task-card').length;
+                var badge = col.querySelector('.ceo-col-count');
+                if (badge) badge.textContent = count;
+              });
+            }
+          }).catch(function(e) { console.error('Task move failed:', e); });
+        }
+      });
+    });
+  }
+
+  // ── Add Task ──
+  var taskForm = document.getElementById('ceoTaskForm');
+  if (taskForm) {
+    taskForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var input = document.getElementById('ceoTaskInput');
+      var colSelect = document.getElementById('ceoTaskCol');
+      var title = (input.value || '').trim();
+      if (!title) return;
+      fetch('/tasks/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title, column: colSelect.value || 'todo' }),
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success && d.task) {
+          input.value = '';
+          // Add card to the right column
+          var col = document.querySelector('.ceo-kanban-col[data-column="' + d.task.column + '"] .ceo-kanban-list');
+          if (col) {
+            var li = document.createElement('li');
+            li.className = 'ceo-task-card p-3 bg-white rounded-lg border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group';
+            li.setAttribute('data-task-id', d.task.id);
+            li.innerHTML = '<p class="text-xs font-bold text-brand-dark leading-snug">' + escapeHtml(d.task.title) + '</p><div class="flex items-center justify-between mt-2"><span class="text-[9px] font-bold text-brand-muted">' + d.task.column + '</span><button type="button" class="ceo-task-del text-[9px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button></div>';
+            col.appendChild(li);
+            // Update count
+            var badge = col.closest('.ceo-kanban-col').querySelector('.ceo-col-count');
+            if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;
+            // Attach delete handler
+            attachDelHandler(li.querySelector('.ceo-task-del'));
+          }
+        }
+      }).catch(function(e) { console.error('Add task failed:', e); });
+    });
+  }
+
+  // ── Delete Task ──
+  function attachDelHandler(btn) {
+    btn.addEventListener('click', function() {
+      var card = btn.closest('.ceo-task-card');
+      var taskId = card.getAttribute('data-task-id');
+      if (!taskId) return;
+      fetch('/tasks/api/' + encodeURIComponent(taskId), { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.success) {
+            var col = card.closest('.ceo-kanban-col');
+            card.remove();
+            if (col) {
+              var badge = col.querySelector('.ceo-col-count');
+              if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;
+            }
+          }
+        }).catch(function(e) { console.error('Delete task failed:', e); });
+    });
+  }
+  document.querySelectorAll('.ceo-task-del').forEach(attachDelHandler);
+
+  // ── AI Chat ──
+  var chatForm = document.getElementById('ceoChatForm');
+  var chatInput = document.getElementById('ceoChatInput');
+  var chatMessages = document.getElementById('ceoChatMessages');
+  var chatHistory = [];
+
+  function addMessage(role, text) {
+    var div = document.createElement('div');
+    div.className = 'flex gap-2' + (role === 'user' ? ' flex-row-reverse' : '');
+    if (role === 'assistant') {
+      div.innerHTML = '<div class="w-6 h-6 bg-brand-dark rounded-md flex items-center justify-center shrink-0 mt-0.5"><svg class="w-3 h-3 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg></div><div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark leading-relaxed max-w-[85%]">' + escapeHtml(text) + '</div>';
+    } else {
+      div.innerHTML = '<div class="bg-brand-dark rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white leading-relaxed max-w-[85%]">' + escapeHtml(text) + '</div>';
+    }
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function addTyping() {
+    var div = document.createElement('div');
+    div.id = 'ceoTyping';
+    div.className = 'flex gap-2';
+    div.innerHTML = '<div class="w-6 h-6 bg-brand-dark rounded-md flex items-center justify-center shrink-0 mt-0.5"><svg class="w-3 h-3 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg></div><div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-muted"><span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce mr-0.5"></span><span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce mr-0.5" style="animation-delay:0.15s"></span><span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.3s"></span></div>';
+    chatMessages.appendChild(div);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  function removeTyping() {
+    var el = document.getElementById('ceoTyping');
+    if (el) el.remove();
+  }
+
+  if (chatForm) {
+    chatForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var msg = (chatInput.value || '').trim();
+      if (!msg) return;
+      addMessage('user', msg);
+      chatHistory.push({ role: 'user', content: msg });
+      chatInput.value = '';
+      addTyping();
+
+      fetch('/ceo/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) }),
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        removeTyping();
+        if (d.success && d.reply) {
+          addMessage('assistant', d.reply);
+          chatHistory.push({ role: 'assistant', content: d.reply });
+        } else {
+          addMessage('assistant', d.error || 'Something went wrong. Try again.');
+        }
+      }).catch(function(err) {
+        removeTyping();
+        addMessage('assistant', 'Connection error. Check your internet and try again.');
+      });
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 });
 </script>
