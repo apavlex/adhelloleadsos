@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: 'Presso Newsletter | AdHello' }) %>
+<body class="bg-brand-bg text-brand-dark overflow-x-hidden selection:bg-brand-yellow/30">
+
+<%- include('partials/navbar') %>
+
+<main class="max-w-5xl mx-auto px-4 sm:px-6 py-8 pt-24">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <div class="flex items-center gap-3 mb-1">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style="background:#3E2723">
+          <span class="text-lg">☕</span>
+        </div>
+        <h1 class="text-3xl font-black tracking-tight text-brand-dark uppercase">Presso Newsletter</h1>
+      </div>
+      <p class="text-sm font-semibold text-brand-muted ml-1">Weekly brew for 5K+ loyalty members • Camas, WA</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/ceo" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark transition-colors">← Back to CEO</a>
+    </div>
+  </div>
+
+  <!-- Generator Panel -->
+  <div class="bg-white rounded-[2rem] border border-brand-border/40 shadow-sm p-6 mb-8">
+    <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">Generate This Week's Draft</h3>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Week Of</label>
+        <input type="date" id="newsletterWeekOf" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark focus:outline-none focus:border-brand-yellow" />
+      </div>
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Sponsor Name (optional)</label>
+        <input type="text" id="newsletterSponsor" placeholder="e.g. Camas Bakery" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+      </div>
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Sponsor Offer</label>
+        <input type="text" id="newsletterSponsorOffer" placeholder="e.g. 20% off with code PRESSO" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+      </div>
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Weekly Promotion</label>
+        <input type="text" id="newsletterPromo" placeholder="e.g. Free pastry with any latte" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Founder's Note Topic (optional)</label>
+      <input type="text" id="newsletterFounderNote" placeholder="e.g. Summer patio expansion, new barista team member, community update" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+    </div>
+
+    <div class="mb-5">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Custom Instructions (optional)</label>
+      <textarea id="newsletterInstructions" rows="2" placeholder="e.g. Mention the Camas Farmers Market, highlight our new cold brew, keep it short this week" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow resize-none"></textarea>
+    </div>
+
+    <button id="btnGenerate" class="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-white transition-all" style="background:#3E2723" onclick="generateNewsletter()">
+      ☕ Generate Newsletter Draft
+    </button>
+
+    <!-- Generation status -->
+    <div id="genStatus" class="hidden mt-4 p-4 bg-brand-cream/40 rounded-xl border border-brand-border/20">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FFD93D"><span>😊</span></div>
+        <div>
+          <span id="genStatusLabel" class="text-sm font-bold text-brand-dark">Generating your newsletter...</span>
+          <div class="flex gap-1 mt-1">
+            <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce"></span>
+            <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.15s"></span>
+            <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.3s"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor Panel (hidden until generated) -->
+  <div id="editorPanel" class="hidden bg-white rounded-[2rem] border border-brand-border/40 shadow-sm p-6 mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Edit & Export</h3>
+      <div class="flex gap-2">
+        <button id="btnExportHTML" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-colors">
+          📧 Export HTML for GHL
+        </button>
+        <button id="btnCopyRaw" class="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-brand-dark text-brand-yellow hover:bg-black transition-colors">
+          📋 Copy Text
+        </button>
+      </div>
+    </div>
+
+    <!-- Subject -->
+    <div class="mb-4">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1">Subject Line</label>
+      <input type="text" id="newsletterSubject" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-bold text-brand-dark focus:outline-none focus:border-brand-yellow" />
+    </div>
+
+    <!-- Sections -->
+    <div id="sectionEditor" class="space-y-4"></div>
+
+    <!-- HTML preview (hidden, used for export) -->
+    <textarea id="exportHTML" class="hidden"></textarea>
+  </div>
+
+  <!-- Preview -->
+  <div id="previewPanel" class="hidden bg-white rounded-[2rem] border border-brand-border/40 shadow-sm p-6">
+    <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">Live Preview</h3>
+    <div id="previewContent" class="max-w-[600px] mx-auto"></div>
+  </div>
+
+</main>
+
+<%- include('partials/footer') %>
+
+<script>
+  var newsletterData = null;
+  var isGenerating = false;
+  var genLabels = ['Generating your newsletter...', 'Writing the intro...', 'Checking local events...', 'Crafting rewards section...', 'Polishing the draft...', 'Almost done!'];
+
+  function generateNewsletter() {
+    if (isGenerating) return;
+    isGenerating = true;
+
+    var btn = document.getElementById('btnGenerate');
+    btn.disabled = true;
+    btn.textContent = 'Generating...';
+    btn.style.opacity = '0.6';
+
+    var status = document.getElementById('genStatus');
+    status.classList.remove('hidden');
+
+    // Cycle status labels
+    var li = 0;
+    var labelInterval = setInterval(function() {
+      var el = document.getElementById('genStatusLabel');
+      if (!el) { clearInterval(labelInterval); return; }
+      li = (li + 1) % genLabels.length;
+      el.textContent = genLabels[li];
+    }, 3000);
+
+    var payload = {
+      weekOf: document.getElementById('newsletterWeekOf').value || null,
+      sponsorName: document.getElementById('newsletterSponsor').value.trim() || null,
+      sponsorOffer: document.getElementById('newsletterSponsorOffer').value.trim() || null,
+      promoText: document.getElementById('newsletterPromo').value.trim() || null,
+      founderNote: document.getElementById('newsletterFounderNote').value.trim() || null,
+      customInstructions: document.getElementById('newsletterInstructions').value.trim() || null,
+    };
+
+    fetch('/newsletter/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      clearInterval(labelInterval);
+      status.classList.add('hidden');
+      btn.disabled = false;
+      btn.textContent = '☕ Generate Newsletter Draft';
+      btn.style.opacity = '1';
+      isGenerating = false;
+
+      if (data.success && data.newsletter) {
+        newsletterData = data.newsletter;
+        renderEditor(data.newsletter);
+        renderPreview(data.newsletter);
+        document.getElementById('editorPanel').classList.remove('hidden');
+        document.getElementById('previewPanel').classList.remove('hidden');
+        document.getElementById('editorPanel').scrollIntoView({ behavior: 'smooth' });
+      } else {
+        alert('Failed to generate: ' + (data.error || 'Unknown error'));
+      }
+    })
+    .catch(function(err) {
+      clearInterval(labelInterval);
+      status.classList.add('hidden');
+      btn.disabled = false;
+      btn.textContent = '☕ Generate Newsletter Draft';
+      btn.style.opacity = '1';
+      isGenerating = false;
+      alert('Connection error: ' + err.message);
+    });
+  }
+
+  function renderEditor(newsletter) {
+    document.getElementById('newsletterSubject').value = newsletter.subject;
+
+    var editor = document.getElementById('sectionEditor');
+    editor.innerHTML = '';
+
+    (newsletter.sections || []).forEach(function(section, i) {
+      var div = document.createElement('div');
+      div.className = 'border border-brand-border/20 rounded-xl p-4 bg-brand-cream/20';
+      div.innerHTML =
+        '<div class="flex items-center justify-between mb-2">' +
+          '<label class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Section</label>' +
+          '<input type="text" class="section-title text-xs font-bold text-brand-dark bg-white rounded-lg border border-brand-border/30 px-3 py-1 w-2/3 focus:outline-none focus:border-brand-yellow" value="' + escapeAttr(section.title) + '" />' +
+        '</div>' +
+        '<textarea class="section-content w-full rounded-xl border border-brand-border/40 bg-white px-4 py-3 text-sm text-brand-dark leading-relaxed focus:outline-none focus:border-brand-yellow resize-y" rows="5" data-idx="' + i + '">' + escapeHtml(section.content) + '</textarea>';
+      editor.appendChild(div);
+    });
+
+    // Attach change handlers
+    editor.querySelectorAll('.section-content, .section-title').forEach(function(el) {
+      el.addEventListener('input', function() { syncFromEditor(); });
+    });
+  }
+
+  function syncFromEditor() {
+    if (!newsletterData) return;
+
+    var subject = document.getElementById('newsletterSubject').value;
+    newsletterData.subject = subject;
+
+    var sectionEls = document.getElementById('sectionEditor').querySelectorAll('.section-content');
+    sectionEls.forEach(function(el, i) {
+      if (newsletterData.sections[i]) {
+        newsletterData.sections[i].content = el.value;
+      }
+    });
+
+    var titleEls = document.getElementById('sectionEditor').querySelectorAll('.section-title');
+    titleEls.forEach(function(el, i) {
+      if (newsletterData.sections[i]) {
+        newsletterData.sections[i].title = el.value;
+      }
+    });
+
+    renderPreview(newsletterData);
+  }
+
+  function renderPreview(newsletter) {
+    var preview = document.getElementById('previewContent');
+
+    var sectionsHTML = (newsletter.sections || []).map(function(s) {
+      var content = s.content
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '<br><br>')
+        .replace(/\n/g, '<br>');
+      return '<div style="margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid #5D4037">' +
+        '<h3 style="font-family:Georgia,serif;font-size:18px;color:#3E2723;margin:0 0 8px 0;font-weight:bold">' + escapeHtml(s.title) + '</h3>' +
+        '<div style="font-family:Helvetica,Arial,sans-serif;font-size:14px;line-height:1.6;color:#333">' + content + '</div>' +
+        '</div>';
+    }).join('');
+
+    preview.innerHTML =
+      '<div style="background:#3E2723;padding:20px;text-align:center;border-radius:8px 8px 0 0">' +
+        '<div style="font-family:Georgia,serif;font-size:24px;color:#D7CCC8;margin:0;letter-spacing:1px">Presso Coffee Co.</div>' +
+        '<div style="font-family:Helvetica,sans-serif;font-size:11px;color:#A1887F;margin:6px 0 0">Downtown Camas, WA — Weekly Brew</div>' +
+      '</div>' +
+      '<div style="background:#4E342E;padding:12px 20px;border-radius:0 0 8px 8px">' +
+        '<div style="font-family:Helvetica,sans-serif;font-size:10px;color:#BCAAA4;text-transform:uppercase;letter-spacing:2px">' + new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) + '</div>' +
+        '<div style="font-family:Georgia,serif;font-size:18px;color:#fff;margin:4px 0 0;font-weight:bold">' + escapeHtml(newsletter.subject) + '</div>' +
+      '</div>' +
+      '<div style="background:#fff;padding:24px;border-radius:0 0 8px 8px;border:1px solid #e5e7eb">' +
+        sectionsHTML +
+      '</div>' +
+      '<div style="padding:16px;text-align:center;font-family:Helvetica,sans-serif;font-size:11px;color:#8D6E63">' +
+        'Presso Coffee Co. • Downtown Camas, WA<br>' +
+        'You\'re receiving this as a loyalty rewards member. Unsubscribe anytime.' +
+      '</div>';
+  }
+
+  // Export HTML
+  document.getElementById('btnExportHTML').addEventListener('click', function() {
+    if (!newsletterData) return;
+
+    fetch('/newsletter/export-html', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subject: newsletterData.subject,
+        sections: newsletterData.sections,
+        sponsorName: document.getElementById('newsletterSponsor').value.trim() || null,
+      }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.success && data.html) {
+        document.getElementById('exportHTML').value = data.html;
+        // Copy to clipboard
+        navigator.clipboard.writeText(data.html).then(function() {
+          alert('HTML copied to clipboard! Paste into GHL email builder.');
+        }).catch(function() {
+          // Fallback: show the HTML in a new window for manual copy
+          var w = window.open('', 'NewsletterHTML', 'width=700,height=600');
+          w.document.write('<pre>' + escapeHtml(data.html) + '</pre>');
+          w.document.close();
+        });
+      }
+    })
+    .catch(function(err) {
+      alert('Export failed: ' + err.message);
+    });
+  });
+
+  // Copy raw text
+  document.getElementById('btnCopyRaw').addEventListener('click', function() {
+    if (!newsletterData) return;
+
+    var text = newsletterData.subject + '\n\n';
+    (newsletterData.sections || []).forEach(function(s) {
+      text += s.title + '\n' + s.content + '\n\n';
+    });
+
+    navigator.clipboard.writeText(text).then(function() {
+      var btn = document.getElementById('btnCopyRaw');
+      var orig = btn.textContent;
+      btn.textContent = '✓ Copied!';
+      setTimeout(function() { btn.textContent = orig; }, 2000);
+    });
+  });
+
+  // Set default week to next Monday
+  (function() {
+    var d = new Date();
+    d.setDate(d.getDate() + ((1 + 7 - d.getDay()) % 7 || 7));
+    document.getElementById('newsletterWeekOf').value = d.toISOString().split('T')[0];
+  })();
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function escapeAttr(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+</script>
+
+</body>
+</html>
