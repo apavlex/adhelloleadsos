@@ -469,6 +469,26 @@ document.addEventListener('DOMContentLoaded', function() {
   var chatHistory = [];
   var chatBusy = false;
 
+  // Load persisted chat history on page load
+  function loadChatHistory() {
+    fetch('/ceo/chat/history?limit=50')
+      .then(function(r) { return r.json(); })
+      .then(function(d) {
+        if (d.success && d.messages && d.messages.length > 0) {
+          chatMessages.innerHTML = '';
+          chatHistory = [];
+          d.messages.forEach(function(m) {
+            if (m.role === 'user' || m.role === 'assistant') {
+              addMessage(m.role, m.content);
+              chatHistory.push({ role: m.role, content: m.content });
+            }
+          });
+        }
+      })
+      .catch(function(e) { console.error('Failed to load chat history:', e); });
+  }
+  loadChatHistory();
+
   // Minimal Markdown → HTML renderer
   function renderMd(text) {
     if (!text) return '';

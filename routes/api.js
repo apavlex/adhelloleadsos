@@ -678,4 +678,33 @@ router.all('/telephony/voice/twiml', async (req, res) => {
   }
 });
 
+// ── Chat History API (for cross-platform context) ──────────────────────────────
+
+// GET /api/chat/history — return CEO chat history (requires API key)
+router.get('/chat/history', validateApiKey, (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const history = dbService.getChatHistory('ceo', limit);
+    res.json({ success: true, messages: history });
+  } catch (err) {
+    console.error('[API CHAT HISTORY] Error:', err.message);
+    res.status(500).json({ error: 'Failed to load chat history.' });
+  }
+});
+
+// POST /api/chat/message — add a message from another platform (e.g. Telegram relay)
+router.post('/chat/message', validateApiKey, express.json(), (req, res) => {
+  try {
+    const { role, content, source } = req.body;
+    if (!role || !content) {
+      return res.status(400).json({ error: 'role and content are required.' });
+    }
+    const msg = dbService.saveChatMessage('ceo', role, content, source || 'api');
+    res.json({ success: true, message: msg });
+  } catch (err) {
+    console.error('[API CHAT MESSAGE] Error:', err.message);
+    res.status(500).json({ error: 'Failed to save message.' });
+  }
+});
+
 module.exports = router;

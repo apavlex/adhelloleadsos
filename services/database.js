@@ -24,6 +24,17 @@ sqlite.exec(`
   );
 
   CREATE INDEX IF NOT EXISTS idx_kv_key_prefix ON kv(key);
+
+  CREATE TABLE IF NOT EXISTS chat_messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL DEFAULT 'ceo',
+    role TEXT NOT NULL CHECK(role IN ('user','assistant','system')),
+    content TEXT NOT NULL,
+    source TEXT NOT NULL DEFAULT 'web',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_chat_session ON chat_messages(session_id, created_at);
 `);
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -1416,5 +1427,41 @@ module.exports = {
     }
     rows.sort((a, b) => Date.parse(b.viewed_at || 0) - Date.parse(a.viewed_at || 0));
     return rows;
+  },
+
+  // ── Chat Message Persistence ──────────────────────────────────────────────────
+
+  saveChatMessage(sessionId, role, content, source) {
+    const sid = sessionId || 'ceo';
+    const src = source || 'web';
+    const stmt = sqlite.prepare(
+      'INSERT INTO chat_messages (session_id, role, content, source) VALUES (?, ?, ?, ?)'
+    );
+    const result = stmt.run(sid, role, content, src);
+    return { id: result.lastInsertRowid, session_id: sid, role, content, source: src };
+  },
+
+  getChatHistory(sessionId, limit) {
+    const sid = sessionId || 'ceo';
+    const lim = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    const rows = sqlite
+      .prepare(
+        'SELECT id, role, content, source, created_at FROM chat_messages WHERE session_id = ? ORDER BY id DESC LIMIT ?'
+      )
+      .all(sid, lim);
+    return rows.reverse();
+  },
+
+  getRecentChatContext(sessionId, pairCount) {
+    const history = this.getChatHistory(sessionId, (pairCount || 10) * 2);
+    return history
+      .filter(m => m.role === 'user' || m.role === 'assistant')
+      .map(m => ({ role: m.role, content: m.content }));
+  },
+
+  deleteChatHistory(sessionId) {
+    const sid = sessionId || 'ceo';
+    sqlite.prepare('DELETE FROM chat_messages WHERE session_id = ?').run(sid);
+    return true;
   },
 };

@@ -232,10 +232,18 @@ RULES:
 - Same tone as Telegram: direct, pragmatic, no hand-holding.`;
 
     const messages = [{ role: 'system', content: systemPrompt }];
-    // Keep last 10 exchanges for context
+    
+    // ── Load persisted chat history from DB ──
+    const persistedHistory = dbService.getRecentChatContext('ceo', 10);
+    persistedHistory.forEach(m => {
+      if (m.role && m.content) messages.push({ role: m.role, content: m.content });
+    });
+    
+    // Also include any history sent from the browser (for current session continuity)
     (history || []).slice(-10).forEach(m => {
       if (m.role && m.content) messages.push({ role: m.role, content: m.content });
     });
+    
     messages.push({ role: 'user', content: String(message).trim() });
 
     const { content, error } = await chatCompletion({
@@ -248,10 +256,37 @@ RULES:
       return res.status(502).json({ error: 'AI unavailable. Try again in a moment.' });
     }
 
+    // ── Persist both user message and AI reply ──
+    dbService.saveChatMessage('ceo', 'user', String(message).trim(), 'web');
+    dbService.saveChatMessage('ceo', 'assistant', content, 'web');
+
     res.json({ success: true, reply: content });
   } catch (err) {
     console.error('[CEO CHAT] Error:', err.message);
     res.status(500).json({ error: 'Chat failed.' });
+  }
+});
+
+// GET /ceo/chat/history — return persisted chat messages for the dashboard
+router.get('/chat/history', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const history = dbService.getChatHistory('ceo', limit);
+    res.json({ success: true, messages: history });
+  } catch (err) {
+    console.error('[CEO CHAT HISTORY] Error:', err.message);
+    res.status(500).json({ error: 'Failed to load history.' });
+  }
+});
+
+// DELETE /ceo/chat/history — clear chat history
+router.delete('/chat/history', async (req, res) => {
+  try {
+    dbService.deleteChatHistory('ceo');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[CEO CHAT CLEAR] Error:', err.message);
+    res.status(500).json({ error: 'Failed to clear history.' });
   }
 });
 
