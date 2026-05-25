@@ -260,6 +260,24 @@ RULES:
     dbService.saveChatMessage('ceo', 'user', String(message).trim(), 'web');
     dbService.saveChatMessage('ceo', 'assistant', content, 'web');
 
+    // ── Forward to Telegram for cross-platform sync ──
+    try {
+      const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
+      const telegramChatId = process.env.TELEGRAM_CHAT_ID || '7325499142';
+      if (telegramToken) {
+        const telegramMsg = `💬 *AdHello CEO Chat*\n\n👤 You: ${String(message).trim().substring(0, 200)}\n\n😊 Pavlex: ${content.substring(0, 300)}${content.length > 300 ? '...' : ''}`;
+        fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: telegramChatId,
+            text: telegramMsg,
+            parse_mode: 'Markdown',
+          }),
+        }).catch(function() { /* silent fail */ });
+      }
+    } catch(e) { /* silent fail */ }
+
     res.json({ success: true, reply: content });
   } catch (err) {
     console.error('[CEO CHAT] Error:', err.message);

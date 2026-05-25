@@ -707,4 +707,21 @@ router.post('/chat/message', validateApiKey, express.json(), (req, res) => {
   }
 });
 
+// GET /api/chat/sync-status — check cross-platform sync health
+router.get('/chat/sync-status', validateApiKey, async (req, res) => {
+  try {
+    const history = dbService.getChatHistory('ceo', 5);
+    const lastMsg = history.length > 0 ? history[history.length - 1] : null;
+    res.json({
+      success: true,
+      totalMessages: history.length,
+      lastMessage: lastMsg,
+      telegramConfigured: !!process.env.TELEGRAM_BOT_TOKEN,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get sync status.' });
+  }
+});
+
 module.exports = router;
