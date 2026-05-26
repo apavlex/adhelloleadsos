@@ -256,12 +256,14 @@ async function chatCompletion({
   let last = { content: null, provider: chain[chain.length - 1].name, error: true };
 
   for (const prov of chain) {
+    const retries = (prov.name === 'openrouter-flash' && !process.env.OPENROUTER_MODEL) ? 2 : 1;
+    for (let attempt = 0; attempt < retries; attempt++) {
     try {
       if (prov.name === 'gemini') {
         const out = await runGemini(prov, { messages, jsonObject, max_tokens, temperature });
         last = out;
         if (out.content && !out.error) return out;
-        continue;
+        break; // gemini doesn't retry
       }
 
       const body = { ...baseBody, model: prov.model };
@@ -275,10 +277,14 @@ async function chatCompletion({
       const out = await runOpenAICompatible(prov, url, body);
       last = out;
       if (out.content && !out.error) return out;
+      if (attempt < retries - 1) {
+        console.warn(`[llmClient] ${prov.name} attempt ${attempt + 1} failed, retrying...`);
+      }
     } catch (e) {
-      console.warn(`[llmClient] ${prov.name} fetch error:`, e.message);
+      console.warn(`[llmClient] ${prov.name} attempt ${attempt + 1} error:`, e.message);
       last = { content: null, provider: prov.name, error: true };
     }
+    } // end retry loop
   }
 
   return last;
