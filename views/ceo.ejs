@@ -299,8 +299,21 @@
               <span class="text-xs">😊</span>
             </div>
             <div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark leading-relaxed">
-              Hey Alex! I'm your CEO assistant. Ask me about your leads, pipeline, tasks, or any business decisions. I can help with prospecting strategy, content ideas, and operations.
+              Hey Alex! I'm your CEO assistant. Ask me about your leads, pipeline, tasks, or any business decisions.
             </div>
+          </div>
+        </div>
+
+        <!-- Typing indicator (outside scrollable area, shown/hidden via JS) -->
+        <div id="ceoTypingInline" class="hidden px-4 py-2 border-t border-brand-border/10 bg-brand-cream/30">
+          <div class="flex items-center gap-2">
+            <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style="background:#FFD93D"><span class="text-[10px]">😊</span></div>
+            <div class="flex items-center gap-1.5">
+              <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce"></span>
+              <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.15s"></span>
+              <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.3s"></span>
+            </div>
+            <span class="text-[10px] font-bold text-brand-muted ml-1" id="ceoTypingStatus">Thinking…</span>
           </div>
         </div>
 
@@ -524,6 +537,8 @@ document.addEventListener('DOMContentLoaded', function() {
   var chatBubbleClose = document.getElementById('chatBubbleClose');
   var chatBubbleDot = document.getElementById('chatBubbleDot');
   var typingFloat = document.getElementById('ceoTypingFloat');
+  var typingInline = document.getElementById('ceoTypingInline');
+  var typingStatus = document.getElementById('ceoTypingStatus');
   var chatHistory = [];
   var chatBusy = false;
   var chatOpen = false;
@@ -588,10 +603,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (chatMessagesFloat) renderMsgTo(chatMessagesFloat, 'user', msg);
     chatHistory.push({ role: 'user', content: msg });
     if (typingFloat) typingFloat.classList.remove('hidden');
+    if (typingInline) typingInline.classList.remove('hidden');
+    if (typingStatus) typingStatus.textContent = 'Thinking…';
+    // Animate status text to show progress
+    var statusMsgs = ['Thinking…', 'Thinking….', 'Thinking…..', 'Thinking…...'];
+    var statusIdx = 0;
+    var statusInterval = setInterval(function() {
+      if (typingStatus) typingStatus.textContent = statusMsgs[statusIdx % statusMsgs.length];
+      statusIdx++;
+    }, 400);
     var timedOut = false;
     var timeoutId = setTimeout(function() {
       timedOut = true;
+      clearInterval(statusInterval);
       if (typingFloat) typingFloat.classList.add('hidden');
+      if (typingInline) typingInline.classList.add('hidden');
       var errMsg = '⏱ Request timed out. Try again in a moment.';
       if (chatMessages) renderMsgTo(chatMessages, 'assistant', errMsg);
       if (chatMessagesFloat) renderMsgTo(chatMessagesFloat, 'assistant', errMsg);
@@ -606,7 +632,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }).then(function(r) { return r.json(); }).then(function(d) {
       if (timedOut) return;
       clearTimeout(timeoutId);
+      clearInterval(statusInterval);
       if (typingFloat) typingFloat.classList.add('hidden');
+      if (typingInline) typingInline.classList.add('hidden');
       if (d.success && d.reply) {
         if (chatMessages) renderMsgTo(chatMessages, 'assistant', d.reply);
         if (chatMessagesFloat) renderMsgTo(chatMessagesFloat, 'assistant', d.reply);
@@ -623,7 +651,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }).catch(function() {
       if (timedOut) return;
       clearTimeout(timeoutId);
+      clearInterval(statusInterval);
       if (typingFloat) typingFloat.classList.add('hidden');
+      if (typingInline) typingInline.classList.add('hidden');
       var errMsg = 'Connection error. Check your internet and try again.';
       if (chatMessages) renderMsgTo(chatMessages, 'assistant', errMsg);
       if (chatMessagesFloat) renderMsgTo(chatMessagesFloat, 'assistant', errMsg);
