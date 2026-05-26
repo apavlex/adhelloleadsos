@@ -306,7 +306,7 @@
 
         <!-- Chat input -->
         <div class="px-4 py-3 border-t border-brand-border/20">
-          <form id="ceoChatForm" class="flex gap-2">
+          <form id="ceoChatForm" class="flex gap-2" method="POST" action="/ceo/chat" novalidate>
             <input id="ceoChatInput" type="text" placeholder="Ask me anything…" class="flex-1 rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
             <button type="submit" class="bg-brand-dark text-brand-yellow px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">Send</button>
           </form>
@@ -387,7 +387,7 @@
     </div>
   </div>
   <div class="px-3 py-2.5 border-t border-brand-border/20">
-    <form id="ceoChatFormFloat" class="flex gap-2">
+    <form id="ceoChatFormFloat" class="flex gap-2" method="POST" action="/ceo/chat" novalidate>
       <input id="ceoChatInputFloat" type="text" placeholder="Ask me anything…" class="flex-1 rounded-xl border border-brand-border/40 bg-brand-cream/30 px-3.5 py-2 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
       <button type="submit" class="bg-brand-dark text-brand-yellow px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">Send</button>
     </form>
