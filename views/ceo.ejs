@@ -283,9 +283,19 @@
       <div class="bg-white rounded-[2rem] border border-brand-border/40 shadow-sm flex flex-col h-[600px] overflow-hidden">
         <!-- Chat header -->
         <div class="px-6 py-4 border-b border-brand-border/20 flex items-center gap-3">
-          <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FFD93D">
-            <span class="text-base">😊</span>
-          </div>
+          <span class="shrink-0 w-10 h-10 rounded-full overflow-hidden border border-slate-200/90 bg-white shadow-sm ring-2 ring-slate-200/80" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex AI Assistant">
+              <circle cx="24" cy="24" r="22" fill="#FFD644"/>
+              <circle cx="24" cy="24" r="20" fill="#FFC107"/>
+              <ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+              <ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+              <circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+              <circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+              <path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+              <ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+              <ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+            </svg>
+          </span>
           <div>
             <div class="text-sm font-black text-brand-dark">Pavlex · CEO Assistant</div>
             <div class="text-[10px] font-bold text-emerald-600 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> Online</div>
@@ -295,9 +305,19 @@
         <!-- Chat messages -->
         <div id="ceoChatMessages" class="flex-1 overflow-y-auto p-4 space-y-3">
           <div class="flex gap-2">
-            <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" style="background:#FFD93D">
-              <span class="text-xs">😊</span>
-            </div>
+            <span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex">
+                <circle cx="24" cy="24" r="22" fill="#FFD644"/>
+                <circle cx="24" cy="24" r="20" fill="#FFC107"/>
+                <ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+                <ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+                <circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+                <circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+                <path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+                <ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+                <ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+              </svg>
+            </span>
             <div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark leading-relaxed">
               Hey Alex! I'm your CEO assistant. Ask me about your leads, pipeline, tasks, or any business decisions.
             </div>
@@ -307,7 +327,7 @@
         <!-- Typing indicator (outside scrollable area, shown/hidden via JS) -->
         <div id="ceoTypingInline" class="hidden px-4 py-2 border-t border-brand-border/10 bg-brand-cream/30">
           <div class="flex items-center gap-2">
-            <div class="w-5 h-5 rounded-md flex items-center justify-center shrink-0" style="background:#FFD93D"><span class="text-[10px]">😊</span></div>
+            <span class="shrink-0 w-5 h-5 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex"><circle cx="24" cy="24" r="22" fill="#FFD644"/><circle cx="24" cy="24" r="20" fill="#FFC107"/><ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/><ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/><circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/><circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/><path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/><ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/></svg></span>
             <div class="flex items-center gap-1.5">
               <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce"></span>
               <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.15s"></span>
@@ -374,7 +394,19 @@
 <div id="chatWindow" class="fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-[1.5rem] border border-brand-border/40 shadow-2xl shadow-brand-dark/20 flex flex-col hidden overflow-hidden" style="height: 520px;">
   <div class="px-5 py-3.5 border-b border-brand-border/20 flex items-center justify-between gap-3 bg-brand-dark rounded-t-[1.5rem]">
     <div class="flex items-center gap-2.5">
-      <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FFD93D"><span class="text-sm">😊</span></div>
+      <div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-2 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex">
+          <circle cx="24" cy="24" r="22" fill="#FFD644"/>
+          <circle cx="24" cy="24" r="20" fill="#FFC107"/>
+          <ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+          <ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+          <circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+          <circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+          <path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+          <ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+          <ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+        </svg>
+      </div>
       <div>
         <div class="text-sm font-black text-white leading-tight">Pavlex</div>
         <div class="text-[10px] font-bold text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> Online</div>
@@ -389,7 +421,7 @@
   <div id="ceoChatMessagesFloat" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
   <div id="ceoTypingFloat" class="px-4 pb-2 hidden">
     <div class="flex gap-2">
-      <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5" style="background:#FFD93D"><span class="text-xs">😊</span></div>
+      <span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex"><circle cx="24" cy="24" r="22" fill="#FFD644"/><circle cx="24" cy="24" r="20" fill="#FFC107"/><ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/><ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/><circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/><circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/><path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/><ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/></svg></span>
       <div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3">
         <div class="flex items-center gap-1.5">
           <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce"></span>
@@ -547,7 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var div = document.createElement('div');
     div.className = 'flex gap-2' + (role === 'user' ? ' flex-row-reverse' : '');
     if (role === 'assistant') {
-      div.innerHTML = '<div class="w-6 h-6 shrink-0 mt-0.5 rounded-md flex items-center justify-center" style="background:#FFD93D"><span class="text-xs">😊</span></div><div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark max-w-[85%]">' + renderMd(text) + '</div>';
+      div.innerHTML = '<span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex"><circle cx="24" cy="24" r="22" fill="#FFD644"/><circle cx="24" cy="24" r="20" fill="#FFC107"/><ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/><ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/><circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/><circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/><path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/><ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/></svg></span><div class="bg-brand-cream/60 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark max-w-[85%]">' + renderMd(text) + '</div>';
     } else {
       div.innerHTML = '<div class="bg-brand-dark rounded-2xl rounded-tr-sm px-4 py-3 text-sm text-white max-w-[85%]">' + renderMd(text) + '</div>';
     }
