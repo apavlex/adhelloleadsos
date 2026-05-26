@@ -108,14 +108,17 @@
     </div>
   </div>
 
-  <!-- Row 2: Kanban Board + Recent Leads -->
-  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+  <!-- Row 2: Kanban Board (full width) -->
+  <div class="mb-10">
 
     <!-- Kanban Board -->
     <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
       <div class="flex items-center justify-between mb-4">
         <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Task Board</h3>
-        <span class="text-[10px] font-bold text-brand-muted"><%= openTasks %> open · <%= doneTasks %> done</span>
+        <div class="flex items-center gap-3">
+          <span class="text-[10px] font-bold text-brand-muted"><%= openTasks %> open · <%= doneTasks %> done</span>
+          <a href="/ceo/tasks" class="text-[10px] font-black uppercase tracking-widest text-brand-dark bg-brand-cream hover:bg-brand-yellow/20 px-3 py-1.5 rounded-full transition-colors" title="Full-page task manager">⛶ Full Page</a>
+        </div>
       </div>
 
       <!-- Add task form -->
@@ -152,7 +155,10 @@
         <% }); %>
       </div>
     </div>
+  </div>
 
+  <!-- Row 2b: Recent Leads + System Status -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
     <!-- Recent Leads -->
     <div class="space-y-4">
       <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">Recent Leads</h3>
@@ -176,10 +182,12 @@
           <% } %>
         </div>
       </div>
+    </div>
 
-      <!-- System Status -->
+    <!-- System Status -->
+    <div class="space-y-4">
+      <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted">System Status</h3>
       <div class="bg-white/80 backdrop-blur rounded-[2rem] p-6 border border-brand-border/40 shadow-sm">
-        <h3 class="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">System Status</h3>
         <div class="space-y-2">
           <% (typeof systems !== 'undefined' ? systems : []).forEach(function(s) { %>
           <div class="flex items-center justify-between">

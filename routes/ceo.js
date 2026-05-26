@@ -308,4 +308,43 @@ router.delete('/chat/history', async (req, res) => {
   }
 });
 
+/**
+ * GET /ceo/tasks — Full-page task manager for the CEO dashboard.
+ */
+router.get('/tasks', async (req, res) => {
+  try {
+    const email = userEmail(req);
+    const tasks = await dbService.listUserTasks(req.workspaceId, email);
+
+    const taskColumns = [
+      { id: 'backlog', label: 'Backlog' },
+      { id: 'todo', label: 'To Do' },
+      { id: 'doing', label: 'Doing' },
+      { id: 'done', label: 'Done' },
+    ];
+    const tasksByColumn = {};
+    taskColumns.forEach(c => { tasksByColumn[c.id] = []; });
+    tasks.forEach(t => {
+      const col = tasksByColumn[t.column] ? t.column : 'todo';
+      tasksByColumn[col].push(t);
+    });
+
+    const openTasks = tasks.filter(t => t.column !== 'done').length;
+    const doneTasks = tasks.filter(t => t.column === 'done').length;
+
+    res.render('ceo-tasks', {
+      user: req.user,
+      activePage: 'ceo',
+      workspace: req.workspace || null,
+      taskColumns,
+      tasksByColumn,
+      openTasks,
+      doneTasks,
+    });
+  } catch (err) {
+    console.error('[CEO TASKS] Error:', err.message);
+    res.status(500).send(err.message);
+  }
+});
+
 module.exports = router;

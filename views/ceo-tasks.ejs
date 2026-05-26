@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<%- include('partials/head', { title: 'Task Manager | CEO Dashboard' }) %>
+<body class="bg-brand-bg text-brand-dark overflow-x-hidden selection:bg-brand-yellow/30">
+
+<%- include('partials/navbar') %>
+
+<main class="max-w-[1600px] mx-auto px-4 sm:px-6 py-8 pt-24">
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <div class="flex items-center gap-3 mb-1">
+        <a href="/ceo" class="w-10 h-10 bg-brand-dark rounded-xl flex items-center justify-center text-brand-yellow shadow-lg hover:bg-black transition-colors">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
+          </svg>
+        </a>
+        <h1 class="text-3xl font-black tracking-tight text-brand-dark uppercase">Task Manager</h1>
+      </div>
+      <p class="text-sm font-semibold text-brand-muted ml-1">All tasks across all ventures</p>
+    </div>
+    <div class="flex items-center gap-4">
+      <div class="flex items-center gap-3 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+        <span class="bg-brand-cream px-3 py-1.5 rounded-full"><%= openTasks %> open</span>
+        <span class="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-full"><%= doneTasks %> done</span>
+      </div>
+      <a href="/ceo" class="text-[10px] font-black uppercase tracking-widest text-brand-dark bg-brand-cream hover:bg-brand-yellow/20 px-4 py-2 rounded-full transition-colors">← Dashboard</a>
+    </div>
+  </div>
+
+  <!-- Add task form -->
+  <div class="bg-white rounded-[2rem] p-6 border border-brand-border/40 shadow-sm mb-8">
+    <form id="ceoTaskForm" class="flex gap-3">
+      <input id="ceoTaskInput" type="text" placeholder="Add a new task…" class="flex-1 rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-3 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+      <select id="ceoTaskCol" class="rounded-xl border border-brand-border/40 bg-white px-3 py-3 text-xs font-bold text-brand-dark">
+        <% taskColumns.forEach(function(c) { %>
+        <option value="<%= c.id %>"><%= c.label %></option>
+        <% }); %>
+      </select>
+      <button type="submit" class="bg-brand-dark text-brand-yellow px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-black transition-colors">Add Task</button>
+    </form>
+  </div>
+
+  <!-- Kanban Board -->
+  <div class="flex gap-4 overflow-x-auto pb-4">
+    <% taskColumns.forEach(function(col) { %>
+    <div class="ceo-kanban-col min-w-[280px] w-[280px] shrink-0 flex flex-col gap-3" data-column="<%= col.id %>">
+      <div class="flex items-center justify-between px-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full" style="background:<%= col.id === 'backlog' ? '#94a3b8' : col.id === 'todo' ? '#FFD644' : col.id === 'doing' ? '#3b82f6' : '#10b981' %>"></span>
+          <span class="text-xs font-black uppercase tracking-widest text-brand-dark"><%= col.label %></span>
+        </div>
+        <span class="ceo-col-count px-2.5 py-1 rounded-full bg-brand-cream text-[10px] font-bold text-brand-muted"><%= (tasksByColumn[col.id] || []).length %></span>
+      </div>
+      <ul class="ceo-kanban-list min-h-[200px] flex flex-col gap-3 p-3 bg-brand-cream/20 rounded-2xl border border-dashed border-brand-border/30">
+        <% (tasksByColumn[col.id] || []).forEach(function(t) { %>
+        <li class="ceo-task-card p-4 bg-white rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group hover:border-brand-yellow/40 transition-all" data-task-id="<%= t.id %>">
+          <p class="text-sm font-bold text-brand-dark leading-snug"><%= t.title %></p>
+          <div class="flex items-center justify-between mt-3">
+            <span class="text-[10px] font-bold text-brand-muted uppercase tracking-wider"><%= t.column %></span>
+            <button type="button" class="ceo-task-del text-[10px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button>
+          </div>
+        </li>
+        <% }); %>
+      </ul>
+    </div>
+    <% }); %>
+  </div>
+</main>
+
+<%- include('partials/footer') %>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // ── Kanban Drag & Drop ──
+  if (typeof Sortable !== 'undefined') {
+    document.querySelectorAll('.ceo-kanban-list').forEach(function(ul) {
+      Sortable.create(ul, {
+        group: 'ceo-tasks',
+        animation: 150,
+        ghostClass: 'opacity-40',
+        onEnd: function(evt) {
+          var card = evt.item;
+          var taskId = card.getAttribute('data-task-id');
+          var toCol = evt.to.closest('.ceo-kanban-col');
+          if (!taskId || !toCol) return;
+          var newColumn = toCol.getAttribute('data-column');
+          fetch('/tasks/api/' + encodeURIComponent(taskId), {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ column: newColumn }),
+          }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.success) {
+              document.querySelectorAll('.ceo-kanban-col').forEach(function(col) {
+                var count = col.querySelectorAll('.ceo-task-card').length;
+                var badge = col.querySelector('.ceo-col-count');
+                if (badge) badge.textContent = count;
+              });
+            }
+          }).catch(function(e) { console.error('Task move failed:', e); });
+        }
+      });
+    });
+  }
+
+  // ── Add Task ──
+  var taskForm = document.getElementById('ceoTaskForm');
+  if (taskForm) {
+    taskForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var input = document.getElementById('ceoTaskInput');
+      var colSelect = document.getElementById('ceoTaskCol');
+      var title = (input.value || '').trim();
+      if (!title) return;
+      fetch('/tasks/api', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title, column: colSelect.value || 'todo' }),
+      }).then(function(r) { return r.json(); }).then(function(d) {
+        if (d.success && d.task) {
+          input.value = '';
+          var col = document.querySelector('.ceo-kanban-col[data-column="' + d.task.column + '"] .ceo-kanban-list');
+          if (col) {
+            var li = document.createElement('li');
+            li.className = 'ceo-task-card p-4 bg-white rounded-xl border border-brand-border/20 shadow-sm cursor-grab active:cursor-grabbing group hover:border-brand-yellow/40 transition-all';
+            li.setAttribute('data-task-id', d.task.id);
+            li.innerHTML = '<p class="text-sm font-bold text-brand-dark leading-snug">' + escapeHtml(d.task.title) + '</p><div class="flex items-center justify-between mt-3"><span class="text-[10px] font-bold text-brand-muted uppercase tracking-wider">' + d.task.column + '</span><button type="button" class="ceo-task-del text-[10px] font-black uppercase text-rose-500 opacity-0 group-hover:opacity-100 transition-opacity hover:underline">✕</button></div>';
+            col.appendChild(li);
+            var badge = col.closest('.ceo-kanban-col').querySelector('.ceo-col-count');
+            if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;
+            attachDelHandler(li.querySelector('.ceo-task-del'));
+          }
+        }
+      }).catch(function(e) { console.error('Add task failed:', e); });
+    });
+  }
+
+  // ── Delete Task ──
+  function attachDelHandler(btn) {
+    btn.addEventListener('click', function() {
+      var card = btn.closest('.ceo-task-card');
+      var taskId = card.getAttribute('data-task-id');
+      if (!taskId) return;
+      fetch('/tasks/api/' + encodeURIComponent(taskId), { method: 'DELETE' })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.success) {
+            var col = card.closest('.ceo-kanban-col');
+            card.remove();
+            if (col) {
+              var badge = col.querySelector('.ceo-col-count');
+              if (badge) badge.textContent = col.querySelectorAll('.ceo-task-card').length;
+            }
+          }
+        }).catch(function(e) { console.error('Delete task failed:', e); });
+    });
+  }
+  document.querySelectorAll('.ceo-task-del').forEach(attachDelHandler);
+
+  function escapeHtml(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+});
+</script>
+</body>
+</html>
