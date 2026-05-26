@@ -23,15 +23,24 @@ const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 function providersInFallbackOrder() {
   const list = [];
 
-  // OpenRouter — same provider as the Hermes agent (primary)
+  // OpenRouter — try free (Flash) first, then fall back to Pro
   const orKey = process.env.OPENROUTER_API_KEY;
   if (orKey && String(orKey).trim()) {
+    const key = orKey.trim();
     list.push({
-      name: 'openrouter',
-      apiKey: orKey.trim(),
+      name: 'openrouter-flash',
+      apiKey: key,
       url: 'https://openrouter.ai/api/v1/chat/completions',
-      model: process.env.OPENROUTER_MODEL || 'openrouter/owl-alpha',
+      model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash:free',
     });
+    if (!process.env.OPENROUTER_MODEL) {
+      list.push({
+        name: 'openrouter-pro',
+        apiKey: key,
+        url: 'https://openrouter.ai/api/v1/chat/completions',
+        model: 'deepseek/deepseek-v4-pro',
+      });
+    }
   }
 
   // KIE.ai
