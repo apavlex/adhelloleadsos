@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Omnichannel Prospecting | AdHello Leads</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: Inter, system-ui, sans-serif; background: #FAF7ED; }
+    .brand-dark { color: #2D3436; }
+    .brand-yellow { color: #F3DD6D; }
+    .brand-bg { background: #FAF7ED; }
+  </style>
+</head>
+<body class="brand-bg min-h-screen">
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-3xl font-black brand-dark">Omnichannel Prospecting</h1>
+        <p class="text-sm text-gray-500 mt-1">Labeled leads with next-channel suggestions</p>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="loadLeads()" class="bg-[#F3DD6D] text-[#2D3436] font-bold px-4 py-2 rounded-xl text-sm hover:bg-yellow-400 transition">↻ Refresh</button>
+      </div>
+    </div>
+
+    <!-- Channel filter -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button onclick="filterChannel('all')" class="channel-btn active px-3 py-1.5 rounded-lg text-xs font-bold bg-[#2D3436] text-white" data-channel="all">All</button>
+      <button onclick="filterChannel('cold_call')" class="channel-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-100 text-blue-700" data-channel="cold_call">📞 Cold Call</button>
+      <button onclick="filterChannel('cold_email')" class="channel-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-yellow-100 text-yellow-700" data-channel="cold_email">✉️ Cold Email</button>
+      <button onclick="filterChannel('direct_mail')" class="channel-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-purple-100 text-purple-700" data-channel="direct_mail">📬 Direct Mail</button>
+      <button onclick="filterChannel('social_outreach')" class="channel-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-pink-100 text-pink-700" data-channel="social_outreach">💬 Social</button>
+      <button onclick="filterChannel('sms')" class="channel-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-700" data-channel="sms">💬 SMS</button>
+    </div>
+
+    <!-- Labels filter -->
+    <div class="flex flex-wrap gap-2 mb-6">
+      <button onclick="filterLabel('all')" class="label-btn active px-3 py-1.5 rounded-lg text-xs font-bold bg-gray-200 text-gray-700" data-label="all">All Labels</button>
+      <button onclick="filterLabel('website_missing')" class="label-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-red-100 text-red-700" data-label="website_missing">🔴 No Website</button>
+      <button onclick="filterLabel('review_weak')" class="label-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-100 text-amber-700" data-label="review_weak">⚠️ Weak Reviews</button>
+      <button onclick="filterLabel('social_inactive')" class="label-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-100 text-orange-700" data-label="social_inactive">📱 Inactive Socials</button>
+      <button onclick="filterLabel('phone_direct')" class="label-btn px-3 py-1.5 rounded-lg text-xs font-bold bg-green-100 text-green-700" data-label="phone_direct">📞 Phone</button>
+    </div>
+
+    <!-- Leads table -->
+    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b border-gray-100">
+          <tr>
+            <th class="text-left px-4 py-3 font-bold text-gray-500 text-xs uppercase tracking-wider">Lead</th>
+            <th class="text-left px-4 py-3 font-bold text-gray-500 text-xs uppercase tracking-wider">Location</th>
+            <th class="text-center px-4 py-3 font-bold text-gray-500 text-xs uppercase tracking-wider">Reviews</th>
+            <th class="text-center px-4 py-3 font-bold text-gray-500 text-xs uppercase tracking-wider">Labels</th>
+            <th class="text-center px-4 py-3 font-bold text-gray-500 text-xs uppercase tracking-wider">Next Channel</th>
+          </tr>
+        </thead>
+        <tbody id="leadsBody">
+          <tr><td colspan="5" class="text-center py-12 text-gray-400">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = window.location.origin;
+    let allLeads = [];
+    let currentChannel = 'all';
+    let currentLabel = 'all';
+
+    const CHANNEL_BADGE = {
+      cold_call: { icon: '📞', label: 'Cold Call', cls: 'bg-blue-100 text-blue-700' },
+      cold_email: { icon: '✉️', label: 'Cold Email', cls: 'bg-yellow-100 text-yellow-700' },
+      direct_mail: { icon: '📬', label: 'Direct Mail', cls: 'bg-purple-100 text-purple-700' },
+      social_outreach: { icon: '💬', label: 'Social', cls: 'bg-pink-100 text-pink-700' },
+      sms: { icon: '💬', label: 'SMS', cls: 'bg-green-100 text-green-700' },
+    };
+
+    const LABEL_BADGE = {
+      website_missing: { label: 'No Website', cls: 'bg-red-100 text-red-700' },
+      social_inactive: { label: 'Inactive Socials', cls: 'bg-orange-100 text-orange-700' },
+      email_unverified: { label: 'No Email', cls: 'bg-gray-100 text-gray-600' },
+      phone_direct: { label: 'Phone', cls: 'bg-green-100 text-green-700' },
+      review_weak: { label: 'Weak Reviews', cls: 'bg-amber-100 text-amber-700' },
+      no_current_ads: { label: 'No Ads', cls: 'bg-blue-100 text-blue-700' },
+      high_value: { label: 'High Value', cls: 'bg-emerald-100 text-emerald-700' },
+    };
+
+    async function loadLeads() {
+      try {
+        const res = await fetch(`${API_BASE}/leads/list.json?limit=200`, { credentials: 'include' });
+        const data = await res.json();
+        allLeads = (data.leads || data || []).filter(l => l.title);
+        renderLeads();
+      } catch (e) {
+        document.getElementById('leadsBody').innerHTML = `<tr><td colspan="5" class="text-center py-8 text-red-500">Error: ${e.message}</td></tr>`;
+      }
+    }
+
+    function renderLeads() {
+      let leads = allLeads;
+      if (currentChannel !== 'all') leads = leads.filter(l => l.next_channel === currentChannel);
+      if (currentLabel !== 'all') leads = leads.filter(l => (l.labels || []).includes(currentLabel));
+
+      const tbody = document.getElementById('leadsBody');
+      if (!leads.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-12 text-gray-400">No leads match this filter</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = leads.map(lead => {
+        const phone = (lead.phone || '').trim();
+        const email = (lead.email || '').trim();
+        const website = (lead.website || '').trim();
+        const reviews = lead.reviewsCount || 0;
+        const rating = lead.totalScore || 0;
+        const labels = lead.labels || [];
+        const nextCh = lead.next_channel || 'cold_call';
+        const chBadge = CHANNEL_BADGE[nextCh] || CHANNEL_BADGE.cold_call;
+
+        const labelsHtml = labels.slice(0, 3).map(l => {
+          const lb = LABEL_BADGE[l] || { label: l, cls: 'bg-gray-100 text-gray-600' };
+          return `<span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${lb.cls}">${lb.label}</span>`;
+        }).join(' ');
+
+        return `
+          <tr class="border-b border-gray-50 hover:bg-gray-50/50 transition-colors">
+            <td class="px-4 py-3">
+              <div class="font-bold text-[#2D3436] text-sm">${lead.title || 'Unknown'}</div>
+              <div class="text-xs text-gray-400 mt-0.5">
+                ${phone ? '📞 ' + phone : ''}
+                ${email ? ' ✉️ ' + email : ''}
+                ${website ? ' 🌐 ' + (website.length > 30 ? website.slice(0,30) + '...' : website) : ''}
+              </div>
+            </td>
+            <td class="px-4 py-3 text-gray-600 text-xs">
+              ${[lead.city, lead.state].filter(Boolean).join(', ') || '—'}
+            </td>
+            <td class="px-4 py-3 text-center">
+              <div class="text-sm font-bold">${rating > 0 ? rating.toFixed(1) : '—'}</div>
+              <div class="text-[10px] text-gray-400">${reviews} reviews</div>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <div class="flex flex-wrap gap-1 justify-center">${labelsHtml || '<span class="text-gray-300 text-xs">—</span>'}</div>
+            </td>
+            <td class="px-4 py-3 text-center">
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${chBadge.cls}">
+                ${chBadge.icon} ${chBadge.label}
+              </span>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function filterChannel(ch) {
+      currentChannel = ch;
+      document.querySelectorAll('.channel-btn').forEach(b => {
+        b.classList.toggle('bg-[#2D3436]', b.dataset.channel === ch);
+        b.classList.toggle('text-white', b.dataset.channel === ch);
+      });
+      renderLeads();
+    }
+
+    function filterLabel(l) {
+      currentLabel = l;
+      document.querySelectorAll('.label-btn').forEach(b => {
+        b.classList.toggle('bg-[#2D3436]', b.dataset.label === l);
+        b.classList.toggle('text-white', b.dataset.label === l);
+      });
+      renderLeads();
+    }
+
+    loadLeads();
+  </script>
+</body>
+</html>

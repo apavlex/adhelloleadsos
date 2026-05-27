@@ -238,6 +238,17 @@ module.exports = {
     incoming.phoneNorm = normalizePhone(incoming.phone);
     incoming.nameNorm = normalizeName(incoming.title);
     incoming.geoNorm = normalizeGeo(incoming.city, incoming.state);
+
+    // ── Omnichannel labeling ──
+    const { analyzeLead } = require('./omnichannel');
+    const channelAnalysis = analyzeLead(incoming);
+    if (channelAnalysis.labels.length > 0) {
+      incoming.labels = channelAnalysis.labels;
+    }
+    if (channelAnalysis.next_channel) {
+      incoming.next_channel = channelAnalysis.next_channel;
+    }
+
     incoming.dedupeKey = computeDedupeKey(incoming);
 
     const leads = await this.getAllLeads(wid);

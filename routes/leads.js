@@ -2859,3 +2859,9 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
 });
 
 module.exports = router;
+
+// ── Omnichannel dashboard ────────────────────────────────────────────────────
+
+router.get('/omnichannel', async (req, res) => {
+  res.render('omnichannel');
+});
