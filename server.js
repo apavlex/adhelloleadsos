@@ -46,6 +46,7 @@ const focusRoutes = require('./routes/focus');
 const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
+const dbService = require('./services/database');
 const ceoRoutes = require('./routes/ceo');
 const autonomousRoutes = require('./routes/autonomous');
 const demoGenerator = require('./services/demoGenerator');
