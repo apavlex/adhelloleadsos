@@ -257,11 +257,13 @@ app.use('/api', apiRoutes);
 app.post('/api/scout/ingest', express.json(), async (req, res) => {
   const apiKey = req.headers['x-api-key'] || req.query.api_key;
   const expectedKey = process.env.API_INGEST_KEY || 'adhello_secret_123';
+  console.log('[SCOUT] API key received:', !!apiKey, 'expected:', !!expectedKey);
   if (!apiKey || apiKey !== expectedKey) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   try {
     const { title, phone, city, state, source, industry, message } = req.body;
+    console.log('[SCOUT] Ingesting:', title, city, state);
     if (!title) return res.status(400).json({ error: 'title required' });
     const leadData = {
       title, phone: phone || 'N/A', website: 'N/A', email: 'N/A',
@@ -269,11 +271,14 @@ app.post('/api/scout/ingest', express.json(), async (req, res) => {
       pipelineStage: 0, industry: industry || '',
       message: message || `Scouted via ${source}`,
       workspaceId: 'default',
-     Ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(),
+      ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(),
     };
+    console.log('[SCOUT] Calling saveLead...');
     const leadKey = await dbService.saveLead(leadData);
-    res.json({ success: true, key: leadKey });
+    console.log('[SCOUT] Saved:', leadKey);
+    res.json({ success: true, key: leadKey, next_channel: leadData.next_channel || 'cold_call' });
   } catch (err) {
+    console.error('[SCOUT] Error:', err.message, err.stack);
     res.status(500).json({ error: err.message });
   }
 });
