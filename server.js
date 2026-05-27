@@ -253,6 +253,31 @@ app.get('/api/cron/nightly-prep', async (req, res) => {
 // Public API Routes (Security handled within router)
 app.use('/api', apiRoutes);
 
+// Scout ingest endpoint (bypasses session auth, API key only)
+app.post('/api/scout/ingest', express.json(), async (req, res) => {
+  const apiKey = req.headers['x-api-key'] || req.query.api_key;
+  const expectedKey = process.env.API_INGEST_KEY || 'adhello_secret_123';
+  if (!apiKey || apiKey !== expectedKey) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  try {
+    const { title, phone, city, state, source, industry, message } = req.body;
+    if (!title) return res.status(400).json({ error: 'title required' });
+    const leadData = {
+      title, phone: phone || 'N/A', website: 'N/A', email: 'N/A',
+      city: city || '', state: state || '', source: source || 'scout',
+      pipelineStage: 0, industry: industry || '',
+      message: message || `Scouted via ${source}`,
+      workspaceId: 'default',
+     Ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(),
+    };
+    const leadKey = await dbService.saveLead(leadData);
+    res.json({ success: true, key: leadKey });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Public enrichment (must stay before auth stack)
 app.post('/enrich', async (req, res) => {
   try {
