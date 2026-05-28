@@ -37,7 +37,7 @@ router.get('/', async (req, res) => {
 
     // Active clients
     const activeClients = leads.filter(l => {
-      const st = (l.stage || l.pipelineStage || '').toLowerCase();
+      const st = String(l.stage || l.pipelineStage || '').toLowerCase();
       return st === 'client' || st === 'won' || st === 'active' || st === 'closed_won';
     }).length;
 

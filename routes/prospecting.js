@@ -65,7 +65,7 @@ router.get('/', async (req, res, next) => {
     const statusUniq = new Map();
     pipelineBase.forEach((l) => {
       const d = displayStatus(l.status);
-      statusUniq.set(d.toLowerCase(), d);
+      statusUniq.set(String(d).toLowerCase(), d);
     });
     const pipelineStatusOptions = Array.from(statusUniq.values()).sort((a, b) => a.localeCompare(b));
 

@@ -412,7 +412,7 @@ router.post('/leads/stitch-sync', validateApiKey, async (req, res, next) => {
     const leads = await dbService.listLeads(wid);
     const existing = leads.find(l => 
         (website && l.website && l.website === website) || 
-        (title && l.title && l.title.toLowerCase() === title.toLowerCase())
+        (title && l.title && String(l.title).toLowerCase() === String(title).toLowerCase())
     );
 
     if (existing) {
