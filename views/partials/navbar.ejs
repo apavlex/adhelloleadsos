@@ -46,7 +46,7 @@
     <nav class="hidden md:flex items-center gap-3 lg:gap-4 shrink min-w-0" aria-label="Primary">
       <a href="/today" class="nav-link text-sm whitespace-nowrap <%= np === 'today' ? 'active' : '' %>">Today</a>
       <a href="/pipeline" class="nav-link text-sm whitespace-nowrap <%= _leadNavActive ? 'active' : '' %>">Leads</a>
-      <a href="/scripts" class="nav-link text-sm whitespace-nowrap <%= np === 'sales' ? 'active' : '' %>">Automate</a>
+      <a href="/ceo" class="nav-link text-sm whitespace-nowrap <%= np === 'ceo' ? 'active' : '' %>">Automate</a>
       <details class="relative group">
         <summary class="list-none nav-link text-sm whitespace-nowrap cursor-pointer <%= (np === 'tasks' || np === 'reports' || np === 'resources' || np === 'ceo') ? 'active' : '' %>">
           More
@@ -186,7 +186,7 @@
           </summary>
           <div class="px-3 pb-3 flex flex-col gap-2">
             <a href="/reports" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'reports' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">Reports</a>
-            <a href="/scripts" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'sales' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">Automate</a>
+            <a href="/ceo" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'ceo' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">Automate</a>
             <a href="/resources" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm <%= np === 'resources' ? 'text-brand-dark dark:text-white bg-brand-yellow/10' : 'text-brand-muted' %>">Resources</a>
             <% if (typeof hermesWebUiUrl !== 'undefined' && hermesWebUiUrl) { %>
             <a href="<%= hermesWebUiUrl %>" target="_blank" rel="noopener noreferrer" class="px-3 py-2 rounded-xl border border-brand-border/30 dark:border-white/10 text-sm text-brand-muted flex items-center gap-1.5">
