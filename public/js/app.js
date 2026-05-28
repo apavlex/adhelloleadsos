@@ -8895,6 +8895,44 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const BULK_SAVE_LOADING_HTML =
+    '<span class="inline-flex items-center justify-center gap-2">' +
+    '<svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden="true">' +
+    '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+    '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>' +
+    '</svg><span>Saving…</span></span>';
+  const BULK_SAVE_DONE_HTML =
+    '<span class="inline-flex items-center justify-center gap-2">' +
+    '<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
+    '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>' +
+    '</svg><span>Saved!</span></span>';
+
+  function getBulkSaveFolderKey() {
+    const folderEl = document.getElementById('bulkFolderSelect');
+    const fromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    if (fromBar) return fromBar;
+    if (typeof window.SEARCH_TARGET_FOLDER_KEY === 'string') {
+      return window.SEARCH_TARGET_FOLDER_KEY.trim();
+    }
+    return '';
+  }
+
+  function getRowLeadKey(row) {
+    if (!row) return '';
+    const fromRow = row.dataset.leadKey ? String(row.dataset.leadKey).trim() : '';
+    if (fromRow) return fromRow;
+    const titleKey = normalizeLeadTitleKey(row.dataset.title);
+    return titleKey && savedLeads.has(titleKey) ? String(savedLeads.get(titleKey) || '').trim() : '';
+  }
+
+  function setBulkSaveButtonsState(buttons, html, disabled) {
+    buttons.forEach((b) => {
+      b.disabled = disabled;
+      b.innerHTML = html;
+      b.setAttribute('aria-busy', disabled ? 'true' : 'false');
+    });
+  }
+
   async function bulkSaveSelectedLeads(triggerBtn) {
     const table = getActiveLeadsTable();
     const scope = table || document;
@@ -8907,42 +8945,102 @@ document.addEventListener('DOMContentLoaded', () => {
       .map((cb) => cb.closest('.result-row'))
       .filter(Boolean);
 
+    const bulkBar = document.getElementById('bulkActionBar');
+    const isSearchBulk =
+      !!document.getElementById('searchResultsLeadsTable') &&
+      bulkBar &&
+      bulkBar.dataset.bulkMode === 'search';
+    const folderKey = getBulkSaveFolderKey();
+
+    if (isSearchBulk && !folderKey) {
+      window.alert('Select a folder (or create one) before saving leads.');
+      return;
+    }
+
     const buttons = [triggerBtn, bulkSaveBtn, document.getElementById('headerBulkSaveBtn')].filter(Boolean);
-    const originalTexts = buttons.map((b) => b.textContent);
-    buttons.forEach((b) => {
-      b.disabled = true;
-      b.textContent = 'Saving...';
-    });
+    const originalHtml = buttons.map((b) => b.innerHTML);
+    setBulkSaveButtonsState(buttons, BULK_SAVE_LOADING_HTML, true);
 
     let savedCount = 0;
+    let assignCount = 0;
+    let hadError = false;
 
-    for (const row of selectedRows) {
-      if (isLeadTitleSaved(row.dataset.title)) {
-        const bookmarkBtn = row.querySelector('.bookmark-btn');
-        if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
-        continue;
+    try {
+      for (const row of selectedRows) {
+        if (isLeadTitleSaved(row.dataset.title)) {
+          const bookmarkBtn = row.querySelector('.bookmark-btn');
+          if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
+          continue;
+        }
+        const ok = await saveLead(row);
+        if (ok) savedCount += 1;
       }
-      const ok = await saveLead(row);
-      if (ok) savedCount += 1;
+
+      if (isSearchBulk && folderKey) {
+        const leadKeys = [
+          ...new Set(
+            selectedRows.map((row) => getRowLeadKey(row)).filter(Boolean),
+          ),
+        ];
+        if (leadKeys.length) {
+          const res = await fetch('/folders/assign-bulk', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ leadKeys, folderKey }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) {
+            throw new Error((data && data.error) || `Could not assign folder (HTTP ${res.status})`);
+          }
+          assignCount = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : leadKeys.length;
+        }
+      }
+
+      const totalAffected = isSearchBulk && folderKey ? assignCount : savedCount;
+      if (totalAffected > 0) {
+        setBulkSaveButtonsState(buttons, BULK_SAVE_DONE_HTML, true);
+        if (typeof window.showProspectToast === 'function') {
+          const folderName =
+            folderKey && Array.isArray(window.WORKSPACE_FOLDERS)
+              ? (window.WORKSPACE_FOLDERS.find((f) => f && f.key === folderKey) || {}).name
+              : '';
+          window.showProspectToast(
+            folderName
+              ? `Saved ${totalAffected} lead${totalAffected === 1 ? '' : 's'} to ${folderName}`
+              : `Saved ${totalAffected} lead${totalAffected === 1 ? '' : 's'}`,
+          );
+        }
+      } else {
+        setBulkSaveButtonsState(
+          buttons,
+          isSearchBulk ? '<span>No leads to save</span>' : '<span>No new saves</span>',
+          true,
+        );
+      }
+      updateBulkActionBar();
+    } catch (err) {
+      hadError = true;
+      console.error('Bulk save to folder failed:', err);
+      window.alert(err && err.message ? err.message : 'Could not save leads to folder.');
+      buttons.forEach((b, i) => {
+        b.innerHTML = originalHtml[i] || 'Save to folder';
+        b.disabled = selectedKeys.size === 0;
+        b.removeAttribute('aria-busy');
+      });
     }
 
-    const doneLabel = savedCount > 0 ? `Saved ${savedCount}` : 'No new saves';
-    buttons.forEach((b) => {
-      b.textContent = doneLabel;
-    });
-    updateBulkActionBar();
-    if (typeof window.showProspectToast === 'function' && savedCount > 0) {
-      window.showProspectToast(
-        `Saved ${savedCount} lead${savedCount === 1 ? '' : 's'} to your pipeline`,
-      );
+    if (!hadError) {
+      setTimeout(() => {
+        buttons.forEach((b, i) => {
+          b.innerHTML = originalHtml[i] || (isSearchBulk ? 'Save to folder' : 'Save selected');
+          b.disabled = selectedKeys.size === 0;
+          b.removeAttribute('aria-busy');
+        });
+      }, 2200);
     }
-    setTimeout(() => {
-      buttons.forEach((b, i) => {
-        b.textContent = originalTexts[i] || 'Save';
-        b.disabled = selectedKeys.size === 0;
-      });
-    }, 2000);
   }
+  window.__bulkSaveSelectedLeads = bulkSaveSelectedLeads;
 
   if (bulkSaveBtn) {
     bulkSaveBtn.addEventListener('click', () => bulkSaveSelectedLeads(bulkSaveBtn));
