@@ -3456,8 +3456,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function pageSpeedAuditButtonLabel(hasAudit, running) {
     if (running) return 'Running audit…';
-    if (hasAudit) return 'Re-run audit';
-    return 'Audit business website';
+    if (hasAudit) return 'Re-run website audit';
+    return 'Run website audit';
+  }
+
+  async function ensureRowHasLeadKey(row) {
+    if (!row) throw new Error('Select a lead first.');
+    let key = String(row.dataset.leadKey || '').trim();
+    if (key) return key;
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast('Saving lead first…', { variant: 'info' });
+    }
+    const ok = await saveLead(row);
+    if (!ok) {
+      throw new Error(
+        'Could not save this lead. On search results, pick a folder first, then run the audit again.',
+      );
+    }
+    key = String(row.dataset.leadKey || '').trim();
+    if (!key) throw new Error('Could not save this lead.');
+    return key;
+  }
+
+  function showLeadPanelAuditReportLinks(bundle) {
+    const wrap = document.getElementById('leadPanelAuditReportLinks');
+    const hosted = document.getElementById('leadPanelHostedAuditUrl');
+    if (!wrap) return;
+    wrap.classList.remove('hidden');
+    const reportUrl = bundle && bundle.reportUrl ? String(bundle.reportUrl).trim() : '';
+    if (!reportUrl) return;
+    if (hosted) {
+      hosted.href = reportUrl;
+      hosted.classList.remove('hidden', 'pointer-events-none', 'opacity-40');
+    }
   }
 
   function setPageSpeedAuditButtonLabel(runBtn, label) {
@@ -3548,21 +3579,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const websiteUrl = resolveRowWebsiteForAudit(row);
     const hasWebsite = !!websiteUrl;
-    const hasKey = !!(row && row.dataset && row.dataset.leadKey);
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
 
     if (!pageSpeedAuditInFlight) {
-      const disabled = !hasWebsite || !hasKey;
+      const disabled = !hasWebsite;
       runBtn.disabled = disabled;
       runBtn.classList.toggle('opacity-50', disabled);
       runBtn.classList.toggle('cursor-not-allowed', disabled);
       runBtn.title = !hasWebsite
         ? 'Add a website URL first'
-        : !hasKey
-          ? 'Save this lead first'
-          : audit
-            ? 'Re-run Lighthouse via Google PageSpeed'
-            : 'Run Lighthouse via Google PageSpeed';
+        : audit
+          ? 'Re-run Lighthouse + AI readiness on this site'
+          : 'Run Lighthouse + AI readiness (saves lead if needed)';
       setPageSpeedAuditButtonLabel(runBtn, pageSpeedAuditButtonLabel(!!audit, false));
     }
 
@@ -3664,13 +3692,23 @@ document.addEventListener('DOMContentLoaded', () => {
       link.href = '#';
       link.classList.add('pointer-events-none', 'opacity-40');
     }
+
+    const linksWrap = document.getElementById('leadPanelAuditReportLinks');
+    const storedReportUrl = String((row && row.dataset.auditReportUrl) || '').trim();
+    if (linksWrap) {
+      linksWrap.classList.toggle('hidden', !audit);
+      if (audit && storedReportUrl) {
+        showLeadPanelAuditReportLinks({ reportUrl: storedReportUrl });
+      }
+    }
+
     syncPageSpeedAuditPanelBodyVisibility();
   }
 
   async function runPageSpeedAuditForRow(row) {
     if (!row) throw new Error('No lead selected.');
+    await ensureRowHasLeadKey(row);
     const key = String(row.dataset.leadKey || '').trim();
-    if (!key) throw new Error('Save this lead before running an audit.');
     const website = resolveRowWebsiteForAudit(row);
     const res = await fetch(`/leads/${encodeURIComponent(key)}/pagespeed-audit`, {
       method: 'POST',
@@ -5359,10 +5397,84 @@ document.addEventListener('DOMContentLoaded', () => {
     return Promise.resolve();
   }
 
+  function cadenceSequenceStepIndex(seq) {
+    if (!seq || seq.stepIndex == null || seq.stepIndex === '') return 0;
+    const n = Number(seq.stepIndex);
+    return Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+  }
+
+  function formatCadencePlaybookStatusMessage(seq, templateId) {
+    if (!seq || !seq.templateId) return '';
+    const tid = String(templateId || seq.templateId || '').trim();
+    const tpl = findSequenceTemplate(tid);
+    const name = tpl ? tpl.name : tid.replace(/_/g, ' ');
+    const steps = tpl ? resolveTemplateSteps(tpl) : [];
+    const total = steps.length || (tpl && tpl.stepCount ? Number(tpl.stepCount) : 0);
+    const ix = cadenceSequenceStepIndex(seq);
+    const step = steps[ix];
+    const stepNum = ix + 1;
+    const status = String(seq.status || '').trim();
+
+    if (status === 'paused') {
+      let msg = `Playbook paused: ${name}`;
+      if (total) msg += ` — paused on step ${stepNum} of ${total}`;
+      if (step && step.title) msg += `: ${step.title}`;
+      return msg;
+    }
+    if (status === 'completed') {
+      return total
+        ? `Playbook complete: ${name} (${total} steps finished)`
+        : `Playbook complete: ${name}`;
+    }
+
+    let msg = `Playbook started: ${name}`;
+    if (total) {
+      const stepTitle = step && step.title ? step.title : `Touch ${stepNum}`;
+      msg += ` — Step ${stepNum} of ${total}: ${stepTitle}`;
+      if (step && step.channel) {
+        const ch =
+          CADENCE_CHANNEL_LABELS[String(step.channel).trim()] ||
+          String(step.channel).replace(/_/g, ' ');
+        msg += ` (${ch})`;
+      }
+    }
+    if (seq.nextDueAt && status === 'active') {
+      try {
+        msg += ` · Next due ${new Date(seq.nextDueAt).toLocaleString(undefined, {
+          month: 'short',
+          day: 'numeric',
+          hour: 'numeric',
+          minute: '2-digit',
+        })}`;
+      } catch {
+        msg += ` · Next due ${seq.nextDueAt}`;
+      }
+    }
+    return msg;
+  }
+
+  function showCadencePlaybookStatus(row, templateId, seqOverride) {
+    const status = document.getElementById('leadCadenceActiveStatus');
+    if (!status) return '';
+    const seq = seqOverride || (row ? parseRowSequenceState(row) : null);
+    const tid = String(templateId || (seq && seq.templateId) || '').trim();
+    const msg = formatCadencePlaybookStatusMessage(seq, tid);
+    if (!msg) {
+      status.textContent = '';
+      status.classList.add('hidden');
+      return '';
+    }
+    status.textContent = msg;
+    status.classList.remove('hidden');
+    try {
+      status.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (_) {}
+    return msg;
+  }
+
   function syncCadencePlaybookPanel(row) {
     const sel = document.getElementById('leadCadencePlaybookSelect');
     const desc = document.getElementById('leadCadencePlaybookDesc');
-    const status = document.getElementById('leadCadenceActiveStatus');
     const startBtn = document.getElementById('sidebarCadenceStartBtn');
     if (!sel) return;
 
@@ -5389,47 +5501,23 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Choose a playbook, then start it for this lead.';
     }
 
-    if (status) {
-      if (seq && (active || paused || completed) && seq.templateId) {
-        const t = findSequenceTemplate(seq.templateId);
-        const label = t ? t.name : String(seq.templateId).replace(/_/g, ' ');
-        const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
-        const totalSteps = t ? resolveTemplateSteps(t).length : 0;
-        const total = totalSteps || (t && t.stepCount ? t.stepCount : null);
-        const bits = [label];
-        if (active && total != null) bits.push(`step ${ix + 1} of ${total}`);
-        if (seq.status) bits.push(String(seq.status));
-        if (seq.nextDueAt && active) {
-          try {
-            bits.push(
-              `next due ${new Date(seq.nextDueAt).toLocaleString(undefined, {
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: '2-digit',
-              })}`
-            );
-          } catch {
-            bits.push(`next due ${seq.nextDueAt}`);
-          }
-        }
-        status.textContent = bits.join(' · ');
-        status.classList.remove('hidden');
-      } else {
-        status.textContent = '';
-        status.classList.add('hidden');
-      }
+    if (seq && (active || paused || completed) && seq.templateId) {
+      showCadencePlaybookStatus(row, selectedId, seq);
+    } else {
+      showCadencePlaybookStatus(row, '', null);
     }
 
     if (startBtn) {
       const hasKey = !!(row && row.dataset && row.dataset.leadKey);
-      startBtn.disabled = !hasKey || !selectedId;
+      startBtn.disabled = !selectedId;
       startBtn.textContent = active ? 'Restart playbook' : 'Start playbook';
-      startBtn.title = !hasKey
-        ? 'Save this lead before starting a cadence'
-        : active
-          ? 'Replaces the current active sequence from step 1'
-          : 'Attach this playbook and schedule step 1';
+      startBtn.title = !selectedId
+        ? 'Choose a playbook first'
+        : !hasKey
+          ? 'Saves this lead automatically, then starts step 1'
+          : active
+            ? 'Replaces the current active sequence from step 1'
+            : 'Attach this playbook and schedule step 1';
     }
 
     renderCadencePlaybookSteps(row, { requireActive: false });
@@ -5440,7 +5528,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tpl = findSequenceTemplate(seq.templateId);
     const steps = resolveTemplateSteps(tpl);
     if (!steps.length) return '';
-    const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
+    const ix = cadenceSequenceStepIndex(seq);
     const step = steps[ix];
     if (!step) return '';
     const ch = step.channel ? String(step.channel).replace(/_/g, ' ') : 'touch';
@@ -5508,7 +5596,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return stepIndex === 0 ? 'preview' : 'upcoming';
     }
     if (seq.status === 'completed') return 'done';
-    const ix = typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
+    const ix = cadenceSequenceStepIndex(seq);
     if (seq.status === 'paused') {
       if (stepIndex < ix) return 'done';
       if (stepIndex === ix) return 'paused';
@@ -5758,7 +5846,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (seqWrap && seqLine) {
       const tid = seq && seq.templateId ? String(seq.templateId) : '';
       const st = seq && seq.status ? String(seq.status) : '';
-      const ix = seq && typeof seq.stepIndex === 'number' ? seq.stepIndex : 0;
+      const ix = seq ? cadenceSequenceStepIndex(seq) : 0;
       if (tid || st) {
         const tpl = findSequenceTemplate(tid);
         const name = tpl ? tpl.name : tid.replace(/_/g, ' ');
@@ -7379,9 +7467,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function startCadencePlaybookForCurrentRow() {
-    if (!currentRow || !currentRow.dataset.leadKey) {
+    if (!currentRow) {
       if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Save this lead before starting a cadence.', { variant: 'error' });
+        window.showAppToast('Select a lead first.', { variant: 'error' });
       }
       return;
     }
@@ -7404,10 +7492,15 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       if (!ok) return;
     }
-    const key = currentRow.dataset.leadKey;
     const btn = document.getElementById('sidebarCadenceStartBtn');
-    if (btn) btn.disabled = true;
+    const btnLabel = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Starting…';
+    }
     try {
+      await ensureRowHasLeadKey(currentRow);
+      const key = String(currentRow.dataset.leadKey || '').trim();
       const res = await fetch(`/leads/${encodeURIComponent(key)}/sequence/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -7416,13 +7509,20 @@ document.addEventListener('DOMContentLoaded', () => {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not start playbook');
+      const nextSeq =
+        (data.lead && data.lead.sequenceState) || data.sequenceState || null;
       if (data.lead) syncPersistedLeadToRowDataset(currentRow, data.lead);
-      else if (data.sequenceState) {
-        currentRow.dataset.sequenceState = JSON.stringify(data.sequenceState);
+      else if (nextSeq) {
+        currentRow.dataset.sequenceState = JSON.stringify(nextSeq);
+      }
+      const statusMsg = showCadencePlaybookStatus(currentRow, templateId, nextSeq);
+      const nextEl = document.getElementById('cadenceNextStepLine');
+      if (nextEl && nextSeq) {
+        const nextLine = cadenceNextStepFromSequence(currentRow, nextSeq);
+        if (nextLine) nextEl.textContent = nextLine;
       }
       if (typeof window.showAppToast === 'function') {
-        const t = findSequenceTemplate(templateId);
-        window.showAppToast(t ? `Started: ${t.name}` : 'Cadence started', { variant: 'success' });
+        window.showAppToast(statusMsg || 'Playbook started.', { variant: 'success' });
       }
       await ensureCadencePlaybookDataReady();
       if (typeof populatePanel === 'function') populatePanel(currentRow);
@@ -7434,7 +7534,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg = err && err.message ? err.message : 'Start failed';
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = btnLabel || 'Start playbook';
+      }
       syncCadencePlaybookPanel(currentRow);
       renderCadencePlaybookSteps(currentRow, { scrollIntoView: true });
     }
@@ -7564,59 +7667,35 @@ document.addEventListener('DOMContentLoaded', () => {
       syncSidebarOutreachButtons(currentRow || null);
     }
 
-    // --- AI Readiness Assessment ---
-    if (e.target.closest('#aiReadinessRunBtn')) {
-      e.preventDefault();
-      handleAiReadinessClick();
-      return;
-    }
   });
 
-  // --- AI Readiness Assessment handler ---
-  async function handleAiReadinessClick() {
-    if (!currentRow || !currentRow.dataset.leadKey) {
-      window.showAppToast('Select a lead first.', { variant: 'warning' });
-      return;
+  async function runAiReadinessForRow(row) {
+    if (!row) throw new Error('No lead selected.');
+    await ensureRowHasLeadKey(row);
+    const key = String(row.dataset.leadKey || '').trim();
+    const enrichment = {
+      hasSchemaMarkup: row.dataset.hasSchemaMarkup === 'true',
+      hasChatbot: row.dataset.hasChatbot === 'true',
+      hasClickToCall: row.dataset.hasClickToCall === 'true',
+      isOutdated: row.dataset.isOutdated === 'true',
+    };
+    const resp = await window.httpJsonPost(
+      '/leads/' + encodeURIComponent(key) + '/ai-readiness',
+      enrichment,
+    );
+    if (!resp.ok || !resp.body || !resp.body.success) {
+      throw new Error((resp.body && resp.body.error) || 'AI readiness assessment failed');
     }
-    const key = String(currentRow.dataset.leadKey).trim();
-    const btn = document.getElementById('aiReadinessRunBtn');
-    const btnLabel = document.getElementById('aiReadinessBtnLabel');
-    const progressWrap = document.getElementById('aiReadinessProgressWrap');
-    const statusText = document.getElementById('aiReadinessStatusText');
-    const statusDetail = document.getElementById('aiReadinessStatusDetail');
+    const a = resp.body.assessment;
+    if (!a) throw new Error('Empty assessment response');
     const resultEl = document.getElementById('aiReadinessResult');
     const errorEl = document.getElementById('aiReadinessError');
-
-    if (resultEl) resultEl.classList.add('hidden');
+    const resultsWrap = document.getElementById('pageSpeedAuditResults');
     if (errorEl) errorEl.classList.add('hidden');
-    if (progressWrap) progressWrap.classList.remove('hidden');
-    if (btn) { btn.setAttribute('aria-busy', 'true'); btn.disabled = true; }
-    if (btnLabel) btnLabel.textContent = 'Assessing…';
-    if (statusText) statusText.textContent = 'Crunching data…';
-    if (statusDetail) statusDetail.textContent = 'Analyzing website, signals, and AI search readiness.';
-
-    try {
-      const enrichment = {
-        hasSchemaMarkup: currentRow.dataset.hasSchemaMarkup === 'true',
-        hasChatbot: currentRow.dataset.hasChatbot === 'true',
-        hasClickToCall: currentRow.dataset.hasClickToCall === 'true',
-        isOutdated: currentRow.dataset.isOutdated === 'true',
-      };
-      const resp = await window.httpJsonPost('/leads/' + encodeURIComponent(key) + '/ai-readiness', enrichment);
-      if (!resp.ok || !resp.body || !resp.body.success) {
-        throw new Error((resp.body && resp.body.error) || 'Assessment failed');
-      }
-      const a = resp.body.assessment;
-      if (!a) throw new Error('Empty assessment response');
-      renderAiReadinessResult(a, resultEl, statusText, statusDetail);
-    } catch (err) {
-      console.error('[ai-readiness] click error:', err);
-      if (progressWrap) progressWrap.classList.add('hidden');
-      if (errorEl) { errorEl.textContent = err.message || 'Something went wrong. Please try again.'; errorEl.classList.remove('hidden'); }
-    } finally {
-      if (btn) { btn.setAttribute('aria-busy', 'false'); btn.disabled = false; }
-      if (btnLabel) btnLabel.textContent = 'Run AI Readiness Assessment';
-    }
+    renderAiReadinessResult(a, resultEl, null, null);
+    if (resultsWrap) resultsWrap.classList.remove('hidden');
+    syncPageSpeedAuditPanelBodyVisibility();
+    return a;
   }
 
   function renderAiReadinessResult(a, resultEl, statusText, statusDetail) {
@@ -7644,8 +7723,6 @@ document.addEventListener('DOMContentLoaded', () => {
     resultEl.innerHTML = '<div class="mt-4 rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900/60 p-4 space-y-3"><div class="flex items-center justify-between"><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">AI Readiness Score</p><p class="text-[28px] font-black leading-none ' + scoreColor + '">' + a.overallScore + '<span class="text-sm font-bold text-brand-muted dark:text-slate-500">/100</span></p></div><div class="text-right"><span class="inline-block px-3 py-1 rounded-full text-[14px] font-black ' + (score >= 70 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : score >= 55 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400') + '">' + a.grade + '</span></div></div><p class="text-[12px] font-semibold text-brand-dark dark:text-slate-200 leading-relaxed">' + a.headline + '</p><div class="space-y-1">' + catBars + '</div><div class="rounded-xl bg-rose-500/5 dark:bg-rose-500/10 border border-rose-500/20 px-3 py-2"><p class="text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400 mb-0.5">Top Risk</p><p class="text-[11px] font-semibold text-rose-700 dark:text-rose-300 leading-relaxed">' + a.topRisk + '</p></div><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Quick Wins</p><ul class="space-y-0.5">' + quickWinsHtml + '</ul></div><div class="rounded-xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/30 px-3 py-3 text-center"><p class="text-[12px] font-bold text-brand-dark dark:text-white mb-1">Get the Full AI Readiness Blueprint</p><p class="text-[10px] text-brand-muted dark:text-slate-400 mb-2 leading-relaxed">' + (a.fullAssessmentCTA || 'Comprehensive AI citation audit, structured data roadmap, content gap analysis, competitive benchmark, and a private strategy call.') + '</p><a href="mailto:hello@adhello.ai?subject=' + mailtoSubject + '&body=' + mailtoBody + '" class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-yellow text-brand-dark rounded-full text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-lg shadow-brand-yellow/20"><svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>Order Full Assessment — $1,000</a></div></div>';
 
     resultEl.classList.remove('hidden');
-    var pw = document.getElementById('aiReadinessProgressWrap');
-    if (pw) pw.classList.add('hidden');
     if (statusText) statusText.textContent = 'Assessment complete';
     if (statusDetail) statusDetail.textContent = 'Grade: ' + a.grade + ' · Generated just now';
   }
@@ -7659,14 +7736,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!row) {
       const msg = 'Select a saved lead first.';
-      showPageSpeedAuditError(msg);
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast(msg, { variant: 'error' });
-      }
-      return;
-    }
-    if (!row.dataset.leadKey) {
-      const msg = 'Save this lead before running an audit.';
       showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
@@ -7689,12 +7758,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     setPageSpeedAuditRunning(true);
+    const loadingLabel = document.getElementById('pageSpeedAuditLoadingLabel');
     try {
+      await ensureRowHasLeadKey(row);
+      if (loadingLabel) {
+        loadingLabel.textContent =
+          'Running Lighthouse via PageSpeed (typically 30–60 seconds)…';
+      }
       await runPageSpeedAuditForRow(row);
+      if (loadingLabel) {
+        loadingLabel.textContent = 'Running AI readiness assessment…';
+      }
+      try {
+        await runAiReadinessForRow(row);
+      } catch (aiErr) {
+        console.warn('[ai-readiness] after PageSpeed:', aiErr);
+        const errorEl = document.getElementById('aiReadinessError');
+        if (errorEl) {
+          errorEl.textContent =
+            (aiErr && aiErr.message) ||
+            'Lighthouse finished, but AI readiness could not run.';
+          errorEl.classList.remove('hidden');
+        }
+      }
+      if (loadingLabel) {
+        loadingLabel.textContent = 'Preparing shareable audit report link…';
+      }
+      try {
+        await ensureLeadAiAnalysis(row);
+        const bundle = await fetchAuditReportLinkBundle(row);
+        row.dataset.auditReportUrl = bundle.reportUrl;
+        showLeadPanelAuditReportLinks(bundle);
+      } catch (reportErr) {
+        console.warn('[audit-report-link] after audit:', reportErr);
+      }
       if (typeof window.showAppToast === 'function') {
         const audit = parsePageSpeedAuditFromRow(row);
         const avg = audit && audit.averageScore != null ? audit.averageScore : '—';
-        window.showAppToast(`Lighthouse audit saved (avg ${avg}/100).`, { variant: 'success' });
+        const reportReady = String(row.dataset.auditReportUrl || '').trim();
+        window.showAppToast(
+          reportReady
+            ? `Website audit complete (avg ${avg}/100). Open the shareable report link below.`
+            : `Website audit saved (avg ${avg}/100).`,
+          { variant: 'success' },
+        );
       }
     } catch (err) {
       const msg = err && err.message ? err.message : 'PageSpeed audit failed';

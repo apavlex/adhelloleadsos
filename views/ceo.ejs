@@ -362,24 +362,34 @@
     <h2 class="text-xl font-black mb-6">Quick Actions</h2>
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
       <a href="<%= leadsUrl %>/today" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="text-2xl mb-2">📋</div>
+        <div class="mb-2 flex justify-center">
+          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 2.25h6m-7.5 3h9A2.25 2.25 0 0118.75 7.5v12A2.25 2.25 0 0116.5 21.75h-9A2.25 2.25 0 015.25 19.5v-12A2.25 2.25 0 017.5 5.25z" /></svg>
+        </div>
         <div class="text-xs font-black uppercase tracking-widest">Today</div>
       </a>
       <a href="<%= leadsUrl %>/pipeline" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="text-2xl mb-2">📊</div>
+        <div class="mb-2 flex justify-center">
+          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 19.5h15M7.5 16.5v-6m4.5 6V8.25m4.5 8.25v-3.75" /></svg>
+        </div>
         <div class="text-xs font-black uppercase tracking-widest">Pipeline</div>
       </a>
       <a href="<%= leadsUrl %>/reports" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="text-2xl mb-2">📈</div>
+        <div class="mb-2 flex justify-center">
+          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 17.25l5.25-5.25 3.75 3.75 6-7.5" /></svg>
+        </div>
         <div class="text-xs font-black uppercase tracking-widest">Reports</div>
       </a>
       <a href="<%= leadsUrl %>/tasks" target="_blank" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="text-2xl mb-2">✅</div>
+        <div class="mb-2 flex justify-center">
+          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75l2.25 2.25L15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        </div>
         <div class="text-xs font-black uppercase tracking-widest">Full Tasks</div>
       </a>
       <% if (typeof ghlDashboardUrl !== 'undefined' && ghlDashboardUrl) { %>
       <a href="<%= ghlDashboardUrl %>" target="_blank" rel="noopener noreferrer" class="bg-white/10 hover:bg-white/20 rounded-2xl p-5 text-center transition-all group">
-        <div class="text-2xl mb-2">💬</div>
+        <div class="mb-2 flex justify-center">
+          <svg class="w-6 h-6 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 8.25h9m-9 3h6m-8.25 9l2.143-3.214A8.966 8.966 0 013 11.25C3 6.693 7.03 3 12 3s9 3.693 9 8.25-4.03 8.25-9 8.25a9.8 9.8 0 01-2.607-.35L5.25 20.25z" /></svg>
+        </div>
         <div class="text-xs font-black uppercase tracking-widest">GHL</div>
       </a>
       <% } %>
