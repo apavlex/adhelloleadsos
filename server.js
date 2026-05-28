@@ -380,6 +380,45 @@ app.get('/demo/:type', (req, res) => {
   res.render('demo', { title: `${demo.title} | AdHello`, demo });
 });
 
+// Course landing page (public, no auth required)
+app.use('/course', express.static(path.join(__dirname, 'public', 'course')));
+
+// Course email capture (public API)
+app.post('/api/course/capture', express.json(), async (req, res) => {
+  try {
+    const { email, name, source } = req.body;
+    if (!email || !email.includes('@')) {
+      return res.status(400).json({ success: false, error: 'Valid email required' });
+    }
+    const captureData = {
+      email: email.trim().toLowerCase(),
+      name: (name || '').trim(),
+      source: source || 'course_landing_page',
+      captured_at: new Date().toISOString(),
+      ip: (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(),
+    };
+    // Store in a simple JSON file (no DB dependency for this)
+    const fs = require('fs');
+    const captureFile = path.join(__dirname, 'data', 'course-captures.json');
+    let captures = [];
+    try {
+      if (fs.existsSync(captureFile)) {
+        captures = JSON.parse(fs.readFileSync(captureFile, 'utf8'));
+      }
+    } catch (e) { captures = []; }
+    // Deduplicate
+    if (!captures.find(c => c.email === captureData.email)) {
+      captures.push(captureData);
+      fs.mkdirSync(path.dirname(captureFile), { recursive: true });
+      fs.writeFileSync(captureFile, JSON.stringify(captures, null, 2));
+    }
+    res.json({ success: true, message: 'Captured' });
+  } catch (err) {
+    console.error('[COURSE CAPTURE] Error:', err.message);
+    res.status(500).json({ success: false, error: 'Server error' });
+  }
+});
+
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);
