@@ -185,7 +185,8 @@ function assertLeadScopedWorkspaceId(workspaceId, methodName) {
 // ── Module exports (identical API surface) ────────────────────────────────────
 module.exports = {
   async saveSearch(searchData) {
-    const key = `search:${Date.now()}`;
+    // Use searchId from data if provided, otherwise generate timestamp key
+    const key = searchData.searchId ? `search:${searchData.searchId}` : `search:${Date.now()}`;
     kvSet(key, JSON.stringify(searchData));
     return key;
   },
