@@ -10,6 +10,36 @@
       .replace(/\s+/g, ' ');
   }
 
+  /** Rebuild folder dropdown from window.WORKSPACE_FOLDERS (available before app.js finishes init). */
+  function rebuildBulkFolderSelect(preferredValue) {
+    const selectEl = document.getElementById('bulkFolderSelect');
+    if (!selectEl) return;
+    if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+    const folders = [...window.WORKSPACE_FOLDERS].sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
+    );
+    const prev =
+      preferredValue !== undefined && preferredValue !== null
+        ? String(preferredValue)
+        : selectEl.value;
+    selectEl.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = 'No folder';
+    selectEl.appendChild(emptyOpt);
+    folders.forEach((f) => {
+      if (!f || !f.key) return;
+      const opt = document.createElement('option');
+      opt.value = f.key;
+      opt.textContent = f.name || 'Folder';
+      selectEl.appendChild(opt);
+    });
+    const valid = prev && Array.from(selectEl.options).some((o) => o.value === prev);
+    selectEl.value = valid ? prev : '';
+    selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+  window.__rebuildBulkFolderSelect = rebuildBulkFolderSelect;
+
   function mountBulkBar() {
     const bar = document.getElementById('bulkActionBar');
     if (bar && bar.parentElement !== document.body) {
@@ -102,11 +132,9 @@
     if (!bar || bar.dataset.folderActionsBound === '1') return;
     bar.dataset.folderActionsBound = '1';
 
-    if (typeof window.__rebuildBulkFolderSelect === 'function') {
-      window.__rebuildBulkFolderSelect(
-        typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '',
-      );
-    }
+    rebuildBulkFolderSelect(
+      typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '',
+    );
 
     bar.addEventListener('click', async (e) => {
       if (e.target.closest('#bulkFolderNewToggle')) {
@@ -147,12 +175,13 @@
           }
           const { key, name: folderName } = data.folder;
           if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
-          if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
+          const existing = window.WORKSPACE_FOLDERS.find((f) => f && f.key === key);
+          if (existing) {
+            existing.name = folderName || name;
+          } else {
             window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
           }
-          if (typeof window.__rebuildBulkFolderSelect === 'function') {
-            window.__rebuildBulkFolderSelect(key);
-          }
+          rebuildBulkFolderSelect(key);
           setBulkFolderNewRowVisible(false);
           if (typeof window.showProspectToast === 'function') {
             window.showProspectToast('Folder created');

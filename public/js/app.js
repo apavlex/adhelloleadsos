@@ -8600,7 +8600,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (bulkFolderNewToggle && bulkFolderNewRow) {
+  const isSearchResultsBulkPage = !!document.getElementById('searchResultsLeadsTable');
+
+  if (!isSearchResultsBulkPage && bulkFolderNewToggle && bulkFolderNewRow) {
     bulkFolderNewToggle.addEventListener('click', () => {
       const isHidden = bulkFolderNewRow.classList.contains('hidden');
       if (isHidden) {
@@ -8611,10 +8613,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  if (bulkFolderNewCancel) {
+  if (!isSearchResultsBulkPage && bulkFolderNewCancel) {
     bulkFolderNewCancel.addEventListener('click', () => setBulkFolderNewRowVisible(false));
   }
-  if (bulkFolderNewName) {
+  if (!isSearchResultsBulkPage && bulkFolderNewName) {
     bulkFolderNewName.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') setBulkFolderNewRowVisible(false);
       if (e.key === 'Enter') {
@@ -8623,7 +8625,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  if (bulkFolderNewSave && bulkFolderNewName) {
+  if (!isSearchResultsBulkPage && bulkFolderNewSave && bulkFolderNewName) {
     bulkFolderNewSave.addEventListener('click', async () => {
       const name = String(bulkFolderNewName.value || '').trim();
       if (!name) {
