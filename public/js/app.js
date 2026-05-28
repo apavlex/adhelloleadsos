@@ -8267,7 +8267,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --- Save a lead ---
-  async function saveLead(row) {
+  async function saveLead(row, opts) {
+    const options = opts && typeof opts === 'object' ? opts : {};
     const folderEl = document.getElementById('bulkFolderSelect');
     const folderFromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
     const targetFolderKey =
@@ -8307,17 +8308,17 @@ document.addEventListener('DOMContentLoaded', () => {
         row.dataset.leadKey = data.key;
         const bookmarkBtn = row.querySelector('.bookmark-btn');
         if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
-        if (typeof window.showProspectToast === 'function') {
+        if (!options.silent && typeof window.showProspectToast === 'function') {
           window.showProspectToast('Lead saved');
         }
         return true;
       }
-      if (typeof window.showAppToast === 'function') {
+      if (!options.silent && typeof window.showAppToast === 'function') {
         window.showAppToast((data && data.error) || 'Could not save lead', { variant: 'error' });
       }
     } catch (err) {
       console.error('Failed to save lead:', err);
-      if (typeof window.showAppToast === 'function') {
+      if (!options.silent && typeof window.showAppToast === 'function') {
         window.showAppToast(err.message || 'Could not save lead', { variant: 'error' });
       }
     }
@@ -9024,12 +9025,46 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   }
 
-  function getRowLeadKey(row) {
+  function normalizeLeadKeyForApi(key) {
+    const k = String(key || '').trim();
+    if (!k) return '';
+    return k.startsWith('lead:') ? k : `lead:${k}`;
+  }
+
+  function syncRowLeadKeyFromSavedMap(row) {
     if (!row) return '';
-    const fromRow = row.dataset.leadKey ? String(row.dataset.leadKey).trim() : '';
-    if (fromRow) return fromRow;
+    const existing = row.dataset.leadKey ? String(row.dataset.leadKey).trim() : '';
+    if (existing) return existing;
     const titleKey = normalizeLeadTitleKey(row.dataset.title);
-    return titleKey && savedLeads.has(titleKey) ? String(savedLeads.get(titleKey) || '').trim() : '';
+    if (!titleKey || !savedLeads.has(titleKey)) return '';
+    const key = String(savedLeads.get(titleKey) || '').trim();
+    if (key) row.dataset.leadKey = key;
+    return key;
+  }
+
+  function getRowLeadKey(row) {
+    return syncRowLeadKeyFromSavedMap(row);
+  }
+
+  async function ensureRowLeadKeyForBulkSave(row, folderKey) {
+    if (!row) return '';
+    let key = syncRowLeadKeyFromSavedMap(row);
+    if (key) return key;
+    const folderEl = document.getElementById('bulkFolderSelect');
+    const folderFromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    const targetFolder =
+      folderKey ||
+      folderFromBar ||
+      (typeof window.SEARCH_TARGET_FOLDER_KEY === 'string'
+        ? window.SEARCH_TARGET_FOLDER_KEY.trim()
+        : '');
+    if (targetFolder && folderEl && !folderFromBar) {
+      folderEl.value = targetFolder;
+    }
+    const ok = await saveLead(row, { silent: true });
+    if (!ok) return '';
+    key = syncRowLeadKeyFromSavedMap(row);
+    return key;
   }
 
   function setBulkSaveButtonsState(buttons, html, disabled) {
@@ -9052,11 +9087,7 @@ document.addEventListener('DOMContentLoaded', () => {
       .map((cb) => cb.closest('.result-row'))
       .filter(Boolean);
 
-    const bulkBar = document.getElementById('bulkActionBar');
-    const isSearchBulk =
-      !!document.getElementById('searchResultsLeadsTable') &&
-      bulkBar &&
-      bulkBar.dataset.bulkMode === 'search';
+    const isSearchBulk = !!document.getElementById('searchResultsLeadsTable');
     const folderKey = getBulkSaveFolderKey();
 
     if (isSearchBulk && !folderKey) {
@@ -9073,38 +9104,39 @@ document.addEventListener('DOMContentLoaded', () => {
     let hadError = false;
 
     try {
+      const leadKeys = [];
       for (const row of selectedRows) {
-        if (isLeadTitleSaved(row.dataset.title)) {
+        const key = await ensureRowLeadKeyForBulkSave(row, folderKey);
+        if (key) {
+          leadKeys.push(normalizeLeadKeyForApi(key));
+          savedCount += 1;
           const bookmarkBtn = row.querySelector('.bookmark-btn');
           if (bookmarkBtn) markBookmarkSaved(bookmarkBtn);
-          continue;
-        }
-        const ok = await saveLead(row);
-        if (ok) savedCount += 1;
-      }
-
-      if (isSearchBulk && folderKey) {
-        const leadKeys = [
-          ...new Set(
-            selectedRows.map((row) => getRowLeadKey(row)).filter(Boolean),
-          ),
-        ];
-        if (leadKeys.length) {
-          const res = await fetch('/folders/assign-bulk', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ leadKeys, folderKey }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || !data.success) {
-            throw new Error((data && data.error) || `Could not assign folder (HTTP ${res.status})`);
-          }
-          assignCount = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : leadKeys.length;
         }
       }
 
-      const totalAffected = isSearchBulk && folderKey ? assignCount : savedCount;
+      const uniqueLeadKeys = [...new Set(leadKeys.filter(Boolean))];
+
+      if (folderKey && uniqueLeadKeys.length) {
+        const res = await fetch('/folders/assign-bulk', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: uniqueLeadKeys, folderKey }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `Could not assign folder (HTTP ${res.status})`);
+        }
+        assignCount = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : 0;
+        if (assignCount === 0 && uniqueLeadKeys.length) {
+          throw new Error(
+            'Leads were saved but could not be added to that folder. Refresh the page and try again, or check workspace permissions.',
+          );
+        }
+      }
+
+      const totalAffected = folderKey ? assignCount || savedCount : savedCount;
       if (totalAffected > 0) {
         setBulkSaveButtonsState(buttons, BULK_SAVE_DONE_HTML, true);
         if (typeof window.showProspectToast === 'function') {
@@ -9119,10 +9151,10 @@ document.addEventListener('DOMContentLoaded', () => {
           );
         }
       } else {
-        setBulkSaveButtonsState(
-          buttons,
-          isSearchBulk ? '<span>No leads to save</span>' : '<span>No new saves</span>',
-          true,
+        throw new Error(
+          isSearchBulk
+            ? 'No leads were saved. Check your folder selection and try again.'
+            : 'No leads were saved.',
         );
       }
       updateBulkActionBar();

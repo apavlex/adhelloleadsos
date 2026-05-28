@@ -118,6 +118,11 @@ function mergePreferExisting(existing, incoming) {
       continue;
     }
     if (k === 'pipelineStage' || k === 'status') continue;
+    if (k === 'folderKey') {
+      const incomingFolder = v != null ? String(v).trim() : '';
+      if (incomingFolder) out.folderKey = incomingFolder;
+      continue;
+    }
     if (isBlankValue(v)) continue;
     const cur = existing ? existing[k] : undefined;
     if (isBlankValue(cur)) out[k] = v;

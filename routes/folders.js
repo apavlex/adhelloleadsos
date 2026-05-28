@@ -87,10 +87,24 @@ router.post('/assign-bulk', async (req, res, next) => {
     const visible = filterLeadsForRequest(req, all);
     const visibleKeys = new Set(visible.map((l) => l.key));
 
+    const resolveVisibleLeadKey = (rawKey) => {
+      const k = String(rawKey || '').trim();
+      if (!k) return null;
+      const candidates = [
+        k,
+        k.startsWith('lead:') ? k : `lead:${k}`,
+        k.startsWith('lead:') ? k.slice(5) : null,
+      ].filter(Boolean);
+      for (const c of candidates) {
+        if (visibleKeys.has(c)) return c;
+      }
+      return null;
+    };
+
     const updated = [];
     for (const key of leadKeys) {
-      const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
-      if (!visibleKeys.has(fullKey)) continue;
+      const fullKey = resolveVisibleLeadKey(key);
+      if (!fullKey) continue;
       // eslint-disable-next-line no-await-in-loop
       const lead = await dbService.updateLead(fullKey, { folderKey: folderKey || '' });
       if (lead) updated.push(lead.key);
