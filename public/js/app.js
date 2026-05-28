@@ -3460,23 +3460,52 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'Run website audit';
   }
 
+  function scrollLeadPanelToSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    const scroll = document.getElementById('leadPanelTabScroll');
+    const target = section || scroll;
+    if (!target) return;
+    try {
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    } catch (_) {
+      try {
+        target.scrollIntoView();
+      } catch (_) {}
+    }
+  }
+
   async function ensureRowHasLeadKey(row) {
     if (!row) throw new Error('Select a lead first.');
-    let key = String(row.dataset.leadKey || '').trim();
-    if (key) return key;
+    let key = syncRowLeadKeyFromSavedMap(row);
+    if (key) return normalizeLeadKeyForApi(key);
+
     if (typeof window.showAppToast === 'function') {
       window.showAppToast('Saving lead first…', { variant: 'info' });
+    } else if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast('Saving lead first…');
     }
-    const ok = await saveLead(row);
+
+    const saver =
+      typeof window.__saveSearchResultLead === 'function'
+        ? window.__saveSearchResultLead
+        : typeof saveLead === 'function'
+          ? saveLead
+          : null;
+    if (!saver) {
+      throw new Error('Save is not ready yet. Refresh the page and try again.');
+    }
+
+    const ok = await saver(row, { silent: true });
     if (!ok) {
       throw new Error(
-        'Could not save this lead. On search results, pick a folder first, then run the audit again.',
+        'Could not save this lead. On search results, pick a folder in the bar at the bottom first, then try again.',
       );
     }
-    key = String(row.dataset.leadKey || '').trim();
+    key = syncRowLeadKeyFromSavedMap(row);
     if (!key) throw new Error('Could not save this lead.');
-    return key;
+    return normalizeLeadKeyForApi(key);
   }
+  window.__ensureRowHasLeadKey = ensureRowHasLeadKey;
 
   function showLeadPanelAuditReportLinks(bundle) {
     const wrap = document.getElementById('leadPanelAuditReportLinks');
@@ -3582,10 +3611,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
 
     if (!pageSpeedAuditInFlight) {
-      const disabled = !hasWebsite;
-      runBtn.disabled = disabled;
-      runBtn.classList.toggle('opacity-50', disabled);
-      runBtn.classList.toggle('cursor-not-allowed', disabled);
+      const blocked = !hasWebsite;
+      runBtn.disabled = false;
+      runBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+      runBtn.classList.toggle('opacity-50', blocked);
+      runBtn.classList.toggle('cursor-not-allowed', blocked);
       runBtn.title = !hasWebsite
         ? 'Add a website URL first'
         : audit
@@ -5508,16 +5538,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (startBtn) {
-      const hasKey = !!(row && row.dataset && row.dataset.leadKey);
       startBtn.disabled = !selectedId;
+      startBtn.setAttribute('aria-disabled', !selectedId ? 'true' : 'false');
       startBtn.textContent = active ? 'Restart playbook' : 'Start playbook';
       startBtn.title = !selectedId
         ? 'Choose a playbook first'
-        : !hasKey
-          ? 'Saves this lead automatically, then starts step 1'
-          : active
-            ? 'Replaces the current active sequence from step 1'
-            : 'Attach this playbook and schedule step 1';
+        : active
+          ? 'Replaces the current active sequence from step 1'
+          : 'Attach this playbook and schedule step 1 (saves lead if needed)';
     }
 
     renderCadencePlaybookSteps(row, { requireActive: false });
@@ -7467,10 +7495,12 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function startCadencePlaybookForCurrentRow() {
+    scrollLeadPanelToSection('leadCadencePlaybookHeading');
     if (!currentRow) {
+      const msg = 'Select a lead from the table first.';
       if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Select a lead first.', { variant: 'error' });
-      }
+        window.showAppToast(msg, { variant: 'error' });
+      } else window.alert(msg);
       return;
     }
     const sel = document.getElementById('leadCadencePlaybookSelect');
@@ -7532,7 +7562,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       const msg = err && err.message ? err.message : 'Start failed';
+      const status = document.getElementById('leadCadenceActiveStatus');
+      if (status) {
+        status.textContent = msg;
+        status.classList.remove('hidden');
+        status.classList.remove('text-emerald-800', 'dark:text-emerald-200', 'border-emerald-500/35');
+        status.classList.add('text-rose-800', 'dark:text-rose-200', 'border-rose-500/35', 'bg-rose-50/90');
+        try {
+          status.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (_) {}
+      }
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      else if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -7543,11 +7585,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  if (sidebarCadenceStartBtn && !sidebarCadenceStartBtn.dataset.adhelloBound) {
-    sidebarCadenceStartBtn.dataset.adhelloBound = '1';
-    sidebarCadenceStartBtn.addEventListener('click', () => {
-      startCadencePlaybookForCurrentRow();
-    });
+  window.__startCadencePlaybookForCurrentRow = startCadencePlaybookForCurrentRow;
+
+  if (!window.__adhelloCadenceStartCaptureBound) {
+    window.__adhelloCadenceStartCaptureBound = true;
+    document.addEventListener(
+      'click',
+      (e) => {
+        const startBtn = e.target.closest('#sidebarCadenceStartBtn');
+        if (!startBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        startCadencePlaybookForCurrentRow();
+      },
+      true,
+    );
   }
 
   if (sidebarCadenceSnooze90Btn) {
@@ -7671,22 +7723,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function runAiReadinessForRow(row) {
     if (!row) throw new Error('No lead selected.');
-    await ensureRowHasLeadKey(row);
-    const key = String(row.dataset.leadKey || '').trim();
+    const key = await ensureRowHasLeadKey(row);
     const enrichment = {
       hasSchemaMarkup: row.dataset.hasSchemaMarkup === 'true',
       hasChatbot: row.dataset.hasChatbot === 'true',
       hasClickToCall: row.dataset.hasClickToCall === 'true',
       isOutdated: row.dataset.isOutdated === 'true',
     };
-    const resp = await window.httpJsonPost(
-      '/leads/' + encodeURIComponent(key) + '/ai-readiness',
-      enrichment,
-    );
-    if (!resp.ok || !resp.body || !resp.body.success) {
-      throw new Error((resp.body && resp.body.error) || 'AI readiness assessment failed');
+    const res = await fetch(`/leads/${encodeURIComponent(key)}/ai-readiness`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(enrichment),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok || !body.success) {
+      throw new Error((body && body.error) || 'AI readiness assessment failed');
     }
-    const a = resp.body.assessment;
+    const a = body.assessment;
     if (!a) throw new Error('Empty assessment response');
     const resultEl = document.getElementById('aiReadinessResult');
     const errorEl = document.getElementById('aiReadinessError');
@@ -7734,12 +7788,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const row = currentRow;
 
+    scrollLeadPanelToSection('pageSpeedAuditSection');
+
     if (!row) {
-      const msg = 'Select a saved lead first.';
+      const msg = 'Select a lead from the table first.';
       showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
-      }
+      } else window.alert(msg);
       return;
     }
     const websiteUrl = resolveRowWebsiteForAudit(row);
@@ -7748,7 +7804,7 @@ document.addEventListener('DOMContentLoaded', () => {
       showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
-      }
+      } else window.alert(msg);
       return;
     }
     if (pageSpeedAuditInFlight) return;
@@ -7807,20 +7863,38 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg = err && err.message ? err.message : 'PageSpeed audit failed';
       showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+      else if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
     } finally {
       setPageSpeedAuditRunning(false);
       syncPageSpeedAuditPanel(row);
       syncLeadPanelEmailReportSection(row);
+      const results = document.getElementById('pageSpeedAuditResults');
+      const body = document.getElementById('pageSpeedAuditPanelBody');
+      if (results && parsePageSpeedAuditFromRow(row)) {
+        results.classList.remove('hidden');
+        if (body) body.classList.remove('hidden');
+        syncPageSpeedAuditPanelBodyVisibility();
+      }
     }
   }
 
   window.__adhelloRunPageSpeedAudit = handlePageSpeedAuditClick;
 
-  document.addEventListener('click', (e) => {
-    const btn = e.target.closest('#pageSpeedAuditRunBtn');
-    if (!btn || btn.disabled) return;
-    handlePageSpeedAuditClick(e);
-  });
+  if (!window.__adhelloPageSpeedAuditCaptureBound) {
+    window.__adhelloPageSpeedAuditCaptureBound = true;
+    document.addEventListener(
+      'click',
+      (e) => {
+        const btn = e.target.closest('#pageSpeedAuditRunBtn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        handlePageSpeedAuditClick(e);
+      },
+      true,
+    );
+  }
 
   // --- Contact hunt (sidebar + pipeline row sparkle) ---
   window.__contactHuntInFlight = window.__contactHuntInFlight || new Set();
@@ -8325,6 +8399,7 @@ document.addEventListener('DOMContentLoaded', () => {
     return false;
   }
   window.__saveSearchResultLead = saveLead;
+  window.__ensureRowHasLeadKey = ensureRowHasLeadKey;
 
   // --- Unsave a lead ---
   async function unsaveLead(row) {
