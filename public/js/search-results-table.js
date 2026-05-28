@@ -137,15 +137,6 @@
     );
 
     bar.addEventListener('click', async (e) => {
-      const saveToFolderBtn = e.target.closest('#bulkSaveBtn');
-      if (saveToFolderBtn && !saveToFolderBtn.disabled) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (typeof window.__bulkSaveSelectedLeads === 'function') {
-          window.__bulkSaveSelectedLeads(saveToFolderBtn);
-        }
-        return;
-      }
       if (e.target.closest('#bulkFolderNewToggle')) {
         e.preventDefault();
         e.stopPropagation();
