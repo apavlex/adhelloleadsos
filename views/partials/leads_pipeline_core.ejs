@@ -521,7 +521,7 @@
   </div>
 
   <!-- Bulk Action Bar -->
-  <%- include('partials/bulk_action_bar', { bulkBarMode: 'pipeline' }) %>
+  <%- include('./bulk_action_bar', { bulkBarMode: 'pipeline' }) %>
 <% } else { %>
   <% var _emptyFk = typeof activeFolderKey !== 'undefined' && activeFolderKey ? String(activeFolderKey) : ''; var _emptyFName = ''; if (_emptyFk && typeof folders !== 'undefined' && folders) { folders.forEach(function (fd) { if (fd && String(fd.key) === _emptyFk && !_emptyFName) _emptyFName = fd.name || ''; }); } %>
   <div class="brand-card p-16 md:p-24 text-center max-wide dark:bg-slate-900 dark:border-white/10">
