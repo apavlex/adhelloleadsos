@@ -70,19 +70,6 @@ async function runAutoMapsSearch(params, integrationEnv) {
   let accumulated = [];
   let lastAutoError = null;
 
-  // Debug: log which providers are configured
-  const apifyToken = (integrationEnv && integrationEnv.APIFY_API_TOKEN) || '';
-  const rapidToken = (integrationEnv && integrationEnv.RAPIDAPI_KEY) || '';
-  console.log('[runAutoMapsSearch] Providers check:', {
-    rapidapi: rapidapi.isConfigured(integrationEnv),
-    searchapi: searchapiConfigured(integrationEnv),
-    serpapi: serpapiConfigured(integrationEnv),
-    outscraper: outscraper.isConfigured(integrationEnv),
-    apify: apifyConfigured(integrationEnv),
-    APIFY_TOKEN: apifyToken ? apifyToken.slice(0,8) + '...' : '(empty)',
-    RAPIDAPI_KEY: rapidToken ? rapidToken.slice(0,8) + '...' : '(empty)',
-  });
-
   const providers = [
     {
       label: 'RapidAPI',
@@ -145,11 +132,23 @@ async function runAutoMapsSearch(params, integrationEnv) {
     return accumulated;
   }
 
+  // Build debug info for error message
+  const providerStatus = {
+    rapidapi: rapidapi.isConfigured(integrationEnv),
+    searchapi: searchapiConfigured(integrationEnv),
+    serpapi: serpapiConfigured(integrationEnv),
+    outscraper: outscraper.isConfigured(integrationEnv),
+    apify: apifyConfigured(integrationEnv),
+  };
+  const envKeys = Object.keys(integrationEnv || {}).filter(k => k.includes('API') || k.includes('TOKEN'));
+  const envStatus = {};
+  envKeys.forEach(k => { envStatus[k] = (integrationEnv[k] || '').length > 0 ? 'SET' : 'EMPTY'; });
+
   if (lastAutoError && lastAutoError.message) {
-    throw new Error(`Maps search failed (RapidAPI): ${lastAutoError.message}`);
+    throw new Error(`Maps search failed (last provider error): ${lastAutoError.message}. Providers: ${JSON.stringify(providerStatus)}. Env: ${JSON.stringify(envStatus)}`);
   }
   throw new Error(
-    'No Maps search provider available: set RAPIDAPI_KEY, SEARCHAPI_API_KEY, SERPAPI_API_KEY, OUTSCRAPER_API_KEY, or APIFY_API_TOKEN.'
+    `No Maps search provider available. Providers: ${JSON.stringify(providerStatus)}. Env keys: ${JSON.stringify(envStatus)}. Set RAPIDAPI_KEY, SEARCHAPI_API_KEY, SERPAPI_API_KEY, OUTSCRAPER_API_KEY, or APIFY_API_TOKEN.`
   );
 }
 
