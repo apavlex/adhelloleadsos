@@ -55,6 +55,7 @@ router.post('/search', apiKeyAuth, express.json(), async (req, res, next) => {
     }
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    console.log(`[AUTONOMOUS-SEARCH] wid=${wid}, RAPIDAPI_KEY=${integrationEnv.RAPIDAPI_KEY ? 'SET' : 'EMPTY'}, APIFY_API_TOKEN=${integrationEnv.APIFY_API_TOKEN ? 'SET' : 'EMPTY'}, mapsConfigured=${mapsSearch.isMapsSearchConfigured(integrationEnv)}`);
     if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).json({
         success: false,
