@@ -70,6 +70,19 @@ async function runAutoMapsSearch(params, integrationEnv) {
   let accumulated = [];
   let lastAutoError = null;
 
+  // Debug: log which providers are configured
+  const apifyToken = (integrationEnv && integrationEnv.APIFY_API_TOKEN) || '';
+  const rapidToken = (integrationEnv && integrationEnv.RAPIDAPI_KEY) || '';
+  console.log('[runAutoMapsSearch] Providers check:', {
+    rapidapi: rapidapi.isConfigured(integrationEnv),
+    searchapi: searchapiConfigured(integrationEnv),
+    serpapi: serpapiConfigured(integrationEnv),
+    outscraper: outscraper.isConfigured(integrationEnv),
+    apify: apifyConfigured(integrationEnv),
+    APIFY_TOKEN: apifyToken ? apifyToken.slice(0,8) + '...' : '(empty)',
+    RAPIDAPI_KEY: rapidToken ? rapidToken.slice(0,8) + '...' : '(empty)',
+  });
+
   const providers = [
     {
       label: 'RapidAPI',
