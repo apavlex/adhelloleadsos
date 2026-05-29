@@ -71,6 +71,14 @@ router.post('/search', apiKeyAuth, express.json(), async (req, res, next) => {
         let results = await mapsSearch.searchGoogleMaps({ keyword, city, state, maxResults, integrationEnv });
         if (!results || results.length === 0) {
           console.log(`[AUTONOMOUS] Search ${searchId}: no results`);
+          // Save empty result so poll endpoint can report "complete with 0 results"
+          await dbService.saveSearch({
+            keyword, city, state, maxResults,
+            resultCount: 0, results: [],
+            timestamp: new Date().toISOString(),
+            workspaceId: wid, source: 'autonomous', searchId,
+            status: 'complete_empty',
+          });
           return;
         }
         results = await enricher.enrichLeads(results, { workspaceId: wid });
@@ -87,6 +95,18 @@ router.post('/search', apiKeyAuth, express.json(), async (req, res, next) => {
         console.log(`[AUTONOMOUS] Search ${searchId}: saved ${results.length} leads as ${searchKey}`);
       } catch (err) {
         console.error(`[AUTONOMOUS] Search ${searchId} failed:`, err.message);
+        // Save error status so poll endpoint can report the failure
+        try {
+          await dbService.saveSearch({
+            keyword, city, state, maxResults,
+            resultCount: 0, results: [],
+            timestamp: new Date().toISOString(),
+            workspaceId: wid, source: 'autonomous', searchId,
+            status: 'failed', error: err.message,
+          });
+        } catch (saveErr) {
+          console.error(`[AUTONOMOUS] Could not save error status:`, saveErr.message);
+        }
       }
     });
 
@@ -110,9 +130,9 @@ router.get('/search/:searchId', apiKeyAuth, async (req, res, next) => {
     if (!data) {
       return res.json({ success: true, status: 'pending', message: 'Search still running or not found.' });
     }
-    res.json({
+    const response = {
       success: true,
-      status: 'complete',
+      status: data.status === 'failed' ? 'failed' : data.status === 'complete_empty' ? 'complete' : 'complete',
       searchId: data.searchId || raw,
       keyword: data.keyword,
       city: data.city,
@@ -120,7 +140,12 @@ router.get('/search/:searchId', apiKeyAuth, async (req, res, next) => {
       resultCount: data.resultCount,
       results: data.results || [],
       timestamp: data.timestamp,
-    });
+    };
+    if (data.status === 'failed') {
+      response.error = data.error || 'Unknown error';
+      response.message = `Search failed: ${response.error}`;
+    }
+    res.json(response);
   } catch (err) {
     next(err);
   }
