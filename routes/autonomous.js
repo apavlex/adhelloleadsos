@@ -437,10 +437,19 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
 router.get('/status', apiKeyAuth, async (req, res) => {
   const wid = workspaceId(req);
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid).catch(() => ({}));
+  const debug = {
+    RAPIDAPI_KEY: integrationEnv.RAPIDAPI_KEY ? `${integrationEnv.RAPIDAPI_KEY.slice(0,8)}...` : '(empty)',
+    SEARCHAPI_API_KEY: integrationEnv.SEARCHAPI_API_KEY ? `${integrationEnv.SEARCHAPI_API_KEY.slice(0,8)}...` : '(empty)',
+    SERPAPI_API_KEY: integrationEnv.SERPAPI_API_KEY ? `${integrationEnv.SERPAPI_API_KEY.slice(0,8)}...` : '(empty)',
+    OUTSCRAPER_API_KEY: integrationEnv.OUTSCRAPER_API_KEY ? `${integrationEnv.OUTSCRAPER_API_KEY.slice(0,8)}...` : '(empty)',
+    APIFY_API_TOKEN: integrationEnv.APIFY_API_TOKEN ? `${integrationEnv.APIFY_API_TOKEN.slice(0,8)}...` : '(empty)',
+  };
+  console.log('[STATUS] integrationEnv keys:', debug);
   res.json({
     success: true,
     workspaceId: wid,
     mapsConfigured: mapsSearch.isMapsSearchConfigured(integrationEnv),
+    debug,
     timestamp: new Date().toISOString(),
   });
 });
