@@ -4,6 +4,7 @@
 <body class="bg-brand-bg text-brand-dark overflow-x-hidden selection:bg-brand-yellow/30">
 
 <%- include('partials/navbar') %>
+<% locals.assistantDockIncluded = true; %>
 
 <main class="max-w-7xl mx-auto px-4 sm:px-6 py-8">
   <!-- Header -->
@@ -397,19 +398,12 @@
 
 </main>
 
-<!-- ── Floating Chat Bubble ─────────────────────────────────────────────────── -->
-<button id="chatBubble" type="button" aria-label="Open chat" class="fixed bottom-6 right-6 z-50 w-16 h-16 rounded-full bg-brand-dark text-brand-yellow shadow-2xl shadow-brand-dark/30 flex items-center justify-center hover:scale-110 hover:shadow-brand-dark/50 transition-all duration-200 group cursor-pointer">
-  <svg id="chatBubbleIcon" class="w-7 h-7 group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-  </svg>
-  <svg id="chatBubbleClose" class="w-7 h-7 hidden group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-  </svg>
-  <span id="chatBubbleDot" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white hidden"></span>
-</button>
+<%- include('partials/footer') %>
 
+<!-- ── Floating Chat (mobile / tablet only; inline widget on desktop) ───────── -->
+<div id="ceoChatFloat" class="app-floating-layer lg:hidden flex flex-col items-end gap-3">
 <!-- ── Floating Chat Window ─────────────────────────────────────────────────── -->
-<div id="chatWindow" class="fixed bottom-24 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] bg-white rounded-[1.5rem] border border-brand-border/40 shadow-2xl shadow-brand-dark/20 flex flex-col hidden overflow-hidden" style="height: 520px;">
+<div id="chatWindow" class="w-[min(calc(100vw-2rem),380px)] bg-white rounded-[1.5rem] border border-brand-border/40 shadow-2xl shadow-brand-dark/20 flex flex-col hidden overflow-hidden" style="height: min(520px, calc(100dvh - 8rem));">
   <div class="px-5 py-3.5 border-b border-brand-border/20 flex items-center justify-between gap-3 bg-brand-dark rounded-t-[1.5rem]">
     <div class="flex items-center gap-2.5">
       <div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-2 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">
@@ -456,8 +450,16 @@
     </form>
   </div>
 </div>
-
-<%- include('partials/footer') %>
+<button id="chatBubble" type="button" aria-label="Open chat" class="relative w-16 h-16 rounded-full bg-brand-dark text-brand-yellow shadow-2xl shadow-brand-dark/30 flex items-center justify-center hover:scale-110 hover:shadow-brand-dark/50 transition-all duration-200 group cursor-pointer shrink-0">
+  <svg id="chatBubbleIcon" class="w-7 h-7 group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+  </svg>
+  <svg id="chatBubbleClose" class="w-7 h-7 hidden group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+  </svg>
+  <span id="chatBubbleDot" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white hidden"></span>
+</button>
+</div><!-- /#ceoChatFloat -->
 
 <!-- Chart Script -->
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>

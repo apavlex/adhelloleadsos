@@ -1,5 +1,7 @@
 </div><!-- /.app-shell-content -->
 <%- include('/partials/navbar_scripts') %>
 <% if (!locals.assistantDockIncluded) { %>
+<div id="appFloatingWidgets" class="app-floating-layer">
 <%- include('/partials/assistant_dock') %>
+</div>
 <% } %>

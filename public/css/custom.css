@@ -97,6 +97,27 @@ h1, h2, h3, h4, .font-display {
     --app-sidebar-width: 13.5rem;
 }
 
+/* Floating chat widgets (global assistant + CEO mobile bubble) */
+.app-floating-layer {
+    position: fixed;
+    z-index: 155;
+    bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    right: max(1.25rem, env(safe-area-inset-right, 0px));
+    left: auto;
+    top: auto;
+    width: auto;
+    height: auto;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    pointer-events: none;
+}
+
+.app-floating-layer > * {
+    pointer-events: auto;
+}
+
 @media (min-width: 768px) {
     body.app-with-sidebar {
         display: grid;
@@ -149,7 +170,7 @@ h1, h2, h3, h4, .font-display {
         display: none !important;
     }
 
-    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content) {
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content):not(.app-floating-layer) {
         grid-column: 2;
         grid-row: 1;
         height: 0;
@@ -160,7 +181,7 @@ h1, h2, h3, h4, .font-display {
         pointer-events: none;
     }
 
-    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content) * {
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content):not(.app-floating-layer) * {
         pointer-events: auto;
     }
 
@@ -171,6 +192,13 @@ h1, h2, h3, h4, .font-display {
 
     .app-shell-content > script {
         display: none !important;
+    }
+
+    body.app-with-sidebar > .app-floating-layer {
+        grid-column: auto;
+        grid-row: auto;
+        height: auto;
+        min-height: auto;
     }
 
     body.app-with-sidebar #appTopbar {
