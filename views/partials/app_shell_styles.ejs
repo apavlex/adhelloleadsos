@@ -43,7 +43,22 @@
       grid-area: main;
       min-width: 0;
       width: 100%;
+      max-width: 100%;
+      justify-self: stretch;
+    }
+    body:has(#appSidebar) > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) {
+      grid-column: 1 / -1;
+      grid-row: 1;
+      height: 0;
+      min-height: 0;
+      overflow: visible;
+      margin: 0;
+      padding: 0;
       align-self: start;
+      pointer-events: none;
+    }
+    body:has(#appSidebar) > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) * {
+      pointer-events: auto;
     }
     body:has(#appSidebar) > footer {
       grid-area: footer;

@@ -9,7 +9,7 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>
 
-  <main class="max-wide px-6 py-10 md:py-14">
+  <main class="max-wide w-full min-w-0 px-6 py-10 md:py-14">
     <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
     <% if (activeTab === 'pipeline') { %>
       <div class="flex justify-end mb-6">

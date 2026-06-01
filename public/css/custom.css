@@ -140,7 +140,25 @@ h1, h2, h3, h4, .font-display {
         grid-area: main;
         min-width: 0;
         width: 100%;
+        max-width: 100%;
+        justify-self: stretch;
+    }
+
+    /* Scripts/modals between topbar and <main> must not auto-place into the main grid area */
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        height: 0;
+        min-height: 0;
+        overflow: visible;
+        margin: 0;
+        padding: 0;
         align-self: start;
+        pointer-events: none;
+    }
+
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) * {
+        pointer-events: auto;
     }
 
     body.app-with-sidebar > footer {
