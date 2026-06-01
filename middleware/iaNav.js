@@ -42,6 +42,12 @@ function iaNav(req, res, next) {
   } else if (p === '/ceo' || p.startsWith('/ceo/')) {
     navPrimary = 'ceo';
   }
+  res.locals.requestPath = p;
+  res.locals.sidebarSettingsOpen =
+    p.startsWith('/workspace') ||
+    p === '/scripts' ||
+    p.startsWith('/scripts/') ||
+    p.startsWith('/activation');
   res.locals.navPrimary = navPrimary;
   next();
 }
