@@ -17,7 +17,7 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const { scoreLeadRecord } = require('../services/opportunityScore');
-const { chatCompletion } = require('../services/llmClient');
+const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const {
   displayStatus,
@@ -1796,10 +1796,8 @@ Rules:
       });
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(ai.content);
-    } catch {
+    const parsed = parseLlmJson(ai.content);
+    if (!parsed) {
       return res.status(500).json({ success: false, error: 'Invalid AI response' });
     }
     const personalized = String((parsed && parsed.message) || '').trim();
@@ -2176,10 +2174,8 @@ Respond with JSON only, no markdown:
       });
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(ai.content);
-    } catch {
+    const parsed = parseLlmJson(ai.content);
+    if (!parsed) {
       return res.json({ success: false, error: 'Invalid AI response' });
     }
 
@@ -2276,10 +2272,8 @@ Return JSON only, no markdown:
       });
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(ai.content);
-    } catch {
+    const parsed = parseLlmJson(ai.content);
+    if (!parsed) {
       return res.json({ success: false, error: 'Invalid AI response' });
     }
 

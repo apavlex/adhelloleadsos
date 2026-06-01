@@ -3,7 +3,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS, PERSONAS } = require('../services/salesConstants');
 const pipelineStagesService = require('../services/pipelineStagesService');
-const { chatCompletion } = require('../services/llmClient');
+const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 const { buildDayRollup } = require('../services/trackerStats');
 const {
   inferDailyTouchCountsFromLeads,
@@ -326,10 +326,8 @@ Rules:
       });
     }
 
-    let parsed;
-    try {
-      parsed = JSON.parse(ai.content);
-    } catch {
+    const parsed = parseLlmJson(ai.content);
+    if (!parsed) {
       return res.json({ success: false, error: 'Invalid AI response' });
     }
 

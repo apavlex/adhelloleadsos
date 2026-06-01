@@ -179,6 +179,48 @@ function extractOpenAIStyleMessageContent(data) {
   return null;
 }
 
+/** Parse JSON from LLM output (raw JSON, ``` fences, or embedded object). */
+function parseLlmJson(text) {
+  if (text == null) return null;
+  const raw = String(text).trim();
+  if (!raw) return null;
+
+  const tryParse = (s) => {
+    try {
+      return JSON.parse(s);
+    } catch {
+      return null;
+    }
+  };
+
+  let parsed = tryParse(raw);
+  if (parsed) return parsed;
+
+  const unfenced = raw
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
+    .trim();
+  if (unfenced !== raw) {
+    parsed = tryParse(unfenced);
+    if (parsed) return parsed;
+  }
+
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) {
+    parsed = tryParse(fence[1].trim());
+    if (parsed) return parsed;
+  }
+
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    parsed = tryParse(raw.slice(start, end + 1));
+    if (parsed) return parsed;
+  }
+
+  return null;
+}
+
 async function runGemini(prov, { messages, jsonObject, max_tokens, temperature }) {
   const geminiBody = buildGeminiBody(messages, { jsonObject, max_tokens, temperature });
   if (!geminiBody.contents || geminiBody.contents.length === 0) {
@@ -346,4 +388,5 @@ module.exports = {
   providersInFallbackOrder,
   openRouterProviders,
   legacyProviders,
+  parseLlmJson,
 };

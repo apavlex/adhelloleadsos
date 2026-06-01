@@ -2,7 +2,7 @@
  * LLM-backed prospecting coach brief (shared by POST /sales/outreach-coach, SSE stream, cron warm).
  */
 const dbService = require('./database');
-const { chatCompletion } = require('./llmClient');
+const { chatCompletion, parseLlmJson } = require('./llmClient');
 const { filterLeadsForRequest } = require('./workspaceService');
 const {
   buildOutreachCoachSnapshot,
@@ -67,11 +67,15 @@ Respond with JSON only:
     };
   }
 
-  let parsed;
-  try {
-    parsed = JSON.parse(ai.content);
-  } catch {
-    return { success: false, error: 'Invalid AI response', snapshot, actions };
+  let parsed = parseLlmJson(ai.content);
+  if (!parsed) {
+    console.warn('[outreachCoachAi] JSON parse failed:', String(ai.content).slice(0, 280));
+    return {
+      success: false,
+      error: 'Invalid AI response — try Refresh AI. If it persists, check OPENROUTER_API_KEY on the server.',
+      snapshot,
+      actions,
+    };
   }
 
   const headline = typeof parsed.headline === 'string' ? parsed.headline.trim() : '';
