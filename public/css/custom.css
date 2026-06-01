@@ -304,6 +304,14 @@ h1, h2, h3, h4, .font-display {
     font-size: 0.75rem;
 }
 
+.ws-nav-item-active {
+    color: var(--brand-dark) !important;
+}
+
+.dark .ws-nav-item-active {
+    color: #111827 !important;
+}
+
 .sidebar-settings-toggle {
     border: none;
     background: transparent;

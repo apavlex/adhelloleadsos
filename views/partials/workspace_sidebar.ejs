@@ -2,25 +2,31 @@
 <% const _ws = typeof workspace !== 'undefined' ? workspace : null; %>
 <% const _can = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
 <% const _hasId = _ws && _ws.id; %>
+<% function _wsNavItem(id) {
+  var on = _sec === id;
+  var base = 'ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border text-[10px] font-black uppercase tracking-widest transition-colors ';
+  if (on) return base + 'ws-nav-item-active bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm shadow-brand-yellow/30';
+  return base + 'border-brand-border/40 dark:border-white/10 text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40';
+} %>
 <section class="ws-settings-nav mb-8 pb-4 border-b border-brand-border/40 dark:border-white/10" aria-label="Workspace settings">
   <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
     <div class="min-w-0 flex-1 -mx-1 px-1">
-      <nav class="flex flex-nowrap items-center gap-1.5 overflow-x-auto custom-scrollbar pb-0.5 text-[10px] font-black uppercase tracking-widest" id="wsSettingsNav">
+      <nav class="flex flex-nowrap items-center gap-1.5 overflow-x-auto custom-scrollbar pb-0.5" id="wsSettingsNav">
         <% if (_can && _hasId) { %>
-        <a href="/workspace/pipeline" data-ws-nav="pipeline stages board" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'pipeline' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Pipeline</a>
-        <a href="/workspace/branding" data-ws-nav="brand accent color theme" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'branding' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Brand accent</a>
+        <a href="/workspace/pipeline" data-ws-nav="pipeline stages board" class="<%= _wsNavItem('pipeline') %>"<%= _sec === 'pipeline' ? ' aria-current="page"' : '' %>>Pipeline</a>
+        <a href="/workspace/branding" data-ws-nav="brand accent color theme" class="<%= _wsNavItem('branding') %>"<%= _sec === 'branding' ? ' aria-current="page"' : '' %>>Brand accent</a>
         <% } %>
-        <a href="/workspace/team" data-ws-nav="team members roles invite" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'team' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Team</a>
-        <a href="/workspace/integrations" data-ws-nav="integrations api keys apify outscraper firecrawl rapidapi scrape stack maps crawl4ai cost enrich" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'integrations' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Integrations</a>
+        <a href="/workspace/team" data-ws-nav="team members roles invite" class="<%= _wsNavItem('team') %>"<%= _sec === 'team' ? ' aria-current="page"' : '' %>>Team</a>
+        <a href="/workspace/integrations" data-ws-nav="integrations api keys apify outscraper firecrawl rapidapi scrape stack maps crawl4ai cost enrich" class="<%= _wsNavItem('integrations') %>"<%= _sec === 'integrations' ? ' aria-current="page"' : '' %>>Integrations</a>
         <% if (_can) { %>
-        <a href="/workspace/phones" data-ws-nav="phone bank numbers cnam signalwire outbound" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'phones' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Phone bank</a>
-        <a href="/workspace/voicemail" data-ws-nav="voicemail weekly drop recording" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'voicemail' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Voicemail</a>
+        <a href="/workspace/phones" data-ws-nav="phone bank numbers cnam signalwire outbound" class="<%= _wsNavItem('phones') %>"<%= _sec === 'phones' ? ' aria-current="page"' : '' %>>Phone bank</a>
+        <a href="/workspace/voicemail" data-ws-nav="voicemail weekly drop recording" class="<%= _wsNavItem('voicemail') %>"<%= _sec === 'voicemail' ? ' aria-current="page"' : '' %>>Voicemail</a>
         <% } %>
-        <a href="/workspace/routing" data-ws-nav="round robin routing assign inbound sdr" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'routing' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Round-robin</a>
+        <a href="/workspace/routing" data-ws-nav="round robin routing assign inbound sdr" class="<%= _wsNavItem('routing') %>"<%= _sec === 'routing' ? ' aria-current="page"' : '' %>>Round-robin</a>
         <% if (_can) { %>
-        <a href="/workspace/revenue" data-ws-nav="revenue deal value timezone brief" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-white hover:bg-brand-yellow/15 hover:border-brand-yellow/40 transition-colors <%= _sec === 'revenue' ? 'bg-brand-yellow/20 border-brand-yellow/50' : '' %>">Revenue</a>
+        <a href="/workspace/revenue" data-ws-nav="revenue deal value timezone brief" class="<%= _wsNavItem('revenue') %>"<%= _sec === 'revenue' ? ' aria-current="page"' : '' %>>Revenue</a>
         <% } %>
-        <a href="/workspace/advanced" data-ws-nav="advanced workspace id" class="ws-nav-item shrink-0 whitespace-nowrap rounded-xl px-3 py-2 border border-brand-border/40 text-brand-muted hover:text-brand-dark dark:hover:text-white hover:bg-brand-cream/40 dark:hover:bg-white/5 transition-colors <%= _sec === 'advanced' ? 'bg-brand-cream/50 dark:bg-white/10 text-brand-dark dark:text-white' : '' %>">Advanced</a>
+        <a href="/workspace/advanced" data-ws-nav="advanced workspace id" class="<%= _wsNavItem('advanced') %>"<%= _sec === 'advanced' ? ' aria-current="page"' : '' %>>Advanced</a>
       </nav>
     </div>
     <div class="shrink-0 w-full lg:w-52">
