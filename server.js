@@ -17,6 +17,7 @@ const scheduler = require('./services/scheduler');
 const nightlyPrepService = require('./services/nightlyPrep');
 const { migrateLegacyPipelineStages } = require('./services/pipelineMigration');
 const { runGlobalPipelineSeedOnce } = require('./services/pipelineStagesService');
+const { logStartupPersistenceStatus } = require('./services/dataPersistence');
 
 const indexRoutes = require('./routes/index');
 const searchRoutes = require('./routes/search');
@@ -476,6 +477,7 @@ function startServer() {
 }
 
 async function runStartupTasks() {
+  logStartupPersistenceStatus();
   await migrateLegacyPipelineStages();
   runGlobalPipelineSeedOnce();
 }

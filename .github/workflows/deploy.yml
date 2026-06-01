@@ -1,3 +1,6 @@
+# Deploys to Cloud Run on push to main.
+# Configure persistent storage once or SQLite data is lost every deploy — docs/DEPLOY_PERSISTENCE.md
+
 name: Deploy to Cloud Run
 
 on:

@@ -16,6 +16,18 @@
   <% if (integrationsReady && integrationsMessage) { %>
     <p class="text-sm mb-4 rounded-xl px-4 py-3 <%= integrationsMessage.type === 'ok' ? 'bg-emerald-500/10 text-emerald-900 dark:text-emerald-200' : 'bg-amber-500/10 text-amber-900 dark:text-amber-100' %>"><%= integrationsMessage.text %></p>
   <% } %>
+  <% if (typeof persistenceDeploymentHint !== 'undefined' && persistenceDeploymentHint) { %>
+    <div class="mb-4 rounded-xl border px-4 py-3 text-sm leading-relaxed <%= persistenceDeploymentHint.level === 'err' ? 'border-rose-400/50 bg-rose-50 text-rose-950 dark:bg-rose-950/40 dark:text-rose-100' : 'border-amber-400/50 bg-amber-50 text-amber-950 dark:bg-amber-950/40 dark:text-amber-100' %>">
+      <p class="font-semibold mb-1">Data persistence</p>
+      <p><%= persistenceDeploymentHint.message %></p>
+    </div>
+  <% } %>
+  <% if (typeof persistenceIntegrationsHint !== 'undefined' && persistenceIntegrationsHint) { %>
+    <div class="mb-4 rounded-xl border border-rose-400/50 bg-rose-50 dark:bg-rose-950/40 px-4 py-3 text-sm text-rose-950 dark:text-rose-100 leading-relaxed">
+      <p class="font-semibold mb-1">Saved API keys unavailable</p>
+      <p><%= persistenceIntegrationsHint.message %></p>
+    </div>
+  <% } %>
   <% if (integrationsReady) { %>
   <% const masks = integrationMasks || {}; %>
   <% const _mapsPrimary = (mapsSearchPrimary || 'auto').toString().toLowerCase(); %>

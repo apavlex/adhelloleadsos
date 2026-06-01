@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const dbService = require('../services/database');
 const workspaceService = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
+const dataPersistence = require('../services/dataPersistence');
 const scrapeCostAdvisor = require('../services/scrapeCostAdvisor');
 const mapsSearch = require('../services/mapsSearch');
 const crawl4aiClient = require('../services/crawl4aiClient');
@@ -254,6 +255,9 @@ async function loadWorkspacePageLocals(req) {
     .trim()
     .toLowerCase();
 
+  const persistenceDeploymentHint = dataPersistence.deploymentPersistenceHint();
+  const persistenceIntegrationsHint = dataPersistence.workspaceIntegrationsPersistenceHint(ws);
+
   const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
   return {
     title: 'Workspace & team',
@@ -266,6 +270,8 @@ async function loadWorkspacePageLocals(req) {
     integrationMasks,
     integrationsReady,
     integrationsMessage,
+    persistenceDeploymentHint,
+    persistenceIntegrationsHint,
     mapsSearchPrimary,
     mapsProviderStatus,
     enrichPrimary,
@@ -320,6 +326,11 @@ router.post('/integrations', async (req, res, next) => {
     plain = workspaceIntegrations.applyClears(plain, req.body);
     plain = workspaceIntegrations.mergeIntegrationUpdates(plain, req.body);
     await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
+    try {
+      dataPersistence.backupSqliteSnapshot();
+    } catch (e) {
+      console.warn('[persist] Post-save backup skipped:', e && e.message ? e.message : e);
+    }
     res.redirect('/workspace/integrations?integrations=saved');
   } catch (e) {
     next(e);
@@ -379,6 +390,11 @@ router.post('/integrations/test/:provider', async (req, res) => {
     const shouldSave = Object.keys(body).length > 0;
     if (shouldSave) {
       await saveIntegrationsFromRequest(req);
+      try {
+        dataPersistence.backupSqliteSnapshot();
+      } catch (e) {
+        console.warn('[persist] Post-save backup skipped:', e && e.message ? e.message : e);
+      }
     }
     const integrationEnv = shouldSave
       ? await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId)
@@ -408,6 +424,11 @@ router.post('/integrations/test', async (req, res) => {
     const shouldSave = Object.keys(body).length > 0;
     if (shouldSave) {
       await saveIntegrationsFromRequest(req);
+      try {
+        dataPersistence.backupSqliteSnapshot();
+      } catch (e) {
+        console.warn('[persist] Post-save backup skipped:', e && e.message ? e.message : e);
+      }
     }
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const providers = await integrationProviderTests.runAllProviderTests(integrationEnv);

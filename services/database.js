@@ -5,11 +5,44 @@ const Database = require('better-sqlite3');
 const { clampPipelineStage, PIPELINE_SCHEMA_VERSION } = require('./pipelineConstants');
 
 // ── SQLite setup ──────────────────────────────────────────────────────────────
-const DB_DIR = path.join(__dirname, '..', 'data');
+function resolveDbDir() {
+  const custom = process.env.APP_DATA_DIR && String(process.env.APP_DATA_DIR).trim();
+  return custom ? path.resolve(custom) : path.join(__dirname, '..', 'data');
+}
+
+const DB_DIR = resolveDbDir();
 if (!fs.existsSync(DB_DIR)) {
   fs.mkdirSync(DB_DIR, { recursive: true });
 }
 const DB_PATH = path.join(DB_DIR, 'app.db');
+
+function getPersistenceStats() {
+  let dbSizeBytes = 0;
+  let dbExists = false;
+  try {
+    dbExists = fs.existsSync(DB_PATH);
+    if (dbExists) dbSizeBytes = fs.statSync(DB_PATH).size;
+  } catch {
+    /* ignore */
+  }
+  let kvCount = 0;
+  let leadKeyCount = 0;
+  try {
+    const row = sqlite.prepare('SELECT COUNT(*) AS c FROM kv').get();
+    kvCount = row && row.c != null ? row.c : 0;
+    leadKeyCount = kvList('lead:').length;
+  } catch {
+    /* db not ready */
+  }
+  return {
+    dbDir: DB_DIR,
+    dbPath: DB_PATH,
+    dbExists,
+    dbSizeBytes,
+    kvCount,
+    leadKeyCount,
+  };
+}
 
 const sqlite = new Database(DB_PATH);
 sqlite.pragma('journal_mode = WAL');
@@ -184,6 +217,11 @@ function assertLeadScopedWorkspaceId(workspaceId, methodName) {
 
 // ── Module exports (identical API surface) ────────────────────────────────────
 module.exports = {
+  getPersistenceStats,
+  getDbPath() {
+    return DB_PATH;
+  },
+
   async saveSearch(searchData) {
     // Use searchId from data if provided, otherwise generate timestamp key
     const key = searchData.searchId ? `search:${searchData.searchId}` : `search:${Date.now()}`;

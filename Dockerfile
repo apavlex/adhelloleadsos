@@ -32,6 +32,7 @@ RUN mkdir -p /app/data
 
 ENV PORT=8080
 ENV NODE_ENV=production
+# Production: mount persistent storage and set APP_DATA_DIR=/data (see docs/DEPLOY_PERSISTENCE.md)
 
 EXPOSE 8080
 

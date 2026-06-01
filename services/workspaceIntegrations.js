@@ -163,6 +163,15 @@ function integrationMasks(workspace) {
   return masks;
 }
 
+/** @returns {'empty'|'locked'|'decrypt_failed'|'ok'} */
+function integrationsStorageState(workspace) {
+  if (!workspace || !workspace.integrationsCipher) return 'empty';
+  if (!isEncryptionAvailable()) return 'locked';
+  const dec = decryptIntegrations(workspace.integrationsCipher);
+  if (dec === null) return 'decrypt_failed';
+  return 'ok';
+}
+
 module.exports = {
   INTEGRATION_FIELDS,
   FIELD_TO_ENV,
@@ -172,6 +181,7 @@ module.exports = {
   applyClears,
   saveWorkspaceIntegrations,
   integrationMasks,
+  integrationsStorageState,
   isEncryptionAvailable,
   encryptIntegrations,
 };
