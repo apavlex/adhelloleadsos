@@ -348,9 +348,7 @@
     if (!processingIndicator) return;
 
     applyProcessingRing();
-    if (localStorage.getItem('is_searching') === 'true') {
-      updateLeadRunProgressBanner({ isProcessing: true });
-    }
+    updateLeadRunProgressBanner({ isProcessing: false });
 
     var leadRunBellBtn = document.getElementById('leadRunProgressBellBtn');
     if (leadRunBellBtn && processingIndicator) {
