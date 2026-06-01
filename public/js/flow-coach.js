@@ -153,7 +153,9 @@
         srcLabel.textContent = 'Gap-based rank';
       } else {
         srcLabel.textContent =
-          fc.source === 'kie'
+          fc.source === 'openrouter'
+            ? 'Live coach · OpenRouter'
+            : fc.source === 'kie'
             ? 'Live coach · KIE'
             : fc.source === 'openai'
               ? 'Live coach'

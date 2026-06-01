@@ -922,7 +922,7 @@ document.addEventListener('DOMContentLoaded', () => {
           aiBody.innerHTML = html;
         } else {
           aiBody.innerHTML =
-            '<p class="text-sm text-brand-muted dark:text-slate-500">No AI insight yet. Set <code class="text-[10px] bg-brand-cream dark:bg-slate-800 px-1 rounded">GEMINI_API_KEY</code> or other LLM keys, or open the lead detail panel after enrich.</p>';
+            '<p class="text-sm text-brand-muted dark:text-slate-500">No AI insight yet. Set <code class="text-[10px] bg-brand-cream dark:bg-slate-800 px-1 rounded">OPENROUTER_API_KEY</code>, or open the lead detail panel after enrich.</p>';
         }
       } catch {
         if (aiBody) {
@@ -1257,16 +1257,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const closeMobileMenu = document.getElementById('closeMobileMenu');
 
   if (mobileMenuBtn && mobileMenu) {
+    const mobileMenuPanel = mobileMenu.querySelector('div.absolute.inset-y-0.left-0');
     mobileMenuBtn.addEventListener('click', () => {
       mobileMenu.classList.remove('hidden');
       setTimeout(() => {
         mobileMenu.classList.add('open');
-        mobileMenu.querySelector('div').classList.remove('translate-x-full');
+        if (mobileMenuPanel) mobileMenuPanel.classList.remove('-translate-x-full');
       }, 10);
     });
 
     const closeNav = () => {
-      mobileMenu.querySelector('div').classList.add('translate-x-full');
+      if (mobileMenuPanel) mobileMenuPanel.classList.add('-translate-x-full');
       mobileMenu.classList.remove('open');
       setTimeout(() => mobileMenu.classList.add('hidden'), 300);
     };
@@ -3139,7 +3140,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         if (auditProvider) {
-          auditProvider.textContent = data.cached ? 'AI insight (cached)' : `AI insight · ${data.provider || 'kie'}`;
+          auditProvider.textContent = data.cached ? 'AI insight (cached)' : `AI insight · ${data.provider || 'openrouter'}`;
           auditProvider.classList.remove('hidden');
         }
       })

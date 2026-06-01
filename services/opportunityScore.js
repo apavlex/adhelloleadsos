@@ -153,7 +153,7 @@ function defaultAiTimeSaversLeads() {
     {
       label: 'Frontier LLMs on top of signals',
       hint:
-        'Claude / GPT-4–level models shine on personalization lines, ICP 1–10 + why, 2-line site summaries for reps, reply classification, business-specific follow-ups, and structured pulls (names, pain points) from rough Firecrawl text. Add GEMINI_API_KEY, KIE_AI_API_KEY, or OPENAI_API_KEY.',
+        'Claude / GPT-4–level models shine on personalization lines, ICP 1–10 + why, 2-line site summaries for reps, reply classification, business-specific follow-ups, and structured pulls (names, pain points) from rough Firecrawl text. Add OPENROUTER_API_KEY.',
     },
     { label: 'War Room batch', hint: 'Draft outreach for the highest scores in one pass.' },
   ];

@@ -322,7 +322,7 @@ Rules:
       return res.json({
         success: false,
         error:
-          'No AI provider configured (set KIE_AI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY) or request failed.',
+          'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
       });
     }
 

@@ -79,7 +79,7 @@ function defaultAiTimeSavers() {
     {
       label: 'Claude / GPT-4–class = reasoning work',
       hint:
-        'Best for one-line email openers, ICP fit scores 1–10 with a short why, two-sentence site blurbs for SDRs, inbound-reply triage, follow-ups that reference their business, and pulling structured fields (decision-maker, pains) from noisy scraped text. Set GEMINI_API_KEY, KIE_AI_API_KEY, or OPENAI_API_KEY — rules stay as backup.',
+        'Best for one-line email openers, ICP fit scores 1–10 with a short why, two-sentence site blurbs for SDRs, inbound-reply triage, follow-ups that reference their business, and pulling structured fields (decision-maker, pains) from noisy scraped text. Set OPENROUTER_API_KEY — rules stay as backup.',
     },
   ];
 }
@@ -173,7 +173,7 @@ const ALLOWED_HREFS = new Set([
   '/workspace',
 ]);
 
-function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openai') {
+function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openrouter') {
   if (!parsed || typeof parsed !== 'object') return fallback;
   const headline = typeof parsed.headline === 'string' ? parsed.headline : fallback.headline;
   const greeting = typeof parsed.greeting === 'string' ? parsed.greeting : fallback.greeting;
@@ -212,7 +212,7 @@ function normalizeCoachPayload(parsed, ctx, fallback, coachSource = 'openai') {
     nextActions,
     aiTimeSavers,
     mood,
-    source: ['kie', 'openai', 'gemini'].includes(coachSource) ? coachSource : 'openai',
+    source: ['openrouter', 'kie', 'openai', 'gemini'].includes(coachSource) ? coachSource : 'openrouter',
     generatedAt: new Date().toISOString(),
   };
 }
@@ -257,9 +257,9 @@ Rules:
     if (!result.content || result.error) return null;
 
     const parsed = JSON.parse(result.content);
-    const coachSource = ['kie', 'openai', 'gemini'].includes(result.provider)
+    const coachSource = ['openrouter', 'kie', 'openai', 'gemini'].includes(result.provider)
       ? result.provider
-      : 'openai';
+      : 'openrouter';
     return normalizeCoachPayload(parsed, ctx, fallback, coachSource);
   } catch (e) {
     console.warn('[flowCoach] LLM coach error:', e.message);

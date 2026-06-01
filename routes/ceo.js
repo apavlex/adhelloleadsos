@@ -250,6 +250,7 @@ RULES:
       messages,
       max_tokens: 1200,
       temperature: 0.7,
+      providerChain: 'legacy',
     });
 
     if (error || !content) {

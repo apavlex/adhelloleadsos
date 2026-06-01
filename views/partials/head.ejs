@@ -58,7 +58,8 @@
     },
   };
 </script>
-<link rel="stylesheet" href="/css/custom.css">
+<link rel="stylesheet" href="/css/custom.css?v=sidebar1">
+<%- include('/partials/app_shell_styles') %>
 <% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
 <script>window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__ = <%- JSON.stringify(googleMapsStaticKey) %>; window.__ADHELLO_LEAD_PANEL_JS_MAP__ = true;</script>
 <script src="/js/googleMapsLoader.js"></script>

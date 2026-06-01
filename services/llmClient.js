@@ -1,17 +1,22 @@
 /**
- * Unified LLM access: try KIE.ai first, then Google Gemini, then OpenAI.
+ * Unified LLM access with two provider chains:
+ *   openrouter (default) — coach, insights, outreach, pipeline AI, etc.
+ *   legacy — CEO dashboard chat + floating Pavlex chatbot only (KIE → Gemini → OpenAI)
+ *
  * Never call from browser — server only.
  *
- * Env (KIE):
+ * Env (OpenRouter — default chain):
+ *   OPENROUTER_API_KEY — Bearer token from https://openrouter.ai/keys
+ *   OPENROUTER_MODEL — optional; default tries deepseek/deepseek-v4-flash:free then deepseek/deepseek-v4-pro
+ *   OPENROUTER_HTTP_REFERER — optional site URL for OpenRouter rankings
+ *   OPENROUTER_APP_NAME — optional app title header (default AdHello Leads OS)
+ *
+ * Env (legacy chain — CEO + chatbot):
  *   KIE_AI_API_KEY or KIE_API_KEY — Bearer token
  *   KIE_AI_CHAT_PATH — default `gpt-5-2/v1/chat/completions`
  *   KIE_AI_MODEL — default `gpt-5-2`
  *   KIE_AI_BASE_URL — default `https://api.kie.ai`
- *
- * Env (Gemini):
  *   GEMINI_API_KEY, GEMINI_MODEL (default gemini-2.0-flash)
- *
- * Env (OpenAI):
  *   OPENAI_API_KEY, OPENAI_MODEL (e.g. gpt-4o-mini)
  */
 
@@ -20,10 +25,8 @@ const DEFAULT_KIE_MODEL = 'gpt-5-2';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 
 /** @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>} */
-function providersInFallbackOrder() {
+function openRouterProviders() {
   const list = [];
-
-  // OpenRouter — try free (Flash) first, then fall back to Pro
   const orKey = process.env.OPENROUTER_API_KEY;
   if (orKey && String(orKey).trim()) {
     const key = orKey.trim();
@@ -42,8 +45,13 @@ function providersInFallbackOrder() {
       });
     }
   }
+  return list;
+}
 
-  // KIE.ai
+/** KIE → Gemini → OpenAI — used by CEO dashboard + floating Pavlex chatbot only. */
+function legacyProviders() {
+  const list = [];
+
   const kieKey = process.env.KIE_AI_API_KEY || process.env.KIE_API_KEY;
   if (kieKey && String(kieKey).trim()) {
     list.push({
@@ -55,7 +63,6 @@ function providersInFallbackOrder() {
     });
   }
 
-  // Gemini
   const geminiKey = process.env.GEMINI_API_KEY;
   if (geminiKey && String(geminiKey).trim()) {
     list.push({
@@ -65,7 +72,6 @@ function providersInFallbackOrder() {
     });
   }
 
-  // OpenAI
   const openaiKey = process.env.OPENAI_API_KEY;
   if (openaiKey && String(openaiKey).trim()) {
     list.push({
@@ -79,9 +85,40 @@ function providersInFallbackOrder() {
   return list;
 }
 
-function pickProvider() {
-  const list = providersInFallbackOrder();
+/**
+ * @param {'openrouter'|'legacy'} [chain]
+ * @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>}
+ */
+function providersForChain(chain = 'openrouter') {
+  return chain === 'legacy' ? legacyProviders() : openRouterProviders();
+}
+
+/** @deprecated use providersForChain('openrouter') */
+function providersInFallbackOrder() {
+  return providersForChain('openrouter');
+}
+
+function pickProvider(chain = 'openrouter') {
+  const list = providersForChain(chain);
   return list.length ? list[0] : null;
+}
+
+function normalizeProviderName(name) {
+  if (!name) return name;
+  if (String(name).startsWith('openrouter')) return 'openrouter';
+  return name;
+}
+
+function openRouterHeaders() {
+  const refererRaw =
+    process.env.OPENROUTER_HTTP_REFERER || process.env.BASE_URL || 'https://leads.adhello.ai';
+  const referer = /^https?:\/\//i.test(refererRaw)
+    ? refererRaw
+    : `https://${String(refererRaw).replace(/^\/+/, '')}`;
+  return {
+    'HTTP-Referer': referer,
+    'X-Title': process.env.OPENROUTER_APP_NAME || 'AdHello Leads OS',
+  };
 }
 
 /**
@@ -190,12 +227,16 @@ async function runGemini(prov, { messages, jsonObject, max_tokens, temperature }
 }
 
 async function runOpenAICompatible(prov, url, body) {
+  const headers = {
+    Authorization: `Bearer ${prov.apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (String(prov.name).startsWith('openrouter')) {
+    Object.assign(headers, openRouterHeaders());
+  }
   const res = await fetch(url, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${prov.apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
   });
   const rawText = await res.text();
@@ -218,7 +259,7 @@ async function runOpenAICompatible(prov, url, body) {
   const content = extractOpenAIStyleMessageContent(data);
   return {
     content: typeof content === 'string' && content.trim() ? content : null,
-    provider: prov.name,
+    provider: normalizeProviderName(prov.name),
     error: !content || !String(content).trim(),
   };
 }
@@ -230,6 +271,7 @@ async function runOpenAICompatible(prov, url, body) {
  * @param {boolean} [opts.jsonObject]
  * @param {number} [opts.max_tokens]
  * @param {number} [opts.temperature]
+ * @param {'openrouter'|'legacy'} [opts.providerChain] — legacy for CEO + Pavlex chatbot
  * @returns {Promise<{ content: string|null, provider: string, error?: boolean }>}
  */
 async function chatCompletion({
@@ -237,8 +279,9 @@ async function chatCompletion({
   jsonObject = false,
   max_tokens = 900,
   temperature = 0.45,
+  providerChain = 'openrouter',
 }) {
-  const chain = providersInFallbackOrder();
+  const chain = providersForChain(providerChain);
   if (!chain.length) {
     return { content: null, provider: 'none', error: true };
   }
@@ -290,14 +333,17 @@ async function chatCompletion({
   return last;
 }
 
-function activeProviderLabel() {
-  const p = pickProvider();
-  return p ? p.name : null;
+function activeProviderLabel(chain = 'openrouter') {
+  const p = pickProvider(chain);
+  return p ? normalizeProviderName(p.name) : null;
 }
 
 module.exports = {
   chatCompletion,
   pickProvider,
   activeProviderLabel,
+  providersForChain,
   providersInFallbackOrder,
+  openRouterProviders,
+  legacyProviders,
 };

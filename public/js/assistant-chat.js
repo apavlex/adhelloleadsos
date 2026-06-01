@@ -414,7 +414,7 @@
           var replyText = rawReply == null || rawReply === '' ? '' : String(rawReply);
           if (!replyText.trim()) {
             replyText =
-              'No reply from the coach. Check server logs and that an AI key is set (KIE_AI or KIE_API, GEMINI, or OPENAI) on the server, then try again.';
+              'No reply from the coach. Check server logs and that a legacy AI key is set (KIE_AI, KIE_API, GEMINI, or OPENAI) on the server, then try again.';
           }
           history.push({ role: 'user', content: text });
           history.push({ role: 'assistant', content: replyText });

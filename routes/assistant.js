@@ -88,6 +88,7 @@ RULES:
       messages,
       max_tokens: 1000,
       temperature: 0.52,
+      providerChain: 'legacy',
     });
 
     let reply = '';

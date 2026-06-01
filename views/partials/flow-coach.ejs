@@ -11,11 +11,11 @@
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2 mb-1">
             <h2 id="flowCoachHeadline" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white leading-tight"><%= fc.headline %></h2>
-            <span class="flow-coach-source-pill text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-dark/5 dark:bg-white/10 text-brand-muted"><%= isLeads ? 'Gap-based rank' : (fc.source === 'kie' ? 'Live coach · KIE' : fc.source === 'openai' ? 'Live coach' : fc.source === 'gemini' ? 'Live coach · Gemini' : 'Smart flow') %></span>
+            <span class="flow-coach-source-pill text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-brand-dark/5 dark:bg-white/10 text-brand-muted"><%= isLeads ? 'Gap-based rank' : (fc.source === 'openrouter' ? 'Live coach · OpenRouter' : fc.source === 'kie' ? 'Live coach · KIE' : fc.source === 'openai' ? 'Live coach' : fc.source === 'gemini' ? 'Live coach · Gemini' : 'Smart flow') %></span>
           </div>
           <p id="flowCoachGreeting" class="text-sm md:text-base text-brand-muted font-medium leading-relaxed mt-1"><%= fc.greeting %></p>
           <% if (!isLeads) { %>
-          <p class="text-[10px] text-brand-muted/70 mt-3">Set <code class="text-[9px] bg-brand-cream dark:bg-slate-800 px-1 rounded">GEMINI_API_KEY</code> (Google AI), <code class="text-[9px] bg-brand-cream dark:bg-slate-800 px-1 rounded">KIE_AI_API_KEY</code> (<a href="https://kie.ai" class="underline text-brand-yellow" target="_blank" rel="noopener">kie.ai</a>), or <code class="text-[9px] bg-brand-cream dark:bg-slate-800 px-1 rounded">OPENAI_API_KEY</code> — rules engine stays as backup.</p>
+          <p class="text-[10px] text-brand-muted/70 mt-3">Set <code class="text-[9px] bg-brand-cream dark:bg-slate-800 px-1 rounded">OPENROUTER_API_KEY</code> (<a href="https://openrouter.ai/keys" class="underline text-brand-yellow" target="_blank" rel="noopener">openrouter.ai</a>) — rules engine stays as backup.</p>
           <p class="text-[10px] text-brand-muted/70 mt-2 leading-relaxed">Claude- and GPT-4–class routes are best for short personalization, ICP scoring with reasons, SDR-ready site summaries, reply sorting, contextual follow-ups, and structured fields from messy enrichment text — not just generic blurbs.</p>
           <% } else if (fc.stats) { %>
           <div class="flex flex-wrap gap-2 mt-3">

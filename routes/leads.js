@@ -2028,7 +2028,7 @@ router.post('/:key/delete', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/generate-prompt — personalized outreach (KIE.ai preferred, then OpenAI, else template)
+// POST /leads/:key/generate-prompt — personalized outreach (OpenRouter, else template)
 router.post('/:key/generate-prompt', async (req, res, next) => {
   try {
     const key = req.params.key;
@@ -2090,7 +2090,7 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/insights — KIE/OpenAI: best service to sell + rationale (cached 7d)
+// POST /leads/:key/insights — OpenRouter: best service to sell + rationale (cached 7d)
 router.post('/:key/insights', async (req, res, next) => {
   try {
     const key = req.params.key;
@@ -2172,7 +2172,7 @@ Respond with JSON only, no markdown:
       return res.json({
         success: false,
         error:
-          'No AI provider configured (set KIE_AI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY) or request failed.',
+          'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
       });
     }
 
@@ -2272,7 +2272,7 @@ Return JSON only, no markdown:
       return res.json({
         success: false,
         error:
-          'No AI provider configured (set KIE_AI_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY) or request failed.',
+          'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
       });
     }
 
