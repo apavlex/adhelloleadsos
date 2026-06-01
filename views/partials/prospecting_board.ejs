@@ -77,53 +77,55 @@
     <a href="/prospecting?tab=pipeline" class="text-xs font-black uppercase <%= _impApplied > 0 ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-900 dark:text-amber-200' %> underline shrink-0">Dismiss</a>
   </div>
 <% } %>
-<div class="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-10 md:mb-12">
-  <div class="min-w-0 flex-1">
-    <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-3">
-      <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Pipeline</span>
+<div class="space-y-6 mb-10 md:mb-12">
+  <div class="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+    <div class="min-w-0 flex-1">
+      <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-3">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Pipeline</span>
+      </div>
+      <h2 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">
+        <span class="text-brand-muted dark:text-slate-500">Board</span> &amp; stages
+      </h2>
+      <% const _wsAll = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts.all : leads.length; %>
+      <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mt-3 max-w-2xl leading-relaxed">
+        <% if (_activeFolder) { %>
+        Viewing folder <strong class="text-brand-dark dark:text-white"><%= _activeFolder.name %></strong>
+        (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> lead<%= _wsAll === 1 ? '' : 's' %> here<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this source filter<% } %>).
+        <% } else { %>
+        One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
+        (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> unfiled in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
+        <% } %>
+        Drag cards on the kanban to move through stages; table view shows status and source. Filed leads live in <a href="/prospecting?tab=folders" class="font-bold text-brand-yellow hover:underline">Folders</a> until you open them here.
+      </p>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-4 flex flex-wrap gap-x-4 gap-y-2">
+        <a href="/sequences" class="font-bold text-brand-yellow hover:underline">Cadences</a>
+        <a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">Working queue</a>
+        <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+        <a href="/workspace/team" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
+        <% } %>
+      </p>
     </div>
-    <h2 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">
-      <span class="text-brand-muted dark:text-slate-500">Board</span> &amp; stages
-    </h2>
-    <% const _wsAll = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts.all : leads.length; %>
-    <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mt-3 max-w-xl leading-relaxed">
-      <% if (_activeFolder) { %>
-      Viewing folder <strong class="text-brand-dark dark:text-white"><%= _activeFolder.name %></strong>
-      (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> lead<%= _wsAll === 1 ? '' : 's' %> here<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this source filter<% } %>).
-      <% } else { %>
-      One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
-      (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> unfiled in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
-      <% } %>
-      Drag cards on the kanban to move through stages; table view shows status and source. Filed leads live in <a href="/prospecting?tab=folders" class="font-bold text-brand-yellow hover:underline">Folders</a> until you open them here.
-    </p>
-    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-4 flex flex-wrap gap-x-4 gap-y-2">
-      <a href="/sequences" class="font-bold text-brand-yellow hover:underline">Cadences</a>
-      <a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">Working queue</a>
-      <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-      <a href="/workspace/team" class="text-brand-dark dark:text-white hover:underline">Team &amp; assign</a>
-      <% } %>
-    </p>
-    <% if (typeof leadSourceCounts !== 'undefined' && leadSourceCounts) { %>
-    <div class="flex flex-wrap gap-2 mt-5" role="tablist" aria-label="Filter by lead source">
-      <a href="/prospecting?tab=pipeline&amp;source=all<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter === 'undefined' || sourceFilter === 'all') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">All (<%= leadSourceCounts.all %>)</a>
-      <a href="/prospecting?tab=pipeline&amp;source=cold<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'cold') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">Cold (<%= leadSourceCounts.cold %>)</a>
-      <a href="/prospecting?tab=pipeline&amp;source=inbound<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'inbound') ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">Warm inbound (<%= leadSourceCounts.inbound %>)</a>
+    <div class="flex flex-wrap items-center gap-3 shrink-0 lg:max-w-[28rem] lg:justify-end">
+      <div class="flex items-center bg-white dark:bg-slate-900 rounded-full border border-brand-border dark:border-white/10 p-1 shadow-sm ring-1 ring-brand-border/20 dark:ring-white/5" role="group" aria-label="Table or pipeline view">
+          <button type="button" id="showTableView" class="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-150 bg-brand-yellow text-brand-dark shadow-sm">Table</button>
+          <button type="button" id="showKanbanView" class="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-150 text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white">Pipeline</button>
+      </div>
+      <%- include('/partials/pipeline_import_export_menus') %>
+      <a href="/leads/find" class="btn-pill btn-primary shadow-md hover:shadow-lg whitespace-nowrap">
+        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        Find More Leads
+      </a>
     </div>
-    <% } %>
   </div>
-  <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-    <div class="flex items-center bg-white dark:bg-slate-900 rounded-full border border-brand-border dark:border-white/10 p-1 shadow-sm ring-1 ring-brand-border/20 dark:ring-white/5" role="group" aria-label="Table or pipeline view">
-        <button type="button" id="showTableView" class="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-150 bg-brand-yellow text-brand-dark shadow-sm">Table</button>
-        <button type="button" id="showKanbanView" class="px-4 py-2.5 text-[10px] font-black uppercase tracking-widest rounded-full transition-all duration-150 text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white">Pipeline</button>
-    </div>
-    <%- include('/partials/pipeline_import_export_menus') %>
-    <a href="/leads/find" class="btn-pill btn-primary shadow-md hover:shadow-lg">
-      <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-      </svg>
-      Find More Leads
-    </a>
+  <% if (typeof leadSourceCounts !== 'undefined' && leadSourceCounts) { %>
+  <div class="flex flex-wrap gap-2" role="tablist" aria-label="Filter by lead source">
+    <a href="/prospecting?tab=pipeline&amp;source=all<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter === 'undefined' || sourceFilter === 'all') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">All (<%= leadSourceCounts.all %>)</a>
+    <a href="/prospecting?tab=pipeline&amp;source=cold<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'cold') ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">Cold (<%= leadSourceCounts.cold %>)</a>
+    <a href="/prospecting?tab=pipeline&amp;source=inbound<%- _lfs.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= (typeof sourceFilter !== 'undefined' && sourceFilter === 'inbound') ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">Warm inbound (<%= leadSourceCounts.inbound %>)</a>
   </div>
+  <% } %>
 </div>
 
 <div class="brand-card dark:bg-slate-900 dark:border-white/10 mb-8 overflow-hidden">

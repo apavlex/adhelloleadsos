@@ -101,17 +101,14 @@ h1, h2, h3, h4, .font-display {
     body.app-with-sidebar {
         display: grid;
         grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
-        grid-template-rows: auto 1fr auto;
-        grid-template-areas:
-            "sidebar topbar"
-            "sidebar main"
-            "sidebar footer";
         min-height: 100vh;
         transition: grid-template-columns 0.22s ease;
     }
 
     body.app-with-sidebar #appSidebar {
-        grid-area: sidebar;
+        grid-column: 1;
+        grid-row: 1 / -1;
+        align-self: start;
         display: flex !important;
         flex-direction: column;
         width: var(--app-sidebar-width);
@@ -125,9 +122,27 @@ h1, h2, h3, h4, .font-display {
         transition: width 0.22s ease, min-width 0.22s ease, transform 0.22s ease, opacity 0.18s ease;
     }
 
-    body.app-with-sidebar .app-shell-top {
-        grid-area: topbar;
+    /* Every other direct child stacks in the content column (topbar, main, scripts, modals, footer) */
+    body.app-with-sidebar > :not(#appSidebar) {
+        grid-column: 2;
         min-width: 0;
+        width: 100%;
+        max-width: 100%;
+    }
+
+    body.app-with-sidebar > script {
+        display: none;
+    }
+
+    body.app-with-sidebar #assistantDock {
+        pointer-events: none;
+    }
+
+    body.app-with-sidebar #assistantDock > * {
+        pointer-events: auto;
+    }
+
+    body.app-with-sidebar .app-shell-top {
         width: 100%;
     }
 
@@ -137,34 +152,10 @@ h1, h2, h3, h4, .font-display {
     }
 
     body.app-with-sidebar > main {
-        grid-area: main;
-        min-width: 0;
-        width: 100%;
-        max-width: 100%;
         justify-self: stretch;
     }
 
-    /* Scripts/modals between topbar and <main> must not auto-place into the main grid area */
-    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) {
-        grid-column: 1 / -1;
-        grid-row: 1;
-        height: 0;
-        min-height: 0;
-        overflow: visible;
-        margin: 0;
-        padding: 0;
-        align-self: start;
-        pointer-events: none;
-    }
-
-    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) * {
-        pointer-events: auto;
-    }
-
     body.app-with-sidebar > footer {
-        grid-area: footer;
-        min-width: 0;
-        width: 100%;
         align-self: end;
     }
 

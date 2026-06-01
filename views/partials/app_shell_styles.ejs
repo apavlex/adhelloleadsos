@@ -5,15 +5,15 @@
     body:has(#appSidebar) {
       display: grid;
       grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
-      grid-template-rows: auto 1fr auto;
-      grid-template-areas: "sidebar topbar" "sidebar main" "sidebar footer";
       min-height: 100vh;
       transition: grid-template-columns 0.22s ease;
     }
     body:has(#appSidebar).sidebar-collapsed { --app-sidebar-width: 4.25rem; }
     body:has(#appSidebar).sidebar-hidden { --app-sidebar-width: 0px; }
     body:has(#appSidebar) #appSidebar {
-      grid-area: sidebar;
+      grid-column: 1;
+      grid-row: 1 / -1;
+      align-self: start;
       display: flex;
       flex-direction: column;
       width: var(--app-sidebar-width);
@@ -37,35 +37,16 @@
       pointer-events: none;
       transform: translateX(-100%);
     }
-    body:has(#appSidebar) .app-shell-top { grid-area: topbar; min-width: 0; width: 100%; }
-    body:has(#appSidebar) #appTopbar { min-width: 0; width: 100%; }
-    body:has(#appSidebar) > main {
-      grid-area: main;
+    body:has(#appSidebar) > :not(#appSidebar) {
+      grid-column: 2;
       min-width: 0;
       width: 100%;
       max-width: 100%;
-      justify-self: stretch;
     }
-    body:has(#appSidebar) > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) {
-      grid-column: 1 / -1;
-      grid-row: 1;
-      height: 0;
-      min-height: 0;
-      overflow: visible;
-      margin: 0;
-      padding: 0;
-      align-self: start;
-      pointer-events: none;
-    }
-    body:has(#appSidebar) > :not(#appSidebar):not(.app-shell-top):not(main):not(footer) * {
-      pointer-events: auto;
-    }
-    body:has(#appSidebar) > footer {
-      grid-area: footer;
-      min-width: 0;
-      width: 100%;
-      align-self: end;
-    }
+    body:has(#appSidebar) .app-shell-top { width: 100%; }
+    body:has(#appSidebar) #appTopbar { min-width: 0; width: 100%; }
+    body:has(#appSidebar) > main { justify-self: stretch; }
+    body:has(#appSidebar) > footer { align-self: end; }
   }
   .sidebar-nav-link {
     display: flex;
