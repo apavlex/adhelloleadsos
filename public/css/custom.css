@@ -165,21 +165,31 @@ h1, h2, h3, h4, .font-display {
     }
 
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-text,
-    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-accent,
-    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-chevron,
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-sub,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-nav-link > span,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-block {
         display: none !important;
     }
 
-    body.app-with-sidebar.sidebar-collapsed #appSidebar #sidebarCloseBtn {
-        display: none;
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-brand-row {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        padding-left: 0.375rem;
+        padding-right: 0.375rem;
     }
 
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-btn {
         justify-content: center;
         padding-left: 0.25rem;
         padding-right: 0.25rem;
+    }
+
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-collapse-btn {
+        position: static;
+        transform: none;
+        margin: 0.375rem auto 0;
+        display: flex;
     }
 
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-nav-link {
@@ -199,16 +209,6 @@ h1, h2, h3, h4, .font-display {
         height: 1.125rem;
     }
 
-    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-brand-row {
-        padding-left: 0.5rem;
-        padding-right: 0.5rem;
-    }
-
-    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-primary-nav {
-        padding-left: 0.375rem;
-        padding-right: 0.375rem;
-    }
-
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-icon-collapse {
         display: none;
     }
@@ -217,9 +217,9 @@ h1, h2, h3, h4, .font-display {
         display: block !important;
     }
 
-    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-brand-row > .flex {
-        flex-direction: column;
-        align-items: center;
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-primary-nav {
+        padding-left: 0.375rem;
+        padding-right: 0.375rem;
     }
 }
 

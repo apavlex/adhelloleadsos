@@ -23,7 +23,6 @@
 
   function syncToggleButtons(state) {
     var collapseBtn = document.getElementById('sidebarCollapseBtn');
-    var closeBtn = document.getElementById('sidebarCloseBtn');
     var openBtn = document.getElementById('sidebarOpenBtn');
     var expanded = state === 'expanded';
     var collapsed = state === 'collapsed';
@@ -32,15 +31,11 @@
     if (collapseBtn) {
       collapseBtn.setAttribute('aria-label', collapsed ? 'Expand sidebar' : 'Collapse sidebar');
       collapseBtn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-      collapseBtn.title = collapsed ? 'Expand menu' : 'Collapse menu';
+      collapseBtn.title = collapsed ? 'Expand sidebar' : 'Collapse sidebar';
       var collapseIcon = collapseBtn.querySelector('.sidebar-icon-collapse');
       var expandIcon = collapseBtn.querySelector('.sidebar-icon-expand');
       if (collapseIcon) collapseIcon.classList.toggle('hidden', collapsed);
       if (expandIcon) expandIcon.classList.toggle('hidden', !collapsed);
-    }
-    if (closeBtn) {
-      closeBtn.setAttribute('aria-label', hidden ? 'Show sidebar' : 'Hide sidebar');
-      closeBtn.title = hidden ? 'Show menu' : 'Hide menu';
     }
     if (openBtn) {
       openBtn.classList.toggle('hidden', !hidden);
@@ -56,16 +51,11 @@
       e.preventDefault();
       e.stopPropagation();
       var state = getState();
+      if (state === 'hidden') {
+        applyState('expanded');
+        return;
+      }
       applyState(state === 'collapsed' ? 'expanded' : 'collapsed');
-    });
-  }
-
-  var closeBtn = document.getElementById('sidebarCloseBtn');
-  if (closeBtn) {
-    closeBtn.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      applyState(getState() === 'hidden' ? 'expanded' : 'hidden');
     });
   }
 
@@ -78,8 +68,9 @@
   }
 
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && getState() !== 'hidden') {
-      applyState('hidden');
-    }
+    if (e.key !== 'Escape') return;
+    var state = getState();
+    if (state === 'expanded') applyState('collapsed');
+    else if (state === 'collapsed') applyState('hidden');
   });
 })();
