@@ -1,21 +1,27 @@
 <style id="appShellStyles">
   #appSidebar { display: none; }
+  :root { --app-sidebar-width: 13.5rem; }
   @media (min-width: 768px) {
     body:has(#appSidebar) {
       display: grid;
-      grid-template-columns: 15rem minmax(0, 1fr);
+      grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
       grid-template-rows: auto 1fr;
       grid-template-areas: "sidebar topbar" "sidebar content";
       min-height: 100vh;
+      transition: grid-template-columns 0.22s ease;
     }
+    body:has(#appSidebar).sidebar-collapsed { --app-sidebar-width: 4.25rem; }
+    body:has(#appSidebar).sidebar-hidden { --app-sidebar-width: 0px; }
     body:has(#appSidebar) #appSidebar {
       grid-area: sidebar;
       display: flex;
       flex-direction: column;
-      width: 15rem;
+      width: var(--app-sidebar-width);
+      min-width: var(--app-sidebar-width);
       position: sticky;
       top: 0;
       height: 100dvh;
+      overflow-x: hidden;
       overflow-y: auto;
       z-index: 40;
       flex-shrink: 0;
@@ -26,11 +32,17 @@
       background: rgba(15, 23, 42, 0.95);
       border-right-color: rgba(255, 255, 255, 0.1);
     }
-    body:has(#appSidebar) #appTopbar { grid-area: topbar; }
+    body:has(#appSidebar).sidebar-hidden #appSidebar {
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(-100%);
+    }
+    body:has(#appSidebar) #appTopbar { grid-area: topbar; min-width: 0; width: 100%; }
     body:has(#appSidebar) > main,
     body:has(#appSidebar) > footer {
       grid-area: content;
       min-width: 0;
+      width: 100%;
     }
   }
   .sidebar-nav-link {
