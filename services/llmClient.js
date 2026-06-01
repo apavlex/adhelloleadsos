@@ -7,7 +7,7 @@
  *
  * Env (OpenRouter — default chain):
  *   OPENROUTER_API_KEY — Bearer token from https://openrouter.ai/keys
- *   OPENROUTER_MODEL — optional; default tries deepseek/deepseek-v4-flash:free then deepseek/deepseek-v4-pro
+ *   OPENROUTER_MODEL — optional override; default rotates OpenRouter free models only
  *   OPENROUTER_HTTP_REFERER — optional site URL for OpenRouter rankings
  *   OPENROUTER_APP_NAME — optional app title header (default AdHello Leads OS)
  *
@@ -24,26 +24,31 @@ const DEFAULT_KIE_PATH = 'gpt-5-2/v1/chat/completions';
 const DEFAULT_KIE_MODEL = 'gpt-5-2';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 
+/** OpenRouter free-tier models (no paid fallback). Override with OPENROUTER_MODEL if needed. */
+const OPENROUTER_FREE_MODELS = [
+  'openrouter/free',
+  'deepseek/deepseek-v4-flash:free',
+  'qwen/qwen3-coder:free',
+  'meta-llama/llama-3.3-70b-instruct:free',
+];
+
 /** @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>} */
 function openRouterProviders() {
   const list = [];
   const orKey = process.env.OPENROUTER_API_KEY;
   if (orKey && String(orKey).trim()) {
     const key = orKey.trim();
-    list.push({
-      name: 'openrouter-flash',
-      apiKey: key,
-      url: 'https://openrouter.ai/api/v1/chat/completions',
-      model: process.env.OPENROUTER_MODEL || 'deepseek/deepseek-v4-flash:free',
-    });
-    if (!process.env.OPENROUTER_MODEL) {
+    const url = 'https://openrouter.ai/api/v1/chat/completions';
+    const custom = process.env.OPENROUTER_MODEL && String(process.env.OPENROUTER_MODEL).trim();
+    const models = custom ? [custom] : OPENROUTER_FREE_MODELS;
+    models.forEach((model, i) => {
       list.push({
-        name: 'openrouter-pro',
+        name: custom ? 'openrouter' : `openrouter-free-${i}`,
         apiKey: key,
-        url: 'https://openrouter.ai/api/v1/chat/completions',
-        model: 'deepseek/deepseek-v4-pro',
+        url,
+        model,
       });
-    }
+    });
   }
   return list;
 }
@@ -341,7 +346,8 @@ async function chatCompletion({
   let last = { content: null, provider: chain[chain.length - 1].name, error: true };
 
   for (const prov of chain) {
-    const retries = (prov.name === 'openrouter-flash' && !process.env.OPENROUTER_MODEL) ? 2 : 1;
+    const retries =
+      String(prov.name) === 'openrouter-free-0' && !process.env.OPENROUTER_MODEL ? 2 : 1;
     for (let attempt = 0; attempt < retries; attempt++) {
     try {
       if (prov.name === 'gemini') {
@@ -389,4 +395,5 @@ module.exports = {
   openRouterProviders,
   legacyProviders,
   parseLlmJson,
+  OPENROUTER_FREE_MODELS,
 };
