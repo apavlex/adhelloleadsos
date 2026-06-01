@@ -134,14 +134,43 @@ h1, h2, h3, h4, .font-display {
     }
 
     body.app-with-sidebar .app-shell-content > main {
-        flex: 1 1 auto;
+        flex: 0 1 auto;
         width: 100%;
         min-width: 0;
+    }
+
+    body.app-with-sidebar .app-shell-content > footer {
+        margin-top: auto;
+        flex-shrink: 0;
+    }
+
+    /* Page scripts / dock after shell — must not consume layout height */
+    body.app-with-sidebar > script {
+        display: none !important;
+    }
+
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content) {
+        grid-column: 2;
+        grid-row: 1;
+        height: 0;
+        min-height: 0;
+        overflow: visible;
+        margin: 0;
+        padding: 0;
+        pointer-events: none;
+    }
+
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content) * {
+        pointer-events: auto;
     }
 
     body.app-with-sidebar .app-shell-top {
         width: 100%;
         flex-shrink: 0;
+    }
+
+    .app-shell-content > script {
+        display: none !important;
     }
 
     body.app-with-sidebar #appTopbar {
