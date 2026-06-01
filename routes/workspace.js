@@ -331,6 +331,22 @@ async function integrationEnvForTest(req) {
   return integrationProviderTests.mergeBodyIntoIntegrationEnv(base, req.body);
 }
 
+async function saveIntegrationsFromRequest(req) {
+  if (!workspaceIntegrations.isEncryptionAvailable()) {
+    const err = new Error(
+      'Integration keys cannot be saved until the workspace integrations secret is configured on the server.',
+    );
+    err.code = 'NEED_SECRET';
+    throw err;
+  }
+  const wid = req.workspaceId;
+  const ws = await dbService.getWorkspace(wid);
+  let plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+  plain = workspaceIntegrations.applyClears(plain, req.body);
+  plain = workspaceIntegrations.mergeIntegrationUpdates(plain, req.body);
+  await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
+}
+
 router.get('/integrations/test', async (req, res) => {
   try {
     if (!req.canManageWorkspace) {
@@ -359,15 +375,53 @@ router.post('/integrations/test/:provider', async (req, res) => {
     if (!integrationProviderTests.PROVIDERS[providerId]) {
       return res.status(400).json({ success: false, error: `Unknown provider: ${providerId}` });
     }
-    const integrationEnv = await integrationEnvForTest(req);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const shouldSave = Object.keys(body).length > 0;
+    if (shouldSave) {
+      await saveIntegrationsFromRequest(req);
+    }
+    const integrationEnv = shouldSave
+      ? await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId)
+      : await integrationEnvForTest(req);
     const result = await integrationProviderTests.runProviderTest(providerId, integrationEnv);
     return res.json({
       success: result.ok,
       provider: providerId,
+      saved: shouldSave,
       ...result,
     });
   } catch (e) {
-    return res.status(500).json({
+    const status = e && e.code === 'NEED_SECRET' ? 400 : 500;
+    return res.status(status).json({
+      success: false,
+      error: e && e.message ? e.message : 'Test failed',
+    });
+  }
+});
+
+router.post('/integrations/test', async (req, res) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only admins can test integrations.' });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const shouldSave = Object.keys(body).length > 0;
+    if (shouldSave) {
+      await saveIntegrationsFromRequest(req);
+    }
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const providers = await integrationProviderTests.runAllProviderTests(integrationEnv);
+    const okCount = providers.filter((p) => p.ok).length;
+    return res.json({
+      success: true,
+      saved: shouldSave,
+      providers,
+      okCount,
+      total: providers.length,
+    });
+  } catch (e) {
+    const status = e && e.code === 'NEED_SECRET' ? 400 : 500;
+    return res.status(status).json({
       success: false,
       error: e && e.message ? e.message : 'Test failed',
     });

@@ -5,7 +5,7 @@
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">API keys &amp; preferences</h2>
   <p class="text-sm text-brand-muted mb-4 leading-relaxed">
     Keys saved here apply to <strong>everyone</strong> in this workspace. Values you set override deployment environment variables for that integration only.
-    Use <strong>Test connection</strong> on each card to run a live check (Find Leads providers run a sample coffee-shop search). Tests use saved keys plus anything you typed in the form — click <strong>Save integrations</strong> to keep changes.
+    Use <strong>Test &amp; save</strong> on each card to save your settings and run a live check (Find Leads providers run a sample coffee-shop search). Or use <strong>Save integrations</strong> to save without testing.
   </p>
   <% if (!integrationsReady) { %>
   <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-4 mb-6 text-sm text-amber-950 dark:text-amber-100">
@@ -241,7 +241,7 @@
 
     <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-brand-border/40 dark:border-white/10">
       <button type="submit" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save integrations</button>
-      <button type="button" id="testIntegrationsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/20">Test all APIs</button>
+      <button type="button" id="testIntegrationsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/20">Test &amp; save all</button>
     </div>
     <div id="integrationsTestResult" class="hidden rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-900/40 px-4 py-3 text-sm text-brand-dark dark:text-slate-200"></div>
   </form>
@@ -258,7 +258,6 @@
     var fd = new FormData(form);
     var body = {};
     fd.forEach(function (value, key) {
-      if (key.indexOf('_clear') !== -1) return;
       body[key] = value;
     });
     return body;
@@ -280,8 +279,8 @@
       if (!provider) return;
       var prev = btn.textContent;
       btn.disabled = true;
-      btn.textContent = 'Testing…';
-      setProviderMsg(provider, 'Running sample check…', true);
+      btn.textContent = 'Saving…';
+      setProviderMsg(provider, 'Saving settings…', true);
       try {
         var res = await fetch('/workspace/integrations/test/' + encodeURIComponent(provider), {
           method: 'POST',
@@ -294,7 +293,7 @@
         }
         setProviderMsg(
           provider,
-          '✅ ' + (data.message || 'Connected') + ' (' + (data.elapsedMs || 0) + 'ms)',
+          '✅ Saved & connected — ' + (data.message || 'OK') + ' (' + (data.elapsedMs || 0) + 'ms)',
           true
         );
       } catch (e) {
@@ -310,19 +309,23 @@
   testAllBtn.addEventListener('click', async function () {
     var prev = testAllBtn.textContent;
     testAllBtn.disabled = true;
-    testAllBtn.textContent = 'Testing…';
+    testAllBtn.textContent = 'Saving…';
     testAllOut.classList.remove('hidden');
-    testAllOut.textContent = 'Running all provider checks…';
+    testAllOut.textContent = 'Saving settings and running all provider checks…';
     document.querySelectorAll('.js-integration-test-msg').forEach(function (el) {
       el.textContent = '';
       el.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-red-700', 'dark:text-red-300');
     });
     try {
-      var res = await fetch('/workspace/integrations/test', { headers: { Accept: 'application/json' } });
+      var res = await fetch('/workspace/integrations/test', {
+        method: 'POST',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(formBodyObject()),
+      });
       var data = await res.json();
       if (!res.ok || !data.success) throw new Error((data && data.error) || 'Integration test failed');
       var lines = [];
-      lines.push('Working APIs: ' + data.okCount + '/' + data.total);
+      lines.push((data.saved ? 'Saved. ' : '') + 'Working APIs: ' + data.okCount + '/' + data.total);
       (data.providers || []).forEach(function (p) {
         var pid = String(p.provider || p.id || '').toLowerCase();
         var line = (p.ok ? '✅ ' : '❌ ') + (p.id || pid) + ' — ' + (p.message || '') + ' (' + (p.elapsedMs || 0) + 'ms)';
