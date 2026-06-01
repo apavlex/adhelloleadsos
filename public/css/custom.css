@@ -122,41 +122,31 @@ h1, h2, h3, h4, .font-display {
         transition: width 0.22s ease, min-width 0.22s ease, transform 0.22s ease, opacity 0.18s ease;
     }
 
-    /* Every other direct child stacks in the content column (topbar, main, scripts, modals, footer) */
-    body.app-with-sidebar > :not(#appSidebar) {
+    body.app-with-sidebar .app-shell-content {
         grid-column: 2;
+        grid-row: 1;
         min-width: 0;
         width: 100%;
         max-width: 100%;
+        display: flex;
+        flex-direction: column;
+        min-height: 100dvh;
     }
 
-    body.app-with-sidebar > script {
-        display: none;
-    }
-
-    body.app-with-sidebar #assistantDock {
-        pointer-events: none;
-    }
-
-    body.app-with-sidebar #assistantDock > * {
-        pointer-events: auto;
+    body.app-with-sidebar .app-shell-content > main {
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
     }
 
     body.app-with-sidebar .app-shell-top {
         width: 100%;
+        flex-shrink: 0;
     }
 
     body.app-with-sidebar #appTopbar {
         min-width: 0;
         width: 100%;
-    }
-
-    body.app-with-sidebar > main {
-        justify-self: stretch;
-    }
-
-    body.app-with-sidebar > footer {
-        align-self: end;
     }
 
     body.app-with-sidebar.sidebar-collapsed {
