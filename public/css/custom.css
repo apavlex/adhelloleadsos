@@ -173,7 +173,9 @@ h1, h2, h3, h4, .font-display {
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-sub,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-nav-link > span,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-label,
-    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-chevron {
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-chevron,
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-leads-sub,
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-leads-chevron {
         display: none !important;
     }
 
@@ -286,6 +288,20 @@ h1, h2, h3, h4, .font-display {
     font-size: 0.8125rem;
     font-weight: 600;
     padding-left: 0.875rem;
+}
+
+.sidebar-leads-summary {
+    border: none;
+    background: transparent;
+    font: inherit;
+    text-align: left;
+    width: 100%;
+}
+
+.sidebar-leads-sub .sidebar-nav-sub {
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
+    font-size: 0.75rem;
 }
 
 .sidebar-settings-toggle {

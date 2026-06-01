@@ -120,4 +120,14 @@
     if (state === 'expanded') applyState('collapsed');
     else if (state === 'collapsed') applyState('hidden');
   });
+
+  var leadsSummary = document.querySelector('.sidebar-leads-summary');
+  if (leadsSummary) {
+    leadsSummary.addEventListener('click', function (e) {
+      if (!body.classList.contains('sidebar-collapsed')) return;
+      e.preventDefault();
+      var active = document.querySelector('.sidebar-leads-sub .sidebar-nav-link.active');
+      window.location.href = (active && active.getAttribute('href')) || '/pipeline';
+    });
+  }
 })();

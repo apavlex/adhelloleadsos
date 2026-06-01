@@ -16,7 +16,7 @@
 })();
 </script>
 <%- include('/partials/app_sidebar') %>
-<script src="/js/sidebarShell.js?v=sidebar4" defer></script>
+<script src="/js/sidebarShell.js?v=sidebar5" defer></script>
 <div class="app-shell-top w-full min-w-0">
 <header id="appTopbar" class="sticky top-0 z-50 w-full px-3 sm:px-6 py-3 sm:py-4 border-t-[3px] md:border-t-0 [padding-top:max(0.75rem,env(safe-area-inset-top))]" style="border-top-color: <%= _wsAccent %>">
   <span id="adhelloAppMeta" class="sr-only" data-can-manage-workspace="<%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '1' : '0' %>" aria-hidden="true"></span>
@@ -157,8 +157,13 @@
 
       <nav class="flex flex-col gap-3 mb-8" aria-label="Mobile primary">
         <a href="/today" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'today' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Today</span></a>
-        <a href="/pipeline" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= _leadNavActive && np !== 'find' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Leads</span></a>
-        <a href="/leads/find" class="flex items-center p-4 rounded-2xl border border-amber-400/30 shadow-md shadow-brand-yellow/25 <%= np === 'find' ? 'bg-brand-yellow text-slate-900 border-brand-yellow' : 'bg-brand-yellow/95 text-slate-900 hover:brightness-105' %>"><span class="font-display font-bold text-lg">Find leads</span></a>
+        <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 p-3 space-y-2">
+          <p class="px-2 text-[9px] font-black uppercase tracking-widest text-brand-muted">Leads</p>
+          <a href="/leads/find" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'find') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Find</span></a>
+          <a href="/prospecting?tab=queue" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'queue') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Queue</span></a>
+          <a href="/pipeline" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'pipeline') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Pipeline</span></a>
+          <a href="/prospecting?tab=folders" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'folders') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Folders</span></a>
+        </div>
         <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
         <% if (user) { %>
         <button type="button" id="navSoftphoneOpenMobile" class="flex items-center justify-center gap-2 p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 text-brand-dark dark:text-white font-display font-bold text-lg text-left w-full">

@@ -48,6 +48,27 @@ function iaNav(req, res, next) {
     p === '/scripts' ||
     p.startsWith('/scripts/') ||
     p.startsWith('/activation');
+
+  let navLeadsTab = '';
+  const leadsTab = String(req.query.tab || '').toLowerCase();
+  if (
+    p.startsWith('/leads/find') ||
+    p === '/' ||
+    p.startsWith('/search') ||
+    p.startsWith('/results')
+  ) {
+    navLeadsTab = 'find';
+  } else if (p.startsWith('/history') || p.startsWith('/schedules')) {
+    navLeadsTab = 'queue';
+  } else if (p.startsWith('/prospecting') || p === '/pipeline' || p.startsWith('/pipeline/')) {
+    if (leadsTab === 'queue') navLeadsTab = 'queue';
+    else if (leadsTab === 'folders') navLeadsTab = 'folders';
+    else navLeadsTab = 'pipeline';
+  } else if (p.startsWith('/leads') || p.startsWith('/outreach')) {
+    navLeadsTab = 'pipeline';
+  }
+  res.locals.navLeadsTab = navLeadsTab;
+
   res.locals.navPrimary = navPrimary;
   next();
 }
