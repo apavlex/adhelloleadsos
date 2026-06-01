@@ -38,15 +38,15 @@ h1, h2, h3, h4, .font-display {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0.75rem 1.5rem;
-    border-radius: 9999px;
+    padding: 0.625rem 1.25rem;
+    border-radius: 0.75rem;
     font-weight: 600;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .btn-pill:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 0 15px rgba(253, 224, 71, 0.6);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px rgba(253, 224, 71, 0.35);
 }
 
 .btn-pill:active {
@@ -118,6 +118,15 @@ h1, h2, h3, h4, .font-display {
     pointer-events: auto;
 }
 
+/* Fixed overlays portaled to body (chat FAB, bulk bar) — excluded from sidebar grid crush */
+.app-body-portal {
+    pointer-events: none;
+}
+
+.app-body-portal > * {
+    pointer-events: auto;
+}
+
 @media (min-width: 768px) {
     body.app-with-sidebar {
         display: grid;
@@ -170,7 +179,7 @@ h1, h2, h3, h4, .font-display {
         display: none !important;
     }
 
-    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content):not(.app-floating-layer) {
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content):not(.app-body-portal) {
         grid-column: 2;
         grid-row: 1;
         height: 0;
@@ -181,7 +190,7 @@ h1, h2, h3, h4, .font-display {
         pointer-events: none;
     }
 
-    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content):not(.app-floating-layer) * {
+    body.app-with-sidebar > :not(#appSidebar):not(.app-shell-content):not(.app-body-portal) * {
         pointer-events: auto;
     }
 
@@ -194,11 +203,13 @@ h1, h2, h3, h4, .font-display {
         display: none !important;
     }
 
-    body.app-with-sidebar > .app-floating-layer {
+    body.app-with-sidebar > .app-body-portal {
         grid-column: auto;
         grid-row: auto;
         height: auto;
         min-height: auto;
+        width: auto;
+        max-width: none;
     }
 
     body.app-with-sidebar #appTopbar {
@@ -727,6 +738,13 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 
 #bulkActionBar {
   z-index: 220;
+  position: fixed;
+  left: 50%;
+  right: auto;
+  bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  width: auto;
+  max-width: min(calc(100vw - 2rem), 56rem);
+  height: auto;
   background: rgba(32, 32, 36, 0.55) !important;
   -webkit-backdrop-filter: saturate(180%) blur(22px);
   backdrop-filter: saturate(180%) blur(22px);
