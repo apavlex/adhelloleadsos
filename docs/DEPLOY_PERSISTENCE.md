@@ -1,8 +1,10 @@
-# Data persistence on deploy (Cloud Run / Render)
+# Data persistence on deploy (Render.com)
+
+Production: **leads.adhello.ai** on [Render](https://render.com).
 
 ## Why data disappears
 
-Leads OS stores **everything** in a single SQLite file:
+Leads OS stores **everything** in one SQLite file:
 
 | Data | Storage |
 |------|---------|
@@ -11,102 +13,119 @@ Leads OS stores **everything** in a single SQLite file:
 | Workspace settings & encrypted API keys | `app.db` |
 | CEO chat history | `app.db` → `chat_messages` |
 
-Default path: **`data/app.db`** inside the container (`/app/data/app.db` in Docker).
+Default path: **`/app/data/app.db`** (Docker) or `data/app.db` locally.
 
-On **Google Cloud Run** (and most PaaS hosts), the container filesystem is **ephemeral**. Each deploy builds a new container with an **empty** `data/` folder. That is why integrations and scraped leads vanish after every push — not because Test & save failed.
+On Render, the container filesystem is **ephemeral** unless you attach a **Persistent Disk**. Each deploy without a disk starts with an empty `data/` folder — integrations and scraped leads vanish even though **Test & save** succeeded.
 
-The `data/` directory is also **gitignored**, so it is never shipped with the code.
-
----
-
-## Fix: mount persistent storage
-
-### 1. Create a GCS bucket (one time)
-
-```bash
-export PROJECT_ID=your-gcp-project
-export BUCKET=adhello-leadsos-data-${PROJECT_ID}
-
-gcloud storage buckets create gs://${BUCKET} \
-  --project=${PROJECT_ID} \
-  --location=us-west1 \
-  --uniform-bucket-level-access
-```
-
-### 2. Mount the bucket on Cloud Run
-
-After the first deploy, update the service (or add to your deploy pipeline):
-
-```bash
-gcloud run services update adhello-leadsos \
-  --region=us-west1 \
-  --add-volume=name=leads-data,type=cloud-storage,bucket=${BUCKET} \
-  --add-volume-mount=volume=leads-data,mount-path=/data \
-  --update-env-vars=APP_DATA_DIR=/data
-```
-
-SQLite will then read/write **`/data/app.db`**, which survives redeploys.
-
-### 3. Set a stable encryption secret (required for UI API keys)
-
-Workspace integration keys are encrypted with **`WORKSPACE_INTEGRATIONS_SECRET`** (min 16 characters).
-
-```bash
-gcloud run services update adhello-leadsos \
-  --region=us-west1 \
-  --update-env-vars=WORKSPACE_INTEGRATIONS_SECRET='your-long-stable-secret-here'
-```
-
-**Important:** If this secret changes, previously saved keys cannot be decrypted. You must either restore the old secret or re-enter keys and use **Test & save**.
-
-Add the same value in Cloud Run → Environment variables (never commit it to git).
+The `data/` directory is **gitignored** and never ships with git.
 
 ---
 
-## Environment variables
+## Fix on Render (recommended)
 
-| Variable | Purpose |
-|----------|---------|
-| `APP_DATA_DIR` | Directory for `app.db` (e.g. `/data` on a mounted volume) |
-| `WORKSPACE_INTEGRATIONS_SECRET` | Encrypts API keys saved from Workspace → Integrations |
+### Option A — Dashboard (existing service)
 
-See `.env.example` for local development.
+1. Open [Render Dashboard](https://dashboard.render.com) → your **Web Service** (e.g. adhelloleadsos).
+2. Go to **Disks** → **Add disk**.
+3. Settings:
+   - **Mount path:** `/app/data`  
+     (matches the app default — no code change needed)
+   - **Size:** 1 GB minimum (increase later if needed)
+4. Click **Save**. Render redeploys once.
+
+5. Under **Environment**, confirm these are set (add if missing):
+
+   | Key | Value |
+   |-----|--------|
+   | `BASE_URL` | `https://leads.adhello.ai` |
+   | `WORKSPACE_INTEGRATIONS_SECRET` | Long random string, **16+ chars** — keep the same forever |
+   | `SESSION_SECRET` | Long random string |
+
+   Optional override (only if you mount the disk somewhere else):
+
+   | Key | Value |
+   |-----|--------|
+   | `APP_DATA_DIR` | Absolute mount path (e.g. `/var/data`) |
+
+   Optional after disk is attached (clears the in-app persistence warning):
+
+   | Key | Value |
+   |-----|--------|
+   | `RENDER_DISK_MOUNTED` | `1` |
+
+6. After deploy finishes:
+   - Re-enter API keys → **Test & save** on each integration card
+   - Run a lead search to confirm data sticks
+   - Deploy again — leads and keys should remain
+
+**Note:** Persistent disks require a **paid** Render plan (Starter or higher). Free web services cannot attach disks.
 
 ---
 
-## Verify after setup
+### Option B — `render.yaml` in repo
 
-1. Deploy with volume + env vars.
-2. Check Cloud Run logs on startup:
-   - `[persist] SQLite /data/app.db — N keys, …`
-   - No `WARNING: Running on a serverless host without APP_DATA_DIR`.
-3. Save integrations, run a lead search, redeploy — data should remain.
-4. Workspace → Integrations should **not** show the amber “Data persistence” banner.
+This repo includes a [`render.yaml`](../render.yaml) blueprint. If you manage the service via Blueprint:
+
+1. Sync the blueprint in Render (or create service from repo).
+2. The disk mounts at `/app/data` automatically.
+3. Set secret env vars in the dashboard when prompted (`sync: false` keys).
+
+---
+
+## Encryption secret (API keys)
+
+Keys saved from **Workspace → Integrations** are encrypted with **`WORKSPACE_INTEGRATIONS_SECRET`**.
+
+- Must be **at least 16 characters**
+- Must stay **identical across every deploy**
+- If it changes, saved keys cannot be decrypted — re-enter keys and **Test & save**
+
+Render: **Environment** → add `WORKSPACE_INTEGRATIONS_SECRET` → **Save Changes** (triggers redeploy).
+
+---
+
+## Verify it worked
+
+1. **Logs** (Render → service → Logs) on startup:
+   ```
+   [persist] SQLite /app/data/app.db — N keys, …
+   ```
+   You should **not** see:
+   ```
+   WARNING: Running on a serverless host without APP_DATA_DIR
+   ```
+
+2. **Integrations page** — amber “Data persistence” banner should disappear after disk + secret are configured.
+
+3. **Redeploy test** — save a lead, push to `main`, confirm it still exists after deploy.
 
 ---
 
 ## Backups
 
-Each integration **Test & save** (and **Save integrations**) creates a timestamped copy on the same volume:
+Each **Test & save** / **Save integrations** writes a timestamped copy on the same disk:
 
-`app.db.backup-2026-06-01T…`
-
-Copy these to cold storage periodically:
-
-```bash
-gcloud storage cp /data/app.db.backup-* gs://${BUCKET}/backups/
+```
+/app/data/app.db.backup-2026-06-01T…
 ```
 
----
-
-## Render (alternative host)
-
-1. Add a **Persistent Disk** (1 GB+) in Render dashboard.
-2. Mount it at `/data`.
-3. Set `APP_DATA_DIR=/data` and `WORKSPACE_INTEGRATIONS_SECRET` in environment.
+Download periodically from a one-off shell (Render → Shell) or automate off-site backup later.
 
 ---
 
-## Long term
+## Troubleshooting
 
-For multi-instance scaling, consider **Cloud SQL (PostgreSQL)** instead of SQLite. That is a larger migration; the volume mount above is the minimal fix for a single Cloud Run instance.
+| Symptom | Likely cause |
+|---------|----------------|
+| Everything empty after deploy | No persistent disk, or disk not mounted at `/app/data` |
+| Keys show as saved but don’t work | `WORKSPACE_INTEGRATIONS_SECRET` missing or changed |
+| “Saved API keys unavailable” banner | Secret changed since keys were saved — restore old secret or re-save keys |
+| Disk added but still empty | Wrong mount path; set `APP_DATA_DIR` to match mount path |
+
+---
+
+## Other hosts
+
+The repo also has a Cloud Run GitHub Action (`.github/workflows/deploy.yml`). For GCP, use a GCS bucket volume and `APP_DATA_DIR=/data` — not used if production is Render-only.
+
+Long term: migrate from SQLite to **Render Postgres** or external DB for multi-instance scaling.

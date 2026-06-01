@@ -1,0 +1,32 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Persistent disk at /app/data keeps SQLite (leads, searches, API keys) across deploys.
+# See docs/DEPLOY_PERSISTENCE.md
+
+services:
+  - type: web
+    name: adhelloleadsos
+    runtime: docker
+    plan: starter
+    healthCheckPath: /
+    disk:
+      name: leads-data
+      mountPath: /app/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BASE_URL
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: WORKSPACE_INTEGRATIONS_SECRET
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
+        optional: true
+      - key: RENDER_DISK_MOUNTED
+        value: "1"

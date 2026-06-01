@@ -1,5 +1,5 @@
 /**
- * Startup checks for SQLite persistence (Cloud Run / Render use ephemeral disks by default).
+ * Startup checks for SQLite persistence (Render / Cloud Run use ephemeral disks without a mount).
  */
 
 const fs = require('fs');
@@ -30,10 +30,15 @@ function logStartupPersistenceStatus() {
       (stats.leadKeyCount != null ? `, ${stats.leadKeyCount} lead keys` : ''),
   );
 
-  if (isLikelyEphemeralHost() && !isCustomDataDir()) {
+  if (isLikelyEphemeralHost() && !process.env.RENDER && !isCustomDataDir()) {
     console.warn(
-      '[persist] WARNING: Running on a serverless host without APP_DATA_DIR. ' +
-        'data/app.db is wiped on every deploy. Mount persistent storage — see docs/DEPLOY_PERSISTENCE.md',
+      '[persist] WARNING: Running without persistent storage. ' +
+        'SQLite is wiped on every deploy. See docs/DEPLOY_PERSISTENCE.md',
+    );
+  } else if (process.env.RENDER && !renderPersistenceConfigured()) {
+    console.warn(
+      '[persist] WARNING: Render deploy without Persistent Disk at /app/data — data will not survive redeploys. ' +
+        'See docs/DEPLOY_PERSISTENCE.md',
     );
   }
 
@@ -77,11 +82,28 @@ function workspaceIntegrationsPersistenceHint(workspace) {
   return null;
 }
 
+function renderPersistenceConfigured() {
+  if (!process.env.RENDER) return false;
+  if (process.env.RENDER_DISK_MOUNTED === '1') return true;
+  const stats = dbService.getPersistenceStats();
+  return stats.kvCount > 0 && stats.dbSizeBytes > 16384;
+}
+
 /**
  * @returns {{ level: 'ok'|'warn', message: string }|null}
  */
 function deploymentPersistenceHint() {
-  if (isLikelyEphemeralHost() && !isCustomDataDir()) {
+  if (process.env.RENDER && !renderPersistenceConfigured()) {
+    return {
+      level: 'warn',
+      message:
+        'Render.com wipes the container disk on every deploy unless you add a Persistent Disk. ' +
+        'In the Render dashboard: Disks → Add disk → mount path /app/data (1 GB+). ' +
+        'Then set WORKSPACE_INTEGRATIONS_SECRET and re-save API keys. ' +
+        'Optional: set RENDER_DISK_MOUNTED=1 after the disk is attached. See docs/DEPLOY_PERSISTENCE.md.',
+    };
+  }
+  if (isLikelyEphemeralHost() && !process.env.RENDER && !isCustomDataDir()) {
     return {
       level: 'warn',
       message:
