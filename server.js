@@ -40,6 +40,7 @@ const foldersRoutes = require('./routes/folders');
 const attachWorkspace = require('./middleware/attachWorkspace');
 const socialBrandIcons = require('./services/socialBrandIcons');
 const iaNav = require('./middleware/iaNav');
+const leadRunBanner = require('./middleware/leadRunBanner');
 const iaRedirects = require('./routes/iaRedirects');
 const todayRoutes = require('./routes/today');
 const focusRoutes = require('./routes/focus');
@@ -423,6 +424,7 @@ app.post('/api/course/capture', express.json(), async (req, res) => {
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);
 app.use(iaNav);
+app.use(leadRunBanner);
 app.use(iaRedirects);
 app.use('/today', todayRoutes);
 app.use('/focus', focusRoutes);

@@ -1039,7 +1039,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const userTimezoneInput = document.getElementById('userTimezone');
   const searchBtnLabel = btn ? btn.querySelector('#searchBtnText') : null;
   const scheduleSubmitBtn = document.getElementById('scheduleSubmitBtn');
-  const searchBackgroundNotice = document.getElementById('searchBackgroundNotice');
+  const searchBackgroundNotice = document.getElementById('leadRunProgressBanner');
   const searchFolderKey = document.getElementById('searchFolderKey');
   const searchNewFolderWrap = document.getElementById('searchNewFolderWrap');
   const searchNewFolderName = document.getElementById('searchNewFolderName');
@@ -1154,6 +1154,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (!isSchedule && searchBackgroundNotice) {
         searchBackgroundNotice.classList.remove('hidden');
+      }
+      if (!isSchedule && typeof window.showLeadRunProgressBanner === 'function') {
+        var kwEl = document.getElementById('searchKeywordField');
+        var cityEl = document.getElementById('findManualCity');
+        var stateEl = document.getElementById('findManualState');
+        window.showLeadRunProgressBanner({
+          keyword: kwEl && kwEl.value ? kwEl.value.trim() : '',
+          city: cityEl && cityEl.value ? cityEl.value.trim() : '',
+          state: stateEl && stateEl.value ? stateEl.value.trim() : '',
+        });
       }
       if (!isSchedule) {
         const bellBadge = document.getElementById('bulkEnhanceBellBadge');

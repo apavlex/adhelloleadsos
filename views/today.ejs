@@ -17,12 +17,9 @@
       Daily tracker saved. The same numbers appear on Reports → Daily action tracker.
     </div>
     <% } %>
-    <% if (typeof searchInProgressNotice !== 'undefined' && searchInProgressNotice) { %>
-    <div class="mb-6 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 dark:border-brand-yellow/30 px-4 py-3 text-sm text-brand-dark dark:text-brand-yellow">
-      Lead run in progress. You can keep working here — we’ll notify you in-app when results are ready.
-      <% if (typeof scheduleSavedNotice !== 'undefined' && scheduleSavedNotice) { %>
-      <span class="font-bold">Schedule saved too.</span>
-      <% } %>
+    <% if (typeof scheduleSavedNotice !== 'undefined' && scheduleSavedNotice) { %>
+    <div class="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-50/90 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-950 dark:text-emerald-100">
+      Schedule saved. Your lead run will start at the scheduled time.
     </div>
     <% } %>
     <% const _csHeader = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>

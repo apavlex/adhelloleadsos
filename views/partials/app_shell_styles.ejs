@@ -37,7 +37,8 @@
       pointer-events: none;
       transform: translateX(-100%);
     }
-    body:has(#appSidebar) #appTopbar { grid-area: topbar; min-width: 0; width: 100%; }
+    body:has(#appSidebar) .app-shell-top { grid-area: topbar; min-width: 0; width: 100%; }
+    body:has(#appSidebar) #appTopbar { min-width: 0; width: 100%; }
     body:has(#appSidebar) > main {
       grid-area: main;
       min-width: 0;

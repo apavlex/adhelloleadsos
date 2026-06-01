@@ -125,8 +125,13 @@ h1, h2, h3, h4, .font-display {
         transition: width 0.22s ease, min-width 0.22s ease, transform 0.22s ease, opacity 0.18s ease;
     }
 
-    body.app-with-sidebar #appTopbar {
+    body.app-with-sidebar .app-shell-top {
         grid-area: topbar;
+        min-width: 0;
+        width: 100%;
+    }
+
+    body.app-with-sidebar #appTopbar {
         min-width: 0;
         width: 100%;
     }
@@ -621,6 +626,10 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 
 .hunt-progress-indeterminate {
   animation: hunt-progress-slide 1.4s ease-in-out infinite;
+}
+
+.lead-run-progress-shimmer {
+  animation: hunt-progress-slide 1.6s ease-in-out infinite;
 }
 
 /* Floating bulk bar — Apple-style frosted glass */

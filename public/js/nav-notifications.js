@@ -111,6 +111,82 @@
     return isBulkEnhanceJobRunning() || syncEnhanceSessionActive();
   }
 
+  function escapeLeadRunText(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function estimateLeadRunProgressPct(startedAt) {
+    if (!startedAt) return 8;
+    var elapsed = Date.now() - Date.parse(startedAt);
+    if (!Number.isFinite(elapsed) || elapsed < 0) return 8;
+    var estMs = 3.5 * 60 * 1000;
+    return Math.min(94, Math.max(8, Math.round((elapsed / estMs) * 100)));
+  }
+
+  function updateLeadRunProgressBanner(data, opts) {
+    opts = opts || {};
+    var banner = document.getElementById('leadRunProgressBanner');
+    if (!banner) return;
+    var show =
+      opts.forceShow === true ||
+      (data && data.isProcessing) ||
+      localStorage.getItem('is_searching') === 'true';
+    if (!show) {
+      banner.classList.add('hidden');
+      banner.setAttribute('aria-busy', 'false');
+      return;
+    }
+    banner.classList.remove('hidden');
+    banner.setAttribute('aria-busy', 'true');
+
+    var sub = document.getElementById('leadRunProgressSub');
+    var pctEl = document.getElementById('leadRunProgressPct');
+    var fill = document.getElementById('leadRunProgressFill');
+    var bar = document.getElementById('leadRunProgressBar');
+    var job = (data && data.activeJob) || null;
+
+    if (opts.keyword || opts.city || opts.state) {
+      job = {
+        keyword: opts.keyword || '',
+        city: opts.city || '',
+        state: opts.state || '',
+        startedAt: new Date().toISOString(),
+      };
+    }
+
+    if (sub) {
+      if (job && (job.keyword || job.city || job.state)) {
+        var kw = escapeLeadRunText(job.keyword || '');
+        var loc = escapeLeadRunText([job.city, job.state].filter(Boolean).join(', '));
+        var lead = kw ? '<strong>' + kw + '</strong>' : '';
+        if (loc) lead += (kw ? ' · ' : '') + loc;
+        sub.innerHTML =
+          lead +
+          ' — keep working here; we’ll notify you in the bell when results are ready.';
+      } else {
+        sub.textContent =
+          'You can keep working here — we’ll notify you in the bell when results are ready.';
+      }
+    }
+
+    var pct = estimateLeadRunProgressPct(job && job.startedAt);
+    if (pctEl) pctEl.textContent = pct + '%';
+    if (fill) fill.style.width = pct + '%';
+    if (bar) bar.setAttribute('aria-valuenow', String(pct));
+  }
+
+  window.showLeadRunProgressBanner = function showLeadRunProgressBanner(opts) {
+    updateLeadRunProgressBanner(null, { forceShow: true, keyword: opts && opts.keyword, city: opts && opts.city, state: opts && opts.state });
+  };
+
+  window.hideLeadRunProgressBanner = function hideLeadRunProgressBanner() {
+    var banner = document.getElementById('leadRunProgressBanner');
+    if (banner) {
+      banner.classList.add('hidden');
+      banner.setAttribute('aria-busy', 'false');
+    }
+  };
+
   function updateBulkEnhanceBellBadge(currentZeroBasedIndex, total) {
     const el = document.getElementById('bulkEnhanceBellBadge');
     if (!el) return;
@@ -252,10 +328,12 @@
     if (isActive) {
       activeProcessingCount++;
       localStorage.setItem('is_searching', 'true');
+      updateLeadRunProgressBanner({ isProcessing: true });
     } else {
       activeProcessingCount = Math.max(0, activeProcessingCount - 1);
       if (activeProcessingCount === 0) {
         localStorage.removeItem('is_searching');
+        updateLeadRunProgressBanner({ isProcessing: false });
       }
     }
     applyProcessingRing();
@@ -270,6 +348,18 @@
     if (!processingIndicator) return;
 
     applyProcessingRing();
+    if (localStorage.getItem('is_searching') === 'true') {
+      updateLeadRunProgressBanner({ isProcessing: true });
+    }
+
+    var leadRunBellBtn = document.getElementById('leadRunProgressBellBtn');
+    if (leadRunBellBtn && processingIndicator) {
+      leadRunBellBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        processingIndicator.click();
+      });
+    }
 
     if (isBulkEnhanceJobRunning()) {
       const jr = readBulkEnhanceJob();
@@ -321,12 +411,19 @@
         if (data.isProcessing) {
           processingIndicator.classList.add('processing-active');
           localStorage.setItem('is_searching', 'true');
+          updateLeadRunProgressBanner(data);
         } else {
           if (!clientNavbarWorkActive()) {
             processingIndicator.classList.remove('processing-active');
             localStorage.removeItem('is_searching');
+            updateLeadRunProgressBanner(data);
           } else {
             applyProcessingRing();
+            if (localStorage.getItem('is_searching') === 'true') {
+              updateLeadRunProgressBanner({ isProcessing: true, activeJob: data.activeJob || null });
+            } else {
+              updateLeadRunProgressBanner(data);
+            }
           }
         }
 
@@ -411,6 +508,11 @@
 
     setInterval(pollStatus, 5000);
     pollStatus();
+    setInterval(function () {
+      if (localStorage.getItem('is_searching') === 'true') {
+        updateLeadRunProgressBanner({ isProcessing: true });
+      }
+    }, 2000);
 
     const desktopRow = document.getElementById('notificationDesktopRow');
     const navNotifyEnable = document.getElementById('navNotifyEnable');
