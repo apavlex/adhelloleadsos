@@ -101,10 +101,11 @@ h1, h2, h3, h4, .font-display {
     body.app-with-sidebar {
         display: grid;
         grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
-        grid-template-rows: auto 1fr;
+        grid-template-rows: auto 1fr auto;
         grid-template-areas:
             "sidebar topbar"
-            "sidebar content";
+            "sidebar main"
+            "sidebar footer";
         min-height: 100vh;
         transition: grid-template-columns 0.22s ease;
     }
@@ -130,11 +131,18 @@ h1, h2, h3, h4, .font-display {
         width: 100%;
     }
 
-    body.app-with-sidebar > main,
-    body.app-with-sidebar > footer {
-        grid-area: content;
+    body.app-with-sidebar > main {
+        grid-area: main;
         min-width: 0;
         width: 100%;
+        align-self: start;
+    }
+
+    body.app-with-sidebar > footer {
+        grid-area: footer;
+        min-width: 0;
+        width: 100%;
+        align-self: end;
     }
 
     body.app-with-sidebar.sidebar-collapsed {

@@ -5,8 +5,8 @@
     body:has(#appSidebar) {
       display: grid;
       grid-template-columns: var(--app-sidebar-width) minmax(0, 1fr);
-      grid-template-rows: auto 1fr;
-      grid-template-areas: "sidebar topbar" "sidebar content";
+      grid-template-rows: auto 1fr auto;
+      grid-template-areas: "sidebar topbar" "sidebar main" "sidebar footer";
       min-height: 100vh;
       transition: grid-template-columns 0.22s ease;
     }
@@ -38,11 +38,17 @@
       transform: translateX(-100%);
     }
     body:has(#appSidebar) #appTopbar { grid-area: topbar; min-width: 0; width: 100%; }
-    body:has(#appSidebar) > main,
-    body:has(#appSidebar) > footer {
-      grid-area: content;
+    body:has(#appSidebar) > main {
+      grid-area: main;
       min-width: 0;
       width: 100%;
+      align-self: start;
+    }
+    body:has(#appSidebar) > footer {
+      grid-area: footer;
+      min-width: 0;
+      width: 100%;
+      align-self: end;
     }
   }
   .sidebar-nav-link {
