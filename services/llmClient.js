@@ -7,7 +7,7 @@
  *
  * Env (OpenRouter — default chain):
  *   OPENROUTER_API_KEY — Bearer token from https://openrouter.ai/keys
- *   OPENROUTER_MODEL — optional override; default tries deepseek-v4-flash:free then deepseek-v4-pro
+ *   OPENROUTER_MODEL — optional override; default tries qwen3-coder:free → deepseek-v4-flash → deepseek-v4-pro
  *   OPENROUTER_HTTP_REFERER — optional site URL for OpenRouter rankings
  *   OPENROUTER_APP_NAME — optional app title header (default AdHello Leads OS)
  *
@@ -24,7 +24,8 @@ const DEFAULT_KIE_PATH = 'gpt-5-2/v1/chat/completions';
 const DEFAULT_KIE_MODEL = 'gpt-5-2';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.0-flash';
 
-const OPENROUTER_FREE_MODEL = 'deepseek/deepseek-v4-flash:free';
+const OPENROUTER_FREE_MODEL = 'qwen/qwen3-coder:free';
+const OPENROUTER_CHEAP_MODEL = 'deepseek/deepseek-v4-flash';
 const OPENROUTER_PAID_FALLBACK_MODEL = 'deepseek/deepseek-v4-pro';
 
 /** @returns {Array<{name:string, apiKey:string, baseUrl?:string, path?:string, model?:string, url?:string}>} */
@@ -38,18 +39,9 @@ function openRouterProviders() {
     if (custom) {
       list.push({ name: 'openrouter', apiKey: key, url, model: custom });
     } else {
-      list.push({
-        name: 'openrouter-flash',
-        apiKey: key,
-        url,
-        model: OPENROUTER_FREE_MODEL,
-      });
-      list.push({
-        name: 'openrouter-pro',
-        apiKey: key,
-        url,
-        model: OPENROUTER_PAID_FALLBACK_MODEL,
-      });
+      list.push({ name: 'openrouter-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL });
+      list.push({ name: 'openrouter-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL });
+      list.push({ name: 'openrouter-pro', apiKey: key, url, model: OPENROUTER_PAID_FALLBACK_MODEL });
     }
   }
   return list;
@@ -397,5 +389,6 @@ module.exports = {
   legacyProviders,
   parseLlmJson,
   OPENROUTER_FREE_MODEL,
+  OPENROUTER_CHEAP_MODEL,
   OPENROUTER_PAID_FALLBACK_MODEL,
 };

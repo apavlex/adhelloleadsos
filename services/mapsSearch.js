@@ -118,7 +118,7 @@ async function runAutoMapsSearch(params, integrationEnv) {
       }
       if (accumulated.length >= cap) break;
     } catch (e) {
-      if (prov.label === 'RapidAPI') lastAutoError = e;
+      lastAutoError = e;
       console.warn(`[mapsSearch] ${prov.label} failed, trying next:`, e.message);
     }
   }
