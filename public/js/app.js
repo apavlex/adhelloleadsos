@@ -9586,6 +9586,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  /** Same selection source as bulk SMS/voicemail — includes paged/hidden checked rows and selectedKeys fallback. */
+  function getSelectedLeadCheckboxesForBulkActions() {
+    syncSelectedKeysFromDom();
+    const seen = new Set();
+    const boxes = [];
+    const selectors = [
+      '#prospectLeadsTable tbody input.lead-checkbox:checked',
+      '#prospectLeadsTable tbody input.row-checkbox:checked',
+      '#searchResultsLeadsTable tbody input.lead-checkbox:checked',
+      '#searchResultsLeadsTable tbody input.row-checkbox:checked',
+      'tbody input.lead-checkbox:checked',
+      'tbody input.row-checkbox:checked',
+    ];
+    selectors.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((cb) => {
+        if (!cb || seen.has(cb)) return;
+        seen.add(cb);
+        boxes.push(cb);
+      });
+    });
+    if (boxes.length) return boxes;
+    selectedKeys.forEach((key) => {
+      const k = String(key || '').trim();
+      if (!k) return;
+      const cb = document.querySelector(
+        `input.lead-checkbox[data-key="${CSS.escape(k)}"], input.row-checkbox[data-key="${CSS.escape(k)}"]`,
+      );
+      if (cb && !seen.has(cb)) {
+        seen.add(cb);
+        boxes.push(cb);
+      }
+    });
+    return boxes;
+  }
+  window.__getSelectedLeadCheckboxesForBulkActions = getSelectedLeadCheckboxesForBulkActions;
+
   function getLeadCheckboxesForTable(table) {
     if (!table) return getPageLeadCheckboxes();
     let boxes = getVisibleResultRowsInTable(table)
@@ -11625,7 +11661,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeWarRoomModal() {
-    if (!warRoomModal) return;
+    const modal = document.getElementById('warRoomModal');
+    const grid = document.getElementById('warRoomGrid');
+    if (!modal) return;
     warRoomFlushCurrentScriptDraft();
     warRoomStopTimerInterval();
     warRoomTimerRunning = false;
@@ -11636,10 +11674,14 @@ document.addEventListener('DOMContentLoaded', () => {
     warRoomIndex = 0;
     warRoomFinalizeSummary('Session closed');
     warRoomStopAutoDial();
-    if (warRoomGrid) warRoomGrid.innerHTML = '';
+    if (grid) grid.innerHTML = '';
     if (warRoomPosition) warRoomPosition.textContent = '—';
     warRoomUpdateFooterDial({ dataset: { phone: '' } });
-    warRoomModal.classList.add('hidden');
+    modal.classList.add('hidden');
+    modal.style.removeProperty('z-index');
+    modal.style.removeProperty('pointer-events');
+    modal.style.removeProperty('visibility');
+    document.body.style.overflow = '';
   }
 
   function warRoomKeyboardConsumesNav(ev) {
@@ -12053,34 +12095,73 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function openWarRoomFromSelection() {
-    if (!warRoomModal || !warRoomGrid) return;
-    const selected = Array.from(document.querySelectorAll('.result-row .lead-checkbox:checked'));
-    if (selected.length === 0) {
-      alert('Select at least one lead to open the cold call war room.');
+    const modal = document.getElementById('warRoomModal');
+    const grid = document.getElementById('warRoomGrid');
+    if (!modal || !grid) {
+      const msg = 'Call room is not available on this page.';
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
       return;
     }
-    const coldOnly = selected.filter((cb) => isColdLeadRow(cb.closest('.result-row')));
+
+    const selected =
+      typeof getSelectedLeadCheckboxesForBulkActions === 'function'
+        ? getSelectedLeadCheckboxesForBulkActions()
+        : Array.from(document.querySelectorAll('tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked'));
+
+    if (selected.length === 0) {
+      const msg = 'Select at least one lead to open the cold call war room.';
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
+      return;
+    }
+
+    const coldOnly = selected.filter((cb) => {
+      const row = cb.closest('.result-row') || cb.closest('tr');
+      return isColdLeadRow(row);
+    });
     if (coldOnly.length === 0) {
-      alert(
-        'Cold call war room only includes cold leads. Warm inbound (AdHello) leads are excluded—deselect them or filter the table to Cold, then try again.'
-      );
+      const msg =
+        'Call room only includes cold leads. Warm inbound (AdHello) leads are excluded—deselect them or filter to Cold, then try again.';
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
       return;
     }
     if (coldOnly.length < selected.length) {
       const skipped = selected.length - coldOnly.length;
-      alert(`Skipped ${skipped} warm lead${skipped === 1 ? '' : 's'}. Opening cold call room with ${coldOnly.length} cold lead${coldOnly.length === 1 ? '' : 's'}.`);
+      const msg = `Skipped ${skipped} warm lead${skipped === 1 ? '' : 's'}. Opening call room with ${coldOnly.length} cold lead${coldOnly.length === 1 ? '' : 's'}.`;
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
     }
+
+    if (typeof dismissLeadDetailPanel === 'function') dismissLeadDetailPanel();
+
     renderWarRoom(coldOnly);
-    warRoomModal.classList.remove('hidden');
+    modal.classList.remove('hidden');
+    modal.style.setProperty('z-index', '500', 'important');
+    modal.style.setProperty('pointer-events', 'auto', 'important');
+    modal.style.setProperty('visibility', 'visible', 'important');
+    document.body.style.overflow = 'hidden';
     warRoomStartSessionTimer();
     requestAnimationFrame(() => {
-      if (warRoomGrid) warRoomGrid.focus();
+      grid.focus();
     });
   }
+  window.__openWarRoomFromSelection = openWarRoomFromSelection;
+
+  document.addEventListener(
+    'click',
+    (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('#batchOutreachBtnBulk, #batchOutreachBtn') : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openWarRoomFromSelection();
+    },
+    true,
+  );
 
   if (warRoomModal) {
-    if (batchOutreachBtn) batchOutreachBtn.addEventListener('click', openWarRoomFromSelection);
-    if (batchOutreachBtnBulk) batchOutreachBtnBulk.addEventListener('click', openWarRoomFromSelection);
     if (closeWarRoom) closeWarRoom.addEventListener('click', closeWarRoomModal);
     if (warRoomTimerToggle) warRoomTimerToggle.addEventListener('click', warRoomPauseResumeTimer);
     if (warRoomTimerReset) warRoomTimerReset.addEventListener('click', warRoomResetTimer);
@@ -12457,5 +12538,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.29-panel-paint';
+  window.__ADHELLO_BUILD = '1.0.30-call-room';
 });

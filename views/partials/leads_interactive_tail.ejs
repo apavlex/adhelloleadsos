@@ -28,12 +28,12 @@
 <%- include('/partials/email_intel_modal') %>
 
 <!-- Cold call war room: high-contrast panel, script tabs, notes, primary dial in footer -->
-<div id="warRoomModal" class="fixed inset-0 z-[300] hidden overflow-hidden">
+<div id="warRoomModal" class="fixed inset-0 z-[500] hidden overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="warRoomTitle">
   <div class="absolute inset-0 bg-slate-950/92 backdrop-blur-sm transition-opacity" aria-hidden="true"></div>
   <div class="absolute inset-0 flex flex-col p-3 sm:p-6 md:p-8 text-slate-100">
       <div class="flex flex-col lg:flex-row lg:items-start justify-between gap-4 mb-4 sm:mb-5 relative z-10 shrink-0">
           <div class="min-w-0">
-              <h2 class="font-display font-black text-2xl sm:text-3xl md:text-4xl text-white tracking-tight drop-shadow-sm">Cold call war room</h2>
+              <h2 id="warRoomTitle" class="font-display font-black text-2xl sm:text-3xl md:text-4xl text-white tracking-tight drop-shadow-sm">Cold call war room</h2>
               <p class="text-slate-300 font-bold uppercase tracking-[0.2em] text-xs mt-1">Cold leads only · one business at a time</p>
               <p class="text-slate-400 text-[11px] font-semibold mt-2 normal-case tracking-normal">Keyboard: <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-[10px] border border-slate-600">←</kbd> <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-[10px] border border-slate-600">→</kbd> previous / next · <kbd class="px-1.5 py-0.5 rounded bg-slate-800 text-slate-200 font-mono text-[10px] border border-slate-600">Space</kbd> next (click outside script / notes)</p>
           </div>
