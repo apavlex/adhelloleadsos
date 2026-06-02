@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 const { clampPipelineStage, PIPELINE_SCHEMA_VERSION } = require('./pipelineConstants');
+const { normalizeLeadForPanel } = require('./leadPanelNormalize');
 
 // ── SQLite setup ──────────────────────────────────────────────────────────────
 function resolveDbDir() {
@@ -430,10 +431,10 @@ module.exports = {
     if (!raw) return null;
     const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
     if (!parsed || typeof parsed !== 'object') return null;
-    return {
+    return normalizeLeadForPanel({
       ...parsed,
       key: parsed.key || storageKey,
-    };
+    });
   },
 
   async listLeads(workspaceId) {

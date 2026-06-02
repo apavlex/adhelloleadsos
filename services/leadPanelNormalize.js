@@ -114,6 +114,21 @@ function normalizeLeadForPanel(lead) {
     pickImportField(imp, ['url', 'google_maps_url', 'maps_url', 'google_places'])
   );
 
+  const facebook = firstContactValue(
+    lead.facebook,
+    pickImportField(imp, ['facebook', 'facebook_url', 'fb', 'fb_url'])
+  );
+
+  const instagram = firstContactValue(
+    lead.instagram,
+    pickImportField(imp, ['instagram', 'instagram_url', 'ig'])
+  );
+
+  const twitter = firstContactValue(
+    lead.twitter,
+    pickImportField(imp, ['twitter', 'twitter_url', 'x', 'x_url'])
+  );
+
   const latitude =
     lead.latitude != null && lead.latitude !== ''
       ? lead.latitude
@@ -128,6 +143,7 @@ function normalizeLeadForPanel(lead) {
     firstContactValue(
       lead.totalScore,
       lead.total_score,
+      lead.rating,
       pickImportField(imp, ['totalscore', 'rating', 'stars', 'total_score'])
     ),
     parseFloat,
@@ -138,6 +154,7 @@ function normalizeLeadForPanel(lead) {
     firstContactValue(
       lead.reviewsCount,
       lead.reviews_count,
+      lead.reviews,
       pickImportField(imp, ['reviewscount', 'reviews_count', 'reviews', 'total_reviews'])
     ),
     (v) => parseInt(v, 10),
@@ -161,6 +178,15 @@ function normalizeLeadForPanel(lead) {
   if (city) out.city = city;
   if (state) out.state = state;
   if (hasContactValue(url)) out.url = url;
+
+  if (hasContactValue(facebook)) out.facebook = facebook;
+  else if (!hasContactValue(out.facebook)) out.facebook = out.facebook || 'N/A';
+
+  if (hasContactValue(instagram)) out.instagram = instagram;
+  else if (!hasContactValue(out.instagram)) out.instagram = out.instagram || 'N/A';
+
+  if (hasContactValue(twitter)) out.twitter = twitter;
+  else if (!hasContactValue(out.twitter)) out.twitter = out.twitter || 'N/A';
 
   if (latitude != null && latitude !== '') out.latitude = latitude;
   if (longitude != null && longitude !== '') out.longitude = longitude;

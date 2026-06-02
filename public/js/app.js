@@ -491,15 +491,34 @@ document.addEventListener('DOMContentLoaded', () => {
         colBtn.setAttribute('aria-expanded', 'false');
       }
 
+      function pipelineColumnsPopoverSolidBg() {
+        return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
+      }
+
+      function applyPipelineColumnsPopoverSurface() {
+        const bg = pipelineColumnsPopoverSolidBg();
+        pop.style.backgroundColor = bg;
+        pop.style.background = bg;
+        pop.style.backdropFilter = 'none';
+        pop.style.webkitBackdropFilter = 'none';
+        pop.style.opacity = '1';
+      }
+
       function positionColumnsPopover() {
         if (pop.parentElement !== document.body) {
           document.body.appendChild(pop);
         }
+        applyPipelineColumnsPopoverSurface();
         const rect = colBtn.getBoundingClientRect();
         pop.style.top = `${Math.round(rect.bottom + 8)}px`;
         pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
         pop.style.left = 'auto';
       }
+
+      if (pop.parentElement !== document.body) {
+        document.body.appendChild(pop);
+      }
+      applyPipelineColumnsPopoverSurface();
 
       function toggleColumnsPopover() {
         const willOpen = pop.classList.contains('hidden');
@@ -1446,6 +1465,14 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Detail panel & rows (must not depend on mobile nav; panel exists on Prospecting / leads pages) ---
   const mobilePanel = document.getElementById('mobilePanel');
   const getLeadDetailPanel = () => document.getElementById('mobilePanel');
+  function getLeadPanelEl(id) {
+    const panel = getLeadDetailPanel();
+    if (panel && id) {
+      const scoped = panel.querySelector('#' + String(id).replace(/^#/, ''));
+      if (scoped) return scoped;
+    }
+    return document.getElementById(id);
+  }
   const LEAD_PANEL_INLINE_PROPS = ['display', 'opacity', 'pointer-events', 'visibility', 'z-index'];
   function clearLeadDetailPanelForceStyles(el) {
     if (!el || !el.style) return;
@@ -2717,12 +2744,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     openLeadPanelOutreach();
 
-    syncRowFromInitialSavedLeads(row);
+    prepareLeadRowForPanel(row);
+
+    try {
+      if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(row);
+    } catch (earlyErr) {
+      console.warn('[Lead panel] early row paint failed:', earlyErr);
+    }
 
     try {
       populatePanel(row);
     } catch (err) {
       console.error('[Lead detail panel] populatePanel failed:', err);
+      try {
+        if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(row);
+      } catch (retryErr) {
+        console.warn('[Lead panel] retry row paint failed:', retryErr);
+      }
     }
 
     try {
@@ -3816,6 +3854,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch {
         ds.contacts = '[]';
       }
+      coalesceRowDatasetFromContacts(row);
     }
     if (L.logs != null) {
       try {
@@ -4411,6 +4450,11 @@ document.addEventListener('DOMContentLoaded', () => {
     DC: 'America/New_York',
   };
 
+  function isEmptyLeadField(v) {
+    const s = v == null ? '' : String(v).trim();
+    return !s || s === 'N/A' || s === '—' || s === '-' || s === 'undefined' || s === 'null';
+  }
+
   function readPipelineRowDisplayAddress(row) {
     if (!row || !row.dataset) return '';
     let a = String(row.dataset.address || '').trim();
@@ -4420,6 +4464,98 @@ document.addEventListener('DOMContentLoaded', () => {
       if (t && t !== '—' && t !== '-') a = t;
     }
     return a && a !== 'N/A' ? a : '';
+  }
+
+  function readPipelineRowDisplayWebsite(row) {
+    if (!row || !row.dataset) return '';
+    let w = String(row.dataset.website || '').trim();
+    if (w && w !== 'N/A') return w.replace(/\/$/, '');
+    if (typeof row.querySelector === 'function') {
+      const link = row.querySelector('.website-link[data-url], a.website-link');
+      if (link) {
+        w = String(link.getAttribute('data-url') || link.getAttribute('href') || '').trim();
+        if (w && w !== 'N/A' && !/^#$/i.test(w)) return w.replace(/\/$/, '');
+      }
+    }
+    return '';
+  }
+
+  /** Promote phone/email from contacts[] into row dataset when top-level fields are empty. */
+  function coalesceRowDatasetFromContacts(row) {
+    if (!row || !row.dataset) return;
+    const list = parseRowContacts(row);
+    if (!list.length) return;
+    const withPhone = list.filter((c) => c && !isEmptyLeadField(c.phone));
+    const pri = withPhone.find((c) => c.primary) || withPhone[0];
+    if (pri) {
+      if (isEmptyLeadField(row.dataset.phone)) row.dataset.phone = String(pri.phone).trim();
+      if (isEmptyLeadField(row.dataset.email) && !isEmptyLeadField(pri.email)) {
+        row.dataset.email = String(pri.email).trim();
+      }
+    }
+    if (isEmptyLeadField(row.dataset.email)) {
+      const withEmail = list.find((c) => c && !isEmptyLeadField(c.email));
+      if (withEmail) row.dataset.email = String(withEmail.email).trim();
+    }
+  }
+
+  /** Mirror visible pipeline table cells into data-* when attributes are stale or N/A. */
+  function hydrateRowDatasetFromTableDom(row) {
+    if (!row || !row.dataset || typeof row.querySelector !== 'function') return;
+
+    const phone = readPipelineRowDisplayPhone(row);
+    if (phone && isEmptyLeadField(row.dataset.phone)) row.dataset.phone = phone;
+
+    const email = readPipelineRowDisplayEmail(row);
+    if (email && isEmptyLeadField(row.dataset.email)) row.dataset.email = email;
+
+    const addr = readPipelineRowDisplayAddress(row);
+    if (addr && isEmptyLeadField(row.dataset.address)) row.dataset.address = addr;
+
+    const website = readPipelineRowDisplayWebsite(row);
+    if (website && isEmptyLeadField(row.dataset.website)) row.dataset.website = website;
+
+    const rev = readPipelineRowReviewsSnapshot(row);
+    if (rev.rating > 0 && (!parseFloat(row.dataset.rating) || parseFloat(row.dataset.rating) === 0)) {
+      row.dataset.rating = String(rev.rating);
+    }
+    if (rev.reviews > 0 && (!parseInt(row.dataset.reviews, 10) || parseInt(row.dataset.reviews, 10) === 0)) {
+      row.dataset.reviews = String(rev.reviews);
+    }
+
+    const socialSlot = row.querySelector('.lead-cell-socials-content');
+    if (socialSlot) {
+      socialSlot.querySelectorAll('a[href]').forEach((a) => {
+        const href = String(a.getAttribute('href') || '').trim();
+        if (!href || href === '#') return;
+        const h = href.toLowerCase();
+        if (
+          (h.includes('facebook.com') || h.includes('fb.com') || h.includes('fb.me')) &&
+          isEmptyLeadField(row.dataset.facebook)
+        ) {
+          row.dataset.facebook = href;
+        } else if (h.includes('instagram.com') && isEmptyLeadField(row.dataset.instagram)) {
+          row.dataset.instagram = href;
+        } else if (
+          (h.includes('twitter.com') || h.includes('x.com')) &&
+          isEmptyLeadField(row.dataset.twitter)
+        ) {
+          row.dataset.twitter = href;
+        } else if (
+          (h.includes('google.com/maps') || h.includes('maps.google') || h.includes('goo.gl/maps')) &&
+          isEmptyLeadField(row.dataset.url)
+        ) {
+          row.dataset.url = href;
+        }
+      });
+    }
+  }
+
+  function prepareLeadRowForPanel(row) {
+    if (!row || !row.dataset) return;
+    syncRowFromInitialSavedLeads(row);
+    coalesceRowDatasetFromContacts(row);
+    hydrateRowDatasetFromTableDom(row);
   }
 
   /** Geocoding / map query: street address, else city/metro, else title + city. */
@@ -6501,14 +6637,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function paintLeadPanelQuickOutreach(row) {
     if (!row || !row.dataset) return;
+    prepareLeadRowForPanel(row);
     const phone = readPipelineRowDisplayPhone(row);
-    const website = row.dataset.website;
+    const website = readPipelineRowDisplayWebsite(row);
     const email = readPipelineRowDisplayEmail(row);
     const address = readPipelineRowDisplayAddress(row);
 
-    const phoneEl = document.getElementById('mobilePanelPhone');
-    const phoneLink = document.getElementById('mobilePanelPhoneLink');
-    const phoneRow = document.getElementById('mobilePanelPhoneRow');
+    const phoneEl = getLeadPanelEl('mobilePanelPhone');
+    const phoneLink = getLeadPanelEl('mobilePanelPhoneLink');
+    const phoneRow = getLeadPanelEl('mobilePanelPhoneRow');
     if (phoneEl) phoneEl.textContent = phone ? phone : '—';
     if (phoneLink) {
       if (phone) {
@@ -6534,8 +6671,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    const emailEl = document.getElementById('mobilePanelEmail');
-    const emailBtn = document.getElementById('mobilePanelEmailBtn');
+    const emailEl = getLeadPanelEl('mobilePanelEmail');
+    const emailBtn = getLeadPanelEl('mobilePanelEmailBtn');
     if (emailEl) {
       const em = email && email !== 'N/A' ? email : '';
       emailEl.textContent = em || 'Outreach copy';
@@ -6549,8 +6686,8 @@ document.addEventListener('DOMContentLoaded', () => {
       emailBtn.classList.remove('opacity-20', 'pointer-events-none');
     }
 
-    const websiteShort = document.getElementById('mobilePanelWebsiteShort');
-    const websiteLink = document.getElementById('mobilePanelWebsiteLink');
+    const websiteShort = getLeadPanelEl('mobilePanelWebsiteShort');
+    const websiteLink = getLeadPanelEl('mobilePanelWebsiteLink');
     if (websiteShort) {
       try {
         const w = (website && String(website).trim()) || '';
@@ -6583,7 +6720,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function populatePanel(row) {
     if (!row) return;
     closeLeadPanelComposer();
-    syncRowFromInitialSavedLeads(row);
+    prepareLeadRowForPanel(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     const paintActivityTimeline = () => {
       try {
@@ -6594,9 +6731,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
+    try {
+      paintLeadPanelQuickOutreach(row);
+    } catch (paintErr) {
+      console.warn('[Lead panel] quick outreach paint failed:', paintErr);
+    }
+
     const title = row.dataset.title;
     const phone = readPipelineRowDisplayPhone(row);
-    const website = row.dataset.website;
+    const website = readPipelineRowDisplayWebsite(row);
     const revSnap = readPipelineRowReviewsSnapshot(row);
     const rating = revSnap.rating;
     const reviews = revSnap.reviews;
@@ -6656,33 +6799,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    // Stars, maps chip, and header contact lines must run before cadence — cadence DOM/JSON edge cases must not block them.
-    renderStars(rating, reviews, 'mobilePanelStars', 'mobilePanelRatingText', 'w-4 h-4');
-
-    syncGoogleReviewsLink(row);
-
-    const mapsLink = document.getElementById('mobilePanelMapsLink');
-    if (mapsLink) {
-      const mapQuery = readPipelineRowMapCenter(row);
-      if (mapQuery) {
-        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
-        mapsLink.classList.remove('opacity-20', 'pointer-events-none');
-      } else {
-        mapsLink.href = '#';
-        mapsLink.classList.add('opacity-20', 'pointer-events-none');
-      }
-    }
-
-    const headerAddress = document.getElementById('mobilePanelHeaderAddress');
-    if (headerAddress) {
-      const locationLine = readPipelineRowLocationLine(row);
-      headerAddress.textContent = locationLine || '—';
-    }
-    syncHeaderPhoneRow(row);
-    syncHeaderSocialsRow(row);
     syncLeadCallAiAnalyzeCta(row);
-
-    paintLeadPanelQuickOutreach(row);
 
     try {
       syncLeadPanelWideMapAndGoogleChip(row);
