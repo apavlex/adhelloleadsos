@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Omnichannel Prospecting | AdHello Leads</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/js/review-stars.js"></script>
   <style>
     body { font-family: Inter, system-ui, sans-serif; background: #FAF7ED; }
     .brand-dark { color: #2D3436; }
@@ -137,8 +138,13 @@
               ${[lead.city, lead.state].filter(Boolean).join(', ') || '—'}
             </td>
             <td class="px-4 py-3 text-center">
-              <div class="text-sm font-bold">${rating > 0 ? rating.toFixed(1) : '—'}</div>
-              <div class="text-[10px] text-gray-400">${reviews} reviews</div>
+              <div class="flex flex-col items-center gap-1">
+                <div class="flex items-center justify-center gap-1.5">
+                  <div class="row-stars flex items-center gap-0.5 shrink-0" data-rating="${rating}" data-star-size="w-3 h-3" aria-label="${rating > 0 ? rating.toFixed(1) + ' out of 5 stars' : 'No rating'}"></div>
+                  ${rating > 0 ? `<span class="text-sm font-bold tabular-nums">${rating.toFixed(1)}</span>` : '<span class="text-sm font-bold text-gray-300">—</span>'}
+                </div>
+                <div class="text-[10px] text-gray-400">${reviews} reviews</div>
+              </div>
             </td>
             <td class="px-4 py-3 text-center">
               <div class="flex flex-wrap gap-1 justify-center">${labelsHtml || '<span class="text-gray-300 text-xs">—</span>'}</div>
@@ -151,6 +157,10 @@
           </tr>
         `;
       }).join('');
+
+      if (typeof window.__applyReviewStars === 'function') {
+        window.__applyReviewStars(tbody);
+      }
     }
 
     function filterChannel(ch) {

@@ -890,23 +890,17 @@
 
     function renderReviewStars(score) {
       if (!elBizReviewStars) return;
-      elBizReviewStars.innerHTML = '';
       var val = Number(score || 0);
       if (!(val > 0)) {
+        elBizReviewStars.innerHTML = '';
         var noData = document.createElement('span');
         noData.className = 'text-[10px] text-brand-muted';
         noData.textContent = 'No rating data';
         elBizReviewStars.appendChild(noData);
         return;
       }
-      var rounded = Math.round(val * 2) / 2;
-      for (var i = 1; i <= 5; i += 1) {
-        var star = document.createElement('span');
-        star.className = 'text-[14px] leading-none';
-        if (rounded >= i) star.textContent = '★';
-        else if (rounded >= i - 0.5) star.textContent = '⯨';
-        else star.textContent = '☆';
-        elBizReviewStars.appendChild(star);
+      if (typeof window.__renderStarsInElement === 'function') {
+        window.__renderStarsInElement(elBizReviewStars, val, 'w-3.5 h-3.5');
       }
     }
 
