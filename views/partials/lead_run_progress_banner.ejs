@@ -2,20 +2,23 @@
 <% const _job = typeof leadRunActiveJob !== 'undefined' && leadRunActiveJob ? leadRunActiveJob : null; %>
 <% const _kw = _job && _job.keyword ? String(_job.keyword) : ''; %>
 <% const _loc = _job ? [_job.city, _job.state].filter(Boolean).join(', ') : ''; %>
-<% let _pct = 8; %>
+<% let _pct = 1; %>
 <% if (_job && _job.startedAt) { %>
 <%   const _elapsed = Date.now() - Date.parse(_job.startedAt); %>
-<%   if (Number.isFinite(_elapsed) && _elapsed >= 0) { _pct = Math.min(94, Math.max(8, Math.round((_elapsed / (3.5 * 60 * 1000)) * 100))); } %>
+<%   if (Number.isFinite(_elapsed) && _elapsed >= 0) { %>
+<%     const _linear = Math.min(1, _elapsed / (3.5 * 60 * 1000)); %>
+<%     _pct = Math.min(99, Math.max(1, Math.round((1 - Math.pow(1 - _linear, 1.4)) * 99))); %>
+<%   } %>
 <% } %>
 <div id="leadRunProgressBanner" class="<%= _showBanner ? '' : 'hidden' %> px-3 sm:px-6 pb-2 max-w-7xl mx-auto w-full" role="status" aria-live="polite" aria-busy="true">
   <div class="rounded-2xl border-2 border-brand-yellow/70 bg-brand-yellow/20 dark:bg-brand-yellow/10 dark:border-brand-yellow/50 shadow-lg shadow-brand-yellow/15 px-4 py-4 sm:px-5 sm:py-4">
     <div class="flex items-start gap-3 sm:gap-4">
-      <button type="button" id="leadRunProgressBellBtn" class="relative shrink-0 flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-yellow text-brand-dark shadow-md hover:bg-[#facc15] transition-colors" aria-label="Open notifications for lead search progress" title="Open notifications">
-        <span class="absolute -top-0.5 -right-0.5 flex h-3 w-3" aria-hidden="true">
-          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-dark/40 opacity-75"></span>
-          <span class="relative inline-flex rounded-full h-3 w-3 bg-brand-dark"></span>
+      <button type="button" id="leadRunProgressBellBtn" class="relative shrink-0 mt-0.5 flex h-9 w-9 items-center justify-center text-brand-dark dark:text-brand-yellow hover:opacity-75 transition-opacity" aria-label="Open notifications for lead search progress" title="Open notifications">
+        <span class="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5" aria-hidden="true">
+          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-brand-dark/35 opacity-75"></span>
+          <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-dark dark:bg-brand-yellow"></span>
         </span>
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
       </button>
       <div class="min-w-0 flex-1">
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -31,7 +34,7 @@
           <% } %>
         </p>
         <div class="mt-3 h-2.5 rounded-full bg-brand-dark/10 dark:bg-white/10 overflow-hidden" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="<%= _pct %>" id="leadRunProgressBar">
-          <div id="leadRunProgressFill" class="h-full rounded-full bg-brand-yellow transition-[width] duration-700 ease-out relative overflow-hidden" style="width: <%= _pct %>%">
+          <div id="leadRunProgressFill" class="h-full rounded-full bg-brand-yellow relative overflow-hidden will-change-[width]" style="width: <%= _pct %>%">
             <div class="lead-run-progress-shimmer absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent"></div>
           </div>
         </div>

@@ -115,12 +115,150 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function estimateLeadRunProgressPct(startedAt) {
-    if (!startedAt) return 8;
+  const LEAD_RUN_SESSION_KEY = 'agencyOsLeadRunProgress';
+  let leadRunDisplayPct = 0;
+  let leadRunTickerId = null;
+
+  function readLeadRunSession() {
+    try {
+      var raw = sessionStorage.getItem(LEAD_RUN_SESSION_KEY);
+      if (!raw) return null;
+      var o = JSON.parse(raw);
+      return o && o.startedAt ? o : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeLeadRunSession(job) {
+    if (!job || !job.startedAt) return;
+    try {
+      sessionStorage.setItem(
+        LEAD_RUN_SESSION_KEY,
+        JSON.stringify({
+          keyword: job.keyword || '',
+          city: job.city || '',
+          state: job.state || '',
+          startedAt: job.startedAt,
+        })
+      );
+    } catch (_) {}
+  }
+
+  function clearLeadRunSession() {
+    try {
+      sessionStorage.removeItem(LEAD_RUN_SESSION_KEY);
+    } catch (_) {}
+  }
+
+  function mergeLeadRunJob(data, opts) {
+    opts = opts || {};
+    if (opts.fresh) {
+      var freshJob = {
+        keyword: opts.keyword || '',
+        city: opts.city || '',
+        state: opts.state || '',
+        startedAt: new Date().toISOString(),
+      };
+      writeLeadRunSession(freshJob);
+      return freshJob;
+    }
+
+    var session = readLeadRunSession();
+    var serverJob = data && data.activeJob ? data.activeJob : null;
+    var job = serverJob || session || null;
+
+    if (opts && (opts.keyword || opts.city || opts.state)) {
+      if (!job) {
+        job = {
+          keyword: opts.keyword || '',
+          city: opts.city || '',
+          state: opts.state || '',
+          startedAt: new Date().toISOString(),
+        };
+      } else {
+        job = {
+          keyword: opts.keyword || job.keyword || '',
+          city: opts.city || job.city || '',
+          state: opts.state || job.state || '',
+          startedAt: job.startedAt || (serverJob && serverJob.startedAt) || new Date().toISOString(),
+        };
+      }
+    }
+
+    if (serverJob && serverJob.startedAt) {
+      job = Object.assign({}, job || {}, serverJob);
+    }
+
+    if (job && job.startedAt) writeLeadRunSession(job);
+    return job;
+  }
+
+  /** Time-based target 1–99% (eased so it slows near the end). */
+  function computeLeadRunTargetPct(startedAt) {
+    if (!startedAt) return 1;
     var elapsed = Date.now() - Date.parse(startedAt);
-    if (!Number.isFinite(elapsed) || elapsed < 0) return 8;
+    if (!Number.isFinite(elapsed) || elapsed < 0) return 1;
     var estMs = 3.5 * 60 * 1000;
-    return Math.min(94, Math.max(8, Math.round((elapsed / estMs) * 100)));
+    var linear = Math.min(1, elapsed / estMs);
+    var eased = 1 - Math.pow(1 - linear, 1.4);
+    return Math.min(99, Math.max(1, Math.round(eased * 99)));
+  }
+
+  function renderLeadRunProgressPct(pct) {
+    var rounded = Math.round(pct);
+    var pctEl = document.getElementById('leadRunProgressPct');
+    var fill = document.getElementById('leadRunProgressFill');
+    var bar = document.getElementById('leadRunProgressBar');
+    if (pctEl) pctEl.textContent = rounded + '%';
+    if (fill) fill.style.width = pct + '%';
+    if (bar) bar.setAttribute('aria-valuenow', String(rounded));
+  }
+
+  function stopLeadRunTicker() {
+    if (leadRunTickerId) {
+      cancelAnimationFrame(leadRunTickerId);
+      leadRunTickerId = null;
+    }
+  }
+
+  function startLeadRunTicker() {
+    if (leadRunTickerId) return;
+    function tick() {
+      var searching = localStorage.getItem('is_searching') === 'true';
+      if (!searching) {
+        stopLeadRunTicker();
+        return;
+      }
+      var session = readLeadRunSession();
+      var target = computeLeadRunTargetPct(session && session.startedAt);
+      if (leadRunDisplayPct < target) {
+        var step = Math.max(0.15, (target - leadRunDisplayPct) * 0.08);
+        leadRunDisplayPct = Math.min(target, leadRunDisplayPct + step);
+      }
+      renderLeadRunProgressPct(leadRunDisplayPct);
+      leadRunTickerId = requestAnimationFrame(tick);
+    }
+    leadRunTickerId = requestAnimationFrame(tick);
+  }
+
+  function finishLeadRunProgress(callback) {
+    stopLeadRunTicker();
+    var start = leadRunDisplayPct;
+    var startTime = Date.now();
+    var duration = 450;
+    function animateComplete() {
+      var t = Math.min(1, (Date.now() - startTime) / duration);
+      var pct = start + (100 - start) * t;
+      leadRunDisplayPct = pct;
+      renderLeadRunProgressPct(pct);
+      if (t < 1) {
+        requestAnimationFrame(animateComplete);
+      } else if (typeof callback === 'function') {
+        callback();
+      }
+    }
+    requestAnimationFrame(animateComplete);
   }
 
   function updateLeadRunProgressBanner(data, opts) {
@@ -132,27 +270,27 @@
       (data && data.isProcessing) ||
       localStorage.getItem('is_searching') === 'true';
     if (!show) {
-      banner.classList.add('hidden');
-      banner.setAttribute('aria-busy', 'false');
+      if (leadRunDisplayPct > 0 && localStorage.getItem('is_searching') !== 'true') {
+        finishLeadRunProgress(function () {
+          banner.classList.add('hidden');
+          banner.setAttribute('aria-busy', 'false');
+          leadRunDisplayPct = 0;
+          clearLeadRunSession();
+        });
+      } else {
+        banner.classList.add('hidden');
+        banner.setAttribute('aria-busy', 'false');
+        leadRunDisplayPct = 0;
+        clearLeadRunSession();
+        stopLeadRunTicker();
+      }
       return;
     }
     banner.classList.remove('hidden');
     banner.setAttribute('aria-busy', 'true');
 
     var sub = document.getElementById('leadRunProgressSub');
-    var pctEl = document.getElementById('leadRunProgressPct');
-    var fill = document.getElementById('leadRunProgressFill');
-    var bar = document.getElementById('leadRunProgressBar');
-    var job = (data && data.activeJob) || null;
-
-    if (opts.keyword || opts.city || opts.state) {
-      job = {
-        keyword: opts.keyword || '',
-        city: opts.city || '',
-        state: opts.state || '',
-        startedAt: new Date().toISOString(),
-      };
-    }
+    var job = mergeLeadRunJob(data, opts);
 
     if (sub) {
       if (job && (job.keyword || job.city || job.state)) {
@@ -169,22 +307,31 @@
       }
     }
 
-    var pct = estimateLeadRunProgressPct(job && job.startedAt);
-    if (pctEl) pctEl.textContent = pct + '%';
-    if (fill) fill.style.width = pct + '%';
-    if (bar) bar.setAttribute('aria-valuenow', String(pct));
+    if (job && job.startedAt) {
+      var target = computeLeadRunTargetPct(job.startedAt);
+      if (leadRunDisplayPct < 1) leadRunDisplayPct = 1;
+      if (leadRunDisplayPct > target + 5) {
+        leadRunDisplayPct = target;
+      }
+    }
+
+    startLeadRunTicker();
   }
 
   window.showLeadRunProgressBanner = function showLeadRunProgressBanner(opts) {
-    updateLeadRunProgressBanner(null, { forceShow: true, keyword: opts && opts.keyword, city: opts && opts.city, state: opts && opts.state });
+    stopLeadRunTicker();
+    leadRunDisplayPct = 1;
+    updateLeadRunProgressBanner(null, {
+      forceShow: true,
+      fresh: true,
+      keyword: opts && opts.keyword,
+      city: opts && opts.city,
+      state: opts && opts.state,
+    });
   };
 
   window.hideLeadRunProgressBanner = function hideLeadRunProgressBanner() {
-    var banner = document.getElementById('leadRunProgressBanner');
-    if (banner) {
-      banner.classList.add('hidden');
-      banner.setAttribute('aria-busy', 'false');
-    }
+    updateLeadRunProgressBanner({ isProcessing: false });
   };
 
   function updateBulkEnhanceBellBadge(currentZeroBasedIndex, total) {
@@ -328,7 +475,7 @@
     if (isActive) {
       activeProcessingCount++;
       localStorage.setItem('is_searching', 'true');
-      updateLeadRunProgressBanner({ isProcessing: true });
+      updateLeadRunProgressBanner({ isProcessing: true, activeJob: readLeadRunSession() });
     } else {
       activeProcessingCount = Math.max(0, activeProcessingCount - 1);
       if (activeProcessingCount === 0) {
@@ -348,7 +495,12 @@
     if (!processingIndicator) return;
 
     applyProcessingRing();
-    updateLeadRunProgressBanner({ isProcessing: false });
+    if (readLeadRunSession() && localStorage.getItem('is_searching') === 'true') {
+      leadRunDisplayPct = Math.max(leadRunDisplayPct, computeLeadRunTargetPct(readLeadRunSession().startedAt));
+      updateLeadRunProgressBanner({ isProcessing: true, activeJob: readLeadRunSession() });
+    } else {
+      updateLeadRunProgressBanner({ isProcessing: false });
+    }
 
     var leadRunBellBtn = document.getElementById('leadRunProgressBellBtn');
     if (leadRunBellBtn && processingIndicator) {
@@ -506,11 +658,6 @@
 
     setInterval(pollStatus, 5000);
     pollStatus();
-    setInterval(function () {
-      if (localStorage.getItem('is_searching') === 'true') {
-        updateLeadRunProgressBanner({ isProcessing: true });
-      }
-    }, 2000);
 
     const desktopRow = document.getElementById('notificationDesktopRow');
     const navNotifyEnable = document.getElementById('navNotifyEnable');
