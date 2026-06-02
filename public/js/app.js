@@ -97,6 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
         console.error('Error rendering opportunity badge for row:', err);
       }
     });
+    if (typeof applyTableStars === 'function') applyTableStars();
+    else if (typeof window.__renderSearchResultStars === 'function') window.__renderSearchResultStars();
   };
 
   // Initial calculation and automatic sorting
@@ -803,10 +805,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.body.style.overflow = '';
   }
 
-  /** Plain-text bodies for “What we offer” mailto links (idx 0–5). */
-  function buildEmailIntelOfferMailto(email, company, idx) {
+  /** Plain-text outreach script templates (idx 0–5). */
+  function getEmailIntelOfferScripts(company) {
     const c = company || 'there';
-    const offers = [
+    return [
       {
         subject: `Website & conversions — ${c}`,
         body: `Hi,\n\nI’ve been looking at ${c} online and wanted to reach out about speed, clarity, and conversion (CRO). We help teams turn more of the traffic they already get into booked calls and form fills.\n\nWould you be open to a short call this week?\n\nBest,`,
@@ -832,21 +834,41 @@ document.addEventListener('DOMContentLoaded', () => {
         body: `Hi,\n\nI’d love to explore a focused engagement with ${c} — growth priorities, channel mix, and a simple plan you can execute with or without us long-term.\n\nAre you open to a discovery call?\n\nBest,`,
       },
     ];
-    const o = offers[Math.min(Math.max(0, idx), offers.length - 1)];
-    return `mailto:${email}?subject=${encodeURIComponent(o.subject)}&body=${encodeURIComponent(o.body)}`;
   }
 
-  function wireEmailIntelOfferLinks(email, company) {
-    document.querySelectorAll('.email-intel-offer-link').forEach((a, i) => {
-      if (!email) {
-        a.href = '#';
-        a.classList.add('opacity-45', 'pointer-events-none', 'cursor-not-allowed');
-        a.setAttribute('aria-disabled', 'true');
-        return;
+  async function copyEmailIntelScript(text, label) {
+    const body = String(text || '').trim();
+    if (!body) return;
+    try {
+      await navigator.clipboard.writeText(body);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(label ? `${label} copied` : 'Script copied');
       }
-      a.classList.remove('opacity-45', 'pointer-events-none', 'cursor-not-allowed');
-      a.removeAttribute('aria-disabled');
-      a.href = buildEmailIntelOfferMailto(email, company, i);
+    } catch (_) {
+      const draftEl = document.getElementById('emailIntelDraft');
+      if (draftEl) {
+        draftEl.value = body;
+        draftEl.focus();
+        draftEl.select();
+      }
+    }
+  }
+
+  function wireEmailIntelOfferLinks(company) {
+    const offers = getEmailIntelOfferScripts(company);
+    document.querySelectorAll('.email-intel-offer-link').forEach((btn, i) => {
+      const idx = parseInt(btn.getAttribute('data-offer-idx'), 10);
+      const offerIdx = Number.isFinite(idx) ? idx : i;
+      const o = offers[Math.min(Math.max(0, offerIdx), offers.length - 1)];
+      btn.onclick = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const draftEl = document.getElementById('emailIntelDraft');
+        const draftSection = document.getElementById('emailIntelDraftSection');
+        if (draftEl) draftEl.value = o.body;
+        if (draftSection) draftSection.classList.remove('hidden');
+        copyEmailIntelScript(o.body, 'Template script');
+      };
     });
   }
 
@@ -855,7 +877,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const titleEl = document.getElementById('emailIntelTitle');
     const emailLineEl = document.getElementById('emailIntelEmailLine');
     const aiBody = document.getElementById('emailIntelAiBody');
-    const mailtoBtn = document.getElementById('emailIntelMailto');
     const draftSection = document.getElementById('emailIntelDraftSection');
     const draftEl = document.getElementById('emailIntelDraft');
     const copyDraftBtn = document.getElementById('emailIntelCopyDraft');
@@ -870,48 +891,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const emailRaw = (row.dataset.email || '').trim();
     const email = emailRaw && emailRaw !== 'N/A' ? emailRaw : '';
-    if (emailLineEl) emailLineEl.textContent = email || 'No email on file';
+    if (emailLineEl) {
+      emailLineEl.textContent = email ? `Email on file: ${email}` : 'Copy scripts below — paste into your outreach tool';
+    }
 
-    wireEmailIntelOfferLinks(email, company);
+    wireEmailIntelOfferLinks(company);
 
     const intelRef = { label: '', rationale: '', talkTrack: '', draft: '' };
 
     if (draftSection) draftSection.classList.add('hidden');
     if (draftEl) draftEl.value = '';
 
-    if (mailtoBtn) {
-      mailtoBtn.disabled = !email;
-      mailtoBtn.onclick = () => {
-        if (!email) return;
-        const subj = intelRef.label
-          ? `${intelRef.label} — ${company}`
-          : `Quick idea for ${company}`;
-        const body = intelRef.draft || [intelRef.rationale, intelRef.talkTrack ? `Suggested opener:\n${intelRef.talkTrack}` : '', 'Best,'].filter(Boolean).join('\n\n');
-        window.location.href = `mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
-      };
-    }
-
     if (copyDraftBtn) {
       copyDraftBtn.onclick = async () => {
         const text = draftEl && draftEl.value ? draftEl.value : intelRef.draft;
-        if (!text) return;
-        try {
-          await navigator.clipboard.writeText(text);
-          if (typeof window.showAppToast === 'function') {
-            window.showAppToast('Email draft copied');
-          }
-        } catch (_) {
-          if (draftEl) {
-            draftEl.focus();
-            draftEl.select();
-          }
-        }
+        await copyEmailIntelScript(text, 'Script');
       };
     }
 
     if (aiBody) {
       aiBody.innerHTML =
-        '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Generating personalized email…</p>';
+        '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Generating personalized script…</p>';
     }
 
     let key = row.dataset.leadKey ? String(row.dataset.leadKey).trim() : '';
@@ -1016,13 +1016,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (wr && !wr.classList.contains('hidden') && typeof closeWarRoomModal === 'function') closeWarRoomModal();
   });
 
-  // Quick outreach — open AI personalized email popup
+  // Quick outreach — open scripts popup (copy-only, no mail client)
   document.addEventListener('click', (e) => {
     const outreachBtn = e.target.closest('.quick-outreach-btn');
     if (outreachBtn) {
       e.preventDefault();
       e.stopPropagation();
-      const row = outreachBtn.closest('.result-row');
+      const row = outreachBtn.closest('.result-row') || currentRow;
       if (row) openEmailIntelModal(row);
     }
   });
@@ -6321,18 +6321,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Email logic
+    // Scripts tile — opens copy-only outreach modal
     const emailEl = document.getElementById('mobilePanelEmail');
     const emailBtn = document.getElementById('mobilePanelEmailBtn');
-    if (emailEl) emailEl.textContent = (email && email !== 'N/A') ? email : 'No Email Found';
+    if (emailEl) {
+      const em = (email && email !== 'N/A') ? email : '';
+      emailEl.textContent = em || 'Outreach copy';
+    }
     if (emailBtn) {
-        if (email && email !== 'N/A') {
-            emailBtn.onclick = () => window.location.href = `mailto:${email}`;
-            emailBtn.classList.remove('opacity-20', 'pointer-events-none');
-        } else {
-            emailBtn.onclick = null;
-            emailBtn.classList.add('opacity-20', 'pointer-events-none');
-        }
+      emailBtn.onclick = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (currentRow && typeof openEmailIntelModal === 'function') openEmailIntelModal(currentRow);
+      };
+      emailBtn.classList.remove('opacity-20', 'pointer-events-none');
     }
 
     // Website logic
@@ -7421,66 +7423,8 @@ document.addEventListener('DOMContentLoaded', () => {
   if (draftEmailBtn) {
     draftEmailBtn.addEventListener('click', () => {
       if (!currentRow) return;
-      
-      const title = currentRow.dataset.title || 'there';
-      const city = currentRow.dataset.city || 'your area';
-      const email = currentRow.dataset.email;
-      const loomInputEl = document.getElementById('loomUrlInput');
-      const loomFromInput = loomInputEl ? loomInputEl.value.trim() : '';
-      const loomFromRow = String(currentRow.dataset.loomUrl || '').trim();
-      let loomLink = loomFromInput || loomFromRow;
-      const includeCoupon = !!(sidebarIncludeCoupon && sidebarIncludeCoupon.checked);
-      const couponLink = getWorkspaceCouponLink();
-      const couponLine = includeCoupon && couponLink ? `\n\nAlso, if it helps, here is a free coffee coupon link for your team: ${couponLink}` : '';
-      if (includeCoupon && !couponLink) syncSidebarCouponWarning();
-
-      const statusForDraft = statusSelect ? String(statusSelect.value || '').trim() : String(currentRow.dataset.status || '').trim();
-      if (statusForDraft === 'Video Recorded' && !loomLink) {
-        const go = window.confirm(
-          'Video Recorded is selected but there is no pitch URL yet. Continue with a draft that does not include a video link?'
-        );
-        if (!go) return;
-      }
-
-      const subject = encodeURIComponent(`Question regarding ${title}'s online presence`);
-      
-      const gaps = [];
-      if (currentRow.dataset.isMobileFriendly === 'false' || currentRow.dataset.is_mobile_friendly === false) gaps.push("isn't mobile-friendly");
-      if (currentRow.dataset.hasChatbot === 'false' || currentRow.dataset.has_chatbot === false) gaps.push("lacks a conversion chatbot");
-      if (currentRow.dataset.hasSchemaMarkup === 'false' || currentRow.dataset.has_schema_markup === false) gaps.push("is missing Google Schema markup for local SEO");
-      if (currentRow.dataset.hasClickToCall === 'false' || currentRow.dataset.has_click_to_call === false) gaps.push("has a broken click-to-call link");
-      if (currentRow.dataset.isOutdated === 'true' || currentRow.dataset.is_outdated === true) gaps.push("looks a bit outdated compared to competitors");
-
-      let gapText = "";
-      if (gaps.length > 0) {
-        gapText = `I noticed a few specific technical gaps: your site ${gaps.slice(0, -1).join(', ')}${gaps.length > 1 ? ' and ' : ''}${gaps[gaps.length-1]}. These are likely slowing down your growth and making you invisible to modern AI search engines.`;
-      } else {
-        gapText = `I noticed a few technical gaps and conversion opportunities that might be slowing down your growth.`;
-      }
-
-      let bodyText = "";
-      if (loomLink) {
-        bodyText = `Hey ${title} team,\n\nI was looking for businesses in ${city} and found your site. I recorded a quick 2-minute video sharing a few layout ideas and technical fixes that could help increase your conversions:\n\n${loomLink}\n\n${gapText}${couponLine}\n\nLet me know what you think!\n\nBest,\n[Your Name]`;
-      } else {
-        bodyText = `Hey ${title} team,\n\nI was looking for local businesses in ${city} and spent some time on your website. ${gapText}${couponLine}\n\nI'd love to share some specific ideas on how to fix these. Are you open to a quick 5-minute chat this week?\n\nBest,\n[Your Name]`;
-      }
-      
-      const body = encodeURIComponent(bodyText);
-      
-      let mailtoStr = `mailto:`;
-      if (email && email !== 'N/A') {
-        mailtoStr += encodeURIComponent(email);
-      }
-      mailtoStr += `?subject=${subject}&body=${body}`;
-
-      // Open default mail client
-      window.location.href = mailtoStr;
-
-      // Automatically update status to 'Email Sent'
-      if (statusSelect) {
-        statusSelect.value = 'Email Sent';
-        statusSelect.dispatchEvent(new Event('change'));
-      }
+      if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+      if (typeof openEmailIntelModal === 'function') openEmailIntelModal(currentRow);
     });
   }
 
@@ -9646,7 +9590,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const r = parseFloat(rating) || 0;
     const c = parseInt(reviews, 10) || 0;
     if (r > 0) {
-      return `<span class="lead-reviews-line text-sm font-bold tabular-nums text-brand-dark dark:text-slate-100" title="${r.toFixed(1)} stars, ${c} reviews"><span class="text-brand-yellow" aria-hidden="true">★</span> ${r.toFixed(1)} <span class="text-brand-muted dark:text-slate-400 font-semibold">(${c})</span></span>`;
+      return `<div class="flex items-center gap-1.5"><div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div><span class="lead-reviews-line text-sm font-bold tabular-nums text-brand-dark dark:text-slate-100" title="${r.toFixed(1)} stars, ${c} reviews">${r.toFixed(1)} <span class="text-brand-muted dark:text-slate-400 font-semibold">(${c})</span></span></div>`;
     }
     if (c > 0) {
       return `<span class="text-xs font-semibold text-brand-muted dark:text-slate-400 tabular-nums" title="${c} reviews">— <span class="text-brand-dark dark:text-slate-200">(${c})</span></span>`;
@@ -9665,25 +9609,22 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderReviewsCellInner(rating, reviews) {
     const r = parseFloat(rating) || 0;
     const c = parseInt(reviews, 10) || 0;
-    let metaHtml;
     if (r > 0) {
-      metaHtml = `<div class="flex flex-col gap-0.5">
-        <span class="text-xs font-black tabular-nums text-brand-dark dark:text-slate-100 leading-none">${r.toFixed(1)}</span>
+      return `<div class="flex flex-col items-start gap-1 min-w-[4.5rem]">
+        <div class="flex items-center gap-1.5">
+          <div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
+          <span class="text-xs font-black tabular-nums text-brand-dark dark:text-slate-100 leading-none">${r.toFixed(1)}</span>
+        </div>
         <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-snug">${c} reviews</span>
-      </div>`;
-    } else {
-      metaHtml = `<div class="flex flex-col gap-0.5">
-        <span class="text-sm font-bold text-brand-muted/50 dark:text-slate-500 leading-none">—</span>
-        ${
-          c > 0
-            ? `<span class="text-[10px] font-bold text-brand-muted/60 dark:text-slate-500 leading-snug">${c} reviews</span>`
-            : ''
-        }
       </div>`;
     }
     return `<div class="flex flex-col items-start gap-1 min-w-[4.5rem]">
-      <div class="row-stars flex items-center gap-0.5 shrink-0" aria-hidden="true"></div>
-      ${metaHtml}
+      <span class="text-sm font-bold text-brand-muted/50 dark:text-slate-500 leading-none">—</span>
+      ${
+        c > 0
+          ? `<span class="text-[10px] font-bold text-brand-muted/60 dark:text-slate-500 leading-snug">${c} reviews</span>`
+          : ''
+      }
     </div>`;
   }
 
@@ -9711,6 +9652,8 @@ document.addEventListener('DOMContentLoaded', () => {
         layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
         syncRowSocialsUnderPhone(row);
         layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
+        const starElLead = layout.reviews.querySelector('.row-stars');
+        if (starElLead) renderStarsInElement(starElLead, parseFloat(row.dataset.rating) || 0);
         syncPipelineRowCallButton(row, row.dataset.phone);
       } else {
         if (row.dataset.email && row.dataset.email !== 'N/A') {
