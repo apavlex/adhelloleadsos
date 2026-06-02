@@ -59,6 +59,9 @@
       tr.setAttribute('aria-selected', on ? 'true' : 'false');
     });
 
+    const checkedCount = boxes.filter((cb) => cb.checked).length;
+    showBulkActionBar(checkedCount);
+
     if (typeof window.__updateBulkActionBar === 'function') {
       window.__updateBulkActionBar();
     } else if (typeof window.__syncBulkSelectionFromDom === 'function') {
@@ -67,6 +70,45 @@
 
     return boxes.length;
   }
+
+  /** Show/hide floating bulk bar (Focus, Call room, SMS, etc.) — does not depend on app.js init order. */
+  function showBulkActionBar(count) {
+    const bar = document.getElementById('bulkActionBar');
+    if (!bar) return;
+    if (bar.parentElement !== document.body) {
+      document.body.appendChild(bar);
+    }
+    const n = Math.max(0, parseInt(count, 10) || 0);
+    const visible = n > 0;
+    bar.dataset.visible = visible ? 'true' : 'false';
+    bar.classList.toggle('bulk-action-bar--visible', visible);
+    bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
+    const circle = document.getElementById('selectedCountCircle');
+    if (circle) circle.textContent = String(n);
+    if (visible) {
+      bar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+      bar.classList.add('opacity-100', 'translate-y-0');
+      bar.style.setProperty('opacity', '1', 'important');
+      bar.style.setProperty('visibility', 'visible', 'important');
+      bar.style.setProperty('transform', 'translateX(-50%) translateY(0)', 'important');
+      bar.style.setProperty('pointer-events', 'auto', 'important');
+      bar.querySelectorAll('button, a, select, input').forEach((el) => {
+        if (el.id === 'bulkMoveFolderBtn' || el.id === 'bulkSaveBtn') return;
+        el.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
+        if (el.tagName === 'BUTTON' && el.id !== 'cancelSelectionBtn') {
+          el.disabled = false;
+        }
+      });
+    } else {
+      bar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+      bar.classList.remove('opacity-100', 'translate-y-0');
+      bar.style.removeProperty('opacity');
+      bar.style.removeProperty('visibility');
+      bar.style.removeProperty('transform');
+      bar.style.pointerEvents = 'none';
+    }
+  }
+  window.__showBulkActionBar = showBulkActionBar;
 
   function bindTable(table) {
     const header = table.querySelector('thead input[data-select-all-leads]');

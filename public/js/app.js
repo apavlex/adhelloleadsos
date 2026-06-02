@@ -9418,7 +9418,9 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__pipelineBulkSelectApply(header, checked);
       syncSelectedKeysFromDom();
       syncSelectAllLeadCheckbox(table);
-      updateBulkActionBar();
+      if (typeof window.__updateBulkActionBar === 'function') {
+        window.__updateBulkActionBar();
+      }
       return;
     }
 
@@ -9444,7 +9446,9 @@ document.addEventListener('DOMContentLoaded', () => {
       coreApply(header, checked);
       syncSelectedKeysFromDom();
       syncSelectAllLeadCheckbox(table);
-      updateBulkActionBar();
+      if (typeof window.__updateBulkActionBar === 'function') {
+        window.__updateBulkActionBar();
+      }
     };
   } else {
     installApplySelectAllLeads();
@@ -9468,14 +9472,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__syncSelectAllLeadCheckbox = syncSelectAllLeadCheckbox;
 
+  function countCheckedLeadBoxes(table) {
+    const root = table || document;
+    return Array.from(
+      root.querySelectorAll('tbody input.lead-checkbox, tbody input.row-checkbox'),
+    ).filter((cb) => cb.checked).length;
+  }
+
   /** All checked row boxes in the pipeline/results table (includes rows hidden by paging). */
   function syncSelectedKeysFromDom() {
     selectedKeys.clear();
-    const table = getActiveLeadsTable();
-    const scope = table || document;
-    scope.querySelectorAll('tbody .lead-checkbox:checked, tbody .row-checkbox:checked').forEach((cb) => {
-      const key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
-      if (key !== '') selectedKeys.add(key);
+    const tables = [
+      getActiveLeadsTable(),
+      document.getElementById('prospectLeadsTable'),
+      document.getElementById('searchResultsLeadsTable'),
+    ].filter(Boolean);
+    const seen = new Set();
+    tables.forEach((table) => {
+      if (!table || seen.has(table)) return;
+      seen.add(table);
+      table.querySelectorAll('tbody input.lead-checkbox, tbody input.row-checkbox').forEach((cb) => {
+        if (!cb.checked) return;
+        const key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
+        if (key !== '') selectedKeys.add(key);
+      });
     });
   }
 
@@ -9548,20 +9568,33 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
         if (bulkSelectSyncing) return;
         syncSelectAllLeadCheckbox(table);
-        updateBulkActionBar();
+        const n = countCheckedLeadBoxes(table);
+        if (typeof window.__showBulkActionBar === 'function') {
+          window.__showBulkActionBar(n);
+        }
+        if (typeof window.__updateBulkActionBar === 'function') {
+          window.__updateBulkActionBar();
+        }
       }
     });
   }
   window.__bindLeadsTableBulkSelection = bindLeadsTableBulkSelection;
 
   function getBulkSelectionCount() {
-    const table = getActiveLeadsTable();
-    if (table) {
-      const checked = table.querySelectorAll(
-        'tbody .lead-checkbox:checked, tbody .row-checkbox:checked',
-      ).length;
-      if (checked > 0) return checked;
+    const tables = [
+      getActiveLeadsTable(),
+      document.getElementById('prospectLeadsTable'),
+      document.getElementById('searchResultsLeadsTable'),
+    ].filter(Boolean);
+    const seen = new Set();
+    for (const table of tables) {
+      if (!table || seen.has(table)) continue;
+      seen.add(table);
+      const n = countCheckedLeadBoxes(table);
+      if (n > 0) return n;
     }
+    const global = countCheckedLeadBoxes(document);
+    if (global > 0) return global;
     return selectedKeys.size;
   }
 
@@ -9613,6 +9646,9 @@ document.addEventListener('DOMContentLoaded', () => {
         bar.classList.remove('opacity-100', 'translate-y-0');
         bar.style.pointerEvents = 'none';
       }
+    }
+    if (count > 0 && typeof window.__showBulkActionBar === 'function') {
+      window.__showBulkActionBar(count);
     }
 
     if (bulkMoveFolderBtn) {
@@ -12334,5 +12370,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.26-bulk-select-v2';
+  window.__ADHELLO_BUILD = '1.0.27-bulk-bar';
 });
