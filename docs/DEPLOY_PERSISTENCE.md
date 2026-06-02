@@ -1,6 +1,6 @@
 # Data persistence on deploy (Render.com)
 
-Production: **leads.adhello.ai** on [Render](https://render.com).
+Production: **[adhelloleadsos.onrender.com](https://adhelloleadsos.onrender.com)** on [Render](https://render.com).
 
 ## Why data disappears
 
@@ -42,7 +42,7 @@ The `data/` directory is **gitignored** and never ships with git.
 
    | Key | Value |
    |-----|--------|
-   | `BASE_URL` | `https://leads.adhello.ai` |
+   | `BASE_URL` | `https://adhelloleadsos.onrender.com` (no trailing slash) |
    | `WORKSPACE_INTEGRATIONS_SECRET` | Long random string, **16+ chars** — keep the same forever |
    | `SESSION_SECRET` | Long random string |
    | `RENDER_DISK_MOUNTED` | `1` (after disk is attached — clears in-app warning) |
