@@ -561,18 +561,19 @@ router.delete('/leads/:leadKey/sequence', apiKeyAuth, async (req, res, next) => 
 // ── 13. LIST SEQUENCE TEMPLATES ──────────────────────────────────────────────
 
 /**
- * GET /autonomous/sequence-templates
+ * GET /autonomous/sequences/templates
  * Returns all available cadence templates with step summaries.
  */
-router.get('/sequence-templates', apiKeyAuth, async (req, res, next) => {
+router.get('/sequences/templates', apiKeyAuth, async (req, res, next) => {
   try {
-    const templates = sequenceEngine.listTemplates().map((t) => ({
+    const allTemplates = require('../services/sequenceTemplates').listTemplates();
+    const templates = allTemplates.map((t) => ({
       id: t.id,
       persona: t.persona,
       name: t.name,
       description: t.description,
       stepCount: t.steps.length,
-      steps: t.steps.map((s) => ({
+      steps: (t.steps || []).map((s) => ({
         dayOffset: s.dayOffset,
         channel: s.channel,
         title: s.title,
