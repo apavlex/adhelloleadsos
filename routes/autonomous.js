@@ -22,6 +22,9 @@ const { parseImportFile } = require('../services/csvLeadImport');
 const { recommendCadenceTemplate } = require('../services/leadCadence');
 const sequenceEngine = require('../services/sequenceEngine');
 const pipelineStagesService = require('../services/pipelineStagesService');
+const { createAuditReportToken } = require('../services/auditReportSign');
+const pageSpeedInsights = require('../services/pageSpeedInsights');
+const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -645,6 +648,157 @@ router.post('/integrations', apiKeyAuth, express.json(), async (req, res, next) 
       mapsConfigured: mapsSearch.isMapsSearchConfigured(resolved),
       rapidapiKeySet: !!resolved.RAPIDAPI_KEY,
       apifyTokenSet: !!resolved.APIFY_API_TOKEN,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── 16. RUN FULL AUDIT (GBP + Website) ───────────────────────────────────────
+
+/**
+ * POST /autonomous/audit/run
+ * Body: { businessName, city, state, category?, leadKey? }
+ * Runs GBP audit + website analysis, saves to lead, returns report URL.
+ * If leadKey is not provided, creates a new lead.
+ */
+router.post('/audit/run', apiKeyAuth, express.json({ limit: '10mb' }), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const businessName = String(req.body.businessName || '').trim();
+    const city = String(req.body.city || '').trim();
+    const state = String(req.body.state || '').trim();
+    const category = String(req.body.category || '').trim() || null;
+    const existingLeadKey = String(req.body.leadKey || '').trim() || null;
+
+    if (!businessName || !city || !state) {
+      return res.status(400).json({ success: false, error: 'businessName, city, state are required.' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
+      return res.status(503).json({ success: false, error: 'Maps search not configured.' });
+    }
+
+    // 1. Search for the target business on Google Maps
+    const searchQuery = category ? `${businessName} ${category}` : businessName;
+    const targetResults = await mapsSearch.searchGoogleMaps({
+      keyword: searchQuery, city, state, maxResults: 5, integrationEnv,
+    });
+
+    const target = targetResults.find(r => {
+      const nameMatch = r.title.toLowerCase().includes(businessName.toLowerCase()) ||
+        businessName.toLowerCase().includes(r.title.toLowerCase());
+      return nameMatch;
+    }) || targetResults[0];
+
+    if (!target) {
+      return res.status(404).json({
+        success: false,
+        error: `Could not find "${businessName}" in ${city}, ${state}.`,
+      });
+    }
+
+    // 2. Search for competitors
+    const competitorQuery = category || target.categoryName || businessName.split(' ')[0];
+    const competitorResults = await mapsSearch.searchGoogleMaps({
+      keyword: `${competitorQuery} ${city}`, city, state, maxResults: 10, integrationEnv,
+    });
+    const competitors = competitorResults
+      .filter(c => c.placeId !== target.placeId && c.title.toLowerCase() !== target.title.toLowerCase())
+      .slice(0, 5);
+
+    // 3. Score GBP (reuse the same scoring logic from /api/audit/gbp)
+    const { scoreGBP } = require('../routes/audit');
+    const gbpAudit = scoreGBP(target, competitors);
+
+    // 4. Run website analysis if website exists
+    let websiteAnalysis = null;
+    let pageSpeedAudit = null;
+    const websiteUrl = target.website && target.website !== 'N/A' ? target.website : null;
+
+    if (websiteUrl) {
+      try {
+        pageSpeedAudit = await pageSpeedInsights.runPageSpeedAudit(websiteUrl, { strategy: 'mobile' });
+      } catch (e) { /* non-fatal */ }
+
+      try {
+        websiteAnalysis = await websiteAiAnalysis.analyzeWebsite(websiteUrl);
+      } catch (e) { /* non-fatal */ }
+    }
+
+    // 5. Save/update lead
+    let leadKey = existingLeadKey;
+    if (!leadKey) {
+      const leadData = {
+        title: target.title,
+        phone: target.phone || 'N/A',
+        website: target.website || 'N/A',
+        email: target.email || 'N/A',
+        city: target.city || city,
+        state: target.state || state,
+        address: target.address || 'N/A',
+        categoryName: target.categoryName || category || 'N/A',
+        totalScore: target.totalScore || 0,
+        reviewsCount: target.reviewsCount || 0,
+        facebook: target.facebook || 'N/A',
+        instagram: target.instagram || 'N/A',
+        twitter: target.twitter || 'N/A',
+        source: 'telegram_audit',
+        pipelineStage: 0,
+        workspaceId: wid,
+      };
+      leadKey = await dbService.saveLead(leadData);
+    }
+
+    // 6. Save audit data to lead
+    const auditData = {
+      gbpAudit,
+      gbpAuditAt: new Date().toISOString(),
+      pageSpeedAudit: pageSpeedAudit ? {
+        averageScore: pageSpeedAudit.averageScore,
+        scores: pageSpeedAudit.scores,
+        fetchedAt: pageSpeedAudit.fetchedAt,
+      } : null,
+      aiWebsiteAnalysis: websiteAnalysis,
+      aiWebsiteAnalysisUpdatedAt: new Date().toISOString(),
+    };
+
+    if (pageSpeedAudit) {
+      auditData.pageSpeedAuditAvg = pageSpeedAudit.averageScore;
+      auditData.ownerSignal = pageSpeedInsights.buildOwnerSignalFromAudit(target.title, pageSpeedAudit);
+    }
+
+    await dbService.updateLead(leadKey, auditData);
+
+    // 7. Generate signed report URL
+    const token = createAuditReportToken({ leadKey, workspaceId: wid });
+    const base = process.env.BASE_URL || 'https://adhelloleadsos.onrender.com';
+    const reportUrl = `${base}/audit/report/${token}`;
+
+    // Auto-attach cadence
+    try {
+      const all = await dbService.getAllLeads(wid);
+      const { templateId } = recommendCadenceTemplate({ ...target, workspaceId: wid }, all);
+      if (templateId) {
+        await sequenceEngine.startSequence(leadKey, templateId);
+      }
+    } catch (e) { /* non-fatal */ }
+
+    res.json({
+      success: true,
+      leadKey,
+      reportUrl,
+      business: {
+        title: target.title,
+        phone: target.phone,
+        website: target.website,
+        address: target.address,
+      },
+      gbpScore: gbpAudit.totalScore,
+      gbpGrade: gbpAudit.grade,
+      recommendations: gbpAudit.recommendations.slice(0, 3),
+      websiteScore: pageSpeedAudit?.averageScore || null,
     });
   } catch (err) {
     next(err);

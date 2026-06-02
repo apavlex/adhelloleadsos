@@ -459,3 +459,4 @@ router.get('/gbp/quick', apiKeyAuth, async (req, res, next) => {
 });
 
 module.exports = router;
+module.exports.scoreGBP = scoreGBP;
