@@ -3,7 +3,7 @@
   <input type="hidden" name="enabled" id="findNightlyPrepEnabled" value="<%= npm.enabled ? '1' : '0' %>" />
   <label class="inline-flex items-center gap-2 cursor-pointer text-[10px] font-bold text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white whitespace-nowrap" title="Run overnight Maps prep using your workspace ICP (same keyword/city/state as Find leads). Requires Render cron on /api/cron/nightly-prep.">
     <input type="checkbox" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" aria-label="Run overnight Maps prep nightly for this workspace" <%= npm.enabled ? 'checked' : '' %> />
-    <span class="hidden sm:inline">Nightly Maps prep</span>
+    <span>Nightly Maps prep</span>
   </label>
 </form>
 <script>
