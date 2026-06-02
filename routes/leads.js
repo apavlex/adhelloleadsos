@@ -943,11 +943,20 @@ router.post('/:key/notes', async (req, res, next) => {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
 
-    const updates = appendLeadUpdate(lead, {
-      type: 'note',
+    const rawType = String((req.body && req.body.type) || 'note').trim().toLowerCase();
+    const entryType = rawType === 'quick_log' ? 'quick_log' : 'note';
+    const entry = {
+      type: entryType,
       value: content,
-      source: 'panel_post',
-    });
+      source: entryType === 'quick_log' ? 'quick_log_pill' : 'panel_post',
+    };
+    if (req.body && req.body.disposition) {
+      entry.disposition = String(req.body.disposition).trim();
+    }
+    if (req.body && req.body.statusChange) {
+      entry.statusChange = String(req.body.statusChange).trim();
+    }
+    const updates = appendLeadUpdate(lead, entry);
 
     const updated = await dbService.updateLead(fullKey, { updates }, req.workspaceId);
     res.json({ success: true, updates: updated.updates || updates, lead: updated });

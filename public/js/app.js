@@ -2149,6 +2149,29 @@ document.addEventListener('DOMContentLoaded', () => {
     'Send info': { status: 'Email Sent' },
   };
 
+  function isLeadDetailPanelOpen() {
+    const panel = getLeadDetailPanel();
+    if (!panel) return false;
+    if (panel.classList.contains('open')) return true;
+    const disp = panel.style && panel.style.display;
+    if (disp && disp !== 'none') return true;
+    return !panel.classList.contains('hidden');
+  }
+
+  async function postLeadPanelActivity(key, payload) {
+    const res = await fetch(`/leads/${encodeURIComponent(key)}/notes`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload || {}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not save activity');
+    }
+    return data;
+  }
+
   async function submitLeadPanelNote() {
     const row = currentRow;
     const noteInput = document.getElementById('noteInput');
@@ -2175,6 +2198,17 @@ document.addEventListener('DOMContentLoaded', () => {
         '<svg class="animate-spin h-4 w-4 text-white dark:text-brand-dark mx-auto" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
     }
 
+    const clickedAt = new Date().toISOString();
+    appendRowActivityEntry(row, {
+      type: 'note',
+      value: content,
+      timestamp: clickedAt,
+      source: 'panel_post',
+    });
+    window.__leadActivityFilter = 'notes';
+    syncLeadActivityFilterButtons('notes');
+    refreshLeadActivityTimeline(row);
+
     try {
       let key = String(row.dataset.leadKey || '').trim();
       if (!key) {
@@ -2185,28 +2219,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      const res = await fetch(`/leads/${encodeURIComponent(key)}/notes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ content }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error((data && data.error) || `Could not save note (${res.status})`);
-      }
+      const data = await postLeadPanelActivity(key, { content, type: 'note' });
 
       if (data.lead) {
         syncPersistedLeadToRowDataset(row, data.lead);
       } else if (Array.isArray(data.updates)) {
-        row.dataset.updates = JSON.stringify(data.updates);
+        applyServerUpdatesToRow(row, data.updates);
       }
 
       if (noteInput) noteInput.value = '';
-      window.__leadActivityFilter = 'notes';
-      syncLeadActivityFilterButtons('notes');
       refreshLeadActivityTimeline(row);
-      void refreshLeadActivityFromServer(row);
 
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Note saved.', { variant: 'success' });
@@ -2220,6 +2242,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         alert(msg);
       }
+      void refreshLeadActivityFromServer(row);
       return false;
     } finally {
       if (addNoteBtn) {
@@ -2230,21 +2253,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.__adhelloSubmitLeadPanelNote = submitLeadPanelNote;
+  window.__applyLeadPanelQuickLogTag = applyLeadPanelQuickLogTag;
 
   async function postLeadPanelNote(key, content) {
-    const res = await fetch(`/leads/${encodeURIComponent(key)}/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ content }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.success) {
-      throw new Error((data && data.error) || 'Could not save note');
-    }
+    const data = await postLeadPanelActivity(key, { content, type: 'note' });
     if (currentRow && data.updates) {
       applyServerUpdatesToRow(currentRow, data.updates);
+    } else if (currentRow && data.lead) {
+      syncPersistedLeadToRowDataset(currentRow, data.lead);
     }
+    refreshLeadActivityTimeline(currentRow);
     return data;
   }
 
@@ -2318,13 +2336,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function appendRowActivityEntry(row, entry) {
     if (!row || !entry) return;
     const updates = readRowUpdatesArray(row);
-    updates.push({
+    const rec = {
       type: entry.type || 'quick_log',
       value: entry.value != null ? String(entry.value) : '',
       timestamp: entry.timestamp || new Date().toISOString(),
       disposition: entry.disposition || '',
       statusChange: entry.statusChange || '',
-    });
+    };
+    if (entry.source) rec.source = entry.source;
+    updates.push(rec);
     writeRowUpdatesArray(row, updates);
   }
 
@@ -2461,18 +2481,13 @@ document.addEventListener('DOMContentLoaded', () => {
       disposition: cfg.disposition || '',
       statusChange: cfg.status || '',
     });
+    window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     refreshLeadActivityTimeline(currentRow);
 
     try {
       if (cfg.disposition) {
         const data = await applyLeadPanelDisposition(cfg.disposition, noteLine);
         if (data.lead) syncPersistedLeadToRowDataset(currentRow, data.lead);
-        populatePanel(currentRow);
-        refreshLeadActivityTimeline(currentRow);
-        const msg = data.automation || data.status || label;
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(`Logged: ${label} — ${msg}`, { variant: 'success' });
-        }
       } else if (cfg.status) {
         const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
           method: 'POST',
@@ -2488,18 +2503,28 @@ document.addEventListener('DOMContentLoaded', () => {
         else currentRow.dataset.status = cfg.status;
         const statusSel = document.getElementById('leadStatusSelect');
         if (statusSel) statusSel.value = cfg.status;
-        populatePanel(currentRow);
-        refreshLeadActivityTimeline(currentRow);
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(`Logged: ${label}`, { variant: 'success' });
-        }
-      } else {
-        populatePanel(currentRow);
-        refreshLeadActivityTimeline(currentRow);
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(`Logged: ${label}`, { variant: 'success' });
-        }
       }
+
+      const actData = await postLeadPanelActivity(key, {
+        content: noteLine,
+        type: 'quick_log',
+        disposition: cfg.disposition || '',
+        statusChange: cfg.status || '',
+      });
+      if (actData.lead) syncPersistedLeadToRowDataset(currentRow, actData.lead);
+      else if (Array.isArray(actData.updates)) applyServerUpdatesToRow(currentRow, actData.updates);
+
+      populatePanel(currentRow);
+      refreshLeadActivityTimeline(currentRow);
+
+      const msg =
+        cfg.disposition || cfg.status
+          ? `Logged: ${label}`
+          : `Logged: ${label}`;
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'success' });
+      }
+
       openLeadPanelComposer();
       const inp = document.getElementById('noteInput');
       if (inp && !String(inp.value || '').includes(label)) {
@@ -2622,9 +2647,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function bindLeadPanelQuickLogTagRow() {
+    const tagRow = document.getElementById('leadNotepadTagRow');
+    if (!tagRow || tagRow.dataset.qlBound === '1') return;
+    tagRow.dataset.qlBound = '1';
+    tagRow.addEventListener(
+      'click',
+      async (e) => {
+        const tagBtn = e.target.closest('.lead-notepad-tag');
+        if (!tagBtn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        await applyLeadPanelQuickLogTag(tagBtn.getAttribute('data-tag') || '');
+      },
+      true,
+    );
+  }
+
   function bindLeadPanelBottomActions() {
     if (window.__leadPanelBottomActionsBound) return;
     window.__leadPanelBottomActionsBound = true;
+
+    bindLeadPanelQuickLogTagRow();
 
     document.addEventListener('adhello-softphone-state', (e) => {
       syncLeadPanelCallDock((e && e.detail) || {});
@@ -2655,19 +2699,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('click', async (e) => {
-      const panelRoot = e.target.closest('#mobilePanel');
-      if (!panelRoot || panelRoot.classList.contains('hidden')) return;
+      if (!isLeadDetailPanelOpen()) return;
       const inBottom =
         e.target.closest('#leadPanelNotepad') || e.target.closest('#leadPanelOutreachDrawer');
       if (!inBottom) return;
-
-      const tagBtn = e.target.closest('.lead-notepad-tag');
-      if (tagBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        await applyLeadPanelQuickLogTag(tagBtn.getAttribute('data-tag') || '');
-        return;
-      }
 
       if (e.target.closest('#clickToCallBtn')) {
         e.preventDefault();
@@ -5452,8 +5487,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const raw = entry.raw || {};
     if (typ === 'quick_log') return false;
     if (isQuickLogMirroredNote(entry)) return false;
+    if (typ === 'call_disposition' || typ === 'status_change') return false;
+    if (/^sequence|^cadence/i.test(typ)) return false;
     if (raw.source === 'panel_post' || raw.manual === true) return true;
-    return ['note', 'user_note', 'post', 'comment', 'manual_note'].includes(typ);
+    if (typ === 'note' && raw.source !== 'quick_log_pill') return true;
+    return ['user_note', 'post', 'comment', 'manual_note'].includes(typ);
   }
 
   function activityEntryMatchesFilter(entry, filter) {
@@ -5485,6 +5523,7 @@ document.addEventListener('DOMContentLoaded', () => {
       b.classList.toggle('dark:text-white', on);
       b.classList.toggle('shadow-sm', on);
       b.classList.toggle('text-brand-muted', !on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
 
@@ -12580,5 +12619,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.32-panel-outreach-links';
+  window.__ADHELLO_BUILD = '1.0.33-quick-log-notes';
 });
