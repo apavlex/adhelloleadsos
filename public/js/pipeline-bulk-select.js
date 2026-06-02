@@ -86,7 +86,7 @@
     const circle = document.getElementById('selectedCountCircle');
     if (circle) circle.textContent = String(n);
     if (visible) {
-      bar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+      bar.classList.remove('opacity-0', 'translate-y-16', 'pointer-events-none');
       bar.classList.add('opacity-100', 'translate-y-0');
       bar.style.setProperty('opacity', '1', 'important');
       bar.style.setProperty('visibility', 'visible', 'important');
@@ -100,7 +100,7 @@
         }
       });
     } else {
-      bar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+      bar.classList.add('opacity-0', 'translate-y-16', 'pointer-events-none');
       bar.classList.remove('opacity-100', 'translate-y-0');
       bar.style.removeProperty('opacity');
       bar.style.removeProperty('visibility');

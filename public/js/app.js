@@ -9378,7 +9378,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const bulkBarVisible = document.getElementById('bulkActionBar')?.dataset.visible === 'true';
     el.className =
       'fixed left-1/2 z-[240] -translate-x-1/2 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center ' +
-      (bulkBarVisible ? 'bottom-36 translate-y-0' : 'bottom-28 translate-y-3');
+      (bulkBarVisible ? 'bottom-24 translate-y-0' : 'bottom-28 translate-y-3');
     el.textContent = message || 'Done';
     requestAnimationFrame(() => {
       el.classList.remove('opacity-0', 'pointer-events-none');
@@ -9761,11 +9761,11 @@ document.addEventListener('DOMContentLoaded', () => {
       bar.classList.toggle('bulk-action-bar--visible', visible);
       bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
       if (visible) {
-        bar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.remove('opacity-0', 'translate-y-16', 'pointer-events-none');
         bar.classList.add('opacity-100', 'translate-y-0');
         bar.style.pointerEvents = 'auto';
       } else {
-        bar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.add('opacity-0', 'translate-y-16', 'pointer-events-none');
         bar.classList.remove('opacity-100', 'translate-y-0');
         bar.style.pointerEvents = 'none';
       }
@@ -12538,5 +12538,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.30-call-room';
+  window.__ADHELLO_BUILD = '1.0.31-bulk-bar-compact';
 });

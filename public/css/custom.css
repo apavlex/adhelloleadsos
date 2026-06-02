@@ -746,9 +746,9 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   position: fixed;
   left: 50%;
   right: auto;
-  bottom: max(1.5rem, env(safe-area-inset-bottom, 0px));
+  bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
   width: auto;
-  max-width: min(calc(100vw - 2rem), 56rem);
+  max-width: min(calc(100vw - 1rem), 52rem);
   height: auto;
   pointer-events: auto;
   background: rgba(32, 32, 36, 0.55) !important;
@@ -759,6 +759,93 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     0 2px 8px rgba(0, 0, 0, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
   border-color: rgba(255, 255, 255, 0.16) !important;
+}
+
+/* Compact bulk action bar controls */
+#bulkActionBar .bulk-bar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  font-size: 0.625rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease;
+}
+
+#bulkActionBar .bulk-bar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+#bulkActionBar .bulk-bar-btn--ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+#bulkActionBar .bulk-bar-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.18);
+}
+
+#bulkActionBar .bulk-bar-btn--accent {
+  background: var(--brand-yellow, #eab308);
+  color: var(--brand-dark, #0f172a);
+  border-color: rgba(234, 179, 8, 0.5);
+}
+
+#bulkActionBar .bulk-bar-btn--save {
+  background: #059669;
+  color: #fff;
+  border-color: rgba(16, 185, 129, 0.45);
+}
+
+#bulkActionBar .bulk-bar-btn--sms {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #dbeafe;
+}
+
+#bulkActionBar .bulk-bar-btn--vm {
+  background: rgba(139, 92, 246, 0.2);
+  border-color: rgba(167, 139, 250, 0.35);
+  color: #ede9fe;
+}
+
+#bulkActionBar .bulk-bar-btn--call {
+  background: rgba(244, 63, 94, 0.2);
+  border-color: rgba(251, 113, 133, 0.35);
+  color: #ffe4e6;
+}
+
+#bulkActionBar .bulk-bar-btn--focus {
+  background: rgba(245, 158, 11, 0.2);
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fef3c7;
+  text-decoration: none;
+}
+
+#bulkActionBar .bulk-bar-folder-strip,
+#bulkActionBar .bulk-bar-actions {
+  flex: 0 1 auto;
+}
+
+@media (max-width: 639px) {
+  #bulkActionBar .bulk-bar-actions {
+    flex-basis: 100%;
+    padding-top: 0.15rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
 }
 
 .dark #bulkActionBar {

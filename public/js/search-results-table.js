@@ -226,11 +226,11 @@
       bar.classList.toggle('bulk-action-bar--visible', visible);
       bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
       if (visible) {
-        bar.classList.remove('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.remove('opacity-0', 'translate-y-16', 'pointer-events-none');
         bar.classList.add('opacity-100', 'translate-y-0');
         bar.style.pointerEvents = 'auto';
       } else {
-        bar.classList.add('opacity-0', 'translate-y-24', 'pointer-events-none');
+        bar.classList.add('opacity-0', 'translate-y-16', 'pointer-events-none');
         bar.classList.remove('opacity-100', 'translate-y-0');
         bar.style.pointerEvents = 'none';
       }
