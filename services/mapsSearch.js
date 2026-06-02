@@ -118,6 +118,16 @@ async function runAutoMapsSearch(params, integrationEnv) {
       }
       if (accumulated.length >= cap) break;
     } catch (e) {
+      // If the provider returned a "no results" style error (search succeeded but
+      // nothing matched), don't fall through to other providers — they won't have
+      // results either. Only fall through on infrastructure/auth/rate-limit errors.
+      const msg = (e.message || '').toLowerCase();
+      const isNoResultsError = msg.includes('returned no businesses') || msg.includes('returned 0') || msg.includes('no places found') || msg.includes('no results');
+      if (isNoResultsError) {
+        console.warn(`[mapsSearch] ${prov.label} found no results for this query; stopping provider chain.`);
+        // Don't set lastAutoError — this is a valid "no data" response, not a failure
+        break;
+      }
       lastAutoError = e;
       console.warn(`[mapsSearch] ${prov.label} failed, trying next:`, e.message);
     }
@@ -144,11 +154,11 @@ async function runAutoMapsSearch(params, integrationEnv) {
   const envStatus = {};
   envKeys.forEach(k => { envStatus[k] = (integrationEnv[k] || '').length > 0 ? 'SET' : 'EMPTY'; });
 
-  if (lastAutoError && lastAutoError.message) {
+  if (lastAutoError) {
     throw new Error(`Maps search failed (last provider error): ${lastAutoError.message}. Providers: ${JSON.stringify(providerStatus)}. Env: ${JSON.stringify(envStatus)}`);
   }
   throw new Error(
-    `No Maps search provider available. Providers: ${JSON.stringify(providerStatus)}. Env keys: ${JSON.stringify(envStatus)}. Set RAPIDAPI_KEY, SEARCHAPI_API_KEY, SERPAPI_API_KEY, OUTSCRAPER_API_KEY, or APIFY_API_TOKEN.`
+    `No Maps search results found for "${params.keyword}" in ${params.city}, ${params.state}. Providers: ${JSON.stringify(providerStatus)}. Env keys: ${JSON.stringify(envStatus)}. If using RapidAPI, verify endpoint URL and that RAPIDAPI_SEARCH_QUERY_PARAM matches your API host.`
   );
 }
 

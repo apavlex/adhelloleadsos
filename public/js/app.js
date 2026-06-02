@@ -8830,6 +8830,31 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (reportErr) {
         console.warn('[audit-report-link] after audit:', reportErr);
       }
+
+      // Run GBP audit (non-fatal — don't block on failure)
+      try {
+        const leadKey = String(row.dataset.leadKey || '').trim();
+        const city = String(row.dataset.city || '').trim();
+        const state = String(row.dataset.state || '').trim();
+        const title = String(row.dataset.title || row.dataset.businessName || '').trim();
+        if (title && city && state && leadKey) {
+          const gbpRes = await fetch(`/leads/${encodeURIComponent(leadKey)}/gbp-audit`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            credentials: 'same-origin',
+            body: JSON.stringify({ businessName: title, city, state }),
+          });
+          const gbpData = await gbpRes.json().catch(() => ({}));
+          if (gbpData.success && gbpData.audit) {
+            row.dataset.gbpAudit = JSON.stringify(gbpData.audit);
+            row.dataset.gbpScore = String(gbpData.audit.totalScore || '');
+            row.dataset.gbpGrade = String(gbpData.audit.grade || '');
+          }
+        }
+      } catch (gbpErr) {
+        console.warn('[gbp-audit] after audit:', gbpErr);
+      }
+
       if (typeof window.showAppToast === 'function') {
         const audit = parsePageSpeedAuditFromRow(row);
         const avg = audit && audit.averageScore != null ? audit.averageScore : '—';

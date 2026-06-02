@@ -2873,6 +2873,85 @@ router.post('/:key/audit-report-link', async (req, res) => {
   }
 });
 
+/** Session-auth GBP audit for the lead panel "Run Website Audit" button */
+router.post('/:key/gbp-audit', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const { scoreGBP } = require('../routes/audit');
+    const mapsSearch = require('../services/mapsSearch');
+    const workspaceIntegrations = require('../services/workspaceIntegrations');
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+
+    if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) {
+      return res.status(503).json({ success: false, error: 'Maps search not configured.' });
+    }
+
+    const businessName = String(req.body.businessName || lead.title || '').trim();
+    const city = String(req.body.city || lead.city || '').trim();
+    const state = String(req.body.state || lead.state || '').trim();
+    if (!businessName || !city || !state) {
+      return res.status(400).json({ success: false, error: 'businessName, city, state are required.' });
+    }
+
+    // Search for the target business
+    const targetResults = await mapsSearch.searchGoogleMaps({
+      keyword: businessName, city, state, maxResults: 5, integrationEnv,
+    });
+    const target = targetResults.find(r =>
+      r.title.toLowerCase().includes(businessName.toLowerCase()) ||
+      businessName.toLowerCase().includes(r.title.toLowerCase())
+    ) || targetResults[0];
+
+    if (!target) {
+      return res.status(404).json({ success: false, error: `Could not find "${businessName}" in ${city}, ${state}.` });
+    }
+
+    // Search for competitors
+    const competitorQuery = target.categoryName && target.categoryName !== 'N/A' ? target.categoryName : businessName.split(' ')[0];
+    const competitorResults = await mapsSearch.searchGoogleMaps({
+      keyword: `${competitorQuery} ${city}`, city, state, maxResults: 10, integrationEnv,
+    });
+    const competitors = competitorResults
+      .filter(c => c.placeId !== target.placeId && c.title.toLowerCase() !== target.title.toLowerCase())
+      .slice(0, 5);
+
+    const gbpAudit = scoreGBP(target, competitors);
+
+    // Save audit data to lead
+    await dbService.updateLead(fullKey, {
+      gbpAudit,
+      gbpAuditAt: new Date().toISOString(),
+    });
+
+    return res.json({
+      success: true,
+      audit: {
+        business: {
+          title: target.title, phone: target.phone, website: target.website,
+          address: target.address, city: target.city, state: target.state,
+          categoryName: target.categoryName, rating: target.totalScore,
+          reviewsCount: target.reviewsCount, mapsUrl: target.url,
+        },
+        ...gbpAudit,
+        competitors: competitors.map(c => ({
+          title: c.title, rating: c.totalScore, reviewsCount: c.reviewsCount,
+          website: c.website, categoryName: c.categoryName,
+        })),
+        generatedAt: new Date().toISOString(),
+      },
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
   try {
     const keys = Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [];
