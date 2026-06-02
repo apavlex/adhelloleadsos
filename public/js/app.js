@@ -8482,17 +8482,23 @@ document.addEventListener('DOMContentLoaded', () => {
       el.id = 'prospectToast';
       el.setAttribute('role', 'status');
       el.className =
-        'fixed bottom-28 left-1/2 z-[180] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center';
+        'fixed left-1/2 z-[240] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center';
       document.body.appendChild(el);
     }
+    const bulkBarVisible = document.getElementById('bulkActionBar')?.dataset.visible === 'true';
+    el.className =
+      'fixed left-1/2 z-[240] -translate-x-1/2 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center ' +
+      (bulkBarVisible ? 'bottom-36 translate-y-0' : 'bottom-28 translate-y-3');
     el.textContent = message || 'Done';
     requestAnimationFrame(() => {
-      el.classList.remove('opacity-0', 'translate-y-3', 'pointer-events-none');
+      el.classList.remove('opacity-0', 'pointer-events-none');
+      if (!bulkBarVisible) el.classList.remove('translate-y-3');
     });
     clearTimeout(window.__prospectToastTimer);
     window.__prospectToastTimer = setTimeout(() => {
-      el.classList.add('opacity-0', 'translate-y-3', 'pointer-events-none');
-    }, 2400);
+      el.classList.add('opacity-0', 'pointer-events-none');
+      if (!bulkBarVisible) el.classList.add('translate-y-3');
+    }, 3200);
   };
 
   // --- Bulk Selection & Actions ---
@@ -8673,7 +8679,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkMoveFolderBtn.disabled = count === 0;
     }
     const saveBtn = bulkSaveBtn || document.getElementById('bulkSaveBtn');
-    if (saveBtn) {
+    if (saveBtn && saveBtn.getAttribute('aria-busy') !== 'true') {
       saveBtn.disabled = count === 0;
     }
     if (bulkVoicemailBtn) {
@@ -9101,6 +9107,53 @@ document.addEventListener('DOMContentLoaded', () => {
     '<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>' +
     '</svg><span>Saved!</span></span>';
 
+  function getBulkSaveDefaultLabel(btn) {
+    if (!btn) return 'Save to folder';
+    return btn.getAttribute('data-default-label') || btn.textContent.trim() || 'Save to folder';
+  }
+
+  function showBulkSaveFeedback(message, variant) {
+    const el = document.getElementById('bulkSaveFeedback');
+    if (el) {
+      el.textContent = message || '';
+      el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-white/80');
+      if (variant === 'error') {
+        el.classList.add('text-rose-300');
+      } else if (variant === 'loading') {
+        el.classList.add('text-white/80');
+      } else {
+        el.classList.add('text-emerald-300');
+      }
+      if (!message) el.classList.add('hidden');
+    }
+    if (variant === 'error' && typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { variant: 'error', duration: 9000 });
+    } else if (message && variant === 'ok' && typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { duration: 4200 });
+    }
+  }
+
+  function setBulkSaveButtonsState(buttons, html, disabled, success) {
+    buttons.forEach((b) => {
+      b.disabled = disabled;
+      b.innerHTML = html;
+      b.setAttribute('aria-busy', disabled ? 'true' : 'false');
+      b.classList.toggle('bulk-save-btn--success', !!success);
+      b.classList.toggle('ring-2', !!success);
+      b.classList.toggle('ring-emerald-300', !!success);
+    });
+  }
+
+  function resetBulkSaveButtons(buttons, originalHtml, isSearchBulk) {
+    buttons.forEach((b, i) => {
+      b.innerHTML = originalHtml[i] || getBulkSaveDefaultLabel(b);
+      b.disabled = selectedKeys.size === 0;
+      b.removeAttribute('aria-busy');
+      b.classList.remove('bulk-save-btn--success', 'ring-2', 'ring-emerald-300');
+    });
+    showBulkSaveFeedback('', 'ok');
+  }
+
   function getBulkSaveFolderKey() {
     const folderEl = document.getElementById('bulkFolderSelect');
     const fromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
@@ -9153,14 +9206,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return key;
   }
 
-  function setBulkSaveButtonsState(buttons, html, disabled) {
-    buttons.forEach((b) => {
-      b.disabled = disabled;
-      b.innerHTML = html;
-      b.setAttribute('aria-busy', disabled ? 'true' : 'false');
-    });
-  }
-
   async function bulkSaveSelectedLeads(triggerBtn) {
     const table = getActiveLeadsTable();
     const scope = table || document;
@@ -9183,7 +9228,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const buttons = [triggerBtn, bulkSaveBtn, document.getElementById('headerBulkSaveBtn')].filter(Boolean);
     const originalHtml = buttons.map((b) => b.innerHTML);
-    setBulkSaveButtonsState(buttons, BULK_SAVE_LOADING_HTML, true);
+    const folderName =
+      folderKey && Array.isArray(window.WORKSPACE_FOLDERS)
+        ? (window.WORKSPACE_FOLDERS.find((f) => f && f.key === folderKey) || {}).name
+        : '';
+    showBulkSaveFeedback(
+      `Saving ${selectedRows.length} lead${selectedRows.length === 1 ? '' : 's'}${folderName ? ` to ${folderName}` : ''}…`,
+      'loading',
+    );
+    setBulkSaveButtonsState(buttons, BULK_SAVE_LOADING_HTML, true, false);
 
     let savedCount = 0;
     let assignCount = 0;
@@ -9215,27 +9268,20 @@ document.addEventListener('DOMContentLoaded', () => {
           throw new Error((data && data.error) || `Could not assign folder (HTTP ${res.status})`);
         }
         assignCount = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : 0;
-        if (assignCount === 0 && uniqueLeadKeys.length) {
+        if (assignCount === 0 && uniqueLeadKeys.length && savedCount === 0) {
           throw new Error(
             'Leads were saved but could not be added to that folder. Refresh the page and try again, or check workspace permissions.',
           );
         }
       }
 
-      const totalAffected = folderKey ? assignCount || savedCount : savedCount;
+      const totalAffected = folderKey ? Math.max(assignCount, savedCount) : savedCount;
       if (totalAffected > 0) {
-        setBulkSaveButtonsState(buttons, BULK_SAVE_DONE_HTML, true);
-        if (typeof window.showProspectToast === 'function') {
-          const folderName =
-            folderKey && Array.isArray(window.WORKSPACE_FOLDERS)
-              ? (window.WORKSPACE_FOLDERS.find((f) => f && f.key === folderKey) || {}).name
-              : '';
-          window.showProspectToast(
-            folderName
-              ? `Saved ${totalAffected} lead${totalAffected === 1 ? '' : 's'} to ${folderName}`
-              : `Saved ${totalAffected} lead${totalAffected === 1 ? '' : 's'}`,
-          );
-        }
+        const successMsg = folderName
+          ? `Saved ${totalAffected} lead${totalAffected === 1 ? '' : 's'} to ${folderName}`
+          : `Saved ${totalAffected} lead${totalAffected === 1 ? '' : 's'}`;
+        setBulkSaveButtonsState(buttons, BULK_SAVE_DONE_HTML, true, true);
+        showBulkSaveFeedback(successMsg, 'ok');
       } else {
         throw new Error(
           isSearchBulk
@@ -9247,22 +9293,15 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (err) {
       hadError = true;
       console.error('Bulk save to folder failed:', err);
-      window.alert(err && err.message ? err.message : 'Could not save leads to folder.');
-      buttons.forEach((b, i) => {
-        b.innerHTML = originalHtml[i] || 'Save to folder';
-        b.disabled = selectedKeys.size === 0;
-        b.removeAttribute('aria-busy');
-      });
+      const errMsg = err && err.message ? err.message : 'Could not save leads to folder.';
+      showBulkSaveFeedback(errMsg, 'error');
+      resetBulkSaveButtons(buttons, originalHtml, isSearchBulk);
     }
 
     if (!hadError) {
       setTimeout(() => {
-        buttons.forEach((b, i) => {
-          b.innerHTML = originalHtml[i] || (isSearchBulk ? 'Save to folder' : 'Save selected');
-          b.disabled = selectedKeys.size === 0;
-          b.removeAttribute('aria-busy');
-        });
-      }, 2200);
+        resetBulkSaveButtons(buttons, originalHtml, isSearchBulk);
+      }, 3500);
     }
   }
   window.__bulkSaveSelectedLeads = bulkSaveSelectedLeads;
