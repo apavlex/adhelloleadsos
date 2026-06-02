@@ -86,15 +86,10 @@
                   <span class="text-brand-muted text-xs" id="findLocationSummaryText">Set a city and state to continue.</span>
                 </div>
                 <p class="text-[11px] text-brand-muted leading-relaxed">Map requires <code class="text-[10px] px-1 rounded bg-white dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server. Manual entry always works for Find Leads search.</p>
-                <div class="mt-auto pt-2 space-y-3">
-                  <div class="rounded-xl border border-brand-border/30 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-4 py-3">
-                    <%- include('partials/find_nightly_prep_checkbox') %>
-                  </div>
-                  <div class="flex justify-end">
-                    <button type="button" data-step-next="2" id="findStep1Next" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto">
-                      Continue to keyword
-                    </button>
-                  </div>
+                <div class="mt-auto pt-2 flex justify-end">
+                  <button type="button" data-step-next="2" id="findStep1Next" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto">
+                    Continue to keyword
+                  </button>
                 </div>
               </aside>
             </div>
@@ -196,6 +191,9 @@
                     <input type="checkbox" name="runNowAlso" id="runNowAlso" class="rounded border-brand-border" />
                     Run once now as well
                   </label>
+                  <div class="sm:col-span-2">
+                    <%- include('partials/find_nightly_prep_checkbox') %>
+                  </div>
                   <p class="sm:col-span-2 text-[11px] text-brand-muted"><a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">View scheduled runs</a></p>
                 </div>
               </div>

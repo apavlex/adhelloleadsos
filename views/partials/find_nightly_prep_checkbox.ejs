@@ -1,9 +1,12 @@
 <% const npm = typeof nightlyPrepMeta !== 'undefined' && nightlyPrepMeta ? nightlyPrepMeta : {}; %>
-<form method="post" action="/leads/find/nightly-prep-settings" id="findNightlyPrepForm" class="find-nightly-prep-toggle shrink-0">
+<form method="post" action="/leads/find/nightly-prep-settings" id="findNightlyPrepForm" class="find-nightly-prep-toggle">
   <input type="hidden" name="enabled" id="findNightlyPrepEnabled" value="<%= npm.enabled ? '1' : '0' %>" />
-  <label class="inline-flex items-center gap-2 cursor-pointer text-[10px] font-bold text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white whitespace-nowrap" title="Run overnight Maps prep using your workspace ICP (same keyword/city/state as Find leads). Requires Render cron on /api/cron/nightly-prep.">
-    <input type="checkbox" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" aria-label="Run overnight Maps prep nightly for this workspace" <%= npm.enabled ? 'checked' : '' %> />
-    <span>Nightly Maps prep</span>
+  <label class="inline-flex items-start gap-2 cursor-pointer text-sm text-brand-dark dark:text-slate-200" title="Run overnight Maps prep using your workspace ICP (same keyword/city/state as Find leads). Requires Render cron on /api/cron/nightly-prep.">
+    <input type="checkbox" class="mt-0.5 rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" aria-label="Run overnight Maps prep nightly for this workspace" <%= npm.enabled ? 'checked' : '' %> />
+    <span>
+      <span class="font-semibold">Nightly Maps prep</span>
+      <span class="block text-[11px] text-brand-muted dark:text-slate-400 mt-0.5 font-normal leading-relaxed">Overnight autopilot using your workspace ICP — same keyword and area as Find leads.</span>
+    </span>
   </label>
 </form>
 <script>
