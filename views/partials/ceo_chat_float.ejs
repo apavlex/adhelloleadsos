@@ -1,0 +1,73 @@
+<%# Pavlex CEO chat — dark bubble FAB + panel (same as Automate /ceo page). locals.ceoChatFloatIncluded prevents duplicates. %>
+<% if (typeof user !== 'undefined' && user) { %>
+<% if (!locals.ceoChatFloatIncluded) { locals.ceoChatFloatIncluded = true; %>
+<div id="ceoChatFloat" class="app-floating-layer app-body-portal flex flex-col items-end gap-3">
+  <div id="chatWindow" class="w-[min(calc(100vw-2rem),380px)] bg-white dark:bg-slate-900 rounded-[1.5rem] border border-brand-border/40 dark:border-white/10 shadow-2xl shadow-brand-dark/20 flex flex-col hidden overflow-hidden" style="height: min(520px, calc(100dvh - 8rem));">
+    <div class="px-5 py-3.5 border-b border-brand-border/20 dark:border-white/10 flex items-center justify-between gap-3 bg-brand-dark rounded-t-[1.5rem]">
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-2 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex">
+            <circle cx="24" cy="24" r="22" fill="#FFD644"/>
+            <circle cx="24" cy="24" r="20" fill="#FFC107"/>
+            <ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+            <ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/>
+            <circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+            <circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/>
+            <path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+            <ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+            <ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/>
+          </svg>
+        </div>
+        <div>
+          <div class="text-sm font-black text-white leading-tight">Pavlex</div>
+          <div class="text-[10px] font-bold text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 bg-emerald-400 rounded-full"></span> Online</div>
+        </div>
+      </div>
+      <button id="chatWindowClose" type="button" aria-label="Close chat" class="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors text-white/70 hover:text-white">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15" />
+        </svg>
+      </button>
+    </div>
+    <div id="ceoChatMessagesFloat" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <div class="flex gap-2 ceo-chat-welcome">
+        <span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex"><circle cx="24" cy="24" r="22" fill="#FFD644"/><circle cx="24" cy="24" r="20" fill="#FFC107"/><ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/><ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/><circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/><circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/><path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/><ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/></svg>
+        </span>
+        <div class="bg-brand-cream/60 dark:bg-slate-800/80 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-brand-dark dark:text-slate-100 leading-relaxed">
+          Hey! I'm Pavlex. Ask me about your leads, pipeline, tasks, or business decisions.
+        </div>
+      </div>
+    </div>
+    <div id="ceoTypingFloat" class="px-4 pb-2 hidden">
+      <div class="flex gap-2">
+        <span class="shrink-0 w-6 h-6 rounded-full overflow-hidden border border-slate-200/60 bg-white shadow-sm ring-1 ring-slate-200/60 flex items-center justify-center" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" class="w-full h-full" role="img" aria-label="Pavlex"><circle cx="24" cy="24" r="22" fill="#FFD644"/><circle cx="24" cy="24" r="20" fill="#FFC107"/><ellipse cx="17" cy="20" rx="2.5" ry="3" fill="#5C4033"/><ellipse cx="31" cy="20" rx="2.5" ry="3" fill="#5C4033"/><circle cx="17.8" cy="19" r="1" fill="#fff" opacity="0.9"/><circle cx="31.8" cy="19" r="1" fill="#fff" opacity="0.9"/><path d="M15 28 Q24 38 33 28" stroke="#5C4033" stroke-width="2.2" stroke-linecap="round" fill="none"/><ellipse cx="12" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/><ellipse cx="36" cy="26" rx="3" ry="2" fill="#FF9800" opacity="0.35"/></svg></span>
+        <div class="bg-brand-cream/60 dark:bg-slate-800/80 rounded-2xl rounded-tl-sm px-4 py-3">
+          <div class="flex items-center gap-1.5">
+            <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce"></span>
+            <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.15s"></span>
+            <span class="inline-block w-1.5 h-1.5 bg-brand-muted rounded-full animate-bounce" style="animation-delay:0.3s"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="px-3 py-2.5 border-t border-brand-border/20 dark:border-white/10">
+      <form id="ceoChatFormFloat" class="flex gap-2" method="POST" action="/ceo/chat" novalidate>
+        <input id="ceoChatInputFloat" type="text" placeholder="Ask me anything…" autocomplete="off" class="flex-1 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3.5 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow" />
+        <button type="submit" class="bg-brand-dark text-brand-yellow px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-colors">Send</button>
+      </form>
+    </div>
+  </div>
+  <button id="chatBubble" type="button" aria-label="Open Pavlex chat" aria-expanded="false" aria-controls="chatWindow" class="relative w-16 h-16 rounded-full bg-brand-dark text-brand-yellow shadow-2xl shadow-brand-dark/30 flex items-center justify-center hover:scale-110 hover:shadow-brand-dark/50 transition-all duration-200 group cursor-pointer shrink-0">
+    <svg id="chatBubbleIcon" class="w-7 h-7 group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.5 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
+    </svg>
+    <svg id="chatBubbleClose" class="w-7 h-7 hidden group-hover:scale-105 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+    </svg>
+    <span id="chatBubbleDot" class="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white hidden"></span>
+  </button>
+</div>
+<script src="/js/ceo-chat-float.js?v=1" defer></script>
+<% } %>
+<% } %>
