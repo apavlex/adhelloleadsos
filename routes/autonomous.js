@@ -622,4 +622,33 @@ router.post('/auto-sequence', apiKeyAuth, express.json(), async (req, res, next)
   }
 });
 
+// ── 15. SET WORKSPACE INTEGRATIONS ──────────────────────────────────────────
+
+/**
+ * POST /autonomous/integrations
+ * Body: { rapidapiKey?, rapidapiHost?, firecrawlApiKey?, ... }
+ * Updates workspace integration keys. Only non-empty fields are set.
+ */
+router.post('/integrations', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid };
+    const existingPlain = workspaceIntegrations.decryptedFromWorkspace(ws);
+    const nextPlain = workspaceIntegrations.mergeIntegrationUpdates(existingPlain, req.body);
+    await workspaceIntegrations.saveWorkspaceIntegrations(wid, nextPlain);
+    
+    // Verify: re-read resolved env
+    const resolved = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    res.json({
+      success: true,
+      workspaceId: wid,
+      mapsConfigured: mapsSearch.isMapsSearchConfigured(resolved),
+      rapidapiKeySet: !!resolved.RAPIDAPI_KEY,
+      apifyTokenSet: !!resolved.APIFY_API_TOKEN,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
