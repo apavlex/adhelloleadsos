@@ -6663,6 +6663,42 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  /** Header contact strip + stars/reviews + quick-outreach tiles from row / table DOM. */
+  function paintLeadPanelFromRow(row) {
+    if (!row || !row.dataset) return;
+    prepareLeadRowForPanel(row);
+
+    const rev = readPipelineRowReviewsSnapshot(row);
+    renderStars(rev.rating, rev.reviews);
+    syncGoogleReviewsLink(row);
+    syncHeaderPhoneRow(row);
+    syncHeaderSocialsRow(row);
+
+    const locationLine = readPipelineRowLocationLine(row);
+    const headerAddr = getLeadPanelEl('mobilePanelHeaderAddress');
+    if (headerAddr) {
+      headerAddr.textContent = locationLine || '—';
+    }
+    const addrRow = document.getElementById('headerAddressRow');
+    if (addrRow) addrRow.classList.toggle('hidden', !locationLine);
+
+    const mapsLink = getLeadPanelEl('mobilePanelMapsLink');
+    const mapCenter = readPipelineRowMapCenter(row);
+    if (mapsLink) {
+      if (mapCenter) {
+        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapCenter)}`;
+        mapsLink.classList.remove('opacity-20', 'pointer-events-none');
+      } else {
+        mapsLink.href = '#';
+        mapsLink.classList.add('opacity-20', 'pointer-events-none');
+      }
+    }
+
+    paintLeadPanelQuickOutreach(row);
+    scheduleReviewIntelligence(row);
+  }
+  window.paintLeadPanelFromRow = paintLeadPanelFromRow;
+
   function paintLeadPanelQuickOutreach(row) {
     if (!row || !row.dataset) return;
     prepareLeadRowForPanel(row);
@@ -6760,9 +6796,9 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     try {
-      paintLeadPanelQuickOutreach(row);
+      paintLeadPanelFromRow(row);
     } catch (paintErr) {
-      console.warn('[Lead panel] quick outreach paint failed:', paintErr);
+      console.warn('[Lead panel] row paint failed:', paintErr);
     }
 
     const title = row.dataset.title;
