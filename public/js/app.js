@@ -4530,7 +4530,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function panelSnapFromLeadRecord(lead) {
     if (!lead || typeof lead !== 'object') return {};
     const catRaw = lead.categoryName != null ? lead.categoryName : lead.category;
-    return {
+    const snap = {
       title: String(lead.title || '').trim(),
       phone: isEmptyLeadField(lead.phone) ? '' : String(lead.phone).trim(),
       email: isEmptyLeadField(lead.email) ? '' : String(lead.email).trim(),
@@ -4543,9 +4543,26 @@ document.addEventListener('DOMContentLoaded', () => {
       facebook: isEmptyLeadField(lead.facebook) ? '' : String(lead.facebook).trim(),
       instagram: isEmptyLeadField(lead.instagram) ? '' : String(lead.instagram).trim(),
       twitter: isEmptyLeadField(lead.twitter) ? '' : String(lead.twitter).trim(),
-      rating: parseFloat(lead.totalScore) || 0,
-      reviews: parseInt(lead.reviewsCount, 10) || 0,
+      rating:
+        parseFloat(lead.totalScore ?? lead.rating ?? lead.total_score) ||
+        parseFloat(lead.averageRating) ||
+        0,
+      reviews:
+        parseInt(lead.reviewsCount ?? lead.reviews ?? lead.reviews_count, 10) ||
+        parseInt(lead.reviewCount, 10) ||
+        0,
     };
+    const contacts = Array.isArray(lead.contacts) ? lead.contacts : [];
+    const priPhone =
+      contacts.find((c) => c && c.primary && !isEmptyLeadField(c.phone)) ||
+      contacts.find((c) => c && !isEmptyLeadField(c.phone));
+    if (priPhone) {
+      mergePanelSnapField(snap, 'phone', priPhone.phone);
+      if (isEmptyLeadField(snap.email) && !isEmptyLeadField(priPhone.email)) {
+        mergePanelSnapField(snap, 'email', priPhone.email);
+      }
+    }
+    return snap;
   }
 
   function scrapePipelineRowPanelFields(row) {
@@ -4554,14 +4571,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const addrEl = row.querySelector('.lead-row-address');
     if (addrEl) {
-      const t = String(addrEl.textContent || '').replace(/\s+/g, ' ').trim();
-      if (t && t !== '—' && t !== '-') out.address = t;
+      const fromTitle = String(addrEl.getAttribute('title') || '').trim();
+      const t = String(addrEl.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const pick = fromTitle && fromTitle !== '—' ? fromTitle : t;
+      if (pick && pick !== '—' && pick !== '-') out.address = pick;
     }
 
-    const phoneSlot =
-      row.querySelector('.lead-contact-phone-slot.js-click-to-call-number[data-phone]') ||
-      row.querySelector('.js-click-to-call-number[data-phone]');
-    if (phoneSlot) {
+    const phoneSlots = row.querySelectorAll(
+      '.lead-contact-phone-slot.js-click-to-call-number[data-phone], .js-click-to-call-number[data-phone]',
+    );
+    for (const phoneSlot of phoneSlots) {
       const label = phoneSlot.querySelector('.lead-contact-phone-label');
       const p = String(
         phoneSlot.getAttribute('data-phone') ||
@@ -4570,7 +4591,10 @@ document.addEventListener('DOMContentLoaded', () => {
           phoneSlot.textContent ||
           '',
       ).trim();
-      if (p && p !== '—' && p !== 'N/A') out.phone = p;
+      if (p && p !== '—' && p !== 'N/A') {
+        out.phone = p;
+        break;
+      }
     }
 
     const mailLink = row.querySelector('a[href^="mailto:"]');
@@ -4678,7 +4702,50 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!snap.title) snap.title = String(ds.title || '').trim();
 
+    try {
+      window.__lastPanelSnap = { key: ds.leadKey || '', title: snap.title, snap };
+    } catch (_) {
+      /* ignore */
+    }
+
     return { tableRow, snap };
+  }
+
+  /** Paint header phone/address/reviews from hydrated row (not stale snapshot). */
+  function paintPanelHeaderContactStrip(tableRow) {
+    if (!tableRow || !tableRow.dataset) return;
+    const phone = readPipelineRowDisplayPhone(tableRow);
+    const address = readPipelineRowDisplayAddress(tableRow);
+    const rev = readPipelineRowReviewsSnapshot(tableRow);
+    const rating = rev.rating > 0 ? rev.rating : parseFloat(tableRow.dataset.rating) || 0;
+    const reviews = rev.reviews > 0 ? rev.reviews : parseInt(tableRow.dataset.reviews, 10) || 0;
+
+    renderStars(rating, reviews);
+    syncGoogleReviewsLink(tableRow);
+    syncHeaderPhoneRow(tableRow, phone);
+    syncHeaderSocialsRow(tableRow);
+
+    const locationLine = address
+      ? formatLeadPanelAddress(address)
+      : readPipelineRowLocationLine(tableRow);
+    const headerAddr = getLeadPanelEl('mobilePanelHeaderAddress');
+    if (headerAddr) {
+      headerAddr.textContent = locationLine || '—';
+    }
+    const addrRow = document.getElementById('headerAddressRow');
+    if (addrRow) addrRow.classList.toggle('hidden', !locationLine);
+
+    const mapsLink = getLeadPanelEl('mobilePanelMapsLink');
+    const mapCenter = readPipelineRowMapCenter(tableRow) || address || '';
+    if (mapsLink) {
+      if (mapCenter) {
+        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapCenter)}`;
+        mapsLink.classList.remove('opacity-20', 'pointer-events-none');
+      } else {
+        mapsLink.href = '#';
+        mapsLink.classList.add('opacity-20', 'pointer-events-none');
+      }
+    }
   }
 
   function applyPanelSnapToRowDataset(row, snap) {
@@ -6886,41 +6953,18 @@ document.addEventListener('DOMContentLoaded', () => {
   /** Header contact strip + stars/reviews + quick-outreach tiles from row / table DOM. */
   function paintLeadPanelFromRow(row) {
     if (!row) return;
-    const { tableRow, snap } = buildLeadPanelDisplaySnapshot(row);
+    const tableRow = resolvePipelineTableRowForPanel(row) || row;
     if (!tableRow || !tableRow.dataset) return;
+
+    syncRowFromInitialSavedLeads(tableRow);
+    prepareLeadRowForPanel(tableRow);
+
+    const { snap } = buildLeadPanelDisplaySnapshot(tableRow);
     applyPanelSnapToRowDataset(tableRow, snap);
+    prepareLeadRowForPanel(tableRow);
     coalesceRowDatasetFromContacts(tableRow);
 
-    renderStars(snap.rating, snap.reviews);
-    syncGoogleReviewsLink(tableRow);
-    syncHeaderPhoneRow(tableRow, snap.phone);
-    syncHeaderSocialsRow(tableRow);
-
-    const locationLine = snap.address
-      ? formatLeadPanelAddress(snap.address)
-      : readPipelineRowLocationLine(tableRow) || readPipelineRowDisplayAddress(tableRow);
-    const headerAddr = getLeadPanelEl('mobilePanelHeaderAddress');
-    if (headerAddr) {
-      headerAddr.textContent = locationLine || '—';
-    }
-    const addrRow = document.getElementById('headerAddressRow');
-    if (addrRow) addrRow.classList.toggle('hidden', !locationLine);
-
-    const mapsLink = getLeadPanelEl('mobilePanelMapsLink');
-    const mapCenter =
-      readPipelineRowMapCenter(tableRow) ||
-      (snap.address ? snap.address : '') ||
-      (snap.title && snap.city ? `${snap.title}, ${snap.city}` : snap.title || '');
-    if (mapsLink) {
-      if (mapCenter) {
-        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapCenter)}`;
-        mapsLink.classList.remove('opacity-20', 'pointer-events-none');
-      } else {
-        mapsLink.href = '#';
-        mapsLink.classList.add('opacity-20', 'pointer-events-none');
-      }
-    }
-
+    paintPanelHeaderContactStrip(tableRow);
     paintLeadPanelQuickOutreach(tableRow);
     scheduleReviewIntelligence(tableRow);
   }
@@ -12370,5 +12414,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.27-bulk-bar';
+  window.__ADHELLO_BUILD = '1.0.28-panel-contact';
 });
