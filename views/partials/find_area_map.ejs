@@ -1,7 +1,7 @@
 <% if (typeof googleMapsKey === 'string' && googleMapsKey) { %>
-<div class="find-area-map relative w-full" aria-label="Map area picker">
-  <div class="relative w-full border-b border-brand-border/10 dark:border-white/5 lg:border-b-0">
-    <div id="findAreaMap" class="w-full h-[min(280px,42vh)] min-h-[220px] sm:h-[min(360px,48vh)] sm:min-h-[260px] bg-slate-200/50 dark:bg-slate-800/60" role="application" aria-label="Google Map — drag to choose search area"></div>
+<div class="find-area-map relative w-full h-full min-h-[min(58vh,640px)] lg:min-h-full" aria-label="Map area picker">
+  <div class="absolute inset-0 w-full h-full">
+    <div id="findAreaMap" class="absolute inset-0 w-full h-full bg-slate-200/50 dark:bg-slate-800/60" role="application" aria-label="Google Map — drag to choose search area"></div>
     <!-- Center pin -->
     <div class="pointer-events-none absolute inset-0 z-[5] flex items-center justify-center" aria-hidden="true">
       <div class="relative -mt-8">
@@ -27,8 +27,8 @@
         </div>
       </div>
     </div>
+    <p id="findAreaMapStatus" class="pointer-events-none absolute bottom-0 inset-x-0 z-20 text-[11px] text-brand-dark dark:text-slate-200 px-4 py-2 min-h-[2.25rem] flex items-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border-t border-brand-border/15 dark:border-white/10 empty:min-h-0 empty:py-0 empty:border-0" aria-live="polite"></p>
   </div>
-  <p id="findAreaMapStatus" class="text-[11px] text-brand-muted px-4 py-2.5 min-h-[2.25rem] border-t border-brand-border/10 dark:border-white/5 bg-white/50 dark:bg-slate-900/30" aria-live="polite"></p>
 </div>
 <script>
   window.__MAP_DEFAULT__ = {
@@ -52,6 +52,19 @@
       fullscreenControlOptions: { position: google.maps.ControlPosition.TOP_RIGHT }
     });
     window.__findAreaMap = map;
+    function resizeMapSoon() {
+      try {
+        google.maps.event.trigger(map, 'resize');
+        map.setCenter(map.getCenter());
+      } catch (e) { /* ignore */ }
+    }
+    google.maps.event.addListenerOnce(map, 'idle', resizeMapSoon);
+    setTimeout(resizeMapSoon, 120);
+    setTimeout(resizeMapSoon, 400);
+    if (typeof ResizeObserver !== 'undefined' && el.parentElement) {
+      var ro = new ResizeObserver(function () { resizeMapSoon(); });
+      ro.observe(el.parentElement);
+    }
     var geocoder = new google.maps.Geocoder();
     var searchInput = document.getElementById('findAreaMapSearch');
     var searchBtn = document.getElementById('findAreaMapSearchBtn');
@@ -159,7 +172,7 @@
       var text = msg || 'Google Maps could not load. Set GOOGLE_MAPS_API_KEY on the server (Maps JavaScript + Geocoding APIs, billing enabled).';
       if (statusEl) statusEl.textContent = text;
       if (el) {
-        el.innerHTML = '<div class="flex flex-col items-center justify-center h-full min-h-[220px] px-6 text-center gap-2"><p class="text-sm font-semibold text-brand-dark dark:text-white">Map unavailable</p><p class="text-xs text-brand-muted max-w-sm">' + text + '</p><p class="text-xs text-brand-muted">Use the city and state fields on the right.</p></div>';
+        el.innerHTML = '<div class="flex flex-col items-center justify-center h-full min-h-[280px] px-6 text-center gap-2"><p class="text-sm font-semibold text-brand-dark dark:text-white">Map unavailable</p><p class="text-xs text-brand-muted max-w-sm">' + text + '</p><p class="text-xs text-brand-muted">Use the city and state fields on the right.</p></div>';
       }
     }
     function boot() {
@@ -168,7 +181,13 @@
         return;
       }
       window.AdhelloMaps.load(key, function (err) {
-        if (err) { showFindAreaMapError(); return; }
+        if (err) {
+          var hint = err.message === 'auth_failure'
+            ? 'Maps auth failed — enable billing on your Google Cloud project, turn on Maps JavaScript + Geocoding APIs, and allow this site in HTTP referrer restrictions.'
+            : '';
+          showFindAreaMapError(hint);
+          return;
+        }
         if (typeof initFindAreaMap === 'function') initFindAreaMap();
         else showFindAreaMapError('Map initializer missing.');
       });
@@ -178,7 +197,7 @@
   })();
 </script>
 <% } else { %>
-<div class="find-area-map-no-key flex flex-col items-center justify-center h-[min(240px,40vh)] min-h-[200px] px-6 text-center bg-brand-cream/30 dark:bg-slate-800/40 border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10">
+<div class="find-area-map-no-key relative flex flex-col items-center justify-center h-full min-h-[min(58vh,640px)] lg:min-h-full px-6 text-center bg-brand-cream/30 dark:bg-slate-800/40 border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10">
   <p class="text-sm font-semibold text-brand-dark dark:text-white">Map not configured</p>
   <p class="text-xs text-brand-muted mt-2 max-w-xs leading-relaxed">Add <code class="text-[10px] px-1 rounded bg-white dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server. Use the city and state fields on the right.</p>
 </div>

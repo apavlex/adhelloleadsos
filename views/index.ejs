@@ -66,11 +66,11 @@
         <form action="/search" method="POST" id="searchForm">
           <!-- STEP 1: Area -->
           <section data-step-panel="1" class="wizard-step-panel">
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-0 lg:gap-0">
-              <div class="lg:col-span-3 border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10">
+            <div class="grid grid-cols-1 lg:grid-cols-5 lg:min-h-[min(72vh,720px)]">
+              <div class="lg:col-span-3 relative min-h-[min(58vh,640px)] lg:min-h-0 lg:h-full border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10 overflow-hidden">
                 <%- include('partials/find_area_map') %>
               </div>
-              <aside class="lg:col-span-2 p-5 sm:p-6 flex flex-col gap-5 bg-brand-cream/20 dark:bg-slate-950/30">
+              <aside class="lg:col-span-2 p-5 sm:p-6 flex flex-col gap-5 bg-brand-cream/20 dark:bg-slate-950/30 lg:overflow-y-auto">
                 <div>
                   <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Target location</h2>
                   <p class="text-xs text-brand-muted mt-1 leading-relaxed">Use the map, or type city and state directly. Both stay in sync.</p>
