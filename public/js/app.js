@@ -1823,6 +1823,66 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const LEAD_PANEL_NOTEPAD_COLLAPSED_KEY = 'adhelloLeadPanelNotepadCollapsed';
+
+  function openLeadPanelNotepad() {
+    const body = document.getElementById('leadPanelNotepadBody');
+    const btn = document.getElementById('leadPanelNotepadToggle');
+    const ch = document.getElementById('leadPanelNotepadChevron');
+    const shell = document.getElementById('leadPanelNotepad');
+    if (body) body.classList.add('lead-panel-notepad-body--open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (ch) {
+      ch.classList.remove('rotate-180');
+      ch.style.transform = '';
+    }
+    if (shell) shell.classList.remove('lead-panel-notepad--collapsed');
+    try {
+      sessionStorage.setItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY, '0');
+    } catch (_) { /* ignore */ }
+  }
+
+  function closeLeadPanelNotepad() {
+    const body = document.getElementById('leadPanelNotepadBody');
+    const btn = document.getElementById('leadPanelNotepadToggle');
+    const ch = document.getElementById('leadPanelNotepadChevron');
+    const shell = document.getElementById('leadPanelNotepad');
+    if (body) body.classList.remove('lead-panel-notepad-body--open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (ch) {
+      ch.classList.add('rotate-180');
+      ch.style.transform = '';
+    }
+    if (shell) shell.classList.add('lead-panel-notepad--collapsed');
+    try {
+      sessionStorage.setItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY, '1');
+    } catch (_) { /* ignore */ }
+  }
+
+  function toggleLeadPanelNotepad() {
+    const body = document.getElementById('leadPanelNotepadBody');
+    if (!body) return;
+    if (body.classList.contains('lead-panel-notepad-body--open')) {
+      closeLeadPanelNotepad();
+    } else {
+      openLeadPanelNotepad();
+    }
+  }
+
+  function restoreLeadPanelNotepadCollapsedState() {
+    try {
+      if (sessionStorage.getItem(LEAD_PANEL_NOTEPAD_COLLAPSED_KEY) === '1') {
+        closeLeadPanelNotepad();
+      } else {
+        openLeadPanelNotepad();
+      }
+    } catch (_) {
+      openLeadPanelNotepad();
+    }
+  }
+
+  restoreLeadPanelNotepadCollapsedState();
+
   const QUICK_LOG_TAG_CONFIG = {
     Gatekeeper: { disposition: 'gatekeeper' },
     'Left VM': { disposition: 'voicemail' },
@@ -2116,6 +2176,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function openLeadPanelSoftphone(phone, leadKey, options) {
     const raw = String(phone || '').trim();
     if (!raw) return false;
+    if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
     if (typeof openLeadPanelOutreach === 'function') openLeadPanelOutreach();
     const opts = { autoDial: true, leadKey: String(leadKey || '').trim(), ...(options || {}) };
     if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') return false;
@@ -2966,6 +3027,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#leadPanelOutreachToggle')) {
       e.preventDefault();
       toggleLeadPanelOutreach();
+      return;
+    }
+
+    if (e.target.closest('#leadPanelNotepadToggle')) {
+      e.preventDefault();
+      toggleLeadPanelNotepad();
       return;
     }
 

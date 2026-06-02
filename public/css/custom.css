@@ -1395,6 +1395,36 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
     transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
 }
 
+/* Lead panel: quick log / outreach dock — collapsible as one unit */
+#leadPanelNotepadBody.lead-panel-notepad-body {
+    max-height: 0;
+    opacity: 0;
+    transition:
+        max-height 0.38s cubic-bezier(0.33, 1, 0.68, 1),
+        opacity 0.24s ease;
+    overflow: hidden;
+    pointer-events: none;
+}
+#leadPanelNotepadBody.lead-panel-notepad-body.lead-panel-notepad-body--open {
+    max-height: min(72vh, 42rem);
+    opacity: 1;
+    pointer-events: auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+#leadPanelNotepadChevron {
+    transform-origin: center;
+    transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+}
+#leadPanelNotepad.lead-panel-notepad--collapsed {
+    padding-top: 0.35rem;
+    box-shadow: 0 -6px 24px -12px rgba(15, 23, 42, 0.12);
+}
+#mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open,
+#mobilePanel.open #leadPanelNotepadBody.lead-panel-notepad-body--open * {
+    pointer-events: auto;
+}
+
 /* Lead panel history tab: consistent widget spacing */
 .lead-panel-tab-stack {
     display: flex;
