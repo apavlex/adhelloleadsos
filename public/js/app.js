@@ -9066,18 +9066,32 @@ document.addEventListener('DOMContentLoaded', () => {
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
 
+  /** True when a leads table is the one the user is interacting with (not kanban-hidden pipeline). */
+  function leadsTableIsActive(table) {
+    if (!table || !table.isConnected) return false;
+    if (table.id === 'prospectLeadsTable') {
+      const tableView = document.getElementById('tableView');
+      if (tableView && tableView.classList.contains('hidden')) return false;
+    }
+    const rect = table.getBoundingClientRect();
+    return rect.width > 0 || rect.height > 0;
+  }
+
   /** Table that owns the visible select-all header (search results, pipeline, inbound). */
   function getActiveLeadsTable() {
-    const searchTable = document.getElementById('searchResultsLeadsTable');
-    if (searchTable) return searchTable;
-    const pipelineTable = document.getElementById('prospectLeadsTable');
-    if (pipelineTable) return pipelineTable;
+    const candidates = [
+      document.getElementById('prospectLeadsTable'),
+      document.getElementById('searchResultsLeadsTable'),
+    ].filter(Boolean);
+    for (const table of candidates) {
+      if (leadsTableIsActive(table)) return table;
+    }
     const header = document.querySelector('table thead input[data-select-all-leads]');
     if (header) {
       const table = header.closest('table');
-      if (table) return table;
+      if (table && leadsTableIsActive(table)) return table;
     }
-    return null;
+    return candidates[0] || null;
   }
 
   function getSelectAllHeader() {
@@ -9133,7 +9147,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const header = headerEl || getSelectAllHeader();
     if (!header || bulkSelectSyncing) return;
     const checked = forceChecked != null ? !!forceChecked : !!header.checked;
-    setPageLeadSelection(checked);
+    const table = header.closest('table') || getActiveLeadsTable();
+    setPageLeadSelection(checked, table);
   }
   window.__applySelectAllLeads = applySelectAllFromHeader;
 
@@ -9155,14 +9170,60 @@ document.addEventListener('DOMContentLoaded', () => {
   /** All checked row boxes in the pipeline/results table (includes rows hidden by paging). */
   function syncSelectedKeysFromDom() {
     selectedKeys.clear();
-    const searchTable = document.getElementById('searchResultsLeadsTable');
-    const table = searchTable || getActiveLeadsTable();
+    const table = getActiveLeadsTable();
     const scope = table || document;
     scope.querySelectorAll('tbody .lead-checkbox:checked, tbody .row-checkbox:checked').forEach((cb) => {
       const key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
       if (key !== '') selectedKeys.add(key);
     });
   }
+
+  function getLeadCheckboxesForTable(table) {
+    if (!table) return getPageLeadCheckboxes();
+    if (table.id === 'prospectLeadsTable') {
+      return getVisibleResultRowsInTable(table)
+        .map((row) => row.querySelector('.lead-checkbox, .row-checkbox'))
+        .filter(Boolean);
+    }
+    return Array.from(table.querySelectorAll('tbody .lead-checkbox, tbody .row-checkbox'));
+  }
+
+  /** Direct table listener — same pattern as search-results-table.js (avoids lost document bubbling). */
+  function bindLeadsTableBulkSelection(table) {
+    if (!table || table.dataset.bulkSelectBound === '1') return;
+    if (table.id === 'searchResultsLeadsTable') return;
+    const header = table.querySelector('thead input[data-select-all-leads]');
+    if (!header || !table.querySelector('tbody')) return;
+    table.dataset.bulkSelectBound = '1';
+
+    table.addEventListener('change', (e) => {
+      const t = e.target;
+      if (!t || t.tagName !== 'INPUT') return;
+      if (t === header || (t.matches && t.matches('input[data-select-all-leads]'))) {
+        e.stopPropagation();
+        applySelectAllFromHeader(header);
+        return;
+      }
+      if (
+        t.classList &&
+        (t.classList.contains('lead-checkbox') || t.classList.contains('row-checkbox'))
+      ) {
+        e.stopPropagation();
+        if (bulkSelectSyncing) return;
+        syncSelectAllLeadCheckbox();
+        updateBulkActionBar();
+      }
+    });
+
+    header.addEventListener(
+      'click',
+      (e) => {
+        e.stopPropagation();
+      },
+      true,
+    );
+  }
+  window.__bindLeadsTableBulkSelection = bindLeadsTableBulkSelection;
 
   function getBulkSelectionCount() {
     const table = getActiveLeadsTable();
@@ -9175,13 +9236,11 @@ document.addEventListener('DOMContentLoaded', () => {
     return selectedKeys.size;
   }
 
-  function setPageLeadSelection(checked) {
+  function setPageLeadSelection(checked, tableEl) {
     bulkSelectSyncing = true;
     try {
-      const table = getActiveLeadsTable();
-      const boxes = table
-        ? Array.from(table.querySelectorAll('tbody .lead-checkbox, tbody .row-checkbox'))
-        : getPageLeadCheckboxes();
+      const table = tableEl || getActiveLeadsTable();
+      const boxes = getLeadCheckboxesForTable(table);
       boxes.forEach((cb) => {
         cb.checked = checked;
         const key = cb.dataset.key;
@@ -9337,6 +9396,12 @@ document.addEventListener('DOMContentLoaded', () => {
         : undefined;
   rebuildBulkFolderSelect(initialBulkFolderPref);
   updateBulkActionBar();
+
+  document.querySelectorAll('table').forEach((table) => {
+    if (table.querySelector('thead input[data-select-all-leads]')) {
+      bindLeadsTableBulkSelection(table);
+    }
+  });
 
   function setBulkFolderNewRowVisible(show) {
     if (!bulkFolderNewRow) return;

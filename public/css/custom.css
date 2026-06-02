@@ -127,6 +127,11 @@ h1, h2, h3, h4, .font-display {
     pointer-events: auto;
 }
 
+#bulkActionBar.app-body-portal.bulk-action-bar--visible,
+#bulkActionBar.app-body-portal[data-visible='true'] {
+    pointer-events: auto;
+}
+
 @media (min-width: 768px) {
     body.app-with-sidebar {
         display: grid;
