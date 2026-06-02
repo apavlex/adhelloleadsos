@@ -254,6 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const prospectTable = document.getElementById('prospectLeadsTable');
   if (prospectTable) {
+    queueMicrotask(() => {
+      if (typeof window.__bindLeadsTableBulkSelection === 'function') {
+        window.__bindLeadsTableBulkSelection(prospectTable);
+      }
+    });
     (function initPipelineTablePaging() {
       const table = prospectTable;
       const tbody = table.querySelector('tbody');
@@ -9181,16 +9186,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function applySelectAllFromHeader(headerEl, forceChecked) {
     const header = headerEl || getSelectAllHeader();
-    if (!header || bulkSelectSyncing) return;
+    if (!header) return;
     const checked = forceChecked != null ? !!forceChecked : !!header.checked;
     const table = header.closest('table') || getActiveLeadsTable();
     setPageLeadSelection(checked, table);
   }
   window.__applySelectAllLeads = applySelectAllFromHeader;
 
-  function syncSelectAllLeadCheckbox() {
-    const header = getSelectAllHeader();
-    const boxes = getPageLeadCheckboxes();
+  function syncSelectAllLeadCheckbox(tableEl) {
+    const table = tableEl || getActiveLeadsTable();
+    const header = table
+      ? table.querySelector('thead input[data-select-all-leads]')
+      : getSelectAllHeader();
+    const boxes = getLeadCheckboxesForTable(table);
     if (!header) return;
     if (!boxes.length) {
       header.checked = false;
@@ -9217,11 +9225,15 @@ document.addEventListener('DOMContentLoaded', () => {
   function getLeadCheckboxesForTable(table) {
     if (!table) return getPageLeadCheckboxes();
     if (table.id === 'prospectLeadsTable') {
-      return getVisibleResultRowsInTable(table)
-        .map((row) => row.querySelector('.lead-checkbox, .row-checkbox'))
-        .filter(Boolean);
+      return Array.from(
+        table.querySelectorAll(
+          'tbody tr.result-row:not(.pipeline-row-page-hidden) input.lead-checkbox, tbody tr.result-row:not(.pipeline-row-page-hidden) input.row-checkbox',
+        ),
+      );
     }
-    return Array.from(table.querySelectorAll('tbody .lead-checkbox, tbody .row-checkbox'));
+    return Array.from(
+      table.querySelectorAll('tbody input.lead-checkbox, tbody input.row-checkbox'),
+    );
   }
 
   /** Direct table listener — same pattern as search-results-table.js (avoids lost document bubbling). */
@@ -9232,12 +9244,24 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!header || !table.querySelector('tbody')) return;
     table.dataset.bulkSelectBound = '1';
 
+    function syncFromHeader() {
+      applySelectAllFromHeader(header);
+    }
+
+    header.addEventListener('change', (e) => {
+      e.stopPropagation();
+      syncFromHeader();
+    });
+
+    header.addEventListener('click', (e) => {
+      e.stopPropagation();
+      queueMicrotask(syncFromHeader);
+    });
+
     table.addEventListener('change', (e) => {
       const t = e.target;
       if (!t || t.tagName !== 'INPUT') return;
       if (t === header || (t.matches && t.matches('input[data-select-all-leads]'))) {
-        e.stopPropagation();
-        applySelectAllFromHeader(header);
         return;
       }
       if (
@@ -9246,18 +9270,10 @@ document.addEventListener('DOMContentLoaded', () => {
       ) {
         e.stopPropagation();
         if (bulkSelectSyncing) return;
-        syncSelectAllLeadCheckbox();
+        syncSelectAllLeadCheckbox(table);
         updateBulkActionBar();
       }
     });
-
-    header.addEventListener(
-      'click',
-      (e) => {
-        e.stopPropagation();
-      },
-      true,
-    );
   }
   window.__bindLeadsTableBulkSelection = bindLeadsTableBulkSelection;
 
@@ -9279,6 +9295,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const boxes = getLeadCheckboxesForTable(table);
       boxes.forEach((cb) => {
         cb.checked = checked;
+        if (checked) cb.setAttribute('checked', 'checked');
+        else cb.removeAttribute('checked');
         const key = cb.dataset.key;
         if (checked) {
           if (key) selectedKeys.add(key);
@@ -9514,10 +9532,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener(
     'click',
     (e) => {
-      if (
-        e.target.matches('.lead-checkbox') ||
-        e.target.matches('input[data-select-all-leads]')
-      ) {
+      const t = e.target;
+      if (!t || !t.matches) return;
+      if (t.matches('input[data-select-all-leads]')) return;
+      if (t.matches('.lead-checkbox') || t.matches('.row-checkbox')) {
         e.stopPropagation();
       }
     },
