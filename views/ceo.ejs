@@ -69,7 +69,7 @@
           <% stages.forEach(function(s) { %>
           <div>
             <div class="flex items-center justify-between mb-1">
-              <span class="text-sm font-bold text-brand-dark capitalize"><%= s[0].replace(/_/g, ' ') %></span>
+              <span class="text-sm font-bold text-brand-dark capitalize"><%= String(s[0]).replace(/_/g, ' ') %></span>
               <span class="text-lg font-black text-brand-dark"><%= s[1] %></span>
             </div>
             <div class="h-1.5 rounded-full bg-brand-border/20 overflow-hidden">
@@ -168,7 +168,7 @@
             <div class="p-3 rounded-xl bg-brand-cream/40 border border-brand-border/20 hover:border-brand-yellow/30 transition-all">
               <div class="flex items-center justify-between gap-2">
                 <span class="font-bold text-sm text-brand-dark truncate"><%= l.title %></span>
-                <span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/10 px-2 py-0.5 rounded-full capitalize"><%= (l.stage || 'new').replace(/_/g, ' ') %></span>
+                <span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow bg-brand-yellow/10 px-2 py-0.5 rounded-full capitalize"><%= String(l.stage || 'new').replace(/_/g, ' ') %></span>
               </div>
               <div class="flex items-center gap-3 mt-1 text-[10px] text-brand-muted font-bold">
                 <% if (l.city) { %><span><%= l.city %></span><% } %>

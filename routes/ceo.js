@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
     const pipelineLeads = leads.filter(l => l.stage || l.pipelineStage);
     const stages = {};
     pipelineLeads.forEach(l => {
-      const st = l.stage || l.pipelineStage || 'unknown';
+      const st = String(l.stage || l.pipelineStage || 'unknown');
       stages[st] = (stages[st] || 0) + 1;
     });
 
@@ -61,14 +61,24 @@ router.get('/', async (req, res) => {
         return db - da;
       })
       .slice(0, 8)
-      .map(l => ({
+      .map(l => {
+        let stageLabel = 'new';
+        if (l.stage != null && l.stage !== '') {
+          stageLabel = String(l.stage).replace(/_/g, ' ');
+        } else if (l.pipelineStage != null && l.pipelineStage !== '') {
+          stageLabel = `Stage ${l.pipelineStage}`;
+        } else if (l.status) {
+          stageLabel = String(l.status);
+        }
+        return {
         title: l.title || l.company || 'Lead',
         city: l.city || '',
-        stage: l.stage || l.pipelineStage || 'new',
+        stage: stageLabel,
         created: l.created_at || l.createdAt || new Date().toISOString(),
         phone: l.phone || '',
         email: l.email || '',
-      }));
+      };
+      });
 
     // ── Geo Data (top cities) ──────────────────────────────────────────────
     const geoMap = {};
