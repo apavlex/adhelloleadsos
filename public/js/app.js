@@ -2391,14 +2391,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const tableRow = resolvePipelineTableRowForPanel(row) || row;
       syncPersistedLeadToRowDataset(tableRow, data.lead);
       prepareLeadRowForPanel(tableRow);
+      if (typeof window.__paintPanelFromLeadRecord === 'function') {
+        window.__paintPanelFromLeadRecord(data.lead, tableRow);
+      }
       return data.lead;
     })();
 
     __panelDataHydrateInflight.set(keyParam, p);
     try {
-      await p;
+      const leadRecord = await p;
       const tableRow = resolvePipelineTableRowForPanel(row) || row;
       if (currentRow === tableRow) {
+        if (typeof window.__paintPanelFromLeadRecord === 'function') {
+          window.__paintPanelFromLeadRecord(leadRecord, tableRow);
+        }
         if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
         populatePanel(tableRow);
       }
@@ -2763,6 +2769,20 @@ document.addEventListener('DOMContentLoaded', () => {
     openLeadPanelOutreach();
 
     prepareLeadRowForPanel(tableRow);
+
+    if (typeof window.__paintPanelFromLeadRecord === 'function') {
+      const emb =
+        typeof findInitialSavedLeadRecord === 'function'
+          ? findInitialSavedLeadRecord(tableRow)
+          : typeof window.__findLeadRecordForPanel === 'function'
+            ? window.__findLeadRecordForPanel(tableRow)
+            : null;
+      try {
+        window.__paintPanelFromLeadRecord(emb, tableRow);
+      } catch (paintRecErr) {
+        console.warn('[Lead panel] direct record paint failed:', paintRecErr);
+      }
+    }
 
     try {
       if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
@@ -4714,8 +4734,18 @@ document.addEventListener('DOMContentLoaded', () => {
   /** Paint header phone/address/reviews from hydrated row (not stale snapshot). */
   function paintPanelHeaderContactStrip(tableRow) {
     if (!tableRow || !tableRow.dataset) return;
-    const phone = readPipelineRowDisplayPhone(tableRow);
-    const address = readPipelineRowDisplayAddress(tableRow);
+    let phone = readPipelineRowDisplayPhone(tableRow);
+    let address = readPipelineRowDisplayAddress(tableRow);
+    try {
+      const lp = window.__lastPanelPaint;
+      const rowKey = String(tableRow.dataset.leadKey || '').trim();
+      if (lp && rowKey && String(lp.key || '').trim() === rowKey) {
+        if (!phone && lp.phone) phone = String(lp.phone).trim();
+        if (!address && lp.address) address = String(lp.address).trim();
+      }
+    } catch (_) {
+      /* ignore */
+    }
     const rev = readPipelineRowReviewsSnapshot(tableRow);
     const rating = rev.rating > 0 ? rev.rating : parseFloat(tableRow.dataset.rating) || 0;
     const reviews = rev.reviews > 0 ? rev.reviews : parseInt(tableRow.dataset.reviews, 10) || 0;
@@ -6959,6 +6989,11 @@ document.addEventListener('DOMContentLoaded', () => {
     syncRowFromInitialSavedLeads(tableRow);
     prepareLeadRowForPanel(tableRow);
 
+    const embedded = findInitialSavedLeadRecord(tableRow);
+    if (typeof window.__paintPanelFromLeadRecord === 'function') {
+      window.__paintPanelFromLeadRecord(embedded, tableRow);
+    }
+
     const { snap } = buildLeadPanelDisplaySnapshot(tableRow);
     applyPanelSnapToRowDataset(tableRow, snap);
     prepareLeadRowForPanel(tableRow);
@@ -6970,6 +7005,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.paintLeadPanelFromRow = paintLeadPanelFromRow;
   window.__buildLeadPanelDisplaySnapshot = buildLeadPanelDisplaySnapshot;
+  window.syncLeadPanelMapAfterContactPaint = function syncLeadPanelMapAfterContactPaint(row) {
+    if (!row) return;
+    try {
+      syncLeadPanelWideMapAndGoogleChip(row);
+    } catch (mapErr) {
+      console.warn('[Lead panel] map sync after contact paint failed:', mapErr);
+    }
+  };
 
   function paintLeadPanelQuickOutreach(row) {
     if (!row || !row.dataset) return;
@@ -12414,5 +12457,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.28-panel-contact';
+  window.__ADHELLO_BUILD = '1.0.29-panel-paint';
 });
