@@ -19,6 +19,9 @@ const { getValidAccessToken } = require('../services/googleDriveAccess');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const { clampPipelineStage } = require('../services/pipelineConstants');
 const { parseImportFile } = require('../services/csvLeadImport');
+const { recommendCadenceTemplate } = require('../services/leadCadence');
+const sequenceEngine = require('../services/sequenceEngine');
+const pipelineStagesService = require('../services/pipelineStagesService');
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -444,6 +447,178 @@ router.get('/status', apiKeyAuth, async (req, res) => {
     mapsConfigured: mapsSearch.isMapsSearchConfigured(integrationEnv),
     timestamp: new Date().toISOString(),
   });
+});
+
+// ── 9. UPDATE LEAD PIPELINE STAGE ────────────────────────────────────────────
+
+/**
+ * PATCH /autonomous/leads/:leadKey/stage
+ * Body: { pipelineStage (int), status? (string) }
+ * Move a lead to a new pipeline stage.
+ */
+router.patch('/leads/:leadKey/stage', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const raw = req.params.leadKey;
+    const key = raw.startsWith('lead:') ? raw : `lead:${raw}`;
+    const lead = await dbService.getLead(key);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+
+    const stage = parseInt(req.body.pipelineStage, 10);
+    if (!Number.isFinite(stage)) {
+      return res.status(400).json({ success: false, error: 'pipelineStage (integer) is required.' });
+    }
+
+    const clamped = clampPipelineStage(stage);
+    const updates = {
+      pipelineStage: clamped,
+      lastActivity: new Date().toISOString(),
+      logs: [
+        {
+          type: 'stage_change',
+          message: `Stage → ${clamped}`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+    if (req.body.status) {
+      updates.status = req.body.status;
+    }
+
+    await dbService.updateLead(key, updates);
+    res.json({ success: true, key, pipelineStage: clamped, status: updates.status || lead.status });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── 10. LIST PIPELINE STAGES ──────────────────────────────────────────────────
+
+/**
+ * GET /autonomous/pipeline-stages
+ * Returns all pipeline stages for the workspace.
+ */
+router.get('/pipeline-stages', apiKeyAuth, async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const rows = await pipelineStagesService.ensureWorkspaceStagesSeeded(wid);
+    const stages = pipelineStagesService.stagesForKanban(rows);
+    res.json({ success: true, stages });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── 11. START SEQUENCE / CADENCE ─────────────────────────────────────────────
+
+/**
+ * POST /autonomous/leads/:leadKey/sequence
+ * Body: { templateId (string) }
+ * Starts a cadence/sequence on a lead.
+ */
+router.post('/leads/:leadKey/sequence', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const raw = req.params.leadKey;
+    const key = raw.startsWith('lead:') ? raw : `lead:${raw}`;
+    const templateId = String(req.body.templateId || '').trim();
+    if (!templateId) {
+      return res.status(400).json({ success: false, error: 'templateId is required.' });
+    }
+    const result = await sequenceEngine.startSequence(key, templateId);
+    res.json({ success: true, key, sequenceState: result.sequenceState, template: result.template.name });
+  } catch (err) {
+    if (err.message === 'Lead not found') {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (err.message.startsWith('Unknown sequence template')) {
+      return res.status(400).json({ success: false, error: err.message });
+    }
+    next(err);
+  }
+});
+
+// ── 12. PAUSE SEQUENCE ──────────────────────────────────────────────────────
+
+/**
+ * DELETE /autonomous/leads/:leadKey/sequence
+ * Pauses the active sequence on a lead.
+ */
+router.delete('/leads/:leadKey/sequence', apiKeyAuth, async (req, res, next) => {
+  try {
+    const raw = req.params.leadKey;
+    const key = raw.startsWith('lead:') ? raw : `lead:${raw}`;
+    const result = await sequenceEngine.pauseSequence(key);
+    if (!result) {
+      return res.status(404).json({ success: false, error: 'No active sequence on this lead.' });
+    }
+    res.json({ success: true, key, message: 'Sequence paused.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── 13. LIST SEQUENCE TEMPLATES ──────────────────────────────────────────────
+
+/**
+ * GET /autonomous/sequence-templates
+ * Returns all available cadence templates with step summaries.
+ */
+router.get('/sequence-templates', apiKeyAuth, async (req, res, next) => {
+  try {
+    const templates = sequenceEngine.listTemplates().map((t) => ({
+      id: t.id,
+      persona: t.persona,
+      name: t.name,
+      description: t.description,
+      stepCount: t.steps.length,
+      steps: t.steps.map((s) => ({
+        dayOffset: s.dayOffset,
+        channel: s.channel,
+        title: s.title,
+        hint: s.hint || '',
+      })),
+    }));
+    res.json({ success: true, templates });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── 14. BATCH SEQUENCE: AUTO-ATTACH CADENCE ─────────────────────────────────
+
+/**
+ * POST /autonomous/auto-sequence
+ * Auto-attach recommended cadence to all leads in workspace that don't have one yet.
+ * Body: { workspaceId?, dryRun? }
+ */
+router.post('/auto-sequence', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const all = await dbService.getAllLeads(wid);
+    const needsSequence = all.filter((l) => !l.sequenceState || l.sequenceState.status !== 'active');
+    const results = [];
+    for (const lead of needsSequence) {
+      try {
+        const { templateId } = recommendCadenceTemplate(lead, all);
+        if (!templateId) {
+          results.push({ key: lead.key, title: lead.title, skipped: true, reason: 'No template matched' });
+          continue;
+        }
+        if (req.body.dryRun) {
+          results.push({ key: lead.key, title: lead.title, templateId, dryRun: true });
+          continue;
+        }
+        const r = await sequenceEngine.startSequence(lead.key, templateId);
+        results.push({ key: lead.key, title: lead.title, templateId, template: r.template.name, started: true });
+      } catch (e) {
+        results.push({ key: lead.key, title: lead.title, error: e.message });
+      }
+    }
+    res.json({ success: true, total: needsSequence.length, results });
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;
