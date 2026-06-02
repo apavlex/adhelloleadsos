@@ -2660,7 +2660,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- Centralized Row Selection Logic ---
-  const selectRow = (row) => {
+  const selectRow = async (row) => {
     if (!row) return;
 
     // Remove existing selection
@@ -2725,7 +2725,11 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('[Lead detail panel] populatePanel failed:', err);
     }
 
-    void hydrateLeadRowFromPanelData(row);
+    try {
+      await hydrateLeadRowFromPanelData(row);
+    } catch (hydrateErr) {
+      console.warn('[Lead panel] panel-data hydrate failed:', hydrateErr);
+    }
 
     // Update panel save button state (results page)
     if (isResultsPage) {
@@ -6495,6 +6499,86 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function paintLeadPanelQuickOutreach(row) {
+    if (!row || !row.dataset) return;
+    const phone = readPipelineRowDisplayPhone(row);
+    const website = row.dataset.website;
+    const email = readPipelineRowDisplayEmail(row);
+    const address = readPipelineRowDisplayAddress(row);
+
+    const phoneEl = document.getElementById('mobilePanelPhone');
+    const phoneLink = document.getElementById('mobilePanelPhoneLink');
+    const phoneRow = document.getElementById('mobilePanelPhoneRow');
+    if (phoneEl) phoneEl.textContent = phone ? phone : '—';
+    if (phoneLink) {
+      if (phone) {
+        phoneLink.href = '#';
+        phoneLink.classList.add('js-click-to-call-number');
+        phoneLink.dataset.phone = phone;
+        if (row.dataset.leadKey) phoneLink.dataset.leadKey = row.dataset.leadKey;
+        phoneLink.classList.remove('opacity-20', 'pointer-events-none');
+        phoneLink.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        };
+        if (phoneRow) phoneRow.onclick = () => {
+          phoneLink.click();
+        };
+      } else {
+        phoneLink.href = '#';
+        phoneLink.classList.remove('js-click-to-call-number');
+        delete phoneLink.dataset.phone;
+        delete phoneLink.dataset.leadKey;
+        phoneLink.classList.add('opacity-20', 'pointer-events-none');
+        if (phoneRow) phoneRow.onclick = null;
+      }
+    }
+
+    const emailEl = document.getElementById('mobilePanelEmail');
+    const emailBtn = document.getElementById('mobilePanelEmailBtn');
+    if (emailEl) {
+      const em = email && email !== 'N/A' ? email : '';
+      emailEl.textContent = em || 'Outreach copy';
+    }
+    if (emailBtn) {
+      emailBtn.onclick = (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (currentRow && typeof openEmailIntelModal === 'function') openEmailIntelModal(currentRow);
+      };
+      emailBtn.classList.remove('opacity-20', 'pointer-events-none');
+    }
+
+    const websiteShort = document.getElementById('mobilePanelWebsiteShort');
+    const websiteLink = document.getElementById('mobilePanelWebsiteLink');
+    if (websiteShort) {
+      try {
+        const w = (website && String(website).trim()) || '';
+        if (!w || w === 'N/A' || w.length < 3) {
+          websiteShort.textContent = 'No website';
+        } else {
+          const domain = new URL(w.startsWith('http') ? w : `https://${w}`).hostname.replace('www.', '');
+          websiteShort.textContent = domain && domain.length > 1 ? domain : 'No website';
+        }
+      } catch (e) {
+        websiteShort.textContent =
+          website && website !== 'N/A' && String(website).length > 2 ? String(website) : 'No website';
+      }
+    }
+    if (websiteLink) {
+      if (website && website !== 'N/A') {
+        websiteLink.href = website.startsWith('http') ? website : `https://${website}`;
+        websiteLink.classList.remove('opacity-20', 'pointer-events-none');
+      } else {
+        websiteLink.href = '#';
+        websiteLink.classList.add('opacity-20', 'pointer-events-none');
+      }
+    }
+
+    const addressEl = document.getElementById('mobilePanelAddress');
+    if (addressEl) addressEl.textContent = address ? address : 'Location Hidden';
+  }
+
   // --- Populate panel from row data ---
   function populatePanel(row) {
     if (!row) return;
@@ -6579,8 +6663,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const mapsLink = document.getElementById('mobilePanelMapsLink');
     if (mapsLink) {
-      if (address) {
-        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title || ''}`.trim())}`;
+      const mapQuery = readPipelineRowMapCenter(row);
+      if (mapQuery) {
+        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapQuery)}`;
         mapsLink.classList.remove('opacity-20', 'pointer-events-none');
       } else {
         mapsLink.href = '#';
@@ -6597,7 +6682,13 @@ document.addEventListener('DOMContentLoaded', () => {
     syncHeaderSocialsRow(row);
     syncLeadCallAiAnalyzeCta(row);
 
-    syncLeadPanelWideMapAndGoogleChip(row);
+    paintLeadPanelQuickOutreach(row);
+
+    try {
+      syncLeadPanelWideMapAndGoogleChip(row);
+    } catch (mapErr) {
+      console.warn('[Lead panel] map strip failed:', mapErr);
+    }
     requestAnimationFrame(() => {
       requestAnimationFrame(() => resizeLeadPanelJsMapSoon());
     });
@@ -6610,90 +6701,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     syncMobilePanelCqi(row);
 
-    const resolveGoogleBusinessProfileUrlFromRow = (r) =>
-      resolveGoogleMapsSocialHref(
-        r.dataset.url,
-        r.dataset.title,
-        readPipelineRowDisplayAddress(r) || r.dataset.address,
-        r.dataset.city
-      );
-
-
     syncLeadPrimaryServiceSelect(row);
-
-    // Phone logic
-    const phoneEl = document.getElementById('mobilePanelPhone');
-    const phoneLink = document.getElementById('mobilePanelPhoneLink');
-    const phoneRow = document.getElementById('mobilePanelPhoneRow');
-    
-    if (phoneEl) {
-        phoneEl.textContent = phone ? phone : '—';
-    }
-    
-    if (phoneLink) {
-        if (phone) {
-            phoneLink.href = '#';
-            phoneLink.classList.add('js-click-to-call-number');
-            phoneLink.dataset.phone = phone;
-            if (row.dataset.leadKey) phoneLink.dataset.leadKey = row.dataset.leadKey;
-            phoneLink.classList.remove('opacity-20', 'pointer-events-none');
-            phoneLink.onclick = (e) => { e.preventDefault(); e.stopPropagation(); };
-            if (phoneRow) phoneRow.onclick = () => { phoneLink.click(); };
-        } else {
-            phoneLink.href = '#';
-            phoneLink.classList.remove('js-click-to-call-number');
-            delete phoneLink.dataset.phone;
-            delete phoneLink.dataset.leadKey;
-            phoneLink.classList.add('opacity-20', 'pointer-events-none');
-            if (phoneRow) phoneRow.onclick = null;
-        }
-    }
-
-    // Scripts tile — opens copy-only outreach modal
-    const emailEl = document.getElementById('mobilePanelEmail');
-    const emailBtn = document.getElementById('mobilePanelEmailBtn');
-    if (emailEl) {
-      const em = (email && email !== 'N/A') ? email : '';
-      emailEl.textContent = em || 'Outreach copy';
-    }
-    if (emailBtn) {
-      emailBtn.onclick = (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
-        if (currentRow && typeof openEmailIntelModal === 'function') openEmailIntelModal(currentRow);
-      };
-      emailBtn.classList.remove('opacity-20', 'pointer-events-none');
-    }
-
-    // Website logic
-    const websiteShort = document.getElementById('mobilePanelWebsiteShort');
-    const websiteLink = document.getElementById('mobilePanelWebsiteLink');
-    if (websiteShort) {
-        try {
-            const w = (website && String(website).trim()) || '';
-            if (!w || w === 'N/A' || w.length < 3) {
-              websiteShort.textContent = 'No website';
-            } else {
-              const domain = new URL(w.startsWith('http') ? w : `https://${w}`).hostname.replace('www.', '');
-              websiteShort.textContent = domain && domain.length > 1 ? domain : 'No website';
-            }
-        } catch (e) {
-            websiteShort.textContent = (website && website !== 'N/A' && String(website).length > 2) ? String(website) : 'No website';
-        }
-    }
-    if (websiteLink) {
-        if (website && website !== 'N/A') {
-            websiteLink.href = website.startsWith('http') ? website : `https://${website}`;
-            websiteLink.classList.remove('opacity-20', 'pointer-events-none');
-        } else {
-            websiteLink.href = '#';
-            websiteLink.classList.add('opacity-20', 'pointer-events-none');
-        }
-    }
-
-    // Address & Maps logic (tile below engagement center)
-    const addressEl = document.getElementById('mobilePanelAddress');
-    if (addressEl) addressEl.textContent = address ? address : 'Location Hidden';
 
     // Audit Report Insights Section (Dynamic)
     const auditDataRaw = row.dataset.auditData;

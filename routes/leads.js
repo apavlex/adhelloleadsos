@@ -8,6 +8,11 @@ const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
+const {
+  normalizeLeadForPanel,
+  leadMissingCoreContact,
+  hasContactValue,
+} = require('../services/leadPanelNormalize');
 const betterContact = require('../services/betterContactClient');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const pageSpeedInsights = require('../services/pageSpeedInsights');
@@ -1523,9 +1528,48 @@ router.get('/:key/panel-data', async (req, res, next) => {
     if (!(await leadInRequestWorkspace(lead, req))) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
+
+    let panelLead = normalizeLeadForPanel({ ...lead, key: lead.key || fullKey });
+
+    const skipEnrich = String(req.query.enrich || '').trim() === '0';
+    if (!skipEnrich && leadMissingCoreContact(panelLead)) {
+      try {
+        const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+        const enriched = await Promise.race([
+          mapsEnrichFallback.enrichFromMapsForLead(panelLead, integrationEnv),
+          new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('maps_enrich_timeout')), 12000);
+          }),
+        ]);
+        if (enriched && enriched.extract && typeof enriched.extract === 'object') {
+          const patch = firecrawlExtractToLeadUpdates(enriched.extract);
+          if (
+            enriched.websiteHint &&
+            hasContactValue(enriched.websiteHint) &&
+            !hasContactValue(patch.website)
+          ) {
+            patch.website = enriched.websiteHint;
+          }
+          if (patch.googlePlaces && !hasContactValue(patch.url)) {
+            patch.url = patch.googlePlaces;
+          }
+          panelLead = normalizeLeadForPanel({ ...panelLead, ...patch });
+          dbService
+            .updateLead(fullKey, patch, req.workspaceId)
+            .catch((e) => console.warn('[panel-data] maps enrich persist failed:', e.message));
+        }
+      } catch (enrichErr) {
+        console.warn('[panel-data] maps enrich skipped:', enrichErr.message);
+      }
+    }
+
     return res.json({
       success: true,
-      lead: { ...lead, key: lead.key || fullKey, workspaceId: req.workspaceId || lead.workspaceId },
+      lead: {
+        ...panelLead,
+        key: panelLead.key || fullKey,
+        workspaceId: req.workspaceId || panelLead.workspaceId,
+      },
     });
   } catch (err) {
     next(err);

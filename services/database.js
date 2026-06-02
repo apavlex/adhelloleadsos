@@ -443,13 +443,7 @@ module.exports = {
   async getAllLeads(workspaceId) {
     const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
     assertLeadScopedWorkspaceId(wid, 'getAllLeads');
-    const aliasVal = kvGet('sys:legacy_default_workspace_id');
-    const aliasStr = typeof aliasVal === 'string' ? aliasVal.trim() : '';
-    const normLeadW = (lw) => {
-      const x = lw || 'default';
-      if (x === 'default' && aliasStr) return aliasStr;
-      return x;
-    };
+    const normLeadW = (lw) => this._normalizeLeadWorkspaceId(lw);
     const keys = kvList('lead:');
     const sorted = keys.sort((a, b) => {
       const tsA = parseInt(a.split(':')[1]);

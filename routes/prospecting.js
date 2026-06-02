@@ -16,6 +16,7 @@ const {
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
+const { normalizeLeadForPanel } = require('../services/leadPanelNormalize');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -60,6 +61,7 @@ router.get('/', async (req, res, next) => {
     }
 
     leads = applyLeadListFilters(leads, leadListFilters);
+    leads = leads.map((l) => normalizeLeadForPanel(l));
     const leadsFilterSuffix = leadListFilterQuerySuffix(leadListFilters);
 
     const statusUniq = new Map();
