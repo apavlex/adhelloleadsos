@@ -2371,7 +2371,11 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (_) {
         /* sibling request failed */
       }
-      if (currentRow === row) populatePanel(row);
+      const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      if (currentRow === tableRow) {
+        if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
+        populatePanel(tableRow);
+      }
       return;
     }
 
@@ -2384,19 +2388,26 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!data.success || !data.lead) {
         throw new Error((data && data.error) || 'panel-data unavailable');
       }
-      syncPersistedLeadToRowDataset(row, data.lead);
-      prepareLeadRowForPanel(row);
+      const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      syncPersistedLeadToRowDataset(tableRow, data.lead);
+      prepareLeadRowForPanel(tableRow);
       return data.lead;
     })();
 
     __panelDataHydrateInflight.set(keyParam, p);
     try {
       await p;
-      if (currentRow === row) populatePanel(row);
+      const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      if (currentRow === tableRow) {
+        if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
+        populatePanel(tableRow);
+      }
     } catch (err) {
       console.warn('[Lead panel] panel-data hydrate failed:', err);
-      if (syncRowFromInitialSavedLeads(row) && currentRow === row) {
-        populatePanel(row);
+      const tableRow = resolvePipelineTableRowForPanel(row) || row;
+      if (syncRowFromInitialSavedLeads(tableRow) && currentRow === tableRow) {
+        if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
+        populatePanel(tableRow);
       }
     } finally {
       if (__panelDataHydrateInflight.get(keyParam) === p) {
@@ -2695,14 +2706,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Centralized Row Selection Logic ---
   const selectRow = async (row) => {
     if (!row) return;
+    const tableRow = resolvePipelineTableRowForPanel(row) || row;
 
     // Remove existing selection
     rows.forEach((r) => r.classList.remove('selected'));
-    row.classList.add('selected');
+    tableRow.classList.add('selected');
     
-    currentRow = row;
+    currentRow = tableRow;
     const nav = navigableRows();
-    currentIndex = nav.indexOf(row);
+    currentIndex = nav.indexOf(tableRow);
 
     // Update nav button visibility/state (workflow page may hide filtered-out rows)
     if (prevLeadBtn) prevLeadBtn.style.opacity = currentIndex > 0 ? '1' : '0.3';
@@ -2750,36 +2762,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
     openLeadPanelOutreach();
 
-    prepareLeadRowForPanel(row);
+    prepareLeadRowForPanel(tableRow);
 
     try {
-      if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(row);
+      if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
     } catch (earlyErr) {
       console.warn('[Lead panel] early row paint failed:', earlyErr);
     }
 
     try {
-      populatePanel(row);
+      populatePanel(tableRow);
     } catch (err) {
       console.error('[Lead detail panel] populatePanel failed:', err);
       try {
-        if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(row);
+        if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
       } catch (retryErr) {
         console.warn('[Lead panel] retry row paint failed:', retryErr);
       }
     }
 
     try {
-      await hydrateLeadRowFromPanelData(row);
+      await hydrateLeadRowFromPanelData(tableRow);
     } catch (hydrateErr) {
       console.warn('[Lead panel] panel-data hydrate failed:', hydrateErr);
+    }
+
+    if (currentRow === tableRow && typeof paintLeadPanelFromRow === 'function') {
+      paintLeadPanelFromRow(tableRow);
     }
 
     // Update panel save button state (results page)
     if (isResultsPage) {
       const mobileSaveBtn = document.getElementById('mobilePanelSaveBtn');
       if (mobileSaveBtn) {
-        if (isLeadTitleSaved(row.dataset.title)) {
+        if (isLeadTitleSaved(tableRow.dataset.title)) {
           markPanelBtnSaved(mobileSaveBtn);
         } else {
           markPanelBtnUnsaved(mobileSaveBtn);
@@ -4487,6 +4503,203 @@ document.addEventListener('DOMContentLoaded', () => {
     return !s || s === 'N/A' || s === '—' || s === '-' || s === 'undefined' || s === 'null';
   }
 
+  /** Prefer the visible pipeline table row (kanban / panel host pass a clone or sparse node). */
+  function resolvePipelineTableRowForPanel(row) {
+    if (!row) return null;
+    if (row.tagName === 'TR' && row.closest && row.closest('#prospectLeadsTable')) {
+      return row.classList.contains('result-row') ? row : row.closest('tr.result-row') || row;
+    }
+    const rawKey = String(row.dataset.leadKey || '').trim();
+    const keyNorm = rawKey.replace(/^lead:/i, '');
+    if (keyNorm) {
+      const byKey = document.querySelector(
+        `#prospectLeadsTable tbody tr.result-row[data-lead-key="${CSS.escape(keyNorm)}"], #prospectLeadsTable tbody tr.result-row[data-lead-key="lead:${CSS.escape(keyNorm)}"]`,
+      );
+      if (byKey) return byKey;
+    }
+    const titleKey = normalizeLeadTitleKey(row.dataset.title || '');
+    if (titleKey) {
+      const match = Array.from(document.querySelectorAll('#prospectLeadsTable tbody tr.result-row')).find(
+        (tr) => normalizeLeadTitleKey(tr.dataset.title || '') === titleKey,
+      );
+      if (match) return match;
+    }
+    return row.tagName === 'TR' ? row : null;
+  }
+
+  function panelSnapFromLeadRecord(lead) {
+    if (!lead || typeof lead !== 'object') return {};
+    const catRaw = lead.categoryName != null ? lead.categoryName : lead.category;
+    return {
+      title: String(lead.title || '').trim(),
+      phone: isEmptyLeadField(lead.phone) ? '' : String(lead.phone).trim(),
+      email: isEmptyLeadField(lead.email) ? '' : String(lead.email).trim(),
+      website: isEmptyLeadField(lead.website) ? '' : String(lead.website).trim(),
+      address: isEmptyLeadField(lead.address) ? '' : String(lead.address).trim(),
+      city: isEmptyLeadField(lead.city) ? '' : String(lead.city).trim(),
+      state: isEmptyLeadField(lead.state) ? '' : String(lead.state).trim(),
+      category: isEmptyLeadField(catRaw) ? '' : String(catRaw).trim(),
+      url: isEmptyLeadField(lead.url) ? '' : String(lead.url).trim(),
+      facebook: isEmptyLeadField(lead.facebook) ? '' : String(lead.facebook).trim(),
+      instagram: isEmptyLeadField(lead.instagram) ? '' : String(lead.instagram).trim(),
+      twitter: isEmptyLeadField(lead.twitter) ? '' : String(lead.twitter).trim(),
+      rating: parseFloat(lead.totalScore) || 0,
+      reviews: parseInt(lead.reviewsCount, 10) || 0,
+    };
+  }
+
+  function scrapePipelineRowPanelFields(row) {
+    const out = {};
+    if (!row || typeof row.querySelector !== 'function') return out;
+
+    const addrEl = row.querySelector('.lead-row-address');
+    if (addrEl) {
+      const t = String(addrEl.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t && t !== '—' && t !== '-') out.address = t;
+    }
+
+    const phoneSlot =
+      row.querySelector('.lead-contact-phone-slot.js-click-to-call-number[data-phone]') ||
+      row.querySelector('.js-click-to-call-number[data-phone]');
+    if (phoneSlot) {
+      const label = phoneSlot.querySelector('.lead-contact-phone-label');
+      const p = String(
+        phoneSlot.getAttribute('data-phone') ||
+          phoneSlot.dataset.phone ||
+          (label && label.textContent) ||
+          phoneSlot.textContent ||
+          '',
+      ).trim();
+      if (p && p !== '—' && p !== 'N/A') out.phone = p;
+    }
+
+    const mailLink = row.querySelector('a[href^="mailto:"]');
+    if (mailLink) {
+      const href = String(mailLink.getAttribute('href') || '').replace(/^mailto:/i, '').split('?')[0].trim();
+      const em = href || String(mailLink.textContent || '').trim();
+      if (em && em !== '—' && em !== 'N/A') out.email = em;
+    }
+
+    const webLink = row.querySelector('.website-link[data-url], a.website-link[href]');
+    if (webLink) {
+      const w = String(webLink.getAttribute('data-url') || webLink.getAttribute('href') || '').trim();
+      if (w && w !== 'N/A' && !/^#$/i.test(w)) out.website = w.replace(/\/$/, '');
+    }
+
+    const revLine = row.querySelector('.lead-reviews-line');
+    if (revLine) {
+      const txt = String(revLine.textContent || '');
+      const m = txt.match(/([\d]+(?:\.[\d]+)?)\s*\(\s*(\d+)\s*\)/);
+      if (m) {
+        out.rating = parseFloat(m[1]) || 0;
+        out.reviews = parseInt(m[2], 10) || 0;
+      } else {
+        const m2 = txt.match(/\(\s*(\d+)\s*\)/);
+        if (m2) out.reviews = parseInt(m2[1], 10) || 0;
+      }
+    }
+
+    const catInp = row.querySelector('.lead-category-input');
+    if (catInp && String(catInp.value || '').trim()) {
+      out.category = String(catInp.value).trim();
+    }
+
+    return out;
+  }
+
+  function mergePanelSnapField(snap, key, value) {
+    if (!snap || isEmptyLeadField(value)) return;
+    if (key === 'rating') {
+      const n = parseFloat(value);
+      if (Number.isFinite(n) && n > 0) snap.rating = n;
+      return;
+    }
+    if (key === 'reviews') {
+      const n = parseInt(value, 10);
+      if (Number.isFinite(n) && n > 0) snap.reviews = n;
+      return;
+    }
+    snap[key] = String(value).trim();
+  }
+
+  function buildLeadPanelDisplaySnapshot(row) {
+    const tableRow = resolvePipelineTableRowForPanel(row) || row;
+    const snap = {
+      title: '',
+      phone: '',
+      email: '',
+      website: '',
+      address: '',
+      city: '',
+      state: '',
+      category: '',
+      url: '',
+      facebook: '',
+      instagram: '',
+      twitter: '',
+      rating: 0,
+      reviews: 0,
+    };
+    if (!tableRow) return { tableRow: row, snap };
+
+    const embedded = findInitialSavedLeadRecord(tableRow);
+    if (embedded) {
+      Object.entries(panelSnapFromLeadRecord(embedded)).forEach(([k, v]) => mergePanelSnapField(snap, k, v));
+    }
+
+    const ds = tableRow.dataset;
+    mergePanelSnapField(snap, 'title', ds.title);
+    mergePanelSnapField(snap, 'phone', ds.phone);
+    mergePanelSnapField(snap, 'email', ds.email);
+    mergePanelSnapField(snap, 'website', ds.website);
+    mergePanelSnapField(snap, 'address', ds.address);
+    mergePanelSnapField(snap, 'city', ds.city);
+    mergePanelSnapField(snap, 'state', ds.state);
+    mergePanelSnapField(snap, 'category', ds.category);
+    mergePanelSnapField(snap, 'url', ds.url);
+    mergePanelSnapField(snap, 'facebook', ds.facebook);
+    mergePanelSnapField(snap, 'instagram', ds.instagram);
+    mergePanelSnapField(snap, 'twitter', ds.twitter);
+    mergePanelSnapField(snap, 'rating', ds.rating);
+    mergePanelSnapField(snap, 'reviews', ds.reviews);
+
+    Object.entries(scrapePipelineRowPanelFields(tableRow)).forEach(([k, v]) => mergePanelSnapField(snap, k, v));
+
+    const contacts = parseRowContacts(tableRow);
+    const priContact =
+      contacts.find((c) => c && c.primary && !isEmptyLeadField(c.phone)) ||
+      contacts.find((c) => c && !isEmptyLeadField(c.phone));
+    if (priContact) {
+      mergePanelSnapField(snap, 'phone', priContact.phone);
+      if (isEmptyLeadField(snap.email) && !isEmptyLeadField(priContact.email)) {
+        mergePanelSnapField(snap, 'email', priContact.email);
+      }
+    }
+
+    if (!snap.title) snap.title = String(ds.title || '').trim();
+
+    return { tableRow, snap };
+  }
+
+  function applyPanelSnapToRowDataset(row, snap) {
+    if (!row || !row.dataset || !snap) return;
+    const ds = row.dataset;
+    if (snap.title) ds.title = snap.title;
+    if (snap.phone) ds.phone = snap.phone;
+    if (snap.email) ds.email = snap.email;
+    if (snap.website) ds.website = snap.website;
+    if (snap.address) ds.address = snap.address;
+    if (snap.city) ds.city = snap.city;
+    if (snap.state) ds.state = snap.state;
+    if (snap.category) ds.category = snap.category;
+    if (snap.url) ds.url = snap.url;
+    if (snap.facebook) ds.facebook = snap.facebook;
+    if (snap.instagram) ds.instagram = snap.instagram;
+    if (snap.twitter) ds.twitter = snap.twitter;
+    if (snap.rating > 0) ds.rating = String(snap.rating);
+    if (snap.reviews > 0) ds.reviews = String(snap.reviews);
+  }
+
   function readPipelineRowDisplayAddress(row) {
     if (!row || !row.dataset) return '';
     let a = String(row.dataset.address || '').trim();
@@ -4779,9 +4992,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function syncHeaderPhoneRow(row) {
-    const phone = readPipelineRowDisplayPhone(row);
-    const headerPhone = document.getElementById('mobilePanelHeaderPhone');
+  function syncHeaderPhoneRow(row, snapPhone) {
+    const phone =
+      (snapPhone && !isEmptyLeadField(snapPhone) ? String(snapPhone).trim() : '') ||
+      readPipelineRowDisplayPhone(row);
+    const headerPhone = getLeadPanelEl('mobilePanelHeaderPhone');
     const starBtn = document.getElementById('headerPhonePrimaryStar');
     const lk = row.dataset.leadKey || '';
     if (headerPhone) {
@@ -6647,11 +6862,11 @@ document.addEventListener('DOMContentLoaded', () => {
     textId = 'mobilePanelRatingText',
     starSizeClass = 'w-3 h-3'
   ) {
-    const starsContainer = document.getElementById(containerId);
+    const starsContainer = getLeadPanelEl(containerId);
     if (starsContainer) {
       renderStarsInElement(starsContainer, rating, starSizeClass);
     }
-    const ratingText = document.getElementById(textId);
+    const ratingText = getLeadPanelEl(textId);
     if (ratingText) {
       const rc = reviews !== undefined && reviews !== null ? parseInt(reviews, 10) || 0 : null;
       if (rc !== null) {
@@ -6670,16 +6885,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Header contact strip + stars/reviews + quick-outreach tiles from row / table DOM. */
   function paintLeadPanelFromRow(row) {
-    if (!row || !row.dataset) return;
-    prepareLeadRowForPanel(row);
+    if (!row) return;
+    const { tableRow, snap } = buildLeadPanelDisplaySnapshot(row);
+    if (!tableRow || !tableRow.dataset) return;
+    applyPanelSnapToRowDataset(tableRow, snap);
+    coalesceRowDatasetFromContacts(tableRow);
 
-    const rev = readPipelineRowReviewsSnapshot(row);
-    renderStars(rev.rating, rev.reviews);
-    syncGoogleReviewsLink(row);
-    syncHeaderPhoneRow(row);
-    syncHeaderSocialsRow(row);
+    renderStars(snap.rating, snap.reviews);
+    syncGoogleReviewsLink(tableRow);
+    syncHeaderPhoneRow(tableRow, snap.phone);
+    syncHeaderSocialsRow(tableRow);
 
-    const locationLine = readPipelineRowLocationLine(row);
+    const locationLine = snap.address
+      ? formatLeadPanelAddress(snap.address)
+      : readPipelineRowLocationLine(tableRow) || readPipelineRowDisplayAddress(tableRow);
     const headerAddr = getLeadPanelEl('mobilePanelHeaderAddress');
     if (headerAddr) {
       headerAddr.textContent = locationLine || '—';
@@ -6688,7 +6907,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (addrRow) addrRow.classList.toggle('hidden', !locationLine);
 
     const mapsLink = getLeadPanelEl('mobilePanelMapsLink');
-    const mapCenter = readPipelineRowMapCenter(row);
+    const mapCenter =
+      readPipelineRowMapCenter(tableRow) ||
+      (snap.address ? snap.address : '') ||
+      (snap.title && snap.city ? `${snap.title}, ${snap.city}` : snap.title || '');
     if (mapsLink) {
       if (mapCenter) {
         mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapCenter)}`;
@@ -6699,10 +6921,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    paintLeadPanelQuickOutreach(row);
-    scheduleReviewIntelligence(row);
+    paintLeadPanelQuickOutreach(tableRow);
+    scheduleReviewIntelligence(tableRow);
   }
   window.paintLeadPanelFromRow = paintLeadPanelFromRow;
+  window.__buildLeadPanelDisplaySnapshot = buildLeadPanelDisplaySnapshot;
 
   function paintLeadPanelQuickOutreach(row) {
     if (!row || !row.dataset) return;
@@ -12057,4 +12280,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
+  window.__ADHELLO_BUILD = '1.0.24-panel-snap';
 });
