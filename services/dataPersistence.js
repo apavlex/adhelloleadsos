@@ -3,8 +3,44 @@
  */
 
 const fs = require('fs');
+const path = require('path');
 const dbService = require('./database');
 const workspaceIntegrations = require('./workspaceIntegrations');
+
+/** Render persistent disk mount paths by runtime (see Render docs). */
+const RENDER_DISK_PATHS = {
+  node: '/opt/render/project/src/data',
+  docker: '/app/data',
+};
+
+function getDbDir() {
+  return path.dirname(dbService.getDbPath());
+}
+
+function renderDiskPathHint() {
+  if (process.env.RENDER_SERVICE_TYPE === 'web' && process.env.RENDER_RUNTIME === 'docker') {
+    return RENDER_DISK_PATHS.docker;
+  }
+  return RENDER_DISK_PATHS.node;
+}
+
+function dbDirMatchesRenderDiskMount() {
+  if (!process.env.RENDER) return false;
+  const dbDir = getDbDir();
+  return dbDir === RENDER_DISK_PATHS.node || dbDir === RENDER_DISK_PATHS.docker;
+}
+
+function renderDiskPathMismatch() {
+  if (!process.env.RENDER || process.env.RENDER_DISK_MOUNTED === '1') return null;
+  if (isCustomDataDir()) {
+    const custom = path.resolve(String(process.env.APP_DATA_DIR).trim());
+    return { dbDir: custom, expected: custom, ok: true };
+  }
+  const dbDir = getDbDir();
+  const expected = renderDiskPathHint();
+  if (dbDir === expected) return null;
+  return { dbDir, expected, ok: false };
+}
 
 function isLikelyEphemeralHost() {
   return Boolean(
@@ -35,11 +71,19 @@ function logStartupPersistenceStatus() {
       '[persist] WARNING: Running without persistent storage. ' +
         'SQLite is wiped on every deploy. See docs/DEPLOY_PERSISTENCE.md',
     );
-  } else if (process.env.RENDER && !renderPersistenceConfigured()) {
-    console.warn(
-      '[persist] WARNING: Render deploy without Persistent Disk at /app/data — data will not survive redeploys. ' +
-        'See docs/DEPLOY_PERSISTENCE.md',
-    );
+  } else if (process.env.RENDER) {
+    const mismatch = renderDiskPathMismatch();
+    if (mismatch && !mismatch.ok) {
+      console.warn(
+        `[persist] WARNING: SQLite writes to ${mismatch.dbDir} but Render disk is usually mounted at ${mismatch.expected}. ` +
+          'Set APP_DATA_DIR to your disk mount path, or remount the disk to match. See docs/DEPLOY_PERSISTENCE.md',
+      );
+    } else if (!renderPersistenceConfigured()) {
+      console.warn(
+        '[persist] WARNING: Render disk may not be wired yet — confirm mount path matches SQLite dir in log above. ' +
+          'Set RENDER_DISK_MOUNTED=1 after disk is attached. See docs/DEPLOY_PERSISTENCE.md',
+      );
+    }
   }
 
   if (process.env.NODE_ENV === 'production' && stats.kvCount === 0 && stats.dbSizeBytes < 8192) {
@@ -85,6 +129,10 @@ function workspaceIntegrationsPersistenceHint(workspace) {
 function renderPersistenceConfigured() {
   if (!process.env.RENDER) return false;
   if (process.env.RENDER_DISK_MOUNTED === '1') return true;
+  if (dbDirMatchesRenderDiskMount()) {
+    const stats = dbService.getPersistenceStats();
+    if (stats.dbExists && stats.dbSizeBytes > 4096) return true;
+  }
   const stats = dbService.getPersistenceStats();
   return stats.kvCount > 0 && stats.dbSizeBytes > 16384;
 }
@@ -93,15 +141,26 @@ function renderPersistenceConfigured() {
  * @returns {{ level: 'ok'|'warn', message: string }|null}
  */
 function deploymentPersistenceHint() {
-  if (process.env.RENDER && !renderPersistenceConfigured()) {
-    return {
-      level: 'warn',
-      message:
-        'Render.com wipes the container disk on every deploy unless you add a Persistent Disk. ' +
-        'In the Render dashboard: Disks → Add disk → mount path /app/data (1 GB+). ' +
-        'Then set WORKSPACE_INTEGRATIONS_SECRET and re-save API keys. ' +
-        'Optional: set RENDER_DISK_MOUNTED=1 after the disk is attached. See docs/DEPLOY_PERSISTENCE.md.',
-    };
+  if (process.env.RENDER) {
+    const mismatch = renderDiskPathMismatch();
+    if (mismatch && !mismatch.ok) {
+      return {
+        level: 'err',
+        message:
+          `SQLite is writing to ${mismatch.dbDir}, but your Render disk is probably mounted elsewhere. ` +
+          `For Node.js use mount path ${RENDER_DISK_PATHS.node}; for Docker use ${RENDER_DISK_PATHS.docker}. ` +
+          'Set APP_DATA_DIR to match your disk mount path, then redeploy.',
+      };
+    }
+    if (!renderPersistenceConfigured()) {
+      return {
+        level: 'warn',
+        message:
+          'Add or confirm a Render Persistent Disk whose mount path matches where SQLite stores data ' +
+          `(Node.js: ${RENDER_DISK_PATHS.node}, Docker: ${RENDER_DISK_PATHS.docker}). ` +
+          'Then set WORKSPACE_INTEGRATIONS_SECRET, RENDER_DISK_MOUNTED=1, re-save API keys, and redeploy once.',
+      };
+    }
   }
   if (isLikelyEphemeralHost() && !process.env.RENDER && !isCustomDataDir()) {
     return {

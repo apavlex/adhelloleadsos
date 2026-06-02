@@ -13,7 +13,7 @@ Leads OS stores **everything** in one SQLite file:
 | Workspace settings & encrypted API keys | `app.db` |
 | CEO chat history | `app.db` → `chat_messages` |
 
-Default path: **`/app/data/app.db`** (Docker) or `data/app.db` locally.
+Default path: **`/opt/render/project/src/data/app.db`** on Render Node, **`/app/data/app.db`** on Docker, or `data/app.db` locally.
 
 On Render, the container filesystem is **ephemeral** unless you attach a **Persistent Disk**. Each deploy without a disk starts with an empty `data/` folder — integrations and scraped leads vanish even though **Test & save** succeeded.
 
@@ -26,12 +26,17 @@ The `data/` directory is **gitignored** and never ships with git.
 ### Option A — Dashboard (existing service)
 
 1. Open [Render Dashboard](https://dashboard.render.com) → your **Web Service** (e.g. adhelloleadsos).
-2. Go to **Disks** → **Add disk**.
-3. Settings:
-   - **Mount path:** `/app/data`  
-     (matches the app default — no code change needed)
-   - **Size:** 1 GB minimum (increase later if needed)
-4. Click **Save**. Render redeploys once.
+2. Go to **Disks** → **Add disk** (or confirm existing disk).
+3. **Mount path** depends on runtime:
+
+   | Runtime | Mount path |
+   |---------|------------|
+   | **Node** (Build: `npm install`, Start: `node server.js`) | `/opt/render/project/src/data` |
+   | **Docker** (uses `Dockerfile`) | `/app/data` |
+
+   Your screenshot (`/opt/render/project/src/data`) is **correct for Node.js**.
+
+4. **Size:** 1 GB minimum.
 
 5. Under **Environment**, confirm these are set (add if missing):
 
@@ -40,20 +45,17 @@ The `data/` directory is **gitignored** and never ships with git.
    | `BASE_URL` | `https://leads.adhello.ai` |
    | `WORKSPACE_INTEGRATIONS_SECRET` | Long random string, **16+ chars** — keep the same forever |
    | `SESSION_SECRET` | Long random string |
+   | `RENDER_DISK_MOUNTED` | `1` (after disk is attached — clears in-app warning) |
 
-   Optional override (only if you mount the disk somewhere else):
-
-   | Key | Value |
-   |-----|--------|
-   | `APP_DATA_DIR` | Absolute mount path (e.g. `/var/data`) |
-
-   Optional after disk is attached (clears the in-app persistence warning):
+   Only if your disk mount path is custom:
 
    | Key | Value |
    |-----|--------|
-   | `RENDER_DISK_MOUNTED` | `1` |
+   | `APP_DATA_DIR` | Exact disk mount path (e.g. `/opt/render/project/src/data`) |
 
-6. After deploy finishes:
+6. Click **Save**. Render redeploys once.
+
+7. After deploy finishes:
    - Re-enter API keys → **Test & save** on each integration card
    - Run a lead search to confirm data sticks
    - Deploy again — leads and keys should remain
@@ -86,14 +88,11 @@ Render: **Environment** → add `WORKSPACE_INTEGRATIONS_SECRET` → **Save Chang
 
 ## Verify it worked
 
-1. **Logs** (Render → service → Logs) on startup:
+1. **Logs** (Render → service → Logs) on startup — confirm paths align:
    ```
-   [persist] SQLite /app/data/app.db — N keys, …
+   [persist] SQLite /opt/render/project/src/data/app.db — N keys, …
    ```
-   You should **not** see:
-   ```
-   WARNING: Running on a serverless host without APP_DATA_DIR
-   ```
+   If you see `/app/data/app.db` but disk is at `/opt/render/project/src/data`, paths **do not match** — set `APP_DATA_DIR=/opt/render/project/src/data` or remount the disk.
 
 2. **Integrations page** — amber “Data persistence” banner should disappear after disk + secret are configured.
 
