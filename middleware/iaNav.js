@@ -58,7 +58,9 @@ function iaNav(req, res, next) {
     p.startsWith('/results')
   ) {
     navLeadsTab = 'find';
-  } else if (p.startsWith('/history') || p.startsWith('/schedules')) {
+  } else if (p.startsWith('/history')) {
+    navLeadsTab = 'history';
+  } else if (p.startsWith('/schedules')) {
     navLeadsTab = 'queue';
   } else if (p.startsWith('/prospecting') || p === '/pipeline' || p.startsWith('/pipeline/')) {
     if (leadsTab === 'queue') navLeadsTab = 'queue';
