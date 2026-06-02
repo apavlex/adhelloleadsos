@@ -272,8 +272,13 @@
                 data-category="<%= plcEscAttr(lead.categoryName || 'N/A') %>"
                 data-address="<%= plcEscAttr(lead.address || 'N/A') %>"
                 data-city="<%= plcEscAttr(lead.city || '') %>"
+                data-state="<%= plcEscAttr(lead.state || '') %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
+                <% if (lead.latitude != null && lead.latitude !== '' && lead.longitude != null && lead.longitude !== '') { %>
+                data-latitude="<%= plcEscAttr(String(lead.latitude)) %>"
+                data-longitude="<%= plcEscAttr(String(lead.longitude)) %>"
+                <% } %>
                 data-review-snippets="<%= plcEscJson(lead.reviewSnippets || []) %>"
                 data-url="<%= plcEscAttr(lead.url || '') %>"
                 data-facebook="<%= plcEscAttr(lead.facebook || 'N/A') %>"

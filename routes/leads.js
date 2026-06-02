@@ -479,6 +479,10 @@ function leadKeyFromParam(key) {
   return key.startsWith('lead:') ? key : `lead:${key}`;
 }
 
+async function leadInRequestWorkspace(lead, req) {
+  return dbService.leadBelongsToWorkspace(lead, req && req.workspaceId);
+}
+
 function parseWeeklyDay(raw) {
   const n = parseInt(String(raw), 10);
   if (!Number.isFinite(n)) return 1;
@@ -1516,10 +1520,13 @@ router.get('/:key/panel-data', async (req, res, next) => {
     if (!lead) {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
-    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+    if (!(await leadInRequestWorkspace(lead, req))) {
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
-    return res.json({ success: true, lead });
+    return res.json({
+      success: true,
+      lead: { ...lead, key: lead.key || fullKey, workspaceId: req.workspaceId || lead.workspaceId },
+    });
   } catch (err) {
     next(err);
   }
@@ -2026,12 +2033,70 @@ router.post('/:key/delete', async (req, res, next) => {
   }
 });
 
+function pickHeuristicServiceKey(lead) {
+  const existing =
+    (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) ||
+    lead.primaryServiceKey ||
+    '';
+  if (SCRIPT_LIBRARY_KEYS.includes(existing)) return existing;
+
+  const website = !!(lead.website && lead.website !== 'N/A');
+  const reviews = parseInt(lead.reviewsCount, 10) || 0;
+  const rating = parseFloat(lead.totalScore) || 0;
+
+  if (!website || lead.isOutdated === true || lead.isMobileFriendly === false) return 'aiWebsites';
+  if (reviews < 25 || (rating > 0 && rating < 4.3)) return 'reputation';
+  if (lead.hasChatbot === false || lead.hasClickToCall === false) return 'speedToLeadAgent';
+  if (lead.aeoScore != null && parseInt(lead.aeoScore, 10) < 55) return 'reputation';
+  return 'aiWebsites';
+}
+
+function buildHeuristicLeadInsight(lead) {
+  const serviceKey = pickHeuristicServiceKey(lead);
+  const def = SCRIPT_LIBRARY[serviceKey] || SCRIPT_LIBRARY.aiWebsites || {};
+  const company = String(lead.title || 'this business').trim() || 'this business';
+  const city = [lead.city, lead.state].filter(Boolean).join(', ') || 'your area';
+  const category = String(lead.categoryName || 'local business').trim();
+  const reviews = parseInt(lead.reviewsCount, 10) || 0;
+  const rating = parseFloat(lead.totalScore) || 0;
+  const gaps = [];
+  if (!lead.website || lead.website === 'N/A') gaps.push('no website on file');
+  if (lead.isMobileFriendly === false) gaps.push('mobile experience gaps');
+  if (lead.hasChatbot === false) gaps.push('no lead-capture chat');
+  if (lead.hasSchemaMarkup === false) gaps.push('local SEO / schema gaps');
+  if (reviews > 0 && rating > 0 && rating < 4.4) gaps.push('review sentiment risk');
+
+  const gapPhrase = gaps.length ? gaps.slice(0, 2).join(' and ') : 'visibility and conversion basics';
+  const rationale = `${company} is a ${category} in ${city}. Based on their profile signals, ${def.label || 'this offer'} is the most logical first project — especially around ${gapPhrase}.`;
+  const talkTrack =
+    String(def.opening || '')
+      .replace(/\{\{company\}\}/g, company)
+      .replace(/\{\{name\}\}/g, 'there')
+      .replace(/\{\{city\}\}/g, city)
+      .split('\n')[0]
+      .trim() ||
+    `Hi — I was looking at ${company} in ${city} and had a quick idea about ${(def.label || 'growth').toLowerCase()}.`;
+
+  return {
+    primaryServiceKey: serviceKey,
+    primaryServiceLabel: def.label || serviceKey,
+    rationale,
+    talkTrack,
+    warRoomOpener: talkTrack,
+    provider: 'heuristic',
+  };
+}
+
 // POST /leads/:key/generate-prompt — personalized outreach (OpenRouter, else template)
 router.post('/:key/generate-prompt', async (req, res, next) => {
   try {
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
     const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+    if (!(await leadInRequestWorkspace(lead, req))) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
 
     const scored = scoreLeadRecord(lead);
     const summary = {
@@ -2074,7 +2139,11 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
       prompt = ai.content.trim();
       llm = ai.provider || 'template';
     } else {
-      prompt = `Hi ${lead.title},\n\nI noticed your business in ${lead.city} has a ${lead.totalScore} rating with ${lead.reviewsCount} reviews. We help ${lead.categoryName} operators like you turn visibility into booked calls.\n\nOpen to a 15-minute fit call next week?\n\nBest,\n[Your Name]`;
+      const cityLine = [lead.city, lead.state].filter(Boolean).join(', ') || 'your area';
+      const rating = lead.totalScore != null ? lead.totalScore : '—';
+      const reviews = lead.reviewsCount != null ? lead.reviewsCount : 0;
+      const category = lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName : 'local';
+      prompt = `Hi ${lead.title || 'there'},\n\nI noticed your business in ${cityLine} has a ${rating} rating with ${reviews} reviews. We help ${category} operators like you turn visibility into booked calls.\n\nOpen to a 15-minute fit call next week?\n\nBest,\n[Your Name]`;
     }
 
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
@@ -2170,16 +2239,14 @@ Respond with JSON only, no markdown:
     });
 
     if (!ai.content || ai.error) {
-      return res.json({
-        success: false,
-        error:
-          'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
-      });
+      const heuristic = buildHeuristicLeadInsight(lead);
+      return res.json({ success: true, cached: false, ...heuristic });
     }
 
     const parsed = parseLlmJson(ai.content);
     if (!parsed) {
-      return res.json({ success: false, error: 'Invalid AI response' });
+      const heuristic = buildHeuristicLeadInsight(lead);
+      return res.json({ success: true, cached: false, ...heuristic });
     }
 
     const keyOk = SCRIPT_LIBRARY_KEYS.includes(parsed.primaryServiceKey);

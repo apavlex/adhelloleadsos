@@ -272,6 +272,22 @@ module.exports = {
     return wid || '';
   },
 
+  /** Match getAllLeads workspace filter — legacy `default`/empty → alias id. */
+  _normalizeLeadWorkspaceId(leadWorkspaceId) {
+    const aliasVal = kvGet('sys:legacy_default_workspace_id');
+    const aliasStr = typeof aliasVal === 'string' ? aliasVal.trim() : '';
+    const x = leadWorkspaceId || 'default';
+    if ((x === 'default' || x === '') && aliasStr) return aliasStr;
+    return x;
+  },
+
+  async leadBelongsToWorkspace(lead, workspaceId) {
+    if (!lead) return false;
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    if (!wid) return false;
+    return this._normalizeLeadWorkspaceId(lead.workspaceId) === wid;
+  },
+
   async saveLead(leadData) {
     const resolved = await this._resolveWorkspaceIdForWrite(leadData.workspaceId);
     assertLeadScopedWorkspaceId(resolved, 'saveLead');

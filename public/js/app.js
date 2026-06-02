@@ -878,6 +878,48 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  let emailIntelRequestSeq = 0;
+
+  function interpolateOutreachScriptTemplate(text, row) {
+    const company = String((row && row.dataset && row.dataset.title) || '').trim() || 'your business';
+    const city =
+      [row && row.dataset && row.dataset.city, row && row.dataset && row.dataset.state]
+        .filter(Boolean)
+        .join(', ') || 'your area';
+    return String(text || '')
+      .replace(/\{\{company\}\}/g, company)
+      .replace(/\{\{name\}\}/g, 'there')
+      .replace(/\{\{city\}\}/g, city);
+  }
+
+  function pickEmailDraftFromOutreachLibrary(library, serviceKey) {
+    const svc = library && library[serviceKey];
+    if (!svc || !svc.channels) return '';
+    return String(svc.channels.email || svc.channels.call || svc.channels.text || '').trim();
+  }
+
+  function renderEmailIntelInsightHtml(data) {
+    const label = escapeHtmlText(data.primaryServiceLabel || 'Recommended offer');
+    const rationale = data.rationale ? escapeHtmlText(data.rationale) : '';
+    const track = data.talkTrack ? escapeHtmlText(data.talkTrack) : '';
+    let html = `<div class="rounded-2xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/30 p-4 mb-3">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Recommended focus</p>
+            <p class="font-bold text-brand-dark dark:text-white">${label}</p>
+          </div>`;
+    if (rationale) {
+      html += `<p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed">${rationale.replace(/\n/g, '<br>')}</p>`;
+    }
+    if (track) {
+      html += `<p class="text-xs font-semibold text-brand-dark dark:text-slate-300 mt-4 leading-relaxed">Suggested opener: <span class="italic">“${track}”</span></p>`;
+    }
+    if (data.cached) {
+      html += `<p class="text-[9px] font-bold uppercase tracking-widest text-brand-muted/60 mt-3">Cached insight · ${escapeHtmlText(data.provider || '')}</p>`;
+    } else if (data.provider === 'heuristic') {
+      html += `<p class="text-[9px] font-bold uppercase tracking-widest text-brand-muted/60 mt-3">Smart match · template library</p>`;
+    }
+    return html;
+  }
+
   async function openEmailIntelModal(row) {
     const modal = document.getElementById('emailIntelModal');
     const titleEl = document.getElementById('emailIntelTitle');
@@ -887,6 +929,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const draftEl = document.getElementById('emailIntelDraft');
     const copyDraftBtn = document.getElementById('emailIntelCopyDraft');
     if (!modal || !row) return;
+
+    const reqId = ++emailIntelRequestSeq;
 
     if (modal.parentElement !== document.body) {
       document.body.appendChild(modal);
@@ -921,7 +965,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (aiBody) {
       aiBody.innerHTML =
-        '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Generating personalized script…</p>';
+        '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Loading outreach script…</p>';
     }
 
     let key = row.dataset.leadKey ? String(row.dataset.leadKey).trim() : '';
@@ -932,11 +976,30 @@ document.addEventListener('DOMContentLoaded', () => {
         key = key.startsWith('lead:') ? key : `lead:${key}`;
       }
     } catch (err) {
+      if (reqId !== emailIntelRequestSeq) return;
       if (aiBody) {
         aiBody.innerHTML = `<p class="text-sm text-rose-600 dark:text-rose-400">${escapeHtmlText(err.message || 'Could not prepare this lead for AI email.')}</p>`;
       }
       return;
     }
+
+    if (key) {
+      try {
+        await hydrateLeadRowFromPanelData(row);
+      } catch (_) {
+        /* non-fatal — fall back to row dataset */
+      }
+    }
+    if (reqId !== emailIntelRequestSeq) return;
+
+    const showDraft = (text) => {
+      const body = String(text || '').trim();
+      if (!body) return false;
+      intelRef.draft = body;
+      if (draftEl) draftEl.value = body;
+      if (draftSection) draftSection.classList.remove('hidden');
+      return true;
+    };
 
     if (key && aiBody) {
       try {
@@ -945,60 +1008,77 @@ document.addEventListener('DOMContentLoaded', () => {
           fetch(`/leads/${keyParam}/insights`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify({}),
           }),
           fetch(`/leads/${keyParam}/generate-prompt`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            credentials: 'same-origin',
             body: JSON.stringify({ preview: true }),
           }),
         ]);
+        if (reqId !== emailIntelRequestSeq) return;
+
         const data = await insightRes.json().catch(() => ({}));
         const promptData = await promptRes.json().catch(() => ({}));
 
         if (promptData.success && promptData.prompt) {
-          intelRef.draft = String(promptData.prompt).trim();
-          if (draftEl) draftEl.value = intelRef.draft;
-          if (draftSection) draftSection.classList.remove('hidden');
+          showDraft(String(promptData.prompt).trim());
+        } else if (!showDraft(String(row.dataset.outreachPrompt || '').trim())) {
+          try {
+            const scriptsData = await fetchLeadOutreachScripts(row);
+            if (reqId !== emailIntelRequestSeq) return;
+            const svcKey = scriptsData.defaultServiceKey || 'aiWebsites';
+            const fromLib = pickEmailDraftFromOutreachLibrary(scriptsData.library, svcKey);
+            if (fromLib) showDraft(interpolateOutreachScriptTemplate(fromLib, row));
+          } catch (_) {
+            /* library fallback optional */
+          }
         }
 
         if (data.success) {
           intelRef.label = data.primaryServiceLabel || '';
           intelRef.rationale = data.rationale || '';
           intelRef.talkTrack = data.talkTrack || '';
-          const label = escapeHtmlText(data.primaryServiceLabel || 'Recommended offer');
-          const rationale = data.rationale ? escapeHtmlText(data.rationale) : '';
-          const track = data.talkTrack ? escapeHtmlText(data.talkTrack) : '';
-          let html = `<div class="rounded-2xl bg-brand-yellow/10 dark:bg-brand-yellow/15 border border-brand-yellow/30 p-4 mb-3">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">AI recommended focus</p>
-            <p class="font-bold text-brand-dark dark:text-white">${label}</p>
-          </div>`;
-          if (rationale) {
-            html += `<p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed">${rationale.replace(/\n/g, '<br>')}</p>`;
-          }
-          if (track) {
-            html += `<p class="text-xs font-semibold text-brand-dark dark:text-slate-300 mt-4 leading-relaxed">Suggested opener: <span class="italic">“${track}”</span></p>`;
-          }
-          if (data.cached) {
-            html += `<p class="text-[9px] font-bold uppercase tracking-widest text-brand-muted/60 mt-3">Cached insight · ${escapeHtmlText(data.provider || '')}</p>`;
-          }
-          aiBody.innerHTML = html;
+          aiBody.innerHTML = renderEmailIntelInsightHtml(data);
         } else if (intelRef.draft) {
           aiBody.innerHTML =
-            '<p class="text-sm text-brand-muted dark:text-slate-400">AI draft is ready below. Review and send when it looks good.</p>';
+            '<p class="text-sm text-brand-muted dark:text-slate-400">Script is ready below — review and send when it looks good.</p>';
         } else {
-          aiBody.innerHTML =
-            '<p class="text-sm text-brand-muted dark:text-slate-500">No AI insight yet. Set <code class="text-[10px] bg-brand-cream dark:bg-slate-800 px-1 rounded">OPENROUTER_API_KEY</code>, or open the lead detail panel after enrich.</p>';
+          const offers = getEmailIntelOfferScripts(company);
+          if (offers[0] && showDraft(offers[0].body)) {
+            aiBody.innerHTML =
+              '<p class="text-sm text-brand-muted dark:text-slate-400">Pick a template below or copy the draft script.</p>';
+          } else {
+            aiBody.innerHTML =
+              '<p class="text-sm text-rose-600 dark:text-rose-400">Could not load a script for this lead. Try again or use a quick template below.</p>';
+          }
         }
       } catch {
-        if (aiBody) {
+        if (reqId !== emailIntelRequestSeq) return;
+        if (
+          !showDraft(String(row.dataset.outreachPrompt || '').trim()) &&
+          !showDraft(getEmailIntelOfferScripts(company)[0]?.body || '')
+        ) {
+          if (aiBody) {
+            aiBody.innerHTML =
+              '<p class="text-sm text-rose-600 dark:text-rose-400">Could not load outreach script.</p>';
+          }
+        } else if (aiBody) {
           aiBody.innerHTML =
-            '<p class="text-sm text-rose-600 dark:text-rose-400">Could not load AI recommendation.</p>';
+            '<p class="text-sm text-brand-muted dark:text-slate-400">Script is ready below.</p>';
         }
       }
     } else if (aiBody) {
-      aiBody.innerHTML =
-        '<p class="text-sm text-brand-muted dark:text-slate-500">Save this lead to unlock AI recommendations.</p>';
+      const offers = getEmailIntelOfferScripts(company);
+      if (showDraft(offers[0]?.body || '')) {
+        aiBody.innerHTML =
+          '<p class="text-sm text-brand-muted dark:text-slate-400">Save this lead to unlock personalized AI — template draft below.</p>';
+      } else {
+        aiBody.innerHTML =
+          '<p class="text-sm text-brand-muted dark:text-slate-500">Save this lead to unlock personalized recommendations.</p>';
+      }
     }
   }
   window.__openEmailIntelModal = openEmailIntelModal;
@@ -1056,6 +1136,32 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   window.__savedLeadsByTitle = savedLeads;
+
+  function findInitialSavedLeadRecord(row) {
+    const list = window.INITIAL_SAVED_LEADS;
+    if (!Array.isArray(list) || !row) return null;
+    const rawKey = String(row.dataset.leadKey || '').trim();
+    const keyNorm = rawKey.replace(/^lead:/i, '');
+    const titleKey = normalizeLeadTitleKey(row.dataset.title || '');
+    return (
+      list.find((l) => {
+        if (!l) return false;
+        const lk = String(l.key || '').trim();
+        const lkNorm = lk.replace(/^lead:/i, '');
+        if (rawKey && (lk === rawKey || lkNorm === keyNorm)) return true;
+        if (titleKey && normalizeLeadTitleKey(l.title) === titleKey) return true;
+        return false;
+      }) || null
+    );
+  }
+
+  /** Hydrate table row from SSR lead JSON embedded on pipeline pages (instant, no fetch). */
+  function syncRowFromInitialSavedLeads(row) {
+    const lead = findInitialSavedLeadRecord(row);
+    if (!lead) return false;
+    syncPersistedLeadToRowDataset(row, lead);
+    return true;
+  }
 
   function isLeadTitleSaved(title) {
     const key = normalizeLeadTitleKey(title);
@@ -2217,6 +2323,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const __panelDataHydrateInflight = new Map();
+
+  /** Refresh row dataset from persisted lead — map, phone, reviews, activity, scripts. */
+  async function hydrateLeadRowFromPanelData(row) {
+    if (!row || !row.dataset) return;
+    const keyParam = String(row.dataset.leadKey || '')
+      .trim()
+      .replace(/^lead:/i, '');
+    if (!keyParam) return;
+
+    if (__panelDataHydrateInflight.has(keyParam)) {
+      try {
+        await __panelDataHydrateInflight.get(keyParam);
+      } catch (_) {
+        /* sibling request failed */
+      }
+      if (currentRow === row) populatePanel(row);
+      return;
+    }
+
+    const p = (async () => {
+      const res = await fetch(`/leads/${encodeURIComponent(keyParam)}/panel-data`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.success || !data.lead) {
+        throw new Error((data && data.error) || 'panel-data unavailable');
+      }
+      syncPersistedLeadToRowDataset(row, data.lead);
+      return data.lead;
+    })();
+
+    __panelDataHydrateInflight.set(keyParam, p);
+    try {
+      await p;
+      if (currentRow === row) populatePanel(row);
+    } catch (err) {
+      console.warn('[Lead panel] panel-data hydrate failed:', err);
+      if (syncRowFromInitialSavedLeads(row) && currentRow === row) {
+        populatePanel(row);
+      }
+    } finally {
+      if (__panelDataHydrateInflight.get(keyParam) === p) {
+        __panelDataHydrateInflight.delete(keyParam);
+      }
+    }
+  }
+
   async function applyLeadPanelQuickLogTag(tag) {
     const label = String(tag || '').trim();
     if (!label) return;
@@ -2562,11 +2717,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     openLeadPanelOutreach();
 
+    syncRowFromInitialSavedLeads(row);
+
     try {
       populatePanel(row);
     } catch (err) {
       console.error('[Lead detail panel] populatePanel failed:', err);
     }
+
+    void hydrateLeadRowFromPanelData(row);
 
     // Update panel save button state (results page)
     if (isResultsPage) {
@@ -3675,6 +3834,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.lastContactHuntAt != null) {
       ds.lastContactHuntAt = String(L.lastContactHuntAt || '').trim();
     }
+    if (L.outreachPrompt != null) ds.outreachPrompt = String(L.outreachPrompt || '');
+    if (L.latitude != null && L.latitude !== '') ds.latitude = String(L.latitude);
+    if (L.longitude != null && L.longitude !== '') ds.longitude = String(L.longitude);
     if (L.pageSpeedAudit != null) {
       try {
         ds.pageSpeedAudit =
@@ -4259,12 +4421,21 @@ document.addEventListener('DOMContentLoaded', () => {
   /** Geocoding / map query: street address, else city/metro, else title + city. */
   function readPipelineRowMapCenter(row) {
     if (!row || !row.dataset) return '';
+    const lat = parseFloat(row.dataset.latitude);
+    const lng = parseFloat(row.dataset.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return `${lat},${lng}`;
+    }
     const addr = readPipelineRowDisplayAddress(row);
     if (addr) return addr;
     const city = String(row.dataset.city || '').trim();
-    if (city && city !== 'N/A') return city;
+    const state = String(row.dataset.state || '').trim();
+    if (city && city !== 'N/A') {
+      return state && state !== 'N/A' ? `${city}, ${state}` : city;
+    }
     const title = String(row.dataset.title || '').trim();
     if (title && city) return `${title}, ${city}`;
+    if (title && state) return `${title}, ${state}`;
     return title || '';
   }
 
@@ -4272,7 +4443,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const addr = readPipelineRowDisplayAddress(row);
     if (addr) return formatLeadPanelAddress(addr);
     const city = String((row && row.dataset && row.dataset.city) || '').trim();
-    if (city && city !== 'N/A') return city;
+    const state = String((row && row.dataset && row.dataset.state) || '').trim();
+    if (city && city !== 'N/A') {
+      return state && state !== 'N/A' ? `${city}, ${state}` : city;
+    }
     return '';
   }
 
@@ -4359,6 +4533,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (!p || p === 'N/A' || p === '—') return '';
     return p.replace(/\s+/g, ' ').trim();
+  }
+
+  function readPipelineRowDisplayEmail(row) {
+    if (!row || !row.dataset) return '';
+    let e = String(row.dataset.email || '').trim();
+    if (e && e !== 'N/A') return e;
+    if (typeof row.querySelector === 'function') {
+      const link = row.querySelector('a[href^="mailto:"]');
+      if (link) {
+        const href = String(link.getAttribute('href') || '').trim();
+        e = href.replace(/^mailto:/i, '').split('?')[0].trim();
+        if (e && e !== 'N/A') return e;
+        const txt = String(link.textContent || '').trim();
+        if (txt && txt !== '—' && txt !== 'N/A') return txt;
+      }
+    }
+    return '';
   }
 
   function readPipelineRowReviewsSnapshot(row) {
@@ -6308,6 +6499,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function populatePanel(row) {
     if (!row) return;
     closeLeadPanelComposer();
+    syncRowFromInitialSavedLeads(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     const paintActivityTimeline = () => {
       try {
@@ -6325,33 +6517,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const rating = revSnap.rating;
     const reviews = revSnap.reviews;
     const url = row.dataset.url;
-    const email = row.dataset.email;
+    const email = readPipelineRowDisplayEmail(row);
     const facebook = row.dataset.facebook;
     const instagram = row.dataset.instagram;
     const twitter = row.dataset.twitter;
     const address = readPipelineRowDisplayAddress(row);
     const category = row.dataset.category;
     const loomUrl = row.dataset.loomUrl;
-
-    const lkHydrate = row.dataset.leadKey || '';
-    if (
-      lkHydrate &&
-      row.dataset.panelHydrateAttempted !== '1' &&
-      (!phone || !address)
-    ) {
-      row.dataset.panelHydrateAttempted = '1';
-      fetch(`/leads/${encodeURIComponent(lkHydrate)}/panel-data`, {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-      })
-        .then((r) => r.json())
-        .then((data) => {
-          if (!data || !data.success || !data.lead) return;
-          syncPersistedLeadToRowDataset(row, data.lead);
-          if (currentRow === row) populatePanel(row);
-        })
-        .catch(() => {});
-    }
 
     // Avatar & Sticky Title Logic
     const mobileAvatar = document.getElementById('mobilePanelAvatar');
@@ -11451,6 +11623,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ds.category = cat && cat !== 'N/A' ? str(cat) : str(lead.category, 'N/A');
     ds.address = str(lead.address, 'N/A');
     ds.city = str(lead.city);
+    ds.state = str(lead.state);
     ds.url = str(lead.url);
     ds.facebook = str(lead.facebook, 'N/A');
     ds.instagram = str(lead.instagram, 'N/A');
