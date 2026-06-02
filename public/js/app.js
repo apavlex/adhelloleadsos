@@ -9410,9 +9410,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function applySelectAllFromHeader(headerEl, forceChecked) {
     const header = headerEl || getSelectAllHeader();
     if (!header) return;
-    const checked = forceChecked != null ? !!forceChecked : !!header.checked;
     const table = header.closest('table') || getActiveLeadsTable();
+    if (!table) return;
+    const checked = forceChecked != null ? !!forceChecked : !!header.checked;
     setPageLeadSelection(checked, table);
+    header.checked = checked;
+    header.indeterminate = false;
   }
   window.__applySelectAllLeads = applySelectAllFromHeader;
 
@@ -9447,16 +9450,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function getLeadCheckboxesForTable(table) {
     if (!table) return getPageLeadCheckboxes();
-    if (table.id === 'prospectLeadsTable') {
-      return Array.from(
-        table.querySelectorAll(
-          'tbody tr.result-row:not(.pipeline-row-page-hidden) input.lead-checkbox, tbody tr.result-row:not(.pipeline-row-page-hidden) input.row-checkbox',
-        ),
-      );
-    }
-    return Array.from(
-      table.querySelectorAll('tbody input.lead-checkbox, tbody input.row-checkbox'),
-    );
+    return getVisibleResultRowsInTable(table)
+      .map((row) => row.querySelector('input.lead-checkbox, input.row-checkbox'))
+      .filter(Boolean);
   }
 
   /** Direct table listener — same pattern as search-results-table.js (avoids lost document bubbling). */
@@ -9476,9 +9472,9 @@ document.addEventListener('DOMContentLoaded', () => {
       syncFromHeader();
     });
 
-    header.addEventListener('click', (e) => {
+    header.addEventListener('input', (e) => {
       e.stopPropagation();
-      queueMicrotask(syncFromHeader);
+      syncFromHeader();
     });
 
     table.addEventListener('change', (e) => {
@@ -9513,8 +9509,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function setPageLeadSelection(checked, tableEl) {
     bulkSelectSyncing = true;
+    const table = tableEl || getActiveLeadsTable();
     try {
-      const table = tableEl || getActiveLeadsTable();
       const boxes = getLeadCheckboxesForTable(table);
       boxes.forEach((cb) => {
         cb.checked = checked;
@@ -9530,7 +9526,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       bulkSelectSyncing = false;
     }
-    syncSelectAllLeadCheckbox();
+    syncSelectAllLeadCheckbox(table);
     updateBulkActionBar();
   }
 
@@ -12280,5 +12276,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.24-panel-snap';
+  window.__ADHELLO_BUILD = '1.0.25-bulk-select';
 });
