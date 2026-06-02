@@ -37,6 +37,7 @@ const assistantRoutes = require('./routes/assistant');
 const outreachRoutes = require('./routes/outreach');
 const prospectingRoutes = require('./routes/prospecting');
 const newsletterRoutes = require('./routes/newsletter');
+const socialPostsRoutes = require('./routes/socialPosts');
 const foldersRoutes = require('./routes/folders');
 const attachWorkspace = require('./middleware/attachWorkspace');
 const socialBrandIcons = require('./services/socialBrandIcons');
@@ -449,6 +450,7 @@ app.use('/resources', resourcesRoutes);
 app.use('/api/assistant', assistantRoutes);
 app.use('/ceo', ceoRoutes);
 app.use('/newsletter', newsletterRoutes);
+app.use('/social-posts', socialPostsRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

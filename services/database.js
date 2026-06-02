@@ -1530,4 +1530,66 @@ module.exports = {
     sqlite.prepare('DELETE FROM chat_messages WHERE session_id = ?').run(sid);
     return true;
   },
+
+  // ── Social Posts ────────────────────────────────────────────────────────────
+
+  async saveSocialPost(post, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const key = `social:post:${wid}:${post.id}`;
+    kvSet(key, JSON.stringify(post));
+    // Also maintain an index
+    const idxKey = `social:posts:${wid}`;
+    const idxRaw = kvGet(idxKey);
+    let idx = [];
+    try { idx = idxRaw ? JSON.parse(idxRaw) : []; } catch { idx = []; }
+    if (!idx.includes(post.id)) {
+      idx.unshift(post.id);
+      kvSet(idxKey, JSON.stringify(idx.slice(0, 200))); // keep last 200
+    }
+    return post.id;
+  },
+
+  async getSocialPosts(workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const idxKey = `social:posts:${wid}`;
+    const idxRaw = kvGet(idxKey);
+    let ids = [];
+    try { ids = idxRaw ? JSON.parse(idxRaw) : []; } catch { ids = []; }
+    const posts = [];
+    for (const id of ids) {
+      const raw = kvGet(`social:post:${wid}:${id}`);
+      if (raw) {
+        try { posts.push(typeof raw === 'string' ? JSON.parse(raw) : raw); } catch { /* skip */ }
+      }
+    }
+    return posts;
+  },
+
+  async deleteSocialPost(postId, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    kvDelete(`social:post:${wid}:${postId}`);
+    const idxKey = `social:posts:${wid}`;
+    const idxRaw = kvGet(idxKey);
+    try {
+      const idx = idxRaw ? JSON.parse(idxRaw) : [];
+      const filtered = idx.filter(id => id !== postId);
+      kvSet(idxKey, JSON.stringify(filtered));
+    } catch { /* ignore */ }
+    return true;
+  },
+
+  async getSocialStyleProfile(workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const raw = kvGet(`social:style:${wid}`);
+    if (!raw) return null;
+    try { return typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { return null; }
+  },
+
+  async updateSocialStyleProfile(workspaceId, update) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const existing = await this.getSocialStyleProfile(wid) || {};
+    const merged = { ...existing, ...update, workspaceId: wid, updatedAt: new Date().toISOString() };
+    kvSet(`social:style:${wid}`, JSON.stringify(merged));
+    return merged;
+  },
 };

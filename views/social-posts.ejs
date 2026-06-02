@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+  <style>
+    .platform-tab { transition: all .15s ease; }
+    .platform-tab.active { background: #d4a017; color: #1a1a2e; font-weight: 800; }
+    .platform-tab:not(.active) { background: transparent; color: #94a3b8; border: 1px solid rgba(148,163,184,.2); }
+    .platform-tab:not(.active):hover { border-color: #d4a017; color: #d4a017; }
+    .post-card { transition: box-shadow .15s ease; }
+    .post-card:hover { box-shadow: 0 4px 24px rgba(212,160,23,.12); }
+    .post-card .edit-area { display: none; }
+    .post-card.editing .edit-area { display: block; }
+    .post-card.editing .preview-area { display: none; }
+    .copy-toast { animation: fadeInOut 2s ease forwards; }
+    @keyframes fadeInOut { 0%{opacity:0;transform:translateY(8px)} 15%{opacity:1;transform:translateY(0)} 85%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-8px)} }
+    .style-tag { font-size: 10px; padding: 2px 8px; border-radius: 9999px; background: rgba(212,160,23,.15); color: #d4a017; font-weight: 700; }
+  </style>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-4 sm:px-6 py-8 md:py-10">
+
+    <!-- Header -->
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Content</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Social Post Ideas</h1>
+        <p class="text-sm text-brand-muted mt-2 max-w-xl">Platform-specific post ideas for your business. Click to copy, edit to match your voice, and save — the more you edit, the better the ideas get.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <input id="nicheInput" type="text" placeholder="Your niche (e.g. HVAC, coffee shop, roofing)"
+          class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 w-56"
+          value="<%= (styleProfile && styleProfile.niche) || '' %>" />
+        <button onclick="regenerateAll()" class="btn-brand-yellow text-sm font-bold px-4 py-2 rounded-xl whitespace-nowrap">
+          Generate Ideas
+        </button>
+      </div>
+    </div>
+
+    <!-- Style Profile Bar -->
+    <div id="styleBar" class="brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 mb-6 flex flex-wrap items-center gap-3">
+      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your Style:</span>
+      <div id="styleTags" class="flex flex-wrap gap-2">
+        <span class="text-xs text-brand-muted italic">Save edited posts to build your style profile...</span>
+      </div>
+      <button onclick="openStyleModal()" class="ml-auto text-xs font-bold text-brand-yellow hover:underline">Edit Style</button>
+    </div>
+
+    <!-- Platform Tabs -->
+    <div class="flex flex-wrap gap-2 mb-6" id="platformTabs">
+      <button class="platform-tab active px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="all">All</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="instagram">Instagram</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="facebook">Facebook</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="linkedin">LinkedIn</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="x">X / Twitter</button>
+      <button class="platform-tab px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-wider" data-platform="tiktok">TikTok</button>
+    </div>
+
+    <!-- Ideas Grid -->
+    <div id="ideasContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+      <div class="col-span-full text-center py-20 text-brand-muted">
+        <p class="text-lg font-bold mb-2">Enter your niche above and click Generate</p>
+        <p class="text-sm">Ideas will appear here for all platforms</p>
+      </div>
+    </div>
+
+    <!-- Saved Posts Section -->
+    <div class="mt-12 mb-4 flex items-center justify-between">
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Saved Posts</h2>
+      <span id="savedCount" class="text-xs text-brand-muted font-bold">0 saved</span>
+    </div>
+    <div id="savedPostsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+      <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">
+        No saved posts yet. Edit and save ideas above to build your library.
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Style Modal -->
+  <div id="styleModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" onclick="closeStyleModal()"></div>
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-lg bg-white dark:bg-slate-900 rounded-2xl border border-brand-border dark:border-white/10 p-6 shadow-2xl">
+      <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-4">Style Profile</h3>
+      <p class="text-xs text-brand-muted mb-4">Tell us about your voice. The more you save, the smarter the ideas get.</p>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Niche / Business Type</label>
+          <input id="styleNiche" type="text" placeholder="e.g. HVAC, coffee shop, roofing" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white" value="<%= (styleProfile && styleProfile.niche) || '' %>" />
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Tone</label>
+          <select id="styleTone" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white">
+            <option value="">Select tone...</option>
+            <option value="professional">Professional</option>
+            <option value="casual">Casual & Friendly</option>
+            <option value="bold">Bold & Direct</option>
+            <option value="educational">Educational</option>
+            <option value="storyteller">Storyteller</option>
+            <option value="humorous">Humorous</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Go-to Hooks (comma-separated)</label>
+          <textarea id="styleHooks" rows="2" placeholder="e.g. Most owners don't realize, Here's what happened when, The #1 reason" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50"></textarea>
+        </div>
+        <div>
+          <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Go-to CTAs (comma-separated)</label>
+          <textarea id="styleCtas" rows="2" placeholder="e.g. Link in bio, Comment below, DM us" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-3 mt-6">
+        <button onclick="closeStyleModal()" class="text-sm font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-4 py-2">Cancel</button>
+        <button onclick="saveStyle()" class="btn-brand-yellow text-sm font-bold px-5 py-2 rounded-xl">Save Style</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Copy Toast -->
+  <div id="copyToast" class="fixed bottom-6 right-6 z-50 hidden">
+    <div class="copy-toast bg-brand-dark dark:bg-white text-white dark:text-brand-dark text-sm font-bold px-5 py-3 rounded-xl shadow-2xl">
+      Copied to clipboard
+    </div>
+  </div>
+
+  <%- include('/partials/app_shell_close') %>
+
+  <script>
+    // ── State ──────────────────────────────────────────────────────────────────
+    let currentPlatform = 'all';
+    let allIdeas = {};
+    let savedPosts = [];
+    let styleProfile = <%- JSON.stringify(styleProfile || {}) %>;
+
+    // ── Init ───────────────────────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', () => {
+      renderStyleTags();
+      // Load saved posts
+      fetch('/social-posts/api/saved?workspaceId=default')
+        .then(r => r.json())
+        .then(data => {
+          if (data.success && data.posts) {
+            savedPosts = data.posts;
+            renderSavedPosts();
+          }
+        })
+        .catch(() => {});
+    });
+
+    // ── Platform Tabs ──────────────────────────────────────────────────────────
+    document.querySelectorAll('.platform-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentPlatform = tab.dataset.platform;
+        renderIdeas();
+      });
+    });
+
+    // ── Generate Ideas ─────────────────────────────────────────────────────────
+    async function regenerateAll() {
+      const niche = document.getElementById('nicheInput').value.trim() || 'home service business';
+      const container = document.getElementById('ideasContainer');
+      container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating ideas...</p></div>';
+
+      try {
+        const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
+        const data = await res.json();
+        if (data.success) {
+          allIdeas = data.ideas;
+          renderIdeas();
+        } else {
+          container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed to generate') + '</p></div>';
+        }
+      } catch (err) {
+        container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error. Try again.</p></div>';
+      }
+    }
+
+    // ── Render Ideas ────────────────────────────────────────────────────────────
+    function renderIdeas() {
+      const container = document.getElementById('ideasContainer');
+      container.innerHTML = '';
+
+      const platforms = currentPlatform === 'all'
+        ? Object.keys(allIdeas)
+        : [currentPlatform];
+
+      let totalCards = 0;
+      for (const platform of platforms) {
+        const ideas = allIdeas[platform] || [];
+        for (const idea of ideas) {
+          totalCards++;
+          const card = createIdeaCard(idea, platform);
+          container.appendChild(card);
+        }
+      }
+
+      if (totalCards === 0) {
+        container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas yet</p><p class="text-sm">Enter your niche and click Generate</p></div>';
+      }
+    }
+
+    function createIdeaCard(idea, platform) {
+      const div = document.createElement('div');
+      div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
+      div.dataset.ideaId = idea.id;
+      div.dataset.platform = platform;
+
+      const platformLabels = { instagram: 'Instagram', facebook: 'Facebook', linkedIn: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
+      const platformColors = { instagram: '#E1306C', facebook: '#1877F2', linkedIn: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
+
+      div.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+          <span class="text-[10px] font-black uppercase tracking-widest" style="color:${platformColors[platform] || '#94a3b8'}">${platformLabels[platform] || platform}</span>
+          <div class="flex gap-2">
+            <button onclick="copyIdea('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow transition-colors" title="Copy">Copy</button>
+            <button onclick="toggleEdit('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow transition-colors" title="Edit">Edit</button>
+          </div>
+        </div>
+        <div class="preview-area">
+          <p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(idea.hook)}</p>
+          ${idea.cta ? `<p class="text-xs text-brand-muted mt-2 italic">CTA: ${escapeHtml(idea.cta)}</p>` : ''}
+        </div>
+        <div class="edit-area mt-3">
+          <textarea class="edit-content w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white min-h-[100px] resize-y">${escapeHtml(idea.hook)}</textarea>
+          <textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA (optional)">${escapeHtml(idea.cta || '')}</textarea>
+          <div class="flex gap-2 mt-3">
+            <button onclick="saveIdea('${idea.id.replace(/'/g, "\\'")}')" class="btn-brand-yellow text-xs font-bold px-4 py-1.5 rounded-lg">Save</button>
+            <button onclick="cancelEdit('${idea.id.replace(/'/g, "\\'")}')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button>
+          </div>
+        </div>
+      `;
+      return div;
+    }
+
+    // ── Copy ────────────────────────────────────────────────────────────────────
+    function copyIdea(ideaId) {
+      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
+      if (!card) return;
+      const preview = card.querySelector('.preview-area');
+      const text = preview ? preview.querySelector('p').textContent : '';
+      navigator.clipboard.writeText(text).then(() => showCopyToast());
+    }
+
+    function showCopyToast() {
+      const toast = document.getElementById('copyToast');
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 2000);
+    }
+
+    // ── Edit / Save ─────────────────────────────────────────────────────────────
+    function toggleEdit(ideaId) {
+      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
+      if (card) card.classList.add('editing');
+    }
+
+    function cancelEdit(ideaId) {
+      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
+      if (card) card.classList.remove('editing');
+    }
+
+    async function saveIdea(ideaId) {
+      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
+      if (!card) return;
+      const content = card.querySelector('.edit-content').value.trim();
+      const cta = card.querySelector('.edit-cta').value.trim();
+      const platform = card.dataset.platform;
+      const niche = document.getElementById('nicheInput').value.trim();
+
+      if (!content) return;
+
+      try {
+        const res = await fetch('/social-posts/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform, content, cta, niche, workspaceId: 'default' }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          // Update the preview
+          card.querySelector('.preview-area p').textContent = content;
+          const ctaEl = card.querySelector('.preview-area .text-xs');
+          if (cta) {
+            if (ctaEl) ctaEl.textContent = 'CTA: ' + cta;
+            else {
+              const p = document.createElement('p');
+              p.className = 'text-xs text-brand-muted mt-2 italic';
+              p.textContent = 'CTA: ' + cta;
+              card.querySelector('.preview-area').appendChild(p);
+            }
+          } else if (ctaEl) ctaEl.remove();
+
+          card.classList.remove('editing');
+          showCopyToast();
+          // Reload saved posts
+          loadSavedPosts();
+        }
+      } catch (err) {
+        alert('Could not save. Try again.');
+      }
+    }
+
+    // ── Saved Posts ─────────────────────────────────────────────────────────────
+    async function loadSavedPosts() {
+      try {
+        const res = await fetch('/social-posts/api/saved?workspaceId=default');
+        const data = await res.json();
+        if (data.success && data.posts) {
+          savedPosts = data.posts;
+          renderSavedPosts();
+        }
+      } catch (err) { /* ignore */ }
+    }
+
+    function renderSavedPosts() {
+      const container = document.getElementById('savedPostsContainer');
+      const count = document.getElementById('savedCount');
+      count.textContent = savedPosts.length + ' saved';
+
+      if (savedPosts.length === 0) {
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No saved posts yet. Edit and save ideas above to build your library.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      for (const post of savedPosts) {
+        const div = document.createElement('div');
+        div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
+        div.dataset.postId = post.id;
+        const date = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '';
+        div.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">${post.platform}</span>
+            <div class="flex gap-2 items-center">
+              <span class="text-[10px] text-brand-muted">${date}</span>
+              <button onclick="copySaved('${post.id}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
+              <button onclick="deleteSaved('${post.id}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
+            </div>
+          </div>
+          <p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(post.content)}</p>
+          ${post.cta ? `<p class="text-xs text-brand-muted mt-2 italic">CTA: ${escapeHtml(post.cta)}</p>` : ''}
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    function copySaved(postId) {
+      const post = savedPosts.find(p => p.id === postId);
+      if (post) {
+        navigator.clipboard.writeText(post.content).then(() => showCopyToast());
+      }
+    }
+
+    async function deleteSaved(postId) {
+      if (!confirm('Delete this saved post?')) return;
+      try {
+        const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          savedPosts = savedPosts.filter(p => p.id !== postId);
+          renderSavedPosts();
+        }
+      } catch (err) { alert('Could not delete.'); }
+    }
+
+    // ── Style Profile ───────────────────────────────────────────────────────────
+    function openStyleModal() {
+      document.getElementById('styleModal').classList.remove('hidden');
+      if (styleProfile) {
+        document.getElementById('styleNiche').value = styleProfile.niche || '';
+        document.getElementById('styleTone').value = styleProfile.tone || '';
+        document.getElementById('styleHooks').value = (styleProfile.hooks || []).join(', ');
+        document.getElementById('styleCtas').value = (styleProfile.ctas || []).join(', ');
+      }
+    }
+
+    function closeStyleModal() {
+      document.getElementById('styleModal').classList.add('hidden');
+    }
+
+    async function saveStyle() {
+      const profile = {
+        niche: document.getElementById('styleNiche').value.trim(),
+        tone: document.getElementById('styleTone').value,
+        hooks: document.getElementById('styleHooks').value.split(',').map(s => s.trim()).filter(Boolean),
+        ctas: document.getElementById('styleCtas').value.split(',').map(s => s.trim()).filter(Boolean),
+        workspaceId: 'default',
+      };
+      try {
+        const res = await fetch('/social-posts/api/save-style', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(profile),
+        });
+        const data = await res.json();
+        if (data.success) {
+          styleProfile = { ...styleProfile, ...profile };
+          renderStyleTags();
+          closeStyleModal();
+        }
+      } catch (err) {
+        alert('Could not save style.');
+      }
+    }
+
+    function renderStyleTags() {
+      const container = document.getElementById('styleTags');
+      const tags = [];
+      if (styleProfile.niche) tags.push('Niche: ' + styleProfile.niche);
+      if (styleProfile.tone) tags.push('Tone: ' + styleProfile.tone);
+      if (styleProfile.hooks && styleProfile.hooks.length) tags.push(styleProfile.hooks.length + ' hooks');
+      if (styleProfile.ctas && styleProfile.ctas.length) tags.push(styleProfile.ctas.length + ' CTAs');
+      if (savedPosts.length) tags.push(savedPosts.length + ' saved posts');
+
+      if (tags.length === 0) {
+        container.innerHTML = '<span class="text-xs text-brand-muted italic">Save edited posts to build your style profile...</span>';
+      } else {
+        container.innerHTML = tags.map(t => '<span class="style-tag">' + escapeHtml(t) + '</span>').join('');
+      }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
