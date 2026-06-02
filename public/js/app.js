@@ -4765,17 +4765,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const addrRow = document.getElementById('headerAddressRow');
     if (addrRow) addrRow.classList.toggle('hidden', !locationLine);
 
-    const mapsLink = getLeadPanelEl('mobilePanelMapsLink');
-    const mapCenter = readPipelineRowMapCenter(tableRow) || address || '';
-    if (mapsLink) {
-      if (mapCenter) {
-        mapsLink.href = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(mapCenter)}`;
-        mapsLink.classList.remove('opacity-20', 'pointer-events-none');
-      } else {
-        mapsLink.href = '#';
-        mapsLink.classList.add('opacity-20', 'pointer-events-none');
-      }
-    }
   }
 
   function applyPanelSnapToRowDataset(row, snap) {
@@ -4820,6 +4809,28 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     return '';
+  }
+
+  function normalizeWebsiteHref(raw) {
+    const w = String(raw || '').trim();
+    if (!w || w === 'N/A' || w === '—' || w.length < 3) return '';
+    if (/^https?:\/\//i.test(w)) return w;
+    return `https://${w.replace(/^\/+/, '')}`;
+  }
+
+  function resolveLeadPanelMapsHref(row, addressOverride) {
+    if (!row || !row.dataset) return '';
+    const address =
+      addressOverride != null && String(addressOverride).trim()
+        ? String(addressOverride).trim()
+        : readPipelineRowDisplayAddress(row);
+    const href = resolveGoogleMapsSocialHref(
+      row.dataset.url,
+      row.dataset.title,
+      address || row.dataset.address,
+      row.dataset.city,
+    );
+    return href || '';
   }
 
   /** Promote phone/email from contacts[] into row dataset when top-level fields are empty. */
@@ -7067,32 +7078,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const websiteShort = getLeadPanelEl('mobilePanelWebsiteShort');
     const websiteLink = getLeadPanelEl('mobilePanelWebsiteLink');
+    const websiteHref = normalizeWebsiteHref(website);
     if (websiteShort) {
       try {
-        const w = (website && String(website).trim()) || '';
-        if (!w || w === 'N/A' || w.length < 3) {
+        if (!websiteHref) {
           websiteShort.textContent = 'No website';
         } else {
-          const domain = new URL(w.startsWith('http') ? w : `https://${w}`).hostname.replace('www.', '');
-          websiteShort.textContent = domain && domain.length > 1 ? domain : 'No website';
+          const domain = new URL(websiteHref).hostname.replace(/^www\./i, '');
+          websiteShort.textContent = domain && domain.length > 1 ? domain : 'Website';
         }
       } catch (e) {
-        websiteShort.textContent =
-          website && website !== 'N/A' && String(website).length > 2 ? String(website) : 'No website';
+        websiteShort.textContent = websiteHref ? String(website).slice(0, 32) : 'No website';
       }
     }
     if (websiteLink) {
-      if (website && website !== 'N/A') {
-        websiteLink.href = website.startsWith('http') ? website : `https://${website}`;
-        websiteLink.classList.remove('opacity-20', 'pointer-events-none');
+      websiteLink.target = '_blank';
+      websiteLink.rel = 'noopener noreferrer';
+      if (websiteHref) {
+        websiteLink.href = websiteHref;
+        websiteLink.classList.remove('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        websiteLink.removeAttribute('aria-disabled');
+        websiteLink.onclick = null;
       } else {
         websiteLink.href = '#';
-        websiteLink.classList.add('opacity-20', 'pointer-events-none');
+        websiteLink.classList.add('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        websiteLink.setAttribute('aria-disabled', 'true');
+        websiteLink.onclick = (ev) => {
+          ev.preventDefault();
+        };
       }
     }
 
-    const addressEl = document.getElementById('mobilePanelAddress');
-    if (addressEl) addressEl.textContent = address ? address : 'Location Hidden';
+    const mapsLink = getLeadPanelEl('mobilePanelMapsLink');
+    const mapsHref = resolveLeadPanelMapsHref(row, address);
+    const locationLine = address
+      ? formatLeadPanelAddress(address)
+      : readPipelineRowLocationLine(row);
+    const addressEl = getLeadPanelEl('mobilePanelAddress');
+    if (addressEl) {
+      addressEl.textContent = locationLine || 'Open in Maps';
+    }
+    if (mapsLink) {
+      mapsLink.target = '_blank';
+      mapsLink.rel = 'noopener noreferrer';
+      if (mapsHref) {
+        mapsLink.href = mapsHref;
+        mapsLink.classList.remove('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        mapsLink.removeAttribute('aria-disabled');
+        mapsLink.onclick = null;
+      } else {
+        mapsLink.href = '#';
+        mapsLink.classList.add('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        mapsLink.setAttribute('aria-disabled', 'true');
+        mapsLink.onclick = (ev) => {
+          ev.preventDefault();
+        };
+      }
+    }
   }
 
   // --- Populate panel from row data ---
@@ -12538,5 +12580,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.31-bulk-bar-compact';
+  window.__ADHELLO_BUILD = '1.0.32-panel-outreach-links';
 });
