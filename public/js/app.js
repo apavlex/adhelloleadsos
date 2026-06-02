@@ -2380,6 +2380,7 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error((data && data.error) || 'panel-data unavailable');
       }
       syncPersistedLeadToRowDataset(row, data.lead);
+      prepareLeadRowForPanel(row);
       return data.lead;
     })();
 
@@ -3803,23 +3804,47 @@ document.addEventListener('DOMContentLoaded', () => {
       });
   }
 
+  function assignRowDatasetFieldIfBetter(ds, key, incoming) {
+    if (!ds || !key) return;
+    const next = incoming == null ? '' : String(incoming).trim();
+    if (isEmptyLeadField(next)) return;
+    const cur = ds[key] == null ? '' : String(ds[key]).trim();
+    if (!isEmptyLeadField(cur)) return;
+    ds[key] = next;
+  }
+
+  function assignRowDatasetScoreIfBetter(ds, score, reviews) {
+    if (!ds) return;
+    const incR = parseFloat(score);
+    const incRev = parseInt(reviews, 10);
+    const curR = parseFloat(ds.rating);
+    const curRev = parseInt(ds.reviews, 10);
+    if (Number.isFinite(incR) && incR > 0 && (!Number.isFinite(curR) || curR <= 0)) {
+      ds.rating = String(incR);
+    }
+    if (Number.isFinite(incRev) && incRev > 0 && (!Number.isFinite(curRev) || curRev <= 0)) {
+      ds.reviews = String(incRev);
+    }
+  }
+
   function syncPersistedLeadToRowDataset(row, L) {
     if (!row || !L || typeof L !== 'object') return;
     const ds = row.dataset;
     if (L.title != null) ds.title = L.title;
-    if (L.phone != null) ds.phone = L.phone || 'N/A';
-    if (L.website != null) ds.website = L.website || 'N/A';
-    if (L.email != null) ds.email = L.email || 'N/A';
-    if (L.address != null) ds.address = L.address || 'N/A';
-    if (L.city != null) ds.city = L.city || '';
-    if (L.state != null) ds.state = L.state || '';
-    if (L.categoryName != null) ds.category = L.categoryName || 'N/A';
-    if (L.url != null) ds.url = L.url || '';
-    if (L.facebook != null) ds.facebook = L.facebook || 'N/A';
-    if (L.instagram != null) ds.instagram = L.instagram || 'N/A';
-    if (L.twitter != null) ds.twitter = L.twitter || 'N/A';
-    if (L.totalScore != null) ds.rating = String(L.totalScore);
-    if (L.reviewsCount != null) ds.reviews = String(L.reviewsCount);
+    assignRowDatasetFieldIfBetter(ds, 'phone', L.phone);
+    assignRowDatasetFieldIfBetter(ds, 'website', L.website);
+    assignRowDatasetFieldIfBetter(ds, 'email', L.email);
+    assignRowDatasetFieldIfBetter(ds, 'address', L.address);
+    if (L.city != null && !isEmptyLeadField(L.city)) ds.city = String(L.city).trim();
+    if (L.state != null && !isEmptyLeadField(L.state)) ds.state = String(L.state).trim();
+    if (L.categoryName != null && !isEmptyLeadField(L.categoryName)) {
+      ds.category = String(L.categoryName).trim();
+    }
+    assignRowDatasetFieldIfBetter(ds, 'url', L.url);
+    assignRowDatasetFieldIfBetter(ds, 'facebook', L.facebook);
+    assignRowDatasetFieldIfBetter(ds, 'instagram', L.instagram);
+    assignRowDatasetFieldIfBetter(ds, 'twitter', L.twitter);
+    assignRowDatasetScoreIfBetter(ds, L.totalScore, L.reviewsCount);
     if (L.reviewSnippets != null) {
       ds.reviewSnippets = Array.isArray(L.reviewSnippets)
         ? JSON.stringify(L.reviewSnippets)
@@ -3892,6 +3917,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (L.pageSpeedAuditAt != null) ds.pageSpeedAuditAt = String(L.pageSpeedAuditAt || '');
     if (L.ownerSignal != null) ds.ownerSignal = String(L.ownerSignal || '');
+    coalesceRowDatasetFromContacts(row);
+    hydrateRowDatasetFromTableDom(row);
   }
 
   function parsePageSpeedAuditFromRow(row) {
@@ -4553,6 +4580,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function prepareLeadRowForPanel(row) {
     if (!row || !row.dataset) return;
+    hydrateRowDatasetFromTableDom(row);
     syncRowFromInitialSavedLeads(row);
     coalesceRowDatasetFromContacts(row);
     hydrateRowDatasetFromTableDom(row);
@@ -7036,6 +7064,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     paintActivityTimeline();
+    prepareLeadRowForPanel(row);
+    try {
+      paintLeadPanelFromRow(row);
+    } catch (finalPaintErr) {
+      console.warn('[Lead panel] final row paint failed:', finalPaintErr);
+    }
     if (row.dataset.leadKey) {
       void refreshLeadActivityFromServer(row);
     }
