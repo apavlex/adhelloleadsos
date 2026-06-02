@@ -853,8 +853,12 @@ document.addEventListener('DOMContentLoaded', () => {
   async function openEmailIntelModal(row) {
     const modal = document.getElementById('emailIntelModal');
     const titleEl = document.getElementById('emailIntelTitle');
+    const emailLineEl = document.getElementById('emailIntelEmailLine');
     const aiBody = document.getElementById('emailIntelAiBody');
     const mailtoBtn = document.getElementById('emailIntelMailto');
+    const draftSection = document.getElementById('emailIntelDraftSection');
+    const draftEl = document.getElementById('emailIntelDraft');
+    const copyDraftBtn = document.getElementById('emailIntelCopyDraft');
     if (!modal || !row) return;
 
     modal.classList.remove('hidden');
@@ -866,39 +870,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const emailRaw = (row.dataset.email || '').trim();
     const email = emailRaw && emailRaw !== 'N/A' ? emailRaw : '';
+    if (emailLineEl) emailLineEl.textContent = email || 'No email on file';
 
     wireEmailIntelOfferLinks(email, company);
 
-    const intelRef = { label: '', rationale: '', talkTrack: '' };
+    const intelRef = { label: '', rationale: '', talkTrack: '', draft: '' };
+
+    if (draftSection) draftSection.classList.add('hidden');
+    if (draftEl) draftEl.value = '';
 
     if (mailtoBtn) {
       mailtoBtn.disabled = !email;
       mailtoBtn.onclick = () => {
         if (!email) return;
-        const subj = intelRef.label ? `${intelRef.label} — ${company}` : `Quick idea for ${company}`;
-        const parts = [];
-        if (intelRef.rationale) parts.push(intelRef.rationale);
-        if (intelRef.talkTrack) parts.push(`Suggested opener:\n${intelRef.talkTrack}`);
-        parts.push('Best,');
-        const body = parts.join('\n\n');
+        const subj = intelRef.label
+          ? `${intelRef.label} — ${company}`
+          : `Quick idea for ${company}`;
+        const body = intelRef.draft || [intelRef.rationale, intelRef.talkTrack ? `Suggested opener:\n${intelRef.talkTrack}` : '', 'Best,'].filter(Boolean).join('\n\n');
         window.location.href = `mailto:${email}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+      };
+    }
+
+    if (copyDraftBtn) {
+      copyDraftBtn.onclick = async () => {
+        const text = draftEl && draftEl.value ? draftEl.value : intelRef.draft;
+        if (!text) return;
+        try {
+          await navigator.clipboard.writeText(text);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Email draft copied');
+          }
+        } catch (_) {
+          if (draftEl) {
+            draftEl.focus();
+            draftEl.select();
+          }
+        }
       };
     }
 
     if (aiBody) {
       aiBody.innerHTML =
-        '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Loading AI recommendation…</p>';
+        '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Generating personalized email…</p>';
     }
 
-    const key = row.dataset.leadKey;
+    let key = row.dataset.leadKey ? String(row.dataset.leadKey).trim() : '';
+    try {
+      if (!key && typeof ensureRowHasLeadKey === 'function') {
+        key = await ensureRowHasLeadKey(row);
+      } else if (key) {
+        key = key.startsWith('lead:') ? key : `lead:${key}`;
+      }
+    } catch (err) {
+      if (aiBody) {
+        aiBody.innerHTML = `<p class="text-sm text-rose-600 dark:text-rose-400">${escapeHtmlText(err.message || 'Could not prepare this lead for AI email.')}</p>`;
+      }
+      return;
+    }
+
     if (key && aiBody) {
       try {
-        const res = await fetch(`/leads/${encodeURIComponent(key)}/insights`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({}),
-        });
-        const data = await res.json();
+        const keyParam = encodeURIComponent(key.replace(/^lead:/, ''));
+        const [insightRes, promptRes] = await Promise.all([
+          fetch(`/leads/${keyParam}/insights`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({}),
+          }),
+          fetch(`/leads/${keyParam}/generate-prompt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ preview: true }),
+          }),
+        ]);
+        const data = await insightRes.json().catch(() => ({}));
+        const promptData = await promptRes.json().catch(() => ({}));
+
+        if (promptData.success && promptData.prompt) {
+          intelRef.draft = String(promptData.prompt).trim();
+          if (draftEl) draftEl.value = intelRef.draft;
+          if (draftSection) draftSection.classList.remove('hidden');
+        }
+
         if (data.success) {
           intelRef.label = data.primaryServiceLabel || '';
           intelRef.rationale = data.rationale || '';
@@ -920,6 +973,9 @@ document.addEventListener('DOMContentLoaded', () => {
             html += `<p class="text-[9px] font-bold uppercase tracking-widest text-brand-muted/60 mt-3">Cached insight · ${escapeHtmlText(data.provider || '')}</p>`;
           }
           aiBody.innerHTML = html;
+        } else if (intelRef.draft) {
+          aiBody.innerHTML =
+            '<p class="text-sm text-brand-muted dark:text-slate-400">AI draft is ready below. Review and send when it looks good.</p>';
         } else {
           aiBody.innerHTML =
             '<p class="text-sm text-brand-muted dark:text-slate-500">No AI insight yet. Set <code class="text-[10px] bg-brand-cream dark:bg-slate-800 px-1 rounded">OPENROUTER_API_KEY</code>, or open the lead detail panel after enrich.</p>';
@@ -935,6 +991,7 @@ document.addEventListener('DOMContentLoaded', () => {
         '<p class="text-sm text-brand-muted dark:text-slate-500">Save this lead to unlock AI recommendations.</p>';
     }
   }
+  window.__openEmailIntelModal = openEmailIntelModal;
 
   document.addEventListener('click', (e) => {
     const intelBtn = e.target.closest('.email-intel-btn');
@@ -959,32 +1016,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (wr && !wr.classList.contains('hidden') && typeof closeWarRoomModal === 'function') closeWarRoomModal();
   });
 
-  // Quick outreach logic (results / panel — not leads table email-intel)
+  // Quick outreach — open AI personalized email popup
   document.addEventListener('click', (e) => {
     const outreachBtn = e.target.closest('.quick-outreach-btn');
     if (outreachBtn) {
-      const email = outreachBtn.dataset.email;
-      const company = outreachBtn.dataset.company;
-      
-      const templates = [
-        {
-          name: 'Free AI Site Audit',
-          subject: `${company}: Your AI Search Readiness Report`,
-          body: `Hi there at ${company},\n\nI just ran a quick AI scan of your online presence and noticed some opportunities to improve your visibility in AI Search (ChatGPT, Perplexity, and Google AI Overviews).\n\nI'd love to help you bridge this gap. You can run a full, live audit of your website here to see exactly what improvements are needed:\nhttps://adhello.ai/#site-audit\n\nWould you be open to a 5-minute chat about the results?\n\nBest regards.`
-        },
-        {
-          name: 'Social Media Growth',
-          subject: `${company}: Social Media Visibility Opportunity`,
-          body: `Hi team at ${company},\n\nI was looking at your business profile and noticed you're doing great work! However, you might not be fully capturing leads from Instagram and Facebook yet.\n\nOur AI systems can automate your growth and drive 20% more calls. Check out how we do it here:\nhttps://adhello.ai\n\nAre you open to a brief chat this week?\n\nBest regards.`
-        }
-      ];
-
-      // Simple prompt for now - could be a modal
-      const choice = confirm(`Choose a template for ${company}:\n\nOK: Free AI Site Audit (Recommended)\nCancel: Social Media Growth`);
-      const template = choice ? templates[0] : templates[1];
-      
-      const mailtoUrl = `mailto:${email}?subject=${encodeURIComponent(template.subject)}&body=${encodeURIComponent(template.body)}`;
-      window.location.href = mailtoUrl;
+      e.preventDefault();
+      e.stopPropagation();
+      const row = outreachBtn.closest('.result-row');
+      if (row) openEmailIntelModal(row);
     }
   });
 
@@ -6011,6 +6050,7 @@ document.addEventListener('DOMContentLoaded', () => {
       element.appendChild(star);
     }
   }
+  window.__renderStarsInElement = renderStarsInElement;
 
   function renderStars(
     rating,

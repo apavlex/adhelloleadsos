@@ -48,6 +48,19 @@
     return bar;
   }
 
+  function renderSearchResultStars() {
+    const renderFn =
+      typeof window.__renderStarsInElement === 'function' ? window.__renderStarsInElement : null;
+    if (!renderFn) return;
+    document.querySelectorAll('#searchResultsLeadsTable tr.result-row').forEach((row) => {
+      const starContainer = row.querySelector('.row-stars');
+      if (!starContainer) return;
+      const rating = parseFloat(row.dataset.rating) || 0;
+      renderFn(starContainer, rating, 'w-3.5 h-3.5');
+    });
+  }
+  window.__renderSearchResultStars = renderSearchResultStars;
+
   function countCheckedRows(table) {
     const tbody = table.querySelector('tbody');
     if (!tbody) return 0;
@@ -576,6 +589,7 @@
     });
 
     syncHeaderFromRows();
+    renderSearchResultStars();
   }
 
   if (document.readyState === 'loading') {

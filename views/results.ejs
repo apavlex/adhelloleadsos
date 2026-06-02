@@ -152,7 +152,7 @@
                   <td class="px-6 py-5">
                     <% if (place.totalScore) { %>
                       <div class="flex flex-col items-start gap-1 min-w-[4.5rem]">
-                        <div class="row-stars flex items-center gap-0.5"></div>
+                        <div class="row-stars flex items-center gap-0.5" aria-label="Rating <%= Number(place.totalScore).toFixed(1) %> out of 5"></div>
                         <div class="flex flex-col gap-0.5">
                           <span class="text-xs font-black tabular-nums text-brand-dark dark:text-slate-100 leading-none"><%= Number(place.totalScore).toFixed(1) %></span>
                           <span class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-snug"><%= place.reviewsCount || 0 %> reviews</span>
@@ -185,8 +185,8 @@
                   <td class="px-6 py-5 text-right">
                    <div class="flex items-center justify-end gap-2">
                        <% if (place.email && place.email !== 'N/A') { %>
-                        <button class="quick-outreach-btn w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all" 
-                          data-email="<%= place.email %>" data-company="<%= place.title %>" title="Quick Email Outreach">
+                        <button type="button" class="quick-outreach-btn w-8 h-8 rounded-lg bg-brand-yellow/10 text-brand-yellow border border-brand-yellow/20 flex items-center justify-center hover:bg-brand-yellow hover:text-brand-dark transition-all"
+                          data-email="<%= place.email %>" data-company="<%= place.title %>" title="AI personalized email">
                           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
                         </button>
                       <% } %>
@@ -224,6 +224,7 @@
 
   <% if (results.length > 0) { %>
   <%- include('partials/bulk_action_bar', { bulkBarMode: 'search' }) %>
+  <%- include('partials/email_intel_modal') %>
   <% } %>
 
 

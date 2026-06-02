@@ -2078,10 +2078,13 @@ router.post('/:key/generate-prompt', async (req, res, next) => {
     }
 
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
-    await dbService.updateLead(fullKey, {
-      ...contactedPatch,
-      outreachPrompt: prompt,
-    });
+    const preview = !!(req.body && req.body.preview);
+    if (!preview) {
+      await dbService.updateLead(fullKey, {
+        ...contactedPatch,
+        outreachPrompt: prompt,
+      });
+    }
     res.json({ success: true, prompt, llm });
   } catch (err) {
     next(err);
