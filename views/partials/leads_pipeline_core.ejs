@@ -102,7 +102,7 @@
       </div>
       <div class="relative js-pipeline-columns-wrap">
         <button type="button" id="pipelineColumnsBtn" class="inline-flex items-center gap-2 rounded-full border border-brand-border/40 dark:border-white/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/40 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="pipelineColumnsPopover">Columns</button>
-        <div id="pipelineColumnsPopover" class="pipeline-columns-popover hidden fixed z-[10000] w-[min(100vw-2rem,17rem)] rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl p-4" role="dialog" aria-label="Choose pipeline columns">
+        <div id="pipelineColumnsPopover" class="pipeline-columns-popover brand-card hidden fixed z-[10000] w-[min(100vw-2rem,17rem)] rounded-2xl border border-brand-border/40 dark:border-white/10 shadow-xl p-4" role="dialog" aria-label="Choose pipeline columns">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-3">Visible columns</p>
           <div id="pipelineColumnsCheckboxes" class="space-y-2 max-h-[min(70vh,22rem)] overflow-y-auto custom-scrollbar text-sm"></div>
           <button type="button" id="pipelineColumnsResetWidths" class="mt-4 w-full text-center text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Reset column widths</button>
@@ -494,6 +494,7 @@
                     <button type="button" class="ai-analysis-btn w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30 flex items-center justify-center hover:bg-sky-500/20 transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" title="Hunt for more contact data" aria-label="Hunt for more contact data">
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
                     </button>
+                    <%- include('quick_outreach_btn') %>
                    <button type="button" class="view-detail-btn w-8 h-8 rounded-lg hover:bg-brand-yellow/10 text-brand-muted dark:text-slate-400 hover:text-brand-yellow dark:hover:text-brand-yellow transition-all flex items-center justify-center border border-transparent hover:border-brand-yellow/20" title="Open lead details" aria-label="Open lead details">
                       <span class="sr-only">Details</span>
                       <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 5l7 7-7 7M5 5l7 7-7 7" /></svg>

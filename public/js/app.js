@@ -888,6 +888,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const copyDraftBtn = document.getElementById('emailIntelCopyDraft');
     if (!modal || !row) return;
 
+    if (modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
+    }
+
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
@@ -1441,7 +1445,6 @@ document.addEventListener('DOMContentLoaded', () => {
     workspaceData: null,
     workspaceLoading: null,
   };
-  let leadPanelSellingScriptSyncGen = 0;
   if (!window.__leadOutreachChannel) window.__leadOutreachChannel = 'call';
 
   function seedLeadOutreachScriptsCacheFromEmbedded(row) {
@@ -1619,6 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     scriptEl.textContent = formatSellingScriptForChannel(raw, channel, row);
+    resetLeadPanelSellHint();
   }
 
   function refreshLeadPanelSellingScript(row, opts) {
@@ -1731,25 +1735,77 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  const LEAD_PANEL_SELL_HINT_DEFAULT =
+    'Pick any service, or leave blank for AI recommendation. Scripts load from your library when you pick Call, Text, Voicemail, or Email.';
+
+  function resetLeadPanelSellHint() {
+    const hint = document.getElementById('mobilePanelAuditSellHint');
+    const sel = document.getElementById('leadPanelPrimaryServiceSelect');
+    if (!hint) return;
+    const aiMode = sel && !String(sel.value || '').trim();
+    if (aiMode && currentRow) {
+      const data = getActiveOutreachScriptsData(currentRow);
+      const serviceKey = data ? resolveLeadPanelServiceKey(currentRow, data) : '';
+      const svc = serviceKey && data && data.library ? data.library[serviceKey] : null;
+      if (svc && svc.label) {
+        hint.textContent = `AI recommends ${svc.label}. Scripts load from your library for Call, Text, Voicemail, or Email.`;
+        return;
+      }
+    }
+    hint.textContent = LEAD_PANEL_SELL_HINT_DEFAULT;
+  }
+
+  async function fetchKieInsightForLead(row) {
+    const key = normalizeLeadKeyForScriptsFetch(row && row.dataset ? row.dataset.leadKey : '');
+    if (!key) return null;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/insights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success && data.primaryServiceKey && row.dataset) {
+        row.dataset.primaryServiceKey = String(data.primaryServiceKey);
+        return data;
+      }
+    } catch (_) {
+      /* ignore — fall back to library default */
+    }
+    return null;
+  }
+
   async function syncLeadPanelSellingScript(row, opts) {
     const scriptEl = document.getElementById('leadPanelSellingScript');
     if (!scriptEl || !row) return;
-    const gen = ++leadPanelSellingScriptSyncGen;
     syncLeadOutreachChannelButtons();
-    if (!(opts && opts.skipLoading)) {
-      scriptEl.textContent = 'Loading script…';
+
+    const sel = document.getElementById('leadPanelPrimaryServiceSelect');
+    const aiMode = sel && !String(sel.value || '').trim();
+    const showLoading = !(opts && opts.skipLoading);
+
+    if (showLoading) scriptEl.textContent = 'Loading script…';
+
+    if (aiMode && normalizeLeadKeyForScriptsFetch(row.dataset ? row.dataset.leadKey : '')) {
+      await fetchKieInsightForLead(row);
     }
+
+    if (row !== currentRow) return;
+
     try {
       const data = await fetchLeadOutreachScripts(row);
-      if (gen !== leadPanelSellingScriptSyncGen) return;
-      if (!data) {
+      if (row !== currentRow) return;
+      if (!data || !outreachLibraryHasScripts(data.library)) {
         scriptEl.textContent = 'Add scripts in Sales → Script library to use this panel.';
+        resetLeadPanelSellHint();
         return;
       }
       applyLeadPanelSellingScriptFromData(row, data);
+      resetLeadPanelSellHint();
     } catch (e) {
-      if (gen !== leadPanelSellingScriptSyncGen) return;
+      if (row !== currentRow) return;
       scriptEl.textContent = (e && e.message) || 'Could not load script.';
+      resetLeadPanelSellHint();
     }
   }
 
@@ -1828,6 +1884,63 @@ document.addEventListener('DOMContentLoaded', () => {
       openLeadPanelOutreach();
     }
   }
+
+  const LEAD_PANEL_CADENCE_PLAYBOOK_COLLAPSED_KEY = 'adhelloLeadPanelCadencePlaybookCollapsed';
+
+  function openLeadPanelCadencePlaybook() {
+    const drawer = document.getElementById('leadPanelCadencePlaybookDrawer');
+    const btn = document.getElementById('leadPanelCadencePlaybookToggle');
+    const ch = document.getElementById('leadPanelCadencePlaybookChevron');
+    if (drawer) drawer.classList.add('lead-panel-cadence-playbook-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (ch) {
+      ch.classList.remove('rotate-180');
+      ch.style.transform = '';
+    }
+    try {
+      sessionStorage.setItem(LEAD_PANEL_CADENCE_PLAYBOOK_COLLAPSED_KEY, '0');
+    } catch (_) { /* ignore */ }
+  }
+
+  function closeLeadPanelCadencePlaybook() {
+    const drawer = document.getElementById('leadPanelCadencePlaybookDrawer');
+    const btn = document.getElementById('leadPanelCadencePlaybookToggle');
+    const ch = document.getElementById('leadPanelCadencePlaybookChevron');
+    if (drawer) drawer.classList.remove('lead-panel-cadence-playbook-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (ch) {
+      ch.classList.add('rotate-180');
+      ch.style.transform = '';
+    }
+    try {
+      sessionStorage.setItem(LEAD_PANEL_CADENCE_PLAYBOOK_COLLAPSED_KEY, '1');
+    } catch (_) { /* ignore */ }
+  }
+
+  function toggleLeadPanelCadencePlaybook() {
+    const drawer = document.getElementById('leadPanelCadencePlaybookDrawer');
+    if (!drawer) return;
+    if (drawer.classList.contains('lead-panel-cadence-playbook-drawer--open')) {
+      closeLeadPanelCadencePlaybook();
+    } else {
+      openLeadPanelCadencePlaybook();
+    }
+  }
+
+  function restoreLeadPanelCadencePlaybookCollapsedState() {
+    if (!document.getElementById('leadPanelCadencePlaybookDrawer')) return;
+    try {
+      if (sessionStorage.getItem(LEAD_PANEL_CADENCE_PLAYBOOK_COLLAPSED_KEY) === '0') {
+        openLeadPanelCadencePlaybook();
+      } else {
+        closeLeadPanelCadencePlaybook();
+      }
+    } catch (_) {
+      closeLeadPanelCadencePlaybook();
+    }
+  }
+
+  restoreLeadPanelCadencePlaybookCollapsedState();
 
   const LEAD_PANEL_NOTEPAD_COLLAPSED_KEY = 'adhelloLeadPanelNotepadCollapsed';
 
@@ -1955,7 +2068,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__leadActivityFilter = 'notes';
       syncLeadActivityFilterButtons('notes');
       refreshLeadActivityTimeline(row);
-      populatePanel(row);
+      void refreshLeadActivityFromServer(row);
 
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Note saved.', { variant: 'success' });
@@ -2020,11 +2133,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function readRowUpdatesArray(row) {
     if (!row || !row.dataset) return [];
-    try {
-      const parsed = JSON.parse(row.dataset.updates || '[]');
+    const raw = row.dataset.updates;
+    if (!raw || raw === 'undefined') return [];
+    const tryParse = (s) => {
+      const parsed = JSON.parse(s);
       return Array.isArray(parsed) ? parsed : [];
+    };
+    try {
+      return tryParse(raw);
     } catch {
-      return [];
+      try {
+        const el = document.createElement('textarea');
+        el.innerHTML = raw;
+        return tryParse(el.value);
+      } catch {
+        return [];
+      }
     }
   }
 
@@ -2071,6 +2195,26 @@ document.addEventListener('DOMContentLoaded', () => {
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     renderLeadActivityTimeline(row, window.__leadActivityFilter);
     syncLeadActivityFilterButtons(window.__leadActivityFilter);
+  }
+
+  async function refreshLeadActivityFromServer(row) {
+    if (!row) return;
+    const key = String(row.dataset.leadKey || '')
+      .trim()
+      .replace(/^lead:/i, '');
+    if (!key) return;
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/panel-data`, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!data.success || !data.lead || currentRow !== row) return;
+      syncPersistedLeadToRowDataset(row, data.lead);
+      refreshLeadActivityTimeline(row);
+    } catch (err) {
+      console.warn('[Lead panel] activity refresh failed:', err);
+    }
   }
 
   async function applyLeadPanelQuickLogTag(tag) {
@@ -3042,6 +3186,12 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    if (e.target.closest('#leadPanelCadencePlaybookToggle')) {
+      e.preventDefault();
+      toggleLeadPanelCadencePlaybook();
+      return;
+    }
+
     const callAiBtn = e.target.closest('#leadCallAiAnalyzeBtn');
     if (callAiBtn) {
       e.preventDefault();
@@ -3178,15 +3328,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const openerWrap = document.getElementById('mobilePanelAuditOpenerWrap');
     const openerEl = document.getElementById('mobilePanelAuditOpener');
     const serviceSel = document.getElementById('leadPanelPrimaryServiceSelect');
-    const manualKey = String(
-      (serviceSel && serviceSel.value) || row.dataset.primaryServiceKey || '',
-    ).trim();
+    const manualKey = String((serviceSel && serviceSel.value) || '').trim();
     const offers = Array.isArray(window.ADHELLO_SERVICE_OFFERS) ? window.ADHELLO_SERVICE_OFFERS : [];
-    const picked = offers.find((o) => o && String(o.key) === manualKey);
+    const picked = manualKey ? offers.find((o) => o && String(o.key) === manualKey) : null;
     if (picked) {
       applyLeadPanelSellingScriptNow(row);
     }
-    if (!auditStatus) return;
+    if (!auditStatus) {
+      if (!picked) syncLeadPanelSellingScript(row, { skipLoading: true }).catch(() => {});
+      return;
+    }
 
     const heuristic = auditSummary
       ? auditSummary.textContent
@@ -3248,7 +3399,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (auditSummary) auditSummary.textContent = data.rationale || heuristic;
         if (data.primaryServiceKey && row.dataset) {
           row.dataset.primaryServiceKey = String(data.primaryServiceKey);
-          syncLeadPrimaryServiceSelect(row);
+          if (serviceSel && !String(serviceSel.value || '').trim()) {
+            /* Keep dropdown on “Let AI recommend” — key lives on row for script resolution */
+          } else {
+            syncLeadPrimaryServiceSelect(row);
+          }
         }
         syncLeadPanelSellingScript(row).catch(() => {});
         if (openerWrap && openerEl) {
@@ -3483,7 +3638,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.competitorName != null) ds.competitorName = L.competitorName;
     if (L.competitorGap != null) ds.competitorGap = L.competitorGap;
     if (L.competitorMetaBenchmark != null) ds.competitorMetaBenchmark = L.competitorMetaBenchmark;
-    if (L.updates) applyServerUpdatesToRow(row, L.updates);
+    if (Array.isArray(L.updates)) {
+      applyServerUpdatesToRow(row, L.updates);
+    }
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
     if (L.ownerFirstName != null) ds.ownerFirstName = String(L.ownerFirstName || '');
     if (L.doNotCall !== undefined) ds.doNotCall = L.doNotCall ? '1' : '';
@@ -4539,12 +4696,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return String(entry.text || '').trim();
   }
 
+  function activityEntryTextFromRaw(u) {
+    if (!u || typeof u !== 'object') return '';
+    if (u.value != null && String(u.value).trim()) return String(u.value);
+    if (u.content != null && String(u.content).trim()) return String(u.content);
+    if (u.message != null && String(u.message).trim()) return String(u.message);
+    if (u.note != null && String(u.note).trim()) return String(u.note);
+    return '';
+  }
+
   function mergeActivityEntries(row) {
     const out = [];
     const updates = readRowUpdatesArray(row);
     (Array.isArray(updates) ? updates : []).forEach((u) => {
-      const ts = u.timestamp || u.ts || '';
-      const val = u.value != null ? String(u.value) : '';
+      const ts = u.timestamp || u.ts || u.createdAt || '';
+      const val = activityEntryTextFromRaw(u);
       const typ = String(u.type || 'update');
       out.push({ ts, typ, text: val, raw: u });
     });
@@ -4600,7 +4766,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typ === 'quick_log') return false;
     if (isQuickLogMirroredNote(entry)) return false;
     if (raw.source === 'panel_post' || raw.manual === true) return true;
-    return typ === 'note' || typ === 'user_note' || typ === 'post';
+    return ['note', 'user_note', 'post', 'comment', 'manual_note'].includes(typ);
   }
 
   function activityEntryMatchesFilter(entry, filter) {
@@ -4642,8 +4808,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const f = String(filter || window.__leadActivityFilter || 'all');
     const filtered = entries.filter((e) => activityEntryMatchesFilter(e, f));
     if (!filtered.length) {
-      host.innerHTML =
-        '<div class="pl-10 text-xs text-brand-muted italic">No entries for this filter yet.</div>';
+      const emptyMsg =
+        f === 'notes'
+          ? 'No notes yet. Post one in Quick log below, or switch to All to see calls and pipeline activity.'
+          : f === 'calls'
+            ? 'No call activity logged yet. Use Call, Quick log tags, or switch to All.'
+            : 'No activity yet. Post a note, log a call, or update pipeline status.';
+      host.innerHTML = `<div class="pl-10 text-xs text-brand-muted italic leading-relaxed">${emptyMsg}</div>`;
       const countElEmpty = document.getElementById('activityLogCount');
       if (countElEmpty) {
         countElEmpty.textContent = '';
@@ -6146,7 +6317,6 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('[Lead panel] activity timeline failed:', timelineErr);
       }
     };
-    paintActivityTimeline();
 
     const title = row.dataset.title;
     const phone = readPipelineRowDisplayPhone(row);
@@ -6556,17 +6726,22 @@ document.addEventListener('DOMContentLoaded', () => {
     seedLeadOutreachScriptsCacheFromEmbedded(row);
     if (!applyLeadPanelSellingScriptNow(row)) {
       const scriptEl = document.getElementById('leadPanelSellingScript');
-      if (scriptEl) scriptEl.textContent = 'Loading script…';
+      if (scriptEl) scriptEl.textContent = '';
     }
-    syncLeadPanelSellingScript(row, { skipLoading: true })
-      .then(() => {
-        if (currentRow === row) applyLeadPanelSellingScriptNow(row);
-      })
-      .catch((err) => {
-        console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
-      });
+    syncLeadPanelSellingScript(row, { skipLoading: true }).catch((err) => {
+      console.warn('[Lead panel] syncLeadPanelSellingScript failed:', err);
+      if (currentRow === row) {
+        const el = document.getElementById('leadPanelSellingScript');
+        if (el && !String(el.textContent || '').trim()) {
+          el.textContent = 'Add scripts in Sales → Script library to use this panel.';
+        }
+      }
+    });
 
     paintActivityTimeline();
+    if (row.dataset.leadKey) {
+      void refreshLeadActivityFromServer(row);
+    }
   }
 
   const applyTableStars = () => {
