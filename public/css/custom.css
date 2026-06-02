@@ -745,6 +745,7 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   width: auto;
   max-width: min(calc(100vw - 2rem), 56rem);
   height: auto;
+  pointer-events: auto;
   background: rgba(32, 32, 36, 0.55) !important;
   -webkit-backdrop-filter: saturate(180%) blur(22px);
   backdrop-filter: saturate(180%) blur(22px);

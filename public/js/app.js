@@ -8625,6 +8625,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function getBulkSelectionCount() {
+    const table = getActiveLeadsTable();
+    if (table) {
+      const checked = table.querySelectorAll(
+        'tbody .lead-checkbox:checked, tbody .row-checkbox:checked',
+      ).length;
+      if (checked > 0) return checked;
+    }
+    return selectedKeys.size;
+  }
+
   function setPageLeadSelection(checked) {
     bulkSelectSyncing = true;
     try {
@@ -8651,7 +8662,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const updateBulkActionBar = () => {
     syncSelectedKeysFromDom();
     syncBulkRowHighlights();
-    const count = selectedKeys.size;
+    const count = getBulkSelectionCount();
     const hasSelection = count > 0;
 
     const bar = mountBulkActionBarToBody();
@@ -9306,15 +9317,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__bulkSaveSelectedLeads = bulkSaveSelectedLeads;
 
-  if (bulkSaveBtn) {
+  const isSearchResultsPage = !!document.getElementById('searchResultsLeadsTable');
+  if (bulkSaveBtn && !isSearchResultsPage) {
     bulkSaveBtn.addEventListener('click', () => bulkSaveSelectedLeads(bulkSaveBtn));
   }
   const headerBulkSaveBtn = document.getElementById('headerBulkSaveBtn');
-  if (headerBulkSaveBtn) {
+  if (headerBulkSaveBtn && !isSearchResultsPage) {
     headerBulkSaveBtn.addEventListener('click', () => bulkSaveSelectedLeads(headerBulkSaveBtn));
   }
 
-  if (document.getElementById('searchResultsLeadsTable')) {
+  if (isSearchResultsPage) {
     syncSelectAllLeadCheckbox();
     updateBulkActionBar();
   }

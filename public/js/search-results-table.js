@@ -54,6 +54,158 @@
     return tbody.querySelectorAll('input.lead-checkbox:checked').length;
   }
 
+  function getSelectedFolderKey() {
+    const folderEl = document.getElementById('bulkFolderSelect');
+    const fromBar = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    if (fromBar) return fromBar;
+    return typeof window.SEARCH_TARGET_FOLDER_KEY === 'string'
+      ? window.SEARCH_TARGET_FOLDER_KEY.trim()
+      : '';
+  }
+
+  function getFolderDisplayName(folderKey) {
+    if (!folderKey || !Array.isArray(window.WORKSPACE_FOLDERS)) return '';
+    const match = window.WORKSPACE_FOLDERS.find((f) => f && f.key === folderKey);
+    return match && match.name ? match.name : '';
+  }
+
+  function showBulkSaveFeedback(message, variant) {
+    const el = document.getElementById('bulkSaveFeedback');
+    if (el) {
+      el.textContent = message || '';
+      el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-white/70');
+      if (variant === 'error') el.classList.add('text-rose-300');
+      else if (variant === 'loading') el.classList.add('text-white/70');
+      else el.classList.add('text-emerald-300');
+      if (!message) el.classList.add('hidden');
+    }
+    if (variant === 'error' && typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { variant: 'error', duration: 9000 });
+    } else if (message && variant === 'ok' && typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { duration: 4500 });
+    }
+  }
+
+  let bulkSaveInFlight = false;
+
+  async function bulkSaveSelectedToFolder(triggerBtn) {
+    if (bulkSaveInFlight) return;
+    const table = document.getElementById('searchResultsLeadsTable');
+    if (!table) return;
+
+    const folderKey = getSelectedFolderKey();
+    const checked = Array.from(table.querySelectorAll('tbody input.lead-checkbox:checked'));
+    if (!checked.length) {
+      showBulkSaveFeedback('Select at least one lead.', 'error');
+      return;
+    }
+    if (!folderKey) {
+      showBulkSaveFeedback('Select a folder (or create one) before saving.', 'error');
+      return;
+    }
+
+    const rows = checked
+      .map((cb) => cb.closest('tr.result-row'))
+      .filter(Boolean);
+    const folderName = getFolderDisplayName(folderKey);
+    const saveBtn = triggerBtn || document.getElementById('bulkSaveBtn');
+    const defaultLabel =
+      (saveBtn && saveBtn.getAttribute('data-default-label')) || 'Save to folder';
+
+    bulkSaveInFlight = true;
+    showBulkSaveFeedback(
+      `Saving ${rows.length} lead${rows.length === 1 ? '' : 's'}${folderName ? ` to ${folderName}` : ''}…`,
+      'loading',
+    );
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.setAttribute('aria-busy', 'true');
+      saveBtn.innerHTML =
+        '<span class="inline-flex items-center gap-2"><svg class="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Saving…</span></span>';
+    }
+
+    let savedCount = 0;
+    const leadKeys = [];
+    let succeeded = false;
+
+    try {
+      const folderEl = document.getElementById('bulkFolderSelect');
+      if (folderEl && !folderEl.value) folderEl.value = folderKey;
+
+      for (const row of rows) {
+        let key = String(row.dataset.leadKey || '').trim();
+        if (!key && window.__savedLeadsByTitle) {
+          key = String(window.__savedLeadsByTitle.get(normalizeTitleKey(row.dataset.title)) || '').trim();
+        }
+        if (!key) {
+          const ok = await saveRow(row);
+          if (ok) {
+            key = String(row.dataset.leadKey || '').trim();
+          }
+        }
+        if (key) {
+          savedCount += 1;
+          leadKeys.push(key.startsWith('lead:') ? key : `lead:${key}`);
+          markSaved(row.querySelector('.bookmark-btn'));
+        }
+      }
+
+      const uniqueKeys = [...new Set(leadKeys.filter(Boolean))];
+      if (uniqueKeys.length) {
+        const res = await fetch('/folders/assign-bulk', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: uniqueKeys, folderKey }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `Could not assign folder (HTTP ${res.status})`);
+        }
+      }
+
+      if (savedCount === 0) {
+        throw new Error('No leads were saved. Try again or refresh the page.');
+      }
+
+      const successMsg = folderName
+        ? `Saved ${savedCount} lead${savedCount === 1 ? '' : 's'} to ${folderName}`
+        : `Saved ${savedCount} lead${savedCount === 1 ? '' : 's'}`;
+      showBulkSaveFeedback(successMsg, 'ok');
+      if (saveBtn) {
+        saveBtn.classList.add('bulk-save-btn--success', 'ring-2', 'ring-emerald-300');
+        saveBtn.innerHTML =
+          '<span class="inline-flex items-center gap-2"><svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg><span>Saved!</span></span>';
+      }
+      succeeded = true;
+    } catch (err) {
+      console.error('[search-results-table] bulk save failed:', err);
+      showBulkSaveFeedback(err.message || 'Could not save leads to folder.', 'error');
+      if (saveBtn) {
+        saveBtn.textContent = defaultLabel;
+        saveBtn.classList.remove('bulk-save-btn--success', 'ring-2', 'ring-emerald-300');
+        saveBtn.removeAttribute('aria-busy');
+        saveBtn.disabled = countCheckedRows(table) === 0;
+      }
+    } finally {
+      bulkSaveInFlight = false;
+    }
+
+    if (succeeded) {
+      setTimeout(function () {
+        const btn = document.getElementById('bulkSaveBtn');
+        if (!btn) return;
+        btn.textContent = defaultLabel;
+        btn.classList.remove('bulk-save-btn--success', 'ring-2', 'ring-emerald-300');
+        btn.removeAttribute('aria-busy');
+        btn.disabled = countCheckedRows(table) === 0;
+        showBulkSaveFeedback('', 'ok');
+      }, 3500);
+    }
+  }
+
+  window.__bulkSaveSearchResultsToFolder = bulkSaveSelectedToFolder;
+
   /** Show the floating bulk bar (folder + save) when rows are selected on search results. */
   function syncBulkBar(table) {
     const n = countCheckedRows(table);
@@ -75,7 +227,9 @@
         bar.style.pointerEvents = 'none';
       }
       const saveBtn = document.getElementById('bulkSaveBtn');
-      if (saveBtn) saveBtn.disabled = n === 0;
+      if (saveBtn && saveBtn.getAttribute('aria-busy') !== 'true') {
+        saveBtn.disabled = n === 0;
+      }
     }
 
     const headerBulk = document.getElementById('headerBulkActions');
@@ -136,7 +290,21 @@
       typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '',
     );
 
+    const folderSelect = document.getElementById('bulkFolderSelect');
+    if (folderSelect) {
+      folderSelect.addEventListener('change', function () {
+        const tbl = document.getElementById('searchResultsLeadsTable');
+        if (tbl) syncBulkBar(tbl);
+      });
+    }
+
     bar.addEventListener('click', async (e) => {
+      if (e.target.closest('#bulkSaveBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await bulkSaveSelectedToFolder(document.getElementById('bulkSaveBtn'));
+        return;
+      }
       if (e.target.closest('#bulkFolderNewToggle')) {
         e.preventDefault();
         e.stopPropagation();
@@ -346,6 +514,14 @@
 
     mountBulkBar();
     initBulkBarFolderActions();
+
+    const headerBulkSaveBtn = document.getElementById('headerBulkSaveBtn');
+    if (headerBulkSaveBtn) {
+      headerBulkSaveBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        bulkSaveSelectedToFolder(headerBulkSaveBtn);
+      });
+    }
 
     table.addEventListener('change', (e) => {
       const t = e.target;
