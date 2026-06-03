@@ -1592,4 +1592,71 @@ module.exports = {
     kvSet(`social:style:${wid}`, JSON.stringify(merged));
     return merged;
   },
+
+  // ── Local Content (Clark County / zip.guide) ─────────────────────────────────
+
+  async saveLocalContent(entry, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const id = entry.id || `lc_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const record = {
+      id,
+      title: entry.title || '',
+      summary: entry.summary || '',
+      postIdea: entry.postIdea || '',
+      category: entry.category || 'general',
+      source: entry.source || '',
+      createdAt: entry.createdAt || new Date().toISOString(),
+      workspaceId: wid,
+    };
+    const key = `local:content:${wid}:${id}`;
+    kvSet(key, JSON.stringify(record));
+    // Maintain date-indexed list (YYYY-MM-DD → [id, ...])
+    const dateKey = record.createdAt.slice(0, 10);
+    const idxKey = `local:content:idx:${wid}`;
+    const idxRaw = kvGet(idxKey);
+    let idx = {};
+    try { idx = idxRaw ? JSON.parse(idxRaw) : {}; } catch { idx = {}; }
+    if (!idx[dateKey]) idx[dateKey] = [];
+    if (!idx[dateKey].includes(id)) idx[dateKey].unshift(id);
+    kvSet(idxKey, JSON.stringify(idx));
+    return record;
+  },
+
+  async getLocalContent(workspaceId, limit = 50) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    const idxKey = `local:content:idx:${wid}`;
+    const idxRaw = kvGet(idxKey);
+    let idx = {};
+    try { idx = idxRaw ? JSON.parse(idxRaw) : {}; } catch { idx = {}; }
+    // Flatten all IDs, most recent date first
+    const dates = Object.keys(idx).sort().reverse();
+    const results = [];
+    for (const date of dates) {
+      for (const id of (idx[date] || [])) {
+        if (results.length >= limit) break;
+        const raw = kvGet(`local:content:${wid}:${id}`);
+        if (raw) {
+          try { results.push(typeof raw === 'string' ? JSON.parse(raw) : raw); } catch { /* skip */ }
+        }
+      }
+      if (results.length >= limit) break;
+    }
+    return results;
+  },
+
+  async deleteLocalContent(entryId, workspaceId) {
+    const wid = String(workspaceId || 'default').trim() || 'default';
+    kvDelete(`local:content:${wid}:${entryId}`);
+    const idxKey = `local:content:idx:${wid}`;
+    const idxRaw = kvGet(idxKey);
+    try {
+      const idx = idxRaw ? JSON.parse(idxRaw) : {};
+      for (const date of Object.keys(idx)) {
+        idx[date] = (idx[date] || []).filter(id => id !== entryId);
+        if (idx[date].length === 0) delete idx[date];
+      }
+      kvSet(idxKey, JSON.stringify(idx));
+    } catch { /* ignore */ }
+    return true;
+  },
 };

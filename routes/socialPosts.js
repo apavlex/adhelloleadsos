@@ -101,6 +101,54 @@ router.delete('/api/:id', async (req, res, next) => {
   }
 });
 
+// ── Local Content (Clark County / zip.guide daily scout) ───────────────────────
+
+// GET /social-posts/api/local-content — list recent local content items
+router.get('/api/local-content', async (req, res, next) => {
+  try {
+    const wid = String(req.query.workspaceId || req.workspaceId || 'default');
+    const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+    const items = await dbService.getLocalContent(wid, limit);
+    res.json({ success: true, items });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /social-posts/api/local-content — save a local content item (from cron or manual)
+router.post('/api/local-content', express.json({ limit: '4mb' }), async (req, res, next) => {
+  try {
+    const wid = String(req.body.workspaceId || req.workspaceId || 'default');
+    const entry = {
+      id: req.body.id || undefined,
+      title: String(req.body.title || '').trim(),
+      summary: String(req.body.summary || '').trim(),
+      postIdea: String(req.body.postIdea || '').trim(),
+      category: String(req.body.category || 'general').trim(),
+      source: String(req.body.source || '').trim(),
+      createdAt: req.body.createdAt || new Date().toISOString(),
+    };
+    if (!entry.title) {
+      return res.status(400).json({ success: false, error: 'title is required.' });
+    }
+    const saved = await dbService.saveLocalContent(entry, wid);
+    res.json({ success: true, item: saved });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// DELETE /social-posts/api/local-content/:id — remove a local content item
+router.delete('/api/local-content/:id', async (req, res, next) => {
+  try {
+    const wid = String(req.workspaceId || 'default');
+    await dbService.deleteLocalContent(req.params.id, wid);
+    res.json({ success: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // ── SET workspace niche/preset ─────────────────────────────────────────────────
 function extractStyleFromPost(post) {
   const content = post.content || '';

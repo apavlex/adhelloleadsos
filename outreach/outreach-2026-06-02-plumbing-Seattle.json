@@ -1,0 +1,8 @@
+{
+  "date": "2026-06-02",
+  "keyword": "plumbing",
+  "city": "Seattle",
+  "state": "WA",
+  "leads": [],
+  "error": "Search failed: Apify 'Too many outstanding invoices'. No results."
+}

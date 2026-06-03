@@ -1,0 +1,75 @@
+{
+  "date": "2026-06-02",
+  "keyword": "HVAC",
+  "city": "Portland",
+  "state": "OR",
+  "dryRun": false,
+  "total": 5,
+  "leads": [
+    {
+      "title": "AAA Heating & Cooling",
+      "phone": "+15032842173",
+      "email": "N/A",
+      "score": 60,
+      "grade": "C",
+      "leadKey": "lead:1780415775765",
+      "seq": "✅",
+      "draft": {
+        "subject": "AAA Heating & Cooling — free Google audit (Portland)",
+        "body": "Hi AAA Heating & Cooling team,\n\nI've been auditing HVAC businesses in Portland — AAA Heating & Cooling scored 60/100 on our GBP audit.\n\nThe audit shows exactly where you stand vs competitors and 3 quick fixes to get more calls.\n\nI put together a detailed (free) audit that shows your score vs local competitors, what's hurting your ranking, and 3 quick fixes.\n\nNo pitch. Just the audit.\n\nWant me to send it over?\n\n— Alex Pavlenko\nAdHello | Helping HVAC businesses get found in Portland"
+      }
+    },
+    {
+      "title": "Pyramid Heating & Cooling",
+      "phone": "+15037838488",
+      "email": "N/A",
+      "score": 60,
+      "grade": "C",
+      "leadKey": "lead:1780415776260",
+      "seq": "✅",
+      "draft": {
+        "subject": "Pyramid Heating & Cooling — free Google audit (Portland)",
+        "body": "Hi Pyramid Heating & Cooling team,\n\nI've been auditing HVAC businesses in Portland — Pyramid Heating & Cooling scored 60/100 on our GBP audit.\n\nThe audit shows exactly where you stand vs competitors and 3 quick fixes to get more calls.\n\nI put together a detailed (free) audit that shows your score vs local competitors, what's hurting your ranking, and 3 quick fixes.\n\nNo pitch. Just the audit.\n\nWant me to send it over?\n\n— Alex Pavlenko\nAdHello | Helping HVAC businesses get found in Portland"
+      }
+    },
+    {
+      "title": "Jacobs Heating & Air Conditioning, Inc.",
+      "phone": "+15032347331",
+      "email": "info@jacobsheating.com",
+      "score": 60,
+      "grade": "C",
+      "leadKey": "lead:1780415776775",
+      "seq": "✅",
+      "draft": {
+        "subject": "Jacobs Heating & Air Conditioning, Inc. — free Google audit (Portland)",
+        "body": "Hi Jacobs Heating & Air Conditioning, Inc. team,\n\nI've been auditing HVAC businesses in Portland — Jacobs Heating & Air Conditioning, Inc. scored 60/100 on our GBP audit.\n\nThe audit shows exactly where you stand vs competitors and 3 quick fixes to get more calls.\n\nI put together a detailed (free) audit that shows your score vs local competitors, what's hurting your ranking, and 3 quick fixes.\n\nNo pitch. Just the audit.\n\nWant me to send it over?\n\n— Alex Pavlenko\nAdHello | Helping HVAC businesses get found in Portland"
+      }
+    },
+    {
+      "title": "Sunset Heating & Cooling",
+      "phone": "+15035005855",
+      "email": "N/A",
+      "score": 60,
+      "grade": "C",
+      "leadKey": "lead:1780415777309",
+      "seq": "✅",
+      "draft": {
+        "subject": "Sunset Heating & Cooling — free Google audit (Portland)",
+        "body": "Hi Sunset Heating & Cooling team,\n\nI've been auditing HVAC businesses in Portland — Sunset Heating & Cooling scored 60/100 on our GBP audit.\n\nThe audit shows exactly where you stand vs competitors and 3 quick fixes to get more calls.\n\nI put together a detailed (free) audit that shows your score vs local competitors, what's hurting your ranking, and 3 quick fixes.\n\nNo pitch. Just the audit.\n\nWant me to send it over?\n\n— Alex Pavlenko\nAdHello | Helping HVAC businesses get found in Portland"
+      }
+    },
+    {
+      "title": "Efficiency Heating & Cooling",
+      "phone": "+15039086066",
+      "email": "N/A",
+      "score": 60,
+      "grade": "C",
+      "leadKey": "lead:1780415777841",
+      "seq": "✅",
+      "draft": {
+        "subject": "Efficiency Heating & Cooling — free Google audit (Portland)",
+        "body": "Hi Efficiency Heating & Cooling team,\n\nI've been auditing HVAC businesses in Portland — Efficiency Heating & Cooling scored 60/100 on our GBP audit.\n\nThe audit shows exactly where you stand vs competitors and 3 quick fixes to get more calls.\n\nI put together a detailed (free) audit that shows your score vs local competitors, what's hurting your ranking, and 3 quick fixes.\n\nNo pitch. Just the audit.\n\nWant me to send it over?\n\n— Alex Pavlenko\nAdHello | Helping HVAC businesses get found in Portland"
+      }
+    }
+  ]
+}

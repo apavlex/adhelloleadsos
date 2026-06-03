@@ -77,6 +77,20 @@
       </div>
     </div>
 
+    <!-- Clark County / Local Content Section -->
+    <div class="mt-14 mb-4 flex items-center justify-between">
+      <div>
+        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">📍 Clark County Content</h2>
+        <p class="text-xs text-brand-muted mt-1">Daily scout findings for @zipguide — new businesses, local news, trending stories</p>
+      </div>
+      <span id="localCount" class="text-xs text-brand-muted font-bold">0 items</span>
+    </div>
+    <div id="localContentContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+      <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">
+        No content yet. The daily scout will populate this each morning.
+      </div>
+    </div>
+
   </main>
 
   <!-- Style Modal -->
@@ -428,6 +442,98 @@
       div.textContent = str || '';
       return div.innerHTML;
     }
+
+    // ── Local Content (Clark County) ─────────────────────────────────────────────
+    let localContentItems = [];
+
+    async function loadLocalContent() {
+      try {
+        const res = await fetch('/social-posts/api/local-content?workspaceId=default&limit=50');
+        const data = await res.json();
+        if (data.success && data.items) {
+          localContentItems = data.items;
+          renderLocalContent();
+        }
+      } catch (err) { /* ignore */ }
+    }
+
+    function renderLocalContent() {
+      const container = document.getElementById('localContentContainer');
+      const count = document.getElementById('localCount');
+      count.textContent = localContentItems.length + ' items';
+
+      if (localContentItems.length === 0) {
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">No content yet. The daily scout will populate this each morning.</div>';
+        return;
+      }
+
+      container.innerHTML = '';
+      const categoryColors = {
+        'new-business': '#22c55e',
+        'trending': '#f59e0b',
+        'news': '#3b82f6',
+        'event': '#a855f7',
+        'viral': '#ef4444',
+        'general': '#94a3b8',
+      };
+      const categoryLabels = {
+        'new-business': '🆕 New Business',
+        'trending': '🔥 Trending',
+        'news': '📰 News',
+        'event': '🎉 Event',
+        'viral': '💥 Viral',
+        'general': '📍 Local',
+      };
+
+      for (const item of localContentItems) {
+        const div = document.createElement('div');
+        div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
+        div.dataset.itemId = item.id;
+        const catColor = categoryColors[item.category] || categoryColors.general;
+        const catLabel = categoryLabels[item.category] || categoryLabels.general;
+        const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+        div.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-black uppercase tracking-widest" style="color:${catColor}">${catLabel}</span>
+            <div class="flex gap-2 items-center">
+              <span class="text-[10px] text-brand-muted">${date}</span>
+              <button onclick="copyLocalContent('${item.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
+              <button onclick="deleteLocalContent('${item.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
+            </div>
+          </div>
+          <p class="text-sm font-bold text-brand-dark dark:text-white mb-2">${escapeHtml(item.title)}</p>
+          <p class="text-xs text-brand-muted leading-relaxed mb-3">${escapeHtml(item.summary)}</p>
+          <div class="bg-brand-bg/50 dark:bg-slate-800/50 rounded-lg p-3 border border-brand-border/30">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Post Idea</p>
+            <p class="text-xs text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(item.postIdea)}</p>
+          </div>
+          ${item.source ? `<p class="text-[10px] text-brand-muted mt-2 italic">Source: ${escapeHtml(item.source)}</p>` : ''}
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    function copyLocalContent(itemId) {
+      const item = localContentItems.find(i => i.id === itemId);
+      if (!item) return;
+      const text = `${item.title}\n\n${item.summary}\n\nPost Idea: ${item.postIdea}`;
+      navigator.clipboard.writeText(text).then(() => showCopyToast());
+    }
+
+    async function deleteLocalContent(itemId) {
+      if (!confirm('Delete this content item?')) return;
+      try {
+        const res = await fetch('/social-posts/api/local-content/' + encodeURIComponent(itemId), { method: 'DELETE' });
+        const data = await res.json();
+        if (data.success) {
+          localContentItems = localContentItems.filter(i => i.id !== itemId);
+          renderLocalContent();
+        }
+      } catch (err) { alert('Could not delete.'); }
+    }
+
+    // Load local content on page load
+    loadLocalContent();
   </script>
 </body>
 </html>
