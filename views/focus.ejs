@@ -1119,10 +1119,36 @@
         });
     }
 
+    function focusHasAiWebsiteAnalysis(lead) {
+      return !!(lead && lead.hasAiWebsiteAnalysis);
+    }
+
+    function focusEnsureAiWebsiteAnalysis(lead) {
+      var key = focusLeadKeyParam(lead);
+      if (!key) return Promise.reject(new Error('Lead key missing'));
+      if (focusHasAiWebsiteAnalysis(lead)) return Promise.resolve({ analysis: true });
+      var website = lead && lead.website ? String(lead.website).trim() : '';
+      if (!website) {
+        return Promise.reject(
+          new Error('Add a website URL for this lead before generating a hosted audit.'),
+        );
+      }
+      setDeliverablesFeedback('Running AI analysis for hosted audit…');
+      return focusPostJson('/leads/' + encodeURIComponent(key) + '/ai-analysis', {}).then(function (data) {
+        if (lead) {
+          lead.hasAiWebsiteAnalysis = true;
+          if (data && data.ownerSignal) lead.ownerSignal = String(data.ownerSignal).trim();
+        }
+        return data;
+      });
+    }
+
     function focusFetchAuditLink(lead) {
       var key = focusLeadKeyParam(lead);
       if (!key) return Promise.reject(new Error('Lead key missing'));
-      return focusPostJson('/leads/' + encodeURIComponent(key) + '/audit-report-link', {});
+      return focusEnsureAiWebsiteAnalysis(lead).then(function () {
+        return focusPostJson('/leads/' + encodeURIComponent(key) + '/audit-report-link', {});
+      });
     }
 
     function focusFetchAiToolsLink(lead) {
@@ -1163,13 +1189,33 @@
     }
 
     bindFocusDeliverableBtn('focus-hosted-audit-open', function (lead) {
+      var preTab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+      if (preTab) {
+        try {
+          preTab.document.title = 'Website audit';
+          preTab.document.body.innerHTML =
+            '<p style="font-family:system-ui,sans-serif;padding:2rem;color:#334155">Loading hosted audit…</p>';
+        } catch (_) {}
+      }
       setDeliverablesFeedback('Preparing hosted audit…');
       focusFetchAuditLink(lead)
         .then(function (bundle) {
-          window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
+          var url = bundle && bundle.reportUrl ? String(bundle.reportUrl).trim() : '';
+          if (!url) throw new Error('No audit link returned');
+          if (preTab && !preTab.closed) {
+            preTab.opener = null;
+            preTab.location.href = url;
+          } else if (!window.open(url, '_blank', 'noopener,noreferrer')) {
+            throw new Error('Pop-up blocked — allow pop-ups or use Copy audit link.');
+          }
           setDeliverablesFeedback('Hosted audit opened — text them the link.');
         })
         .catch(function (err) {
+          if (preTab && !preTab.closed) {
+            try {
+              preTab.close();
+            } catch (_) {}
+          }
           setDeliverablesFeedback((err && err.message) || 'Could not open hosted audit', true);
         });
     });
