@@ -11601,40 +11601,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Kanban View & Batch Outreach Logic ---
   
-  // View Toggle Logic
-  const showTableViewBtn = document.getElementById('showTableView');
-  const showKanbanViewBtn = document.getElementById('showKanbanView');
-  const tableView = document.getElementById('tableView');
-  const kanbanView = document.getElementById('kanbanView');
-
-  if (showTableViewBtn && showKanbanViewBtn) {
-    const segActive = ['bg-brand-yellow', 'text-brand-dark', 'shadow-sm'];
-    const segInactive = ['text-brand-muted', 'dark:text-slate-400'];
-    showTableViewBtn.addEventListener('click', () => {
-        tableView.classList.remove('hidden');
-        kanbanView.classList.add('hidden');
-        showTableViewBtn.classList.add(...segActive);
-        showTableViewBtn.classList.remove(...segInactive);
-        showKanbanViewBtn.classList.remove(...segActive);
-        showKanbanViewBtn.classList.add(...segInactive);
-    });
-
-    showKanbanViewBtn.addEventListener('click', () => {
-        tableView.classList.add('hidden');
-        kanbanView.classList.remove('hidden');
-        showKanbanViewBtn.classList.add(...segActive);
-        showKanbanViewBtn.classList.remove(...segInactive);
-        showTableViewBtn.classList.remove(...segActive);
-        showTableViewBtn.classList.add(...segInactive);
-        initKanban();
-    });
-  }
-
-  // Initialize Kanban / pipeline boards (Saved Leads uses 10-stage pipeline; Inbound uses legacy status columns)
+  // View toggle + kanban init hook (pipeline-view-toggle.js handles Table/Pipeline clicks)
   function initKanban() {
     const columns = document.querySelectorAll('.kanban-list');
     const allRows = document.querySelectorAll('.result-row');
-    const pipelineMode = kanbanView && kanbanView.dataset && kanbanView.dataset.kanbanMode === 'pipeline';
+    const kanbanViewEl = document.getElementById('kanbanView');
+    const pipelineMode =
+      kanbanViewEl && kanbanViewEl.dataset && kanbanViewEl.dataset.kanbanMode === 'pipeline';
 
     columns.forEach((col) => {
         if (typeof Sortable !== 'undefined' && typeof Sortable.get === 'function') {
@@ -11754,6 +11727,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+  }
+
+  window.__adhelloInitKanban = initKanban;
+  const kanbanViewOnLoad = document.getElementById('kanbanView');
+  if (kanbanViewOnLoad && !kanbanViewOnLoad.classList.contains('hidden')) {
+    initKanban();
   }
 
   function createKanbanCard(row) {
@@ -13043,5 +13022,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.38-ai-tools-open-fix';
+  window.__ADHELLO_BUILD = '1.0.39-pipeline-view-toggle';
 });
