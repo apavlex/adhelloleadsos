@@ -15,6 +15,15 @@
     .copy-toast { animation: fadeInOut 2s ease forwards; }
     @keyframes fadeInOut { 0%{opacity:0;transform:translateY(8px)} 15%{opacity:1;transform:translateY(0)} 85%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-8px)} }
     .style-tag { font-size: 10px; padding: 2px 8px; border-radius: 9999px; background: rgba(212,160,23,.15); color: #d4a017; font-weight: 700; }
+    .action-btn { transition: all .15s ease; }
+    .action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(212,160,23,.2); }
+    .calendar-day { min-height: 80px; transition: all .15s ease; }
+    .calendar-day:hover { background: rgba(212,160,23,.05); }
+    .calendar-day.today { border-color: #d4a017; background: rgba(212,160,23,.08); }
+    .calendar-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .hashtag-pill { font-size: 10px; padding: 3px 10px; border-radius: 9999px; background: rgba(212,160,23,.1); color: #d4a017; font-weight: 700; border: 1px solid rgba(212,160,23,.2); cursor: pointer; transition: all .15s ease; }
+    .hashtag-pill:hover { background: rgba(212,160,23,.25); }
+    .hashtag-pill.copied { background: #d4a017; color: #1a1a2e; }
   </style>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
@@ -23,29 +32,76 @@
   <main class="max-wide px-4 sm:px-6 py-8 md:py-10">
 
     <!-- Header -->
-    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+    <div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-6">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Content</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Social Post Ideas</h1>
-        <p class="text-sm text-brand-muted mt-2 max-w-xl">Platform-specific post ideas for your business. Click to copy, edit to match your voice, and save — the more you edit, the better the ideas get.</p>
+        <p class="text-sm text-brand-muted mt-2 max-w-xl">Platform-specific post ideas. Generate, edit, copy. Below: content calendar + Clark County local content for @zipguide.</p>
       </div>
       <div class="flex items-center gap-3">
-        <input id="nicheInput" type="text" placeholder="Your niche (e.g. HVAC, coffee shop, roofing)"
+        <input id="nicheInput" type="text" placeholder="Your niche (e.g. HVAC, roofing)"
           class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 w-56"
           value="<%= (styleProfile && styleProfile.niche) || '' %>" />
-        <button onclick="regenerateAll()" class="btn-brand-yellow text-sm font-bold px-4 py-2 rounded-xl whitespace-nowrap">
+        <button onclick="regenerateAll()" class="btn-brand-yellow text-sm font-bold px-4 py-2 rounded-xl whitespace-nowrap action-btn">
           Generate Ideas
         </button>
       </div>
     </div>
 
-    <!-- Style Profile Bar -->
-    <div id="styleBar" class="brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 mb-6 flex flex-wrap items-center gap-3">
-      <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your Style:</span>
-      <div id="styleTags" class="flex flex-wrap gap-2">
-        <span class="text-xs text-brand-muted italic">Save edited posts to build your style profile...</span>
+    <!-- QUICK ACTIONS BAR -->
+    <div class="brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">⚡ Quick Actions</span>
+        <span id="qaStatus" class="text-[10px] text-brand-muted font-bold"></span>
       </div>
-      <button onclick="openStyleModal()" class="ml-auto text-xs font-bold text-brand-yellow hover:underline">Edit Style</button>
+      <div class="flex flex-wrap gap-2">
+        <button onclick="qaGenerateInstagram()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">📸 Instagram Ideas</button>
+        <button onclick="qaGenerateTikTok()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">🎵 TikTok Ideas</button>
+        <button onclick="qaGenerateAll()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">🔄 Generate All Platforms</button>
+        <button onclick="qaCopyAllVisible()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">📋 Copy All Visible</button>
+        <button onclick="qaCopyLocalToday()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-[#d4a017] text-[#d4a017]">📍 Copy Today's Local Picks</button>
+        <button onclick="switchTab('instagram')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-[#E1306C] text-[#E1306C]">Filter: Instagram</button>
+        <button onclick="switchTab('all')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">Show All</button>
+      </div>
+    </div>
+
+    <!-- CONTENT CALENDAR -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">📅 Content Calendar</h2>
+          <p class="text-xs text-brand-muted mt-1">This week's planned content. Generated calendar from local content + ideas.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="calendarPrevWeek()" class="text-xs font-bold text-brand-muted hover:text-brand-yellow px-2 py-1">← Prev</button>
+          <button onclick="calendarNextWeek()" class="text-xs font-bold text-brand-muted hover:text-brand-yellow px-2 py-1">Next →</button>
+          <button onclick="calendarThisWeek()" class="text-xs font-bold text-brand-yellow hover:underline px-2 py-1">Today</button>
+        </div>
+      </div>
+      <div id="calendarGrid" class="grid grid-cols-7 gap-2">
+        <!-- Rendered by JS -->
+      </div>
+      <div class="flex gap-4 mt-3 text-[10px] text-brand-muted">
+        <span><span class="calendar-dot" style="background:#22c55e"></span> New Business</span>
+        <span><span class="calendar-dot" style="background:#f59e0b"></span> Trending</span>
+        <span><span class="calendar-dot" style="background:#3b82f6"></span> News</span>
+        <span><span class="calendar-dot" style="background:#a855f7"></span> Event</span>
+        <span><span class="calendar-dot" style="background:#d4a017"></span> Idea</span>
+      </div>
+    </div>
+
+    <!-- HASHTAG SETS -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white"># Hashtag Sets</h2>
+          <p class="text-xs text-brand-muted mt-1">Optimized for Clark County / Vancouver WA reach. Click to copy.</p>
+        </div>
+        <button onclick="cycleHashtagSet()" class="text-xs font-bold text-brand-yellow hover:underline">Cycle Set →</button>
+      </div>
+      <div id="hashtagContainer" class="brand-card p-4 dark:bg-slate-900 dark:border-white/10">
+        <!-- Rendered by JS -->
+      </div>
     </div>
 
     <!-- Platform Tabs -->
@@ -81,13 +137,13 @@
     <div class="mt-14 mb-4 flex items-center justify-between">
       <div>
         <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">📍 Clark County Content</h2>
-        <p class="text-xs text-brand-muted mt-1">Daily scout findings for @zipguide — new businesses, local news, trending stories</p>
+        <p class="text-xs text-brand-muted mt-1">Daily scout findings — new businesses, local news, trending stories for @zipguide</p>
       </div>
       <span id="localCount" class="text-xs text-brand-muted font-bold">0 items</span>
     </div>
     <div id="localContentContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">
-        No content yet. The daily scout will populate this each morning.
+        No content yet. The daily scout will populate this each morning at 8 AM PDT.
       </div>
     </div>
 
@@ -146,22 +202,215 @@
     let currentPlatform = 'all';
     let allIdeas = {};
     let savedPosts = [];
+    let localContentItems = [];
     let styleProfile = <%- JSON.stringify(styleProfile || {}) %>;
+    let calendarOffset = 0; // weeks from current
+    let currentHashtagSet = 0;
+
+    // ── Hashtag Sets (Clark County optimized) ───────────────────────────────────
+    const hashtagSets = [
+      {
+        name: 'Clark County Local',
+        tags: ['#ClarkCounty', '#VancouverWA', '#PNW', '#PacificNorthwest', '#WashingtonState', '#CouverLife', '#360', '#PortlandMetro', '#ClarkCountyWA', '#ShopLocal']
+      },
+      {
+        name: 'Small Business / Entrepreneur',
+        tags: ['#SmallBusiness', '#ShopSmall', '#SmallBusinessOwner', '#Entrepreneur', '#LocalBusiness', '#SupportLocal', '#BusinessOwner', '#SupportSmallBusiness', '#LocalFirst', '#CommunityFirst']
+      },
+      {
+        name: 'New Business / Opening',
+        tags: ['#GrandOpening', '#NewBusiness', '#NewInTown', '#NowOpen', '#GrandOpeningDay', '#JustOpened', '#NewSpot', '#CheckThisOut', '#LocalNews', '#BusinessSpotlight']
+      },
+      {
+        name: 'Real Estate / Development',
+        tags: ['#RealEstate', '#NewDevelopment', '#Construction', '#Growth', '#Downtown', '#VancouverDowntown', '#PDXRealEstate', '#Housing', '#CommercialRealEstate', '#UrbanDevelopment']
+      },
+      {
+        name: 'Engagement / Community',
+        tags: ['#KnowYourCity', '#LocalLove', '#CommunityMatters', '#ExploreLocal', '#HiddenGems', '#ThingsToDo', '#WeekendVibes', '#LocalEats', '#ExplorePNW', '#WAFood']
+      }
+    ];
 
     // ── Init ───────────────────────────────────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
       renderStyleTags();
-      // Load saved posts
-      fetch('/social-posts/api/saved?workspaceId=default')
-        .then(r => r.json())
-        .then(data => {
-          if (data.success && data.posts) {
-            savedPosts = data.posts;
-            renderSavedPosts();
-          }
-        })
-        .catch(() => {});
+      loadSavedPosts();
+      loadLocalContent();
+      renderCalendar();
+      renderHashtags();
     });
+
+    // ── QUICK ACTIONS ───────────────────────────────────────────────────────────
+    function qaStatus(msg) {
+      const el = document.getElementById('qaStatus');
+      el.textContent = msg;
+      setTimeout(() => el.textContent = '', 3000);
+    }
+
+    async function qaGenerateInstagram() {
+      const niche = document.getElementById('nicheInput').value.trim() || 'local business';
+      try {
+        const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
+        const data = await res.json();
+        if (data.success) {
+          allIdeas = data.ideas;
+          switchTab('instagram');
+          qaStatus('✅ Instagram ideas generated');
+        }
+      } catch (err) { qaStatus('❌ Error generating'); }
+    }
+
+    async function qaGenerateTikTok() {
+      const niche = document.getElementById('nicheInput').value.trim() || 'local business';
+      try {
+        const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
+        const data = await res.json();
+        if (data.success) {
+          allIdeas = data.ideas;
+          switchTab('tiktok');
+          qaStatus('✅ TikTok ideas generated');
+        }
+      } catch (err) { qaStatus('❌ Error generating'); }
+    }
+
+    async function qaGenerateAll() {
+      await regenerateAll();
+      qaStatus('✅ All platforms generated');
+    }
+
+    function qaCopyAllVisible() {
+      const platforms = currentPlatform === 'all' ? Object.keys(allIdeas) : [currentPlatform];
+      let allText = '';
+      for (const p of platforms) {
+        const ideas = allIdeas[p] || [];
+        allText += '=== ' + p.toUpperCase() + ' ===\n';
+        for (const idea of ideas) {
+          allText += idea.hook + '\n';
+          if (idea.cta) allText += 'CTA: ' + idea.cta + '\n';
+          allText += '\n';
+        }
+      }
+      if (!allText.trim()) { qaStatus('❌ No ideas to copy'); return; }
+      navigator.clipboard.writeText(allText.trim()).then(() => {
+        showCopyToast();
+        qaStatus('📋 Copied all visible ideas');
+      });
+    }
+
+    function qaCopyLocalToday() {
+      const today = new Date().toISOString().slice(0, 10);
+      const todayItems = localContentItems.filter(i => i.createdAt && i.createdAt.slice(0, 10) === today);
+      if (!todayItems.length) { qaStatus('❌ No local content for today'); return; }
+      let text = '📍 Clark County Content for ' + today + '\n\n';
+      for (const item of todayItems) {
+        text += '• ' + item.title + '\n';
+        text += item.summary + '\n';
+        text += 'Post Idea: ' + item.postIdea + '\n\n';
+      }
+      navigator.clipboard.writeText(text.trim()).then(() => {
+        showCopyToast();
+        qaStatus('📋 Copied today\'s local content');
+      });
+    }
+
+    function switchTab(platform) {
+      currentPlatform = platform;
+      document.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+      const tab = document.querySelector(`[data-platform="${platform}"]`);
+      if (tab) tab.classList.add('active');
+      renderIdeas();
+    }
+
+    // ── CONTENT CALENDAR ────────────────────────────────────────────────────────
+    function renderCalendar() {
+      const grid = document.getElementById('calendarGrid');
+      const today = new Date();
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - today.getDay() + (calendarOffset * 7));
+
+      const days = [];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(startOfWeek);
+        d.setDate(startOfWeek.getDate() + i);
+        days.push(d);
+      }
+
+      // Group local content by date
+      const contentByDate = {};
+      for (const item of localContentItems) {
+        if (!item.createdAt) continue;
+        const d = item.createdAt.slice(0, 10);
+        if (!contentByDate[d]) contentByDate[d] = [];
+        contentByDate[d].push(item);
+      }
+
+      grid.innerHTML = '';
+      for (const d of days) {
+        const dateStr = d.toISOString().slice(0, 10);
+        const isToday = dateStr === new Date().toISOString().slice(0, 10);
+        const items = contentByDate[dateStr] || [];
+        const dayName = dayNames[d.getDay()];
+
+        const div = document.createElement('div');
+        div.className = 'calendar-day brand-card rounded-xl border border-brand-border/40 p-2 dark:bg-slate-900 dark:border-white/10' + (isToday ? ' today' : '');
+
+        const dots = items.slice(0, 4).map(item => {
+          const colors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': '#94a3b8' };
+          return `<span class="calendar-dot" style="background:${colors[item.category] || '#94a3b8'}; margin-right:2px" title="${escapeHtml(item.title)}"></span>`;
+        }).join('');
+
+        div.innerHTML = `
+          <div class="text-[10px] font-black uppercase tracking-widest ${isToday ? 'text-brand-yellow' : 'text-brand-muted'} mb-1">${dayName} ${d.getMonth() + 1}/${d.getDate()}</div>
+          <div class="mb-1">${dots}</div>
+          ${items.length ? `<div class="text-[10px] font-bold text-brand-dark dark:text-white">${items.length} item${items.length > 1 ? 's' : ''}</div>` : `<div class="text-[10px] text-brand-muted/40">-</div>`}
+          ${items.length ? items.slice(0, 2).map(item => `<div class="text-[9px] text-brand-muted truncate">${escapeHtml(item.title)}</div>`).join('') : ''}
+        `;
+        grid.appendChild(div);
+      }
+    }
+
+    function calendarPrevWeek() { calendarOffset--; renderCalendar(); }
+    function calendarNextWeek() { calendarOffset++; renderCalendar(); }
+    function calendarThisWeek() { calendarOffset = 0; renderCalendar(); }
+
+    // ── HASHTAGS ────────────────────────────────────────────────────────────────
+    function renderHashtags() {
+      const container = document.getElementById('hashtagContainer');
+      const set = hashtagSets[currentHashtagSet % hashtagSets.length];
+      const allTags = set.tags.join(' ');
+      container.innerHTML = `
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-brand-dark dark:text-white">${set.name}</span>
+          <span class="text-[9px] text-brand-muted">${set.tags.length} tags</span>
+        </div>
+        <div class="flex flex-wrap gap-1.5 mb-3">
+          ${set.tags.map(t => `<span class="hashtag-pill" onclick="copyHashtag('${t.replace(/'/g, "\\'")}', this)">${t}</span>`).join('')}
+        </div>
+        <button onclick="copyAllHashtags()" class="btn-brand-yellow text-xs font-bold px-3 py-1.5 rounded-lg">Copy All ${set.tags.length} Tags</button>
+      `;
+    }
+
+    function copyHashtag(tag, el) {
+      navigator.clipboard.writeText(tag).then(() => {
+        el.classList.add('copied');
+        setTimeout(() => el.classList.remove('copied'), 1500);
+        qaStatus('✅ Copied ' + tag);
+      });
+    }
+
+    function copyAllHashtags() {
+      const set = hashtagSets[currentHashtagSet % hashtagSets.length];
+      navigator.clipboard.writeText(set.tags.join(' ')).then(() => {
+        showCopyToast();
+        qaStatus('📋 Copied ' + set.tags.length + ' hashtags');
+      });
+    }
+
+    function cycleHashtagSet() {
+      currentHashtagSet++;
+      renderHashtags();
+    }
 
     // ── Platform Tabs ──────────────────────────────────────────────────────────
     document.querySelectorAll('.platform-tab').forEach(tab => {
@@ -178,7 +427,6 @@
       const niche = document.getElementById('nicheInput').value.trim() || 'home service business';
       const container = document.getElementById('ideasContainer');
       container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating ideas...</p></div>';
-
       try {
         const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
         const data = await res.json();
@@ -186,33 +434,25 @@
           allIdeas = data.ideas;
           renderIdeas();
         } else {
-          container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed to generate') + '</p></div>';
+          container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed') + '</p></div>';
         }
       } catch (err) {
-        container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error. Try again.</p></div>';
+        container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error.</p></div>';
       }
     }
 
-    // ── Render Ideas ────────────────────────────────────────────────────────────
     function renderIdeas() {
       const container = document.getElementById('ideasContainer');
       container.innerHTML = '';
-
-      const platforms = currentPlatform === 'all'
-        ? Object.keys(allIdeas)
-        : [currentPlatform];
-
-      let totalCards = 0;
-      for (const platform of platforms) {
-        const ideas = allIdeas[platform] || [];
-        for (const idea of ideas) {
-          totalCards++;
-          const card = createIdeaCard(idea, platform);
-          container.appendChild(card);
+      const platforms = currentPlatform === 'all' ? Object.keys(allIdeas) : [currentPlatform];
+      let total = 0;
+      for (const p of platforms) {
+        for (const idea of (allIdeas[p] || [])) {
+          total++;
+          container.appendChild(createIdeaCard(idea, p));
         }
       }
-
-      if (totalCards === 0) {
+      if (!total) {
         container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas yet</p><p class="text-sm">Enter your niche and click Generate</p></div>';
       }
     }
@@ -222,16 +462,14 @@
       div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
       div.dataset.ideaId = idea.id;
       div.dataset.platform = platform;
-
-      const platformLabels = { instagram: 'Instagram', facebook: 'Facebook', linkedIn: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
-      const platformColors = { instagram: '#E1306C', facebook: '#1877F2', linkedIn: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
-
+      const labels = { instagram: 'Instagram', facebook: 'Facebook', linkedIn: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
+      const colors = { instagram: '#E1306C', facebook: '#1877F2', linkedIn: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
       div.innerHTML = `
         <div class="flex items-center justify-between mb-3">
-          <span class="text-[10px] font-black uppercase tracking-widest" style="color:${platformColors[platform] || '#94a3b8'}">${platformLabels[platform] || platform}</span>
+          <span class="text-[10px] font-black uppercase tracking-widest" style="color:${colors[platform] || '#94a3b8'}">${labels[platform] || platform}</span>
           <div class="flex gap-2">
-            <button onclick="copyIdea('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow transition-colors" title="Copy">Copy</button>
-            <button onclick="toggleEdit('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow transition-colors" title="Edit">Edit</button>
+            <button onclick="copyIdea('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
+            <button onclick="toggleEdit('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Edit</button>
           </div>
         </div>
         <div class="preview-area">
@@ -240,7 +478,7 @@
         </div>
         <div class="edit-area mt-3">
           <textarea class="edit-content w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white min-h-[100px] resize-y">${escapeHtml(idea.hook)}</textarea>
-          <textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA (optional)">${escapeHtml(idea.cta || '')}</textarea>
+          <textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA">${escapeHtml(idea.cta || '')}</textarea>
           <div class="flex gap-2 mt-3">
             <button onclick="saveIdea('${idea.id.replace(/'/g, "\\'")}')" class="btn-brand-yellow text-xs font-bold px-4 py-1.5 rounded-lg">Save</button>
             <button onclick="cancelEdit('${idea.id.replace(/'/g, "\\'")}')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button>
@@ -250,71 +488,43 @@
       return div;
     }
 
-    // ── Copy ────────────────────────────────────────────────────────────────────
     function copyIdea(ideaId) {
       const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
       if (!card) return;
-      const preview = card.querySelector('.preview-area');
-      const text = preview ? preview.querySelector('p').textContent : '';
+      const text = card.querySelector('.preview-area p').textContent;
       navigator.clipboard.writeText(text).then(() => showCopyToast());
     }
 
     function showCopyToast() {
-      const toast = document.getElementById('copyToast');
-      toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 2000);
+      const t = document.getElementById('copyToast');
+      t.classList.remove('hidden');
+      setTimeout(() => t.classList.add('hidden'), 2000);
     }
 
-    // ── Edit / Save ─────────────────────────────────────────────────────────────
-    function toggleEdit(ideaId) {
-      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
-      if (card) card.classList.add('editing');
-    }
-
-    function cancelEdit(ideaId) {
-      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
-      if (card) card.classList.remove('editing');
-    }
+    function toggleEdit(id) { const c = document.querySelector(`[data-idea-id="${id}"]`); if (c) c.classList.add('editing'); }
+    function cancelEdit(id) { const c = document.querySelector(`[data-idea-id="${id}"]`); if (c) c.classList.remove('editing'); }
 
     async function saveIdea(ideaId) {
       const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
       if (!card) return;
       const content = card.querySelector('.edit-content').value.trim();
       const cta = card.querySelector('.edit-cta').value.trim();
-      const platform = card.dataset.platform;
-      const niche = document.getElementById('nicheInput').value.trim();
-
       if (!content) return;
-
       try {
         const res = await fetch('/social-posts/api/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platform, content, cta, niche, workspaceId: 'default' }),
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ platform: card.dataset.platform, content, cta, niche: document.getElementById('nicheInput').value.trim(), workspaceId: 'default' })
         });
         const data = await res.json();
         if (data.success) {
-          // Update the preview
           card.querySelector('.preview-area p').textContent = content;
           const ctaEl = card.querySelector('.preview-area .text-xs');
-          if (cta) {
-            if (ctaEl) ctaEl.textContent = 'CTA: ' + cta;
-            else {
-              const p = document.createElement('p');
-              p.className = 'text-xs text-brand-muted mt-2 italic';
-              p.textContent = 'CTA: ' + cta;
-              card.querySelector('.preview-area').appendChild(p);
-            }
-          } else if (ctaEl) ctaEl.remove();
-
+          if (cta) { if (ctaEl) ctaEl.textContent = 'CTA: ' + cta; { const p = document.createElement('p'); p.className = 'text-xs text-brand-muted mt-2 italic'; p.textContent = 'CTA: ' + cta; card.querySelector('.preview-area').appendChild(p); } } else if (ctaEl) ctaEl.remove();
           card.classList.remove('editing');
           showCopyToast();
-          // Reload saved posts
           loadSavedPosts();
         }
-      } catch (err) {
-        alert('Could not save. Try again.');
-      }
+      } catch (err) { alert('Could not save.'); }
     }
 
     // ── Saved Posts ─────────────────────────────────────────────────────────────
@@ -322,35 +532,28 @@
       try {
         const res = await fetch('/social-posts/api/saved?workspaceId=default');
         const data = await res.json();
-        if (data.success && data.posts) {
-          savedPosts = data.posts;
-          renderSavedPosts();
-        }
+        if (data.success && data.posts) { savedPosts = data.posts; renderSavedPosts(); }
       } catch (err) { /* ignore */ }
     }
 
     function renderSavedPosts() {
       const container = document.getElementById('savedPostsContainer');
-      const count = document.getElementById('savedCount');
-      count.textContent = savedPosts.length + ' saved';
-
-      if (savedPosts.length === 0) {
-        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No saved posts yet. Edit and save ideas above to build your library.</div>';
+      document.getElementById('savedCount').textContent = savedPosts.length + ' saved';
+      if (!savedPosts.length) {
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No saved posts yet.</div>';
         return;
       }
-
       container.innerHTML = '';
       for (const post of savedPosts) {
         const div = document.createElement('div');
         div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
-        div.dataset.postId = post.id;
         const date = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '';
         div.innerHTML = `
           <div class="flex items-center justify-between mb-3">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">${post.platform}</span>
             <div class="flex gap-2 items-center">
               <span class="text-[10px] text-brand-muted">${date}</span>
-              <button onclick="copySaved('${post.id}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
+              <button onclick="navigator.clipboard.writeText(${JSON.stringify(post.content)}).then(()=>showCopyToast())" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
               <button onclick="deleteSaved('${post.id}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
             </div>
           </div>
@@ -361,22 +564,12 @@
       }
     }
 
-    function copySaved(postId) {
-      const post = savedPosts.find(p => p.id === postId);
-      if (post) {
-        navigator.clipboard.writeText(post.content).then(() => showCopyToast());
-      }
-    }
-
     async function deleteSaved(postId) {
       if (!confirm('Delete this saved post?')) return;
       try {
         const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), { method: 'DELETE' });
         const data = await res.json();
-        if (data.success) {
-          savedPosts = savedPosts.filter(p => p.id !== postId);
-          renderSavedPosts();
-        }
+        if (data.success) { savedPosts = savedPosts.filter(p => p.id !== postId); renderSavedPosts(); }
       } catch (err) { alert('Could not delete.'); }
     }
 
@@ -390,10 +583,7 @@
         document.getElementById('styleCtas').value = (styleProfile.ctas || []).join(', ');
       }
     }
-
-    function closeStyleModal() {
-      document.getElementById('styleModal').classList.add('hidden');
-    }
+    function closeStyleModal() { document.getElementById('styleModal').classList.add('hidden'); }
 
     async function saveStyle() {
       const profile = {
@@ -404,20 +594,10 @@
         workspaceId: 'default',
       };
       try {
-        const res = await fetch('/social-posts/api/save-style', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(profile),
-        });
+        const res = await fetch('/social-posts/api/save-style', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profile) });
         const data = await res.json();
-        if (data.success) {
-          styleProfile = { ...styleProfile, ...profile };
-          renderStyleTags();
-          closeStyleModal();
-        }
-      } catch (err) {
-        alert('Could not save style.');
-      }
+        if (data.success) { styleProfile = { ...styleProfile, ...profile }; renderStyleTags(); closeStyleModal(); }
+      } catch (err) { alert('Could not save style.'); }
     }
 
     function renderStyleTags() {
@@ -427,78 +607,42 @@
       if (styleProfile.tone) tags.push('Tone: ' + styleProfile.tone);
       if (styleProfile.hooks && styleProfile.hooks.length) tags.push(styleProfile.hooks.length + ' hooks');
       if (styleProfile.ctas && styleProfile.ctas.length) tags.push(styleProfile.ctas.length + ' CTAs');
-      if (savedPosts.length) tags.push(savedPosts.length + ' saved posts');
-
-      if (tags.length === 0) {
-        container.innerHTML = '<span class="text-xs text-brand-muted italic">Save edited posts to build your style profile...</span>';
-      } else {
-        container.innerHTML = tags.map(t => '<span class="style-tag">' + escapeHtml(t) + '</span>').join('');
-      }
-    }
-
-    // ── Helpers ─────────────────────────────────────────────────────────────────
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str || '';
-      return div.innerHTML;
+      if (savedPosts.length) tags.push(savedPosts.length + ' saved');
+      container.innerHTML = tags.length ? tags.map(t => '<span class="style-tag">' + escapeHtml(t) + '</span>').join('') : '<span class="text-xs text-brand-muted italic">Save edited posts to build your style profile...</span>';
     }
 
     // ── Local Content (Clark County) ─────────────────────────────────────────────
-    let localContentItems = [];
-
     async function loadLocalContent() {
       try {
         const res = await fetch('/social-posts/api/local-content?workspaceId=default&limit=50');
         const data = await res.json();
-        if (data.success && data.items) {
-          localContentItems = data.items;
-          renderLocalContent();
-        }
+        if (data.success && data.items) { localContentItems = data.items; renderLocalContent(); renderCalendar(); }
       } catch (err) { /* ignore */ }
     }
 
     function renderLocalContent() {
       const container = document.getElementById('localContentContainer');
-      const count = document.getElementById('localCount');
-      count.textContent = localContentItems.length + ' items';
-
-      if (localContentItems.length === 0) {
-        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">No content yet. The daily scout will populate this each morning.</div>';
+      document.getElementById('localCount').textContent = localContentItems.length + ' items';
+      if (!localContentItems.length) {
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">No content yet. The daily scout will populate this each morning at 8 AM PDT.</div>';
         return;
       }
-
       container.innerHTML = '';
-      const categoryColors = {
-        'new-business': '#22c55e',
-        'trending': '#f59e0b',
-        'news': '#3b82f6',
-        'event': '#a855f7',
-        'viral': '#ef4444',
-        'general': '#94a3b8',
-      };
-      const categoryLabels = {
-        'new-business': '🆕 New Business',
-        'trending': '🔥 Trending',
-        'news': '📰 News',
-        'event': '🎉 Event',
-        'viral': '💥 Viral',
-        'general': '📍 Local',
-      };
-
+      const catColors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': '#94a3b8' };
+      const catLabels = { 'new-business': '🆕 New Business', 'trending': '🔥 Trending', 'news': '📰 News', 'event': '🎉 Event', 'viral': '💥 Viral', 'general': '📍 Local' };
       for (const item of localContentItems) {
         const div = document.createElement('div');
         div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
-        div.dataset.itemId = item.id;
-        const catColor = categoryColors[item.category] || categoryColors.general;
-        const catLabel = categoryLabels[item.category] || categoryLabels.general;
+        const color = catColors[item.category] || catColors.general;
+        const label = catLabels[item.category] || catLabels.general;
         const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
         div.innerHTML = `
           <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-black uppercase tracking-widest" style="color:${catColor}">${catLabel}</span>
+            <span class="text-[10px] font-black uppercase tracking-widest" style="color:${color}">${label}</span>
             <div class="flex gap-2 items-center">
               <span class="text-[10px] text-brand-muted">${date}</span>
-              <button onclick="copyLocalContent('${item.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
-              <button onclick="deleteLocalContent('${item.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
+              <button onclick="copyLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
+              <button onclick="deleteLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
             </div>
           </div>
           <p class="text-sm font-bold text-brand-dark dark:text-white mb-2">${escapeHtml(item.title)}</p>
@@ -513,27 +657,27 @@
       }
     }
 
-    function copyLocalContent(itemId) {
-      const item = localContentItems.find(i => i.id === itemId);
+    function copyLocalItem(id) {
+      const item = localContentItems.find(i => i.id === id);
       if (!item) return;
-      const text = `${item.title}\n\n${item.summary}\n\nPost Idea: ${item.postIdea}`;
-      navigator.clipboard.writeText(text).then(() => showCopyToast());
+      navigator.clipboard.writeText(item.title + '\n\n' + item.summary + '\n\nPost Idea: ' + item.postIdea).then(() => showCopyToast());
     }
 
-    async function deleteLocalContent(itemId) {
+    async function deleteLocalItem(id) {
       if (!confirm('Delete this content item?')) return;
       try {
-        const res = await fetch('/social-posts/api/local-content/' + encodeURIComponent(itemId), { method: 'DELETE' });
+        const res = await fetch('/social-posts/api/local-content/' + encodeURIComponent(id), { method: 'DELETE' });
         const data = await res.json();
-        if (data.success) {
-          localContentItems = localContentItems.filter(i => i.id !== itemId);
-          renderLocalContent();
-        }
+        if (data.success) { localContentItems = localContentItems.filter(i => i.id !== id); renderLocalContent(); renderCalendar(); }
       } catch (err) { alert('Could not delete.'); }
     }
 
-    // Load local content on page load
-    loadLocalContent();
+    // ── Helpers ─────────────────────────────────────────────────────────────────
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str || '';
+      return div.innerHTML;
+    }
   </script>
 </body>
 </html>
