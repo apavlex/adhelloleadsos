@@ -7707,7 +7707,6 @@ document.addEventListener('DOMContentLoaded', () => {
     syncContactHuntPanel(row);
     syncLeadPanelEmailReportSection(row);
     syncLeadPanelAiToolsSection(row);
-    if (typeof bindAiToolsActionButtons === 'function') bindAiToolsActionButtons();
 
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
@@ -8706,162 +8705,163 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function handleLeadPanelAiToolsGenerateClick() {
-    const row = resolveActiveLeadRow();
-    if (!row) {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Select a lead first.', { variant: 'error' });
-      }
-      return;
+  function aiToolsToast(message, variant) {
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { variant: variant || 'info' });
+    } else if (variant === 'error' || variant === 'success') {
+      window.alert(message);
     }
-    const btn =
-      document.activeElement && document.activeElement.closest
-        ? document.activeElement.closest('.js-ai-tools-trigger[data-ai-tools-action="generate"]')
-        : null;
-    const panelBtn = document.getElementById('leadPanelAiToolsGenerateBtn');
-    const activeBtn = btn || panelBtn;
-    const original = activeBtn ? activeBtn.textContent : '';
-    if (activeBtn) {
-      activeBtn.textContent = 'Generating…';
+  }
+
+  function closeAiToolsTab(tab) {
+    if (tab && !tab.closed) {
+      try {
+        tab.close();
+      } catch (_) {}
     }
+  }
+
+  function openAiToolsTab(url, preOpenedTab) {
+    const target = String(url || '').trim();
+    if (!target) return false;
+    if (preOpenedTab && !preOpenedTab.closed) {
+      try {
+        preOpenedTab.opener = null;
+        preOpenedTab.location.href = target;
+        return true;
+      } catch (_) {}
+    }
+    const opened = window.open(target, '_blank', 'noopener,noreferrer');
+    if (!opened) {
+      aiToolsToast(
+        'Pop-up blocked. Allow pop-ups for this site, or use Copy client link.',
+        'error',
+      );
+      return false;
+    }
+    return true;
+  }
+
+  function primeAiToolsLoadingTab() {
+    const tab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    if (!tab) return null;
     try {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Building AI Tools Assessment from business data…', { variant: 'info' });
-      }
+      tab.document.title = 'AI Tools Assessment';
+      tab.document.body.innerHTML =
+        '<div style="font-family:system-ui,sans-serif;padding:2.5rem;color:#334155"><p style="font-weight:700;margin:0 0 .5rem">Loading AI Tools Assessment…</p><p style="margin:0;font-size:14px;color:#64748b">Building your editable deck from business data.</p></div>';
+    } catch (_) {}
+    return tab;
+  }
+
+  async function ensureAiToolsAssessmentForRow(row) {
+    await ensureRowHasLeadKey(row);
+    if (!getAiToolsAssessmentFromRow(row)) {
       await generateAiToolsAssessmentForRow(row);
       syncLeadPanelAiToolsSection(row);
       syncLeadPanelEmailReportSection(row);
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Assessment ready — preview, edit, then copy the client link.', { variant: 'success' });
-      }
-    } catch (err) {
-      const msg = err && err.message ? err.message : 'Could not generate assessment';
-      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-    } finally {
-      if (activeBtn) {
-        activeBtn.textContent = original;
-      }
     }
   }
 
-  async function handleLeadPanelAiToolsPreviewClick() {
+  async function runAiToolsAction(action, triggerBtn, preOpenedTab) {
     const row = resolveActiveLeadRow();
     if (!row) {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Select a lead first.', { variant: 'error' });
-      }
+      closeAiToolsTab(preOpenedTab);
+      aiToolsToast('Select a lead first.', 'error');
       return;
     }
-    try {
-      await ensureRowHasLeadKey(row);
-      if (!getAiToolsAssessmentFromRow(row)) {
-        await generateAiToolsAssessmentForRow(row);
-        syncLeadPanelAiToolsSection(row);
-      }
-      const url = aiToolsPreviewUrlForRow(row);
-      if (url) window.open(url, '_blank', 'noopener,noreferrer');
-    } catch (err) {
-      const msg = err && err.message ? err.message : 'Could not open preview';
-      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-    }
-  }
-
-  async function handleLeadPanelAiToolsCopyLinkClick() {
-    const row = resolveActiveLeadRow();
-    if (!row) {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Select a lead first.', { variant: 'error' });
-      }
-      return;
-    }
-    const btn =
-      document.activeElement && document.activeElement.closest
-        ? document.activeElement.closest('.js-ai-tools-trigger[data-ai-tools-action="copy"]')
-        : document.getElementById('leadPanelAiToolsCopyLinkBtn');
-    const original = btn ? btn.textContent : '';
-    if (btn) btn.textContent = 'Copying…';
-    try {
-      await ensureRowHasLeadKey(row);
-      if (!getAiToolsAssessmentFromRow(row)) {
-        await generateAiToolsAssessmentForRow(row);
-        syncLeadPanelAiToolsSection(row);
-      }
-      const bundle = await fetchAiToolsReportLinkBundle(row);
-      showLeadPanelAiToolsClientLink(bundle);
-      await copyTextToClipboard(bundle.reportUrl);
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Client link copied — send via text or email.', { variant: 'success' });
-      }
-    } catch (err) {
-      const msg = err && err.message ? err.message : 'Copy failed';
-      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-    } finally {
-      if (btn) btn.textContent = original;
-    }
-  }
-
-  async function handleLeadPanelAiToolsOpenClick() {
-    const row = resolveActiveLeadRow();
-    if (!row) {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Select a lead first.', { variant: 'error' });
-      }
-      return;
-    }
-    const btn =
-      document.activeElement && document.activeElement.closest
-        ? document.activeElement.closest('.js-ai-tools-trigger[data-ai-tools-action="open"]')
-        : document.getElementById('leadPanelAiToolsOpenBtn');
-    const original = btn ? btn.textContent : '';
-    if (btn) btn.textContent = 'Opening…';
-    try {
-      await ensureRowHasLeadKey(row);
-      if (!getAiToolsAssessmentFromRow(row)) {
-        await generateAiToolsAssessmentForRow(row);
-        syncLeadPanelAiToolsSection(row);
-      }
-      const bundle = await fetchAiToolsReportLinkBundle(row);
-      showLeadPanelAiToolsClientLink(bundle);
-      window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Presentation opened — this is what your client will see.', { variant: 'success' });
-      }
-    } catch (err) {
-      const msg = err && err.message ? err.message : 'Could not open presentation';
-      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-    } finally {
-      if (btn) btn.textContent = original;
-    }
-  }
-
-  function bindAiToolsActionButtons() {
-    const actions = {
-      generate: handleLeadPanelAiToolsGenerateClick,
-      preview: handleLeadPanelAiToolsPreviewClick,
-      copy: handleLeadPanelAiToolsCopyLinkClick,
-      open: handleLeadPanelAiToolsOpenClick,
+    const originalLabel = triggerBtn ? triggerBtn.textContent : '';
+    const setBusy = (label) => {
+      if (triggerBtn) triggerBtn.textContent = label;
     };
-    document.querySelectorAll('.js-ai-tools-trigger[data-ai-tools-action]').forEach((btn) => {
-      if (btn.dataset.adhelloAiToolsBound) return;
-      btn.dataset.adhelloAiToolsBound = '1';
-      const action = btn.getAttribute('data-ai-tools-action');
-      const handler = actions[action];
-      if (!handler) return;
-      btn.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        ev.stopPropagation();
+    try {
+      if (action === 'copy') {
+        setBusy('Copying…');
+        await ensureAiToolsAssessmentForRow(row);
+        const bundle = await fetchAiToolsReportLinkBundle(row);
+        showLeadPanelAiToolsClientLink(bundle);
+        await copyTextToClipboard(bundle.reportUrl);
+        aiToolsToast('Client link copied — send via text or email.', 'success');
+        return;
+      }
+
+      if (action === 'generate') {
+        setBusy('Generating…');
+        aiToolsToast('Building AI Tools Assessment from business data…', 'info');
+        await ensureAiToolsAssessmentForRow(row);
+        const url = aiToolsPreviewUrlForRow(row);
+        if (!openAiToolsTab(url, preOpenedTab)) {
+          closeAiToolsTab(preOpenedTab);
+          return;
+        }
+        aiToolsToast('Assessment opened — edit slides, then copy the client link.', 'success');
+        return;
+      }
+
+      if (action === 'preview') {
+        setBusy('Opening…');
+        await ensureAiToolsAssessmentForRow(row);
+        const url = aiToolsPreviewUrlForRow(row);
+        if (!openAiToolsTab(url, preOpenedTab)) {
+          closeAiToolsTab(preOpenedTab);
+        }
+        return;
+      }
+
+      if (action === 'open') {
+        setBusy('Opening…');
+        await ensureAiToolsAssessmentForRow(row);
+        const bundle = await fetchAiToolsReportLinkBundle(row);
+        showLeadPanelAiToolsClientLink(bundle);
+        if (!openAiToolsTab(bundle.reportUrl, preOpenedTab)) {
+          closeAiToolsTab(preOpenedTab);
+          return;
+        }
+        aiToolsToast('Presentation opened — this is what your client will see.', 'success');
+      }
+    } catch (err) {
+      closeAiToolsTab(preOpenedTab);
+      const msg = err && err.message ? err.message : 'AI Tools action failed';
+      aiToolsToast(msg, 'error');
+    } finally {
+      if (triggerBtn) triggerBtn.textContent = originalLabel;
+    }
+  }
+  window.__adhelloRunAiToolsAction = runAiToolsAction;
+
+  if (!window.__adhelloAiToolsCaptureBound) {
+    window.__adhelloAiToolsCaptureBound = true;
+    document.addEventListener(
+      'click',
+      (e) => {
+        const btn =
+          e.target && e.target.closest
+            ? e.target.closest('.js-ai-tools-trigger[data-ai-tools-action]')
+            : null;
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const action = btn.getAttribute('data-ai-tools-action');
         if (
           action === 'generate' &&
           (btn.id === 'sidebarAiToolsGenerateBtn' || btn.id === 'appNavAiToolsGenerateBtn')
         ) {
           scrollLeadPanelToSection('leadPanelAiToolsSection');
         }
-        void handler();
-      });
-    });
+        const preOpenedTab =
+          action === 'generate' || action === 'preview' || action === 'open'
+            ? primeAiToolsLoadingTab()
+            : null;
+        const runner = window.__adhelloRunAiToolsAction;
+        if (typeof runner !== 'function') {
+          closeAiToolsTab(preOpenedTab);
+          aiToolsToast('App still loading — try again in a moment.', 'error');
+          return;
+        }
+        void runner(action, btn, preOpenedTab);
+      },
+      true,
+    );
   }
-  window.__bindAiToolsActionButtons = bindAiToolsActionButtons;
-  bindAiToolsActionButtons();
 
   const sidebarCadenceSnooze90Btn = document.getElementById('sidebarCadenceSnooze90Btn');
   const sidebarCadencePauseBtn = document.getElementById('sidebarCadencePauseBtn');
@@ -13043,5 +13043,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.37-ai-tools-sidebar-fix';
+  window.__ADHELLO_BUILD = '1.0.38-ai-tools-open-fix';
 });
