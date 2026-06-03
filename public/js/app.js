@@ -3082,39 +3082,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function syncLeadPanelAiToolsSection(row) {
     const statusEl = document.getElementById('leadPanelAiToolsStatus');
-    const previewBtn = document.getElementById('leadPanelAiToolsPreviewBtn');
-    const copyBtn = document.getElementById('leadPanelAiToolsCopyLinkBtn');
-    const openBtn = document.getElementById('leadPanelAiToolsOpenBtn');
-    if (!statusEl) return;
     const assessment = row ? getAiToolsAssessmentFromRow(row) : null;
     const hasAssessment = !!(assessment && (assessment.clientName || assessment.pain || (assessment.quickWins && assessment.quickWins[0] && assessment.quickWins[0].pain)));
-    if (hasAssessment) {
-      statusEl.textContent = 'Ready to share';
-      statusEl.classList.remove('hidden', 'text-brand-muted');
-      statusEl.classList.add('text-orange-600', 'dark:text-orange-400');
-    } else {
-      statusEl.textContent = 'Not generated yet';
-      statusEl.classList.remove('hidden', 'text-orange-600', 'dark:text-orange-400');
-      statusEl.classList.add('text-brand-muted');
+    if (statusEl) {
+      if (hasAssessment) {
+        statusEl.textContent = 'Ready to share';
+        statusEl.classList.remove('hidden', 'text-brand-muted');
+        statusEl.classList.add('text-orange-600', 'dark:text-orange-400');
+      } else {
+        statusEl.textContent = 'Not generated yet';
+        statusEl.classList.remove('hidden', 'text-orange-600', 'dark:text-orange-400');
+        statusEl.classList.add('text-brand-muted');
+      }
     }
-    [previewBtn, copyBtn, openBtn].forEach(function (btn) {
-      if (!btn) return;
-      btn.disabled = !hasAssessment;
+    document.querySelectorAll('.js-ai-tools-trigger[data-ai-tools-action]').forEach(function (btn) {
+      const action = btn.getAttribute('data-ai-tools-action');
+      if (action === 'generate') {
+        btn.removeAttribute('aria-disabled');
+        btn.classList.remove('opacity-50', 'cursor-not-allowed');
+        return;
+      }
+      btn.setAttribute('aria-disabled', hasAssessment ? 'false' : 'true');
       btn.classList.toggle('opacity-50', !hasAssessment);
       btn.classList.toggle('cursor-not-allowed', !hasAssessment);
     });
-    ['sidebarAiToolsPreviewBtn', 'sidebarAiToolsCopyLinkBtn', 'sidebarAiToolsOpenBtn'].forEach(function (id) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.disabled = !hasAssessment;
-      el.classList.toggle('opacity-50', !hasAssessment);
-      el.classList.toggle('cursor-not-allowed', !hasAssessment);
-    });
-    const genSidebar = document.getElementById('sidebarAiToolsGenerateBtn');
-    if (genSidebar) {
-      genSidebar.disabled = false;
-      genSidebar.classList.remove('opacity-50', 'cursor-not-allowed');
-    }
   }
 
   function aiToolsPreviewUrlForRow(row) {
@@ -4168,6 +4159,17 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (_) {}
     }
   }
+
+  function resolveActiveLeadRow() {
+    if (currentRow) return currentRow;
+    const selected = document.querySelector('.result-row.selected');
+    if (selected) {
+      currentRow = selected;
+      return selected;
+    }
+    return null;
+  }
+  window.__resolveActiveLeadRow = resolveActiveLeadRow;
 
   async function ensureRowHasLeadKey(row) {
     if (!row) throw new Error('Select a lead first.');
@@ -7705,6 +7707,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncContactHuntPanel(row);
     syncLeadPanelEmailReportSection(row);
     syncLeadPanelAiToolsSection(row);
+    if (typeof bindAiToolsActionButtons === 'function') bindAiToolsActionButtons();
 
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
@@ -8704,25 +8707,30 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function handleLeadPanelAiToolsGenerateClick() {
-    if (!currentRow) {
+    const row = resolveActiveLeadRow();
+    if (!row) {
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead first.', { variant: 'error' });
       }
       return;
     }
-    const btn = document.getElementById('leadPanelAiToolsGenerateBtn');
-    const original = btn ? btn.textContent : '';
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Generating…';
+    const btn =
+      document.activeElement && document.activeElement.closest
+        ? document.activeElement.closest('.js-ai-tools-trigger[data-ai-tools-action="generate"]')
+        : null;
+    const panelBtn = document.getElementById('leadPanelAiToolsGenerateBtn');
+    const activeBtn = btn || panelBtn;
+    const original = activeBtn ? activeBtn.textContent : '';
+    if (activeBtn) {
+      activeBtn.textContent = 'Generating…';
     }
     try {
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Building AI Tools Assessment from business data…', { variant: 'info' });
       }
-      await generateAiToolsAssessmentForRow(currentRow);
-      syncLeadPanelAiToolsSection(currentRow);
-      syncLeadPanelEmailReportSection(currentRow);
+      await generateAiToolsAssessmentForRow(row);
+      syncLeadPanelAiToolsSection(row);
+      syncLeadPanelEmailReportSection(row);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Assessment ready — preview, edit, then copy the client link.', { variant: 'success' });
       }
@@ -8730,27 +8738,27 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg = err && err.message ? err.message : 'Could not generate assessment';
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = original;
+      if (activeBtn) {
+        activeBtn.textContent = original;
       }
     }
   }
 
   async function handleLeadPanelAiToolsPreviewClick() {
-    if (!currentRow) {
+    const row = resolveActiveLeadRow();
+    if (!row) {
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead first.', { variant: 'error' });
       }
       return;
     }
     try {
-      await ensureRowHasLeadKey(currentRow);
-      if (!getAiToolsAssessmentFromRow(currentRow)) {
-        await generateAiToolsAssessmentForRow(currentRow);
-        syncLeadPanelAiToolsSection(currentRow);
+      await ensureRowHasLeadKey(row);
+      if (!getAiToolsAssessmentFromRow(row)) {
+        await generateAiToolsAssessmentForRow(row);
+        syncLeadPanelAiToolsSection(row);
       }
-      const url = aiToolsPreviewUrlForRow(currentRow);
+      const url = aiToolsPreviewUrlForRow(row);
       if (url) window.open(url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       const msg = err && err.message ? err.message : 'Could not open preview';
@@ -8759,21 +8767,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function handleLeadPanelAiToolsCopyLinkClick() {
-    if (!currentRow) {
+    const row = resolveActiveLeadRow();
+    if (!row) {
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead first.', { variant: 'error' });
       }
       return;
     }
-    const btn = document.getElementById('leadPanelAiToolsCopyLinkBtn');
-    if (btn) btn.disabled = true;
+    const btn =
+      document.activeElement && document.activeElement.closest
+        ? document.activeElement.closest('.js-ai-tools-trigger[data-ai-tools-action="copy"]')
+        : document.getElementById('leadPanelAiToolsCopyLinkBtn');
+    const original = btn ? btn.textContent : '';
+    if (btn) btn.textContent = 'Copying…';
     try {
-      await ensureRowHasLeadKey(currentRow);
-      if (!getAiToolsAssessmentFromRow(currentRow)) {
-        await generateAiToolsAssessmentForRow(currentRow);
-        syncLeadPanelAiToolsSection(currentRow);
+      await ensureRowHasLeadKey(row);
+      if (!getAiToolsAssessmentFromRow(row)) {
+        await generateAiToolsAssessmentForRow(row);
+        syncLeadPanelAiToolsSection(row);
       }
-      const bundle = await fetchAiToolsReportLinkBundle(currentRow);
+      const bundle = await fetchAiToolsReportLinkBundle(row);
       showLeadPanelAiToolsClientLink(bundle);
       await copyTextToClipboard(bundle.reportUrl);
       if (typeof window.showAppToast === 'function') {
@@ -8783,30 +8796,31 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg = err && err.message ? err.message : 'Copy failed';
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn) btn.textContent = original;
     }
   }
 
   async function handleLeadPanelAiToolsOpenClick() {
-    if (!currentRow) {
+    const row = resolveActiveLeadRow();
+    if (!row) {
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead first.', { variant: 'error' });
       }
       return;
     }
-    const btn = document.getElementById('leadPanelAiToolsOpenBtn');
+    const btn =
+      document.activeElement && document.activeElement.closest
+        ? document.activeElement.closest('.js-ai-tools-trigger[data-ai-tools-action="open"]')
+        : document.getElementById('leadPanelAiToolsOpenBtn');
     const original = btn ? btn.textContent : '';
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = 'Opening…';
-    }
+    if (btn) btn.textContent = 'Opening…';
     try {
-      await ensureRowHasLeadKey(currentRow);
-      if (!getAiToolsAssessmentFromRow(currentRow)) {
-        await generateAiToolsAssessmentForRow(currentRow);
-        syncLeadPanelAiToolsSection(currentRow);
+      await ensureRowHasLeadKey(row);
+      if (!getAiToolsAssessmentFromRow(row)) {
+        await generateAiToolsAssessmentForRow(row);
+        syncLeadPanelAiToolsSection(row);
       }
-      const bundle = await fetchAiToolsReportLinkBundle(currentRow);
+      const bundle = await fetchAiToolsReportLinkBundle(row);
       showLeadPanelAiToolsClientLink(bundle);
       window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
       if (typeof window.showAppToast === 'function') {
@@ -8816,12 +8830,38 @@ document.addEventListener('DOMContentLoaded', () => {
       const msg = err && err.message ? err.message : 'Could not open presentation';
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = original;
-      }
+      if (btn) btn.textContent = original;
     }
   }
+
+  function bindAiToolsActionButtons() {
+    const actions = {
+      generate: handleLeadPanelAiToolsGenerateClick,
+      preview: handleLeadPanelAiToolsPreviewClick,
+      copy: handleLeadPanelAiToolsCopyLinkClick,
+      open: handleLeadPanelAiToolsOpenClick,
+    };
+    document.querySelectorAll('.js-ai-tools-trigger[data-ai-tools-action]').forEach((btn) => {
+      if (btn.dataset.adhelloAiToolsBound) return;
+      btn.dataset.adhelloAiToolsBound = '1';
+      const action = btn.getAttribute('data-ai-tools-action');
+      const handler = actions[action];
+      if (!handler) return;
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (
+          action === 'generate' &&
+          (btn.id === 'sidebarAiToolsGenerateBtn' || btn.id === 'appNavAiToolsGenerateBtn')
+        ) {
+          scrollLeadPanelToSection('leadPanelAiToolsSection');
+        }
+        void handler();
+      });
+    });
+  }
+  window.__bindAiToolsActionButtons = bindAiToolsActionButtons;
+  bindAiToolsActionButtons();
 
   const sidebarCadenceSnooze90Btn = document.getElementById('sidebarCadenceSnooze90Btn');
   const sidebarCadencePauseBtn = document.getElementById('sidebarCadencePauseBtn');
@@ -9054,47 +9094,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#sidebarCopySmsAuditBtn')) {
       e.preventDefault();
       handleSidebarCopySmsAuditClick();
-      return;
-    }
-    if (e.target.closest('#leadPanelAiToolsGenerateBtn')) {
-      e.preventDefault();
-      handleLeadPanelAiToolsGenerateClick();
-      return;
-    }
-    if (e.target.closest('#leadPanelAiToolsPreviewBtn')) {
-      e.preventDefault();
-      handleLeadPanelAiToolsPreviewClick();
-      return;
-    }
-    if (e.target.closest('#leadPanelAiToolsCopyLinkBtn')) {
-      e.preventDefault();
-      handleLeadPanelAiToolsCopyLinkClick();
-      return;
-    }
-    if (e.target.closest('#leadPanelAiToolsOpenBtn')) {
-      e.preventDefault();
-      handleLeadPanelAiToolsOpenClick();
-      return;
-    }
-    if (e.target.closest('#sidebarAiToolsGenerateBtn')) {
-      e.preventDefault();
-      scrollLeadPanelToSection('leadPanelAiToolsSection');
-      handleLeadPanelAiToolsGenerateClick();
-      return;
-    }
-    if (e.target.closest('#sidebarAiToolsPreviewBtn')) {
-      e.preventDefault();
-      handleLeadPanelAiToolsPreviewClick();
-      return;
-    }
-    if (e.target.closest('#sidebarAiToolsCopyLinkBtn')) {
-      e.preventDefault();
-      handleLeadPanelAiToolsCopyLinkClick();
-      return;
-    }
-    if (e.target.closest('#sidebarAiToolsOpenBtn')) {
-      e.preventDefault();
-      handleLeadPanelAiToolsOpenClick();
       return;
     }
     if (e.target.closest('#sidebarIncludeCoupon') || e.target.closest('label[for="sidebarIncludeCoupon"]')) {
@@ -13044,5 +13043,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.36-ai-tools-menu-links';
+  window.__ADHELLO_BUILD = '1.0.37-ai-tools-sidebar-fix';
 });

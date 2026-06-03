@@ -262,10 +262,10 @@
             <div class="rounded-2xl border border-orange-500/25 bg-orange-500/[0.04] dark:bg-orange-950/20 px-3 py-3">
               <p class="text-[9px] font-black uppercase tracking-widest text-orange-600 dark:text-orange-400 mb-2">AI tools assessment</p>
               <div class="grid grid-cols-2 gap-2">
-                <button id="sidebarAiToolsGenerateBtn" type="button" class="btn-pill bg-orange-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-700 transition-colors col-span-2 sm:col-span-1">Generate deck</button>
-                <button id="sidebarAiToolsPreviewBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">Preview &amp; edit</button>
-                <button id="sidebarAiToolsCopyLinkBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">Copy client link</button>
-                <button id="sidebarAiToolsOpenBtn" type="button" class="btn-pill bg-indigo-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors col-span-2">Open presentation</button>
+                <button id="sidebarAiToolsGenerateBtn" type="button" data-ai-tools-action="generate" class="js-ai-tools-trigger btn-pill bg-orange-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-700 transition-colors col-span-2 sm:col-span-1">Generate deck</button>
+                <button id="sidebarAiToolsPreviewBtn" type="button" data-ai-tools-action="preview" class="js-ai-tools-trigger btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">Preview &amp; edit</button>
+                <button id="sidebarAiToolsCopyLinkBtn" type="button" data-ai-tools-action="copy" class="js-ai-tools-trigger btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">Copy client link</button>
+                <button id="sidebarAiToolsOpenBtn" type="button" data-ai-tools-action="open" class="js-ai-tools-trigger btn-pill bg-indigo-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors col-span-2">Open presentation</button>
               </div>
             </div>
             <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/70 dark:bg-slate-900/50 px-3 py-2.5">
@@ -347,16 +347,16 @@
           <span id="leadPanelAiToolsStatus" class="text-[9px] font-black uppercase tracking-widest px-2.5 py-1 rounded-full bg-white/70 dark:bg-slate-900/60 border border-brand-border/20 text-brand-muted hidden"></span>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <button id="leadPanelAiToolsGenerateBtn" type="button" class="btn-pill bg-orange-600 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-orange-700 transition-colors">
+          <button id="leadPanelAiToolsGenerateBtn" type="button" data-ai-tools-action="generate" class="js-ai-tools-trigger btn-pill bg-orange-600 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-orange-700 transition-colors">
             Generate assessment
           </button>
-          <button id="leadPanelAiToolsPreviewBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">
+          <button id="leadPanelAiToolsPreviewBtn" type="button" data-ai-tools-action="preview" class="js-ai-tools-trigger btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">
             Preview &amp; edit
           </button>
-          <button id="leadPanelAiToolsCopyLinkBtn" type="button" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">
+          <button id="leadPanelAiToolsCopyLinkBtn" type="button" data-ai-tools-action="copy" class="js-ai-tools-trigger btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-orange-500/50 transition-colors">
             Copy client link
           </button>
-          <button id="leadPanelAiToolsOpenBtn" type="button" class="btn-pill bg-indigo-600 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5">
+          <button id="leadPanelAiToolsOpenBtn" type="button" data-ai-tools-action="open" class="js-ai-tools-trigger btn-pill bg-indigo-600 text-white py-3 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1.5">
             Open presentation
           </button>
         </div>
