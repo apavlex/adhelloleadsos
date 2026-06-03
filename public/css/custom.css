@@ -1715,3 +1715,18 @@ html.dark #pipelineColumnsPopover {
 .dark .lead-panel-field-label--violet {
     color: rgb(196, 181, 253);
 }
+
+/* Focus mode — collapsible call outcome panel */
+#focus-outcome-panel[data-collapsed="true"] {
+    padding-top: 0.65rem;
+    padding-bottom: 0.75rem;
+}
+
+#focus-outcome-panel[data-collapsed="true"] #focus-outcome-header {
+    justify-content: flex-end;
+    margin-bottom: 0.15rem;
+}
+
+#focus-outcome-panel[data-collapsed="true"] #focus-outcome-actions {
+    padding-top: 0;
+}

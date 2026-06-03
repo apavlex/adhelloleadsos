@@ -88,6 +88,129 @@
     }
   }
 
+  function pickWebsite(lead) {
+    if (!lead) return '';
+    if (!isEmpty(lead.website)) return String(lead.website).trim();
+    return '';
+  }
+
+  function normalizeWebsiteHref(raw) {
+    const w = String(raw || '').trim();
+    if (!w || w === 'N/A' || w === '—' || w.length < 3) return '';
+    if (/^https?:\/\//i.test(w)) return w;
+    return `https://${w.replace(/^\/+/, '')}`;
+  }
+
+  function resolveMapsHrefFromLead(L, row) {
+    const isGoogleMapsListingUrl = (absUrl) => {
+      try {
+        const u = new URL(absUrl);
+        const h = u.hostname.replace(/^www\./, '').toLowerCase();
+        if (h === 'maps.app.goo.gl') return true;
+        if (h === 'goo.gl' && u.pathname.includes('maps')) return true;
+        if (h.endsWith('google.com') || h.endsWith('google.co.uk')) {
+          if (u.pathname.includes('/maps/')) return true;
+          if (u.search.includes('cid=') || u.search.includes('q=place_id:')) return true;
+        }
+        return false;
+      } catch (_) {
+        return false;
+      }
+    };
+
+    const urlRaw = String((L && L.url) || (row && row.dataset && row.dataset.url) || '').trim();
+    if (urlRaw && /^https?:\/\//i.test(urlRaw) && isGoogleMapsListingUrl(urlRaw)) return urlRaw;
+
+    const title = String((L && L.title) || (row && row.dataset && row.dataset.title) || '').trim();
+    const address = pickAddress(L) || String((row && row.dataset && row.dataset.address) || '').trim();
+    const city = String((L && L.city) || (row && row.dataset && row.dataset.city) || '').trim();
+    if (address && address !== 'N/A') {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address} ${title}`.trim())}`;
+    }
+    if (title && city) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} ${city}`.trim())}`;
+    }
+    if (title) {
+      return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(title)}`;
+    }
+    return '';
+  }
+
+  function paintQuickOutreachLinks(L, row) {
+    let website = pickWebsite(L);
+    if (isEmpty(website) && row && typeof row.querySelector === 'function') {
+      const webLink = row.querySelector('.website-link[data-url], a.website-link[href]');
+      if (webLink) {
+        const w = String(webLink.getAttribute('data-url') || webLink.getAttribute('href') || '').trim();
+        if (!isEmpty(w) && !/^#$/i.test(w)) website = w.replace(/\/$/, '');
+      }
+    }
+    if (isEmpty(website) && row && row.dataset && !isEmpty(row.dataset.website)) {
+      website = String(row.dataset.website).trim();
+    }
+
+    const websiteHref = normalizeWebsiteHref(website);
+    const websiteLink = panelEl('mobilePanelWebsiteLink');
+    const websiteShort = panelEl('mobilePanelWebsiteShort');
+    if (websiteShort) {
+      try {
+        if (!websiteHref) {
+          websiteShort.textContent = 'No website';
+        } else {
+          const domain = new URL(websiteHref).hostname.replace(/^www\./i, '');
+          websiteShort.textContent = domain && domain.length > 1 ? domain : 'Website';
+        }
+      } catch (_) {
+        websiteShort.textContent = websiteHref ? String(website).slice(0, 32) : 'No website';
+      }
+    }
+    if (websiteLink) {
+      websiteLink.target = '_blank';
+      websiteLink.rel = 'noopener noreferrer';
+      if (websiteHref) {
+        websiteLink.href = websiteHref;
+        websiteLink.classList.remove('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        websiteLink.removeAttribute('aria-disabled');
+        websiteLink.onclick = null;
+      } else {
+        websiteLink.href = '#';
+        websiteLink.classList.add('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        websiteLink.setAttribute('aria-disabled', 'true');
+        websiteLink.onclick = (ev) => ev.preventDefault();
+      }
+    }
+
+    const address = pickAddress(L);
+    const locationLine = address ? formatAddress(address) : '';
+    const mapsHref = resolveMapsHrefFromLead(L, row);
+    const mapsLink = panelEl('mobilePanelMapsLink');
+    const addressEl = panelEl('mobilePanelAddress');
+    if (addressEl) {
+      addressEl.textContent = locationLine || 'Open in Maps';
+    }
+    if (mapsLink) {
+      mapsLink.target = '_blank';
+      mapsLink.rel = 'noopener noreferrer';
+      if (mapsHref) {
+        mapsLink.href = mapsHref;
+        mapsLink.classList.remove('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        mapsLink.removeAttribute('aria-disabled');
+        mapsLink.onclick = null;
+      } else {
+        mapsLink.href = '#';
+        mapsLink.classList.add('opacity-20', 'pointer-events-none', 'cursor-not-allowed');
+        mapsLink.setAttribute('aria-disabled', 'true');
+        mapsLink.onclick = (ev) => ev.preventDefault();
+      }
+    }
+
+    if (row && row.dataset) {
+      if (website && isEmpty(row.dataset.website)) row.dataset.website = website;
+      if (address && isEmpty(row.dataset.address)) row.dataset.address = address;
+      if (L && !isEmpty(L.url) && isEmpty(row.dataset.url)) row.dataset.url = String(L.url).trim();
+    }
+  }
+
   function scrapeRowIntoLead(row, base) {
     const lead = base && typeof base === 'object' ? { ...base } : {};
     if (!row || typeof row.querySelector !== 'function') return lead;
@@ -141,6 +264,12 @@
       if (withEmail) lead.email = String(withEmail.email).trim();
     }
 
+    const webLink = row.querySelector('.website-link[data-url], a.website-link[href]');
+    if (webLink && isEmpty(lead.website)) {
+      const w = String(webLink.getAttribute('data-url') || webLink.getAttribute('href') || '').trim();
+      if (!isEmpty(w) && !/^#$/i.test(w)) lead.website = w.replace(/\/$/, '');
+    }
+
     const revLine = row.querySelector('.lead-reviews-line');
     if (revLine) {
       const txt = String(revLine.textContent || '');
@@ -156,6 +285,7 @@
     if (!isEmpty(ds.address) && isEmpty(lead.address)) lead.address = ds.address;
     if (!isEmpty(ds.email) && isEmpty(lead.email)) lead.email = ds.email;
     if (!isEmpty(ds.website) && isEmpty(lead.website)) lead.website = ds.website;
+    if (!isEmpty(ds.url) && isEmpty(lead.url)) lead.url = ds.url;
     if (parseFloat(ds.rating) > 0 && !parseFloat(lead.totalScore)) {
       lead.totalScore = parseFloat(ds.rating);
     }
@@ -166,11 +296,13 @@
     return lead;
   }
 
-  function writeRowDatasetFromPaint(row, phone, address, rating, reviews) {
+  function writeRowDatasetFromPaint(row, phone, address, rating, reviews, website, url) {
     if (!row || !row.dataset) return;
     const ds = row.dataset;
     if (phone && isEmpty(ds.phone)) ds.phone = phone;
     if (address && isEmpty(ds.address)) ds.address = address;
+    if (website && isEmpty(ds.website)) ds.website = website;
+    if (url && isEmpty(ds.url)) ds.url = url;
     if (rating > 0 && (!parseFloat(ds.rating) || parseFloat(ds.rating) <= 0)) {
       ds.rating = String(rating);
     }
@@ -187,11 +319,13 @@
 
     const phone = pickPhone(L);
     const address = pickAddress(L);
+    const website = pickWebsite(L);
+    const url = L && !isEmpty(L.url) ? String(L.url).trim() : '';
     const rating = parseFloat(L.totalScore ?? L.rating ?? 0) || 0;
     const reviews = parseInt(L.reviewsCount ?? L.reviews ?? 0, 10) || 0;
     const locationLine = address ? formatAddress(address) : '';
 
-    if (row) writeRowDatasetFromPaint(row, phone, address, rating, reviews);
+    if (row) writeRowDatasetFromPaint(row, phone, address, rating, reviews, website, url);
 
     const headerAddr = panelEl('mobilePanelHeaderAddress');
     if (headerAddr) headerAddr.textContent = locationLine || '—';
@@ -218,6 +352,8 @@
         headerPhone.classList.add('opacity-40');
       }
     }
+
+    paintQuickOutreachLinks(L, row);
 
     const starsEl = panelEl('mobilePanelStars');
     const ratingText = panelEl('mobilePanelRatingText');
@@ -252,6 +388,9 @@
     if (row) {
       requestAnimationFrame(() => {
         try {
+          if (typeof window.__paintLeadPanelQuickOutreach === 'function') {
+            window.__paintLeadPanelQuickOutreach(row);
+          }
           if (typeof window.syncLeadPanelMapAfterContactPaint === 'function') {
             window.syncLeadPanelMapAfterContactPaint(row);
           }
@@ -264,7 +403,7 @@
     return { phone, address: locationLine, rating, reviews };
   }
 
-  window.__PIPELINE_PANEL_PAINT_V1 = '2';
+  window.__PIPELINE_PANEL_PAINT_V1 = '3';
   window.__paintPanelFromLeadRecord = paintPanelFromLeadRecord;
   window.__findLeadRecordForPanel = findLeadRecord;
 })();

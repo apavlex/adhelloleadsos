@@ -88,6 +88,18 @@
           <div id="focus-biz-socials" class="flex flex-wrap items-center gap-2 lead-cell-socials-content" aria-label="Social profile links"></div>
         </div>
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
+          <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Client deliverables</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="focus-hosted-audit-open" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-indigo-500/40 text-indigo-700 dark:text-indigo-300 hover:border-indigo-500/70 transition-colors">Hosted audit</button>
+            <button type="button" id="focus-hosted-audit-copy" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-indigo-500/30 text-indigo-700/80 dark:text-indigo-300/80 hover:border-indigo-500/60 transition-colors">Copy audit link</button>
+            <button type="button" id="focus-ai-tools-generate" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-orange-500/45 bg-orange-500/10 text-orange-800 dark:text-orange-200 hover:border-orange-500/70 transition-colors">Generate AI deck</button>
+            <button type="button" id="focus-ai-tools-preview" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-orange-500/35 text-orange-700 dark:text-orange-300 hover:border-orange-500/60 transition-colors">Preview &amp; edit</button>
+            <button type="button" id="focus-ai-tools-copy" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-orange-500/30 text-orange-700/80 dark:text-orange-300/80 hover:border-orange-500/60 transition-colors">Copy deck link</button>
+            <button type="button" id="focus-ai-tools-open" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-orange-500/50 bg-orange-500/15 text-orange-900 dark:text-orange-100 hover:border-orange-500/70 transition-colors">Open presentation</button>
+          </div>
+          <p id="focus-deliverables-feedback" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]"></p>
+        </div>
+        <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
           <div class="flex flex-wrap gap-2">
             <button type="button" id="focus-copy-phone" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Phone</button>
@@ -191,8 +203,22 @@
         <label for="focus-body" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Outreach draft</label>
         <textarea id="focus-body" rows="10" class="w-full rounded-2xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white font-medium leading-relaxed resize-y min-h-[200px]" placeholder="Draft loads here — edit before you send or log."></textarea>
       </div>
-      <div class="mb-6 md:mb-4 md:sticky md:bottom-4 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 md:bg-white/70 md:dark:bg-slate-900/65 md:backdrop-blur-xl shadow-sm md:shadow-xl p-4 space-y-3">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call outcome + notes</p>
+      <div id="focus-outcome-panel" class="mb-6 md:mb-4 md:sticky md:bottom-4 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 md:bg-white/70 md:dark:bg-slate-900/65 md:backdrop-blur-xl shadow-sm md:shadow-xl p-4 space-y-3">
+        <div id="focus-outcome-header" class="flex items-center justify-between gap-2">
+          <p id="focus-outcome-heading" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call outcome + notes</p>
+          <button
+            type="button"
+            id="focus-outcome-collapse-toggle"
+            class="inline-flex items-center justify-center w-7 h-7 rounded-lg border border-brand-border/60 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors shrink-0"
+            aria-expanded="true"
+            aria-controls="focus-outcome-details"
+            title="Collapse notes"
+          >
+            <svg id="focus-outcome-collapse-icon" class="w-4 h-4 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M18 15l-6-6-6 6"/></svg>
+            <span class="sr-only">Toggle call outcome notes</span>
+          </button>
+        </div>
+        <div id="focus-outcome-details" class="space-y-3">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick disposition</p>
           <div class="flex flex-wrap gap-2">
@@ -228,7 +254,8 @@
           <input id="focus-followup-at" type="datetime-local" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" />
         </div>
         <p id="focus-outcome-feedback" class="min-h-[1rem] text-[11px] text-brand-muted"></p>
-        <div class="flex flex-col sm:flex-row flex-wrap gap-3 pt-1">
+        </div>
+        <div id="focus-outcome-actions" class="flex flex-col sm:flex-row flex-wrap gap-3 pt-1">
         <button
           type="button"
           id="focus-btn-open-dialer"
@@ -244,7 +271,7 @@
         <button type="button" id="focus-btn-log" class="btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800">Log &amp; next</button>
         <button type="button" id="focus-btn-skip" class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40">Skip</button>
         </div>
-        <p class="text-[10px] text-brand-muted mt-1"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> run selected channel · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
+        <p id="focus-outcome-shortcuts" class="text-[10px] text-brand-muted mt-1"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> run selected channel · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
       </div>
     </section>
   </main>
@@ -363,6 +390,36 @@
     var btnMobileCall = document.getElementById('focus-mobile-call');
     var btnMobileLog = document.getElementById('focus-mobile-log');
     var btnMobileSkip = document.getElementById('focus-mobile-skip');
+    var elOutcomePanel = document.getElementById('focus-outcome-panel');
+    var elOutcomeDetails = document.getElementById('focus-outcome-details');
+    var btnOutcomeCollapse = document.getElementById('focus-outcome-collapse-toggle');
+    var elOutcomeCollapseIcon = document.getElementById('focus-outcome-collapse-icon');
+    var elOutcomeHeading = document.getElementById('focus-outcome-heading');
+    var elOutcomeShortcuts = document.getElementById('focus-outcome-shortcuts');
+    var outcomePanelCollapsed = false;
+
+    function setOutcomePanelCollapsed(collapsed) {
+      outcomePanelCollapsed = !!collapsed;
+      if (elOutcomePanel) {
+        elOutcomePanel.setAttribute('data-collapsed', outcomePanelCollapsed ? 'true' : 'false');
+      }
+      if (elOutcomeDetails) {
+        elOutcomeDetails.classList.toggle('hidden', outcomePanelCollapsed);
+      }
+      if (elOutcomeHeading) {
+        elOutcomeHeading.classList.toggle('hidden', outcomePanelCollapsed);
+      }
+      if (elOutcomeShortcuts) {
+        elOutcomeShortcuts.classList.toggle('hidden', outcomePanelCollapsed);
+      }
+      if (btnOutcomeCollapse) {
+        btnOutcomeCollapse.setAttribute('aria-expanded', outcomePanelCollapsed ? 'false' : 'true');
+        btnOutcomeCollapse.setAttribute('title', outcomePanelCollapsed ? 'Expand notes' : 'Collapse notes');
+      }
+      if (elOutcomeCollapseIcon) {
+        elOutcomeCollapseIcon.classList.toggle('rotate-180', outcomePanelCollapsed);
+      }
+    }
 
     function isMobileViewport() {
       return window.matchMedia && window.matchMedia('(max-width: 767px)').matches;
@@ -1004,6 +1061,173 @@
       }
     }
 
+    var elDeliverablesFeedback = document.getElementById('focus-deliverables-feedback');
+    var focusAiToolsReady = {};
+
+    function setDeliverablesFeedback(msg, isError) {
+      if (!elDeliverablesFeedback) return;
+      elDeliverablesFeedback.textContent = msg || '';
+      elDeliverablesFeedback.classList.toggle('text-red-500', Boolean(isError));
+      elDeliverablesFeedback.classList.toggle('text-brand-muted', !isError);
+      if (window.__focusDeliverablesTimer) clearTimeout(window.__focusDeliverablesTimer);
+      if (!msg) return;
+      window.__focusDeliverablesTimer = setTimeout(function () {
+        if (elDeliverablesFeedback) {
+          elDeliverablesFeedback.textContent = '';
+          elDeliverablesFeedback.classList.remove('text-red-500');
+          elDeliverablesFeedback.classList.add('text-brand-muted');
+        }
+      }, 2600);
+    }
+
+    function focusLeadKeyParam(lead) {
+      return lead && lead.key ? String(lead.key).trim() : '';
+    }
+
+    function focusHasAiTools(lead) {
+      var k = focusLeadKeyParam(lead);
+      if (!k) return false;
+      if (focusAiToolsReady[k]) return true;
+      return !!(lead && lead.hasAiToolsAssessment);
+    }
+
+    function focusPostJson(url, body) {
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(body || {}),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Request failed');
+          return j;
+        });
+      });
+    }
+
+    function focusEnsureAiToolsAssessment(lead) {
+      var key = focusLeadKeyParam(lead);
+      if (!key) return Promise.reject(new Error('Lead key missing'));
+      if (focusHasAiTools(lead)) return Promise.resolve({ assessment: true });
+      setDeliverablesFeedback('Generating AI tools deck…');
+      return focusPostJson('/leads/' + encodeURIComponent(key) + '/ai-tools-assessment/generate', {})
+        .then(function (data) {
+          focusAiToolsReady[key] = true;
+          if (lead) lead.hasAiToolsAssessment = true;
+          setDeliverablesFeedback('AI tools deck ready.');
+          return data;
+        });
+    }
+
+    function focusFetchAuditLink(lead) {
+      var key = focusLeadKeyParam(lead);
+      if (!key) return Promise.reject(new Error('Lead key missing'));
+      return focusPostJson('/leads/' + encodeURIComponent(key) + '/audit-report-link', {});
+    }
+
+    function focusFetchAiToolsLink(lead) {
+      var key = focusLeadKeyParam(lead);
+      if (!key) return Promise.reject(new Error('Lead key missing'));
+      return focusEnsureAiToolsAssessment(lead).then(function () {
+        return focusPostJson('/leads/' + encodeURIComponent(key) + '/ai-tools-report-link', {});
+      });
+    }
+
+    function focusCopyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        return navigator.clipboard.writeText(text);
+      }
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } finally {
+        document.body.removeChild(ta);
+      }
+      return Promise.resolve();
+    }
+
+    function bindFocusDeliverableBtn(id, handler) {
+      var btn = document.getElementById(id);
+      if (!btn) return;
+      btn.addEventListener('click', function () {
+        var lead = currentLead();
+        if (!lead || !lead.key) {
+          setDeliverablesFeedback('No lead selected.', true);
+          return;
+        }
+        handler(lead, btn);
+      });
+    }
+
+    bindFocusDeliverableBtn('focus-hosted-audit-open', function (lead) {
+      setDeliverablesFeedback('Preparing hosted audit…');
+      focusFetchAuditLink(lead)
+        .then(function (bundle) {
+          window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
+          setDeliverablesFeedback('Hosted audit opened — text them the link.');
+        })
+        .catch(function (err) {
+          setDeliverablesFeedback((err && err.message) || 'Could not open hosted audit', true);
+        });
+    });
+
+    bindFocusDeliverableBtn('focus-hosted-audit-copy', function (lead) {
+      setDeliverablesFeedback('Copying audit link…');
+      focusFetchAuditLink(lead)
+        .then(function (bundle) {
+          return focusCopyText(bundle.reportUrl).then(function () {
+            setDeliverablesFeedback('Audit link copied.');
+          });
+        })
+        .catch(function (err) {
+          setDeliverablesFeedback((err && err.message) || 'Could not copy audit link', true);
+        });
+    });
+
+    bindFocusDeliverableBtn('focus-ai-tools-generate', function (lead) {
+      focusEnsureAiToolsAssessment(lead).catch(function (err) {
+        setDeliverablesFeedback((err && err.message) || 'Generate failed', true);
+      });
+    });
+
+    bindFocusDeliverableBtn('focus-ai-tools-preview', function (lead) {
+      focusEnsureAiToolsAssessment(lead)
+        .then(function () {
+          var url = '/leads/' + encodeURIComponent(focusLeadKeyParam(lead)) + '/ai-tools-assessment/preview';
+          window.open(url, '_blank', 'noopener,noreferrer');
+          setDeliverablesFeedback('Preview opened — edit and save before sharing.');
+        })
+        .catch(function (err) {
+          setDeliverablesFeedback((err && err.message) || 'Preview failed', true);
+        });
+    });
+
+    bindFocusDeliverableBtn('focus-ai-tools-copy', function (lead) {
+      focusFetchAiToolsLink(lead)
+        .then(function (bundle) {
+          return focusCopyText(bundle.reportUrl).then(function () {
+            setDeliverablesFeedback('Client deck link copied.');
+          });
+        })
+        .catch(function (err) {
+          setDeliverablesFeedback((err && err.message) || 'Copy failed', true);
+        });
+    });
+
+    bindFocusDeliverableBtn('focus-ai-tools-open', function (lead) {
+      focusFetchAiToolsLink(lead)
+        .then(function (bundle) {
+          window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
+          setDeliverablesFeedback('Presentation opened — this is what your client sees.');
+        })
+        .catch(function (err) {
+          setDeliverablesFeedback((err && err.message) || 'Could not open presentation', true);
+        });
+    });
+
     function setOutcomeFeedback(msg, isError) {
       if (!elOutcomeFeedback) return;
       elOutcomeFeedback.textContent = msg || '';
@@ -1485,6 +1709,11 @@
         var isOpen = !elProductOptions.classList.contains('hidden');
         elProductOptions.classList.toggle('hidden', isOpen);
         elRecommendedToggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+      });
+    }
+    if (btnOutcomeCollapse) {
+      btnOutcomeCollapse.addEventListener('click', function () {
+        setOutcomePanelCollapsed(!outcomePanelCollapsed);
       });
     }
     if (elProductOptionBtns && elProductOptionBtns.length && elServiceSelect) {

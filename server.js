@@ -48,6 +48,7 @@ const todayRoutes = require('./routes/today');
 const focusRoutes = require('./routes/focus');
 const pipelineRoutes = require('./routes/pipeline');
 const auditReportPublicRoutes = require('./routes/auditReportPublic');
+const aiToolsReportPublicRoutes = require('./routes/aiToolsReportPublic');
 const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 const dbService = require('./services/database');
 const ceoRoutes = require('./routes/ceo');
@@ -344,6 +345,7 @@ app.post('/enrich', async (req, res) => {
 // Public hosted website audit (signed token; no session — share on cold calls)
 app.use('/', sharePhoneAnalyticsRoutes);
 app.use('/', auditReportPublicRoutes);
+app.use('/', aiToolsReportPublicRoutes);
 
 // Autonomous prospecting API (API key auth, no session required)
 app.use('/autonomous', autonomousRoutes);

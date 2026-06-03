@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>AI Tools Assessment — <%= vm.clientName %></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --cg-orange: #F06000;
+      --cg-orange-bright: #FF7A1A;
+      --cg-black: #000000;
+      --cg-charcoal: #1A1A1A;
+      --cg-charcoal-2: #242424;
+      --cg-white: #FFFFFF;
+      --cg-cream: #F0E0D0;
+      --cg-slate: #8090A0;
+      --accent: <%= vm.accent || '#F06000' %>;
+      --accent-2: var(--cg-orange-bright);
+      --ink: var(--cg-white);
+      --ink-2: var(--cg-cream);
+      --muted: var(--cg-slate);
+      --rule: rgba(240,224,208,.10);
+      --rule-strong: rgba(240,224,208,.22);
+      --font-display: 'Montserrat', system-ui, sans-serif;
+      --font-body: 'Inter', system-ui, sans-serif;
+      --font-mono: ui-monospace, monospace;
+      --pad-x: clamp(24px, 6vw, 120px);
+      --pad-top: clamp(48px, 8vw, 92px);
+      --pad-bottom: clamp(48px, 8vw, 96px);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #000; color: var(--ink-2); font-family: var(--font-body); }
+    .toolbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center;
+      padding: 10px 14px; background: rgba(0,0,0,.92); border-bottom: 1px solid var(--rule);
+      font-size: 11px; font-weight: 600;
+    }
+    .toolbar a, .toolbar button {
+      display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 8px;
+      border: none; font: inherit; font-weight: 700; cursor: pointer; text-decoration: none;
+    }
+    .toolbar a.pdf { background: var(--accent); color: #000; }
+    .toolbar button.copy, .toolbar button.save { background: #333; color: #fff; }
+    .toolbar button.save { background: var(--accent); color: #000; }
+    .toolbar .hint { color: var(--muted); max-width: 420px; text-align: center; font-size: 10px; }
+    <% if (printMode) { %>
+    .toolbar { display: none !important; }
+    .deck { padding-top: 0 !important; }
+    <% } else { %>
+    .deck { padding-top: 52px; }
+    <% } %>
+    .deck { height: 100vh; overflow-y: auto; scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+    .slide {
+      min-height: 100vh; scroll-snap-align: start; position: relative;
+      background: var(--cg-black); overflow: hidden;
+    }
+    .slide.charcoal { background: var(--cg-charcoal); }
+    .pad {
+      min-height: 100vh; padding: var(--pad-top) var(--pad-x) var(--pad-bottom);
+      display: flex; flex-direction: column;
+    }
+    .eyebrow {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(11px, 1.2vw, 24px);
+      letter-spacing: .22em; text-transform: uppercase; color: var(--accent);
+    }
+    .title {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(28px, 4vw, 70px);
+      line-height: 1; letter-spacing: .01em; text-transform: uppercase; color: var(--ink); margin: 12px 0 0;
+    }
+    .pg {
+      position: absolute; right: var(--pad-x); bottom: 24px;
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+    }
+    .card {
+      background: var(--cg-charcoal); border: 1px solid var(--rule); padding: 24px 28px;
+      display: flex; flex-direction: column;
+    }
+    .slide.charcoal .card { background: var(--cg-charcoal-2); }
+    .card.accent { background: var(--accent); border-color: var(--accent); color: #000; }
+    .cover .pad { justify-content: center; }
+    .cover .display {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(42px, 8vw, 132px);
+      line-height: .9; text-transform: uppercase; color: var(--ink); margin: 0;
+    }
+    .cover .display .accent { color: var(--accent); }
+    .cover .sub { font-size: clamp(16px, 2vw, 34px); color: var(--ink-2); margin-top: 20px; }
+    .cover .sub strong { color: var(--ink); }
+    .cover .metarow {
+      display: flex; flex-wrap: wrap; gap: 32px 64px; border-top: 1px solid var(--rule);
+      padding-top: 24px; margin-top: auto;
+    }
+    .cover .metarow .k {
+      font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 6px;
+    }
+    .cover .metarow .v { font-size: clamp(14px, 1.5vw, 27px); color: var(--ink); }
+    .sum-grid { display: grid; grid-template-columns: 1fr; gap: 20px; flex: 1; margin-top: 24px; }
+    @media (min-width: 900px) { .sum-grid { grid-template-columns: 1.25fr 1fr; gap: 32px; } }
+    .sum-left, .sum-right { display: flex; flex-direction: column; gap: 20px; }
+    .sum-left .ttl {
+      font-family: var(--font-display); font-weight: 800; font-size: 16px;
+      letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+    }
+    .sum-left .txt { font-size: clamp(14px, 1.4vw, 22px); line-height: 1.5; color: var(--ink-2); }
+    .hero-stat { flex: 2; justify-content: center; }
+    .hero-stat .big {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(64px, 10vw, 140px);
+      line-height: .85; color: #000;
+    }
+    .hero-stat .big .u { font-size: .4em; }
+    .hero-stat .cap { font-weight: 600; font-size: clamp(14px, 1.4vw, 22px); color: #000; margin-top: 12px; }
+    .focus-card .label { color: var(--muted); font-size: 11px; margin-bottom: 8px; }
+    .focus-card .val {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(18px, 2vw, 34px);
+      text-transform: uppercase; color: var(--ink);
+    }
+    .matrix-area {
+      display: grid; grid-template-columns: 40px 1fr; grid-template-rows: 1fr auto;
+      gap: 12px; flex: 1; margin-top: 24px;
+    }
+    .ylab { display: flex; flex-direction: column; justify-content: space-between; align-items: center; }
+    .ylab span {
+      writing-mode: vertical-rl; transform: rotate(180deg);
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .matrix { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 12px; }
+    .quad {
+      background: var(--cg-charcoal); border: 1px solid var(--rule); padding: 16px 18px;
+      display: flex; flex-direction: column; justify-content: space-between; min-height: 100px;
+    }
+    .quad .qname {
+      font-family: var(--font-display); font-weight: 800; font-size: 16px;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .quad .qnote { font-size: 12px; color: var(--muted); line-height: 1.4; }
+    .quad.qw { background: var(--accent); border-color: var(--accent); }
+    .quad.qw .qname, .quad.qw .qnote { color: #000; }
+    .qw-dots { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+    .qw-dots span {
+      width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.18); color: #000; font-family: var(--font-display); font-weight: 800; font-size: 14px;
+    }
+    .xlab {
+      grid-column: 2; display: flex; justify-content: space-between;
+      font-family: var(--font-mono); font-size: 10px; letter-spacing: .16em;
+      text-transform: uppercase; color: var(--muted);
+    }
+    .qwlist { margin-top: 24px; flex: 1; }
+    .qwrow {
+      display: grid; grid-template-columns: 40px 1fr auto 1fr; align-items: center; gap: 12px;
+      padding: 14px 0; border-top: 1px solid var(--rule); font-size: clamp(13px, 1.3vw, 20px);
+    }
+    .qwrow:last-child { border-bottom: 1px solid var(--rule); }
+    .qwrow .n { font-family: var(--font-display); font-weight: 800; color: var(--accent); }
+    .qwrow .pain { color: var(--ink); font-weight: 500; }
+    .qwrow .arrow { color: var(--accent); }
+    .qwrow .fix { color: var(--ink-2); }
+    .qwrow .fix b { color: var(--ink); }
+    .sol-grid {
+      display: grid; grid-template-columns: 1fr; gap: 16px; flex: 1; margin-top: 24px;
+    }
+    @media (min-width: 700px) { .sol-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 1100px) { .sol-grid { grid-template-columns: repeat(3, 1fr); } }
+    .sol { padding: 20px 22px; }
+    .sol .top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .sol .n { font-family: var(--font-display); font-weight: 800; font-size: 20px; color: var(--accent); }
+    .sol .tool {
+      font-family: var(--font-display); font-weight: 800; font-size: 16px;
+      text-transform: uppercase; color: var(--ink);
+    }
+    .sol .use { font-size: 13px; color: var(--ink-2); margin: 10px 0 auto; line-height: 1.4; }
+    .sol .meta { border-top: 1px solid var(--rule); padding-top: 12px; margin-top: 12px; font-size: 12px; }
+    .sol .meta div { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+    .sol .meta .mk { font-family: var(--font-mono); text-transform: uppercase; color: var(--muted); }
+    .sol .meta .mv { font-family: var(--font-display); font-weight: 800; color: var(--ink); }
+    .sol .meta .mv.save { color: var(--accent); }
+    .plan-grid {
+      display: grid; grid-template-columns: 1fr; gap: 16px; flex: 1; margin-top: 24px;
+    }
+    @media (min-width: 800px) { .plan-grid { grid-template-columns: repeat(4, 1fr); } }
+    .day .dn { font-family: var(--font-display); font-weight: 800; font-size: 56px; line-height: .9; color: var(--accent); }
+    .day .dl {
+      font-family: var(--font-display); font-weight: 800; font-size: 14px;
+      letter-spacing: .14em; text-transform: uppercase; color: var(--ink); margin-top: 8px;
+    }
+    .day .task { font-size: 14px; line-height: 1.45; color: var(--ink-2); margin-top: 14px; }
+    .day .tool-line { margin-top: auto; padding-top: 14px; border-top: 1px solid var(--rule); font-size: 11px; color: var(--muted); }
+    .day .tool-line b { color: var(--accent); font-family: var(--font-display); font-weight: 800; }
+    .after-grid {
+      display: grid; grid-template-columns: 1fr; gap: 24px; flex: 1; margin-top: 24px;
+    }
+    @media (min-width: 800px) { .after-grid { grid-template-columns: repeat(3, 1fr); } }
+    .after .n { font-family: var(--font-display); font-weight: 800; font-size: 56px; color: var(--accent); }
+    .after .arule { width: 48px; height: 2px; background: var(--rule-strong); margin: 16px 0; }
+    .after .txt { font-size: clamp(16px, 2vw, 28px); line-height: 1.25; color: var(--ink); font-weight: 500; }
+    .after .tool-line { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-top: 12px; }
+    .fin-grid {
+      display: grid; grid-template-columns: 1fr; gap: 20px; flex: 1; margin-top: 24px;
+    }
+    @media (min-width: 900px) {
+      .fin-grid { grid-template-columns: 1.4fr 1fr; grid-template-rows: 1fr 1fr; }
+      .fin-hero { grid-row: 1 / span 2; }
+    }
+    .fin-hero { justify-content: center; }
+    .fin-hero .label { color: #000; opacity: .7; font-size: 11px; text-transform: uppercase; letter-spacing: .12em; }
+    .fin-hero .big {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(48px, 8vw, 120px);
+      line-height: .85; color: #000; margin-top: 10px;
+    }
+    .fin-hero .cap { font-size: 14px; color: #000; font-weight: 600; margin-top: 12px; }
+    .fin-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); }
+    .fin-card .big {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(40px, 6vw, 96px);
+      line-height: .85; color: var(--ink); margin-top: 8px;
+    }
+    .fin-card .big .u { font-size: .45em; color: var(--muted); }
+    .fin-card .cap { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .steps { display: flex; flex-direction: column; gap: 24px; margin-top: 24px; flex: 1; justify-content: center; max-width: 900px; }
+    .step { display: grid; grid-template-columns: 56px 1fr; gap: 20px; align-items: start; }
+    .step .sn { font-family: var(--font-display); font-weight: 800; font-size: 48px; color: var(--accent); line-height: .85; }
+    .step .sh {
+      font-family: var(--font-display); font-weight: 800; font-size: clamp(18px, 2.5vw, 32px);
+      text-transform: uppercase; color: var(--ink);
+    }
+    .step .sd { font-size: 15px; color: var(--ink-2); margin-top: 8px; line-height: 1.45; }
+    .cta {
+      display: inline-flex; align-items: center; gap: 12px; margin-top: 12px;
+      background: var(--accent); color: #000; padding: 14px 24px;
+      font-family: var(--font-display); font-weight: 800; font-size: 14px;
+      letter-spacing: .08em; text-transform: uppercase; text-decoration: none;
+    }
+    [contenteditable="true"]:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+    <% if (editMode) { %>
+    [contenteditable="true"] { cursor: text; }
+    <% } %>
+    @media print {
+      .deck { height: auto; overflow: visible; scroll-snap-type: none; padding-top: 0 !important; }
+      .slide { min-height: auto; page-break-after: always; }
+      .slide:last-child { page-break-after: auto; }
+    }
+  </style>
+</head>
+<body>
+<% const ed = editMode ? 'contenteditable="true" spellcheck="true"' : ''; %>
+<% if (!printMode) { %>
+  <div class="toolbar">
+    <% if (editMode) { %>
+      <button type="button" class="save" id="saveAssessmentBtn">Save changes</button>
+      <span class="hint">Click any highlighted field to edit. Save before copying the client link.</span>
+    <% } else { %>
+      <a class="pdf" href="<%= pdfHref %>" target="_blank" rel="noopener">Download PDF</a>
+      <button type="button" class="copy" data-copy-target="report-url">Copy link</button>
+      <button type="button" class="copy" data-copy-target="follow-up-email">Copy follow-up email</button>
+      <span class="hint">Share this link with <%= vm.clientName %> — no login required.</span>
+    <% } %>
+  </div>
+<% } %>
+
+<div class="deck" id="assessmentDeck" data-lead-key="<%= leadKey || '' %>">
+  <!-- 01 Cover -->
+  <section class="slide cover">
+    <div class="pad">
+      <h1 class="display">AI Tools<br><span class="accent">Assessment</span></h1>
+      <p class="sub">Prepared for <strong class="js-client" data-field="clientName" <%= ed %>><%= vm.clientName %></strong></p>
+      <div class="metarow">
+        <div>
+          <div class="k">Assessment Date</div>
+          <div class="v" data-field="assessmentDate" <%= ed %>><%= vm.assessmentDate %></div>
+        </div>
+        <div>
+          <div class="k">Business Type</div>
+          <div class="v" data-field="businessType" <%= ed %>><%= vm.businessType %></div>
+        </div>
+        <div>
+          <div class="k">Primary Focus</div>
+          <div class="v" data-field="primaryFocus" <%= ed %>><%= vm.primaryFocus %></div>
+        </div>
+      </div>
+    </div>
+    <div class="pg">01 / 09</div>
+  </section>
+
+  <!-- 02 Executive Summary -->
+  <section class="slide">
+    <div class="pad">
+      <div class="eyebrow">Where we are · where we’re going</div>
+      <h2 class="title">Executive Summary</h2>
+      <div class="sum-grid">
+        <div class="sum-left">
+          <div class="card">
+            <div class="ttl">The Pain</div>
+            <div class="txt" data-field="pain" <%= ed %>><%= vm.pain %></div>
+          </div>
+          <div class="card">
+            <div class="ttl">The Outcome</div>
+            <div class="txt" data-field="outcome" <%= ed %>><%= vm.outcome %></div>
+          </div>
+        </div>
+        <div class="sum-right">
+          <div class="card accent hero-stat">
+            <div class="big" data-field="hoursReclaimed" <%= ed %>><%- vm.hoursReclaimed %></div>
+            <div class="cap">Hours you can reclaim every week</div>
+          </div>
+          <div class="card focus-card">
+            <div class="label">Primary Focus</div>
+            <div class="val" data-field="primaryFocusSummary" <%= ed %>><%= vm.primaryFocus %></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pg">02 / 09</div>
+  </section>
+
+  <!-- 03 Matrix (static structure) -->
+  <section class="slide">
+    <div class="pad">
+      <div class="eyebrow">Where the value is</div>
+      <h2 class="title">Impact–Effort Matrix</h2>
+      <div class="matrix-area">
+        <div class="ylab"><span>High Impact</span><span>Low Impact</span></div>
+        <div class="matrix">
+          <div class="quad qw">
+            <div class="qname">Quick Wins</div>
+            <div class="qw-dots"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+            <div class="qnote">High impact, low effort — this report focuses here.</div>
+          </div>
+          <div class="quad"><div class="qname">Major Projects</div><div class="qnote">High impact, high effort — phase in after wins.</div></div>
+          <div class="quad"><div class="qname">Fill-Ins</div><div class="qnote">Low impact, low effort — when time allows.</div></div>
+          <div class="quad"><div class="qname">Ignore These</div><div class="qnote">Low impact, high effort — not worth it now.</div></div>
+        </div>
+        <div class="xlab"><span>Low Effort</span><span>Effort</span><span>High Effort</span></div>
+      </div>
+    </div>
+    <div class="pg">03 / 09</div>
+  </section>
+
+  <!-- 04 Quick Wins -->
+  <section class="slide">
+    <div class="pad">
+      <div class="eyebrow">High impact, low effort</div>
+      <h2 class="title">Quick Wins</h2>
+      <div class="qwlist">
+        <% (vm.quickWins || []).forEach(function(w, i) { %>
+        <div class="qwrow">
+          <span class="n"><%= String(i + 1).padStart(2, '0') %></span>
+          <span class="pain" data-field="quickWins.<%= i %>.pain" <%= ed %>><%= w.pain %></span>
+          <span class="arrow">→</span>
+          <span class="fix" data-field="quickWins.<%= i %>.fix" <%= ed %>><%= w.fix %></span>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+    <div class="pg">04 / 09</div>
+  </section>
+
+  <!-- 05 Solutions -->
+  <section class="slide">
+    <div class="pad">
+      <div class="eyebrow">The tool stack</div>
+      <h2 class="title">Recommended Solutions</h2>
+      <div class="sol-grid">
+        <% (vm.solutions || []).forEach(function(s, i) { %>
+        <div class="card sol">
+          <div class="top"><span class="n"><%= String(i + 1).padStart(2, '0') %></span><span class="tool" data-field="solutions.<%= i %>.tool" <%= ed %>><%= s.tool %></span></div>
+          <div class="use" data-field="solutions.<%= i %>.use" <%= ed %>><%= s.use %></div>
+          <div class="meta">
+            <div><span class="mk">Cost</span><span class="mv" data-field="solutions.<%= i %>.cost" <%= ed %>><%= s.cost %></span></div>
+            <div><span class="mk">Setup</span><span class="mv" data-field="solutions.<%= i %>.setup" <%= ed %>><%= s.setup %></span></div>
+            <div><span class="mk">Saves</span><span class="mv save" data-field="solutions.<%= i %>.saves" <%= ed %>><%= s.saves %></span></div>
+          </div>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+    <div class="pg">05 / 09</div>
+  </section>
+
+  <!-- 06 Plan -->
+  <section class="slide charcoal">
+    <div class="pad">
+      <div class="eyebrow">Start this week</div>
+      <h2 class="title">Your 4-Day Quick Wins Plan</h2>
+      <div class="plan-grid">
+        <% (vm.plan || []).forEach(function(p, i) { %>
+        <div class="card day">
+          <div class="dn"><%= i + 1 %></div>
+          <div class="dl">Day <%= ['One','Two','Three','Four'][i] || (i + 1) %></div>
+          <div class="task" data-field="plan.<%= i %>.task" <%= ed %>><%= p.task %></div>
+          <div class="tool-line">Tool · <b data-field="plan.<%= i %>.tool" <%= ed %>><%= p.tool %></b></div>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+    <div class="pg">06 / 09</div>
+  </section>
+
+  <!-- 07 After -->
+  <section class="slide">
+    <div class="pad">
+      <div class="eyebrow">The next phase</div>
+      <h2 class="title">What Comes After Quick Wins</h2>
+      <div class="after-grid">
+        <% (vm.after || []).forEach(function(a, i) { %>
+        <div class="after">
+          <div class="n"><%= String(i + 1).padStart(2, '0') %></div>
+          <div class="arule"></div>
+          <div class="txt" data-field="after.<%= i %>.text" <%= ed %>><%= a.text %></div>
+          <div class="tool-line" data-field="after.<%= i %>.tool" <%= ed %>><%= a.tool %></div>
+        </div>
+        <% }); %>
+      </div>
+    </div>
+    <div class="pg">07 / 09</div>
+  </section>
+
+  <!-- 08 Financial -->
+  <section class="slide">
+    <div class="pad">
+      <div class="eyebrow">The bottom line</div>
+      <h2 class="title">Financial Impact</h2>
+      <div class="fin-grid">
+        <div class="card accent fin-hero">
+          <div class="label">Monthly Net ROI</div>
+          <div class="big" data-field="financial.monthlyRoi" <%= ed %>><%- vm.financial.monthlyRoi %></div>
+          <div class="cap" data-field="financial.monthlyRoiCap" <%= ed %>><%= vm.financial.monthlyRoiCap %></div>
+        </div>
+        <div class="card fin-card">
+          <div class="label">Weekly Time Returned</div>
+          <div class="big" data-field="financial.weeklyTime" <%= ed %>><%- vm.financial.weeklyTime %></div>
+          <div class="cap" data-field="financial.weeklyTimeCap" <%= ed %>><%= vm.financial.weeklyTimeCap %></div>
+        </div>
+        <div class="card fin-card">
+          <div class="label">Total Monthly Tool Cost</div>
+          <div class="big" data-field="financial.monthlyToolCost" <%= ed %>><%- vm.financial.monthlyToolCost %></div>
+          <div class="cap" data-field="financial.monthlyToolCostCap" <%= ed %>><%= vm.financial.monthlyToolCostCap %></div>
+        </div>
+      </div>
+    </div>
+    <div class="pg">08 / 09</div>
+  </section>
+
+  <!-- 09 Next Steps -->
+  <section class="slide charcoal">
+    <div class="pad">
+      <div class="eyebrow">Let’s get moving</div>
+      <h2 class="title">Your Next Steps</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="sn">1</div>
+          <div>
+            <div class="sh" data-field="nextSteps.step1Title" <%= ed %>><%= vm.nextSteps.step1Title %></div>
+            <div class="sd" data-field="nextSteps.step1Desc" <%= ed %>><%= vm.nextSteps.step1Desc %></div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="sn">2</div>
+          <div>
+            <div class="sh" data-field="nextSteps.step2Title" <%= ed %>><%= vm.nextSteps.step2Title %></div>
+            <div class="sd" data-field="nextSteps.step2Desc" <%= ed %>><%= vm.nextSteps.step2Desc %></div>
+            <% if (vm.bookUrl && !editMode) { %>
+            <a class="cta" href="<%= vm.bookUrl %>" target="_blank" rel="noopener">Schedule Your Review Call <span>→</span></a>
+            <% } else if (editMode) { %>
+            <span class="cta">Schedule Your Review Call <span>→</span></span>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="pg">09 / 09</div>
+  </section>
+</div>
+
+<textarea id="followUpEmailStore" class="hidden" style="display:none" aria-hidden="true"><%= followUpEmail ? followUpEmail.body : '' %></textarea>
+<script type="application/json" id="reportUrlStore"><%- JSON.stringify(reportUrl || '') %></script>
+
+<script>
+(function () {
+  const reportUrl = JSON.parse(document.getElementById('reportUrlStore').textContent || '""');
+  document.querySelectorAll('[data-copy-target="report-url"]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      navigator.clipboard.writeText(reportUrl).then(function () {
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = 'Copy link'; }, 2000);
+      });
+    });
+  });
+  document.querySelectorAll('[data-copy-target="follow-up-email"]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const el = document.getElementById('followUpEmailStore');
+      const text = el ? el.value : '';
+      navigator.clipboard.writeText(text).then(function () {
+        btn.textContent = 'Copied!';
+        setTimeout(function () { btn.textContent = 'Copy follow-up email'; }, 2000);
+      });
+    });
+  });
+
+  <% if (!editMode && token) { %>
+  (function telemetry() {
+    var viewId = null;
+    var started = Date.now();
+    fetch('/ai-tools/report/<%= token %>/telemetry', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    }).then(function (r) { return r.json(); }).then(function (j) {
+      if (j && j.view_id) viewId = j.view_id;
+    }).catch(function () {});
+    window.addEventListener('beforeunload', function () {
+      if (!viewId) return;
+      var sec = Math.round((Date.now() - started) / 1000);
+      navigator.sendBeacon(
+        '/ai-tools/report/<%= token %>/telemetry',
+        new Blob([JSON.stringify({ view_id: viewId, duration_seconds: sec })], { type: 'application/json' })
+      );
+    });
+  })();
+  <% } %>
+
+  <% if (editMode) { %>
+  function setNested(obj, path, value) {
+    const parts = path.split('.');
+    let cur = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      const key = parts[i];
+      const next = parts[i + 1];
+      if (/^\d+$/.test(next)) {
+        if (!Array.isArray(cur[key])) cur[key] = [];
+      } else if (!cur[key] || typeof cur[key] !== 'object') {
+        cur[key] = /^\d+$/.test(next) ? [] : {};
+      }
+      cur = cur[key];
+    }
+    const last = parts[parts.length - 1];
+    cur[last] = value;
+  }
+
+  function scrapeAssessment() {
+    const data = { accent: '<%= vm.accent || "#F06000" %>' };
+    document.querySelectorAll('[data-field]').forEach(function (el) {
+      const path = el.getAttribute('data-field');
+      let val = (el.innerHTML || el.textContent || '').trim();
+      if (path === 'primaryFocusSummary') {
+        setNested(data, 'primaryFocus', val);
+        return;
+      }
+      setNested(data, path, val);
+    });
+    return data;
+  }
+
+  document.getElementById('saveAssessmentBtn').addEventListener('click', async function () {
+    const btn = this;
+    const leadKey = document.getElementById('assessmentDeck').getAttribute('data-lead-key');
+    if (!leadKey) return;
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+    try {
+      const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/ai-tools-assessment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ assessment: scrapeAssessment() }),
+      });
+      const data = await res.json().catch(function () { return {}; });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Save failed');
+      btn.textContent = 'Saved!';
+      setTimeout(function () { btn.textContent = 'Save changes'; btn.disabled = false; }, 2000);
+    } catch (err) {
+      alert(err.message || 'Could not save');
+      btn.textContent = 'Save changes';
+      btn.disabled = false;
+    }
+  });
+  <% } %>
+})();
+</script>
+</body>
+</html>

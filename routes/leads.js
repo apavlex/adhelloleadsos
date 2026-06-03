@@ -17,6 +17,12 @@ const betterContact = require('../services/betterContactClient');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const pageSpeedInsights = require('../services/pageSpeedInsights');
 const { createAuditReportToken } = require('../services/auditReportSign');
+const {
+  generateAssessment,
+  mergeAssessment,
+  normalizeAssessment,
+} = require('../services/aiToolsAssessment');
+const { buildAiToolsReportViewModel } = require('../services/aiToolsReportModel');
 const { parseImportFile } = require('../services/csvLeadImport');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary } = require('../services/outreachChannelScripts');
@@ -926,7 +932,7 @@ router.post('/:key/update', async (req, res, next) => {
 });
 
 // POST /leads/:key/notes — add a note to a lead
-router.post('/:key/notes', async (req, res, next) => {
+router.post('/:key/notes', express.json(), async (req, res, next) => {
   try {
     const key = req.params.key;
     const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
@@ -2949,6 +2955,137 @@ router.post('/:key/gbp-audit', async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+});
+
+/** Generate AI Tools Assessment deck content from lead + audit data. */
+router.post('/:key/ai-tools-assessment/generate', express.json(), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const assessment = await generateAssessment(lead);
+    const updated = await dbService.updateLead(
+      fullKey,
+      {
+        aiToolsAssessment: assessment,
+        aiToolsAssessmentUpdatedAt: new Date().toISOString(),
+      },
+      req.workspaceId,
+    );
+    return res.json({ success: true, assessment, lead: updated || { key: fullKey, aiToolsAssessment: assessment } });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'Assessment generation failed',
+    });
+  }
+});
+
+/** Save edited assessment fields from preview mode. */
+router.post('/:key/ai-tools-assessment', express.json(), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const patch = req.body && req.body.assessment;
+    if (!patch || typeof patch !== 'object') {
+      return res.status(400).json({ success: false, error: 'Assessment payload required.' });
+    }
+    const merged = mergeAssessment(lead.aiToolsAssessment, patch);
+    merged.clientName = merged.clientName || String(lead.title || '').trim();
+    const updated = await dbService.updateLead(
+      fullKey,
+      {
+        aiToolsAssessment: merged,
+        aiToolsAssessmentUpdatedAt: new Date().toISOString(),
+      },
+      req.workspaceId,
+    );
+    return res.json({ success: true, assessment: merged, lead: updated || { key: fullKey, aiToolsAssessment: merged } });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'Save failed',
+    });
+  }
+});
+
+/** Signed public URL for hosted AI Tools Assessment deck. */
+router.post('/:key/ai-tools-report-link', express.json(), async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    if (!lead.aiToolsAssessment || typeof lead.aiToolsAssessment !== 'object') {
+      return res.status(400).json({
+        success: false,
+        error: 'Generate the AI Tools Assessment first.',
+      });
+    }
+    const token = createAuditReportToken({
+      leadKey: fullKey,
+      workspaceId: req.workspaceId,
+      type: 'ai_tools',
+    });
+    const base = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
+    const reportUrl = `${base}/ai-tools/report/${token}`;
+    const pdfUrl = `${base}/ai-tools/report/${encodeURIComponent(token)}/download.pdf`;
+    const vm = buildAiToolsReportViewModel(lead, lead.aiToolsAssessment, { baseUrl: base, reportUrl });
+    return res.json({
+      success: true,
+      reportUrl,
+      pdfUrl,
+      followUpEmail: vm.followUpEmail,
+      smsSnippet: vm.smsSnippet,
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err && err.message ? err.message : 'Link failed' });
+  }
+});
+
+/** Authenticated editable preview (save back via POST /ai-tools-assessment). */
+router.get('/:key/ai-tools-assessment/preview', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).send('Lead not found.');
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).send('Forbidden');
+    }
+    let assessment = lead.aiToolsAssessment;
+    if (!assessment || typeof assessment !== 'object') {
+      assessment = normalizeAssessment(null, lead);
+    }
+    const base = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
+    const vm = buildAiToolsReportViewModel(lead, assessment, { baseUrl: base });
+    res.setHeader('Cache-Control', 'private, no-store');
+    return res.render('ai_tools_report', {
+      vm,
+      printMode: false,
+      editMode: true,
+      token: null,
+      leadKey: fullKey,
+      pdfHref: '',
+      reportUrl: '',
+      followUpEmail: vm.followUpEmail,
+    });
+  } catch (err) {
+    console.error('[ai-tools-preview]', err);
+    return res.status(500).send('Could not load preview.');
   }
 });
 

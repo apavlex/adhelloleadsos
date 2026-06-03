@@ -74,6 +74,7 @@
     window.PIPELINE_STAGE_COLORS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
     window.INITIAL_SAVED_LEADS = [];
   </script>
+  <script src="/js/lead-panel-paint.js?v=<%= assetVersion %>"></script>
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <script>
     (function () {

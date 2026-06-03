@@ -2158,8 +2158,40 @@ document.addEventListener('DOMContentLoaded', () => {
     return !panel.classList.contains('hidden');
   }
 
+  function leadKeyParamForFetch(key) {
+    return String(key || '')
+      .trim()
+      .replace(/^lead:/i, '');
+  }
+
+  const NOTE_POST_BTN_SPINNER =
+    '<svg class="animate-spin h-4 w-4 text-white dark:text-brand-dark mx-auto" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
+
+  let leadPanelNoteSubmitInflight = false;
+
+  function setLeadPanelNotePostLoading(loading) {
+    const addNoteBtn = document.getElementById('addNoteBtn');
+    if (!addNoteBtn) return;
+    if (loading) {
+      if (!addNoteBtn.getAttribute('data-default-label')) {
+        addNoteBtn.setAttribute('data-default-label', addNoteBtn.textContent.trim() || 'Post');
+      }
+      addNoteBtn.disabled = true;
+      addNoteBtn.setAttribute('aria-busy', 'true');
+      addNoteBtn.innerHTML = NOTE_POST_BTN_SPINNER;
+      return;
+    }
+    addNoteBtn.disabled = false;
+    addNoteBtn.removeAttribute('aria-busy');
+    addNoteBtn.textContent = addNoteBtn.getAttribute('data-default-label') || 'Post';
+  }
+
   async function postLeadPanelActivity(key, payload) {
-    const res = await fetch(`/leads/${encodeURIComponent(key)}/notes`, {
+    const keyParam = leadKeyParamForFetch(key);
+    if (!keyParam) {
+      throw new Error('Lead key missing — select a saved lead and try again.');
+    }
+    const res = await fetch(`/leads/${encodeURIComponent(keyParam)}/notes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'same-origin',
@@ -2173,9 +2205,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function submitLeadPanelNote() {
+    if (leadPanelNoteSubmitInflight) return false;
+
     const row = currentRow;
     const noteInput = document.getElementById('noteInput');
-    const addNoteBtn = document.getElementById('addNoteBtn');
     const content = noteInput ? String(noteInput.value || '').trim() : '';
     if (!content) {
       if (typeof window.showAppToast === 'function') {
@@ -2191,34 +2224,22 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
 
-    const originalBtnText = addNoteBtn ? addNoteBtn.innerHTML : 'Post';
-    if (addNoteBtn) {
-      addNoteBtn.disabled = true;
-      addNoteBtn.innerHTML =
-        '<svg class="animate-spin h-4 w-4 text-white dark:text-brand-dark mx-auto" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
-    }
-
-    const clickedAt = new Date().toISOString();
-    appendRowActivityEntry(row, {
-      type: 'note',
-      value: content,
-      timestamp: clickedAt,
-      source: 'panel_post',
-    });
-    window.__leadActivityFilter = 'notes';
-    syncLeadActivityFilterButtons('notes');
-    refreshLeadActivityTimeline(row);
+    leadPanelNoteSubmitInflight = true;
+    setLeadPanelNotePostLoading(true);
 
     try {
-      let key = String(row.dataset.leadKey || '').trim();
-      if (!key) {
-        await saveLead(row);
-        key = String(row.dataset.leadKey || '').trim();
-        if (!key) {
-          throw new Error('Could not save lead to add note. Save the lead first.');
-        }
-      }
+      const clickedAt = new Date().toISOString();
+      appendRowActivityEntry(row, {
+        type: 'note',
+        value: content,
+        timestamp: clickedAt,
+        source: 'panel_post',
+      });
+      window.__leadActivityFilter = 'notes';
+      syncLeadActivityFilterButtons('notes');
+      refreshLeadActivityTimeline(row);
 
+      const key = await ensureRowHasLeadKey(row);
       const data = await postLeadPanelActivity(key, { content, type: 'note' });
 
       if (data.lead) {
@@ -2245,10 +2266,8 @@ document.addEventListener('DOMContentLoaded', () => {
       void refreshLeadActivityFromServer(row);
       return false;
     } finally {
-      if (addNoteBtn) {
-        addNoteBtn.disabled = false;
-        addNoteBtn.innerHTML = originalBtnText;
-      }
+      leadPanelNoteSubmitInflight = false;
+      setLeadPanelNotePostLoading(false);
     }
   }
 
@@ -2711,11 +2730,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      if (e.target.closest('#addNoteBtn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        await submitLeadPanelNote();
-      }
     });
   }
 
@@ -3014,6 +3028,99 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) throw new Error(data.error || 'Could not create report link');
     return data;
+  }
+
+  function getAiToolsAssessmentFromRow(row) {
+    if (!row) return null;
+    try {
+      const attr = row.getAttribute('data-ai-tools-assessment');
+      if (!attr || attr === 'null') return null;
+      const parsed = JSON.parse(attr);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function setAiToolsAssessmentOnRow(row, assessment) {
+    if (!row || !assessment) return;
+    try {
+      row.dataset.aiToolsAssessment = JSON.stringify(assessment);
+      row.dataset.aiToolsAssessmentAt = new Date().toISOString();
+    } catch (_) {}
+  }
+
+  async function fetchAiToolsReportLinkBundle(row) {
+    const leadKey = String(row.dataset.leadKey || '').trim();
+    if (!leadKey) throw new Error('Lead key missing');
+    const url = `/leads/${encodeURIComponent(leadKey)}/ai-tools-report-link`;
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not create assessment link');
+    return data;
+  }
+
+  async function generateAiToolsAssessmentForRow(row) {
+    const leadKey = await ensureRowHasLeadKey(row);
+    const url = `/leads/${encodeURIComponent(leadKey)}/ai-tools-assessment/generate`;
+    const res = await fetch(url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({}),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) throw new Error((data && data.error) || 'Assessment generation failed');
+    if (data.assessment) setAiToolsAssessmentOnRow(row, data.assessment);
+    return data;
+  }
+
+  function syncLeadPanelAiToolsSection(row) {
+    const statusEl = document.getElementById('leadPanelAiToolsStatus');
+    const previewBtn = document.getElementById('leadPanelAiToolsPreviewBtn');
+    const copyBtn = document.getElementById('leadPanelAiToolsCopyLinkBtn');
+    const openBtn = document.getElementById('leadPanelAiToolsOpenBtn');
+    if (!statusEl) return;
+    const assessment = row ? getAiToolsAssessmentFromRow(row) : null;
+    const hasAssessment = !!(assessment && (assessment.clientName || assessment.pain || (assessment.quickWins && assessment.quickWins[0] && assessment.quickWins[0].pain)));
+    if (hasAssessment) {
+      statusEl.textContent = 'Ready to share';
+      statusEl.classList.remove('hidden', 'text-brand-muted');
+      statusEl.classList.add('text-orange-600', 'dark:text-orange-400');
+    } else {
+      statusEl.textContent = 'Not generated yet';
+      statusEl.classList.remove('hidden', 'text-orange-600', 'dark:text-orange-400');
+      statusEl.classList.add('text-brand-muted');
+    }
+    [previewBtn, copyBtn, openBtn].forEach(function (btn) {
+      if (!btn) return;
+      btn.disabled = !hasAssessment;
+      btn.classList.toggle('opacity-50', !hasAssessment);
+      btn.classList.toggle('cursor-not-allowed', !hasAssessment);
+    });
+    ['sidebarAiToolsPreviewBtn', 'sidebarAiToolsCopyLinkBtn', 'sidebarAiToolsOpenBtn'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.disabled = !hasAssessment;
+      el.classList.toggle('opacity-50', !hasAssessment);
+      el.classList.toggle('cursor-not-allowed', !hasAssessment);
+    });
+    const genSidebar = document.getElementById('sidebarAiToolsGenerateBtn');
+    if (genSidebar) {
+      genSidebar.disabled = false;
+      genSidebar.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+  }
+
+  function aiToolsPreviewUrlForRow(row) {
+    const leadKey = String(row && row.dataset && row.dataset.leadKey ? row.dataset.leadKey : '').trim();
+    if (!leadKey) return '';
+    return `/leads/${encodeURIComponent(leadKey)}/ai-tools-assessment/preview`;
   }
 
   function getWorkspaceCouponLink() {
@@ -4108,6 +4215,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function showLeadPanelAiToolsClientLink(bundle) {
+    const wrap = document.getElementById('leadPanelAuditReportLinks');
+    const link = document.getElementById('leadPanelAiToolsClientUrl');
+    if (!link) return;
+    const reportUrl = bundle && bundle.reportUrl ? String(bundle.reportUrl).trim() : '';
+    if (!reportUrl) return;
+    if (wrap) wrap.classList.remove('hidden');
+    link.href = reportUrl;
+    link.classList.remove('hidden', 'pointer-events-none', 'opacity-40');
+  }
+
   function setPageSpeedAuditButtonLabel(runBtn, label) {
     if (!runBtn) return;
     const labelEl = document.getElementById('pageSpeedAuditBtnLabel');
@@ -4184,7 +4302,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const section = document.getElementById('leadPanelEmailReportSection');
     if (!section) return;
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
-    section.classList.toggle('hidden', !audit);
+    const hasAnalysis = row ? !!getAiAnalysisFromRow(row) : false;
+    const hasAssessment = row ? !!getAiToolsAssessmentFromRow(row) : false;
+    const hasWebsite = !!(row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A');
+    section.classList.toggle('hidden', !(audit || hasAnalysis || hasAssessment || hasWebsite));
   }
 
   function syncPageSpeedAuditPanel(row) {
@@ -4859,13 +4980,54 @@ document.addEventListener('DOMContentLoaded', () => {
       addressOverride != null && String(addressOverride).trim()
         ? String(addressOverride).trim()
         : readPipelineRowDisplayAddress(row);
-    const href = resolveGoogleMapsSocialHref(
+    let href = resolveGoogleMapsSocialHref(
       row.dataset.url,
       row.dataset.title,
       address || row.dataset.address,
       row.dataset.city,
     );
-    return href || '';
+    if (href) return href;
+    try {
+      const { snap } = buildLeadPanelDisplaySnapshot(row);
+      if (snap) {
+        href = resolveGoogleMapsSocialHref(
+          snap.url,
+          snap.title || row.dataset.title,
+          snap.address || address || row.dataset.address,
+          snap.city || row.dataset.city,
+        );
+        if (href) return href;
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    const embedded = findInitialSavedLeadRecord(row);
+    if (embedded) {
+      href = resolveGoogleMapsSocialHref(
+        embedded.url,
+        embedded.title || row.dataset.title,
+        embedded.address || address || row.dataset.address,
+        embedded.city || row.dataset.city,
+      );
+      if (href) return href;
+    }
+    return '';
+  }
+
+  function resolveLeadPanelWebsiteHref(row) {
+    if (!row) return '';
+    prepareLeadRowForPanel(row);
+    let w = readPipelineRowDisplayWebsite(row);
+    if (w) return normalizeWebsiteHref(w);
+    try {
+      const { snap } = buildLeadPanelDisplaySnapshot(row);
+      if (snap && snap.website) return normalizeWebsiteHref(snap.website);
+    } catch (_) {
+      /* ignore */
+    }
+    const embedded = findInitialSavedLeadRecord(row);
+    if (embedded && embedded.website) return normalizeWebsiteHref(embedded.website);
+    return '';
   }
 
   /** Promote phone/email from contacts[] into row dataset when top-level fields are empty. */
@@ -5321,10 +5483,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncGoogleReviewsLink(row) {
-    const a = document.getElementById('mobilePanelReviewsLink');
+    const a = getLeadPanelEl('mobilePanelReviewsLink');
     if (!a) return;
     const addr = readPipelineRowDisplayAddress(row);
-    const href = resolveGoogleMapsSocialHref(row.dataset.url, row.dataset.title, addr || row.dataset.address, row.dataset.city);
+    const href = resolveLeadPanelMapsHref(row, addr);
     if (href) {
       a.href = href;
       a.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
@@ -5661,6 +5823,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('[data-lead-tab-panel]').forEach((panel) => {
       panel.classList.remove('hidden');
+    });
+
+    document.querySelectorAll('.lead-panel-section-link[data-scroll-target]').forEach((btn) => {
+      if (btn.dataset.adhelloSectionNavBound) return;
+      btn.dataset.adhelloSectionNavBound = '1';
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        const targetId = btn.getAttribute('data-scroll-target');
+        if (!targetId) return;
+        scrollLeadPanelToSection(targetId);
+        document.querySelectorAll('.lead-panel-section-link[data-scroll-target]').forEach((b) => {
+          b.classList.remove('border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
+        });
+        btn.classList.add('border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
+      });
     });
 
     const cqiIds = [
@@ -7041,17 +7218,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const embedded = findInitialSavedLeadRecord(tableRow);
     if (typeof window.__paintPanelFromLeadRecord === 'function') {
-      window.__paintPanelFromLeadRecord(embedded, tableRow);
+      try {
+        window.__paintPanelFromLeadRecord(embedded, tableRow);
+      } catch (recErr) {
+        console.warn('[Lead panel] record paint failed:', recErr);
+      }
     }
 
-    const { snap } = buildLeadPanelDisplaySnapshot(tableRow);
-    applyPanelSnapToRowDataset(tableRow, snap);
-    prepareLeadRowForPanel(tableRow);
-    coalesceRowDatasetFromContacts(tableRow);
+    try {
+      paintLeadPanelQuickOutreach(tableRow);
+    } catch (earlyOutreachErr) {
+      console.warn('[Lead panel] early quick outreach paint failed:', earlyOutreachErr);
+    }
 
-    paintPanelHeaderContactStrip(tableRow);
-    paintLeadPanelQuickOutreach(tableRow);
-    scheduleReviewIntelligence(tableRow);
+    try {
+      const { snap } = buildLeadPanelDisplaySnapshot(tableRow);
+      applyPanelSnapToRowDataset(tableRow, snap);
+      prepareLeadRowForPanel(tableRow);
+      coalesceRowDatasetFromContacts(tableRow);
+      paintLeadPanelQuickOutreach(tableRow);
+      paintPanelHeaderContactStrip(tableRow);
+      scheduleReviewIntelligence(tableRow);
+    } catch (paintErr) {
+      console.warn('[Lead panel] row paint failed:', paintErr);
+      try {
+        paintLeadPanelQuickOutreach(tableRow);
+      } catch (retryOutreachErr) {
+        console.warn('[Lead panel] retry quick outreach paint failed:', retryOutreachErr);
+      }
+    }
   }
   window.paintLeadPanelFromRow = paintLeadPanelFromRow;
   window.__buildLeadPanelDisplaySnapshot = buildLeadPanelDisplaySnapshot;
@@ -7068,7 +7263,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row || !row.dataset) return;
     prepareLeadRowForPanel(row);
     const phone = readPipelineRowDisplayPhone(row);
-    const website = readPipelineRowDisplayWebsite(row);
+    const websiteRaw = readPipelineRowDisplayWebsite(row);
+    const websiteHref = resolveLeadPanelWebsiteHref(row);
+    const website = websiteRaw || (websiteHref ? websiteHref.replace(/^https?:\/\//i, '') : '');
     const email = readPipelineRowDisplayEmail(row);
     const address = readPipelineRowDisplayAddress(row);
 
@@ -7117,7 +7314,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const websiteShort = getLeadPanelEl('mobilePanelWebsiteShort');
     const websiteLink = getLeadPanelEl('mobilePanelWebsiteLink');
-    const websiteHref = normalizeWebsiteHref(website);
     if (websiteShort) {
       try {
         if (!websiteHref) {
@@ -7175,6 +7371,48 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
+  window.__paintLeadPanelQuickOutreach = paintLeadPanelQuickOutreach;
+
+  function bindLeadPanelExternalLinkFallbacks() {
+    if (window.__leadPanelExternalLinkFallbacksBound) return;
+    window.__leadPanelExternalLinkFallbacksBound = true;
+
+    document.addEventListener('click', (e) => {
+      const panel = getLeadDetailPanel();
+      if (!panel || !panel.classList.contains('open') || panel.classList.contains('hidden')) return;
+      const row = currentRow;
+      if (!row) return;
+
+      const openExternal = (href) => {
+        if (!href || href === '#') return false;
+        e.preventDefault();
+        e.stopPropagation();
+        window.open(href, '_blank', 'noopener,noreferrer');
+        return true;
+      };
+
+      const webTile = e.target.closest('#mobilePanelWebsiteLink');
+      if (webTile && panel.contains(webTile)) {
+        const cur = String(webTile.getAttribute('href') || '').trim();
+        if (!cur || cur === '#') openExternal(resolveLeadPanelWebsiteHref(row));
+        return;
+      }
+
+      const mapsTile = e.target.closest('#mobilePanelMapsLink');
+      if (mapsTile && panel.contains(mapsTile)) {
+        const cur = String(mapsTile.getAttribute('href') || '').trim();
+        if (!cur || cur === '#') openExternal(resolveLeadPanelMapsHref(row));
+        return;
+      }
+
+      const reviewsLink = e.target.closest('#mobilePanelReviewsLink');
+      if (reviewsLink && panel.contains(reviewsLink)) {
+        const cur = String(reviewsLink.getAttribute('href') || '').trim();
+        if (!cur || cur === '#') openExternal(resolveLeadPanelMapsHref(row));
+      }
+    });
+  }
+  bindLeadPanelExternalLinkFallbacks();
 
   // --- Populate panel from row data ---
   function populatePanel(row) {
@@ -7466,6 +7704,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncPageSpeedAuditPanel(row);
     syncContactHuntPanel(row);
     syncLeadPanelEmailReportSection(row);
+    syncLeadPanelAiToolsSection(row);
 
     syncLeadPanelStickyDock(row);
     syncLeadCallTalkingPoints(row);
@@ -8464,6 +8703,126 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function handleLeadPanelAiToolsGenerateClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
+      }
+      return;
+    }
+    const btn = document.getElementById('leadPanelAiToolsGenerateBtn');
+    const original = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Generating…';
+    }
+    try {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Building AI Tools Assessment from business data…', { variant: 'info' });
+      }
+      await generateAiToolsAssessmentForRow(currentRow);
+      syncLeadPanelAiToolsSection(currentRow);
+      syncLeadPanelEmailReportSection(currentRow);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Assessment ready — preview, edit, then copy the client link.', { variant: 'success' });
+      }
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Could not generate assessment';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+  }
+
+  async function handleLeadPanelAiToolsPreviewClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
+      }
+      return;
+    }
+    try {
+      await ensureRowHasLeadKey(currentRow);
+      if (!getAiToolsAssessmentFromRow(currentRow)) {
+        await generateAiToolsAssessmentForRow(currentRow);
+        syncLeadPanelAiToolsSection(currentRow);
+      }
+      const url = aiToolsPreviewUrlForRow(currentRow);
+      if (url) window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Could not open preview';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    }
+  }
+
+  async function handleLeadPanelAiToolsCopyLinkClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
+      }
+      return;
+    }
+    const btn = document.getElementById('leadPanelAiToolsCopyLinkBtn');
+    if (btn) btn.disabled = true;
+    try {
+      await ensureRowHasLeadKey(currentRow);
+      if (!getAiToolsAssessmentFromRow(currentRow)) {
+        await generateAiToolsAssessmentForRow(currentRow);
+        syncLeadPanelAiToolsSection(currentRow);
+      }
+      const bundle = await fetchAiToolsReportLinkBundle(currentRow);
+      showLeadPanelAiToolsClientLink(bundle);
+      await copyTextToClipboard(bundle.reportUrl);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Client link copied — send via text or email.', { variant: 'success' });
+      }
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Copy failed';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function handleLeadPanelAiToolsOpenClick() {
+    if (!currentRow) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
+      }
+      return;
+    }
+    const btn = document.getElementById('leadPanelAiToolsOpenBtn');
+    const original = btn ? btn.textContent : '';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Opening…';
+    }
+    try {
+      await ensureRowHasLeadKey(currentRow);
+      if (!getAiToolsAssessmentFromRow(currentRow)) {
+        await generateAiToolsAssessmentForRow(currentRow);
+        syncLeadPanelAiToolsSection(currentRow);
+      }
+      const bundle = await fetchAiToolsReportLinkBundle(currentRow);
+      showLeadPanelAiToolsClientLink(bundle);
+      window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Presentation opened — this is what your client will see.', { variant: 'success' });
+      }
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'Could not open presentation';
+      if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    }
+  }
+
   const sidebarCadenceSnooze90Btn = document.getElementById('sidebarCadenceSnooze90Btn');
   const sidebarCadencePauseBtn = document.getElementById('sidebarCadencePauseBtn');
   const sidebarCadenceStartBtn = document.getElementById('sidebarCadenceStartBtn');
@@ -8695,6 +9054,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#sidebarCopySmsAuditBtn')) {
       e.preventDefault();
       handleSidebarCopySmsAuditClick();
+      return;
+    }
+    if (e.target.closest('#leadPanelAiToolsGenerateBtn')) {
+      e.preventDefault();
+      handleLeadPanelAiToolsGenerateClick();
+      return;
+    }
+    if (e.target.closest('#leadPanelAiToolsPreviewBtn')) {
+      e.preventDefault();
+      handleLeadPanelAiToolsPreviewClick();
+      return;
+    }
+    if (e.target.closest('#leadPanelAiToolsCopyLinkBtn')) {
+      e.preventDefault();
+      handleLeadPanelAiToolsCopyLinkClick();
+      return;
+    }
+    if (e.target.closest('#leadPanelAiToolsOpenBtn')) {
+      e.preventDefault();
+      handleLeadPanelAiToolsOpenClick();
+      return;
+    }
+    if (e.target.closest('#sidebarAiToolsGenerateBtn')) {
+      e.preventDefault();
+      scrollLeadPanelToSection('leadPanelAiToolsSection');
+      handleLeadPanelAiToolsGenerateClick();
+      return;
+    }
+    if (e.target.closest('#sidebarAiToolsPreviewBtn')) {
+      e.preventDefault();
+      handleLeadPanelAiToolsPreviewClick();
+      return;
+    }
+    if (e.target.closest('#sidebarAiToolsCopyLinkBtn')) {
+      e.preventDefault();
+      handleLeadPanelAiToolsCopyLinkClick();
+      return;
+    }
+    if (e.target.closest('#sidebarAiToolsOpenBtn')) {
+      e.preventDefault();
+      handleLeadPanelAiToolsOpenClick();
       return;
     }
     if (e.target.closest('#sidebarIncludeCoupon') || e.target.closest('label[for="sidebarIncludeCoupon"]')) {
@@ -12644,5 +13044,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.33-quick-log-notes';
+  window.__ADHELLO_BUILD = '1.0.36-ai-tools-menu-links';
 });
