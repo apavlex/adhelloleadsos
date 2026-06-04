@@ -5,7 +5,7 @@
   <!-- Mobile Detail Panel / Desktop Sidebar -->
   <!-- Layout flex-* lives in custom.css for #mobilePanel.open only — avoids Tailwind `hidden` vs `flex` both setting display -->
   <div id="mobilePanel" class="fixed inset-0 z-[400] bg-brand-dark/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 pointer-events-none">
-    <div id="leadPanelSheet" class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto overflow-hidden flex flex-col min-h-0 shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
+    <div id="leadPanelSheet" class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto flex flex-col min-h-0 shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
       
       <!-- Nav (sticky) -->
       <div class="flex items-center justify-between mb-6 sticky top-0 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md py-2 z-10 px-1 gap-2">
@@ -29,23 +29,22 @@
       <div id="leadPanelCallerShell" class="flex flex-col gap-3 mb-2">
         <section id="leadPanelCallerGlance" class="rounded-[2rem] border border-brand-border/20 dark:border-white/10 shadow-md ring-1 ring-black/[0.04] dark:ring-white/10 bg-brand-cream/25 dark:bg-slate-800/35">
           <div id="leadPanelMapStripWrap" class="hidden relative w-full shrink-0 border-b border-brand-border/15 dark:border-white/10 rounded-t-[2rem]">
-            <!-- Interactive map (Maps JavaScript API — same key as prospecting Step 1 when configured) -->
+            <!-- Embedded Google Maps (iframe — reliable inside slide-in sidebar) -->
             <div id="leadPanelJsMapWrap" class="hidden relative w-full h-[280px] sm:h-[300px] shrink-0 bg-slate-200 dark:bg-slate-950">
-              <!-- Explicit height + corner-only overlays so Maps JS can measure tiles (full-sheet overlays caused blank maps). -->
-              <div id="leadPanelJsMap" class="absolute inset-0 z-0 min-h-[240px]" role="application" aria-label="Lead location map"></div>
+              <iframe id="leadPanelMapEmbed" class="absolute inset-0 z-0 hidden h-full w-full border-0 pointer-events-auto" title="Lead location map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+              <div id="leadPanelMapEmbedFallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-4 text-center bg-brand-cream/85 dark:bg-slate-800/95">
+                <svg class="w-7 h-7 text-brand-yellow shrink-0 opacity-95" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Open in Google Maps</span>
+              </div>
               <div class="pointer-events-none absolute top-3 left-3 z-[1] max-w-[min(100%,18rem)]">
                 <div class="rounded-full border border-brand-border/40 dark:border-white/15 bg-white/92 dark:bg-slate-900/92 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-muted shadow-md pointer-events-auto">
-                  Pan or zoom
+                  Drag to explore
                 </div>
               </div>
               <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-[1] flex justify-between items-end gap-2">
                 <a id="leadPanelJsMapOpenLink" href="#" target="_blank" rel="noopener noreferrer" class="pointer-events-auto inline-flex items-center rounded-full border-2 border-brand-dark/80 dark:border-white/25 bg-white/95 dark:bg-slate-900/95 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white shadow-md hover:border-brand-yellow transition-colors">
                   Open in Maps
                 </a>
-                <div class="pointer-events-auto flex flex-col overflow-hidden rounded-2xl border-2 border-brand-dark/25 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 shadow-lg">
-                  <button type="button" id="leadPanelMapZoomIn" class="flex h-10 w-10 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 border-b border-brand-border/40 dark:border-white/10 transition-colors" aria-label="Zoom in">+</button>
-                  <button type="button" id="leadPanelMapZoomOut" class="flex h-10 w-10 items-center justify-center text-xl font-black leading-none text-brand-dark dark:text-white hover:bg-brand-yellow/20 transition-colors" aria-label="Zoom out">−</button>
-                </div>
               </div>
             </div>
             <!-- Static image / embed fallback -->

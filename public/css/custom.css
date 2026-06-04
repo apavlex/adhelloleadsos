@@ -1473,17 +1473,22 @@ html.dark #pipelineColumnsPopover {
 #leadPanelJsMapWrap:not(.hidden) {
     touch-action: pan-x pan-y pinch-zoom;
 }
-#leadPanelMapStripWrap.lead-panel-js-map-mode {
+#leadPanelMapStripWrap.lead-panel-js-map-mode,
+#leadPanelMapStripWrap.lead-panel-strip-map-mode {
     border-color: rgba(148, 163, 184, 0.22);
     overflow: visible;
 }
+#leadPanelMapEmbed:not(.hidden) {
+    touch-action: pan-x pan-y pinch-zoom;
+}
+.dark #leadPanelMapStripWrap.lead-panel-js-map-mode,
+.dark #leadPanelMapStripWrap.lead-panel-strip-map-mode {
+    border-color: rgba(255, 255, 255, 0.08);
+}
 #leadPanelMapStripWrap.lead-panel-map-embed-mode #leadPanelHeroBackdrop,
-#leadPanelMapStripWrap.lead-panel-hero-map:not(.lead-panel-js-map-mode) #leadPanelHeroBackdrop {
+#leadPanelMapStripWrap.lead-panel-hero-map:not(.lead-panel-strip-map-mode):not(.lead-panel-js-map-mode) #leadPanelHeroBackdrop {
     overflow: hidden;
     border-radius: 2rem 2rem 0 0;
-}
-.dark #leadPanelMapStripWrap.lead-panel-js-map-mode {
-    border-color: rgba(255, 255, 255, 0.08);
 }
 
 /* Lead panel: bundled note + scripts drawer — collapsed by default */

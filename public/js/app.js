@@ -4208,7 +4208,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     requestAnimationFrame(() => requestAnimationFrame(runScroll));
     if (sectionId === 'leadPanelCallerGlance') {
-      setTimeout(() => resizeLeadPanelJsMapSoon(), 400);
+      setTimeout(() => {
+        const iframe = document.getElementById('leadPanelMapEmbed');
+        if (iframe && iframe.src) iframe.src = iframe.src;
+      }, 400);
     }
   }
 
@@ -6367,21 +6370,82 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  function leadPanelEmbedSrcForQuery(centerQuery, mapKey, useKeyless) {
+    const q = String(centerQuery || '').trim();
+    if (!q) return '';
+    const k = useKeyless ? '' : String(mapKey || '').trim();
+    if (typeof window !== 'undefined' && window.AdhelloMaps && window.AdhelloMaps.embedSrc) {
+      return window.AdhelloMaps.embedSrc(q, k);
+    }
+    if (k) {
+      return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&zoom=15&maptype=roadmap`;
+    }
+    return `https://www.google.com/maps?q=${encodeURIComponent(q)}&hl=en&z=15&output=embed`;
+  }
+
+  function syncLeadPanelStripEmbedMap(opts) {
+    const iframe = document.getElementById('leadPanelMapEmbed');
+    const fallback = document.getElementById('leadPanelMapEmbedFallback');
+    const openLink = document.getElementById('leadPanelJsMapOpenLink');
+    const centerQ = String((opts && opts.center) || '').trim();
+    const mapKey =
+      (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
+    if (!iframe || !centerQ) return false;
+
+    disposeLeadPanelJsMap();
+
+    if (openLink && opts && opts.mapsHref) openLink.href = opts.mapsHref;
+
+    const showFallback = () => {
+      iframe.removeAttribute('src');
+      iframe.classList.add('hidden');
+      if (fallback) {
+        fallback.classList.remove('hidden');
+        fallback.classList.add('flex');
+      }
+    };
+
+    const paint = (useKeyless) => {
+      const src = leadPanelEmbedSrcForQuery(centerQ, mapKey, useKeyless);
+      if (!src) {
+        showFallback();
+        return;
+      }
+      iframe.onload = null;
+      iframe.onerror = null;
+      iframe.onerror = function onStripEmbedErr() {
+        iframe.onerror = null;
+        if (!useKeyless && mapKey) paint(true);
+        else showFallback();
+      };
+      iframe.title = opts && opts.address
+        ? `Map · ${String(opts.address).slice(0, 100)}`
+        : opts && opts.title
+          ? `Location · ${opts.title}`
+          : 'Business location';
+      iframe.src = src;
+      iframe.classList.remove('hidden');
+      if (fallback) {
+        fallback.classList.add('hidden');
+        fallback.classList.remove('flex');
+      }
+    };
+
+    paint(false);
+    return true;
+  }
+
   function syncLeadPanelInteractiveGoogleMap(opts, onFail) {
     whenLeadPanelMapHostReady(() => initLeadPanelInteractiveGoogleMap(opts, onFail));
   }
 
-  function syncLeadPanelWideMapAndGoogleChip(row, opts) {
-    opts = opts || {};
-    const skipInteractive = !!opts.skipInteractive;
+  function syncLeadPanelWideMapAndGoogleChip(row) {
     const mapKey =
       (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
     const title = String(row.dataset.title || '').trim();
     const address = readPipelineRowDisplayAddress(row);
     const city = String(row.dataset.city || '').trim();
     const center = readPipelineRowMapCenter(row);
-    const rowLat = parseFloat(row.dataset.latitude);
-    const rowLng = parseFloat(row.dataset.longitude);
     const mapsUrl = center
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(center)}`
       : '';
@@ -6401,17 +6465,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const jsMapWrap = document.getElementById('leadPanelJsMapWrap');
     const heroBackdropEl = document.getElementById('leadPanelHeroBackdrop');
-    const preferInteractiveLeadMap =
-      typeof window !== 'undefined' && window.__ADHELLO_LEAD_PANEL_JS_MAP__ === true;
-    const preferJsMap =
-      preferInteractiveLeadMap &&
-      !skipInteractive &&
-      !!(mapKey && hrefOpen && String(center || '').trim());
+    const preferStripEmbedMap = !!(hrefOpen && String(center || '').trim());
 
     if (mapStripWrap) {
       mapStripWrap.classList.toggle('lead-panel-hero-map', !!hrefOpen);
       mapStripWrap.classList.toggle('hidden', !hrefOpen);
-      mapStripWrap.classList.toggle('lead-panel-js-map-mode', !!(hrefOpen && preferJsMap));
+      mapStripWrap.classList.toggle('lead-panel-strip-map-mode', !!(hrefOpen && preferStripEmbedMap));
+      mapStripWrap.classList.remove('lead-panel-js-map-mode');
     }
 
     const heroLink = document.getElementById('leadPanelHeroBackdropLink');
@@ -6421,18 +6481,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let headerMapBannerActive = false;
 
     /** Matches Focus page embed behavior; Embed API when key is configured (enable Maps Embed API on the key). */
-    const heroEmbedSrcForQuery = (centerQuery, useKeyless) => {
-      const q = String(centerQuery || '').trim();
-      if (!q) return '';
-      const k = useKeyless ? '' : mapKey;
-      if (typeof window !== 'undefined' && window.AdhelloMaps && window.AdhelloMaps.embedSrc) {
-        return window.AdhelloMaps.embedSrc(q, k);
-      }
-      if (k) {
-        return `https://www.google.com/maps/embed/v1/place?key=${encodeURIComponent(k)}&q=${encodeURIComponent(q)}&zoom=15&maptype=roadmap`;
-      }
-      return `https://www.google.com/maps?q=${encodeURIComponent(q)}&hl=en&z=15&output=embed`;
-    };
+    const heroEmbedSrcForQuery = (centerQuery, useKeyless) =>
+      leadPanelEmbedSrcForQuery(centerQuery, mapKey, useKeyless);
 
     if (heroLink && heroImg && heroFallback && heroEmbed) {
       const paintHeroBackdrop = () => {
@@ -6526,10 +6576,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (jsMapWrap) jsMapWrap.classList.add('hidden');
         if (heroBackdropEl) heroBackdropEl.classList.add('hidden');
         paintHeroBackdrop();
-      } else if (preferJsMap) {
+      } else if (preferStripEmbedMap) {
         if (jsMapWrap) jsMapWrap.classList.remove('hidden');
         if (heroBackdropEl) heroBackdropEl.classList.add('hidden');
-        setLeadPanelMapEmbedMode(false);
+        setLeadPanelMapEmbedMode(true);
         heroImg.onload = null;
         heroImg.onerror = null;
         heroImg.removeAttribute('src');
@@ -6542,19 +6592,12 @@ document.addEventListener('DOMContentLoaded', () => {
         heroLink.classList.remove('pointer-events-none');
         headerMapBannerActive = true;
 
-        syncLeadPanelInteractiveGoogleMap(
-          {
-            center,
-            mapsHref: hrefOpen,
-            title,
-            address,
-            lat: Number.isFinite(rowLat) ? rowLat : undefined,
-            lng: Number.isFinite(rowLng) ? rowLng : undefined,
-          },
-          () => {
-            syncLeadPanelWideMapAndGoogleChip(row, { skipInteractive: true });
-          }
-        );
+        syncLeadPanelStripEmbedMap({
+          center,
+          mapsHref: hrefOpen,
+          title,
+          address,
+        });
       } else {
         if (jsMapWrap) jsMapWrap.classList.add('hidden');
         if (heroBackdropEl) heroBackdropEl.classList.remove('hidden');
