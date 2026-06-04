@@ -1498,6 +1498,7 @@ document.addEventListener('DOMContentLoaded', () => {
       innerSheet.classList.add('translate-y-full', 'translate-x-full');
       innerSheet.style.removeProperty('display');
     }
+    disposeLeadPanelJsMap();
     rows.forEach((r) => r.classList.remove('selected'));
     currentRow = null;
     currentIndex = -1;
@@ -6118,6 +6119,39 @@ document.addEventListener('DOMContentLoaded', () => {
   let __leadPanelJsGeocoder = null;
   let __leadPanelJsControlsBound = false;
 
+  function disposeLeadPanelJsMap() {
+    if (__leadPanelJsMarker) {
+      try {
+        __leadPanelJsMarker.setMap(null);
+      } catch (_) {}
+      __leadPanelJsMarker = null;
+    }
+    __leadPanelJsMap = null;
+    __leadPanelJsGeocoder = null;
+  }
+
+  function whenLeadPanelMapHostReady(fn, attempt) {
+    const n = typeof attempt === 'number' ? attempt : 0;
+    const panel = getLeadDetailPanel();
+    const el = document.getElementById('leadPanelJsMap');
+    const wrap = document.getElementById('leadPanelJsMapWrap');
+    const panelOpen =
+      panel &&
+      panel.classList.contains('open') &&
+      !panel.classList.contains('hidden');
+    const wrapVisible = wrap && !wrap.classList.contains('hidden');
+    const sized = el && el.offsetWidth >= 48 && el.offsetHeight >= 48;
+    if (panelOpen && wrapVisible && sized) {
+      fn();
+      return;
+    }
+    if (n >= 28) {
+      fn();
+      return;
+    }
+    setTimeout(() => whenLeadPanelMapHostReady(fn, n + 1), 40 + n * 30);
+  }
+
   function bindLeadPanelJsMapControlsOnce() {
     if (__leadPanelJsControlsBound) return;
     __leadPanelJsControlsBound = true;
@@ -6141,39 +6175,61 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!__leadPanelJsMap || typeof google === 'undefined' || !google.maps) return;
     const trigger = () => {
       try {
+        const center = __leadPanelJsMap.getCenter();
         google.maps.event.trigger(__leadPanelJsMap, 'resize');
+        if (center) __leadPanelJsMap.setCenter(center);
       } catch (_) {}
     };
     requestAnimationFrame(() => {
       requestAnimationFrame(trigger);
     });
-    [80, 240, 600].forEach((ms) => setTimeout(trigger, ms));
+    [80, 200, 400, 700].forEach((ms) => setTimeout(trigger, ms));
+    try {
+      google.maps.event.addListenerOnce(__leadPanelJsMap, 'idle', trigger);
+    } catch (_) {}
   }
 
-  function syncLeadPanelInteractiveGoogleMap(opts, onFail, layoutAttempt) {
+  function parseLeadPanelMapLatLng(opts, centerQ) {
+    const lat = opts && Number.isFinite(opts.lat) ? opts.lat : NaN;
+    const lng = opts && Number.isFinite(opts.lng) ? opts.lng : NaN;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { lat, lng };
+    }
+    const m = String(centerQ || '').match(/^(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)$/);
+    if (!m) return null;
+    const pLat = parseFloat(m[1]);
+    const pLng = parseFloat(m[2]);
+    if (!Number.isFinite(pLat) || !Number.isFinite(pLng)) return null;
+    return { lat: pLat, lng: pLng };
+  }
+
+  function applyLeadPanelMapViewport(loc, geometry, opts) {
+    if (!__leadPanelJsMap || !loc) return;
+    if (geometry && geometry.viewport) {
+      __leadPanelJsMap.fitBounds(geometry.viewport);
+    } else {
+      __leadPanelJsMap.setCenter(loc);
+      __leadPanelJsMap.setZoom(15);
+    }
+    if (__leadPanelJsMarker) {
+      try {
+        __leadPanelJsMarker.setMap(null);
+      } catch (_) {}
+    }
+    __leadPanelJsMarker = new google.maps.Marker({
+      map: __leadPanelJsMap,
+      position: loc,
+      title: (opts && (opts.title || opts.address)) || '',
+    });
+    resizeLeadPanelJsMapSoon();
+  }
+
+  function initLeadPanelInteractiveGoogleMap(opts, onFail) {
     const el = document.getElementById('leadPanelJsMap');
     const openLink = document.getElementById('leadPanelJsMapOpenLink');
     const centerQ = opts && String(opts.center || '').trim();
-    const attempt = typeof layoutAttempt === 'number' ? layoutAttempt : 0;
     if (!el || !centerQ) {
       if (typeof onFail === 'function') onFail();
-      return;
-    }
-    const minPx = 48;
-    const layoutNotReady = el.offsetWidth < minPx || el.offsetHeight < minPx;
-    if (layoutNotReady) {
-      if (attempt === 0) {
-        requestAnimationFrame(() =>
-          syncLeadPanelInteractiveGoogleMap(opts, onFail, 1)
-        );
-      } else if (attempt < 8) {
-        setTimeout(
-          () => syncLeadPanelInteractiveGoogleMap(opts, onFail, attempt + 1),
-          100 + attempt * 40
-        );
-      } else if (typeof onFail === 'function') {
-        onFail();
-      }
       return;
     }
     if (openLink && opts.mapsHref) openLink.href = opts.mapsHref;
@@ -6185,25 +6241,31 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
       try {
-        if (!__leadPanelJsMap) {
-          __leadPanelJsMap = new google.maps.Map(el, {
-            zoom: 15,
-            center: { lat: 45.5152, lng: -122.6784 },
-            gestureHandling: 'greedy',
-            mapTypeControl: true,
-            mapTypeControlOptions: {
-              position: google.maps.ControlPosition.TOP_RIGHT,
-            },
-            zoomControl: false,
-            streetViewControl: false,
-            fullscreenControl: true,
-            fullscreenControlOptions: {
-              position: google.maps.ControlPosition.TOP_RIGHT,
-            },
-          });
-          __leadPanelJsGeocoder = new google.maps.Geocoder();
-        }
+        disposeLeadPanelJsMap();
+        __leadPanelJsMap = new google.maps.Map(el, {
+          zoom: 15,
+          center: { lat: 45.5152, lng: -122.6784 },
+          gestureHandling: 'greedy',
+          mapTypeControl: true,
+          mapTypeControlOptions: {
+            position: google.maps.ControlPosition.TOP_RIGHT,
+          },
+          zoomControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+          fullscreenControlOptions: {
+            position: google.maps.ControlPosition.TOP_RIGHT,
+          },
+        });
+        __leadPanelJsGeocoder = new google.maps.Geocoder();
         resizeLeadPanelJsMapSoon();
+
+        const direct = parseLeadPanelMapLatLng(opts, centerQ);
+        if (direct) {
+          applyLeadPanelMapViewport(direct, null, opts);
+          return;
+        }
+
         __leadPanelJsGeocoder.geocode({ address: centerQ }, (results, status) => {
           if (status !== 'OK' || !results || !results[0]) {
             if (typeof onFail === 'function') onFail();
@@ -6211,24 +6273,21 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           const geo = results[0].geometry;
           const loc = geo.location;
-          if (geo.viewport) __leadPanelJsMap.fitBounds(geo.viewport);
-          else {
-            __leadPanelJsMap.setCenter(loc);
-            __leadPanelJsMap.setZoom(15);
-          }
-          if (__leadPanelJsMarker) __leadPanelJsMarker.setMap(null);
-          __leadPanelJsMarker = new google.maps.Marker({
-            map: __leadPanelJsMap,
-            position: loc,
-            title: opts.title || opts.address || '',
-          });
-          resizeLeadPanelJsMapSoon();
+          applyLeadPanelMapViewport(
+            { lat: loc.lat(), lng: loc.lng() },
+            geo,
+            opts
+          );
         });
       } catch (e) {
         console.warn('[Lead panel interactive map]', e);
         if (typeof onFail === 'function') onFail();
       }
     });
+  }
+
+  function syncLeadPanelInteractiveGoogleMap(opts, onFail) {
+    whenLeadPanelMapHostReady(() => initLeadPanelInteractiveGoogleMap(opts, onFail));
   }
 
   function syncLeadPanelWideMapAndGoogleChip(row, opts) {
@@ -6240,6 +6299,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const address = readPipelineRowDisplayAddress(row);
     const city = String(row.dataset.city || '').trim();
     const center = readPipelineRowMapCenter(row);
+    const rowLat = parseFloat(row.dataset.latitude);
+    const rowLng = parseFloat(row.dataset.longitude);
     const mapsUrl = center
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(center)}`
       : '';
@@ -6401,7 +6462,14 @@ document.addEventListener('DOMContentLoaded', () => {
         headerMapBannerActive = true;
 
         syncLeadPanelInteractiveGoogleMap(
-          { center, mapsHref: hrefOpen, title, address },
+          {
+            center,
+            mapsHref: hrefOpen,
+            title,
+            address,
+            lat: Number.isFinite(rowLat) ? rowLat : undefined,
+            lng: Number.isFinite(rowLng) ? rowLng : undefined,
+          },
           () => {
             syncLeadPanelWideMapAndGoogleChip(row, { skipInteractive: true });
           }
@@ -7533,6 +7601,7 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => resizeLeadPanelJsMapSoon());
     });
+    setTimeout(() => resizeLeadPanelJsMapSoon(), 380);
 
     try {
       populateCadenceSection(row);
