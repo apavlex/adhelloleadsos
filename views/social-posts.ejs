@@ -4,26 +4,28 @@
   <%- include('partials/head') %>
   <style>
     .platform-tab { transition: all .15s ease; }
-    .platform-tab.active { background: #d4a017; color: #1a1a2e; font-weight: 800; }
-    .platform-tab:not(.active) { background: transparent; color: #94a3b8; border: 1px solid rgba(148,163,184,.2); }
-    .platform-tab:not(.active):hover { border-color: #d4a017; color: #d4a017; }
+    .platform-tab.active { background: var(--brand-yellow); color: #111827; font-weight: 800; }
+    .platform-tab:not(.active) { background: transparent; color: var(--brand-muted); border: 1px solid var(--brand-border); }
+    .platform-tab:not(.active):hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
     .post-card { transition: box-shadow .15s ease; }
-    .post-card:hover { box-shadow: 0 4px 24px rgba(212,160,23,.12); }
+    .post-card:hover { box-shadow: 0 4px 24px rgba(255,214,68,.12); }
     .post-card .edit-area { display: none; }
     .post-card.editing .edit-area { display: block; }
     .post-card.editing .preview-area { display: none; }
     .copy-toast { animation: fadeInOut 2s ease forwards; }
     @keyframes fadeInOut { 0%{opacity:0;transform:translateY(8px)} 15%{opacity:1;transform:translateY(0)} 85%{opacity:1;transform:translateY(0)} 100%{opacity:0;transform:translateY(-8px)} }
-    .style-tag { font-size: 10px; padding: 2px 8px; border-radius: 9999px; background: rgba(212,160,23,.15); color: #d4a017; font-weight: 700; }
+    .style-tag { font-size: 10px; padding: 2px 8px; border-radius: 9999px; background: rgba(255,214,68,.15); color: var(--brand-yellow); font-weight: 700; }
     .action-btn { transition: all .15s ease; }
-    .action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(212,160,23,.2); }
+    .action-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,214,68,.2); }
     .calendar-day { min-height: 80px; transition: all .15s ease; }
-    .calendar-day:hover { background: rgba(212,160,23,.05); }
-    .calendar-day.today { border-color: #d4a017; background: rgba(212,160,23,.08); }
+    .calendar-day:hover { background: rgba(255,214,68,.05); }
+    .calendar-day.today { border-color: var(--brand-yellow); background: rgba(255,214,68,.08); }
     .calendar-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-    .hashtag-pill { font-size: 10px; padding: 3px 10px; border-radius: 9999px; background: rgba(212,160,23,.1); color: #d4a017; font-weight: 700; border: 1px solid rgba(212,160,23,.2); cursor: pointer; transition: all .15s ease; }
-    .hashtag-pill:hover { background: rgba(212,160,23,.25); }
-    .hashtag-pill.copied { background: #d4a017; color: #1a1a2e; }
+    .hashtag-pill { font-size: 10px; padding: 3px 10px; border-radius: 9999px; background: rgba(255,214,68,.1); color: var(--brand-yellow); font-weight: 700; border: 1px solid rgba(255,214,68,.2); cursor: pointer; transition: all .15s ease; }
+    .hashtag-pill:hover { background: rgba(255,214,68,.25); }
+    .hashtag-pill.copied { background: var(--brand-yellow); color: #111827; }
+    .icon-flat { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-flat-sm { width: 12px; height: 12px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
   </style>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
@@ -36,14 +38,14 @@
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Content</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Social Post Ideas</h1>
-        <p class="text-sm text-brand-muted mt-2 max-w-xl">Platform-specific post ideas. Generate, edit, copy. Below: content calendar + Clark County local content for @zipguide.</p>
+        <p class="text-sm text-brand-muted mt-2 max-w-xl">Daily post ideas for AdHello &amp; zipguide. Refresh for new ideas. Save posts you like for later.</p>
       </div>
       <div class="flex items-center gap-3">
-        <input id="nicheInput" type="text" placeholder="Your niche (e.g. HVAC, roofing)"
-          class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 w-56"
-          value="<%= (styleProfile && styleProfile.niche) || '' %>" />
-        <button onclick="regenerateAll()" class="btn-brand-yellow text-sm font-bold px-4 py-2 rounded-xl whitespace-nowrap action-btn">
-          Generate Ideas
+        <input id="nicheInput" type="text" placeholder="Optional: different niche (e.g. HVAC, roofing)"
+          class="rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 w-56" />
+        <button onclick="regenerateAll()" class="btn-brand-yellow text-sm font-bold px-4 py-2 rounded-xl whitespace-nowrap action-btn flex items-center gap-1.5">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+          Refresh Ideas
         </button>
       </div>
     </div>
@@ -51,32 +53,29 @@
     <!-- QUICK ACTIONS BAR -->
     <div class="brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 mb-6">
       <div class="flex items-center justify-between mb-3">
-        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted inline-flex items-center gap-1.5">
-          <svg class="w-4 h-4 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg>
-          Quick Actions
-        </span>
+        <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Quick Actions</span>
         <span id="qaStatus" class="text-[10px] text-brand-muted font-bold"></span>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button onclick="qaGenerateInstagram()" class="action-btn inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">
-          <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.12c-.263.102-.532.31-.82.587-.366.366-.7.94-.7 1.668 0 .727.333 1.401.7 1.668.288.277.557.485.82.587.364.141.705.17 1.012.124L6.827 6.175zM6.75 4.5h10.5a2.25 2.25 0 012.25 2.25v10.5a2.25 2.25 0 01-2.25 2.25H6.75a2.25 2.25 0 01-2.25-2.25V6.75A2.25 2.25 0 016.75 4.5z"/></svg>
-          Instagram Ideas
+        <button onclick="qaGenerateInstagram()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+          Instagram
         </button>
-        <button onclick="qaGenerateTikTok()" class="action-btn inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">
-          <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
-          TikTok Ideas
+        <button onclick="qaGenerateTikTok()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 104 4V4a5 5 0 005 5"/></svg>
+          TikTok
         </button>
-        <button onclick="qaGenerateAll()" class="action-btn inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">
-          <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/></svg>
-          Generate All Platforms
+        <button onclick="qaGenerateAll()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>
+          All Platforms
         </button>
-        <button onclick="qaCopyAllVisible()" class="action-btn inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">
-          <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9.75a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 011.927-.184"/></svg>
-          Copy All Visible
+        <button onclick="qaCopyAllVisible()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          Copy All
         </button>
-        <button onclick="qaCopyLocalToday()" class="action-btn inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-[#d4a017] text-[#d4a017]">
-          <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
-          Copy Today's Local Picks
+        <button onclick="qaCopyLocalToday()" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-yellow flex items-center gap-1">
+          <svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Today's Local
         </button>
         <button onclick="switchTab('instagram')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-[#E1306C] text-[#E1306C]">Filter: Instagram</button>
         <button onclick="switchTab('all')" class="action-btn text-xs font-bold px-3 py-1.5 rounded-lg border border-brand-border hover:border-brand-yellow text-brand-dark dark:text-white">Show All</button>
@@ -87,33 +86,25 @@
     <div class="mb-8">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white inline-flex items-center gap-2">
-            <svg class="w-5 h-5 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg>
+          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
+            <svg class="icon-flat" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
             Content Calendar
           </h2>
-          <p class="text-xs text-brand-muted mt-1">This week's planned content. Generated calendar from local content + ideas.</p>
+          <p class="text-xs text-brand-muted mt-1">This week's planned content from local scout + ideas.</p>
         </div>
         <div class="flex gap-2">
-          <button onclick="calendarPrevWeek()" class="inline-flex items-center gap-1 text-xs font-bold text-brand-muted hover:text-brand-yellow px-2 py-1">
-            <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/></svg>
-            Prev
-          </button>
-          <button onclick="calendarNextWeek()" class="inline-flex items-center gap-1 text-xs font-bold text-brand-muted hover:text-brand-yellow px-2 py-1">
-            Next
-            <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
-          </button>
+          <button onclick="calendarPrevWeek()" class="text-xs font-bold text-brand-muted hover:text-brand-yellow px-2 py-1">&larr; Prev</button>
+          <button onclick="calendarNextWeek()" class="text-xs font-bold text-brand-muted hover:text-brand-yellow px-2 py-1">Next &rarr;</button>
           <button onclick="calendarThisWeek()" class="text-xs font-bold text-brand-yellow hover:underline px-2 py-1">Today</button>
         </div>
       </div>
-      <div id="calendarGrid" class="grid grid-cols-7 gap-2">
-        <!-- Rendered by JS -->
-      </div>
+      <div id="calendarGrid" class="grid grid-cols-7 gap-2"></div>
       <div class="flex gap-4 mt-3 text-[10px] text-brand-muted">
         <span><span class="calendar-dot" style="background:#22c55e"></span> New Business</span>
         <span><span class="calendar-dot" style="background:#f59e0b"></span> Trending</span>
         <span><span class="calendar-dot" style="background:#3b82f6"></span> News</span>
         <span><span class="calendar-dot" style="background:#a855f7"></span> Event</span>
-        <span><span class="calendar-dot" style="background:#d4a017"></span> Idea</span>
+        <span><span class="calendar-dot" style="background:var(--brand-yellow)"></span> Idea</span>
       </div>
     </div>
 
@@ -121,20 +112,15 @@
     <div class="mb-8">
       <div class="flex items-center justify-between mb-3">
         <div>
-          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white inline-flex items-center gap-2">
-            <svg class="w-5 h-5 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 8.25h15M5.25 12h15m-15 3.75h10.5"/></svg>
+          <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
+            <svg class="icon-flat" viewBox="0 0 24 24"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>
             Hashtag Sets
           </h2>
           <p class="text-xs text-brand-muted mt-1">Optimized for Clark County / Vancouver WA reach. Click to copy.</p>
         </div>
-        <button onclick="cycleHashtagSet()" class="inline-flex items-center gap-1 text-xs font-bold text-brand-yellow hover:underline">
-          Cycle Set
-          <svg class="w-4 h-4 shrink-0 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/></svg>
-        </button>
+        <button onclick="cycleHashtagSet()" class="text-xs font-bold text-brand-yellow hover:underline">Cycle Set &rarr;</button>
       </div>
-      <div id="hashtagContainer" class="brand-card p-4 dark:bg-slate-900 dark:border-white/10">
-        <!-- Rendered by JS -->
-      </div>
+      <div id="hashtagContainer" class="brand-card p-4 dark:bg-slate-900 dark:border-white/10"></div>
     </div>
 
     <!-- Platform Tabs -->
@@ -150,44 +136,49 @@
     <!-- Ideas Grid -->
     <div id="ideasContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
       <div class="col-span-full text-center py-20 text-brand-muted">
-        <p class="text-lg font-bold mb-2">Enter your niche above and click Generate</p>
-        <p class="text-sm">Ideas will appear here for all platforms</p>
+        <p class="text-lg font-bold mb-2">Loading today's ideas...</p>
       </div>
     </div>
 
     <!-- Saved Posts Section -->
     <div class="mt-12 mb-4 flex items-center justify-between">
-      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">Saved Posts</h2>
+      <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
+        <svg class="icon-flat" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>
+        Saved Posts
+      </h2>
       <span id="savedCount" class="text-xs text-brand-muted font-bold">0 saved</span>
     </div>
     <div id="savedPostsContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">
-        No saved posts yet. Edit and save ideas above to build your library.
+        No saved posts yet. Click the bookmark icon on any idea to save it.
       </div>
     </div>
 
     <!-- Clark County / Local Content Section -->
     <div class="mt-14 mb-4 flex items-center justify-between">
       <div>
-        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white inline-flex items-center gap-2">
-          <svg class="w-5 h-5 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
+        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
+          <svg class="icon-flat" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Clark County Content
         </h2>
-        <p class="text-xs text-brand-muted mt-1">Daily scout findings — new businesses, local news, trending stories for @zipguide. Click ⭐ to save for newsletter.</p>
+        <p class="text-xs text-brand-muted mt-1">Daily scout findings for @zipguide. Click the star to save for newsletter.</p>
       </div>
       <span id="localCount" class="text-xs text-brand-muted font-bold">0 items</span>
     </div>
     <div id="localContentContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">
-        No content yet. The daily scout will populate this each morning at 8 AM PDT.
+        No content yet. The daily scout will populate this each morning.
       </div>
     </div>
 
     <!-- Newsletter Picks Section -->
     <div class="mt-14 mb-4 flex items-center justify-between">
       <div>
-        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">⭐ Newsletter Picks</h2>
-        <p class="text-xs text-brand-muted mt-1">Items you starred from Clark County content — ready for your weekly newsletter</p>
+        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white flex items-center gap-2">
+          <svg class="icon-flat" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+          Newsletter Picks
+        </h2>
+        <p class="text-xs text-brand-muted mt-1">Starred items from Clark County content — ready for your weekly newsletter.</p>
       </div>
       <div class="flex gap-2">
         <span id="newsletterCount" class="text-xs text-brand-muted font-bold">0 picks</span>
@@ -197,7 +188,7 @@
     </div>
     <div id="newsletterContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noNewsletterMsg">
-        No picks yet. Click ⭐ on any Clark County content item to save it here.
+        No picks yet. Click the star on any Clark County content item to save it here.
       </div>
     </div>
 
@@ -219,8 +210,8 @@
           <select id="styleTone" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white">
             <option value="">Select tone...</option>
             <option value="professional">Professional</option>
-            <option value="casual">Casual & Friendly</option>
-            <option value="bold">Bold & Direct</option>
+            <option value="casual">Casual &amp; Friendly</option>
+            <option value="bold">Bold &amp; Direct</option>
             <option value="educational">Educational</option>
             <option value="storyteller">Storyteller</option>
             <option value="humorous">Humorous</option>
@@ -228,7 +219,7 @@
         </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Go-to Hooks (comma-separated)</label>
-          <textarea id="styleHooks" rows="2" placeholder="e.g. Most owners don't realize, Here's what happened when, The #1 reason" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50"></textarea>
+          <textarea id="styleHooks" rows="2" placeholder="e.g. Most owners don't realize, Here's what happened when" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50"></textarea>
         </div>
         <div>
           <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Go-to CTAs (comma-separated)</label>
@@ -252,82 +243,51 @@
   <%- include('/partials/app_shell_close') %>
 
   <script>
-    // ── Flat icons (Heroicons outline) ──────────────────────────────────────────
-    const ICON_PATHS = {
-      sparkles: '<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z"/>',
-      fire: '<path stroke-linecap="round" stroke-linejoin="round" d="M15.362 5.214A8.252 8.252 0 0112 21 8.25 8.25 0 016.038 7.048 8.287 8.287 0 009 9.6a8.983 8.983 0 013.361-6.867 8.21 8.21 0 003 2.48z"/><path stroke-linecap="round" stroke-linejoin="round" d="M12 18a3.75 3.75 0 00.495-7.467 5.99 5.99 0 00-1.3 3.467 3.75 3.75 0 003.75 3.75z"/>',
-      newspaper: '<path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6v-3z"/>',
-      ticket: '<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z"/>',
-      megaphone: '<path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.662.331a.75.75 0 01-1.022-.732l.003-.002a49.52 49.52 0 010-13.537l-.003-.002a.75.75 0 011.022-.732l.662.331c.523.301.71.961.463 1.511a12.97 12.97 0 00-.985 2.783M10.34 15.84l-1.547 4.126a.75.75 0 01-1.403-.055L6.982 17.04m8.568-2.004l1.547 4.126a.75.75 0 001.403-.055l1.408-3.871M6.982 17.04l-1.408 3.871a.75.75 0 001.403.055l1.547-4.126"/>',
-      'map-pin': '<path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>',
-    };
-
-    function iconSvg(inner, sizeClass) {
-      const cls = sizeClass || 'w-4 h-4 shrink-0 opacity-70';
-      return '<svg class="' + cls + '" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">' + inner + '</svg>';
-    }
-
-    function categoryLabel(category) {
-      const keys = {
-        'new-business': 'sparkles',
-        'trending': 'fire',
-        'news': 'newspaper',
-        'event': 'ticket',
-        'viral': 'megaphone',
-        'general': 'map-pin',
-      };
-      const texts = {
-        'new-business': 'New Business',
-        'trending': 'Trending',
-        'news': 'News',
-        'event': 'Event',
-        'viral': 'Viral',
-        'general': 'Local',
-      };
-      const key = keys[category] || 'map-pin';
-      return iconSvg(ICON_PATHS[key]) + ' ' + (texts[category] || texts.general);
-    }
-
     // ── State ──────────────────────────────────────────────────────────────────
     let currentPlatform = 'all';
     let allIdeas = {};
     let savedPosts = [];
     let localContentItems = [];
     let styleProfile = <%- JSON.stringify(styleProfile || {}) %>;
-    let calendarOffset = 0; // weeks from current
+    let calendarOffset = 0;
     let currentHashtagSet = 0;
 
-    // ── Hashtag Sets (Clark County optimized) ───────────────────────────────────
+    // ── Flat SVG Icons (inline for convenience) ────────────────────────────────
+    const ICONS = {
+      refresh: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-6.219-8.56"/><polyline points="21 3 21 9 15 9"/></svg>',
+      bookmark: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>',
+      bookmarkFilled: '<svg class="icon-flat-sm" viewBox="0 0 24 24" fill="currentColor"><path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/></svg>',
+      copy: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>',
+      star: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+      starFilled: '<svg class="icon-flat-sm" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+      trash: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>',
+      edit: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+      mapPin: '<svg class="icon-flat" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+      calendar: '<svg class="icon-flat" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+      hashtag: '<svg class="icon-flat" viewBox="0 0 24 24"><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="15" x2="20" y2="15"/><line x1="10" y1="3" x2="8" y2="21"/><line x1="16" y1="3" x2="14" y2="21"/></svg>',
+      instagram: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M16 11.37A4 4 0 1112.63 8 4 4 0 0116 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>',
+      tiktok: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M9 12a4 4 0 104 4V4a5 5 0 005 5"/></svg>',
+      save: '<svg class="icon-flat-sm" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>',
+    };
+
+    // ── Hashtag Sets ───────────────────────────────────────────────────────────
     const hashtagSets = [
-      {
-        name: 'Clark County Local',
-        tags: ['#ClarkCounty', '#VancouverWA', '#PNW', '#PacificNorthwest', '#WashingtonState', '#CouverLife', '#360', '#PortlandMetro', '#ClarkCountyWA', '#ShopLocal']
-      },
-      {
-        name: 'Small Business / Entrepreneur',
-        tags: ['#SmallBusiness', '#ShopSmall', '#SmallBusinessOwner', '#Entrepreneur', '#LocalBusiness', '#SupportLocal', '#BusinessOwner', '#SupportSmallBusiness', '#LocalFirst', '#CommunityFirst']
-      },
-      {
-        name: 'New Business / Opening',
-        tags: ['#GrandOpening', '#NewBusiness', '#NewInTown', '#NowOpen', '#GrandOpeningDay', '#JustOpened', '#NewSpot', '#CheckThisOut', '#LocalNews', '#BusinessSpotlight']
-      },
-      {
-        name: 'Real Estate / Development',
-        tags: ['#RealEstate', '#NewDevelopment', '#Construction', '#Growth', '#Downtown', '#VancouverDowntown', '#PDXRealEstate', '#Housing', '#CommercialRealEstate', '#UrbanDevelopment']
-      },
-      {
-        name: 'Engagement / Community',
-        tags: ['#KnowYourCity', '#LocalLove', '#CommunityMatters', '#ExploreLocal', '#HiddenGems', '#ThingsToDo', '#WeekendVibes', '#LocalEats', '#ExplorePNW', '#WAFood']
-      }
+      { name: 'Clark County Local', tags: ['#ClarkCounty','#VancouverWA','#PNW','#PacificNorthwest','#WashingtonState','#CouverLife','#360','#PortlandMetro','#ClarkCountyWA','#ShopLocal'] },
+      { name: 'Small Business', tags: ['#SmallBusiness','#ShopSmall','#SmallBusinessOwner','#Entrepreneur','#LocalBusiness','#SupportLocal','#BusinessOwner','#SupportSmallBusiness','#LocalFirst','#CommunityFirst'] },
+      { name: 'New Business / Opening', tags: ['#GrandOpening','#NewBusiness','#NewInTown','#NowOpen','#GrandOpeningDay','#JustOpened','#NewSpot','#CheckThisOut','#LocalNews','#BusinessSpotlight'] },
+      { name: 'Real Estate / Development', tags: ['#RealEstate','#NewDevelopment','#Construction','#Growth','#Downtown','#VancouverDowntown','#PDXRealEstate','#Housing','#CommercialRealEstate','#UrbanDevelopment'] },
+      { name: 'Engagement / Community', tags: ['#KnowYourCity','#LocalLove','#CommunityMatters','#ExploreLocal','#HiddenGems','#ThingsToDo','#WeekendVibes','#LocalEats','#ExplorePNW','#WAFood'] }
     ];
 
-    // ── Init ───────────────────────────────────────────────────────────────────
+    // ── Init: auto-load ideas on page visit ────────────────────────────────────
     document.addEventListener('DOMContentLoaded', () => {
       renderStyleTags();
       loadSavedPosts();
       loadLocalContent();
       renderCalendar();
       renderHashtags();
+      // Auto-generate ideas for AdHello/zipguide on page load
+      regenerateAll();
     });
 
     // ── QUICK ACTIONS ───────────────────────────────────────────────────────────
@@ -338,35 +298,24 @@
     }
 
     async function qaGenerateInstagram() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'local business';
+      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and zipguide local business directory';
       try {
         const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
         const data = await res.json();
-        if (data.success) {
-          allIdeas = data.ideas;
-          switchTab('instagram');
-          qaStatus('Instagram ideas generated');
-        }
+        if (data.success) { allIdeas = data.ideas; switchTab('instagram'); qaStatus('Instagram ideas generated'); }
       } catch (err) { qaStatus('Error generating'); }
     }
 
     async function qaGenerateTikTok() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'local business';
+      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and zipguide local business directory';
       try {
         const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
         const data = await res.json();
-        if (data.success) {
-          allIdeas = data.ideas;
-          switchTab('tiktok');
-          qaStatus('TikTok ideas generated');
-        }
+        if (data.success) { allIdeas = data.ideas; switchTab('tiktok'); qaStatus('TikTok ideas generated'); }
       } catch (err) { qaStatus('Error generating'); }
     }
 
-    async function qaGenerateAll() {
-      await regenerateAll();
-      qaStatus('All platforms generated');
-    }
+    async function qaGenerateAll() { await regenerateAll(); qaStatus('All platforms generated'); }
 
     function qaCopyAllVisible() {
       const platforms = currentPlatform === 'all' ? Object.keys(allIdeas) : [currentPlatform];
@@ -374,17 +323,10 @@
       for (const p of platforms) {
         const ideas = allIdeas[p] || [];
         allText += '=== ' + p.toUpperCase() + ' ===\n';
-        for (const idea of ideas) {
-          allText += idea.hook + '\n';
-          if (idea.cta) allText += 'CTA: ' + idea.cta + '\n';
-          allText += '\n';
-        }
+        for (const idea of ideas) { allText += idea.hook + '\n'; if (idea.cta) allText += 'CTA: ' + idea.cta + '\n'; allText += '\n'; }
       }
       if (!allText.trim()) { qaStatus('No ideas to copy'); return; }
-      navigator.clipboard.writeText(allText.trim()).then(() => {
-        showCopyToast();
-        qaStatus('Copied all visible ideas');
-      });
+      navigator.clipboard.writeText(allText.trim()).then(() => { showCopyToast(); qaStatus('Copied all visible ideas'); });
     }
 
     function qaCopyLocalToday() {
@@ -392,15 +334,8 @@
       const todayItems = localContentItems.filter(i => i.createdAt && i.createdAt.slice(0, 10) === today);
       if (!todayItems.length) { qaStatus('No local content for today'); return; }
       let text = 'Clark County Content for ' + today + '\n\n';
-      for (const item of todayItems) {
-        text += '• ' + item.title + '\n';
-        text += item.summary + '\n';
-        text += 'Post Idea: ' + item.postIdea + '\n\n';
-      }
-      navigator.clipboard.writeText(text.trim()).then(() => {
-        showCopyToast();
-        qaStatus('Copied today\'s local content');
-      });
+      for (const item of todayItems) { text += '\u2022 ' + item.title + '\n' + item.summary + '\nPost Idea: ' + item.postIdea + '\n\n'; }
+      navigator.clipboard.writeText(text.trim()).then(() => { showCopyToast(); qaStatus('Copied today\'s local content'); });
     }
 
     function switchTab(platform) {
@@ -417,16 +352,9 @@
       const today = new Date();
       const startOfWeek = new Date(today);
       startOfWeek.setDate(today.getDate() - today.getDay() + (calendarOffset * 7));
-
       const days = [];
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      for (let i = 0; i < 7; i++) {
-        const d = new Date(startOfWeek);
-        d.setDate(startOfWeek.getDate() + i);
-        days.push(d);
-      }
-
-      // Group local content by date
+      for (let i = 0; i < 7; i++) { const d = new Date(startOfWeek); d.setDate(startOfWeek.getDate() + i); days.push(d); }
       const contentByDate = {};
       for (const item of localContentItems) {
         if (!item.createdAt) continue;
@@ -434,32 +362,21 @@
         if (!contentByDate[d]) contentByDate[d] = [];
         contentByDate[d].push(item);
       }
-
       grid.innerHTML = '';
       for (const d of days) {
         const dateStr = d.toISOString().slice(0, 10);
         const isToday = dateStr === new Date().toISOString().slice(0, 10);
         const items = contentByDate[dateStr] || [];
-        const dayName = dayNames[d.getDay()];
-
         const div = document.createElement('div');
         div.className = 'calendar-day brand-card rounded-xl border border-brand-border/40 p-2 dark:bg-slate-900 dark:border-white/10' + (isToday ? ' today' : '');
-
         const dots = items.slice(0, 4).map(item => {
-          const colors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': '#94a3b8' };
-          return `<span class="calendar-dot" style="background:${colors[item.category] || '#94a3b8'}; margin-right:2px" title="${escapeHtml(item.title)}"></span>`;
+          const colors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': 'var(--brand-muted)' };
+          return '<span class="calendar-dot" style="background:' + (colors[item.category] || 'var(--brand-muted)') + '; margin-right:2px" title="' + escapeHtml(item.title) + '"></span>';
         }).join('');
-
-        div.innerHTML = `
-          <div class="text-[10px] font-black uppercase tracking-widest ${isToday ? 'text-brand-yellow' : 'text-brand-muted'} mb-1">${dayName} ${d.getMonth() + 1}/${d.getDate()}</div>
-          <div class="mb-1">${dots}</div>
-          ${items.length ? `<div class="text-[10px] font-bold text-brand-dark dark:text-white">${items.length} item${items.length > 1 ? 's' : ''}</div>` : `<div class="text-[10px] text-brand-muted/40">-</div>`}
-          ${items.length ? items.slice(0, 2).map(item => `<div class="text-[9px] text-brand-muted truncate">${escapeHtml(item.title)}</div>`).join('') : ''}
-        `;
+        div.innerHTML = '<div class="text-[10px] font-black uppercase tracking-widest ' + (isToday ? 'text-brand-yellow' : 'text-brand-muted') + ' mb-1">' + dayNames[d.getDay()] + ' ' + (d.getMonth() + 1) + '/' + d.getDate() + '</div><div class="mb-1">' + dots + '</div>' + (items.length ? '<div class="text-[10px] font-bold text-brand-dark dark:text-white">' + items.length + ' item' + (items.length > 1 ? 's' : '') + '</div>' : '<div class="text-[10px] text-brand-muted/40">-</div>') + (items.length ? items.slice(0, 2).map(item => '<div class="text-[9px] text-brand-muted truncate">' + escapeHtml(item.title) + '</div>').join('') : '');
         grid.appendChild(div);
       }
     }
-
     function calendarPrevWeek() { calendarOffset--; renderCalendar(); }
     function calendarNextWeek() { calendarOffset++; renderCalendar(); }
     function calendarThisWeek() { calendarOffset = 0; renderCalendar(); }
@@ -469,38 +386,11 @@
       const container = document.getElementById('hashtagContainer');
       const set = hashtagSets[currentHashtagSet % hashtagSets.length];
       const allTags = set.tags.join(' ');
-      container.innerHTML = `
-        <div class="flex items-center justify-between mb-2">
-          <span class="text-xs font-bold text-brand-dark dark:text-white">${set.name}</span>
-          <span class="text-[9px] text-brand-muted">${set.tags.length} tags</span>
-        </div>
-        <div class="flex flex-wrap gap-1.5 mb-3">
-          ${set.tags.map(t => `<span class="hashtag-pill" onclick="copyHashtag('${t.replace(/'/g, "\\'")}', this)">${t}</span>`).join('')}
-        </div>
-        <button onclick="copyAllHashtags()" class="btn-brand-yellow text-xs font-bold px-3 py-1.5 rounded-lg">Copy All ${set.tags.length} Tags</button>
-      `;
+      container.innerHTML = '<div class="flex items-center justify-between mb-2"><span class="text-xs font-bold text-brand-dark dark:text-white">' + set.name + '</span><span class="text-[9px] text-brand-muted">' + set.tags.length + ' tags</span></div><div class="flex flex-wrap gap-1.5 mb-3">' + set.tags.map(t => '<span class="hashtag-pill" onclick="copyHashtag(\'' + t.replace(/'/g, "\\'") + '\', this)">' + t + '</span>').join('') + '</div><button onclick="copyAllHashtags()" class="btn-brand-yellow text-xs font-bold px-3 py-1.5 rounded-lg">Copy All ' + set.tags.length + ' Tags</button>';
     }
-
-    function copyHashtag(tag, el) {
-      navigator.clipboard.writeText(tag).then(() => {
-        el.classList.add('copied');
-        setTimeout(() => el.classList.remove('copied'), 1500);
-        qaStatus('Copied ' + tag);
-      });
-    }
-
-    function copyAllHashtags() {
-      const set = hashtagSets[currentHashtagSet % hashtagSets.length];
-      navigator.clipboard.writeText(set.tags.join(' ')).then(() => {
-        showCopyToast();
-        qaStatus('Copied ' + set.tags.length + ' hashtags');
-      });
-    }
-
-    function cycleHashtagSet() {
-      currentHashtagSet++;
-      renderHashtags();
-    }
+    function copyHashtag(tag, el) { navigator.clipboard.writeText(tag).then(() => { el.classList.add('copied'); setTimeout(() => el.classList.remove('copied'), 1500); qaStatus('Copied ' + tag); }); }
+    function copyAllHashtags() { const set = hashtagSets[currentHashtagSet % hashtagSets.length]; navigator.clipboard.writeText(set.tags.join(' ')).then(() => { showCopyToast(); qaStatus('Copied ' + set.tags.length + ' hashtags'); }); }
+    function cycleHashtagSet() { currentHashtagSet++; renderHashtags(); }
 
     // ── Platform Tabs ──────────────────────────────────────────────────────────
     document.querySelectorAll('.platform-tab').forEach(tab => {
@@ -512,23 +402,17 @@
       });
     });
 
-    // ── Generate Ideas ─────────────────────────────────────────────────────────
+    // ── Generate Ideas (default to AdHello/zipguide) ───────────────────────────
     async function regenerateAll() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'home service business';
+      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and zipguide local business directory';
       const container = document.getElementById('ideasContainer');
-      container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating ideas...</p></div>';
+      container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating fresh ideas...</p></div>';
       try {
         const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
         const data = await res.json();
-        if (data.success) {
-          allIdeas = data.ideas;
-          renderIdeas();
-        } else {
-          container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed') + '</p></div>';
-        }
-      } catch (err) {
-        container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error.</p></div>';
-      }
+        if (data.success) { allIdeas = data.ideas; renderIdeas(); }
+        else { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Error: ' + (data.error || 'Failed') + '</p></div>'; }
+      } catch (err) { container.innerHTML = '<div class="col-span-full text-center py-20 text-red-500"><p class="font-bold">Connection error.</p></div>'; }
     }
 
     function renderIdeas() {
@@ -537,14 +421,9 @@
       const platforms = currentPlatform === 'all' ? Object.keys(allIdeas) : [currentPlatform];
       let total = 0;
       for (const p of platforms) {
-        for (const idea of (allIdeas[p] || [])) {
-          total++;
-          container.appendChild(createIdeaCard(idea, p));
-        }
+        for (const idea of (allIdeas[p] || [])) { total++; container.appendChild(createIdeaCard(idea, p)); }
       }
-      if (!total) {
-        container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas yet</p><p class="text-sm">Enter your niche and click Generate</p></div>';
-      }
+      if (!total) { container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold mb-2">No ideas yet</p><p class="text-sm">Click Refresh Ideas to generate</p></div>'; }
     }
 
     function createIdeaCard(idea, platform) {
@@ -554,32 +433,56 @@
       div.dataset.platform = platform;
       const labels = { instagram: 'Instagram', facebook: 'Facebook', linkedIn: 'LinkedIn', x: 'X / Twitter', tiktok: 'TikTok' };
       const colors = { instagram: '#E1306C', facebook: '#1877F2', linkedIn: '#0A66C2', x: '#1DA1F2', tiktok: '#000' };
-      div.innerHTML = `
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-[10px] font-black uppercase tracking-widest" style="color:${colors[platform] || '#94a3b8'}">${labels[platform] || platform}</span>
-          <div class="flex gap-2">
-            <button onclick="copyIdea('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
-            <button onclick="toggleEdit('${idea.id.replace(/'/g, "\\'")}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Edit</button>
-          </div>
-        </div>
-        <div class="preview-area">
-          <p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(idea.hook)}</p>
-          ${idea.cta ? `<p class="text-xs text-brand-muted mt-2 italic">CTA: ${escapeHtml(idea.cta)}</p>` : ''}
-        </div>
-        <div class="edit-area mt-3">
-          <textarea class="edit-content w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white min-h-[100px] resize-y">${escapeHtml(idea.hook)}</textarea>
-          <textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA">${escapeHtml(idea.cta || '')}</textarea>
-          <div class="flex gap-2 mt-3">
-            <button onclick="saveIdea('${idea.id.replace(/'/g, "\\'")}')" class="btn-brand-yellow text-xs font-bold px-4 py-1.5 rounded-lg">Save</button>
-            <button onclick="cancelEdit('${idea.id.replace(/'/g, "\\'")}')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button>
-          </div>
-        </div>
-      `;
+      const isSaved = savedPosts.some(sp => sp.content === idea.hook && sp.platform === platform);
+      const saveIcon = isSaved ? ICONS.bookmarkFilled : ICONS.bookmark;
+      const saveColor = isSaved ? 'var(--brand-yellow)' : '';
+      const saveTitle = isSaved ? 'Saved' : 'Save for later';
+      div.innerHTML = '<div class="flex items-center justify-between mb-3">' +
+        '<span class="text-[10px] font-black uppercase tracking-widest" style="color:' + (colors[platform] || 'var(--brand-muted)') + '">' + (labels[platform] || platform) + '</span>' +
+        '<div class="flex gap-2">' +
+        '<button onclick="toggleSaveIdea(\'' + idea.id.replace(/'/g, "\\'") + '\', \'' + platform.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold hover:text-brand-yellow flex items-center gap-0.5" style="color:' + saveColor + '" title="' + saveTitle + '">' + saveIcon + '</button>' +
+        '<button onclick="copyIdea(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Copy">' + ICONS.copy + '</button>' +
+        '<button onclick="toggleEdit(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow flex items-center gap-0.5" title="Edit">' + ICONS.edit + '</button>' +
+        '</div></div>' +
+        '<div class="preview-area"><p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">' + escapeHtml(idea.hook) + '</p>' +
+        (idea.cta ? '<p class="text-xs text-brand-muted mt-2 italic">CTA: ' + escapeHtml(idea.cta) + '</p>' : '') + '</div>' +
+        '<div class="edit-area mt-3"><textarea class="edit-content w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white min-h-[100px] resize-y">' + escapeHtml(idea.hook) + '</textarea>' +
+        '<textarea class="edit-cta w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-muted mt-2 min-h-[40px] resize-y" placeholder="CTA">' + escapeHtml(idea.cta || '') + '</textarea>' +
+        '<div class="flex gap-2 mt-3"><button onclick="saveIdea(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="btn-brand-yellow text-xs font-bold px-4 py-1.5 rounded-lg">Save</button>' +
+        '<button onclick="cancelEdit(\'' + idea.id.replace(/'/g, "\\'") + '\')" class="text-xs font-bold text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5">Cancel</button></div></div>';
       return div;
     }
 
+    // ── Save idea for later (bookmark) ─────────────────────────────────────────
+    async function toggleSaveIdea(ideaId, platform) {
+      const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
+      if (!card) return;
+      const content = card.querySelector('.preview-area p').textContent;
+      const ctaEl = card.querySelector('.preview-area .text-xs');
+      const cta = ctaEl ? ctaEl.textContent.replace('CTA: ', '') : '';
+      const existing = savedPosts.find(sp => sp.content === content && sp.platform === platform);
+      if (existing) {
+        // Unsave
+        try {
+          const res = await fetch('/social-posts/api/' + encodeURIComponent(existing.id), { method: 'DELETE' });
+          const data = await res.json();
+          if (data.success) { savedPosts = savedPosts.filter(sp => sp.id !== existing.id); renderSavedPosts(); renderIdeas(); qaStatus('Removed from saved'); }
+        } catch (err) { alert('Could not remove.'); }
+      } else {
+        // Save
+        try {
+          const res = await fetch('/social-posts/api/save', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ platform, content, cta, niche: 'AdHello', workspaceId: 'default' })
+          });
+          const data = await res.json();
+          if (data.success) { savedPosts.unshift({ id: data.id, platform, content, cta, createdAt: new Date().toISOString() }); renderSavedPosts(); renderIdeas(); qaStatus('Saved for later'); showCopyToast(); }
+        } catch (err) { alert('Could not save.'); }
+      }
+    }
+
     function copyIdea(ideaId) {
-      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
+      const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
       if (!card) return;
       const text = card.querySelector('.preview-area p').textContent;
       navigator.clipboard.writeText(text).then(() => showCopyToast());
@@ -591,11 +494,11 @@
       setTimeout(() => t.classList.add('hidden'), 2000);
     }
 
-    function toggleEdit(id) { const c = document.querySelector(`[data-idea-id="${id}"]`); if (c) c.classList.add('editing'); }
-    function cancelEdit(id) { const c = document.querySelector(`[data-idea-id="${id}"]`); if (c) c.classList.remove('editing'); }
+    function toggleEdit(id) { const c = document.querySelector('[data-idea-id="' + id + '"]'); if (c) c.classList.add('editing'); }
+    function cancelEdit(id) { const c = document.querySelector('[data-idea-id="' + id + '"]'); if (c) c.classList.remove('editing'); }
 
     async function saveIdea(ideaId) {
-      const card = document.querySelector(`[data-idea-id="${ideaId}"]`);
+      const card = document.querySelector('[data-idea-id="' + ideaId + '"]');
       if (!card) return;
       const content = card.querySelector('.edit-content').value.trim();
       const cta = card.querySelector('.edit-cta').value.trim();
@@ -603,13 +506,13 @@
       try {
         const res = await fetch('/social-posts/api/save', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ platform: card.dataset.platform, content, cta, niche: document.getElementById('nicheInput').value.trim(), workspaceId: 'default' })
+          body: JSON.stringify({ platform: card.dataset.platform, content, cta, niche: document.getElementById('nicheInput').value.trim() || 'AdHello', workspaceId: 'default' })
         });
         const data = await res.json();
         if (data.success) {
           card.querySelector('.preview-area p').textContent = content;
           const ctaEl = card.querySelector('.preview-area .text-xs');
-          if (cta) { if (ctaEl) ctaEl.textContent = 'CTA: ' + cta; { const p = document.createElement('p'); p.className = 'text-xs text-brand-muted mt-2 italic'; p.textContent = 'CTA: ' + cta; card.querySelector('.preview-area').appendChild(p); } } else if (ctaEl) ctaEl.remove();
+          if (cta) { if (ctaEl) ctaEl.textContent = 'CTA: ' + cta; else { const p = document.createElement('p'); p.className = 'text-xs text-brand-muted mt-2 italic'; p.textContent = 'CTA: ' + cta; card.querySelector('.preview-area').appendChild(p); } } else if (ctaEl) ctaEl.remove();
           card.classList.remove('editing');
           showCopyToast();
           loadSavedPosts();
@@ -630,7 +533,7 @@
       const container = document.getElementById('savedPostsContainer');
       document.getElementById('savedCount').textContent = savedPosts.length + ' saved';
       if (!savedPosts.length) {
-        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No saved posts yet.</div>';
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noSavedMsg">No saved posts yet. Click the bookmark icon on any idea to save it.</div>';
         return;
       }
       container.innerHTML = '';
@@ -638,18 +541,15 @@
         const div = document.createElement('div');
         div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
         const date = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : '';
-        div.innerHTML = `
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">${post.platform}</span>
-            <div class="flex gap-2 items-center">
-              <span class="text-[10px] text-brand-muted">${date}</span>
-              <button onclick="navigator.clipboard.writeText(${JSON.stringify(post.content)}).then(()=>showCopyToast())" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
-              <button onclick="deleteSaved('${post.id}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
-            </div>
-          </div>
-          <p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(post.content)}</p>
-          ${post.cta ? `<p class="text-xs text-brand-muted mt-2 italic">CTA: ${escapeHtml(post.cta)}</p>` : ''}
-        `;
+        div.innerHTML = '<div class="flex items-center justify-between mb-3">' +
+          '<span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">' + post.platform + '</span>' +
+          '<div class="flex gap-2 items-center">' +
+          '<span class="text-[10px] text-brand-muted">' + date + '</span>' +
+          '<button onclick="navigator.clipboard.writeText(' + JSON.stringify(post.content) + ').then(()=>showCopyToast())" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow" title="Copy">' + ICONS.copy + '</button>' +
+          '<button onclick="deleteSaved(\'' + post.id + '\')" class="text-[10px] font-bold text-brand-muted hover:text-red-500" title="Delete">' + ICONS.trash + '</button>' +
+          '</div></div>' +
+          '<p class="text-sm font-semibold text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">' + escapeHtml(post.content) + '</p>' +
+          (post.cta ? '<p class="text-xs text-brand-muted mt-2 italic">CTA: ' + escapeHtml(post.cta) + '</p>' : '');
         container.appendChild(div);
       }
     }
@@ -659,7 +559,7 @@
       try {
         const res = await fetch('/social-posts/api/' + encodeURIComponent(postId), { method: 'DELETE' });
         const data = await res.json();
-        if (data.success) { savedPosts = savedPosts.filter(p => p.id !== postId); renderSavedPosts(); }
+        if (data.success) { savedPosts = savedPosts.filter(p => p.id !== postId); renderSavedPosts(); renderIdeas(); }
       } catch (err) { alert('Could not delete.'); }
     }
 
@@ -706,7 +606,7 @@
       try {
         const res = await fetch('/social-posts/api/local-content?workspaceId=default&limit=50');
         const data = await res.json();
-        if (data.success && data.items) { localContentItems = data.items; renderLocalContent(); renderCalendar(); }
+        if (data.success && data.items) { localContentItems = data.items; renderLocalContent(); renderCalendar(); renderNewsletter(); }
       } catch (err) { /* ignore */ }
     }
 
@@ -714,37 +614,33 @@
       const container = document.getElementById('localContentContainer');
       document.getElementById('localCount').textContent = localContentItems.length + ' items';
       if (!localContentItems.length) {
-        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">No content yet. The daily scout will populate this each morning at 8 AM PDT.</div>';
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">No content yet. The daily scout will populate this each morning.</div>';
         return;
       }
       container.innerHTML = '';
-      const catColors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': '#94a3b8' };
+      const catColors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': 'var(--brand-muted)' };
+      const catLabels = { 'new-business': 'New Business', 'trending': 'Trending', 'news': 'News', 'event': 'Event', 'viral': 'Viral', 'general': 'Local' };
       for (const item of localContentItems) {
         const div = document.createElement('div');
         div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-border/60';
         const color = catColors[item.category] || catColors.general;
-        const label = categoryLabel(item.category);
+        const label = catLabels[item.category] || catLabels.general;
         const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
-        const starred = item.newsletter ? '⭐' : '☆';
-        const starColor = item.newsletter ? '#d4a017' : '';
-        div.innerHTML = `
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1" style="color:${color}">${label}</span>
-            <div class="flex gap-2 items-center">
-              <span class="text-[10px] text-brand-muted">${date}</span>
-              <button onclick="toggleNewsletter('${item.id}')" class="text-[10px] font-bold hover:text-brand-yellow" style="color:${starColor}" title="Save for newsletter">${starred}</button>
-              <button onclick="copyLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
-              <button onclick="deleteLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
-            </div>
-          </div>
-          <p class="text-sm font-bold text-brand-dark dark:text-white mb-2">${escapeHtml(item.title)}</p>
-          <p class="text-xs text-brand-muted leading-relaxed mb-3">${escapeHtml(item.summary)}</p>
-          <div class="bg-brand-bg/50 dark:bg-slate-800/50 rounded-lg p-3 border border-brand-border/30">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Post Idea</p>
-            <p class="text-xs text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(item.postIdea)}</p>
-          </div>
-          ${item.source ? `<p class="text-[10px] text-brand-muted mt-2 italic">Source: ${escapeHtml(item.source)}</p>` : ''}
-        `;
+        const starred = item.newsletter;
+        div.innerHTML = '<div class="flex items-center justify-between mb-3">' +
+          '<span class="text-[10px] font-black uppercase tracking-widest" style="color:' + color + '">' + label + '</span>' +
+          '<div class="flex gap-2 items-center">' +
+          '<span class="text-[10px] text-brand-muted">' + date + '</span>' +
+          '<button onclick="toggleNewsletter(\'' + item.id + '\')" class="text-[10px] font-bold hover:text-brand-yellow" style="color:' + (starred ? 'var(--brand-yellow)' : '') + '" title="Save for newsletter">' + (starred ? ICONS.starFilled : ICONS.star) + '</button>' +
+          '<button onclick="copyLocalItem(\'' + item.id + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow" title="Copy">' + ICONS.copy + '</button>' +
+          '<button onclick="deleteLocalItem(\'' + item.id + '\')" class="text-[10px] font-bold text-brand-muted hover:text-red-500" title="Delete">' + ICONS.trash + '</button>' +
+          '</div></div>' +
+          '<p class="text-sm font-bold text-brand-dark dark:text-white mb-2">' + escapeHtml(item.title) + '</p>' +
+          '<p class="text-xs text-brand-muted leading-relaxed mb-3">' + escapeHtml(item.summary) + '</p>' +
+          '<div class="bg-brand-bg/50 dark:bg-slate-800/50 rounded-lg p-3 border border-brand-border/30">' +
+          '<p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Post Idea</p>' +
+          '<p class="text-xs text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">' + escapeHtml(item.postIdea) + '</p></div>' +
+          (item.source ? '<p class="text-[10px] text-brand-muted mt-2 italic">Source: ' + escapeHtml(item.source) + '</p>' : '');
         container.appendChild(div);
       }
     }
@@ -752,17 +648,10 @@
     async function toggleNewsletter(id) {
       try {
         const res = await fetch('/social-posts/api/local-content/' + encodeURIComponent(id) + '/newsletter', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspaceId: 'default' })
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: 'default' })
         });
         const data = await res.json();
-        if (data.success) {
-          const item = localContentItems.find(i => i.id === id);
-          if (item) { item.newsletter = data.newsletter; item.newsletterAt = new Date().toISOString(); }
-          renderLocalContent();
-          renderNewsletter();
-        }
+        if (data.success) { const item = localContentItems.find(i => i.id === id); if (item) { item.newsletter = data.newsletter; item.newsletterAt = new Date().toISOString(); } renderLocalContent(); renderNewsletter(); }
       } catch (err) { alert('Could not save.'); }
     }
 
@@ -777,91 +666,70 @@
       try {
         const res = await fetch('/social-posts/api/local-content/' + encodeURIComponent(id), { method: 'DELETE' });
         const data = await res.json();
-        if (data.success) { localContentItems = localContentItems.filter(i => i.id !== id); renderLocalContent(); renderCalendar(); }
+        if (data.success) { localContentItems = localContentItems.filter(i => i.id !== id); renderLocalContent(); renderCalendar(); renderNewsletter(); }
       } catch (err) { alert('Could not delete.'); }
     }
 
+    // ── Newsletter Picks ────────────────────────────────────────────────────────
     function renderNewsletter() {
       const container = document.getElementById('newsletterContainer');
       const picks = localContentItems.filter(i => i.newsletter);
       document.getElementById('newsletterCount').textContent = picks.length + ' picks';
       if (!picks.length) {
-        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noNewsletterMsg">No picks yet. Click ⭐ on any Clark County content item to save it here.</div>';
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noNewsletterMsg">No picks yet. Click the star on any Clark County content item to save it here.</div>';
         return;
       }
       container.innerHTML = '';
-      const catColors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': '#94a3b8' };
-      const catLabels = { 'new-business': '🆕 New Business', 'trending': '🔥 Trending', 'news': '📰 News', 'event': '🎉 Event', 'viral': '💥 Viral', 'general': '📍 Local' };
+      const catColors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': 'var(--brand-muted)' };
+      const catLabels = { 'new-business': 'New Business', 'trending': 'Trending', 'news': 'News', 'event': 'Event', 'viral': 'Viral', 'general': 'Local' };
       for (const item of picks) {
         const div = document.createElement('div');
         div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-yellow/40';
         const color = catColors[item.category] || catColors.general;
         const label = catLabels[item.category] || catLabels.general;
         const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
-        div.innerHTML = `
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-[10px] font-black uppercase tracking-widest" style="color:${color}">${label}</span>
-            <div class="flex gap-2 items-center">
-              <span class="text-[10px] text-brand-muted">${date}</span>
-              <button onclick="toggleNewsletter('${item.id}')" class="text-[10px] font-bold text-brand-yellow hover:text-brand-muted" title="Remove from newsletter">⭐</button>
-              <button onclick="copyLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
-            </div>
-          </div>
-          <p class="text-sm font-bold text-brand-dark dark:text-white mb-2">${escapeHtml(item.title)}</p>
-          <p class="text-xs text-brand-muted leading-relaxed mb-3">${escapeHtml(item.summary)}</p>
-          <div class="bg-brand-bg/50 dark:bg-slate-800/50 rounded-lg p-3 border border-brand-border/30">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Post Idea</p>
-            <p class="text-xs text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(item.postIdea)}</p>
-          </div>
-        `;
+        div.innerHTML = '<div class="flex items-center justify-between mb-3">' +
+          '<span class="text-[10px] font-black uppercase tracking-widest" style="color:' + color + '">' + label + '</span>' +
+          '<div class="flex gap-2 items-center">' +
+          '<span class="text-[10px] text-brand-muted">' + date + '</span>' +
+          '<button onclick="toggleNewsletter(\'' + item.id + '\')" class="text-[10px] font-bold text-brand-yellow hover:text-brand-muted" title="Remove from newsletter">' + ICONS.starFilled + '</button>' +
+          '<button onclick="copyLocalItem(\'' + item.id + '\')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow" title="Copy">' + ICONS.copy + '</button>' +
+          '</div></div>' +
+          '<p class="text-sm font-bold text-brand-dark dark:text-white mb-2">' + escapeHtml(item.title) + '</p>' +
+          '<p class="text-xs text-brand-muted leading-relaxed mb-3">' + escapeHtml(item.summary) + '</p>' +
+          '<div class="bg-brand-bg/50 dark:bg-slate-800/50 rounded-lg p-3 border border-brand-border/30">' +
+          '<p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Post Idea</p>' +
+          '<p class="text-xs text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">' + escapeHtml(item.postIdea) + '</p></div>';
         container.appendChild(div);
       }
     }
 
     function copyNewsletterDraft() {
       const picks = localContentItems.filter(i => i.newsletter);
-      if (!picks.length) { qaStatus('❌ No newsletter picks'); return; }
-      let text = '📬 Clark County Newsletter\n';
+      if (!picks.length) { qaStatus('No newsletter picks'); return; }
+      let text = 'Clark County Newsletter\n';
       text += 'Week of ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '\n';
-      text += '━━━━━━━━━━━━━━━━━━━━━━\n\n';
-      for (let i = 0; i < picks.length; i++) {
-        const item = picks[i];
-        text += `${i + 1}. ${item.title}\n`;
-        text += `${item.summary}\n`;
-        if (item.source) text += `Source: ${item.source}\n`;
-        text += '\n';
-      }
-      text += '━━━━━━━━━━━━━━━━━━━━━━\n';
-      text += 'Follow @zipguide for daily Clark County updates 📍';
-      navigator.clipboard.writeText(text).then(() => {
-        showCopyToast();
-        qaStatus('📋 Newsletter draft copied');
-      });
+      text += '------------------------------\n\n';
+      for (let i = 0; i < picks.length; i++) { text += (i + 1) + '. ' + picks[i].title + '\n' + picks[i].summary + '\n'; if (picks[i].source) text += 'Source: ' + picks[i].source + '\n'; text += '\n'; }
+      text += '------------------------------\n';
+      text += 'Follow @zipguide for daily Clark County updates';
+      navigator.clipboard.writeText(text).then(() => { showCopyToast(); qaStatus('Newsletter draft copied'); });
     }
 
     async function clearNewsletterPicks() {
       if (!confirm('Clear all newsletter picks?')) return;
       const picks = localContentItems.filter(i => i.newsletter);
       for (const item of picks) {
-        item.newsletter = false;
-        item.newsletterAt = null;
+        item.newsletter = false; item.newsletterAt = null;
         await fetch('/social-posts/api/local-content/' + encodeURIComponent(item.id) + '/newsletter', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ workspaceId: 'default' })
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ workspaceId: 'default' })
         }).catch(() => {});
       }
-      renderLocalContent();
-      renderNewsletter();
-      qaStatus('✅ Newsletter picks cleared');
+      renderLocalContent(); renderNewsletter(); qaStatus('Newsletter picks cleared');
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str || '';
-      return div.innerHTML;
-    }
+    function escapeHtml(str) { const div = document.createElement('div'); div.textContent = str || ''; return div.innerHTML; }
   </script>
 </body>
 </html>
