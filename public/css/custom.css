@@ -1478,6 +1478,7 @@ html.dark #pipelineColumnsPopover {
     border-color: rgba(148, 163, 184, 0.22);
     overflow: visible;
 }
+#leadPanelMapStaticImg:not(.hidden),
 #leadPanelMapEmbed:not(.hidden) {
     touch-action: pan-x pan-y pinch-zoom;
 }

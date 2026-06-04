@@ -31,7 +31,8 @@
           <div id="leadPanelMapStripWrap" class="hidden relative w-full shrink-0 border-b border-brand-border/15 dark:border-white/10 rounded-t-[2rem]">
             <!-- Embedded Google Maps (iframe — reliable inside slide-in sidebar) -->
             <div id="leadPanelJsMapWrap" class="hidden relative w-full h-[280px] sm:h-[300px] shrink-0 bg-slate-200 dark:bg-slate-950">
-              <iframe id="leadPanelMapEmbed" class="absolute inset-0 z-0 hidden h-full w-full border-0 pointer-events-auto" title="Lead location map" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+              <img id="leadPanelMapStaticImg" class="absolute inset-0 z-0 hidden h-full w-full object-cover pointer-events-none" alt="" loading="eager" width="640" height="300" decoding="async" />
+              <iframe id="leadPanelMapEmbed" class="absolute inset-0 z-0 hidden h-full w-full border-0 pointer-events-auto" title="Lead location map" loading="eager" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
               <div id="leadPanelMapEmbedFallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-4 text-center bg-brand-cream/85 dark:bg-slate-800/95">
                 <svg class="w-7 h-7 text-brand-yellow shrink-0 opacity-95" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                 <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Open in Google Maps</span>

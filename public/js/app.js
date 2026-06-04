@@ -4209,9 +4209,9 @@ document.addEventListener('DOMContentLoaded', () => {
     requestAnimationFrame(() => requestAnimationFrame(runScroll));
     if (sectionId === 'leadPanelCallerGlance') {
       setTimeout(() => {
-        const iframe = document.getElementById('leadPanelMapEmbed');
-        if (iframe && iframe.src) iframe.src = iframe.src;
-      }, 400);
+        const row = resolveActiveLeadRow();
+        if (row) syncLeadPanelWideMapAndGoogleChip(row);
+      }, 250);
     }
   }
 
@@ -6384,54 +6384,94 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function syncLeadPanelStripEmbedMap(opts) {
+    const img = document.getElementById('leadPanelMapStaticImg');
     const iframe = document.getElementById('leadPanelMapEmbed');
     const fallback = document.getElementById('leadPanelMapEmbedFallback');
     const openLink = document.getElementById('leadPanelJsMapOpenLink');
     const centerQ = String((opts && opts.center) || '').trim();
     const mapKey =
       (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
-    if (!iframe || !centerQ) return false;
+    if ((!img && !iframe) || !centerQ) return false;
 
     disposeLeadPanelJsMap();
 
     if (openLink && opts && opts.mapsHref) openLink.href = opts.mapsHref;
 
+    const hideMapSurfaces = () => {
+      if (img) {
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+      }
+      if (iframe) {
+        iframe.onload = null;
+        iframe.removeAttribute('src');
+        iframe.classList.add('hidden');
+      }
+    };
+
     const showFallback = () => {
-      iframe.removeAttribute('src');
-      iframe.classList.add('hidden');
+      hideMapSurfaces();
       if (fallback) {
         fallback.classList.remove('hidden');
         fallback.classList.add('flex');
       }
     };
 
-    const paint = (useKeyless) => {
-      const src = leadPanelEmbedSrcForQuery(centerQ, mapKey, useKeyless);
-      if (!src) {
-        showFallback();
-        return;
-      }
-      iframe.onload = null;
-      iframe.onerror = null;
-      iframe.onerror = function onStripEmbedErr() {
-        iframe.onerror = null;
-        if (!useKeyless && mapKey) paint(true);
-        else showFallback();
-      };
-      iframe.title = opts && opts.address
-        ? `Map · ${String(opts.address).slice(0, 100)}`
-        : opts && opts.title
-          ? `Location · ${opts.title}`
-          : 'Business location';
-      iframe.src = src;
-      iframe.classList.remove('hidden');
+    const revealMapSurface = () => {
       if (fallback) {
         fallback.classList.add('hidden');
         fallback.classList.remove('flex');
       }
     };
 
-    paint(false);
+    const showKeylessEmbed = () => {
+      if (!iframe) {
+        showFallback();
+        return;
+      }
+      hideMapSurfaces();
+      const src = leadPanelEmbedSrcForQuery(centerQ, '', true);
+      if (!src) {
+        showFallback();
+        return;
+      }
+      iframe.title = opts && opts.address
+        ? `Map · ${String(opts.address).slice(0, 100)}`
+        : opts && opts.title
+          ? `Location · ${opts.title}`
+          : 'Business location';
+      iframe.classList.remove('hidden');
+      iframe.src = src;
+      revealMapSurface();
+    };
+
+    const showStaticImage = () => {
+      if (!img || !mapKey) return false;
+      const staticUrl = buildGoogleStaticMapUrl(centerQ, mapKey, 640, 300);
+      if (!staticUrl) return false;
+
+      hideMapSurfaces();
+      img.alt = opts && opts.address
+        ? `Map near ${String(opts.address).slice(0, 120)}`
+        : opts && opts.title
+          ? `Location of ${opts.title}`
+          : 'Location map';
+      img.classList.remove('hidden');
+      img.onload = () => {
+        revealMapSurface();
+      };
+      img.onerror = () => {
+        img.classList.add('hidden');
+        img.removeAttribute('src');
+        showKeylessEmbed();
+      };
+      img.src = staticUrl;
+      return true;
+    };
+
+    if (!showStaticImage()) showKeylessEmbed();
     return true;
   }
 
@@ -7723,9 +7763,17 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('[Lead panel] map strip failed:', mapErr);
     }
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => resizeLeadPanelJsMapSoon());
+      requestAnimationFrame(() => {
+        try {
+          syncLeadPanelWideMapAndGoogleChip(row);
+        } catch (_) {}
+      });
     });
-    setTimeout(() => resizeLeadPanelJsMapSoon(), 380);
+    setTimeout(() => {
+      try {
+        syncLeadPanelWideMapAndGoogleChip(row);
+      } catch (_) {}
+    }, 450);
 
     try {
       populateCadenceSection(row);
