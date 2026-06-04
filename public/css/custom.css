@@ -1475,6 +1475,12 @@ html.dark #pipelineColumnsPopover {
 }
 #leadPanelMapStripWrap.lead-panel-js-map-mode {
     border-color: rgba(148, 163, 184, 0.22);
+    overflow: visible;
+}
+#leadPanelMapStripWrap.lead-panel-map-embed-mode #leadPanelHeroBackdrop,
+#leadPanelMapStripWrap.lead-panel-hero-map:not(.lead-panel-js-map-mode) #leadPanelHeroBackdrop {
+    overflow: hidden;
+    border-radius: 2rem 2rem 0 0;
 }
 .dark #leadPanelMapStripWrap.lead-panel-js-map-mode {
     border-color: rgba(255, 255, 255, 0.08);

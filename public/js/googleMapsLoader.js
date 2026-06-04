@@ -23,7 +23,7 @@
     return (
       'https://maps.googleapis.com/maps/api/js?key=' +
       encodeURIComponent(key) +
-      '&v=weekly&loading=async&callback=__adhelloMapsBoot'
+      '&v=weekly&callback=__adhelloMapsBoot'
     );
   }
 

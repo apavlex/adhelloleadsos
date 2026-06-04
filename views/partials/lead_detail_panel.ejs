@@ -27,8 +27,8 @@
       <div id="leadPanelMiddle" class="flex flex-col flex-1 min-h-0">
       <div id="leadPanelTabScroll" class="flex-1 min-h-0 overflow-y-auto overscroll-y-contain pr-1 -mr-1 custom-scrollbar">
       <div id="leadPanelCallerShell" class="flex flex-col gap-3 mb-2">
-        <section id="leadPanelCallerGlance" class="rounded-[2rem] border border-brand-border/20 dark:border-white/10 shadow-md ring-1 ring-black/[0.04] dark:ring-white/10 overflow-hidden bg-brand-cream/25 dark:bg-slate-800/35">
-          <div id="leadPanelMapStripWrap" class="hidden relative w-full shrink-0 border-b border-brand-border/15 dark:border-white/10">
+        <section id="leadPanelCallerGlance" class="rounded-[2rem] border border-brand-border/20 dark:border-white/10 shadow-md ring-1 ring-black/[0.04] dark:ring-white/10 bg-brand-cream/25 dark:bg-slate-800/35">
+          <div id="leadPanelMapStripWrap" class="hidden relative w-full shrink-0 border-b border-brand-border/15 dark:border-white/10 rounded-t-[2rem]">
             <!-- Interactive map (Maps JavaScript API — same key as prospecting Step 1 when configured) -->
             <div id="leadPanelJsMapWrap" class="hidden relative w-full h-[280px] sm:h-[300px] shrink-0 bg-slate-200 dark:bg-slate-950">
               <!-- Explicit height + corner-only overlays so Maps JS can measure tiles (full-sheet overlays caused blank maps). -->
@@ -62,7 +62,7 @@
             </div>
           </div>
 
-          <div class="p-4 sm:p-5 pointer-events-none">
+          <div class="p-4 sm:p-5 pointer-events-none overflow-hidden rounded-b-[2rem]">
             <div class="flex items-start gap-3">
               <a id="mobilePanelMapLink" href="#" class="relative shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden shadow-brutal bg-brand-yellow border-2 border-brand-border/30 dark:border-white/15 ring-2 ring-black/10 dark:ring-white/10 focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:outline-none pointer-events-auto" aria-label="Open location in Google Maps" target="_blank" rel="noopener noreferrer">
                 <img id="mobilePanelStaticMapImg" class="absolute inset-0 w-full h-full object-cover hidden" alt="" loading="lazy" width="256" height="256" decoding="async" />
@@ -131,7 +131,7 @@
         <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-indigo-500/30 text-indigo-700 dark:text-indigo-300 hover:border-indigo-500/50 transition-colors" data-scroll-target="leadPanelEmailReportSection">Share links</button>
         <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-violet-500/30 text-violet-700 dark:text-violet-300 hover:border-violet-500/50 transition-colors" data-scroll-target="leadCadencePlaybookHeading">Cadence</button>
         <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-orange-500/35 text-orange-700 dark:text-orange-300 hover:border-orange-500/60 transition-colors" data-scroll-target="leadPanelAiToolsSection">AI tools</button>
-        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="lead-tab-history">History</button>
+        <button type="button" class="lead-panel-section-link inline-flex items-center px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border border-brand-border/50 dark:border-white/15 text-brand-muted hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" data-scroll-target="leadPanelHistorySection">History</button>
       </nav>
 
       <!-- Engagement Command Center (call tab — phone tile hidden; use sticky dial) -->
@@ -441,7 +441,7 @@
 
       <div id="lead-tab-history" class="lead-tab-panel lead-panel-tab-stack" data-lead-tab-panel="history">
 
-      <section class="lead-panel-widget lead-panel-widget--callback">
+      <section id="leadPanelHistorySection" class="lead-panel-widget lead-panel-widget--callback">
         <h3 class="lead-panel-widget__title lead-panel-widget__title--sky">Schedule callback</h3>
         <p class="lead-panel-widget__lede">Creates a dated task on <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Tasks</a> so warm callbacks do not get lost in sequence-only flows.</p>
         <div class="space-y-4">

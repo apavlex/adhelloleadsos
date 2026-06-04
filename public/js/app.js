@@ -3687,6 +3687,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (document.getElementById('leadPanelTabScroll')) {
     bindLeadPanelBottomActions();
+    bindLeadPanelSectionNav();
     initLeadDetailPanelChrome();
   }
 
@@ -4147,18 +4148,89 @@ document.addEventListener('DOMContentLoaded', () => {
     return 'Run website audit';
   }
 
-  function scrollLeadPanelToSection(sectionId) {
-    const section = document.getElementById(sectionId);
-    const scroll = document.getElementById('leadPanelTabScroll');
-    const target = section || scroll;
-    if (!target) return;
-    try {
-      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    } catch (_) {
-      try {
-        target.scrollIntoView();
-      } catch (_) {}
+  function highlightLeadPanelSectionNav(activeBtn) {
+    document.querySelectorAll('.lead-panel-section-link[data-scroll-target]').forEach((b) => {
+      b.classList.remove(
+        'border-brand-yellow',
+        'bg-brand-yellow/15',
+        'text-brand-dark',
+        'dark:text-brand-yellow',
+      );
+    });
+    if (activeBtn) {
+      activeBtn.classList.add(
+        'border-brand-yellow',
+        'bg-brand-yellow/15',
+        'text-brand-dark',
+        'dark:text-brand-yellow',
+      );
     }
+  }
+
+  function scrollLeadPanelToSection(sectionId) {
+    const scrollEl = document.getElementById('leadPanelTabScroll');
+    if (!scrollEl || !sectionId) return;
+
+    let target = document.getElementById(sectionId);
+    if (!target || !scrollEl.contains(target)) return;
+
+    if (sectionId === 'leadCadencePlaybookHeading') {
+      openLeadPanelCadencePlaybook();
+    }
+
+    if (sectionId === 'leadPanelEmailReportSection' && target.classList.contains('hidden')) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Run website audit first to unlock share links.', { variant: 'info' });
+      }
+      const auditSection = document.getElementById('pageSpeedAuditSection');
+      if (auditSection && scrollEl.contains(auditSection)) {
+        target = auditSection;
+      }
+    }
+
+    const runScroll = () => {
+      const scrollRect = scrollEl.getBoundingClientRect();
+      const targetRect = target.getBoundingClientRect();
+      const nav = document.getElementById('leadPanelSectionNav');
+      let navOffset = 0;
+      if (nav && scrollEl.contains(nav)) {
+        const navRect = nav.getBoundingClientRect();
+        if (navRect.top >= scrollRect.top - 4 && navRect.top < scrollRect.bottom) {
+          navOffset = navRect.height + 8;
+        }
+      }
+      const delta = targetRect.top - scrollRect.top - navOffset;
+      scrollEl.scrollTo({
+        top: Math.max(0, scrollEl.scrollTop + delta),
+        behavior: 'smooth',
+      });
+    };
+
+    requestAnimationFrame(() => requestAnimationFrame(runScroll));
+    if (sectionId === 'leadPanelCallerGlance') {
+      setTimeout(() => resizeLeadPanelJsMapSoon(), 400);
+    }
+  }
+
+  function bindLeadPanelSectionNav() {
+    if (window.__adhelloLeadPanelSectionNavBound) return;
+    window.__adhelloLeadPanelSectionNavBound = true;
+    document.addEventListener(
+      'click',
+      (ev) => {
+        const panel = getLeadDetailPanel();
+        if (!panel || !panel.classList.contains('open')) return;
+        const btn = ev.target.closest('.lead-panel-section-link[data-scroll-target]');
+        if (!btn || !panel.contains(btn)) return;
+        ev.preventDefault();
+        ev.stopPropagation();
+        const targetId = btn.getAttribute('data-scroll-target');
+        if (!targetId) return;
+        scrollLeadPanelToSection(targetId);
+        highlightLeadPanelSectionNav(btn);
+      },
+      true,
+    );
   }
 
   function resolveActiveLeadRow() {
@@ -5828,20 +5900,7 @@ document.addEventListener('DOMContentLoaded', () => {
       panel.classList.remove('hidden');
     });
 
-    document.querySelectorAll('.lead-panel-section-link[data-scroll-target]').forEach((btn) => {
-      if (btn.dataset.adhelloSectionNavBound) return;
-      btn.dataset.adhelloSectionNavBound = '1';
-      btn.addEventListener('click', (ev) => {
-        ev.preventDefault();
-        const targetId = btn.getAttribute('data-scroll-target');
-        if (!targetId) return;
-        scrollLeadPanelToSection(targetId);
-        document.querySelectorAll('.lead-panel-section-link[data-scroll-target]').forEach((b) => {
-          b.classList.remove('border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
-        });
-        btn.classList.add('border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
-      });
-    });
+    bindLeadPanelSectionNav();
 
     const cqiIds = [
       'cqiFieldDecisionMaker',
@@ -6118,8 +6177,15 @@ document.addEventListener('DOMContentLoaded', () => {
   let __leadPanelJsMarker = null;
   let __leadPanelJsGeocoder = null;
   let __leadPanelJsControlsBound = false;
+  let __leadPanelJsMapResizeObserver = null;
 
   function disposeLeadPanelJsMap() {
+    if (__leadPanelJsMapResizeObserver) {
+      try {
+        __leadPanelJsMapResizeObserver.disconnect();
+      } catch (_) {}
+      __leadPanelJsMapResizeObserver = null;
+    }
     if (__leadPanelJsMarker) {
       try {
         __leadPanelJsMarker.setMap(null);
@@ -6128,6 +6194,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     __leadPanelJsMap = null;
     __leadPanelJsGeocoder = null;
+  }
+
+  function observeLeadPanelJsMapResize() {
+    const wrap = document.getElementById('leadPanelJsMapWrap');
+    if (!wrap || typeof ResizeObserver === 'undefined') return;
+    if (__leadPanelJsMapResizeObserver) {
+      try {
+        __leadPanelJsMapResizeObserver.disconnect();
+      } catch (_) {}
+    }
+    __leadPanelJsMapResizeObserver = new ResizeObserver(() => resizeLeadPanelJsMapSoon());
+    __leadPanelJsMapResizeObserver.observe(wrap);
   }
 
   function whenLeadPanelMapHostReady(fn, attempt) {
@@ -6258,6 +6336,9 @@ document.addEventListener('DOMContentLoaded', () => {
           },
         });
         __leadPanelJsGeocoder = new google.maps.Geocoder();
+        el.style.width = '100%';
+        el.style.height = '100%';
+        observeLeadPanelJsMapResize();
         resizeLeadPanelJsMapSoon();
 
         const direct = parseLeadPanelMapLatLng(opts, centerQ);
