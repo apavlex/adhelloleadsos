@@ -48,6 +48,7 @@ const googleDriveAccess = require('../services/googleDriveAccess');
 const { getGoogleDriveAccount } = googleDriveAccess;
 const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
+const { getMapPreviewImage } = require('../services/mapPreview');
 const signalwire = require('../services/signalwire');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
@@ -193,6 +194,35 @@ router.get('/saved', async (req, res, next) => {
     const leads = filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
     const saved = leads.map((l) => ({ key: l.key, title: l.title }));
     res.json(saved);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/map-preview — server-side static map image for lead panel sidebar
+router.get('/map-preview', async (req, res, next) => {
+  try {
+    const center = String(req.query.center || req.query.q || '').trim();
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+    const width = parseInt(req.query.w, 10) || 640;
+    const height = parseInt(req.query.h, 10) || 300;
+    if (!center && !(Number.isFinite(lat) && Number.isFinite(lng))) {
+      return res.status(400).json({ error: 'center or lat/lng required' });
+    }
+    const preview = await getMapPreviewImage({
+      center,
+      lat: Number.isFinite(lat) ? lat : undefined,
+      lng: Number.isFinite(lng) ? lng : undefined,
+      width,
+      height,
+    });
+    if (!preview) {
+      return res.status(404).json({ error: 'map_preview_unavailable' });
+    }
+    res.set('Cache-Control', 'private, max-age=86400');
+    res.set('X-Map-Preview-Source', preview.source);
+    res.type(preview.contentType).send(preview.buffer);
   } catch (err) {
     next(err);
   }
@@ -2969,6 +2999,8 @@ router.post('/:key/ai-tools-assessment/generate', express.json(), async (req, re
       return res.status(403).json({ success: false, error: 'Forbidden' });
     }
     const assessment = await generateAssessment(lead);
+    const wsAccent = req.workspace && req.workspace.accentColor ? req.workspace.accentColor : null;
+    if (wsAccent) assessment.accent = wsAccent;
     const updated = await dbService.updateLead(
       fullKey,
       {
@@ -3071,7 +3103,8 @@ router.get('/:key/ai-tools-assessment/preview', async (req, res) => {
       assessment = normalizeAssessment(null, lead);
     }
     const base = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
-    const vm = buildAiToolsReportViewModel(lead, assessment, { baseUrl: base });
+    const workspaceAccent = (req.workspace && req.workspace.accentColor) || null;
+    const vm = buildAiToolsReportViewModel(lead, assessment, { baseUrl: base, workspaceAccent });
     res.setHeader('Cache-Control', 'private, no-store');
     return res.render('ai_tools_report', {
       vm,
