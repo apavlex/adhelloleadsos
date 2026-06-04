@@ -173,13 +173,31 @@
           <svg class="w-5 h-5 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/></svg>
           Clark County Content
         </h2>
-        <p class="text-xs text-brand-muted mt-1">Daily scout findings — new businesses, local news, trending stories for @zipguide</p>
+        <p class="text-xs text-brand-muted mt-1">Daily scout findings — new businesses, local news, trending stories for @zipguide. Click ⭐ to save for newsletter.</p>
       </div>
       <span id="localCount" class="text-xs text-brand-muted font-bold">0 items</span>
     </div>
     <div id="localContentContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
       <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noLocalMsg">
         No content yet. The daily scout will populate this each morning at 8 AM PDT.
+      </div>
+    </div>
+
+    <!-- Newsletter Picks Section -->
+    <div class="mt-14 mb-4 flex items-center justify-between">
+      <div>
+        <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">⭐ Newsletter Picks</h2>
+        <p class="text-xs text-brand-muted mt-1">Items you starred from Clark County content — ready for your weekly newsletter</p>
+      </div>
+      <div class="flex gap-2">
+        <span id="newsletterCount" class="text-xs text-brand-muted font-bold">0 picks</span>
+        <button onclick="copyNewsletterDraft()" class="text-xs font-bold text-brand-yellow hover:underline">Copy Draft</button>
+        <button onclick="clearNewsletterPicks()" class="text-xs font-bold text-brand-muted hover:text-red-500">Clear All</button>
+      </div>
+    </div>
+    <div id="newsletterContainer" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5 mb-10">
+      <div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noNewsletterMsg">
+        No picks yet. Click ⭐ on any Clark County content item to save it here.
       </div>
     </div>
 
@@ -707,11 +725,14 @@
         const color = catColors[item.category] || catColors.general;
         const label = categoryLabel(item.category);
         const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+        const starred = item.newsletter ? '⭐' : '☆';
+        const starColor = item.newsletter ? '#d4a017' : '';
         div.innerHTML = `
           <div class="flex items-center justify-between mb-3">
             <span class="text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1" style="color:${color}">${label}</span>
             <div class="flex gap-2 items-center">
               <span class="text-[10px] text-brand-muted">${date}</span>
+              <button onclick="toggleNewsletter('${item.id}')" class="text-[10px] font-bold hover:text-brand-yellow" style="color:${starColor}" title="Save for newsletter">${starred}</button>
               <button onclick="copyLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
               <button onclick="deleteLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-red-500">Delete</button>
             </div>
@@ -728,6 +749,23 @@
       }
     }
 
+    async function toggleNewsletter(id) {
+      try {
+        const res = await fetch('/social-posts/api/local-content/' + encodeURIComponent(id) + '/newsletter', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId: 'default' })
+        });
+        const data = await res.json();
+        if (data.success) {
+          const item = localContentItems.find(i => i.id === id);
+          if (item) { item.newsletter = data.newsletter; item.newsletterAt = new Date().toISOString(); }
+          renderLocalContent();
+          renderNewsletter();
+        }
+      } catch (err) { alert('Could not save.'); }
+    }
+
     function copyLocalItem(id) {
       const item = localContentItems.find(i => i.id === id);
       if (!item) return;
@@ -741,6 +779,81 @@
         const data = await res.json();
         if (data.success) { localContentItems = localContentItems.filter(i => i.id !== id); renderLocalContent(); renderCalendar(); }
       } catch (err) { alert('Could not delete.'); }
+    }
+
+    function renderNewsletter() {
+      const container = document.getElementById('newsletterContainer');
+      const picks = localContentItems.filter(i => i.newsletter);
+      document.getElementById('newsletterCount').textContent = picks.length + ' picks';
+      if (!picks.length) {
+        container.innerHTML = '<div class="col-span-full text-center py-12 text-brand-muted text-sm italic" id="noNewsletterMsg">No picks yet. Click ⭐ on any Clark County content item to save it here.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      const catColors = { 'new-business': '#22c55e', 'trending': '#f59e0b', 'news': '#3b82f6', 'event': '#a855f7', 'viral': '#ef4444', 'general': '#94a3b8' };
+      const catLabels = { 'new-business': '🆕 New Business', 'trending': '🔥 Trending', 'news': '📰 News', 'event': '🎉 Event', 'viral': '💥 Viral', 'general': '📍 Local' };
+      for (const item of picks) {
+        const div = document.createElement('div');
+        div.className = 'post-card brand-card p-5 dark:bg-slate-900 dark:border-white/10 rounded-2xl border border-brand-yellow/40';
+        const color = catColors[item.category] || catColors.general;
+        const label = catLabels[item.category] || catLabels.general;
+        const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+        div.innerHTML = `
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-[10px] font-black uppercase tracking-widest" style="color:${color}">${label}</span>
+            <div class="flex gap-2 items-center">
+              <span class="text-[10px] text-brand-muted">${date}</span>
+              <button onclick="toggleNewsletter('${item.id}')" class="text-[10px] font-bold text-brand-yellow hover:text-brand-muted" title="Remove from newsletter">⭐</button>
+              <button onclick="copyLocalItem('${item.id}')" class="text-[10px] font-bold text-brand-muted hover:text-brand-yellow">Copy</button>
+            </div>
+          </div>
+          <p class="text-sm font-bold text-brand-dark dark:text-white mb-2">${escapeHtml(item.title)}</p>
+          <p class="text-xs text-brand-muted leading-relaxed mb-3">${escapeHtml(item.summary)}</p>
+          <div class="bg-brand-bg/50 dark:bg-slate-800/50 rounded-lg p-3 border border-brand-border/30">
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Post Idea</p>
+            <p class="text-xs text-brand-dark dark:text-white leading-relaxed whitespace-pre-wrap">${escapeHtml(item.postIdea)}</p>
+          </div>
+        `;
+        container.appendChild(div);
+      }
+    }
+
+    function copyNewsletterDraft() {
+      const picks = localContentItems.filter(i => i.newsletter);
+      if (!picks.length) { qaStatus('❌ No newsletter picks'); return; }
+      let text = '📬 Clark County Newsletter\n';
+      text += 'Week of ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) + '\n';
+      text += '━━━━━━━━━━━━━━━━━━━━━━\n\n';
+      for (let i = 0; i < picks.length; i++) {
+        const item = picks[i];
+        text += `${i + 1}. ${item.title}\n`;
+        text += `${item.summary}\n`;
+        if (item.source) text += `Source: ${item.source}\n`;
+        text += '\n';
+      }
+      text += '━━━━━━━━━━━━━━━━━━━━━━\n';
+      text += 'Follow @zipguide for daily Clark County updates 📍';
+      navigator.clipboard.writeText(text).then(() => {
+        showCopyToast();
+        qaStatus('📋 Newsletter draft copied');
+      });
+    }
+
+    async function clearNewsletterPicks() {
+      if (!confirm('Clear all newsletter picks?')) return;
+      const picks = localContentItems.filter(i => i.newsletter);
+      for (const item of picks) {
+        item.newsletter = false;
+        item.newsletterAt = null;
+        await fetch('/social-posts/api/local-content/' + encodeURIComponent(item.id) + '/newsletter', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ workspaceId: 'default' })
+        }).catch(() => {});
+      }
+      renderLocalContent();
+      renderNewsletter();
+      qaStatus('✅ Newsletter picks cleared');
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────────

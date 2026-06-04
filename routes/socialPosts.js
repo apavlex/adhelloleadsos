@@ -116,9 +116,17 @@ router.get('/api/local-content', async (req, res, next) => {
 });
 
 // POST /social-posts/api/local-content — save a local content item (from cron or manual)
+// Accepts session auth OR x-api-key header (for cron/autonomous access)
 router.post('/api/local-content', express.json({ limit: '4mb' }), async (req, res, next) => {
   try {
+    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    const expectedKey = process.env.API_INGEST_KEY || 'adhello_secret_123';
     const wid = String(req.body.workspaceId || req.workspaceId || 'default');
+    if (apiKey && apiKey === expectedKey) {
+      // API key authenticated — proceed
+    } else if (!req.session || !req.session.userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized' });
+    }
     const entry = {
       id: req.body.id || undefined,
       title: String(req.body.title || '').trim(),
@@ -133,6 +141,22 @@ router.post('/api/local-content', express.json({ limit: '4mb' }), async (req, re
     }
     const saved = await dbService.saveLocalContent(entry, wid);
     res.json({ success: true, item: saved });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// PATCH /social-posts/api/local-content/:id/newsletter — toggle newsletter flag
+router.patch('/api/local-content/:id/newsletter', express.json(), async (req, res, next) => {
+  try {
+    const wid = String(req.body.workspaceId || req.workspaceId || 'default');
+    const all = await dbService.getLocalContent(wid, 200);
+    const item = all.find(i => i.id === req.params.id);
+    if (!item) return res.status(404).json({ success: false, error: 'Not found' });
+    item.newsletter = !item.newsletter;
+    item.newsletterAt = new Date().toISOString();
+    await dbService.saveLocalContent(item, wid);
+    res.json({ success: true, newsletter: item.newsletter });
   } catch (err) {
     next(err);
   }
