@@ -66,6 +66,9 @@ async function renderFindLeads(req, res, next) {
 router.get('/', (req, res) => {
   res.redirect(302, '/today');
 });
+router.get('/home', (req, res) => {
+  res.render('home', { title: 'AdHello — AI Consultant for Local Business' });
+});
 router.get('/leads/find', renderFindLeads);
 
 /** Toggle overnight Maps prep for this workspace (cron: GET /api/cron/nightly-prep). */

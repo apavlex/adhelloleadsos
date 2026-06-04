@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>AdHello — AI Consultant for Local Businesses</title>
+  <link rel="icon" href="/images/adhello-app-icon.png" type="image/png">
+  <link rel="apple-touch-icon" href="/images/adhello-app-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui'], display: ['Manrope', 'sans-serif'] },
+          colors: {
+            brand: {
+              bg: '#FAF7ED', cream: '#FAF7ED', yellow: '#FFD644', dark: '#111827',
+              muted: 'rgba(17,24,39,0.7)', border: 'rgba(17,24,39,0.1)',
+            }
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    :root { --brand-bg: #FAF7ED; --brand-dark: #111827; --brand-muted: rgba(17,24,39,0.7); --brand-border: rgba(17,24,39,0.1); --brand-yellow: #FFD644; }
+    .dark { --brand-bg: #020617; --brand-dark: #F8FAFC; --brand-muted: #cbd5e1; --brand-border: rgba(255,255,255,0.1); }
+    body { font-family: 'Inter', sans-serif; background: var(--brand-bg); color: var(--brand-dark); -webkit-font-smoothing: antialiased; transition: background-color .4s, color .4s; }
+    h1,h2,h3,h4,.font-display { font-family: 'Manrope', sans-serif; color: var(--brand-dark); }
+    .btn-primary { background: var(--brand-yellow); color: #111827; font-weight: 700; border-radius: 0.75rem; padding: 0.75rem 1.5rem; transition: all .2s; display: inline-flex; align-items: center; gap: 0.5rem; }
+    .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(255,214,68,.35); }
+    .btn-secondary { background: transparent; color: var(--brand-dark); font-weight: 600; border-radius: 0.75rem; padding: 0.75rem 1.5rem; border: 1px solid var(--brand-border); transition: all .2s; display: inline-flex; align-items: center; gap: 0.5rem; }
+    .btn-secondary:hover { border-color: var(--brand-yellow); color: var(--brand-yellow); }
+    .card { background: #fff; border: 1px solid var(--brand-border); border-radius: 1.25rem; padding: 1.5rem; transition: all .15s; }
+    .card:hover { box-shadow: 0 4px 24px rgba(255,214,68,.12); }
+    .dark .card { background: #0F172A; }
+    .section-label { font-size: 10px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: var(--brand-yellow); margin-bottom: 0.75rem; display: block; }
+    .icon-box { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,214,68,.12); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .icon-box svg { width: 18px; height: 18px; stroke: var(--brand-yellow); stroke-width: 2; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .step-line { position: absolute; left: 19px; top: 40px; bottom: -24px; width: 2px; background: var(--brand-border); }
+    .step-dot { width: 40px; height: 40px; border-radius: 50%; background: var(--brand-yellow); color: #111827; font-weight: 800; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .nav-link { font-size: 13px; font-weight: 600; color: var(--brand-muted); transition: color .15s; }
+    .nav-link:hover { color: var(--brand-dark); }
+    .dark .nav-link:hover { color: #fff; }
+    .gradient-text { background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand-yellow) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+    .agent-card { background: #fff; border: 1px solid var(--brand-border); border-radius: 1rem; padding: 1.25rem; position: relative; }
+    .dark .agent-card { background: #0F172A; }
+    .agent-status { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #22c55e; }
+    .agent-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #22c55e; }
+    .approval-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 9999px; background: rgba(255,214,68,.15); color: var(--brand-yellow); }
+  </style>
+</head>
+<body class="min-h-screen overflow-x-hidden">
+
+  <!-- Nav -->
+  <nav class="sticky top-0 z-50 backdrop-blur-md bg-brand-bg/80 dark:bg-slate-950/80 border-b border-brand-border dark:border-white/10">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5">
+        <img src="/images/adhello-app-icon.png" alt="AdHello" width="32" height="32" class="rounded-[22%]">
+        <span class="font-display font-extrabold text-lg tracking-tight text-brand-dark dark:text-white">AdHello</span>
+      </a>
+      <div class="hidden md:flex items-center gap-6">
+        <a href="#how-it-works" class="nav-link">How it works</a>
+        <a href="#capabilities" class="nav-link">Capabilities</a>
+        <a href="#process" class="nav-link">Process</a>
+        <a href="/ceo" class="nav-link">Platform</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="/auth/google" class="nav-link hidden sm:inline">Sign in</a>
+        <a href="/auth/google" class="btn-primary text-sm">Get started</a>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 pt-16 pb-20 md:pt-24 md:pb-28">
+    <div class="max-w-3xl">
+      <span class="section-label">AI Consultant for Local Business</span>
+      <h1 class="font-display font-extrabold text-4xl md:text-5xl lg:text-6xl tracking-tight text-brand-dark dark:text-white leading-[1.1] mb-6">
+        AI that runs your business.<br>
+        <span class="gradient-text">Built by us. Governed by you.</span>
+      </h1>
+      <p class="text-lg md:text-xl text-brand-muted max-w-2xl leading-relaxed mb-8">
+        AdHello designs, deploys, and manages AI agents for local businesses. Each agent handles a specific job — marketing, sales, operations, analytics — and nothing reaches your customers without your approval.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <a href="/auth/google" class="btn-primary text-base px-6 py-3">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          Start a conversation
+        </a>
+        <a href="#how-it-works" class="btn-secondary text-base px-6 py-3">See how it works</a>
+      </div>
+    </div>
+
+    <!-- Agent preview cards -->
+    <div class="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="agent-card">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+            <span class="text-xs font-bold text-brand-dark dark:text-white">Marketing Agent</span>
+          </div>
+          <span class="agent-status">Running</span>
+        </div>
+        <p class="text-xs text-brand-muted mb-3">Campaign: Drive trial signups — Renewal Serum. Two-week sprint. Testing two angles across channels.</p>
+        <div class="flex items-center justify-between text-[10px] font-bold text-brand-muted">
+          <span>59 signups so far</span>
+          <span>3 channels live</span>
+        </div>
+        <div class="mt-3 pt-3 border-t border-brand-border dark:border-white/10 flex gap-2">
+          <button class="approval-badge">+ Approve reallocation</button>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <div class="icon-box"><svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div>
+            <span class="text-xs font-bold text-brand-dark dark:text-white">Analytics Agent</span>
+          </div>
+          <span class="agent-status">Running</span>
+        </div>
+        <p class="text-xs text-brand-muted mb-3">Monitoring account health across 200+ accounts. Surfacing churn signals and preparing retention follow-ups.</p>
+        <div class="flex items-center justify-between text-[10px] font-bold text-brand-muted">
+          <span>12 at-risk accounts</span>
+          <span>3 flagged today</span>
+        </div>
+        <div class="mt-3 pt-3 border-t border-brand-border dark:border-white/10 flex gap-2">
+          <button class="approval-badge">+ Review report</button>
+        </div>
+      </div>
+
+      <div class="agent-card">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <div class="icon-box"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></div>
+            <span class="text-xs font-bold text-brand-dark dark:text-white">Sales Agent</span>
+          </div>
+          <span class="agent-status">Running</span>
+        </div>
+        <p class="text-xs text-brand-muted mb-3">Qualifying inbound leads, sending personalized responses, and booking meetings. All logged to your CRM.</p>
+        <div class="flex items-center justify-between text-[10px] font-bold text-brand-muted">
+          <span>23 leads this week</span>
+          <span>8 meetings booked</span>
+        </div>
+        <div class="mt-3 pt-3 border-t border-brand-border dark:border-white/10 flex gap-2">
+          <button class="approval-badge">+ Review responses</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- What it looks like in practice -->
+  <section id="how-it-works" class="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24">
+    <div class="max-w-3xl mb-12">
+      <span class="section-label">What it looks like</span>
+      <h2 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white mb-4">AI that does the work, not just describes it.</h2>
+      <p class="text-brand-muted text-base md:text-lg leading-relaxed">Every action waits for your one-tap approval. You stay in control — the agent handles the execution.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Marketing</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Produces campaign variants in your brand voice, publishes across channels, watches performance, and shifts spend toward what works. Drafting is one step inside the loop — not the whole job.</p>
+      </div>
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Analytics</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Reads usage, billing, and support sentiment across your accounts. Surfaces the ones trending toward churn and prepares retention follow-up with the reason attached.</p>
+      </div>
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v16"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Sales</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Replies to new leads within minutes, qualifies them against your ICP, sends personalized first responses, and books meetings on your calendar.</p>
+      </div>
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Operations</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Scans stock levels, sell-through, and supplier lead times. Flags what is about to run out and prepares purchase orders before you hit zero.</p>
+      </div>
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Finance</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Matches incoming invoices against purchase orders line by line, schedules payment on what reconciles cleanly, and routes discrepancies to your team.</p>
+      </div>
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M9 10h.01"/><path d="M15 10h.01"/><path d="M9.5 15a3.5 3.5 0 005 0"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Support</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Classifies incoming tickets, pulls order history, and resolves routine ones — issuing refunds, requesting reshipments, closing the loop. Complex cases escalated with full context.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works process -->
+  <section id="process" class="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24">
+    <div class="max-w-3xl mb-12">
+      <span class="section-label">How it works</span>
+      <h2 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white mb-4">From discovery to a working AI agent in production.</h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div class="relative">
+        <div class="flex items-start gap-4">
+          <div class="step-dot">1</div>
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-1">Discovery call</h3>
+            <p class="text-[10px] font-bold text-brand-yellow mb-2">45 MINUTES</p>
+            <p class="text-sm text-brand-muted leading-relaxed">We learn what the agent would do, where it would touch your business, and what would have to be true for you to trust it. No pitch deck.</p>
+          </div>
+        </div>
+      </div>
+      <div class="relative">
+        <div class="flex items-start gap-4">
+          <div class="step-dot">2</div>
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-1">Design & build</h3>
+            <p class="text-[10px] font-bold text-brand-yellow mb-2">1 – 3 WEEKS</p>
+            <p class="text-sm text-brand-muted leading-relaxed">Goals defined. Tools chosen. Rules encoded at the schema level. Integrations wired into your existing systems. Approval flow configured.</p>
+          </div>
+        </div>
+      </div>
+      <div class="relative">
+        <div class="flex items-start gap-4">
+          <div class="step-dot">3</div>
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-1">Review outputs</h3>
+            <p class="text-[10px] font-bold text-brand-yellow mb-2">ONGOING</p>
+            <p class="text-sm text-brand-muted leading-relaxed">The agent runs from our infrastructure. Outputs land in your approval queue with full context. You approve, edit, or reject.</p>
+          </div>
+        </div>
+      </div>
+      <div class="relative">
+        <div class="flex items-start gap-4">
+          <div class="step-dot">4</div>
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-1">Monitor & improve</h3>
+            <p class="text-[10px] font-bold text-brand-yellow mb-2">ALWAYS</p>
+            <p class="text-sm text-brand-muted leading-relaxed">Drift, edge cases, and anomalies detected and addressed by our team. Weekly summaries of what the agent did and where it needed your judgment.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Governance / Trust -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24">
+    <div class="max-w-3xl mb-12">
+      <span class="section-label">What we commit to</span>
+      <h2 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white mb-4">The operational guarantees behind every engagement.</h2>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Built for one job</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Each agent is designed in a working session with you. Goals, tools, rules, and boundaries — all defined at the schema level, not as policy documents.</p>
+      </div>
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><path d="M12 3c7.2 0 9 1.8 9 9s-1.8 9-9 9-9-1.8-9-9 1.8-9 9-9"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Nothing ships without approval</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">Every output lands in your approval queue. You approve, edit and approve, or reject. The system never decides for you. Every decision is logged.</p>
+      </div>
+      <div class="card">
+        <div class="icon-box mb-4"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+        <h3 class="font-display font-bold text-base text-brand-dark dark:text-white mb-2">Operated by us</h3>
+        <p class="text-sm text-brand-muted leading-relaxed">We design the agent, deploy it on our infrastructure, monitor it, and apply the governance layer. Building or running an AI team is not a prerequisite.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="max-w-6xl mx-auto px-4 sm:px-6 py-16 md:py-24">
+    <div class="rounded-[1.5rem] md:rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 md:p-12 lg:p-16 text-center">
+      <h2 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white mb-4">Ready to put AI to work in your business?</h2>
+      <p class="text-brand-muted text-base md:text-lg max-w-xl mx-auto mb-8">Start with a 45-minute discovery call. We'll tell you whether this is a fit before discussing scope or cost.</p>
+      <div class="flex flex-wrap justify-center gap-3">
+        <a href="/auth/google" class="btn-primary text-base px-8 py-3">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+          Start a conversation
+        </a>
+        <a href="/demo" class="btn-secondary text-base px-8 py-3">See a demo</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-brand-border dark:border-white/10 py-8">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <img src="/images/adhello-app-icon.png" alt="AdHello" width="24" height="24" class="rounded-[22%]">
+        <span class="font-display font-bold text-sm text-brand-dark dark:text-white">AdHello</span>
+        <span class="text-xs text-brand-muted">— AI Consultant for Local Business</span>
+      </div>
+      <div class="flex items-center gap-4 text-xs text-brand-muted">
+        <a href="/privacy" class="hover:text-brand-dark dark:hover:text-white">Privacy</a>
+        <a href="/terms" class="hover:text-brand-dark dark:hover:text-white">Terms</a>
+        <span>&copy; 2026 AdHello.ai</span>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
