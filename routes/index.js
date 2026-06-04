@@ -64,7 +64,10 @@ async function renderFindLeads(req, res, next) {
 }
 
 router.get('/', (req, res) => {
-  res.redirect(302, '/today');
+  if (req.session && req.session.userId) {
+    return res.redirect(302, '/today');
+  }
+  res.render('home', { title: 'AdHello — AI Consultant for Local Business' });
 });
 router.get('/home', (req, res) => {
   res.render('home', { title: 'AdHello — AI Consultant for Local Business' });
