@@ -27,7 +27,7 @@ router.get('/api/ideas', async (req, res, next) => {
     let niche = raw;
     if (!niche) {
       const ws = await dbService.getWorkspace(wid).catch(() => null);
-      niche = (ws && ws.socialPostsPreset) || 'AdHello agency and zipguide local business directory';
+      niche = (ws && ws.socialPostsPreset) || 'AdHello agency and @ClarkCountyGuide local business directory';
     }
     const ideas = generatePostIdeas(niche);
     res.json({ success: true, ideas, niche });

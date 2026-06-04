@@ -38,7 +38,7 @@
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Content</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Social Post Ideas</h1>
-        <p class="text-sm text-brand-muted mt-2 max-w-xl">Daily post ideas for AdHello &amp; zipguide. Refresh for new ideas. Save posts you like for later.</p>
+        <p class="text-sm text-brand-muted mt-2 max-w-xl">Daily post ideas for AdHello &amp; @ClarkCountyGuide. Refresh for new ideas. Save posts you like for later.</p>
       </div>
       <div class="flex items-center gap-3">
         <input id="nicheInput" type="text" placeholder="Optional: different niche (e.g. HVAC, roofing)"
@@ -161,7 +161,7 @@
           <svg class="icon-flat" viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
           Clark County Content
         </h2>
-        <p class="text-xs text-brand-muted mt-1">Daily scout findings for @zipguide. Click the star to save for newsletter.</p>
+        <p class="text-xs text-brand-muted mt-1">Daily scout findings for @ClarkCountyGuide. Click the star to save for newsletter.</p>
       </div>
       <span id="localCount" class="text-xs text-brand-muted font-bold">0 items</span>
     </div>
@@ -286,7 +286,7 @@
       loadLocalContent();
       renderCalendar();
       renderHashtags();
-      // Auto-generate ideas for AdHello/zipguide on page load
+      // Auto-generate ideas for AdHello/@ClarkCountyGuide on page load
       regenerateAll();
     });
 
@@ -298,7 +298,7 @@
     }
 
     async function qaGenerateInstagram() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and zipguide local business directory';
+      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and @ClarkCountyGuide local business directory';
       try {
         const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
         const data = await res.json();
@@ -307,7 +307,7 @@
     }
 
     async function qaGenerateTikTok() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and zipguide local business directory';
+      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and @ClarkCountyGuide local business directory';
       try {
         const res = await fetch('/social-posts/api/ideas?preset=' + encodeURIComponent(niche) + '&workspaceId=default');
         const data = await res.json();
@@ -402,9 +402,9 @@
       });
     });
 
-    // ── Generate Ideas (default to AdHello/zipguide) ───────────────────────────
+    // ── Generate Ideas (default to AdHello/@ClarkCountyGuide) ───────────────────────────
     async function regenerateAll() {
-      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and zipguide local business directory';
+      const niche = document.getElementById('nicheInput').value.trim() || 'AdHello agency and @ClarkCountyGuide local business directory';
       const container = document.getElementById('ideasContainer');
       container.innerHTML = '<div class="col-span-full text-center py-20 text-brand-muted"><p class="text-lg font-bold">Generating fresh ideas...</p></div>';
       try {
@@ -712,7 +712,7 @@
       text += '------------------------------\n\n';
       for (let i = 0; i < picks.length; i++) { text += (i + 1) + '. ' + picks[i].title + '\n' + picks[i].summary + '\n'; if (picks[i].source) text += 'Source: ' + picks[i].source + '\n'; text += '\n'; }
       text += '------------------------------\n';
-      text += 'Follow @zipguide for daily Clark County updates';
+      text += 'Follow @@ClarkCountyGuide for daily Clark County updates';
       navigator.clipboard.writeText(text).then(() => { showCopyToast(); qaStatus('Newsletter draft copied'); });
     }
 
