@@ -7411,6 +7411,30 @@ document.addEventListener('DOMContentLoaded', () => {
       if (reviewsLink && panel.contains(reviewsLink)) {
         const cur = String(reviewsLink.getAttribute('href') || '').trim();
         if (!cur || cur === '#') openExternal(resolveLeadPanelMapsHref(row));
+        return;
+      }
+
+      const hostedAuditLink = e.target.closest('#leadPanelHostedAuditUrl');
+      if (hostedAuditLink && panel.contains(hostedAuditLink)) {
+        const cur = String(hostedAuditLink.getAttribute('href') || '').trim();
+        if (!cur || cur === '#') {
+          e.preventDefault();
+          e.stopPropagation();
+          const preOpened = primeExternalLoadingTab('Hosted audit', 'Preparing your shareable audit report…');
+          void handleSidebarHostedAuditClick(preOpened);
+        }
+        return;
+      }
+
+      const aiToolsLink = e.target.closest('#leadPanelAiToolsClientUrl');
+      if (aiToolsLink && panel.contains(aiToolsLink)) {
+        const cur = String(aiToolsLink.getAttribute('href') || '').trim();
+        if (!cur || cur === '#') {
+          e.preventDefault();
+          e.stopPropagation();
+          const preOpened = primeAiToolsLoadingTab();
+          void runAiToolsAction('open', null, preOpened);
+        }
       }
     });
   }
@@ -8645,8 +8669,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  async function handleSidebarHostedAuditClick() {
+  async function handleSidebarHostedAuditClick(preOpenedTab) {
     if (!currentRow) {
+      closeAiToolsTab(preOpenedTab);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead first.', { variant: 'error' });
       }
@@ -8662,13 +8687,17 @@ document.addEventListener('DOMContentLoaded', () => {
       await ensureLeadAiAnalysis(currentRow);
       syncSidebarOutreachButtons(currentRow);
       const bundle = await fetchAuditReportLinkBundle(currentRow);
-      window.open(bundle.reportUrl, '_blank', 'noopener,noreferrer');
+      showLeadPanelAuditReportLinks(bundle);
+      if (!openUrlInNewTab(bundle.reportUrl, preOpenedTab)) {
+        closeAiToolsTab(preOpenedTab);
+      }
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Hosted audit opened — text them the link while you are talking.', {
           variant: 'success',
         });
       }
     } catch (err) {
+      closeAiToolsTab(preOpenedTab);
       const msg = err && err.message ? err.message : 'Could not open hosted audit';
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
       else window.alert(msg);
@@ -8721,17 +8750,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function openAiToolsTab(url, preOpenedTab) {
+  /** Navigate a tab opened synchronously on click (must not use noopener on window.open or the reference is null). */
+  function navigatePreopenedTab(tab, url) {
     const target = String(url || '').trim();
-    if (!target) return false;
-    if (preOpenedTab && !preOpenedTab.closed) {
+    if (!target || !tab || tab.closed) return false;
+    try {
+      tab.opener = null;
+    } catch (_) {}
+    try {
+      tab.location.replace(target);
+      return true;
+    } catch (_) {
       try {
-        preOpenedTab.opener = null;
-        preOpenedTab.location.href = target;
+        tab.location.href = target;
         return true;
       } catch (_) {}
     }
-    const opened = window.open(target, '_blank', 'noopener,noreferrer');
+    return false;
+  }
+
+  function openUrlInNewTab(url, preOpenedTab) {
+    const target = String(url || '').trim();
+    if (!target) return false;
+    if (navigatePreopenedTab(preOpenedTab, target)) return true;
+    try {
+      const a = document.createElement('a');
+      a.href = target;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      return true;
+    } catch (_) {}
+    const opened = window.open(target, '_blank');
     if (!opened) {
       aiToolsToast(
         'Pop-up blocked. Allow pop-ups for this site, or use Copy client link.',
@@ -8739,18 +8792,38 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       return false;
     }
+    try {
+      opened.opener = null;
+    } catch (_) {}
     return true;
   }
 
-  function primeAiToolsLoadingTab() {
-    const tab = window.open('about:blank', '_blank', 'noopener,noreferrer');
+  function openAiToolsTab(url, preOpenedTab) {
+    return openUrlInNewTab(url, preOpenedTab);
+  }
+
+  function primeExternalLoadingTab(title, message) {
+    // Do not pass noopener — browsers return null and async navigation cannot run.
+    const tab = window.open('about:blank', '_blank');
     if (!tab) return null;
     try {
-      tab.document.title = 'AI Tools Assessment';
+      tab.opener = null;
+      tab.document.title = title || 'Loading…';
       tab.document.body.innerHTML =
-        '<div style="font-family:system-ui,sans-serif;padding:2.5rem;color:#334155"><p style="font-weight:700;margin:0 0 .5rem">Loading AI Tools Assessment…</p><p style="margin:0;font-size:14px;color:#64748b">Building your editable deck from business data.</p></div>';
+        '<div style="font-family:system-ui,sans-serif;padding:2.5rem;color:#334155"><p style="font-weight:700;margin:0 0 .5rem">' +
+        (title || 'Loading…') +
+        '</p><p style="margin:0;font-size:14px;color:#64748b">' +
+        (message || 'Please wait…') +
+        '</p></div>';
     } catch (_) {}
     return tab;
+  }
+
+  function primeAiToolsLoadingTab() {
+    return primeExternalLoadingTab(
+      'AI Tools Assessment',
+      'Building your editable deck from business data.',
+    );
   }
 
   async function ensureAiToolsAssessmentForRow(row) {
@@ -8840,6 +8913,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!btn) return;
         e.preventDefault();
         e.stopPropagation();
+        if (btn.getAttribute('aria-disabled') === 'true') {
+          aiToolsToast('Generate the assessment first.', 'error');
+          return;
+        }
         const action = btn.getAttribute('data-ai-tools-action');
         if (
           action === 'generate' &&
@@ -9083,7 +9160,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (e.target.closest('#sidebarHostedAuditBtn')) {
       e.preventDefault();
-      handleSidebarHostedAuditClick();
+      const preOpened = primeExternalLoadingTab('Hosted audit', 'Preparing your shareable audit report…');
+      void handleSidebarHostedAuditClick(preOpened);
       return;
     }
     if (e.target.closest('#sidebarCopyAuditLinkBtn')) {
