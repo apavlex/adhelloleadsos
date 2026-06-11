@@ -269,15 +269,17 @@
         <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">SMS</button>
         <button type="button" id="focus-btn-email" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">Email</button>
         <button type="button" id="focus-btn-log" class="btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800">Log &amp; next</button>
+        <button type="button" id="focus-btn-call-next" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 hover:border-emerald-500 transition-colors" title="Log, advance, and dial the next lead">Call next</button>
         <button type="button" id="focus-btn-skip" class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40">Skip</button>
         </div>
-        <p id="focus-outcome-shortcuts" class="text-[10px] text-brand-muted mt-1"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> run selected channel · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
+        <p id="focus-outcome-shortcuts" class="text-[10px] text-brand-muted mt-1"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> run selected channel · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">N</kbd> call next · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
       </div>
     </section>
   </main>
   <div id="focus-mobile-fab-wrap" class="md:hidden fixed right-4 bottom-[max(0.9rem,env(safe-area-inset-bottom))] z-[90] hidden" aria-label="Mobile quick actions">
     <div id="focus-mobile-fab-actions" class="hidden mb-2.5 w-[min(78vw,18rem)] rounded-2xl border border-brand-border/70 dark:border-white/15 bg-white/95 dark:bg-slate-900/95 backdrop-blur shadow-xl p-2.5 space-y-2">
       <button type="button" id="focus-mobile-call" class="w-full btn-pill bg-brand-yellow text-brand-dark py-2.5 text-[10px] font-black uppercase tracking-widest">Call now</button>
+      <button type="button" id="focus-mobile-call-next" class="w-full btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 py-2.5 text-[10px] font-black uppercase tracking-widest">Call next</button>
       <button type="button" id="focus-mobile-log" class="w-full btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Log &amp; next</button>
       <button type="button" id="focus-mobile-skip" class="w-full btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Skip</button>
     </div>
@@ -293,6 +295,7 @@
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">E</kbd> — Focus draft textarea</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">⌘/Ctrl</kbd> + <kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">Enter</kbd> — Send &amp; advance</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">L</kbd> — Log &amp; next</li>
+        <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">N</kbd> — Call next (log, advance &amp; dial)</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">J</kbd> — Skip</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">?</kbd> — This sheet</li>
         <li><kbd class="font-mono text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">Esc</kbd> — Close</li>
@@ -368,6 +371,8 @@
     var btnEmail = document.getElementById('focus-btn-email');
     var btnLog = document.getElementById('focus-btn-log');
     var btnSkip = document.getElementById('focus-btn-skip');
+    var btnCallNext = document.getElementById('focus-btn-call-next');
+    var autoDialNext = false;
     var modalHelp = document.getElementById('focus-modal-help');
     var modalCelebrate = document.getElementById('focus-modal-celebrate');
     var fill = document.getElementById('focus-progress-fill');
@@ -388,6 +393,7 @@
     var elMobileFabActions = document.getElementById('focus-mobile-fab-actions');
     var btnMobileFabToggle = document.getElementById('focus-mobile-fab-toggle');
     var btnMobileCall = document.getElementById('focus-mobile-call');
+    var btnMobileCallNext = document.getElementById('focus-mobile-call-next');
     var btnMobileLog = document.getElementById('focus-mobile-log');
     var btnMobileSkip = document.getElementById('focus-mobile-skip');
     var elOutcomePanel = document.getElementById('focus-outcome-panel');
@@ -476,7 +482,7 @@
       }
       if (currentChannel === 'call-script') {
         elChannelHint.textContent =
-          'Call: rehearse the script in the box. Use “Open in dialer” to fill the softphone, then click Call below.';
+          'Call: rehearse the script. Click Call to dial + advance, or Call next to log + advance + dial next. Log & next auto-dials on mobile.';
         return;
       }
       if (currentChannel === 'voicemail-drop') {
@@ -510,6 +516,9 @@
       var hasPhone = Boolean(lead && String(lead.phone || '').trim() && String(lead.phone) !== 'N/A');
       if (btnOpenDialer) {
         btnOpenDialer.classList.toggle('hidden', !hasPhone);
+      }
+      if (btnCallNext) {
+        btnCallNext.classList.toggle('hidden', !hasPhone || currentChannel !== 'call-script');
       }
       if (elMobileFabWrap) {
         var showFab = isMobileViewport() && hasPhone;
@@ -1713,14 +1722,20 @@
     function onLogNext() {
       var lead = currentLead();
       if (!lead) return;
+      autoDialNext = (currentChannel === 'call-script');
       btnLog.disabled = true;
       postNote()
         .then(function () { return createFollowupTaskIfRequested(); })
         .then(function () {
           nextLead();
+          if (autoDialNext && currentLead() && String(currentLead().phone || '').trim()) {
+            autoDialNext = false;
+            setTimeout(function () { openDialerForLead(); }, 300);
+          }
+          autoDialNext = false;
           return refreshMetrics();
         })
-        .catch(function () {})
+        .catch(function () { autoDialNext = false; })
         .finally(function () { btnLog.disabled = false; });
     }
 
@@ -1787,6 +1802,12 @@
         openDialerForLead();
       });
     }
+    if (btnMobileCallNext) {
+      btnMobileCallNext.addEventListener('click', function () {
+        closeMobileFabActions();
+        if (btnCallNext) btnCallNext.click();
+      });
+    }
     if (btnMobileLog) {
       btnMobileLog.addEventListener('click', function () {
         closeMobileFabActions();
@@ -1829,6 +1850,28 @@
     if (btnEmail) btnEmail.addEventListener('click', function () { currentChannel = 'email'; applyChannelUI(); onSendAdvance(); });
     btnLog.addEventListener('click', onLogNext);
     btnSkip.addEventListener('click', onSkip);
+    if (btnCallNext) btnCallNext.addEventListener('click', function () {
+      var lead = currentLead();
+      if (!lead) return;
+      if (btnCallNext) btnCallNext.disabled = true;
+      if (btnLog) btnLog.disabled = true;
+      postNote()
+        .then(function () { return createFollowupTaskIfRequested(); })
+        .then(function () { return maybeAdvanceStage(); })
+        .then(function () {
+          nextLead();
+          var next = currentLead();
+          if (next && String(next.phone || '').trim()) {
+            setTimeout(function () { openDialerForLead(); }, 300);
+          }
+          return refreshMetrics();
+        })
+        .catch(function () {})
+        .finally(function () {
+          if (btnCallNext) btnCallNext.disabled = false;
+          if (btnLog) btnLog.disabled = false;
+        });
+    });
     if (btnCopyPhone) btnCopyPhone.addEventListener('click', function () { copyLeadField('phone', 'Phone'); });
     if (btnCopyEmail) btnCopyEmail.addEventListener('click', function () { copyLeadField('email', 'Email'); });
     if (btnCopyWebsite) btnCopyWebsite.addEventListener('click', function () { copyLeadField('website', 'Website'); });
@@ -1882,6 +1925,11 @@
         if (typingTarget(document.activeElement)) return;
         e.preventDefault();
         onLogNext();
+      }
+      if (e.key === 'n' || e.key === 'N') {
+        if (typingTarget(document.activeElement)) return;
+        e.preventDefault();
+        if (btnCallNext) btnCallNext.click();
       }
       if (e.key === 'j' || e.key === 'J') {
         if (typingTarget(document.activeElement)) return;
