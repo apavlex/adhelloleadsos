@@ -1549,6 +1549,9 @@
     mlModal.classList.remove('flex');
     mlModal.setAttribute('aria-hidden', 'true');
     if (mlForm) mlForm.reset();
+    if (mlFileInput) { mlFileInput.value = ''; if (mlFileName) { mlFileName.textContent = ''; mlFileName.classList.add('hidden'); } }
+    if (mlUploadSubmit) { mlUploadSubmit.disabled = true; mlUploadSubmit.textContent = 'Upload & import'; }
+    switchManualLeadTab('single');
   }
   if (mlOpen) mlOpen.addEventListener('click', openManualLead);
   if (mlOpenM) mlOpenM.addEventListener('click', openManualLead);
@@ -1609,6 +1612,125 @@
         });
     });
   }
+
+  // Tab switching
+  var mlTabSingle = document.getElementById('manualLeadTabSingle');
+  var mlTabUpload = document.getElementById('manualLeadTabUpload');
+  var mlSingleTab = document.getElementById('manualLeadSingleTab');
+  var mlUploadTab = document.getElementById('manualLeadUploadTab');
+  var mlSubtitle = document.getElementById('manualLeadSubtitle');
+
+  function switchManualLeadTab(tab) {
+    var isUpload = (tab === 'upload');
+    [mlSingleTab, mlUploadTab].forEach(function (el) { if (el) el.classList.add('hidden'); });
+    if (isUpload && mlUploadTab) mlUploadTab.classList.remove('hidden');
+    if (!isUpload && mlSingleTab) mlSingleTab.classList.remove('hidden');
+    if (mlTabSingle) {
+      mlTabSingle.classList.toggle('bg-white', !isUpload);
+      mlTabSingle.classList.toggle('dark:bg-slate-900', !isUpload);
+      mlTabSingle.classList.toggle('shadow-sm', !isUpload);
+      mlTabSingle.classList.toggle('text-brand-dark', !isUpload);
+      mlTabSingle.classList.toggle('dark:text-white', !isUpload);
+      mlTabSingle.classList.toggle('text-brand-muted', isUpload);
+      mlTabSingle.classList.toggle('dark:text-slate-400', isUpload);
+      mlTabSingle.setAttribute('aria-selected', isUpload ? 'false' : 'true');
+    }
+    if (mlTabUpload) {
+      mlTabUpload.classList.toggle('bg-white', isUpload);
+      mlTabUpload.classList.toggle('dark:bg-slate-900', isUpload);
+      mlTabUpload.classList.toggle('shadow-sm', isUpload);
+      mlTabUpload.classList.toggle('text-brand-dark', isUpload);
+      mlTabUpload.classList.toggle('dark:text-white', isUpload);
+      mlTabUpload.classList.toggle('text-brand-muted', !isUpload);
+      mlTabUpload.classList.toggle('dark:text-slate-400', !isUpload);
+      mlTabUpload.setAttribute('aria-selected', isUpload ? 'true' : 'false');
+    }
+    if (mlSubtitle) {
+      mlSubtitle.textContent = isUpload
+        ? 'Drop a CSV or Excel file with business names, phones, emails, and addresses.'
+        : 'For referrals, events, or anyone you met offline — same pipeline as scraped leads.';
+    }
+    if (mlErr) { mlErr.classList.add('hidden'); mlErr.textContent = ''; }
+    var mlUploadErr = document.getElementById('manualLeadUploadError');
+    if (mlUploadErr) { mlUploadErr.classList.add('hidden'); mlUploadErr.textContent = ''; }
+  }
+
+  if (mlTabSingle) mlTabSingle.addEventListener('click', function () { switchManualLeadTab('single'); });
+  if (mlTabUpload) mlTabUpload.addEventListener('click', function () { switchManualLeadTab('upload'); });
+
+  // Upload file input handling
+  var mlFileInput = document.getElementById('manualLeadFileInput');
+  var mlFileName = document.getElementById('manualLeadFileName');
+  var mlUploadSubmit = document.getElementById('manualLeadUploadSubmit');
+  var mlUploadForm = document.getElementById('manualLeadUploadForm');
+
+  if (mlFileInput && mlUploadSubmit) {
+    mlFileInput.addEventListener('change', function () {
+      var file = mlFileInput.files && mlFileInput.files[0];
+      if (file) {
+        if (mlFileName) { mlFileName.textContent = file.name; mlFileName.classList.remove('hidden'); }
+        mlUploadSubmit.disabled = false;
+        mlUploadSubmit.classList.remove('bg-brand-yellow/40', 'text-slate-400', 'dark:text-slate-600', 'cursor-not-allowed');
+        mlUploadSubmit.classList.add('bg-brand-yellow', 'text-slate-900', 'cursor-pointer', 'hover:brightness-105');
+        mlUploadSubmit.style.pointerEvents = 'auto';
+      } else {
+        if (mlFileName) { mlFileName.textContent = ''; mlFileName.classList.add('hidden'); }
+        mlUploadSubmit.disabled = true;
+        mlUploadSubmit.classList.add('bg-brand-yellow/40', 'text-slate-400', 'dark:text-slate-600', 'cursor-not-allowed');
+        mlUploadSubmit.classList.remove('bg-brand-yellow', 'text-slate-900', 'cursor-pointer', 'hover:brightness-105');
+        mlUploadSubmit.style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  if (mlUploadForm) {
+    mlUploadForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var file = mlFileInput && mlFileInput.files && mlFileInput.files[0];
+      if (!file) return;
+      var mlUploadErr = document.getElementById('manualLeadUploadError');
+      var mlUploadStatus = document.getElementById('manualLeadUploadStatus');
+      if (mlUploadErr) { mlUploadErr.classList.add('hidden'); mlUploadErr.textContent = ''; }
+      if (mlUploadStatus) mlUploadStatus.classList.remove('hidden');
+      if (mlUploadSubmit) { mlUploadSubmit.disabled = true; mlUploadSubmit.textContent = 'Importing…'; }
+      var fd = new FormData();
+      fd.append('csvfile', file);
+      fetch('/leads/import', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body: fd,
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (_ref) {
+          var ok = _ref.ok;
+          var data = _ref.j;
+          if (mlUploadStatus) mlUploadStatus.classList.add('hidden');
+          if (mlUploadSubmit) { mlUploadSubmit.disabled = false; mlUploadSubmit.textContent = 'Upload & import'; }
+          if (ok && data.success) {
+            closeManualLead();
+            window.location.href = '/prospecting?tab=pipeline&imported=' + (data.imported || 0) + '&created=' + (data.created || 0) + '&updated=' + (data.updated || 0) + '&skipped=' + (data.skipped || 0) + '&failed=' + (data.failed || 0);
+            return;
+          }
+          if (mlUploadErr) {
+            mlUploadErr.textContent = (data && data.error) ? data.error : 'Import failed. Check file format.';
+            mlUploadErr.classList.remove('hidden');
+          }
+        })
+        .catch(function () {
+          if (mlUploadStatus) mlUploadStatus.classList.add('hidden');
+          if (mlUploadSubmit) { mlUploadSubmit.disabled = false; mlUploadSubmit.textContent = 'Upload & import'; }
+          if (mlUploadErr) {
+            mlUploadErr.textContent = 'Network error. Try again.';
+            mlUploadErr.classList.remove('hidden');
+          }
+        });
+    });
+  }
+
+  // Wire up upload cancel
+  var mlUploadCancel = document.getElementById('manualLeadUploadCancel');
+  if (mlUploadCancel) mlUploadCancel.addEventListener('click', closeManualLead);
+
   document.addEventListener('keydown', function (e) {
     if (e.key !== 'Escape' || !mlModal || mlModal.classList.contains('hidden')) return;
     closeManualLead();

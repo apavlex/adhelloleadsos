@@ -212,15 +212,20 @@
   <div id="manualLeadModal" class="fixed inset-0 z-[210] hidden items-center justify-center p-4" aria-hidden="true">
     <div id="manualLeadBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm"></div>
     <div class="relative max-w-lg w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-6 sm:p-8 shadow-2xl z-10 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-start justify-between gap-3 mb-6">
+      <div class="flex items-start justify-between gap-3 mb-4">
         <div>
           <h2 class="font-display font-black text-xl text-brand-dark dark:text-white">Add lead</h2>
-          <p class="text-sm text-brand-muted mt-1">For referrals, events, or anyone you met offline — same pipeline as scraped leads.</p>
+          <p id="manualLeadSubtitle" class="text-sm text-brand-muted mt-1">For referrals, events, or anyone you met offline — same pipeline as scraped leads.</p>
         </div>
         <button type="button" id="manualLeadClose" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0" aria-label="Close">
           <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
       </div>
+      <div class="flex rounded-2xl border border-brand-border/60 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 p-1 mb-5" role="tablist" aria-label="Add lead mode">
+        <button type="button" id="manualLeadTabSingle" class="flex-1 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white bg-white dark:bg-slate-900 shadow-sm transition-all" role="tab" aria-selected="true" data-manual-lead-tab="single">Single lead</button>
+        <button type="button" id="manualLeadTabUpload" class="flex-1 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white transition-all" role="tab" aria-selected="false" data-manual-lead-tab="upload">Upload list</button>
+      </div>
+      <div id="manualLeadSingleTab" class="manual-lead-tab-content">
       <form id="manualLeadForm" class="space-y-4">
         <div>
           <label for="manualTitle" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Business name <span class="text-red-500">*</span></label>
@@ -264,6 +269,30 @@
           <button type="button" id="manualLeadCancel" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
         </div>
       </form>
+      </div>
+      <div id="manualLeadUploadTab" class="manual-lead-tab-content hidden">
+        <form id="manualLeadUploadForm" action="/leads/import" method="post" enctype="multipart/form-data" class="space-y-4">
+          <div class="rounded-2xl border-2 border-dashed border-brand-border dark:border-white/15 bg-brand-cream/20 dark:bg-slate-800/40 p-6 text-center">
+            <svg class="w-10 h-10 mx-auto mb-3 text-brand-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+            <p class="text-sm font-bold text-brand-dark dark:text-white mb-1">Drop a CSV or Excel file</p>
+            <p class="text-xs text-brand-muted mb-4">Columns: title/business_name, phone, email, website, address, city, state</p>
+            <label class="inline-flex items-center px-5 py-2.5 rounded-xl bg-brand-yellow text-slate-900 text-[10px] font-black uppercase tracking-widest cursor-pointer hover:brightness-105 transition-all shadow-sm">
+              Choose file
+              <input type="file" id="manualLeadFileInput" name="csvfile" accept=".csv,.xlsx,.xls,text/csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" class="hidden" />
+            </label>
+            <p id="manualLeadFileName" class="text-xs font-semibold text-brand-dark dark:text-white mt-3 hidden"></p>
+          </div>
+          <p id="manualLeadUploadError" class="text-sm text-red-600 dark:text-red-400 hidden"></p>
+          <p id="manualLeadUploadStatus" class="text-sm text-brand-muted flex items-center gap-2 hidden">
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            Importing…
+          </p>
+          <div class="flex flex-col sm:flex-row gap-3 pt-2">
+            <button type="submit" id="manualLeadUploadSubmit" disabled class="flex-1 btn-pill bg-brand-yellow/40 text-slate-400 dark:text-slate-600 py-4 text-xs font-black uppercase tracking-widest cursor-not-allowed transition-all" style="pointer-events:none">Upload &amp; import</button>
+            <button type="button" id="manualLeadUploadCancel" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
   <% } %>
