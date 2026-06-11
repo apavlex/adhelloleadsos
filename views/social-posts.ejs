@@ -39,6 +39,7 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Content</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Social Post Ideas</h1>
         <p class="text-sm text-brand-muted mt-2 max-w-xl">Daily post ideas for AdHello &amp; @ClarkCountyGuide. Refresh for new ideas. Save posts you like for later.</p>
+        <div id="styleTags" class="flex flex-wrap gap-2 mt-2"></div>
       </div>
       <div class="flex items-center gap-3">
         <input id="nicheInput" type="text" placeholder="Optional: different niche (e.g. HVAC, roofing)"
@@ -592,6 +593,7 @@
 
     function renderStyleTags() {
       const container = document.getElementById('styleTags');
+      if (!container) return;
       const tags = [];
       if (styleProfile.niche) tags.push('Niche: ' + styleProfile.niche);
       if (styleProfile.tone) tags.push('Tone: ' + styleProfile.tone);
