@@ -104,6 +104,20 @@
     </div>
 
     <% const kindLabels = { youtube: 'YouTube', drive: 'Drive / Docs', x: 'X / Twitter', link: 'Link' }; %>
+    <% function extractYoutubeId(urlStr) {
+      try {
+        var u = new URL(urlStr);
+        var h = u.hostname.replace(/^www\./, '').toLowerCase();
+        if (h === 'youtu.be') return u.pathname.slice(1).split('/')[0];
+        if (h.endsWith('youtube.com')) {
+          var p = u.searchParams;
+          if (p.get('v')) return p.get('v');
+          var m = u.pathname.match(/^\/(?:embed|v|shorts)\/([^/?]+)/);
+          if (m) return m[1];
+        }
+      } catch (_) {}
+      return '';
+    } %>
     <% function formatResourceBytes(b) {
       var n = Number(b);
       if (!Number.isFinite(n) || n < 0) return '';
@@ -149,6 +163,19 @@
             <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:underline">Remove</button>
           </form>
         </div>
+        <% var ytId = r.kind === 'youtube' ? extractYoutubeId(r.url) : ''; %>
+        <% if (ytId) { %>
+        <div class="relative w-full rounded-xl overflow-hidden bg-black aspect-video">
+          <iframe
+            src="https://www.youtube.com/embed/<%= ytId %>"
+            class="absolute inset-0 w-full h-full border-0"
+            title="YouTube video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen
+            loading="lazy"
+          ></iframe>
+        </div>
+        <% } %>
         <div class="min-w-0">
           <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= r.title %></h3>
           <% if (isUpload && r.fileName) { %>
@@ -174,7 +201,7 @@
         <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap"><%= r.note %></p>
         <% } %>
         <div class="mt-auto pt-2 flex flex-wrap gap-3">
-          <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5">Open</a>
+          <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5"><%= ytId ? 'Watch on YouTube' : 'Open' %></a>
         </div>
       </article>
       <% }); %>
