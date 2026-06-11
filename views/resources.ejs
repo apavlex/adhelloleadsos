@@ -158,11 +158,6 @@
             </span>
             <% } %>
           </div>
-          <form action="/resources/remove" method="post" class="shrink-0" onsubmit="return confirm('Remove this resource?');">
-            <input type="hidden" name="id" value="<%= r.id %>" />
-            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:underline">Remove</button>
-          </form>
-          <button type="button" class="js-res-edit-btn text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow shrink-0" data-res-id="<%= r.id %>" title="Edit resource">Edit</button>
         </div>
         <% var ytId = r.kind === 'youtube' ? extractYoutubeId(r.url) : ''; %>
         <% if (ytId) { %>
@@ -215,8 +210,13 @@
         <% } else { %>
         <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap res-note-preview hidden" data-res-note-preview="<%= r.id %>"></p>
         <% } %>
-        <div class="mt-auto pt-2 flex flex-wrap gap-3">
+        <div class="mt-auto pt-2 flex flex-wrap items-center gap-3">
           <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5"><%= ytId ? 'Watch on YouTube' : 'Open' %></a>
+          <button type="button" class="js-res-edit-btn text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow" data-res-id="<%= r.id %>" title="Edit resource">Edit</button>
+          <form action="/resources/remove" method="post" class="inline-flex" onsubmit="return confirm('Remove this resource?');">
+            <input type="hidden" name="id" value="<%= r.id %>" />
+            <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:underline">Remove</button>
+          </form>
         </div>
       </article>
       <% }); %>
