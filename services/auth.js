@@ -103,6 +103,11 @@ function ensureAuthenticated(req, res, next) {
   if (req.isAuthenticated && req.isAuthenticated()) {
     return next();
   }
+  // Allow API key auth for programmatic access (cron jobs, scouts, etc.)
+  const apiKey = req.headers['x-api-key'] || req.query.api_key;
+  if (apiKey && apiKey === (process.env.API_INGEST_KEY || 'adhello_secret_123')) {
+    return next();
+  }
   if (wantsJsonResponse(req)) {
     return res.status(401).json({ success: false, error: 'Sign in required.' });
   }
