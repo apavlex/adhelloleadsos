@@ -11,6 +11,22 @@ const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 async function withWorkspace(req, res, next) {
   try {
     const email = workspaceService.userEmail(req);
+
+    // API key auth — no session, use 'default' workspace directly
+    const apiKey = req.headers['x-api-key'] || req.query.api_key;
+    const isApiKeyAuth = apiKey && apiKey === (process.env.API_INGEST_KEY || 'adhello_secret_123');
+
+    if (isApiKeyAuth && !email) {
+      const wid = 'default';
+      let ws = await dbService.getWorkspace(wid) || { id: wid, name: 'Default', slug: 'default' };
+      req.workspace = ws;
+      req.workspaceId = ws.id;
+      res.locals.workspace = ws;
+      res.locals.workspaceId = ws.id;
+      res.locals.workspaceAccent = ws.accentColor || '#CA8A04';
+      return next();
+    }
+
     await workspaceBootstrap.ensureUserHasWorkspaces(email);
 
     let wid = null;
