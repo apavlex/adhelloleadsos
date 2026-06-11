@@ -162,6 +162,7 @@
             <input type="hidden" name="id" value="<%= r.id %>" />
             <button type="submit" class="text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:underline">Remove</button>
           </form>
+          <button type="button" class="js-res-edit-btn text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-yellow shrink-0" data-res-id="<%= r.id %>" title="Edit resource">Edit</button>
         </div>
         <% var ytId = r.kind === 'youtube' ? extractYoutubeId(r.url) : ''; %>
         <% if (ytId) { %>
@@ -176,7 +177,8 @@
           ></iframe>
         </div>
         <% } %>
-        <div class="min-w-0">
+        <div class="min-w-0" data-res-card-content="<%= r.id %>">
+          <div class="res-preview" data-res-preview="<%= r.id %>">
           <h3 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug break-words"><%= r.title %></h3>
           <% if (isUpload && r.fileName) { %>
           <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-1 break-all"><%= r.fileName %></p>
@@ -196,9 +198,22 @@
           <% if (sizeLabel) { %>
           <p class="text-[10px] font-bold text-brand-muted dark:text-slate-500 mt-1">Size · <%= sizeLabel %></p>
           <% } %>
+          </div>
+          <div class="res-edit hidden" data-res-edit="<%= r.id %>">
+            <label class="block text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Title</label>
+            <input type="text" class="js-res-edit-title w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white mb-3" value="<%= r.title %>" data-res-id="<%= r.id %>" />
+            <label class="block text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">Note</label>
+            <textarea class="js-res-edit-note w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-brand-dark dark:text-white resize-y mb-3" rows="3" data-res-id="<%= r.id %>"><%= r.note || '' %></textarea>
+            <div class="flex gap-2">
+              <button type="button" class="js-res-save-btn text-[10px] font-black uppercase tracking-widest bg-brand-yellow text-slate-900 px-4 py-1.5 rounded-lg hover:brightness-105" data-res-id="<%= r.id %>">Save</button>
+              <button type="button" class="js-res-cancel-btn text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white px-3 py-1.5" data-res-id="<%= r.id %>">Cancel</button>
+            </div>
+          </div>
         </div>
         <% if (r.note) { %>
-        <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap"><%= r.note %></p>
+        <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap res-note-preview" data-res-note-preview="<%= r.id %>"><%= r.note %></p>
+        <% } else { %>
+        <p class="text-sm text-brand-muted dark:text-slate-400 leading-relaxed whitespace-pre-wrap res-note-preview hidden" data-res-note-preview="<%= r.id %>"></p>
         <% } %>
         <div class="mt-auto pt-2 flex flex-wrap gap-3">
           <a href="<%= r.url %>" target="_blank" rel="noopener noreferrer" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5"><%= ytId ? 'Watch on YouTube' : 'Open' %></a>
@@ -267,6 +282,69 @@
       wrap.addEventListener('focusin', arm);
       wrap.addEventListener('focusout', function (ev) {
         if (!wrap.contains(ev.relatedTarget)) disarm();
+      });
+    });
+  })();
+  // ── Inline resource editing ──────────────────────────────────────────────
+  (function () {
+    document.querySelectorAll('.js-res-edit-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-res-id');
+        var preview = document.querySelector('[data-res-preview=\"' + id + '\"]');
+        var edit = document.querySelector('[data-res-edit=\"' + id + '\"]');
+        var notePreview = document.querySelector('[data-res-note-preview=\"' + id + '\"]');
+        if (preview) preview.classList.add('hidden');
+        if (edit) edit.classList.remove('hidden');
+        if (notePreview) notePreview.classList.add('hidden');
+      });
+    });
+    document.querySelectorAll('.js-res-cancel-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-res-id');
+        var preview = document.querySelector('[data-res-preview=\"' + id + '\"]');
+        var edit = document.querySelector('[data-res-edit=\"' + id + '\"]');
+        var notePreview = document.querySelector('[data-res-note-preview=\"' + id + '\"]');
+        if (preview) preview.classList.remove('hidden');
+        if (edit) edit.classList.add('hidden');
+        if (notePreview) notePreview.classList.remove('hidden');
+      });
+    });
+    document.querySelectorAll('.js-res-save-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var id = btn.getAttribute('data-res-id');
+        var titleEl = document.querySelector('.js-res-edit-title[data-res-id=\"' + id + '\"]');
+        var noteEl = document.querySelector('.js-res-edit-note[data-res-id=\"' + id + '\"]');
+        var title = titleEl ? titleEl.value.trim() : '';
+        var note = noteEl ? noteEl.value.trim() : '';
+        var preview = document.querySelector('[data-res-preview=\"' + id + '\"]');
+        var edit = document.querySelector('[data-res-edit=\"' + id + '\"]');
+        var notePreview = document.querySelector('[data-res-note-preview=\"' + id + '\"]');
+        var titleH3 = preview ? preview.querySelector('h3') : null;
+        btn.disabled = true;
+        btn.textContent = 'Saving…';
+        fetch('/resources/update', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ id: id, title: title, note: note }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data.success) throw new Error(data.error || 'Update failed');
+            if (titleH3) titleH3.textContent = title || id;
+            if (notePreview) {
+              notePreview.textContent = note;
+              notePreview.classList.toggle('hidden', !note);
+            }
+            if (preview) preview.classList.remove('hidden');
+            if (edit) edit.classList.add('hidden');
+          })
+          .catch(function (err) {
+            alert(err.message || 'Could not save.');
+          })
+          .finally(function () {
+            btn.disabled = false;
+            btn.textContent = 'Save';
+          });
       });
     });
   })();

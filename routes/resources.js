@@ -224,4 +224,39 @@ router.post('/remove', express.urlencoded({ extended: true }), async (req, res, 
   }
 });
 
+// POST /resources/update — edit title, note, kind, or url
+router.post('/update', express.json(), async (req, res, next) => {
+  try {
+    const id = String(req.body.id || '').trim();
+    if (!id) return res.status(400).json({ success: false, error: 'id is required.' });
+    const existing = await dbService.listWorkspaceResources(req.workspaceId);
+    const resource = existing.find((r) => r && r.id === id);
+    if (!resource) return res.status(404).json({ success: false, error: 'Resource not found.' });
+    const update = {};
+    if (req.body.title !== undefined) {
+      update.title = String(req.body.title || '').trim().slice(0, 200);
+      if (!update.title) update.title = resource.url;
+    }
+    if (req.body.note !== undefined) {
+      update.note = String(req.body.note || '').trim().slice(0, 2000);
+    }
+    if (req.body.kind !== undefined) {
+      const k = String(req.body.kind || 'auto').toLowerCase();
+      update.kind = resolveKind(resource.url, k);
+    }
+    if (req.body.url !== undefined) {
+      const rawUrl = normalizeUrl(req.body.url);
+      if (!rawUrl) return res.status(400).json({ success: false, error: 'Invalid URL.' });
+      update.url = rawUrl;
+      // Re-detect kind if URL changed and kind wasn't explicitly changed
+      update.kind = update.kind || detectResourceKind(rawUrl);
+    }
+    const merged = { ...resource, ...update, updatedAt: new Date().toISOString() };
+    await dbService.saveWorkspaceResource(req.workspaceId, merged);
+    res.json({ success: true, resource: merged });
+  } catch (e) {
+    next(e);
+  }
+});
+
 module.exports = router;
