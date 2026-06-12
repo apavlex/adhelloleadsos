@@ -13,6 +13,7 @@ const {
 const { cleanBusinessName } = require('../utils/nameCleaner');
 const { defaultPipelineStageForSource, clampPipelineStage } = require('../services/pipelineConstants');
 const signalwire = require('../services/signalwire');
+const agentSessionStore = require('../services/agentSessionStore');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const dialerPacing = require('../services/dialerPacing');
 const inboundForwardStats = require('../services/inboundForwardStats');
@@ -541,6 +542,14 @@ router.post('/telephony/voice/status', async (req, res) => {
       } catch (_) {
         /* non-fatal */
       }
+
+      // Clean up agent session when the agent's call leg completes
+      if (callStatus === 'completed' && sid) {
+        const session = agentSessionStore.getSession(workspaceId);
+        if (session && session.callSid === sid) {
+          agentSessionStore.removeSession(workspaceId);
+        }
+      }
     }
     if (workspaceId && isInbound) {
       try {
@@ -637,9 +646,23 @@ router.all('/telephony/voice/twiml', async (req, res) => {
           );
       }
       const callerId = bridgeFrom || String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim();
+      const workspaceId = String(q.workspaceId || '').trim();
+      const isSession = String(q.session || '').trim() === '1';
+
+      let dialExtra = '';
+      if (isSession && workspaceId) {
+        const waitUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/wait', {
+          workspaceId,
+          from: callerId,
+        });
+        if (waitUrl) {
+          dialExtra = ` action="${xmlEscape(waitUrl)}"`;
+        }
+      }
+
       const n = `<?xml version="1.0" encoding="UTF-8"?><Response><Dial answerOnBridge="true" timeout="45" callerId="${xmlEscape(
         callerId,
-      )}"><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`;
+      )}"${dialExtra}><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`;
       return res.type('text/xml').send(n);
     }
     const action = String((q && q.action) || 'call').trim();
@@ -674,6 +697,84 @@ router.all('/telephony/voice/twiml', async (req, res) => {
     res.type('text/xml').send(body);
   } catch (err) {
     console.error('[telephony:voice:twiml]', err.message);
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+  }
+});
+
+// POST|GET /api/telephony/voice/twiml/wait — session: called when lead hangs up, keeps agent on line
+router.all('/telephony/voice/twiml/wait', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    const q = req.query || {};
+    const workspaceId = String(q.workspaceId || '').trim();
+    const from = String(q.from || '').trim();
+    const pollUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/poll', { workspaceId, from });
+    if (!pollUrl) {
+      return res.type('text/xml').send(
+        '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Session error.</Say><Hangup/></Response>',
+      );
+    }
+    res.type('text/xml').send(
+      `<?xml version="1.0" encoding="UTF-8"?><Response><Redirect>${xmlEscape(pollUrl)}</Redirect></Response>`,
+    );
+  } catch (err) {
+    console.error('[twiml:wait]', err.message);
+    res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
+  }
+});
+
+// POST|GET /api/telephony/voice/twiml/poll — session: check for next queued lead
+router.all('/telephony/voice/twiml/poll', async (req, res) => {
+  try {
+    if (!telephonyAuthorized(req)) return res.status(401).send('Unauthorized');
+    const q = req.query || {};
+    const workspaceId = String(q.workspaceId || '').trim();
+    const from = String(q.from || process.env.SIGNALWIRE_FROM_NUMBER || '').trim();
+    const voiceLang = String(process.env.TELEPHONY_VOICE_LANGUAGE || 'en-US').trim();
+    const voiceName = String(process.env.TELEPHONY_VOICE_NAME || 'alice').trim();
+
+    function pollAgain() {
+      const u = signalwire.buildAppUrl('/api/telephony/voice/twiml/poll', { workspaceId, from });
+      if (!u) {
+        return '<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>';
+      }
+      return `<?xml version="1.0" encoding="UTF-8"?><Response><Pause length="3"/><Redirect>${xmlEscape(u)}</Redirect></Response>`;
+    }
+
+    const session = agentSessionStore.getSession(workspaceId);
+    if (!session) {
+      return res.type('text/xml').send(
+        '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Calling session ended. Goodbye.</Say><Hangup/></Response>',
+      );
+    }
+
+    const nextLeadKey = agentSessionStore.popNextLead(workspaceId);
+    if (!nextLeadKey) {
+      return res.type('text/xml').send(pollAgain());
+    }
+
+    try {
+      const lead = await dbService.getLead(nextLeadKey);
+      if (!lead || !lead.phone) {
+        // Lead not found or no phone — skip and poll again
+        return res.type('text/xml').send(pollAgain());
+      }
+
+      const dialTo = signalwire.normalizePhone(lead.phone);
+      const callerId = from;
+      const waitUrl = signalwire.buildAppUrl('/api/telephony/voice/twiml/wait', { workspaceId, from: callerId });
+
+      const dialAction = waitUrl ? ` action="${xmlEscape(waitUrl)}"` : '';
+
+      res.type('text/xml').send(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="${xmlEscape(voiceName)}" language="${xmlEscape(voiceLang)}">Next lead.</Say><Dial answerOnBridge="true" timeout="45" callerId="${xmlEscape(callerId)}"${dialAction}><Number>${xmlEscape(dialTo)}</Number></Dial></Response>`,
+      );
+    } catch (lookupErr) {
+      console.error('[twiml:poll:lookup]', lookupErr.message);
+      return res.type('text/xml').send(pollAgain());
+    }
+  } catch (err) {
+    console.error('[twiml:poll]', err.message);
     res.type('text/xml').send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>');
   }
 });

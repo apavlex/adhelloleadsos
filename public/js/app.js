@@ -3640,12 +3640,70 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (nextLeadBtn) {
-        nextLeadBtn.addEventListener('click', (e) => {
+        nextLeadBtn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const nav = navigableRows();
             const idx = currentRow ? nav.indexOf(currentRow) : -1;
-            if (idx >= 0 && idx < nav.length - 1) selectRow(nav[idx + 1]);
+            if (idx >= 0 && idx < nav.length - 1) {
+                const nextRow = nav[idx + 1];
+                selectRow(nextRow);
+                // Auto-call the next lead if a continuous calling session is active
+                autoCallIfSessionActive(nextRow);
+            }
         });
+    }
+
+    // Check if a continuous agent calling session is active, and auto-call the lead
+    async function autoCallIfSessionActive(row) {
+        if (!row || !row.dataset || !row.dataset.leadKey) return;
+        try {
+            const statusRes = await fetch('/leads/telephony/session/status', {
+                credentials: 'same-origin',
+            });
+            const statusData = await statusRes.json().catch(() => ({}));
+            if (!statusData || !statusData.active) return;
+
+            const key = row.dataset.leadKey;
+            const phone = splitPhoneNumbers(row.dataset.phone)[0];
+            if (!phone) return;
+
+            // Call via session — the backend will queue it instead of placing a new call
+            await requestLeadCallByKey(key, phone);
+        } catch (_) {
+            // Silently ignore — session check or call may fail if session just ended
+        }
+    }
+
+    // Poll session status periodically to update UI indicators
+    let sessionPollTimer = null;
+    async function pollSessionStatus() {
+        try {
+            const res = await fetch('/leads/telephony/session/status', {
+                credentials: 'same-origin',
+            });
+            const data = await res.json().catch(() => ({}));
+            updateSessionBadge(data && data.active, data && data.queuedCount);
+        } catch (_) {
+            updateSessionBadge(false, 0);
+        }
+    }
+
+    function updateSessionBadge(active, queuedCount) {
+        const badge = document.getElementById('sessionCallBadge');
+        if (!badge) return;
+        if (active) {
+            badge.classList.remove('hidden');
+            badge.textContent = queuedCount > 0 ? `📞 ${queuedCount} queued` : '📞 Active';
+            badge.className = badge.className.replace(/bg-\\S+/g, 'bg-emerald-600');
+        } else {
+            badge.classList.add('hidden');
+        }
+    }
+
+    // Start polling if next/prev buttons exist (indicating we're on a page with lead panels)
+    if (nextLeadBtn || prevLeadBtn) {
+        pollSessionStatus();
+        sessionPollTimer = setInterval(pollSessionStatus, 10000); // every 10s
     }
 
     // Close mobile panel on backdrop click

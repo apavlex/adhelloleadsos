@@ -50,6 +50,7 @@ const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const { getMapPreviewImage } = require('../services/mapPreview');
 const signalwire = require('../services/signalwire');
+const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
 
@@ -1059,7 +1060,39 @@ router.post('/:key/call', async (req, res, next) => {
             'Set your mobile number in Workspace → Phone number bank (Agent / your phone) for agent-first calling.',
         });
       }
+
+      // ── Session mode: if a session is already active, queue this lead instead of placing a new call ──
+      const existingSession = agentSessionStore.getSession(req.workspaceId);
+      if (existingSession) {
+        const queued = agentSessionStore.queueNextLead(req.workspaceId, fullKey);
+        if (queued) {
+          const updates = appendLeadUpdate(lead, {
+            type: 'call_queued',
+            value: `Queued for active calling session (${lead.phone || 'unknown number'}).`,
+            provider: 'signalwire',
+          });
+          const updatedLead = await dbService.updateLead(fullKey, {
+            status: 'Queued for Call',
+            updates,
+            logs: [
+              {
+                type: 'call_queued',
+                message: `Queued for continuous calling session`,
+                timestamp: new Date().toISOString(),
+              },
+            ],
+          });
+          return res.json({
+            success: true,
+            sessionActive: true,
+            queued: true,
+            lead: updatedLead,
+          });
+        }
+        return res.status(400).json({ success: false, error: 'Failed to queue lead in active session.' });
+      }
     }
+
     const telephony = ws && ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
     const fromPick = dialerPacing.selectCallerIdForDial({
       workspace: ws,
@@ -1079,6 +1112,7 @@ router.post('/:key/call', async (req, res, next) => {
       from: fromPick.from,
       agentFirst: callMode === 'agent_first',
       agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
+      session: callMode === 'agent_first',  // enable continuous session for agent-first mode
     });
     dialerPacing.recordDialAttempt(telephony, {
       from: fromPick.from,
@@ -1088,6 +1122,17 @@ router.post('/:key/call', async (req, res, next) => {
       callSid: call.sid || '',
     });
     await dbService.saveWorkspace(req.workspaceId, ws);
+
+    // ── Create agent session for continuous calling ──
+    if (callMode === 'agent_first' && call.sid) {
+      agentSessionStore.createSession(req.workspaceId, {
+        callSid: call.sid,
+        agentTo: resolveAgentFirstNumber(ws),
+        from: fromPick.from,
+        queuedLeadKeys: [],
+      });
+    }
+
     const updates = appendLeadUpdate(lead, {
       type: 'call_outbound',
       value: `Outbound call initiated (${lead.phone || 'unknown number'}).`,
@@ -1107,7 +1152,13 @@ router.post('/:key/call', async (req, res, next) => {
         },
       ],
     });
-    res.json({ success: true, callSid: call.sid || null, callerId: fromPick.from, lead: updatedLead });
+    res.json({
+      success: true,
+      callSid: call.sid || null,
+      callerId: fromPick.from,
+      lead: updatedLead,
+      sessionActive: callMode === 'agent_first',
+    });
   } catch (err) {
     next(err);
   }
@@ -1477,6 +1528,67 @@ router.post('/telephony/call-control', async (req, res, next) => {
       success: false,
       error: 'Unsupported action. Use hangup, record_start, or record_stop.',
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── Continuous Agent-First Calling Session ──────────────────────────────────
+
+// GET /leads/telephony/session/status — check if a continuous calling session is active
+router.get('/telephony/session/status', async (req, res, next) => {
+  try {
+    const session = agentSessionStore.getSession(req.workspaceId);
+    if (!session) {
+      return res.json({ success: true, active: false });
+    }
+    return res.json({
+      success: true,
+      active: true,
+      callSid: session.callSid,
+      queuedCount: (session.queuedLeadKeys || []).length,
+      currentLeadKey: session.currentLeadKey || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/session/next — queue a lead for the active session
+router.post('/telephony/session/next', express.json(), async (req, res, next) => {
+  try {
+    const leadKey = String((req.body && req.body.leadKey) || '').trim();
+    if (!leadKey) {
+      return res.status(400).json({ success: false, error: 'leadKey is required.' });
+    }
+    const session = agentSessionStore.getSession(req.workspaceId);
+    if (!session) {
+      return res.status(400).json({ success: false, error: 'No active calling session.' });
+    }
+    const queued = agentSessionStore.queueNextLead(req.workspaceId, leadKey);
+    return res.json({ success: true, queued, queuedCount: (session.queuedLeadKeys || []).length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/session/end — end the continuous calling session
+router.post('/telephony/session/end', express.json(), async (req, res, next) => {
+  try {
+    const session = agentSessionStore.getSession(req.workspaceId);
+    if (!session) {
+      return res.json({ success: true, message: 'No active session.' });
+    }
+    // Hang up the agent's call via REST API
+    if (session.callSid) {
+      try {
+        await signalwire.completeCall(session.callSid);
+      } catch (hangupErr) {
+        console.error('[session:end] hangup failed:', hangupErr.message);
+      }
+    }
+    agentSessionStore.removeSession(req.workspaceId);
+    return res.json({ success: true, message: 'Session ended.' });
   } catch (err) {
     next(err);
   }

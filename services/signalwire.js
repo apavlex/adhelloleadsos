@@ -408,7 +408,12 @@ function buildAppUrl(path, params) {
   const base = cfg.baseUrl;
   if (!base) return '';
   const u = new URL(path, `${base}/`);
-  const qp = new URLSearchParams(params || {});
+  const qp = new URLSearchParams();
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      if (v != null && v !== '') qp.set(k, String(v));
+    });
+  }
   if (cfg.webhookToken) qp.set('token', cfg.webhookToken);
   qp.forEach((v, k) => u.searchParams.set(k, v));
   return u.toString();
@@ -455,6 +460,7 @@ async function createLeadCall(opts) {
         agentFirst: '1',
         dialTo: leadTo,
         bridgeFrom: from,
+        session: (opts && opts.session) ? '1' : undefined,
       })
     : buildAppUrl('/api/telephony/voice/twiml', {
         leadKey,
@@ -523,6 +529,18 @@ async function completeCall(callSid) {
   const sid = String(callSid || '').trim();
   if (!sid) throw new Error('Call SID is required.');
   return postForm(`/Calls/${encodeURIComponent(sid)}.json`, { Status: 'completed' });
+}
+
+/**
+ * Redirect an in-progress call to new TwiML instructions.
+ * Uses SignalWire LaML REST API: POST /Calls/{CallSid}.json with Url param.
+ * This lets the agent stay on the line while the call is redirected to dial a new lead.
+ */
+async function redirectCall(callSid, url) {
+  const sid = String(callSid || '').trim();
+  if (!sid) throw new Error('Call SID is required.');
+  if (!url || typeof url !== 'string') throw new Error('Redirect URL is required.');
+  return postForm(`/Calls/${encodeURIComponent(sid)}.json`, { Url: url });
 }
 
 /**
@@ -621,6 +639,7 @@ module.exports = {
   sendSms,
   getCall,
   completeCall,
+  redirectCall,
   extractRecordingSid,
   startCallRecording,
   stopCallRecording,

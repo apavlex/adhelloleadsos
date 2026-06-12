@@ -1,0 +1,423 @@
+{
+  "date": "2026-06-09",
+  "totalLeads": 10,
+  "byCity": {
+    "Portland": {
+      "keyword": "hvac",
+      "count": 5,
+      "leads": [
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Bull Mountain Heating & Cooling",
+            "phone": "(503) 612-6677",
+            "website": "https://bullmountainheating.com",
+            "reviewsCount": 85,
+            "rating": 4.9,
+            "city": "Portland",
+            "state": "OR"
+          },
+          "auditScore": 61,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your Bull Mountain Heating & Cooling Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"hvac\" searches in Portland.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Bull Mountain Heating & Cooling team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne hvac company in Portland went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Bull Mountain Heating & Cooling team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "AAA Heating & Cooling",
+            "phone": "(503) 284-2173",
+            "website": "https://aaaheatingandcoolinginc.com",
+            "reviewsCount": 120,
+            "rating": 4.9,
+            "city": "Portland",
+            "state": "OR"
+          },
+          "auditScore": 65,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your AAA Heating & Cooling Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"hvac\" searches in Portland.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi AAA Heating & Cooling team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne hvac company in Portland went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi AAA Heating & Cooling team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Pyramid Heating & Cooling",
+            "phone": "(503) 783-8488",
+            "website": "https://www.pyramidheating.com",
+            "reviewsCount": 200,
+            "rating": 4.8,
+            "city": "Portland",
+            "state": "OR"
+          },
+          "auditScore": 65,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your Pyramid Heating & Cooling Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"hvac\" searches in Portland.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Pyramid Heating & Cooling team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne hvac company in Portland went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Pyramid Heating & Cooling team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Sunset Heating & Cooling",
+            "phone": "(503) 500-5855",
+            "website": "https://www.sunsethc.com",
+            "reviewsCount": 150,
+            "rating": 4.8,
+            "city": "Portland",
+            "state": "OR"
+          },
+          "auditScore": 65,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your Sunset Heating & Cooling Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"hvac\" searches in Portland.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Sunset Heating & Cooling team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne hvac company in Portland went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Sunset Heating & Cooling team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Jacobs Heating & Air Conditioning, Inc.",
+            "phone": "(503) 234-7331",
+            "website": "https://jacobsheating.com",
+            "reviewsCount": 45,
+            "rating": 4.3,
+            "city": "Portland",
+            "state": "OR"
+          },
+          "auditScore": 52,
+          "auditGrade": "D",
+          "draft": {
+            "subject": "Quick question about your Jacobs Heating & Air Conditioning, Inc. Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"hvac\" searches in Portland.\n\nHere's what I found:\n• Only 45 reviews — Competitors average 80-120. Launch a review-generation campaign.\n• 4.3 stars — good but improvable — Push for 4.5+ with a review response strategy\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Jacobs Heating & Air Conditioning, Inc. team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne hvac company in Portland went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Jacobs Heating & Air Conditioning, Inc. team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "MEDIUM",
+              "cat": "Reviews",
+              "issue": "Only 45 reviews",
+              "action": "Competitors average 80-120. Launch a review-generation campaign."
+            },
+            {
+              "priority": "MEDIUM",
+              "cat": "Rating",
+              "issue": "4.3 stars — good but improvable",
+              "action": "Push for 4.5+ with a review response strategy"
+            },
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        }
+      ]
+    },
+    "Seattle": {
+      "keyword": "plumbing",
+      "count": 5,
+      "leads": [
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Gene Johnson Plumbing",
+            "phone": "(360) 218-7611",
+            "website": "https://www.genejohnsonplumbing.com",
+            "reviewsCount": 95,
+            "rating": 4.8,
+            "city": "Seattle",
+            "state": "WA"
+          },
+          "auditScore": 61,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your Gene Johnson Plumbing Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"plumbing\" searches in Seattle.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Gene Johnson Plumbing team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne plumbing company in Seattle went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Gene Johnson Plumbing team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Beacon Plumbing, Heating, Electrical & Mechanical Inc",
+            "phone": "(206) 365-0376",
+            "website": "https://www.beaconplumbing.net",
+            "reviewsCount": 60,
+            "rating": 4.5,
+            "city": "Seattle",
+            "state": "WA"
+          },
+          "auditScore": 61,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your Beacon Plumbing, Heating, Electrical & Mechanical Inc Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"plumbing\" searches in Seattle.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Beacon Plumbing, Heating, Electrical & Mechanical Inc team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne plumbing company in Seattle went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Beacon Plumbing, Heating, Electrical & Mechanical Inc team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Best Plumbing",
+            "phone": "(206) 633-1700",
+            "website": "https://bestplumbing.com",
+            "reviewsCount": 180,
+            "rating": 4.6,
+            "city": "Seattle",
+            "state": "WA"
+          },
+          "auditScore": 65,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your Best Plumbing Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"plumbing\" searches in Seattle.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Best Plumbing team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne plumbing company in Seattle went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Best Plumbing team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "2 Sons Plumbing, Sewer, Septic, Electric, Heating & Air",
+            "phone": "(206) 337-4070",
+            "website": "https://www.2sonsplumbing.com",
+            "reviewsCount": 250,
+            "rating": 4.9,
+            "city": "Seattle",
+            "state": "WA"
+          },
+          "auditScore": 65,
+          "auditGrade": "C",
+          "draft": {
+            "subject": "Quick question about your 2 Sons Plumbing, Sewer, Septic, Electric, Heating & Air Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"plumbing\" searches in Seattle.\n\nHere's what I found:\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi 2 Sons Plumbing, Sewer, Septic, Electric, Heating & Air team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne plumbing company in Seattle went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi 2 Sons Plumbing, Sewer, Septic, Electric, Heating & Air team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        },
+        {
+          "leadKey": "saved",
+          "business": {
+            "title": "Craftsman Plumbing",
+            "phone": "(206) 737-2266",
+            "website": "https://craftsman-plumbing.com",
+            "reviewsCount": 40,
+            "rating": 4.8,
+            "city": "Seattle",
+            "state": "WA"
+          },
+          "auditScore": 57,
+          "auditGrade": "D",
+          "draft": {
+            "subject": "Quick question about your Craftsman Plumbing Google listing",
+            "body": "Hi there,\n\nMy name is Alex — I run AdHello, a digital marketing agency.\n\nI noticed your Google Business Profile could be performing better for \"plumbing\" searches in Seattle.\n\nHere's what I found:\n• Only 40 reviews — Competitors average 80-120. Launch a review-generation campaign.\n• No social links on GBP — Add Facebook/Instagram to Google profile\n\nBusinesses with fully optimized Google listings get 2.7x more calls.\n\nI'd like to send you a free 1-page audit — no strings attached.\n\nWant me to send it over?\n\nBest,\nAlex Pavlenko\nAdHello — adhello.ai",
+            "followUpDay3": "Hi Craftsman Plumbing team,\n\nFollowing up — did you get a chance to look at the Google audit?\n\nOne plumbing company in Seattle went from 3 to 14 calls/week just by fixing their profile.\n\nHappy to walk you through it if useful.\n\n— Alex",
+            "followUpDay7": "Hi Craftsman Plumbing team,\n\nLast follow-up. If more calls from Google isn't a priority, no worries.\n\nIf it is, just reply \"send\" and I'll forward the audit.\n\n— Alex"
+          },
+          "recommendations": [
+            {
+              "priority": "MEDIUM",
+              "cat": "Reviews",
+              "issue": "Only 40 reviews",
+              "action": "Competitors average 80-120. Launch a review-generation campaign."
+            },
+            {
+              "priority": "LOW",
+              "cat": "Social",
+              "issue": "No social links on GBP",
+              "action": "Add Facebook/Instagram to Google profile"
+            }
+          ],
+          "source": "local_scraper_fallback"
+        }
+      ]
+    }
+  },
+  "topOpportunities": [
+    {
+      "business": "Jacobs Heating & Air Conditioning, Inc.",
+      "city": "Portland",
+      "score": 52,
+      "grade": "D",
+      "subject": "Quick question about your Jacobs Heating & Air Conditioning, Inc. Google listing",
+      "keyIssues": [
+        "Reviews: Only 45 reviews",
+        "Rating: 4.3 stars — good but improvable",
+        "Social: No social links on GBP"
+      ]
+    },
+    {
+      "business": "Craftsman Plumbing",
+      "city": "Seattle",
+      "score": 57,
+      "grade": "D",
+      "subject": "Quick question about your Craftsman Plumbing Google listing",
+      "keyIssues": [
+        "Reviews: Only 40 reviews",
+        "Social: No social links on GBP"
+      ]
+    },
+    {
+      "business": "Bull Mountain Heating & Cooling",
+      "city": "Portland",
+      "score": 61,
+      "grade": "C",
+      "subject": "Quick question about your Bull Mountain Heating & Cooling Google listing",
+      "keyIssues": [
+        "Social: No social links on GBP"
+      ]
+    }
+  ],
+  "allSubjectLines": [
+    {
+      "business": "Bull Mountain Heating & Cooling",
+      "city": "Portland",
+      "subject": "Quick question about your Bull Mountain Heating & Cooling Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "AAA Heating & Cooling",
+      "city": "Portland",
+      "subject": "Quick question about your AAA Heating & Cooling Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "Pyramid Heating & Cooling",
+      "city": "Portland",
+      "subject": "Quick question about your Pyramid Heating & Cooling Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "Sunset Heating & Cooling",
+      "city": "Portland",
+      "subject": "Quick question about your Sunset Heating & Cooling Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "Jacobs Heating & Air Conditioning, Inc.",
+      "city": "Portland",
+      "subject": "Quick question about your Jacobs Heating & Air Conditioning, Inc. Google listing",
+      "grade": "D"
+    },
+    {
+      "business": "Gene Johnson Plumbing",
+      "city": "Seattle",
+      "subject": "Quick question about your Gene Johnson Plumbing Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "Beacon Plumbing, Heating, Electrical & Mechanical Inc",
+      "city": "Seattle",
+      "subject": "Quick question about your Beacon Plumbing, Heating, Electrical & Mechanical Inc Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "Best Plumbing",
+      "city": "Seattle",
+      "subject": "Quick question about your Best Plumbing Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "2 Sons Plumbing, Sewer, Septic, Electric, Heating & Air",
+      "city": "Seattle",
+      "subject": "Quick question about your 2 Sons Plumbing, Sewer, Septic, Electric, Heating & Air Google listing",
+      "grade": "C"
+    },
+    {
+      "business": "Craftsman Plumbing",
+      "city": "Seattle",
+      "subject": "Quick question about your Craftsman Plumbing Google listing",
+      "grade": "D"
+    }
+  ]
+}
