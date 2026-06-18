@@ -13,6 +13,7 @@ const {
 const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
 
 const pipelineStagesService = require('../services/pipelineStagesService');
+const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 
 function stageLabelFromLead(l, sortedStages) {
@@ -30,6 +31,62 @@ function formatLastTouchDisplay(l) {
   if (!t) return '—';
   const d = new Date(t);
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function pickHeuristicServiceKey(lead) {
+  const existing =
+    (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) ||
+    lead.primaryServiceKey ||
+    '';
+  if (SCRIPT_LIBRARY_KEYS.includes(existing)) return existing;
+
+  const website = !!(lead.website && lead.website !== 'N/A');
+  const reviews = parseInt(lead.reviewsCount, 10) || 0;
+  const rating = parseFloat(lead.totalScore) || 0;
+
+  if (!website || lead.isOutdated === true || lead.isMobileFriendly === false) return 'aiWebsites';
+  if (reviews < 25 || (rating > 0 && rating < 4.3)) return 'reputation';
+  if (lead.hasChatbot === false || lead.hasClickToCall === false) return 'speedToLeadAgent';
+  if (lead.aeoScore != null && parseInt(lead.aeoScore, 10) < 55) return 'reputation';
+  return 'aiWebsites';
+}
+
+function buildBusinessNeedsPayload(l) {
+  const insight = l.kieServiceInsight && typeof l.kieServiceInsight === 'object' ? l.kieServiceInsight : null;
+  const analysis = l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object' ? l.aiWebsiteAnalysis : null;
+
+  let topGapLabels = [];
+  if (analysis) {
+    topGapLabels =
+      Array.isArray(analysis.topGapLabels) && analysis.topGapLabels.length
+        ? analysis.topGapLabels.slice(0, 4)
+        : websiteAiAnalysis.computeTopGapLabels(analysis, 3);
+  }
+
+  const ownerSignal = String(l.ownerSignal || '').trim();
+  const signal = ownerSignal || (analysis ? websiteAiAnalysis.buildOwnerSignal(l, analysis) : '');
+
+  const serviceKey =
+    String(l.primaryServiceKey || '').trim() ||
+    (insight && insight.primaryServiceKey) ||
+    pickHeuristicServiceKey(l);
+  const serviceDef = SCRIPT_LIBRARY[serviceKey] || null;
+
+  const primaryServiceLabel =
+    (insight && insight.primaryServiceLabel) || (serviceDef && serviceDef.label) || '';
+  const rationale = (insight && insight.rationale) || String(l.auditSummary || '').trim();
+  const talkTrack = (insight && insight.talkTrack) || '';
+  const headline = signal || rationale || '';
+
+  return {
+    headline,
+    topGapLabels,
+    primaryServiceKey: serviceKey,
+    primaryServiceLabel,
+    rationale,
+    talkTrack,
+    hasCachedInsight: !!(insight && insight.rationale),
+  };
 }
 
 function leadToFocusPayload(l, sortedStages) {
@@ -69,6 +126,7 @@ function leadToFocusPayload(l, sortedStages) {
     reviewsCount: Number.isFinite(parseInt(l.reviewsCount, 10)) ? parseInt(l.reviewsCount, 10) : 0,
     totalScore: Number.isFinite(parseFloat(l.totalScore)) ? parseFloat(l.totalScore) : 0,
     ownerSignal: String(l.ownerSignal || '').trim(),
+    businessNeeds: buildBusinessNeedsPayload(l),
     hasAiWebsiteAnalysis: !!(l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object'),
     hasAiToolsAssessment: !!(l.aiToolsAssessment && typeof l.aiToolsAssessment === 'object'),
     defaultChannel,

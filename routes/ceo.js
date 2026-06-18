@@ -3,6 +3,8 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail } = require('../services/workspaceService');
 const { chatCompletion } = require('../services/llmClient');
+const workspaceIntegrations = require('../services/workspaceIntegrations');
+const ghlClient = require('../services/ghlClient');
 
 /**
  * GET /ceo — CEO Dashboard showing all ventures in one view.
@@ -107,6 +109,9 @@ router.get('/', async (req, res) => {
     });
 
     // ── System Status ──────────────────────────────────────────────────────
+    const wid = req.workspaceId || 'default';
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    const ghlConfigured = ghlClient.isConfigured(integrationEnv);
     const systems = [
       { name: 'AdHello.ai Website', status: 'live' },
       { name: 'Leads OS API', status: 'live' },
@@ -114,7 +119,7 @@ router.get('/', async (req, res) => {
       { name: 'GBP Audit Generator', status: 'live' },
       { name: 'Cron Jobs', status: 'active' },
       { name: 'Google Drive Sync', status: 'active' },
-      { name: 'GHL Integration', status: 'pending' },
+      { name: 'GHL Integration', status: ghlConfigured ? 'live' : 'pending' },
     ];
 
     // ── Tasks by column for kanban ──────────────────────────────────────────

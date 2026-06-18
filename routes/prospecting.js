@@ -31,6 +31,7 @@ router.get('/', async (req, res, next) => {
     const pipelineVisible = excludeOutreachFolderLeads(visible);
     const wid = req.workspaceId;
     const folders = await dbService.listFolders(wid);
+    const tags = await dbService.listTags(wid);
 
     const allSchedules = await dbService.listSchedules();
     const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
@@ -129,6 +130,7 @@ router.get('/', async (req, res, next) => {
       leadCount: pipelineVisible.length,
       activeFolderKey,
       folders,
+      tags,
       schedules: schedulesSorted,
       scheduleSuccess,
       queueListLeads,

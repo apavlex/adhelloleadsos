@@ -251,6 +251,68 @@
       <p class="text-xs text-brand-muted mt-3 leading-relaxed">The interactive map on Find Leads uses <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server (Render env), not this form.</p>
     </div>
 
+    <div>
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">CRM</p>
+      <section id="ghl-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
+        <%- include('../../partials/ghl_connection_banner', { ghlStatus: typeof ghlStatus !== 'undefined' ? ghlStatus : {} }) %>
+        <header class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Go High Level</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">
+              Push and pull pipeline leads as GHL contacts. Sub-agents use
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">POST /autonomous/ghl/push</code> and
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">/pull</code>.
+            </p>
+          </div>
+          <a href="/workspace/integrations/ghl-setup" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">
+            Setup guide →
+          </a>
+        </header>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Private integration token</label>
+            <% if (masks.ghlApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlApiKey %></p><% } %>
+            <input type="password" name="ghlApiKey" autocomplete="off" placeholder="GHL API key (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.ghlApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Location ID</label>
+            <% if (masks.ghlLocationId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlLocationId %></p><% } %>
+            <input type="text" name="ghlLocationId" autocomplete="off" placeholder="Sub-account location ID" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.ghlLocationId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlLocationId_clear" value="1" /> Remove</label><% } %>
+          </div>
+        </div>
+        <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (GHL → Agency OS)</p>
+          <p class="text-xs text-brand-muted leading-relaxed">In GHL, subscribe to <strong>ContactCreate</strong> and <strong>ContactUpdate</strong> and point the webhook URL below at this workspace. Contacts sync in real time when the location ID matches.</p>
+          <% const _ghlHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+          <% const _ghlHasSavedToken = !!masks.ghlWebhookSecret; %>
+          <% const _ghlHasServerToken = (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>
+          <div class="flex flex-wrap items-center gap-2">
+            <% if (_ghlHasSavedToken || _ghlHasServerToken) { %>
+            <code id="ghlWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _ghlHookBase %>/api/webhooks/ghl?token=<% if (_ghlHasSavedToken) { %>••••••••<% } else { %>configured-on-server<% } %></code>
+            <button type="button" id="copyGhlWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
+            <% } else { %>
+            <p class="text-xs text-brand-muted">Save a webhook token below (or set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GHL_WEBHOOK_SECRET</code> on the server) to reveal the full URL.</p>
+            <% } %>
+          </div>
+          <div class="pt-1">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Webhook token (optional per-workspace)</label>
+            <% if (masks.ghlWebhookSecret) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlWebhookSecret %></p><% } %>
+            <input type="password" name="ghlWebhookSecret" autocomplete="off" placeholder="Leave blank to use server GHL_WEBHOOK_SECRET" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.ghlWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlWebhookSecret_clear" value="1" /> Remove</label><% } %>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 pt-2 border-t border-brand-border/30 dark:border-white/10">
+          <button type="button" class="js-ghl-sync rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50" data-direction="pull">Pull from GHL</button>
+          <button type="button" class="js-ghl-sync rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50" data-direction="push">Push to GHL</button>
+          <button type="button" class="js-ghl-sync rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors disabled:opacity-50" data-direction="both">Sync both ways</button>
+          <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1 basis-full sm:basis-auto sm:ml-2" aria-live="polite"></p>
+        </div>
+      </section>
+    </div>
+
     <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-brand-border/40 dark:border-white/10">
       <button type="submit" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest">Save integrations</button>
       <button type="button" id="testIntegrationsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-6 py-3 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/20">Test &amp; save all</button>
@@ -283,7 +345,54 @@
     if (!text) return;
     if (ok) el.classList.add('text-emerald-700', 'dark:text-emerald-300');
     else el.classList.add('text-red-700', 'dark:text-red-300');
+    if (provider === 'ghl' && ok) refreshGhlConnectionBanner(true, text);
+    if (provider === 'ghl' && !ok) refreshGhlConnectionBanner(false, text);
   }
+
+  function refreshGhlConnectionBanner(connected, message) {
+    var banner = document.getElementById('ghlConnectionBanner');
+    if (!banner) return;
+    banner.setAttribute('data-ghl-connected', connected ? '1' : '0');
+    banner.setAttribute('data-ghl-configured', '1');
+    banner.className = 'rounded-xl border px-4 py-3 flex flex-wrap items-start gap-3 ' +
+      (connected
+        ? 'border-emerald-500/40 bg-emerald-500/10'
+        : 'border-amber-500/40 bg-amber-500/10');
+    var dot = banner.querySelector('span[aria-hidden="true"]');
+    if (dot) {
+      dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 mt-1 ' + (connected ? 'bg-emerald-500' : 'bg-amber-500');
+    }
+    var body = banner.querySelector('.min-w-0.flex-1');
+    if (!body) return;
+    if (connected) {
+      body.innerHTML =
+        '<p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Connected to Go High Level</p>' +
+        '<p class="text-xs text-emerald-800/90 dark:text-emerald-200/90 leading-relaxed">' +
+        (message || 'API key and location ID verified.') +
+        '</p>';
+    } else {
+      body.innerHTML =
+        '<p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Credentials saved — not verified</p>' +
+        '<p class="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed">' +
+        (message || 'Check your API key and location ID.') +
+        '</p>';
+    }
+  }
+
+  function verifyGhlConnectionOnLoad() {
+    var banner = document.getElementById('ghlConnectionBanner');
+    if (!banner || banner.getAttribute('data-ghl-connected') === '1') return;
+    if (banner.getAttribute('data-ghl-configured') !== '1') return;
+    fetch('/ghl/status?verify=1', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.success) return;
+        if (data.connected) refreshGhlConnectionBanner(true, data.connectionMessage);
+        else refreshGhlConnectionBanner(false, data.connectionError || 'Connection test failed');
+      })
+      .catch(function () {});
+  }
+  verifyGhlConnectionOnLoad();
 
   document.querySelectorAll('.js-integration-test').forEach(function (btn) {
     btn.addEventListener('click', async function () {
@@ -352,6 +461,56 @@
       testAllBtn.disabled = false;
       testAllBtn.textContent = prev;
     }
+  });
+
+  var ghlMsg = document.getElementById('ghlSyncMsg');
+  var copyGhlBtn = document.getElementById('copyGhlWebhookUrl');
+  if (copyGhlBtn) {
+    copyGhlBtn.addEventListener('click', function () {
+      var el = document.getElementById('ghlWebhookUrl');
+      var text = el ? el.textContent : '';
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          copyGhlBtn.textContent = 'Copied';
+          setTimeout(function () { copyGhlBtn.textContent = 'Copy URL'; }, 2000);
+        });
+      }
+    });
+  }
+  document.querySelectorAll('.js-ghl-sync').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var direction = btn.getAttribute('data-direction') || 'both';
+      var prev = btn.textContent;
+      btn.disabled = true;
+      if (ghlMsg) ghlMsg.textContent = 'Syncing…';
+      try {
+        var res = await fetch('/ghl/sync', {
+          method: 'POST',
+          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+          body: JSON.stringify({ direction: direction, maxPages: 3, pushLimit: 200 }),
+        });
+        var data = await res.json();
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Sync failed');
+        var parts = [];
+        if (data.pull) parts.push('Pull: ' + (data.pull.pulled || 0) + ' (' + (data.pull.created || 0) + ' new, ' + (data.pull.updated || 0) + ' updated)');
+        if (data.push) parts.push('Push: ' + (data.push.pushed || 0) + '/' + (data.push.total || 0));
+        if (ghlMsg) {
+          ghlMsg.textContent = '✅ ' + (parts.length ? parts.join(' · ') : 'Done');
+          ghlMsg.classList.remove('text-red-700', 'dark:text-red-300');
+          ghlMsg.classList.add('text-emerald-700', 'dark:text-emerald-300');
+        }
+      } catch (e) {
+        if (ghlMsg) {
+          ghlMsg.textContent = '❌ ' + (e && e.message ? e.message : 'Sync failed');
+          ghlMsg.classList.remove('text-emerald-700', 'dark:text-emerald-300');
+          ghlMsg.classList.add('text-red-700', 'dark:text-red-300');
+        }
+      } finally {
+        btn.disabled = false;
+        btn.textContent = prev;
+      }
+    });
   });
 })();
 </script>

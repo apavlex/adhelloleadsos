@@ -194,6 +194,12 @@ function normalizeLeadForPanel(lead) {
   if (totalScore > 0) out.totalScore = totalScore;
   if (reviewsCount > 0) out.reviewsCount = reviewsCount;
 
+  if (Array.isArray(lead.tags)) {
+    out.tags = [...new Set(lead.tags.map((t) => String(t || '').trim()).filter(Boolean))];
+  } else if (!Array.isArray(out.tags)) {
+    out.tags = [];
+  }
+
   return out;
 }
 

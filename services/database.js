@@ -721,6 +721,82 @@ module.exports = {
     }
   },
 
+  // --- Tags (workspace label catalog + per-lead tag keys) ---
+
+  normalizeTagKeys(raw) {
+    if (!Array.isArray(raw)) return [];
+    return [...new Set(raw.map((k) => String(k || '').trim()).filter(Boolean))];
+  },
+
+  async listTags(workspaceId) {
+    const wid = workspaceId || 'default';
+    const keys = kvList(`tag:${wid}:`);
+    const out = [];
+    for (const key of keys) {
+      const raw = kvGet(key);
+      if (!raw) continue;
+      const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      out.push({ key, ...t });
+    }
+    return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+  },
+
+  async createTag(workspaceId, name) {
+    const wid = workspaceId || 'default';
+    const label = String(name || '').trim();
+    if (!label) throw new Error('Tag name is required.');
+    const palette = ['#eab308', '#3b82f6', '#10b981', '#f43f5e', '#8b5cf6', '#f97316', '#06b6d4', '#ec4899'];
+    const key = `tag:${wid}:${Date.now()}`;
+    const tag = {
+      name: label,
+      color: palette[Math.floor(Math.random() * palette.length)],
+      workspaceId: wid,
+      createdAt: new Date().toISOString(),
+    };
+    kvSet(key, JSON.stringify(tag));
+    return { key, ...tag };
+  },
+
+  async renameTag(workspaceId, tagKey, name) {
+    const wid = workspaceId || 'default';
+    const fullKey = tagKey.startsWith('tag:') ? tagKey : `tag:${wid}:${tagKey}`;
+    const raw = kvGet(fullKey);
+    if (!raw) return null;
+    const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if ((existing.workspaceId || 'default') !== wid) return null;
+    const updated = {
+      ...existing,
+      name: String(name || '').trim(),
+      updatedAt: new Date().toISOString(),
+    };
+    kvSet(fullKey, JSON.stringify(updated));
+    return { key: fullKey, ...updated };
+  },
+
+  async deleteTag(workspaceId, tagKey) {
+    const wid = workspaceId || 'default';
+    const fullKey = tagKey.startsWith('tag:') ? tagKey : `tag:${wid}:${tagKey}`;
+    const raw = kvGet(fullKey);
+    if (raw) {
+      const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if ((existing.workspaceId || 'default') === wid) {
+        kvDelete(fullKey);
+      }
+    }
+    const leads = await this.getAllLeads(wid);
+    for (const lead of leads) {
+      const tags = this.normalizeTagKeys(lead.tags);
+      if (!tags.includes(fullKey)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      await this.updateLead(lead.key, { tags: tags.filter((t) => t !== fullKey) });
+    }
+  },
+
+  async setLeadTags(leadKey, tagKeys) {
+    const tags = this.normalizeTagKeys(tagKeys);
+    return this.updateLead(leadKey, { tags });
+  },
+
   // --- Schedules ---
 
   async saveSchedule(scheduleData) {

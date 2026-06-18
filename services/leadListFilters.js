@@ -87,6 +87,13 @@ function applyLeadListFilters(leads, filters) {
   const folderKey = String(filters.folderKey || '').trim();
   if (folderKey) {
     out = out.filter((l) => String(l.folderKey || '') === folderKey);
+  }
+  const tagKey = String(filters.tagKey || '').trim();
+  if (tagKey) {
+    out = out.filter((l) => {
+      const tags = Array.isArray(l.tags) ? l.tags : [];
+      return tags.some((t) => String(t) === tagKey);
+    });
   } else if (filters.excludeFolderAssigned) {
     out = excludeOutreachFolderLeads(out);
   }
@@ -151,6 +158,7 @@ function mapLeadListJson(l) {
     pipelineStage: l.pipelineStage,
     status: l.status,
     folderKey: l.folderKey || '',
+    tags: Array.isArray(l.tags) ? l.tags : [],
     source: l.source || '',
     reviewsCount: l.reviewsCount ?? 0,
     totalScore: l.totalScore ?? 0,
@@ -168,6 +176,7 @@ const LEAD_LIST_FILTER_KEYS = [
   'addedFrom',
   'addedTo',
   'folderKey',
+  'tagKey',
 ];
 
 function normalizeLeadListFilters(query) {

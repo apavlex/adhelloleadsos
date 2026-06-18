@@ -51,6 +51,23 @@
       </div>
       <p class="text-[11px] font-bold uppercase tracking-wider text-brand-muted mb-4">Last touch <span id="focus-last-touch" class="text-brand-dark dark:text-white normal-case">—</span></p>
 
+      <div
+        id="focus-business-needs"
+        class="mb-6 rounded-2xl border-2 border-brand-yellow/40 dark:border-amber-500/35 bg-gradient-to-br from-brand-yellow/18 via-brand-yellow/8 to-white/40 dark:from-amber-500/15 dark:via-amber-500/5 dark:to-slate-900/40 px-4 py-4 shadow-sm"
+        aria-label="What this business needs"
+      >
+        <div class="flex flex-wrap items-start justify-between gap-3 mb-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow dark:text-amber-300">What they need</p>
+          <span id="focus-needs-offer-pill" class="hidden shrink-0 inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-yellow/50 bg-white/80 dark:bg-slate-900/80 text-brand-dark dark:text-amber-100">—</span>
+        </div>
+        <p id="focus-needs-headline" class="text-sm md:text-[15px] font-bold text-brand-dark dark:text-white leading-snug">—</p>
+        <ul id="focus-needs-gaps" class="hidden mt-3 flex flex-wrap gap-1.5 list-none m-0 p-0" aria-label="Top gaps"></ul>
+        <p id="focus-needs-rationale" class="hidden mt-3 text-xs text-brand-muted dark:text-slate-400 leading-relaxed">—</p>
+        <p id="focus-needs-opener" class="hidden mt-3 text-xs font-semibold text-brand-dark/80 dark:text-slate-300 leading-relaxed"><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted not-italic mr-1">Opener</span><span id="focus-needs-opener-text" class="italic">—</span></p>
+        <p id="focus-needs-loading" class="hidden mt-2 text-[11px] text-brand-muted animate-pulse">Loading AI insight…</p>
+        <p id="focus-needs-empty" class="text-xs text-brand-muted dark:text-slate-500 leading-snug">Run AI Analysis in pipeline to surface what this business needs.</p>
+      </div>
+
       <div id="focus-links" class="flex flex-wrap gap-2 mb-6" aria-label="Contact links"></div>
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
@@ -83,10 +100,6 @@
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">AI review summary</p>
           <p id="focus-review-summary" class="text-[11px] text-brand-muted leading-snug">Loading review summary…</p>
-        </div>
-        <div class="mt-3 rounded-xl border border-sky-300/40 dark:border-sky-700/40 bg-sky-50/60 dark:bg-sky-900/20 p-3">
-          <p class="text-[9px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-300 mb-1">Owner signal</p>
-          <p id="focus-owner-signal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug">Run AI Analysis in pipeline to generate a concrete signal.</p>
         </div>
         <div class="mt-3">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Socials</p>
@@ -208,6 +221,17 @@
         <label for="focus-body" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Outreach draft</label>
         <textarea id="focus-body" rows="10" class="w-full rounded-2xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white font-medium leading-relaxed resize-y min-h-[200px]" placeholder="Draft loads here — edit before you send or log."></textarea>
       </div>
+      <div id="focus-call-dock" class="hidden mb-4 rounded-2xl border border-emerald-500/35 bg-emerald-500/10 dark:bg-emerald-500/15 px-4 py-3 flex flex-wrap items-center gap-2" aria-live="polite" aria-label="Softphone call status">
+        <div class="flex-1 min-w-[10rem]">
+          <p id="focus-call-dock-status" class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200">On call</p>
+          <p id="focus-call-dock-number" class="text-xs font-semibold text-brand-dark dark:text-white tabular-nums truncate">—</p>
+        </div>
+        <button type="button" id="focus-call-dock-open" class="shrink-0 rounded-lg border border-emerald-600/40 bg-white/90 dark:bg-slate-900 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors">Open dialer</button>
+        <button type="button" id="focus-call-dock-hangup" class="shrink-0 rounded-lg bg-rose-600 text-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest hover:bg-rose-500 transition-colors">Hang up</button>
+        <button type="button" id="focus-call-dock-vm-next" class="shrink-0 rounded-lg border border-violet-500/45 bg-violet-600/10 text-violet-800 dark:text-violet-200 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest hover:bg-violet-600/20 transition-colors">Drop VM + next</button>
+        <button type="button" id="focus-call-dock-call-next" class="shrink-0 rounded-lg bg-brand-yellow text-brand-dark px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest hover:bg-amber-400 transition-colors">Call next</button>
+      </div>
+
       <div id="focus-outcome-panel" class="mb-6 md:mb-4 md:sticky md:bottom-4 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 md:bg-white/70 md:dark:bg-slate-900/65 md:backdrop-blur-xl shadow-sm md:shadow-xl p-4 space-y-3">
         <div id="focus-outcome-header" class="flex items-center justify-between gap-2">
           <p id="focus-outcome-heading" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Call outcome + notes</p>
@@ -353,7 +377,14 @@
     var elBizReviews = document.getElementById('focus-biz-reviews');
     var elBizReviewStars = document.getElementById('focus-biz-review-stars');
     var elReviewSummary = document.getElementById('focus-review-summary');
-    var elOwnerSignal = document.getElementById('focus-owner-signal');
+    var elNeedsHeadline = document.getElementById('focus-needs-headline');
+    var elNeedsOfferPill = document.getElementById('focus-needs-offer-pill');
+    var elNeedsGaps = document.getElementById('focus-needs-gaps');
+    var elNeedsRationale = document.getElementById('focus-needs-rationale');
+    var elNeedsOpener = document.getElementById('focus-needs-opener');
+    var elNeedsOpenerText = document.getElementById('focus-needs-opener-text');
+    var elNeedsLoading = document.getElementById('focus-needs-loading');
+    var elNeedsEmpty = document.getElementById('focus-needs-empty');
     var elBizSocials = document.getElementById('focus-biz-socials');
     var btnCopyPhone = document.getElementById('focus-copy-phone');
     var btnCopyEmail = document.getElementById('focus-copy-email');
@@ -395,6 +426,13 @@
     var elScriptVariant = document.getElementById('focus-script-variant');
     var elTone = document.getElementById('focus-tone');
     var btnOpenDialer = document.getElementById('focus-btn-open-dialer');
+    var elFocusCallDock = document.getElementById('focus-call-dock');
+    var elFocusCallDockStatus = document.getElementById('focus-call-dock-status');
+    var elFocusCallDockNumber = document.getElementById('focus-call-dock-number');
+    var btnFocusCallDockOpen = document.getElementById('focus-call-dock-open');
+    var btnFocusCallDockHangup = document.getElementById('focus-call-dock-hangup');
+    var btnFocusCallDockVmNext = document.getElementById('focus-call-dock-vm-next');
+    var btnFocusCallDockCallNext = document.getElementById('focus-call-dock-call-next');
     var elBodyLabel = document.getElementById('focus-body-label');
     var elMobileFabWrap = document.getElementById('focus-mobile-fab-wrap');
     var elMobileFabActions = document.getElementById('focus-mobile-fab-actions');
@@ -451,33 +489,92 @@
       return plus + digits;
     }
 
-    function openDialerForLead() {
+    function focusHasSoftphone() {
+      return typeof window.__adhelloOpenSoftphoneWithDial === 'function';
+    }
+
+    function focusSoftphoneDialLead(lead, autoDial) {
+      if (!lead || !String(lead.phone || '').trim() || String(lead.phone) === 'N/A') return false;
+      if (isMobileViewport()) {
+        var to = normalizeTel(lead.phone);
+        if (!to) return false;
+        window.location.href = 'tel:' + to;
+        return true;
+      }
+      if (!focusHasSoftphone()) return false;
+      return window.__adhelloOpenSoftphoneWithDial(lead.phone, {
+        autoDial: !!autoDial,
+        leadKey: lead.key ? String(lead.key).trim() : '',
+      });
+    }
+
+    function focusSoftphoneWrapRequired() {
+      if (typeof window.__adhelloSoftphoneGetSession !== 'function') return false;
+      var s = window.__adhelloSoftphoneGetSession();
+      return !!(s && s.wrapRequired);
+    }
+
+    function syncFocusCallDock(detail) {
+      if (!elFocusCallDock) return;
+      if (isMobileViewport()) {
+        elFocusCallDock.classList.add('hidden');
+        return;
+      }
+      var d = detail && typeof detail === 'object' ? detail : {};
+      if (typeof window.__adhelloSoftphoneGetSession === 'function' && !d.state) {
+        d = Object.assign({}, window.__adhelloSoftphoneGetSession(), d);
+      }
+      var lead = currentLead();
+      var rowKey = lead && lead.key ? String(lead.key).trim() : '';
+      var sessionKey = String(d.leadKey || '').trim();
+      var state = String(d.state || 'idle').toLowerCase();
+      var active = state === 'dialing' || state === 'in_call' || state === 'ended';
+      var forThisLead = !sessionKey || !rowKey || sessionKey === rowKey;
+      var show = active && forThisLead;
+      elFocusCallDock.classList.toggle('hidden', !show);
+      if (!show) return;
+      if (elFocusCallDockStatus) {
+        var label = 'Call active';
+        if (state === 'dialing') label = 'Dialing · ' + (d.timer || '00:00');
+        else if (state === 'in_call') label = 'On call · ' + (d.timer || '00:00');
+        else if (state === 'ended') label = d.wrapRequired ? 'Wrap-up required' : 'Call ended';
+        elFocusCallDockStatus.textContent = label;
+      }
+      if (elFocusCallDockNumber) {
+        var num = String(d.number || (lead && lead.phone) || '').trim();
+        elFocusCallDockNumber.textContent = num || '—';
+      }
+      if (btnFocusCallDockHangup) {
+        btnFocusCallDockHangup.disabled = !(state === 'dialing' || state === 'in_call');
+      }
+      if (btnFocusCallDockCallNext) {
+        btnFocusCallDockCallNext.disabled = !!d.wrapRequired;
+      }
+    }
+
+    function mapSoftphoneDispositionToFocusOutcome(disp) {
+      var d = String(disp || '').trim().toLowerCase();
+      if (!d) return '';
+      if (d.indexOf('voicemail') !== -1) return 'voicemail';
+      if (d.indexOf('no answer') !== -1) return 'no_pickup';
+      if (d.indexOf('callback') !== -1) return 'callback_requested';
+      if (d.indexOf('connected') !== -1) return 'talked_owner';
+      return 'other';
+    }
+
+    function openDialerForLead(autoDial) {
       var lead = currentLead();
       if (!lead || !String(lead.phone || '').trim()) {
         setCopyFeedback('No phone on this lead.', true);
-        return;
+        return false;
       }
-      if (isMobileViewport()) {
-        var to = normalizeTel(lead.phone);
-        if (!to) {
-          setCopyFeedback('Could not normalize this phone number.', true);
-          return;
-        }
-        setCopyFeedback('Opening your phone app...');
-        window.location.href = 'tel:' + to;
-        return;
+      if (focusSoftphoneDialLead(lead, !!autoDial)) {
+        if (autoDial) setOutcomeFeedback('Dialing via softphone…');
+        else setCopyFeedback('Softphone opened with this lead’s number.');
+        return true;
       }
-      var navSoftphoneBtn = document.getElementById('navSoftphoneOpen') || document.getElementById('navSoftphoneOpenMobile');
-      if (navSoftphoneBtn) navSoftphoneBtn.click();
-      if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
-        if (!window.__adhelloOpenSoftphoneWithDial(lead.phone)) {
-          setCopyFeedback('Could not normalize that phone number for the dialer.', true);
-          return;
-        }
-        setCopyFeedback('Dialer opened with lead number loaded. Press Call in the softphone to dial.');
-      } else {
-        setCopyFeedback('Dialer opened. Copy phone if needed.', false);
-      }
+      setCopyFeedback('Could not open softphone for this lead.', true);
+      return false;
     }
 
     function setChannelHint() {
@@ -489,12 +586,12 @@
       }
       if (currentChannel === 'call-script') {
         elChannelHint.textContent =
-          'Call: rehearse the script. Click Call to dial + advance, or Call next to log + advance + dial next. Log & next auto-dials on mobile.';
+          'Call: dials through the AdHello softphone. Click Call to dial + advance, or Call next to log, advance, and dial the next lead.';
         return;
       }
       if (currentChannel === 'voicemail-drop') {
         elChannelHint.textContent =
-          'Voicemail drop: click Drop voicemail below to run your saved workspace voicemail audio for this lead.';
+          'Voicemail drop: uses the softphone Drop VM + next flow — drops your saved VM, logs, and loads the next lead.';
         return;
       }
       if (currentChannel === 'sms') {
@@ -762,6 +859,16 @@
     function placeFocusCall() {
       var lead = currentLead();
       if (!lead || !lead.key) return Promise.resolve();
+      if (focusHasSoftphone() && !isMobileViewport()) {
+        if (focusSoftphoneWrapRequired()) {
+          setOutcomeFeedback('Complete wrap-up in the softphone before the next dial.', true);
+          return Promise.reject(new Error('wrap required'));
+        }
+        if (focusSoftphoneDialLead(lead, true)) {
+          setOutcomeFeedback('Dialing via softphone…');
+          return Promise.resolve({ softphone: true });
+        }
+      }
       return fetch('/leads/' + encodeURIComponent(lead.key) + '/call', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -792,6 +899,14 @@
     function placeFocusVoicemail() {
       var lead = currentLead();
       if (!lead || !lead.key) return Promise.resolve();
+      if (focusHasSoftphone() && !isMobileViewport()) {
+        focusSoftphoneDialLead(lead, false);
+        if (typeof window.__adhelloSoftphoneRunAction === 'function') {
+          window.__adhelloSoftphoneRunAction('voicemail_drop');
+          setCopyFeedback('Voicemail drop started via softphone.');
+          return Promise.resolve({ softphone: true });
+        }
+      }
       return fetch('/leads/' + encodeURIComponent(lead.key) + '/voicemail-drop', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
@@ -952,13 +1067,99 @@
       }
       applyReviewTone(score, reviews);
       renderReviewStars(score);
-      if (elOwnerSignal) {
-        var ownerSignal = String(lead.ownerSignal || '').trim();
-        elOwnerSignal.textContent = ownerSignal || 'Run AI Analysis in pipeline to generate a concrete signal.';
-      }
-
       renderFocusPipelineSocials(elBizSocials, lead);
       renderFocusMap(lead);
+    }
+
+    function renderBusinessNeeds(lead) {
+      var needs = (lead && lead.businessNeeds) || {};
+      var headline = String(needs.headline || lead.ownerSignal || '').trim();
+      var rationale = String(needs.rationale || '').trim();
+      var talkTrack = String(needs.talkTrack || '').trim();
+      var offerLabel = String(needs.primaryServiceLabel || '').trim();
+      var gaps = Array.isArray(needs.topGapLabels) ? needs.topGapLabels : [];
+      var hasContent = !!(headline || rationale || offerLabel || gaps.length);
+
+      if (elNeedsEmpty) elNeedsEmpty.classList.toggle('hidden', hasContent);
+      if (elNeedsHeadline) {
+        elNeedsHeadline.textContent = headline || rationale || '—';
+      }
+      if (elNeedsRationale) {
+        if (rationale && headline && rationale !== headline) {
+          elNeedsRationale.textContent = rationale;
+          elNeedsRationale.classList.remove('hidden');
+        } else {
+          elNeedsRationale.textContent = '';
+          elNeedsRationale.classList.add('hidden');
+        }
+      }
+      if (elNeedsOfferPill) {
+        if (offerLabel) {
+          elNeedsOfferPill.textContent = offerLabel;
+          elNeedsOfferPill.classList.remove('hidden');
+        } else {
+          elNeedsOfferPill.classList.add('hidden');
+        }
+      }
+      if (elNeedsGaps) {
+        elNeedsGaps.innerHTML = '';
+        if (gaps.length) {
+          elNeedsGaps.classList.remove('hidden');
+          gaps.forEach(function (label) {
+            var li = document.createElement('li');
+            li.className =
+              'inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wide border border-brand-yellow/35 bg-white/70 dark:bg-slate-900/60 text-brand-dark/80 dark:text-slate-200';
+            li.textContent = String(label);
+            elNeedsGaps.appendChild(li);
+          });
+        } else {
+          elNeedsGaps.classList.add('hidden');
+        }
+      }
+      if (elNeedsOpener && elNeedsOpenerText) {
+        if (talkTrack) {
+          elNeedsOpenerText.textContent = '\u201c' + talkTrack + '\u201d';
+          elNeedsOpener.classList.remove('hidden');
+        } else {
+          elNeedsOpenerText.textContent = '';
+          elNeedsOpener.classList.add('hidden');
+        }
+      }
+    }
+
+    function fetchBusinessNeedsInsight(lead) {
+      if (!lead || !lead.key) return Promise.resolve();
+      var needs = lead.businessNeeds || {};
+      if (needs.hasCachedInsight) return Promise.resolve();
+      var reqId = String(lead.key) + '|needs|' + Date.now();
+      window.__focusNeedsReq = reqId;
+      if (elNeedsLoading) elNeedsLoading.classList.remove('hidden');
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({}),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (window.__focusNeedsReq !== reqId) return;
+          if (elNeedsLoading) elNeedsLoading.classList.add('hidden');
+          if (!data || !data.success) return;
+          if (!lead.businessNeeds) lead.businessNeeds = {};
+          if (data.primaryServiceLabel) lead.businessNeeds.primaryServiceLabel = data.primaryServiceLabel;
+          if (data.primaryServiceKey) lead.businessNeeds.primaryServiceKey = data.primaryServiceKey;
+          if (data.rationale) lead.businessNeeds.rationale = data.rationale;
+          if (data.talkTrack) lead.businessNeeds.talkTrack = data.talkTrack;
+          lead.businessNeeds.hasCachedInsight = true;
+          if (!lead.businessNeeds.headline) {
+            lead.businessNeeds.headline = String(lead.ownerSignal || data.rationale || '').trim();
+          }
+          renderBusinessNeeds(lead);
+        })
+        .catch(function () {
+          if (window.__focusNeedsReq === reqId && elNeedsLoading) {
+            elNeedsLoading.classList.add('hidden');
+          }
+        });
     }
 
     function renderReviewStars(score) {
@@ -1154,6 +1355,12 @@
         if (lead) {
           lead.hasAiWebsiteAnalysis = true;
           if (data && data.ownerSignal) lead.ownerSignal = String(data.ownerSignal).trim();
+          if (!lead.businessNeeds) lead.businessNeeds = {};
+          if (data && data.ownerSignal) lead.businessNeeds.headline = String(data.ownerSignal).trim();
+          if (data && data.analysis && Array.isArray(data.analysis.topGapLabels)) {
+            lead.businessNeeds.topGapLabels = data.analysis.topGapLabels.slice(0, 4);
+          }
+          renderBusinessNeeds(lead);
         }
         return data;
       });
@@ -1483,6 +1690,8 @@
       elStage.textContent = lead.pipelineLabel || ('Stage ' + lead.pipelineStage);
       elLast.textContent = lead.lastTouchLabel || '—';
       renderLinks(lead);
+      renderBusinessNeeds(lead);
+      fetchBusinessNeedsInsight(lead);
       renderBusinessInfo(lead);
       if (elRecommended) elRecommended.classList.remove('hidden');
       if (elServiceSelect) {
@@ -1518,6 +1727,7 @@
       setOutcomeFeedback('');
       applyChannelUI();
       fetchReviewSummary();
+      syncFocusCallDock(typeof window.__adhelloSoftphoneGetSession === 'function' ? window.__adhelloSoftphoneGetSession() : {});
     }
 
     function buildNoteText() {
@@ -1697,9 +1907,123 @@
       });
     }
 
+    function onFocusCallOnly() {
+      var lead = currentLead();
+      if (!lead) return;
+      currentChannel = 'call-script';
+      applyChannelUI();
+      ensureSuggestedOutcome();
+      if (btnCall) btnCall.disabled = true;
+      placeFocusCall()
+        .catch(function (err) {
+          if (!err || err.message !== 'wrap required') {
+            setOutcomeFeedback(err && err.message ? err.message : 'Could not start call.', true);
+          }
+        })
+        .finally(function () {
+          if (btnCall) btnCall.disabled = false;
+        });
+    }
+
+    function onFocusDropVmNext() {
+      var lead = currentLead();
+      if (!lead) return;
+      currentChannel = 'voicemail-drop';
+      applyChannelUI();
+      ensureSuggestedOutcome();
+      if (elOutcome) elOutcome.value = 'voicemail';
+      syncQuickOutcomeButtons();
+      var actionBtn = btnVoicemail || btnFocusCallDockVmNext;
+      if (actionBtn) actionBtn.disabled = true;
+      var vmStep = Promise.resolve();
+      if (focusHasSoftphone() && !isMobileViewport()) {
+        focusSoftphoneDialLead(lead, false);
+        if (typeof window.__adhelloSoftphoneDropVmNext === 'function') {
+          window.__adhelloSoftphoneDropVmNext();
+          vmStep = Promise.resolve({ softphone: true });
+        } else {
+          vmStep = placeFocusVoicemail();
+        }
+      } else {
+        vmStep = placeFocusVoicemail();
+      }
+      vmStep
+        .then(function () { return postNote(); })
+        .then(function () { return createFollowupTaskIfRequested(); })
+        .then(function () { return maybeAdvanceStage(); })
+        .then(function () {
+          nextLead();
+          return refreshMetrics();
+        })
+        .then(function () {
+          var next = currentLead();
+          if (next && focusHasSoftphone() && !isMobileViewport()) {
+            focusSoftphoneDialLead(next, false);
+          }
+          setOutcomeFeedback('Voicemail drop logged — next lead loaded.');
+        })
+        .catch(function (err) {
+          setOutcomeFeedback(err && err.message ? err.message : 'Voicemail drop failed.', true);
+        })
+        .finally(function () {
+          if (actionBtn) actionBtn.disabled = false;
+        });
+    }
+
+    function onFocusCallNext() {
+      if (focusSoftphoneWrapRequired()) {
+        setOutcomeFeedback('Complete wrap-up in the softphone (disposition + notes) before calling the next lead.', true);
+        if (typeof window.__adhelloFocusSoftphone === 'function') window.__adhelloFocusSoftphone();
+        return;
+      }
+      var lead = currentLead();
+      if (!lead) return;
+      var hasOutcome = elOutcome && String(elOutcome.value || '').trim();
+      var hasNotes = elOutcomeNotes && String(elOutcomeNotes.value || '').trim();
+      var step = Promise.resolve();
+      if (hasOutcome || hasNotes) {
+        step = postNote()
+          .then(function () { return createFollowupTaskIfRequested(); })
+          .then(function () { return maybeAdvanceStage(); });
+      }
+      if (btnFocusCallDockCallNext) btnFocusCallDockCallNext.disabled = true;
+      step
+        .then(function () {
+          nextLead();
+          return refreshMetrics();
+        })
+        .then(function () {
+          var next = currentLead();
+          if (!next) {
+            setOutcomeFeedback('Queue complete.');
+            return;
+          }
+          if (focusSoftphoneDialLead(next, true)) {
+            setOutcomeFeedback('Calling next lead via softphone…');
+          } else {
+            setOutcomeFeedback('Advanced to next lead — no phone on file.', true);
+          }
+        })
+        .catch(function (err) {
+          setOutcomeFeedback(err && err.message ? err.message : 'Could not call next.', true);
+        })
+        .finally(function () {
+          syncFocusCallDock(typeof window.__adhelloSoftphoneGetSession === 'function' ? window.__adhelloSoftphoneGetSession() : {});
+          if (btnFocusCallDockCallNext) btnFocusCallDockCallNext.disabled = focusSoftphoneWrapRequired();
+        });
+    }
+
     function onSendAdvance() {
       var lead = currentLead();
       if (!lead) return;
+      if (currentChannel === 'call-script') {
+        onFocusCallOnly();
+        return;
+      }
+      if (currentChannel === 'voicemail-drop') {
+        onFocusDropVmNext();
+        return;
+      }
       ensureSuggestedOutcome();
       var actionBtn = null;
       if (currentChannel === 'call-script') actionBtn = btnCall;
@@ -1708,9 +2032,7 @@
       else actionBtn = btnEmail;
       if (actionBtn) actionBtn.disabled = true;
       var callStep = Promise.resolve();
-      if (currentChannel === 'call-script') callStep = placeFocusCall();
-      else if (currentChannel === 'voicemail-drop') callStep = placeFocusVoicemail();
-      else if (currentChannel === 'sms') callStep = placeFocusSms();
+      if (currentChannel === 'sms') callStep = placeFocusSms();
       else if (currentChannel === 'email') callStep = placeFocusEmail();
       callStep
         .then(function () { return postNote(); })
@@ -1800,13 +2122,50 @@
     }
     if (btnOpenDialer) {
       btnOpenDialer.addEventListener('click', function () {
-        openDialerForLead();
+        openDialerForLead(false);
       });
     }
+    if (btnFocusCallDockOpen) {
+      btnFocusCallDockOpen.addEventListener('click', function () {
+        if (typeof window.__adhelloFocusSoftphone === 'function') window.__adhelloFocusSoftphone();
+        else openDialerForLead(false);
+      });
+    }
+    if (btnFocusCallDockHangup) {
+      btnFocusCallDockHangup.addEventListener('click', function () {
+        if (typeof window.__adhelloSoftphoneHangup === 'function') window.__adhelloSoftphoneHangup();
+      });
+    }
+    if (btnFocusCallDockVmNext) {
+      btnFocusCallDockVmNext.addEventListener('click', onFocusDropVmNext);
+    }
+    if (btnFocusCallDockCallNext) {
+      btnFocusCallDockCallNext.addEventListener('click', onFocusCallNext);
+    }
+    document.addEventListener('adhello-softphone-state', function (e) {
+      syncFocusCallDock((e && e.detail) || {});
+    });
+    document.addEventListener('adhello-softphone-wrap-complete', function (e) {
+      var d = (e && e.detail) || {};
+      var lead = currentLead();
+      var rowKey = lead && lead.key ? String(lead.key).trim() : '';
+      var sessionKey = String(d.leadKey || '').trim();
+      if (sessionKey && rowKey && sessionKey !== rowKey) return;
+      var mapped = mapSoftphoneDispositionToFocusOutcome(d.disposition);
+      if (mapped && elOutcome) {
+        elOutcome.value = mapped;
+        syncQuickOutcomeButtons();
+      }
+      if (d.notes && elOutcomeNotes && !String(elOutcomeNotes.value || '').trim()) {
+        elOutcomeNotes.value = String(d.notes);
+      }
+      setOutcomeFeedback('Wrap-up saved from softphone — Log & next or Call next when ready.');
+      syncFocusCallDock(typeof window.__adhelloSoftphoneGetSession === 'function' ? window.__adhelloSoftphoneGetSession() : {});
+    });
     if (btnMobileCall) {
       btnMobileCall.addEventListener('click', function () {
         closeMobileFabActions();
-        openDialerForLead();
+        openDialerForLead(true);
       });
     }
     if (btnMobileCallNext) {
@@ -1851,8 +2210,8 @@
       });
     }
 
-    if (btnCall) btnCall.addEventListener('click', function () { currentChannel = 'call-script'; applyChannelUI(); onSendAdvance(); });
-    if (btnVoicemail) btnVoicemail.addEventListener('click', function () { currentChannel = 'voicemail-drop'; applyChannelUI(); onSendAdvance(); });
+    if (btnCall) btnCall.addEventListener('click', function () { currentChannel = 'call-script'; applyChannelUI(); onFocusCallOnly(); });
+    if (btnVoicemail) btnVoicemail.addEventListener('click', function () { currentChannel = 'voicemail-drop'; applyChannelUI(); onFocusDropVmNext(); });
     if (btnSms) btnSms.addEventListener('click', function () { currentChannel = 'sms'; applyChannelUI(); onSendAdvance(); });
     if (btnEmail) btnEmail.addEventListener('click', function () { currentChannel = 'email'; applyChannelUI(); onSendAdvance(); });
     btnLog.addEventListener('click', onLogNext);
@@ -1961,6 +2320,11 @@
         if (typingTarget(document.activeElement)) return;
         e.preventDefault();
         elBody.focus();
+      }
+      if (e.key === 'n' || e.key === 'N') {
+        if (typingTarget(document.activeElement)) return;
+        e.preventDefault();
+        onFocusCallNext();
       }
       if (e.key === 'l' || e.key === 'L') {
         if (typingTarget(document.activeElement)) return;

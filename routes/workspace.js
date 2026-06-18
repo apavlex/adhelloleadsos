@@ -10,6 +10,8 @@ const mapsSearch = require('../services/mapsSearch');
 const crawl4aiClient = require('../services/crawl4aiClient');
 const outscraperClient = require('../services/outscraperClient');
 const integrationProviderTests = require('../services/integrationProviderTests');
+const ghlClient = require('../services/ghlClient');
+const ghlSync = require('../services/ghlSync');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/workspaceAccent');
@@ -259,11 +261,17 @@ async function loadWorkspacePageLocals(req) {
   const persistenceIntegrationsHint = dataPersistence.workspaceIntegrationsPersistenceHint(ws);
 
   const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  const ghlWebhookTokenHint = String(process.env.GHL_WEBHOOK_SECRET || process.env.API_INGEST_KEY || '').trim()
+    ? 'configured-on-server'
+    : '';
+  const ghlStatus = ghlSync.statusFromEnv(resolvedEnv);
   return {
     title: 'Workspace & team',
     activePage: 'workspace',
     workspace: ws,
     publicAppBaseUrl: base,
+    ghlWebhookTokenHint,
+    ghlStatus,
     telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     assignPool: pool,
     envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
@@ -291,6 +299,36 @@ router.get('/scripts', (req, res) => res.redirect(302, '/scripts'));
 /** Legacy slug: scrape stack now lives on the Integrations page. */
 router.get('/scrape', (req, res) => {
   res.redirect(302, '/workspace/integrations#workspace-scrape-cost');
+});
+
+/** Step-by-step GHL connection guide (linked from Integrations CRM card). */
+router.get('/integrations/ghl-setup', async (req, res, next) => {
+  try {
+    const locals = await loadWorkspacePageLocals(req);
+    const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const ghlStatus = { ...ghlSync.statusFromEnv(resolvedEnv) };
+    if (ghlStatus.configured) {
+      try {
+        const test = await ghlClient.testConnection(resolvedEnv);
+        ghlStatus.connected = true;
+        ghlStatus.connectionMessage = test.message || 'Connected';
+      } catch (e) {
+        ghlStatus.connected = false;
+        ghlStatus.connectionError = e && e.message ? e.message : 'Connection test failed';
+      }
+    }
+    res.render('workspace', {
+      ...locals,
+      ghlStatus,
+      title: 'Connect Go High Level · Workspace',
+      workspaceSection: 'ghl-setup',
+      workspaceSectionTitle: 'Connect Go High Level',
+      workspaceSectionDescription:
+        'Step-by-step instructions to link your GHL sub-account, verify the connection, and start syncing contacts.',
+    });
+  } catch (e) {
+    next(e);
+  }
 });
 
 router.get('/', async (req, res, next) => {

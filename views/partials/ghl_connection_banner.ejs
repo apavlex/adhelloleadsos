@@ -1,0 +1,34 @@
+<% const _gs = typeof ghlStatus !== 'undefined' ? ghlStatus : {}; %>
+<% const _connected = !!_gs.connected; %>
+<% const _configured = !!_gs.configured; %>
+<% const _checking = typeof ghlStatusChecking !== 'undefined' && ghlStatusChecking; %>
+<div
+  id="ghlConnectionBanner"
+  class="rounded-xl border px-4 py-3 flex flex-wrap items-start gap-3 <%= _checking ? 'border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40' : (_connected ? 'border-emerald-500/40 bg-emerald-500/10' : (_configured ? 'border-amber-500/40 bg-amber-500/10' : 'border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40')) %>"
+  role="status"
+  aria-live="polite"
+  data-ghl-configured="<%= _configured ? '1' : '0' %>"
+  data-ghl-connected="<%= _connected ? '1' : '0' %>"
+>
+  <span class="w-2.5 h-2.5 rounded-full shrink-0 mt-1 <%= _checking ? 'bg-brand-muted animate-pulse' : (_connected ? 'bg-emerald-500' : (_configured ? 'bg-amber-500' : 'bg-rose-500')) %>" aria-hidden="true"></span>
+  <div class="min-w-0 flex-1 space-y-1">
+    <% if (_checking) { %>
+    <p class="text-sm font-semibold text-brand-dark dark:text-white">Checking GHL connection…</p>
+    <% } else if (_connected) { %>
+    <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Connected to Go High Level</p>
+  <p class="text-xs text-emerald-800/90 dark:text-emerald-200/90 leading-relaxed"><%= _gs.connectionMessage || 'API key and location ID verified. You can push and pull contacts.' %><% if (_gs.locationIdMasked) { %> · Location <code class="text-[11px] px-1 rounded bg-white/50 dark:bg-slate-900/60"><%= _gs.locationIdMasked %></code><% } %></p>
+    <% } else if (_configured) { %>
+    <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Credentials saved — not verified yet</p>
+    <p class="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed"><%= _gs.connectionError || 'Click Test & save on the GHL card, or complete the setup guide below.' %></p>
+    <% } else { %>
+    <p class="text-sm font-semibold text-brand-dark dark:text-white">Not connected to Go High Level</p>
+    <p class="text-xs text-brand-muted leading-relaxed">Follow the <a href="/workspace/integrations/ghl-setup" class="underline font-semibold text-brand-dark dark:text-white hover:text-brand-yellow">step-by-step setup guide</a> to link your GHL sub-account.</p>
+    <% } %>
+  </div>
+  <div class="flex flex-wrap gap-2 shrink-0">
+    <a href="/workspace/integrations/ghl-setup" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Setup guide</a>
+    <% if (_configured) { %>
+    <a href="/workspace/integrations#ghl-integration" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Settings</a>
+    <% } %>
+  </div>
+</div>

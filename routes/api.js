@@ -17,6 +17,7 @@ const agentSessionStore = require('../services/agentSessionStore');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const dialerPacing = require('../services/dialerPacing');
 const inboundForwardStats = require('../services/inboundForwardStats');
+const ghlSync = require('../services/ghlSync');
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -48,6 +49,27 @@ function telephonyAuthorized(req) {
   if (!cfg.webhookToken) return true;
   const token = String((req.query && req.query.token) || req.headers['x-telephony-token'] || '').trim();
   return !!token && token === cfg.webhookToken;
+}
+
+async function ghlWebhookAuthorized(req) {
+  const token = String(
+    (req.query && req.query.token) ||
+      req.headers['x-ghl-webhook-token'] ||
+      req.headers['x-api-key'] ||
+      '',
+  ).trim();
+  if (!token) return false;
+
+  const globalSecret = String(process.env.GHL_WEBHOOK_SECRET || '').trim();
+  const ingestKey = String(process.env.API_INGEST_KEY || 'adhello_secret_123').trim();
+  if (globalSecret && token === globalSecret) return true;
+  if (token === ingestKey) return true;
+
+  const wid = workspaceIdFromReq(req);
+  const ws = await dbService.getWorkspace(wid);
+  const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+  const wsSecret = String(plain.ghlWebhookSecret || '').trim();
+  return !!(wsSecret && token === wsSecret);
 }
 
 async function findLeadForTelephonyEvent({ leadKey, workspaceId, from, to }) {
@@ -274,6 +296,27 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
       /* non-fatal */
     }
     res.json({ success: true, key, message: 'Form submission saved as inbound lead.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/webhooks/ghl
+ * Go High Level ContactCreate / ContactUpdate — real-time inbound sync.
+ * Auth: ?token=GHL_WEBHOOK_SECRET or x-ghl-webhook-token (or x-api-key / workspace ghlWebhookSecret).
+ * Workspace is resolved from payload locationId when x-workspace-id is not set.
+ */
+router.post('/webhooks/ghl', express.json(), async (req, res, next) => {
+  try {
+    if (!(await ghlWebhookAuthorized(req))) {
+      return res.status(401).json({ error: 'Unauthorized: invalid webhook token' });
+    }
+    const headerWid = req.headers['x-workspace-id'];
+    const workspaceId =
+      typeof headerWid === 'string' && headerWid.trim() ? headerWid.trim() : undefined;
+    const result = await ghlSync.processWebhook(req.body || {}, { workspaceId });
+    return res.json({ success: true, ...result });
   } catch (err) {
     next(err);
   }

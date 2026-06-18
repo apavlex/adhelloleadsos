@@ -4,6 +4,8 @@ const dbService = require('../services/database');
 const { verifyAuditReportToken } = require('../services/auditReportSign');
 const { buildAiToolsReportViewModel } = require('../services/aiToolsReportModel');
 const { renderAuditReportPdfBuffer } = require('../services/auditReportPdf');
+const workspaceService = require('../services/workspaceService');
+const workspaceBootstrap = require('../services/workspaceBootstrap');
 
 const router = express.Router();
 
@@ -39,6 +41,13 @@ function hashClientIp(req) {
   return crypto.createHash('sha256').update(`${salt}|${raw || 'unknown'}`).digest('hex').slice(0, 32);
 }
 
+async function staffCanEditAssessment(req, lead) {
+  const email = workspaceService.userEmail(req);
+  if (!email || !lead || !lead.workspaceId) return false;
+  const ws = await dbService.getWorkspace(lead.workspaceId);
+  return !!(ws && workspaceBootstrap.userCanAccessWorkspace(ws, email));
+}
+
 function invalidReportHtml(msg) {
   const m = msg || 'This assessment link is invalid or has expired.';
   return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Assessment unavailable</title><style>body{font-family:system-ui,sans-serif;max-width:36rem;margin:4rem auto;padding:0 1.5rem;color:#334155}</style></head><body><h1>Assessment unavailable</h1><p>${m}</p></body></html>`;
@@ -57,13 +66,20 @@ router.get('/ai-tools/report/:token', async (req, res) => {
     const printMode = req.query.print === '1' || req.query.pdf === '1';
     const baseUrl = baseUrlFromReq(req);
     const reportUrl = `${baseUrl}/ai-tools/report/${token}`;
-    const vm = buildAiToolsReportViewModel(lead, assessment, { baseUrl, reportUrl });
+    const ws = lead.workspaceId ? await dbService.getWorkspace(lead.workspaceId) : null;
+    const workspaceAccent = (ws && ws.accentColor) || null;
+    const vm = buildAiToolsReportViewModel(lead, assessment, {
+      baseUrl,
+      reportUrl,
+      workspaceAccent,
+    });
+    const editMode = !printMode && (await staffCanEditAssessment(req, lead));
 
     res.setHeader('Cache-Control', 'private, no-store');
     return res.render('ai_tools_report', {
       vm,
       printMode,
-      editMode: false,
+      editMode,
       token,
       leadKey: lead.key,
       pdfHref: `${baseUrl}/ai-tools/report/${encodeURIComponent(token)}/download.pdf`,
@@ -83,7 +99,9 @@ router.get('/ai-tools/report/:token/download.pdf', async (req, res) => {
     if (error) return res.status(404).end();
 
     const baseUrl = baseUrlFromReq(req);
-    const vm = buildAiToolsReportViewModel(lead, assessment, { baseUrl });
+    const ws = lead.workspaceId ? await dbService.getWorkspace(lead.workspaceId) : null;
+    const workspaceAccent = (ws && ws.accentColor) || null;
+    const vm = buildAiToolsReportViewModel(lead, assessment, { baseUrl, workspaceAccent });
     const printUrl = `${baseUrl}/ai-tools/report/${encodeURIComponent(token)}?print=1`;
     const pdf = await renderAuditReportPdfBuffer(printUrl);
     const filename = vm.pdfFilename || 'ai-tools-assessment.pdf';

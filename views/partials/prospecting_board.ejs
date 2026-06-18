@@ -2,15 +2,19 @@
 <% const _lf = typeof leadListFilters !== 'undefined' && leadListFilters ? leadListFilters : {}; %>
 <% const _fk = _lf.folderKey ? String(_lf.folderKey) : ''; %>
 <% const _folders = typeof folders !== 'undefined' && folders ? folders : []; %>
+<% const _tags = typeof tags !== 'undefined' && tags ? tags : []; %>
 <% const _activeFolder = _fk ? _folders.find(function (x) { return x && String(x.key) === _fk; }) : null; %>
+<% const _tagKey = _lf.tagKey ? String(_lf.tagKey) : ''; %>
+<% const _activeTag = _tagKey ? _tags.find(function (x) { return x && String(x.key) === _tagKey; }) : null; %>
 <% const _stOpts = typeof pipelineStatusOptions !== 'undefined' && pipelineStatusOptions ? pipelineStatusOptions : []; %>
 <% const _src = typeof sourceFilter !== 'undefined' ? sourceFilter : 'all'; %>
 <% const _hasActiveFilters = _lf && typeof _lf === 'object' && Object.keys(_lf).length > 0; %>
-<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '')); %>
+<% const _advOpen = !!(_lf.addedFrom || _lf.addedTo || _lf.stage || _lf.status || _lf.tagKey || (_lf.minRating != null && String(_lf.minRating) !== '') || (_lf.minReviews != null && String(_lf.minReviews) !== '')); %>
 <% function _pipelineQs(omit) {
   var o = omit || '';
   var p = ['tab=pipeline', 'source=' + encodeURIComponent(_src)];
   if (o !== 'folderKey' && _fk) p.push('folderKey=' + encodeURIComponent(_fk));
+  if (o !== 'tagKey' && _tagKey) p.push('tagKey=' + encodeURIComponent(_tagKey));
   if (o !== 'q' && _lf.q) p.push('q=' + encodeURIComponent(String(_lf.q)));
   if (o !== 'origin' && _lf.origin) p.push('origin=' + encodeURIComponent(String(_lf.origin)));
   if (o !== 'addedFrom' && _lf.addedFrom) p.push('addedFrom=' + encodeURIComponent(String(_lf.addedFrom)));
@@ -205,6 +209,15 @@
         <% }); %>
       </select>
     </div>
+    <div class="lg:col-span-3">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Tag</label>
+      <select name="tagKey" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white" title="Filter leads by tag">
+        <option value=""<%= !_tagKey ? ' selected' : '' %>>Any tag</option>
+        <% _tags.forEach(function (tg) { if (!tg || !tg.key) return; %>
+        <option value="<%= tg.key %>"<%= _tagKey === String(tg.key) ? ' selected' : '' %>><%= tg.name || 'Tag' %></option>
+        <% }); %>
+      </select>
+    </div>
     <div class="lg:col-span-2">
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Min rating</label>
       <input type="number" name="minRating" min="0" max="5" step="0.1" value="<%= _lf.minRating || '' %>" placeholder="0" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
@@ -229,6 +242,9 @@
   <% } %>
   <% if (_fk && _activeFolder) { %>
   <a href="<%= _pipelineQs('folderKey') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Back to main pipeline">Folder: <%= _activeFolder.name %><span class="text-brand-muted" aria-hidden="true">×</span></a>
+  <% } %>
+  <% if (_tagKey && _activeTag) { %>
+  <a href="<%= _pipelineQs('tagKey') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove tag filter">Tag: <%= _activeTag.name %><span class="text-brand-muted" aria-hidden="true">×</span></a>
   <% } %>
   <% if (_lf.origin) { %>
   <a href="<%= _pipelineQs('origin') %>" class="inline-flex items-center gap-1.5 rounded-full border border-brand-border/60 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/80 pl-3 pr-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors" title="Remove origin filter">Origin: <%= _lf.origin %><span class="text-brand-muted" aria-hidden="true">×</span></a>

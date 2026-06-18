@@ -327,7 +327,8 @@
                 data-do-not-call="<%= lead.doNotCall ? '1' : '' %>"
                 data-primary-service-key="<%= plcEscAttr(_psk) %>"
                 data-contacts="<%= plcEscJson(lead.contacts || []) %>"
-                data-last-contact-hunt-at="<%= plcEscAttr(lead.lastContactHuntAt || '') %>">
+                data-last-contact-hunt-at="<%= plcEscAttr(lead.lastContactHuntAt || '') %>"
+                data-tags="<%= plcEscJson(Array.isArray(lead.tags) ? lead.tags : []) %>">
               <td data-plc="check" class="lead-sticky-check pl-5 pr-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
                 <div class="flex items-center">
                   <input type="checkbox" class="lead-checkbox w-4 h-4 rounded-md border-brand-border text-brand-yellow focus:ring-brand-yellow transition-all cursor-pointer" data-key="<%= lead.key %>" onclick="event.stopPropagation()">
@@ -349,6 +350,7 @@
                     </div>
                     <div class="mt-1">
                       <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
+                      <div class="lead-row-tags flex flex-wrap gap-1 mt-1<%= (Array.isArray(lead.tags) && lead.tags.length) ? '' : ' hidden' %>" aria-label="Lead tags"></div>
                     </div>
                   </div>
                 </div>
@@ -515,8 +517,6 @@
     </div>
   </div>
   <script src="/js/pipeline-view-toggle.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-  <script src="/js/pipeline-bulk-select.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
-  <script src="/js/lead-panel-paint.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 
   <!-- Pipeline board: workspace stages (drag cards to update stage) -->
   <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">

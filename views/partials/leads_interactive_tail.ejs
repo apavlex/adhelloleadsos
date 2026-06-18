@@ -21,6 +21,7 @@
   window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.PIPELINE_STAGE_COLORS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
   window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %>;
+  window.WORKSPACE_TAGS = <%- JSON.stringify(typeof tags !== 'undefined' && tags ? tags.map((t) => ({ key: t.key, name: t.name, color: t.color || '#94a3b8' })) : []) %>;
   window.PROSPECTING_ACTIVE_FOLDER_KEY = <%- JSON.stringify(typeof activeFolderKey !== 'undefined' && activeFolderKey ? String(activeFolderKey) : '') %>;
 </script>
 

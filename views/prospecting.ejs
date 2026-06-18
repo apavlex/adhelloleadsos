@@ -77,7 +77,7 @@
   </main>
 
   <% if (activeTab === 'pipeline') { %>
-  <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], pipelineStages, folders, activeFolderKey: typeof activeFolderKey !== 'undefined' ? activeFolderKey : '', scriptLibraryOfferPicklist: Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : [], outreachChannelLibrary: locals.outreachChannelLibrary && typeof locals.outreachChannelLibrary === 'object' ? locals.outreachChannelLibrary : {} }) %>
+  <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], pipelineStages, folders, tags: typeof tags !== 'undefined' ? tags : [], activeFolderKey: typeof activeFolderKey !== 'undefined' ? activeFolderKey : '', scriptLibraryOfferPicklist: Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : [], outreachChannelLibrary: locals.outreachChannelLibrary && typeof locals.outreachChannelLibrary === 'object' ? locals.outreachChannelLibrary : {} }) %>
   <script>
   (function () {
     document.addEventListener('DOMContentLoaded', function () {
@@ -312,6 +312,7 @@
   </script>
   <% } %>
   <script src="/js/pipeline-bulk-select.js?v=<%= assetVersion %>"></script>
+  <script src="/js/lead-tags.js?v=<%= assetVersion %>"></script>
   <script src="/js/lead-panel-paint.js?v=<%= assetVersion %>"></script>
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <% } else if (activeTab === 'folders') { %>

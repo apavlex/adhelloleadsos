@@ -7507,6 +7507,9 @@ document.addEventListener('DOMContentLoaded', () => {
       paintLeadPanelQuickOutreach(tableRow);
       paintPanelHeaderContactStrip(tableRow);
       scheduleReviewIntelligence(tableRow);
+      if (typeof window.__renderLeadTagsPanel === 'function') {
+        window.__renderLeadTagsPanel(tableRow);
+      }
     } catch (paintErr) {
       console.warn('[Lead panel] row paint failed:', paintErr);
       try {
@@ -10480,6 +10483,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__getSelectedLeadCheckboxesForBulkActions = getSelectedLeadCheckboxesForBulkActions;
 
+  /** Sync selectedKeys from DOM checkboxes; returns key list for bulk handlers. */
+  function ensureBulkSelectionKeys() {
+    syncSelectedKeysFromDom();
+    if (selectedKeys.size > 0) return [...selectedKeys];
+    getSelectedLeadCheckboxesForBulkActions().forEach((cb) => {
+      const key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
+      if (key) selectedKeys.add(key);
+    });
+    return [...selectedKeys];
+  }
+  window.__ensureBulkSelectionKeys = ensureBulkSelectionKeys;
+
   function getLeadCheckboxesForTable(table) {
     if (!table) return getPageLeadCheckboxes();
     let boxes = getVisibleResultRowsInTable(table)
@@ -10639,6 +10654,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (saveBtn && saveBtn.getAttribute('aria-busy') !== 'true') {
       saveBtn.disabled = count === 0;
     }
+    if (count > 0 && bar) {
+      bar.querySelectorAll('button').forEach((btn) => {
+        if (btn.id === 'cancelSelectionBtn') return;
+        if (btn.getAttribute('aria-busy') === 'true') return;
+        btn.disabled = false;
+        btn.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
+      });
+    }
     if (bulkVoicemailBtn) {
       bulkVoicemailBtn.disabled = count === 0;
       bulkVoicemailBtn.classList.toggle('opacity-40', count === 0);
@@ -10683,6 +10706,17 @@ document.addEventListener('DOMContentLoaded', () => {
         hasSelection
           ? `Run AI analysis for ${count} selected lead${count === 1 ? '' : 's'}`
           : 'Run AI website analysis for selected leads',
+      );
+    });
+    document.querySelectorAll('.js-bulk-push-ghl').forEach((btn) => {
+      btn.disabled = !hasSelection;
+      btn.classList.toggle('ring-2', hasSelection);
+      btn.classList.toggle('ring-orange-400/60', hasSelection);
+      btn.setAttribute(
+        'title',
+        hasSelection
+          ? `Push ${count} selected lead${count === 1 ? '' : 's'} to Go High Level`
+          : 'Select leads to push to Go High Level',
       );
     });
 
@@ -10776,6 +10810,18 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  document.addEventListener(
+    'pointerdown',
+    (e) => {
+      const bar = document.getElementById('bulkActionBar');
+      if (!bar || bar.dataset.visible !== 'true') return;
+      if (!e.target || !e.target.closest || !e.target.closest('#bulkActionBar')) return;
+      ensureBulkSelectionKeys();
+      updateBulkActionBar();
+    },
+    true,
+  );
   if (!isSearchResultsBulkPage && bulkFolderNewCancel) {
     bulkFolderNewCancel.addEventListener('click', () => setBulkFolderNewRowVisible(false));
   }
@@ -10842,7 +10888,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applySelectAllFromHeader(target);
       return;
     }
-    if (!target.classList || !target.classList.contains('lead-checkbox')) return;
+    if (!target.classList || (!target.classList.contains('lead-checkbox') && !target.classList.contains('row-checkbox'))) return;
     if (bulkSelectSyncing) return;
     syncSelectAllLeadCheckbox();
     updateBulkActionBar();
@@ -10850,7 +10896,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('input', (e) => {
     const target = e.target;
-    if (!target || !target.classList || !target.classList.contains('lead-checkbox')) return;
+    if (!target || !target.classList || (!target.classList.contains('lead-checkbox') && !target.classList.contains('row-checkbox'))) return;
     if (bulkSelectSyncing) return;
     syncSelectAllLeadCheckbox();
     updateBulkActionBar();
@@ -10879,12 +10925,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
   if (bulkDeleteBtn) {
     bulkDeleteBtn.addEventListener('click', async () => {
-      if (selectedKeys.size === 0) return;
-      const n = selectedKeys.size;
+      const keys = ensureBulkSelectionKeys();
+      if (keys.length === 0) return;
+      const n = keys.length;
       const msg = `Delete ${n} selected lead${n === 1 ? '' : 's'}? This cannot be undone.`;
       if (!window.confirm(msg)) return;
 
-      const keys = [...selectedKeys];
+      const deleteKeys = [...keys];
       const closePanel = document.getElementById('closeMobilePanel');
       for (const leadKey of keys) {
         try {
@@ -10927,10 +10974,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  document.querySelectorAll('.js-bulk-push-ghl').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      const keys = ensureBulkSelectionKeys();
+      if (keys.length === 0) return;
+
+      const feedback = document.getElementById('bulkSaveFeedback');
+      const showFeedback = (text, ok) => {
+        if (!feedback) return;
+        feedback.textContent = text;
+        feedback.classList.remove('hidden', 'text-emerald-300', 'text-rose-300');
+        feedback.classList.add(ok ? 'text-emerald-300' : 'text-rose-300');
+      };
+
+      const prev = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'Pushing…';
+      showFeedback(`Pushing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, true);
+      try {
+        const res = await fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: keys }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        const pushed = data.pushed != null ? data.pushed : 0;
+        const failed = data.failed != null ? data.failed : 0;
+        const msg = `GHL: ${pushed} pushed${failed ? `, ${failed} failed` : ''}`;
+        showFeedback(msg, failed === 0);
+        if (typeof showProspectToast === 'function') showProspectToast(msg);
+        else if (failed === 0) alert(msg);
+        else alert(`${msg}\n\nConfigure GHL in Workspace → Integrations if pushes failed.`);
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'GHL push failed';
+        showFeedback(msg, false);
+        alert(msg);
+      } finally {
+        btn.disabled = selectedKeys.size === 0;
+        btn.textContent = prev;
+        updateBulkActionBar();
+      }
+    });
+  });
+
   if (bulkMoveFolderBtn && bulkFolderSelect) {
     bulkMoveFolderBtn.addEventListener('click', async () => {
-      if (selectedKeys.size === 0) return;
-      const keys = [...selectedKeys];
+      const keys = ensureBulkSelectionKeys();
+      if (keys.length === 0) return;
       const folderKey = bulkFolderSelect.value || '';
       bulkMoveFolderBtn.disabled = true;
       try {
@@ -10978,8 +11073,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (bulkVoicemailBtn) {
     bulkVoicemailBtn.addEventListener('click', async () => {
-      if (selectedKeys.size === 0) return;
-      const keys = [...selectedKeys];
+      const keys = ensureBulkSelectionKeys();
+      if (keys.length === 0) return;
       const n = keys.length;
       if (!window.confirm(`Run voicemail drop for ${n} selected lead${n === 1 ? '' : 's'}?`)) return;
       const original = bulkVoicemailBtn.textContent;
@@ -11013,8 +11108,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (bulkSmsBtn) {
     bulkSmsBtn.addEventListener('click', async () => {
-      if (selectedKeys.size === 0) return;
-      const keys = [...selectedKeys];
+      const keys = ensureBulkSelectionKeys();
+      if (keys.length === 0) return;
       const n = keys.length;
       const smsBody = window.prompt(
         `Type the SMS to send to ${n} selected lead${n === 1 ? '' : 's'}:`,
@@ -13239,6 +13334,11 @@ document.addEventListener('DOMContentLoaded', () => {
     ds.pipelineStage = lead.pipelineStage != null ? String(lead.pipelineStage) : '';
     ds.stageId = str(lead.stageId);
     ds.pipelineLabel = str(lead.pipelineLabel);
+    try {
+      ds.tags = JSON.stringify(Array.isArray(lead.tags) ? lead.tags : []);
+    } catch (_) {
+      ds.tags = '[]';
+    }
     ds.auditUrl = str(lead.auditUrl);
     ds.estimatedValue = lead.estimatedValue != null ? String(lead.estimatedValue) : '';
     ds.stitchDesignUrl = str(lead.stitchDesignUrl);

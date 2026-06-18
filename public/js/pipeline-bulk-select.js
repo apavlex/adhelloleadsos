@@ -71,13 +71,18 @@
     return boxes.length;
   }
 
-  /** Show/hide floating bulk bar (Focus, Call room, SMS, etc.) — does not depend on app.js init order. */
-  function showBulkActionBar(count) {
+  function mountBulkBarToBody() {
     const bar = document.getElementById('bulkActionBar');
-    if (!bar) return;
-    if (bar.parentElement !== document.body) {
+    if (bar && bar.parentElement !== document.body) {
       document.body.appendChild(bar);
     }
+    return bar;
+  }
+
+  /** Show/hide floating bulk bar (Focus, Call room, SMS, etc.) — does not depend on app.js init order. */
+  function showBulkActionBar(count) {
+    const bar = mountBulkBarToBody();
+    if (!bar) return;
     const n = Math.max(0, parseInt(count, 10) || 0);
     const visible = n > 0;
     bar.dataset.visible = visible ? 'true' : 'false';
@@ -93,7 +98,6 @@
       bar.style.setProperty('transform', 'translateX(-50%) translateY(0)', 'important');
       bar.style.setProperty('pointer-events', 'auto', 'important');
       bar.querySelectorAll('button, a, select, input').forEach((el) => {
-        if (el.id === 'bulkMoveFolderBtn' || el.id === 'bulkSaveBtn') return;
         el.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
         if (el.tagName === 'BUTTON' && el.id !== 'cancelSelectionBtn') {
           el.disabled = false;
@@ -131,6 +135,7 @@
   }
 
   function init() {
+    mountBulkBarToBody();
     document.querySelectorAll('table').forEach((table) => {
       if (table.querySelector('thead input[data-select-all-leads]')) {
         bindTable(table);

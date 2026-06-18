@@ -25,6 +25,9 @@ const INTEGRATION_FIELDS = [
   'crawl4aiApiToken',
   'bettercontactApiKey',
   'pagespeedApiKey',
+  'ghlApiKey',
+  'ghlLocationId',
+  'ghlWebhookSecret',
 ];
 
 /** Map stored field → process.env name used by provider clients */
@@ -46,6 +49,9 @@ const FIELD_TO_ENV = {
   crawl4aiApiToken: 'CRAWL4AI_API_TOKEN',
   bettercontactApiKey: 'BETTERCONTACT_API_KEY',
   pagespeedApiKey: 'PAGESPEED_API_KEY',
+  ghlApiKey: 'GHL_API_KEY',
+  ghlLocationId: 'GHL_LOCATION_ID',
+  ghlWebhookSecret: 'GHL_WEBHOOK_SECRET',
 };
 
 /**
@@ -117,11 +123,6 @@ function applyClears(existingPlain, body) {
   return next;
 }
 
-/**
- * Persist merged integrations on workspace (encrypt whole blob).
- * @param {string} workspaceId
- * @param {object} plain — full plain object to store
- */
 async function saveWorkspaceIntegrations(workspaceId, plain) {
   const wid = workspaceId || 'default';
   const ws = (await dbService.getWorkspace(wid)) || { id: wid };
@@ -150,6 +151,8 @@ function integrationMasks(workspace) {
     'crawl4aiApiToken',
     'bettercontactApiKey',
     'pagespeedApiKey',
+    'ghlApiKey',
+    'ghlWebhookSecret',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];
@@ -172,6 +175,26 @@ function integrationsStorageState(workspace) {
   return 'ok';
 }
 
+/**
+ * Resolve workspace id from a GHL sub-account location id (stored in integrations).
+ * @param {string} locationId
+ * @returns {Promise<string|null>}
+ */
+async function findWorkspaceIdByGhlLocationId(locationId) {
+  const loc = String(locationId || '').trim();
+  if (!loc) return null;
+  const ids = await dbService.listWorkspaceIds();
+  for (const wid of ids) {
+  // eslint-disable-next-line no-await-in-loop
+    const env = await getResolvedIntegrationEnv(wid);
+    const configured = String(env.GHL_LOCATION_ID || '').trim();
+    if (configured && configured === loc) return wid;
+  }
+  const envDefault = await getResolvedIntegrationEnv('default');
+  if (String(envDefault.GHL_LOCATION_ID || '').trim() === loc) return 'default';
+  return null;
+}
+
 module.exports = {
   INTEGRATION_FIELDS,
   FIELD_TO_ENV,
@@ -184,4 +207,5 @@ module.exports = {
   integrationsStorageState,
   isEncryptionAvailable,
   encryptIntegrations,
+  findWorkspaceIdByGhlLocationId,
 };

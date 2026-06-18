@@ -25,6 +25,8 @@ const pipelineStagesService = require('../services/pipelineStagesService');
 const { createAuditReportToken } = require('../services/auditReportSign');
 const pageSpeedInsights = require('../services/pageSpeedInsights');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
+const ghlSync = require('../services/ghlSync');
+const ghlClient = require('../services/ghlClient');
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -802,6 +804,124 @@ router.post('/audit/run', apiKeyAuth, express.json({ limit: '10mb' }), async (re
     });
   } catch (err) {
     next(err);
+  }
+});
+
+// ── GHL — push/pull contacts for sub-agents (Pavlex, Hermes, etc.) ───────────
+
+/**
+ * GET /autonomous/ghl/status
+ * Returns whether GHL is configured for the workspace.
+ */
+router.get('/ghl/status', apiKeyAuth, async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    return res.json({
+      success: true,
+      workspaceId: wid,
+      ...ghlSync.statusFromEnv(integrationEnv),
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * POST /autonomous/ghl/push
+ * Body: { leadKeys?: string[], limit?: number }
+ * Push workspace leads to GHL contacts.
+ */
+router.post('/ghl/push', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    if (!ghlClient.isConfigured(integrationEnv)) {
+      return res.status(503).json({
+        success: false,
+        error: 'GHL not configured. Set ghlApiKey and ghlLocationId in Workspace → Integrations.',
+      });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await ghlSync.pushLeads({
+      workspaceId: wid,
+      integrationEnv,
+      leadKeys: body.leadKeys,
+      limit: body.limit,
+    });
+    return res.json({ success: true, workspaceId: wid, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * POST /autonomous/ghl/pull
+ * Body: { limit?: number, maxPages?: number, startAfterId?: string }
+ * Pull GHL contacts into workspace leads.
+ */
+router.post('/ghl/pull', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    if (!ghlClient.isConfigured(integrationEnv)) {
+      return res.status(503).json({
+        success: false,
+        error: 'GHL not configured. Set ghlApiKey and ghlLocationId in Workspace → Integrations.',
+      });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await ghlSync.pullContacts({
+      workspaceId: wid,
+      integrationEnv,
+      limit: body.limit,
+      maxPages: body.maxPages,
+      startAfterId: body.startAfterId,
+    });
+    return res.json({ success: true, workspaceId: wid, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/**
+ * POST /autonomous/ghl/sync
+ * Body: { direction?: 'both'|'push'|'pull', leadKeys?, limit?, maxPages? }
+ * Bidirectional sync (default: pull then push).
+ */
+router.post('/ghl/sync', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    if (!ghlClient.isConfigured(integrationEnv)) {
+      return res.status(503).json({
+        success: false,
+        error: 'GHL not configured. Set ghlApiKey and ghlLocationId in Workspace → Integrations.',
+      });
+    }
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const direction = String(body.direction || 'both').toLowerCase();
+    const opts = {
+      workspaceId: wid,
+      integrationEnv,
+      leadKeys: body.leadKeys,
+      limit: body.limit,
+      maxPages: body.maxPages,
+      pushLimit: body.pushLimit,
+      pullMaxPages: body.pullMaxPages,
+    };
+    if (direction === 'push') {
+      const push = await ghlSync.pushLeads(opts);
+      return res.json({ success: true, workspaceId: wid, push });
+    }
+    if (direction === 'pull') {
+      const pull = await ghlSync.pullContacts(opts);
+      return res.json({ success: true, workspaceId: wid, pull });
+    }
+    const result = await ghlSync.syncBoth(opts);
+    return res.json({ success: true, workspaceId: wid, ...result });
+  } catch (e) {
+    next(e);
   }
 });
 

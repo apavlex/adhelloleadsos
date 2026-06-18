@@ -9,16 +9,14 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;800;900&display=swap" rel="stylesheet"/>
   <style>
     :root {
-      --cg-orange: #F06000;
-      --cg-orange-bright: #FF7A1A;
       --cg-black: #000000;
       --cg-charcoal: #1A1A1A;
       --cg-charcoal-2: #242424;
       --cg-white: #FFFFFF;
       --cg-cream: #F0E0D0;
       --cg-slate: #8090A0;
-      --accent: <%= vm.accent || '#F06000' %>;
-      --accent-2: var(--cg-orange-bright);
+      --accent: <%= vm.accent || '#CA8A04' %>;
+      --accent-2: color-mix(in srgb, var(--accent) 72%, white);
       --ink: var(--cg-white);
       --ink-2: var(--cg-cream);
       --muted: var(--cg-slate);
@@ -251,7 +249,12 @@
   <div class="toolbar">
     <% if (editMode) { %>
       <button type="button" class="save" id="saveAssessmentBtn">Save changes</button>
-      <span class="hint">Click any highlighted field to edit. Save before copying the client link.</span>
+      <% if (token && pdfHref) { %>
+        <a class="pdf" href="<%= pdfHref %>" target="_blank" rel="noopener">Download PDF</a>
+        <button type="button" class="copy" data-copy-target="report-url">Copy link</button>
+        <button type="button" class="copy" data-copy-target="follow-up-email">Copy follow-up email</button>
+      <% } %>
+      <span class="hint"><%= token ? 'Click any field to edit. Save before sharing the client link.' : 'Click any highlighted field to edit. Save before copying the client link.' %></span>
     <% } else { %>
       <a class="pdf" href="<%= pdfHref %>" target="_blank" rel="noopener">Download PDF</a>
       <button type="button" class="copy" data-copy-target="report-url">Copy link</button>
@@ -541,7 +544,7 @@
   }
 
   function scrapeAssessment() {
-    const data = { accent: '<%= vm.accent || "#F06000" %>' };
+    const data = { accent: '<%= vm.accent || "#CA8A04" %>' };
     document.querySelectorAll('[data-field]').forEach(function (el) {
       const path = el.getAttribute('data-field');
       let val = (el.innerHTML || el.textContent || '').trim();

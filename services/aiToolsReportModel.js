@@ -1,4 +1,17 @@
 const { normalizeAssessment } = require('./aiToolsAssessment');
+const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
+
+const LEGACY_DECK_ACCENT = '#F06000';
+const FALLBACK_DECK_ACCENT = '#CA8A04';
+
+/** Prefer workspace branding; ignore legacy template orange unless no workspace color. */
+function resolveDeckAccent(workspaceAccent, storedAccent) {
+  const fromWorkspace = normalizeWorkspaceAccentHex(workspaceAccent);
+  if (fromWorkspace) return fromWorkspace;
+  const stored = normalizeWorkspaceAccentHex(storedAccent);
+  if (stored && stored !== LEGACY_DECK_ACCENT) return stored;
+  return FALLBACK_DECK_ACCENT;
+}
 
 function slugifyFilename(name) {
   return String(name || 'business')
@@ -33,8 +46,11 @@ function buildAiToolsReportViewModel(lead, assessmentOverride, opts) {
   const salesPhone = String(process.env.ADHELLO_SALES_PHONE || '').trim();
   const company = vm.clientName || 'your team';
 
+  const accent = resolveDeckAccent(opts.workspaceAccent, vm.accent);
+
   return {
     ...vm,
+    accent,
     businessName: vm.clientName,
     website: String(leadRecord.website || '').trim(),
     phone: String(leadRecord.phone || '').trim(),

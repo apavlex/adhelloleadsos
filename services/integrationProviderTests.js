@@ -12,6 +12,7 @@ const firecrawl = require('./firecrawl');
 const betterContactClient = require('./betterContactClient');
 const { resolvePageSpeedApiKey, PAGESPEED_ENDPOINT } = require('./pageSpeedInsights');
 const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
+const ghlClient = require('./ghlClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -40,6 +41,7 @@ const PROVIDERS = {
   firecrawl: { label: 'Firecrawl', fields: ['firecrawlApiKey'] },
   crawl4ai: { label: 'Crawl4AI', fields: ['crawl4aiBaseUrl', 'crawl4aiApiToken'] },
   pagespeed: { label: 'PageSpeed Insights', fields: ['pagespeedApiKey'] },
+  ghl: { label: 'Go High Level', fields: ['ghlApiKey', 'ghlLocationId'] },
 };
 
 function listProviderIds() {
@@ -212,6 +214,14 @@ async function testPageSpeed(integrationEnv) {
   return { message: 'Connected (PageSpeed API accepted key)' };
 }
 
+async function testGhl(integrationEnv) {
+  if (!ghlClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing GHL_API_KEY or GHL_LOCATION_ID — paste both and save, or type them before testing.');
+  }
+  const result = await ghlClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   searchapi: () => testSearchapi,
@@ -222,6 +232,7 @@ const RUNNERS = {
   crawl4ai: () => testCrawl4ai,
   bettercontact: () => testBetterContact,
   pagespeed: () => testPageSpeed,
+  ghl: () => testGhl,
 };
 
 /**

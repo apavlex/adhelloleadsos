@@ -737,12 +737,18 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   pointer-events: auto !important;
 }
 
+/* Nested controls (Move, + Folder, Call room) must stay clickable inside portaled bar */
+#bulkActionBar.bulk-action-bar--visible *,
+#bulkActionBar[data-visible='true'] * {
+  pointer-events: auto;
+}
+
 #bulkFolderNewRow:not(.hidden) {
   display: flex !important;
 }
 
 #bulkActionBar {
-  z-index: 220;
+  z-index: 280;
   position: fixed;
   left: 50%;
   right: auto;

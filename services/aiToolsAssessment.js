@@ -9,7 +9,7 @@ const SYSTEM_PROMPT = `You are a senior operations consultant preparing an "AI T
 Return ONLY valid JSON matching this exact shape (fill every string; use realistic estimates for a small service business):
 
 {
-  "accent": "#F06000",
+  "accent": "#CA8A04",
   "clientName": "Business name",
   "assessmentDate": "Month DD, YYYY",
   "businessType": "e.g. House cleaning · Seattle",
@@ -70,7 +70,7 @@ function formatAssessmentDate(d) {
 
 function emptyAssessment() {
   return {
-    accent: '#F06000',
+    accent: '',
     clientName: '',
     assessmentDate: formatAssessmentDate(new Date()),
     businessType: '',
@@ -224,7 +224,7 @@ function normalizeAssessment(raw, lead) {
   const fin = r.financial && typeof r.financial === 'object' ? r.financial : {};
   const ns = r.nextSteps && typeof r.nextSteps === 'object' ? r.nextSteps : {};
 
-  base.accent = String(r.accent || base.accent).trim() || '#F06000';
+  base.accent = String(r.accent || base.accent).trim();
   base.clientName = String(r.clientName || lead?.title || '').trim();
   base.assessmentDate = String(r.assessmentDate || base.assessmentDate).trim();
   base.businessType = String(r.businessType || '').trim();

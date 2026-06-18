@@ -417,6 +417,7 @@
             timer: timerText,
             number: String(softphoneSession.activeNumber || ''),
             leadKey: String(softphoneSession.leadKey || ''),
+            wrapRequired: !!softphoneSession.wrapRequired,
             modalOpen: !!(spModal && !spModal.classList.contains('hidden')),
           },
         })
@@ -968,6 +969,26 @@
   window.__adhelloSoftphoneHangup = function () {
     if (spHangup) spHangup.click();
   };
+  window.__adhelloSoftphoneRunAction = function (action) {
+    var a = String(action || 'call').trim().toLowerCase();
+    runSoftphoneAction(a === 'voicemail_drop' ? 'voicemail_drop' : 'call');
+  };
+  window.__adhelloSoftphoneDropVmNext = function () {
+    if (spVmNow) {
+      spVmNow.click();
+      return true;
+    }
+    runSoftphoneAction('voicemail_drop');
+    return true;
+  };
+  window.__adhelloSoftphoneGetSession = function () {
+    return {
+      state: String(softphoneSession.state || 'idle'),
+      wrapRequired: !!softphoneSession.wrapRequired,
+      leadKey: String(softphoneSession.leadKey || ''),
+      number: String(softphoneSession.activeNumber || ''),
+    };
+  };
   // Desktop convenience: any tel: link opens AdHello softphone prefilled.
   document.addEventListener('click', function (e) {
     var a = e && e.target && e.target.closest ? e.target.closest('a[href^="tel:"]') : null;
@@ -1482,6 +1503,18 @@
     softphoneSetWrapRequired(false);
     softphoneSetCallState('ready');
     softphoneSetStatus('Wrap-up completed. Ready for next dial.');
+    if (typeof window.dispatchEvent === 'function') {
+      window.dispatchEvent(
+        new CustomEvent('adhello-softphone-wrap-complete', {
+          detail: {
+            leadKey: String(softphoneSession.leadKey || ''),
+            disposition: disp,
+            notes: notes,
+            number: String(softphoneSession.activeNumber || (spTo ? spTo.value : '')),
+          },
+        })
+      );
+    }
   }
   if (spCompleteWrap) spCompleteWrap.addEventListener('click', completeWrap);
   if (spAiSummary) {

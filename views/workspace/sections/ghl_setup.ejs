@@ -1,0 +1,150 @@
+<% const _gs = typeof ghlStatus !== 'undefined' ? ghlStatus : {}; %>
+<% const _base = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+<% const _masks = typeof integrationMasks !== 'undefined' ? integrationMasks : {}; %>
+<% const _hookReady = !!_masks.ghlWebhookSecret || (typeof ghlWebhookTokenHint !== 'undefined' && ghlWebhookTokenHint); %>
+<% const _wid = workspace && workspace.id ? workspace.id : 'default'; %>
+
+<div class="space-y-8 max-w-3xl">
+  <%- include('../../partials/ghl_connection_banner', { ghlStatus: _gs }) %>
+
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
+    <header class="mb-6">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">CRM integration</p>
+      <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white mb-2">Connect Go High Level</h2>
+      <p class="text-sm text-brand-muted leading-relaxed">
+        This guide walks you through linking your GHL sub-account to Agency OS so leads sync as contacts — manually from the pipeline, in bulk, via webhooks, or through sub-agents (Pavlex / Hermes).
+      </p>
+    </header>
+
+    <ol class="space-y-8 list-none p-0 m-0">
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">1</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Create a Private Integration token in GHL</h3>
+          <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
+            <li>Log in to <a href="https://app.gohighlevel.com" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Go High Level</a> as an agency or sub-account admin.</li>
+            <li>Open <strong>Settings</strong> → <strong>Integrations</strong> → <strong>Private Integrations</strong> (or <strong>API</strong> depending on your plan).</li>
+            <li>Click <strong>Create new integration</strong> and name it e.g. <em>Agency OS</em>.</li>
+            <li>Enable scopes for <strong>contacts</strong> (read + write). Save and copy the <strong>API token</strong> — you will only see it once.</li>
+          </ol>
+          <p class="text-xs text-brand-muted">Official docs: <a href="https://highlevel.stoplight.io/docs/integrations" class="underline" target="_blank" rel="noopener noreferrer">GHL API v2 reference</a></p>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">2</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Find your Location ID</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">Each GHL sub-account has a unique location ID. Agency OS uses it to target the correct CRM.</p>
+          <ul class="text-sm text-brand-muted space-y-2 list-disc list-inside leading-relaxed">
+            <li>Switch to the sub-account you want to sync in the GHL location switcher.</li>
+            <li>Open <strong>Settings</strong> → <strong>Business Profile</strong> — the location ID often appears in the URL as <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">/location/XXXXXXXXXX/</code>.</li>
+            <li>Alternatively use GHL’s API or support docs to copy the location ID for that sub-account.</li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">3</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Save credentials in Agency OS</h3>
+          <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
+            <li>Go to <a href="/workspace/integrations#ghl-integration" class="underline font-semibold text-brand-dark dark:text-white">Workspace → Integrations → Go High Level</a>.</li>
+            <li>Paste the <strong>Private integration token</strong> and <strong>Location ID</strong>.</li>
+            <li>Click <strong>Test &amp; save</strong> on the GHL card. A green check means Agency OS can read contacts from that location.</li>
+          </ol>
+          <% if (_gs.connected) { %>
+          <p class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">✓ Your workspace is connected. You can skip to sync options below.</p>
+          <% } else { %>
+          <a href="/workspace/integrations#ghl-integration" class="inline-flex mt-1 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-2.5 text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity">Open GHL settings</a>
+          <% } %>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">4</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Optional — real-time inbound webhooks</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">When someone creates or updates a contact in GHL, Agency OS can import it automatically.</p>
+          <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
+            <li>On the GHL integrations card, set a <strong>webhook token</strong> (or ask your operator to set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GHL_WEBHOOK_SECRET</code> on the server).</li>
+            <li>Copy the webhook URL shown on that card.</li>
+            <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>ContactCreate</strong> and <strong>ContactUpdate</strong>.</li>
+            <li>Paste the Agency OS webhook URL. The <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">locationId</code> in each event must match the Location ID you saved.</li>
+          </ol>
+          <% if (_hookReady && _base) { %>
+          <p class="text-xs text-brand-muted">Webhook endpoint pattern:</p>
+          <code class="block text-[11px] break-all rounded-lg bg-brand-cream/50 dark:bg-slate-950 px-3 py-2"><%= _base %>/api/webhooks/ghl?token=YOUR_TOKEN</code>
+          <% } %>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">5</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Sync leads from the pipeline</h3>
+          <ul class="text-sm text-brand-muted space-y-2 list-disc list-inside leading-relaxed">
+            <li><strong>Push selected:</strong> On <a href="/prospecting?tab=pipeline" class="underline">Prospecting → Pipeline</a>, check leads and click <strong>GHL</strong> in the bulk action bar.</li>
+            <li><strong>Bulk sync:</strong> On Integrations, use <strong>Pull from GHL</strong>, <strong>Push to GHL</strong>, or <strong>Sync both ways</strong>.</li>
+            <li>Matched contacts update by GHL contact ID, email, or phone — duplicates are avoided.</li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">6</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Sub-agent API (Pavlex / Hermes)</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">Autonomous agents can push and pull without a browser session.</p>
+          <ul class="text-sm text-brand-muted space-y-2 list-disc list-inside leading-relaxed">
+            <li>Headers: <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">x-api-key</code> (your API ingest key) and <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">x-workspace-id: <%= _wid %></code></li>
+            <li><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GET /autonomous/ghl/status</code> — check configuration</li>
+            <li><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">POST /autonomous/ghl/push</code> — body <code class="text-[11px]">{"leadKeys":["lead:…"]}</code></li>
+            <li><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">POST /autonomous/ghl/pull</code> — import contacts from GHL</li>
+          </ul>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <div class="flex flex-wrap gap-3">
+    <a href="/workspace/integrations#ghl-integration" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-6 py-3 text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity">Back to integrations</a>
+    <% if (_gs.connected) { %>
+    <a href="/prospecting?tab=pipeline" class="rounded-xl border border-brand-border/70 dark:border-white/15 px-6 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open pipeline</a>
+    <% } %>
+  </div>
+</div>
+
+<script>
+(function () {
+  function refreshGhlBanner(connected, message) {
+    var banner = document.getElementById('ghlConnectionBanner');
+    if (!banner) return;
+    banner.setAttribute('data-ghl-connected', connected ? '1' : '0');
+    banner.className = 'rounded-xl border px-4 py-3 flex flex-wrap items-start gap-3 ' +
+      (connected ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-amber-500/40 bg-amber-500/10');
+    var dot = banner.querySelector('span[aria-hidden="true"]');
+    if (dot) dot.className = 'w-2.5 h-2.5 rounded-full shrink-0 mt-1 ' + (connected ? 'bg-emerald-500' : 'bg-amber-500');
+    var body = banner.querySelector('.min-w-0.flex-1');
+    if (!body) return;
+    if (connected) {
+      body.innerHTML =
+        '<p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Connected to Go High Level</p>' +
+        '<p class="text-xs text-emerald-800/90 dark:text-emerald-200/90 leading-relaxed">' +
+        (message || 'API key and location ID verified.') + '</p>';
+    }
+  }
+
+  var banner = document.getElementById('ghlConnectionBanner');
+  if (!banner || banner.getAttribute('data-ghl-connected') === '1') return;
+  if (banner.getAttribute('data-ghl-configured') !== '1') return;
+
+  fetch('/ghl/status?verify=1', { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (!data || !data.success || !data.connected) return;
+      refreshGhlBanner(true, data.connectionMessage);
+    })
+    .catch(function () {});
+})();
+</script>
