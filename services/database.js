@@ -1127,6 +1127,44 @@ module.exports = {
     return rows;
   },
 
+  _actionPlanMonthKey(workspaceId, email, year, month) {
+    const wid = workspaceId || 'default';
+    const frag = this._emailKeyFragment(email);
+    const y = parseInt(year, 10);
+    const m = Math.min(12, Math.max(1, parseInt(month, 10)));
+    return `action_plan:${wid}:${frag}:${y}-${String(m).padStart(2, '0')}`;
+  },
+
+  async getActionPlanMonth(workspaceId, email, year, month) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'getActionPlanMonth');
+    const key = this._actionPlanMonthKey(wid, email, year, month);
+    const raw = kvGet(key);
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveActionPlanMonth(workspaceId, email, year, month, data) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'saveActionPlanMonth');
+    const key = this._actionPlanMonthKey(wid, email, year, month);
+    const existing = (await this.getActionPlanMonth(wid, email, year, month)) || {};
+    const merged = {
+      ...existing,
+      ...(data || {}),
+      email,
+      year: parseInt(year, 10),
+      month: parseInt(month, 10),
+      updatedAt: new Date().toISOString(),
+    };
+    kvSet(key, JSON.stringify(merged));
+    return merged;
+  },
+
   // --- Personal tasks (checklist + kanban) ---
 
   _userTaskKey(workspaceId, email, taskId) {

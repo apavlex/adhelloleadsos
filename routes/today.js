@@ -18,6 +18,7 @@ const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue } = require('../services/todayContactQueue');
 const { loadSalesTrackerReviewCore } = require('../services/salesTrackerLocals');
+const actionPlanTracker = require('../services/actionPlanTracker');
 function firstNameFromUser(user) {
   const raw =
     (user && user.displayName) ||
@@ -163,6 +164,23 @@ router.get('/', async (req, res, next) => {
 
     const trackerReview = await loadSalesTrackerReviewCore(req, today);
 
+    const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
+    const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
+    const actionPlan = await actionPlanTracker.loadMonthView({
+      workspaceId: req.workspaceId,
+      email,
+      year: apYear,
+      month: apMonth,
+      leads: workspaceLeads,
+    });
+    const navYear = new Date().getFullYear();
+    const actionPlanMonthNav = actionPlanTracker.MONTH_SHORT.map((short, i) => ({
+      short,
+      month: i + 1,
+      year: navYear,
+      active: navYear === actionPlan.year && i + 1 === actionPlan.month,
+    }));
+
     res.render('today', {
       title: 'Today | Agency OS',
       activePage: 'today',
@@ -203,9 +221,28 @@ router.get('/', async (req, res, next) => {
       trackerInferred: trackerReview.trackerInferred,
       trackerDisplayToday: trackerReview.trackerDisplayToday,
       trackerReturnTo: '/today',
+      actionPlan,
+      actionPlanMonthNav,
     });
   } catch (e) {
     next(e);
+  }
+});
+
+/** Toggle a single action-plan cell (monthly checkbox grid). */
+router.post('/action-plan/toggle', express.json(), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await actionPlanTracker.toggleCell({
+      workspaceId: req.workspaceId,
+      email,
+      date: body.date,
+      activityId: body.activityId,
+    });
+    return res.json({ success: true, ...result });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e && e.message ? e.message : 'toggle_failed' });
   }
 });
 
