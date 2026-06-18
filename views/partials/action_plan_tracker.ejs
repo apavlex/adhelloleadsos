@@ -1,68 +1,67 @@
 <% const _ap = typeof actionPlan !== 'undefined' && actionPlan ? actionPlan : null; %>
 <% if (_ap) { %>
-<section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-slate-900 text-white shadow-lg overflow-hidden" id="action-plan-tracker" aria-label="Daily action plan tracker" data-year="<%= _ap.year %>" data-month="<%= _ap.month %>">
-  <div class="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-white/10">
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
-    <div class="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-      <p class="text-[9px] font-black uppercase tracking-widest text-slate-400"><%= _ap.year %> Client Goal</p>
-      <p class="font-display font-black text-3xl tabular-nums mt-1" id="actionPlanClientGoal"><%= _ap.clientGoal %></p>
+<section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 text-brand-dark dark:text-white shadow-sm overflow-hidden" id="action-plan-tracker" aria-label="Daily action plan tracker" data-year="<%= _ap.year %>" data-month="<%= _ap.month %>">
+  <div class="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-brand-border/50 dark:border-white/10">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted"><%= _ap.year %> Client Goal</p>
+        <p class="font-display font-black text-3xl text-brand-dark dark:text-white tabular-nums mt-1" id="actionPlanClientGoal"><%= _ap.clientGoal %></p>
+      </div>
+      <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 dark:bg-emerald-500/15 px-4 py-3">
+        <p class="text-[9px] font-black uppercase tracking-widest text-emerald-800/80 dark:text-emerald-300/80">Clients Acquired YTD</p>
+        <p class="font-display font-black text-3xl tabular-nums text-emerald-700 dark:text-emerald-400 mt-1" id="actionPlanClientsYtd"><%= _ap.clientsAcquiredYtd %></p>
+      </div>
     </div>
-    <div class="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3">
-      <p class="text-[9px] font-black uppercase tracking-widest text-emerald-300/80">Clients Acquired YTD</p>
-      <p class="font-display font-black text-3xl tabular-nums text-emerald-400 mt-1" id="actionPlanClientsYtd"><%= _ap.clientsAcquiredYtd %></p>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Daily Action Plan Tracker</p>
+        <h2 class="font-display font-extrabold text-lg sm:text-xl text-brand-dark dark:text-white"><%= _ap.monthLabel %></h2>
+      </div>
+      <p class="text-xs text-brand-muted">Click a cell when you complete an activity for that day.</p>
     </div>
-  </div>
-  <div class="flex flex-wrap items-center justify-between gap-3">
-    <div>
-      <p class="text-[10px] font-black uppercase tracking-widest text-sky-400 mb-1">Daily Action Plan Tracker</p>
-      <h2 class="font-display font-extrabold text-lg sm:text-xl"><%= _ap.monthLabel %></h2>
-    </div>
-    <p class="text-xs text-slate-400">Click a cell when you complete an activity for that day.</p>
-  </div>
   </div>
 
   <div class="overflow-x-auto custom-scrollbar">
     <table class="action-plan-grid w-full min-w-[52rem] border-collapse text-left">
       <thead>
-        <tr class="border-b border-white/10">
-          <th class="sticky left-0 z-20 bg-slate-900 px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 w-[14rem] min-w-[14rem]">Activity</th>
+        <tr class="border-b border-brand-border/50 dark:border-white/10">
+          <th class="action-plan-sticky-col px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted w-[14rem] min-w-[14rem]">Activity</th>
           <% _ap.days.forEach(function (day) { %>
-          <% const _dk = _ap.year + '-' + String(_ap.month).padStart(2, '0') + '-' + String(day).padStart(2, '0'); %>
           <% const _isToday = _ap.isCurrentMonth && day === _ap.todayDay; %>
-          <th class="px-0 py-3 text-center text-[11px] font-black tabular-nums <%= _isToday ? 'bg-sky-600/40 text-white' : 'text-slate-400' %>" style="min-width:2.25rem;width:2.25rem"><%= day %></th>
+          <th class="px-0 py-3 text-center text-[11px] font-black tabular-nums <%= _isToday ? 'action-plan-today-col text-brand-dark dark:text-white' : 'text-brand-muted' %>" style="min-width:2.25rem;width:2.25rem"><%= day %></th>
           <% }); %>
         </tr>
       </thead>
       <tbody>
         <% _ap.categories.forEach(function (cat) { %>
         <tr class="action-plan-cat-row">
-          <td colspan="<%= _ap.days.length + 1 %>" class="sticky left-0 bg-slate-800/80 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-sky-300/90 border-y border-white/5"><%= cat.label %></td>
+          <td colspan="<%= _ap.days.length + 1 %>" class="px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-brand-yellow dark:text-brand-yellow/90 bg-brand-cream/50 dark:bg-slate-800/60 border-y border-brand-border/30 dark:border-white/5"><%= cat.label %></td>
         </tr>
         <% cat.activities.forEach(function (act) { %>
-        <tr class="border-b border-white/5 hover:bg-white/[0.02]">
-          <td class="sticky left-0 z-10 bg-slate-900 px-4 py-2.5 text-xs font-semibold text-slate-200 border-r border-white/5">
+        <tr class="border-b border-brand-border/30 dark:border-white/5 hover:bg-brand-cream/20 dark:hover:bg-white/[0.02]">
+          <td class="action-plan-sticky-col px-4 py-2.5 text-xs font-semibold text-brand-dark dark:text-slate-200 border-r border-brand-border/30 dark:border-white/5">
             <span class="inline-flex items-center gap-2 flex-wrap">
               <span><%= act.label %></span>
-              <% if (act.gen) { %><span class="text-[8px] font-black uppercase tracking-widest text-sky-400 bg-sky-500/15 border border-sky-500/30 rounded px-1 py-0.5">Gen</span><% } %>
+              <% if (act.gen) { %><span class="text-[8px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow bg-brand-yellow/20 dark:bg-brand-yellow/10 border border-brand-yellow/40 dark:border-brand-yellow/30 rounded px-1 py-0.5">Gen</span><% } %>
             </span>
           </td>
           <% _ap.days.forEach(function (day) { %>
           <% const _dk = _ap.year + '-' + String(_ap.month).padStart(2, '0') + '-' + String(day).padStart(2, '0'); %>
           <% const _checked = (_ap.completions[_dk] || []).indexOf(act.id) !== -1; %>
           <% const _isToday = _ap.isCurrentMonth && day === _ap.todayDay; %>
-          <td class="p-0 text-center <%= _isToday ? 'bg-sky-600/10' : '' %>">
+          <td class="p-0 text-center <%= _isToday ? 'action-plan-today-col' : '' %>">
             <button
               type="button"
-              class="action-plan-cell w-full h-9 flex items-center justify-center transition-colors hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60"
+              class="action-plan-cell w-full h-9 flex items-center justify-center transition-colors hover:bg-brand-cream/60 dark:hover:bg-white/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/50"
               data-date="<%= _dk %>"
               data-activity="<%= act.id %>"
               aria-pressed="<%= _checked ? 'true' : 'false' %>"
               title="<%= act.label %> — <%= _dk %>"
             >
               <% if (_checked) { %>
-              <span class="inline-flex w-5 h-5 items-center justify-center rounded bg-emerald-500 text-white text-xs font-black" aria-hidden="true">✓</span>
+              <span class="action-plan-check inline-flex w-5 h-5 items-center justify-center rounded bg-emerald-500 text-white text-xs font-black" aria-hidden="true">✓</span>
               <% } else { %>
-              <span class="w-1.5 h-1.5 rounded-full bg-white/15" aria-hidden="true"></span>
+              <span class="action-plan-dot w-1.5 h-1.5 rounded-full bg-brand-border/80 dark:bg-white/15" aria-hidden="true"></span>
               <% } %>
             </button>
           </td>
@@ -70,17 +69,17 @@
         </tr>
         <% }); %>
         <% }); %>
-        <tr class="bg-slate-800/60 border-t border-white/10">
-          <td class="sticky left-0 z-10 bg-slate-800 px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-amber-300/90">Daily Total</td>
+        <tr class="bg-brand-cream/40 dark:bg-slate-800/50 border-t border-brand-border/50 dark:border-white/10">
+          <td class="action-plan-sticky-col action-plan-sticky-col--total px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300/90">Daily Total</td>
           <% _ap.days.forEach(function (day) { %>
           <% const _dk = _ap.year + '-' + String(_ap.month).padStart(2, '0') + '-' + String(day).padStart(2, '0'); %>
           <% const _tot = _ap.dailyTotals[_dk] || 0; %>
           <% const _isToday = _ap.isCurrentMonth && day === _ap.todayDay; %>
-          <td class="text-center py-2 <%= _isToday ? 'bg-sky-600/20' : '' %>">
+          <td class="text-center py-2 <%= _isToday ? 'action-plan-today-col' : '' %>">
             <% if (_tot > 0) { %>
-            <span class="inline-flex min-w-[1.25rem] h-5 px-1 items-center justify-center rounded bg-amber-500/90 text-slate-900 text-[10px] font-black tabular-nums action-plan-day-total" data-date="<%= _dk %>"><%= _tot %></span>
+            <span class="action-plan-day-total action-plan-day-total--filled inline-flex min-w-[1.25rem] h-5 px-1 items-center justify-center rounded bg-brand-yellow dark:bg-amber-500/90 text-brand-dark text-[10px] font-black tabular-nums" data-date="<%= _dk %>"><%= _tot %></span>
             <% } else { %>
-            <span class="action-plan-day-total text-slate-600 text-[10px] font-bold tabular-nums" data-date="<%= _dk %>"></span>
+            <span class="action-plan-day-total text-brand-muted/50 dark:text-slate-600 text-[10px] font-bold tabular-nums" data-date="<%= _dk %>"></span>
             <% } %>
           </td>
           <% }); %>
@@ -89,21 +88,44 @@
     </table>
   </div>
 
-  <div class="px-5 sm:px-6 py-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    <p class="text-sm text-slate-300">
-      Monthly Total: <strong class="text-emerald-400 font-black tabular-nums" id="actionPlanMonthlyTotal"><%= _ap.monthlyTotal %></strong> activities completed
+  <div class="px-5 sm:px-6 py-4 border-t border-brand-border/50 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <p class="text-sm text-brand-muted dark:text-slate-300">
+      Monthly Total: <strong class="text-emerald-700 dark:text-emerald-400 font-black tabular-nums" id="actionPlanMonthlyTotal"><%= _ap.monthlyTotal %></strong> activities completed
     </p>
     <nav class="flex flex-wrap gap-1" aria-label="Select month">
       <% const _months = typeof actionPlanMonthNav !== 'undefined' ? actionPlanMonthNav : []; %>
       <% _months.forEach(function (m) { %>
       <a
         href="/today?actionPlanYear=<%= m.year %>&amp;actionPlanMonth=<%= m.month %>#action-plan-tracker"
-        class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors <%= m.active ? 'bg-sky-600 text-white' : 'text-slate-400 hover:bg-white/10 hover:text-white' %>"
+        class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors <%= m.active ? 'bg-brand-yellow text-brand-dark shadow-sm' : 'text-brand-muted hover:bg-brand-cream/60 dark:hover:bg-white/10 hover:text-brand-dark dark:hover:text-white' %>"
         <%= m.active ? 'aria-current="page"' : '' %>
       ><%= m.short %></a>
       <% }); %>
     </nav>
   </div>
 </section>
+<style>
+  .action-plan-sticky-col {
+    position: sticky;
+    left: 0;
+    z-index: 10;
+    background: #fff;
+  }
+  .dark .action-plan-sticky-col {
+    background: rgb(15 23 42 / 0.95);
+  }
+  .action-plan-sticky-col--total {
+    background: rgb(250 248 245);
+  }
+  .dark .action-plan-sticky-col--total {
+    background: rgb(30 41 59 / 0.95);
+  }
+  .action-plan-today-col {
+    background: rgb(255 214 68 / 0.12);
+  }
+  .dark .action-plan-today-col {
+    background: rgb(255 214 68 / 0.08);
+  }
+</style>
 <script src="/js/action-plan-tracker.js" defer></script>
 <% } %>
