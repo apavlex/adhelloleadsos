@@ -25,50 +25,10 @@
     });
   }
 
-  function applySelectAll(header, forceChecked) {
-    if (!header || header.nodeType !== 1) return 0;
-    const table =
-      header.closest('table') ||
-      document.getElementById('prospectLeadsTable') ||
-      document.querySelector('table thead input[data-select-all-leads]')?.closest('table');
-    if (!table) return 0;
-
-    const boxes = getPageCheckboxes(table);
-    const checked = forceChecked != null ? !!forceChecked : !!header.checked;
-
-    if (!boxes.length) {
-      header.checked = false;
-      header.indeterminate = false;
-      return 0;
-    }
-
-    boxes.forEach((cb) => {
-      cb.checked = checked;
-      if (checked) cb.setAttribute('checked', 'checked');
-      else cb.removeAttribute('checked');
-    });
-
-    header.checked = checked;
-    header.indeterminate = false;
-
-    table.querySelectorAll('tbody tr').forEach((tr) => {
-      if (tr.classList.contains('pipeline-row-page-hidden')) return;
-      const cb = tr.querySelector('input.lead-checkbox, input.row-checkbox');
-      const on = !!(cb && cb.checked);
-      tr.classList.toggle('bulk-selected', on);
-      tr.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
-
-    const checkedCount = boxes.filter((cb) => cb.checked).length;
-    showBulkActionBar(checkedCount);
-
-    if (typeof window.__updateBulkActionBar === 'function') {
-      window.__updateBulkActionBar();
-    } else if (typeof window.__syncBulkSelectionFromDom === 'function') {
-      window.__syncBulkSelectionFromDom();
-    }
-
-    return boxes.length;
+  function countCheckedGlobally() {
+    return document.querySelectorAll(
+      'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
+    ).length;
   }
 
   function mountBulkBarToBody() {
@@ -114,10 +74,78 @@
   }
   window.__showBulkActionBar = showBulkActionBar;
 
+  function syncBulkBarFromDom() {
+    const count = countCheckedGlobally();
+    showBulkActionBar(count);
+    if (typeof window.__updateBulkActionBar === 'function') {
+      window.__updateBulkActionBar();
+    } else if (typeof window.__syncBulkSelectionFromDom === 'function') {
+      window.__syncBulkSelectionFromDom();
+    }
+  }
+  window.__syncBulkBarFromDom = syncBulkBarFromDom;
+
+  function applySelectAll(header, forceChecked) {
+    if (!header || header.nodeType !== 1) return 0;
+    const table =
+      header.closest('table') ||
+      document.getElementById('prospectLeadsTable') ||
+      document.querySelector('table thead input[data-select-all-leads]')?.closest('table');
+    if (!table) return 0;
+
+    const boxes = getPageCheckboxes(table);
+    const checked = forceChecked != null ? !!forceChecked : !!header.checked;
+
+    if (!boxes.length) {
+      header.checked = false;
+      header.indeterminate = false;
+      return 0;
+    }
+
+    boxes.forEach((cb) => {
+      cb.checked = checked;
+      if (checked) cb.setAttribute('checked', 'checked');
+      else cb.removeAttribute('checked');
+    });
+
+    header.checked = checked;
+    header.indeterminate = false;
+
+    table.querySelectorAll('tbody tr').forEach((tr) => {
+      if (tr.classList.contains('pipeline-row-page-hidden')) return;
+      const cb = tr.querySelector('input.lead-checkbox, input.row-checkbox');
+      const on = !!(cb && cb.checked);
+      tr.classList.toggle('bulk-selected', on);
+      tr.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+
+    syncBulkBarFromDom();
+    return boxes.length;
+  }
+
+  function bindRowCheckboxes(table) {
+    if (!table || table.dataset.plcRowBulkBound === '1') return;
+    if (!table.querySelector('tbody input.lead-checkbox, tbody input.row-checkbox')) return;
+    table.dataset.plcRowBulkBound = '1';
+
+    function onRowCheckboxChange(e) {
+      const t = e.target;
+      if (!t || t.tagName !== 'INPUT') return;
+      if (!t.classList.contains('lead-checkbox') && !t.classList.contains('row-checkbox')) return;
+      syncBulkBarFromDom();
+    }
+
+    table.addEventListener('change', onRowCheckboxChange);
+    table.addEventListener('input', onRowCheckboxChange);
+  }
+
   function bindTable(table) {
     const header = table.querySelector('thead input[data-select-all-leads]');
-    if (!header || header.dataset.plcBulkBound === '1') return;
     if (!table.querySelector('tbody input.lead-checkbox, tbody input.row-checkbox')) return;
+
+    bindRowCheckboxes(table);
+
+    if (!header || header.dataset.plcBulkBound === '1') return;
     header.dataset.plcBulkBound = '1';
 
     function onHeaderToggle() {
@@ -141,6 +169,31 @@
         bindTable(table);
       }
     });
+
+    // Capture-phase fallback: runs before app.js table handlers call stopPropagation.
+    document.addEventListener(
+      'change',
+      (e) => {
+        const t = e.target;
+        if (!t || !t.matches) return;
+        if (!t.matches('input.lead-checkbox, input.row-checkbox')) return;
+        syncBulkBarFromDom();
+      },
+      true,
+    );
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        const cb =
+          e.target && e.target.closest
+            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
+            : null;
+        if (!cb) return;
+        requestAnimationFrame(syncBulkBarFromDom);
+      },
+      true,
+    );
   }
 
   window.__PIPELINE_BULK_SELECT_V2 = '2';

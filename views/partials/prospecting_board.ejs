@@ -275,4 +275,7 @@
   CSV / XLSX import maps common export columns into saved leads — e.g. <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">business</code> / <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">company_name</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">phone</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">website_url</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">area</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">social_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">source_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">why_prospect</code>, plus Agency-style GBP fields. Rows with the same email in this workspace merge into one lead; re-import to backfill fields that were missing before.
 </p>
 
+<%- include('/partials/lmv_prospecting_methods', { lmvProspectingMethods: typeof lmvProspectingMethods !== 'undefined' ? lmvProspectingMethods : [] }) %>
+<%- include('/partials/leads_outreach_toolbar', { leads: typeof leads !== 'undefined' ? leads : [], activeFolderKey: typeof activeFolderKey !== 'undefined' ? activeFolderKey : '', folders: _folders, leadListFilters: _lf }) %>
+
 <%- include('/partials/leads_pipeline_core') %>

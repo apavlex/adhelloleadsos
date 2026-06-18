@@ -137,17 +137,48 @@
     }
   }
 
+  function leadKeyFromCheckbox(cb) {
+    if (!cb) return '';
+    let key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
+    if (key) return key;
+    const row = cb.closest('tr.result-row, tr[data-lead-key]');
+    if (!row) return '';
+    return String(row.getAttribute('data-lead-key') ?? row.dataset.leadKey ?? '').trim();
+  }
+
   function getSelectedLeadKeysForBulk() {
     if (typeof window.__ensureBulkSelectionKeys === 'function') {
-      return window.__ensureBulkSelectionKeys();
+      const keys = window.__ensureBulkSelectionKeys();
+      if (keys.length) return keys;
     }
-    if (typeof window.__getSelectedLeadCheckboxesForBulkActions === 'function') {
-      return window
-        .__getSelectedLeadCheckboxesForBulkActions()
-        .map((cb) => String(cb.getAttribute('data-key') || cb.dataset.key || '').trim())
-        .filter(Boolean);
+    if (typeof window.__syncBulkSelectionFromDom === 'function') {
+      window.__syncBulkSelectionFromDom();
+      if (typeof window.__ensureBulkSelectionKeys === 'function') {
+        const keys = window.__ensureBulkSelectionKeys();
+        if (keys.length) return keys;
+      }
+    } else if (typeof window.__syncBulkBarFromDom === 'function') {
+      window.__syncBulkBarFromDom();
     }
-    return [];
+    const keys = [];
+    const seen = new Set();
+    const selectors = [
+      '#prospectLeadsTable tbody input.lead-checkbox:checked',
+      '#prospectLeadsTable tbody input.row-checkbox:checked',
+      '#searchResultsLeadsTable tbody input.lead-checkbox:checked',
+      '#searchResultsLeadsTable tbody input.row-checkbox:checked',
+      'tbody input.lead-checkbox:checked',
+      'tbody input.row-checkbox:checked',
+    ];
+    selectors.forEach((sel) => {
+      document.querySelectorAll(sel).forEach((cb) => {
+        const key = leadKeyFromCheckbox(cb);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        keys.push(key);
+      });
+    });
+    return keys;
   }
 
   function applyTagsToRowsFromBulkResult(leads) {
@@ -166,14 +197,18 @@
 
   function setBulkTagsRowVisible(show) {
     const row = document.getElementById('bulkTagsRow');
-    const folderRow = document.getElementById('bulkFolderNewRow');
     if (!row) return;
     if (show) {
       row.classList.remove('hidden');
       row.classList.add('flex');
-      if (folderRow) {
-        folderRow.classList.add('hidden');
-        folderRow.classList.remove('flex');
+      if (typeof window.__setBulkFolderNewRowVisible === 'function') {
+        window.__setBulkFolderNewRowVisible(false);
+      } else {
+        const folderRow = document.getElementById('bulkFolderNewRow');
+        if (folderRow) {
+          folderRow.classList.add('hidden');
+          folderRow.classList.remove('flex');
+        }
       }
       rebuildBulkTagSelect();
     } else {
@@ -273,27 +308,27 @@
   }
 
   function bindBulkTags() {
+    const bar = document.getElementById('bulkActionBar');
     const toggle = document.getElementById('bulkTagsToggle');
-    const cancel = document.getElementById('bulkTagsCancel');
+    const select = document.getElementById('bulkTagSelect');
+    const newName = document.getElementById('bulkTagNewName');
     const addBtn = document.getElementById('bulkTagAddBtn');
     const removeBtn = document.getElementById('bulkTagRemoveBtn');
     const createBtn = document.getElementById('bulkTagNewSave');
-    const select = document.getElementById('bulkTagSelect');
-    const newName = document.getElementById('bulkTagNewName');
 
     if (toggle && toggle.dataset.bound !== '1') {
       toggle.dataset.bound = '1';
-      toggle.addEventListener('click', () => {
+      toggle.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
         const row = document.getElementById('bulkTagsRow');
         const hidden = !row || row.classList.contains('hidden');
         setBulkTagsRowVisible(hidden);
       });
     }
 
-    if (cancel && cancel.dataset.bound !== '1') {
-      cancel.dataset.bound = '1';
-      cancel.addEventListener('click', () => setBulkTagsRowVisible(false));
-    }
+    if (!bar || bar.dataset.bulkTagsActionsBound === '1') return;
+    bar.dataset.bulkTagsActionsBound = '1';
 
     async function runBulkTag(mode) {
       const keys = getSelectedLeadKeysForBulk();
@@ -325,20 +360,29 @@
       }
     }
 
-    if (addBtn && addBtn.dataset.bound !== '1') {
-      addBtn.dataset.bound = '1';
-      addBtn.addEventListener('click', () => runBulkTag('add'));
-    }
-
-    if (removeBtn && removeBtn.dataset.bound !== '1') {
-      removeBtn.dataset.bound = '1';
-      removeBtn.addEventListener('click', () => runBulkTag('remove'));
-    }
-
-    if (createBtn && createBtn.dataset.bound !== '1' && newName) {
-      createBtn.dataset.bound = '1';
-      createBtn.addEventListener('click', async () => {
-        const name = String(newName.value || '').trim();
+    bar.addEventListener('click', async (e) => {
+      if (e.target.closest('#bulkTagsCancel')) {
+        e.preventDefault();
+        e.stopPropagation();
+        setBulkTagsRowVisible(false);
+        return;
+      }
+      if (e.target.closest('#bulkTagAddBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await runBulkTag('add');
+        return;
+      }
+      if (e.target.closest('#bulkTagRemoveBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await runBulkTag('remove');
+        return;
+      }
+      if (e.target.closest('#bulkTagNewSave')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const name = newName ? String(newName.value || '').trim() : '';
         const keys = getSelectedLeadKeysForBulk();
         if (!name) {
           window.alert('Enter a tag name.');
@@ -348,13 +392,13 @@
           window.alert('Select at least one lead.');
           return;
         }
-        createBtn.disabled = true;
+        if (createBtn) createBtn.disabled = true;
         try {
           const tag = await createWorkspaceTag(name);
           if (!tag || !tag.key) throw new Error('Could not create tag.');
           const data = await bulkAssignTags(keys, [tag.key], 'add');
           applyTagsToRowsFromBulkResult(data.leads);
-          newName.value = '';
+          if (newName) newName.value = '';
           if (select) select.value = tag.key;
           const msg = `Created “${tag.name}” and tagged ${(data.updatedKeys || []).length} lead(s)`;
           if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
@@ -362,10 +406,19 @@
         } catch (err) {
           window.alert(err.message || 'Could not create and apply tag.');
         } finally {
-          createBtn.disabled = false;
+          if (createBtn) createBtn.disabled = false;
         }
-      });
-    }
+      }
+    });
+
+    bar.addEventListener('keydown', (e) => {
+      if (e.target.id !== 'bulkTagNewName') return;
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const save = document.getElementById('bulkTagNewSave');
+        if (save && !save.disabled) save.click();
+      }
+    });
   }
 
   function initRowTags() {

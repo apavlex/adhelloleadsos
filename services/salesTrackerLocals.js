@@ -6,8 +6,8 @@ const { filterLeadsForRequest, userEmail } = require('./workspaceService');
 const {
   buildDayRollup,
   countUniqueLeadsTouchedOnUtcDate,
-  dailyPersonalizedTouchGoal,
 } = require('./trackerStats');
+const { loadDailyTouchGoal } = require('./touchGoalPrefs');
 const {
   inferDailyTouchCountsFromLeads,
   displayTouchTotalsForDay,
@@ -64,7 +64,7 @@ async function loadSalesTrackerLocals(req) {
   const checklistMonth = enrichRollupWithLeadInference(buildDayRollup(today, history60, 30), leadsScoped);
   const outreachCoach = await buildOutreachCoachSnapshot(req);
   const touchesToday = countUniqueLeadsTouchedOnUtcDate(leadsScoped, today);
-  const touchGoal = dailyPersonalizedTouchGoal();
+  const touchGoal = await loadDailyTouchGoal(req);
   return {
     today,
     todayRow,

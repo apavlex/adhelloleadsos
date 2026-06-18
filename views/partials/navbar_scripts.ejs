@@ -318,10 +318,10 @@
     }
     list.forEach(function (num) {
       var row = document.createElement('div');
-      row.className = 'flex items-center justify-between gap-2 rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/60 px-2.5 py-2';
+      row.className = 'flex items-center justify-between gap-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/70 px-3 py-2.5';
       row.innerHTML =
-        '<button type="button" class="softphone-recent-fill text-sm font-semibold text-brand-dark dark:text-white hover:text-brand-yellow truncate text-left flex-1" data-number="' + num + '">' + num + '</button>' +
-        '<button type="button" class="softphone-recent-call text-[10px] font-black uppercase tracking-widest rounded-lg bg-emerald-600 text-white px-2 py-1 hover:bg-emerald-500" data-number="' + num + '">Call</button>';
+        '<button type="button" class="softphone-recent-fill text-sm font-semibold text-slate-800 dark:text-white hover:text-brand-yellow truncate text-left flex-1" data-number="' + num + '">' + num + '</button>' +
+        '<button type="button" class="softphone-recent-call text-[10px] font-bold uppercase tracking-wide rounded-xl bg-[#6ee7b7] text-white px-2.5 py-1.5 hover:brightness-105" data-number="' + num + '">Call</button>';
       spRecentList.appendChild(row);
     });
   }
@@ -330,6 +330,12 @@
     var picked = spFrom && spFrom.value ? String(spFrom.value).trim() : '';
     var current = picked || spActiveFrom || spDefaultFrom || '';
     spOutboundMeta.textContent = 'Current outbound: ' + (current || '—');
+    var line = document.getElementById('softphoneCallingFromLine');
+    if (line) {
+      line.textContent = current
+        ? 'Number closest to the contact · ' + current
+        : 'Number closest to the contact · default workspace number';
+    }
   }
   function softphoneModeDescription(mode, hasRelayWebrtc) {
     var m = String(mode || '').trim() || 'cloud_dial';
@@ -651,6 +657,11 @@
     updateControlToggles();
     updateRecordingToggle();
     syncNavBarCallIndicator();
+    var inCallBar = document.getElementById('softphoneInCallBar');
+    if (inCallBar) {
+      var active = state === 'dialing' || state === 'in_call' || state === 'ended';
+      inCallBar.classList.toggle('hidden', !active);
+    }
   }
   function softphoneStopPolling() {
     if (softphoneSession.pollTimer) {
@@ -835,6 +846,7 @@
     if (spMute) spMute.textContent = 'Mute';
     if (spHold) spHold.textContent = 'Hold';
     softphoneSetTimerSeconds(0);
+    setSoftphoneTab('keypad');
     if (spTo) setTimeout(function () { spTo.focus(); }, 80);
     renderRecentDials();
     softphoneSetCallState('idle');
@@ -1204,6 +1216,111 @@
       try { localStorage.setItem(SOFTPHONE_POS_KEY, JSON.stringify({ dock: 'right' })); } catch (e2) {}
     });
   }
+
+  var SOFTPHONE_TAB_KEY = 'adhelloSoftphoneTab';
+  var SOFTPHONE_PIN_KEY = 'adhelloSoftphonePinned';
+  var spBackspace = document.getElementById('softphoneBackspaceBtn');
+  var spPin = document.getElementById('softphonePinBtn');
+  var spExpand = document.getElementById('softphoneExpandBtn');
+  var spChangeFrom = document.getElementById('softphoneChangeFromBtn');
+  var spOpenAddLead = document.getElementById('softphoneOpenAddLead');
+
+  function setSoftphoneTab(tab) {
+    var name = String(tab || 'keypad');
+    document.querySelectorAll('.softphone-tab-panel').forEach(function (panel) {
+      panel.classList.toggle('hidden', panel.getAttribute('data-tab') !== name);
+    });
+    document.querySelectorAll('.softphone-nav-btn').forEach(function (btn) {
+      var on = btn.getAttribute('data-tab') === name;
+      btn.classList.toggle('softphone-nav-btn--active', on);
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    try { localStorage.setItem(SOFTPHONE_TAB_KEY, name); } catch (_) {}
+    if (name === 'recents') renderRecentDials();
+    if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
+  }
+  window.__adhelloSoftphoneSetTab = setSoftphoneTab;
+
+  document.querySelectorAll('.softphone-nav-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setSoftphoneTab(btn.getAttribute('data-tab') || 'keypad');
+    });
+  });
+
+  if (spBackspace && spTo) {
+    spBackspace.addEventListener('click', function () {
+      spTo.value = String(spTo.value || '').slice(0, -1);
+      spTo.focus();
+    });
+  }
+
+  if (spChangeFrom && spFrom) {
+    spChangeFrom.addEventListener('click', function () {
+      setSoftphoneTab('contacts');
+      try {
+        spFrom.classList.remove('sr-only');
+        spFrom.focus();
+        spFrom.addEventListener(
+          'blur',
+          function onBlur() {
+            spFrom.classList.add('sr-only');
+            spFrom.removeEventListener('blur', onBlur);
+          },
+          { once: true },
+        );
+      } catch (_) {
+        spFrom.focus();
+      }
+    });
+  }
+
+  if (spOpenAddLead) {
+    spOpenAddLead.addEventListener('click', function () {
+      var openBtn =
+        document.getElementById('manualLeadOpen') ||
+        document.getElementById('manualLeadOpenMobile') ||
+        document.getElementById('manualLeadOpenSidebar');
+      if (openBtn) openBtn.click();
+    });
+  }
+
+  if (spPin) {
+    var pinned = false;
+    try { pinned = localStorage.getItem(SOFTPHONE_PIN_KEY) === '1'; } catch (_) {}
+    function applySoftphonePin(on) {
+      pinned = !!on;
+      spPin.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+      spPin.classList.toggle('softphone-chrome-btn--active', pinned);
+      if (spPanel) spPanel.classList.toggle('softphone-panel--pinned', pinned);
+      if (pinned) {
+        applyDockRight();
+        try { localStorage.setItem(SOFTPHONE_POS_KEY, JSON.stringify({ dock: 'right' })); } catch (_) {}
+      }
+      try { localStorage.setItem(SOFTPHONE_PIN_KEY, pinned ? '1' : '0'); } catch (_) {}
+    }
+    applySoftphonePin(pinned);
+    spPin.addEventListener('click', function (e) {
+      e.stopPropagation();
+      applySoftphonePin(!pinned);
+    });
+  }
+
+  if (spExpand && spPanel) {
+    spExpand.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var expanded = spPanel.classList.toggle('softphone-panel--expanded');
+      spExpand.setAttribute('aria-pressed', expanded ? 'true' : 'false');
+      spExpand.classList.toggle('softphone-chrome-btn--active', expanded);
+    });
+  }
+
+  try {
+    var savedTab = localStorage.getItem(SOFTPHONE_TAB_KEY);
+    if (savedTab) setSoftphoneTab(savedTab);
+    else setSoftphoneTab('keypad');
+  } catch (_) {
+    setSoftphoneTab('keypad');
+  }
   if (spDragHandle && spPanel) {
     spDragHandle.addEventListener('mousedown', function (e) {
       if (window.matchMedia('(max-width: 767px)').matches) return;
@@ -1333,6 +1450,7 @@
       if (fill) {
         var n = String(fill.getAttribute('data-number') || '');
         spTo.value = n;
+        setSoftphoneTab('keypad');
         spTo.focus();
         return;
       }
@@ -1385,6 +1503,7 @@
   }
   if (spKeypad) {
     spKeypad.addEventListener('click', function () {
+      setSoftphoneTab('keypad');
       if (spTo) spTo.focus();
       softphoneSetStatus('Keypad ready. Use on-screen keys or keyboard digits.');
     });

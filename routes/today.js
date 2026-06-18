@@ -6,8 +6,8 @@ const router = express.Router();
 const dbService = require('../services/database');
 const {
   countUniqueLeadsTouchedOnUtcDate,
-  dailyPersonalizedTouchGoal,
 } = require('../services/trackerStats');
+const { loadDailyTouchGoal } = require('../services/touchGoalPrefs');
 const { computeOutreachStreakWithLeads } = require('../services/trackerAutoFill');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const activationService = require('../services/activationService');
@@ -99,7 +99,7 @@ router.get('/', async (req, res, next) => {
     const history = await dbService.listDailyTrackers(req.workspaceId, email, 60);
     const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
-    const touchGoal = dailyPersonalizedTouchGoal();
+    const touchGoal = await loadDailyTouchGoal(req);
     const repliesWaiting = countReplySignals(workspaceLeads);
     const overdueFollowUps = countOverdueSequences(workspaceLeads);
     const queueNeedingAction = countQueueNeedingAction(workspaceLeads);

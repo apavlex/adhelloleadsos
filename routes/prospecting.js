@@ -17,6 +17,7 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const { normalizeLeadForPanel } = require('../services/leadPanelNormalize');
+const { LMV_PROSPECTING_METHODS } = require('../config/lmvProspectingMethods');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -146,6 +147,7 @@ router.get('/', async (req, res, next) => {
       pipelineStages,
       scriptLibraryOfferPicklist,
       outreachChannelLibrary,
+      lmvProspectingMethods: LMV_PROSPECTING_METHODS,
       sequenceTemplates: req.app.locals.sequenceTemplates || [],
       canManageWorkspace: req.canManageWorkspace,
       driveImport,

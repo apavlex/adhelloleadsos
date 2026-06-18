@@ -386,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'cadence', label: 'Cadence' },
         { id: 'category', label: 'Category' },
         { id: 'reviews', label: 'Reviews' },
+        { id: 'website', label: 'Website (Yes / No)', defaultHidden: true },
         { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
         { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
         { id: 'contact', label: 'Contact (phone, email, domain)' },
@@ -393,9 +394,10 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'added', label: 'Added' },
         { id: 'pipeline', label: 'Pipeline' },
         { id: 'opportunity', label: 'Opportunity' },
+        { id: 'methods', label: 'Methods (Call / Email)' },
         { id: 'actions', label: 'Actions' },
       ];
-      const PLC_MIN_WIDTH = { socials: 120, contact: 168 };
+      const PLC_MIN_WIDTH = { socials: 120, contact: 168, website: 72, methods: 88 };
 
       function pipelineColVisible(map, id) {
         const meta = PLC_META.find((x) => x.id === id);
@@ -10420,6 +10422,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__syncSelectAllLeadCheckbox = syncSelectAllLeadCheckbox;
 
+  function leadKeyFromBulkCheckbox(cb) {
+    if (!cb) return '';
+    let key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
+    if (key) return key;
+    const row = cb.closest('tr.result-row, tr[data-lead-key]');
+    if (!row) return '';
+    return String(row.getAttribute('data-lead-key') ?? row.dataset.leadKey ?? '').trim();
+  }
+
   function countCheckedLeadBoxes(table) {
     const root = table || document;
     return Array.from(
@@ -10441,7 +10452,7 @@ document.addEventListener('DOMContentLoaded', () => {
       seen.add(table);
       table.querySelectorAll('tbody input.lead-checkbox, tbody input.row-checkbox').forEach((cb) => {
         if (!cb.checked) return;
-        const key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
+        const key = leadKeyFromBulkCheckbox(cb);
         if (key !== '') selectedKeys.add(key);
       });
     });
@@ -10483,15 +10494,63 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__getSelectedLeadCheckboxesForBulkActions = getSelectedLeadCheckboxesForBulkActions;
 
-  /** Sync selectedKeys from DOM checkboxes; returns key list for bulk handlers. */
-  function ensureBulkSelectionKeys() {
+  /** Canonical selected lead keys for bulk bar actions (tags, folders, SMS, etc.). */
+  function getSelectedLeadKeysForBulk() {
     syncSelectedKeysFromDom();
     if (selectedKeys.size > 0) return [...selectedKeys];
+    const keys = [];
+    const seen = new Set();
     getSelectedLeadCheckboxesForBulkActions().forEach((cb) => {
-      const key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
-      if (key) selectedKeys.add(key);
+      const key = leadKeyFromBulkCheckbox(cb);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      keys.push(key);
+      selectedKeys.add(key);
     });
-    return [...selectedKeys];
+    return keys;
+  }
+  window.__getSelectedLeadKeysForBulk = getSelectedLeadKeysForBulk;
+
+  function findLeadRowForBulkKey(key) {
+    const k = String(key || '').trim();
+    if (!k) return null;
+    const variants = [k];
+    if (/^lead:/i.test(k)) variants.push(k.replace(/^lead:/i, ''));
+    else variants.push(`lead:${k}`);
+    for (let i = 0; i < variants.length; i += 1) {
+      const v = variants[i];
+      const row = document.querySelector(
+        `#prospectLeadsTable tr.result-row[data-lead-key="${CSS.escape(v)}"], tr.result-row[data-lead-key="${CSS.escape(v)}"]`,
+      );
+      if (row) return row;
+    }
+    return null;
+  }
+
+  function getSelectedLeadRowsForBulk() {
+    const rows = [];
+    const seen = new Set();
+    const addRow = (row) => {
+      if (!row || seen.has(row)) return;
+      seen.add(row);
+      rows.push(row);
+    };
+    getSelectedLeadKeysForBulk().forEach((key) => {
+      const row = findLeadRowForBulkKey(key);
+      if (row) addRow(row);
+    });
+    if (!rows.length) {
+      getSelectedLeadCheckboxesForBulkActions().forEach((cb) => {
+        addRow(cb.closest('.result-row') || cb.closest('tr'));
+      });
+    }
+    return rows;
+  }
+  window.__getSelectedLeadRowsForBulk = getSelectedLeadRowsForBulk;
+
+  /** Sync selectedKeys from DOM checkboxes; returns key list for bulk handlers. */
+  function ensureBulkSelectionKeys() {
+    return getSelectedLeadKeysForBulk();
   }
   window.__ensureBulkSelectionKeys = ensureBulkSelectionKeys;
 
@@ -10624,11 +10683,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const hasSelection = count > 0;
 
     const bar = mountBulkActionBarToBody();
-    
-    // Update footer bar (common in leads.ejs and added to results.ejs)
+
     const countEl = selectedCountCircle || document.getElementById('selectedCountCircle');
     if (countEl) countEl.textContent = count;
-    if (bar) {
+
+    if (typeof window.__showBulkActionBar === 'function') {
+      window.__showBulkActionBar(count);
+    } else if (bar) {
       const visible = count > 0;
       bar.dataset.visible = visible ? 'true' : 'false';
       bar.classList.toggle('bulk-action-bar--visible', visible);
@@ -10642,9 +10703,6 @@ document.addEventListener('DOMContentLoaded', () => {
         bar.classList.remove('opacity-100', 'translate-y-0');
         bar.style.pointerEvents = 'none';
       }
-    }
-    if (count > 0 && typeof window.__showBulkActionBar === 'function') {
-      window.__showBulkActionBar(count);
     }
 
     if (bulkMoveFolderBtn) {
@@ -10786,30 +10844,106 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function setBulkFolderNewRowVisible(show) {
-    if (!bulkFolderNewRow) return;
+    const row = document.getElementById('bulkFolderNewRow');
+    const nameInput = document.getElementById('bulkFolderNewName');
+    const toggle = document.getElementById('bulkFolderNewToggle');
+    if (!row) return;
     if (show) {
-      bulkFolderNewRow.classList.remove('hidden');
-      bulkFolderNewRow.classList.add('flex');
+      row.classList.remove('hidden');
+      row.classList.add('flex');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      const tagsRow = document.getElementById('bulkTagsRow');
+      if (tagsRow) {
+        tagsRow.classList.add('hidden');
+        tagsRow.classList.remove('flex');
+      }
+      if (nameInput) requestAnimationFrame(() => nameInput.focus());
     } else {
-      bulkFolderNewRow.classList.add('hidden');
-      bulkFolderNewRow.classList.remove('flex');
-      if (bulkFolderNewName) bulkFolderNewName.value = '';
+      row.classList.add('hidden');
+      row.classList.remove('flex');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      if (nameInput) nameInput.value = '';
     }
   }
+  window.__setBulkFolderNewRowVisible = setBulkFolderNewRowVisible;
 
   const isSearchResultsBulkPage = !!document.getElementById('searchResultsLeadsTable');
 
-  if (!isSearchResultsBulkPage && bulkFolderNewToggle && bulkFolderNewRow) {
-    bulkFolderNewToggle.addEventListener('click', () => {
-      const isHidden = bulkFolderNewRow.classList.contains('hidden');
-      if (isHidden) {
-        setBulkFolderNewRowVisible(true);
-        if (bulkFolderNewName) bulkFolderNewName.focus();
-      } else {
+  function initBulkBarFolderActions() {
+    const bar = mountBulkActionBarToBody();
+    if (!bar || isSearchResultsBulkPage || bar.dataset.pipelineFolderActionsBound === '1') return;
+    bar.dataset.pipelineFolderActionsBound = '1';
+
+    bar.addEventListener('click', async (e) => {
+      if (e.target.closest('#bulkFolderNewToggle')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const row = document.getElementById('bulkFolderNewRow');
+        const show = !!(row && row.classList.contains('hidden'));
+        setBulkFolderNewRowVisible(show);
+        return;
+      }
+      if (e.target.closest('#bulkFolderNewCancel')) {
+        e.preventDefault();
+        e.stopPropagation();
         setBulkFolderNewRowVisible(false);
+        return;
+      }
+      if (e.target.closest('#bulkFolderNewSave')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const nameInput = document.getElementById('bulkFolderNewName');
+        const saveBtn = document.getElementById('bulkFolderNewSave');
+        const name = nameInput ? String(nameInput.value || '').trim() : '';
+        if (!name) {
+          window.alert('Enter a folder name.');
+          return;
+        }
+        if (saveBtn) saveBtn.disabled = true;
+        try {
+          const res = await fetch('/folders', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ name }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success || !data.folder || !data.folder.key) {
+            throw new Error((data && data.error) || `HTTP ${res.status}`);
+          }
+          const { key, name: folderName } = data.folder;
+          if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+          if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
+            window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
+          }
+          rebuildBulkFolderSelect(key);
+          setBulkFolderNewRowVisible(false);
+          if (typeof window.showProspectToast === 'function') {
+            window.showProspectToast('Folder created');
+          }
+        } catch (err) {
+          console.error('Create folder from bulk bar failed:', err);
+          window.alert(err.message || 'Could not create folder.');
+        } finally {
+          if (saveBtn) saveBtn.disabled = false;
+        }
+      }
+    });
+
+    bar.addEventListener('keydown', (e) => {
+      if (e.target.id !== 'bulkFolderNewName') return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setBulkFolderNewRowVisible(false);
+      }
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const save = document.getElementById('bulkFolderNewSave');
+        if (save && !save.disabled) save.click();
       }
     });
   }
+  initBulkBarFolderActions();
 
   document.addEventListener(
     'pointerdown',
@@ -10817,57 +10951,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const bar = document.getElementById('bulkActionBar');
       if (!bar || bar.dataset.visible !== 'true') return;
       if (!e.target || !e.target.closest || !e.target.closest('#bulkActionBar')) return;
+      if (
+        e.target.closest('#bulkFolderNewRow') ||
+        e.target.closest('#bulkTagsRow') ||
+        e.target.closest('button, a, select, input, textarea, label')
+      ) {
+        return;
+      }
       ensureBulkSelectionKeys();
       updateBulkActionBar();
     },
     true,
   );
-  if (!isSearchResultsBulkPage && bulkFolderNewCancel) {
-    bulkFolderNewCancel.addEventListener('click', () => setBulkFolderNewRowVisible(false));
-  }
-  if (!isSearchResultsBulkPage && bulkFolderNewName) {
-    bulkFolderNewName.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') setBulkFolderNewRowVisible(false);
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        if (bulkFolderNewSave && !bulkFolderNewSave.disabled) bulkFolderNewSave.click();
-      }
-    });
-  }
-  if (!isSearchResultsBulkPage && bulkFolderNewSave && bulkFolderNewName) {
-    bulkFolderNewSave.addEventListener('click', async () => {
-      const name = String(bulkFolderNewName.value || '').trim();
-      if (!name) {
-        window.alert('Enter a folder name.');
-        return;
-      }
-      bulkFolderNewSave.disabled = true;
-      try {
-        const res = await fetch('/folders', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ name }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success || !data.folder || !data.folder.key) {
-          throw new Error((data && data.error) || `HTTP ${res.status}`);
-        }
-        const { key, name: folderName } = data.folder;
-        if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
-        if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
-          window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
-        }
-        rebuildBulkFolderSelect(key);
-        setBulkFolderNewRowVisible(false);
-      } catch (err) {
-        console.error('Create folder from bulk bar failed:', err);
-        window.alert(err.message || 'Could not create folder.');
-      } finally {
-        bulkFolderNewSave.disabled = false;
-      }
-    });
-  }
 
   document.addEventListener(
     'click',
@@ -13036,22 +13131,16 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    const selected =
-      typeof getSelectedLeadCheckboxesForBulkActions === 'function'
-        ? getSelectedLeadCheckboxesForBulkActions()
-        : Array.from(document.querySelectorAll('tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked'));
+    const selectedRows = getSelectedLeadRowsForBulk();
 
-    if (selected.length === 0) {
+    if (selectedRows.length === 0) {
       const msg = 'Select at least one lead to open the cold call war room.';
       if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
       else window.alert(msg);
       return;
     }
 
-    const coldOnly = selected.filter((cb) => {
-      const row = cb.closest('.result-row') || cb.closest('tr');
-      return isColdLeadRow(row);
-    });
+    const coldOnly = selectedRows.filter((row) => isColdLeadRow(row));
     if (coldOnly.length === 0) {
       const msg =
         'Call room only includes cold leads. Warm inbound (AdHello) leads are excluded—deselect them or filter to Cold, then try again.';
@@ -13059,8 +13148,8 @@ document.addEventListener('DOMContentLoaded', () => {
       else window.alert(msg);
       return;
     }
-    if (coldOnly.length < selected.length) {
-      const skipped = selected.length - coldOnly.length;
+    if (coldOnly.length < selectedRows.length) {
+      const skipped = selectedRows.length - coldOnly.length;
       const msg = `Skipped ${skipped} warm lead${skipped === 1 ? '' : 's'}. Opening call room with ${coldOnly.length} cold lead${coldOnly.length === 1 ? '' : 's'}.`;
       if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
       else window.alert(msg);
@@ -13068,7 +13157,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (typeof dismissLeadDetailPanel === 'function') dismissLeadDetailPanel();
 
-    renderWarRoom(coldOnly);
+    renderWarRoomFromRows(coldOnly);
     modal.classList.remove('hidden');
     modal.style.setProperty('z-index', '500', 'important');
     modal.style.setProperty('pointer-events', 'auto', 'important');
@@ -13081,11 +13170,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
+  function initBulkBarCallRoomAction() {
+    const bar = document.getElementById('bulkActionBar');
+    if (!bar || bar.dataset.callRoomBound === '1') return;
+    bar.dataset.callRoomBound = '1';
+    bar.addEventListener('click', (e) => {
+      if (!e.target.closest('#batchOutreachBtnBulk')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      openWarRoomFromSelection();
+    });
+  }
+  initBulkBarCallRoomAction();
+
   document.addEventListener(
     'click',
     (e) => {
       const btn = e.target && e.target.closest ? e.target.closest('#batchOutreachBtnBulk, #batchOutreachBtn') : null;
       if (!btn) return;
+      if (btn.id === 'batchOutreachBtnBulk' && btn.closest('#bulkActionBar')) return;
       e.preventDefault();
       e.stopPropagation();
       openWarRoomFromSelection();
@@ -13133,12 +13236,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', warRoomOnGlobalKeydown, true);
   }
 
-  function renderWarRoom(selectedCheckboxes) {
-    warRoomRowEls = [];
-    selectedCheckboxes.forEach((cb) => {
-      const row = cb.closest('.result-row');
-      if (row && isColdLeadRow(row)) warRoomRowEls.push(row);
-    });
+  function renderWarRoomFromRows(rows) {
+    warRoomRowEls = (rows || []).filter((row) => row && isColdLeadRow(row));
     if (warRoomTotal) warRoomTotal.textContent = String(warRoomRowEls.length);
     warRoomIndex = 0;
     warRoomAutoDialCalled = new Set();
@@ -13147,6 +13246,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (warRoomAutoDialStart) warRoomAutoDialStart.disabled = false;
     if (warRoomAutoDialPause) warRoomAutoDialPause.textContent = 'Pause';
     warRoomRenderCurrent();
+  }
+
+  function renderWarRoom(selectedCheckboxes) {
+    const rows = (selectedCheckboxes || [])
+      .map((cb) => cb.closest('.result-row') || cb.closest('tr'))
+      .filter(Boolean);
+    renderWarRoomFromRows(rows);
   }
 
   function createWarRoomCard(row) {

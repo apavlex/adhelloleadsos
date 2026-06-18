@@ -51,9 +51,25 @@ function countUniqueLeadsTouchedOnUtcDate(leads, dateStr) {
   return n;
 }
 
-/** Daily goal for personalized (unique-lead) touches — override with DAILY_TOUCH_GOAL */
-function dailyPersonalizedTouchGoal() {
-  return Math.max(1, parseInt(process.env.DAILY_TOUCH_GOAL || '54', 10) || 54);
+const DEFAULT_DAILY_TOUCH_GOAL = 54;
+
+function clampDailyTouchGoal(raw) {
+  const n = parseInt(raw, 10);
+  if (Number.isNaN(n)) return DEFAULT_DAILY_TOUCH_GOAL;
+  return Math.min(500, Math.max(1, n));
+}
+
+/** Daily goal for personalized (unique-lead) touches — user pref, then DAILY_TOUCH_GOAL env, then 54 */
+function resolveDailyTouchGoal(userPrefs) {
+  if (userPrefs && userPrefs.dailyTouchGoal != null && userPrefs.dailyTouchGoal !== '') {
+    return clampDailyTouchGoal(userPrefs.dailyTouchGoal);
+  }
+  return clampDailyTouchGoal(process.env.DAILY_TOUCH_GOAL || DEFAULT_DAILY_TOUCH_GOAL);
+}
+
+/** @deprecated use resolveDailyTouchGoal(userPrefs) */
+function dailyPersonalizedTouchGoal(userPrefs) {
+  return resolveDailyTouchGoal(userPrefs);
 }
 
 /**
@@ -170,6 +186,9 @@ module.exports = {
   buildDailyChartSeries,
   buildDayRollup,
   countUniqueLeadsTouchedOnUtcDate,
+  DEFAULT_DAILY_TOUCH_GOAL,
+  clampDailyTouchGoal,
+  resolveDailyTouchGoal,
   dailyPersonalizedTouchGoal,
   leadHasPersonalizedTouchOnUtcDate,
   PERSONALIZED_TOUCH_STATUSES,

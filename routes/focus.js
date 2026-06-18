@@ -4,12 +4,12 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
-const { filterLeadsForRequest } = require('../services/workspaceService');
+const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
 const { excludeOutreachFolderLeads } = require('../services/leadListFilters');
 const {
   countUniqueLeadsTouchedOnUtcDate,
-  dailyPersonalizedTouchGoal,
 } = require('../services/trackerStats');
+const { loadDailyTouchGoal, saveDailyTouchGoal } = require('../services/touchGoalPrefs');
 const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
 
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -139,8 +139,21 @@ router.get('/metrics.json', async (req, res, next) => {
     const all = await dbService.getAllLeads(req.workspaceId);
     const workspaceLeads = filterLeadsForRequest(req, all);
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
-    const touchGoal = dailyPersonalizedTouchGoal();
+    const touchGoal = await loadDailyTouchGoal(req);
     res.json({ success: true, touchesToday, touchGoal });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/touch-goal', async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    if (!email) {
+      return res.status(401).json({ success: false, error: 'Sign in to save your daily goal.' });
+    }
+    const touchGoal = await saveDailyTouchGoal(email, req.body && req.body.touchGoal);
+    res.json({ success: true, touchGoal });
   } catch (e) {
     next(e);
   }
@@ -168,7 +181,7 @@ router.get('/', async (req, res, next) => {
     }
 
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(visible, today);
-    const touchGoal = dailyPersonalizedTouchGoal();
+    const touchGoal = await loadDailyTouchGoal(req);
 
     const focusProductOptions = SCRIPT_LIBRARY_KEYS.map((k) => ({
       key: k,

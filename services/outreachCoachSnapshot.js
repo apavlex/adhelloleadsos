@@ -6,8 +6,8 @@ const dbService = require('./database');
 const {
   computeOutreachStreak,
   countUniqueLeadsTouchedOnUtcDate,
-  dailyPersonalizedTouchGoal,
 } = require('./trackerStats');
+const { loadDailyTouchGoal } = require('./touchGoalPrefs');
 const pipelineStagesService = require('./pipelineStagesService');
 const { scoreLeadRecord } = require('./opportunityScore');
 const { filterLeadsForRequest, userEmail } = require('./workspaceService');
@@ -209,7 +209,7 @@ function pickQuoteForDate(isoDate) {
 async function buildOutreachCoachSnapshot(req) {
   const email = userEmail(req);
   const today = new Date().toISOString().slice(0, 10);
-  const touchGoal = dailyPersonalizedTouchGoal();
+  const touchGoal = await loadDailyTouchGoal(req);
   const wid = req.workspaceId;
   if (!wid) {
     throw new Error('buildOutreachCoachSnapshot requires req.workspaceId');

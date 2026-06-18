@@ -1,0 +1,43 @@
+<% const _lmv = typeof lmvProspectingMethods !== 'undefined' && lmvProspectingMethods ? lmvProspectingMethods : []; %>
+<% if (_lmv.length) { %>
+<section class="brand-card dark:bg-slate-900 dark:border-white/10 mb-8 overflow-hidden" aria-label="LMV prospecting methods">
+  <div class="px-5 py-4 md:px-6 md:py-5 border-b border-brand-border/30 dark:border-white/10">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Outreach playbook</p>
+    <h3 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white">The 6 LMV prospecting methods</h3>
+    <p class="text-sm text-brand-muted dark:text-slate-400 mt-1 max-w-3xl">Choose the right approach for your situation — then add leads to a list and start from the table below.</p>
+  </div>
+  <div class="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+    <% _lmv.forEach(function (m) {
+      var tempClass = m.temperature === 'hot'
+        ? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30'
+        : m.temperature === 'warm'
+          ? 'bg-amber-500/15 text-amber-800 dark:text-amber-200 border-amber-500/30'
+          : 'bg-sky-500/10 text-sky-700 dark:text-sky-300 border-sky-500/30';
+      var btnClass = m.actionStyle === 'gradient'
+        ? 'bg-gradient-to-r from-rose-600 to-blue-600 text-white hover:opacity-90'
+        : 'bg-brand-dark dark:bg-slate-800 text-white border border-brand-border/40 dark:border-white/15 hover:border-brand-yellow/40';
+    %>
+    <article class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 flex flex-col gap-3 min-h-[11rem]">
+      <div class="flex items-start justify-between gap-2">
+        <span class="text-2xl leading-none" aria-hidden="true"><%= m.icon %></span>
+        <div class="flex flex-wrap justify-end gap-1">
+          <% if (m.listBadge) { %>
+          <span class="inline-flex px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border border-sky-500/40 text-sky-700 dark:text-sky-300"><%= m.listBadge %></span>
+          <% } %>
+          <span class="inline-flex px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border <%= tempClass %>"><%= m.temperatureLabel %></span>
+        </div>
+      </div>
+      <div class="min-w-0 flex-1">
+        <h4 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug"><%= m.title %></h4>
+        <p class="text-xs text-brand-muted dark:text-slate-400 mt-2 leading-relaxed line-clamp-3"><%= m.description %></p>
+      </div>
+      <% if (m.actionHref) { %>
+      <a href="<%= m.actionHref %>" class="inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-opacity <%= btnClass %>"><%= m.actionLabel %></a>
+      <% } else { %>
+      <button type="button" class="js-lmv-method-action inline-flex items-center justify-center rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest transition-opacity <%= btnClass %>" data-lmv-action="<%= m.actionKind || m.id %>"><%= m.actionLabel %></button>
+      <% } %>
+    </article>
+    <% }); %>
+  </div>
+</section>
+<% } %>
