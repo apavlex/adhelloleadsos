@@ -10869,6 +10869,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const isSearchResultsBulkPage = !!document.getElementById('searchResultsLeadsTable');
 
+  async function bulkFolderSaveFromBar() {
+    const nameInput = document.getElementById('bulkFolderNewName');
+    const saveBtn = document.getElementById('bulkFolderNewSave');
+    const name = nameInput ? String(nameInput.value || '').trim() : '';
+    if (!name) {
+      window.alert('Enter a folder name.');
+      return;
+    }
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      const res = await fetch('/folders', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success || !data.folder || !data.folder.key) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      }
+      const { key, name: folderName } = data.folder;
+      if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+      if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
+        window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
+      }
+      rebuildBulkFolderSelect(key);
+      setBulkFolderNewRowVisible(false);
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast('Folder created');
+      }
+    } catch (err) {
+      console.error('Create folder from bulk bar failed:', err);
+      window.alert(err.message || 'Could not create folder.');
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+  window.__bulkFolderSaveFromBar = bulkFolderSaveFromBar;
+
   function initBulkBarFolderActions() {
     const bar = mountBulkActionBarToBody();
     if (!bar || isSearchResultsBulkPage || bar.dataset.pipelineFolderActionsBound === '1') return;
@@ -10892,41 +10931,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e.target.closest('#bulkFolderNewSave')) {
         e.preventDefault();
         e.stopPropagation();
-        const nameInput = document.getElementById('bulkFolderNewName');
-        const saveBtn = document.getElementById('bulkFolderNewSave');
-        const name = nameInput ? String(nameInput.value || '').trim() : '';
-        if (!name) {
-          window.alert('Enter a folder name.');
-          return;
-        }
-        if (saveBtn) saveBtn.disabled = true;
-        try {
-          const res = await fetch('/folders', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ name }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || !data.success || !data.folder || !data.folder.key) {
-            throw new Error((data && data.error) || `HTTP ${res.status}`);
-          }
-          const { key, name: folderName } = data.folder;
-          if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
-          if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
-            window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
-          }
-          rebuildBulkFolderSelect(key);
-          setBulkFolderNewRowVisible(false);
-          if (typeof window.showProspectToast === 'function') {
-            window.showProspectToast('Folder created');
-          }
-        } catch (err) {
-          console.error('Create folder from bulk bar failed:', err);
-          window.alert(err.message || 'Could not create folder.');
-        } finally {
-          if (saveBtn) saveBtn.disabled = false;
-        }
+        await bulkFolderSaveFromBar();
       }
     });
 
@@ -13171,7 +13176,7 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
   function initBulkBarCallRoomAction() {
-    const bar = document.getElementById('bulkActionBar');
+    const bar = mountBulkActionBarToBody();
     if (!bar || bar.dataset.callRoomBound === '1') return;
     bar.dataset.callRoomBound = '1';
     bar.addEventListener('click', (e) => {
@@ -13188,7 +13193,6 @@ document.addEventListener('DOMContentLoaded', () => {
     (e) => {
       const btn = e.target && e.target.closest ? e.target.closest('#batchOutreachBtnBulk, #batchOutreachBtn') : null;
       if (!btn) return;
-      if (btn.id === 'batchOutreachBtnBulk' && btn.closest('#bulkActionBar')) return;
       e.preventDefault();
       e.stopPropagation();
       openWarRoomFromSelection();

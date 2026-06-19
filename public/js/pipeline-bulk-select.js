@@ -57,8 +57,9 @@
       bar.style.setProperty('visibility', 'visible', 'important');
       bar.style.setProperty('transform', 'translateX(-50%) translateY(0)', 'important');
       bar.style.setProperty('pointer-events', 'auto', 'important');
-      bar.querySelectorAll('button, a, select, input').forEach((el) => {
+      bar.querySelectorAll('button, a, select, input, textarea, label').forEach((el) => {
         el.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
+        el.style.pointerEvents = 'auto';
         if (el.tagName === 'BUTTON' && el.id !== 'cancelSelectionBtn') {
           el.disabled = false;
         }
@@ -164,6 +165,7 @@
 
   function init() {
     mountBulkBarToBody();
+    bindBulkBarCaptureActions();
     document.querySelectorAll('table').forEach((table) => {
       if (table.querySelector('thead input[data-select-all-leads]')) {
         bindTable(table);
@@ -196,7 +198,104 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '2';
+  /** Toggle/create folder row — works even if app.js bubble handlers miss the click. */
+  function toggleBulkFolderNewRow() {
+    const row = document.getElementById('bulkFolderNewRow');
+    if (!row) return;
+    const show = row.classList.contains('hidden');
+    if (typeof window.__setBulkFolderNewRowVisible === 'function') {
+      window.__setBulkFolderNewRowVisible(show);
+      return;
+    }
+    const nameInput = document.getElementById('bulkFolderNewName');
+    const toggle = document.getElementById('bulkFolderNewToggle');
+    if (show) {
+      row.classList.remove('hidden');
+      row.classList.add('flex');
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      const tagsRow = document.getElementById('bulkTagsRow');
+      if (tagsRow) {
+        tagsRow.classList.add('hidden');
+        tagsRow.classList.remove('flex');
+      }
+      if (nameInput) requestAnimationFrame(() => nameInput.focus());
+    } else {
+      row.classList.add('hidden');
+      row.classList.remove('flex');
+      if (toggle) toggle.setAttribute('aria-expanded', 'false');
+      if (nameInput) nameInput.value = '';
+    }
+  }
+
+  function openCallRoomFromBulkBar() {
+    if (typeof window.__openWarRoomFromSelection === 'function') {
+      window.__openWarRoomFromSelection();
+      return;
+    }
+    window.alert('Call room is still loading. Wait a moment and try again.');
+  }
+
+  /**
+   * Capture-phase clicks on the bulk bar — fixes Folder / Call room when bubble handlers
+   * or pointer-events on the portaled bar block individual button listeners.
+   */
+  function bindBulkBarCaptureActions() {
+    if (window.__BULK_BAR_CAPTURE_BOUND === '1') return;
+    window.__BULK_BAR_CAPTURE_BOUND = '1';
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        const bar = document.getElementById('bulkActionBar');
+        if (!bar || bar.dataset.visible !== 'true') return;
+        if (!e.target || !e.target.closest || !e.target.closest('#bulkActionBar')) return;
+
+        if (e.target.closest('#bulkFolderNewToggle')) {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleBulkFolderNewRow();
+          return;
+        }
+        if (e.target.closest('#bulkFolderNewCancel')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__setBulkFolderNewRowVisible === 'function') {
+            window.__setBulkFolderNewRowVisible(false);
+          } else {
+            toggleBulkFolderNewRow();
+          }
+          return;
+        }
+        if (e.target.closest('#bulkFolderNewSave')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__bulkFolderSaveFromBar === 'function') {
+            window.__bulkFolderSaveFromBar();
+          }
+          return;
+        }
+        if (e.target.closest('#batchOutreachBtnBulk')) {
+          e.preventDefault();
+          e.stopPropagation();
+          openCallRoomFromBulkBar();
+          return;
+        }
+        if (e.target.closest('#bulkTagsToggle')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__toggleBulkTagsRow === 'function') {
+            window.__toggleBulkTagsRow();
+          } else if (typeof window.__setBulkTagsRowVisible === 'function') {
+            const tagsRow = document.getElementById('bulkTagsRow');
+            window.__setBulkTagsRowVisible(!!(tagsRow && tagsRow.classList.contains('hidden')));
+          }
+        }
+      },
+      true,
+    );
+  }
+
+  window.__PIPELINE_BULK_SELECT_V2 = '3';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

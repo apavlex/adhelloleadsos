@@ -804,6 +804,23 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   color: rgba(255, 255, 255, 0.92);
 }
 
+#bulkActionBar .bulk-bar-btn--ghost.text-brand-yellow {
+  color: var(--brand-yellow, #eab308) !important;
+  border-color: rgba(234, 179, 8, 0.35);
+  background: rgba(234, 179, 8, 0.1);
+}
+
+#bulkActionBar .bulk-bar-btn--ghost.text-sky-300 {
+  color: #7dd3fc !important;
+  border-color: rgba(125, 211, 252, 0.35);
+  background: rgba(56, 189, 248, 0.1);
+}
+
+#bulkActionBar .bulk-bar-btn--ghost.text-brand-yellow:hover:not(:disabled),
+#bulkActionBar .bulk-bar-btn--ghost.text-sky-300:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
 #bulkActionBar .bulk-bar-btn--ghost:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.12);
   border-color: rgba(255, 255, 255, 0.18);

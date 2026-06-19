@@ -218,6 +218,12 @@
       if (nameInput) nameInput.value = '';
     }
   }
+  window.__setBulkTagsRowVisible = setBulkTagsRowVisible;
+  window.__toggleBulkTagsRow = function toggleBulkTagsRow() {
+    const row = document.getElementById('bulkTagsRow');
+    const show = !!(row && row.classList.contains('hidden'));
+    setBulkTagsRowVisible(show);
+  };
 
   function renderLeadTagsPanel(row) {
     const host = document.getElementById('leadPanelTagsHost');
