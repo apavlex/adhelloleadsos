@@ -1256,6 +1256,14 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   color: var(--brand-yellow, #e8bc1a);
 }
 
+#prospectLeadsTable thead th[data-plc]:not([data-plc='check']) {
+  cursor: pointer;
+}
+
+#prospectLeadsTable thead th[data-plc] .plc-col-resize {
+  cursor: col-resize;
+}
+
 .prospect-leads-table tr.result-row {
   cursor: pointer;
 }

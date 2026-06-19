@@ -39,7 +39,7 @@
     return bar;
   }
 
-  /** Show/hide floating bulk bar (Focus, Call room, SMS, etc.) — does not depend on app.js init order. */
+  /** Show/hide floating bulk bar (Focus, export, tags, etc.) — does not depend on app.js init order. */
   function showBulkActionBar(count) {
     const bar = mountBulkBarToBody();
     if (!bar) return;
@@ -227,18 +227,8 @@
     }
   }
 
-  function openCallRoomFromBulkBar() {
-    if (typeof window.__openWarRoomFromSelection === 'function') {
-      window.__openWarRoomFromSelection();
-      return;
-    }
-    const msg = 'Call room is not available on this page.';
-    if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
-    else window.alert(msg);
-  }
-
   /**
-   * Capture-phase clicks on the bulk bar — fixes Folder / Call room when bubble handlers
+   * Capture-phase clicks on the bulk bar — fixes Folder actions when bubble handlers
    * or pointer-events on the portaled bar block individual button listeners.
    */
   function bindBulkBarCaptureActions() {
@@ -274,12 +264,6 @@
           if (typeof window.__bulkFolderSaveFromBar === 'function') {
             window.__bulkFolderSaveFromBar();
           }
-          return;
-        }
-        if (e.target.closest('#batchOutreachBtnBulk')) {
-          e.preventDefault();
-          e.stopPropagation();
-          openCallRoomFromBulkBar();
           return;
         }
         if (e.target.closest('#bulkTagsToggle')) {

@@ -166,14 +166,63 @@ document.addEventListener('DOMContentLoaded', () => {
     return n;
   };
 
+  const prospectHasWebsite = (ds) => {
+    const w = String((ds && ds.website) || '').trim();
+    return !!(w && w !== 'N/A' && w !== '—');
+  };
+
+  const prospectSocialCount = (ds) => {
+    if (!ds) return 0;
+    let n = 0;
+    ['facebook', 'instagram', 'twitter'].forEach((field) => {
+      const v = String(ds[field] || '').trim();
+      if (v && v !== 'N/A' && v !== 'undefined') n += 1;
+    });
+    return n;
+  };
+
   const prospectSortDefaultDesc = (key) =>
-    key === 'contact' ||
-    key === 'reviews' ||
-    key === 'actions' ||
-    key === 'added' ||
-    key === 'lasttouch';
+    !['company', 'category', 'cadence', 'pipeline', 'status', 'claimstatus', 'email', 'phone', 'domain'].includes(
+      key,
+    );
 
   let prospectSortState = { key: null, desc: true };
+
+  const prospectSortKeyFromTh = (th) => {
+    if (!th) return null;
+    const btn = th.querySelector('[data-prospect-sort]');
+    if (btn) return btn.getAttribute('data-prospect-sort');
+    const plc = th.getAttribute('data-plc');
+    const fallback = {
+      company: 'company',
+      lastTouch: 'lasttouch',
+      cadence: 'cadence',
+      category: 'category',
+      reviews: 'reviews',
+      website: 'website',
+      claimStatus: 'claimstatus',
+      optimizationScore: 'gbpscore',
+      contact: 'contact',
+      socials: 'socials',
+      added: 'added',
+      pipeline: 'pipeline',
+      opportunity: 'actions',
+      methods: 'phone',
+      actions: 'actions',
+    };
+    return fallback[plc] || null;
+  };
+
+  const toggleProspectSort = (columnKey) => {
+    const key = String(columnKey || '').trim();
+    if (!key) return;
+    if (prospectSortState.key === key) prospectSortState.desc = !prospectSortState.desc;
+    else {
+      prospectSortState.key = key;
+      prospectSortState.desc = prospectSortDefaultDesc(key);
+    }
+    sortProspectTableBy(key, prospectSortState.desc);
+  };
 
   const updateProspectSortHeaderUi = (activeKey, desc) => {
     document.querySelectorAll('[data-prospect-sort]').forEach((btn) => {
@@ -254,6 +303,53 @@ document.addEventListener('DOMContentLoaded', () => {
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         }
+        case 'website': {
+          c = Number(prospectHasWebsite(a)) - Number(prospectHasWebsite(b));
+          if (c === 0) c = cmpStr(a.website || '', b.website || '');
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'claimstatus': {
+          c = cmpStr((a.gbpClaimStatus || '').trim(), (b.gbpClaimStatus || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'gbpscore': {
+          const ga = parseFloat(a.gbpOptimizationScore);
+          const gb = parseFloat(b.gbpOptimizationScore);
+          const na = Number.isFinite(ga) ? ga : -1;
+          const nb = Number.isFinite(gb) ? gb : -1;
+          c = na - nb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'socials': {
+          c = prospectSocialCount(a) - prospectSocialCount(b);
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'phone': {
+          const pa = a.phone && a.phone !== 'N/A' ? 1 : 0;
+          const pb = b.phone && b.phone !== 'N/A' ? 1 : 0;
+          c = pa - pb;
+          if (c === 0) c = cmpStr(a.phone || '', b.phone || '');
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'email': {
+          const ea = a.email && a.email !== 'N/A' ? 1 : 0;
+          const eb = b.email && b.email !== 'N/A' ? 1 : 0;
+          c = ea - eb;
+          if (c === 0) c = cmpStr(a.email || '', b.email || '');
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'domain': {
+          c = Number(prospectHasWebsite(a)) - Number(prospectHasWebsite(b));
+          if (c === 0) c = cmpStr(a.website || '', b.website || '');
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
         case 'status':
           c = cmpStr((a.status || '').trim(), (b.status || '').trim());
           break;
@@ -269,7 +365,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     rows.forEach((row) => tableBody.appendChild(row));
     updateProspectSortHeaderUi(columnKey, descending);
-    if (typeof window.__pipelineTablePagingApply === 'function') {
+    if (typeof window.__pipelineTablePagingResetToFirst === 'function') {
+      window.__pipelineTablePagingResetToFirst();
+    } else if (typeof window.__pipelineTablePagingApply === 'function') {
       window.__pipelineTablePagingApply();
     }
     if (typeof window.__applyReviewStars === 'function') {
@@ -339,6 +437,12 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       window.__pipelineTablePagingApply = applyPipelinePaging;
+      window.__pipelineTablePagingResetToFirst = function pipelineTablePagingResetToFirst() {
+        visibleLimit = PIPELINE_LEADS_PAGE_SIZE;
+        applyPipelinePaging();
+        const scrollHost = document.getElementById('prospectPipelineTableScroll');
+        if (scrollHost) scrollHost.scrollLeft = 0;
+      };
       applyPipelinePaging();
     })();
 
@@ -612,19 +716,24 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     })();
 
-    document.querySelectorAll('#prospectLeadsTable [data-prospect-sort]').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        const key = btn.getAttribute('data-prospect-sort');
+    (function bindProspectTableSortHandlers() {
+      const table = prospectTable;
+      if (!table || table.dataset.prospectSortBound === '1') return;
+      table.dataset.prospectSortBound = '1';
+      const thead = table.querySelector('thead');
+      if (!thead) return;
+      thead.addEventListener('click', (e) => {
+        if (e.target.closest('.plc-col-resize')) return;
+        if (e.target.closest('input[type="checkbox"]')) return;
+        const th = e.target.closest('th[data-plc]');
+        if (!th || th.getAttribute('data-plc') === 'check') return;
+        const key = prospectSortKeyFromTh(th);
         if (!key) return;
-        if (prospectSortState.key === key) prospectSortState.desc = !prospectSortState.desc;
-        else {
-          prospectSortState.key = key;
-          prospectSortState.desc = prospectSortDefaultDesc(key);
-        }
-        sortProspectTableBy(key, prospectSortState.desc);
+        e.preventDefault();
+        e.stopPropagation();
+        toggleProspectSort(key);
       });
-    });
+    })();
   }
 
   // Auto-sort by High Opportunity immediately after calculation
@@ -13413,31 +13522,6 @@ document.addEventListener('DOMContentLoaded', () => {
       grid.focus();
     });
   }
-
-  function initBulkBarCallRoomAction() {
-    const bar = mountBulkActionBarToBody();
-    if (!bar || bar.dataset.callRoomBound === '1') return;
-    bar.dataset.callRoomBound = '1';
-    bar.addEventListener('click', (e) => {
-      if (!e.target.closest('#batchOutreachBtnBulk')) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openWarRoomFromSelection();
-    });
-  }
-  initBulkBarCallRoomAction();
-
-  document.addEventListener(
-    'click',
-    (e) => {
-      const btn = e.target && e.target.closest ? e.target.closest('#batchOutreachBtnBulk, #batchOutreachBtn') : null;
-      if (!btn) return;
-      e.preventDefault();
-      e.stopPropagation();
-      openWarRoomFromSelection();
-    },
-    true,
-  );
 
   if (warRoomModal) {
     if (closeWarRoom) closeWarRoom.addEventListener('click', closeWarRoomModal);
