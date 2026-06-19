@@ -40,6 +40,8 @@
   }
 
   /** Show/hide floating bulk bar (Focus, export, tags, etc.) — does not depend on app.js init order. */
+  let _bulkBarVisibleForFolderRefresh = false;
+
   function showBulkActionBar(count) {
     const bar = mountBulkBarToBody();
     if (!bar) return;
@@ -64,7 +66,11 @@
           el.disabled = false;
         }
       });
+      if (typeof window.__refreshBulkFolderSelectOptions === 'function' && !_bulkBarVisibleForFolderRefresh) {
+        window.__refreshBulkFolderSelectOptions().catch(function () {});
+      }
     } else {
+      _bulkBarVisibleForFolderRefresh = false;
       bar.classList.add('opacity-0', 'translate-y-16', 'pointer-events-none');
       bar.classList.remove('opacity-100', 'translate-y-0');
       bar.style.removeProperty('opacity');
@@ -72,6 +78,7 @@
       bar.style.removeProperty('transform');
       bar.style.pointerEvents = 'none';
     }
+    _bulkBarVisibleForFolderRefresh = visible;
   }
   window.__showBulkActionBar = showBulkActionBar;
 

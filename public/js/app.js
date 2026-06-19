@@ -11071,6 +11071,89 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBulkActionBar();
   }
 
+  let _bulkFoldersFetchPromise = null;
+  let _bulkBarWasVisibleForFolderRefresh = false;
+
+  function mergeWorkspaceFoldersFromDom() {
+    if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+    const byKey = new Map(
+      window.WORKSPACE_FOLDERS.filter((f) => f && f.key).map((f) => [
+        String(f.key),
+        { key: String(f.key), name: String(f.name || '').trim() || 'Folder' },
+      ]),
+    );
+    document.querySelectorAll('select[name="folderKey"] option').forEach((opt) => {
+      const key = String(opt.value || '').trim();
+      if (!key) return;
+      if (!byKey.has(key)) {
+        byKey.set(key, { key, name: String(opt.textContent || '').trim() || 'Folder' });
+      }
+    });
+    window.WORKSPACE_FOLDERS = Array.from(byKey.values());
+  }
+
+  function fetchWorkspaceFoldersFromServer() {
+    if (_bulkFoldersFetchPromise) return _bulkFoldersFetchPromise;
+    _bulkFoldersFetchPromise = fetch('/folders', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then((res) => res.json().catch(() => ({})))
+      .then((data) => {
+        if (data && data.success && Array.isArray(data.folders)) {
+          window.WORKSPACE_FOLDERS = data.folders
+            .filter((f) => f && f.key)
+            .map((f) => ({ key: String(f.key), name: String(f.name || '').trim() || 'Folder' }));
+        } else if (!Array.isArray(window.WORKSPACE_FOLDERS)) {
+          window.WORKSPACE_FOLDERS = [];
+        }
+        return window.WORKSPACE_FOLDERS;
+      })
+      .catch(() => {
+        if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+        return window.WORKSPACE_FOLDERS;
+      })
+      .finally(() => {
+        _bulkFoldersFetchPromise = null;
+      });
+    return _bulkFoldersFetchPromise;
+  }
+
+  function rebuildBulkFolderSelect(preferredValue) {
+    const selectEl = document.getElementById('bulkFolderSelect') || bulkFolderSelect;
+    if (!selectEl) return;
+    if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+    const folders = [...window.WORKSPACE_FOLDERS].sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
+    );
+    const prev =
+      preferredValue !== undefined && preferredValue !== null
+        ? String(preferredValue)
+        : selectEl.value;
+    selectEl.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = 'No folder';
+    selectEl.appendChild(emptyOpt);
+    folders.forEach((f) => {
+      if (!f || !f.key) return;
+      const opt = document.createElement('option');
+      opt.value = f.key;
+      opt.textContent = f.name || 'Folder';
+      selectEl.appendChild(opt);
+    });
+    const valid = prev && Array.from(selectEl.options).some((o) => o.value === prev);
+    selectEl.value = valid ? prev : '';
+  }
+
+  async function refreshBulkFolderSelectOptions(preferredValue) {
+    mergeWorkspaceFoldersFromDom();
+    await fetchWorkspaceFoldersFromServer();
+    rebuildBulkFolderSelect(preferredValue);
+  }
+  window.__rebuildBulkFolderSelect = rebuildBulkFolderSelect;
+  window.__refreshBulkFolderSelectOptions = refreshBulkFolderSelectOptions;
+
   const updateBulkActionBar = () => {
     syncSelectedKeysFromDom();
     syncBulkRowHighlights();
@@ -11186,6 +11269,13 @@ document.addEventListener('DOMContentLoaded', () => {
         headerBulkActions.classList.remove('flex');
       }
     }
+
+    if (hasSelection && !_bulkBarWasVisibleForFolderRefresh) {
+      refreshBulkFolderSelectOptions(bulkFolderSelect ? bulkFolderSelect.value : undefined).catch(
+        () => {},
+      );
+    }
+    _bulkBarWasVisibleForFolderRefresh = hasSelection;
   };
   window.__updateBulkActionBar = updateBulkActionBar;
   window.__syncBulkSelectionFromDom = function syncBulkSelectionFromDom() {
@@ -11195,41 +11285,20 @@ document.addEventListener('DOMContentLoaded', () => {
     updateBulkActionBar();
   };
 
-  function rebuildBulkFolderSelect(preferredValue) {
-    const selectEl = document.getElementById('bulkFolderSelect') || bulkFolderSelect;
-    if (!selectEl) return;
-    if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
-    const folders = [...window.WORKSPACE_FOLDERS].sort((a, b) =>
-      String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
-    );
-    const prev =
-      preferredValue !== undefined && preferredValue !== null
-        ? String(preferredValue)
-        : selectEl.value;
-    selectEl.innerHTML = '';
-    const emptyOpt = document.createElement('option');
-    emptyOpt.value = '';
-    emptyOpt.textContent = 'No folder';
-    selectEl.appendChild(emptyOpt);
-    folders.forEach((f) => {
-      if (!f || !f.key) return;
-      const opt = document.createElement('option');
-      opt.value = f.key;
-      opt.textContent = f.name || 'Folder';
-      selectEl.appendChild(opt);
-    });
-    const valid = prev && Array.from(selectEl.options).some((o) => o.value === prev);
-    selectEl.value = valid ? prev : '';
-  }
-  window.__rebuildBulkFolderSelect = rebuildBulkFolderSelect;
-
   const initialBulkFolderPref =
     typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
       ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
       : typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' && window.SEARCH_TARGET_FOLDER_KEY.trim()
         ? window.SEARCH_TARGET_FOLDER_KEY.trim()
         : undefined;
-  rebuildBulkFolderSelect(initialBulkFolderPref);
+  refreshBulkFolderSelectOptions(initialBulkFolderPref).catch(() => {
+    rebuildBulkFolderSelect(initialBulkFolderPref);
+  });
+  if (bulkFolderSelect) {
+    bulkFolderSelect.addEventListener('focus', () => {
+      refreshBulkFolderSelectOptions(bulkFolderSelect.value).catch(() => {});
+    });
+  }
   updateBulkActionBar();
 
   document.querySelectorAll('table').forEach((table) => {
