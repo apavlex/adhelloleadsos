@@ -632,9 +632,36 @@ document.addEventListener('DOMContentLoaded', () => {
         colBtn.setAttribute('aria-expanded', 'false');
       }
 
+      function pipelineColumnsPopoverSolidBg() {
+        return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
+      }
+
+      function applyPipelineColumnsPopoverSurface() {
+        const bg = pipelineColumnsPopoverSolidBg();
+        pop.style.backgroundColor = bg;
+        pop.style.background = bg;
+        pop.style.backdropFilter = 'none';
+        pop.style.webkitBackdropFilter = 'none';
+        pop.style.opacity = '1';
+      }
+
+      function positionColumnsPopover() {
+        if (pop.parentElement !== document.body) {
+          document.body.appendChild(pop);
+        }
+        applyPipelineColumnsPopoverSurface();
+        const rect = colBtn.getBoundingClientRect();
+        pop.style.position = 'fixed';
+        pop.style.top = `${Math.round(rect.bottom + 8)}px`;
+        pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
+        pop.style.left = 'auto';
+        pop.style.bottom = 'auto';
+      }
+
       function toggleColumnsPopover() {
         const willOpen = pop.classList.contains('hidden');
         pop.classList.toggle('hidden');
+        if (willOpen) positionColumnsPopover();
         colBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
       }
       window.__togglePipelineColumnsPopover = toggleColumnsPopover;
@@ -644,6 +671,25 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
         toggleColumnsPopover();
       });
+
+      window.addEventListener(
+        'resize',
+        () => {
+          if (!pop.classList.contains('hidden')) positionColumnsPopover();
+        },
+        { passive: true }
+      );
+
+      const pipelineTableScroll = document.getElementById('prospectPipelineTableScroll');
+      if (pipelineTableScroll) {
+        pipelineTableScroll.addEventListener(
+          'scroll',
+          () => {
+            if (!pop.classList.contains('hidden')) positionColumnsPopover();
+          },
+          { passive: true }
+        );
+      }
 
       document.addEventListener('click', (e) => {
         if (pop.classList.contains('hidden')) return;
