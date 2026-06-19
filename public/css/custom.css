@@ -570,7 +570,50 @@ body.sidebar-settings-open .sidebar-settings-toggle {
 }
 
 .lmv-method-btn--cold:hover {
-    border-color: rgba(255, 214, 68, 0.45);
+  border-color: rgba(255, 214, 68, 0.45);
+}
+
+/* Arm's Reach scripts (sales/personas) */
+.arms-reach-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  border: 1px solid transparent;
+}
+
+.arms-reach-icon svg {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.arms-reach-icon--hot {
+  background: rgba(244, 63, 94, 0.1);
+  border-color: rgba(244, 63, 94, 0.22);
+  color: #e11d48;
+}
+
+.arms-reach-icon--warm {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: rgba(245, 158, 11, 0.28);
+  color: #d97706;
+}
+
+.arms-reach-icon--cold {
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.22);
+  color: #0284c7;
+}
+
+.dark .arms-reach-icon--hot { color: #fb7185; }
+.dark .arms-reach-icon--warm { color: #fbbf24; }
+.dark .arms-reach-icon--cold { color: #38bdf8; }
+
+.arms-reach-version:focus-within {
+  border-color: rgba(255, 214, 68, 0.4);
+  box-shadow: 0 0 0 2px rgba(255, 214, 68, 0.12);
 }
 
 /* Detail panel slide-in */

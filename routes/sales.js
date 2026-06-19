@@ -26,6 +26,16 @@ const {
   persistCoachBrief,
   clearCoachBrief,
 } = require('../services/prospectingCoachCache');
+const {
+  ARMS_REACH_FACEBOOK_SEEDS,
+  ARMS_REACH_REFERRAL_SEED,
+  ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
+  ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
+} = require('../config/armsReachScripts');
+const {
+  regenerateArmsReachFacebookPost,
+  regenerateArmsReachReferralMessage,
+} = require('../services/armsReachScriptAi');
 
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
@@ -237,6 +247,10 @@ router.get('/personas', async (req, res, next) => {
       scriptServiceLabels,
       initialScriptLibraryItems,
       PERSONAS,
+      armsReachFacebookSeeds: ARMS_REACH_FACEBOOK_SEEDS,
+      armsReachReferralSeed: ARMS_REACH_REFERRAL_SEED,
+      armsReachDefaultOwner: ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
+      armsReachDefaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
     });
   } catch (e) {
     next(e);
@@ -341,6 +355,33 @@ Rules:
       refinedScript: refinedScript && refinedScript.trim() ? refinedScript.trim() : null,
       provider: ai.provider || 'unknown',
     });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: regenerate Arm's Reach Facebook post variation. */
+router.post('/arms-reach/regenerate-facebook', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const currentText = typeof body.currentText === 'string' ? body.currentText : '';
+    const versionLabel = typeof body.versionLabel === 'string' ? body.versionLabel.trim() : '';
+    const result = await regenerateArmsReachFacebookPost(currentText, versionLabel);
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: regenerate Arm's Reach referral follow-up message. */
+router.post('/arms-reach/regenerate-referral', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const ownerName = typeof body.ownerName === 'string' ? body.ownerName : '';
+    const referrerName = typeof body.referrerName === 'string' ? body.referrerName : '';
+    const currentText = typeof body.currentText === 'string' ? body.currentText : '';
+    const result = await regenerateArmsReachReferralMessage(ownerName, referrerName, currentText);
+    return res.json(result);
   } catch (e) {
     next(e);
   }

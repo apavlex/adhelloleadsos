@@ -33,7 +33,7 @@ router.get('/analytics', (req, res) => {
 });
 
 router.get('/scripts', (req, res) => {
-  res.redirect(302, '/sales/personas');
+  res.redirect(302, '/sales/personas#arms-reach');
 });
 
 module.exports = router;
