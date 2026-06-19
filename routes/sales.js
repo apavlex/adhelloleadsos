@@ -36,6 +36,13 @@ const {
   regenerateArmsReachFacebookPost,
   regenerateArmsReachReferralMessage,
 } = require('../services/armsReachScriptAi');
+const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
+const { generateUpworkProposal } = require('../services/upworkProposalAi');
+const {
+  normalizeUpworkProposal,
+  getUpworkProposalsFromWorkspace,
+  trimProposalList,
+} = require('../services/upworkProposalStorage');
 
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
@@ -238,6 +245,7 @@ router.get('/personas', async (req, res, next) => {
     );
     const SCRIPT_LIBRARY_MERGED = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const initialScriptLibraryItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
+    const upworkSavedProposals = getUpworkProposalsFromWorkspace(ws);
     res.render('sales-personas', {
       title: 'Sales scripts',
       activePage: 'sales',
@@ -251,6 +259,8 @@ router.get('/personas', async (req, res, next) => {
       armsReachReferralSeed: ARMS_REACH_REFERRAL_SEED,
       armsReachDefaultOwner: ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
       armsReachDefaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
+      upworkProposalServices: UPWORK_PROPOSAL_SERVICES,
+      upworkSavedProposals,
     });
   } catch (e) {
     next(e);
@@ -382,6 +392,61 @@ router.post('/arms-reach/regenerate-referral', express.json({ limit: '64kb' }), 
     const currentText = typeof body.currentText === 'string' ? body.currentText : '';
     const result = await regenerateArmsReachReferralMessage(ownerName, referrerName, currentText);
     return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: generate Upwork proposal (Computer's Reach). */
+router.post('/computers-reach/upwork/generate', express.json({ limit: '128kb' }), async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const result = await generateUpworkProposal({
+      jobTitle: body.jobTitle,
+      jobDescription: body.jobDescription,
+      serviceKey: body.serviceKey,
+      experience: body.experience,
+      regenerate: !!body.regenerate,
+      currentProposal: body.currentProposal,
+    });
+    return res.json(result);
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: save Upwork proposal to workspace. */
+router.post('/computers-reach/upwork/save', express.json({ limit: '256kb' }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const item = normalizeUpworkProposal(req.body || {});
+    if (!item) return res.status(400).json({ success: false, error: 'Proposal text required.' });
+    const cur = trimProposalList([...(getUpworkProposalsFromWorkspace(ws)), item]);
+    ws.upworkSavedProposals = cur;
+    ws.upworkProposalsUpdatedAt = new Date().toISOString();
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, item, proposals: cur });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** DELETE: remove saved Upwork proposal. */
+router.delete('/computers-reach/upwork/saved/:id', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const id = String(req.params.id || '').trim();
+    const cur = getUpworkProposalsFromWorkspace(ws);
+    const nextItems = cur.filter((x) => x && String(x.id) !== id);
+    if (nextItems.length === cur.length) {
+      return res.status(404).json({ success: false, error: 'Not found.' });
+    }
+    ws.upworkSavedProposals = nextItems;
+    ws.upworkProposalsUpdatedAt = new Date().toISOString();
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, proposals: nextItems });
   } catch (e) {
     next(e);
   }

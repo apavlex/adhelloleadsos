@@ -27,7 +27,7 @@ const LMV_PROSPECTING_METHODS = [
     temperatureLabel: 'Warm',
     description: 'Find clients looking for marketing help right now on Upwork.',
     actionLabel: 'Generate proposal',
-    actionHref: '/sales/personas',
+    actionHref: '/sales/personas#computers-reach',
   },
   {
     id: 'cars_reach',

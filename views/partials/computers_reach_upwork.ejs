@@ -1,0 +1,368 @@
+<% const _upworkServices = typeof upworkProposalServices !== 'undefined' && upworkProposalServices ? upworkProposalServices : []; %>
+<% const _savedUpwork = typeof upworkSavedProposals !== 'undefined' && upworkSavedProposals ? upworkSavedProposals : []; %>
+
+<section id="computers-reach" class="scroll-mt-28 mb-10" aria-label="Computer's Reach Upwork proposals">
+  <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
+    <div class="px-5 py-4 md:px-6 md:py-5 border-b border-brand-border/30 dark:border-white/10">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="arms-reach-icon arms-reach-icon--warm shrink-0" aria-hidden="true">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" x2="16" y1="21" y2="21"/><line x1="12" x2="12" y1="17" y2="21"/></svg>
+        </span>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">LMV method</p>
+      </div>
+      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white">Computer's Reach (Upwork)</h2>
+      <p class="text-sm text-brand-muted dark:text-slate-400 mt-1 max-w-2xl">Generate and track personalized Upwork proposals from any job post.</p>
+    </div>
+
+    <div class="px-4 md:px-6 border-b border-brand-border/30 dark:border-white/10">
+      <div class="flex gap-1" role="tablist" aria-label="Upwork proposal views">
+        <button type="button" id="upworkTabGenerator" class="upwork-tab upwork-tab--active inline-flex items-center gap-1.5 px-4 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 border-brand-yellow text-brand-dark dark:text-white" role="tab" aria-selected="true" aria-controls="upworkPanelGenerator">
+          <svg class="w-3.5 h-3.5 text-sky-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+          Generator
+        </button>
+        <button type="button" id="upworkTabSaved" class="upwork-tab inline-flex items-center gap-1.5 px-4 py-3 text-[10px] font-black uppercase tracking-widest border-b-2 border-transparent text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" role="tab" aria-selected="false" aria-controls="upworkPanelSaved">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-4 0V5a2 2 0 114 0v2m-4 0a2 2 0 104 0m-4 0h4"/></svg>
+          Saved proposals
+          <span id="upworkSavedCount" class="tabular-nums rounded-full bg-brand-cream dark:bg-slate-800 px-1.5 py-0.5 text-[9px] font-bold"><%= _savedUpwork.length %></span>
+        </button>
+      </div>
+    </div>
+
+    <div id="upworkPanelGenerator" class="p-4 md:p-6 space-y-5" role="tabpanel" aria-labelledby="upworkTabGenerator">
+      <div class="space-y-4">
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Job title</span>
+          <input type="text" id="upworkJobTitle" autocomplete="off" placeholder="e.g. Looking for Google Ads Expert for Local Plumbing Business" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+        </label>
+        <label class="block">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Job description</span>
+          <textarea id="upworkJobDescription" rows="6" placeholder="Paste the full job description here…" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm leading-relaxed text-brand-dark dark:text-white font-sans resize-y min-h-[8rem] focus:ring-2 focus:ring-brand-yellow outline-none"></textarea>
+        </label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label class="block">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Service you're offering</span>
+            <select id="upworkServiceKey" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none cursor-pointer">
+              <option value="">Select a service…</option>
+              <% _upworkServices.forEach(function (s) { %>
+              <option value="<%= s.key %>"><%= s.label %></option>
+              <% }); %>
+            </select>
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Relevant experience (optional)</span>
+            <textarea id="upworkExperience" rows="3" placeholder="Any specific wins to highlight?" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm leading-relaxed text-brand-dark dark:text-white font-sans resize-y min-h-[5.5rem] focus:ring-2 focus:ring-brand-yellow outline-none"></textarea>
+          </label>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button type="button" id="upworkGenerateBtn" class="btn-pill btn-primary inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest px-5 py-2.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/></svg>
+          Generate proposal
+        </button>
+        <button type="button" id="upworkRegenerateBtn" class="hidden inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest border border-brand-border/60 dark:border-white/15 bg-brand-dark text-white dark:bg-slate-800 hover:border-brand-yellow/40 transition-colors">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Regenerate
+        </button>
+      </div>
+
+      <div id="upworkOutputWrap" class="hidden rounded-2xl border border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20 overflow-hidden">
+        <div class="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-emerald-500/20">
+          <span class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Generated proposal</span>
+          <div class="flex items-center gap-1.5">
+            <button type="button" id="upworkCopyBtn" class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              Copy
+            </button>
+            <button type="button" id="upworkSaveBtn" class="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider bg-sky-600 text-white hover:bg-sky-500 transition-colors">
+              <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-4 0V5a2 2 0 114 0v2m-4 0a2 2 0 104 0m-4 0h4"/></svg>
+              Save proposal
+            </button>
+          </div>
+        </div>
+        <textarea id="upworkProposalOutput" rows="14" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans resize-y min-h-[14rem] border-0 focus:ring-0 outline-none" aria-label="Generated Upwork proposal"></textarea>
+      </div>
+
+      <p id="upworkStatus" class="hidden text-[11px] font-semibold" role="status" aria-live="polite"></p>
+    </div>
+
+    <div id="upworkPanelSaved" class="hidden p-4 md:p-6" role="tabpanel" aria-labelledby="upworkTabSaved">
+      <div id="upworkSavedEmpty" class="<%= _savedUpwork.length ? 'hidden' : '' %> py-12 text-center text-sm text-brand-muted">
+        No saved proposals yet. Generate one and click <strong class="text-brand-dark dark:text-white">Save proposal</strong>.
+      </div>
+      <ul id="upworkSavedList" class="<%= _savedUpwork.length ? '' : 'hidden' %> space-y-3">
+        <% _savedUpwork.slice().reverse().forEach(function (item) {
+          var svc = _upworkServices.find(function (s) { return s.key === item.serviceKey; });
+          var svcLabel = svc ? svc.label : (item.serviceKey || 'General');
+          var savedDate = item.savedAt ? new Date(item.savedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '';
+        %>
+        <li class="upwork-saved-item rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 overflow-hidden" data-id="<%= item.id %>">
+          <div class="flex flex-wrap items-start justify-between gap-2 px-4 py-3 border-b border-brand-border/40 dark:border-white/10">
+            <div class="min-w-0">
+              <p class="font-display font-bold text-sm text-brand-dark dark:text-white truncate"><%= item.jobTitle %></p>
+              <p class="text-[10px] font-semibold text-brand-muted mt-0.5"><%= svcLabel %><% if (savedDate) { %> · <%= savedDate %><% } %></p>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button type="button" class="js-upwork-load inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">Load</button>
+              <button type="button" class="js-upwork-copy-saved inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">Copy</button>
+              <button type="button" class="js-upwork-delete inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-500/10 transition-colors">Delete</button>
+            </div>
+          </div>
+          <pre class="js-upwork-proposal-text hidden"><%= item.proposal %></pre>
+          <p class="px-4 py-3 text-xs text-brand-muted dark:text-slate-400 line-clamp-3 whitespace-pre-wrap"><%= item.proposal %></p>
+        </li>
+        <% }); %>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<script type="application/json" id="upworkSavedData"><%- JSON.stringify(_savedUpwork) %></script>
+<script>
+(function () {
+  'use strict';
+  var LS = {
+    title: 'adhello_upwork_job_title',
+    desc: 'adhello_upwork_job_desc',
+    service: 'adhello_upwork_service',
+    exp: 'adhello_upwork_experience',
+    draft: 'adhello_upwork_draft',
+  };
+
+  function $(id) { return document.getElementById(id); }
+  var savedItems = [];
+  try {
+    var el = $('upworkSavedData');
+    savedItems = el ? JSON.parse(el.textContent || '[]') : [];
+  } catch (_) { savedItems = []; }
+
+  function status(msg, ok) {
+    var s = $('upworkStatus');
+    if (!s) return;
+    if (!msg) { s.classList.add('hidden'); s.textContent = ''; return; }
+    s.textContent = msg;
+    s.classList.remove('hidden', 'text-emerald-600', 'text-rose-600', 'dark:text-emerald-300', 'dark:text-rose-300');
+    s.classList.add(ok ? 'text-emerald-600' : 'text-rose-600', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
+    clearTimeout(status._t);
+    status._t = setTimeout(function () { status('', true); }, 3500);
+  }
+
+  async function api(method, url, body) {
+    var opts = { method: method, credentials: 'same-origin', headers: { Accept: 'application/json' } };
+    if (body != null) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    var res = await fetch(url, opts);
+    var data = await res.json().catch(function () { return {}; });
+    if (!res.ok && !data.error) data.error = 'Request failed';
+    return data;
+  }
+
+  async function copyText(text) {
+    var t = String(text || '').trim();
+    if (!t) return false;
+    try {
+      await navigator.clipboard.writeText(t);
+      return true;
+    } catch (_) {
+      var ta = document.createElement('textarea');
+      ta.value = t;
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }
+  }
+
+  function formPayload() {
+    return {
+      jobTitle: ($('upworkJobTitle') && $('upworkJobTitle').value) || '',
+      jobDescription: ($('upworkJobDescription') && $('upworkJobDescription').value) || '',
+      serviceKey: ($('upworkServiceKey') && $('upworkServiceKey').value) || 'general',
+      experience: ($('upworkExperience') && $('upworkExperience').value) || '',
+    };
+  }
+
+  function persistForm() {
+    try {
+      var p = formPayload();
+      localStorage.setItem(LS.title, p.jobTitle);
+      localStorage.setItem(LS.desc, p.jobDescription);
+      localStorage.setItem(LS.service, p.serviceKey);
+      localStorage.setItem(LS.exp, p.experience);
+      var out = $('upworkProposalOutput');
+      if (out && out.value) localStorage.setItem(LS.draft, out.value);
+    } catch (_) {}
+  }
+
+  function loadForm() {
+    try {
+      if ($('upworkJobTitle') && localStorage.getItem(LS.title)) $('upworkJobTitle').value = localStorage.getItem(LS.title);
+      if ($('upworkJobDescription') && localStorage.getItem(LS.desc)) $('upworkJobDescription').value = localStorage.getItem(LS.desc);
+      if ($('upworkServiceKey') && localStorage.getItem(LS.service)) $('upworkServiceKey').value = localStorage.getItem(LS.service);
+      if ($('upworkExperience') && localStorage.getItem(LS.exp)) $('upworkExperience').value = localStorage.getItem(LS.exp);
+      var draft = localStorage.getItem(LS.draft);
+      if (draft && $('upworkProposalOutput')) {
+        $('upworkProposalOutput').value = draft;
+        $('upworkOutputWrap').classList.remove('hidden');
+        $('upworkRegenerateBtn').classList.remove('hidden');
+      }
+    } catch (_) {}
+  }
+
+  function showTab(which) {
+    var gen = which === 'generator';
+    $('upworkPanelGenerator').classList.toggle('hidden', !gen);
+    $('upworkPanelSaved').classList.toggle('hidden', gen);
+    $('upworkTabGenerator').classList.toggle('upwork-tab--active', gen);
+    $('upworkTabGenerator').setAttribute('aria-selected', gen ? 'true' : 'false');
+    $('upworkTabSaved').classList.toggle('upwork-tab--active', !gen);
+    $('upworkTabSaved').setAttribute('aria-selected', !gen ? 'true' : 'false');
+  }
+
+  function updateSavedCount() {
+    var c = $('upworkSavedCount');
+    if (c) c.textContent = String(savedItems.length);
+  }
+
+  async function runGenerate(regenerate) {
+    var p = formPayload();
+    if (!p.jobDescription.trim()) {
+      status('Paste the job description first', false);
+      return;
+    }
+    if (!p.serviceKey) {
+      status('Select a service', false);
+      return;
+    }
+    var btn = regenerate ? $('upworkRegenerateBtn') : $('upworkGenerateBtn');
+    if (btn) btn.disabled = true;
+    status(regenerate ? 'Regenerating…' : 'Generating proposal…', true);
+    try {
+      var out = $('upworkProposalOutput');
+      var data = await api('POST', '/sales/computers-reach/upwork/generate', {
+        jobTitle: p.jobTitle,
+        jobDescription: p.jobDescription,
+        serviceKey: p.serviceKey,
+        experience: p.experience,
+        regenerate: !!regenerate,
+        currentProposal: out ? out.value : '',
+      });
+      if (!data.success || !data.proposal) throw new Error(data.error || 'Generation failed');
+      if (out) out.value = data.proposal;
+      $('upworkOutputWrap').classList.remove('hidden');
+      $('upworkRegenerateBtn').classList.remove('hidden');
+      persistForm();
+      status('Proposal ready — review and copy to Upwork', true);
+    } catch (err) {
+      status(err.message || 'Could not generate', false);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  $('upworkTabGenerator') && $('upworkTabGenerator').addEventListener('click', function () { showTab('generator'); });
+  $('upworkTabSaved') && $('upworkTabSaved').addEventListener('click', function () { showTab('saved'); });
+
+  $('upworkGenerateBtn') && $('upworkGenerateBtn').addEventListener('click', function () { runGenerate(false); });
+  $('upworkRegenerateBtn') && $('upworkRegenerateBtn').addEventListener('click', function () { runGenerate(true); });
+
+  $('upworkCopyBtn') && $('upworkCopyBtn').addEventListener('click', async function () {
+    var out = $('upworkProposalOutput');
+    var ok = await copyText(out && out.value);
+    status(ok ? 'Copied to clipboard' : 'Nothing to copy', ok);
+  });
+
+  $('upworkSaveBtn') && $('upworkSaveBtn').addEventListener('click', async function () {
+    var p = formPayload();
+    var out = $('upworkProposalOutput');
+    if (!out || !out.value.trim()) {
+      status('Generate a proposal first', false);
+      return;
+    }
+    $('upworkSaveBtn').disabled = true;
+    try {
+      var data = await api('POST', '/sales/computers-reach/upwork/save', {
+        jobTitle: p.jobTitle,
+        jobDescription: p.jobDescription,
+        serviceKey: p.serviceKey,
+        experience: p.experience,
+        proposal: out.value,
+      });
+      if (!data.success) throw new Error(data.error || 'Save failed');
+      savedItems = Array.isArray(data.proposals) ? data.proposals : savedItems;
+      updateSavedCount();
+      status('Proposal saved', true);
+      window.location.reload();
+    } catch (err) {
+      status(err.message || 'Could not save', false);
+    } finally {
+      $('upworkSaveBtn').disabled = false;
+    }
+  });
+
+  document.querySelectorAll('.js-upwork-load').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var li = btn.closest('.upwork-saved-item');
+      if (!li) return;
+      var id = li.getAttribute('data-id');
+      var item = savedItems.find(function (x) { return x && x.id === id; });
+      if (!item) return;
+      if ($('upworkJobTitle')) $('upworkJobTitle').value = item.jobTitle || '';
+      if ($('upworkJobDescription')) $('upworkJobDescription').value = item.jobDescription || '';
+      if ($('upworkServiceKey')) $('upworkServiceKey').value = item.serviceKey || 'general';
+      if ($('upworkExperience')) $('upworkExperience').value = item.experience || '';
+      if ($('upworkProposalOutput')) $('upworkProposalOutput').value = item.proposal || '';
+      $('upworkOutputWrap').classList.remove('hidden');
+      $('upworkRegenerateBtn').classList.remove('hidden');
+      persistForm();
+      showTab('generator');
+      status('Loaded saved proposal', true);
+    });
+  });
+
+  document.querySelectorAll('.js-upwork-copy-saved').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var li = btn.closest('.upwork-saved-item');
+      var pre = li && li.querySelector('.js-upwork-proposal-text');
+      var ok = await copyText(pre && pre.textContent);
+      status(ok ? 'Copied to clipboard' : 'Nothing to copy', ok);
+    });
+  });
+
+  document.querySelectorAll('.js-upwork-delete').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var li = btn.closest('.upwork-saved-item');
+      if (!li || !window.confirm('Delete this saved proposal?')) return;
+      var id = li.getAttribute('data-id');
+      btn.disabled = true;
+      try {
+        var data = await api('DELETE', '/sales/computers-reach/upwork/saved/' + encodeURIComponent(id));
+        if (!data.success) throw new Error(data.error || 'Delete failed');
+        savedItems = Array.isArray(data.proposals) ? data.proposals : savedItems.filter(function (x) { return x.id !== id; });
+        li.remove();
+        updateSavedCount();
+        if (!savedItems.length) {
+          $('upworkSavedList').classList.add('hidden');
+          $('upworkSavedEmpty').classList.remove('hidden');
+        }
+        status('Deleted', true);
+      } catch (err) {
+        status(err.message || 'Could not delete', false);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  ['upworkJobTitle', 'upworkJobDescription', 'upworkServiceKey', 'upworkExperience', 'upworkProposalOutput'].forEach(function (id) {
+    var el = $(id);
+    if (el) el.addEventListener('input', persistForm);
+    if (el && el.tagName === 'SELECT') el.addEventListener('change', persistForm);
+  });
+
+  loadForm();
+})();
+</script>

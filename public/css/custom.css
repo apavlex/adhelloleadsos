@@ -616,6 +616,23 @@ body.sidebar-settings-open .sidebar-settings-toggle {
   box-shadow: 0 0 0 2px rgba(255, 214, 68, 0.12);
 }
 
+.upwork-tab {
+  margin-bottom: -1px;
+}
+
+.upwork-tab--active {
+  color: var(--brand-dark);
+  border-bottom-color: var(--brand-yellow, #ffd644) !important;
+}
+
+.dark .upwork-tab--active {
+  color: #f8fafc;
+}
+
+.upwork-saved-item pre {
+  display: none;
+}
+
 /* Detail panel slide-in */
 .detail-panel {
     transform: translateX(100%);
