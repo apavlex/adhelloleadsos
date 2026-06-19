@@ -1,26 +1,29 @@
-document.addEventListener('DOMContentLoaded', () => {
-  // Call room opener registered first — bulk bar can click before later init finishes.
-  window.__openWarRoomFromSelectionImpl = null;
-  window.__openWarRoomFromSelection = function openWarRoomFromSelectionBridge() {
+window.__openWarRoomFromSelectionImpl = null;
+window.__openWarRoomFromSelection = function openWarRoomFromSelectionBridge() {
+  if (typeof window.__openWarRoomFromSelectionImpl === 'function') {
+    return window.__openWarRoomFromSelectionImpl();
+  }
+  let attempts = 0;
+  const retry = () => {
     if (typeof window.__openWarRoomFromSelectionImpl === 'function') {
-      return window.__openWarRoomFromSelectionImpl();
+      window.__openWarRoomFromSelectionImpl();
+      return;
     }
-    let attempts = 0;
-    const retry = () => {
-      if (typeof window.__openWarRoomFromSelectionImpl === 'function') {
-        window.__openWarRoomFromSelectionImpl();
-        return;
-      }
-      if (++attempts < 60) {
-        setTimeout(retry, 50);
-        return;
-      }
-      const msg = 'Call room failed to load. Refresh the page and try again.';
-      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
-      else window.alert(msg);
-    };
-    retry();
+    if (++attempts < 120) {
+      setTimeout(retry, 50);
+      return;
+    }
+    const msg = 'Call room failed to load. Refresh the page and try again.';
+    if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+    else window.alert(msg);
   };
+  retry();
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Hoisted function — available immediately; bulk bar must not wait for ~13k lines of init.
+  window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
+  window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
   // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
 
@@ -13404,8 +13407,6 @@ document.addEventListener('DOMContentLoaded', () => {
       grid.focus();
     });
   }
-  window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
-  window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
   function initBulkBarCallRoomAction() {
     const bar = mountBulkActionBarToBody();
