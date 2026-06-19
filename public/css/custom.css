@@ -2094,7 +2094,8 @@ html.dark #pipelineColumnsPopover {
 
 .softphone-panel--expanded {
   width: min(100vw - 1rem, 26rem) !important;
-  max-height: min(760px, calc(100vh - 2rem)) !important;
+  height: min(820px, calc(100vh - 2rem)) !important;
+  max-height: min(820px, calc(100vh - 2rem)) !important;
 }
 
 .softphone-chrome-btn {
