@@ -1843,11 +1843,12 @@ html.dark #pipelineColumnsPopover {
     pointer-events: none;
 }
 #leadPanelCadencePlaybookDrawer.lead-panel-cadence-playbook-drawer.lead-panel-cadence-playbook-drawer--open {
-    max-height: min(28rem, 75vh);
+    max-height: min(56rem, 90vh);
     opacity: 1;
-    margin-top: 0.75rem !important;
+    margin-top: 0 !important;
     pointer-events: auto;
-    overflow: visible;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 #leadPanelCadencePlaybookChevron {
     transform-origin: center;
@@ -1855,6 +1856,36 @@ html.dark #pipelineColumnsPopover {
 }
 #mobilePanel.open #leadPanelCadencePlaybookDrawer.lead-panel-cadence-playbook-drawer--open,
 #mobilePanel.open #leadPanelCadencePlaybookDrawer.lead-panel-cadence-playbook-drawer--open * {
+    pointer-events: auto;
+}
+
+/* Lead panel: AI tools assessment — collapsed by default */
+#leadPanelAiToolsDrawer.lead-panel-ai-tools-drawer {
+    max-height: 0;
+    opacity: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+    transition:
+        max-height 0.34s cubic-bezier(0.33, 1, 0.68, 1),
+        opacity 0.22s ease,
+        padding 0.28s ease;
+    overflow: hidden;
+    pointer-events: none;
+}
+#leadPanelAiToolsDrawer.lead-panel-ai-tools-drawer.lead-panel-ai-tools-drawer--open {
+    max-height: min(24rem, 75vh);
+    opacity: 1;
+    padding-top: 0 !important;
+    padding-bottom: 1.25rem !important;
+    pointer-events: auto;
+    overflow: visible;
+}
+#leadPanelAiToolsChevron {
+    transform-origin: center;
+    transition: transform 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+}
+#mobilePanel.open #leadPanelAiToolsDrawer.lead-panel-ai-tools-drawer--open,
+#mobilePanel.open #leadPanelAiToolsDrawer.lead-panel-ai-tools-drawer--open * {
     pointer-events: auto;
 }
 

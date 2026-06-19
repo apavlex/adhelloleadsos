@@ -98,6 +98,40 @@ async function geocodeViaGoogle(query) {
   }
 }
 
+async function geocodeCenterQuery(centerQuery) {
+  const q = String(centerQuery || '').trim();
+  if (!q) return null;
+
+  const variants = [q];
+  const pair = parseLatLngPair(q);
+  if (pair) return pair;
+
+  const parts = q.split(',').map((s) => s.trim()).filter(Boolean);
+  if (parts.length >= 2 && !/\d/.test(parts[0])) {
+    variants.push(parts.slice(1).join(', '));
+  }
+  if (parts.length >= 3 && !/\d/.test(parts[0]) && !/\d/.test(parts[1])) {
+    variants.push(parts.slice(2).join(', '));
+  }
+
+  const seen = new Set();
+  for (const variant of variants) {
+    const key = variant.toLowerCase();
+    if (!variant || seen.has(key)) continue;
+    seen.add(key);
+
+    const direct = parseLatLngPair(variant);
+    if (direct) return direct;
+
+    const google = await geocodeViaGoogle(variant);
+    if (google) return google;
+
+    const osm = await geocodeViaNominatim(variant);
+    if (osm) return osm;
+  }
+  return null;
+}
+
 async function geocodeViaNominatim(query) {
   const q = String(query || '').trim();
   if (!q) return null;
@@ -141,10 +175,7 @@ async function getMapPreviewImage(opts) {
     coords = parseLatLngPair(centerQuery);
   }
   if (!coords && centerQuery) {
-    coords = await geocodeViaGoogle(centerQuery);
-  }
-  if (!coords && centerQuery) {
-    coords = await geocodeViaNominatim(centerQuery);
+    coords = await geocodeCenterQuery(centerQuery);
   }
   if (!coords) return null;
 
