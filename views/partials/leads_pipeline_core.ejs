@@ -209,6 +209,7 @@
           <% leads.forEach((lead, i) => { %>
             <% const stagesList = (typeof pipelineStages !== 'undefined' && pipelineStages) ? pipelineStages : []; %>
             <% let activeStageId = lead.stageId ? String(lead.stageId) : ''; %>
+            <% if (activeStageId && stagesList.length && !stagesList.some(function (s) { return s && String(s.id) === activeStageId; })) { activeStageId = ''; } %>
             <% if (!activeStageId && stagesList.length) { %>
             <%   let _idx = parseInt(lead.pipelineStage, 10); if (Number.isNaN(_idx) || _idx < 1) _idx = 1; const _safe = Math.min(_idx, stagesList.length); %>
             <%   activeStageId = stagesList[_safe - 1] ? String(stagesList[_safe - 1].id) : ''; %>

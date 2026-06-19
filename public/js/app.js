@@ -12616,10 +12616,19 @@ document.addEventListener('DOMContentLoaded', () => {
   // View toggle + kanban init hook (pipeline-view-toggle.js handles Table/Pipeline clicks)
   function initKanban() {
     const columns = document.querySelectorAll('.kanban-list');
-    const allRows = document.querySelectorAll('.result-row');
+    const table = document.getElementById('prospectLeadsTable');
+    const allRows = table
+      ? table.querySelectorAll('tbody tr.result-row')
+      : document.querySelectorAll('.result-row');
     const kanbanViewEl = document.getElementById('kanbanView');
     const pipelineMode =
       kanbanViewEl && kanbanViewEl.dataset && kanbanViewEl.dataset.kanbanMode === 'pipeline';
+    const columnIds = [];
+    if (pipelineMode) {
+      document.querySelectorAll('.kanban-column[data-pipeline-stage]').forEach((colEl) => {
+        columnIds.push(String(colEl.dataset.pipelineStage || '').trim());
+      });
+    }
 
     columns.forEach((col) => {
         if (typeof Sortable !== 'undefined' && typeof Sortable.get === 'function') {
@@ -12630,13 +12639,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const columnWrap = col.parentElement;
         const targetStatus = columnWrap.dataset.status;
         const targetPipelineId = pipelineMode ? String(columnWrap.dataset.pipelineStage || '').trim() : '';
+        const targetColumnIndex = pipelineMode ? columnIds.indexOf(targetPipelineId) : -1;
         let count = 0;
 
         allRows.forEach((row) => {
             let shouldInclude = false;
             if (pipelineMode && targetPipelineId) {
               const sid = String(row.dataset.stageId || '').trim();
-              shouldInclude = sid === targetPipelineId;
+              if (sid && sid === targetPipelineId) {
+                shouldInclude = true;
+              } else if (!sid || columnIds.indexOf(sid) === -1) {
+                let ps = parseInt(row.dataset.pipelineStage, 10);
+                if (Number.isNaN(ps) || ps < 1) ps = 1;
+                if (targetColumnIndex >= 0 && ps === targetColumnIndex + 1) {
+                  shouldInclude = true;
+                }
+              }
             } else {
               const leadStatus = row.dataset.status || 'Not Contacted';
               if (targetStatus === 'Not Contacted' && (leadStatus === 'Not Contacted' || leadStatus === 'Needs Video')) shouldInclude = true;

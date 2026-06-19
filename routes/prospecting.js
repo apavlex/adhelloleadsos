@@ -85,6 +85,14 @@ router.get('/', async (req, res, next) => {
 
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(wid);
     const pipelineStages = pipelineStagesService.stagesForKanban(stageRows);
+    leads = leads.map((l) => {
+      const sid = pipelineStagesService.resolveStageIdForLead(l, stageRows);
+      return {
+        ...l,
+        stageId: sid,
+        pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, sid),
+      };
+    });
 
     let importNotice = null;
     if (
