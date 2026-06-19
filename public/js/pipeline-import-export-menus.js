@@ -41,6 +41,7 @@
 
   function openPipelineMenuPanel(trigger, panel) {
     positionPipelineMenuPanel(trigger, panel);
+    applySurface(panel);
     panel.classList.remove('hidden');
     applySurface(panel);
     requestAnimationFrame(function () {

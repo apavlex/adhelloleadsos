@@ -39,6 +39,60 @@
     return bar;
   }
 
+  /** Populate folder dropdown from bootstrap data — works before app.js finishes init. */
+  function rebuildBulkFolderSelectEarly(preferredValue) {
+    if (typeof window.__rebuildBulkFolderSelect === 'function') {
+      window.__rebuildBulkFolderSelect(preferredValue);
+      return;
+    }
+    const selectEl = document.getElementById('bulkFolderSelect');
+    if (!selectEl) return;
+    if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+    if (!window.WORKSPACE_FOLDERS.length) {
+      selectEl.querySelectorAll('option').forEach(function (opt) {
+        const key = String(opt.value || '').trim();
+        if (!key) return;
+        window.WORKSPACE_FOLDERS.push({
+          key: key,
+          name: String(opt.textContent || '').trim() || 'Folder',
+        });
+      });
+    }
+    const folders = window.WORKSPACE_FOLDERS.slice().sort(function (a, b) {
+      return String(a.name || '').localeCompare(String(b.name || ''), undefined, {
+        sensitivity: 'base',
+      });
+    });
+    const prev =
+      preferredValue !== undefined && preferredValue !== null
+        ? String(preferredValue)
+        : selectEl.value;
+    selectEl.innerHTML = '';
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = 'No folder';
+    selectEl.appendChild(emptyOpt);
+    folders.forEach(function (f) {
+      if (!f || !f.key) return;
+      const opt = document.createElement('option');
+      opt.value = f.key;
+      opt.textContent = f.name || 'Folder';
+      selectEl.appendChild(opt);
+    });
+    const valid = prev && Array.from(selectEl.options).some(function (o) {
+      return o.value === prev;
+    });
+    selectEl.value = valid ? prev : '';
+  }
+
+  function refreshBulkFolderSelectEarly(preferredValue) {
+    if (typeof window.__refreshBulkFolderSelectOptions === 'function') {
+      return window.__refreshBulkFolderSelectOptions(preferredValue);
+    }
+    rebuildBulkFolderSelectEarly(preferredValue);
+    return Promise.resolve();
+  }
+
   /** Show/hide floating bulk bar (Focus, export, tags, etc.) — does not depend on app.js init order. */
   let _bulkBarVisibleForFolderRefresh = false;
 
@@ -66,8 +120,10 @@
           el.disabled = false;
         }
       });
-      if (typeof window.__refreshBulkFolderSelectOptions === 'function' && !_bulkBarVisibleForFolderRefresh) {
-        window.__refreshBulkFolderSelectOptions().catch(function () {});
+      if (!_bulkBarVisibleForFolderRefresh) {
+        refreshBulkFolderSelectEarly().catch(function () {
+          rebuildBulkFolderSelectEarly();
+        });
       }
     } else {
       _bulkBarVisibleForFolderRefresh = false;
@@ -172,6 +228,21 @@
 
   function init() {
     mountBulkBarToBody();
+    rebuildBulkFolderSelectEarly(
+      typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+        ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+        : typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' && window.SEARCH_TARGET_FOLDER_KEY.trim()
+          ? window.SEARCH_TARGET_FOLDER_KEY.trim()
+          : undefined,
+    );
+    const folderSelect = document.getElementById('bulkFolderSelect');
+    if (folderSelect) {
+      folderSelect.addEventListener('focus', function () {
+        refreshBulkFolderSelectEarly(folderSelect.value).catch(function () {
+          rebuildBulkFolderSelectEarly(folderSelect.value);
+        });
+      });
+    }
     bindBulkBarCaptureActions();
     document.querySelectorAll('table').forEach((table) => {
       if (table.querySelector('thead input[data-select-all-leads]')) {
@@ -204,6 +275,74 @@
       true,
     );
   }
+
+  function appendFolderToPageSelects(folder) {
+    if (!folder || !folder.key) return;
+    document.querySelectorAll('select[name="folderKey"]').forEach(function (sel) {
+      const exists = Array.from(sel.options).some(function (o) {
+        return o.value === folder.key;
+      });
+      if (exists) return;
+      const opt = document.createElement('option');
+      opt.value = folder.key;
+      opt.textContent = folder.name || 'Folder';
+      sel.appendChild(opt);
+    });
+  }
+
+  /** Create folder from bulk bar — available before app.js finishes loading. */
+  async function bulkFolderSaveFromBar() {
+    const nameInput = document.getElementById('bulkFolderNewName');
+    const saveBtn = document.getElementById('bulkFolderNewSave');
+    const name = nameInput ? String(nameInput.value || '').trim() : '';
+    if (!name) {
+      window.alert('Enter a folder name.');
+      return;
+    }
+    if (saveBtn) saveBtn.disabled = true;
+    try {
+      const res = await fetch('/folders', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ name: name }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success || !data.folder || !data.folder.key) {
+        throw new Error((data && data.error) || 'HTTP ' + res.status);
+      }
+      const folder = data.folder;
+      const key = folder.key;
+      const folderName = folder.name || name;
+      if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
+      const existing = window.WORKSPACE_FOLDERS.find(function (f) {
+        return f && f.key === key;
+      });
+      if (existing) {
+        existing.name = folderName;
+      } else {
+        window.WORKSPACE_FOLDERS.push({ key: key, name: folderName });
+      }
+      rebuildBulkFolderSelectEarly(key);
+      appendFolderToPageSelects({ key: key, name: folderName });
+      if (typeof window.__setBulkFolderNewRowVisible === 'function') {
+        window.__setBulkFolderNewRowVisible(false);
+      } else {
+        toggleBulkFolderNewRow();
+      }
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast('Folder created');
+      }
+    } catch (err) {
+      console.error('[pipeline-bulk-select] create folder failed:', err);
+      window.alert((err && err.message) || 'Could not create folder.');
+    } finally {
+      if (saveBtn) saveBtn.disabled = false;
+    }
+  }
+  window.__bulkFolderSaveFromBar = bulkFolderSaveFromBar;
 
   /** Toggle/create folder row — works even if app.js bubble handlers miss the click. */
   function toggleBulkFolderNewRow() {
@@ -268,9 +407,7 @@
         if (e.target.closest('#bulkFolderNewSave')) {
           e.preventDefault();
           e.stopPropagation();
-          if (typeof window.__bulkFolderSaveFromBar === 'function') {
-            window.__bulkFolderSaveFromBar();
-          }
+          bulkFolderSaveFromBar();
           return;
         }
         if (e.target.closest('#bulkTagsToggle')) {
@@ -286,9 +423,30 @@
       },
       true,
     );
+    document.addEventListener(
+      'keydown',
+      function (e) {
+        if (e.target && e.target.id === 'bulkFolderNewName') {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            if (typeof window.__setBulkFolderNewRowVisible === 'function') {
+              window.__setBulkFolderNewRowVisible(false);
+            } else {
+              toggleBulkFolderNewRow();
+            }
+          }
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            bulkFolderSaveFromBar();
+          }
+          return;
+        }
+      },
+      true,
+    );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '4';
+  window.__PIPELINE_BULK_SELECT_V2 = '5';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

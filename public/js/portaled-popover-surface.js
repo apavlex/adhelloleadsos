@@ -11,11 +11,13 @@
     if (!el) return;
     var bg = portaledPopoverSolidBg();
     el.style.setProperty('background-color', bg, 'important');
+    el.style.setProperty('background-image', 'none', 'important');
     el.style.setProperty('background', bg, 'important');
     el.style.setProperty('backdrop-filter', 'none', 'important');
     el.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
     el.style.setProperty('opacity', '1', 'important');
     el.style.setProperty('isolation', 'isolate', 'important');
+    el.style.setProperty('box-decoration-break', 'clone', 'important');
   }
 
   global.portaledPopoverSolidBg = portaledPopoverSolidBg;

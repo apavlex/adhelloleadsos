@@ -1,45 +1,51 @@
 <% const _bulkMode = typeof bulkBarMode !== 'undefined' && bulkBarMode === 'search' ? 'search' : 'pipeline'; %>
+<% const _bulkFolders = typeof folders !== 'undefined' && Array.isArray(folders) ? folders : []; %>
+<% const _bulkFolderPref = typeof activeFolderKey !== 'undefined' && activeFolderKey ? String(activeFolderKey) : (typeof targetFolderKey !== 'undefined' && targetFolderKey ? String(targetFolderKey) : ''); %>
 <div
   id="bulkActionBar"
-  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col gap-1.5 max-w-[min(100vw-1rem,56rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
+  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col items-center gap-1.5 w-max max-w-[min(100vw-1rem,56rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
   role="toolbar"
   aria-label="Bulk lead actions"
   aria-hidden="true"
   data-bulk-mode="<%= _bulkMode %>"
   data-visible="false"
 >
-  <div id="bulkFolderNewRow" class="hidden w-full flex-wrap items-center gap-1.5 py-1.5 px-2 rounded-lg bg-white/5 border border-brand-yellow/25 bulk-bar-expand-row" role="group" aria-label="Create folder">
+  <div id="bulkFolderNewRow" class="hidden w-full flex flex-wrap items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-white/5 border border-brand-yellow/25 bulk-bar-expand-row" role="group" aria-label="Create folder">
     <input type="text" id="bulkFolderNewName" autocomplete="off" placeholder="New folder name…" class="min-w-[8rem] flex-1 rounded-md bg-white/10 border border-white/15 px-2 py-1 text-[11px] font-semibold text-white placeholder:text-white/45 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50" />
     <button type="button" id="bulkFolderNewSave" class="bulk-bar-btn bulk-bar-btn--accent">Create</button>
     <button type="button" id="bulkFolderNewCancel" class="bulk-bar-btn bulk-bar-btn--ghost">Cancel</button>
   </div>
 
-  <div id="bulkTagsRow" class="hidden w-full flex-col gap-2 py-1.5 px-2 rounded-lg bg-white/5 border border-sky-400/25 bulk-bar-expand-row" role="group" aria-label="Manage tags">
-    <div class="flex flex-wrap items-center gap-1.5">
+  <div id="bulkTagsRow" class="hidden w-full flex flex-col items-center gap-2 py-1.5 px-2 rounded-lg bg-white/5 border border-sky-400/25 bulk-bar-expand-row" role="group" aria-label="Manage tags">
+    <div class="flex flex-wrap items-center justify-center gap-1.5 w-full">
       <label for="bulkTagSelect" class="sr-only">Tag</label>
       <select id="bulkTagSelect" class="bulk-bar-select min-w-[7.5rem] max-w-[11rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-sky-400/50 cursor-pointer">
         <option value="">Select tag…</option>
       </select>
       <button type="button" id="bulkTagAddBtn" class="bulk-bar-btn bulk-bar-btn--accent">Add</button>
       <button type="button" id="bulkTagRemoveBtn" class="bulk-bar-btn bulk-bar-btn--ghost">Remove</button>
-      <button type="button" id="bulkTagsCancel" class="bulk-bar-btn bulk-bar-btn--ghost ml-auto">Close</button>
+      <button type="button" id="bulkTagsCancel" class="bulk-bar-btn bulk-bar-btn--ghost">Close</button>
     </div>
-    <div class="flex flex-wrap items-center gap-1.5">
+    <div class="flex flex-wrap items-center justify-center gap-1.5 w-full">
       <input type="text" id="bulkTagNewName" autocomplete="off" placeholder="New tag name…" class="min-w-[8rem] flex-1 rounded-md bg-white/10 border border-white/15 px-2 py-1 text-[11px] font-semibold text-white placeholder:text-white/45 focus:outline-none focus:ring-1 focus:ring-sky-400/50" />
       <button type="button" id="bulkTagNewSave" class="bulk-bar-btn bulk-bar-btn--accent">Create &amp; add</button>
     </div>
   </div>
 
-  <div class="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 min-w-0">
-    <div class="flex items-center gap-2 shrink-0 border-r border-white/10 pr-2.5 mr-0.5">
-      <div id="selectedCountCircle" class="w-7 h-7 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center font-black text-xs shadow-md tabular-nums">0</div>
-      <span class="text-[10px] font-bold text-white/85 uppercase tracking-wide whitespace-nowrap hidden sm:inline">Selected</span>
-    </div>
+  <div class="flex flex-col items-center gap-1.5 w-full bulk-bar-main">
+    <div class="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 w-full">
+      <div class="flex items-center gap-2 shrink-0 border-r border-white/10 pr-2.5 mr-0.5">
+        <div id="selectedCountCircle" class="w-7 h-7 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center font-black text-xs shadow-md tabular-nums">0</div>
+        <span class="text-[10px] font-bold text-white/85 uppercase tracking-wide whitespace-nowrap hidden sm:inline">Selected</span>
+      </div>
 
-    <div class="flex flex-wrap items-center gap-1.5 min-w-0 bulk-bar-folder-strip">
+      <div class="flex flex-wrap items-center justify-center gap-1.5 min-w-0 bulk-bar-folder-strip">
       <label for="bulkFolderSelect" class="sr-only">Folder</label>
       <select id="bulkFolderSelect" class="bulk-bar-select min-w-[7.5rem] max-w-[11rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50 cursor-pointer">
-        <option value="">No folder</option>
+        <option value=""<%= !_bulkFolderPref ? ' selected' : '' %>>No folder</option>
+        <% _bulkFolders.forEach(function (fd) { if (!fd || !fd.key) return; %>
+        <option value="<%= fd.key %>"<%= _bulkFolderPref === String(fd.key) ? ' selected' : '' %>><%= fd.name || 'Folder' %></option>
+        <% }); %>
       </select>
       <% if (_bulkMode === 'pipeline') { %>
       <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled>Move</button>
@@ -61,15 +67,16 @@
       <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-push-ghl text-orange-300" title="Push selected leads to Go High Level">
         <span>GHL</span>
       </button>
+      </div>
+
+      <% if (_bulkMode === 'pipeline') { %>
+      <div class="flex items-center gap-2 shrink-0 bulk-bar-primary-actions">
+        <a href="/focus" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg" title="Focus mode">Focus</a>
+      </div>
+      <% } %>
     </div>
 
-    <% if (_bulkMode === 'pipeline') { %>
-    <div class="flex items-center gap-2 shrink-0 bulk-bar-primary-actions">
-      <a href="/focus" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg" title="Focus mode">Focus</a>
-    </div>
-    <% } %>
-
-    <div class="flex items-center gap-2 shrink-0 ml-auto">
+    <div class="flex flex-wrap items-center justify-center gap-2 w-full bulk-bar-secondary-actions pt-0.5">
       <button type="button" id="cancelSelectionBtn" class="text-[10px] font-bold text-white/45 hover:text-white transition-colors uppercase tracking-wide px-1">Cancel</button>
       <% if (_bulkMode === 'pipeline') { %>
       <span class="text-white/20 text-[10px]" aria-hidden="true">|</span>
@@ -78,5 +85,5 @@
     </div>
   </div>
 
-  <p id="bulkSaveFeedback" class="hidden w-full text-[10px] font-semibold leading-tight px-0.5" role="status" aria-live="polite"></p>
+  <p id="bulkSaveFeedback" class="hidden w-full text-center text-[10px] font-semibold leading-tight px-0.5" role="status" aria-live="polite"></p>
 </div>

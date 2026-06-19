@@ -11123,7 +11123,9 @@ document.addEventListener('DOMContentLoaded', () => {
         { key: String(f.key), name: String(f.name || '').trim() || 'Folder' },
       ]),
     );
-    document.querySelectorAll('select[name="folderKey"] option').forEach((opt) => {
+    document
+      .querySelectorAll('select[name="folderKey"] option, #bulkFolderSelect option')
+      .forEach((opt) => {
       const key = String(opt.value || '').trim();
       if (!key) return;
       if (!byKey.has(key)) {
