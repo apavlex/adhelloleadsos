@@ -5353,19 +5353,56 @@ document.addEventListener('DOMContentLoaded', () => {
     hydrateRowDatasetFromTableDom(row);
   }
 
-  /** Geocoding / map query: street address, else city/metro, else title + city. */
+  /** Geocoding / map query variants for addresses with business names or mall-style locations. */
+  function geocodeQueryVariants(raw) {
+    const q = String(raw || '').trim();
+    if (!q) return [];
+    const out = [q];
+    const parts = q.split(',').map((s) => s.trim()).filter(Boolean);
+    const streetSuffix =
+      /\b(st|street|ste|suite|ave|avenue|av|rd|road|blvd|boulevard|dr|drive|way|ln|lane|ct|court|pl|place|hwy|highway|pkwy|parkway|cir|circle)\b/i;
+
+    if (parts.length >= 2 && !/\d/.test(parts[0])) {
+      out.push(parts.slice(1).join(', '));
+    }
+
+    const first = parts[0] || '';
+    if (parts.length >= 2 && /\d/.test(first) && !streetSuffix.test(first)) {
+      const landmark = first.replace(/^\d+\s+/, '').trim();
+      if (landmark && landmark !== first) {
+        out.push([landmark, ...parts.slice(1)].join(', '));
+      }
+      out.push(parts.slice(1).join(', '));
+    }
+
+    const zip = q.match(/\b(\d{5})(?:-\d{4})?\b/);
+    if (zip) {
+      const statePart = parts.find((p) => /^[A-Z]{2}$/i.test(p));
+      const cityPart = parts.find(
+        (p, i) =>
+          i > 0 &&
+          p !== 'USA' &&
+          p !== 'US' &&
+          !/^[A-Z]{2}$/i.test(p) &&
+          !/^\d{5}/.test(p),
+      );
+      if (cityPart && statePart) out.push(`${cityPart}, ${statePart} ${zip[1]}`);
+      else if (cityPart) out.push(`${cityPart}, ${zip[1]}`);
+    }
+
+    return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
+  }
+
   function readPipelineRowGeocodeQuery(row) {
     const center = readPipelineRowMapCenter(row);
-    if (!center) return '';
-    if (/^-?\d/.test(String(center).trim())) return center;
-    const parts = String(center)
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-    if (parts.length >= 2 && !/\d/.test(parts[0])) {
-      return parts.slice(1).join(', ');
+    const variants = geocodeQueryVariants(center);
+    if (variants.length > 1) {
+      const firstPart = String(center).split(',')[0] || '';
+      if (/\d/.test(firstPart) && !/\b(st|street|ave|avenue|rd|road|blvd|dr|drive|way|ln|lane|ct|court)\b/i.test(firstPart)) {
+        return variants[1] || variants[0];
+      }
     }
-    return center;
+    return variants[0] || center;
   }
 
   function readPipelineRowMapCenter(row) {
@@ -6573,17 +6610,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const lng = opts && Number.isFinite(opts.lng) ? opts.lng : NaN;
     const mapKey =
       (typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__) || '';
-    if (!img || (!geocodeQ && !(Number.isFinite(lat) && Number.isFinite(lng)))) return false;
+    if (!img || (!geocodeQ && !centerQ && !(Number.isFinite(lat) && Number.isFinite(lng)))) return false;
 
     disposeLeadPanelJsMap();
 
     if (openLink && opts && opts.mapsHref) openLink.href = opts.mapsHref;
 
     const iframe = document.getElementById('leadPanelMapEmbed');
-    if (iframe) {
-      iframe.removeAttribute('src');
-      iframe.classList.add('hidden');
-    }
+    const embedQueries = [];
+    [geocodeQ, centerQ, ...geocodeQueryVariants(centerQ), ...geocodeQueryVariants(geocodeQ)].forEach((q) => {
+      if (q && !embedQueries.includes(q)) embedQueries.push(q);
+    });
 
     const showFallback = () => {
       img.onload = null;
@@ -6607,32 +6644,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
-    const tryEmbedIframe = (useKeyless) => {
-      if (!iframe || !geocodeQ) return false;
-      const src = leadPanelEmbedSrcForQuery(geocodeQ, mapKey, useKeyless);
-      if (!src) return false;
-      img.onload = null;
-      img.onerror = null;
-      img.removeAttribute('src');
-      img.classList.add('hidden');
-      iframe.onload = null;
-      iframe.onerror = null;
-      iframe.onerror = function onStripEmbedErr() {
-        iframe.onerror = null;
-        if (!useKeyless && mapKey) tryEmbedIframe(true);
-        else showFallback();
-      };
-      iframe.src = src;
-      iframe.title = opts && opts.address
-        ? `Map · ${String(opts.address).slice(0, 100)}`
-        : opts && opts.title
-          ? `Location · ${opts.title}`
-          : 'Business location';
-      iframe.classList.remove('hidden');
-      revealMapSurface();
-      return true;
-    };
-
     const loadPreviewImage = (previewUrl, onFail) => {
       img.alt = opts && opts.address
         ? `Map near ${String(opts.address).slice(0, 120)}`
@@ -6654,27 +6665,74 @@ document.addEventListener('DOMContentLoaded', () => {
       img.src = previewUrl;
     };
 
-    const params = new URLSearchParams();
-    if (geocodeQ) params.set('center', geocodeQ);
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      params.set('lat', String(lat));
-      params.set('lng', String(lng));
-    }
-    params.set('w', '640');
-    params.set('h', '300');
+    const loadStaticFallbacks = () => {
+      const params = new URLSearchParams();
+      if (geocodeQ) params.set('center', geocodeQ);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        params.set('lat', String(lat));
+        params.set('lng', String(lng));
+      }
+      params.set('w', '640');
+      params.set('h', '300');
 
-    loadPreviewImage(`/leads/map-preview?${params.toString()}`, () => {
-      if (mapKey && geocodeQ) {
-        const clientStatic = buildGoogleStaticMapUrl(geocodeQ, mapKey, 640, 300);
-        if (clientStatic) {
-          loadPreviewImage(clientStatic, () => {
-            if (!tryEmbedIframe(false)) showFallback();
-          });
+      loadPreviewImage(`/leads/map-preview?${params.toString()}`, () => {
+        if (mapKey && geocodeQ) {
+          const clientStatic = buildGoogleStaticMapUrl(geocodeQ, mapKey, 640, 300);
+          if (clientStatic) {
+            loadPreviewImage(clientStatic, showFallback);
+            return;
+          }
+        }
+        showFallback();
+      });
+    };
+
+    const tryEmbedIframe = (queryIndex, useKeyless) => {
+      if (!iframe) return false;
+      const q = embedQueries[queryIndex];
+      if (!q) {
+        if (useKeyless && mapKey) return tryEmbedIframe(0, false);
+        loadStaticFallbacks();
+        return false;
+      }
+      const src = leadPanelEmbedSrcForQuery(q, mapKey, useKeyless);
+      if (!src) return tryEmbedIframe(queryIndex + 1, useKeyless);
+
+      img.onload = null;
+      img.onerror = null;
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+
+      iframe.onload = () => {
+        iframe.classList.remove('hidden');
+        revealMapSurface();
+      };
+      iframe.onerror = () => {
+        iframe.onload = null;
+        if (tryEmbedIframe(queryIndex + 1, useKeyless)) return;
+        if (useKeyless && mapKey) {
+          tryEmbedIframe(0, false);
           return;
         }
-      }
-      if (!tryEmbedIframe(false)) showFallback();
-    });
+        loadStaticFallbacks();
+      };
+      iframe.title = opts && opts.address
+        ? `Map · ${String(opts.address).slice(0, 100)}`
+        : opts && opts.title
+          ? `Location · ${opts.title}`
+          : 'Business location';
+      iframe.src = src;
+      iframe.classList.remove('hidden');
+      revealMapSurface();
+      return true;
+    };
+
+    if (iframe && embedQueries.length) {
+      tryEmbedIframe(0, true);
+      return true;
+    }
+
+    loadStaticFallbacks();
     return true;
   }
 

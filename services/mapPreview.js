@@ -102,18 +102,10 @@ async function geocodeCenterQuery(centerQuery) {
   const q = String(centerQuery || '').trim();
   if (!q) return null;
 
-  const variants = [q];
   const pair = parseLatLngPair(q);
   if (pair) return pair;
 
-  const parts = q.split(',').map((s) => s.trim()).filter(Boolean);
-  if (parts.length >= 2 && !/\d/.test(parts[0])) {
-    variants.push(parts.slice(1).join(', '));
-  }
-  if (parts.length >= 3 && !/\d/.test(parts[0]) && !/\d/.test(parts[1])) {
-    variants.push(parts.slice(2).join(', '));
-  }
-
+  const variants = buildGeocodeQueryVariants(q);
   const seen = new Set();
   for (const variant of variants) {
     const key = variant.toLowerCase();
@@ -130,6 +122,45 @@ async function geocodeCenterQuery(centerQuery) {
     if (osm) return osm;
   }
   return null;
+}
+
+function buildGeocodeQueryVariants(raw) {
+  const q = String(raw || '').trim();
+  if (!q) return [];
+  const out = [q];
+  const parts = q.split(',').map((s) => s.trim()).filter(Boolean);
+  const streetSuffix =
+    /\b(st|street|ste|suite|ave|avenue|av|rd|road|blvd|boulevard|dr|drive|way|ln|lane|ct|court|pl|place|hwy|highway|pkwy|parkway|cir|circle)\b/i;
+
+  if (parts.length >= 2 && !/\d/.test(parts[0])) {
+    out.push(parts.slice(1).join(', '));
+  }
+
+  const first = parts[0] || '';
+  if (parts.length >= 2 && /\d/.test(first) && !streetSuffix.test(first)) {
+    const landmark = first.replace(/^\d+\s+/, '').trim();
+    if (landmark && landmark !== first) {
+      out.push([landmark, ...parts.slice(1)].join(', '));
+    }
+    out.push(parts.slice(1).join(', '));
+  }
+
+  const zip = q.match(/\b(\d{5})(?:-\d{4})?\b/);
+  if (zip) {
+    const statePart = parts.find((p) => /^[A-Z]{2}$/i.test(p));
+    const cityPart = parts.find(
+      (p, i) =>
+        i > 0 &&
+        p !== 'USA' &&
+        p !== 'US' &&
+        !/^[A-Z]{2}$/i.test(p) &&
+        !/^\d{5}/.test(p),
+    );
+    if (cityPart && statePart) out.push(`${cityPart}, ${statePart} ${zip[1]}`);
+    else if (cityPart) out.push(`${cityPart}, ${zip[1]}`);
+  }
+
+  return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
 }
 
 async function geocodeViaNominatim(query) {
@@ -207,5 +238,6 @@ module.exports = {
   parseLatLngPair,
   buildGoogleStaticMapUrl,
   buildOsmStaticMapUrl,
+  buildGeocodeQueryVariants,
   getMapPreviewImage,
 };
