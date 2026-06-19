@@ -2704,6 +2704,16 @@ html.dark #pipelineColumnsPopover {
   overflow-y: visible;
 }
 
+[data-pipeline-menu-panel]:not(.hidden) {
+  box-shadow:
+    0 16px 40px -10px rgba(15, 23, 42, 0.18),
+    0 6px 16px -6px rgba(15, 23, 42, 0.12);
+}
+
+.dark [data-pipeline-menu-panel]:not(.hidden) {
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.55);
+}
+
 .pipeline-view-toggle-wrap {
   overflow: visible;
 }
