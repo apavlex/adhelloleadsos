@@ -82,6 +82,19 @@
       <li class="flex gap-4">
         <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">5</span>
         <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Send SMS and email from Agency OS</h3>
+          <ul class="text-sm text-brand-muted space-y-2 list-disc list-inside leading-relaxed">
+            <li>In <strong>Workspace → Integrations</strong>, set <strong>Outbound email from</strong> to a verified GHL sender address.</li>
+            <li>Optional: set <strong>SMS from number</strong> (E.164) or use your GHL location default.</li>
+            <li>Send from the lead panel, Focus mode, or bulk SMS — messages go through GHL Conversations and appear on the contact timeline.</li>
+            <li>Your private integration token needs <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code>.</li>
+          </ul>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">6</span>
+        <div class="min-w-0 space-y-2">
           <h3 class="font-bold text-brand-dark dark:text-white">Sync leads from the pipeline</h3>
           <ul class="text-sm text-brand-muted space-y-2 list-disc list-inside leading-relaxed">
             <li><strong>Push selected:</strong> On <a href="/prospecting?tab=pipeline" class="underline">Prospecting → Pipeline</a>, check leads and click <strong>GHL</strong> in the bulk action bar.</li>
@@ -92,7 +105,7 @@
       </li>
 
       <li class="flex gap-4">
-        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">6</span>
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">7</span>
         <div class="min-w-0 space-y-2">
           <h3 class="font-bold text-brand-dark dark:text-white">Sub-agent API (Pavlex / Hermes)</h3>
           <p class="text-sm text-brand-muted leading-relaxed">Autonomous agents can push and pull without a browser session.</p>

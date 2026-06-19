@@ -196,12 +196,17 @@ async function syncBoth(opts) {
 }
 
 function statusFromEnv(integrationEnv) {
-  const { apiKey, locationId } = ghlClient.resolveConfig(integrationEnv);
+  const { apiKey, locationId, emailFrom, smsFromNumber } = ghlClient.resolveConfig(integrationEnv);
+  const configured = ghlClient.isConfigured(integrationEnv);
   return {
-    configured: ghlClient.isConfigured(integrationEnv),
+    configured,
     hasApiKey: !!apiKey,
     hasLocationId: !!locationId,
     locationIdMasked: locationId ? `${locationId.slice(0, 6)}…${locationId.slice(-4)}` : '',
+    hasEmailFrom: !!emailFrom,
+    hasSmsFromNumber: !!smsFromNumber,
+    smsReady: configured,
+    emailReady: configured && !!emailFrom,
   };
 }
 

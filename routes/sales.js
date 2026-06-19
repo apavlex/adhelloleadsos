@@ -46,6 +46,41 @@ const {
 const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
 const { generateCarsReachScript } = require('../services/carsReachScriptAi');
 
+async function buildPersonasViewData(req) {
+  const ws = await dbService.getWorkspace(req.workspaceId);
+  const scriptServiceLabels = Object.fromEntries(
+    SCRIPT_LIBRARY_KEYS.map((k) => [k, SCRIPT_LIBRARY[k].label]),
+  );
+  const SCRIPT_LIBRARY_MERGED = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+  const initialScriptLibraryItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
+  const upworkSavedProposals = getUpworkProposalsFromWorkspace(ws);
+  return {
+    SCRIPT_LIBRARY: SCRIPT_LIBRARY_MERGED,
+    SCRIPT_LIBRARY_KEYS,
+    scriptServiceLabels,
+    initialScriptLibraryItems,
+    PERSONAS,
+    armsReachFacebookSeeds: ARMS_REACH_FACEBOOK_SEEDS,
+    armsReachReferralSeed: ARMS_REACH_REFERRAL_SEED,
+    armsReachDefaultOwner: ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
+    armsReachDefaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
+    upworkProposalServices: UPWORK_PROPOSAL_SERVICES,
+    upworkSavedProposals,
+    carsReachSpecialties: CARS_REACH_SPECIALTIES,
+  };
+}
+
+async function renderPersonasTab(req, res, activeScriptsTab) {
+  const data = await buildPersonasViewData(req);
+  res.render('sales-personas', {
+    title: 'Sales scripts',
+    activePage: 'sales',
+    activeSales: 'personas',
+    activeScriptsTab,
+    ...data,
+  });
+}
+
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
   res.redirect(302, '/today');
@@ -239,35 +274,46 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
   }
 });
 
-router.get('/personas', async (req, res, next) => {
+router.get('/personas', (req, res) => {
+  res.type('html').send(`<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Redirecting…</title></head><body><script>
+(function(){var m={'arms-reach':1,'computers-reach':1,'cars-reach':1,'offers':1};var h=(location.hash||'').replace(/^#/,'');location.replace('/sales/personas/'+(m[h]?h:'arms-reach'));})();
+</script></body></html>`);
+});
+
+router.get('/personas/arms-reach', async (req, res, next) => {
   try {
-    const ws = await dbService.getWorkspace(req.workspaceId);
-    const scriptServiceLabels = Object.fromEntries(
-      SCRIPT_LIBRARY_KEYS.map((k) => [k, SCRIPT_LIBRARY[k].label])
-    );
-    const SCRIPT_LIBRARY_MERGED = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
-    const initialScriptLibraryItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
-    const upworkSavedProposals = getUpworkProposalsFromWorkspace(ws);
-    res.render('sales-personas', {
-      title: 'Sales scripts',
-      activePage: 'sales',
-      activeSales: 'personas',
-      SCRIPT_LIBRARY: SCRIPT_LIBRARY_MERGED,
-      SCRIPT_LIBRARY_KEYS,
-      scriptServiceLabels,
-      initialScriptLibraryItems,
-      PERSONAS,
-      armsReachFacebookSeeds: ARMS_REACH_FACEBOOK_SEEDS,
-      armsReachReferralSeed: ARMS_REACH_REFERRAL_SEED,
-      armsReachDefaultOwner: ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
-      armsReachDefaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
-      upworkProposalServices: UPWORK_PROPOSAL_SERVICES,
-      upworkSavedProposals,
-      carsReachSpecialties: CARS_REACH_SPECIALTIES,
-    });
+    await renderPersonasTab(req, res, 'arms-reach');
   } catch (e) {
     next(e);
   }
+});
+
+router.get('/personas/computers-reach', async (req, res, next) => {
+  try {
+    await renderPersonasTab(req, res, 'computers-reach');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/personas/cars-reach', async (req, res, next) => {
+  try {
+    await renderPersonasTab(req, res, 'cars-reach');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/personas/offers', async (req, res, next) => {
+  try {
+    await renderPersonasTab(req, res, 'offers');
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/personas/:tab', (req, res) => {
+  res.redirect(302, '/sales/personas/arms-reach');
 });
 
 const SCRIPT_SECTIONS = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];

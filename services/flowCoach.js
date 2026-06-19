@@ -113,7 +113,7 @@ function ruleBasedCoach(ctx) {
       nextActions.push({ label: `Keep your ${ctx.streak}-day streak — log touches`, href: '/reports?tab=tracker', priority: 'high' });
     }
     nextActions.push({ label: 'Drag cards on the Pipeline board', href: '/prospecting?tab=pipeline', priority: 'normal' });
-    nextActions.push({ label: 'Open sales scripts', href: '/sales/personas', priority: 'normal' });
+    nextActions.push({ label: 'Open sales scripts', href: '/sales/personas/arms-reach', priority: 'normal' });
   }
 
   const seen = new Set();
@@ -164,7 +164,10 @@ const ALLOWED_HREFS = new Set([
   '/sales',
   '/sales/workflow',
   '/sales/tracker',
-  '/sales/personas',
+  '/sales/personas/arms-reach',
+  '/sales/personas/computers-reach',
+  '/sales/personas/cars-reach',
+  '/sales/personas/offers',
   '/history',
   '/schedules',
   '/reports',
@@ -233,7 +236,7 @@ Respond with JSON only (no markdown):
 }
 
 Rules:
-- href paths must match app routes: /, /today, /leads/find, /prospecting (tabs: queue, pipeline, folders), /pipeline, /outreach, /tasks, /resources, /leads, /sales/workflow, /sales/tracker, /sales/personas, /scripts (→ personas), /history, /schedules (redirects to prospecting queue), /reports (optional ?tab=tracker), /sequences, /activation, /workspace and /workspace/* (settings sections)
+- href paths must match app routes: /, /today, /leads/find, /prospecting (tabs: queue, pipeline, folders), /pipeline, /outreach, /tasks, /resources, /leads, /sales/workflow, /sales/tracker, /sales/personas/arms-reach, /sales/personas/computers-reach, /sales/personas/cars-reach, /sales/personas/offers, /scripts (→ personas/arms-reach), /history, /schedules (redirects to prospecting queue), /reports (optional ?tab=tracker), /sequences, /activation, /workspace and /workspace/* (settings sections)
 - Prefer 3-5 nextActions; mark urgent items priority high
 - Mention concrete numbers from context when useful
 - Prefer warm inbound leads when pipelineCounts show inbound-heavy stages

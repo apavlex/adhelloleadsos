@@ -232,7 +232,9 @@
       window.__openWarRoomFromSelection();
       return;
     }
-    window.alert('Call room is still loading. Wait a moment and try again.');
+    const msg = 'Call room is not available on this page.';
+    if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+    else window.alert(msg);
   }
 
   /**
@@ -295,7 +297,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '3';
+  window.__PIPELINE_BULK_SELECT_V2 = '4';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

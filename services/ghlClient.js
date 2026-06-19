@@ -5,12 +5,15 @@
 
 const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 const GHL_API_VERSION = '2021-07-28';
+const GHL_CONVERSATIONS_API_VERSION = '2021-04-15';
 
 function resolveConfig(integrationEnv) {
   const env = integrationEnv || {};
   const apiKey = String(env.GHL_API_KEY || process.env.GHL_API_KEY || '').trim();
   const locationId = String(env.GHL_LOCATION_ID || process.env.GHL_LOCATION_ID || '').trim();
-  return { apiKey, locationId };
+  const emailFrom = String(env.GHL_EMAIL_FROM || process.env.GHL_EMAIL_FROM || '').trim();
+  const smsFromNumber = String(env.GHL_SMS_FROM_NUMBER || process.env.GHL_SMS_FROM_NUMBER || '').trim();
+  return { apiKey, locationId, emailFrom, smsFromNumber };
 }
 
 function isConfigured(integrationEnv) {
@@ -18,7 +21,7 @@ function isConfigured(integrationEnv) {
   return !!(apiKey && locationId);
 }
 
-async function ghlRequest(method, path, { integrationEnv, body, query } = {}) {
+async function ghlRequest(method, path, { integrationEnv, body, query, apiVersion } = {}) {
   const { apiKey, locationId } = resolveConfig(integrationEnv);
   if (!apiKey) throw new Error('GHL API key is not configured.');
   if (!locationId && !String(path || '').includes('/locations/')) {
@@ -36,7 +39,7 @@ async function ghlRequest(method, path, { integrationEnv, body, query } = {}) {
     method: method || 'GET',
     headers: {
       Authorization: `Bearer ${apiKey}`,
-      Version: GHL_API_VERSION,
+      Version: apiVersion || GHL_API_VERSION,
       Accept: 'application/json',
       'Content-Type': 'application/json',
     },
@@ -228,6 +231,18 @@ async function listContacts(integrationEnv, { limit = 100, startAfterId } = {}) 
   };
 }
 
+/** Send SMS or Email via GHL Conversations API. */
+async function sendConversationMessage(payload, integrationEnv) {
+  const { locationId } = resolveConfig(integrationEnv);
+  const body = { ...(payload || {}) };
+  if (locationId && !body.locationId) body.locationId = locationId;
+  return ghlRequest('POST', '/conversations/messages', {
+    integrationEnv,
+    body,
+    apiVersion: GHL_CONVERSATIONS_API_VERSION,
+  });
+}
+
 module.exports = {
   resolveConfig,
   isConfigured,
@@ -240,4 +255,6 @@ module.exports = {
   searchContactByEmailOrPhone,
   listContacts,
   normalizePhoneE164,
+  sendConversationMessage,
+  GHL_CONVERSATIONS_API_VERSION,
 };

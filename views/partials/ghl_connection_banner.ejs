@@ -16,10 +16,10 @@
     <p class="text-sm font-semibold text-brand-dark dark:text-white">Checking GHL connection…</p>
     <% } else if (_connected) { %>
     <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Connected to Go High Level</p>
-  <p class="text-xs text-emerald-800/90 dark:text-emerald-200/90 leading-relaxed"><%= _gs.connectionMessage || 'API key and location ID verified. You can push and pull contacts.' %><% if (_gs.locationIdMasked) { %> · Location <code class="text-[11px] px-1 rounded bg-white/50 dark:bg-slate-900/60"><%= _gs.locationIdMasked %></code><% } %></p>
+  <p class="text-xs text-emerald-800/90 dark:text-emerald-200/90 leading-relaxed"><%= _gs.connectionMessage || 'API key and location ID verified. You can push and pull contacts.' %><% if (_gs.locationIdMasked) { %> · Location <code class="text-[11px] px-1 rounded bg-white/50 dark:bg-slate-900/60"><%= _gs.locationIdMasked %></code><% } %><% if (_gs.smsReady) { %> · SMS ready<% } %><% if (_gs.emailReady) { %> · Email ready<% } else if (_gs.configured) { %> · <span class="font-semibold">Set outbound email from</span> to send email<% } %></p>
     <% } else if (_configured) { %>
     <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Credentials saved — not verified yet</p>
-    <p class="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed"><%= _gs.connectionError || 'Click Test & save on the GHL card, or complete the setup guide below.' %></p>
+    <p class="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed"><%= _gs.connectionError || 'Click Test & save on the GHL card, or complete the setup guide below.' %><% if (_gs.configured && !_gs.emailReady) { %> Outbound email requires a verified sender address in the form below.<% } %></p>
     <% } else { %>
     <p class="text-sm font-semibold text-brand-dark dark:text-white">Not connected to Go High Level</p>
     <p class="text-xs text-brand-muted leading-relaxed">Follow the <a href="/workspace/integrations/ghl-setup" class="underline font-semibold text-brand-dark dark:text-white hover:text-brand-yellow">step-by-step setup guide</a> to link your GHL sub-account.</p>

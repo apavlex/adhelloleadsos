@@ -259,9 +259,8 @@
           <div class="min-w-0">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Go High Level</h3>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed">
-              Push and pull pipeline leads as GHL contacts. Sub-agents use
-              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">POST /autonomous/ghl/push</code> and
-              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">/pull</code>.
+              Sync contacts and send SMS and email from the pipeline, lead panel, Focus mode, and bulk actions.
+              Requires <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> on your private integration token.
             </p>
           </div>
           <a href="/workspace/integrations/ghl-setup" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">
@@ -280,6 +279,18 @@
             <% if (masks.ghlLocationId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlLocationId %></p><% } %>
             <input type="text" name="ghlLocationId" autocomplete="off" placeholder="Sub-account location ID" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
             <% if (masks.ghlLocationId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlLocationId_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outbound email from</label>
+            <% if (masks.ghlEmailFrom) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlEmailFrom %></p><% } %>
+            <input type="email" name="ghlEmailFrom" autocomplete="off" placeholder="hello@yourdomain.com (verified in GHL)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send email from Agency OS. Use a verified sender in your GHL sub-account.</p>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS from number (optional)</label>
+            <% if (masks.ghlSmsFromNumber) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.ghlSmsFromNumber %></p><% } %>
+            <input type="text" name="ghlSmsFromNumber" autocomplete="off" placeholder="+15551234567" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Leave blank to use your GHL location default. E.164 format recommended.</p>
           </div>
         </div>
         <%- include('../../partials/integration_test_row', { provider: 'ghl' }) %>

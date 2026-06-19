@@ -1,4 +1,27 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // Call room opener registered first — bulk bar can click before later init finishes.
+  window.__openWarRoomFromSelectionImpl = null;
+  window.__openWarRoomFromSelection = function openWarRoomFromSelectionBridge() {
+    if (typeof window.__openWarRoomFromSelectionImpl === 'function') {
+      return window.__openWarRoomFromSelectionImpl();
+    }
+    let attempts = 0;
+    const retry = () => {
+      if (typeof window.__openWarRoomFromSelectionImpl === 'function') {
+        window.__openWarRoomFromSelectionImpl();
+        return;
+      }
+      if (++attempts < 60) {
+        setTimeout(retry, 50);
+        return;
+      }
+      const msg = 'Call room failed to load. Refresh the page and try again.';
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
+    };
+    retry();
+  };
+
   // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
 
   // Bell + processing ring + /api/status: public/js/nav-notifications.js (navbar)
@@ -3486,6 +3509,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const encodedTo = encodeURIComponent(report.toEmail || '');
     const mailto = `mailto:${encodedTo}?subject=${encodedSubject}&body=${encodedBody}`;
     window.location.href = mailto;
+    return true;
+  }
+
+  async function sendReportEmailViaGhl(report) {
+    if (!report || !report.subject || !report.body) {
+      throw new Error('Could not build report email.');
+    }
+    const toEmail = String(report.toEmail || '').trim();
+    if (!toEmail || toEmail === 'N/A') {
+      throw new Error('Lead has no email address.');
+    }
+    await runLeadTelephonyAction(
+      '/email',
+      { subject: report.subject, body: report.body },
+      'Report email sent via Go High Level',
+    );
     return true;
   }
 
@@ -8914,9 +8953,9 @@ document.addEventListener('DOMContentLoaded', () => {
         analysis,
         String(currentRow.dataset.ownerSignal || '').trim()
       );
-      const opened = openMailReport(report);
-      if (opened && typeof window.showAppToast === 'function') {
-        window.showAppToast('Report email draft opened.', { variant: 'success' });
+      await sendReportEmailViaGhl(report);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Report email sent via Go High Level.', { variant: 'success' });
       }
     } catch (err) {
       const msg = err && err.message ? err.message : 'Could not open report email';
@@ -13173,6 +13212,7 @@ document.addEventListener('DOMContentLoaded', () => {
       grid.focus();
     });
   }
+  window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
   function initBulkBarCallRoomAction() {
@@ -13585,5 +13625,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.39-pipeline-view-toggle';
+  window.__ADHELLO_BUILD = '1.0.40-call-room-bulk-bar';
 });

@@ -28,6 +28,8 @@ const INTEGRATION_FIELDS = [
   'ghlApiKey',
   'ghlLocationId',
   'ghlWebhookSecret',
+  'ghlEmailFrom',
+  'ghlSmsFromNumber',
 ];
 
 /** Map stored field → process.env name used by provider clients */
@@ -52,6 +54,8 @@ const FIELD_TO_ENV = {
   ghlApiKey: 'GHL_API_KEY',
   ghlLocationId: 'GHL_LOCATION_ID',
   ghlWebhookSecret: 'GHL_WEBHOOK_SECRET',
+  ghlEmailFrom: 'GHL_EMAIL_FROM',
+  ghlSmsFromNumber: 'GHL_SMS_FROM_NUMBER',
 };
 
 /**

@@ -431,10 +431,104 @@
     document.querySelectorAll('#prospectLeadsTable tbody tr.result-row').forEach(renderRowTagChips);
   }
 
+  function initPipelineTagFilter() {
+    const root = document.getElementById('pipelineTagFilter');
+    if (!root) return;
+
+    const trigger = root.querySelector('[data-tag-filter-trigger]');
+    const menu = root.querySelector('[data-tag-filter-menu]');
+    const search = root.querySelector('[data-tag-filter-search]');
+    const hidden = root.querySelector('[data-tag-filter-value]');
+    const label = root.querySelector('[data-tag-filter-label]');
+    const options = root.querySelectorAll('.tag-filter-combobox-option');
+    const empty = root.querySelector('[data-tag-filter-empty]');
+
+    function setOpen(open) {
+      if (!menu || !trigger) return;
+      menu.classList.toggle('hidden', !open);
+      trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      if (open && search) {
+        search.value = '';
+        filterOptions('');
+        search.focus();
+      }
+    }
+
+    function filterOptions(query) {
+      const q = String(query || '').trim().toLowerCase();
+      let visible = 0;
+      options.forEach((opt) => {
+        const li = opt.closest('li');
+        if (!li) return;
+        const isAny = opt.getAttribute('data-value') === '';
+        const text = String(opt.textContent || '').trim().toLowerCase();
+        let match;
+        if (!q) {
+          match = true;
+        } else if (isAny) {
+          match = 'any tag'.includes(q);
+        } else {
+          match = text.includes(q);
+        }
+        li.classList.toggle('hidden', !match);
+        if (match) visible += 1;
+      });
+      if (empty) empty.classList.toggle('hidden', visible > 0);
+    }
+
+    function selectOption(opt) {
+      if (!opt || !hidden || !label) return;
+      const val = opt.getAttribute('data-value') || '';
+      const lbl = String(opt.textContent || '').trim() || 'Any tag';
+      hidden.value = val;
+      label.textContent = lbl;
+      options.forEach((o) => o.classList.toggle('is-selected', o === opt));
+      setOpen(false);
+    }
+
+    if (trigger) {
+      trigger.addEventListener('click', (e) => {
+        e.preventDefault();
+        setOpen(menu && menu.classList.contains('hidden'));
+      });
+    }
+
+    if (search) {
+      search.addEventListener('input', () => filterOptions(search.value));
+      search.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          setOpen(false);
+          if (trigger) trigger.focus();
+        }
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const first = [...options].find((o) => {
+            const li = o.closest('li');
+            return li && !li.classList.contains('hidden');
+          });
+          if (first) selectOption(first);
+        }
+      });
+    }
+
+    options.forEach((opt) => {
+      opt.addEventListener('click', (e) => {
+        e.preventDefault();
+        selectOption(opt);
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!root.contains(e.target)) setOpen(false);
+    });
+  }
+
   function init() {
     rebuildBulkTagSelect();
     initRowTags();
     bindBulkTags();
+    initPipelineTagFilter();
   }
 
   window.__renderLeadTagsPanel = renderLeadTagsPanel;

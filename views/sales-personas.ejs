@@ -9,15 +9,31 @@
   <main class="max-wide px-6 py-10 md:py-14">
     <%- include('partials/sales-nav') %>
 
-    <div class="mb-10 max-w-3xl">
+    <% const _tab = typeof activeScriptsTab !== 'undefined' ? activeScriptsTab : 'arms-reach'; %>
+    <div class="mb-8 max-w-3xl">
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Sales <span class="text-brand-muted">scripts</span></h1>
-      <p class="text-brand-muted font-medium mt-2">Use <strong class="text-brand-dark dark:text-white">Arm's Reach</strong> for network posts, <strong class="text-brand-dark dark:text-white">Computer's Reach</strong> for Upwork proposals, <strong class="text-brand-dark dark:text-white">Car's Reach</strong> for networking pitches, then pick an offer below for call and email scripts.</p>
+      <% if (_tab === 'arms-reach') { %>
+      <p class="text-brand-muted font-medium mt-2"><strong class="text-brand-dark dark:text-white">Arm's Reach</strong> — Facebook post scripts and referral follow-up with AI regeneration. Post on your personal profile, not a business page.</p>
+      <% } else if (_tab === 'computers-reach') { %>
+      <p class="text-brand-muted font-medium mt-2"><strong class="text-brand-dark dark:text-white">Computer's Reach</strong> — Generate personalized Upwork proposals from any job post and save them for later.</p>
+      <% } else if (_tab === 'cars-reach') { %>
+      <p class="text-brand-muted font-medium mt-2"><strong class="text-brand-dark dark:text-white">Car's Reach</strong> — Networking pitches for BNI, chambers, and meetups: elevator speech, follow-up, and booking a call.</p>
+      <% } else { %>
+      <p class="text-brand-muted font-medium mt-2"><strong class="text-brand-dark dark:text-white">By offer</strong> — Call and email scripts organized by service. Edit, save to your library, and refine with the AI coach.</p>
+      <% } %>
     </div>
 
+    <%- include('partials/scripts_subnav') %>
+
+    <% if (_tab === 'arms-reach') { %>
     <%- include('partials/arms_reach_scripts') %>
+    <% } else if (_tab === 'computers-reach') { %>
     <%- include('partials/computers_reach_upwork') %>
+    <% } else if (_tab === 'cars-reach') { %>
     <%- include('partials/cars_reach_networking') %>
+    <% } else { %>
     <%- include('partials/workspace_scripts_panel', { scriptsPanelShowPersonasCrossLink: false }) %>
+    <% } %>
   </main>
   <%- include('/partials/app_shell_close') %>
 </body>

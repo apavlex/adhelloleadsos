@@ -53,9 +53,9 @@
         <p class="text-xs text-brand-muted dark:text-slate-400 mt-2 leading-relaxed line-clamp-3"><%= m.description %></p>
       </div>
       <% if (m.actionHref) { %>
-      <a href="<%= m.actionHref %>" class="btn-pill <%= m.temperature === 'cold' ? 'lmv-method-btn lmv-method-btn--cold' : 'btn-primary' %> w-full text-[10px] font-black uppercase tracking-widest"><%= m.actionLabel %></a>
+      <a href="<%= m.actionHref %>" class="btn-pill lmv-method-btn <%= m.temperature === 'cold' ? 'lmv-method-btn--cold' : 'lmv-method-btn--warm' %> w-full text-[10px] font-black uppercase tracking-widest"><%= m.actionLabel %></a>
       <% } else { %>
-      <button type="button" class="btn-pill btn-primary w-full text-[10px] font-black uppercase tracking-widest js-lmv-method-action" data-lmv-action="<%= m.actionKind || m.id %>"><%= m.actionLabel %></button>
+      <button type="button" class="btn-pill lmv-method-btn lmv-method-btn--warm w-full text-[10px] font-black uppercase tracking-widest js-lmv-method-action" data-lmv-action="<%= m.actionKind || m.id %>"><%= m.actionLabel %></button>
       <% } %>
     </article>
     <% }); %>

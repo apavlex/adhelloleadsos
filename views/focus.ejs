@@ -927,9 +927,10 @@
         elLinks.appendChild(phoneBtn);
       }
       if (lead.email && String(lead.email) !== 'N/A') {
-        var emailLink = iconLink('mailto:' + encodeURIComponent(lead.email), 'Email', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>');
+        var emailLink = iconLink('#', 'Email', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>');
         emailLink.title = String(lead.email);
-        emailLink.addEventListener('click', function () {
+        emailLink.addEventListener('click', function (e) {
+          e.preventDefault();
           currentChannel = 'email';
           applyChannelUI();
         });
@@ -1060,7 +1061,7 @@
 
     function placeFocusEmail() {
       var lead = currentLead();
-      if (!lead) return Promise.resolve();
+      if (!lead || !lead.key) return Promise.resolve();
       var email = String((lead && lead.email) || '').trim();
       if (!email || email === 'N/A') {
         setCopyFeedback('No email found for this lead.', true);
@@ -1068,19 +1069,29 @@
       }
       var subject = String((elSubject && elSubject.value) || '').trim();
       var body = String((elBody && elBody.value) || '').trim();
-      var mailto = 'mailto:' + encodeURIComponent(email);
-      var params = [];
-      if (subject) params.push('subject=' + encodeURIComponent(subject));
-      if (body) params.push('body=' + encodeURIComponent(body));
-      if (params.length) mailto += '?' + params.join('&');
-      try {
-        window.location.href = mailto;
-        setCopyFeedback('Email client opened.');
-        return Promise.resolve({ success: true });
-      } catch (err) {
-        setCopyFeedback('Could not open email client.', true);
-        return Promise.reject(err);
+      if (!body) {
+        setCopyFeedback('Email body is empty. Add a message first.', true);
+        return Promise.reject(new Error('email body empty'));
       }
+      return fetch('/leads/' + encodeURIComponent(lead.key) + '/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ subject: subject, body: body }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Email failed');
+            return j;
+          });
+        })
+        .then(function (data) {
+          setCopyFeedback('Email sent via Go High Level.');
+          return data;
+        })
+        .catch(function (err) {
+          setCopyFeedback(err && err.message ? err.message : 'Could not send email.', true);
+          throw err;
+        });
     }
 
     function mapQueryFromFocusLead(lead) {

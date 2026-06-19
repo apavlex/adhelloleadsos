@@ -17,7 +17,7 @@ const LMV_PROSPECTING_METHODS = [
     temperatureLabel: 'Hot',
     description: 'Warm outreach to people you already know. Fastest path to your first client.',
     actionLabel: 'Generate scripts',
-    actionHref: '/sales/personas#arms-reach',
+    actionHref: '/sales/personas/arms-reach',
   },
   {
     id: 'computers_reach',
@@ -27,7 +27,7 @@ const LMV_PROSPECTING_METHODS = [
     temperatureLabel: 'Warm',
     description: 'Find clients looking for marketing help right now on Upwork.',
     actionLabel: 'Generate proposal',
-    actionHref: '/sales/personas#computers-reach',
+    actionHref: '/sales/personas/computers-reach',
   },
   {
     id: 'cars_reach',
@@ -37,7 +37,7 @@ const LMV_PROSPECTING_METHODS = [
     temperatureLabel: 'Warm',
     description: 'BNI, chambers of commerce, and local networking events.',
     actionLabel: 'Generate pitch',
-    actionHref: '/sales/personas#cars-reach',
+    actionHref: '/sales/personas/cars-reach',
   },
   {
     id: 'cold_email',

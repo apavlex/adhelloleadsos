@@ -50,6 +50,8 @@ const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const { getMapPreviewImage } = require('../services/mapPreview');
 const signalwire = require('../services/signalwire');
+const ghlClient = require('../services/ghlClient');
+const ghlMessaging = require('../services/ghlMessaging');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
@@ -1762,7 +1764,7 @@ router.get('/:key/call-events', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/sms — send outbound SMS
+// POST /leads/:key/sms — send outbound SMS (GHL when configured, else SignalWire)
 router.post('/:key/sms', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
@@ -1770,11 +1772,46 @@ router.post('/:key/sms', async (req, res, next) => {
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
     const body = String((req.body && req.body.body) || '').trim();
     if (!body) return res.status(400).json({ success: false, error: 'Message body is required.' });
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+
+    if (ghlClient.isConfigured(integrationEnv)) {
+      const sent = await ghlMessaging.sendSmsToLead({ lead, message: body, integrationEnv });
+      const updates = appendLeadUpdate(lead, {
+        type: 'sms_outbound',
+        value: body,
+        messageSid: sent.messageId || '',
+        provider: 'ghl',
+        ghlContactId: sent.contactId || lead.ghlContactId || '',
+      });
+      const updatedLead = await dbService.updateLead(fullKey, {
+        ...contactedPatch,
+        ghlContactId: sent.contactId || lead.ghlContactId,
+        status: 'Follow-up',
+        updates,
+        logs: [
+          {
+            type: 'sms_outbound',
+            message: `GHL SMS sent${sent.messageId ? ` (${sent.messageId})` : ''}`,
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      });
+      return res.json({
+        success: true,
+        provider: 'ghl',
+        messageId: sent.messageId || null,
+        ghlContactId: sent.contactId || null,
+        lead: updatedLead,
+      });
+    }
+
     if (!signalwire.configured()) {
       return res.status(400).json({
         success: false,
         error:
-          'Telephony is not configured. Set SIGNALWIRE_PROJECT_ID, SIGNALWIRE_TOKEN, SIGNALWIRE_FROM_NUMBER, and BASE_URL.',
+          'Outbound SMS is not configured. Connect Go High Level in Workspace → Integrations, or set SignalWire env vars.',
       });
     }
     const sms = await signalwire.sendSms({
@@ -1790,7 +1827,6 @@ router.post('/:key/sms', async (req, res, next) => {
       messageSid: sms.sid || '',
       provider: 'signalwire',
     });
-    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const updatedLead = await dbService.updateLead(fullKey, {
       ...contactedPatch,
       status: 'Follow-up',
@@ -1803,7 +1839,69 @@ router.post('/:key/sms', async (req, res, next) => {
         },
       ],
     });
-    res.json({ success: true, messageSid: sms.sid || null, lead: updatedLead });
+    res.json({ success: true, provider: 'signalwire', messageSid: sms.sid || null, lead: updatedLead });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/email — send outbound email via GHL
+router.post('/:key/email', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const subject = String((req.body && req.body.subject) || '').trim();
+    const body = String((req.body && req.body.body) || '').trim();
+    const html = String((req.body && req.body.html) || '').trim();
+    if (!body && !html) {
+      return res.status(400).json({ success: false, error: 'Email body is required.' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!ghlClient.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Connect Go High Level in Workspace → Integrations to send email from the app.',
+      });
+    }
+
+    const sent = await ghlMessaging.sendEmailToLead({
+      lead,
+      subject,
+      body,
+      html,
+      integrationEnv,
+    });
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+    const updates = appendLeadUpdate(lead, {
+      type: 'email_outbound',
+      value: subject || body.slice(0, 120),
+      messageSid: sent.messageId || '',
+      provider: 'ghl',
+      ghlContactId: sent.contactId || lead.ghlContactId || '',
+    });
+    const updatedLead = await dbService.updateLead(fullKey, {
+      ...contactedPatch,
+      ghlContactId: sent.contactId || lead.ghlContactId,
+      status: 'Email Sent',
+      updates,
+      logs: [
+        {
+          type: 'email_outbound',
+          message: `GHL email sent${sent.messageId ? ` (${sent.messageId})` : ''}`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    });
+    res.json({
+      success: true,
+      provider: 'ghl',
+      messageId: sent.messageId || null,
+      ghlContactId: sent.contactId || null,
+      lead: updatedLead,
+    });
   } catch (err) {
     next(err);
   }

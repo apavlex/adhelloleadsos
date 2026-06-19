@@ -1,7 +1,7 @@
 <% const _bulkMode = typeof bulkBarMode !== 'undefined' && bulkBarMode === 'search' ? 'search' : 'pipeline'; %>
 <div
   id="bulkActionBar"
-  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col gap-1.5 max-w-[min(100vw-1rem,52rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
+  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col gap-1.5 max-w-[min(100vw-1rem,56rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
   role="toolbar"
   aria-label="Bulk lead actions"
   aria-hidden="true"
@@ -49,20 +49,7 @@
       </button>
       <button type="button" id="bulkFolderNewToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Create a new folder" aria-expanded="false" aria-controls="bulkFolderNewRow">+ Folder</button>
       <button type="button" id="bulkTagsToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-sky-300" title="Add or remove tags">Tags</button>
-    </div>
-
-    <div class="hidden sm:block w-px h-5 bg-white/10 shrink-0" aria-hidden="true"></div>
-
-    <div class="flex flex-wrap items-center gap-1 min-w-0 bulk-bar-actions">
-      <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-add-outreach-list" data-outreach-list="call" title="Add selected leads to Call List">
-        <span>Call list</span>
-      </button>
-      <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-add-outreach-list" data-outreach-list="email" title="Add selected leads to Email List">
-        <span>Email list</span>
-      </button>
-      <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-add-outreach-list" data-outreach-list="doubleTap" title="Add selected leads to Double Tap List">
-        <span>Double tap</span>
-      </button>
+      <span class="hidden sm:inline w-px h-5 bg-white/10 shrink-0" aria-hidden="true"></span>
       <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-enhance" title="Enrich selected leads">
         <svg class="w-3.5 h-3.5 text-brand-yellow shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
         <span>Enhance</span>
@@ -74,16 +61,16 @@
       <button type="button" class="bulk-bar-btn bulk-bar-btn--ghost js-bulk-push-ghl text-orange-300" title="Push selected leads to Go High Level">
         <span>GHL</span>
       </button>
-
-      <% if (_bulkMode === 'pipeline') { %>
-      <button type="button" id="bulkSmsBtn" class="bulk-bar-btn bulk-bar-btn--sms" title="Send SMS to selected leads">SMS</button>
-      <button type="button" id="bulkVoicemailBtn" class="bulk-bar-btn bulk-bar-btn--vm" title="Voicemail drop">VM</button>
-      <button type="button" id="batchOutreachBtnBulk" class="bulk-bar-btn bulk-bar-btn--call" title="Cold call war room">Call room</button>
-      <a href="/focus" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus" title="Focus mode">Focus</a>
-      <% } %>
     </div>
 
-    <div class="flex items-center gap-2 shrink-0 ml-auto sm:ml-0">
+    <% if (_bulkMode === 'pipeline') { %>
+    <div class="flex items-center gap-2 shrink-0 bulk-bar-primary-actions">
+      <button type="button" id="batchOutreachBtnBulk" class="bulk-bar-btn bulk-bar-btn--call bulk-bar-btn--primary-lg" title="Cold call war room">Call room</button>
+      <a href="/focus" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg" title="Focus mode">Focus</a>
+    </div>
+    <% } %>
+
+    <div class="flex items-center gap-2 shrink-0 ml-auto">
       <button type="button" id="cancelSelectionBtn" class="text-[10px] font-bold text-white/45 hover:text-white transition-colors uppercase tracking-wide px-1">Cancel</button>
       <% if (_bulkMode === 'pipeline') { %>
       <span class="text-white/20 text-[10px]" aria-hidden="true">|</span>
