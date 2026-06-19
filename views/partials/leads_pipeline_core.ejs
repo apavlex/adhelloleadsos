@@ -100,9 +100,9 @@
         <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="compact">Compact</button>
         <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="comfortable">Comfortable</button>
       </div>
-      <div class="relative js-pipeline-columns-wrap">
+      <div class="relative shrink-0 js-pipeline-columns-wrap">
         <button type="button" id="pipelineColumnsBtn" class="inline-flex items-center gap-2 rounded-full border border-brand-border/40 dark:border-white/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/40 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="pipelineColumnsPopover">Columns</button>
-        <div id="pipelineColumnsPopover" class="pipeline-columns-popover hidden fixed z-[10000] w-[min(100vw-2rem,17rem)] rounded-2xl border border-brand-border/40 dark:border-white/10 shadow-2xl p-4 bg-white dark:bg-slate-900" role="dialog" aria-label="Choose pipeline columns">
+        <div id="pipelineColumnsPopover" class="pipeline-columns-popover hidden absolute right-0 top-full z-50 mt-2 w-[min(calc(100vw-2rem),17rem)] rounded-2xl border border-brand-border/40 dark:border-white/10 shadow-xl ring-1 ring-black/5 dark:ring-white/10 p-4 bg-white dark:bg-slate-900" role="menu" aria-label="Choose pipeline columns">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-3">Visible columns</p>
           <div id="pipelineColumnsCheckboxes" class="space-y-2 max-h-[min(70vh,22rem)] overflow-y-auto custom-scrollbar text-sm"></div>
           <button type="button" id="pipelineColumnsResetWidths" class="mt-4 w-full text-center text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Reset column widths</button>
