@@ -2698,3 +2698,35 @@ html.dark #pipelineColumnsPopover {
 .dark .tag-filter-combobox-option.is-selected {
   background: rgba(250, 204, 21, 0.12);
 }
+
+/* Pipeline toolbar — don't clip Table/Pipeline toggle focus rings */
+.pipeline-actions-toolbar {
+  overflow-y: visible;
+}
+
+.pipeline-view-toggle-wrap {
+  overflow: visible;
+}
+
+.pipeline-search-card {
+  overflow: visible !important;
+}
+
+.pipeline-search-card details,
+.pipeline-search-card .tag-filter-combobox {
+  overflow: visible;
+}
+
+.tag-filter-combobox-menu {
+  min-width: 12rem;
+}
+
+.tag-filter-combobox-menu:not(.hidden) {
+  box-shadow:
+    0 16px 40px -10px rgba(15, 23, 42, 0.18),
+    0 6px 16px -6px rgba(15, 23, 42, 0.12);
+}
+
+.dark .tag-filter-combobox-menu:not(.hidden) {
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.55);
+}

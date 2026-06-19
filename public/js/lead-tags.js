@@ -440,24 +440,109 @@
     const search = root.querySelector('[data-tag-filter-search]');
     const hidden = root.querySelector('[data-tag-filter-value]');
     const label = root.querySelector('[data-tag-filter-label]');
-    const options = root.querySelectorAll('.tag-filter-combobox-option');
+    const list = root.querySelector('[data-tag-filter-list]');
     const empty = root.querySelector('[data-tag-filter-empty]');
+    let tagFilterFetchPromise = null;
+
+    function getFilterOptions() {
+      const host = list || menu;
+      return host ? host.querySelectorAll('.tag-filter-combobox-option') : [];
+    }
+
+    function positionTagFilterMenu() {
+      if (!menu || !trigger) return;
+      if (menu.parentElement !== document.body) {
+        document.body.appendChild(menu);
+      }
+      const rect = trigger.getBoundingClientRect();
+      menu.style.position = 'fixed';
+      menu.style.left = `${Math.round(rect.left)}px`;
+      menu.style.top = `${Math.round(rect.bottom + 4)}px`;
+      menu.style.width = `${Math.max(Math.round(rect.width), 192)}px`;
+      menu.style.right = 'auto';
+      menu.style.bottom = 'auto';
+    }
+
+    function renderTagFilterList() {
+      if (!list) return;
+      const selected = hidden ? String(hidden.value || '') : '';
+      const tags = [...getWorkspaceTags()].sort((a, b) =>
+        String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
+      );
+      list.innerHTML = '';
+      const anyLi = document.createElement('li');
+      anyLi.innerHTML = `<button type="button" class="tag-filter-combobox-option w-full text-left px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-yellow/10 dark:hover:bg-brand-yellow/15${selected ? '' : ' is-selected'}" data-value="">Any tag</button>`;
+      list.appendChild(anyLi);
+      tags.forEach((tg) => {
+        if (!tg || !tg.key) return;
+        const li = document.createElement('li');
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className =
+          'tag-filter-combobox-option w-full text-left px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-yellow/10 dark:hover:bg-brand-yellow/15' +
+          (selected === String(tg.key) ? ' is-selected' : '');
+        btn.setAttribute('data-value', tg.key);
+        btn.textContent = tg.name || 'Tag';
+        li.appendChild(btn);
+        list.appendChild(li);
+      });
+    }
+
+    async function refreshTagFilterOptions() {
+      if (!tagFilterFetchPromise) {
+        tagFilterFetchPromise = fetch('/tags', {
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        })
+          .then((res) => res.json().catch(() => ({})))
+          .then((data) => {
+            if (data && data.success && Array.isArray(data.tags)) {
+              window.WORKSPACE_TAGS = data.tags
+                .filter((t) => t && t.key)
+                .map((t) => ({
+                  key: String(t.key),
+                  name: String(t.name || '').trim() || 'Tag',
+                  color: t.color || '#94a3b8',
+                }));
+            } else if (!Array.isArray(window.WORKSPACE_TAGS)) {
+              window.WORKSPACE_TAGS = [];
+            }
+          })
+          .catch(() => {
+            if (!Array.isArray(window.WORKSPACE_TAGS)) window.WORKSPACE_TAGS = [];
+          })
+          .finally(() => {
+            tagFilterFetchPromise = null;
+          });
+      }
+      await tagFilterFetchPromise;
+      renderTagFilterList();
+    }
 
     function setOpen(open) {
       if (!menu || !trigger) return;
       menu.classList.toggle('hidden', !open);
       trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-      if (open && search) {
-        search.value = '';
-        filterOptions('');
-        search.focus();
+      if (open) {
+        refreshTagFilterOptions()
+          .catch(() => {
+            renderTagFilterList();
+          })
+          .finally(() => {
+            positionTagFilterMenu();
+            if (search) {
+              search.value = '';
+              filterOptions('');
+              search.focus();
+            }
+          });
       }
     }
 
     function filterOptions(query) {
       const q = String(query || '').trim().toLowerCase();
       let visible = 0;
-      options.forEach((opt) => {
+      getFilterOptions().forEach((opt) => {
         const li = opt.closest('li');
         if (!li) return;
         const isAny = opt.getAttribute('data-value') === '';
@@ -482,14 +567,24 @@
       const lbl = String(opt.textContent || '').trim() || 'Any tag';
       hidden.value = val;
       label.textContent = lbl;
-      options.forEach((o) => o.classList.toggle('is-selected', o === opt));
+      getFilterOptions().forEach((o) => o.classList.toggle('is-selected', o === opt));
       setOpen(false);
     }
 
     if (trigger) {
       trigger.addEventListener('click', (e) => {
         e.preventDefault();
+        e.stopPropagation();
         setOpen(menu && menu.classList.contains('hidden'));
+      });
+    }
+
+    if (list) {
+      list.addEventListener('click', (e) => {
+        const opt = e.target.closest('.tag-filter-combobox-option');
+        if (!opt) return;
+        e.preventDefault();
+        selectOption(opt);
       });
     }
 
@@ -503,7 +598,7 @@
         }
         if (e.key === 'Enter') {
           e.preventDefault();
-          const first = [...options].find((o) => {
+          const first = [...getFilterOptions()].find((o) => {
             const li = o.closest('li');
             return li && !li.classList.contains('hidden');
           });
@@ -512,16 +607,28 @@
       });
     }
 
-    options.forEach((opt) => {
-      opt.addEventListener('click', (e) => {
-        e.preventDefault();
-        selectOption(opt);
-      });
-    });
+    window.addEventListener(
+      'resize',
+      () => {
+        if (menu && !menu.classList.contains('hidden')) positionTagFilterMenu();
+      },
+      { passive: true },
+    );
+
+    document.addEventListener(
+      'scroll',
+      () => {
+        if (menu && !menu.classList.contains('hidden')) positionTagFilterMenu();
+      },
+      true,
+    );
 
     document.addEventListener('click', (e) => {
-      if (!root.contains(e.target)) setOpen(false);
+      if (root.contains(e.target) || (menu && menu.contains(e.target))) return;
+      setOpen(false);
     });
+
+    renderTagFilterList();
   }
 
   function init() {
