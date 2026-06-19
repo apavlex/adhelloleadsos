@@ -627,6 +627,8 @@ document.addEventListener('DOMContentLoaded', () => {
         boxHost.appendChild(wrap);
       });
 
+      document.body.appendChild(pop);
+
       function closePop() {
         pop.classList.add('hidden');
         colBtn.setAttribute('aria-expanded', 'false');
@@ -650,19 +652,39 @@ document.addEventListener('DOMContentLoaded', () => {
           document.body.appendChild(pop);
         }
         applyPipelineColumnsPopoverSurface();
+        const measureHidden = pop.classList.contains('hidden');
+        if (measureHidden) {
+          pop.classList.remove('hidden');
+          pop.style.visibility = 'hidden';
+          pop.style.pointerEvents = 'none';
+        }
         const rect = colBtn.getBoundingClientRect();
+        const menuWidth = Math.max(pop.offsetWidth || 0, 216);
+        let left = rect.right - menuWidth;
+        left = Math.max(12, Math.min(left, window.innerWidth - menuWidth - 12));
         pop.style.position = 'fixed';
         pop.style.top = `${Math.round(rect.bottom + 8)}px`;
-        pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
-        pop.style.left = 'auto';
+        pop.style.left = `${Math.round(left)}px`;
+        pop.style.right = 'auto';
         pop.style.bottom = 'auto';
+        pop.style.zIndex = '10000';
+        if (measureHidden) {
+          pop.classList.add('hidden');
+          pop.style.visibility = '';
+          pop.style.pointerEvents = '';
+        }
+      }
+
+      function openColumnsPopover() {
+        positionColumnsPopover();
+        pop.classList.remove('hidden');
+        colBtn.setAttribute('aria-expanded', 'true');
+        requestAnimationFrame(positionColumnsPopover);
       }
 
       function toggleColumnsPopover() {
-        const willOpen = pop.classList.contains('hidden');
-        pop.classList.toggle('hidden');
-        if (willOpen) positionColumnsPopover();
-        colBtn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+        if (pop.classList.contains('hidden')) openColumnsPopover();
+        else closePop();
       }
       window.__togglePipelineColumnsPopover = toggleColumnsPopover;
 
@@ -672,12 +694,24 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleColumnsPopover();
       });
 
+      pop.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+
       window.addEventListener(
         'resize',
         () => {
           if (!pop.classList.contains('hidden')) positionColumnsPopover();
         },
         { passive: true }
+      );
+
+      window.addEventListener(
+        'scroll',
+        () => {
+          if (!pop.classList.contains('hidden')) positionColumnsPopover();
+        },
+        { passive: true, capture: true }
       );
 
       const pipelineTableScroll = document.getElementById('prospectPipelineTableScroll');
@@ -693,7 +727,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       document.addEventListener('click', (e) => {
         if (pop.classList.contains('hidden')) return;
-        if (e.target.closest('.js-pipeline-columns-wrap') || e.target.closest('#pipelineColumnsPopover')) return;
+        if (e.target.closest('#pipelineColumnsPopover') || e.target.closest('#pipelineColumnsBtn')) return;
         closePop();
       });
 
