@@ -609,7 +609,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       PLC_META.forEach(({ id, label }) => {
         const wrap = document.createElement('label');
-        wrap.className = 'flex items-center gap-2 cursor-pointer text-brand-dark dark:text-slate-200';
+        wrap.className = 'flex items-center gap-3 cursor-pointer text-brand-dark dark:text-slate-200 py-0.5';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = pipelineColVisible(vis, id);
@@ -712,25 +712,6 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         { passive: true }
       );
-
-      window.addEventListener(
-        'scroll',
-        () => {
-          if (!pop.classList.contains('hidden')) positionColumnsPopover();
-        },
-        { passive: true, capture: true }
-      );
-
-      const pipelineTableScroll = document.getElementById('prospectPipelineTableScroll');
-      if (pipelineTableScroll) {
-        pipelineTableScroll.addEventListener(
-          'scroll',
-          () => {
-            if (!pop.classList.contains('hidden')) positionColumnsPopover();
-          },
-          { passive: true }
-        );
-      }
 
       document.addEventListener('click', (e) => {
         if (pop.classList.contains('hidden')) return;

@@ -1393,9 +1393,32 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   -webkit-backdrop-filter: none !important;
   isolation: isolate;
   opacity: 1 !important;
+  position: fixed;
   box-shadow:
     0 20px 40px -12px rgba(17, 24, 39, 0.18),
     0 8px 16px -8px rgba(17, 24, 39, 0.1);
+}
+
+.pipeline-columns-popover__header {
+  background-color: var(--brand-cream, #faf7ed) !important;
+}
+
+.pipeline-columns-popover__body {
+  background-color: inherit;
+}
+
+.dark .pipeline-columns-popover__header,
+html.dark .pipeline-columns-popover__header {
+  background-color: #1e293b !important;
+}
+
+#pipelineColumnsCheckboxes label {
+  padding: 0.15rem 0;
+}
+
+#pipelineColumnsCheckboxes {
+  background-color: inherit;
+  padding-right: 0.25rem;
 }
 
 .dark .pipeline-columns-popover,
@@ -1408,10 +1431,6 @@ html.dark #pipelineColumnsPopover {
   box-shadow:
     0 20px 40px -12px rgba(0, 0, 0, 0.55),
     0 8px 16px -8px rgba(0, 0, 0, 0.35);
-}
-
-#pipelineColumnsCheckboxes {
-  background-color: inherit;
 }
 
 /* Modals opened from lead panel (panel is z-index 400) */
