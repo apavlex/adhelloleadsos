@@ -449,11 +449,26 @@
       return host ? host.querySelectorAll('.tag-filter-combobox-option') : [];
     }
 
+    function tagFilterMenuSolidBg() {
+      return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
+    }
+
+    function applyTagFilterMenuSurface() {
+      if (!menu) return;
+      const bg = tagFilterMenuSolidBg();
+      menu.style.backgroundColor = bg;
+      menu.style.background = bg;
+      menu.style.backdropFilter = 'none';
+      menu.style.webkitBackdropFilter = 'none';
+      menu.style.opacity = '1';
+    }
+
     function positionTagFilterMenu() {
       if (!menu || !trigger) return;
       if (menu.parentElement !== document.body) {
         document.body.appendChild(menu);
       }
+      applyTagFilterMenuSurface();
       const rect = trigger.getBoundingClientRect();
       menu.style.position = 'fixed';
       menu.style.left = `${Math.round(rect.left)}px`;

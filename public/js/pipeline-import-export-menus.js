@@ -14,11 +14,26 @@
     });
   }
 
+  function pipelineMenuSolidBg() {
+    return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
+  }
+
+  function applyPipelineMenuSurface(panel) {
+    if (!panel) return;
+    var bg = pipelineMenuSolidBg();
+    panel.style.backgroundColor = bg;
+    panel.style.background = bg;
+    panel.style.backdropFilter = 'none';
+    panel.style.webkitBackdropFilter = 'none';
+    panel.style.opacity = '1';
+  }
+
   function positionPipelineMenuPanel(trigger, panel) {
     if (!trigger || !panel) return;
     if (panel.parentElement !== document.body) {
       document.body.appendChild(panel);
     }
+    applyPipelineMenuSurface(panel);
     var rect = trigger.getBoundingClientRect();
     panel.style.position = 'fixed';
     panel.style.top = Math.round(rect.bottom + 8) + 'px';
@@ -53,6 +68,9 @@
       if (!trigger || !panel) return;
 
       menuPairs.push({ trigger: trigger, panel: panel });
+      document.body.appendChild(panel);
+      panel.classList.add('hidden');
+      applyPipelineMenuSurface(panel);
 
       trigger.addEventListener('click', function (e) {
         e.stopPropagation();
