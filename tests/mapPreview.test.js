@@ -35,4 +35,11 @@ describe('mapPreview helpers', () => {
     assert.ok(variants.some((v) => /Lloyd Center, Portland/i.test(v)));
     assert.ok(variants.some((v) => /Portland, OR 97232/i.test(v)));
   });
+
+  it('buildGeocodeQueryVariants strips suite numbers for geocoding', () => {
+    const variants = buildGeocodeQueryVariants('8644 SW Canyon Rd #1590, Portland, OR 97225, USA');
+    assert.ok(variants.some((v) => /8644 SW Canyon Rd, Portland, OR 97225/i.test(v)));
+    assert.ok(variants.some((v) => /Portland, OR 97225/i.test(v)));
+    assert.ok(!variants.some((v) => /#1590/.test(v) && v.includes('8644 SW Canyon Rd, Portland')));
+  });
 });

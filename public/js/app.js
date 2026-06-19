@@ -5365,6 +5365,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const streetSuffix =
       /\b(st|street|ste|suite|ave|avenue|av|rd|road|blvd|boulevard|dr|drive|way|ln|lane|ct|court|pl|place|hwy|highway|pkwy|parkway|cir|circle)\b/i;
 
+    const stripSuiteFragment = (s) =>
+      String(s || '')
+        .replace(/\s+(?:#\s*[\w-]+|(?:ste|suite|unit|apt|bldg|fl|floor|rm|room)\.?\s*#?\s*[\w-]+)/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    const withoutSuite = stripSuiteFragment(q);
+    if (withoutSuite && withoutSuite !== q) out.push(withoutSuite);
+
+    const withoutCountry = q.replace(/,?\s*(USA|United States|U\.S\.A\.?)\s*$/i, '').trim();
+    if (withoutCountry && withoutCountry !== q) out.push(withoutCountry);
+
+    const withoutSuiteCountry = stripSuiteFragment(withoutCountry);
+    if (withoutSuiteCountry && withoutSuiteCountry !== q && !out.includes(withoutSuiteCountry)) {
+      out.push(withoutSuiteCountry);
+    }
+
     if (parts.length >= 2 && !/\d/.test(parts[0])) {
       out.push(parts.slice(1).join(', '));
     }
@@ -5380,17 +5397,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const zip = q.match(/\b(\d{5})(?:-\d{4})?\b/);
     if (zip) {
-      const statePart = parts.find((p) => /^[A-Z]{2}$/i.test(p));
+      let statePart = parts.find((p) => /^[A-Z]{2}$/i.test(p)) || '';
+      if (!statePart) {
+        const combo = parts.find((p) => /\b[A-Z]{2}\s+\d{5}\b/i.test(p));
+        if (combo) {
+          const m = combo.match(/\b([A-Z]{2})\b/i);
+          if (m) statePart = m[1].toUpperCase();
+        }
+      }
       const cityPart = parts.find(
         (p, i) =>
           i > 0 &&
           p !== 'USA' &&
           p !== 'US' &&
+          p !== 'United States' &&
           !/^[A-Z]{2}$/i.test(p) &&
+          !/^[A-Z]{2}\s+\d{5}/i.test(p) &&
           !/^\d{5}/.test(p),
       );
       if (cityPart && statePart) out.push(`${cityPart}, ${statePart} ${zip[1]}`);
-      else if (cityPart) out.push(`${cityPart}, ${zip[1]}`);
+      else if (cityPart) out.push(`${cityPart}, ${statePart ? statePart + ' ' : ''}${zip[1]}`.replace(/,\s+,/, ', '));
     }
 
     return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
@@ -5399,6 +5425,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function readPipelineRowGeocodeQuery(row) {
     const center = readPipelineRowMapCenter(row);
     const variants = geocodeQueryVariants(center);
+    const withoutSuite = variants.find((v) => !/#\s*[\w-]/.test(v));
+    if (withoutSuite) return withoutSuite;
     if (variants.length > 1) {
       const firstPart = String(center).split(',')[0] || '';
       if (/\d/.test(firstPart) && !/\b(st|street|ave|avenue|rd|road|blvd|dr|drive|way|ln|lane|ct|court)\b/i.test(firstPart)) {
@@ -6668,7 +6696,7 @@ document.addEventListener('DOMContentLoaded', () => {
       img.src = previewUrl;
     };
 
-    const loadStaticFallbacks = () => {
+    const loadStaticFallbacks = (onExhausted) => {
       const params = new URLSearchParams();
       if (geocodeQ) params.set('center', geocodeQ);
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
@@ -6682,11 +6710,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mapKey && geocodeQ) {
           const clientStatic = buildGoogleStaticMapUrl(geocodeQ, mapKey, 640, 300);
           if (clientStatic) {
-            loadPreviewImage(clientStatic, showFallback);
+            loadPreviewImage(clientStatic, () => {
+              if (typeof onExhausted === 'function') onExhausted();
+              else showFallback();
+            });
             return;
           }
         }
-        showFallback();
+        if (typeof onExhausted === 'function') onExhausted();
+        else showFallback();
       });
     };
 
@@ -6695,7 +6727,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const q = embedQueries[queryIndex];
       if (!q) {
         if (useKeyless && mapKey) return tryEmbedIframe(0, false);
-        loadStaticFallbacks();
         return false;
       }
       const src = leadPanelEmbedSrcForQuery(q, mapKey, useKeyless);
@@ -6712,12 +6743,12 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       iframe.onerror = () => {
         iframe.onload = null;
+        iframe.classList.add('hidden');
+        iframe.removeAttribute('src');
         if (tryEmbedIframe(queryIndex + 1, useKeyless)) return;
         if (useKeyless && mapKey) {
           tryEmbedIframe(0, false);
-          return;
         }
-        loadStaticFallbacks();
       };
       iframe.title = opts && opts.address
         ? `Map · ${String(opts.address).slice(0, 100)}`
@@ -6725,17 +6756,13 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `Location · ${opts.title}`
           : 'Business location';
       iframe.src = src;
-      iframe.classList.remove('hidden');
-      revealMapSurface();
       return true;
     };
 
-    if (iframe && embedQueries.length) {
-      tryEmbedIframe(0, true);
-      return true;
-    }
-
-    loadStaticFallbacks();
+    loadStaticFallbacks(() => {
+      if (iframe && embedQueries.length && tryEmbedIframe(0, true)) return;
+      showFallback();
+    });
     return true;
   }
 

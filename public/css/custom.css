@@ -2062,6 +2062,12 @@ html.dark #pipelineColumnsPopover {
 }
 
 /* AdHello softphone — compact dialer shell */
+#softphoneModal:not(.hidden) {
+  z-index: 420 !important;
+}
+#softphoneModal:not(.hidden) #softphonePanel {
+  z-index: 421 !important;
+}
 .softphone-panel {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }

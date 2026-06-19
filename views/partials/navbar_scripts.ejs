@@ -765,17 +765,29 @@
     return !!(panel && panel.classList.contains('open') && !panel.classList.contains('hidden'));
   }
   function syncSoftphoneStacking() {
-    var leadOpen = isLeadDetailPanelOpen();
     var modalOpen = spModal && !spModal.classList.contains('hidden');
     if (spModal) {
-      if (leadOpen && modalOpen) spModal.style.setProperty('z-index', '410', 'important');
+      if (modalOpen) spModal.style.setProperty('z-index', '420', 'important');
       else spModal.style.removeProperty('z-index');
     }
     if (spPanel) {
-      if (leadOpen && modalOpen) spPanel.style.setProperty('z-index', '411', 'important');
+      if (modalOpen) spPanel.style.setProperty('z-index', '421', 'important');
       else spPanel.style.removeProperty('z-index');
     }
   }
+  function watchLeadPanelForSoftphoneStacking() {
+    var panel = document.getElementById('mobilePanel');
+    if (!panel || panel.dataset.softphoneStackWatch === '1') return;
+    panel.dataset.softphoneStackWatch = '1';
+    var obs = new MutationObserver(function () {
+      syncSoftphoneStacking();
+      if (typeof window.__adhelloRefreshSoftphonePosition === 'function') {
+        window.__adhelloRefreshSoftphonePosition();
+      }
+    });
+    obs.observe(panel, { attributes: true, attributeFilter: ['class'] });
+  }
+  watchLeadPanelForSoftphoneStacking();
   function getOpenLeadSidebarWidth() {
     var panel = document.getElementById('mobilePanel');
     if (!panel || panel.classList.contains('hidden') || !panel.classList.contains('open')) return 0;
@@ -916,6 +928,12 @@
     setSoftphoneDialNumber(to);
     if (opts.leadKey && !isSoftphoneMobileViewport()) {
       applyDockRight();
+      if (spPin) {
+        spPin.classList.add('softphone-chrome-btn--active');
+        spPin.setAttribute('aria-pressed', 'true');
+        if (spPanel) spPanel.classList.add('softphone-panel--pinned');
+        try { localStorage.setItem('adhelloSoftphonePinned', '1'); } catch (_) {}
+      }
     }
     openSoftphone();
     syncSoftphoneStacking();

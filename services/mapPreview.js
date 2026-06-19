@@ -132,6 +132,23 @@ function buildGeocodeQueryVariants(raw) {
   const streetSuffix =
     /\b(st|street|ste|suite|ave|avenue|av|rd|road|blvd|boulevard|dr|drive|way|ln|lane|ct|court|pl|place|hwy|highway|pkwy|parkway|cir|circle)\b/i;
 
+  const stripSuiteFragment = (s) =>
+    String(s || '')
+      .replace(/\s+(?:#\s*[\w-]+|(?:ste|suite|unit|apt|bldg|fl|floor|rm|room)\.?\s*#?\s*[\w-]+)/gi, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const withoutSuite = stripSuiteFragment(q);
+  if (withoutSuite && withoutSuite !== q) out.push(withoutSuite);
+
+  const withoutCountry = q.replace(/,?\s*(USA|United States|U\.S\.A\.?)\s*$/i, '').trim();
+  if (withoutCountry && withoutCountry !== q) out.push(withoutCountry);
+
+  const withoutSuiteCountry = stripSuiteFragment(withoutCountry);
+  if (withoutSuiteCountry && withoutSuiteCountry !== q && !out.includes(withoutSuiteCountry)) {
+    out.push(withoutSuiteCountry);
+  }
+
   if (parts.length >= 2 && !/\d/.test(parts[0])) {
     out.push(parts.slice(1).join(', '));
   }
@@ -147,17 +164,26 @@ function buildGeocodeQueryVariants(raw) {
 
   const zip = q.match(/\b(\d{5})(?:-\d{4})?\b/);
   if (zip) {
-    const statePart = parts.find((p) => /^[A-Z]{2}$/i.test(p));
+    let statePart = parts.find((p) => /^[A-Z]{2}$/i.test(p)) || '';
+    if (!statePart) {
+      const combo = parts.find((p) => /\b[A-Z]{2}\s+\d{5}\b/i.test(p));
+      if (combo) {
+        const m = combo.match(/\b([A-Z]{2})\b/i);
+        if (m) statePart = m[1].toUpperCase();
+      }
+    }
     const cityPart = parts.find(
       (p, i) =>
         i > 0 &&
         p !== 'USA' &&
         p !== 'US' &&
+        p !== 'United States' &&
         !/^[A-Z]{2}$/i.test(p) &&
+        !/^[A-Z]{2}\s+\d{5}/i.test(p) &&
         !/^\d{5}/.test(p),
     );
     if (cityPart && statePart) out.push(`${cityPart}, ${statePart} ${zip[1]}`);
-    else if (cityPart) out.push(`${cityPart}, ${zip[1]}`);
+    else if (cityPart) out.push(`${cityPart}, ${statePart ? statePart + ' ' : ''}${zip[1]}`.replace(/,\s+,/, ', '));
   }
 
   return [...new Set(out.map((s) => s.trim()).filter(Boolean))];
