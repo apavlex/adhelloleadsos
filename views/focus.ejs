@@ -139,10 +139,19 @@
         </div>
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Quick copy</p>
-          <div class="flex flex-wrap gap-2">
-            <button type="button" id="focus-copy-phone" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Phone</button>
-            <button type="button" id="focus-copy-email" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Email</button>
-            <button type="button" id="focus-copy-website" class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors">Website</button>
+          <div class="flex flex-col sm:flex-row sm:flex-wrap gap-2">
+            <button type="button" id="focus-copy-phone" class="focus-quick-copy-btn inline-flex items-center gap-2 max-w-full px-3 py-2 rounded-xl text-left border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Copy phone number">
+              <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted shrink-0">Phone</span>
+              <span id="focus-copy-phone-value" class="text-[11px] font-semibold normal-case tracking-normal truncate min-w-0">—</span>
+            </button>
+            <button type="button" id="focus-copy-email" class="focus-quick-copy-btn inline-flex items-center gap-2 max-w-full px-3 py-2 rounded-xl text-left border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Copy email address">
+              <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted shrink-0">Email</span>
+              <span id="focus-copy-email-value" class="text-[11px] font-semibold normal-case tracking-normal truncate min-w-0">—</span>
+            </button>
+            <button type="button" id="focus-copy-website" class="focus-quick-copy-btn inline-flex items-center gap-2 max-w-full px-3 py-2 rounded-xl text-left border border-brand-border/60 dark:border-white/15 text-brand-dark dark:text-slate-200 hover:border-brand-yellow/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" title="Copy website domain">
+              <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted shrink-0">Domain</span>
+              <span id="focus-copy-website-value" class="text-[11px] font-semibold normal-case tracking-normal truncate min-w-0">—</span>
+            </button>
           </div>
           <p id="focus-copy-feedback" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]"></p>
         </div>
@@ -394,6 +403,9 @@
     var btnCopyPhone = document.getElementById('focus-copy-phone');
     var btnCopyEmail = document.getElementById('focus-copy-email');
     var btnCopyWebsite = document.getElementById('focus-copy-website');
+    var elCopyPhoneValue = document.getElementById('focus-copy-phone-value');
+    var elCopyEmailValue = document.getElementById('focus-copy-email-value');
+    var elCopyWebsiteValue = document.getElementById('focus-copy-website-value');
     var elCopyFeedback = document.getElementById('focus-copy-feedback');
     var elOutcome = document.getElementById('focus-outcome');
     var elSelectedOutcomeLabel = document.getElementById('focus-selected-outcome-label');
@@ -1242,6 +1254,36 @@
       });
     }
 
+    function leadContactField(lead, field) {
+      if (!lead) return '';
+      var raw = String(lead[field] || '').trim();
+      if (!raw || raw === 'N/A') return '';
+      return raw;
+    }
+
+    function renderQuickCopyButtons(lead) {
+      var phone = leadContactField(lead, 'phone');
+      var email = leadContactField(lead, 'email');
+      var websiteRaw = leadContactField(lead, 'website');
+      var domain = websiteRaw ? cleanUrlLabel(hrefUrl(websiteRaw)) : '';
+
+      function applyCopyBtn(btn, valueEl, value, emptyText, copyTitle) {
+        if (!btn) return;
+        if (valueEl) {
+          valueEl.textContent = value || emptyText;
+          valueEl.classList.toggle('text-brand-muted', !value);
+          valueEl.classList.toggle('italic', !value);
+        }
+        btn.disabled = !value;
+        btn.setAttribute('aria-disabled', value ? 'false' : 'true');
+        btn.title = value ? ('Copy ' + copyTitle + ': ' + value) : emptyText;
+      }
+
+      applyCopyBtn(btnCopyPhone, elCopyPhoneValue, phone, 'No phone', 'phone');
+      applyCopyBtn(btnCopyEmail, elCopyEmailValue, email, 'No email', 'email');
+      applyCopyBtn(btnCopyWebsite, elCopyWebsiteValue, domain, 'No domain', 'domain');
+    }
+
     function renderBusinessInfo(lead) {
       var websiteHref = hrefUrl(lead.website || '');
       if (websiteHref) {
@@ -1274,6 +1316,7 @@
       applyReviewTone(score, reviews);
       renderReviewStars(score);
       renderFocusMap(lead);
+      renderQuickCopyButtons(lead);
     }
 
     function renderBusinessNeeds(lead) {
@@ -1745,7 +1788,10 @@
     function copyLeadField(field, label) {
       var lead = currentLead();
       if (!lead) return;
-      var value = String(lead[field] || '').trim();
+      var value = leadContactField(lead, field);
+      if (field === 'website' && value) {
+        value = hrefUrl(value);
+      }
       if (!value) {
         setCopyFeedback('No ' + label.toLowerCase() + ' available for this lead.', true);
         return;
@@ -2459,7 +2505,7 @@
     if (btnDelete) btnDelete.addEventListener('click', deleteCurrentLead);
     if (btnCopyPhone) btnCopyPhone.addEventListener('click', function () { copyLeadField('phone', 'Phone'); });
     if (btnCopyEmail) btnCopyEmail.addEventListener('click', function () { copyLeadField('email', 'Email'); });
-    if (btnCopyWebsite) btnCopyWebsite.addEventListener('click', function () { copyLeadField('website', 'Website'); });
+    if (btnCopyWebsite) btnCopyWebsite.addEventListener('click', function () { copyLeadField('website', 'Domain'); });
 
     document.getElementById('focus-help-btn').addEventListener('click', function () {
       modalHelp.classList.remove('hidden');
