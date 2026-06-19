@@ -2069,7 +2069,14 @@ html.dark #pipelineColumnsPopover {
   z-index: 421 !important;
 }
 .softphone-panel {
+  display: flex;
+  flex-direction: column;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.softphone-body {
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .softphone-panel--expanded {
@@ -2234,6 +2241,70 @@ html.dark #pipelineColumnsPopover {
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.15rem;
   padding: 0.35rem 0.5rem 0.15rem;
+  flex-shrink: 0;
+}
+
+.softphone-nav-btn span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.softphone-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.dark .softphone-queue-item {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.softphone-queue-dial {
+  flex-shrink: 0;
+  border-radius: 0.75rem;
+  background: #6ee7b7;
+  color: #fff;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.softphone-queue-dial:hover {
+  filter: brightness(1.05);
+}
+
+@media (max-height: 720px) {
+  .softphone-key {
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+
+  .softphone-key-main {
+    font-size: 1.45rem;
+  }
+
+  .softphone-call-btn {
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+
+  .softphone-keypad-grid {
+    gap: 0.55rem 0.75rem;
+  }
+
+  .softphone-call-row {
+    margin-top: 0.75rem;
+  }
 }
 
 .softphone-nav-btn {

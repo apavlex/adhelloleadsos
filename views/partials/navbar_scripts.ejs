@@ -1242,6 +1242,99 @@
   var spExpand = document.getElementById('softphoneExpandBtn');
   var spChangeFrom = document.getElementById('softphoneChangeFromBtn');
   var spOpenAddLead = document.getElementById('softphoneOpenAddLead');
+  var spQueueList = document.getElementById('softphoneQueueList');
+  var spQueueMeta = document.getElementById('softphoneQueueMeta');
+
+  function softphoneQueueRowTitle(row) {
+    if (!row || !row.dataset) return 'Lead';
+    return String(row.dataset.title || row.dataset.company || '').trim() || 'Lead';
+  }
+
+  function softphoneQueueRowKey(row) {
+    if (!row || !row.dataset) return '';
+    return String(row.dataset.leadKey || '').trim();
+  }
+
+  function softphoneQueueReadPhone(row) {
+    if (typeof window.__readPipelineRowDisplayPhone === 'function') {
+      return String(window.__readPipelineRowDisplayPhone(row) || '').trim();
+    }
+    if (!row || !row.dataset) return '';
+    var p = String(row.dataset.phone || '').trim();
+    return p && p !== 'N/A' && p !== '—' ? p : '';
+  }
+
+  function collectSoftphoneQueueRows() {
+    var rows = [];
+    var seen = new Set();
+    function add(row) {
+      if (!row || seen.has(row)) return;
+      seen.add(row);
+      rows.push(row);
+    }
+    if (typeof window.__getSelectedLeadRowsForBulk === 'function') {
+      (window.__getSelectedLeadRowsForBulk() || []).forEach(add);
+    }
+    if (typeof window.__getActiveLeadPanelRow === 'function') {
+      add(window.__getActiveLeadPanelRow());
+    }
+    return rows;
+  }
+
+  function renderSoftphoneCallQueue() {
+    if (!spQueueList) return;
+    var rows = collectSoftphoneQueueRows();
+    var callable = [];
+    rows.forEach(function (row) {
+      var phone = softphoneQueueReadPhone(row);
+      if (phone) callable.push({ row: row, phone: phone, title: softphoneQueueRowTitle(row), key: softphoneQueueRowKey(row) });
+    });
+    spQueueList.innerHTML = '';
+    if (spQueueMeta) {
+      if (!callable.length) {
+        spQueueMeta.textContent =
+          rows.length > 0
+            ? 'Selected leads have no phone numbers on file.'
+            : 'Select leads in the pipeline (checkboxes) or open a lead — callable numbers appear here.';
+      } else {
+        spQueueMeta.textContent =
+          callable.length +
+          ' lead' +
+          (callable.length === 1 ? '' : 's') +
+          ' ready to dial from your pipeline selection.';
+      }
+    }
+    if (!callable.length) {
+      spQueueList.innerHTML = '<p class="text-xs text-slate-500">No callable leads in your current selection.</p>';
+      return;
+    }
+    callable.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'softphone-queue-item';
+      var body = document.createElement('div');
+      body.className = 'min-w-0 flex-1';
+      var titleEl = document.createElement('p');
+      titleEl.className = 'text-sm font-semibold text-slate-800 dark:text-white truncate';
+      titleEl.textContent = item.title;
+      var phoneEl = document.createElement('p');
+      phoneEl.className = 'text-xs tabular-nums text-slate-500 dark:text-slate-400';
+      phoneEl.textContent = item.phone;
+      body.appendChild(titleEl);
+      body.appendChild(phoneEl);
+      var dialBtn = document.createElement('button');
+      dialBtn.type = 'button';
+      dialBtn.className = 'softphone-queue-dial';
+      dialBtn.textContent = 'Dial';
+      dialBtn.addEventListener('click', function () {
+        openSoftphoneWithDial(item.phone, { leadKey: item.key, autoDial: false });
+        setSoftphoneTab('keypad');
+      });
+      card.appendChild(body);
+      card.appendChild(dialBtn);
+      spQueueList.appendChild(card);
+    });
+  }
+  window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
 
   function setSoftphoneTab(tab) {
     var name = String(tab || 'keypad');
@@ -1255,6 +1348,7 @@
     });
     try { localStorage.setItem(SOFTPHONE_TAB_KEY, name); } catch (_) {}
     if (name === 'recents') renderRecentDials();
+    if (name === 'queue') renderSoftphoneCallQueue();
     if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
   }
   window.__adhelloSoftphoneSetTab = setSoftphoneTab;
@@ -1263,6 +1357,12 @@
     btn.addEventListener('click', function () {
       setSoftphoneTab(btn.getAttribute('data-tab') || 'keypad');
     });
+  });
+
+  document.addEventListener('change', function (e) {
+    if (!e.target || !e.target.matches('input.lead-checkbox, input.row-checkbox')) return;
+    var queuePanel = document.getElementById('softphoneTabQueue');
+    if (queuePanel && !queuePanel.classList.contains('hidden')) renderSoftphoneCallQueue();
   });
 
   if (spBackspace && spTo) {

@@ -10808,6 +10808,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return rows;
   }
   window.__getSelectedLeadRowsForBulk = getSelectedLeadRowsForBulk;
+  window.__readPipelineRowDisplayPhone = readPipelineRowDisplayPhone;
+  window.__getActiveLeadPanelRow = function () {
+    return currentRow && currentRow.dataset ? currentRow : null;
+  };
 
   /** Sync selectedKeys from DOM checkboxes; returns key list for bulk handlers. */
   function ensureBulkSelectionKeys() {
