@@ -2736,8 +2736,25 @@ html.dark #pipelineColumnsPopover {
   opacity: 1 !important;
 }
 
-[data-pipeline-menu-panel].hidden {
+.pipeline-import-export-menu-panel,
+.pipeline-import-export-menu-panel__surface {
+  background-color: #ffffff !important;
+  background-image: none !important;
+  background: #ffffff !important;
+}
+
+[data-pipeline-menu-panel].hidden,
+[data-pipeline-menu-panel][hidden] {
   display: none !important;
+}
+
+.dark .pipeline-import-export-menu-panel,
+.dark .pipeline-import-export-menu-panel__surface,
+html.dark .pipeline-import-export-menu-panel,
+html.dark .pipeline-import-export-menu-panel__surface {
+  background-color: #0f172a !important;
+  background: #0f172a !important;
+  color: #f8fafc;
 }
 
 .dark [data-pipeline-menu-panel],

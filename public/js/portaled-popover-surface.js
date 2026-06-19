@@ -18,6 +18,11 @@
     el.style.setProperty('opacity', '1', 'important');
     el.style.setProperty('isolation', 'isolate', 'important');
     el.style.setProperty('box-decoration-break', 'clone', 'important');
+    el.querySelectorAll('.pipeline-import-export-menu-panel__surface').forEach(function (inner) {
+      inner.style.setProperty('background-color', bg, 'important');
+      inner.style.setProperty('background-image', 'none', 'important');
+      inner.style.setProperty('background', bg, 'important');
+    });
   }
 
   global.portaledPopoverSolidBg = portaledPopoverSolidBg;
