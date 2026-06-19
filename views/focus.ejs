@@ -104,7 +104,12 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
           <div id="focus-map-wrap" class="hidden w-full md:w-[min(100%,280px)] shrink-0 rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner">
-            <iframe id="focus-map-iframe" class="absolute inset-0 w-full h-full border-0" title="Business location on Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen="allowfullscreen"></iframe>
+            <img id="focus-map-img" class="absolute inset-0 z-0 hidden h-full w-full object-cover" alt="" loading="eager" width="560" height="420" decoding="async" />
+            <div id="focus-map-fallback" class="absolute inset-0 z-0 hidden flex-col items-center justify-center gap-2 px-3 text-center bg-brand-cream/90 dark:bg-slate-900/95">
+              <svg class="w-7 h-7 text-brand-yellow shrink-0 opacity-95" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a2 2 0 01-2.828 0l-4.243-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+              <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Map preview unavailable</span>
+            </div>
+            <a id="focus-map-open-link" href="#" target="_blank" rel="noopener noreferrer" class="absolute bottom-2 left-2 z-[1] inline-flex items-center rounded-full border border-brand-dark/70 dark:border-white/20 bg-white/95 dark:bg-slate-900/95 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white shadow-md hover:border-brand-yellow transition-colors">Open in Maps</a>
           </div>
           <div class="flex-1 min-w-0 w-full">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -1101,46 +1106,124 @@
       return [title, cs].filter(Boolean).join(' ').trim();
     }
 
+    var focusMapLoadGen = 0;
+
+    function buildFocusStaticMapUrl(center, key, width, height) {
+      var c = String(center || '').trim();
+      var k = String(key || '').trim();
+      if (!c || !k) return '';
+      var w = Math.min(640, Math.max(100, parseInt(width, 10) || 560));
+      var h = Math.min(640, Math.max(100, parseInt(height, 10) || 420));
+      return (
+        'https://maps.googleapis.com/maps/api/staticmap?center=' +
+        encodeURIComponent(c) +
+        '&zoom=15&size=' +
+        w +
+        'x' +
+        h +
+        '&scale=2&maptype=roadmap&markers=' +
+        encodeURIComponent('color:0xEAB308|' + c) +
+        '&key=' +
+        encodeURIComponent(k)
+      );
+    }
+
     function renderFocusMap(lead) {
       var wrap = document.getElementById('focus-map-wrap');
-      var iframe = document.getElementById('focus-map-iframe');
-      if (!wrap || !iframe) return;
+      var img = document.getElementById('focus-map-img');
+      var fallback = document.getElementById('focus-map-fallback');
+      var openLink = document.getElementById('focus-map-open-link');
+      if (!wrap || !img) return;
       var q = mapQueryFromFocusLead(lead);
       if (!q) {
         wrap.classList.add('hidden');
-        iframe.removeAttribute('src');
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+        if (fallback) {
+          fallback.classList.add('hidden');
+          fallback.classList.remove('flex');
+        }
         return;
       }
+
+      var mapsHref = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(q);
+      if (openLink) {
+        openLink.href = mapsHref;
+        openLink.classList.remove('hidden');
+      }
+
       var key =
         typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__
           ? String(window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__).trim()
           : '';
-      function setFocusMapSrc(useKeyless) {
-        if (typeof window.AdhelloMaps !== 'undefined' && window.AdhelloMaps.embedSrc) {
-          return window.AdhelloMaps.embedSrc(q, useKeyless ? '' : key);
-        }
-        if (key && !useKeyless) {
-          return (
-            'https://www.google.com/maps/embed/v1/place?key=' +
-            encodeURIComponent(key) +
-            '&q=' +
-            encodeURIComponent(q) +
-            '&zoom=15&maptype=roadmap'
-          );
-        }
-        return (
-          'https://www.google.com/maps?q=' +
-          encodeURIComponent(q) +
-          '&hl=en&z=15&output=embed'
-        );
+
+      var loadGen = ++focusMapLoadGen;
+      function isCurrentLoad() {
+        return loadGen === focusMapLoadGen;
       }
+
+      function showFallback() {
+        if (!isCurrentLoad()) return;
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+        if (fallback) {
+          fallback.classList.remove('hidden');
+          fallback.classList.add('flex');
+        }
+      }
+
+      function revealImage() {
+        if (!isCurrentLoad()) return;
+        img.classList.remove('hidden');
+        if (fallback) {
+          fallback.classList.add('hidden');
+          fallback.classList.remove('flex');
+        }
+      }
+
+      function loadPreviewImage(previewUrl, onFail) {
+        img.alt = lead && lead.title ? 'Map near ' + String(lead.title).slice(0, 80) : 'Business location map';
+        img.onload = function () {
+          if (!isCurrentLoad()) return;
+          revealImage();
+        };
+        img.onerror = function () {
+          if (!isCurrentLoad()) return;
+          if (typeof onFail === 'function') onFail();
+          else showFallback();
+        };
+        img.classList.add('hidden');
+        img.src = previewUrl;
+      }
+
       wrap.classList.remove('hidden');
-      iframe.onerror = null;
-      iframe.onerror = function () {
-        iframe.onerror = null;
-        if (key) iframe.src = setFocusMapSrc(true);
-      };
-      iframe.src = setFocusMapSrc(false);
+      if (fallback) {
+        fallback.classList.add('hidden');
+        fallback.classList.remove('flex');
+      }
+
+      var params = new URLSearchParams();
+      params.set('center', q);
+      if (lead && lead.latitude != null && lead.longitude != null && Number.isFinite(Number(lead.latitude)) && Number.isFinite(Number(lead.longitude))) {
+        params.set('lat', String(lead.latitude));
+        params.set('lng', String(lead.longitude));
+      }
+      params.set('w', '560');
+      params.set('h', '420');
+
+      loadPreviewImage('/leads/map-preview?' + params.toString(), function () {
+        if (!isCurrentLoad()) return;
+        var clientStatic = buildFocusStaticMapUrl(q, key, 560, 420);
+        if (clientStatic) {
+          loadPreviewImage(clientStatic, showFallback);
+        } else {
+          showFallback();
+        }
+      });
     }
 
     function renderBusinessInfo(lead) {
@@ -1705,10 +1788,11 @@
         elEmptyTitle.textContent = 'No leads in this queue';
         elEmptyDesc.textContent = 'Add or import leads to your pipeline, then come back.';
         var fwEmpty = document.getElementById('focus-map-wrap');
-        var fiEmpty = document.getElementById('focus-map-iframe');
+        var fiEmpty = document.getElementById('focus-map-img');
         if (fwEmpty && fiEmpty) {
           fwEmpty.classList.add('hidden');
           fiEmpty.removeAttribute('src');
+          fiEmpty.classList.add('hidden');
         }
         return;
       }
