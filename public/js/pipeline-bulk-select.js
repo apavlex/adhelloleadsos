@@ -6,9 +6,9 @@
 
   function getPageCheckboxes(table) {
     if (!table) return [];
+    const rowSel = 'tbody tr.result-row:not(.pipeline-row-page-hidden)';
     const boxes = [];
-    table.querySelectorAll('tbody tr').forEach((tr) => {
-      if (tr.classList.contains('pipeline-row-page-hidden')) return;
+    table.querySelectorAll(rowSel).forEach((tr) => {
       const cb = tr.querySelector(
         'input[type="checkbox"].lead-checkbox, input[type="checkbox"].row-checkbox',
       );
@@ -17,11 +17,11 @@
     if (boxes.length) return boxes;
     return Array.from(
       table.querySelectorAll(
-        'tbody input[type="checkbox"].lead-checkbox, tbody input[type="checkbox"].row-checkbox',
+        'tbody tr.result-row input[type="checkbox"].lead-checkbox, tbody tr.result-row input[type="checkbox"].row-checkbox',
       ),
     ).filter((cb) => {
       const tr = cb.closest('tr');
-      return !tr || !tr.classList.contains('pipeline-row-page-hidden');
+      return tr && !tr.classList.contains('pipeline-row-page-hidden');
     });
   }
 
@@ -198,6 +198,26 @@
     }
   }
 
+  function notifyCheckboxChanged(cb) {
+    if (!cb) return;
+    try {
+      cb.dispatchEvent(new Event('input', { bubbles: true }));
+      cb.dispatchEvent(new Event('change', { bubbles: true }));
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function syncTableRowHighlights(table) {
+    if (!table) return;
+    table.querySelectorAll('tbody tr.result-row:not(.pipeline-row-page-hidden)').forEach((tr) => {
+      const cb = tr.querySelector('input.lead-checkbox, input.row-checkbox');
+      const on = !!(cb && cb.checked);
+      tr.classList.toggle('bulk-selected', on);
+      tr.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+  }
+
   function syncSelectAllHeaderForTable(table) {
     if (!table) return;
     const header = table.querySelector('thead input[data-select-all-leads]');
@@ -214,14 +234,25 @@
   }
 
   function applyBulkRangeSelection(table, fromIndex, toIndex, checked) {
-    const boxes = getPageCheckboxes(table);
-    const start = Math.min(fromIndex, toIndex);
-    const end = Math.max(fromIndex, toIndex);
-    for (let i = start; i <= end; i += 1) {
-      if (boxes[i]) setCheckboxChecked(boxes[i], checked);
+    window.__bulkSelectRangeSync = true;
+    try {
+      const boxes = getPageCheckboxes(table);
+      const start = Math.min(fromIndex, toIndex);
+      const end = Math.max(fromIndex, toIndex);
+      let lastChanged = null;
+      for (let i = start; i <= end; i += 1) {
+        if (boxes[i]) {
+          setCheckboxChecked(boxes[i], checked);
+          lastChanged = boxes[i];
+        }
+      }
+      syncTableRowHighlights(table);
+      syncSelectAllHeaderForTable(table);
+      if (lastChanged) notifyCheckboxChanged(lastChanged);
+      syncBulkBarFromDom();
+    } finally {
+      window.__bulkSelectRangeSync = false;
     }
-    syncSelectAllHeaderForTable(table);
-    syncBulkBarFromDom();
   }
 
   function handleShiftBulkSelect(table, targetIndex) {
@@ -233,10 +264,19 @@
     ) {
       applyBulkRangeSelection(table, lastBulkSelectAnchor.index, targetIndex, true);
     } else {
-      const boxes = getPageCheckboxes(table);
-      if (boxes[targetIndex]) setCheckboxChecked(boxes[targetIndex], true);
-      syncSelectAllHeaderForTable(table);
-      syncBulkBarFromDom();
+      window.__bulkSelectRangeSync = true;
+      try {
+        const boxes = getPageCheckboxes(table);
+        if (boxes[targetIndex]) {
+          setCheckboxChecked(boxes[targetIndex], true);
+          notifyCheckboxChanged(boxes[targetIndex]);
+        }
+        syncTableRowHighlights(table);
+        syncSelectAllHeaderForTable(table);
+        syncBulkBarFromDom();
+      } finally {
+        window.__bulkSelectRangeSync = false;
+      }
     }
     lastBulkSelectAnchor = { table: table, index: targetIndex };
   }
@@ -253,33 +293,14 @@
           e.target && e.target.closest
             ? e.target.closest('input.lead-checkbox, input.row-checkbox')
             : null;
-        if (!cb) return;
-        const table = cb.closest('table');
-        if (!table) return;
-        e.preventDefault();
-        handleShiftBulkSelect(table, getCheckboxIndex(table, cb));
-      },
-      true,
-    );
-
-    document.addEventListener(
-      'click',
-      (e) => {
-        const cb =
-          e.target && e.target.closest
-            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
-            : null;
-        if (cb && !e.shiftKey) {
+        if (cb) {
           const table = cb.closest('table');
-          if (table) {
-            requestAnimationFrame(function () {
-              lastBulkSelectAnchor = { table: table, index: getCheckboxIndex(table, cb) };
-            });
-          }
+          if (!table) return;
+          e.preventDefault();
+          e.stopPropagation();
+          handleShiftBulkSelect(table, getCheckboxIndex(table, cb));
           return;
         }
-
-        if (!e.shiftKey) return;
         const row =
           e.target && e.target.closest
             ? e.target.closest('tr.result-row:not(.pipeline-row-page-hidden)')
@@ -287,11 +308,26 @@
         if (!row || !isBulkSelectRowTarget(e.target)) return;
         const table = row.closest('table');
         if (!table) return;
-        const idx = getCheckboxIndex(table, row);
-        if (idx < 0) return;
         e.preventDefault();
         e.stopPropagation();
-        handleShiftBulkSelect(table, idx);
+        handleShiftBulkSelect(table, getCheckboxIndex(table, row));
+      },
+      true,
+    );
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (e.shiftKey) return;
+        const cb =
+          e.target && e.target.closest
+            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
+            : null;
+        if (!cb) return;
+        const table = cb.closest('table');
+        if (!table) return;
+        const idx = getCheckboxIndex(table, cb);
+        if (idx >= 0) lastBulkSelectAnchor = { table: table, index: idx };
       },
       true,
     );
@@ -323,8 +359,7 @@
     header.checked = checked;
     header.indeterminate = false;
 
-    table.querySelectorAll('tbody tr').forEach((tr) => {
-      if (tr.classList.contains('pipeline-row-page-hidden')) return;
+    table.querySelectorAll('tbody tr.result-row:not(.pipeline-row-page-hidden)').forEach((tr) => {
       const cb = tr.querySelector('input.lead-checkbox, input.row-checkbox');
       const on = !!(cb && cb.checked);
       tr.classList.toggle('bulk-selected', on);

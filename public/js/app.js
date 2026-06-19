@@ -11040,7 +11040,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (t.classList.contains('lead-checkbox') || t.classList.contains('row-checkbox'))
       ) {
         e.stopPropagation();
-        if (bulkSelectSyncing) return;
+        if (bulkSelectSyncing || window.__bulkSelectRangeSync) return;
         syncSelectAllLeadCheckbox(table);
         const n = countCheckedLeadBoxes(table);
         if (typeof window.__showBulkActionBar === 'function') {
@@ -11235,14 +11235,29 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkSmsBtn.classList.toggle('cursor-not-allowed', count === 0);
     }
     if (bulkFocusModeBtn) {
-      const firstKey = hasSelection ? [...selectedKeys][0] : '';
+      const keyFromCb = (cb) => {
+        if (!cb) return '';
+        return String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim().replace(/^lead:/i, '');
+      };
+      const keys = hasSelection
+        ? getSelectedLeadCheckboxesForBulkActions().map(keyFromCb).filter(Boolean)
+        : [];
       bulkFocusModeBtn.classList.toggle('opacity-40', !hasSelection);
       bulkFocusModeBtn.classList.toggle('pointer-events-none', !hasSelection);
       bulkFocusModeBtn.setAttribute('aria-disabled', !hasSelection ? 'true' : 'false');
-      bulkFocusModeBtn.setAttribute('href', firstKey ? `/focus?lead=${encodeURIComponent(firstKey)}` : '/focus');
+      if (keys.length) {
+        bulkFocusModeBtn.setAttribute(
+          'href',
+          `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}`,
+        );
+      } else {
+        bulkFocusModeBtn.setAttribute('href', '/focus');
+      }
       bulkFocusModeBtn.setAttribute(
         'title',
-        firstKey ? 'Open Focus mode with selected lead first' : 'Select at least one lead to seed Focus mode',
+        keys.length
+          ? `Open Focus mode with ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
+          : 'Select at least one lead to seed Focus mode',
       );
     }
 
@@ -11479,7 +11494,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (!target.classList || (!target.classList.contains('lead-checkbox') && !target.classList.contains('row-checkbox'))) return;
-    if (bulkSelectSyncing) return;
+    if (bulkSelectSyncing || window.__bulkSelectRangeSync) return;
     syncSelectAllLeadCheckbox();
     updateBulkActionBar();
   });
@@ -11487,7 +11502,7 @@ document.addEventListener('DOMContentLoaded', () => {
   document.addEventListener('input', (e) => {
     const target = e.target;
     if (!target || !target.classList || (!target.classList.contains('lead-checkbox') && !target.classList.contains('row-checkbox'))) return;
-    if (bulkSelectSyncing) return;
+    if (bulkSelectSyncing || window.__bulkSelectRangeSync) return;
     syncSelectAllLeadCheckbox();
     updateBulkActionBar();
   });
@@ -11496,7 +11511,7 @@ document.addEventListener('DOMContentLoaded', () => {
     'click',
     (e) => {
       const cb = e.target && e.target.closest ? e.target.closest('.lead-checkbox') : null;
-      if (!cb || bulkSelectSyncing) return;
+      if (!cb || bulkSelectSyncing || window.__bulkSelectRangeSync) return;
       requestAnimationFrame(() => {
         syncSelectAllLeadCheckbox();
         updateBulkActionBar();

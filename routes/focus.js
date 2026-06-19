@@ -161,6 +161,30 @@ router.post('/touch-goal', async (req, res, next) => {
   }
 });
 
+function parseFocusKeysQuery(raw) {
+  const text = String(raw || '').trim();
+  if (!text) return [];
+  const seen = new Set();
+  const keys = [];
+  text.split(',').forEach((part) => {
+    const key = String(part || '').trim().replace(/^lead:/i, '');
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    keys.push(key);
+  });
+  return keys;
+}
+
+function orderLeadsByKeys(leads, keyOrder) {
+  if (!Array.isArray(keyOrder) || !keyOrder.length) return null;
+  const byKey = new Map();
+  (Array.isArray(leads) ? leads : []).forEach((l) => {
+    if (!l) return;
+    byKey.set(shortLeadKey(l), l);
+  });
+  return keyOrder.map((k) => byKey.get(k)).filter(Boolean);
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -169,7 +193,11 @@ router.get('/', async (req, res, next) => {
     const pipelineLeads = excludeOutreachFolderLeads(visible);
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-    const ordered = buildFocusQueue(pipelineLeads);
+    const selectedKeyOrder = parseFocusKeysQuery(req.query.keys);
+    const selectedOnly = selectedKeyOrder.length > 0;
+    let ordered = selectedOnly
+      ? orderLeadsByKeys(pipelineLeads, selectedKeyOrder) || []
+      : buildFocusQueue(pipelineLeads);
     const queue = ordered.map((l) => leadToFocusPayload(l, sortedStages));
     const prefer = String(req.query.lead || req.query.leadId || '')
       .trim()
@@ -197,6 +225,8 @@ router.get('/', async (req, res, next) => {
       touchGoal,
       focusQueueJson: JSON.stringify(queue),
       focusProductOptions,
+      focusSelectionCount: selectedOnly ? queue.length : null,
+      focusIsSelectionSession: selectedOnly,
     });
   } catch (e) {
     next(e);
