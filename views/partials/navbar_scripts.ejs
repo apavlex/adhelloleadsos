@@ -351,7 +351,10 @@
   function softphoneModeDescription(mode, hasRelayWebrtc) {
     var m = String(mode || '').trim() || 'cloud_dial';
     if (m === 'cloud_dial') {
-      return 'Call routing: Cloud (SignalWire) — the server places the call right away. No in-tab audio; the contact’s phone rings on the network.';
+      if (hasRelayWebrtc) {
+        return 'Call routing: Cloud + browser audio — talk through your computer mic and speakers (WebRTC). Allow microphone when the browser prompts you.';
+      }
+      return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
     if (m === 'agent_first') {
       return 'Call routing: Agent first — your mobile rings first; when you answer, the lead is dialed. Use your iPhone (Bluetooth) for two-way talk. The browser only starts the call.';
@@ -1182,7 +1185,9 @@
     softphoneSession.activeNumber = to;
     var p;
     var tryWebrtc =
-      action === 'call' && spRelayWebrtc && spWorkspaceCallMode !== 'cloud_dial' && spWorkspaceCallMode !== 'agent_first';
+      action === 'call' &&
+      spRelayWebrtc &&
+      spWorkspaceCallMode === 'cloud_dial';
     if (tryWebrtc) {
       p = tryWebrtcSoftphone(to).then(function (ok) {
         if (ok) return;

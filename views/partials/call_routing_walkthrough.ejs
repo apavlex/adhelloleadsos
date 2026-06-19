@@ -144,7 +144,7 @@
         html:
           banner +
           '<p>In <strong>Workspace → Phone number bank</strong>, under <strong>Call routing mode</strong>, select <strong>Cloud dial</strong> (left card).</p>' +
-          '<p class="mt-3 text-xs text-brand-muted">SignalWire places the call from your workspace number. There is <strong>no in-browser call audio</strong> for PSTN — best for voicemail drop and server-managed outbound.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">With <strong>Cloud dial</strong>, AdHello uses SignalWire from your workspace number. When WebRTC is enabled on the server (<code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">SIGNALWIRE_SPACE_URL</code>), two-way calls use your <strong>computer mic and speakers</strong> in the browser tab — no mobile handoff.</p>' +
           adminNote,
       },
       {
@@ -159,7 +159,7 @@
         title: 'Dial &amp; voicemail drop',
         html:
           '<p>Open the <strong>AdHello</strong> dialer, choose an <strong>Outbound number</strong>, enter the lead’s number, then <strong>Call</strong> or use <strong>Voicemail drop</strong> flows as designed.</p>' +
-          '<p class="mt-3 text-xs text-brand-muted">Status in the dialer tracks the cloud leg; you will not hear the other party in the tab for normal PSTN cloud calls.</p>' +
+          '<p class="mt-3 text-xs text-brand-muted">Open the dialer, pick an outbound number, enter the lead’s number, then <strong>Call</strong>. Allow microphone access — you should hear audio in this tab. Status shows “WebRTC” when browser audio is active.</p>' +
           adminNote,
       },
     ];
@@ -232,7 +232,7 @@
     var lines = [];
     if (m === 'cloud_dial') {
       lines.push('Call routing is <strong>Cloud dial</strong> and at least one outbound number is on file.');
-      lines.push('You can still open the checklist if you are onboarding someone else or re-checking SignalWire / pacing settings.');
+      lines.push('With WebRTC configured, calls use your computer mic and speakers in the browser — not your mobile.');
     } else if (m === 'agent_first') {
       lines.push('Call routing is <strong>Agent first</strong>, your <strong>mobile (agent)</strong> is set in E.164, and outbound numbers look configured.');
       lines.push('If calls fail, confirm you saved phone bank after edits and that your mobile can receive PSTN calls.');
