@@ -2061,12 +2061,23 @@ html.dark #pipelineColumnsPopover {
     padding-top: 0;
 }
 
-/* AdHello softphone — compact dialer shell */
+/* AdHello softphone — portaled above lead panel (z-400) when open */
+#softphonePortal {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  pointer-events: none;
+}
+
+#softphonePortal > * {
+  pointer-events: auto;
+}
+
 #softphoneModal:not(.hidden) {
-  z-index: 420 !important;
+  z-index: 450 !important;
 }
 #softphoneModal:not(.hidden) #softphonePanel {
-  z-index: 421 !important;
+  z-index: 451 !important;
 }
 .softphone-panel {
   display: flex;

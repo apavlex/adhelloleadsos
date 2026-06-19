@@ -2682,6 +2682,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return true;
   }
 
+  function triggerLeadPanelEmail() {
+    if (!currentRow) {
+      notifyLeadPanelDial('Select a lead first.', 'error');
+      return;
+    }
+    const email = readPipelineRowDisplayEmail(currentRow);
+    if (!email) {
+      notifyLeadPanelDial('This lead has no email on file.', 'error');
+      return;
+    }
+    window.location.href = `mailto:${encodeURIComponent(email)}`;
+  }
+
   async function triggerLeadPanelCall() {
     if (!currentRow) {
       notifyLeadPanelDial('Select a lead first.', 'error');
@@ -9137,7 +9150,8 @@ document.addEventListener('DOMContentLoaded', () => {
   loadVoicemailSettings();
 
   // --- Generate Mailto Email Draft ---
-  const draftEmailBtn = document.getElementById('draftEmailBtn');
+  const leadPanelOutreachEmailBtn = document.getElementById('leadPanelOutreachEmailBtn');
+  const leadPanelScriptsBtn = document.getElementById('leadPanelScriptsBtn');
   const sidebarReportEmailBtn = document.getElementById('sidebarReportEmailBtn');
   const sidebarIncludeCoupon = document.getElementById('sidebarIncludeCoupon');
   const sidebarCouponWarning = document.getElementById('sidebarCouponWarning');
@@ -9150,10 +9164,19 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   if (sidebarIncludeCoupon) sidebarIncludeCoupon.addEventListener('change', syncSidebarCouponWarning);
   syncSidebarCouponWarning();
-  if (draftEmailBtn) {
-    draftEmailBtn.addEventListener('click', () => {
+  if (leadPanelOutreachEmailBtn) {
+    leadPanelOutreachEmailBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      triggerLeadPanelEmail();
+    });
+  }
+  if (leadPanelScriptsBtn) {
+    leadPanelScriptsBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       if (!currentRow) return;
-      if (typeof openLeadPanelNotepad === 'function') openLeadPanelNotepad();
+      if (typeof openLeadPanelComposer === 'function') openLeadPanelComposer();
       if (typeof openEmailIntelModal === 'function') openEmailIntelModal(currentRow);
     });
   }
