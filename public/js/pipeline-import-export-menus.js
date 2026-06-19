@@ -5,6 +5,26 @@
   /** @type {{ trigger: HTMLElement, panel: HTMLElement }[]} */
   var menuPairs = [];
   var initDone = false;
+  var docClickBound = false;
+
+  function resolveMenuPanel(menu, trigger) {
+    if (!menu && !trigger) return null;
+    var menuId =
+      (menu && menu.getAttribute('data-pipeline-menu-id')) ||
+      (trigger && trigger.getAttribute('data-pipeline-menu-id')) ||
+      '';
+    if (menuId) {
+      var byId = document.querySelector(
+        '[data-pipeline-menu-panel][data-pipeline-menu-id="' + menuId + '"]',
+      );
+      if (byId) return byId;
+    }
+    if (menu) {
+      var nested = menu.querySelector('[data-pipeline-menu-panel]');
+      if (nested) return nested;
+    }
+    return null;
+  }
 
   function menuPanelSolidBg() {
     return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
@@ -93,9 +113,6 @@
     document.querySelectorAll('[data-pipeline-menu-panel]').forEach(function (panel) {
       hideMenuPanel(panel);
       applyMenuPanelSurface(panel);
-      if (panel.parentElement && panel.parentElement !== document.body) {
-        document.body.appendChild(panel);
-      }
     });
   }
 
@@ -114,7 +131,7 @@
 
     document.querySelectorAll('[data-pipeline-menu]').forEach(function (menu) {
       var trigger = menu.querySelector('[data-pipeline-menu-trigger]');
-      var panel = menu.querySelector('[data-pipeline-menu-panel]');
+      var panel = resolveMenuPanel(menu, trigger);
       if (!trigger || !panel) return;
 
       menuPairs.push({ trigger: trigger, panel: panel });
@@ -143,9 +160,12 @@
       });
     });
 
-    document.addEventListener('click', closePipelineMenus);
-    window.addEventListener('resize', repositionOpenMenus, { passive: true });
-    window.addEventListener('scroll', repositionOpenMenus, { passive: true, capture: true });
+    if (!docClickBound) {
+      docClickBound = true;
+      document.addEventListener('click', closePipelineMenus);
+      window.addEventListener('resize', repositionOpenMenus, { passive: true });
+      window.addEventListener('scroll', repositionOpenMenus, { passive: true, capture: true });
+    }
 
     if (input) {
       document.querySelectorAll('.js-import-computer').forEach(function (btn) {
