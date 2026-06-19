@@ -37,7 +37,7 @@ const LMV_PROSPECTING_METHODS = [
     temperatureLabel: 'Warm',
     description: 'BNI, chambers of commerce, and local networking events.',
     actionLabel: 'Generate pitch',
-    actionHref: '/sales/personas',
+    actionHref: '/sales/personas#cars-reach',
   },
   {
     id: 'cold_email',

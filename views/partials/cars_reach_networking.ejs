@@ -1,0 +1,285 @@
+<% const _carSpecs = typeof carsReachSpecialties !== 'undefined' && carsReachSpecialties ? carsReachSpecialties : []; %>
+
+<section id="cars-reach" class="scroll-mt-28 mb-10" aria-label="Car's Reach networking scripts">
+  <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
+    <div class="px-5 py-4 md:px-6 md:py-5 border-b border-brand-border/30 dark:border-white/10">
+      <div class="flex items-center gap-2 mb-1">
+        <span class="arms-reach-icon arms-reach-icon--warm shrink-0" aria-hidden="true">
+          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+        </span>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">LMV method</p>
+      </div>
+      <h2 class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white">Car's Reach — Networking pitch generator</h2>
+      <p class="text-sm text-brand-muted dark:text-slate-400 mt-1 max-w-2xl">Scripts for BNI meetings, meetups, and networking events — elevator speech, follow-up, and booking a call.</p>
+    </div>
+
+    <div class="p-4 md:p-6 space-y-8">
+      <!-- Elevator -->
+      <article class="cars-reach-block rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-950/30 p-4 md:p-5">
+        <div class="flex items-start gap-3 mb-4">
+          <span class="arms-reach-icon arms-reach-icon--warm shrink-0" aria-hidden="true">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><line x1="12" x2="12" y1="19" y2="23"/><line x1="8" x2="16" y1="23" y2="23"/></svg>
+          </span>
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">30-second elevator speech</h3>
+            <p class="text-xs text-brand-muted dark:text-slate-400 mt-1">Introduce yourself at meetups and BNI. Pick your specialty, then regenerate for AI variations.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <label class="block">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your name</span>
+            <input type="text" id="carsElevatorName" autocomplete="off" placeholder="e.g. Alex" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your specialty</span>
+            <select id="carsElevatorSpecialty" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none cursor-pointer">
+              <% _carSpecs.forEach(function (s) { %>
+              <option value="<%= s.key %>"<%= s.key === 'website_design' ? ' selected' : '' %>><%= s.label %></option>
+              <% }); %>
+            </select>
+          </label>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <button type="button" class="js-cars-generate btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2" data-type="elevator" data-regen="0">Generate</button>
+          <button type="button" class="js-cars-generate text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1 rounded-lg px-3 py-2 border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" data-type="elevator" data-regen="1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Regenerate
+          </button>
+        </div>
+        <div class="cars-reach-output rounded-xl border border-emerald-500/25 bg-emerald-500/5 dark:bg-emerald-950/15 overflow-hidden">
+          <div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-emerald-500/15">
+            <span class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Your script</span>
+            <button type="button" class="js-cars-copy text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border border-brand-border/50 text-brand-muted hover:text-brand-dark dark:hover:text-white" data-target="carsElevatorOutput">Copy</button>
+          </div>
+          <textarea id="carsElevatorOutput" rows="5" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[5.5rem] border-0 outline-none" placeholder="Generate to see your elevator speech…" aria-label="Elevator speech"></textarea>
+        </div>
+      </article>
+
+      <!-- Follow-up -->
+      <article class="cars-reach-block rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-950/30 p-4 md:p-5">
+        <div class="flex items-start gap-3 mb-4">
+          <span class="arms-reach-icon arms-reach-icon--cold shrink-0" aria-hidden="true">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </span>
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Post-meetup follow-up</h3>
+            <p class="text-xs text-brand-muted dark:text-slate-400 mt-1">Send after meeting someone at a networking event.</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <label class="block">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Their name</span>
+            <input type="text" id="carsFollowTheirName" autocomplete="off" placeholder="e.g. Bobby" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Their business type</span>
+            <input type="text" id="carsFollowBusiness" autocomplete="off" placeholder="e.g. Therapist" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+          </label>
+          <label class="block">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Where you met</span>
+            <input type="text" id="carsFollowWhere" autocomplete="off" placeholder="e.g. Thursday BNI" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+          </label>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <button type="button" class="js-cars-generate btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2" data-type="followup" data-regen="0">Generate</button>
+          <button type="button" class="js-cars-generate text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1 rounded-lg px-3 py-2 border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" data-type="followup" data-regen="1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Regenerate
+          </button>
+        </div>
+        <div class="cars-reach-output rounded-xl border border-emerald-500/25 bg-emerald-500/5 dark:bg-emerald-950/15 overflow-hidden">
+          <div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-emerald-500/15">
+            <span class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Your script</span>
+            <button type="button" class="js-cars-copy text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border border-brand-border/50 text-brand-muted hover:text-brand-dark dark:hover:text-white" data-target="carsFollowOutput">Copy</button>
+          </div>
+          <textarea id="carsFollowOutput" rows="4" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[4.5rem] border-0 outline-none" placeholder="Generate your follow-up message…" aria-label="Follow-up message"></textarea>
+        </div>
+      </article>
+
+      <!-- Appointment -->
+      <article class="cars-reach-block rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-950/30 p-4 md:p-5">
+        <div class="flex items-start gap-3 mb-4">
+          <span class="arms-reach-icon arms-reach-icon--warm shrink-0" aria-hidden="true">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+          </span>
+          <div>
+            <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Transition to appointment</h3>
+            <p class="text-xs text-brand-muted dark:text-slate-400 mt-1">Book a call during the conversation — low pressure, natural exit from the networking moment.</p>
+          </div>
+        </div>
+        <label class="block max-w-md mb-4">
+          <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Suggested time (optional)</span>
+          <input type="text" id="carsApptTime" autocomplete="off" placeholder="e.g. Friday 5pm" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+        </label>
+        <div class="flex flex-wrap gap-2 mb-3">
+          <button type="button" class="js-cars-generate btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2" data-type="appointment" data-regen="0">Generate</button>
+          <button type="button" class="js-cars-generate text-[10px] font-black uppercase tracking-widest inline-flex items-center gap-1 rounded-lg px-3 py-2 border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors" data-type="appointment" data-regen="1">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            Regenerate
+          </button>
+        </div>
+        <div class="cars-reach-output rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-900/40 overflow-hidden">
+          <div class="flex items-center justify-between gap-2 px-3 py-2 border-b border-brand-border/30 dark:border-white/10">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your script</span>
+            <button type="button" class="js-cars-copy text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border border-brand-border/50 text-brand-muted hover:text-brand-dark dark:hover:text-white" data-target="carsApptOutput">Copy</button>
+          </div>
+          <textarea id="carsApptOutput" rows="4" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[4.5rem] border-0 outline-none" placeholder="Generate your transition script…" aria-label="Appointment transition script"></textarea>
+        </div>
+      </article>
+
+      <p id="carsReachStatus" class="hidden text-[11px] font-semibold" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+  var LS_PREFIX = 'adhello_cars_reach_';
+
+  function $(id) { return document.getElementById(id); }
+
+  var outputByType = {
+    elevator: 'carsElevatorOutput',
+    followup: 'carsFollowOutput',
+    appointment: 'carsApptOutput',
+  };
+
+  function status(msg, ok) {
+    var el = $('carsReachStatus');
+    if (!el) return;
+    if (!msg) { el.classList.add('hidden'); el.textContent = ''; return; }
+    el.textContent = msg;
+    el.classList.remove('hidden', 'text-emerald-600', 'text-rose-600', 'dark:text-emerald-300', 'dark:text-rose-300');
+    el.classList.add(ok ? 'text-emerald-600' : 'text-rose-600', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
+    clearTimeout(status._t);
+    status._t = setTimeout(function () { status('', true); }, 3200);
+  }
+
+  function persist() {
+    try {
+      var fields = {
+        elevatorName: $('carsElevatorName'),
+        elevatorSpecialty: $('carsElevatorSpecialty'),
+        followTheirName: $('carsFollowTheirName'),
+        followBusiness: $('carsFollowBusiness'),
+        followWhere: $('carsFollowWhere'),
+        apptTime: $('carsApptTime'),
+        elevatorOut: $('carsElevatorOutput'),
+        followOut: $('carsFollowOutput'),
+        apptOut: $('carsApptOutput'),
+      };
+      Object.keys(fields).forEach(function (k) {
+        var el = fields[k];
+        if (el) localStorage.setItem(LS_PREFIX + k, el.value);
+      });
+    } catch (_) {}
+  }
+
+  function loadSaved() {
+    try {
+      ['elevatorName', 'elevatorSpecialty', 'followTheirName', 'followBusiness', 'followWhere', 'apptTime', 'elevatorOut', 'followOut', 'apptOut'].forEach(function (k) {
+        var map = {
+          elevatorName: 'carsElevatorName',
+          elevatorSpecialty: 'carsElevatorSpecialty',
+          followTheirName: 'carsFollowTheirName',
+          followBusiness: 'carsFollowBusiness',
+          followWhere: 'carsFollowWhere',
+          apptTime: 'carsApptTime',
+          elevatorOut: 'carsElevatorOutput',
+          followOut: 'carsFollowOutput',
+          apptOut: 'carsApptOutput',
+        };
+        var v = localStorage.getItem(LS_PREFIX + k);
+        var el = $(map[k]);
+        if (v != null && el) el.value = v;
+      });
+    } catch (_) {}
+  }
+
+  function payload(type) {
+    var base = { scriptType: type };
+    if (type === 'elevator') {
+      base.yourName = ($('carsElevatorName') && $('carsElevatorName').value) || '';
+      base.specialtyKey = ($('carsElevatorSpecialty') && $('carsElevatorSpecialty').value) || 'general';
+    } else if (type === 'followup') {
+      base.theirName = ($('carsFollowTheirName') && $('carsFollowTheirName').value) || '';
+      base.theirBusinessType = ($('carsFollowBusiness') && $('carsFollowBusiness').value) || '';
+      base.whereMet = ($('carsFollowWhere') && $('carsFollowWhere').value) || '';
+    } else if (type === 'appointment') {
+      base.suggestedTime = ($('carsApptTime') && $('carsApptTime').value) || '';
+    }
+    return base;
+  }
+
+  async function copyText(text) {
+    var t = String(text || '').trim();
+    if (!t) return false;
+    try {
+      await navigator.clipboard.writeText(t);
+      return true;
+    } catch (_) {
+      var ta = document.createElement('textarea');
+      ta.value = t;
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    }
+  }
+
+  document.querySelectorAll('.js-cars-generate').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var type = btn.getAttribute('data-type');
+      var regen = btn.getAttribute('data-regen') === '1';
+      var outId = outputByType[type];
+      var out = outId && $(outId);
+      if (!type || !out) return;
+
+      var body = payload(type);
+      body.regenerate = regen;
+      body.currentScript = out.value || '';
+
+      btn.disabled = true;
+      status(regen ? 'Regenerating…' : 'Generating…', true);
+      try {
+        var res = await fetch('/sales/cars-reach/generate', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(body),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!data.success || !data.script) throw new Error(data.error || 'Generation failed');
+        out.value = data.script;
+        persist();
+        var note = data.provider === 'default' ? 'Default script ready — hit Regenerate for AI' : 'Script ready';
+        status(note, true);
+      } catch (err) {
+        status(err.message || 'Could not generate', false);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+
+  document.querySelectorAll('.js-cars-copy').forEach(function (btn) {
+    btn.addEventListener('click', async function () {
+      var id = btn.getAttribute('data-target');
+      var el = id && $(id);
+      var ok = await copyText(el && el.value);
+      status(ok ? 'Copied to clipboard' : 'Nothing to copy', ok);
+    });
+  });
+
+  ['carsElevatorName', 'carsElevatorSpecialty', 'carsFollowTheirName', 'carsFollowBusiness', 'carsFollowWhere', 'carsApptTime', 'carsElevatorOutput', 'carsFollowOutput', 'carsApptOutput'].forEach(function (id) {
+    var el = $(id);
+    if (!el) return;
+    el.addEventListener('input', persist);
+    if (el.tagName === 'SELECT') el.addEventListener('change', persist);
+  });
+
+  loadSaved();
+})();
+</script>

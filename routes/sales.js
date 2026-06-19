@@ -43,6 +43,8 @@ const {
   getUpworkProposalsFromWorkspace,
   trimProposalList,
 } = require('../services/upworkProposalStorage');
+const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
+const { generateCarsReachScript } = require('../services/carsReachScriptAi');
 
 // Legacy Command Center URL → Today (hub lives at GET /today)
 router.get('/', (req, res) => {
@@ -261,6 +263,7 @@ router.get('/personas', async (req, res, next) => {
       armsReachDefaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
       upworkProposalServices: UPWORK_PROPOSAL_SERVICES,
       upworkSavedProposals,
+      carsReachSpecialties: CARS_REACH_SPECIALTIES,
     });
   } catch (e) {
     next(e);
@@ -447,6 +450,27 @@ router.delete('/computers-reach/upwork/saved/:id', async (req, res, next) => {
     ws.upworkProposalsUpdatedAt = new Date().toISOString();
     await dbService.saveWorkspace(wid, ws);
     res.json({ success: true, proposals: nextItems });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: generate Car's Reach networking script (elevator, follow-up, appointment). */
+router.post('/cars-reach/generate', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const result = await generateCarsReachScript({
+      scriptType: body.scriptType,
+      yourName: body.yourName,
+      specialtyKey: body.specialtyKey,
+      theirName: body.theirName,
+      theirBusinessType: body.theirBusinessType,
+      whereMet: body.whereMet,
+      suggestedTime: body.suggestedTime,
+      regenerate: !!body.regenerate,
+      currentScript: body.currentScript,
+    });
+    return res.json(result);
   } catch (e) {
     next(e);
   }
