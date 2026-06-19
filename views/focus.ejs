@@ -286,9 +286,9 @@
           <input type="checkbox" id="focus-followup-enable" class="rounded border-brand-border" />
           Schedule follow-up task
         </label>
-        <div id="focus-followup-wrap" class="hidden">
-          <label for="focus-followup-at" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Follow-up date &amp; time</label>
-          <input id="focus-followup-at" type="datetime-local" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" />
+        <div id="focus-followup-wrap" class="hidden relative z-[1]">
+          <label for="focus-followup-at-trigger" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Follow-up date &amp; time</label>
+          <input id="focus-followup-at" type="datetime-local" class="sr-only" tabindex="-1" aria-hidden="true" />
         </div>
         <p id="focus-outcome-feedback" class="min-h-[1rem] text-[11px] text-brand-muted"></p>
         </div>
@@ -348,6 +348,7 @@
   </div>
 
   <script type="application/json" id="focus-queue-json"><%- typeof focusQueueJson !== 'undefined' ? focusQueueJson : '[]' %></script>
+  <script src="/js/gcal-datetime-picker.js"></script>
   <script>
   (function () {
     var queue = [];
@@ -401,6 +402,21 @@
     var elFollowupEnable = document.getElementById('focus-followup-enable');
     var elFollowupWrap = document.getElementById('focus-followup-wrap');
     var elFollowupAt = document.getElementById('focus-followup-at');
+    var focusFollowupPicker =
+      elFollowupAt && typeof window.initGcalDatetimePicker === 'function'
+        ? window.initGcalDatetimePicker(elFollowupAt, {
+            triggerId: 'focus-followup-at-trigger',
+            label: 'Schedule follow-up date and time',
+            minDate: new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()),
+          })
+        : null;
+
+    function ensureFollowupDefaultDateTime() {
+      if (!elFollowupAt || String(elFollowupAt.value || '').trim()) return;
+      if (focusFollowupPicker && typeof focusFollowupPicker.setDefaultInDays === 'function') {
+        focusFollowupPicker.setDefaultInDays(1, 10, 0);
+      }
+    }
     var elOutcomeFeedback = document.getElementById('focus-outcome-feedback');
     var elSubjectWrap = document.getElementById('focus-subject-wrap');
     var elSubject = document.getElementById('focus-subject');
@@ -1721,6 +1737,7 @@
       if (elFollowupEnable && (v === 'callback_requested' || v === 'talked_owner')) {
         elFollowupEnable.checked = true;
         if (elFollowupWrap) elFollowupWrap.classList.remove('hidden');
+        ensureFollowupDefaultDateTime();
       }
       setOutcomeFeedback('Outcome set: ' + (outcomeLabel(v) || v.replace(/_/g, ' ')), false);
     }
@@ -1836,7 +1853,12 @@
       if (elOutcomeNotes) elOutcomeNotes.value = '';
       if (elFollowupEnable) elFollowupEnable.checked = false;
       if (elFollowupWrap) elFollowupWrap.classList.add('hidden');
-      if (elFollowupAt) elFollowupAt.value = '';
+      if (elFollowupAt) {
+        elFollowupAt.value = '';
+        if (focusFollowupPicker && typeof focusFollowupPicker.clear === 'function') {
+          focusFollowupPicker.clear();
+        }
+      }
       setOutcomeFeedback('');
       applyChannelUI();
       fetchReviewSummary();
@@ -2351,6 +2373,7 @@
     if (elFollowupEnable && elFollowupWrap) {
       elFollowupEnable.addEventListener('change', function () {
         elFollowupWrap.classList.toggle('hidden', !elFollowupEnable.checked);
+        if (elFollowupEnable.checked) ensureFollowupDefaultDateTime();
       });
     }
     if (elQuickOutcomeBtns && elQuickOutcomeBtns.length) {
