@@ -62,6 +62,35 @@ function isInOutreachFolder(l) {
   return Boolean(String(l.folderKey || '').trim());
 }
 
+function hasUsableContactEmail(l) {
+  const e = String(l.email || '').trim();
+  return e.length > 0 && e !== 'N/A' && e.includes('@');
+}
+
+function hasUsableContactPhone(l) {
+  const p = String(l.phone || '').trim();
+  return p.length > 0 && p !== 'N/A' && /\d/.test(p);
+}
+
+function hasUsableSocialLink(l) {
+  const check = (v) => {
+    const s = String(v || '').trim();
+    return s.length > 3 && s !== 'N/A' && !/^none$/i.test(s);
+  };
+  return check(l.facebook) || check(l.instagram) || check(l.twitter) || check(l.linkedin);
+}
+
+function matchesReachFilter(l, reach) {
+  const mode = String(reach || '').trim().toLowerCase();
+  if (!mode || mode === 'all') return true;
+  if (mode === 'email') return hasUsableContactEmail(l);
+  if (mode === 'phone' || mode === 'call') return hasUsableContactPhone(l);
+  if (mode === 'double_tap' || mode === 'doubletap') {
+    return hasUsableContactEmail(l) && hasUsableContactPhone(l) && hasUsableSocialLink(l);
+  }
+  return true;
+}
+
 function excludeOutreachFolderLeads(leads) {
   return leads.filter((l) => !isInOutreachFolder(l));
 }
@@ -143,6 +172,11 @@ function applyLeadListFilters(leads, filters) {
     });
   }
 
+  const reach = String(filters.reach || '').trim();
+  if (reach) {
+    out = out.filter((l) => matchesReachFilter(l, reach));
+  }
+
   return out;
 }
 
@@ -177,6 +211,7 @@ const LEAD_LIST_FILTER_KEYS = [
   'addedTo',
   'folderKey',
   'tagKey',
+  'reach',
 ];
 
 function normalizeLeadListFilters(query) {
@@ -204,6 +239,10 @@ module.exports = {
   mapLeadListJson,
   isInOutreachFolder,
   excludeOutreachFolderLeads,
+  hasUsableContactEmail,
+  hasUsableContactPhone,
+  hasUsableSocialLink,
+  matchesReachFilter,
   LEAD_LIST_FILTER_KEYS,
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
