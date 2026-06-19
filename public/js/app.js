@@ -3136,6 +3136,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function pipelineRowActivateFromInline(ev, tr) {
     if (!ev || !tr || !tr.classList || !tr.classList.contains('result-row')) return;
     if (tr.classList.contains('result-row--panel-source')) return;
+    if (ev.shiftKey) return;
     const t = ev.target;
     if (!t || !t.closest) return;
     if (shouldIgnoreRowOpenClick(t)) return;
@@ -3167,6 +3168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const row = e.target.closest('.result-row');
     if (!row || row.classList.contains('result-row--panel-source')) return;
+    if (e.shiftKey) return;
     if (shouldIgnoreRowOpenClick(e.target)) return;
     selectRow(row);
   });
@@ -11506,6 +11508,9 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cancelSelectionBtn) {
     cancelSelectionBtn.addEventListener('click', () => {
       selectedKeys.clear();
+      if (typeof window.__resetBulkSelectAnchor === 'function') {
+        window.__resetBulkSelectAnchor();
+      }
       setPageLeadSelection(false);
     });
   }

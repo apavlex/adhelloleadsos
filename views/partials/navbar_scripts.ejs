@@ -1836,8 +1836,18 @@
     mlModal.classList.remove('flex');
     mlModal.setAttribute('aria-hidden', 'true');
     if (mlForm) mlForm.reset();
-    if (mlFileInput) { mlFileInput.value = ''; if (mlFileName) { mlFileName.textContent = ''; mlFileName.classList.add('hidden'); } }
+    if (mlFileInput) { mlFileInput.value = ''; mlFileInput.disabled = false; if (mlFileName) { mlFileName.textContent = ''; mlFileName.classList.add('hidden'); } }
     if (mlUploadSubmit) { mlUploadSubmit.disabled = true; mlUploadSubmit.textContent = 'Upload & import'; }
+    var mlUploadIcon = document.getElementById('manualLeadUploadIcon');
+    var mlUploadSpinner = document.getElementById('manualLeadUploadSpinner');
+    var mlUploadLoadingLabel = document.getElementById('manualLeadUploadLoadingLabel');
+    var mlUploadIdleCopy = document.getElementById('manualLeadUploadIdleCopy');
+    var mlUploadChooseLabel = document.getElementById('manualLeadUploadChooseLabel');
+    if (mlUploadIcon) mlUploadIcon.classList.remove('hidden');
+    if (mlUploadSpinner) mlUploadSpinner.classList.add('hidden');
+    if (mlUploadLoadingLabel) mlUploadLoadingLabel.classList.add('hidden');
+    if (mlUploadIdleCopy) mlUploadIdleCopy.classList.remove('hidden');
+    if (mlUploadChooseLabel) mlUploadChooseLabel.classList.remove('hidden');
     switchManualLeadTab('single');
   }
   if (mlOpen) mlOpen.addEventListener('click', openManualLead);
@@ -1971,14 +1981,29 @@
   }
 
   if (mlUploadForm) {
+    var mlUploadIcon = document.getElementById('manualLeadUploadIcon');
+    var mlUploadSpinner = document.getElementById('manualLeadUploadSpinner');
+    var mlUploadLoadingLabel = document.getElementById('manualLeadUploadLoadingLabel');
+    var mlUploadIdleCopy = document.getElementById('manualLeadUploadIdleCopy');
+    var mlUploadChooseLabel = document.getElementById('manualLeadUploadChooseLabel');
+
+    function setManualLeadUploadLoading(isLoading) {
+      if (mlUploadIcon) mlUploadIcon.classList.toggle('hidden', isLoading);
+      if (mlUploadSpinner) mlUploadSpinner.classList.toggle('hidden', !isLoading);
+      if (mlUploadLoadingLabel) mlUploadLoadingLabel.classList.toggle('hidden', !isLoading);
+      if (mlUploadIdleCopy) mlUploadIdleCopy.classList.toggle('hidden', isLoading);
+      if (mlUploadChooseLabel) mlUploadChooseLabel.classList.toggle('hidden', isLoading);
+      if (mlFileName && isLoading) mlFileName.classList.add('hidden');
+      if (mlFileInput) mlFileInput.disabled = isLoading;
+    }
+
     mlUploadForm.addEventListener('submit', function (e) {
       e.preventDefault();
       var file = mlFileInput && mlFileInput.files && mlFileInput.files[0];
       if (!file) return;
       var mlUploadErr = document.getElementById('manualLeadUploadError');
-      var mlUploadStatus = document.getElementById('manualLeadUploadStatus');
       if (mlUploadErr) { mlUploadErr.classList.add('hidden'); mlUploadErr.textContent = ''; }
-      if (mlUploadStatus) mlUploadStatus.classList.remove('hidden');
+      setManualLeadUploadLoading(true);
       if (mlUploadSubmit) { mlUploadSubmit.disabled = true; mlUploadSubmit.textContent = 'Importing…'; }
       var fd = new FormData();
       fd.append('csvfile', file);
@@ -1991,12 +2016,16 @@
         .then(function (_ref) {
           var ok = _ref.ok;
           var data = _ref.j;
-          if (mlUploadStatus) mlUploadStatus.classList.add('hidden');
+          setManualLeadUploadLoading(false);
           if (mlUploadSubmit) { mlUploadSubmit.disabled = false; mlUploadSubmit.textContent = 'Upload & import'; }
           if (ok && data.success) {
             closeManualLead();
             window.location.href = '/prospecting?tab=pipeline&imported=' + (data.imported || 0) + '&created=' + (data.created || 0) + '&updated=' + (data.updated || 0) + '&skipped=' + (data.skipped || 0) + '&failed=' + (data.failed || 0);
             return;
+          }
+          if (mlFileName && file) {
+            mlFileName.textContent = file.name;
+            mlFileName.classList.remove('hidden');
           }
           if (mlUploadErr) {
             mlUploadErr.textContent = (data && data.error) ? data.error : 'Import failed. Check file format.';
@@ -2004,8 +2033,12 @@
           }
         })
         .catch(function () {
-          if (mlUploadStatus) mlUploadStatus.classList.add('hidden');
+          setManualLeadUploadLoading(false);
           if (mlUploadSubmit) { mlUploadSubmit.disabled = false; mlUploadSubmit.textContent = 'Upload & import'; }
+          if (mlFileName && file) {
+            mlFileName.textContent = file.name;
+            mlFileName.classList.remove('hidden');
+          }
           if (mlUploadErr) {
             mlUploadErr.textContent = 'Network error. Try again.';
             mlUploadErr.classList.remove('hidden');

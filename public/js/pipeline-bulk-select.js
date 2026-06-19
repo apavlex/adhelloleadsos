@@ -149,6 +149,154 @@
   }
   window.__syncBulkBarFromDom = syncBulkBarFromDom;
 
+  /** Last row index used for shift-click range selection (per table). */
+  let lastBulkSelectAnchor = null;
+
+  function resetBulkSelectAnchor() {
+    lastBulkSelectAnchor = null;
+  }
+  window.__resetBulkSelectAnchor = resetBulkSelectAnchor;
+
+  function isBulkSelectRowTarget(target) {
+    if (!target || !target.closest) return false;
+    if (target.closest('input, button, a, select, textarea, label, form')) return false;
+    if (
+      target.closest('.bookmark-btn') ||
+      target.closest('.view-detail-btn') ||
+      target.closest('.ai-analysis-btn') ||
+      target.closest('.lead-category-input') ||
+      target.closest('.plc-col-resize') ||
+      target.closest('.js-pipeline-columns-wrap')
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  function getCheckboxIndex(table, checkboxOrRow) {
+    const boxes = getPageCheckboxes(table);
+    if (!boxes.length) return -1;
+    let cb = null;
+    if (checkboxOrRow && checkboxOrRow.matches && checkboxOrRow.matches('input.lead-checkbox, input.row-checkbox')) {
+      cb = checkboxOrRow;
+    } else if (checkboxOrRow && checkboxOrRow.closest) {
+      cb = checkboxOrRow.querySelector('input.lead-checkbox, input.row-checkbox');
+    }
+    if (!cb) return -1;
+    return boxes.indexOf(cb);
+  }
+
+  function setCheckboxChecked(cb, checked) {
+    if (!cb) return;
+    cb.checked = checked;
+    if (checked) cb.setAttribute('checked', 'checked');
+    else cb.removeAttribute('checked');
+    const tr = cb.closest('tr');
+    if (tr) {
+      tr.classList.toggle('bulk-selected', checked);
+      tr.setAttribute('aria-selected', checked ? 'true' : 'false');
+    }
+  }
+
+  function syncSelectAllHeaderForTable(table) {
+    if (!table) return;
+    const header = table.querySelector('thead input[data-select-all-leads]');
+    if (!header) return;
+    const boxes = getPageCheckboxes(table);
+    if (!boxes.length) {
+      header.checked = false;
+      header.indeterminate = false;
+      return;
+    }
+    const checkedCount = boxes.filter((cb) => cb.checked).length;
+    header.checked = checkedCount > 0 && checkedCount === boxes.length;
+    header.indeterminate = checkedCount > 0 && checkedCount < boxes.length;
+  }
+
+  function applyBulkRangeSelection(table, fromIndex, toIndex, checked) {
+    const boxes = getPageCheckboxes(table);
+    const start = Math.min(fromIndex, toIndex);
+    const end = Math.max(fromIndex, toIndex);
+    for (let i = start; i <= end; i += 1) {
+      if (boxes[i]) setCheckboxChecked(boxes[i], checked);
+    }
+    syncSelectAllHeaderForTable(table);
+    syncBulkBarFromDom();
+  }
+
+  function handleShiftBulkSelect(table, targetIndex) {
+    if (targetIndex < 0) return;
+    if (
+      lastBulkSelectAnchor &&
+      lastBulkSelectAnchor.table === table &&
+      lastBulkSelectAnchor.index >= 0
+    ) {
+      applyBulkRangeSelection(table, lastBulkSelectAnchor.index, targetIndex, true);
+    } else {
+      const boxes = getPageCheckboxes(table);
+      if (boxes[targetIndex]) setCheckboxChecked(boxes[targetIndex], true);
+      syncSelectAllHeaderForTable(table);
+      syncBulkBarFromDom();
+    }
+    lastBulkSelectAnchor = { table: table, index: targetIndex };
+  }
+
+  function bindShiftClickRangeSelection() {
+    if (window.__BULK_SHIFT_SELECT_BOUND === '1') return;
+    window.__BULK_SHIFT_SELECT_BOUND = '1';
+
+    document.addEventListener(
+      'mousedown',
+      (e) => {
+        if (!e.shiftKey) return;
+        const cb =
+          e.target && e.target.closest
+            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
+            : null;
+        if (!cb) return;
+        const table = cb.closest('table');
+        if (!table) return;
+        e.preventDefault();
+        handleShiftBulkSelect(table, getCheckboxIndex(table, cb));
+      },
+      true,
+    );
+
+    document.addEventListener(
+      'click',
+      (e) => {
+        const cb =
+          e.target && e.target.closest
+            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
+            : null;
+        if (cb && !e.shiftKey) {
+          const table = cb.closest('table');
+          if (table) {
+            requestAnimationFrame(function () {
+              lastBulkSelectAnchor = { table: table, index: getCheckboxIndex(table, cb) };
+            });
+          }
+          return;
+        }
+
+        if (!e.shiftKey) return;
+        const row =
+          e.target && e.target.closest
+            ? e.target.closest('tr.result-row:not(.pipeline-row-page-hidden)')
+            : null;
+        if (!row || !isBulkSelectRowTarget(e.target)) return;
+        const table = row.closest('table');
+        if (!table) return;
+        const idx = getCheckboxIndex(table, row);
+        if (idx < 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        handleShiftBulkSelect(table, idx);
+      },
+      true,
+    );
+  }
+
   function applySelectAll(header, forceChecked) {
     if (!header || header.nodeType !== 1) return 0;
     const table =
@@ -184,6 +332,7 @@
     });
 
     syncBulkBarFromDom();
+    if (!checked) resetBulkSelectAnchor();
     return boxes.length;
   }
 
@@ -244,6 +393,7 @@
       });
     }
     bindBulkBarCaptureActions();
+    bindShiftClickRangeSelection();
     document.querySelectorAll('table').forEach((table) => {
       if (table.querySelector('thead input[data-select-all-leads]')) {
         bindTable(table);
