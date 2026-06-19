@@ -114,8 +114,9 @@ router.get('/', async (req, res, next) => {
         ? req.query.importError.trim()
         : null;
 
-    const queueListLeads = pipelineVisible.map(mapLeadListJson);
-    const folderListLeads = visible.map(mapLeadListJson);
+    const queueListLeads = safeTab === 'queue' ? pipelineVisible.map(mapLeadListJson) : [];
+    const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : [];
+    const leadBootstrapLeads = safeTab === 'pipeline' ? leads.map(mapLeadPipelineBootstrap) : [];
 
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
