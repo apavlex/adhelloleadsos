@@ -455,12 +455,16 @@
 
     function applyTagFilterMenuSurface() {
       if (!menu) return;
+      if (typeof window.applyPortaledPopoverSurface === 'function') {
+        window.applyPortaledPopoverSurface(menu);
+        return;
+      }
       const bg = tagFilterMenuSolidBg();
-      menu.style.backgroundColor = bg;
-      menu.style.background = bg;
-      menu.style.backdropFilter = 'none';
-      menu.style.webkitBackdropFilter = 'none';
-      menu.style.opacity = '1';
+      menu.style.setProperty('background-color', bg, 'important');
+      menu.style.setProperty('background', bg, 'important');
+      menu.style.setProperty('backdrop-filter', 'none', 'important');
+      menu.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+      menu.style.setProperty('opacity', '1', 'important');
     }
 
     function positionTagFilterMenu() {

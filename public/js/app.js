@@ -639,12 +639,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       function applyPipelineColumnsPopoverSurface() {
+        if (typeof window.applyPortaledPopoverSurface === 'function') {
+          window.applyPortaledPopoverSurface(pop);
+          return;
+        }
         const bg = pipelineColumnsPopoverSolidBg();
-        pop.style.backgroundColor = bg;
-        pop.style.background = bg;
-        pop.style.backdropFilter = 'none';
-        pop.style.webkitBackdropFilter = 'none';
-        pop.style.opacity = '1';
+        pop.style.setProperty('background-color', bg, 'important');
+        pop.style.setProperty('background', bg, 'important');
+        pop.style.setProperty('backdrop-filter', 'none', 'important');
+        pop.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+        pop.style.setProperty('opacity', '1', 'important');
       }
 
       function positionColumnsPopover() {
@@ -679,7 +683,10 @@ document.addEventListener('DOMContentLoaded', () => {
         positionColumnsPopover();
         pop.classList.remove('hidden');
         colBtn.setAttribute('aria-expanded', 'true');
-        requestAnimationFrame(positionColumnsPopover);
+        applyPipelineColumnsPopoverSurface();
+        requestAnimationFrame(function () {
+          applyPipelineColumnsPopoverSurface();
+        });
       }
 
       function toggleColumnsPopover() {

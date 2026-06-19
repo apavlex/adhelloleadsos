@@ -4,6 +4,15 @@
 (function () {
   /** @type {{ trigger: HTMLElement, panel: HTMLElement }[]} */
   var menuPairs = [];
+  var applySurface =
+    typeof window.applyPortaledPopoverSurface === 'function'
+      ? window.applyPortaledPopoverSurface
+      : function (panel) {
+          if (!panel) return;
+          var bg = document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
+          panel.style.setProperty('background-color', bg, 'important');
+          panel.style.setProperty('background', bg, 'important');
+        };
 
   function closePipelineMenus() {
     document.querySelectorAll('[data-pipeline-menu-panel]').forEach(function (panel) {
@@ -14,40 +23,36 @@
     });
   }
 
-  function pipelineMenuSolidBg() {
-    return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
-  }
-
-  function applyPipelineMenuSurface(panel) {
-    if (!panel) return;
-    var bg = pipelineMenuSolidBg();
-    panel.style.backgroundColor = bg;
-    panel.style.background = bg;
-    panel.style.backdropFilter = 'none';
-    panel.style.webkitBackdropFilter = 'none';
-    panel.style.opacity = '1';
-  }
-
   function positionPipelineMenuPanel(trigger, panel) {
     if (!trigger || !panel) return;
     if (panel.parentElement !== document.body) {
       document.body.appendChild(panel);
     }
-    applyPipelineMenuSurface(panel);
+    applySurface(panel);
     var rect = trigger.getBoundingClientRect();
     panel.style.position = 'fixed';
     panel.style.top = Math.round(rect.bottom + 8) + 'px';
-    panel.style.right = Math.round(window.innerWidth - rect.right) + 'px';
+    panel.style.right = Math.max(12, Math.round(window.innerWidth - rect.right)) + 'px';
     panel.style.left = 'auto';
     panel.style.bottom = 'auto';
     panel.style.minWidth = '13.5rem';
     panel.style.zIndex = '10000';
   }
 
+  function openPipelineMenuPanel(trigger, panel) {
+    positionPipelineMenuPanel(trigger, panel);
+    panel.classList.remove('hidden');
+    applySurface(panel);
+    requestAnimationFrame(function () {
+      applySurface(panel);
+    });
+  }
+
   function repositionOpenMenus() {
     menuPairs.forEach(function (pair) {
       if (pair.panel && !pair.panel.classList.contains('hidden')) {
         positionPipelineMenuPanel(pair.trigger, pair.panel);
+        applySurface(pair.panel);
       }
     });
   }
@@ -70,15 +75,14 @@
       menuPairs.push({ trigger: trigger, panel: panel });
       document.body.appendChild(panel);
       panel.classList.add('hidden');
-      applyPipelineMenuSurface(panel);
+      applySurface(panel);
 
       trigger.addEventListener('click', function (e) {
         e.stopPropagation();
         var open = !panel.classList.contains('hidden');
         closePipelineMenus();
         if (!open) {
-          positionPipelineMenuPanel(trigger, panel);
-          panel.classList.remove('hidden');
+          openPipelineMenuPanel(trigger, panel);
           trigger.setAttribute('aria-expanded', 'true');
         }
       });

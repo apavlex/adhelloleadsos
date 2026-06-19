@@ -58,7 +58,31 @@
     },
   };
 </script>
-<link rel="stylesheet" href="/css/custom.css?v=sidebar21">
+<style id="portaledPopoverSurfaces">
+  .portaled-popover-surface,
+  [data-pipeline-menu-panel],
+  .tag-filter-combobox-menu,
+  .pipeline-columns-popover,
+  #pipelineColumnsPopover {
+    background-color: #ffffff !important;
+    background: #ffffff !important;
+    opacity: 1 !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    isolation: isolate;
+  }
+  html.dark .portaled-popover-surface,
+  html.dark [data-pipeline-menu-panel],
+  html.dark .tag-filter-combobox-menu,
+  html.dark .pipeline-columns-popover,
+  html.dark #pipelineColumnsPopover {
+    background-color: #0f172a !important;
+    background: #0f172a !important;
+    color: #f8fafc;
+  }
+</style>
+<link rel="stylesheet" href="/css/custom.css?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>">
+<script src="/js/portaled-popover-surface.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 <script src="/js/review-stars.js"></script>
 <%- include('/partials/app_shell_styles') %>
 <% if (typeof googleMapsStaticKey === 'string' && googleMapsStaticKey) { %>
