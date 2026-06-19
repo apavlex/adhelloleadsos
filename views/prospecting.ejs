@@ -12,9 +12,6 @@
   <main class="max-wide w-full min-w-0 px-6 py-10 md:py-14">
     <% const activeTab = typeof tab !== 'undefined' ? tab : 'queue'; %>
     <% if (activeTab === 'pipeline') { %>
-      <div class="flex justify-end mb-6">
-        <%- include('partials/google_drive_nav_status') %>
-      </div>
       <%- include('partials/prospecting_board') %>
     <% } else if (activeTab === 'queue') { %>
       <%- include('partials/scheduled_jobs_content', {
