@@ -108,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const updateOpportunityBadges = () => {
-    document.querySelectorAll('.result-row').forEach((row) => {
+    document.querySelectorAll('.result-row:not(.pipeline-row-page-hidden)').forEach((row) => {
       try {
         const badgeContainer = row.querySelector('.opportunity-badge');
         if (badgeContainer) {
@@ -127,14 +127,18 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (typeof window.__renderSearchResultStars === 'function') window.__renderSearchResultStars();
   };
 
-  // Initial calculation and automatic sorting
+  // Initial badge paint; skip full-table reorder on large pipelines (paging handles visibility).
   setTimeout(() => {
-    console.log('[DEBUG] Running initial opportunity analysis...');
     updateOpportunityBadges();
-    sortLeadsByOpportunity(false);
-  }, 300); 
+    const pipelineBody = document.querySelector('#prospectLeadsTable tbody');
+    const rowCount = pipelineBody
+      ? pipelineBody.querySelectorAll('tr.result-row').length
+      : document.querySelectorAll('.result-row').length;
+    if (rowCount <= PIPELINE_LEADS_PAGE_SIZE) {
+      sortLeadsByOpportunity(false);
+    }
+  }, 300);
 
-  // Secondary backup for slower renders
   setTimeout(updateOpportunityBadges, 1500);
   
   const getProspectTableBody = () => document.querySelector('#prospectLeadsTable tbody');

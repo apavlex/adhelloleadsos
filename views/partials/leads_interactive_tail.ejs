@@ -17,7 +17,11 @@
 </script>
 
 <script>
-  window.INITIAL_SAVED_LEADS = <%- JSON.stringify(leads || []) %>;
+  window.INITIAL_SAVED_LEADS = <%- JSON.stringify(
+    typeof leadBootstrapLeads !== 'undefined' && leadBootstrapLeads
+      ? leadBootstrapLeads
+      : (leads || [])
+  ) %>;
   window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.PIPELINE_STAGE_COLORS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
   window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %>;

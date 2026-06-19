@@ -199,6 +199,41 @@ function mapLeadListJson(l) {
   };
 }
 
+/** Slim client bootstrap — omits heavy audit/chat blobs (loaded via panel-data on demand). */
+function mapLeadPipelineBootstrap(l) {
+  return {
+    key: l.key,
+    title: l.title,
+    email: l.email,
+    phone: l.phone,
+    website: l.website,
+    address: l.address,
+    city: l.city,
+    state: l.state,
+    categoryName: l.categoryName,
+    url: l.url,
+    facebook: l.facebook,
+    instagram: l.instagram,
+    twitter: l.twitter,
+    pipelineStage: l.pipelineStage,
+    stageId: l.stageId,
+    status: l.status,
+    folderKey: l.folderKey || '',
+    tags: Array.isArray(l.tags) ? l.tags : [],
+    source: l.source || '',
+    reviewsCount: l.reviewsCount ?? 0,
+    totalScore: l.totalScore ?? 0,
+    contacts: Array.isArray(l.contacts) ? l.contacts : [],
+    buyingSignals: Array.isArray(l.buyingSignals) ? l.buyingSignals : [],
+    aiWebsiteAnalysisScore: l.aiWebsiteAnalysisScore,
+    ownerSignal: l.ownerSignal,
+    sequenceState: l.sequenceState,
+    lastTouchChannel: l.lastTouchChannel,
+    latitude: l.latitude,
+    longitude: l.longitude,
+  };
+}
+
 /** Query keys used by GET /leads and /leads/list.json (excluding cold/inbound `source` tab). */
 const LEAD_LIST_FILTER_KEYS = [
   'q',
@@ -237,6 +272,7 @@ module.exports = {
   displayStatus,
   applyLeadListFilters,
   mapLeadListJson,
+  mapLeadPipelineBootstrap,
   isInOutreachFolder,
   excludeOutreachFolderLeads,
   hasUsableContactEmail,

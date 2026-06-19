@@ -202,6 +202,21 @@ function kvList(prefix = '') {
   return rows.map(r => r.key);
 }
 
+/** Batch-read KV values (avoids N round-trips when loading many leads). */
+function kvGetMany(keys) {
+  if (!Array.isArray(keys) || keys.length === 0) return new Map();
+  const uniq = [...new Set(keys.filter(Boolean))];
+  const out = new Map();
+  const CHUNK = 200;
+  for (let i = 0; i < uniq.length; i += CHUNK) {
+    const slice = uniq.slice(i, i + CHUNK);
+    const ph = slice.map(() => '?').join(',');
+    const rows = sqlite.prepare(`SELECT key, value FROM kv WHERE key IN (${ph})`).all(...slice);
+    rows.forEach((r) => out.set(r.key, r.value));
+  }
+  return out;
+}
+
 function kvDelete(key) {
   sqlite.prepare('DELETE FROM kv WHERE key = ?').run(key);
 }
@@ -446,17 +461,25 @@ module.exports = {
     assertLeadScopedWorkspaceId(wid, 'getAllLeads');
     const normLeadW = (lw) => this._normalizeLeadWorkspaceId(lw);
     const keys = kvList('lead:');
-    const sorted = keys.sort((a, b) => {
-      const tsA = parseInt(a.split(':')[1]);
-      const tsB = parseInt(b.split(':')[1]);
-      return tsB - tsA;
+    keys.sort((a, b) => {
+      const tsA = parseInt(String(a.split(':')[1] || ''), 10);
+      const tsB = parseInt(String(b.split(':')[1] || ''), 10);
+      return (Number.isFinite(tsB) ? tsB : 0) - (Number.isFinite(tsA) ? tsA : 0);
     });
+    const valueMap = kvGetMany(keys);
     const leads = [];
-    for (const key of sorted) {
-      const data = await this.getLead(key);
-      if (!data) continue;
-      if (normLeadW(data.workspaceId) !== wid) continue;
-      leads.push({ key, ...data, workspaceId: wid });
+    for (const key of keys) {
+      const raw = valueMap.get(key);
+      if (!raw) continue;
+      let parsed;
+      try {
+        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        continue;
+      }
+      if (!parsed || typeof parsed !== 'object') continue;
+      if (normLeadW(parsed.workspaceId) !== wid) continue;
+      leads.push({ key: parsed.key || key, ...parsed, workspaceId: wid });
     }
     return leads;
   },

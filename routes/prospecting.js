@@ -9,6 +9,7 @@ const {
   displayStatus,
   applyLeadListFilters,
   mapLeadListJson,
+  mapLeadPipelineBootstrap,
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
@@ -34,18 +35,21 @@ router.get('/', async (req, res, next) => {
     const folders = await dbService.listFolders(wid);
     const tags = await dbService.listTags(wid);
 
-    const allSchedules = await dbService.listSchedules();
-    const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
     const scheduleSuccess = req.query.scheduleSuccess === 'true';
-    const schedulesSorted = [...schedules].sort((a, b) => {
-      const t = (s) => {
-        const x = Date.parse(String(s.scheduledRunAt || ''));
-        return Number.isFinite(x) ? x : Infinity;
-      };
-      const cmp = t(a) - t(b);
-      if (cmp !== 0) return cmp;
-      return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
-    });
+    let schedulesSorted = [];
+    if (safeTab === 'queue') {
+      const allSchedules = await dbService.listSchedules();
+      const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
+      schedulesSorted = [...schedules].sort((a, b) => {
+        const t = (s) => {
+          const x = Date.parse(String(s.scheduledRunAt || ''));
+          return Number.isFinite(x) ? x : Infinity;
+        };
+        const cmp = t(a) - t(b);
+        if (cmp !== 0) return cmp;
+        return String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+      });
+    }
 
     const leadListFilters = normalizeLeadListFilters(req.query);
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
@@ -137,6 +141,7 @@ router.get('/', async (req, res, next) => {
       queueListLeads,
       folderListLeads,
       leads,
+      leadBootstrapLeads,
       sourceFilter,
       leadSourceCounts,
       leadListFilters,
