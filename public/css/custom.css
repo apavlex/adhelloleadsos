@@ -904,7 +904,6 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 
 .js-bulk-enhance.loading,
 #deepEnhanceBtn.loading {
-    pointer-events: none;
     position: relative;
     overflow: hidden;
 }

@@ -25,3 +25,4 @@ jobs:
           service: adhello-leadsos
           region: us-west1
           source: .
+          env_vars: ASSET_VERSION=${{ github.sha }}

@@ -4918,6 +4918,9 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
   window.__resolveActiveLeadRow = resolveActiveLeadRow;
+  window.__adhelloSetCurrentLeadRow = function (row) {
+    currentRow = row;
+  };
 
   /** Row for hunt/audit/save — table TR when visible, else panel host or current selection. */
   function resolveRowForLeadPanelActions(row) {
@@ -10611,7 +10614,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   window.__adhelloRunPageSpeedAudit = handlePageSpeedAuditClick;
 
-  if (!window.__adhelloPageSpeedAuditCaptureBound) {
+  if (!window.__adhelloPageSpeedAuditCaptureBound && !window.__adhelloWebsiteAuditEarlyBound) {
     window.__adhelloPageSpeedAuditCaptureBound = true;
     document.addEventListener(
       'click',
@@ -10645,6 +10648,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.__huntProgressInterval = null;
     }
   }
+  window.__stopHuntProgressTickerGlobal = stopHuntProgressTickerGlobal;
 
   function startHuntProgressTickerGlobal() {
     stopHuntProgressTickerGlobal();
@@ -10758,6 +10762,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
     updateDeepEnhanceHuntProgress(8, 'Hunting…', 'BetterContact, website search, Google reviews, and AI reputation summary (may take 30–90s).');
   }
+  window.__setDeepEnhanceHuntUi = setDeepEnhanceHuntUi;
 
   function readLastContactHuntAtFromRow(row) {
     if (!row) return '';
@@ -11160,8 +11165,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: false, error: failMsg };
     }
   }
+  window.__runContactHuntImpl = runContactHuntForRow;
 
-  if (!window.__adhelloContactHuntCaptureBound) {
+  if (!window.__adhelloContactHuntCaptureBound && !window.__adhelloContactHuntEarlyBound) {
     window.__adhelloContactHuntCaptureBound = true;
     document.addEventListener(
       'click',
@@ -14958,5 +14964,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.40-call-room-bulk-bar';
+  window.__ADHELLO_BUILD = '1.0.44-hunt-button-fix';
 });
