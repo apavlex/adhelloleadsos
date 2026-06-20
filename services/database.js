@@ -844,6 +844,24 @@ module.exports = {
     return count;
   },
 
+  async reassignLeadsToFolder(workspaceId, fromFolderKey, toFolderKey) {
+    const wid = workspaceId || 'default';
+    const fromKey = String(fromFolderKey || '').trim();
+    const toKey = String(toFolderKey || '').trim();
+    if (!fromKey || !toKey || fromKey === toKey) return 0;
+    const keys = kvList('lead:');
+    let count = 0;
+    for (const key of keys) {
+      const lead = await this.getLead(key);
+      if (!lead || (lead.workspaceId || 'default') !== wid) continue;
+      if (String(lead.folderKey || '').trim() !== fromKey) continue;
+      // eslint-disable-next-line no-await-in-loop
+      await this.updateLead(key, { folderKey: toKey });
+      count += 1;
+    }
+    return count;
+  },
+
   // --- Tags (workspace label catalog + per-lead tag keys) ---
 
   normalizeTagKeys(raw) {

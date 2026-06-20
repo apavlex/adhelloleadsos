@@ -64,7 +64,7 @@
               var rootFolder = group.folder;
               var rootFc = rootFolder ? (_folderCounts[rootFolder.key] || 0) : 0;
               var childTotal = 0;
-              (group.children || []).forEach(function (c) { childTotal += _folderCounts[c.key] || 0; });
+              (group.childRows || []).forEach(function (row) { childTotal += _folderCounts[row.folder.key] || 0; });
               var groupTotal = rootFc + childTotal;
             %>
             <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" open data-folder-group="<%= group.key %>" data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
@@ -73,7 +73,7 @@
                   <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
                     <%= group.name %>
                     <% if (group.isSystem) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= (group.children || []).length %> subfolder<%= (group.children || []).length === 1 ? '' : 's' %></span>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= (group.childRows || group.children || []).length %> subfolder<%= (group.childRows || group.children || []).length === 1 ? '' : 's' %></span>
                   </p>
                   <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= groupTotal %> lead<%= groupTotal === 1 ? '' : 's' %> total</p>
                 </div>
@@ -83,10 +83,10 @@
                 <% if (rootFolder) { %>
                   <%- include('partials/folder_manager_row', { f: rootFolder, fc: rootFc, indent: false, compact: true }) %>
                 <% } %>
-                <% (group.children || []).forEach(function (child) { %>
-                  <%- include('partials/folder_manager_row', { f: child, fc: _folderCounts[child.key] || 0, indent: true }) %>
+                <% (group.childRows || (group.children || []).map(function (c) { return { folder: c, depth: 1 }; })).forEach(function (row) { %>
+                  <%- include('partials/folder_manager_row', { f: row.folder, fc: _folderCounts[row.folder.key] || 0, depth: row.depth || 1 }) %>
                 <% }); %>
-                <% if (!rootFolder && !(group.children || []).length) { %>
+                <% if (!rootFolder && !(group.childRows || group.children || []).length) { %>
                   <li class="px-6 py-8 text-sm text-brand-muted">No folders in this group.</li>
                 <% } %>
               </ul>

@@ -3,9 +3,10 @@
 %>
 <% const _f = typeof f !== 'undefined' ? f : {}; %>
 <% const _fc = typeof fc !== 'undefined' ? fc : 0; %>
-<% const _indent = typeof indent !== 'undefined' && indent; %>
+<% const _depth = typeof depth !== 'undefined' ? Number(depth) : (typeof indent !== 'undefined' && indent ? 1 : 0); %>
 <% const _compact = typeof compact !== 'undefined' && compact; %>
-<li class="folder-row flex flex-wrap items-center gap-4 px-6 py-4 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors <%= _indent ? 'pl-10 sm:pl-14 bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
+<% const _padClass = _depth <= 0 ? '' : (_depth === 1 ? 'pl-10 sm:pl-14' : (_depth === 2 ? 'pl-14 sm:pl-20' : 'pl-16 sm:pl-24')); %>
+<li class="folder-row flex flex-wrap items-center gap-4 px-6 py-4 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors <%= _depth > 0 ? _padClass + ' bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
   data-folder-row="<%= _f.key %>"
   data-folder-name="<%= _f.name %>"
   data-folder-job-type="<%= _f.jobType || '' %>"
@@ -13,7 +14,7 @@
   data-folder-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>">
   <div class="min-w-0 flex-1">
     <p class="font-display font-bold <%= _compact ? 'text-base' : 'text-lg' %> text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
-      <% if (_indent) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
+      <% if (_depth > 0) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
       <%= _f.name %>
       <% if (_f.isPipelineDefault) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
       <% if (_f.isTradeFolder) { %><span class="text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 bg-sky-100/80 dark:bg-sky-950/40 rounded-full px-2 py-0.5">Trade</span><% } %>

@@ -23,6 +23,20 @@ test('buildFolderTree nests subfolders under system roots', () => {
   assert.ok(biz);
   assert.equal(biz.children.length, 1);
   assert.equal(biz.children[0].name, 'HVAC');
+  assert.equal(biz.childRows.length, 1);
+  assert.equal(biz.childRows[0].depth, 1);
+});
+
+test('buildFolderTree nests grandchildren under trade folders', () => {
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'sub:elec', name: 'Electrical', parentFolderKey: 'root:biz', isTradeFolder: true, tradeSlug: 'electrical' },
+    { key: 'custom:1', name: 'Electricians PDX', parentFolderKey: 'sub:elec', jobType: 'maps_business' },
+  ]);
+  const biz = tree.groups.find((g) => g.key === 'root:biz');
+  assert.equal(biz.childRows.length, 2);
+  assert.equal(biz.childRows[1].folder.name, 'Electricians PDX');
+  assert.equal(biz.childRows[1].depth, 2);
 });
 
 test('buildFolderTree groups orphans without parent', () => {

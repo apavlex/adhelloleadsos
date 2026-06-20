@@ -46,6 +46,34 @@ function sortTradeBeforeCustom(a, b) {
   return sortFoldersByName(a, b);
 }
 
+function attachNestedChildren(parentKey, childrenByParent) {
+  const kids = childrenByParent.get(parentKey) || [];
+  return kids.map((child) => ({
+    ...child,
+    children: attachNestedChildren(child.key, childrenByParent),
+  }));
+}
+
+function flattenFolderRows(nestedChildren, depth = 1) {
+  const rows = [];
+  for (const child of nestedChildren || []) {
+    rows.push({ folder: child, depth });
+    if (child.children && child.children.length) {
+      rows.push(...flattenFolderRows(child.children, depth + 1));
+    }
+  }
+  return rows;
+}
+
+function sumNestedLeadCounts(nodes, countsByKey) {
+  let total = 0;
+  for (const node of nodes || []) {
+    total += countLeadsInFolder(node.key, countsByKey);
+    total += sumNestedLeadCounts(node.children, countsByKey);
+  }
+  return total;
+}
+
 /**
  * @param {object[]} folders
  * @returns {{ groups: object[], rootsByJobType: Record<string,object>, allFolders: object[] }}
@@ -72,14 +100,18 @@ function buildFolderTree(folders) {
     kids.sort(sortTradeBeforeCustom);
   }
 
-  const groups = rootsOrdered.map((root) => ({
-    key: root.key,
-    name: root.name,
-    folder: root,
-    isSystem: true,
-    jobType: root.jobType || '',
-    children: childrenByParent.get(root.key) || [],
-  }));
+  const groups = rootsOrdered.map((root) => {
+    const nestedChildren = attachNestedChildren(root.key, childrenByParent);
+    return {
+      key: root.key,
+      name: root.name,
+      folder: root,
+      isSystem: true,
+      jobType: root.jobType || '',
+      children: nestedChildren,
+      childRows: flattenFolderRows(nestedChildren),
+    };
+  });
 
   const orphans = all.filter((f) => {
     if (f.isPipelineDefault) return false;
@@ -94,7 +126,8 @@ function buildFolderTree(folders) {
       folder: null,
       isSystem: false,
       jobType: '',
-      children: orphans,
+      children: orphans.map((f) => ({ ...f, children: [] })),
+      childRows: orphans.map((f) => ({ folder: f, depth: 1 })),
     });
   }
 
@@ -107,9 +140,7 @@ function countLeadsInFolder(folderKey, countsByKey) {
 
 function groupLeadTotal(children, countsByKey, rootKey) {
   let total = countLeadsInFolder(rootKey, countsByKey);
-  for (const child of children || []) {
-    total += countLeadsInFolder(child.key, countsByKey);
-  }
+  total += sumNestedLeadCounts(children, countsByKey);
   return total;
 }
 
@@ -120,4 +151,6 @@ module.exports = {
   buildFolderTree,
   countLeadsInFolder,
   groupLeadTotal,
+  flattenFolderRows,
+  sumNestedLeadCounts,
 };

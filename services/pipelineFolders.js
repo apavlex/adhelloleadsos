@@ -8,6 +8,7 @@ const { isWarmSource, isManualSource, leadJobType } = require('./leadListFilters
 const { TRADE_FOLDERS } = require('./tradeFoldersCatalog');
 const { normalizeSearchPreset } = require('./folderSearchPreset');
 const { buildFolderTree } = require('./folderTree');
+const { matchFolderToTrade } = require('./folderTradeMatcher');
 
 const DEFAULT_PIPELINE_FOLDERS = {
   [JOB_TYPES.MAPS_BUSINESS]: { name: 'Businesses', sourceType: 'maps_business' },
@@ -135,12 +136,184 @@ async function ensureTradeSubfolders(workspaceId, folders) {
   return out;
 }
 
+function isLegacyMobileHomesFolder(folder) {
+  if (!folder || folder.isPipelineDefault === false) return false;
+  const jt = String(folder.jobType || '').trim();
+  if (jt === JOB_TYPES.MOBILE_HOMES) return true;
+  return (
+    String(folder.name || '')
+      .trim()
+      .toLowerCase() === 'mobile homes'
+  );
+}
+
+async function hideLegacyMobileHomesJobType(workspaceId) {
+  const wid = workspaceId || 'default';
+  const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+  const prev = ws.pipelineSettings || {};
+  const hidden = new Set(
+    (Array.isArray(prev.hiddenDefaultFolders) ? prev.hiddenDefaultFolders : []).map((s) =>
+      String(s || '').trim()
+    )
+  );
+  hidden.add(JOB_TYPES.MOBILE_HOMES);
+  ws.pipelineSettings = {
+    ...prev,
+    hiddenDefaultFolders: [...hidden],
+  };
+  await dbService.saveWorkspace(wid, ws);
+}
+
+/**
+ * Merge duplicate Mobile homes system folder into Real estate (or convert in place).
+ * @returns {Promise<{ folders: object[], stats: object }>}
+ */
+async function migrateLegacyMobileHomesFolder(workspaceId, folders) {
+  const wid = workspaceId || 'default';
+  const list = [...(folders || [])];
+  const legacy = list.find(isLegacyMobileHomesFolder);
+  const stats = { moved: 0, removed: false, converted: false };
+
+  if (!legacy) return { folders: list, stats };
+
+  const realEstateByJob = list.find(
+    (f) => f && f.isPipelineDefault && String(f.jobType || '') === JOB_TYPES.REAL_ESTATE
+  );
+
+  if (!realEstateByJob) {
+    const updated = await dbService.updateFolder(wid, legacy.key, {
+      jobType: JOB_TYPES.REAL_ESTATE,
+      name: DEFAULT_PIPELINE_FOLDERS[JOB_TYPES.REAL_ESTATE].name,
+      isPipelineDefault: true,
+    });
+    await hideLegacyMobileHomesJobType(wid);
+    stats.converted = true;
+    const out = list.map((f) => (f.key === legacy.key ? { ...f, ...updated } : f));
+    return { folders: out, stats };
+  }
+
+  if (realEstateByJob.key === legacy.key) {
+    await hideLegacyMobileHomesJobType(wid);
+    return { folders: list, stats };
+  }
+
+  stats.moved = await dbService.reassignLeadsToFolder(wid, legacy.key, realEstateByJob.key);
+  await dbService.deleteFolder(wid, legacy.key);
+  await hideLegacyMobileHomesJobType(wid);
+  stats.removed = true;
+
+  return {
+    folders: list.filter((f) => f.key !== legacy.key),
+    stats,
+  };
+}
+
+function tradeFolderBySlug(folders, businessRootKey, slug) {
+  return (folders || []).find(
+    (f) =>
+      f &&
+      String(f.parentFolderKey || '') === String(businessRootKey) &&
+      String(f.tradeSlug || '') === String(slug)
+  );
+}
+
+/**
+ * Parent custom trade-like folders under matching ServiceTitan trade subfolders.
+ * @returns {Promise<{ folders: object[], stats: object }>}
+ */
+async function autoParentTradeLikeFolders(workspaceId, folders) {
+  const wid = workspaceId || 'default';
+  const list = [...(folders || [])];
+  const businessRoot = findFolderForJobType(list, JOB_TYPES.MAPS_BUSINESS);
+  if (!businessRoot || !businessRoot.key) {
+    return { folders: list, stats: { parented: 0, merged: 0 } };
+  }
+
+  const businessRootKey = String(businessRoot.key);
+  const foldersByKey = new Map(list.map((f) => [String(f.key), f]));
+  const stats = { parented: 0, merged: 0 };
+
+  for (const folder of list) {
+    if (!folder || folder.isPipelineDefault || folder.isTradeFolder) continue;
+
+    const jt = String(folder.jobType || '').trim();
+    if (jt && jt !== JOB_TYPES.MAPS_BUSINESS) continue;
+
+    const match = matchFolderToTrade(folder.name);
+    if (!match) continue;
+
+    const tradeFolder = tradeFolderBySlug(list, businessRootKey, match.slug);
+    if (!tradeFolder || !tradeFolder.key) continue;
+
+    const tradeKey = String(tradeFolder.key);
+    const currentParent = String(folder.parentFolderKey || '').trim();
+
+    if (currentParent === tradeKey) continue;
+
+    const normalizedName = String(folder.name || '')
+      .trim()
+      .toLowerCase();
+    const tradeName = String(tradeFolder.name || '')
+      .trim()
+      .toLowerCase();
+
+    if (normalizedName === tradeName && currentParent !== tradeKey) {
+      const moved = await dbService.reassignLeadsToFolder(wid, folder.key, tradeKey);
+      await dbService.deleteFolder(wid, folder.key);
+      stats.merged += 1;
+      stats.moved = (stats.moved || 0) + moved;
+      continue;
+    }
+
+    if (currentParent && currentParent !== businessRootKey) {
+      const parentFolder = foldersByKey.get(currentParent);
+      if (parentFolder && parentFolder.isTradeFolder) continue;
+    }
+
+    const updated = await dbService.updateFolder(wid, folder.key, {
+      parentFolderKey: tradeKey,
+      jobType: JOB_TYPES.MAPS_BUSINESS,
+    });
+    if (updated) {
+      Object.assign(folder, updated);
+      stats.parented += 1;
+    }
+  }
+
+  const refreshed = await dbService.listFolders(wid);
+  return { folders: refreshed, stats };
+}
+
+/**
+ * One-time folder hygiene: mobile homes → real estate, trade-like folders → trade parents.
+ * @returns {Promise<{ folders: object[], stats: object }>}
+ */
+async function migrateLegacyFolders(workspaceId, folders) {
+  let list = [...(folders || [])];
+  const stats = { mobileHomes: {}, tradeFolders: {} };
+
+  const mh = await migrateLegacyMobileHomesFolder(workspaceId, list);
+  list = mh.folders;
+  stats.mobileHomes = mh.stats;
+
+  list = await ensurePipelineFolders(workspaceId);
+  list = await ensureTradeSubfolders(workspaceId, list);
+
+  const trade = await autoParentTradeLikeFolders(workspaceId, list);
+  list = trade.folders;
+  stats.tradeFolders = trade.stats;
+
+  return { folders: list, stats };
+}
+
 async function ensurePipelineFoldersWithTree(workspaceId) {
   const folders = await ensurePipelineFolders(workspaceId);
   const withTrades = await ensureTradeSubfolders(workspaceId, folders);
+  const migrated = await migrateLegacyFolders(workspaceId, withTrades);
   return {
-    folders: withTrades,
-    folderTree: buildFolderTree(withTrades),
+    folders: migrated.folders,
+    folderTree: buildFolderTree(migrated.folders),
+    migrationStats: migrated.stats,
   };
 }
 
@@ -330,6 +503,9 @@ module.exports = {
   findFolderForJobType,
   ensurePipelineFolders,
   ensureTradeSubfolders,
+  migrateLegacyFolders,
+  migrateLegacyMobileHomesFolder,
+  autoParentTradeLikeFolders,
   ensurePipelineFoldersWithTree,
   resolveTargetFolder,
   folderKeyForJobType,

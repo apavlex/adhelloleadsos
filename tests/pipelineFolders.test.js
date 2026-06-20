@@ -158,3 +158,69 @@ test('ensurePipelineFolders skips hidden default job types', async () => {
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];
 });
+
+test('migrateLegacyMobileHomesFolder merges duplicate into real estate', async () => {
+  let workspace = { id: 'ws1', members: {} };
+  const folders = [
+    { key: 'folder:mh', name: 'Mobile homes', jobType: 'mobile_homes', isPipelineDefault: true },
+    { key: 'folder:re', name: 'Real estate', jobType: 'real_estate', isPipelineDefault: true },
+  ];
+  const mockDb = {
+    reassignLeadsToFolder: async () => 4,
+    deleteFolder: async () => {},
+    getWorkspace: async () => workspace,
+    saveWorkspace: async (wid, ws) => {
+      workspace = ws;
+    },
+    listFolders: async () => [{ key: 'folder:re', name: 'Real estate', jobType: 'real_estate', isPipelineDefault: true }],
+    updateFolder: async () => ({}),
+    createFolder: async () => ({}),
+  };
+
+  const orig = require('../services/database');
+  require.cache[require.resolve('../services/database')].exports = mockDb;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+  const { migrateLegacyMobileHomesFolder: migrateMh } = require('../services/pipelineFolders');
+
+  const result = await migrateMh('ws1', folders);
+  assert.equal(result.stats.moved, 4);
+  assert.equal(result.stats.removed, true);
+  assert.equal(result.folders.length, 1);
+  assert.ok(workspace.pipelineSettings.hiddenDefaultFolders.includes('mobile_homes'));
+
+  require.cache[require.resolve('../services/database')].exports = orig;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+});
+
+test('autoParentTradeLikeFolders parents custom folders under trade subfolders', async () => {
+  const folders = [
+    { key: 'folder:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'folder:elec', name: 'Electrical', parentFolderKey: 'folder:biz', isTradeFolder: true, tradeSlug: 'electrical' },
+    { key: 'folder:custom', name: 'Electricians PDX', jobType: '' },
+  ];
+  let patched = null;
+  const mockDb = {
+    updateFolder: async (wid, key, patch) => {
+      patched = { key, patch };
+      return { key, ...folders.find((f) => f.key === key), ...patch };
+    },
+    listFolders: async () => [
+      { key: 'folder:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+      { key: 'folder:elec', name: 'Electrical', parentFolderKey: 'folder:biz', isTradeFolder: true, tradeSlug: 'electrical' },
+      { key: 'folder:custom', name: 'Electricians PDX', parentFolderKey: 'folder:elec', jobType: 'maps_business' },
+    ],
+  };
+
+  const orig = require('../services/database');
+  require.cache[require.resolve('../services/database')].exports = mockDb;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+  const { autoParentTradeLikeFolders: autoParent } = require('../services/pipelineFolders');
+
+  const result = await autoParent('ws1', folders);
+  assert.equal(result.stats.parented, 1);
+  assert.equal(patched.patch.parentFolderKey, 'folder:elec');
+  assert.equal(patched.patch.jobType, 'maps_business');
+
+  require.cache[require.resolve('../services/database')].exports = orig;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+});

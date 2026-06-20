@@ -14,7 +14,7 @@ const {
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
 } = require('../services/leadListFilters');
-const { ensurePipelineFolders, ensureTradeSubfolders } = require('../services/pipelineFolders');
+const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
 const { buildFolderTree } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
@@ -38,7 +38,8 @@ router.get('/', async (req, res, next) => {
     let folders = await ensurePipelineFolders(wid);
     let folderTree = null;
     if (safeTab === 'folders') {
-      folders = await ensureTradeSubfolders(wid, folders);
+      const migrated = await migrateLegacyFolders(wid, folders);
+      folders = migrated.folders;
       folderTree = buildFolderTree(folders);
     }
     const tags = await dbService.listTags(wid);
