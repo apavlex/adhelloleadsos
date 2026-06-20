@@ -823,19 +823,35 @@ document.addEventListener('DOMContentLoaded', () => {
       const table = prospectTable;
       if (!table || table.dataset.prospectSortBound === '1') return;
       table.dataset.prospectSortBound = '1';
-      const thead = table.querySelector('thead');
-      if (!thead) return;
-      thead.addEventListener('click', (e) => {
+
+      const runProspectSortFromEvent = (e) => {
         if (e.target.closest('.plc-col-resize')) return;
         if (e.target.closest('input[type="checkbox"]')) return;
+        const sortBtn = e.target.closest('[data-prospect-sort]');
         const th = e.target.closest('th[data-plc]');
-        if (!th || th.getAttribute('data-plc') === 'check') return;
-        const key = prospectSortKeyFromTh(th);
+        if (!sortBtn && !th) return;
+        if (th && th.getAttribute('data-plc') === 'check') return;
+        const key = sortBtn
+          ? sortBtn.getAttribute('data-prospect-sort')
+          : prospectSortKeyFromTh(th);
         if (!key) return;
         e.preventDefault();
         e.stopPropagation();
         toggleProspectSort(key);
+        if (sortBtn && typeof sortBtn.blur === 'function') sortBtn.blur();
+      };
+
+      table.querySelectorAll('[data-prospect-sort]').forEach((btn) => {
+        btn.addEventListener('click', runProspectSortFromEvent);
       });
+
+      const thead = table.querySelector('thead');
+      if (thead) {
+        thead.addEventListener('click', (e) => {
+          if (e.target.closest('[data-prospect-sort]')) return;
+          runProspectSortFromEvent(e);
+        });
+      }
     })();
   }
 
@@ -10423,7 +10439,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ev.preventDefault();
       ev.stopPropagation();
     }
-    const row = currentRow;
+    const row = resolvePipelineTableRowForPanel(resolveActiveLeadRow());
+    if (row) currentRow = row;
 
     scrollLeadPanelToSection('pageSpeedAuditSection');
 
@@ -10444,16 +10461,35 @@ document.addEventListener('DOMContentLoaded', () => {
       } else window.alert(msg);
       return;
     }
-    if (pageSpeedAuditInFlight) return;
+    if (pageSpeedAuditInFlight) {
+      const busyKey = String(row.dataset.leadKey || '').trim();
+      if (!busyKey || window.__pageSpeedAuditLeadKey !== busyKey) {
+        pageSpeedAuditInFlight = false;
+        setPageSpeedAuditUi('idle');
+      } else {
+        return;
+      }
+    }
 
     if (websiteUrl && (!row.dataset.website || row.dataset.website === 'N/A')) {
       row.dataset.website = websiteUrl;
     }
 
-    setPageSpeedAuditRunning(true);
-    const loadingLabel = document.getElementById('pageSpeedAuditLoadingLabel');
     try {
       await ensureRowHasLeadKey(row);
+    } catch (ensureErr) {
+      const msg = (ensureErr && ensureErr.message) || 'Save this lead before running website audit.';
+      showPageSpeedAuditError(msg);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'error' });
+      } else window.alert(msg);
+      return;
+    }
+
+    setPageSpeedAuditRunning(true);
+    window.__pageSpeedAuditLeadKey = String(row.dataset.leadKey || '').trim();
+    const loadingLabel = document.getElementById('pageSpeedAuditLoadingLabel');
+    try {
       if (loadingLabel) {
         loadingLabel.textContent =
           'Scanning website and generating GEO/SEO + GoHighLevel sell report…';
@@ -10526,6 +10562,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
       else window.alert(msg);
     } finally {
+      window.__pageSpeedAuditLeadKey = '';
       setPageSpeedAuditRunning(false);
       syncPageSpeedAuditPanel(row);
       syncLeadPanelEmailReportSection(row);
@@ -10784,10 +10821,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function runContactHuntForRow(row, options) {
     const opts = options || {};
-    row = resolvePipelineTableRowForPanel(row) || row;
     const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
     const triggerBtn = opts.triggerBtn || deepEnhanceBtn;
     const fromRowAction = !!opts.fromRowAction;
+    const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
+
+    row = resolvePipelineTableRowForPanel(row || resolveActiveLeadRow()) || row;
+
     const syncSidebarForRow = (busy) => {
       if (currentRow === row) {
         if (busy) setSidebarContactHuntBusy(true);
@@ -10795,13 +10835,48 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
+    const notifyHunt = (msg, variant) => {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: variant || 'warning' });
+      } else {
+        alert(msg);
+      }
+    };
+
     if (!row) {
       if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Select a lead first.', { variant: 'warning' });
+        window.showAppToast('Select a lead from the table first.', { variant: 'warning' });
       } else if (deepEnhanceBtn) {
         setDeepEnhanceHuntUi('idle');
       }
       return { success: false };
+    }
+
+    currentRow = row;
+
+    if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
+      const busyKey = String(row.dataset.leadKey || '').trim();
+      const actuallyBusy = busyKey && window.__contactHuntInFlight.has(busyKey);
+      if (!actuallyBusy) {
+        if (isSidebarTrigger) setDeepEnhanceHuntUi('idle');
+        else {
+          triggerBtn.disabled = false;
+          triggerBtn.removeAttribute('aria-busy');
+        }
+      } else {
+        return { success: false, error: 'busy' };
+      }
+    }
+
+    try {
+      await ensureRowHasLeadKey(row);
+    } catch (ensureErr) {
+      const msg =
+        (ensureErr && ensureErr.message) ||
+        'Save this lead before running contact hunt.';
+      notifyHunt(msg, 'error');
+      if (isSidebarTrigger) setDeepEnhanceHuntUi('idle');
+      return { success: false, error: msg };
     }
 
     const key = row.dataset.leadKey;
@@ -10813,20 +10888,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: false, error: 'busy' };
     }
 
-    if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
-      return { success: false, error: 'busy' };
-    }
-
-    currentRow = row;
     const preHuntSnap = snapshotRowLeadFields(row);
 
     const title = row.dataset.title;
     const city = row.dataset.city;
     const state = row.dataset.state;
-    const url = row.dataset.website;
 
     const originalHTML = triggerBtn ? triggerBtn.innerHTML : '';
-    const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
 
     const stopHuntProgressTicker = () => {
       stopHuntProgressTickerGlobal();
@@ -10844,7 +10912,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const clearHuntBusy = () => {
       stopHuntProgressTicker();
-      if (key) window.__contactHuntInFlight.delete(key);
+      const lk = String(row.dataset.leadKey || key || '').trim();
+      if (lk) window.__contactHuntInFlight.delete(lk);
       if (triggerBtn && !isSidebarTrigger) {
         triggerBtn.disabled = false;
         triggerBtn.removeAttribute('aria-busy');
@@ -10854,7 +10923,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const setHuntBusy = () => {
-      if (key) window.__contactHuntInFlight.add(key);
+      const lk = String(row.dataset.leadKey || key || '').trim();
+      if (lk) window.__contactHuntInFlight.add(lk);
       if (isSidebarTrigger) {
         setDeepEnhanceHuntUi('active');
         startHuntProgressTicker();
@@ -10871,35 +10941,22 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
 
-    const notifyHunt = (msg, variant) => {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast(msg, { variant: variant || 'warning' });
-      } else {
-        alert(msg);
-      }
-    };
-
     updateProcessingStatus(true);
     setHuntBusy();
 
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
     try {
-      let res;
-      if (key) {
-        res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        });
-      } else {
-        res = await fetch('/enrich', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ url, title, city, state }),
-        });
+      const huntKey = String(row.dataset.leadKey || '').trim();
+      if (!huntKey) {
+        throw new Error('Could not resolve a saved lead key for contact hunt.');
       }
+
+      let res = await fetch(`/leads/${encodeURIComponent(huntKey)}/enhance`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
 
       let data = await res.json().catch(() => ({}));
 
@@ -10911,8 +10968,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return { success: false, error: httpErr };
       }
 
-      if (data.processing && key) {
-        data = await pollContactHuntStatus(key, { onTick: tickHuntProgress });
+      if (data.processing) {
+        data = await pollContactHuntStatus(huntKey, { onTick: tickHuntProgress });
       }
 
       if (data.success) {
@@ -10947,7 +11004,7 @@ document.addEventListener('DOMContentLoaded', () => {
           }).catch(() => {});
         }
 
-        if (key) window.__contactHuntInFlight.delete(key);
+        if (huntKey) window.__contactHuntInFlight.delete(huntKey);
         stopHuntProgressTicker();
         updateProcessingStatus(false);
         populatePanel(row);
@@ -11021,10 +11078,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
-  if (deepEnhanceBtn) {
-    deepEnhanceBtn.addEventListener('click', async () => {
-      await runContactHuntForRow(currentRow, { triggerBtn: deepEnhanceBtn });
-    });
+  if (deepEnhanceBtn && !window.__adhelloContactHuntCaptureBound) {
+    window.__adhelloContactHuntCaptureBound = true;
+    document.addEventListener(
+      'click',
+      (e) => {
+        const btn = e.target.closest('#deepEnhanceBtn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const row = resolvePipelineTableRowForPanel(resolveActiveLeadRow());
+        void runContactHuntForRow(row, { triggerBtn: btn });
+      },
+      true,
+    );
   }
 
   const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');
