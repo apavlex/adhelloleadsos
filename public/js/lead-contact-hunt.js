@@ -10,7 +10,7 @@
   function primeHuntUiActive() {
     if (typeof window.__setDeepEnhanceHuntUi === 'function') {
       window.__setDeepEnhanceHuntUi('active', {
-        phase: { pct: 5, label: 'Preparing…', detail: 'Saving lead if needed…' },
+        phase: { pct: 8, label: 'Hunting…', detail: '' },
       });
       return;
     }
@@ -20,20 +20,14 @@
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
     btn.classList.add('hunt-active', 'loading', 'cursor-wait');
-    var idle = btn.querySelector('.deep-enhance-idle');
-    var active = btn.querySelector('.deep-enhance-active');
+    var progressRow = btn.querySelector('.deep-enhance-progress-row');
     var done = btn.querySelector('.deep-enhance-done');
-    if (idle) idle.classList.add('hidden');
+    if (progressRow) progressRow.classList.remove('hidden');
     if (done) done.classList.add('hidden');
-    if (active) active.classList.remove('hidden');
-    var wrap = document.getElementById('huntProgressWrap');
-    if (wrap) wrap.classList.remove('hidden');
-    var status = document.getElementById('deepEnhanceStatusLabel');
-    if (status) status.textContent = 'Preparing…';
     var bar = document.getElementById('deepEnhanceProgressBar');
     if (bar) bar.style.width = '8%';
-    var detail = document.getElementById('deepEnhanceStepDetail');
-    if (detail) detail.textContent = 'Saving lead if needed…';
+    var status = document.getElementById('deepEnhanceStatusLabel');
+    if (status) status.textContent = 'Hunting…';
   }
 
   function resolveRow() {

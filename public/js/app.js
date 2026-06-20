@@ -5068,8 +5068,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function setPageSpeedAuditUi(state, opts) {
     const btn = document.getElementById('pageSpeedAuditRunBtn');
     const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
-    const idle = btn && btn.querySelector('.page-speed-audit-idle');
-    const active = btn && btn.querySelector('.page-speed-audit-active');
+    const main = btn && btn.querySelector('.page-speed-audit-main');
+    const progressRow = btn && btn.querySelector('.page-speed-audit-progress-row');
     if (!btn) return;
 
     const next = state || 'idle';
@@ -5080,20 +5080,17 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('audit-active', 'cursor-wait');
-      if (idle) {
-        idle.classList.add('hidden');
-        idle.setAttribute('aria-hidden', 'true');
+      if (main) {
+        main.classList.remove('hidden');
+        main.removeAttribute('aria-hidden');
       }
-      if (active) {
-        active.classList.remove('hidden');
-        active.removeAttribute('aria-hidden');
+      if (progressRow) {
+        progressRow.classList.remove('hidden');
+        progressRow.removeAttribute('aria-hidden');
       }
       if (progressWrap) {
-        progressWrap.classList.remove('hidden');
+        progressWrap.classList.add('hidden');
         progressWrap.setAttribute('aria-busy', 'true');
-        try {
-          progressWrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        } catch (_) {}
       }
       const phase = (opts && opts.phase) || AUDIT_PROGRESS_PHASES[0];
       updatePageSpeedAuditProgress(phase.pct, phase.label, phase.detail, phase.step);
@@ -5116,13 +5113,13 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.disabled = false;
     btn.removeAttribute('aria-busy');
     btn.classList.remove('audit-active', 'cursor-wait');
-    if (idle) {
-      idle.classList.remove('hidden');
-      idle.removeAttribute('aria-hidden');
+    if (main) {
+      main.classList.remove('hidden');
+      main.removeAttribute('aria-hidden');
     }
-    if (active) {
-      active.classList.add('hidden');
-      active.setAttribute('aria-hidden', 'true');
+    if (progressRow) {
+      progressRow.classList.add('hidden');
+      progressRow.setAttribute('aria-hidden', 'true');
     }
     if (progressWrap) {
       progressWrap.classList.add('hidden');
@@ -10493,14 +10490,14 @@ document.addEventListener('DOMContentLoaded', () => {
     setPageSpeedAuditUi('active', {
       deferProgressTicker: true,
       phase: {
-        pct: 6,
-        label: 'Preparing…',
-        detail: 'Saving lead if needed…',
+        pct: 8,
+        label: 'Running audit…',
+        detail: '',
         step: 'Step 1 · Prep',
         afterMs: 0,
       },
     });
-    updatePageSpeedAuditProgress(6, 'Preparing…', 'Saving lead if needed…', 'Step 1 · Prep');
+    updatePageSpeedAuditProgress(8, 'Running audit…', '', 'Step 1 · Prep');
 
     try {
       await ensureRowHasLeadKey(row);
@@ -10693,8 +10690,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function setDeepEnhanceHuntUi(state, opts) {
     const btn = document.getElementById('deepEnhanceBtn');
     const huntProgressWrap = document.getElementById('huntProgressWrap');
-    const idle = btn && btn.querySelector('.deep-enhance-idle');
-    const active = btn && btn.querySelector('.deep-enhance-active');
+    const main = btn && btn.querySelector('.deep-enhance-main');
+    const progressRow = btn && btn.querySelector('.deep-enhance-progress-row');
     const done = btn && btn.querySelector('.deep-enhance-done');
     if (!btn) return;
 
@@ -10704,20 +10701,20 @@ document.addEventListener('DOMContentLoaded', () => {
     if (next === 'active') {
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
-      btn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-      if (idle) {
-        idle.classList.add('hidden');
-        idle.setAttribute('aria-hidden', 'true');
+      btn.classList.add('loading', 'cursor-wait', 'hunt-active');
+      if (main) {
+        main.classList.remove('hidden');
+        main.removeAttribute('aria-hidden');
+      }
+      if (progressRow) {
+        progressRow.classList.remove('hidden');
+        progressRow.removeAttribute('aria-hidden');
       }
       if (done) {
         done.classList.add('hidden');
         done.setAttribute('aria-hidden', 'true');
       }
-      if (active) {
-        active.classList.remove('hidden');
-        active.removeAttribute('aria-hidden');
-      }
-      if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
+      if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
       const phase = (opts && opts.phase) || HUNT_PROGRESS_PHASES[0];
       updateDeepEnhanceHuntProgress(phase.pct, phase.label, phase.detail);
       return;
@@ -10726,14 +10723,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (next === 'done') {
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'false');
-      btn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-      if (idle) {
-        idle.classList.add('hidden');
-        idle.setAttribute('aria-hidden', 'true');
+      btn.classList.remove('loading', 'cursor-wait', 'hunt-active');
+      if (main) {
+        main.classList.add('hidden');
+        main.setAttribute('aria-hidden', 'true');
       }
-      if (active) {
-        active.classList.add('hidden');
-        active.setAttribute('aria-hidden', 'true');
+      if (progressRow) {
+        progressRow.classList.add('hidden');
+        progressRow.setAttribute('aria-hidden', 'true');
       }
       if (done) {
         done.classList.remove('hidden');
@@ -10746,14 +10743,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btn.disabled = false;
     btn.removeAttribute('aria-busy');
-    btn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-    if (idle) {
-      idle.classList.remove('hidden');
-      idle.removeAttribute('aria-hidden');
+    btn.classList.remove('loading', 'cursor-wait', 'hunt-active');
+    if (main) {
+      main.classList.remove('hidden');
+      main.removeAttribute('aria-hidden');
     }
-    if (active) {
-      active.classList.add('hidden');
-      active.setAttribute('aria-hidden', 'true');
+    if (progressRow) {
+      progressRow.classList.add('hidden');
+      progressRow.setAttribute('aria-hidden', 'true');
     }
     if (done) {
       done.classList.add('hidden');
@@ -10936,7 +10933,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (isSidebarTrigger) {
       setDeepEnhanceHuntUi('active', {
-        phase: { pct: 5, label: 'Preparing…', detail: 'Saving lead if needed…' },
+        phase: { pct: 8, label: 'Hunting…', detail: '' },
       });
     }
 
@@ -11186,7 +11183,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         currentRow = row;
         setDeepEnhanceHuntUi('active', {
-          phase: { pct: 5, label: 'Preparing…', detail: 'Saving lead if needed…' },
+          phase: { pct: 8, label: 'Hunting…', detail: '' },
         });
         void runContactHuntForRow(row, { triggerBtn: btn }).catch((err) => {
           console.error('[Contact hunt] unhandled:', err);
@@ -14964,5 +14961,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.44-hunt-button-fix';
+  window.__ADHELLO_BUILD = '1.0.45-pulse-progress-line';
 });
