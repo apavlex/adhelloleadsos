@@ -11,6 +11,23 @@
     }
     return 'Workspace';
   }
+  function sjJobTitle(job) {
+    if (typeof scheduleDisplayTitle === 'function') return scheduleDisplayTitle(job);
+    return job.keyword || 'Search';
+  }
+  function sjJobSubtitle(job) {
+    if (typeof scheduleDisplaySubtitle === 'function') return scheduleDisplaySubtitle(job);
+    return `${job.city}, ${job.state} · ${job.maxResults || 20} results`;
+  }
+  function sjJobTypeLabel(job) {
+    const jt = typeof normalizeJobType === 'function' ? normalizeJobType(job.jobType) : (job.jobType || 'maps_business');
+    if (typeof JOB_TYPE_LABELS !== 'undefined' && JOB_TYPE_LABELS[jt]) return JOB_TYPE_LABELS[jt];
+    return jt === 'real_estate' ? 'Real estate' : 'Business (Maps)';
+  }
+  function sjFreqLabel(job) {
+    if (typeof scheduleFrequencyLabel === 'function') return scheduleFrequencyLabel(job);
+    return job.scheduledRunAt ? 'One-time' : (job.frequency || 'daily');
+  }
 %>
 <div class="<%= sjEmbed ? '' : 'max-wide' %>">
   <div class="flex flex-col md:flex-row md:items-end justify-between gap-6 <%= sjEmbed ? 'mb-8' : 'mb-12' %>">
@@ -21,22 +38,25 @@
       </div>
       <h2 class="font-display font-black <%= sjEmbed ? 'text-3xl md:text-4xl' : 'text-5xl md:text-6xl' %> tracking-tight text-brand-dark dark:text-white <%= sjEmbed ? 'mb-3' : 'mb-4' %>">Scheduled <span class="text-brand-muted">Jobs</span></h2>
       <p class="<%= sjEmbed ? 'text-sm md:text-base' : 'text-lg' %> text-brand-muted font-medium max-w-xl">
-        Manage your automated lead discovery tasks. Our bots will scour Google Maps on a schedule to find your next clients.
+        Automated scrapes for business leads (Maps) and real estate listings. Runs on your schedule — one-time or recurring nightly.
       </p>
     </div>
 
-    <a href="/leads/find" class="btn-pill btn-primary px-6 md:px-8 flex items-center justify-center gap-3 group shrink-0">
-      <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-      </svg>
-      Create New Job
-    </a>
+    <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+      <a href="/leads/find/mobile-homes" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-center">Mobile homes</a>
+      <a href="/leads/find" class="btn-pill btn-primary px-6 md:px-8 flex items-center justify-center gap-3 group">
+        <svg class="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+        </svg>
+        Business job
+      </a>
+    </div>
   </div>
 
   <% if (sjSuccess) { %>
     <div class="max-w-xl <%= sjEmbed ? 'mb-6' : 'mx-auto mb-10' %> bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-200 px-6 py-4 rounded-2xl flex items-center gap-4 animate-bounce-subtle">
       <svg class="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7" /></svg>
-      <span class="font-bold text-sm">Scheduled scrape saved — we’ll run it once at the date and time you picked.</span>
+      <span class="font-bold text-sm">Scheduled job saved — it will run at the time you picked (recurring jobs repeat until deleted).</span>
     </div>
   <% } %>
 
@@ -46,10 +66,10 @@
         <table class="w-full text-left border-collapse">
           <thead>
             <tr class="border-b border-brand-border dark:border-white/10 bg-white dark:bg-white/5">
-              <th class="px-6 md:px-8 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Target Keyword</th>
+              <th class="px-6 md:px-8 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Job</th>
               <th class="px-4 md:px-6 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Location</th>
-              <th class="px-4 md:px-6 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Target Schedule</th>
-              <th class="px-4 md:px-6 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Last Pulse</th>
+              <th class="px-4 md:px-6 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Schedule</th>
+              <th class="px-4 md:px-6 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-center">Last run</th>
               <th class="px-4 md:px-6 py-5 text-[10px] font-bold uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400 text-right">Actions</th>
             </tr>
           </thead>
@@ -62,10 +82,11 @@
                       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" stroke-width="1.5" stroke-linecap="round" /></svg>
                     </div>
                     <div class="min-w-0">
-                      <div class="font-bold text-brand-dark dark:text-white text-base truncate"><%= job.keyword %></div>
+                      <div class="font-bold text-brand-dark dark:text-white text-base truncate"><%= sjJobTitle(job) %></div>
                       <div class="text-[10px] font-bold text-brand-muted uppercase tracking-wider mt-0.5 flex flex-wrap items-center gap-2">
-                        <span class="inline-flex items-center gap-1 rounded-full bg-brand-cream/80 dark:bg-white/10 px-2 py-0.5 text-[9px] font-black normal-case tracking-tight text-brand-dark dark:text-white" title="Workspace for this run"> <%= sjWorkspaceName(job.workspaceId) %> </span>
-                        <span>Scraping up to <%= job.maxResults %> leads</span>
+                        <span class="inline-flex rounded-full bg-indigo-50 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[9px] font-black normal-case"><%= sjJobTypeLabel(job) %></span>
+                        <span class="inline-flex items-center gap-1 rounded-full bg-brand-cream/80 dark:bg-white/10 px-2 py-0.5 text-[9px] font-black normal-case tracking-tight text-brand-dark dark:text-white" title="Workspace"><%= sjWorkspaceName(job.workspaceId) %></span>
+                        <span class="normal-case tracking-normal"><%= sjJobSubtitle(job) %></span>
                       </div>
                     </div>
                   </div>
@@ -75,21 +96,16 @@
                 </td>
                 <td class="px-4 md:px-6 py-6 text-center">
                   <div class="inline-flex flex-col items-center">
-                    <% if (job.scheduledRunAt) { %>
                     <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 mb-1">
-                      One-time
+                      <%= sjFreqLabel(job) %>
                     </span>
                     <div class="text-[10px] font-bold text-brand-dark dark:text-white tracking-tight">
-                      <%= job.scheduledDate || '' %> · <%= job.scheduledTime || '09:00' %>
+                      <% if (job.scheduledRunAt) { %>
+                        <%= job.scheduledDate || '' %> · <%= job.scheduledTime || '09:00' %>
+                      <% } else { %>
+                        @ <%= job.scheduledTime || '09:00' %>
+                      <% } %>
                     </div>
-                    <% } else { %>
-                    <span class="px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-purple-50 dark:bg-purple-950/50 text-purple-600 dark:text-purple-300 mb-1">
-                      <%= job.frequency || 'daily' %>
-                    </span>
-                    <div class="text-[10px] font-bold text-brand-dark dark:text-white tracking-tight">
-                      @ <%= job.scheduledTime || '09:00' %>
-                    </div>
-                    <% } %>
                     <div class="text-[9px] font-medium text-brand-muted uppercase tracking-tighter">
                       <%= job.timezone || 'UTC' %>
                     </div>
@@ -122,8 +138,11 @@
         <svg class="w-10 h-10 text-brand-muted/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
       </div>
       <h3 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-4">No scheduled jobs</h3>
-      <p class="text-brand-muted font-medium mb-10 max-w-sm mx-auto">Create a scheduled search on Find Leads — pick a date and time; we run once then notify you when the scrape completes.</p>
-      <a href="/leads/find" class="btn-pill btn-primary px-10">Create scheduled search</a>
+      <p class="text-brand-muted font-medium mb-10 max-w-md mx-auto">Create a business Maps job or a real estate job with a one-time or recurring schedule. Results appear in Search history when each run completes.</p>
+      <div class="flex flex-col sm:flex-row gap-3 justify-center">
+        <a href="/leads/find/mobile-homes" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-[10px] font-black uppercase">Mobile homes</a>
+        <a href="/leads/find" class="btn-pill btn-primary px-10">Business (Maps)</a>
+      </div>
     </div>
   <% } %>
 </div>

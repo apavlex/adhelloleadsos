@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-4 sm:px-6 pt-8 pb-20 md:pt-10 md:pb-24">
+    <header class="max-w-3xl mx-auto mb-8">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Prospecting · Real estate</p>
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Find property deals</h1>
+      <p class="text-sm md:text-base text-brand-muted mt-2 max-w-xl leading-relaxed">
+        Zillow-only search. For Craigslist + Facebook + Zillow together, use
+        <a href="/leads/find/mobile-homes" class="text-brand-yellow hover:underline">Mobile homes (multi-source)</a>.
+      </p>
+      <div class="flex flex-wrap gap-3 mt-4 text-[11px] font-bold uppercase tracking-wider">
+        <a href="/leads/find" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">← Business (Maps)</a>
+        <a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">Scheduled jobs</a>
+      </div>
+    </header>
+
+    <div class="max-w-3xl mx-auto">
+      <div class="rounded-[1.75rem] border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-xl shadow-brand-dark/5 overflow-hidden">
+        <form action="/real-estate/search" method="POST" id="realEstateForm" class="p-6 md:p-8 space-y-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="reCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
+              <input type="text" id="reCity" name="city" required placeholder="Phoenix" value="<%= typeof prefill !== 'undefined' && prefill.city ? prefill.city : '' %>"
+                class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+            <div>
+              <label for="reState" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
+              <input type="text" id="reState" name="state" required placeholder="AZ" maxlength="2" value="<%= typeof prefill !== 'undefined' && prefill.state ? prefill.state : '' %>"
+                class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold uppercase" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label for="reMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+              <input type="number" id="reMinPrice" name="minPrice" min="0" step="1000" placeholder="Optional"
+                class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+            <div>
+              <label for="reMaxPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+              <input type="number" id="reMaxPrice" name="maxPrice" min="0" step="1000" placeholder="Optional"
+                class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+            <div>
+              <label for="reMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max listings</label>
+              <input type="number" id="reMaxResults" name="maxResults" value="25" min="1" max="100"
+                class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+          </div>
+
+          <details class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30">
+            <summary class="cursor-pointer list-none px-4 py-3 text-sm font-semibold">Target folder (optional)</summary>
+            <div class="px-4 pb-4 pt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+              <select name="folderKey" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
+                <option value="">Main pipeline</option>
+                <% (folders || []).forEach((fd) => { if (!fd || !fd.key) return; %>
+                  <option value="<%= fd.key %>"><%= fd.name %></option>
+                <% }) %>
+              </select>
+              <input name="newFolderName" type="text" maxlength="80" placeholder="Or new folder name" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+          </details>
+
+          <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 sm:p-5 space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">When to run</p>
+                <p class="text-sm text-brand-muted mt-0.5">Schedule nightly to watch for new deals automatically.</p>
+              </div>
+              <div class="flex items-center gap-1 p-1 bg-brand-cream/80 dark:bg-slate-800/80 rounded-xl border border-brand-border/20 h-10 w-full sm:w-auto max-w-xs">
+                <button type="button" id="reModeRunNow" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 shadow-sm">Run now</button>
+                <button type="button" id="reModeSchedule" class="flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted">Schedule</button>
+              </div>
+            </div>
+            <input type="hidden" name="mode" id="reSearchModeInput" value="run" />
+            <input type="hidden" name="timezone" id="reUserTimezone" />
+            <div id="reScheduledSettings" class="hidden pt-2 border-t border-brand-border/30 dark:border-white/10 space-y-4">
+              <%- include('partials/schedule_run_options', { schedulePrefix: 'reSchedule' }) %>
+              <label class="inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" name="runNowAlso" class="rounded border-brand-border" />
+                Run once now as well
+              </label>
+            </div>
+          </div>
+
+          <p class="text-[11px] text-brand-muted leading-relaxed">
+            Uses Apify (<code class="text-[10px]">cirkit/zillow-search-scraper</code> by default). Override with <code class="text-[10px]">APIFY_REAL_ESTATE_ACTOR_ID</code> in env.
+          </p>
+
+          <button type="submit" id="reSearchBtn" class="btn-pill btn-primary w-full sm:w-auto px-8 py-4 text-[11px] font-black uppercase tracking-widest">
+            Start search
+          </button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script src="/js/app.js?v=<%= assetVersion %>"></script>
+  <script>
+  (function () {
+    var tz = document.getElementById('reUserTimezone');
+    if (tz) tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var modeInput = document.getElementById('reSearchModeInput');
+    var runBtn = document.getElementById('reModeRunNow');
+    var schedBtn = document.getElementById('reModeSchedule');
+    var settings = document.getElementById('reScheduledSettings');
+    var submitBtn = document.getElementById('reSearchBtn');
+    function setMode(m) {
+      if (!modeInput) return;
+      modeInput.value = m;
+      if (settings) settings.classList.toggle('hidden', m !== 'schedule');
+      if (submitBtn) submitBtn.textContent = m === 'schedule' ? 'Save scheduled job' : 'Start search';
+      if (runBtn && schedBtn) {
+        var active = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all bg-white dark:bg-slate-700 shadow-sm';
+        var idle = 'flex-1 h-full rounded-lg text-[9px] font-black uppercase transition-all text-brand-muted';
+        runBtn.className = m === 'run' ? active : idle;
+        schedBtn.className = m === 'schedule' ? active : idle;
+      }
+    }
+    if (runBtn) runBtn.addEventListener('click', function () { setMode('run'); });
+    if (schedBtn) schedBtn.addEventListener('click', function () { setMode('schedule'); });
+  })();
+  </script>
+  <%- include('/partials/app_shell_close') %>
+</body>
+</html>

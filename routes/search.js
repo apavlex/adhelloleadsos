@@ -1,5 +1,4 @@
 const express = require('express');
-const { DateTime } = require('luxon');
 const router = express.Router();
 const mapsSearch = require('../services/mapsSearch');
 const directoryLeadSearch = require('../services/directoryLeadSearch');
@@ -9,6 +8,8 @@ const activationService = require('../services/activationService');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
+const { parseSchedulePayload } = require('../services/scheduleHelpers');
+const { JOB_TYPES } = require('../services/scrapeJobTypes');
 
 // POST /search — Google Maps list (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto)
 router.post('/', async (req, res, next) => {
@@ -138,59 +139,28 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    // --- Scheduled one-time scrape (date + time in user's timezone) ---
+    // --- Scheduled scrape (one-time or recurring) ---
     if (mode === 'schedule') {
-      const scheduledDate = String(req.body.scheduledDate || '').trim();
-      const scheduledTime = String(req.body.scheduledTime || '09:00').trim();
-      const timezone = String(req.body.timezone || 'UTC').trim() || 'UTC';
-
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduledDate)) {
+      const parsed = parseSchedulePayload(req.body);
+      if (!parsed.ok) {
         return res.status(400).render('error', {
-          message: 'Choose a run date for your scheduled search.',
+          message: parsed.message,
           activePage: 'search',
         });
       }
 
-      const timeMatch = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(scheduledTime);
-      if (!timeMatch) {
-        return res.status(400).render('error', {
-          message: 'Choose a valid time for your scheduled search.',
-          activePage: 'search',
-        });
-      }
-
-      const hh = String(timeMatch[1]).padStart(2, '0');
-      const mm = timeMatch[2];
-      const normalizedTime = `${hh}:${mm}`;
-
-      const local = DateTime.fromISO(`${scheduledDate}T${normalizedTime}`, { zone: timezone });
-      if (!local.isValid) {
-        return res.status(400).render('error', {
-          message: 'Could not interpret that schedule in your timezone. Try again.',
-          activePage: 'search',
-        });
-      }
-
-      const scheduledRunAt = local.toUTC().toISO();
-      if (DateTime.utc() >= DateTime.fromISO(scheduledRunAt)) {
-        return res.status(400).render('error', {
-          message: 'Scheduled run must be in the future.',
-          activePage: 'search',
-        });
-      }
-
-      console.log(`[SEARCH] Saving scheduled scrape for "${keyword}" in "${city}" at ${scheduledDate} ${normalizedTime} (${timezone}) → ${scheduledRunAt}`);
+      console.log(
+        `[SEARCH] Saving scheduled Maps scrape for "${keyword}" in "${city}" (${parsed.data.scheduleKind})`
+      );
       await dbService.saveSchedule({
+        jobType: JOB_TYPES.MAPS_BUSINESS,
         keyword,
         city,
         state,
         maxResults: parseInt(maxResults, 10) || 20,
         targetFolderKey,
         targetFolderName,
-        scheduledRunAt,
-        scheduledDate,
-        scheduledTime: normalizedTime,
-        timezone,
+        ...parsed.data,
         createdAt: new Date().toISOString(),
         workspaceId: req.workspaceId,
       });

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-4 sm:px-6 pt-8 pb-20 md:pt-10 md:pb-24">
+    <header class="max-w-3xl mx-auto mb-8">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Multi-source listings</p>
+      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Mobile homes for sale</h1>
+      <p class="text-sm md:text-base text-brand-muted mt-2 max-w-2xl leading-relaxed">
+        Search Craigslist, Facebook, OfferUp, MHVillage, Zillow, Realtor.com, Redfin, eBay, and Google web results in one run. Each source merges into one deduped list — schedule nightly to watch the whole market.
+      </p>
+      <div class="flex flex-wrap gap-3 mt-4 text-[11px] font-bold uppercase tracking-wider">
+        <a href="/leads/find" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Business (Maps)</a>
+        <a href="/leads/find/real-estate" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Zillow only</a>
+        <a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">Scheduled jobs</a>
+      </div>
+    </header>
+
+    <div class="max-w-3xl mx-auto">
+      <div class="rounded-[1.75rem] border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-xl overflow-hidden">
+        <form action="/mobile-homes/search" method="POST" id="mobileHomesForm" class="p-6 md:p-8 space-y-6">
+          <div>
+            <label for="mhQuery" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Search terms</label>
+            <input type="text" id="mhQuery" name="query" value="mobile home" placeholder="mobile home, manufactured home, trailer…"
+              class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3 text-base font-semibold" />
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label for="mhCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
+              <input type="text" id="mhCity" name="city" required placeholder="Phoenix" value="<%= prefill && prefill.city ? prefill.city : '' %>"
+                class="w-full rounded-xl border border-brand-border/50 px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
+            </div>
+            <div>
+              <label for="mhState" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
+              <input type="text" id="mhState" name="state" required placeholder="AZ" maxlength="2" value="<%= prefill && prefill.state ? prefill.state : '' %>"
+                class="w-full rounded-xl border border-brand-border/50 px-3 py-2.5 text-sm font-semibold uppercase dark:bg-slate-800" />
+            </div>
+          </div>
+
+          <fieldset class="rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 space-y-4">
+            <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-1">Sources</legend>
+            <p class="text-[11px] text-brand-muted -mt-1">Runs each enabled source, merges results, and dedupes by URL. Web search uses SerpAPI / SearchAPI.io keys from Workspace settings.</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_craigslist" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">Craigslist</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_facebook_marketplace" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">Facebook Marketplace</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_offerup" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">OfferUp</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_mhvillage" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">MHVillage</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_zillow" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">Zillow</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_realtor" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">Realtor.com</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_redfin" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">Redfin</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" name="source_ebay" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">eBay</span>
+              </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer sm:col-span-2">
+                <input type="checkbox" name="source_web_search" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">Google web search</span>
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+              <input type="number" name="minPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+              <input type="number" name="maxPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max listings</label>
+              <input type="number" name="maxResults" value="30" min="1" max="100" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-brand-border/40 p-4 space-y-4">
+            <div class="flex flex-wrap justify-between gap-3 items-center">
+              <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">When to run</p>
+              <div class="flex gap-1 p-1 bg-brand-cream/80 dark:bg-slate-800 rounded-xl h-10">
+                <button type="button" id="mhModeRun" class="flex-1 px-4 rounded-lg text-[9px] font-black uppercase bg-white dark:bg-slate-700 shadow-sm">Run now</button>
+                <button type="button" id="mhModeSched" class="flex-1 px-4 rounded-lg text-[9px] font-black uppercase text-brand-muted">Schedule</button>
+              </div>
+            </div>
+            <input type="hidden" name="mode" id="mhModeInput" value="run" />
+            <input type="hidden" name="timezone" id="mhTimezone" />
+            <div id="mhSchedulePanel" class="hidden border-t border-brand-border/30 pt-4">
+              <%- include('partials/schedule_run_options', { schedulePrefix: 'mhSchedule' }) %>
+              <label class="mt-3 inline-flex items-center gap-2 text-sm">
+                <input type="checkbox" name="runNowAlso" class="rounded border-brand-border" /> Run once now as well
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" id="mhSubmit" class="btn-pill btn-primary px-8 py-4 text-[11px] font-black uppercase">Search all sources</button>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <script>
+  (function () {
+    var tz = document.getElementById('mhTimezone');
+    if (tz) tz.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    var mode = document.getElementById('mhModeInput');
+    var panel = document.getElementById('mhSchedulePanel');
+    var btn = document.getElementById('mhSubmit');
+    var run = document.getElementById('mhModeRun');
+    var sched = document.getElementById('mhModeSched');
+    function setM(m) {
+      if (mode) mode.value = m;
+      if (panel) panel.classList.toggle('hidden', m !== 'schedule');
+      if (btn) btn.textContent = m === 'schedule' ? 'Save scheduled job' : 'Search all sources';
+      if (run && sched) {
+        var on = 'px-4 rounded-lg text-[9px] font-black uppercase bg-white dark:bg-slate-700 shadow-sm';
+        var off = 'px-4 rounded-lg text-[9px] font-black uppercase text-brand-muted';
+        run.className = 'flex-1 ' + (m === 'run' ? on : off);
+        sched.className = 'flex-1 ' + (m === 'schedule' ? on : off);
+      }
+    }
+    if (run) run.addEventListener('click', function () { setM('run'); });
+    if (sched) sched.addEventListener('click', function () { setM('schedule'); });
+  })();
+  </script>
+  <script src="/js/app.js?v=<%= assetVersion %>"></script>
+  <%- include('/partials/app_shell_close') %>
+</body>
+</html>

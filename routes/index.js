@@ -74,6 +74,38 @@ router.get('/home', (req, res) => {
 });
 router.get('/leads/find', renderFindLeads);
 
+router.get('/leads/find/real-estate', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const workspace = (await dbService.getWorkspace(wid)) || {};
+    const icp = getWorkspaceIcp(workspace);
+    const folders = await dbService.listFolders(wid);
+    return res.render('real_estate_find', {
+      title: 'Find property deals | Agency OS',
+      activePage: 'find',
+      folders,
+      prefill: { city: icp.city || '', state: icp.state || '' },
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
+router.get('/leads/find/mobile-homes', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const workspace = (await dbService.getWorkspace(wid)) || {};
+    const icp = getWorkspaceIcp(workspace);
+    return res.render('mobile_homes_find', {
+      title: 'Mobile homes for sale | Agency OS',
+      activePage: 'find',
+      prefill: { city: icp.city || '', state: icp.state || '' },
+    });
+  } catch (e) {
+    return next(e);
+  }
+});
+
 /** Toggle overnight Maps prep for this workspace (cron: GET /api/cron/nightly-prep). */
 router.post('/leads/find/nightly-prep-settings', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {

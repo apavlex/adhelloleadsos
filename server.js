@@ -56,7 +56,10 @@ const sharePhoneAnalyticsRoutes = require('./routes/sharePhoneAnalytics');
 const dbService = require('./services/database');
 const ceoRoutes = require('./routes/ceo');
 const autonomousRoutes = require('./routes/autonomous');
-const demoGenerator = require('./services/demoGenerator');
+const realEstateRoutes = require('./routes/realEstate');
+const mobileHomesRoutes = require('./routes/mobileHomes');
+const scrapeJobDisplay = require('./services/scrapeJobTypes');
+const scheduleDisplay = require('./services/scheduleHelpers');
 
 const app = express();
 const { DEFAULT_SEQUENCE_TEMPLATES } = require('./services/sequenceTemplates');
@@ -65,6 +68,11 @@ try {
 } catch (_) {
   app.locals.assetVersion = '1';
 }
+app.locals.scheduleDisplayTitle = scrapeJobDisplay.scheduleDisplayTitle;
+app.locals.scheduleDisplaySubtitle = scrapeJobDisplay.scheduleDisplaySubtitle;
+app.locals.JOB_TYPE_LABELS = scrapeJobDisplay.JOB_TYPE_LABELS;
+app.locals.normalizeJobType = scrapeJobDisplay.normalizeJobType;
+app.locals.scheduleFrequencyLabel = scheduleDisplay.scheduleFrequencyLabel;
 /** Outreach playbooks for lead sidebar + sequences page (id, steps, hints). */
 app.locals.sequenceTemplates = DEFAULT_SEQUENCE_TEMPLATES.map((t) => ({
   id: t.id,
@@ -437,6 +445,8 @@ app.use('/today', todayRoutes);
 app.use('/focus', focusRoutes);
 app.use('/', indexRoutes);
 app.use('/search', searchRoutes);
+app.use('/real-estate/search', realEstateRoutes);
+app.use('/mobile-homes/search', mobileHomesRoutes);
 app.use('/history', historyRoutes);
 app.use('/leads', leadsRoutes);
 app.use('/folders', foldersRoutes);

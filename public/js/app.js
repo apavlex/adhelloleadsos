@@ -1431,13 +1431,18 @@ document.addEventListener('DOMContentLoaded', () => {
     userTimezoneInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone;
   }
 
+  function getScheduleDateInput() {
+    return document.getElementById('findScheduleDateInput') || document.getElementById('scheduledDateInput');
+  }
+
   function setScheduledDateDefaults() {
-    const dateEl = document.getElementById('scheduledDateInput');
+    const dateEl = getScheduleDateInput();
     if (!dateEl) return;
-    const today = new Date();
-    const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const y = tomorrow.getFullYear();
+    const m = String(tomorrow.getMonth() + 1).padStart(2, '0');
+    const d = String(tomorrow.getDate()).padStart(2, '0');
     const isoLocal = `${y}-${m}-${d}`;
     dateEl.min = isoLocal;
     if (!dateEl.value) dateEl.value = isoLocal;
@@ -1463,7 +1468,7 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduledSearchSettings.classList.add('hidden');
       }
       if (runNowAlso) runNowAlso.checked = false;
-      const dateEl = document.getElementById('scheduledDateInput');
+      const dateEl = getScheduleDateInput();
       if (dateEl) dateEl.required = false;
 
       if (searchBtnLabel) {
@@ -1479,8 +1484,6 @@ document.addEventListener('DOMContentLoaded', () => {
         scheduledSearchSettings.classList.remove('hidden');
       }
       setScheduledDateDefaults();
-      const dateElSch = document.getElementById('scheduledDateInput');
-      if (dateElSch) dateElSch.required = true;
 
       if (searchBtnLabel) {
         searchBtnLabel.innerHTML = 'Schedule search<svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';

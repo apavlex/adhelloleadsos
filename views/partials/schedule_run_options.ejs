@@ -1,0 +1,86 @@
+<% const _schedulePrefix = typeof schedulePrefix !== 'undefined' ? schedulePrefix : 'schedule'; %>
+<div id="<%= _schedulePrefix %>RunOptions" class="space-y-4">
+  <input type="hidden" name="scheduledTime" id="<%= _schedulePrefix %>TimeHidden" value="02:00" />
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Repeat</label>
+      <select name="scheduleKind" id="<%= _schedulePrefix %>KindSelect" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
+        <option value="once">One-time (pick date)</option>
+        <option value="recurring">Recurring (nightly / weekly)</option>
+      </select>
+    </div>
+    <div id="<%= _schedulePrefix %>FrequencyWrap" class="hidden">
+      <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Frequency</label>
+      <select name="frequency" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+      </select>
+    </div>
+  </div>
+  <div id="<%= _schedulePrefix %>OnceDateWrap" class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label for="<%= _schedulePrefix %>DateInput" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Run date</label>
+      <input type="date" id="<%= _schedulePrefix %>DateInput" name="scheduledDate" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+    </div>
+    <div>
+      <label for="<%= _schedulePrefix %>TimeInput" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Time</label>
+      <input type="time" id="<%= _schedulePrefix %>TimeInput" value="02:00" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+    </div>
+  </div>
+  <div id="<%= _schedulePrefix %>RecurringTimeWrap" class="hidden max-w-xs">
+    <label for="<%= _schedulePrefix %>RecurringTimeInput" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Run at</label>
+    <input type="time" id="<%= _schedulePrefix %>RecurringTimeInput" value="02:00" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+    <p class="text-[11px] text-brand-muted mt-1">Uses your browser timezone. Recurring jobs stay active until you delete them.</p>
+  </div>
+</div>
+<script>
+(function () {
+  var prefix = <%= JSON.stringify(_schedulePrefix) %>;
+  var kind = document.getElementById(prefix + 'KindSelect');
+  var onceWrap = document.getElementById(prefix + 'OnceDateWrap');
+  var freqWrap = document.getElementById(prefix + 'FrequencyWrap');
+  var recurWrap = document.getElementById(prefix + 'RecurringTimeWrap');
+  var dateInput = document.getElementById(prefix + 'DateInput');
+  var timeInput = document.getElementById(prefix + 'TimeInput');
+  var recurTime = document.getElementById(prefix + 'RecurringTimeInput');
+  var timeHidden = document.getElementById(prefix + 'TimeHidden');
+  if (!kind) return;
+
+  function syncHiddenTime() {
+    if (!timeHidden) return;
+    var recurring = kind.value === 'recurring';
+    var val = recurring && recurTime ? recurTime.value : (timeInput ? timeInput.value : '02:00');
+    timeHidden.value = val || '02:00';
+  }
+
+  function setDateDefault() {
+    if (!dateInput) return;
+    var today = new Date();
+    today.setDate(today.getDate() + 1);
+    var y = today.getFullYear();
+    var m = String(today.getMonth() + 1).padStart(2, '0');
+    var d = String(today.getDate()).padStart(2, '0');
+    var iso = y + '-' + m + '-' + d;
+    dateInput.min = iso;
+    if (!dateInput.value) dateInput.value = iso;
+  }
+
+  function syncScheduleUi() {
+    var recurring = kind.value === 'recurring';
+    if (onceWrap) onceWrap.classList.toggle('hidden', recurring);
+    if (freqWrap) freqWrap.classList.toggle('hidden', !recurring);
+    if (recurWrap) recurWrap.classList.toggle('hidden', !recurring);
+    if (dateInput) dateInput.required = !recurring;
+    if (!recurring) setDateDefault();
+    syncHiddenTime();
+  }
+
+  kind.addEventListener('change', syncScheduleUi);
+  if (recurTime) recurTime.addEventListener('change', syncHiddenTime);
+  if (timeInput) timeInput.addEventListener('change', syncHiddenTime);
+  var form = kind.closest('form');
+  if (form) form.addEventListener('submit', syncHiddenTime);
+  syncScheduleUi();
+})();
+</script>

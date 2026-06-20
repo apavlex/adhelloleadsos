@@ -1,9 +1,9 @@
 const cron = require('node-cron');
 const { DateTime } = require('luxon');
 const db = require('./database');
-const mapsSearch = require('./mapsSearch');
 const workspaceIntegrations = require('./workspaceIntegrations');
-const enricher = require('./enricher');
+const scrapeJobRunner = require('./scrapeJobRunner');
+const { scheduleDisplayTitle } = require('./scrapeJobTypes');
 const { runDueSequenceSteps } = require('./sequenceEngine');
 const { maybeWarmAllMorningBriefs } = require('./morningBriefWarm');
 const signalwire = require('./signalwire');
@@ -82,7 +82,10 @@ async function runDueSchedules() {
       }
 
       if (due) {
-        console.log(`[SCHEDULER] Running due schedule for: "${schedule.keyword}" at ${schedule.scheduledTime || '?'} (${timezone})`);
+        const jobLabel = scheduleDisplayTitle(schedule);
+        console.log(
+          `[SCHEDULER] Running due schedule for: "${jobLabel}" at ${schedule.scheduledTime || '?'} (${timezone})`
+        );
 
         // Update lastRun first to prevent overlaps
         await db.updateSchedule(schedule.key, { lastRun: nowLocal.toISO() });
@@ -91,36 +94,18 @@ async function runDueSchedules() {
           const wid = schedule.workspaceId || 'default';
           const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
-          // 1. Maps list (Outscraper first when configured, Apify fallback)
-          let results = await mapsSearch.searchGoogleMaps({
-            keyword: schedule.keyword,
-            city: schedule.city,
-            state: schedule.state,
-            maxResults: schedule.maxResults || 20,
-            integrationEnv,
-          });
+          if (!scrapeJobRunner.isJobConfigured(schedule, integrationEnv)) {
+            throw new Error('Scrape provider not configured for this job type.');
+          }
 
-          // 2. Enrich
-          results = await enricher.enrichLeads(results, { workspaceId: wid });
-
-          // 3. Store results in History
-          const searchRecord = {
-            keyword: schedule.keyword,
-            city: schedule.city,
-            state: schedule.state,
-            maxResults: schedule.maxResults || 20,
-            resultCount: results.length,
-            results,
-            isAutopilot: true,
-            timestamp: nowLocal.toISO(),
-            workspaceId: wid,
-          };
+          const results = await scrapeJobRunner.executeScrapeJob(schedule, integrationEnv);
+          const searchRecord = scrapeJobRunner.buildSearchRecord(schedule, results, nowLocal.toISO());
           await db.saveSearch(searchRecord);
 
           try {
             const wsMeta = await db.getWorkspace(wid);
             await db.recordCompletedSearchNotification({
-              keyword: schedule.keyword,
+              keyword: searchRecord.keyword || jobLabel,
               city: schedule.city,
               state: schedule.state,
               maxResults: schedule.maxResults || 20,
@@ -133,7 +118,7 @@ async function runDueSchedules() {
             console.error('[SCHEDULER] Failed to record completion notification:', notifyErr.message);
           }
 
-          console.log(`[SCHEDULER] Scheduled scrape complete for "${schedule.keyword}". Found ${results.length} leads.`);
+          console.log(`[SCHEDULER] Scheduled scrape complete for "${jobLabel}". Found ${results.length} results.`);
 
           const hook = process.env.AUTOPILOT_WEBHOOK_URL;
           if (hook) {
@@ -144,7 +129,8 @@ async function runDueSchedules() {
                 body: JSON.stringify({
                   event: 'autopilot.search_complete',
                   scheduleKey: schedule.key,
-                  keyword: schedule.keyword,
+                  jobType: schedule.jobType || 'maps_business',
+                  keyword: searchRecord.keyword || jobLabel,
                   city: schedule.city,
                   state: schedule.state,
                   maxResults: schedule.maxResults || 20,
@@ -170,7 +156,7 @@ async function runDueSchedules() {
         }
       }
     } catch (err) {
-      console.error(`[SCHEDULER] Scheduled scrape failed for ${schedule.keyword}:`, err.stack);
+      console.error(`[SCHEDULER] Scheduled scrape failed for ${scheduleDisplayTitle(schedule)}:`, err.stack);
     }
   }
 }

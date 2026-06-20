@@ -178,23 +178,16 @@
                 </div>
                 <input type="hidden" name="mode" id="searchModeInput" value="run" />
                 <input type="hidden" name="timezone" id="userTimezone" />
-                <div id="scheduledSearchSettings" class="hidden grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-brand-border/30 dark:border-white/10">
-                  <div>
-                    <label for="scheduledDateInput" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Run date</label>
-                    <input type="date" id="scheduledDateInput" name="scheduledDate" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
-                  </div>
-                  <div>
-                    <label for="scheduledTimeInput" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Time</label>
-                    <input type="time" name="scheduledTime" id="scheduledTimeInput" value="09:00" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
-                  </div>
-                  <label class="sm:col-span-2 inline-flex items-center gap-2 text-sm">
+                <div id="scheduledSearchSettings" class="hidden space-y-4 pt-2 border-t border-brand-border/30 dark:border-white/10">
+                  <%- include('partials/schedule_run_options', { schedulePrefix: 'findSchedule' }) %>
+                  <label class="inline-flex items-center gap-2 text-sm">
                     <input type="checkbox" name="runNowAlso" id="runNowAlso" class="rounded border-brand-border" />
                     Run once now as well
                   </label>
-                  <div class="sm:col-span-2">
+                  <div>
                     <%- include('partials/find_nightly_prep_checkbox') %>
                   </div>
-                  <p class="sm:col-span-2 text-[11px] text-brand-muted"><a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">View scheduled runs</a></p>
+                  <p class="text-[11px] text-brand-muted"><a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">View scheduled jobs</a> · <a href="/leads/find/real-estate" class="text-brand-yellow hover:underline">Real estate jobs</a></p>
                 </div>
               </div>
 
