@@ -43,6 +43,7 @@ const SEARCH_TYPES = [
     scraperHint:
       'RapidAPI, SearchAPI, SerpAPI, Oxylabs, Outscraper, or Apify Google Local. Add directory supplement for Yelp / Yellow Pages / BBB.',
     defaultMapsProvider: 'auto',
+    requiresLocation: true,
   },
   {
     jobType: JOB_TYPES.REAL_ESTATE,
@@ -58,6 +59,7 @@ const SEARCH_TYPES = [
       'Zillow, Realtor, Redfin, MHVillage, Craigslist, Facebook, OfferUp, Oxylabs, SerpAPI. Mobile home flip filters available.',
     supportsFlip: true,
     supportsPropertyScraper: true,
+    requiresLocation: true,
   },
   {
     jobType: JOB_TYPES.HOME_OWNERS,
@@ -71,6 +73,7 @@ const SEARCH_TYPES = [
     defaultQuery: 'property owner',
     scraperHint:
       'SerpAPI web search + Oxylabs Google for owner/property queries; Zillow, Redfin, Realtor for listing context.',
+    requiresLocation: true,
   },
   {
     jobType: JOB_TYPES.PRODUCTS,
@@ -83,6 +86,7 @@ const SEARCH_TYPES = [
     defaultKeyword: '',
     defaultQuery: '',
     scraperHint: 'Facebook Marketplace, Craigslist, OfferUp, and eBay. Best for used goods and local inventory.',
+    requiresLocation: false,
   },
   {
     jobType: JOB_TYPES.WHOLESALE,
@@ -96,6 +100,7 @@ const SEARCH_TYPES = [
     defaultQuery: 'wholesale',
     scraperHint:
       'Web search + Oxylabs for supplier discovery; Facebook, Craigslist, OfferUp, eBay for bulk listings. Use Business search for wholesale storefronts on Maps.',
+    requiresLocation: false,
   },
 ];
 
@@ -154,6 +159,16 @@ function isListingJobType(jobType) {
   return row && row.category === 'listings';
 }
 
+function findTabRequiresLocation(findTab) {
+  const row = BY_FIND_TAB[findTab];
+  return row ? row.requiresLocation !== false : true;
+}
+
+function jobTypeRequiresLocation(jobType) {
+  const row = BY_JOB_TYPE[jobType];
+  return row ? row.requiresLocation !== false : true;
+}
+
 module.exports = {
   SEARCH_TYPES,
   DEFAULT_SOURCES,
@@ -164,4 +179,6 @@ module.exports = {
   configForJobType,
   defaultSourcesForJobType,
   isListingJobType,
+  findTabRequiresLocation,
+  jobTypeRequiresLocation,
 };

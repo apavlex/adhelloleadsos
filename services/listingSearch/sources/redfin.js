@@ -75,5 +75,6 @@ module.exports = {
   id: 'redfin',
   label: 'Redfin',
   isConfigured,
+  requiresLocation: true,
   search: searchRedfin,
 };

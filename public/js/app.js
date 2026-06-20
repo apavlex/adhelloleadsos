@@ -1582,7 +1582,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (wizardPanels && wizardPanels.length) {
     const findWizardScrollTarget = document.getElementById('searchContainer');
 
+    function findTypeRequiresLocation() {
+      const form = document.getElementById('searchForm');
+      const type = form && form.getAttribute('data-find-type');
+      if (type === 'products' || type === 'wholesale') return false;
+      return true;
+    }
+
     function hasFindLocation() {
+      if (!findTypeRequiresLocation()) return true;
       const city = document.getElementById('findManualCity');
       const state = document.getElementById('findManualState');
       return Boolean(
@@ -1649,7 +1657,17 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-step-goto]').forEach((btnGoto) => {
       btnGoto.addEventListener('click', () => trySetStep(btnGoto.getAttribute('data-step-goto')));
     });
-    setStep(1);
+
+    document.addEventListener('find:locationModeChanged', (ev) => {
+      const detail = (ev && ev.detail) || {};
+      if (detail.requiresLocation === false) {
+        setStep(2);
+      } else if (detail.requiresLocation === true) {
+        setStep(1);
+      }
+    });
+
+    setStep(findTypeRequiresLocation() ? 1 : 2);
   }
 
   // --- Navigation & Menu ---

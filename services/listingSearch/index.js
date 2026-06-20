@@ -111,7 +111,10 @@ async function searchListings(params) {
     minPrice: params.minPrice,
     maxPrice: params.maxPrice,
     integrationEnv,
+    jobType: params.jobType,
   };
+
+  const hasLocation = Boolean(String(params.city || '').trim() && String(params.state || '').trim());
 
   let accumulated = [];
   const perSourceCap = Math.max(5, Math.ceil(cap / Math.max(1, sourceIds.length)));
@@ -122,6 +125,10 @@ async function searchListings(params) {
     const adapter = SOURCE_BY_ID[sourceId];
     if (!adapter || !adapter.isConfigured(integrationEnv)) {
       console.warn(`[listingSearch] Skipping ${sourceId} — not configured.`);
+      continue;
+    }
+    if (!hasLocation && adapter.requiresLocation) {
+      console.warn(`[listingSearch] Skipping ${adapter.label} — city/state required.`);
       continue;
     }
 
@@ -147,8 +154,11 @@ async function searchListings(params) {
 
   if (!accumulated.length) {
     const detail = errors.length ? ` Errors: ${errors.join('; ')}` : '';
+    const locLabel = hasLocation
+      ? ` in ${searchParams.city}, ${searchParams.state}`
+      : ' (nationwide)';
     throw new Error(
-      `No listings found across ${sourceIds.join(', ')} for "${searchParams.query}" in ${searchParams.city}, ${searchParams.state}.${detail}`
+      `No listings found across ${sourceIds.join(', ')} for "${searchParams.query}"${locLabel}.${detail}`
     );
   }
 

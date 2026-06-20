@@ -74,5 +74,6 @@ module.exports = {
   id: 'realtor',
   label: 'Realtor.com',
   isConfigured,
+  requiresLocation: true,
   search: searchRealtor,
 };

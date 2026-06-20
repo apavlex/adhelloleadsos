@@ -10,7 +10,7 @@ const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { parseFlipFilter } = require('../services/listingFlipScore');
 const { JOB_TYPES, normalizeJobType } = require('../services/scrapeJobTypes');
 const { resolveTargetFolder } = require('../services/pipelineFolders');
-const { configForJobType, defaultSourcesForJobType } = require('../services/searchTypeConfig');
+const { configForJobType, defaultSourcesForJobType, jobTypeRequiresLocation } = require('../services/searchTypeConfig');
 
 router.post('/', async (req, res, next) => {
   try {
@@ -35,12 +35,17 @@ router.post('/', async (req, res, next) => {
     const targetFolderKey = folderResolved.targetFolderKey;
     const targetFolderName = folderResolved.targetFolderName;
 
-    if (!city || !state) {
+    const needsLocation = jobTypeRequiresLocation(jobType);
+
+    if (needsLocation && (!city || !state)) {
       return res.status(400).render('error', {
         message: 'City and state are required.',
         activePage: 'find',
       });
     }
+
+    const resolvedCity = needsLocation ? String(city || '').trim() : String(city || '').trim();
+    const resolvedState = needsLocation ? String(state || '').trim() : String(state || '').trim();
 
     const maxRes = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 25));
     const searchQuery =
@@ -53,8 +58,8 @@ router.post('/', async (req, res, next) => {
 
     const jobParams = {
       jobType,
-      city,
-      state,
+      city: resolvedCity,
+      state: resolvedState,
       query: searchQuery,
       sources: resolvedSources,
       maxResults: maxRes,
@@ -70,8 +75,8 @@ router.post('/', async (req, res, next) => {
     async function startBackgroundRun() {
       await dbService.setActiveJob({
         type: `${jobType}_search`,
-        city,
-        state,
+        city: resolvedCity,
+        state: resolvedState,
         query: searchQuery,
         maxResults: maxRes,
         jobType,

@@ -71,5 +71,6 @@ module.exports = {
   id: 'craigslist',
   label: 'Craigslist',
   isConfigured,
+  requiresLocation: true,
   search: searchCraigslist,
 };

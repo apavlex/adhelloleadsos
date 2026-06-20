@@ -110,5 +110,6 @@ module.exports = {
   id: 'zillow',
   label: 'Zillow',
   isConfigured,
+  requiresLocation: true,
   search: searchZillow,
 };

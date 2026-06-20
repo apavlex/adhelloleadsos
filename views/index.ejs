@@ -81,7 +81,7 @@
           </div>
         </div>
         <!-- Step progress -->
-        <div class="px-4 sm:px-6 py-4 border-b border-brand-border/20 dark:border-white/5">
+        <div id="findWizardStepBar" class="px-4 sm:px-6 py-4 border-b border-brand-border/20 dark:border-white/5">
           <ol class="flex items-center gap-2 sm:gap-4" aria-label="Search steps">
             <li class="flex items-center gap-2 min-w-0 flex-1 sm:flex-none">
               <button type="button" data-step-goto="1" data-step-indicator="1" class="find-step-pill flex items-center gap-2 rounded-full border px-3 py-2 text-left transition-colors border-brand-yellow/50 bg-brand-yellow/15 text-brand-dark dark:text-white">
@@ -123,12 +123,12 @@
                 <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3">
                   <div>
                     <label for="findManualCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
-                    <input type="text" id="findManualCity" name="city" required placeholder="e.g. Vancouver" value="<%= _sp.city || '' %>"
+                    <input type="text" id="findManualCity" name="city" placeholder="e.g. Vancouver" value="<%= _sp.city || '' %>"
                       class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30" />
                   </div>
                   <div>
                     <label for="findManualState" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
-                    <input type="text" id="findManualState" name="state" required placeholder="BC or WA" maxlength="2" value="<%= _sp.state || '' %>"
+                    <input type="text" id="findManualState" name="state" placeholder="BC or WA" maxlength="2" value="<%= _sp.state || '' %>"
                       class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold uppercase text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30" />
                   </div>
                 </div>
@@ -213,7 +213,7 @@
                   queryLabel: 'Product search terms',
                   queryPlaceholder: 'iPhone, furniture, tools…',
                   defaultQuery: (_fp && _fp.query) ? _fp.query : '',
-                  scraperHint: 'Facebook Marketplace, Craigslist, OfferUp, and eBay.',
+                  scraperHint: 'Nationwide search — eBay, OfferUp, web search, and Oxylabs run without a city. Craigslist and Facebook need a local area (use Real estate or Business for geo searches).',
                   enabledSources: (_fp && _fp.sources) ? _fp.sources : (_defSrc.products || null)
                 }) %>
               </div>
@@ -223,7 +223,7 @@
                   queryLabel: 'Wholesale / supplier search terms',
                   queryPlaceholder: 'wholesale, bulk supplier, distributor…',
                   defaultQuery: (_fp && _fp.query) ? _fp.query : 'wholesale',
-                  scraperHint: 'Web search + Oxylabs for supplier discovery; Facebook, Craigslist, OfferUp, eBay for bulk listings.',
+                  scraperHint: 'Nationwide supplier search — web search, Oxylabs, eBay, and OfferUp. Local marketplace scrapers are skipped unless you add a city later.',
                   enabledSources: (_fp && _fp.sources) ? _fp.sources : (_defSrc.wholesale || null)
                 }) %>
               </div>
@@ -296,7 +296,7 @@
               </div>
 
               <div class="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-                <button type="button" data-step-prev="1" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Back to area</button>
+                <button type="button" data-step-prev="1" id="findStepBackArea" class="btn-pill border border-brand-border dark:border-white/20 px-5 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Back to area</button>
                 <button type="submit" id="searchBtn" class="btn-pill btn-primary px-8 py-4 text-[11px] font-black uppercase tracking-widest shadow-lg shadow-brand-yellow/25 group">
                   <span id="searchBtnText" class="flex items-center justify-center gap-2">
                     Start search
@@ -477,6 +477,7 @@
         submitSched: 'Save scheduled job',
         previewLabel: 'leads',
         defaultQuery: 'plumber',
+        requiresLocation: true,
       },
       real_estate: {
         action: '/listings/search',
@@ -486,6 +487,7 @@
         submitSched: 'Save scheduled job',
         previewLabel: 'listings',
         defaultQuery: 'homes for sale',
+        requiresLocation: true,
       },
       home_owners: {
         action: '/listings/search',
@@ -495,24 +497,27 @@
         submitSched: 'Save scheduled job',
         previewLabel: 'results',
         defaultQuery: 'property owner',
+        requiresLocation: true,
       },
       products: {
         action: '/listings/search',
         title: 'Product listings',
-        desc: 'Marketplace listings — Facebook, Craigslist, OfferUp, eBay.',
+        desc: 'Search marketplaces nationwide — no city or map required. eBay, OfferUp, and web sources run without a location.',
         submitRun: 'Search marketplaces',
         submitSched: 'Save scheduled job',
         previewLabel: 'listings',
         defaultQuery: 'products',
+        requiresLocation: false,
       },
       wholesale: {
         action: '/listings/search',
         title: 'Wholesale suppliers',
-        desc: 'Bulk suppliers and wholesale listings across marketplaces and web search.',
+        desc: 'Find bulk suppliers and listings nationwide — no area step. Web search, eBay, and OfferUp work without location.',
         submitRun: 'Search suppliers',
         submitSched: 'Save scheduled job',
         previewLabel: 'results',
         defaultQuery: 'wholesale',
+        requiresLocation: false,
       },
     };
 
@@ -526,6 +531,28 @@
         if (el.classList.contains('find-type-tab')) return;
         el.disabled = !enabled;
       });
+    }
+
+    function findTypeRequiresLocation(type) {
+      var cfg = FIND_CONFIG[type || currentType];
+      return !cfg || cfg.requiresLocation !== false;
+    }
+
+    function syncFindLocationMode(type) {
+      var needsLoc = findTypeRequiresLocation(type);
+      var stepBar = document.getElementById('findWizardStepBar');
+      var backBtn = document.getElementById('findStepBackArea');
+      var cityEl = document.getElementById('findManualCity');
+      var stateEl = document.getElementById('findManualState');
+      if (stepBar) stepBar.classList.toggle('hidden', !needsLoc);
+      if (backBtn) backBtn.classList.toggle('hidden', !needsLoc);
+      if (cityEl) cityEl.required = needsLoc;
+      if (stateEl) stateEl.required = needsLoc;
+      if (!needsLoc && cityEl) cityEl.value = '';
+      if (!needsLoc && stateEl) stateEl.value = '';
+      document.dispatchEvent(new CustomEvent('find:locationModeChanged', {
+        detail: { requiresLocation: needsLoc, findType: type || currentType },
+      }));
     }
 
     function setFindType(type) {
@@ -566,6 +593,7 @@
       });
       syncFindPreview();
       updateSubmitLabel();
+      syncFindLocationMode(type);
       if (history.replaceState) {
         var url = new URL(window.location.href);
         if (type === 'maps') url.searchParams.delete('type');
@@ -616,17 +644,24 @@
       }
       var c = city && city.value.trim() ? city.value.trim() : '';
       var s = state && state.value.trim() ? state.value.trim().toUpperCase() : '';
-      var locLabel = c || s ? (c + (c && s ? ', ' : '') + s) : '—';
+      var nationwide = !findTypeRequiresLocation(currentType);
+      var locLabel = nationwide ? 'Nationwide' : (c || s ? (c + (c && s ? ', ' : '') + s) : '—');
       if (line) {
-        line.innerHTML = '<span class="text-brand-dark dark:text-white">' + k + '</span> in <span class="text-brand-dark dark:text-white">' + locLabel + '</span>';
+        if (nationwide) {
+          line.innerHTML = '<span class="text-brand-dark dark:text-white">' + k + '</span> <span class="text-brand-muted font-semibold">· nationwide</span>';
+        } else {
+          line.innerHTML = '<span class="text-brand-dark dark:text-white">' + k + '</span> in <span class="text-brand-dark dark:text-white">' + locLabel + '</span>';
+        }
       }
       if (loc) loc.textContent = locLabel;
-      if (hint) hint.textContent = locLabel !== '—' ? locLabel : 'Map or city';
+      if (hint) hint.textContent = nationwide ? 'No area needed' : (locLabel !== '—' ? locLabel : 'Map or city');
       if (summary) {
-        summary.textContent = locLabel !== '—' ? 'Searching in ' + locLabel : 'Set a city and state to continue.';
-        summary.classList.toggle('text-brand-dark', locLabel !== '—');
-        summary.classList.toggle('dark:text-white', locLabel !== '—');
-        summary.classList.toggle('text-brand-muted', locLabel === '—');
+        summary.textContent = nationwide
+          ? 'No location required — set search terms on the next step.'
+          : (locLabel !== '—' ? 'Searching in ' + locLabel : 'Set a city and state to continue.');
+        summary.classList.toggle('text-brand-dark', nationwide || locLabel !== '—');
+        summary.classList.toggle('dark:text-white', nationwide || locLabel !== '—');
+        summary.classList.toggle('text-brand-muted', !nationwide && locLabel === '—');
       }
       if (meta && max) {
         var n = parseInt(max.value, 10) || 20;

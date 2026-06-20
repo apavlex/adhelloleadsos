@@ -94,5 +94,6 @@ module.exports = {
   id: 'mhvillage',
   label: 'MHVillage',
   isConfigured,
+  requiresLocation: true,
   search: searchMhvillage,
 };

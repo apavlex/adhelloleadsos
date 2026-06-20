@@ -80,11 +80,14 @@ async function runListingJob(schedule, integrationEnv) {
     minPrice: schedule.minPrice,
     maxPrice: schedule.maxPrice,
     integrationEnv,
+    jobType,
   });
 
   if (!results || results.length === 0) {
+    const loc = [schedule.city, schedule.state].filter(Boolean).join(', ');
+    const locSuffix = loc ? ` in ${loc}` : '';
     throw new Error(
-      `No listings found in ${schedule.city}, ${schedule.state}. Try other scrapers or widen filters.`
+      `No listings found${locSuffix}. Try other scrapers or widen filters.`
     );
   }
 
@@ -188,9 +191,11 @@ function buildSearchRecord(schedule, results, timestampIso) {
           : jobType === JOB_TYPES.WHOLESALE
             ? 'Wholesale'
             : 'Real estate';
+    const loc = [schedule.city, schedule.state].filter(Boolean).join(', ');
+    const keywordBase = loc ? `${q} · ${loc}` : q;
     const record = {
       ...base,
-      keyword: `${q} · ${schedule.city}, ${schedule.state}`,
+      keyword: keywordBase,
       query: q,
       sources: schedule.sources || listingSearch.ALL_SOURCES.map((s) => s.id),
       minPrice: schedule.minPrice || null,
@@ -200,7 +205,9 @@ function buildSearchRecord(schedule, results, timestampIso) {
     };
     if (schedule._flipStats) record.flipStats = schedule._flipStats;
     if (jobType !== JOB_TYPES.REAL_ESTATE) {
-      record.keyword = `${label}: ${q} · ${schedule.city}, ${schedule.state}`;
+      record.keyword = loc ? `${label}: ${q} · ${loc}` : `${label}: ${q}`;
+    } else if (!loc) {
+      record.keyword = q;
     }
     return record;
   }

@@ -58,7 +58,7 @@ function scheduleDisplayTitle(schedule) {
   const jobType = normalizeJobType(schedule && schedule.jobType);
   const city = String((schedule && schedule.city) || '').trim();
   const state = String((schedule && schedule.state) || '').trim();
-  const loc = [city, state].filter(Boolean).join(', ') || 'Area TBD';
+  const locationLabel = [city, state].filter(Boolean).join(', ');
 
   if (isListingJobType(jobType)) {
     const q = String((schedule && (schedule.query || schedule.keyword)) || '').trim();
@@ -70,7 +70,10 @@ function scheduleDisplayTitle(schedule) {
           : jobType === JOB_TYPES.WHOLESALE
             ? 'Wholesale'
             : 'Real estate';
-    return q ? `${q} · ${loc}` : `${label} · ${loc}`;
+    if (q) {
+      return locationLabel ? `${q} · ${locationLabel}` : `${label}: ${q}`;
+    }
+    return locationLabel ? `${label} · ${locationLabel}` : label;
   }
   return String((schedule && schedule.keyword) || 'Search');
 }

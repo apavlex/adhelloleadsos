@@ -68,5 +68,6 @@ module.exports = {
   id: 'facebook_marketplace',
   label: 'Facebook Marketplace',
   isConfigured,
+  requiresLocation: true,
   search: searchFacebookMarketplace,
 };
