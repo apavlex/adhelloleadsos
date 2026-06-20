@@ -608,6 +608,37 @@
       return plus + digits;
     }
 
+    function focusParseResponse(r) {
+      if (r.type === 'opaqueredirect' || r.status === 301 || r.status === 302 || r.status === 303 || r.status === 307 || r.status === 308) {
+        return Promise.reject(new Error('Session expired — refresh the page and sign in again.'));
+      }
+      var ct = String(r.headers.get('content-type') || '').toLowerCase();
+      if (ct.indexOf('application/json') === -1) {
+        return r.text().then(function () {
+          var hint = 'Server returned an unexpected response.';
+          if (r.status === 404) hint = 'API route not found.';
+          else if (r.status === 502 || r.status === 503) hint = 'Server temporarily unavailable — try again.';
+          throw new Error(hint + ' (HTTP ' + r.status + ')');
+        });
+      }
+      return r.json().then(function (j) {
+        if (!r.ok || (j && j.success === false)) {
+          throw new Error((j && j.error) || (j && j.message) || 'Request failed (HTTP ' + r.status + ')');
+        }
+        return j;
+      });
+    }
+
+    function focusPostJson(url, body) {
+      return fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        redirect: 'manual',
+        body: JSON.stringify(body || {}),
+      }).then(focusParseResponse);
+    }
+
     function focusHasSoftphone() {
       return typeof window.__adhelloOpenSoftphoneWithDial === 'function';
     }
@@ -1085,22 +1116,21 @@
           return Promise.resolve({ softphone: true });
         }
       }
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/call', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      var phone = normalizeTel(lead.phone || '');
+      if (!phone) {
+        return Promise.reject(new Error('No phone on this lead.'));
+      }
+      return focusPostJson('/leads/telephony/dial', {
+        to: phone,
+        leadKey: lead.key,
+        action: 'call',
       })
-        .then(function (r) {
-          return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Call failed');
-            return j;
-          });
-        })
         .then(function (data) {
           var dialMode = String((data && data.dialMode) || '').trim();
-          var phone = String((data && data.phone) || (lead.phone || '')).replace(/[^\d+]/g, '');
-          if (dialMode === 'browser_device' && phone) {
+          var dialPhone = String((data && data.phone) || phone).replace(/[^\d+]/g, '');
+          if (dialMode === 'browser_device' && dialPhone) {
             setCopyFeedback('Opening your dialer...');
-            window.location.href = 'tel:' + phone;
+            window.location.href = 'tel:' + dialPhone;
           } else {
             setCopyFeedback('Cloud call started.');
           }
@@ -1123,16 +1153,16 @@
           return Promise.resolve({ softphone: true });
         }
       }
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/voicemail-drop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      var vmPhone = normalizeTel(lead.phone || '');
+      if (!vmPhone) {
+        return Promise.reject(new Error('No phone on this lead.'));
+      }
+      return focusPostJson('/leads/telephony/dial', {
+        to: vmPhone,
+        leadKey: lead.key,
+        action: 'voicemail_drop',
+        forceCloudVoicemail: true,
       })
-        .then(function (r) {
-          return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Voicemail drop failed');
-            return j;
-          });
-        })
         .then(function (data) {
           setCopyFeedback('Voicemail drop started.');
           return data;
@@ -1156,17 +1186,7 @@
         setCopyFeedback('No phone found for this lead.', true);
         return Promise.reject(new Error('missing phone'));
       }
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ body: msgBody }),
-      })
-        .then(function (r) {
-          return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'SMS failed');
-            return j;
-          });
-        })
+      return focusPostJson('/leads/' + encodeURIComponent(lead.key) + '/sms', { body: msgBody })
         .then(function (data) {
           setCopyFeedback('SMS sent.');
           return data;
@@ -1191,17 +1211,7 @@
         setCopyFeedback('Email body is empty. Add a message first.', true);
         return Promise.reject(new Error('email body empty'));
       }
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ subject: subject, body: body }),
-      })
-        .then(function (r) {
-          return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Email failed');
-            return j;
-          });
-        })
+      return focusPostJson('/leads/' + encodeURIComponent(lead.key) + '/email', { subject: subject, body: body })
         .then(function (data) {
           setCopyFeedback('Email sent via Go High Level.');
           return data;
@@ -1644,20 +1654,6 @@
       return !!(lead && lead.hasAiToolsAssessment);
     }
 
-    function focusPostJson(url, body) {
-      return fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify(body || {}),
-      }).then(function (r) {
-        return r.json().then(function (j) {
-          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Request failed');
-          return j;
-        });
-      });
-    }
-
     function focusEnsureAiToolsAssessment(lead) {
       var key = focusLeadKeyParam(lead);
       if (!key) return Promise.reject(new Error('Lead key missing'));
@@ -1744,20 +1740,12 @@
         btnScheduleDeliverables.disabled = true;
         setDeliverablesFeedback('Adding to your task list…');
         var title = 'Client deliverables: ' + (lead.title || 'Lead') + ' (hosted audit + AI deck)';
-        fetch('/tasks/api', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({
-            title: title,
-            column: 'todo',
-            leadKey: lead.key,
-          }),
+        focusPostJson('/tasks/api', {
+          title: title,
+          column: 'todo',
+          leadKey: lead.key,
         })
-          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-          .then(function (res) {
-            if (!res.ok || !res.j || !res.j.success) {
-              throw new Error((res.j && res.j.error) || 'Could not create task.');
-            }
+          .then(function () {
             setDeliverablesFeedback('Added to your todo list for this contact.');
           })
           .catch(function (err) {
@@ -2039,23 +2027,14 @@
       var notes = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim();
       var title = 'Follow up: ' + (lead.title || 'Lead') + ' — ' + out;
       if (notes) title += ' (' + notes.slice(0, 80) + ')';
-      return fetch('/tasks/api', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          title: title,
-          column: 'todo',
-          scheduledAt: whenIso,
-          leadKey: lead.key,
-        }),
-      })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (res) {
-          if (!res.ok || !res.j || !res.j.success) {
-            throw new Error((res.j && res.j.error) || 'Could not create follow-up task.');
-          }
-          setOutcomeFeedback('Follow-up task scheduled.', false);
-        });
+      return focusPostJson('/tasks/api', {
+        title: title,
+        column: 'todo',
+        scheduledAt: whenIso,
+        leadKey: lead.key,
+      }).then(function () {
+        setOutcomeFeedback('Follow-up task scheduled.', false);
+      });
     }
 
     function fetchDraft() {
@@ -2201,15 +2180,8 @@
     function postNote() {
       var lead = currentLead();
       if (!lead) return Promise.resolve(null);
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/notes', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ content: buildNoteText() }),
-      }).then(function (r) {
-        return r.json().then(function (j) {
-          if (!r.ok || !j.success) throw new Error('note failed');
-          return j;
-        });
+      return focusPostJson('/leads/' + encodeURIComponent(lead.key) + '/notes', {
+        content: buildNoteText(),
       });
     }
 
@@ -2219,19 +2191,12 @@
       var ps = parseInt(lead.pipelineStage, 10);
       if (ps !== 1 && ps !== 2) return Promise.resolve(null);
       var nextStage = ps + 1;
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/update', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({
-          pipelineStage: nextStage,
-          pipelineStageUpdatedAt: new Date().toISOString(),
-        }),
-      }).then(function (r) {
-        return r.json().then(function (j) {
-          if (!r.ok || !j.success) throw new Error('stage update failed');
-          lead.pipelineStage = nextStage;
-          return j;
-        });
+      return focusPostJson('/leads/' + encodeURIComponent(lead.key) + '/update', {
+        pipelineStage: nextStage,
+        pipelineStageUpdatedAt: new Date().toISOString(),
+      }).then(function (j) {
+        lead.pipelineStage = nextStage;
+        return j;
       });
     }
 
@@ -2392,7 +2357,10 @@
           autoDialNext = false;
           return refreshMetrics();
         })
-        .catch(function () { autoDialNext = false; })
+        .catch(function (err) {
+          autoDialNext = false;
+          setOutcomeFeedback(err && err.message ? err.message : 'Could not log and advance.', true);
+        })
         .finally(function () { btnLog.disabled = false; });
     }
 

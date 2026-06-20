@@ -99,7 +99,27 @@ function isPdfOrHttpUrl(value) {
   return /^https?:\/\//i.test(v);
 }
 
-function resolvePostcardCreative(integrationEnv, htmlFallback) {
+function wrapImageUrlAsPostcardHtml(imageUrl) {
+  const src = String(imageUrl || '').trim();
+  if (!/^https?:\/\//i.test(src)) return '';
+  const safe = src.replace(/"/g, '&quot;');
+  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;}img{width:100%;height:100%;object-fit:cover;display:block;}</style></head><body><img src="${safe}" alt="" /></body></html>`;
+}
+
+function resolvePostcardCreative(integrationEnv, htmlFallback, overrides) {
+  const o = overrides && typeof overrides === 'object' ? overrides : {};
+  const frontImage = wrapImageUrlAsPostcardHtml(o.frontImageUrl);
+  const backImage = wrapImageUrlAsPostcardHtml(o.backImageUrl);
+
+  if (frontImage || backImage) {
+    return {
+      front: frontImage || htmlFallback.front,
+      back: backImage || htmlFallback.back,
+      mode: 'html',
+      usedGenerated: { front: !!frontImage, back: !!backImage },
+    };
+  }
+
   const designs = resolveDesignUrls(integrationEnv);
   if (isPdfOrHttpUrl(designs.postcardFront) && isPdfOrHttpUrl(designs.postcardBack)) {
     return { front: designs.postcardFront, back: designs.postcardBack, mode: 'pdf' };
@@ -111,7 +131,15 @@ function resolvePostcardCreative(integrationEnv, htmlFallback) {
   };
 }
 
-async function sendPostcardToLead({ lead, integrationEnv, headline, bodyText, ctaUrl }) {
+async function sendPostcardToLead({
+  lead,
+  integrationEnv,
+  headline,
+  bodyText,
+  ctaUrl,
+  frontImageUrl,
+  backImageUrl,
+}) {
   const to = parseMailableAddress(lead);
   if (!to) {
     throw new Error('Lead does not have a complete mailable address (street, city, state, ZIP).');
@@ -121,7 +149,7 @@ async function sendPostcardToLead({ lead, integrationEnv, headline, bodyText, ct
   }
 
   const html = buildPostcardHtml({ lead, headline, bodyText, ctaUrl });
-  const creative = resolvePostcardCreative(integrationEnv, html);
+  const creative = resolvePostcardCreative(integrationEnv, html, { frontImageUrl, backImageUrl });
   const data = await lobClient.createPostcard({
     to,
     front: creative.front,
@@ -173,6 +201,7 @@ module.exports = {
   parseMailableAddress,
   hasMailableAddress,
   buildPostcardHtml,
+  wrapImageUrlAsPostcardHtml,
   resolveDesignUrls,
   resolvePostcardCreative,
   directMailReady,
