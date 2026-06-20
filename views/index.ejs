@@ -31,6 +31,15 @@
       </div>
     </header>
 
+    <% if (typeof activeSearchFolder !== 'undefined' && activeSearchFolder && activeSearchFolder.name) { %>
+      <div class="max-w-5xl mx-auto mb-4 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
+        <p class="text-sm text-brand-dark dark:text-white">
+          Running search for folder <strong><%= activeSearchFolder.name %></strong><% if (typeof folderSearchPreset !== 'undefined' && folderSearchPreset) { %> — saved parameters loaded<% } else { %> — configure search in Folder manager<% } %>
+        </p>
+        <a href="/prospecting?tab=folders" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Folder manager</a>
+      </div>
+    <% } %>
+
     <!-- Main wizard card -->
     <div class="max-w-5xl mx-auto" id="searchContainer">
       <div class="rounded-[1.75rem] md:rounded-[2rem] border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-xl shadow-brand-dark/5 overflow-hidden">
@@ -78,6 +87,9 @@
         </div>
 
         <form action="/search" method="POST" id="searchForm" data-find-type="<%= _findType %>">
+          <% if (typeof presetFolderKey !== 'undefined' && presetFolderKey) { %>
+            <input type="hidden" name="folderKey" value="<%= presetFolderKey %>" />
+          <% } %>
           <!-- STEP 1: Area -->
           <section data-step-panel="1" class="wizard-step-panel">
             <div class="grid grid-cols-1 lg:grid-cols-5 lg:min-h-[min(72vh,720px)]">
@@ -328,6 +340,46 @@
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <script>
   (function () {
+    window.FOLDER_SEARCH_PRESET = <%- JSON.stringify(typeof folderSearchPreset !== 'undefined' ? folderSearchPreset : null) %>;
+    window.ACTIVE_FOLDER_KEY = <%- JSON.stringify(typeof presetFolderKey !== 'undefined' ? presetFolderKey : '') %>;
+
+    function applyFolderSearchPreset() {
+      var p = window.FOLDER_SEARCH_PRESET;
+      if (!p) return;
+      var maxEl = document.getElementById('findMaxResults');
+      if (maxEl && p.maxResults) maxEl.value = String(p.maxResults);
+      var kw = document.getElementById('searchKeywordField');
+      if (kw && p.keyword) kw.value = p.keyword;
+      var mhQ = document.getElementById('findMhQuery');
+      if (mhQ && p.query) mhQ.value = p.query;
+      document.querySelectorAll('[data-find-panel="mobile_homes"] input[name="minPrice"]').forEach(function (el) {
+        if (p.minPrice != null) el.value = String(p.minPrice);
+      });
+      document.querySelectorAll('[data-find-panel="mobile_homes"] input[name="maxPrice"]').forEach(function (el) {
+        if (p.maxPrice != null) el.value = String(p.maxPrice);
+      });
+      if (p.flipFilter && p.flipFilter.enabled) {
+        var flipCb = document.getElementById('findFlipEnabled');
+        if (flipCb) {
+          flipCb.checked = true;
+          flipCb.dispatchEvent(new Event('change'));
+        }
+        var ff = p.flipFilter;
+        var scoreEl = document.querySelector('[name="minFlipScore"]');
+        if (scoreEl && ff.minFlipScore != null) scoreEl.value = String(ff.minFlipScore);
+        var roiEl = document.querySelector('[name="minRoiPercent"]');
+        if (roiEl && ff.minRoiPercent != null) roiEl.value = String(ff.minRoiPercent);
+        var landEl = document.getElementById('findFlipLandMode');
+        if (landEl && ff.landMode) landEl.value = ff.landMode;
+        var exPark = document.querySelector('[name="flipExcludePark"]');
+        if (exPark) exPark.checked = !!ff.excludeParkRent;
+        var ownLand = document.querySelector('[name="flipRequireOwnLand"]');
+        if (ownLand) ownLand.checked = !!ff.requireOwnLand;
+      }
+      var folderSel = document.getElementById('searchFolderKey');
+      if (folderSel && window.ACTIVE_FOLDER_KEY) folderSel.value = window.ACTIVE_FOLDER_KEY;
+    }
+
     var FIND_CONFIG = {
       maps: {
         action: '/search',
@@ -508,6 +560,7 @@
     }
 
     setFindType(currentType);
+    applyFolderSearchPreset();
   })();
   </script>
   <%- include('/partials/app_shell_close') %>

@@ -41,8 +41,16 @@ async function ensurePipelineFolders(workspaceId) {
   const wid = workspaceId || 'default';
   const folders = await dbService.listFolders(wid);
   const out = [...folders];
+  const ws = (await dbService.getWorkspace(wid)) || {};
+  const hidden = new Set(
+    (ws.pipelineSettings && Array.isArray(ws.pipelineSettings.hiddenDefaultFolders)
+      ? ws.pipelineSettings.hiddenDefaultFolders
+      : []
+    ).map((s) => String(s || '').trim())
+  );
 
   for (const [jobType, def] of Object.entries(DEFAULT_PIPELINE_FOLDERS)) {
+    if (hidden.has(jobType)) continue;
     if (findFolderForJobType(out, jobType)) continue;
     const created = await dbService.createFolder(wid, def.name, {
       jobType,
@@ -52,6 +60,50 @@ async function ensurePipelineFolders(workspaceId) {
   }
 
   return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
+
+async function hideDefaultPipelineFolder(workspaceId, jobType) {
+  const jt = normalizeJobType(jobType);
+  if (!DEFAULT_PIPELINE_FOLDERS[jt]) return;
+  const wid = workspaceId || 'default';
+  const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+  const prev = ws.pipelineSettings || {};
+  const hidden = new Set(
+    (Array.isArray(prev.hiddenDefaultFolders) ? prev.hiddenDefaultFolders : []).map((s) =>
+      String(s || '').trim()
+    )
+  );
+  hidden.add(jt);
+  ws.pipelineSettings = {
+    ...prev,
+    hiddenDefaultFolders: [...hidden],
+  };
+  await dbService.saveWorkspace(wid, ws);
+}
+
+/**
+ * Delete folder, unassign leads, and prevent auto-recreate for system pipeline folders.
+ */
+async function deleteFolderComplete(workspaceId, folderKey) {
+  const wid = workspaceId || 'default';
+  const folder = await dbService.getFolder(wid, folderKey);
+  if (!folder) {
+    return { deleted: false, error: 'Folder not found.' };
+  }
+
+  const unassigned = await dbService.unassignLeadsFromFolder(wid, folder.key);
+  await dbService.deleteFolder(wid, folder.key);
+
+  if (folder.isPipelineDefault && folder.jobType) {
+    await hideDefaultPipelineFolder(wid, folder.jobType);
+  }
+
+  return {
+    deleted: true,
+    unassigned,
+    wasPipelineDefault: !!folder.isPipelineDefault,
+    jobType: folder.jobType || null,
+  };
 }
 
 /**
@@ -198,4 +250,6 @@ module.exports = {
   leadMetadataForJobType,
   classifyLeadForPipelineMigration,
   migrateUnfiledLeadsToPipelineFolders,
+  deleteFolderComplete,
+  hideDefaultPipelineFolder,
 };

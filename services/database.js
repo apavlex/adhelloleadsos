@@ -790,6 +790,54 @@ module.exports = {
     }
   },
 
+  async getFolder(workspaceId, folderKey) {
+    const wid = workspaceId || 'default';
+    const fullKey = folderKey.startsWith('folder:') ? folderKey : `folder:${wid}:${folderKey}`;
+    const raw = kvGet(fullKey);
+    if (!raw) return null;
+    try {
+      const f = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      if ((f.workspaceId || 'default') !== wid) return null;
+      return { key: fullKey, ...f };
+    } catch {
+      return null;
+    }
+  },
+
+  async updateFolder(workspaceId, folderKey, patch) {
+    const wid = workspaceId || 'default';
+    const fullKey = folderKey.startsWith('folder:') ? folderKey : `folder:${wid}:${folderKey}`;
+    const raw = kvGet(fullKey);
+    if (!raw) return null;
+    const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if ((existing.workspaceId || 'default') !== wid) return null;
+    const updated = {
+      ...existing,
+      ...patch,
+      workspaceId: wid,
+      updatedAt: new Date().toISOString(),
+    };
+    kvSet(fullKey, JSON.stringify(updated));
+    return { key: fullKey, ...updated };
+  },
+
+  async unassignLeadsFromFolder(workspaceId, folderKey) {
+    const wid = workspaceId || 'default';
+    const fk = String(folderKey || '').trim();
+    if (!fk) return 0;
+    const keys = kvList('lead:');
+    let count = 0;
+    for (const key of keys) {
+      const lead = await this.getLead(key);
+      if (!lead || (lead.workspaceId || 'default') !== wid) continue;
+      if (String(lead.folderKey || '').trim() !== fk) continue;
+      // eslint-disable-next-line no-await-in-loop
+      await this.updateLead(key, { folderKey: '' });
+      count += 1;
+    }
+    return count;
+  },
+
   // --- Tags (workspace label catalog + per-lead tag keys) ---
 
   normalizeTagKeys(raw) {

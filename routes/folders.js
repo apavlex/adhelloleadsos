@@ -3,8 +3,9 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { wantsJsonResponse } = require('../lib/httpRequest');
-const { migrateUnfiledLeadsToPipelineFolders } = require('../services/pipelineFolders');
+const { migrateUnfiledLeadsToPipelineFolders, deleteFolderComplete } = require('../services/pipelineFolders');
 const { isInOutreachFolder } = require('../services/leadListFilters');
+const { parseSearchPresetFromForm, normalizeSearchPreset } = require('../services/folderSearchPreset');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -21,32 +22,46 @@ router.post('/', async (req, res, next) => {
     const wid = req.workspaceId;
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'Folder name is required.' });
-    const folder = await dbService.createFolder(wid, name);
+    const meta = {};
+    if (req.body && req.body.jobType) meta.jobType = String(req.body.jobType).trim();
+    const folder = await dbService.createFolder(wid, name, meta);
     res.json({ success: true, folder });
   } catch (e) {
     next(e);
   }
 });
 
-router.post('/:folderKey/rename', async (req, res, next) => {
+/** Body-based delete — folder keys contain colons (folder:uuid:ts). */
+router.post('/delete', async (req, res, next) => {
   try {
-    const wid = req.workspaceId;
-    const folderKey = req.params.folderKey;
-    const name = String(req.body?.name || '').trim();
-    if (!name) return res.status(400).json({ success: false, error: 'Folder name is required.' });
-    const folder = await dbService.renameFolder(wid, folderKey, name);
-    res.json({ success: true, folder });
+    const folderKey = String(req.body?.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const result = await deleteFolderComplete(req.workspaceId, folderKey);
+    if (!result.deleted) {
+      return res.status(404).json({ success: false, error: result.error || 'Folder not found.' });
+    }
+    res.json({ success: true, ...result });
   } catch (e) {
     next(e);
   }
 });
 
-router.post('/:folderKey/delete', async (req, res, next) => {
+router.post('/save-search-preset', async (req, res, next) => {
   try {
     const wid = req.workspaceId;
-    const folderKey = req.params.folderKey;
-    await dbService.deleteFolder(wid, folderKey);
-    res.json({ success: true });
+    const folderKey = String(req.body?.folderKey || '').trim();
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const existing = await dbService.getFolder(wid, folderKey);
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Folder not found.' });
+    }
+    const searchPreset = parseSearchPresetFromForm(req.body);
+    const folder = await dbService.updateFolder(wid, folderKey, { searchPreset });
+    res.json({ success: true, folder, searchPreset });
   } catch (e) {
     next(e);
   }
@@ -98,7 +113,6 @@ router.post('/assign', async (req, res, next) => {
 
 router.post('/assign-bulk', async (req, res, next) => {
   try {
-    const wid = req.workspaceId;
     const folderKey = String(req.body?.folderKey || '').trim();
     const leadKeysRaw = Array.isArray(req.body?.leadKeys) ? req.body.leadKeys : [];
     const leadKeys = leadKeysRaw
@@ -142,5 +156,47 @@ router.post('/assign-bulk', async (req, res, next) => {
   }
 });
 
-module.exports = router;
+router.post('/rename', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const folderKey = String(req.body?.folderKey || '').trim();
+    const name = String(req.body?.name || '').trim();
+    if (!folderKey) return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    if (!name) return res.status(400).json({ success: false, error: 'Folder name is required.' });
+    const folder = await dbService.renameFolder(wid, folderKey, name);
+    if (!folder) return res.status(404).json({ success: false, error: 'Folder not found.' });
+    res.json({ success: true, folder });
+  } catch (e) {
+    next(e);
+  }
+});
 
+/** @deprecated Prefer POST /folders/delete with body.folderKey */
+router.post('/:folderKey/rename', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    const folderKey = req.params.folderKey;
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ success: false, error: 'Folder name is required.' });
+    const folder = await dbService.renameFolder(wid, folderKey, name);
+    res.json({ success: true, folder });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** @deprecated Prefer POST /folders/delete with body.folderKey */
+router.post('/:folderKey/delete', async (req, res, next) => {
+  try {
+    const folderKey = req.params.folderKey;
+    const result = await deleteFolderComplete(req.workspaceId, folderKey);
+    if (!result.deleted) {
+      return res.status(404).json({ success: false, error: result.error || 'Folder not found.' });
+    }
+    res.json({ success: true, ...result });
+  } catch (e) {
+    next(e);
+  }
+});
+
+module.exports = router;

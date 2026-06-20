@@ -44,6 +44,7 @@ test('migrateUnfiledLeadsToPipelineFolders assigns folder and metadata', async (
       { key: 'folder:maps', name: 'Businesses (Maps)', jobType: 'maps_business', isPipelineDefault: true },
       { key: 'folder:mh', name: 'Mobile homes', jobType: 'mobile_homes', isPipelineDefault: true },
     ],
+    getWorkspace: async () => ({ id: 'ws1', members: {} }),
     createFolder: async (wid, name, meta) => ({ key: `folder:${meta.jobType}`, name, ...meta }),
     updateLead: async (key, patch) => {
       updates.push({ key, patch });
@@ -79,6 +80,7 @@ test('resolveTargetFolder auto-picks default pipeline folder', async () => {
     listFolders: async () => [
       { key: 'folder:maps', name: 'Businesses (Maps)', jobType: 'maps_business', isPipelineDefault: true },
     ],
+    getWorkspace: async () => ({ id: 'ws1', members: {} }),
     createFolder: async (wid, name, meta) => {
       const row = { key: `folder:${name}`, name, ...meta };
       created.push(row);
@@ -94,6 +96,64 @@ test('resolveTargetFolder auto-picks default pipeline folder', async () => {
   const out = await resolveFresh('ws1', { jobType: JOB_TYPES.MAPS_BUSINESS });
   assert.equal(out.targetFolderKey, 'folder:maps');
   assert.equal(out.targetFolderName, 'Businesses (Maps)');
+
+  require.cache[require.resolve('../services/database')].exports = orig;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+});
+
+test('deleteFolderComplete hides default pipeline folder from auto-recreate', async () => {
+  let workspace = { id: 'ws1', members: {} };
+  const mockDb = {
+    getFolder: async (wid, key) =>
+      key === 'folder:re'
+        ? { key: 'folder:re', name: 'Real estate', jobType: 'real_estate', isPipelineDefault: true }
+        : null,
+    unassignLeadsFromFolder: async () => 3,
+    deleteFolder: async () => {},
+    getWorkspace: async () => workspace,
+    saveWorkspace: async (wid, ws) => {
+      workspace = ws;
+    },
+    listFolders: async () => [],
+    createFolder: async () => ({}),
+  };
+
+  const orig = require('../services/database');
+  require.cache[require.resolve('../services/database')].exports = mockDb;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+  const { deleteFolderComplete: deleteFresh, ensurePipelineFolders: ensureFresh } = require('../services/pipelineFolders');
+
+  const result = await deleteFresh('ws1', 'folder:re');
+  assert.equal(result.deleted, true);
+  assert.equal(result.unassigned, 3);
+  assert.equal(result.wasPipelineDefault, true);
+
+  const folders = await ensureFresh('ws1');
+  assert.equal(folders.length, 2);
+  assert.ok(!folders.some((f) => f.jobType === 'real_estate'));
+
+  require.cache[require.resolve('../services/database')].exports = orig;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+});
+
+test('ensurePipelineFolders skips hidden default job types', async () => {
+  const mockDb = {
+    listFolders: async () => [],
+    getWorkspace: async () => ({
+      id: 'ws1',
+      pipelineSettings: { hiddenDefaultFolders: ['real_estate'] },
+    }),
+    createFolder: async (wid, name, meta) => ({ key: `folder:${meta.jobType}`, name, ...meta }),
+  };
+
+  const orig = require('../services/database');
+  require.cache[require.resolve('../services/database')].exports = mockDb;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+  const { ensurePipelineFolders: ensureFresh } = require('../services/pipelineFolders');
+
+  const folders = await ensureFresh('ws1');
+  const names = folders.map((f) => f.name).sort();
+  assert.deepEqual(names, ['Businesses (Maps)', 'Mobile homes']);
 
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];

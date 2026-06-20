@@ -37,7 +37,7 @@
               <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
             </div>
             <h2 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h2>
-            <p class="text-sm text-brand-muted mt-2 max-w-2xl">Create, rename, and remove folders here. <strong class="text-brand-dark dark:text-white">Open leads</strong> jumps to the pipeline for that folder. You can also pick a folder under <strong class="text-brand-dark dark:text-white">Search &amp; refine</strong> on the Pipeline tab. Assign or re-file leads with row checkboxes → <strong class="text-brand-dark dark:text-white">Move</strong> in the floating bar.</p>
+            <p class="text-sm text-brand-muted mt-2 max-w-2xl">Create folders to organize leads. Use <strong class="text-brand-dark dark:text-white">Search setup</strong> to save how a search should run (like mobile home flip filters), then <strong class="text-brand-dark dark:text-white">Run search</strong> to open Find with those settings. System folders (Businesses, Mobile homes, Real estate) can be removed — they won&apos;t come back unless you reset workspace defaults.</p>
           </div>
           <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -54,12 +54,18 @@
             <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
               <% (folders || []).forEach((f) => { %>
                 <% var _fc = _folderCounts[f.key] || 0; %>
-                <li class="folder-row flex flex-wrap items-center gap-4 px-6 py-5 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors" data-folder-row="<%= f.key %>" data-folder-name="<%= f.name %>">
+                <li class="folder-row flex flex-wrap items-center gap-4 px-6 py-5 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors" data-folder-row="<%= f.key %>" data-folder-name="<%= f.name %>" data-folder-job-type="<%= f.jobType || '' %>" data-folder-is-default="<%= f.isPipelineDefault ? '1' : '0' %>">
                   <div class="min-w-0 flex-1">
-                    <p class="font-display font-bold text-lg text-brand-dark dark:text-white"><%= f.name %></p>
+                    <p class="font-display font-bold text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
+                      <%= f.name %>
+                      <% if (f.isPipelineDefault) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
+                      <% if (f.searchPreset) { %><span class="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/40 rounded-full px-2 py-0.5">Search saved</span><% } %>
+                    </p>
                     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder</p>
                   </div>
                   <div class="flex flex-wrap items-center gap-2 shrink-0">
+                    <a href="/leads/find?folderKey=<%= encodeURIComponent(f.key) %>" class="px-4 py-2.5 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm">Run search</a>
+                    <button type="button" class="folder-search-setup px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= f.key %>">Search setup</button>
                     <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(f.key) %>" class="px-4 py-2.5 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
                     <button type="button" class="folder-rename px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= f.key %>">Rename</button>
                     <button type="button" class="folder-delete px-4 py-2.5 rounded-xl bg-white dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/50 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors" data-folder-key="<%= f.key %>">Remove</button>
@@ -241,6 +247,112 @@
     </div>
   </div>
 
+  <div id="folderSearchSetupModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderSearchSetupTitle">
+    <div id="folderSearchSetupBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderSearchSetupTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Search setup</h2>
+      <p id="folderSearchSetupSubtitle" class="text-sm text-brand-muted mb-5">Save how Find should run for this folder. Location (city/state) is set when you run the search.</p>
+      <input type="hidden" id="folderSearchSetupKey" value="" />
+      <div class="space-y-4">
+        <div>
+          <label for="folderSearchJobType" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Search type</label>
+          <select id="folderSearchJobType" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+            <option value="maps_business">Business (Maps)</option>
+            <option value="mobile_homes">Mobile homes</option>
+            <option value="real_estate">Real estate</option>
+          </select>
+        </div>
+        <div>
+          <label for="folderSearchMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max results</label>
+          <input type="number" id="folderSearchMaxResults" min="1" max="100" value="25" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+        </div>
+        <div id="folderSearchMapsFields" class="space-y-3">
+          <div>
+            <label for="folderSearchKeyword" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business keyword</label>
+            <input type="text" id="folderSearchKeyword" placeholder="e.g. electrician" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+        </div>
+        <div id="folderSearchMhFields" class="space-y-3 hidden">
+          <div>
+            <label for="folderSearchQuery" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing search terms</label>
+            <input type="text" id="folderSearchQuery" placeholder="mobile home, manufactured home…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="folderSearchMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+              <input type="number" id="folderSearchMinPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+            <div>
+              <label for="folderSearchMaxPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+              <input type="number" id="folderSearchMaxPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+          </div>
+          <label class="flex items-start gap-3 cursor-pointer">
+            <input type="checkbox" id="folderSearchFlipEnabled" class="mt-1 rounded border-brand-border" />
+            <span>
+              <span class="font-bold text-sm block">Flip deals only (AI filter)</span>
+              <span class="text-[11px] text-brand-muted">Same flip scoring as Find → Mobile homes.</span>
+            </span>
+          </label>
+          <div id="folderSearchFlipFields" class="hidden space-y-3 pl-0 sm:pl-7">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="folderSearchMinFlipScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min flip score</label>
+                <input type="number" id="folderSearchMinFlipScore" value="7" min="1" max="10" step="0.5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
+              </div>
+              <div>
+                <label for="folderSearchMinRoi" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ROI %</label>
+                <input type="number" id="folderSearchMinRoi" value="15" min="0" max="200" step="5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
+              </div>
+            </div>
+            <div>
+              <label for="folderSearchLandMode" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Land mode</label>
+              <select id="folderSearchLandMode" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800">
+                <option value="any">Any tenure</option>
+                <option value="exclude_park">Exclude park / lot rent</option>
+                <option value="prefer_own_land">Prefer land-owned</option>
+                <option value="own_land_only">Own land only</option>
+              </select>
+            </div>
+            <div class="flex flex-wrap gap-3">
+              <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" id="folderSearchRequireOwnLand" class="rounded border-brand-border" />
+                <span class="font-semibold text-xs">Require own-land phrases</span>
+              </label>
+              <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" id="folderSearchExcludePark" checked class="rounded border-brand-border" />
+                <span class="font-semibold text-xs">Exclude park / lot rent</span>
+              </label>
+            </div>
+          </div>
+        </div>
+        <div id="folderSearchReFields" class="space-y-3 hidden">
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="folderSearchReMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+              <input type="number" id="folderSearchReMinPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+            <div>
+              <label for="folderSearchReMaxPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+              <input type="number" id="folderSearchReMaxPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            </div>
+          </div>
+        </div>
+      </div>
+      <p id="folderSearchSetupError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderSearchSetupSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Save setup</button>
+        <button id="folderSearchSetupCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  window.WORKSPACE_FOLDERS = <%- JSON.stringify((folders || []).map(function (f) {
+    return { key: f.key, name: f.name, jobType: f.jobType || '', searchPreset: f.searchPreset || null, isPipelineDefault: !!f.isPipelineDefault };
+  })) %>;
+  </script>
+
   <script>
   (function () {
     function $(id) { return document.getElementById(id); }
@@ -256,11 +368,11 @@
           var currentName = (row && row.getAttribute('data-folder-name')) || '';
           var nextName = window.prompt('Rename folder', currentName);
           if (nextName == null || !String(nextName).trim()) return;
-          fetch('/folders/' + encodeURIComponent(key) + '/rename', {
+          fetch('/folders/rename', {
             method: 'POST',
             credentials: 'same-origin',
             headers: jsonHeaders,
-            body: JSON.stringify({ name: String(nextName).trim() })
+            body: JSON.stringify({ folderKey: key, name: String(nextName).trim() })
           })
             .then(function (r) {
               if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -281,23 +393,186 @@
           var key = btn.getAttribute('data-folder-key') || '';
           var row = btn.closest('[data-folder-row]');
           var currentName = (row && row.getAttribute('data-folder-name')) || 'this folder';
-          if (!window.confirm('Delete ' + currentName + '? Leads will be unassigned from this folder.')) return;
-          fetch('/folders/' + encodeURIComponent(key) + '/delete', {
+          var isDefault = row && row.getAttribute('data-folder-is-default') === '1';
+          var msg = 'Delete ' + currentName + '? Leads will be unassigned from this folder.';
+          if (isDefault) msg += ' This is a system folder — it will not be recreated automatically.';
+          if (!window.confirm(msg)) return;
+          fetch('/folders/delete', {
             method: 'POST',
             credentials: 'same-origin',
             headers: jsonHeaders,
-            body: JSON.stringify({})
+            body: JSON.stringify({ folderKey: key })
           })
             .then(function (r) {
-              if (!r.ok) throw new Error('HTTP ' + r.status);
-              return r.json();
+              return r.json().then(function (data) { return { ok: r.ok, data: data }; });
             })
-            .then(function (data) {
-              if (!data || !data.success) throw new Error('Failed');
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Failed');
+              }
               window.location.reload();
             })
-            .catch(function () { window.alert('Could not delete folder.'); });
+            .catch(function (err) {
+              window.alert(err && err.message ? err.message : 'Could not delete folder.');
+            });
         });
+      });
+
+      document.querySelectorAll('.folder-search-setup').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var key = btn.getAttribute('data-folder-key') || '';
+          openFolderSearchSetup(key);
+        });
+      });
+    }
+
+    function folderByKey(key) {
+      var list = window.WORKSPACE_FOLDERS || [];
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] && list[i].key === key) return list[i];
+      }
+      return null;
+    }
+
+    function syncFolderSearchJobPanels() {
+      var jt = ($('folderSearchJobType') && $('folderSearchJobType').value) || 'maps_business';
+      var maps = $('folderSearchMapsFields');
+      var mh = $('folderSearchMhFields');
+      var re = $('folderSearchReFields');
+      if (maps) maps.classList.toggle('hidden', jt !== 'maps_business');
+      if (mh) mh.classList.toggle('hidden', jt !== 'mobile_homes');
+      if (re) re.classList.toggle('hidden', jt !== 'real_estate');
+    }
+
+    function fillFolderSearchForm(preset, folder) {
+      var p = preset || {};
+      var jt = p.jobType || (folder && folder.jobType) || 'maps_business';
+      if (jt === 'mobile_homes' || (folder && folder.isPipelineDefault && folder.name === 'Mobile homes')) jt = 'mobile_homes';
+      else if (jt === 'real_estate' || (folder && folder.isPipelineDefault && folder.name === 'Real estate')) jt = 'real_estate';
+      else if (jt !== 'mobile_homes' && jt !== 'real_estate') jt = 'maps_business';
+
+      if ($('folderSearchJobType')) $('folderSearchJobType').value = jt;
+      if ($('folderSearchMaxResults')) $('folderSearchMaxResults').value = String(p.maxResults || 25);
+      if ($('folderSearchKeyword')) $('folderSearchKeyword').value = p.keyword || p.query || '';
+      if ($('folderSearchQuery')) $('folderSearchQuery').value = p.query || 'mobile home';
+      if ($('folderSearchMinPrice')) $('folderSearchMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
+      if ($('folderSearchMaxPrice')) $('folderSearchMaxPrice').value = p.maxPrice != null ? String(p.maxPrice) : '';
+      if ($('folderSearchReMinPrice')) $('folderSearchReMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
+      if ($('folderSearchReMaxPrice')) $('folderSearchReMaxPrice').value = p.maxPrice != null ? String(p.maxPrice) : '';
+
+      var ff = p.flipFilter || {};
+      var flipOn = !!(ff && ff.enabled);
+      if ($('folderSearchFlipEnabled')) $('folderSearchFlipEnabled').checked = flipOn;
+      if ($('folderSearchFlipFields')) $('folderSearchFlipFields').classList.toggle('hidden', !flipOn);
+      if ($('folderSearchMinFlipScore')) $('folderSearchMinFlipScore').value = String(ff.minFlipScore != null ? ff.minFlipScore : 7);
+      if ($('folderSearchMinRoi')) $('folderSearchMinRoi').value = String(ff.minRoiPercent != null ? ff.minRoiPercent : 15);
+      if ($('folderSearchLandMode')) $('folderSearchLandMode').value = ff.landMode || 'prefer_own_land';
+      if ($('folderSearchRequireOwnLand')) $('folderSearchRequireOwnLand').checked = !!ff.requireOwnLand;
+      if ($('folderSearchExcludePark')) $('folderSearchExcludePark').checked = ff.excludeParkRent !== false;
+
+      syncFolderSearchJobPanels();
+    }
+
+    function openFolderSearchSetup(folderKey) {
+      var modal = $('folderSearchSetupModal');
+      var folder = folderByKey(folderKey);
+      if (!modal || !folder) return;
+      if ($('folderSearchSetupKey')) $('folderSearchSetupKey').value = folderKey;
+      if ($('folderSearchSetupSubtitle')) {
+        $('folderSearchSetupSubtitle').textContent = 'Configure search for "' + (folder.name || 'folder') + '". City/state are chosen when you run search.';
+      }
+      fillFolderSearchForm(folder.searchPreset, folder);
+      var err = $('folderSearchSetupError');
+      if (err) { err.classList.add('hidden'); err.textContent = ''; }
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeFolderSearchSetup() {
+      var modal = $('folderSearchSetupModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function buildFolderSearchPayload() {
+      var key = ($('folderSearchSetupKey') && $('folderSearchSetupKey').value) || '';
+      var jt = ($('folderSearchJobType') && $('folderSearchJobType').value) || 'maps_business';
+      var body = {
+        folderKey: key,
+        jobType: jt,
+        maxResults: parseInt(($('folderSearchMaxResults') && $('folderSearchMaxResults').value) || '25', 10) || 25,
+      };
+      if (jt === 'mobile_homes') {
+        body.query = ($('folderSearchQuery') && $('folderSearchQuery').value) || 'mobile home';
+        body.minPrice = ($('folderSearchMinPrice') && $('folderSearchMinPrice').value) || '';
+        body.maxPrice = ($('folderSearchMaxPrice') && $('folderSearchMaxPrice').value) || '';
+        if ($('folderSearchFlipEnabled') && $('folderSearchFlipEnabled').checked) {
+          body.flipFilterEnabled = 'on';
+          body.minFlipScore = ($('folderSearchMinFlipScore') && $('folderSearchMinFlipScore').value) || '7';
+          body.minRoiPercent = ($('folderSearchMinRoi') && $('folderSearchMinRoi').value) || '15';
+          body.flipLandMode = ($('folderSearchLandMode') && $('folderSearchLandMode').value) || 'prefer_own_land';
+          if ($('folderSearchRequireOwnLand') && $('folderSearchRequireOwnLand').checked) body.flipRequireOwnLand = 'on';
+          if ($('folderSearchExcludePark') && $('folderSearchExcludePark').checked) body.flipExcludePark = 'on';
+        }
+      } else if (jt === 'real_estate') {
+        body.minPrice = ($('folderSearchReMinPrice') && $('folderSearchReMinPrice').value) || '';
+        body.maxPrice = ($('folderSearchReMaxPrice') && $('folderSearchReMaxPrice').value) || '';
+      } else {
+        body.keyword = ($('folderSearchKeyword') && $('folderSearchKeyword').value) || 'plumber';
+      }
+      return body;
+    }
+
+    function bindFolderSearchSetupModal() {
+      var modal = $('folderSearchSetupModal');
+      var bd = $('folderSearchSetupBackdrop');
+      var cancel = $('folderSearchSetupCancel');
+      var save = $('folderSearchSetupSave');
+      var jobSel = $('folderSearchJobType');
+      var flipCb = $('folderSearchFlipEnabled');
+      var err = $('folderSearchSetupError');
+
+      if (jobSel) jobSel.addEventListener('change', syncFolderSearchJobPanels);
+      if (flipCb) {
+        flipCb.addEventListener('change', function () {
+          if ($('folderSearchFlipFields')) {
+            $('folderSearchFlipFields').classList.toggle('hidden', !flipCb.checked);
+          }
+        });
+      }
+      if (bd) bd.addEventListener('click', closeFolderSearchSetup);
+      if (cancel) cancel.addEventListener('click', closeFolderSearchSetup);
+      if (save) {
+        save.addEventListener('click', function () {
+          var body = buildFolderSearchPayload();
+          if (!body.folderKey) return;
+          fetch('/folders/save-search-preset', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify(body),
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Could not save search setup.');
+              }
+              closeFolderSearchSetup();
+              window.location.reload();
+            })
+            .catch(function (e) {
+              if (err) {
+                err.textContent = e && e.message ? e.message : 'Could not save search setup.';
+                err.classList.remove('hidden');
+              }
+            });
+        });
+      }
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal && modal.style.display === 'flex') closeFolderSearchSetup();
       });
     }
 
@@ -364,6 +639,7 @@
     function init() {
       bindFolderManager();
       bindFolderCreateModal();
+      bindFolderSearchSetupModal();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();

@@ -6,6 +6,7 @@ const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 const { ensurePipelineFolders } = require('../services/pipelineFolders');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
+const { searchPresetToFindContext, normalizeSearchPreset } = require('../services/folderSearchPreset');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -37,7 +38,34 @@ async function renderFindLeads(req, res, next) {
     const icp = getWorkspaceIcp(workspace);
     const mrQ = parseInt(req.query.maxResults, 10);
     const qtyIcp = Number.isFinite(mrQ) && mrQ > 0 ? Math.min(100, mrQ) : icp.qty || 50;
-    const searchPrefill = presetIcp
+
+    const nightlyPrepMeta = workspace.nightlyPrep || {};
+
+    let activeSearchFolder = null;
+    let folderSearchPreset = null;
+    const presetFolderKey = String(req.query.folderKey || '').trim();
+    if (presetFolderKey) {
+      activeSearchFolder = folders.find((f) => f && String(f.key) === presetFolderKey) || null;
+      if (activeSearchFolder && activeSearchFolder.searchPreset) {
+        folderSearchPreset = normalizeSearchPreset(activeSearchFolder.searchPreset);
+      }
+    }
+
+    const rawType = String(
+      req.query.type || (folderSearchPreset && folderSearchPreset.jobType) || 'maps'
+    )
+      .trim()
+      .toLowerCase()
+      .replace(/-/g, '_');
+
+    let searchType =
+      rawType === 'mobile_homes' || rawType === 'mobilehomes' || rawType === 'mobile'
+        ? 'mobile_homes'
+        : rawType === 'real_estate' || rawType === 'realestate' || rawType === 'zillow'
+          ? 'real_estate'
+          : 'maps';
+
+    let searchPrefill = presetIcp
       ? {
           keyword: icp.keyword || 'plumber',
           city: icp.city || 'Austin',
@@ -46,15 +74,13 @@ async function renderFindLeads(req, res, next) {
         }
       : { keyword: '', city: '', state: '', qty: 20 };
 
-    const nightlyPrepMeta = workspace.nightlyPrep || {};
-
-    const rawType = String(req.query.type || 'maps').trim().toLowerCase().replace(/-/g, '_');
-    const searchType =
-      rawType === 'mobile_homes' || rawType === 'mobilehomes' || rawType === 'mobile'
-        ? 'mobile_homes'
-        : rawType === 'real_estate' || rawType === 'realestate' || rawType === 'zillow'
-          ? 'real_estate'
-          : 'maps';
+    if (folderSearchPreset) {
+      const ctx = searchPresetToFindContext(folderSearchPreset);
+      if (ctx) {
+        searchType = ctx.searchType;
+        searchPrefill = { ...searchPrefill, ...ctx.searchPrefill };
+      }
+    }
 
     return res.render('index', {
       title: 'Agency OS | Daily Leads',
@@ -74,6 +100,9 @@ async function renderFindLeads(req, res, next) {
       searchPrefill,
       presetIcp,
       nightlyPrepMeta,
+      activeSearchFolder,
+      folderSearchPreset,
+      presetFolderKey,
     });
   } catch (e) {
     return next(e);
