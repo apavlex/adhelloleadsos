@@ -485,6 +485,9 @@
         });
     }
     window.__getFocusCallQueueLeads = getFocusCallQueueLeads;
+    try {
+      sessionStorage.setItem('adhello_focus_call_queue', JSON.stringify(getFocusCallQueueLeads()));
+    } catch (e) {}
     if (typeof window.__renderSoftphoneCallQueue === 'function') {
       window.__renderSoftphoneCallQueue();
     }

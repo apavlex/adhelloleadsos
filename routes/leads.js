@@ -50,6 +50,7 @@ const { downloadDriveFileAsCsvBuffer } = require('../services/googleDriveCsv');
 const { uploadCsvToDrive, safeDriveFileName } = require('../services/googleDriveUpload');
 const { getMapPreviewImage } = require('../services/mapPreview');
 const signalwire = require('../services/signalwire');
+const { shortLeadKey } = require('../services/focusQueue');
 const ghlClient = require('../services/ghlClient');
 const ghlMessaging = require('../services/ghlMessaging');
 const agentSessionStore = require('../services/agentSessionStore');
@@ -1248,6 +1249,47 @@ router.get('/telephony/webrtc-token', async (req, res, next) => {
       refreshToken: refresh || undefined,
       fromNumber,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/telephony/resolve-contacts — map dialed numbers to lead names for softphone Recents/Queue
+router.post('/telephony/resolve-contacts', async (req, res, next) => {
+  try {
+    const phones = Array.isArray(req.body && req.body.phones) ? req.body.phones : [];
+    if (!phones.length) {
+      return res.json({ success: true, contacts: [] });
+    }
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const contacts = [];
+    const seen = new Set();
+
+    phones.forEach((rawPhone) => {
+      const target = signalwire.normalizePhone(rawPhone);
+      if (!target) return;
+      const target10 = target.replace(/\D/g, '').slice(-10);
+      const dedupeKey = target10 || target;
+      if (seen.has(dedupeKey)) return;
+
+      const lead = visible.find((l) => {
+        const lp = signalwire.normalizePhone(l.phone);
+        if (!lp) return false;
+        const lp10 = lp.replace(/\D/g, '').slice(-10);
+        return lp === target || (target10 && lp10 === target10);
+      });
+      if (!lead) return;
+
+      seen.add(dedupeKey);
+      contacts.push({
+        phone: target,
+        title: String(lead.title || lead.contactName || 'Company').trim(),
+        key: shortLeadKey(lead),
+      });
+    });
+
+    res.json({ success: true, contacts });
   } catch (err) {
     next(err);
   }

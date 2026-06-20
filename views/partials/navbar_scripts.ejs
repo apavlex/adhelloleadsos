@@ -300,6 +300,36 @@
     if (v.charAt(0) !== '+') return '+' + v;
     return v;
   }
+
+  var SOFTPHONE_FOCUS_QUEUE_CACHE_KEY = 'adhello_focus_call_queue';
+
+  function phoneDigits10(raw) {
+    var d = String(normalizeDial(raw) || raw || '').replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+    return d.length >= 10 ? d.slice(-10) : d;
+  }
+
+  function phonesMatchLoose(a, b) {
+    var da = phoneDigits10(a);
+    var db = phoneDigits10(b);
+    return !!(da && db && da === db);
+  }
+
+  function readFocusCallQueueCache() {
+    if (typeof window.__getFocusCallQueueLeads === 'function') {
+      var live = window.__getFocusCallQueueLeads() || [];
+      if (live.length) return live;
+    }
+    try {
+      var raw = sessionStorage.getItem(SOFTPHONE_FOCUS_QUEUE_CACHE_KEY);
+      if (!raw) return [];
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
   function normalizeRecentDialEntry(x) {
     if (!x) return null;
     if (typeof x === 'string') {
@@ -320,13 +350,11 @@
 
   function resolveSoftphoneLeadTitle(leadKey, phone) {
     var key = String(leadKey || '').trim().replace(/^lead:/i, '');
+    var cached = readFocusCallQueueCache();
     if (key) {
-      if (typeof window.__getFocusCallQueueLeads === 'function') {
-        var focusLeads = window.__getFocusCallQueueLeads() || [];
-        for (var i = 0; i < focusLeads.length; i += 1) {
-          if (normalizeFocusQueueKey(focusLeads[i].key) === key) {
-            return String(focusLeads[i].title || '').trim();
-          }
+      for (var i = 0; i < cached.length; i += 1) {
+        if (normalizeFocusQueueKey(cached[i].key) === key) {
+          return String(cached[i].title || '').trim();
         }
       }
       if (typeof window.__getSelectedLeadRowsForBulk === 'function') {
@@ -352,20 +380,15 @@
     }
     var dial = normalizeDial(phone);
     if (!dial) return '';
-    if (typeof window.__getFocusCallQueueLeads === 'function') {
-      var queueLeads = window.__getFocusCallQueueLeads() || [];
-      for (var k = 0; k < queueLeads.length; k += 1) {
-        if (normalizeDial(queueLeads[k].phone) === dial) {
-          return String(queueLeads[k].title || '').trim();
-        }
+    for (var k = 0; k < cached.length; k += 1) {
+      if (phonesMatchLoose(cached[k].phone, dial)) {
+        return String(cached[k].title || '').trim();
       }
     }
-    var pipelineRow = document.querySelector('tr.result-row[data-phone]');
-    if (pipelineRow) {
-      var allRows = document.querySelectorAll('tr.result-row[data-phone]');
-      for (var r = 0; r < allRows.length; r += 1) {
-        var rowPhone = normalizeDial(allRows[r].dataset.phone || '');
-        if (rowPhone === dial) return softphoneQueueRowTitle(allRows[r]);
+    var allRows = document.querySelectorAll('tr.result-row[data-phone]');
+    for (var r = 0; r < allRows.length; r += 1) {
+      if (phonesMatchLoose(allRows[r].dataset.phone || '', dial)) {
+        return softphoneQueueRowTitle(allRows[r]);
       }
     }
     return '';
@@ -374,16 +397,72 @@
   function resolveSoftphoneLeadKeyForPhone(phone, titleHint) {
     var dial = normalizeDial(phone);
     if (!dial) return '';
-    if (typeof window.__getFocusCallQueueLeads === 'function') {
-      var focusLeads = window.__getFocusCallQueueLeads() || [];
-      for (var i = 0; i < focusLeads.length; i += 1) {
-        if (normalizeDial(focusLeads[i].phone) !== dial) continue;
-        if (!titleHint || focusLeads[i].title === titleHint) {
-          return normalizeFocusQueueKey(focusLeads[i].key);
-        }
+    var cached = readFocusCallQueueCache();
+    for (var i = 0; i < cached.length; i += 1) {
+      if (!phonesMatchLoose(cached[i].phone, dial)) continue;
+      if (!titleHint || cached[i].title === titleHint) {
+        return normalizeFocusQueueKey(cached[i].key);
       }
     }
     return '';
+  }
+
+  function enrichSoftphoneContactEntry(entry) {
+    var out = {
+      number: normalizeDial(entry.number || entry.phone || '') || String(entry.number || entry.phone || '').trim(),
+      title: String(entry.title || '').trim(),
+      leadKey: String(entry.leadKey || entry.key || '').trim(),
+    };
+    if (!out.number) return out;
+    if (!out.title) out.title = resolveSoftphoneLeadTitle(out.leadKey, out.number);
+    if (!out.leadKey) out.leadKey = resolveSoftphoneLeadKeyForPhone(out.number, out.title);
+    if (!out.title && out.leadKey) out.title = resolveSoftphoneLeadTitle(out.leadKey, out.number);
+    return out;
+  }
+
+  function hydrateSoftphoneContactTitles(entries, done) {
+    var list = (entries || []).map(enrichSoftphoneContactEntry);
+    var missing = list.filter(function (e) {
+      return e.number && !e.title;
+    });
+    if (!missing.length) {
+      done(list);
+      return;
+    }
+    fetch('/leads/telephony/resolve-contacts', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ phones: missing.map(function (e) { return e.number; }) }),
+    })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (data) {
+        if (!data || !data.success || !Array.isArray(data.contacts)) {
+          done(list);
+          return;
+        }
+        var byPhone = {};
+        data.contacts.forEach(function (c) {
+          var p = normalizeDial(c.phone) || String(c.phone || '').trim();
+          if (p) byPhone[p] = c;
+          var d10 = phoneDigits10(c.phone);
+          if (d10) byPhone['10:' + d10] = c;
+        });
+        var enriched = list.map(function (e) {
+          if (e.title) return e;
+          var hit = byPhone[e.number] || byPhone['10:' + phoneDigits10(e.number)];
+          if (!hit) return e;
+          return {
+            number: e.number,
+            title: String(hit.title || '').trim(),
+            leadKey: String(hit.key || hit.leadKey || e.leadKey || '').trim(),
+          };
+        });
+        done(enriched);
+      })
+      .catch(function () {
+        done(list);
+      });
   }
 
   function updateSoftphoneCalleeDisplay() {
@@ -508,19 +587,26 @@
   function renderRecentDials() {
     if (!spRecentList) return;
     var list = getRecentDials();
-    spRecentList.innerHTML = '';
-    if (!list.length) {
-      spRecentList.innerHTML = '<p class="text-xs text-brand-muted">No recent numbers yet.</p>';
-      return;
-    }
-    list.forEach(function (item) {
-      spRecentList.appendChild(
-        buildSoftphoneContactListRow(
-          item,
-          'softphone-recent-fill hover:text-brand-yellow',
-          'softphone-recent-call',
-        ),
-      );
+    hydrateSoftphoneContactTitles(list, function (enriched) {
+      if (!spRecentList) return;
+      var changed = enriched.some(function (e, i) {
+        return e.title && list[i] && !list[i].title;
+      });
+      if (changed) saveRecentDials(enriched);
+      spRecentList.innerHTML = '';
+      if (!enriched.length) {
+        spRecentList.innerHTML = '<p class="text-xs text-brand-muted">No recent numbers yet.</p>';
+        return;
+      }
+      enriched.forEach(function (item) {
+        spRecentList.appendChild(
+          buildSoftphoneContactListRow(
+            item,
+            'softphone-recent-fill hover:text-brand-yellow',
+            'softphone-recent-call',
+          ),
+        );
+      });
     });
   }
   function updateSoftphoneOutboundMeta() {
@@ -1662,18 +1748,21 @@
       spQueueList.innerHTML = '<p class="text-xs text-slate-500">No callable leads in your current selection.</p>';
       return;
     }
-    callable.forEach(function (item) {
-      spQueueList.appendChild(
-        buildSoftphoneContactListRow(
-          {
-            number: item.phone,
-            title: item.title,
-            leadKey: item.key,
-          },
-          'softphone-queue-fill hover:text-brand-yellow',
-          'softphone-queue-call',
-        ),
-      );
+    var queueItems = callable.map(function (item) {
+      return { number: item.phone, title: item.title, leadKey: item.key };
+    });
+    hydrateSoftphoneContactTitles(queueItems, function (enriched) {
+      if (!spQueueList) return;
+      spQueueList.innerHTML = '';
+      enriched.forEach(function (item) {
+        spQueueList.appendChild(
+          buildSoftphoneContactListRow(
+            item,
+            'softphone-queue-fill hover:text-brand-yellow',
+            'softphone-queue-call',
+          ),
+        );
+      });
     });
   }
   window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
