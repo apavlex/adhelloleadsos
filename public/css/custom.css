@@ -2958,3 +2958,57 @@ html.dark .tag-filter-combobox-menu {
 .dark .tag-filter-combobox-menu:not(.hidden) {
   box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.55);
 }
+
+/* Direct Mail — preview zoom + saved library */
+.dm-preview-btn:focus-visible {
+  outline: 2px solid var(--brand-yellow);
+  outline-offset: 2px;
+}
+
+.dm-preview-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dm-lightbox:not(.hidden) {
+  display: flex;
+}
+
+.dm-saved-card {
+  position: relative;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  background: rgba(250, 247, 237, 0.5);
+  aspect-ratio: 2 / 3;
+}
+
+.dark .dm-saved-card {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.dm-saved-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dm-saved-card-actions {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.72), transparent 55%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.dm-saved-card:hover .dm-saved-card-actions,
+.dm-saved-card:focus-within .dm-saved-card-actions {
+  opacity: 1;
+}

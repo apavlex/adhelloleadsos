@@ -4,6 +4,13 @@
   var chatHistory = [];
   var lastImagePrompt = '';
   var designs = { front: null, back: null };
+  var designMeta = {
+    front: { prompt: '', aspectRatio: '2:3', resolution: '2K' },
+    back: { prompt: '', aspectRatio: '2:3', resolution: '2K' },
+  };
+  var lightboxSlot = 'front';
+  var DM_SAVED_KEY = 'adhello_dm_saved_designs';
+  var DM_SAVED_MAX = 24;
 
   function selectedKeys() {
     return getDmCheckboxes()
@@ -82,10 +89,213 @@
     log.scrollTop = log.scrollHeight;
   }
 
-  function setPreview(slot, imageUrl) {
+  function currentDesignSlot() {
+    var slotEl = document.getElementById('dmDesignSlot');
+    return slotEl && slotEl.value === 'back' ? 'back' : 'front';
+  }
+
+  function showPromptEditor(slot, prompt) {
+    var wrap = document.getElementById('dmPromptEditorWrap');
+    var editor = document.getElementById('dmPromptEditor');
+    var slotLabel = document.getElementById('dmPromptEditorSlot');
+    if (!wrap || !editor) return;
+    var text = String(prompt || '').trim();
+    if (!text) {
+      wrap.classList.add('hidden');
+      return;
+    }
+    wrap.classList.remove('hidden');
+    editor.value = text;
+    if (slotLabel) slotLabel.textContent = slot === 'back' ? 'Back' : 'Front';
+    lastImagePrompt = text;
+    if (designMeta[slot]) designMeta[slot].prompt = text;
+  }
+
+  function readPromptEditor() {
+    var editor = document.getElementById('dmPromptEditor');
+    return editor ? String(editor.value || '').trim() : '';
+  }
+
+  function applyPromptFromEditor() {
+    var slot = currentDesignSlot();
+    var text = readPromptEditor();
+    if (!text) {
+      setDesignStatus('Enter a prompt before applying.', false);
+      return;
+    }
+    lastImagePrompt = text;
+    designMeta[slot].prompt = text;
+    var input = document.getElementById('dmChatInput');
+    if (input) input.value = text;
+    showPromptEditor(slot, text);
+    setDesignStatus('Prompt updated — click Regenerate or Generate.', true);
+  }
+
+  function getSavedDesigns() {
+    try {
+      var raw = localStorage.getItem(DM_SAVED_KEY) || '[]';
+      var parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function persistSavedDesigns(list) {
+    try {
+      localStorage.setItem(DM_SAVED_KEY, JSON.stringify((list || []).slice(0, DM_SAVED_MAX)));
+    } catch (_) {}
+  }
+
+  function saveDesignToLibrary(slot, opts) {
+    opts = opts || {};
+    var imageUrl = opts.imageUrl || designs[slot];
+    if (!imageUrl) return false;
+    var item = {
+      id: 'dm_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8),
+      slot: slot === 'back' ? 'back' : 'front',
+      imageUrl: imageUrl,
+      prompt: String(opts.prompt || designMeta[slot].prompt || lastImagePrompt || '').trim(),
+      aspectRatio: String(opts.aspectRatio || designMeta[slot].aspectRatio || '2:3'),
+      resolution: String(opts.resolution || designMeta[slot].resolution || '2K'),
+      savedAt: new Date().toISOString(),
+    };
+    var list = getSavedDesigns().filter(function (x) {
+      return x && x.imageUrl !== item.imageUrl;
+    });
+    list.unshift(item);
+    persistSavedDesigns(list);
+    renderSavedLibrary();
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast('Design saved to library', { variant: 'success' });
+    }
+    return true;
+  }
+
+  function removeSavedDesign(id) {
+    var list = getSavedDesigns().filter(function (x) {
+      return x && x.id !== id;
+    });
+    persistSavedDesigns(list);
+    renderSavedLibrary();
+  }
+
+  function loadSavedDesign(item) {
+    if (!item || !item.imageUrl) return;
+    var slot = item.slot === 'back' ? 'back' : 'front';
+    var slotEl = document.getElementById('dmDesignSlot');
+    if (slotEl) slotEl.value = slot;
+    designMeta[slot] = {
+      prompt: String(item.prompt || '').trim(),
+      aspectRatio: String(item.aspectRatio || '2:3'),
+      resolution: String(item.resolution || '2K'),
+    };
+    lastImagePrompt = designMeta[slot].prompt;
+    setPreview(slot, item.imageUrl);
+    showPromptEditor(slot, designMeta[slot].prompt);
+    setDesignStatus('Loaded saved ' + slot + ' design.', true);
+  }
+
+  function renderSavedLibrary() {
+    var root = document.getElementById('dmSavedLibrary');
+    var countEl = document.getElementById('dmSavedCount');
+    if (!root) return;
+    var list = getSavedDesigns();
+    if (countEl) countEl.textContent = list.length + ' saved';
+    root.innerHTML = '';
+    if (!list.length) {
+      root.innerHTML =
+        '<p class="col-span-3 text-[11px] text-brand-muted">Save a generated front or back to reuse later.</p>';
+      return;
+    }
+    list.forEach(function (item) {
+      var card = document.createElement('div');
+      card.className = 'dm-saved-card';
+      var img = document.createElement('img');
+      img.src = item.imageUrl;
+      img.alt = (item.slot || 'front') + ' saved design';
+      card.appendChild(img);
+      var actions = document.createElement('div');
+      actions.className = 'dm-saved-card-actions';
+      var loadBtn = document.createElement('button');
+      loadBtn.type = 'button';
+      loadBtn.className =
+        'w-full rounded-md bg-brand-yellow text-brand-dark text-[9px] font-black uppercase tracking-widest py-1';
+      loadBtn.textContent = 'Load';
+      loadBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        loadSavedDesign(item);
+      });
+      var zoomBtn = document.createElement('button');
+      zoomBtn.type = 'button';
+      zoomBtn.className =
+        'w-full rounded-md bg-white/90 text-brand-dark text-[9px] font-black uppercase tracking-widest py-1';
+      zoomBtn.textContent = 'Zoom';
+      zoomBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openLightbox(item.slot || 'front', item.imageUrl, item.prompt);
+      });
+      var delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className =
+        'w-full rounded-md bg-rose-600/90 text-white text-[9px] font-black uppercase tracking-widest py-1';
+      delBtn.textContent = 'Remove';
+      delBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        removeSavedDesign(item.id);
+      });
+      actions.appendChild(loadBtn);
+      actions.appendChild(zoomBtn);
+      actions.appendChild(delBtn);
+      card.appendChild(actions);
+      card.addEventListener('click', function () {
+        loadSavedDesign(item);
+      });
+      root.appendChild(card);
+    });
+  }
+
+  function openLightbox(slot, imageUrl, prompt) {
+    var modal = document.getElementById('dmImageLightbox');
+    var img = document.getElementById('dmLightboxImg');
+    var title = document.getElementById('dmLightboxTitle');
+    var meta = document.getElementById('dmLightboxMeta');
+    var download = document.getElementById('dmLightboxDownload');
+    if (!modal || !img) return;
+    var url = imageUrl || designs[slot];
+    if (!url) return;
+    lightboxSlot = slot === 'back' ? 'back' : 'front';
+    img.src = url;
+    if (title) title.textContent = (lightboxSlot === 'back' ? 'Back' : 'Front') + ' postcard preview';
+    var p = String(prompt || designMeta[lightboxSlot].prompt || lastImagePrompt || '').trim();
+    if (meta) {
+      meta.textContent = p ? p.slice(0, 140) + (p.length > 140 ? '…' : '') : 'Generated postcard art';
+    }
+    if (download) {
+      download.href = url;
+      download.setAttribute('download', 'postcard-' + lightboxSlot + '.jpg');
+    }
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function closeLightbox() {
+    var modal = document.getElementById('dmImageLightbox');
+    if (!modal) return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  function setPreview(slot, imageUrl, meta) {
     var el = document.getElementById(slot === 'back' ? 'dmPreviewBack' : 'dmPreviewFront');
     var useCb = document.getElementById(slot === 'back' ? 'dmUseBack' : 'dmUseFront');
+    var saveBtn = document.getElementById(slot === 'back' ? 'dmSaveBack' : 'dmSaveFront');
     if (!el) return;
+    if (meta && typeof meta === 'object') {
+      designMeta[slot] = Object.assign({}, designMeta[slot], meta);
+    }
     designs[slot] = imageUrl || null;
     el.innerHTML = '';
     if (!imageUrl) {
@@ -97,6 +307,7 @@
         useCb.checked = false;
         useCb.disabled = true;
       }
+      if (saveBtn) saveBtn.classList.add('hidden');
       return;
     }
     var img = document.createElement('img');
@@ -108,6 +319,8 @@
       useCb.disabled = false;
       useCb.checked = true;
     }
+    if (saveBtn) saveBtn.classList.remove('hidden');
+    if (designMeta[slot].prompt) showPromptEditor(slot, designMeta[slot].prompt);
   }
 
   function activeDesignUrls() {
@@ -168,12 +381,10 @@
       }
       if (data.imagePrompt) {
         lastImagePrompt = String(data.imagePrompt).trim();
-        var hint = document.getElementById('dmPromptHint');
-        if (hint) {
-          hint.textContent = 'Ready to generate: ' + lastImagePrompt;
-          hint.classList.remove('hidden');
-        }
-        setDesignStatus('Prompt ready — click Generate.', true);
+        var slot = currentDesignSlot();
+        designMeta[slot].prompt = lastImagePrompt;
+        showPromptEditor(slot, lastImagePrompt);
+        setDesignStatus('Prompt ready — edit below or click Generate.', true);
       } else if (/make it|generate|go ahead|create it|design it|build it/i.test(text)) {
         setDesignStatus(
           'Ask in Chat for a “final image prompt,” or say “write the full GPT Image 2 prompt” — then click Generate when you see Prompt ready.',
@@ -195,7 +406,10 @@
     var slotEl = document.getElementById('dmDesignSlot');
     if (!btn) return;
 
-    var prompt = lastImagePrompt || String((document.getElementById('dmChatInput') || {}).value || '').trim();
+    var prompt =
+      readPromptEditor() ||
+      lastImagePrompt ||
+      String((document.getElementById('dmChatInput') || {}).value || '').trim();
     if (!prompt) {
       setDesignStatus('Describe the design in Chat first, or paste a detailed image prompt here.', false);
       return;
@@ -227,9 +441,13 @@
 
       var data = await postJson('/direct-mail/api/generate-image', body);
       if (data.imageUrl) {
+        designMeta[slot].prompt = prompt;
+        designMeta[slot].aspectRatio = aspectRatio;
+        designMeta[slot].resolution = resolution;
         setPreview(slot, data.imageUrl);
         lastImagePrompt = prompt;
-        setDesignStatus('Generated ' + slot + ' side — preview updated.', true);
+        showPromptEditor(slot, prompt);
+        setDesignStatus('Generated ' + slot + ' side — click preview to zoom.', true);
         if (typeof window.showAppToast === 'function') {
           window.showAppToast('Postcard ' + slot + ' generated', { variant: 'success' });
         }
@@ -452,6 +670,88 @@
 
   var genBtn = document.getElementById('dmGenerateBtn');
   if (genBtn) genBtn.addEventListener('click', generateImage);
+
+  document.querySelectorAll('.dm-preview-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var slot = btn.getAttribute('data-slot') || 'front';
+      if (!designs[slot]) return;
+      openLightbox(slot);
+    });
+  });
+
+  ['dmSaveFront', 'dmSaveBack'].forEach(function (id) {
+    var btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var slot = btn.getAttribute('data-slot') || 'front';
+      saveDesignToLibrary(slot);
+    });
+  });
+
+  var promptApply = document.getElementById('dmPromptApply');
+  if (promptApply) promptApply.addEventListener('click', applyPromptFromEditor);
+
+  var promptRegen = document.getElementById('dmPromptRegenerate');
+  if (promptRegen) {
+    promptRegen.addEventListener('click', function () {
+      applyPromptFromEditor();
+      generateImage();
+    });
+  }
+
+  var slotEl = document.getElementById('dmDesignSlot');
+  if (slotEl) {
+    slotEl.addEventListener('change', function () {
+      var slot = currentDesignSlot();
+      if (designMeta[slot].prompt) showPromptEditor(slot, designMeta[slot].prompt);
+      else {
+        var wrap = document.getElementById('dmPromptEditorWrap');
+        if (wrap) wrap.classList.add('hidden');
+      }
+    });
+  }
+
+  var lbClose = document.getElementById('dmLightboxClose');
+  var lbBackdrop = document.getElementById('dmLightboxBackdrop');
+  if (lbClose) lbClose.addEventListener('click', closeLightbox);
+  if (lbBackdrop) lbBackdrop.addEventListener('click', closeLightbox);
+
+  var lbSave = document.getElementById('dmLightboxSave');
+  if (lbSave) {
+    lbSave.addEventListener('click', function () {
+      if (saveDesignToLibrary(lightboxSlot)) closeLightbox();
+    });
+  }
+
+  var lbEdit = document.getElementById('dmLightboxEditPrompt');
+  if (lbEdit) {
+    lbEdit.addEventListener('click', function () {
+      var slot = lightboxSlot;
+      var slotSelect = document.getElementById('dmDesignSlot');
+      if (slotSelect) slotSelect.value = slot;
+      showPromptEditor(slot, designMeta[slot].prompt || lastImagePrompt);
+      closeLightbox();
+      var editor = document.getElementById('dmPromptEditor');
+      if (editor) {
+        editor.focus();
+        editor.setSelectionRange(editor.value.length, editor.value.length);
+      }
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') {
+      var modal = document.getElementById('dmImageLightbox');
+      if (modal && !modal.classList.contains('hidden')) {
+        e.preventDefault();
+        closeLightbox();
+      }
+    }
+  });
+
+  renderSavedLibrary();
 
   var sendBtn = document.getElementById('dmSendBtn');
   if (sendBtn) {

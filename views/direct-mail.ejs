@@ -95,26 +95,59 @@
         <div class="grid grid-cols-2 gap-3 mb-4">
           <div>
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Front</p>
-            <div id="dmPreviewFront" class="aspect-[2/3] rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden">
-              <span class="text-[10px] text-brand-muted px-2 text-center">No front yet</span>
+            <button type="button" id="dmPreviewFrontBtn" class="dm-preview-btn group w-full aspect-[2/3] rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" data-slot="front" aria-label="View front design">
+              <div id="dmPreviewFront" class="absolute inset-0 flex items-center justify-center">
+                <span class="text-[10px] text-brand-muted px-2 text-center">No front yet</span>
+              </div>
+              <span class="dm-preview-zoom-badge pointer-events-none absolute bottom-2 right-2 rounded-lg bg-brand-dark/75 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">Zoom</span>
+            </button>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <label class="flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
+                <input type="checkbox" id="dmUseFront" class="rounded border-brand-border" disabled />
+                Use on send
+              </label>
+              <button type="button" id="dmSaveFront" class="hidden text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-slot="front">Save</button>
             </div>
-            <label class="mt-2 flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
-              <input type="checkbox" id="dmUseFront" class="rounded border-brand-border" disabled />
-              Use on send
-            </label>
           </div>
           <div>
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Back</p>
-            <div id="dmPreviewBack" class="aspect-[2/3] rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden">
-              <span class="text-[10px] text-brand-muted px-2 text-center">No back yet</span>
+            <button type="button" id="dmPreviewBackBtn" class="dm-preview-btn group w-full aspect-[2/3] rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" data-slot="back" aria-label="View back design">
+              <div id="dmPreviewBack" class="absolute inset-0 flex items-center justify-center">
+                <span class="text-[10px] text-brand-muted px-2 text-center">No back yet</span>
+              </div>
+              <span class="dm-preview-zoom-badge pointer-events-none absolute bottom-2 right-2 rounded-lg bg-brand-dark/75 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">Zoom</span>
+            </button>
+            <div class="mt-2 flex flex-wrap items-center gap-2">
+              <label class="flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
+                <input type="checkbox" id="dmUseBack" class="rounded border-brand-border" disabled />
+                Use on send
+              </label>
+              <button type="button" id="dmSaveBack" class="hidden text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-slot="back">Save</button>
             </div>
-            <label class="mt-2 flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
-              <input type="checkbox" id="dmUseBack" class="rounded border-brand-border" disabled />
-              Use on send
-            </label>
           </div>
         </div>
-        <p id="dmPromptHint" class="text-[11px] text-brand-muted leading-relaxed border-t border-brand-border/20 dark:border-white/10 pt-3 mt-auto hidden"></p>
+
+        <div id="dmPromptEditorWrap" class="hidden border-t border-brand-border/20 dark:border-white/10 pt-3 mb-4">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+            <label for="dmPromptEditor" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Image prompt</label>
+            <span id="dmPromptEditorSlot" class="text-[10px] font-bold uppercase tracking-widest text-brand-dark dark:text-white">Front</span>
+          </div>
+          <textarea id="dmPromptEditor" rows="5" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs leading-relaxed resize-y min-h-[6rem]" placeholder="Edit the GPT Image 2 prompt here, then Regenerate…"></textarea>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" id="dmPromptApply" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2 hover:border-brand-yellow/50 transition-colors">Use prompt</button>
+            <button type="button" id="dmPromptRegenerate" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2">Regenerate</button>
+          </div>
+        </div>
+
+        <div class="border-t border-brand-border/20 dark:border-white/10 pt-3 mt-auto">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Saved designs</h3>
+            <span id="dmSavedCount" class="text-[10px] text-brand-muted">0 saved</span>
+          </div>
+          <div id="dmSavedLibrary" class="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
+            <p class="col-span-3 text-[11px] text-brand-muted">Save a generated front or back to reuse later.</p>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -196,6 +229,27 @@
       <% } %>
     </div>
   </main>
+
+  <div id="dmImageLightbox" class="dm-lightbox hidden fixed inset-0 z-[500] flex items-center justify-center p-4 md:p-8" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Postcard preview">
+    <button type="button" id="dmLightboxBackdrop" class="absolute inset-0 bg-brand-dark/80 backdrop-blur-sm" aria-label="Close preview"></button>
+    <div class="dm-lightbox-panel relative z-10 w-full max-w-3xl max-h-[92vh] flex flex-col rounded-2xl border border-white/10 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
+      <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-brand-border/20 dark:border-white/10">
+        <div>
+          <p id="dmLightboxTitle" class="text-sm font-bold text-brand-dark dark:text-white">Postcard preview</p>
+          <p id="dmLightboxMeta" class="text-[11px] text-brand-muted mt-0.5"></p>
+        </div>
+        <button type="button" id="dmLightboxClose" class="rounded-full w-9 h-9 flex items-center justify-center border border-brand-border/40 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white" aria-label="Close">✕</button>
+      </div>
+      <div class="flex-1 min-h-0 overflow-auto custom-scrollbar p-4 bg-brand-cream/20 dark:bg-slate-950/40 flex items-center justify-center">
+        <img id="dmLightboxImg" src="" alt="Postcard design preview" class="max-w-full max-h-[min(70vh,720px)] w-auto h-auto rounded-lg shadow-lg object-contain" />
+      </div>
+      <div class="flex flex-wrap gap-2 px-4 py-3 border-t border-brand-border/20 dark:border-white/10 bg-white/95 dark:bg-slate-900/95">
+        <button type="button" id="dmLightboxSave" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Save for later</button>
+        <a id="dmLightboxDownload" href="#" download="postcard-design.jpg" target="_blank" rel="noopener noreferrer" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Open full size</a>
+        <button type="button" id="dmLightboxEditPrompt" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2 ml-auto">Edit prompt</button>
+      </div>
+    </div>
+  </div>
 
   <script src="/js/direct-mail.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 </body>
