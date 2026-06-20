@@ -2776,12 +2776,36 @@ async function runLeadEnhancement(lead, workspaceId) {
 
   const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
-  const leadProfile = { title: lead.title, city: lead.city, state: lead.state };
+  let workingLead = lead;
+  const persistedKeys = new Set();
+  const patch = {};
+  const baseUpdates = [...(lead.updates || [])];
+  const priorUpdateLen = baseUpdates.length;
+
+  async function autosaveEnhancement(partial, label) {
+    const toSave = {};
+    for (const [k, v] of Object.entries(partial || {})) {
+      if (k === 'updates' || persistedKeys.has(k)) continue;
+      if (v === undefined || v === null) continue;
+      toSave[k] = v;
+    }
+    if (!Object.keys(toSave).length) return workingLead;
+    const updated = await dbService.updateLead(fullKey, toSave, leadWorkspaceId);
+    if (updated) {
+      workingLead = updated;
+      Object.assign(patch, toSave);
+      Object.keys(toSave).forEach((k) => persistedKeys.add(k));
+      console.log(`[ENHANCE] Autosaved (${label}): ${Object.keys(toSave).join(', ')}`);
+    }
+    return workingLead;
+  }
+
+  const leadProfile = { title: workingLead.title, city: workingLead.city, state: workingLead.state };
 
   // Step 1: Outscraper Google Business Profile — listing, domain, reviews
   if (outscraper.isConfigured(integrationEnv)) {
     try {
-      gmbPack = await outscraperGmbEnrich.enrichLeadFromOutscraperGmb(lead, integrationEnv);
+      gmbPack = await outscraperGmbEnrich.enrichLeadFromOutscraperGmb(workingLead, integrationEnv);
       if (gmbPack && gmbPack.used) {
         outscraperUsed = true;
         mapsPlace = gmbPack.place || mapsPlace;
@@ -2789,8 +2813,9 @@ async function runLeadEnhancement(lead, workspaceId) {
         if (gmbPack.patch && gmbPack.patch.website && gmbPack.patch.website !== 'N/A') {
           urlToSave = gmbPack.patch.website;
         }
+        if (gmbPack.patch) await autosaveEnhancement(gmbPack.patch, 'Outscraper GMB');
         console.log(
-          `[ENHANCE] Outscraper GMB for ${lead.title}: ${gmbPack.place ? 'place found' : 'no place'}, ${gmbPack.snippets?.length || 0} quote(s)`,
+          `[ENHANCE] Outscraper GMB for ${workingLead.title}: ${gmbPack.place ? 'place found' : 'no place'}, ${gmbPack.snippets?.length || 0} quote(s)`,
         );
       }
     } catch (e) {
@@ -2799,10 +2824,10 @@ async function runLeadEnhancement(lead, workspaceId) {
   }
 
   const websiteForEnrich =
-    (lead.website && lead.website !== 'N/A' ? lead.website : null) ||
+    (workingLead.website && workingLead.website !== 'N/A' ? workingLead.website : null) ||
     urlToSave ||
     null;
-  const enrichLead = websiteForEnrich ? { ...lead, website: websiteForEnrich } : lead;
+  const enrichLead = websiteForEnrich ? { ...workingLead, website: websiteForEnrich } : workingLead;
 
   // Step 2: BetterContact — contacts / socials (uses domain from GMB when available)
   let bcExtract = null;
@@ -2821,7 +2846,7 @@ async function runLeadEnhancement(lead, workspaceId) {
 
   // Step 3: Firecrawl — website scrape or search for extra socials / audit signals
   if (websiteForEnrich) {
-    console.log(`[ENHANCE] Website scrape for ${lead.title} (${websiteForEnrich})...`);
+    console.log(`[ENHANCE] Website scrape for ${workingLead.title} (${websiteForEnrich})...`);
     const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(websiteForEnrich, leadProfile, {
       integrationEnv,
       skipMapsFallback: outscraperUsed,
@@ -2832,7 +2857,7 @@ async function runLeadEnhancement(lead, workspaceId) {
       if (pack.mapsPlace) mapsPlace = pack.mapsPlace;
     }
   } else {
-    console.log(`[ENHANCE] Website missing. Firecrawl search for ${lead.title}...`);
+    console.log(`[ENHANCE] Website missing. Firecrawl search for ${workingLead.title}...`);
     firecrawlViaSearch = true;
     const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
     let searchExtract = {};
@@ -2868,7 +2893,7 @@ async function runLeadEnhancement(lead, workspaceId) {
         missingCoreContact ||
         !firecrawlFoundUrl)
     ) {
-      const pack = await mapsEnrichFallback.enrichFromMapsForLead(lead, integrationEnv);
+      const pack = await mapsEnrichFallback.enrichFromMapsForLead(workingLead, integrationEnv);
       if (pack) {
         searchExtract = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, pack.extract);
         websiteHint = pack.websiteHint;
@@ -2877,40 +2902,38 @@ async function runLeadEnhancement(lead, workspaceId) {
       }
     }
     deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, deepData || {});
-    if (!lead.website || lead.website === 'N/A') {
+    if (!workingLead.website || workingLead.website === 'N/A') {
       urlToSave = urlToSave || websiteHint || firecrawlFoundUrl || null;
     }
   }
-
-  const baseUpdates = [...(lead.updates || [])];
-  const patch = {};
-  if (gmbPack && gmbPack.patch) Object.assign(patch, gmbPack.patch);
-  const priorUpdateLen = baseUpdates.length;
 
   const hadExtract = deepData && Object.keys(deepData).length > 0;
   if (hadExtract) {
     const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
     Object.assign(patch, enrichUpdates);
 
-    if ((!lead.email || lead.email === 'N/A') && deepData.email) patch.email = deepData.email;
-    if ((!lead.facebook || lead.facebook === 'N/A') && deepData.facebook) patch.facebook = deepData.facebook;
-    if ((!lead.instagram || lead.instagram === 'N/A') && deepData.instagram) patch.instagram = deepData.instagram;
-    if ((!lead.twitter || lead.twitter === 'N/A') && deepData.twitter) patch.twitter = deepData.twitter;
-    if (!lead.linkedin && deepData.linkedin) patch.linkedin = deepData.linkedin;
-    if (!lead.decisionMakerName && deepData.decision_maker_name) {
+    if ((!workingLead.email || workingLead.email === 'N/A') && deepData.email) patch.email = deepData.email;
+    if ((!workingLead.facebook || workingLead.facebook === 'N/A') && deepData.facebook) patch.facebook = deepData.facebook;
+    if ((!workingLead.instagram || workingLead.instagram === 'N/A') && deepData.instagram) patch.instagram = deepData.instagram;
+    if ((!workingLead.twitter || workingLead.twitter === 'N/A') && deepData.twitter) patch.twitter = deepData.twitter;
+    if (!workingLead.linkedin && deepData.linkedin) patch.linkedin = deepData.linkedin;
+    if (!workingLead.decisionMakerName && deepData.decision_maker_name) {
       patch.decisionMakerName = deepData.decision_maker_name;
     }
-    if (!lead.decisionMakerTitle && deepData.decision_maker_title) {
+    if (!workingLead.decisionMakerTitle && deepData.decision_maker_title) {
       patch.decisionMakerTitle = deepData.decision_maker_title;
     }
 
-    if (lead.phone && lead.phone !== 'N/A') delete patch.phone;
-    if (lead.address && lead.address !== 'N/A') delete patch.address;
-    if (lead.email && lead.email !== 'N/A') delete patch.email;
+    if (workingLead.phone && workingLead.phone !== 'N/A') delete patch.phone;
+    if (workingLead.address && workingLead.address !== 'N/A') delete patch.address;
+    if (workingLead.email && workingLead.email !== 'N/A') delete patch.email;
+
+    await autosaveEnhancement(patch, 'contacts & socials');
   }
 
-  if ((!lead.website || lead.website === 'N/A') && urlToSave) {
+  if ((!workingLead.website || workingLead.website === 'N/A') && urlToSave) {
     patch.website = urlToSave;
+    await autosaveEnhancement({ website: urlToSave }, 'website');
   }
 
   // Step 4: OpenRouter review summary (Outscraper data already fetched in step 1)
@@ -2918,7 +2941,7 @@ async function runLeadEnhancement(lead, workspaceId) {
   let reviewHuntMeta = null;
   try {
     const reviewPack = await reviewHunt.runReviewHuntForLead(
-      { ...lead, ...patch },
+      { ...workingLead, ...patch },
       integrationEnv,
       { mapsPlace, gmbPack, skipGmbFetch: true }
     );
@@ -2937,6 +2960,7 @@ async function runLeadEnhancement(lead, workspaceId) {
     if (reviewPack && reviewPack.used && reviewPack.patch) {
       reviewHuntUsed = true;
       Object.assign(patch, reviewPack.patch);
+      await autosaveEnhancement(reviewPack.patch, 'reviews & AI summary');
       if (reviewPack.mapsPlace) mapsPlace = reviewPack.mapsPlace;
     }
   } catch (e) {
@@ -2946,19 +2970,10 @@ async function runLeadEnhancement(lead, workspaceId) {
 
   patch.lastContactHuntAt = new Date().toISOString();
 
-  const contactPatchKeys = Object.keys(patch).filter(
-    (k) =>
-      !['updates', 'lastContactHuntAt', 'reviewIntel', 'reviewIntelAt', 'reviewSnippets', 'totalScore', 'reviewsCount', 'url'].includes(k)
-  );
-  const contactUpdated = contactPatchKeys.length > 0;
-  const reviewUpdated =
-    reviewHuntUsed &&
-    (patch.reviewSnippets != null ||
-      patch.totalScore != null ||
-      patch.reviewsCount != null ||
-      (patch.reviewIntel && patch.reviewIntel.summary));
+  const enrichmentHappened =
+    hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed || outscraperUsed || reviewHuntUsed;
 
-  if (hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed || outscraperUsed || reviewHuntUsed) {
+  if (enrichmentHappened) {
     const via = [
       outscraperUsed ? 'Outscraper GMB' : null,
       betterContactUsed ? 'BetterContact' : null,
@@ -2977,22 +2992,34 @@ async function runLeadEnhancement(lead, workspaceId) {
   }
 
   const hasNewUpdates = baseUpdates.length > priorUpdateLen;
-  const shouldPersist = contactUpdated || reviewUpdated || hasNewUpdates;
 
-  if (shouldPersist) {
-    patch.updates = baseUpdates;
-    const updatedLead = await dbService.updateLead(fullKey, patch, leadWorkspaceId);
+  if (enrichmentHappened) {
+    if (hasNewUpdates) patch.updates = baseUpdates;
+    const finalPatch = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (persistedKeys.has(k) && k !== 'updates' && k !== 'lastContactHuntAt') continue;
+      finalPatch[k] = v;
+    }
+    if (!finalPatch.lastContactHuntAt) finalPatch.lastContactHuntAt = patch.lastContactHuntAt;
+    if (hasNewUpdates && !finalPatch.updates) finalPatch.updates = baseUpdates;
+    let updatedLead = workingLead;
+    if (Object.keys(finalPatch).length) {
+      updatedLead = (await dbService.updateLead(fullKey, finalPatch, leadWorkspaceId)) || workingLead;
+    }
     const result = { success: true, lead: updatedLead };
     if (reviewHuntMeta) result.reviewHunt = reviewHuntMeta;
     return result;
   }
+
+  patch.lastContactHuntAt = new Date().toISOString();
+  await autosaveEnhancement({ lastContactHuntAt: patch.lastContactHuntAt }, 'hunt timestamp');
 
   const fail = {
     success: false,
     error: betterContact.isConfigured(integrationEnv) || outscraper.isConfigured(integrationEnv)
       ? 'No new contact or review data discovered yet. Outscraper GMB, BetterContact, and website search did not find new signals.'
       : 'No new contact or review data discovered yet. Add Outscraper (GMB + reviews) and/or BetterContact under Workspace → API integrations.',
-    lead: { ...lead, lastContactHuntAt: patch.lastContactHuntAt },
+    lead: { ...workingLead, lastContactHuntAt: patch.lastContactHuntAt },
   };
   if (reviewHuntMeta) fail.reviewHunt = reviewHuntMeta;
   return fail;

@@ -3967,6 +3967,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (closeMobileBtn) {
         closeMobileBtn.addEventListener('click', () => {
+            if (window.agencyOsContactHunt && window.agencyOsContactHunt.isRunning()) {
+              if (typeof window.showAppToast === 'function') {
+                window.showAppToast(
+                  'Contact hunt still running in the background — check the bell when it finishes.',
+                  { variant: 'info', duration: 5500 },
+                );
+              }
+            }
             mobilePanel.classList.remove('open');
             mobilePanel.classList.replace('opacity-100', 'opacity-0');
             clearLeadDetailPanelForceStyles(mobilePanel);
@@ -10877,8 +10885,113 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function findRowByLeadKey(leadKey) {
+    const k = String(leadKey || '').trim();
+    if (!k) return null;
+    for (const row of document.querySelectorAll('.result-row')) {
+      if (String(row.dataset.leadKey || '').trim() === k) return row;
+    }
+    return null;
+  }
+
+  function applyContactHuntResultToRow(row, data, opts) {
+    const options = opts || {};
+    const preHuntSnap = options.preHuntSnap;
+    const isSidebarTrigger = !!options.isSidebarTrigger;
+    const deepEnhanceBtn = options.deepEnhanceBtn || document.getElementById('deepEnhanceBtn');
+    const fromRowAction = !!options.fromRowAction;
+    const notifyHunt = options.notifyHunt;
+    const huntKey = String(row.dataset.leadKey || '').trim();
+    const d = data.lead || data.data;
+
+    if (data.lead && typeof data.lead === 'object') {
+      syncPersistedLeadToRowDataset(row, data.lead);
+      if (preHuntSnap) restoreRowLeadFieldsIfErased(row, preHuntSnap);
+    } else if (d) {
+      if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
+      if (data.foundUrl) row.dataset.website = data.foundUrl;
+      if (d.email && d.email !== 'N/A') row.dataset.email = d.email;
+      if (d.facebook && d.facebook !== 'N/A') row.dataset.facebook = d.facebook;
+      if (d.instagram && d.instagram !== 'N/A') row.dataset.instagram = d.instagram;
+      if (d.twitter && d.twitter !== 'N/A') row.dataset.twitter = d.twitter;
+      if (d.lastContactHuntAt) row.dataset.lastContactHuntAt = d.lastContactHuntAt;
+      if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
+    }
+
+    if (!row.dataset.lastContactHuntAt) {
+      row.dataset.lastContactHuntAt = new Date().toISOString();
+    }
+
+    updateRowContactCells(row);
+    syncRowReviewsDisplay(row);
+
+    const keyAfter = row.dataset.leadKey;
+    if (keyAfter) {
+      fetch(`/leads/${encodeURIComponent(keyAfter)}/insights`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ refresh: true }),
+      }).catch(() => {});
+    }
+
+    if (huntKey) window.__contactHuntInFlight.delete(huntKey);
+    stopHuntProgressTickerGlobal();
+    updateProcessingStatus(false);
+
+    const reviewGridDone = document.getElementById('reviewIntelGrid');
+    if (reviewGridDone) reviewGridDone.classList.remove('review-intel-loading');
+
+    if (currentRow === row) {
+      populatePanel(row);
+      if (data.lead && typeof data.lead === 'object' && typeof window.__paintPanelFromLeadRecord === 'function') {
+        try {
+          window.__paintPanelFromLeadRecord(data.lead, row);
+        } catch (paintRecErr) {
+          console.warn('[Contact hunt] panel record paint failed:', paintRecErr);
+        }
+      }
+      paintPanelHeaderContactStrip(row);
+      scheduleReviewIntelligence(row, { refresh: true });
+
+      const rh = data.reviewHunt;
+      const meta = document.getElementById('huntLastRunMeta');
+      if (rh && rh.reviewError && meta) {
+        meta.textContent = `Contacts updated. Google reviews: ${rh.reviewError}`;
+        meta.classList.remove('hidden');
+      } else if (rh && rh.reviewsCount != null && meta) {
+        const n = parseInt(rh.reviewsCount, 10) || 0;
+        const sn = rh.snippetCount != null ? parseInt(rh.snippetCount, 10) || 0 : 0;
+        meta.textContent = n > 0
+          ? `Google: ${Number(row.dataset.rating || 0).toFixed(1)}★ · ${n} reviews${sn ? ` · ${sn} quote(s)` : ''}`
+          : 'Google reviews refreshed (count pending).';
+        meta.classList.remove('hidden');
+      }
+
+      if (deepEnhanceBtn && isSidebarTrigger) {
+        setDeepEnhanceHuntUi('done');
+        setTimeout(() => {
+          setDeepEnhanceHuntUi('idle');
+          syncContactHuntPanel(row);
+        }, 2600);
+      } else if (fromRowAction && notifyHunt) {
+        notifyHunt('Hunt complete — check contacts, rating, and review summary.', 'success');
+      } else {
+        syncContactHuntPanel(row);
+      }
+    } else if (deepEnhanceBtn && isSidebarTrigger) {
+      setDeepEnhanceHuntUi('idle');
+    }
+  }
+
+  document.addEventListener('agency-os-contact-hunt-finished', (ev) => {
+    const detail = (ev && ev.detail) || {};
+    const row = findRowByLeadKey(detail.leadKey);
+    if (!row || !detail.success) return;
+    applyContactHuntResultToRow(row, detail, { isSidebarTrigger: true });
+  });
+
   async function pollContactHuntStatus(leadKey, opts) {
-    const maxMs = opts && opts.maxMs != null ? opts.maxMs : 120000;
+    const maxMs = opts && opts.maxMs != null ? opts.maxMs : 180000;
     const interval = opts && opts.interval != null ? opts.interval : 2500;
     const onTick = opts && opts.onTick;
     const deadline = Date.now() + maxMs;
@@ -11131,91 +11244,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (data.processing) {
-        data = await pollContactHuntStatus(huntKey, { onTick: tickHuntProgress });
+        if (window.agencyOsContactHunt) {
+          window.agencyOsContactHunt.track({
+            leadKey: huntKey,
+            title: row.dataset.title || 'Lead',
+          });
+          data = await window.agencyOsContactHunt.waitFor(huntKey);
+        } else {
+          data = await pollContactHuntStatus(huntKey, { onTick: tickHuntProgress, maxMs: 180000 });
+        }
       }
 
       if (data.success) {
-        const d = data.lead || data.data;
-        if (data.lead && typeof data.lead === 'object') {
-          syncPersistedLeadToRowDataset(row, data.lead);
-          restoreRowLeadFieldsIfErased(row, preHuntSnap);
-        } else if (d) {
-          if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
-          if (data.foundUrl) row.dataset.website = data.foundUrl;
-          if (d.email && d.email !== 'N/A') row.dataset.email = d.email;
-          if (d.facebook && d.facebook !== 'N/A') row.dataset.facebook = d.facebook;
-          if (d.instagram && d.instagram !== 'N/A') row.dataset.instagram = d.instagram;
-          if (d.twitter && d.twitter !== 'N/A') row.dataset.twitter = d.twitter;
-          if (d.lastContactHuntAt) row.dataset.lastContactHuntAt = d.lastContactHuntAt;
-          if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
-        }
-
-        if (!row.dataset.lastContactHuntAt) {
-          row.dataset.lastContactHuntAt = new Date().toISOString();
-        }
-
-        updateRowContactCells(row);
-        syncRowReviewsDisplay(row);
-
-        const keyAfter = row.dataset.leadKey;
-        if (keyAfter) {
-          fetch(`/leads/${encodeURIComponent(keyAfter)}/insights`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ refresh: true }),
-          }).catch(() => {});
-        }
-
-        if (huntKey) window.__contactHuntInFlight.delete(huntKey);
-        stopHuntProgressTicker();
-        updateProcessingStatus(false);
-        populatePanel(row);
-        if (data.lead && typeof data.lead === 'object' && typeof window.__paintPanelFromLeadRecord === 'function') {
-          try {
-            window.__paintPanelFromLeadRecord(data.lead, row);
-          } catch (paintRecErr) {
-            console.warn('[Contact hunt] panel record paint failed:', paintRecErr);
-          }
-        }
-        if (currentRow === row) {
-          paintPanelHeaderContactStrip(row);
-        }
-        scheduleReviewIntelligence(row, { refresh: true });
-
-        const reviewGridDone = document.getElementById('reviewIntelGrid');
-        if (reviewGridDone) reviewGridDone.classList.remove('review-intel-loading');
-
-        const rh = data.reviewHunt;
-        if (rh && rh.reviewError && currentRow === row) {
-          const meta = document.getElementById('huntLastRunMeta');
-          if (meta) {
-            meta.textContent = `Contacts updated. Google reviews: ${rh.reviewError}`;
-            meta.classList.remove('hidden');
-          }
-        } else if (rh && rh.reviewsCount != null && currentRow === row) {
-          const meta = document.getElementById('huntLastRunMeta');
-          if (meta) {
-            const n = parseInt(rh.reviewsCount, 10) || 0;
-            const sn = rh.snippetCount != null ? parseInt(rh.snippetCount, 10) || 0 : 0;
-            meta.textContent = n > 0
-              ? `Google: ${Number(row.dataset.rating || 0).toFixed(1)}★ · ${n} reviews${sn ? ` · ${sn} quote(s)` : ''}`
-              : 'Google reviews refreshed (count pending).';
-            meta.classList.remove('hidden');
-          }
-        }
-
-        if (currentRow === row && deepEnhanceBtn && isSidebarTrigger) {
-          setDeepEnhanceHuntUi('done');
-          setTimeout(() => {
-            setDeepEnhanceHuntUi('idle');
-            syncContactHuntPanel(row);
-          }, 2600);
-        } else if (fromRowAction) {
-          notifyHunt('Hunt complete — check contacts, rating, and review summary.', 'success');
-        } else {
-          syncContactHuntPanel(row);
-        }
-
+        applyContactHuntResultToRow(row, data, { preHuntSnap, isSidebarTrigger, deepEnhanceBtn, fromRowAction, notifyHunt });
         return { success: true, data };
       }
 
@@ -15040,5 +15081,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.49-outscraper-hunt';
+  window.__ADHELLO_BUILD = '1.0.50-hunt-background-save';
 });

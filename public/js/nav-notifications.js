@@ -108,7 +108,7 @@
   }
 
   function clientNavbarWorkActive() {
-    return isBulkEnhanceJobRunning() || syncEnhanceSessionActive();
+    return isBulkEnhanceJobRunning() || syncEnhanceSessionActive() || isContactHuntJobRunning();
   }
 
   function escapeLeadRunText(s) {
@@ -469,6 +469,259 @@
     },
   };
 
+  const CONTACT_HUNT_JOB_KEY = 'agencyOsContactHuntJob';
+  const CLIENT_BELL_NOTIFS_KEY = 'agencyOsClientBellNotifs';
+  let contactHuntPollLock = false;
+  const contactHuntWaiters = new Map();
+
+  function readContactHuntJob() {
+    try {
+      const raw = sessionStorage.getItem(CONTACT_HUNT_JOB_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      return o && o.leadKey ? o : null;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeContactHuntJob(job) {
+    try {
+      if (!job) sessionStorage.removeItem(CONTACT_HUNT_JOB_KEY);
+      else sessionStorage.setItem(CONTACT_HUNT_JOB_KEY, JSON.stringify(job));
+    } catch (_) {}
+  }
+
+  function readClientBellNotifications() {
+    try {
+      const raw = sessionStorage.getItem(CLIENT_BELL_NOTIFS_KEY);
+      const list = raw ? JSON.parse(raw) : [];
+      return Array.isArray(list) ? list : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function pushClientBellNotification(item) {
+    try {
+      const list = readClientBellNotifications();
+      list.unshift({
+        id: 'hunt-' + Date.now(),
+        isRead: false,
+        at: Date.now(),
+        ...item,
+      });
+      sessionStorage.setItem(CLIENT_BELL_NOTIFS_KEY, JSON.stringify(list.slice(0, 12)));
+    } catch (_) {}
+  }
+
+  function markClientBellNotificationsRead() {
+    try {
+      const list = readClientBellNotifications().map((n) => ({ ...n, isRead: true }));
+      sessionStorage.setItem(CLIENT_BELL_NOTIFS_KEY, JSON.stringify(list));
+    } catch (_) {}
+  }
+
+  function escapeBellHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  }
+
+  function renderClientBellNotifications(notificationList, notificationPing) {
+    const items = readClientBellNotifications().filter((n) => !n.isRead);
+    if (!items.length) return false;
+    if (notificationPing) {
+      notificationPing.classList.remove('hidden');
+      notificationPing.classList.add('animate-ping');
+    }
+    if (!notificationList) return true;
+    const blocks = items
+      .slice(0, 5)
+      .map((n) => {
+        const title = escapeBellHtml(n.headline || 'Contact hunt ready');
+        const sub = escapeBellHtml(n.body || '');
+        const href = n.href || '/leads';
+        return (
+          '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif border-b border-brand-border/10 last:border-0" onclick="window.location.href=\'' +
+          href +
+          '\'">' +
+          '<div class="flex items-start gap-3">' +
+          '<div class="w-8 h-8 rounded-full bg-brand-yellow/10 flex items-center justify-center text-brand-yellow shrink-0">' +
+          '<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>' +
+          '</div><div>' +
+          '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">' +
+          title +
+          '</div>' +
+          '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
+          sub +
+          '</div>' +
+          '<div class="mt-2 text-[9px] font-black uppercase text-brand-yellow group-hover/notif:translate-x-1 transition-transform">Open lead →</div>' +
+          '</div></div></div>'
+        );
+      })
+      .join('');
+    notificationList.innerHTML = blocks;
+    return true;
+  }
+
+  function isContactHuntJobRunning() {
+    const j = readContactHuntJob();
+    return !!(j && j.running);
+  }
+
+  function resolveContactHuntWaiters(leadKey, payload) {
+    const w = contactHuntWaiters.get(leadKey);
+    if (w) {
+      contactHuntWaiters.delete(leadKey);
+      w.resolve(payload);
+    }
+    window.dispatchEvent(
+      new CustomEvent('agency-os-contact-hunt-finished', {
+        detail: { leadKey, ...payload },
+      })
+    );
+  }
+
+  async function pollContactHuntJobOnce(job) {
+    const res = await fetch('/leads/' + encodeURIComponent(job.leadKey) + '/enhance-status', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    const d = await res.json().catch(() => ({}));
+    if (d.status === 'processing') return null;
+    if (d.status === 'done') {
+      return {
+        success: !!d.success,
+        lead: d.lead,
+        data: d.data,
+        error: d.error,
+        reviewHunt: d.reviewHunt,
+      };
+    }
+    if (d.status === 'error') {
+      return { success: false, error: d.error || 'Contact hunt failed.' };
+    }
+    if (d.status === 'idle') return { success: false, error: 'idle', _idle: true };
+    return { success: false, error: d.error || 'Status check failed.' };
+  }
+
+  async function runContactHuntPollLoop() {
+    if (contactHuntPollLock) return;
+    contactHuntPollLock = true;
+    try {
+      while (true) {
+        const job = readContactHuntJob();
+        if (!job || !job.running) break;
+        if (Date.now() - (job.startedAt || 0) > 180000) {
+          writeContactHuntJob(null);
+          resolveContactHuntWaiters(job.leadKey, {
+            success: false,
+            error: 'Contact hunt timed out. Reopen the lead to see any saved data.',
+          });
+          pushClientBellNotification({
+            headline: 'Contact hunt timed out',
+            body: (job.title || 'Lead') + ' — partial data may have been saved.',
+            href: '/leads',
+          });
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Contact hunt timed out for ' + (job.title || 'lead') + '.', {
+              variant: 'warning',
+              duration: 9000,
+            });
+          }
+          break;
+        }
+        let result = null;
+        try {
+          result = await pollContactHuntJobOnce(job);
+        } catch (err) {
+          result = { success: false, error: err && err.message ? err.message : 'Poll failed' };
+        }
+        if (!result) {
+          await new Promise((r) => setTimeout(r, 2500));
+          continue;
+        }
+        if (result._idle) {
+          job._idleStreak = (job._idleStreak || 0) + 1;
+          writeContactHuntJob(job);
+          if (job._idleStreak < 10) {
+            await new Promise((r) => setTimeout(r, 2500));
+            continue;
+          }
+          result = { success: false, error: 'Contact hunt ended before results were ready.' };
+        }
+        writeContactHuntJob(null);
+        const title = job.title || 'Lead';
+        if (result.success) {
+          pushClientBellNotification({
+            headline: 'Contact hunt complete',
+            body: title + ' — website, contacts, and review summary saved.',
+            href: '/leads',
+          });
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Contact hunt complete for ' + title + '.', {
+              variant: 'success',
+              duration: 6000,
+            });
+          }
+        } else {
+          pushClientBellNotification({
+            headline: 'Contact hunt finished',
+            body: title + ' — ' + String(result.error || 'No new data found.'),
+            href: '/leads',
+          });
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(String(result.error || 'Contact hunt finished with no new data.'), {
+              variant: 'warning',
+              duration: 9000,
+            });
+          }
+        }
+        if (typeof window.updateProcessingStatus === 'function') {
+          window.updateProcessingStatus(false);
+        }
+        resolveContactHuntWaiters(job.leadKey, result);
+        break;
+      }
+    } finally {
+      contactHuntPollLock = false;
+      if (isContactHuntJobRunning()) {
+        runContactHuntPollLoop().catch((e) => console.warn('[contact-hunt-poll]', e));
+      }
+    }
+  }
+
+  window.agencyOsContactHunt = {
+    isRunning() {
+      return isContactHuntJobRunning();
+    },
+    track({ leadKey, title }) {
+      if (!leadKey) return;
+      writeContactHuntJob({
+        leadKey: String(leadKey).trim(),
+        title: String(title || '').trim() || 'Lead',
+        running: true,
+        startedAt: Date.now(),
+        _idleStreak: 0,
+      });
+      if (typeof window.updateProcessingStatus === 'function') {
+        window.updateProcessingStatus(true);
+      }
+      const ping = document.getElementById('notificationPing');
+      if (ping) {
+        ping.classList.remove('hidden');
+        ping.classList.add('animate-ping');
+      }
+      runContactHuntPollLoop().catch((e) => console.warn('[contact-hunt-poll]', e));
+    },
+    waitFor(leadKey) {
+      const key = String(leadKey || '').trim();
+      if (!key) return Promise.resolve({ success: false, error: 'Missing lead key' });
+      return new Promise((resolve) => {
+        contactHuntWaiters.set(key, { resolve });
+      });
+    },
+  };
+
   /** Called from app.js when starting/finishing client-side search flows. */
   window.updateProcessingStatus = function (isActive) {
     if (!processingIndicator) return;
@@ -515,6 +768,10 @@
       const jr = readBulkEnhanceJob();
       if (jr) updateBulkEnhanceBellBadge(jr.index, jr.keys.length);
       processBulkEnhanceQueue().catch((e) => console.warn('[bulk-enhance-resume]', e));
+    }
+
+    if (isContactHuntJobRunning()) {
+      runContactHuntPollLoop().catch((e) => console.warn('[contact-hunt-resume]', e));
     }
 
     function maybeDesktopNotify(data) {
@@ -637,11 +894,15 @@
               '<span class="text-[9px] font-black uppercase text-brand-yellow group-hover/notif:translate-x-1 transition-transform">View Results →</span>' +
               '</div></div></div></div>';
           }
+        } else if (renderClientBellNotifications(notificationList, notificationPing)) {
+          /* client-side hunt / enhance notifications */
         } else {
           const keepPingForClientWork =
             localStorage.getItem('is_searching') === 'true' ||
             isBulkEnhanceJobRunning() ||
-            syncEnhanceSessionActive();
+            syncEnhanceSessionActive() ||
+            isContactHuntJobRunning() ||
+            readClientBellNotifications().some((n) => !n.isRead);
           if (notificationPing && !keepPingForClientWork) {
             notificationPing.classList.remove('animate-ping');
             notificationPing.classList.add('hidden');
@@ -688,6 +949,7 @@
         try {
           await fetch('/api/notifications/read', { method: 'POST' });
         } catch (_) {}
+        markClientBellNotificationsRead();
         if (notificationPing) notificationPing.classList.add('hidden');
       } else {
         notificationDropdown.classList.add('hidden');
