@@ -1,0 +1,61 @@
+<div>
+  <label for="findMhQuery" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Search terms</label>
+  <input type="text" id="findMhQuery" name="query" value="mobile home" placeholder="mobile home, manufactured home, trailer…"
+    class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white" />
+</div>
+
+<fieldset class="rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 space-y-4">
+  <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-1">Listing sources</legend>
+  <p class="text-[11px] text-brand-muted -mt-1">Each enabled source merges into one deduped list.</p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_craigslist" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">Craigslist</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_facebook_marketplace" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">Facebook Marketplace</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_offerup" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">OfferUp</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_mhvillage" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">MHVillage</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_zillow" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">Zillow</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_realtor" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">Realtor.com</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_redfin" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">Redfin</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_ebay" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">eBay</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer sm:col-span-2"><input type="checkbox" name="source_web_search" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">Google web search</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer sm:col-span-2"><input type="checkbox" name="source_oxylabs" value="on" checked class="rounded border-brand-border" /><span class="font-semibold">Oxylabs (Google)</span></label>
+  </div>
+</fieldset>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+    <input type="number" name="minPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+  </div>
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+    <input type="number" name="maxPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+  </div>
+</div>
+
+<fieldset class="rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-4">
+  <legend class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 px-1">Flip deal filter (AI)</legend>
+  <p class="text-[11px] text-brand-muted -mt-1">Score listings with rules + OpenRouter — only save high-ROI flip candidates when enabled.</p>
+  <label class="flex items-start gap-3 cursor-pointer">
+    <input type="checkbox" name="flipFilterEnabled" value="on" id="findFlipEnabled" class="mt-1 rounded border-brand-border" />
+    <span>
+      <span class="font-bold text-sm block">Flip deals only</span>
+      <span class="text-[11px] text-brand-muted">Filter out generic inventory before saving.</span>
+    </span>
+  </label>
+  <div id="findFlipOptions" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4 pl-0 sm:pl-7">
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min flip score</label>
+      <input type="number" name="minFlipScore" value="7" min="1" max="10" step="0.5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+    </div>
+    <div>
+      <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ROI %</label>
+      <input type="number" name="minRoiPercent" value="15" min="0" max="200" step="5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+    </div>
+    <div class="flex flex-col justify-end">
+      <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+        <input type="checkbox" name="flipOnlyUnique" value="on" class="rounded border-brand-border" />
+        <span class="font-semibold">Unique only</span>
+      </label>
+    </div>
+  </div>
+</fieldset>

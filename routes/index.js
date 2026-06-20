@@ -41,9 +41,18 @@ async function renderFindLeads(req, res, next) {
 
     const nightlyPrepMeta = workspace.nightlyPrep || {};
 
+    const rawType = String(req.query.type || 'maps').trim().toLowerCase().replace(/-/g, '_');
+    const searchType =
+      rawType === 'mobile_homes' || rawType === 'mobilehomes' || rawType === 'mobile'
+        ? 'mobile_homes'
+        : rawType === 'real_estate' || rawType === 'realestate' || rawType === 'zillow'
+          ? 'real_estate'
+          : 'maps';
+
     return res.render('index', {
       title: 'Agency OS | Daily Leads',
       activePage: 'find',
+      searchType,
       savedLeadsCount: adhelloLeads.length,
       workspaceLeadsCount: workspaceLeads.length,
       warmInboundCount: adhelloLeads.length,
@@ -74,36 +83,16 @@ router.get('/home', (req, res) => {
 });
 router.get('/leads/find', renderFindLeads);
 
-router.get('/leads/find/real-estate', async (req, res, next) => {
-  try {
-    const wid = req.workspaceId;
-    const workspace = (await dbService.getWorkspace(wid)) || {};
-    const icp = getWorkspaceIcp(workspace);
-    const folders = await dbService.listFolders(wid);
-    return res.render('real_estate_find', {
-      title: 'Find property deals | Agency OS',
-      activePage: 'find',
-      folders,
-      prefill: { city: icp.city || '', state: icp.state || '' },
-    });
-  } catch (e) {
-    return next(e);
-  }
+router.get('/leads/find/real-estate', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  params.set('type', 'real_estate');
+  res.redirect(302, `/leads/find?${params.toString()}`);
 });
 
-router.get('/leads/find/mobile-homes', async (req, res, next) => {
-  try {
-    const wid = req.workspaceId;
-    const workspace = (await dbService.getWorkspace(wid)) || {};
-    const icp = getWorkspaceIcp(workspace);
-    return res.render('mobile_homes_find', {
-      title: 'Mobile homes for sale | Agency OS',
-      activePage: 'find',
-      prefill: { city: icp.city || '', state: icp.state || '' },
-    });
-  } catch (e) {
-    return next(e);
-  }
+router.get('/leads/find/mobile-homes', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  params.set('type', 'mobile_homes');
+  res.redirect(302, `/leads/find?${params.toString()}`);
 });
 
 /** Toggle overnight Maps prep for this workspace (cron: GET /api/cron/nightly-prep). */

@@ -6,6 +6,7 @@
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>
 
+  <% const _findType = typeof searchType !== 'undefined' ? searchType : 'maps'; %>
   <% const _sp = typeof searchPrefill !== 'undefined' && searchPrefill ? searchPrefill : { keyword: '', city: '', state: '', qty: 20 }; %>
   <% const _warm = typeof warmInboundCount !== 'undefined' ? warmInboundCount : savedLeadsCount; %>
   <% const _pipe = typeof totalPipelineCount !== 'undefined' ? totalPipelineCount : workspaceLeadsCount; %>
@@ -18,7 +19,7 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Prospecting</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Find leads</h1>
           <p class="text-sm md:text-base text-brand-muted mt-2 max-w-xl leading-relaxed">
-            Pick an area, set your keyword, and run. Results enrich in the background — keep working on Today while we search.
+            Pick a search type, set your area, and run. Business leads, mobile home listings, or property deals — one workflow.
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
@@ -33,6 +34,24 @@
     <!-- Main wizard card -->
     <div class="max-w-5xl mx-auto" id="searchContainer">
       <div class="rounded-[1.75rem] md:rounded-[2rem] border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-xl shadow-brand-dark/5 overflow-hidden">
+        <!-- Search type -->
+        <div class="px-4 sm:px-6 py-4 border-b border-brand-border/20 dark:border-white/5 bg-brand-cream/15 dark:bg-slate-950/40">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">What are you searching for?</p>
+          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Search type">
+            <button type="button" role="tab" data-find-type="maps" aria-selected="<%= _findType === 'maps' ? 'true' : 'false' %>"
+              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'maps' ? 'border-brand-yellow/60 bg-brand-yellow/15 text-brand-dark dark:text-white' : 'border-brand-border/50 text-brand-muted hover:border-brand-yellow/40' %>">
+              Business (Maps)
+            </button>
+            <button type="button" role="tab" data-find-type="mobile_homes" aria-selected="<%= _findType === 'mobile_homes' ? 'true' : 'false' %>"
+              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'mobile_homes' ? 'border-brand-yellow/60 bg-brand-yellow/15 text-brand-dark dark:text-white' : 'border-brand-border/50 text-brand-muted hover:border-brand-yellow/40' %>">
+              Mobile homes
+            </button>
+            <button type="button" role="tab" data-find-type="real_estate" aria-selected="<%= _findType === 'real_estate' ? 'true' : 'false' %>"
+              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'real_estate' ? 'border-brand-yellow/60 bg-brand-yellow/15 text-brand-dark dark:text-white' : 'border-brand-border/50 text-brand-muted hover:border-brand-yellow/40' %>">
+              Real estate
+            </button>
+          </div>
+        </div>
         <!-- Step progress -->
         <div class="px-4 sm:px-6 py-4 border-b border-brand-border/20 dark:border-white/5">
           <ol class="flex items-center gap-2 sm:gap-4" aria-label="Search steps">
@@ -58,7 +77,7 @@
           </ol>
         </div>
 
-        <form action="/search" method="POST" id="searchForm">
+        <form action="/search" method="POST" id="searchForm" data-find-type="<%= _findType %>">
           <!-- STEP 1: Area -->
           <section data-step-panel="1" class="wizard-step-panel">
             <div class="grid grid-cols-1 lg:grid-cols-5 lg:min-h-[min(72vh,720px)]">
@@ -95,12 +114,12 @@
             </div>
           </section>
 
-          <!-- STEP 2: Keyword & run -->
+          <!-- STEP 2: Options & run -->
           <section data-step-panel="2" class="wizard-step-panel hidden">
             <div class="p-5 sm:p-6 md:p-8 space-y-6">
-              <div>
-                <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white">What should we find?</h2>
-                <p class="text-sm text-brand-muted mt-1">We’ll pull Google Maps businesses matching your keyword in the area you chose.</p>
+              <div id="findStep2Intro">
+                <h2 class="font-display font-bold text-xl text-brand-dark dark:text-white" id="findStep2Title">What should we find?</h2>
+                <p class="text-sm text-brand-muted mt-1" id="findStep2Desc">We’ll pull Google Maps businesses matching your keyword in the area you chose.</p>
               </div>
 
               <!-- Live preview -->
@@ -109,21 +128,18 @@
                 <p class="font-display font-bold text-base sm:text-lg text-brand-dark dark:text-white" id="findSearchPreviewLine">
                   <span class="text-brand-muted font-semibold">—</span> in <span class="text-brand-muted">—</span>
                 </p>
-                <p class="text-xs text-brand-muted mt-1" id="findSearchPreviewMeta">Up to 20 leads · directory supplement on</p>
+                <p class="text-xs text-brand-muted mt-1" id="findSearchPreviewMeta">Up to 20 results</p>
               </div>
 
+              <!-- Maps / business -->
+              <div data-find-panel="maps" class="find-type-panel space-y-6 <%= _findType !== 'maps' ? 'hidden' : '' %>">
               <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-7">
                   <label for="searchKeywordField" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business keyword</label>
-                  <input type="text" name="keyword" id="searchKeywordField" required placeholder="Plumber, dental office, HVAC…" value="<%= _sp.keyword || '' %>"
+                  <input type="text" name="keyword" id="searchKeywordField" placeholder="Plumber, dental office, HVAC…" value="<%= _sp.keyword || '' %>"
                     class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
                 </div>
-                <div class="md:col-span-2">
-                  <label for="findMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max leads</label>
-                  <input type="number" name="maxResults" id="findMaxResults" value="<%= _sp.qty != null ? _sp.qty : 20 %>" min="1" max="100"
-                    class="w-full rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
-                </div>
-                <div class="md:col-span-3 flex items-end">
+                <div class="md:col-span-5 flex items-end">
                   <div class="w-full rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/50 px-4 py-3">
                     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Location</p>
                     <p class="text-sm font-bold text-brand-dark dark:text-white truncate" id="findSearchPreviewLoc">—</p>
@@ -131,16 +147,51 @@
                 </div>
               </div>
 
-              <!-- Advanced options -->
               <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30 open:pb-2">
                 <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white">
-                  <span>Folder &amp; extras</span>
+                  <span>Maps extras</span>
+                  <span class="text-brand-muted group-open:rotate-180 transition-transform">▾</span>
+                </summary>
+                <div class="px-4 pb-4 space-y-4 border-t border-brand-border/30 dark:border-white/10 pt-4">
+                  <label class="inline-flex items-start gap-2 text-sm text-brand-dark dark:text-slate-200 cursor-pointer">
+                    <input type="checkbox" name="directorySupplement" value="on" checked class="mt-1 rounded border-brand-border" />
+                    <span>
+                      <span class="font-semibold">Also mine directory listings</span>
+                      <span class="block text-[11px] text-brand-muted mt-0.5">Yelp, Yellow Pages, and BBB when available.</span>
+                    </span>
+                  </label>
+                </div>
+              </details>
+              </div>
+
+              <!-- Mobile homes -->
+              <div data-find-panel="mobile_homes" class="find-type-panel space-y-6 <%= _findType !== 'mobile_homes' ? 'hidden' : '' %>">
+                <%- include('partials/find_panel_mobile_homes') %>
+              </div>
+
+              <!-- Real estate -->
+              <div data-find-panel="real_estate" class="find-type-panel space-y-6 <%= _findType !== 'real_estate' ? 'hidden' : '' %>">
+                <%- include('partials/find_panel_real_estate') %>
+              </div>
+
+              <!-- Shared: max results + folder -->
+              <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div class="md:col-span-4">
+                  <label for="findMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max results</label>
+                  <input type="number" name="maxResults" id="findMaxResults" value="<%= _sp.qty != null ? _sp.qty : (_findType === 'mobile_homes' ? 30 : 20) %>" min="1" max="100"
+                    class="w-full rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
+                </div>
+              </div>
+
+              <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30 open:pb-2">
+                <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white">
+                  <span>Target folder (optional)</span>
                   <span class="text-brand-muted group-open:rotate-180 transition-transform">▾</span>
                 </summary>
                 <div class="px-4 pb-4 space-y-4 border-t border-brand-border/30 dark:border-white/10 pt-4">
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
-                      <label for="searchFolderKey" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Target folder</label>
+                      <label for="searchFolderKey" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Folder</label>
                       <select id="searchFolderKey" name="folderKey" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
                         <option value="">Main pipeline (no folder)</option>
                         <% (folders || []).forEach((fd) => { if (!fd || !fd.key) return; %>
@@ -154,13 +205,6 @@
                       <input id="searchNewFolderName" name="newFolderName" type="text" maxlength="80" placeholder="Plumbers — Austin Apr" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
                     </div>
                   </div>
-                  <label class="inline-flex items-start gap-2 text-sm text-brand-dark dark:text-slate-200 cursor-pointer">
-                    <input type="checkbox" name="directorySupplement" value="on" checked class="mt-1 rounded border-brand-border" />
-                    <span>
-                      <span class="font-semibold">Also mine directory listings</span>
-                      <span class="block text-[11px] text-brand-muted mt-0.5">Yelp, Yellow Pages, and BBB when available.</span>
-                    </span>
-                  </label>
                 </div>
               </details>
 
@@ -184,10 +228,10 @@
                     <input type="checkbox" name="runNowAlso" id="runNowAlso" class="rounded border-brand-border" />
                     Run once now as well
                   </label>
-                  <div>
+                  <div class="find-maps-only">
                     <%- include('partials/find_nightly_prep_checkbox') %>
                   </div>
-                  <p class="text-[11px] text-brand-muted"><a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">View scheduled jobs</a> · <a href="/leads/find/real-estate" class="text-brand-yellow hover:underline">Real estate jobs</a></p>
+                  <p class="text-[11px] text-brand-muted"><a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">View scheduled jobs</a></p>
                 </div>
               </div>
 
@@ -279,8 +323,109 @@
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <script>
   (function () {
+    var FIND_CONFIG = {
+      maps: {
+        action: '/search',
+        title: 'What should we find?',
+        desc: 'Google Maps businesses matching your keyword — enriched in the background.',
+        submitRun: 'Start search',
+        submitSched: 'Save scheduled job',
+        previewLabel: 'leads',
+      },
+      mobile_homes: {
+        action: '/mobile-homes/search',
+        title: 'Mobile home listings',
+        desc: 'Search Craigslist, Facebook, Zillow, and more — merged and deduped.',
+        submitRun: 'Search all sources',
+        submitSched: 'Save scheduled job',
+        previewLabel: 'listings',
+      },
+      real_estate: {
+        action: '/real-estate/search',
+        title: 'Property listings',
+        desc: 'Zillow-focused search with Apify (Oxylabs fallback when configured).',
+        submitRun: 'Start search',
+        submitSched: 'Save scheduled job',
+        previewLabel: 'listings',
+      },
+    };
+
+    var form = document.getElementById('searchForm');
+    var currentType = (form && form.getAttribute('data-find-type')) || 'maps';
+    if (!FIND_CONFIG[currentType]) currentType = 'maps';
+
+    function setPanelInputsEnabled(panel, enabled) {
+      if (!panel) return;
+      panel.querySelectorAll('input, select, textarea, button').forEach(function (el) {
+        if (el.classList.contains('find-type-tab')) return;
+        el.disabled = !enabled;
+      });
+    }
+
+    function setFindType(type) {
+      if (!FIND_CONFIG[type]) type = 'maps';
+      currentType = type;
+      if (form) {
+        form.action = FIND_CONFIG[type].action;
+        form.setAttribute('data-find-type', type);
+      }
+      document.querySelectorAll('[data-find-panel]').forEach(function (panel) {
+        var on = panel.getAttribute('data-find-panel') === type;
+        panel.classList.toggle('hidden', !on);
+        setPanelInputsEnabled(panel, on);
+      });
+      document.querySelectorAll('.find-type-tab').forEach(function (tab) {
+        var active = tab.getAttribute('data-find-type') === type;
+        tab.setAttribute('aria-selected', active ? 'true' : 'false');
+        tab.classList.toggle('border-brand-yellow/60', active);
+        tab.classList.toggle('bg-brand-yellow/15', active);
+        tab.classList.toggle('text-brand-dark', active);
+        tab.classList.toggle('dark:text-white', active);
+        tab.classList.toggle('border-brand-border/50', !active);
+        tab.classList.toggle('text-brand-muted', !active);
+      });
+      var cfg = FIND_CONFIG[type];
+      var title = document.getElementById('findStep2Title');
+      var desc = document.getElementById('findStep2Desc');
+      if (title) title.textContent = cfg.title;
+      if (desc) desc.textContent = cfg.desc;
+      var kw = document.getElementById('searchKeywordField');
+      if (kw) kw.required = type === 'maps';
+      var nightly = document.getElementById('findNightlyPrepForm');
+      if (nightly) nightly.closest('.find-maps-only') && nightly.closest('.find-maps-only').classList.toggle('hidden', type !== 'maps');
+      document.querySelectorAll('.find-maps-only').forEach(function (el) {
+        el.classList.toggle('hidden', type !== 'maps');
+      });
+      syncFindPreview();
+      updateSubmitLabel();
+      if (history.replaceState) {
+        var url = new URL(window.location.href);
+        if (type === 'maps') url.searchParams.delete('type');
+        else url.searchParams.set('type', type);
+        history.replaceState({}, '', url.pathname + url.search);
+      }
+    }
+
+    function updateSubmitLabel() {
+      var mode = document.getElementById('searchModeInput');
+      var isSched = mode && mode.value === 'schedule';
+      if (typeof window.syncFindSubmitLabel === 'function') {
+        window.syncFindSubmitLabel(isSched);
+      }
+    }
+
+    var ARROW_SVG = '<svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
+    var CAL_SVG = '<svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
+    window.syncFindSubmitLabel = function (isSchedule) {
+      var cfg = FIND_CONFIG[currentType];
+      var searchBtnLabel = document.getElementById('searchBtnText');
+      if (!searchBtnLabel || !cfg) return;
+      searchBtnLabel.innerHTML = (isSchedule ? cfg.submitSched : cfg.submitRun) + (isSchedule ? CAL_SVG : ARROW_SVG);
+    };
+
     function syncFindPreview() {
       var kw = document.getElementById('searchKeywordField');
+      var mhQ = document.getElementById('findMhQuery');
       var city = document.getElementById('findManualCity');
       var state = document.getElementById('findManualState');
       var max = document.getElementById('findMaxResults');
@@ -289,13 +434,21 @@
       var loc = document.getElementById('findSearchPreviewLoc');
       var hint = document.getElementById('findStep1Hint');
       var summary = document.getElementById('findLocationSummaryText');
-      var dir = document.querySelector('input[name="directorySupplement"]');
-      var k = kw && kw.value.trim() ? kw.value.trim() : '—';
+      var dir = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
+      var cfg = FIND_CONFIG[currentType];
+      var k = '—';
+      if (currentType === 'maps') {
+        k = kw && kw.value.trim() ? kw.value.trim() : 'Your keyword';
+      } else if (currentType === 'mobile_homes') {
+        k = mhQ && mhQ.value.trim() ? mhQ.value.trim() : 'mobile home';
+      } else {
+        k = 'Homes for sale';
+      }
       var c = city && city.value.trim() ? city.value.trim() : '';
       var s = state && state.value.trim() ? state.value.trim().toUpperCase() : '';
       var locLabel = c || s ? (c + (c && s ? ', ' : '') + s) : '—';
       if (line) {
-        line.innerHTML = '<span class="text-brand-dark dark:text-white">' + (k === '—' ? 'Your keyword' : k) + '</span> in <span class="text-brand-dark dark:text-white">' + locLabel + '</span>';
+        line.innerHTML = '<span class="text-brand-dark dark:text-white">' + k + '</span> in <span class="text-brand-dark dark:text-white">' + locLabel + '</span>';
       }
       if (loc) loc.textContent = locLabel;
       if (hint) hint.textContent = locLabel !== '—' ? locLabel : 'Map or city';
@@ -307,19 +460,47 @@
       }
       if (meta && max) {
         var n = parseInt(max.value, 10) || 20;
-        var dirOn = dir && dir.checked;
-        meta.textContent = 'Up to ' + n + ' leads' + (dirOn ? ' · directory supplement on' : '');
+        var extra = currentType === 'maps' && dir && dir.checked ? ' · directory supplement on' : '';
+        meta.textContent = 'Up to ' + n + ' ' + cfg.previewLabel + extra;
       }
     }
-    ['searchKeywordField', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
+
+    document.querySelectorAll('.find-type-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        setFindType(tab.getAttribute('data-find-type'));
+      });
+    });
+
+    ['searchKeywordField', 'findMhQuery', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', syncFindPreview);
     });
-    var dirCb = document.querySelector('input[name="directorySupplement"]');
+    var dirCb = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
     if (dirCb) dirCb.addEventListener('change', syncFindPreview);
     document.addEventListener('find:locationUpdated', syncFindPreview);
-    syncFindPreview();
 
+    var flipCb = document.getElementById('findFlipEnabled');
+    var flipOpts = document.getElementById('findFlipOptions');
+    function syncFlip() {
+      if (flipOpts && flipCb) flipOpts.classList.toggle('hidden', !flipCb.checked);
+    }
+    if (flipCb) flipCb.addEventListener('change', syncFlip);
+    syncFlip();
+
+    var modeInput = document.getElementById('searchModeInput');
+    if (modeInput) modeInput.addEventListener('change', updateSubmitLabel);
+    document.getElementById('modeRunNow') && document.getElementById('modeRunNow').addEventListener('click', function () { setTimeout(updateSubmitLabel, 0); });
+    document.getElementById('modeSchedule') && document.getElementById('modeSchedule').addEventListener('click', function () { setTimeout(updateSubmitLabel, 0); });
+
+    if (form) {
+      form.addEventListener('submit', function () {
+        document.querySelectorAll('[data-find-panel].hidden').forEach(function (panel) {
+          setPanelInputsEnabled(panel, false);
+        });
+      });
+    }
+
+    setFindType(currentType);
   })();
   </script>
   <%- include('/partials/app_shell_close') %>

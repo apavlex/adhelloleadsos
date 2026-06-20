@@ -1471,7 +1471,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const dateEl = getScheduleDateInput();
       if (dateEl) dateEl.required = false;
 
-      if (searchBtnLabel) {
+      if (typeof window.syncFindSubmitLabel === 'function') {
+        window.syncFindSubmitLabel(false);
+      } else if (searchBtnLabel) {
         searchBtnLabel.innerHTML = 'Start search<svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>';
       }
     });
@@ -1485,13 +1487,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       setScheduledDateDefaults();
 
-      if (searchBtnLabel) {
+      if (typeof window.syncFindSubmitLabel === 'function') {
+        window.syncFindSubmitLabel(true);
+      } else if (searchBtnLabel) {
         searchBtnLabel.innerHTML = 'Schedule search<svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
       }
     });
 
     setModeButtonClasses(searchModeInput.value === 'run' ? 'run' : 'schedule');
-    if (searchBtnLabel && searchModeInput.value === 'schedule') {
+    if (typeof window.syncFindSubmitLabel === 'function') {
+      window.syncFindSubmitLabel(searchModeInput.value === 'schedule');
+    } else if (searchBtnLabel && searchModeInput.value === 'schedule') {
       searchBtnLabel.innerHTML = 'Schedule search<svg class="w-4 h-4 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>';
     }
   }

@@ -1,0 +1,15 @@
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+    <input type="number" name="minPrice" min="0" step="1000" placeholder="Optional"
+      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+  </div>
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+    <input type="number" name="maxPrice" min="0" step="1000" placeholder="Optional"
+      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+  </div>
+</div>
+<p class="text-[11px] text-brand-muted leading-relaxed">
+  Uses Apify Zillow scraper by default, with Oxylabs fallback when configured. Override actor via <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">APIFY_REAL_ESTATE_ACTOR_ID</code>.
+</p>
