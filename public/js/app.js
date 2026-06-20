@@ -4919,6 +4919,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__resolveActiveLeadRow = resolveActiveLeadRow;
 
+  /** Row for hunt/audit/save — table TR when visible, else panel host or current selection. */
+  function resolveRowForLeadPanelActions(row) {
+    const active = row || resolveActiveLeadRow();
+    if (!active) return null;
+    return resolvePipelineTableRowForPanel(active) || active;
+  }
+  window.__resolveRowForLeadPanelActions = resolveRowForLeadPanelActions;
+
   async function ensureRowHasLeadKey(row) {
     if (!row) throw new Error('Select a lead first.');
     let key = syncRowLeadKeyFromSavedMap(row);
@@ -5185,10 +5193,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (!pageSpeedAuditInFlight) {
       const blocked = !hasWebsite;
-      runBtn.disabled = false;
-      runBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
-      runBtn.classList.toggle('opacity-50', blocked);
-      runBtn.classList.toggle('cursor-not-allowed', blocked);
+      const uiActive = runBtn.dataset.auditState === 'active';
+      if (!uiActive) {
+        runBtn.disabled = false;
+        runBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+        runBtn.classList.toggle('opacity-50', blocked);
+        runBtn.classList.toggle('cursor-not-allowed', blocked);
+      }
       runBtn.title = !hasWebsite
         ? 'Add a website URL first'
         : geoReport || audit
@@ -5574,6 +5585,7 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       if (match) return match;
     }
+    if (row.dataset && (row.dataset.leadKey || row.dataset.title)) return row;
     return row.tagName === 'TR' ? row : null;
   }
 
@@ -10439,7 +10451,7 @@ document.addEventListener('DOMContentLoaded', () => {
       ev.preventDefault();
       ev.stopPropagation();
     }
-    const row = resolvePipelineTableRowForPanel(resolveActiveLeadRow());
+    const row = resolveRowForLeadPanelActions();
     if (row) currentRow = row;
 
     scrollLeadPanelToSection('pageSpeedAuditSection');
@@ -10608,7 +10620,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!btn) return;
         e.preventDefault();
         e.stopPropagation();
-        handlePageSpeedAuditClick(e);
+        void handlePageSpeedAuditClick(e).catch((err) => {
+          console.error('[Website audit] unhandled:', err);
+          setPageSpeedAuditUi('idle');
+          const msg = (err && err.message) || 'Website audit failed.';
+          showPageSpeedAuditError(msg);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(msg, { variant: 'error' });
+          }
+        });
       },
       true,
     );
@@ -10756,8 +10776,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   }
 
+  function contactHuntTrackingKey(row) {
+    if (!row || !row.dataset) return '';
+    const leadKey = String(row.dataset.leadKey || '').trim();
+    if (leadKey) return leadKey;
+    const titleKey = normalizeLeadTitleKey(row.dataset.title || '');
+    return titleKey ? `prep:${titleKey}` : '';
+  }
+
   function isContactHuntInFlightForRow(row) {
-    const key = row && row.dataset && row.dataset.leadKey;
+    const key = contactHuntTrackingKey(row);
     return !!(key && window.__contactHuntInFlight && window.__contactHuntInFlight.has(key));
   }
 
@@ -10770,10 +10798,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const meta = document.getElementById('huntLastRunMeta');
     if (!row || currentRow !== row) return;
 
+    const btn = document.getElementById('deepEnhanceBtn');
+    const uiActive = !!(btn && btn.dataset.huntState === 'active');
     const inFlight = isContactHuntInFlightForRow(row);
-    if (inFlight) {
-      setDeepEnhanceHuntUi('active');
-      startHuntProgressTickerGlobal();
+    if (inFlight || uiActive) {
+      if (btn && btn.dataset.huntState !== 'active') setDeepEnhanceHuntUi('active');
+      if (inFlight) startHuntProgressTickerGlobal();
       if (meta) {
         meta.textContent = 'Hunt in progress — contacts, reviews, and AI summary…';
         meta.classList.remove('hidden');
@@ -10783,7 +10813,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     stopHuntProgressTickerGlobal();
 
-    const btn = document.getElementById('deepEnhanceBtn');
     if (btn && btn.dataset.huntState === 'done') return;
 
     setDeepEnhanceHuntUi('idle');
@@ -10845,8 +10874,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const fromRowAction = !!opts.fromRowAction;
     const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
 
-    row = resolvePipelineTableRowForPanel(row || resolveActiveLeadRow()) || row;
+    row = resolveRowForLeadPanelActions(row);
 
+    let huntTrackKey = '';
     const syncSidebarForRow = (busy) => {
       if (currentRow === row) {
         if (busy) setSidebarContactHuntBusy(true);
@@ -10875,18 +10905,29 @@ document.addEventListener('DOMContentLoaded', () => {
     scrollLeadPanelToSection('leadPanelContactHuntSection');
 
     if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
-      const busyKey = String(row.dataset.leadKey || '').trim();
-      const actuallyBusy = busyKey && window.__contactHuntInFlight.has(busyKey);
-      if (!actuallyBusy) {
-        if (isSidebarTrigger) setDeepEnhanceHuntUi('idle');
-        else {
-          triggerBtn.disabled = false;
-          triggerBtn.removeAttribute('aria-busy');
-        }
-      } else {
+      const trackKey = contactHuntTrackingKey(row);
+      const actuallyBusy = trackKey && window.__contactHuntInFlight.has(trackKey);
+      if (actuallyBusy) {
         return { success: false, error: 'busy' };
       }
+      if (!isSidebarTrigger) {
+        triggerBtn.disabled = false;
+        triggerBtn.removeAttribute('aria-busy');
+      }
     }
+
+    const existingKey = String(row.dataset.leadKey || '').trim();
+    const pendingTrackKey = existingKey || contactHuntTrackingKey(row);
+    if (pendingTrackKey && window.__contactHuntInFlight.has(pendingTrackKey)) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Contact hunt already running for this lead.', { variant: 'info' });
+      }
+      syncSidebarForRow(true);
+      return { success: false, error: 'busy' };
+    }
+
+    huntTrackKey = pendingTrackKey || contactHuntTrackingKey(row);
+    if (huntTrackKey) window.__contactHuntInFlight.add(huntTrackKey);
 
     if (isSidebarTrigger) {
       setDeepEnhanceHuntUi('active', {
@@ -10901,6 +10942,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (ensureErr && ensureErr.message) ||
         'Save this lead before running contact hunt.';
       notifyHunt(msg, 'error');
+      if (huntTrackKey) window.__contactHuntInFlight.delete(huntTrackKey);
       if (isSidebarTrigger) {
         stopHuntProgressTickerGlobal();
         setDeepEnhanceHuntUi('idle');
@@ -10908,14 +10950,17 @@ document.addEventListener('DOMContentLoaded', () => {
       return { success: false, error: msg };
     }
 
-    const key = row.dataset.leadKey;
-    if (key && window.__contactHuntInFlight.has(key)) {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Contact hunt already running for this lead.', { variant: 'info' });
-      }
-      syncSidebarForRow(true);
-      return { success: false, error: 'busy' };
+    const savedKey = String(row.dataset.leadKey || '').trim();
+    if (savedKey && huntTrackKey && huntTrackKey !== savedKey) {
+      window.__contactHuntInFlight.delete(huntTrackKey);
+      huntTrackKey = savedKey;
+      window.__contactHuntInFlight.add(huntTrackKey);
+    } else if (savedKey) {
+      huntTrackKey = savedKey;
+      window.__contactHuntInFlight.add(huntTrackKey);
     }
+
+    const key = row.dataset.leadKey;
 
     const preHuntSnap = snapshotRowLeadFields(row);
 
@@ -10941,8 +10986,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const clearHuntBusy = () => {
       stopHuntProgressTicker();
-      const lk = String(row.dataset.leadKey || key || '').trim();
+      const reviewGridBusy = document.getElementById('reviewIntelGrid');
+      if (reviewGridBusy) reviewGridBusy.classList.remove('review-intel-loading');
+      const lk = String(row.dataset.leadKey || key || huntTrackKey || '').trim();
       if (lk) window.__contactHuntInFlight.delete(lk);
+      if (huntTrackKey && huntTrackKey !== lk) window.__contactHuntInFlight.delete(huntTrackKey);
       if (triggerBtn && !isSidebarTrigger) {
         triggerBtn.disabled = false;
         triggerBtn.removeAttribute('aria-busy');
@@ -10973,6 +11021,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     updateProcessingStatus(true);
     setHuntBusy();
+
+    const reviewGrid = document.getElementById('reviewIntelGrid');
+    if (reviewGrid) reviewGrid.classList.add('review-intel-loading');
 
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
@@ -11050,6 +11101,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         scheduleReviewIntelligence(row, { refresh: true });
 
+        const reviewGridDone = document.getElementById('reviewIntelGrid');
+        if (reviewGridDone) reviewGridDone.classList.remove('review-intel-loading');
+
         const rh = data.reviewHunt;
         if (rh && rh.reviewError && currentRow === row) {
           const meta = document.getElementById('huntLastRunMeta');
@@ -11107,8 +11161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
-  if (deepEnhanceBtn && !window.__adhelloContactHuntCaptureBound) {
+  if (!window.__adhelloContactHuntCaptureBound) {
     window.__adhelloContactHuntCaptureBound = true;
     document.addEventListener(
       'click',
@@ -11117,8 +11170,27 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!btn) return;
         e.preventDefault();
         e.stopPropagation();
-        const row = resolvePipelineTableRowForPanel(resolveActiveLeadRow());
-        void runContactHuntForRow(row, { triggerBtn: btn });
+        const row = resolveRowForLeadPanelActions();
+        if (!row) {
+          const msg = 'Select a lead from the table first.';
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(msg, { variant: 'warning' });
+          } else window.alert(msg);
+          return;
+        }
+        currentRow = row;
+        setDeepEnhanceHuntUi('active', {
+          phase: { pct: 5, label: 'Preparing…', detail: 'Saving lead if needed…' },
+        });
+        void runContactHuntForRow(row, { triggerBtn: btn }).catch((err) => {
+          console.error('[Contact hunt] unhandled:', err);
+          stopHuntProgressTickerGlobal();
+          setDeepEnhanceHuntUi('idle');
+          const msg = (err && err.message) || 'Contact hunt failed.';
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(msg, { variant: 'error' });
+          }
+        });
       },
       true,
     );
