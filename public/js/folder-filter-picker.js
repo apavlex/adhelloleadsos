@@ -10,34 +10,104 @@
       var search = root.querySelector('.folder-filter-picker-search');
       var labelEl = root.querySelector('.folder-filter-picker-label');
       var emptyMsg = root.querySelector('.folder-filter-picker-empty');
-      var options = root.querySelectorAll('.folder-filter-picker-option');
 
       if (!hidden || !trigger || !panel || !labelEl) return;
+
+      function allNodes() {
+        return root.querySelectorAll('[data-folder-picker-node]');
+      }
+
+      function allOptions() {
+        return root.querySelectorAll('.folder-filter-picker-option');
+      }
+
+      function collapseAll() {
+        root.querySelectorAll('[data-folder-picker-children]').forEach(function (childWrap) {
+          childWrap.classList.add('hidden');
+        });
+        root.querySelectorAll('.folder-filter-picker-expand').forEach(function (btn) {
+          btn.textContent = '\u25B6';
+          btn.setAttribute('data-expanded', 'false');
+        });
+      }
+
+      function setExpanded(expandBtn, open) {
+        if (!expandBtn) return;
+        var node = expandBtn.closest('[data-folder-picker-node]');
+        var childWrap = node && node.querySelector(':scope > [data-folder-picker-children]');
+        if (!childWrap) return;
+        childWrap.classList.toggle('hidden', !open);
+        expandBtn.textContent = open ? '\u25BC' : '\u25B6';
+        expandBtn.setAttribute('data-expanded', open ? 'true' : 'false');
+      }
+
+      function revealNodeAndAncestors(node, visibleNodes) {
+        while (node && root.contains(node)) {
+          visibleNodes.add(node);
+          var parentChildren = node.parentElement;
+          if (!parentChildren || !parentChildren.hasAttribute('data-folder-picker-children')) break;
+          parentChildren.classList.remove('hidden');
+          var parentNode = parentChildren.parentElement;
+          if (parentNode && parentNode.hasAttribute('data-folder-picker-node')) {
+            var expandBtn = parentNode.querySelector(':scope > div > .folder-filter-picker-expand');
+            if (expandBtn) {
+              expandBtn.textContent = '\u25BC';
+              expandBtn.setAttribute('data-expanded', 'true');
+            }
+            node = parentNode;
+          } else {
+            break;
+          }
+        }
+      }
+
+      function expandToSelected() {
+        var selectedKey = String(hidden.value || '').trim();
+        if (!selectedKey) return;
+        var selectedOpt = root.querySelector('.folder-filter-picker-option[data-key="' + CSS.escape(selectedKey) + '"]');
+        if (!selectedOpt) return;
+        revealNodeAndAncestors(selectedOpt.closest('[data-folder-picker-node]'), new Set());
+      }
 
       function setOpen(open) {
         panel.classList.toggle('hidden', !open);
         trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
-        if (open && search) {
-          search.value = '';
-          applySearch('');
-          search.focus();
+        if (open) {
+          if (search) {
+            search.value = '';
+            applySearch('');
+          }
+          collapseAll();
+          expandToSelected();
+          if (search) search.focus();
         }
       }
 
       function applySearch(query) {
         var q = String(query || '').trim().toLowerCase();
-        var visible = 0;
-        options.forEach(function (opt) {
+        var nodes = Array.from(allNodes());
+
+        if (!q) {
+          nodes.forEach(function (node) {
+            node.classList.remove('hidden');
+          });
+          collapseAll();
+          expandToSelected();
+          if (emptyMsg) emptyMsg.classList.add('hidden');
+          return;
+        }
+
+        var visibleNodes = new Set();
+        allOptions().forEach(function (opt) {
           var hay = String(opt.getAttribute('data-search') || opt.textContent || '').toLowerCase();
-          var match = !q || hay.indexOf(q) >= 0;
-          opt.classList.toggle('hidden', !match);
-          if (match) visible += 1;
+          if (hay.indexOf(q) < 0) return;
+          revealNodeAndAncestors(opt.closest('[data-folder-picker-node]'), visibleNodes);
         });
-        root.querySelectorAll('[data-folder-picker-group]').forEach(function (grp) {
-          var any = grp.querySelector('.folder-filter-picker-option:not(.hidden)');
-          grp.classList.toggle('hidden', !any);
+
+        nodes.forEach(function (node) {
+          node.classList.toggle('hidden', !visibleNodes.has(node));
         });
-        if (emptyMsg) emptyMsg.classList.toggle('hidden', visible > 0);
+        if (emptyMsg) emptyMsg.classList.toggle('hidden', visibleNodes.size > 0);
       }
 
       function selectOption(opt) {
@@ -45,9 +115,11 @@
         var label = opt.getAttribute('data-label') || opt.textContent.trim();
         hidden.value = key;
         labelEl.textContent = label;
-        options.forEach(function (item) {
-          item.classList.toggle('bg-brand-yellow/15', item === opt);
-          item.classList.toggle('dark:bg-brand-yellow/10', item === opt);
+        allOptions().forEach(function (item) {
+          var row = item.closest('[data-folder-picker-node] > div');
+          if (!row) return;
+          row.classList.toggle('bg-brand-yellow/15', item === opt);
+          row.classList.toggle('dark:bg-brand-yellow/10', item === opt);
         });
         setOpen(false);
       }
@@ -56,6 +128,22 @@
         e.preventDefault();
         e.stopPropagation();
         setOpen(panel.classList.contains('hidden'));
+      });
+
+      root.querySelectorAll('.folder-filter-picker-expand').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var open = btn.getAttribute('data-expanded') !== 'true';
+          setExpanded(btn, open);
+        });
+      });
+
+      allOptions().forEach(function (opt) {
+        opt.addEventListener('click', function (e) {
+          e.preventDefault();
+          selectOption(opt);
+        });
       });
 
       if (search) {
@@ -69,13 +157,6 @@
           }
         });
       }
-
-      options.forEach(function (opt) {
-        opt.addEventListener('click', function (e) {
-          e.preventDefault();
-          selectOption(opt);
-        });
-      });
 
       document.addEventListener('click', function (e) {
         if (!root.contains(e.target)) setOpen(false);

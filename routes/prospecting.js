@@ -16,7 +16,7 @@ const {
 } = require('../services/leadListFilters');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
-const { buildFolderTree, buildFolderPickerOptions } = require('../services/folderTree');
+const { buildFolderTree, buildFolderPickerTree } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
@@ -39,7 +39,7 @@ router.get('/', async (req, res, next) => {
     const migrated = await migrateLegacyFolders(wid, folders);
     folders = migrated.folders;
     const folderTree = buildFolderTree(folders);
-    const folderPickerOptions = buildFolderPickerOptions(folderTree, String(req.query.folderKey || '').trim());
+    const folderPickerTree = buildFolderPickerTree(folderTree, String(req.query.folderKey || '').trim());
     const tags = await dbService.listTags(wid);
 
     const scheduleSuccess = req.query.scheduleSuccess === 'true';
@@ -164,7 +164,7 @@ router.get('/', async (req, res, next) => {
       activeFolderKey,
       folders,
       folderTree,
-      folderPickerOptions,
+      folderPickerTree,
       tradeFolderCount: TRADE_FOLDERS.length,
       tags,
       schedules: schedulesSorted,

@@ -62,3 +62,20 @@ test('buildFolderPickerOptions groups folders and dedupes keys', () => {
   assert.equal(options.find((o) => o.selected)?.key, 'sub:hvac');
   assert.ok(options.some((o) => o.groupName === 'Businesses'));
 });
+
+test('buildFolderPickerTree nests children for collapsible picker', () => {
+  const { buildFolderPickerTree } = require('../services/folderTree');
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'sub:elec', name: 'Electrical', parentFolderKey: 'root:biz', isTradeFolder: true, tradeSlug: 'electrical' },
+    { key: 'custom:1', name: 'Electricians PDX', parentFolderKey: 'sub:elec', jobType: 'maps_business' },
+  ]);
+  const picker = buildFolderPickerTree(tree, 'custom:1');
+  assert.equal(picker.selectedLabel, 'Electricians PDX');
+  const biz = picker.roots.find((n) => n.key === 'root:biz');
+  assert.ok(biz);
+  assert.equal(biz.hasChildren, true);
+  assert.equal(biz.children.length, 1);
+  assert.equal(biz.children[0].name, 'Electrical');
+  assert.equal(biz.children[0].children[0].name, 'Electricians PDX');
+});

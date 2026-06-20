@@ -147,6 +147,107 @@ function buildFolderPickerOptions(folderTree, selectedKey) {
   return options;
 }
 
+function findPickerNodeLabel(nodes, selectedKey) {
+  for (const node of nodes || []) {
+    if (String(node.key) === String(selectedKey)) return node.name;
+    const nested = findPickerNodeLabel(node.children, selectedKey);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+function buildPickerNodeFromFolder(folder, nestedChildren, groupName, selected, seenKeys, seenTradeSlugs) {
+  if (!folder || !folder.key) return null;
+  const key = String(folder.key);
+  if (seenKeys.has(key)) return null;
+  seenKeys.add(key);
+
+  const name = String(folder.name || 'Folder');
+  const childNodes = [];
+  const childSeenKeys = new Set();
+  for (const child of nestedChildren || []) {
+    const slug = String(child.tradeSlug || '').trim();
+    if (slug && seenTradeSlugs.has(slug)) continue;
+    const nextSlugs = new Set(seenTradeSlugs);
+    if (slug) nextSlugs.add(slug);
+    const built = buildPickerNodeFromFolder(
+      child,
+      child.children || [],
+      groupName,
+      selected,
+      childSeenKeys,
+      nextSlugs
+    );
+    if (built) childNodes.push(built);
+  }
+
+  return {
+    key,
+    name,
+    searchText: `${groupName} ${name} ${folder.tradeSlug || ''} ${folder.jobType || ''}`.toLowerCase(),
+    selected: String(selected) === key,
+    isSystem: !!folder.isPipelineDefault,
+    isTrade: !!folder.isTradeFolder,
+    hasChildren: childNodes.length > 0,
+    children: childNodes,
+  };
+}
+
+/**
+ * Nested tree for collapsible folder pickers (system → subfolder → …).
+ * @param {ReturnType<typeof buildFolderTree>} folderTree
+ * @param {string} [selectedKey]
+ */
+function buildFolderPickerTree(folderTree, selectedKey) {
+  const selected = String(selectedKey || '').trim();
+  const roots = [
+    {
+      key: '',
+      name: 'Main pipeline (unfiled)',
+      searchText: 'main pipeline unfiled',
+      selected: !selected,
+      isSystem: false,
+      isTrade: false,
+      hasChildren: false,
+      children: [],
+    },
+  ];
+
+  for (const group of folderTree?.groups || []) {
+    if (group.folder && group.isSystem) {
+      const node = buildPickerNodeFromFolder(
+        group.folder,
+        group.children || [],
+        String(group.name || ''),
+        selected,
+        new Set(),
+        new Set()
+      );
+      if (node) roots.push(node);
+      continue;
+    }
+    if (!group.isSystem && group.key === OTHER_GROUP_KEY) {
+      for (const orphan of group.children || []) {
+        const node = buildPickerNodeFromFolder(
+          orphan,
+          orphan.children || [],
+          String(group.name || 'Other folders'),
+          selected,
+          new Set(),
+          new Set()
+        );
+        if (node) roots.push(node);
+      }
+    }
+  }
+
+  return {
+    roots,
+    selectedKey: selected,
+    selectedLabel: findPickerNodeLabel(roots, selected) || 'Main pipeline (unfiled)',
+  };
+}
+
 /**
  * @param {object[]} folders
  * @returns {{ groups: object[], rootsByJobType: Record<string,object>, allFolders: object[] }}
@@ -223,6 +324,7 @@ module.exports = {
   folderSearchText,
   buildFolderTree,
   buildFolderPickerOptions,
+  buildFolderPickerTree,
   dedupeFoldersByKey,
   countLeadsInFolder,
   groupLeadTotal,
