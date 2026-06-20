@@ -11,29 +11,11 @@ const { parseFlipFilter } = require('../services/listingFlipScore');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
 const { resolveTargetFolder } = require('../services/pipelineFolders');
 
-function parseSourcesFromBody(body) {
-  const raw = body.sources;
-  if (Array.isArray(raw)) return listingSearch.parseSourcesList(raw);
-  if (typeof raw === 'string' && raw.trim()) return listingSearch.parseSourcesList(raw);
-  const checked = [];
-  if (String(body.source_craigslist || '').toLowerCase() === 'on') checked.push('craigslist');
-  if (String(body.source_facebook_marketplace || '').toLowerCase() === 'on') checked.push('facebook_marketplace');
-  if (String(body.source_offerup || '').toLowerCase() === 'on') checked.push('offerup');
-  if (String(body.source_mhvillage || '').toLowerCase() === 'on') checked.push('mhvillage');
-  if (String(body.source_zillow || '').toLowerCase() === 'on') checked.push('zillow');
-  if (String(body.source_realtor || '').toLowerCase() === 'on') checked.push('realtor');
-  if (String(body.source_redfin || '').toLowerCase() === 'on') checked.push('redfin');
-  if (String(body.source_ebay || '').toLowerCase() === 'on') checked.push('ebay');
-  if (String(body.source_web_search || '').toLowerCase() === 'on') checked.push('web_search');
-  if (String(body.source_oxylabs || '').toLowerCase() === 'on') checked.push('oxylabs');
-  return checked.length ? checked : listingSearch.ALL_SOURCES.map((s) => s.id);
-}
-
 router.post('/', async (req, res, next) => {
   try {
     const wid = req.workspaceId;
     const { city, state, maxResults, mode, minPrice, maxPrice, query } = req.body;
-    const sources = parseSourcesFromBody(req.body);
+    const sources = listingSearch.parseSourcesFromBody(req.body);
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
     const folderResolved = await resolveTargetFolder(wid, {

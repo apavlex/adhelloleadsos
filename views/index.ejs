@@ -32,11 +32,29 @@
     </header>
 
     <% if (typeof activeSearchFolder !== 'undefined' && activeSearchFolder && activeSearchFolder.name) { %>
-      <div class="max-w-5xl mx-auto mb-4 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-3 flex flex-wrap items-center justify-between gap-2">
-        <p class="text-sm text-brand-dark dark:text-white">
-          Running search for folder <strong><%= activeSearchFolder.name %></strong><% if (typeof folderSearchPreset !== 'undefined' && folderSearchPreset) { %> — saved parameters loaded<% } else { %> — configure search in Folder manager<% } %>
-        </p>
-        <a href="/prospecting?tab=folders" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Folder manager</a>
+      <div class="max-w-5xl mx-auto mb-4 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 sm:px-6 py-4 space-y-3">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Folder search</p>
+            <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><%= activeSearchFolder.name %></h2>
+            <% if (typeof folderSearchSummary !== 'undefined' && folderSearchSummary && folderSearchSummary.rows) { %>
+              <p class="text-sm text-brand-muted mt-1">Saved setup loaded — review below, pick a city/state, then run.</p>
+            <% } else { %>
+              <p class="text-sm text-brand-muted mt-1">No search setup saved yet. Use <strong class="text-brand-dark dark:text-white">Search setup</strong> in Folder manager first.</p>
+            <% } %>
+          </div>
+          <a href="/prospecting?tab=folders" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline shrink-0">Edit in Folder manager</a>
+        </div>
+        <% if (typeof folderSearchSummary !== 'undefined' && folderSearchSummary && folderSearchSummary.rows) { %>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 pt-2 border-t border-brand-yellow/25">
+            <% folderSearchSummary.rows.forEach(function (row) { %>
+              <div class="min-w-0">
+                <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= row.label %></dt>
+                <dd class="text-sm font-semibold text-brand-dark dark:text-white truncate" title="<%= row.value %>"><%= row.value %></dd>
+              </div>
+            <% }); %>
+          </dl>
+        <% } %>
       </div>
     <% } %>
 
@@ -46,7 +64,7 @@
         <!-- Search type -->
         <div class="px-4 sm:px-6 py-4 border-b border-brand-border/20 dark:border-white/5 bg-brand-cream/15 dark:bg-slate-950/40">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">What are you searching for?</p>
-          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Search type">
+          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Search type" id="findTypeTabs">
             <button type="button" role="tab" data-find-type="maps" aria-selected="<%= _findType === 'maps' ? 'true' : 'false' %>"
               class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'maps' ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
               Business
@@ -178,12 +196,17 @@
 
               <!-- Mobile homes -->
               <div data-find-panel="mobile_homes" class="find-type-panel space-y-6 <%= _findType !== 'mobile_homes' ? 'hidden' : '' %>">
-                <%- include('partials/find_panel_mobile_homes') %>
+                <%- include('partials/find_panel_mobile_homes', {
+                  enabledSources: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.sources) ? folderSearchPreset.sources : null
+                }) %>
               </div>
 
               <!-- Real estate -->
               <div data-find-panel="real_estate" class="find-type-panel space-y-6 <%= _findType !== 'real_estate' ? 'hidden' : '' %>">
-                <%- include('partials/find_panel_real_estate') %>
+                <%- include('partials/find_panel_real_estate', {
+                  minPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.minPrice != null) ? folderSearchPreset.minPrice : '',
+                  maxPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.maxPrice != null) ? folderSearchPreset.maxPrice : ''
+                }) %>
               </div>
 
               <!-- Shared: max results + folder -->
@@ -343,6 +366,15 @@
     window.FOLDER_SEARCH_PRESET = <%- JSON.stringify(typeof folderSearchPreset !== 'undefined' ? folderSearchPreset : null) %>;
     window.ACTIVE_FOLDER_KEY = <%- JSON.stringify(typeof presetFolderKey !== 'undefined' ? presetFolderKey : '') %>;
 
+    function applyListingSources(root, sourceIds) {
+      if (!root) return;
+      var ids = Array.isArray(sourceIds) ? sourceIds : [];
+      root.querySelectorAll('[data-listing-source]').forEach(function (cb) {
+        var sid = cb.getAttribute('data-listing-source');
+        cb.checked = !ids.length || ids.indexOf(sid) >= 0;
+      });
+    }
+
     function applyFolderSearchPreset() {
       var p = window.FOLDER_SEARCH_PRESET;
       if (!p) return;
@@ -358,6 +390,16 @@
       document.querySelectorAll('[data-find-panel="mobile_homes"] input[name="maxPrice"]').forEach(function (el) {
         if (p.maxPrice != null) el.value = String(p.maxPrice);
       });
+      document.querySelectorAll('[data-find-panel="real_estate"] input[name="minPrice"]').forEach(function (el) {
+        if (p.minPrice != null) el.value = String(p.minPrice);
+      });
+      document.querySelectorAll('[data-find-panel="real_estate"] input[name="maxPrice"]').forEach(function (el) {
+        if (p.maxPrice != null) el.value = String(p.maxPrice);
+      });
+      var mhPanel = document.querySelector('[data-find-panel="mobile_homes"]');
+      if (mhPanel && p.sources) applyListingSources(mhPanel, p.sources);
+      var dirCb = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
+      if (dirCb && p.jobType === 'maps_business') dirCb.checked = p.directorySupplement !== false;
       if (p.flipFilter && p.flipFilter.enabled) {
         var flipCb = document.getElementById('findFlipEnabled');
         if (flipCb) {
@@ -375,9 +417,21 @@
         if (exPark) exPark.checked = !!ff.excludeParkRent;
         var ownLand = document.querySelector('[name="flipRequireOwnLand"]');
         if (ownLand) ownLand.checked = !!ff.requireOwnLand;
+        var noHoa = document.querySelector('[name="flipRequireNoHoa"]');
+        if (noHoa) noHoa.checked = !!ff.requireNoHoa;
       }
       var folderSel = document.getElementById('searchFolderKey');
       if (folderSel && window.ACTIVE_FOLDER_KEY) folderSel.value = window.ACTIVE_FOLDER_KEY;
+      syncFindPreview();
+    }
+
+    function lockFindTypeWhenFolderPreset() {
+      if (!window.FOLDER_SEARCH_PRESET || !window.ACTIVE_FOLDER_KEY) return;
+      document.querySelectorAll('.find-type-tab').forEach(function (tab) {
+        tab.disabled = true;
+        tab.setAttribute('aria-disabled', 'true');
+        tab.classList.add('opacity-60', 'cursor-not-allowed', 'pointer-events-none');
+      });
     }
 
     var FIND_CONFIG = {
@@ -519,7 +573,27 @@
       }
       if (meta && max) {
         var n = parseInt(max.value, 10) || 20;
-        var extra = currentType === 'maps' && dir && dir.checked ? ' · directory supplement on' : '';
+        var extra = '';
+        if (currentType === 'maps') {
+          if (dir && dir.checked) extra += ' · directory supplement on';
+        } else if (currentType === 'mobile_homes') {
+          var mhPanel = document.querySelector('[data-find-panel="mobile_homes"]');
+          if (mhPanel) {
+            var srcCount = mhPanel.querySelectorAll('[data-listing-source]:checked').length;
+            if (srcCount) extra += ' · ' + srcCount + ' scraper' + (srcCount === 1 ? '' : 's');
+          }
+          var minP = mhPanel && mhPanel.querySelector('input[name="minPrice"]');
+          var maxP = mhPanel && mhPanel.querySelector('input[name="maxPrice"]');
+          if ((minP && minP.value) || (maxP && maxP.value)) extra += ' · price filter';
+          var flipOn = document.getElementById('findFlipEnabled');
+          if (flipOn && flipOn.checked) extra += ' · flip filter on';
+        } else if (currentType === 'real_estate') {
+          var rePanel = document.querySelector('[data-find-panel="real_estate"]');
+          var reMin = rePanel && rePanel.querySelector('input[name="minPrice"]');
+          var reMax = rePanel && rePanel.querySelector('input[name="maxPrice"]');
+          if ((reMin && reMin.value) || (reMax && reMax.value)) extra += ' · price filter';
+          extra += ' · Apify Zillow';
+        }
         meta.textContent = 'Up to ' + n + ' ' + cfg.previewLabel + extra;
       }
     }
@@ -533,6 +607,9 @@
     ['searchKeywordField', 'findMhQuery', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', syncFindPreview);
+    });
+    document.querySelectorAll('[data-listing-source]').forEach(function (el) {
+      el.addEventListener('change', syncFindPreview);
     });
     var dirCb = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
     if (dirCb) dirCb.addEventListener('change', syncFindPreview);
@@ -561,6 +638,7 @@
 
     setFindType(currentType);
     applyFolderSearchPreset();
+    lockFindTypeWhenFolderPreset();
   })();
   </script>
   <%- include('/partials/app_shell_close') %>

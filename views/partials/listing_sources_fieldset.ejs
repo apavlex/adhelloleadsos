@@ -1,0 +1,25 @@
+<%#
+  enabledSources: string[] | null — when set, only those source ids are checked; null = all on
+  fieldPrefix: optional id prefix for labels (folder modal)
+%>
+<% const _srcOn = (id) => {
+  if (typeof enabledSources === 'undefined' || enabledSources === null) return true;
+  if (!Array.isArray(enabledSources) || !enabledSources.length) return true;
+  return enabledSources.indexOf(id) >= 0;
+}; %>
+<fieldset class="rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 space-y-4">
+  <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-1">Listing sources / scrapers</legend>
+  <p class="text-[11px] text-brand-muted -mt-1">Pick which scrapers run for this search. Each enabled source merges into one deduped list.</p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_craigslist" value="on" data-listing-source="craigslist" <%= _srcOn('craigslist') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">Craigslist</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_facebook_marketplace" value="on" data-listing-source="facebook_marketplace" <%= _srcOn('facebook_marketplace') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">Facebook Marketplace</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_offerup" value="on" data-listing-source="offerup" <%= _srcOn('offerup') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">OfferUp</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_mhvillage" value="on" data-listing-source="mhvillage" <%= _srcOn('mhvillage') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">MHVillage</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_zillow" value="on" data-listing-source="zillow" <%= _srcOn('zillow') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">Zillow</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_realtor" value="on" data-listing-source="realtor" <%= _srcOn('realtor') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">Realtor.com</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_redfin" value="on" data-listing-source="redfin" <%= _srcOn('redfin') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">Redfin</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" name="source_ebay" value="on" data-listing-source="ebay" <%= _srcOn('ebay') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">eBay</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer sm:col-span-2"><input type="checkbox" name="source_web_search" value="on" data-listing-source="web_search" <%= _srcOn('web_search') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">Google web search (SerpAPI)</span></label>
+    <label class="flex items-center gap-2 text-sm cursor-pointer sm:col-span-2"><input type="checkbox" name="source_oxylabs" value="on" data-listing-source="oxylabs" <%= _srcOn('oxylabs') ? 'checked' : '' %> class="rounded border-brand-border" /><span class="font-semibold">Oxylabs (Google)</span></label>
+  </div>
+</fieldset>

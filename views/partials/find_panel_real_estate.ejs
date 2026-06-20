@@ -1,12 +1,12 @@
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
   <div>
     <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
-    <input type="number" name="minPrice" min="0" step="1000" placeholder="Optional"
+    <input type="number" name="minPrice" min="0" step="1000" placeholder="Optional" value="<%= typeof minPrice !== 'undefined' && minPrice !== '' ? minPrice : '' %>"
       class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
   </div>
   <div>
     <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
-    <input type="number" name="maxPrice" min="0" step="1000" placeholder="Optional"
+    <input type="number" name="maxPrice" min="0" step="1000" placeholder="Optional" value="<%= typeof maxPrice !== 'undefined' && maxPrice !== '' ? maxPrice : '' %>"
       class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
   </div>
 </div>

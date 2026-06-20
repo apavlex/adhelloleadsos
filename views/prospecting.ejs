@@ -249,7 +249,7 @@
 
   <div id="folderSearchSetupModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderSearchSetupTitle">
     <div id="folderSearchSetupBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
-    <div class="relative max-w-lg w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+    <div class="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
       <h2 id="folderSearchSetupTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-1">Search setup</h2>
       <p id="folderSearchSetupSubtitle" class="text-sm text-brand-muted mb-5">Save how Find should run for this folder. Location (city/state) is set when you run the search.</p>
       <input type="hidden" id="folderSearchSetupKey" value="" />
@@ -271,12 +271,21 @@
             <label for="folderSearchKeyword" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business keyword</label>
             <input type="text" id="folderSearchKeyword" placeholder="e.g. electrician" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
           </div>
+          <label class="inline-flex items-start gap-2 text-sm cursor-pointer">
+            <input type="checkbox" id="folderSearchDirectorySupplement" checked class="mt-1 rounded border-brand-border" />
+            <span>
+              <span class="font-semibold">Also mine directory listings</span>
+              <span class="block text-[11px] text-brand-muted mt-0.5">Yelp, Yellow Pages, and BBB when available.</span>
+            </span>
+          </label>
+          <p class="text-[11px] text-brand-muted">Scraper: Google Maps business search + background enrichment.</p>
         </div>
         <div id="folderSearchMhFields" class="space-y-3 hidden">
           <div>
             <label for="folderSearchQuery" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing search terms</label>
             <input type="text" id="folderSearchQuery" placeholder="mobile home, manufactured home…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
           </div>
+          <%- include('partials/listing_sources_fieldset', { enabledSources: null }) %>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label for="folderSearchMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
@@ -327,6 +336,7 @@
           </div>
         </div>
         <div id="folderSearchReFields" class="space-y-3 hidden">
+          <p class="text-[11px] text-brand-muted">Scraper: Apify Zillow actor (Oxylabs fallback when configured in Workspace → API integrations).</p>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label for="folderSearchReMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
@@ -456,6 +466,9 @@
       if ($('folderSearchJobType')) $('folderSearchJobType').value = jt;
       if ($('folderSearchMaxResults')) $('folderSearchMaxResults').value = String(p.maxResults || 25);
       if ($('folderSearchKeyword')) $('folderSearchKeyword').value = p.keyword || p.query || '';
+      if ($('folderSearchDirectorySupplement')) {
+        $('folderSearchDirectorySupplement').checked = p.directorySupplement !== false;
+      }
       if ($('folderSearchQuery')) $('folderSearchQuery').value = p.query || 'mobile home';
       if ($('folderSearchMinPrice')) $('folderSearchMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
       if ($('folderSearchMaxPrice')) $('folderSearchMaxPrice').value = p.maxPrice != null ? String(p.maxPrice) : '';
@@ -472,7 +485,19 @@
       if ($('folderSearchRequireOwnLand')) $('folderSearchRequireOwnLand').checked = !!ff.requireOwnLand;
       if ($('folderSearchExcludePark')) $('folderSearchExcludePark').checked = ff.excludeParkRent !== false;
 
+      var mhFields = $('folderSearchMhFields');
+      if (mhFields && p.sources) applyListingSources(mhFields, p.sources);
+
       syncFolderSearchJobPanels();
+    }
+
+    function applyListingSources(root, sourceIds) {
+      if (!root) return;
+      var ids = Array.isArray(sourceIds) ? sourceIds : [];
+      root.querySelectorAll('[data-listing-source]').forEach(function (cb) {
+        var sid = cb.getAttribute('data-listing-source');
+        cb.checked = !ids.length || ids.indexOf(sid) >= 0;
+      });
     }
 
     function openFolderSearchSetup(folderKey) {
@@ -509,6 +534,13 @@
         body.query = ($('folderSearchQuery') && $('folderSearchQuery').value) || 'mobile home';
         body.minPrice = ($('folderSearchMinPrice') && $('folderSearchMinPrice').value) || '';
         body.maxPrice = ($('folderSearchMaxPrice') && $('folderSearchMaxPrice').value) || '';
+        var mhRoot = $('folderSearchMhFields');
+        if (mhRoot) {
+          mhRoot.querySelectorAll('[data-listing-source]').forEach(function (cb) {
+            var sid = cb.getAttribute('data-listing-source');
+            if (cb.checked && sid) body['source_' + sid] = 'on';
+          });
+        }
         if ($('folderSearchFlipEnabled') && $('folderSearchFlipEnabled').checked) {
           body.flipFilterEnabled = 'on';
           body.minFlipScore = ($('folderSearchMinFlipScore') && $('folderSearchMinFlipScore').value) || '7';
@@ -522,6 +554,9 @@
         body.maxPrice = ($('folderSearchReMaxPrice') && $('folderSearchReMaxPrice').value) || '';
       } else {
         body.keyword = ($('folderSearchKeyword') && $('folderSearchKeyword').value) || 'plumber';
+        if ($('folderSearchDirectorySupplement') && $('folderSearchDirectorySupplement').checked) {
+          body.directorySupplement = 'on';
+        }
       }
       return body;
     }

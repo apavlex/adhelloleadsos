@@ -52,9 +52,28 @@ test('parseSearchPresetFromForm reads flip toggles from body', () => {
     minRoiPercent: '18',
     flipLandMode: 'exclude_park',
     flipExcludePark: 'on',
+    source_craigslist: 'on',
+    source_zillow: 'on',
   });
   assert.equal(p.jobType, JOB_TYPES.MOBILE_HOMES);
   assert.ok(p.flipFilter && p.flipFilter.enabled);
   assert.equal(p.flipFilter.landMode, 'exclude_park');
   assert.equal(p.flipFilter.excludeParkRent, true);
+  assert.deepEqual(p.sources, ['craigslist', 'zillow']);
+});
+
+test('describeSearchPreset summarizes scrapers and prices', () => {
+  const { describeSearchPreset } = require('../services/folderSearchPreset');
+  const summary = describeSearchPreset({
+    jobType: 'mobile_homes',
+    query: 'manufactured home',
+    maxResults: 25,
+    minPrice: 15000,
+    maxPrice: 60000,
+    sources: ['craigslist', 'zillow'],
+    flipFilter: { enabled: true, minFlipScore: 7, minRoiPercent: 15, landMode: 'prefer_own_land' },
+  });
+  assert.equal(summary.typeLabel, 'Mobile homes');
+  assert.ok(summary.rows.some((r) => r.label === 'Scrapers' && r.value.includes('Craigslist')));
+  assert.ok(summary.rows.some((r) => r.label === 'Price range' && r.value.includes('15,000')));
 });

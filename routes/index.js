@@ -6,7 +6,7 @@ const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 const { ensurePipelineFolders } = require('../services/pipelineFolders');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
-const { searchPresetToFindContext, normalizeSearchPreset } = require('../services/folderSearchPreset');
+const { searchPresetToFindContext, normalizeSearchPreset, describeSearchPreset } = require('../services/folderSearchPreset');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -43,11 +43,13 @@ async function renderFindLeads(req, res, next) {
 
     let activeSearchFolder = null;
     let folderSearchPreset = null;
+    let folderSearchSummary = null;
     const presetFolderKey = String(req.query.folderKey || '').trim();
     if (presetFolderKey) {
       activeSearchFolder = folders.find((f) => f && String(f.key) === presetFolderKey) || null;
       if (activeSearchFolder && activeSearchFolder.searchPreset) {
         folderSearchPreset = normalizeSearchPreset(activeSearchFolder.searchPreset);
+        folderSearchSummary = describeSearchPreset(folderSearchPreset);
       }
     }
 
@@ -102,6 +104,7 @@ async function renderFindLeads(req, res, next) {
       nightlyPrepMeta,
       activeSearchFolder,
       folderSearchPreset,
+      folderSearchSummary,
       presetFolderKey,
     });
   } catch (e) {
