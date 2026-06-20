@@ -392,6 +392,33 @@
       true,
     );
 
+    // Shift+mousedown selects the range; the subsequent click would toggle the target checkbox off.
+    document.addEventListener(
+      'click',
+      (e) => {
+        if (!e.shiftKey) return;
+        const cb =
+          e.target && e.target.closest
+            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
+            : null;
+        if (cb) {
+          e.preventDefault();
+          e.stopPropagation();
+          const table = cb.closest('table');
+          if (table) syncTableRowHighlights(table);
+          return;
+        }
+        const row =
+          e.target && e.target.closest
+            ? e.target.closest('tr.result-row:not(.pipeline-row-page-hidden)')
+            : null;
+        if (!row || !isBulkSelectRowTarget(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      true,
+    );
+
     document.addEventListener(
       'click',
       (e) => {

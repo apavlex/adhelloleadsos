@@ -470,6 +470,25 @@
     if (!selectionKeys.length) selectionKeys = loadStoredFocusKeys();
     if (selectionKeys.length) applyFocusSelectionFilter(selectionKeys);
 
+    function getFocusCallQueueLeads() {
+      return queue
+        .filter(function (item) {
+          var p = String(item && item.phone || '').trim();
+          return p && p !== 'N/A' && p !== '—';
+        })
+        .map(function (item) {
+          return {
+            key: normalizeFocusKey(item && item.key),
+            title: String((item && item.title) || 'Lead').trim(),
+            phone: String(item && item.phone || '').trim(),
+          };
+        });
+    }
+    window.__getFocusCallQueueLeads = getFocusCallQueueLeads;
+    if (typeof window.__renderSoftphoneCallQueue === 'function') {
+      window.__renderSoftphoneCallQueue();
+    }
+
     var idx = 0;
     var currentChannel = 'email';
     var touchGoal = parseInt(document.getElementById('focus-touch-goal').textContent, 10) || 54;
@@ -674,6 +693,7 @@
       return window.__adhelloOpenSoftphoneWithDial(lead.phone, {
         autoDial: !!autoDial,
         leadKey: lead.key ? String(lead.key).trim() : '',
+        title: lead.title ? String(lead.title).trim() : '',
       });
     }
 

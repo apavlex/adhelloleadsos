@@ -358,6 +358,29 @@
     document.addEventListener(
       'click',
       function (e) {
+        if (!e.shiftKey) return;
+        var cb =
+          e.target && e.target.closest ? e.target.closest('#dmLeadsTable input.dm-lead-check') : null;
+        if (cb) {
+          e.preventDefault();
+          e.stopPropagation();
+          syncDmRowHighlights();
+          return;
+        }
+        var row =
+          e.target && e.target.closest
+            ? e.target.closest('#dmLeadsTable tbody tr.result-row')
+            : null;
+        if (!row || !isDmRowClickTarget(e.target)) return;
+        e.preventDefault();
+        e.stopPropagation();
+      },
+      true,
+    );
+
+    document.addEventListener(
+      'click',
+      function (e) {
         if (e.shiftKey) return;
         var cb =
           e.target && e.target.closest ? e.target.closest('#dmLeadsTable input.dm-lead-check') : null;

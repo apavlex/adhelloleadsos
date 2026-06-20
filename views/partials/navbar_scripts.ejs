@@ -141,6 +141,7 @@
   var spFrom = document.getElementById('softphoneFromNumber');
   var spOutboundMeta = document.getElementById('softphoneOutboundMeta');
   var spTo = document.getElementById('softphoneToNumber');
+  var spCalleeName = document.getElementById('softphoneCalleeName');
   var spCall = document.getElementById('softphoneCallBtn');
   var spVm = document.getElementById('softphoneVmBtn');
   var spKeys = document.querySelectorAll('.softphone-key');
@@ -184,6 +185,7 @@
     relayCall: null,
     isCloudPstn: false,
     leadKey: '',
+    leadTitle: '',
   };
   var RELAY_SDK_SRC = 'https://unpkg.com/@signalwire/js@1.5.0/dist/index.min.js';
   function loadRelayScript() {
@@ -298,24 +300,208 @@
     if (v.charAt(0) !== '+') return '+' + v;
     return v;
   }
+  function normalizeRecentDialEntry(x) {
+    if (!x) return null;
+    if (typeof x === 'string') {
+      var legacyNum = normalizeDial(x);
+      return legacyNum ? { number: legacyNum, title: '', leadKey: '' } : null;
+    }
+    if (typeof x === 'object') {
+      var number = normalizeDial(x.number || x.phone || '');
+      if (!number) return null;
+      return {
+        number: number,
+        title: String(x.title || '').trim(),
+        leadKey: String(x.leadKey || x.key || '').trim(),
+      };
+    }
+    return null;
+  }
+
+  function resolveSoftphoneLeadTitle(leadKey, phone) {
+    var key = String(leadKey || '').trim().replace(/^lead:/i, '');
+    if (key) {
+      if (typeof window.__getFocusCallQueueLeads === 'function') {
+        var focusLeads = window.__getFocusCallQueueLeads() || [];
+        for (var i = 0; i < focusLeads.length; i += 1) {
+          if (normalizeFocusQueueKey(focusLeads[i].key) === key) {
+            return String(focusLeads[i].title || '').trim();
+          }
+        }
+      }
+      if (typeof window.__getSelectedLeadRowsForBulk === 'function') {
+        var rows = window.__getSelectedLeadRowsForBulk() || [];
+        for (var j = 0; j < rows.length; j += 1) {
+          var rowKey = normalizeFocusQueueKey(softphoneQueueRowKey(rows[j]));
+          if (rowKey === key) return softphoneQueueRowTitle(rows[j]);
+        }
+      }
+      if (typeof window.__getActiveLeadPanelRow === 'function') {
+        var panelRow = window.__getActiveLeadPanelRow();
+        if (panelRow && normalizeFocusQueueKey(softphoneQueueRowKey(panelRow)) === key) {
+          return softphoneQueueRowTitle(panelRow);
+        }
+      }
+      var variants = [key, 'lead:' + key];
+      for (var v = 0; v < variants.length; v += 1) {
+        var row = document.querySelector(
+          'tr.result-row[data-lead-key="' + CSS.escape(variants[v]) + '"]',
+        );
+        if (row) return softphoneQueueRowTitle(row);
+      }
+    }
+    var dial = normalizeDial(phone);
+    if (!dial) return '';
+    if (typeof window.__getFocusCallQueueLeads === 'function') {
+      var queueLeads = window.__getFocusCallQueueLeads() || [];
+      for (var k = 0; k < queueLeads.length; k += 1) {
+        if (normalizeDial(queueLeads[k].phone) === dial) {
+          return String(queueLeads[k].title || '').trim();
+        }
+      }
+    }
+    var pipelineRow = document.querySelector('tr.result-row[data-phone]');
+    if (pipelineRow) {
+      var allRows = document.querySelectorAll('tr.result-row[data-phone]');
+      for (var r = 0; r < allRows.length; r += 1) {
+        var rowPhone = normalizeDial(allRows[r].dataset.phone || '');
+        if (rowPhone === dial) return softphoneQueueRowTitle(allRows[r]);
+      }
+    }
+    return '';
+  }
+
+  function resolveSoftphoneLeadKeyForPhone(phone, titleHint) {
+    var dial = normalizeDial(phone);
+    if (!dial) return '';
+    if (typeof window.__getFocusCallQueueLeads === 'function') {
+      var focusLeads = window.__getFocusCallQueueLeads() || [];
+      for (var i = 0; i < focusLeads.length; i += 1) {
+        if (normalizeDial(focusLeads[i].phone) !== dial) continue;
+        if (!titleHint || focusLeads[i].title === titleHint) {
+          return normalizeFocusQueueKey(focusLeads[i].key);
+        }
+      }
+    }
+    return '';
+  }
+
+  function updateSoftphoneCalleeDisplay() {
+    if (!spCalleeName) return;
+    var title = String(softphoneSession.leadTitle || '').trim();
+    if (!title && softphoneSession.leadKey) {
+      title = resolveSoftphoneLeadTitle(softphoneSession.leadKey, spTo ? spTo.value : '');
+    }
+    if (!title && spTo) {
+      title = resolveSoftphoneLeadTitle('', spTo.value);
+    }
+    if (title) {
+      spCalleeName.textContent = title;
+      spCalleeName.classList.remove('hidden');
+    } else {
+      spCalleeName.textContent = '';
+      spCalleeName.classList.add('hidden');
+    }
+  }
+
+  function setSoftphoneLeadContext(leadKey, title, phone) {
+    softphoneSession.leadKey = String(leadKey || '').trim();
+    softphoneSession.leadTitle = String(title || '').trim();
+    if (!softphoneSession.leadTitle && softphoneSession.leadKey) {
+      softphoneSession.leadTitle = resolveSoftphoneLeadTitle(
+        softphoneSession.leadKey,
+        phone || (spTo ? spTo.value : ''),
+      );
+    }
+    updateSoftphoneCalleeDisplay();
+  }
+
+  function buildSoftphoneContactListRow(item, fillClass, callClass) {
+    var row = document.createElement('div');
+    row.className =
+      'flex items-center justify-between gap-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/70 px-3 py-2.5';
+    var left = document.createElement('div');
+    left.className = 'min-w-0 flex-1';
+    var num = String(item.number || item.phone || '').trim();
+    var title = String(item.title || '').trim();
+    var leadKey = String(item.leadKey || item.key || '').trim();
+    var fillBtn = document.createElement('button');
+    fillBtn.type = 'button';
+    fillBtn.className = fillClass + ' text-left block w-full min-w-0';
+    fillBtn.setAttribute('data-number', num);
+    fillBtn.setAttribute('data-lead-key', leadKey);
+    fillBtn.setAttribute('data-title', title);
+    if (title) {
+      var nameEl = document.createElement('span');
+      nameEl.className = 'block text-sm font-semibold text-slate-800 dark:text-white truncate';
+      nameEl.textContent = title;
+      fillBtn.appendChild(nameEl);
+      var phoneEl = document.createElement('span');
+      phoneEl.className =
+        'block text-[11px] tabular-nums text-slate-500 dark:text-slate-400 truncate mt-0.5';
+      phoneEl.textContent = num;
+      fillBtn.appendChild(phoneEl);
+    } else {
+      fillBtn.className +=
+        ' text-sm font-semibold text-slate-800 dark:text-white hover:text-brand-yellow truncate tabular-nums';
+      fillBtn.textContent = num;
+    }
+    left.appendChild(fillBtn);
+    var callBtn = document.createElement('button');
+    callBtn.type = 'button';
+    callBtn.className =
+      callClass +
+      ' flex-shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-xl bg-[#6ee7b7] text-white px-2.5 py-1.5 hover:brightness-105';
+    callBtn.setAttribute('data-number', num);
+    callBtn.setAttribute('data-lead-key', leadKey);
+    callBtn.setAttribute('data-title', title);
+    callBtn.textContent = 'Call';
+    row.appendChild(left);
+    row.appendChild(callBtn);
+    return row;
+  }
+
+  function applySoftphoneListSelection(btn) {
+    if (!btn) return;
+    var n = String(btn.getAttribute('data-number') || '');
+    var lk = String(btn.getAttribute('data-lead-key') || '');
+    var title = String(btn.getAttribute('data-title') || '');
+    spTo.value = n;
+    setSoftphoneLeadContext(lk, title, n);
+  }
+
   function getRecentDials() {
     try {
       var raw = localStorage.getItem(SOFTPHONE_RECENT_KEY) || '[]';
       var arr = JSON.parse(raw);
       if (!Array.isArray(arr)) return [];
-      return arr.map(function (x) { return normalizeDial(x); }).filter(Boolean).slice(0, 10);
+      return arr
+        .map(function (x) {
+          return normalizeRecentDialEntry(x);
+        })
+        .filter(Boolean)
+        .slice(0, 10);
     } catch (_) {
       return [];
     }
   }
   function saveRecentDials(arr) {
-    try { localStorage.setItem(SOFTPHONE_RECENT_KEY, JSON.stringify((arr || []).slice(0, 10))); } catch (_) {}
+    try {
+      localStorage.setItem(SOFTPHONE_RECENT_KEY, JSON.stringify((arr || []).slice(0, 10)));
+    } catch (_) {}
   }
-  function addRecentDial(num) {
+  function addRecentDial(num, meta) {
+    meta = meta && typeof meta === 'object' ? meta : {};
     var n = normalizeDial(num);
     if (!n) return;
-    var cur = getRecentDials().filter(function (x) { return x !== n; });
-    cur.unshift(n);
+    var leadKey = String(meta.leadKey || '').trim();
+    var title = String(meta.title || '').trim();
+    if (!title && leadKey) title = resolveSoftphoneLeadTitle(leadKey, n);
+    var entry = { number: n, title: title, leadKey: leadKey };
+    var cur = getRecentDials().filter(function (x) {
+      return x.number !== n;
+    });
+    cur.unshift(entry);
     saveRecentDials(cur);
     renderRecentDials();
   }
@@ -327,13 +513,14 @@
       spRecentList.innerHTML = '<p class="text-xs text-brand-muted">No recent numbers yet.</p>';
       return;
     }
-    list.forEach(function (num) {
-      var row = document.createElement('div');
-      row.className = 'flex items-center justify-between gap-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/70 px-3 py-2.5';
-      row.innerHTML =
-        '<button type="button" class="softphone-recent-fill text-sm font-semibold text-slate-800 dark:text-white hover:text-brand-yellow truncate text-left flex-1" data-number="' + num + '">' + num + '</button>' +
-        '<button type="button" class="softphone-recent-call text-[10px] font-bold uppercase tracking-wide rounded-xl bg-[#6ee7b7] text-white px-2.5 py-1.5 hover:brightness-105" data-number="' + num + '">Call</button>';
-      spRecentList.appendChild(row);
+    list.forEach(function (item) {
+      spRecentList.appendChild(
+        buildSoftphoneContactListRow(
+          item,
+          'softphone-recent-fill hover:text-brand-yellow',
+          'softphone-recent-call',
+        ),
+      );
     });
   }
   function updateSoftphoneOutboundMeta() {
@@ -876,6 +1063,7 @@
     setSoftphoneTab('keypad');
     if (spTo) setTimeout(function () { spTo.focus(); }, 80);
     renderRecentDials();
+    renderSoftphoneCallQueue();
     softphoneSetCallState('idle');
     softphoneSetWrapRequired(false);
     updateControlToggles();
@@ -933,6 +1121,7 @@
     try {
       spTo.dispatchEvent(new Event('input', { bubbles: true }));
     } catch (e) {}
+    updateSoftphoneCalleeDisplay();
   }
   /** Fill Dial number, open softphone; optional auto-dial + lead context. Exposed for leads click-to-dial. */
   function openSoftphoneWithDial(raw, opts) {
@@ -940,6 +1129,10 @@
     var to = normalizeDial(String(raw || ''));
     if (!to) return false;
     softphoneSession.leadKey = opts.leadKey ? String(opts.leadKey).trim() : '';
+    softphoneSession.leadTitle = opts.title ? String(opts.title).trim() : '';
+    if (!softphoneSession.leadTitle && softphoneSession.leadKey) {
+      softphoneSession.leadTitle = resolveSoftphoneLeadTitle(softphoneSession.leadKey, to);
+    }
     setSoftphoneDialNumber(to);
     if (opts.leadKey && !isSoftphoneMobileViewport()) {
       applyDockRight();
@@ -988,7 +1181,10 @@
     if (!raw || raw === 'N/A') return false;
     var lk = btn.getAttribute('data-lead-key') || (btn.dataset && btn.dataset.leadKey) || '';
     if (!lk && row && row.dataset && row.dataset.leadKey) lk = String(row.dataset.leadKey).trim();
-    var opts = { leadKey: lk };
+    var opts = {
+      leadKey: lk,
+      title: row ? softphoneQueueRowTitle(row) : '',
+    };
     if (btn.closest && btn.closest('#prospectLeadsTable')) opts.autoDial = false;
     return openSoftphoneWithDial(raw, opts);
   }
@@ -1053,6 +1249,11 @@
     spModal.setAttribute('aria-hidden', 'true');
     syncSoftphoneStacking();
     softphoneSession.leadKey = '';
+    softphoneSession.leadTitle = '';
+    if (spCalleeName) {
+      spCalleeName.textContent = '';
+      spCalleeName.classList.add('hidden');
+    }
     softphoneStopPolling();
     softphoneStopTimer();
     softphoneDestroyWebrtc();
@@ -1079,7 +1280,10 @@
           softphoneSetCallState('in_call');
           softphoneSession.callSid = '';
           softphoneStopPolling();
-          addRecentDial(to);
+          addRecentDial(to, {
+            title: softphoneSession.leadTitle,
+            leadKey: softphoneSession.leadKey,
+          });
           if (res.j.lead && typeof window.dispatchEvent === 'function') {
             window.dispatchEvent(
               new CustomEvent('adhello-telephony-lead-updated', { detail: { lead: res.j.lead } })
@@ -1092,10 +1296,17 @@
             new CustomEvent('adhello-telephony-lead-updated', { detail: { lead: res.j.lead } })
           );
         }
+        if (res.j.lead && res.j.lead.title) {
+          softphoneSession.leadTitle = String(res.j.lead.title).trim();
+          updateSoftphoneCalleeDisplay();
+        }
         softphoneSession.isCloudPstn = true;
         softphoneSession.callSid = String((res.j && res.j.callSid) || '').trim();
         softphoneSession.startedAtMs = 0;
-        addRecentDial(to);
+        addRecentDial(to, {
+          title: softphoneSession.leadTitle,
+          leadKey: softphoneSession.leadKey,
+        });
         softphoneSetCallState('dialing');
         if (!softphoneSession.callSid) {
           softphoneSetStatus('No call id returned. Check the server, SignalWire credentials, and that BASE_URL is reachable for webhooks.', true);
@@ -1157,7 +1368,10 @@
             softphoneSession.callSid = '';
             softphoneStopPolling();
             webrtcStartDialWatchdog();
-            addRecentDial(to);
+            addRecentDial(to, {
+              title: softphoneSession.leadTitle,
+              leadKey: softphoneSession.leadKey,
+            });
             softphoneSetCallState('dialing');
             softphoneSetStatus('WebRTC: allow microphone. Audio plays in the browser for this call. “Requesting” means the call is being set up — it may take 10–30s before the phone rings.');
             softphoneSession.isCloudPstn = false;
@@ -1281,38 +1495,161 @@
     return p && p !== 'N/A' && p !== '—' ? p : '';
   }
 
-  function collectSoftphoneQueueRows() {
-    var rows = [];
-    var seen = new Set();
-    function add(row) {
-      if (!row || seen.has(row)) return;
-      seen.add(row);
-      rows.push(row);
+  function softphoneQueuePhoneValid(phone) {
+    var p = String(phone || '').trim();
+    return p && p !== 'N/A' && p !== '—';
+  }
+
+  function normalizeFocusQueueKey(key) {
+    return String(key || '').trim().replace(/^lead:/i, '');
+  }
+
+  function parseFocusQueueEntriesFromDom() {
+    var el = document.getElementById('focus-queue-json');
+    if (!el) return [];
+    var queue;
+    try {
+      queue = JSON.parse(el.textContent || '[]');
+    } catch (_) {
+      return [];
     }
+    if (!Array.isArray(queue) || !queue.length) return [];
+
+    var keyList = [];
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var rawKeys = params.get('keys') || '';
+      if (rawKeys) {
+        rawKeys.split(',').forEach(function (part) {
+          var k = normalizeFocusQueueKey(part);
+          if (k) keyList.push(k);
+        });
+      }
+      if (!keyList.length) {
+        var stored = sessionStorage.getItem('adhello_focus_selected_keys');
+        if (stored) {
+          var parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(function (part) {
+              var k = normalizeFocusQueueKey(part);
+              if (k) keyList.push(k);
+            });
+          }
+        }
+      }
+    } catch (_) {}
+
+    if (keyList.length) {
+      var order = {};
+      keyList.forEach(function (k, i) {
+        order[k] = i;
+      });
+      queue = queue
+        .filter(function (item) {
+          return Object.prototype.hasOwnProperty.call(order, normalizeFocusQueueKey(item && item.key));
+        })
+        .sort(function (a, b) {
+          return (
+            (order[normalizeFocusQueueKey(a.key)] || 0) - (order[normalizeFocusQueueKey(b.key)] || 0)
+          );
+        });
+    }
+
+    return queue
+      .filter(function (item) {
+        return softphoneQueuePhoneValid(item && item.phone);
+      })
+      .map(function (item) {
+        return {
+          key: normalizeFocusQueueKey(item.key),
+          title: String(item.title || 'Lead').trim(),
+          phone: String(item.phone || '').trim(),
+        };
+      });
+  }
+
+  function collectSoftphoneQueueEntries() {
+    var entries = [];
+    var seen = new Set();
+    var fromFocus = false;
+    var pipelineRows = 0;
+
+    function add(entry, origin) {
+      if (!entry || !softphoneQueuePhoneValid(entry.phone)) return;
+      var dial = normalizeDial(entry.phone) || String(entry.phone || '').trim();
+      if (!dial) return;
+      var dedupe = (entry.key || '') + '|' + dial;
+      if (seen.has(dedupe)) return;
+      seen.add(dedupe);
+      entries.push({
+        key: String(entry.key || '').trim(),
+        title: String(entry.title || 'Lead').trim(),
+        phone: dial,
+      });
+      if (origin === 'focus') fromFocus = true;
+    }
+
+    var focusLeads =
+      typeof window.__getFocusCallQueueLeads === 'function'
+        ? window.__getFocusCallQueueLeads()
+        : parseFocusQueueEntriesFromDom();
+    (focusLeads || []).forEach(function (item) {
+      add(item, 'focus');
+    });
+
     if (typeof window.__getSelectedLeadRowsForBulk === 'function') {
-      (window.__getSelectedLeadRowsForBulk() || []).forEach(add);
+      (window.__getSelectedLeadRowsForBulk() || []).forEach(function (row) {
+        pipelineRows += 1;
+        add(
+          {
+            key: softphoneQueueRowKey(row),
+            title: softphoneQueueRowTitle(row),
+            phone: softphoneQueueReadPhone(row),
+          },
+          'pipeline',
+        );
+      });
     }
     if (typeof window.__getActiveLeadPanelRow === 'function') {
-      add(window.__getActiveLeadPanelRow());
+      var panelRow = window.__getActiveLeadPanelRow();
+      if (panelRow) {
+        pipelineRows += 1;
+        add(
+          {
+            key: softphoneQueueRowKey(panelRow),
+            title: softphoneQueueRowTitle(panelRow),
+            phone: softphoneQueueReadPhone(panelRow),
+          },
+          'pipeline',
+        );
+      }
     }
-    return rows;
+
+    return { entries: entries, fromFocus: fromFocus, pipelineRows: pipelineRows };
   }
 
   function renderSoftphoneCallQueue() {
     if (!spQueueList) return;
-    var rows = collectSoftphoneQueueRows();
-    var callable = [];
-    rows.forEach(function (row) {
-      var phone = softphoneQueueReadPhone(row);
-      if (phone) callable.push({ row: row, phone: phone, title: softphoneQueueRowTitle(row), key: softphoneQueueRowKey(row) });
-    });
+    var collected = collectSoftphoneQueueEntries();
+    var callable = collected.entries || [];
     spQueueList.innerHTML = '';
     if (spQueueMeta) {
       if (!callable.length) {
+        if (collected.fromFocus || document.getElementById('focus-queue-json')) {
+          spQueueMeta.textContent =
+            'Your focus session has no callable phone numbers on file.';
+        } else if (collected.pipelineRows > 0) {
+          spQueueMeta.textContent = 'Selected leads have no phone numbers on file.';
+        } else {
+          spQueueMeta.textContent =
+            'Select leads in the pipeline (checkboxes), open Focus mode, or open a lead — callable numbers appear here.';
+        }
+      } else if (collected.fromFocus) {
         spQueueMeta.textContent =
-          rows.length > 0
-            ? 'Selected leads have no phone numbers on file.'
-            : 'Select leads in the pipeline (checkboxes) or open a lead — callable numbers appear here.';
+          callable.length +
+          ' lead' +
+          (callable.length === 1 ? '' : 's') +
+          ' ready to dial from your focus session.';
       } else {
         spQueueMeta.textContent =
           callable.length +
@@ -1326,29 +1663,17 @@
       return;
     }
     callable.forEach(function (item) {
-      var card = document.createElement('div');
-      card.className = 'softphone-queue-item';
-      var body = document.createElement('div');
-      body.className = 'min-w-0 flex-1';
-      var titleEl = document.createElement('p');
-      titleEl.className = 'text-sm font-semibold text-slate-800 dark:text-white truncate';
-      titleEl.textContent = item.title;
-      var phoneEl = document.createElement('p');
-      phoneEl.className = 'text-xs tabular-nums text-slate-500 dark:text-slate-400';
-      phoneEl.textContent = item.phone;
-      body.appendChild(titleEl);
-      body.appendChild(phoneEl);
-      var dialBtn = document.createElement('button');
-      dialBtn.type = 'button';
-      dialBtn.className = 'softphone-queue-dial';
-      dialBtn.textContent = 'Dial';
-      dialBtn.addEventListener('click', function () {
-        openSoftphoneWithDial(item.phone, { leadKey: item.key, autoDial: false });
-        setSoftphoneTab('keypad');
-      });
-      card.appendChild(body);
-      card.appendChild(dialBtn);
-      spQueueList.appendChild(card);
+      spQueueList.appendChild(
+        buildSoftphoneContactListRow(
+          {
+            number: item.phone,
+            title: item.title,
+            leadKey: item.key,
+          },
+          'softphone-queue-fill hover:text-brand-yellow',
+          'softphone-queue-call',
+        ),
+      );
     });
   }
   window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
@@ -1385,7 +1710,23 @@
   if (spBackspace && spTo) {
     spBackspace.addEventListener('click', function () {
       spTo.value = String(spTo.value || '').slice(0, -1);
+      if (!String(spTo.value || '').trim()) {
+        softphoneSession.leadKey = '';
+        softphoneSession.leadTitle = '';
+      }
+      updateSoftphoneCalleeDisplay();
       spTo.focus();
+    });
+  }
+  if (spTo) {
+    spTo.addEventListener('input', function () {
+      if (!String(spTo.value || '').trim()) {
+        softphoneSession.leadKey = '';
+        softphoneSession.leadTitle = '';
+      } else if (!softphoneSession.leadKey) {
+        softphoneSession.leadTitle = resolveSoftphoneLeadTitle('', spTo.value);
+      }
+      updateSoftphoneCalleeDisplay();
     });
   }
 
@@ -1583,16 +1924,30 @@
     spRecentList.addEventListener('click', function (e) {
       var fill = e.target.closest('.softphone-recent-fill');
       if (fill) {
-        var n = String(fill.getAttribute('data-number') || '');
-        spTo.value = n;
+        applySoftphoneListSelection(fill);
         setSoftphoneTab('keypad');
         spTo.focus();
         return;
       }
       var callBtn = e.target.closest('.softphone-recent-call');
       if (callBtn) {
-        var c = String(callBtn.getAttribute('data-number') || '');
-        spTo.value = c;
+        applySoftphoneListSelection(callBtn);
+        runSoftphoneAction('call');
+      }
+    });
+  }
+  if (spQueueList && spTo) {
+    spQueueList.addEventListener('click', function (e) {
+      var fill = e.target.closest('.softphone-queue-fill');
+      if (fill) {
+        applySoftphoneListSelection(fill);
+        setSoftphoneTab('keypad');
+        spTo.focus();
+        return;
+      }
+      var callBtn = e.target.closest('.softphone-queue-call');
+      if (callBtn) {
+        applySoftphoneListSelection(callBtn);
         runSoftphoneAction('call');
       }
     });

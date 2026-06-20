@@ -349,7 +349,10 @@
           </div>
 
           <div class="softphone-display-row flex items-center justify-between gap-2 mb-1">
-            <input type="tel" id="softphoneToNumber" placeholder="Enter number" inputmode="tel" autocomplete="tel" class="softphone-number-display flex-1 min-w-0 bg-transparent border-0 p-0 text-[1.35rem] font-semibold tabular-nums text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-0" aria-label="Dial number" />
+            <div class="min-w-0 flex-1">
+              <p id="softphoneCalleeName" class="hidden text-sm font-bold text-slate-800 dark:text-white truncate leading-tight mb-0.5" aria-live="polite"></p>
+              <input type="tel" id="softphoneToNumber" placeholder="Enter number" inputmode="tel" autocomplete="tel" class="softphone-number-display w-full min-w-0 bg-transparent border-0 p-0 text-[1.35rem] font-semibold tabular-nums text-slate-800 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-0" aria-label="Dial number" />
+            </div>
             <div class="flex items-center gap-1 shrink-0">
               <span id="softphoneStatusPill" class="softphone-status-pill">idle</span>
               <span id="softphoneTimer" class="softphone-timer-pill">00:00</span>
