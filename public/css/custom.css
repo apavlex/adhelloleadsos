@@ -928,11 +928,21 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   }
 }
 
+@keyframes btn-action-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.012);
+  }
+}
+
 #deepEnhanceBtn.hunt-active,
 #deepEnhanceBtn[data-hunt-state="active"] {
-  animation: hunt-ring 1.25s ease-in-out infinite;
-  border-color: rgba(253, 224, 71, 0.65) !important;
-  background: linear-gradient(180deg, rgba(253, 224, 71, 0.12) 0%, rgba(255, 255, 255, 1) 45%);
+  animation: btn-action-pulse 1.05s ease-in-out infinite, hunt-ring 1.25s ease-in-out infinite;
+  border-color: rgba(253, 224, 71, 0.85) !important;
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.18) 0%, rgba(255, 255, 255, 1) 48%);
+  opacity: 1 !important;
 }
 
 .dark #deepEnhanceBtn[data-hunt-state="active"] {
@@ -964,9 +974,10 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 /* Website audit button — same active/loading pattern as hunt */
 #pageSpeedAuditRunBtn.audit-active,
 #pageSpeedAuditRunBtn[data-audit-state="active"] {
-  animation: hunt-ring 1.25s ease-in-out infinite;
-  border-color: rgba(253, 224, 71, 0.65) !important;
-  background: linear-gradient(180deg, rgba(253, 224, 71, 0.12) 0%, rgba(255, 255, 255, 1) 45%);
+  animation: btn-action-pulse 1.05s ease-in-out infinite, hunt-ring 1.25s ease-in-out infinite;
+  border-color: rgba(253, 224, 71, 0.85) !important;
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.18) 0%, rgba(255, 255, 255, 1) 48%);
+  opacity: 1 !important;
 }
 
 .dark #pageSpeedAuditRunBtn[data-audit-state="active"] {
@@ -982,8 +993,10 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   display: none !important;
 }
 
+.deep-enhance-progress-fill,
 .page-speed-audit-progress-fill {
   min-width: 6%;
+  transition: width 0.45s ease-out;
 }
 
 #reviewIntelGrid.review-intel-loading {
@@ -991,8 +1004,9 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   pointer-events: none;
 }
 
-.deep-enhance-progress-fill {
-  min-width: 6%;
+#huntProgressWrap:not(.hidden),
+#pageSpeedAuditProgressWrap:not(.hidden) {
+  animation: btn-action-pulse 1.8s ease-in-out infinite;
 }
 
 @keyframes hunt-progress-slide {

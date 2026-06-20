@@ -5068,7 +5068,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (next === 'active') {
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
-      btn.classList.add('audit-active', 'cursor-wait', 'opacity-70');
+      btn.classList.add('audit-active', 'cursor-wait');
       if (idle) {
         idle.classList.add('hidden');
         idle.setAttribute('aria-hidden', 'true');
@@ -5096,7 +5096,7 @@ document.addEventListener('DOMContentLoaded', () => {
         errEl.classList.add('hidden');
         errEl.textContent = '';
       }
-      startPageSpeedAuditProgressTicker();
+      if (!(opts && opts.deferProgressTicker)) startPageSpeedAuditProgressTicker();
       return;
     }
 
@@ -5104,7 +5104,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setGeoSeoGhlAuditLoading(false);
     btn.disabled = false;
     btn.removeAttribute('aria-busy');
-    btn.classList.remove('audit-active', 'cursor-wait', 'opacity-70');
+    btn.classList.remove('audit-active', 'cursor-wait');
     if (idle) {
       idle.classList.remove('hidden');
       idle.removeAttribute('aria-hidden');
@@ -10475,9 +10475,22 @@ document.addEventListener('DOMContentLoaded', () => {
       row.dataset.website = websiteUrl;
     }
 
+    setPageSpeedAuditUi('active', {
+      deferProgressTicker: true,
+      phase: {
+        pct: 6,
+        label: 'Preparing…',
+        detail: 'Saving lead if needed…',
+        step: 'Step 1 · Prep',
+        afterMs: 0,
+      },
+    });
+    updatePageSpeedAuditProgress(6, 'Preparing…', 'Saving lead if needed…', 'Step 1 · Prep');
+
     try {
       await ensureRowHasLeadKey(row);
     } catch (ensureErr) {
+      setPageSpeedAuditUi('idle');
       const msg = (ensureErr && ensureErr.message) || 'Save this lead before running website audit.';
       showPageSpeedAuditError(msg);
       if (typeof window.showAppToast === 'function') {
@@ -10486,8 +10499,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    setPageSpeedAuditRunning(true);
     window.__pageSpeedAuditLeadKey = String(row.dataset.leadKey || '').trim();
+    startPageSpeedAuditProgressTicker();
+    updatePageSpeedAuditProgress(
+      12,
+      'Starting audit…',
+      'Crawling the site for GEO/SEO + GoHighLevel recommendations…',
+      'Step 2 · Crawl',
+    );
     const loadingLabel = document.getElementById('pageSpeedAuditLoadingLabel');
     try {
       if (loadingLabel) {
@@ -10853,6 +10872,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     currentRow = row;
+    scrollLeadPanelToSection('leadPanelContactHuntSection');
 
     if (triggerBtn && triggerBtn.getAttribute('aria-busy') === 'true') {
       const busyKey = String(row.dataset.leadKey || '').trim();
@@ -10868,6 +10888,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
+    if (isSidebarTrigger) {
+      setDeepEnhanceHuntUi('active', {
+        phase: { pct: 5, label: 'Preparing…', detail: 'Saving lead if needed…' },
+      });
+    }
+
     try {
       await ensureRowHasLeadKey(row);
     } catch (ensureErr) {
@@ -10875,7 +10901,10 @@ document.addEventListener('DOMContentLoaded', () => {
         (ensureErr && ensureErr.message) ||
         'Save this lead before running contact hunt.';
       notifyHunt(msg, 'error');
-      if (isSidebarTrigger) setDeepEnhanceHuntUi('idle');
+      if (isSidebarTrigger) {
+        stopHuntProgressTickerGlobal();
+        setDeepEnhanceHuntUi('idle');
+      }
       return { success: false, error: msg };
     }
 
@@ -10926,8 +10955,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const lk = String(row.dataset.leadKey || key || '').trim();
       if (lk) window.__contactHuntInFlight.add(lk);
       if (isSidebarTrigger) {
-        setDeepEnhanceHuntUi('active');
-        startHuntProgressTicker();
+        if (deepEnhanceBtn && deepEnhanceBtn.dataset.huntState !== 'active') setDeepEnhanceHuntUi('active');
+        updateDeepEnhanceHuntProgress(10, 'Starting hunt…', HUNT_PROGRESS_PHASES[0].detail);
+        if (!window.__huntProgressInterval) startHuntProgressTicker();
       } else if (triggerBtn) {
         triggerBtn.disabled = true;
         triggerBtn.setAttribute('aria-busy', 'true');
