@@ -1,0 +1,32 @@
+<%#
+  Recursive folder tree node — f, fc, depth, children, folderCounts
+%>
+<% const _f = typeof f !== 'undefined' ? f : {}; %>
+<% const _fc = typeof fc !== 'undefined' ? fc : 0; %>
+<% const _depth = typeof depth !== 'undefined' ? Number(depth) : 0; %>
+<% const _children = Array.isArray(children) ? children : []; %>
+<% const _counts = typeof folderCounts !== 'undefined' ? folderCounts : {}; %>
+<% const _hasChildren = _children.length > 0; %>
+<li class="folder-tree-node list-none" data-folder-tree-node data-folder-tree-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>">
+  <div class="flex items-stretch gap-0 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors">
+    <% if (_hasChildren) { %>
+    <button type="button" class="folder-tree-expand shrink-0 w-10 sm:w-11 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white text-xs font-bold transition-colors" aria-expanded="false" aria-label="Expand <%= _f.name %> subfolders" title="Show subfolders">▶</button>
+    <% } else { %><span class="w-10 sm:w-11 shrink-0" aria-hidden="true"></span><% } %>
+    <div class="flex-1 min-w-0 border-b border-brand-border/30 dark:border-white/10">
+      <%- include('partials/folder_manager_row', { f: _f, fc: _fc, depth: _depth, inTree: true, compact: _f.isPipelineDefault && _depth === 0 }) %>
+    </div>
+  </div>
+  <% if (_hasChildren) { %>
+  <ul class="folder-tree-children hidden m-0 p-0 list-none bg-brand-cream/5 dark:bg-slate-950/30" data-folder-tree-children>
+    <% _children.forEach(function (child) { %>
+      <%- include('partials/folder_manager_node', {
+        f: child,
+        fc: _counts[child.key] || 0,
+        depth: _depth + 1,
+        children: child.children || [],
+        folderCounts: _counts
+      }) %>
+    <% }); %>
+  </ul>
+  <% } %>
+</li>

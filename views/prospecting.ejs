@@ -37,7 +37,7 @@
               <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
             </div>
             <h2 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h2>
-            <p class="text-sm text-brand-muted mt-2 max-w-2xl">System folders group your search types — <strong class="text-brand-dark dark:text-white">Businesses</strong> includes <%= typeof tradeFolderCount !== 'undefined' ? tradeFolderCount : 28 %> home-service trade subfolders (from <a href="https://www.servicetitan.com/industries" class="text-brand-yellow hover:underline" target="_blank" rel="noopener">ServiceTitan industries</a>). Use <strong class="text-brand-dark dark:text-white">Search setup</strong> per folder, then <strong class="text-brand-dark dark:text-white">Run search</strong>. Search below to filter folders instantly.</p>
+            <p class="text-sm text-brand-muted mt-2 max-w-2xl">System folders group your search types — click a folder’s <strong class="text-brand-dark dark:text-white">▶</strong> to expand subfolders. <strong class="text-brand-dark dark:text-white">Businesses</strong> includes <%= typeof tradeFolderCount !== 'undefined' ? tradeFolderCount : 28 %> home-service trade subfolders (from <a href="https://www.servicetitan.com/industries" class="text-brand-yellow hover:underline" target="_blank" rel="noopener">ServiceTitan industries</a>). Use <strong class="text-brand-dark dark:text-white">Search setup</strong> on system folders, then <strong class="text-brand-dark dark:text-white">Run search</strong> on any folder.</p>
           </div>
           <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
@@ -67,8 +67,8 @@
               (group.childRows || []).forEach(function (row) { childTotal += _folderCounts[row.folder.key] || 0; });
               var groupTotal = rootFc + childTotal;
             %>
-            <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" open data-folder-group="<%= group.key %>" data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
-              <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-brand-cream/30 dark:bg-slate-950/40 border-b border-brand-border/30 dark:border-white/10 hover:bg-brand-cream/50 dark:hover:bg-slate-950/60 transition-colors">
+            <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 group/folder" open data-folder-group="<%= group.key %>" data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
+              <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-brand-cream/30 dark:bg-slate-950/40 border-b border-brand-border/30 dark:border-white/10 hover:bg-brand-cream/50 dark:hover:bg-slate-950/60 transition-colors [&::-webkit-details-marker]:hidden">
                 <div class="min-w-0 flex-1">
                   <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
                     <%= group.name %>
@@ -77,17 +77,30 @@
                   </p>
                   <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= groupTotal %> lead<%= groupTotal === 1 ? '' : 's' %> total</p>
                 </div>
-                <span class="text-brand-muted text-xs font-bold uppercase tracking-widest group-open:rotate-180 transition-transform">▾</span>
+                <span class="folder-group-chevron text-brand-muted text-xs font-bold uppercase tracking-widest transition-transform group-open/folder:rotate-180" aria-hidden="true">▾</span>
               </summary>
-              <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+              <ul class="m-0 p-0 list-none divide-y divide-brand-border/20 dark:divide-white/5">
                 <% if (rootFolder) { %>
-                  <%- include('partials/folder_manager_row', { f: rootFolder, fc: rootFc, indent: false, compact: true }) %>
+                  <%- include('partials/folder_manager_node', {
+                    f: rootFolder,
+                    fc: rootFc,
+                    depth: 0,
+                    children: group.children || [],
+                    folderCounts: _folderCounts
+                  }) %>
+                <% } else { %>
+                  <% (group.children || []).forEach(function (child) { %>
+                    <%- include('partials/folder_manager_node', {
+                      f: child,
+                      fc: _folderCounts[child.key] || 0,
+                      depth: 0,
+                      children: child.children || [],
+                      folderCounts: _folderCounts
+                    }) %>
+                  <% }); %>
                 <% } %>
-                <% (group.childRows || (group.children || []).map(function (c) { return { folder: c, depth: 1 }; })).forEach(function (row) { %>
-                  <%- include('partials/folder_manager_row', { f: row.folder, fc: _folderCounts[row.folder.key] || 0, depth: row.depth || 1 }) %>
-                <% }); %>
-                <% if (!rootFolder && !(group.childRows || group.children || []).length) { %>
-                  <li class="px-6 py-8 text-sm text-brand-muted">No folders in this group.</li>
+                <% if (!rootFolder && !(group.children || []).length) { %>
+                  <li class="px-6 py-8 text-sm text-brand-muted list-none">No folders in this group.</li>
                 <% } %>
               </ul>
             </details>
@@ -766,25 +779,91 @@
       });
     }
 
+    function bindFolderTreeToggle() {
+      document.querySelectorAll('.folder-tree-expand').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var node = btn.closest('[data-folder-tree-node]');
+          var children = node && node.querySelector(':scope > [data-folder-tree-children]');
+          if (!children) return;
+          children.classList.toggle('hidden');
+          var isOpen = !children.classList.contains('hidden');
+          btn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+          btn.textContent = isOpen ? '\u25BC' : '\u25B6';
+        });
+      });
+    }
+
     function bindFolderSearchFilter() {
       var input = $('folderSearchFilter');
       var empty = $('folderSearchEmpty');
       if (!input) return;
+
+      function collapseAllTreeBranches() {
+        document.querySelectorAll('[data-folder-tree-children]').forEach(function (el) {
+          el.classList.add('hidden');
+        });
+        document.querySelectorAll('.folder-tree-expand').forEach(function (btn) {
+          btn.textContent = '\u25B6';
+          btn.setAttribute('aria-expanded', 'false');
+        });
+      }
+
+      function revealFolderTreeAncestors(node) {
+        while (node) {
+          node.classList.remove('hidden');
+          var parentList = node.parentElement;
+          if (!parentList || !parentList.hasAttribute('data-folder-tree-children')) break;
+          parentList.classList.remove('hidden');
+          var parentNode = parentList.closest('[data-folder-tree-node]');
+          if (parentNode) {
+            var btn = parentNode.querySelector(':scope > div > .folder-tree-expand');
+            if (btn) {
+              btn.textContent = '\u25BC';
+              btn.setAttribute('aria-expanded', 'true');
+            }
+            node = parentNode;
+          } else {
+            break;
+          }
+        }
+      }
+
       function applyFilter() {
         var q = String(input.value || '').trim().toLowerCase();
         var anyVisible = false;
         document.querySelectorAll('.folder-group').forEach(function (group) {
           var groupMatch = !q || String(group.getAttribute('data-folder-group-search') || '').indexOf(q) >= 0;
-          var childVisible = 0;
-          group.querySelectorAll('.folder-row').forEach(function (row) {
-            var rowMatch = !q || String(row.getAttribute('data-folder-search') || '').indexOf(q) >= 0;
-            row.classList.toggle('hidden', !rowMatch && !groupMatch);
-            if (rowMatch) childVisible += 1;
-          });
-          var showGroup = !q || groupMatch || childVisible > 0;
+          var visibleNodes = new Set();
+
+          if (!q) {
+            group.querySelectorAll('[data-folder-tree-node]').forEach(function (node) {
+              node.classList.remove('hidden');
+            });
+            collapseAllTreeBranches();
+          } else {
+            group.querySelectorAll('.folder-row').forEach(function (row) {
+              if (String(row.getAttribute('data-folder-search') || '').indexOf(q) < 0) return;
+              var n = row.closest('[data-folder-tree-node]');
+              while (n && group.contains(n)) {
+                visibleNodes.add(n);
+                var parentList = n.parentElement;
+                if (!parentList || !parentList.hasAttribute('data-folder-tree-children')) break;
+                n = parentList.closest('[data-folder-tree-node]');
+              }
+            });
+            group.querySelectorAll('[data-folder-tree-node]').forEach(function (node) {
+              var show = groupMatch || visibleNodes.has(node);
+              node.classList.toggle('hidden', !show);
+              if (show && visibleNodes.has(node)) revealFolderTreeAncestors(node);
+            });
+          }
+
+          var showGroup = !q || groupMatch || visibleNodes.size > 0;
           group.classList.toggle('hidden', !showGroup);
           if (showGroup) anyVisible = true;
-          if (q && showGroup && childVisible > 0) group.open = true;
+          if (q && showGroup && visibleNodes.size > 0) group.open = true;
         });
         if (empty) empty.classList.toggle('hidden', !q || anyVisible);
       }
@@ -793,6 +872,7 @@
 
     function init() {
       bindFolderManager();
+      bindFolderTreeToggle();
       bindFolderCreateModal();
       bindFolderSearchSetupModal();
       bindFolderSearchFilter();
