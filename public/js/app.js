@@ -4738,14 +4738,18 @@ document.addEventListener('DOMContentLoaded', () => {
     await ensureRowHasLeadKey(row);
     const key = String(row.dataset.leadKey || '').trim();
     const website = resolveRowWebsiteForAudit(row);
+    if (!website) throw new Error('Add a website URL to this lead first.');
     try {
-      const res = await fetch(`/leads/${encodeURIComponent(key)}/geo-seo-ghl-audit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        credentials: 'same-origin',
-        body: JSON.stringify({ website, refresh: !!(opts && opts.refresh) }),
-      });
-      const data = await res.json().catch(() => ({}));
+      const { res, data } = await fetchJsonWithTimeout(
+        `/leads/${encodeURIComponent(key)}/geo-seo-ghl-audit`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ website, refresh: !!(opts && opts.refresh) }),
+        },
+        90000,
+      );
       if (!res.ok || !data.success) {
         throw new Error((data && data.error) || 'GEO/SEO audit failed');
       }
@@ -4778,24 +4782,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function resolveRowWebsiteForAudit(row) {
-    if (!row || !row.dataset) return '';
-    const fromDs = String(row.dataset.website || '').trim();
-    if (fromDs && fromDs !== 'N/A') return fromDs;
-    const link = row.querySelector('.website-link[data-url], a.website-link');
-    if (link) {
-      const u = link.getAttribute('data-url') || link.getAttribute('href') || '';
-      const t = String(u).trim();
-      if (t && t !== 'N/A' && !/^#$/i.test(t)) return t.replace(/\/$/, '');
-    }
+    if (!row) return '';
+    const href = resolveLeadPanelWebsiteHref(row);
+    if (href) return href.replace(/\/$/, '');
     if (row === currentRow) {
-      const short = document.getElementById('mobilePanelWebsiteShort');
-      const panelLink = document.getElementById('mobilePanelWebsite');
-      const fromPanel =
-        (panelLink && panelLink.getAttribute('href')) ||
-        (short && short.textContent) ||
-        '';
+      const panelLink = document.getElementById('mobilePanelWebsiteLink');
+      const fromPanel = panelLink && panelLink.getAttribute('href');
       const p = String(fromPanel || '').trim();
-      if (p && p !== 'N/A' && p !== 'Website' && !/^#$/i.test(p)) return p;
+      if (p && p !== 'N/A' && p !== 'Website' && !/^#$/i.test(p)) {
+        return normalizeWebsiteHref(p).replace(/\/$/, '');
+      }
     }
     return '';
   }
@@ -5232,10 +5228,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
     const geoReport = row ? parseGeoSeoGhlAuditFromRow(row) : null;
 
+    const uiActive = runBtn.dataset.auditState === 'active';
+    if (!pageSpeedAuditInFlight && uiActive) {
+      stopPageSpeedAuditProgressTicker();
+      setPageSpeedAuditUi('idle');
+    }
+
     if (!pageSpeedAuditInFlight) {
       const blocked = !hasWebsite;
-      const uiActive = runBtn.dataset.auditState === 'active';
-      if (!uiActive) {
+      const stillActive = runBtn.dataset.auditState === 'active';
+      if (!stillActive) {
         runBtn.disabled = false;
         runBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
         runBtn.classList.toggle('opacity-50', blocked);
@@ -10651,6 +10653,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.__adhelloRunPageSpeedAudit = handlePageSpeedAuditClick;
+  window.__setPageSpeedAuditUi = setPageSpeedAuditUi;
+  window.__stopPageSpeedAuditProgressTicker = stopPageSpeedAuditProgressTicker;
 
   if (!window.__adhelloPageSpeedAuditCaptureBound && !window.__adhelloWebsiteAuditEarlyBound) {
     window.__adhelloPageSpeedAuditCaptureBound = true;
@@ -15036,5 +15040,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.46-hunt-unstick';
+  window.__ADHELLO_BUILD = '1.0.47-audit-fix';
 });
