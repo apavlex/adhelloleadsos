@@ -1132,6 +1132,7 @@
   function openSoftphone() {
     if (!spModal) return;
     spModal.classList.remove('hidden');
+    spModal.classList.add('pointer-events-none');
     spModal.setAttribute('aria-hidden', 'false');
     setSoftphoneMobileBackdrop(true);
     softphoneSession.isCloudPstn = false;

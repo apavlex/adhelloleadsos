@@ -2484,7 +2484,13 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   pointer-events: none;
 }
 
-#softphonePortal > * {
+/* Modal shell is full-viewport for layout only — must not block pipeline clicks behind it */
+#softphonePortal #softphoneModal {
+  pointer-events: none !important;
+}
+
+#softphonePortal #softphonePanel,
+#softphonePortal #softphoneMobileBackdrop:not(.hidden) {
   pointer-events: auto;
 }
 
