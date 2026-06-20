@@ -170,32 +170,6 @@
         </div>
       </section>
 
-      <section id="leadPanelContactHuntSection" class="mb-10">
-        <button type="button" id="deepEnhanceBtn" aria-busy="false" data-hunt-state="idle" class="deep-enhance-btn w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex flex-col items-center justify-center gap-2 group relative overflow-hidden">
-          <span class="deep-enhance-idle flex items-center justify-center gap-3 w-full">
-            <svg class="deep-enhance-icon w-5 h-5 text-brand-yellow shrink-0 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9" /></svg>
-            <span class="deep-enhance-label">Hunt contacts &amp; reviews</span>
-          </span>
-          <span class="deep-enhance-active hidden flex flex-col items-stretch w-full gap-2 px-1" aria-hidden="true">
-            <span class="flex items-center justify-center gap-2.5">
-              <svg class="w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
-              <span id="deepEnhanceStatusLabel" class="text-[11px] font-black uppercase tracking-wider text-brand-dark dark:text-white">Hunting…</span>
-            </span>
-            <span class="deep-enhance-progress-track h-1.5 rounded-full bg-brand-border/50 dark:bg-white/10 overflow-hidden w-full max-w-[280px] mx-auto">
-              <span id="deepEnhanceProgressBar" class="deep-enhance-progress-fill block h-full rounded-full bg-brand-yellow transition-[width] duration-500 ease-out" style="width: 8%"></span>
-            </span>
-          </span>
-          <span class="deep-enhance-done hidden flex items-center justify-center gap-2 w-full text-emerald-700 dark:text-emerald-400" aria-hidden="true">
-            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
-            <span class="text-[11px] font-black uppercase tracking-wider">Hunt complete</span>
-          </span>
-        </button>
-        <div id="huntProgressWrap" class="hidden mt-3 rounded-2xl border border-brand-yellow/30 bg-brand-yellow/5 dark:bg-brand-yellow/10 px-4 py-3" aria-live="polite">
-          <p id="deepEnhanceStepDetail" class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed">BetterContact, website search, Google reviews, and AI reputation summary (may take 30–90s).</p>
-        </div>
-        <p id="huntLastRunMeta" class="hidden mt-2 text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed" aria-live="polite"></p>
-      </section>
-
       <section id="reviewReputationSection" class="mb-10" aria-live="polite">
         <div class="flex items-center justify-between gap-2 mb-3 px-0.5">
           <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Google reviews</p>
@@ -225,6 +199,32 @@
           </div>
           <p id="reviewIntelFootnote" class="hidden text-[10px] text-brand-muted dark:text-slate-500 leading-relaxed"></p>
         </div>
+      </section>
+
+      <section id="leadPanelContactHuntSection" class="mb-10">
+        <button type="button" id="deepEnhanceBtn" aria-busy="false" data-hunt-state="idle" class="deep-enhance-btn w-full btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-all flex flex-col items-center justify-center gap-2 group relative overflow-hidden">
+          <span class="deep-enhance-idle flex items-center justify-center gap-3 w-full">
+            <svg class="deep-enhance-icon w-5 h-5 text-brand-yellow shrink-0 group-hover:rotate-90 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9" /></svg>
+            <span class="deep-enhance-label">Hunt contacts &amp; reviews</span>
+          </span>
+          <span class="deep-enhance-active hidden flex flex-col items-stretch w-full gap-2 px-1" aria-hidden="true">
+            <span class="flex items-center justify-center gap-2.5">
+              <svg class="w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+              <span id="deepEnhanceStatusLabel" class="text-[11px] font-black uppercase tracking-wider text-brand-dark dark:text-white">Hunting…</span>
+            </span>
+            <span class="deep-enhance-progress-track h-1.5 rounded-full bg-brand-border/50 dark:bg-white/10 overflow-hidden w-full max-w-[280px] mx-auto">
+              <span id="deepEnhanceProgressBar" class="deep-enhance-progress-fill block h-full rounded-full bg-brand-yellow transition-[width] duration-500 ease-out" style="width: 8%"></span>
+            </span>
+          </span>
+          <span class="deep-enhance-done hidden flex items-center justify-center gap-2 w-full text-emerald-700 dark:text-emerald-400" aria-hidden="true">
+            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+            <span class="text-[11px] font-black uppercase tracking-wider">Hunt complete</span>
+          </span>
+        </button>
+        <div id="huntProgressWrap" class="hidden mt-3 rounded-2xl border border-brand-yellow/30 bg-brand-yellow/5 dark:bg-brand-yellow/10 px-4 py-3" aria-live="polite">
+          <p id="deepEnhanceStepDetail" class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed">BetterContact, website search, Google reviews, and AI reputation summary (may take 30–90s).</p>
+        </div>
+        <p id="huntLastRunMeta" class="hidden mt-2 text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed" aria-live="polite"></p>
       </section>
 
       <section id="pageSpeedAuditSection" class="mb-10">

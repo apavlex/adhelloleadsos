@@ -1385,8 +1385,21 @@ document.addEventListener('DOMContentLoaded', () => {
   /** Hydrate table row from SSR lead JSON embedded on pipeline pages (instant, no fetch). */
   function syncRowFromInitialSavedLeads(row) {
     const lead = findInitialSavedLeadRecord(row);
-    if (!lead) return false;
-    syncPersistedLeadToRowDataset(row, lead);
+    if (!lead || !row || !row.dataset) return false;
+    const ds = row.dataset;
+    if (lead.title && isEmptyLeadField(ds.title)) ds.title = String(lead.title).trim();
+    assignRowDatasetFieldIfBetter(ds, 'phone', lead.phone);
+    assignRowDatasetFieldIfBetter(ds, 'website', lead.website);
+    assignRowDatasetFieldIfBetter(ds, 'email', lead.email);
+    assignRowDatasetFieldIfBetter(ds, 'address', lead.address);
+    assignRowDatasetFieldIfBetter(ds, 'url', lead.url);
+    assignRowDatasetFieldIfBetter(ds, 'facebook', lead.facebook);
+    assignRowDatasetFieldIfBetter(ds, 'instagram', lead.instagram);
+    assignRowDatasetFieldIfBetter(ds, 'twitter', lead.twitter);
+    if (lead.categoryName && isEmptyLeadField(ds.category)) {
+      ds.category = String(lead.categoryName).trim();
+    }
+    assignRowDatasetScoreIfBetter(ds, lead.totalScore, lead.reviewsCount);
     return true;
   }
 
@@ -4440,18 +4453,61 @@ document.addEventListener('DOMContentLoaded', () => {
     const incRev = parseInt(reviews, 10);
     const curR = parseFloat(ds.rating);
     const curRev = parseInt(ds.reviews, 10);
-    if (Number.isFinite(incR) && incR > 0 && (!Number.isFinite(curR) || curR <= 0)) {
+    if (Number.isFinite(incR) && incR > 0) {
       ds.rating = String(incR);
+    } else if (
+      Number.isFinite(incR) &&
+      incR === 0 &&
+      (!Number.isFinite(curR) || curR <= 0)
+    ) {
+      ds.rating = '0';
     }
-    if (Number.isFinite(incRev) && incRev > 0 && (!Number.isFinite(curRev) || curRev <= 0)) {
-      ds.reviews = String(incRev);
+    if (Number.isFinite(incRev) && incRev > 0) {
+      ds.reviews = String(Math.max(incRev, Number.isFinite(curRev) ? curRev : 0));
+    } else if (
+      Number.isFinite(incRev) &&
+      incRev === 0 &&
+      (!Number.isFinite(curRev) || curRev <= 0)
+    ) {
+      ds.reviews = '0';
     }
+  }
+
+  function snapshotRowLeadFields(row) {
+    if (!row || !row.dataset) return null;
+    const ds = row.dataset;
+    return {
+      title: String(ds.title || '').trim(),
+      phone: String(ds.phone || '').trim(),
+      email: String(ds.email || '').trim(),
+      website: String(ds.website || '').trim(),
+      address: String(ds.address || '').trim(),
+      category: String(ds.category || '').trim(),
+      url: String(ds.url || '').trim(),
+      rating: String(ds.rating || '').trim(),
+      reviews: String(ds.reviews || '').trim(),
+    };
+  }
+
+  function restoreRowLeadFieldsIfErased(row, snap) {
+    if (!row || !snap || !row.dataset) return;
+    const ds = row.dataset;
+    if (isEmptyLeadField(ds.title) && !isEmptyLeadField(snap.title)) ds.title = snap.title;
+    assignRowDatasetFieldIfBetter(ds, 'phone', snap.phone);
+    assignRowDatasetFieldIfBetter(ds, 'email', snap.email);
+    assignRowDatasetFieldIfBetter(ds, 'website', snap.website);
+    assignRowDatasetFieldIfBetter(ds, 'address', snap.address);
+    assignRowDatasetFieldIfBetter(ds, 'category', snap.category);
+    assignRowDatasetFieldIfBetter(ds, 'url', snap.url);
+    assignRowDatasetScoreIfBetter(ds, snap.rating, snap.reviews);
   }
 
   function syncPersistedLeadToRowDataset(row, L) {
     if (!row || !L || typeof L !== 'object') return;
     const ds = row.dataset;
-    if (L.title != null) ds.title = L.title;
+    if (L.title != null && !isEmptyLeadField(L.title)) {
+      ds.title = String(L.title).trim();
+    }
     assignRowDatasetFieldIfBetter(ds, 'phone', L.phone);
     assignRowDatasetFieldIfBetter(ds, 'website', L.website);
     assignRowDatasetFieldIfBetter(ds, 'email', L.email);
@@ -4465,14 +4521,7 @@ document.addEventListener('DOMContentLoaded', () => {
     assignRowDatasetFieldIfBetter(ds, 'facebook', L.facebook);
     assignRowDatasetFieldIfBetter(ds, 'instagram', L.instagram);
     assignRowDatasetFieldIfBetter(ds, 'twitter', L.twitter);
-    if (L.totalScore != null) {
-      const r = Number(L.totalScore);
-      if (Number.isFinite(r)) ds.rating = String(r);
-    }
-    if (L.reviewsCount != null) {
-      const n = parseInt(L.reviewsCount, 10);
-      if (Number.isFinite(n)) ds.reviews = String(n);
-    }
+    assignRowDatasetScoreIfBetter(ds, L.totalScore, L.reviewsCount);
     if (L.reviewSnippets != null) {
       ds.reviewSnippets = Array.isArray(L.reviewSnippets)
         ? JSON.stringify(L.reviewSnippets)
@@ -10735,6 +10784,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function runContactHuntForRow(row, options) {
     const opts = options || {};
+    row = resolvePipelineTableRowForPanel(row) || row;
     const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
     const triggerBtn = opts.triggerBtn || deepEnhanceBtn;
     const fromRowAction = !!opts.fromRowAction;
@@ -10768,6 +10818,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     currentRow = row;
+    const preHuntSnap = snapshotRowLeadFields(row);
 
     const title = row.dataset.title;
     const city = row.dataset.city;
@@ -10868,6 +10919,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const d = data.lead || data.data;
         if (data.lead && typeof data.lead === 'object') {
           syncPersistedLeadToRowDataset(row, data.lead);
+          restoreRowLeadFieldsIfErased(row, preHuntSnap);
         } else if (d) {
           if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
           if (data.foundUrl) row.dataset.website = data.foundUrl;
@@ -10899,6 +10951,13 @@ document.addEventListener('DOMContentLoaded', () => {
         stopHuntProgressTicker();
         updateProcessingStatus(false);
         populatePanel(row);
+        if (data.lead && typeof data.lead === 'object' && typeof window.__paintPanelFromLeadRecord === 'function') {
+          try {
+            window.__paintPanelFromLeadRecord(data.lead, row);
+          } catch (paintRecErr) {
+            console.warn('[Contact hunt] panel record paint failed:', paintRecErr);
+          }
+        }
         if (currentRow === row) {
           paintPanelHeaderContactStrip(row);
         }

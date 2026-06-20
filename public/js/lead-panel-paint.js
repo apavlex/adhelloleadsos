@@ -324,8 +324,26 @@
     const rating = parseFloat(L.totalScore ?? L.rating ?? 0) || 0;
     const reviews = parseInt(L.reviewsCount ?? L.reviews ?? 0, 10) || 0;
     const locationLine = address ? formatAddress(address) : '';
+    const title =
+      !isEmpty(L.title) ? String(L.title).trim()
+      : row && row.dataset && !isEmpty(row.dataset.title) ? String(row.dataset.title).trim()
+      : '';
+    const categoryRaw = L.categoryName != null ? L.categoryName : L.category;
+    const category =
+      !isEmpty(categoryRaw) ? String(categoryRaw).trim()
+      : row && row.dataset && !isEmpty(row.dataset.category) ? String(row.dataset.category).trim()
+      : '';
 
     if (row) writeRowDatasetFromPaint(row, phone, address, rating, reviews, website, url);
+
+    const panelTitle = panelEl('mobilePanelTitle');
+    if (panelTitle && title) panelTitle.textContent = title;
+    const stickyTitle = document.getElementById('stickyPanelTitle');
+    if (stickyTitle && title) stickyTitle.textContent = title;
+    const avatar = panelEl('mobilePanelAvatar');
+    if (avatar && title) avatar.textContent = title.charAt(0).toUpperCase();
+    const panelCategory = panelEl('mobilePanelCategory');
+    if (panelCategory && category) panelCategory.textContent = category;
 
     const headerAddr = panelEl('mobilePanelHeaderAddress');
     if (headerAddr) headerAddr.textContent = locationLine || '—';

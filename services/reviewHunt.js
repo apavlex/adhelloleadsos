@@ -114,7 +114,11 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
       patch.totalScore = Number(mapsPlace.totalScore);
     }
     if (mapsPlace.reviewsCount != null && Number(mapsPlace.reviewsCount) >= 0) {
-      patch.reviewsCount = parseInt(mapsPlace.reviewsCount, 10);
+      const n = parseInt(mapsPlace.reviewsCount, 10);
+      const cur = parseInt(lead.reviewsCount, 10) || 0;
+      if (Number.isFinite(n) && (n > 0 || cur <= 0)) {
+        patch.reviewsCount = n;
+      }
     }
     if (mapsPlace.url && String(mapsPlace.url).trim()) {
       patch.url = String(mapsPlace.url).trim();
@@ -137,7 +141,11 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
           patch.totalScore = Number(pack.placeRating);
         }
         if (pack.placeReviewsCount != null && Number.isFinite(Number(pack.placeReviewsCount))) {
-          patch.reviewsCount = parseInt(pack.placeReviewsCount, 10);
+          const n = parseInt(pack.placeReviewsCount, 10);
+          const cur = parseInt(lead.reviewsCount, 10) || 0;
+          if (Number.isFinite(n) && (n > 0 || cur <= 0)) {
+            patch.reviewsCount = n;
+          }
         }
         snippets = buildHighestLowestSnippets(pack.reviews);
         if (snippets.length) {
