@@ -127,16 +127,9 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (typeof window.__renderSearchResultStars === 'function') window.__renderSearchResultStars();
   };
 
-  // Initial badge paint; skip full-table reorder on large pipelines (paging handles visibility).
+  // Initial badge paint only — keep server row order; user sort is explicit.
   setTimeout(() => {
     updateOpportunityBadges();
-    const pipelineBody = document.querySelector('#prospectLeadsTable tbody');
-    const rowCount = pipelineBody
-      ? pipelineBody.querySelectorAll('tr.result-row').length
-      : document.querySelectorAll('.result-row').length;
-    if (rowCount <= PIPELINE_LEADS_PAGE_SIZE) {
-      sortLeadsByOpportunity(false);
-    }
   }, 300);
 
   setTimeout(updateOpportunityBadges, 1500);
@@ -396,6 +389,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!tbody || !statusEl || !loadMoreBtn || !pagingWrap) return;
 
       let visibleLimit = PIPELINE_LEADS_PAGE_SIZE;
+      const rowsAlreadyPaged = tbody.querySelector('tr.result-row.pipeline-row-page-hidden');
 
       function pipelineRows() {
         return Array.from(tbody.querySelectorAll('tr.result-row'));
@@ -443,7 +437,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const scrollHost = document.getElementById('prospectPipelineTableScroll');
         if (scrollHost) scrollHost.scrollLeft = 0;
       };
-      applyPipelinePaging();
+      if (!rowsAlreadyPaged) {
+        applyPipelinePaging();
+      } else {
+        const rows = pipelineRows();
+        const total = rows.length;
+        const shown = Math.min(visibleLimit, total);
+        statusEl.textContent =
+          total > 0
+            ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${PIPELINE_LEADS_PAGE_SIZE} per page`
+            : '';
+        const hasMore = total > visibleLimit;
+        loadMoreBtn.classList.toggle('hidden', !hasMore);
+        pagingWrap.classList.toggle('hidden', total === 0);
+        if (hasMore) {
+          const nextBatch = Math.min(PIPELINE_LEADS_PAGE_SIZE, total - visibleLimit);
+          loadMoreBtn.textContent = `Load more (${nextBatch} more)`;
+          loadMoreBtn.disabled = false;
+        }
+      }
     })();
 
     (function initPipelineToolbarEarly() {
@@ -469,8 +481,17 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       const savedDensity =
-        localStorage.getItem(densityKey) === 'comfortable' ? 'comfortable' : 'compact';
-      applyTableDensity(savedDensity);
+        document.documentElement.getAttribute('data-prospect-density') ||
+        (localStorage.getItem(densityKey) === 'comfortable' ? 'comfortable' : 'compact');
+      const alreadyPrimed = table.dataset.pipelinePrefsPrimed === '1';
+      if (!alreadyPrimed || !table.classList.contains('prospect-leads-table--' + savedDensity)) {
+        applyTableDensity(savedDensity);
+      } else {
+        document.querySelectorAll('#tableView .lead-density-btn').forEach((btn) => {
+          const on = (btn.dataset.density || 'compact') === savedDensity;
+          btn.classList.toggle('lead-density-btn--active', on);
+        });
+      }
       document.addEventListener('click', (e) => {
         const btn = e.target.closest('#tableView .lead-density-btn');
         if (!btn) return;
@@ -594,16 +615,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      let vis = loadVis();
+      let vis = window.__pipelinePrefsPrimedVis || loadVis();
       if (vis && vis.check === false) {
         delete vis.check;
         saveVis(vis);
       }
-      applyVisibility(vis);
-      try {
-        applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
-      } catch (_) {
-        /* ignore */
+      if (!table.dataset.pipelinePrefsPrimed) {
+        applyVisibility(vis);
+        try {
+          applyWidths(JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}'));
+        } catch (_) {
+          /* ignore */
+        }
       }
       scheduleSyncPipelineStickyOffsets();
 
@@ -803,9 +826,6 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     })();
   }
-
-  // Auto-sort by High Opportunity immediately after calculation
-  sortLeadsByOpportunity(false);
 
   // Attach Sort Listener
   const sortOppBtn = document.getElementById('sortOpportunity');
@@ -11235,24 +11255,28 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkSmsBtn.classList.toggle('cursor-not-allowed', count === 0);
     }
     if (bulkFocusModeBtn) {
-      const keyFromCb = (cb) => {
-        if (!cb) return '';
-        return String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim().replace(/^lead:/i, '');
-      };
-      const keys = hasSelection
-        ? getSelectedLeadCheckboxesForBulkActions().map(keyFromCb).filter(Boolean)
-        : [];
+      const keys =
+        hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
+          ? window.__collectFocusSelectionKeys()
+          : hasSelection
+            ? getSelectedLeadKeysForBulk()
+                .map((k) => String(k || '').trim().replace(/^lead:/i, ''))
+                .filter(Boolean)
+            : [];
+      if (typeof window.__persistFocusSelectionKeys === 'function') {
+        window.__persistFocusSelectionKeys(keys);
+      }
       bulkFocusModeBtn.classList.toggle('opacity-40', !hasSelection);
       bulkFocusModeBtn.classList.toggle('pointer-events-none', !hasSelection);
       bulkFocusModeBtn.setAttribute('aria-disabled', !hasSelection ? 'true' : 'false');
-      if (keys.length) {
-        bulkFocusModeBtn.setAttribute(
-          'href',
-          `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}`,
-        );
-      } else {
-        bulkFocusModeBtn.setAttribute('href', '/focus');
-      }
+      bulkFocusModeBtn.setAttribute(
+        'href',
+        typeof window.__buildFocusSelectionUrl === 'function'
+          ? window.__buildFocusSelectionUrl(keys)
+          : keys.length
+            ? `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}`
+            : '/focus',
+      );
       bulkFocusModeBtn.setAttribute(
         'title',
         keys.length

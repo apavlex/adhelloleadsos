@@ -149,6 +149,54 @@
   }
   window.__syncBulkBarFromDom = syncBulkBarFromDom;
 
+  function normalizeFocusLeadKey(key) {
+    return String(key || '').trim().replace(/^lead:/i, '');
+  }
+
+  function collectFocusSelectionKeys() {
+    if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
+      const keys = window.__getSelectedLeadKeysForBulk();
+      if (keys.length) {
+        return keys.map(normalizeFocusLeadKey).filter(Boolean);
+      }
+    }
+    const out = [];
+    const seen = new Set();
+    document
+      .querySelectorAll('tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked')
+      .forEach((cb) => {
+        const k = normalizeFocusLeadKey(cb.getAttribute('data-key') || cb.dataset.key || '');
+        if (!k || seen.has(k)) return;
+        seen.add(k);
+        out.push(k);
+      });
+    return out;
+  }
+
+  function persistFocusSelectionKeys(keys) {
+    try {
+      const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
+      if (norm.length) {
+        sessionStorage.setItem('adhello_focus_selected_keys', JSON.stringify(norm));
+      } else {
+        sessionStorage.removeItem('adhello_focus_selected_keys');
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function buildFocusSelectionUrl(keys) {
+    const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
+    if (!norm.length) return '/focus';
+    return `/focus?lead=${encodeURIComponent(norm[0])}&keys=${encodeURIComponent(norm.join(','))}`;
+  }
+
+  window.__normalizeFocusLeadKey = normalizeFocusLeadKey;
+  window.__collectFocusSelectionKeys = collectFocusSelectionKeys;
+  window.__persistFocusSelectionKeys = persistFocusSelectionKeys;
+  window.__buildFocusSelectionUrl = buildFocusSelectionUrl;
+
   /** Last row index used for shift-click range selection (per table). */
   let lastBulkSelectAnchor = null;
 
@@ -604,6 +652,16 @@
             const tagsRow = document.getElementById('bulkTagsRow');
             window.__setBulkTagsRowVisible(!!(tagsRow && tagsRow.classList.contains('hidden')));
           }
+          return;
+        }
+        if (e.target.closest('#bulkFocusModeBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const keys = collectFocusSelectionKeys();
+          if (!keys.length) return;
+          persistFocusSelectionKeys(keys);
+          window.location.href = buildFocusSelectionUrl(keys);
+          return;
         }
       },
       true,

@@ -63,6 +63,13 @@
 
   function restoreSavedView() {
     try {
+      if (document.documentElement.classList.contains('adhello-pipeline-view-kanban')) {
+        syncToggleButtons(true);
+        if (typeof window.__adhelloInitKanban === 'function') {
+          window.__adhelloInitKanban();
+        }
+        return;
+      }
       if (sessionStorage.getItem('adhello_pipeline_view') === 'kanban') {
         setPipelineView('kanban');
       }

@@ -1,6 +1,17 @@
 <% const _lmv = typeof lmvProspectingMethods !== 'undefined' && lmvProspectingMethods ? lmvProspectingMethods : []; %>
 <% if (_lmv.length) { %>
-<details id="lmvPlaybookDetails" class="lmv-playbook brand-card dark:bg-slate-900 dark:border-white/10 mb-8 overflow-hidden group" open>
+<details id="lmvPlaybookDetails" class="lmv-playbook brand-card dark:bg-slate-900 dark:border-white/10 mb-8 overflow-hidden group">
+  <script>
+  (function () {
+    var d = document.getElementById('lmvPlaybookDetails');
+    if (!d) return;
+    try {
+      if (localStorage.getItem('lmvPlaybookOpen') !== '0') d.setAttribute('open', '');
+    } catch (_) {
+      d.setAttribute('open', '');
+    }
+  })();
+  </script>
   <summary class="lmv-playbook__summary px-5 py-4 md:px-6 md:py-5 border-b border-brand-border/30 dark:border-white/10 cursor-pointer list-none flex items-start justify-between gap-4 select-none">
     <div class="min-w-0 flex-1">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Outreach playbook</p>
@@ -65,15 +76,9 @@
 (function () {
   var details = document.getElementById('lmvPlaybookDetails');
   if (!details) return;
-  var key = 'lmvPlaybookOpen';
-  try {
-    var saved = localStorage.getItem(key);
-    if (saved === '0') details.removeAttribute('open');
-    else if (saved === '1') details.setAttribute('open', 'open');
-  } catch (_) {}
   details.addEventListener('toggle', function () {
     try {
-      localStorage.setItem(key, details.open ? '1' : '0');
+      localStorage.setItem('lmvPlaybookOpen', details.open ? '1' : '0');
     } catch (_) {}
   });
 })();

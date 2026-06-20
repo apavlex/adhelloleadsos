@@ -180,7 +180,11 @@ function orderLeadsByKeys(leads, keyOrder) {
   const byKey = new Map();
   (Array.isArray(leads) ? leads : []).forEach((l) => {
     if (!l) return;
-    byKey.set(shortLeadKey(l), l);
+    const raw = String(l.key || '').trim();
+    const short = shortLeadKey(l);
+    [short, raw, raw.replace(/^lead:/i, ''), short ? `lead:${short}` : ''].forEach((k) => {
+      if (k) byKey.set(k, l);
+    });
   });
   return keyOrder.map((k) => byKey.get(k)).filter(Boolean);
 }

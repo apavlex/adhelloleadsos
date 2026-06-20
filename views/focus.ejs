@@ -12,7 +12,7 @@
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Focus mode</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Start my <span id="focus-session-goal"><%= typeof focusSelectionCount === 'number' ? focusSelectionCount : (typeof touchGoal !== 'undefined' ? touchGoal : 54) %></span></h1>
-          <p class="text-sm text-brand-muted dark:text-slate-400 mt-2"><% if (typeof focusIsSelectionSession !== 'undefined' && focusIsSelectionSession) { %>Working through <%= focusSelectionCount %> selected lead<%= focusSelectionCount === 1 ? '' : 's' %> — draft, log, next.<% } else { %>One lead at a time — draft, log, next. Set your daily contact goal below.<% } %> <button type="button" id="focus-help-btn" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Shortcuts (?)</button></p>
+          <p id="focus-session-subtitle" class="text-sm text-brand-muted dark:text-slate-400 mt-2"><span id="focus-session-subtitle-label"><% if (typeof focusIsSelectionSession !== 'undefined' && focusIsSelectionSession) { %>Working through <%= focusSelectionCount %> selected lead<%= focusSelectionCount === 1 ? '' : 's' %> — draft, log, next.<% } else { %>One lead at a time — draft, log, next. Set your daily contact goal below.<% } %></span> <button type="button" id="focus-help-btn" class="font-bold text-brand-dark dark:text-white underline decoration-brand-yellow/60 hover:decoration-brand-yellow">Shortcuts (?)</button></p>
         </div>
         <a href="/today" class="text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">← Today</a>
       </div>
@@ -366,6 +366,90 @@
     } catch (e) {
       queue = [];
     }
+
+    function normalizeFocusKey(key) {
+      return String(key || '').trim().replace(/^lead:/i, '');
+    }
+
+    function parseFocusKeysFromUrl() {
+      var params = new URLSearchParams(window.location.search);
+      var raw = params.get('keys') || '';
+      if (!raw) return [];
+      var seen = {};
+      var out = [];
+      raw.split(',').forEach(function (part) {
+        var k = normalizeFocusKey(part);
+        if (!k || seen[k]) return;
+        seen[k] = true;
+        out.push(k);
+      });
+      return out;
+    }
+
+    function loadStoredFocusKeys() {
+      try {
+        var raw = sessionStorage.getItem('adhello_focus_selected_keys');
+        if (!raw) return [];
+        var parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed.map(normalizeFocusKey).filter(Boolean);
+      } catch (e) {
+        return [];
+      }
+    }
+
+    function updateFocusSelectionHeader(count) {
+      if (sessionGoalEl) sessionGoalEl.textContent = String(count);
+      var label = document.getElementById('focus-session-subtitle-label');
+      if (label) {
+        label.textContent =
+          'Working through ' +
+          count +
+          ' selected lead' +
+          (count === 1 ? '' : 's') +
+          ' — draft, log, next.';
+      }
+    }
+
+    function applyFocusSelectionFilter(keyList) {
+      if (!keyList || !keyList.length) return false;
+      var order = {};
+      keyList.forEach(function (k, i) {
+        order[normalizeFocusKey(k)] = i;
+      });
+      var filtered = queue.filter(function (item) {
+        return Object.prototype.hasOwnProperty.call(order, normalizeFocusKey(item && item.key));
+      });
+      filtered.sort(function (a, b) {
+        return (
+          (order[normalizeFocusKey(a.key)] || 0) - (order[normalizeFocusKey(b.key)] || 0)
+        );
+      });
+      if (!filtered.length) return false;
+      queue = filtered;
+      var prefer = normalizeFocusKey(new URLSearchParams(window.location.search).get('lead') || '');
+      if (prefer) {
+        var preferIdx = -1;
+        for (var i = 0; i < queue.length; i += 1) {
+          if (normalizeFocusKey(queue[i].key) === prefer) {
+            preferIdx = i;
+            break;
+          }
+        }
+        if (preferIdx > 0) {
+          var picked = queue.splice(preferIdx, 1)[0];
+          queue.unshift(picked);
+        }
+      }
+      sessionGoalLocked = true;
+      sessionLeadCount = queue.length;
+      updateFocusSelectionHeader(queue.length);
+      return true;
+    }
+
+    var selectionKeys = parseFocusKeysFromUrl();
+    if (!selectionKeys.length) selectionKeys = loadStoredFocusKeys();
+    if (selectionKeys.length) applyFocusSelectionFilter(selectionKeys);
 
     var idx = 0;
     var currentChannel = 'email';
