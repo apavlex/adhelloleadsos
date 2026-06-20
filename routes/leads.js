@@ -11,6 +11,7 @@ const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const reviewHunt = require('../services/reviewHunt');
+const outscraper = require('../services/outscraperClient');
 const { generateReviewIntelForLead } = require('../services/reviewIntel');
 const {
   normalizeLeadForPanel,
@@ -2877,18 +2878,32 @@ async function runLeadEnhancement(lead, workspaceId) {
   }
 
   let reviewHuntUsed = false;
+  let reviewHuntMeta = null;
   try {
     const reviewPack = await reviewHunt.runReviewHuntForLead(
       { ...lead, ...patch },
       integrationEnv,
       { mapsPlace }
     );
+    if (reviewPack) {
+      reviewHuntMeta = {
+        outscraperConfigured: !!reviewPack.outscraperConfigured,
+        reviewsFetched: !!reviewPack.reviewsFetched,
+        reviewError: reviewPack.reviewError || null,
+        reviewQuery: reviewPack.reviewQuery || null,
+        reviewsCount: reviewPack.patch?.reviewsCount ?? null,
+        snippetCount: Array.isArray(reviewPack.patch?.reviewSnippets)
+          ? reviewPack.patch.reviewSnippets.length
+          : 0,
+      };
+    }
     if (reviewPack && reviewPack.used && reviewPack.patch) {
       reviewHuntUsed = true;
       Object.assign(patch, reviewPack.patch);
       if (reviewPack.mapsPlace) mapsPlace = reviewPack.mapsPlace;
     }
   } catch (e) {
+    reviewHuntMeta = { reviewError: e.message || 'Review hunt failed' };
     console.warn('[ENHANCE] Review hunt failed:', e.message);
   }
 
@@ -2929,19 +2944,20 @@ async function runLeadEnhancement(lead, workspaceId) {
   if (shouldPersist) {
     patch.updates = baseUpdates;
     const updatedLead = await dbService.updateLead(fullKey, patch, leadWorkspaceId);
-    if (contactUpdated || reviewUpdated) {
-      return { success: true, lead: updatedLead };
-    }
-    return { success: true, lead: updatedLead };
+    const result = { success: true, lead: updatedLead };
+    if (reviewHuntMeta) result.reviewHunt = reviewHuntMeta;
+    return result;
   }
 
-  return {
+  const fail = {
     success: false,
-    error: betterContact.isConfigured(integrationEnv)
+    error: betterContact.isConfigured(integrationEnv) || outscraper.isConfigured(integrationEnv)
       ? 'No new contact or review data discovered yet. BetterContact, website search, and Google reviews did not find new signals.'
-      : 'No new contact or review data discovered yet. Add BETTERCONTACT_API_KEY and/or OUTSCRAPER_API_KEY under Workspace → API integrations.',
+      : 'No new contact or review data discovered yet. Add BetterContact and/or Outscraper under Workspace → API integrations.',
     lead: { ...lead, lastContactHuntAt: patch.lastContactHuntAt },
   };
+  if (reviewHuntMeta) fail.reviewHunt = reviewHuntMeta;
+  return fail;
 }
 
 // POST /leads/enhance-missing-contacts — admin backfill for leads missing phone/email
@@ -3099,6 +3115,97 @@ router.post('/:key/ai-analysis', async (req, res) => {
     res.json({ success: true, lead: updated, analysis, ownerSignal });
   } catch (err) {
     res.status(500).json({ success: false, error: err && err.message ? err.message : 'Analysis failed' });
+  }
+});
+
+/** POST /leads/:key/geo-seo-ghl-audit — GEO/SEO report + GHL tool sell recommendations (OpenRouter) */
+router.post('/:key/geo-seo-ghl-audit', async (req, res) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const refresh = !!(req.body && req.body.refresh);
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000;
+    if (
+      !refresh &&
+      lead.geoSeoGhlAudit &&
+      typeof lead.geoSeoGhlAudit === 'object' &&
+      lead.geoSeoGhlAuditAt
+    ) {
+      const age = Date.now() - new Date(lead.geoSeoGhlAuditAt).getTime();
+      if (age >= 0 && age < maxAgeMs) {
+        return res.json({
+          success: true,
+          cached: true,
+          report: lead.geoSeoGhlAudit,
+          lead,
+        });
+      }
+    }
+
+    const website = String(
+      (req.body && req.body.website) || lead.website || lead.url || '',
+    ).trim();
+    if (!website || website === 'N/A') {
+      return res.status(400).json({ success: false, error: 'Add a website URL to this lead first.' });
+    }
+
+    const geoSeoGhlAudit = require('../services/geoSeoGhlAudit');
+    let analysis = lead.aiWebsiteAnalysis;
+    let ownerSignal = lead.ownerSignal || '';
+
+    try {
+      const fresh = await websiteAiAnalysis.analyzeWebsite(website);
+      if (fresh) {
+        analysis = websiteAiAnalysis.mergePriorAuditSnapshot(fresh, analysis || null);
+        ownerSignal = websiteAiAnalysis.buildOwnerSignal(lead, analysis) || ownerSignal;
+      }
+    } catch (crawlErr) {
+      console.warn('[geo-seo-ghl-audit] website crawl failed:', crawlErr.message);
+    }
+
+    const intelLead = {
+      ...lead,
+      website: website !== 'N/A' ? website : lead.website,
+      aiWebsiteAnalysis: analysis || lead.aiWebsiteAnalysis,
+      ownerSignal,
+    };
+
+    const report = await geoSeoGhlAudit.generateGeoSeoGhlReport(intelLead);
+    const patch = {
+      geoSeoGhlAudit: report,
+      geoSeoGhlAuditAt: new Date().toISOString(),
+      ownerSignal,
+    };
+    if (analysis) {
+      patch.aiWebsiteAnalysis = analysis;
+      patch.aiWebsiteAnalysisScore = Number(analysis.analysisScore || 0);
+      patch.aiWebsiteAnalysisUpdatedAt = new Date().toISOString();
+    }
+    if (report.agencyOffer && report.agencyOffer.primaryServiceKey) {
+      patch.primaryServiceKey = report.agencyOffer.primaryServiceKey;
+    }
+
+    const updatedLead = await dbService.updateLead(fullKey, patch, req.workspaceId);
+    return res.json({
+      success: true,
+      cached: false,
+      report,
+      model: report.model || null,
+      provider: report.provider || null,
+      lead: updatedLead,
+    });
+  } catch (err) {
+    console.error('[geo-seo-ghl-audit] error:', err);
+    return res.status(500).json({
+      success: false,
+      error: err && err.message ? err.message : 'GEO/SEO audit failed',
+    });
   }
 });
 

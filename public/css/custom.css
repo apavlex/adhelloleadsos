@@ -961,6 +961,36 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   display: none !important;
 }
 
+/* Website audit button — same active/loading pattern as hunt */
+#pageSpeedAuditRunBtn.audit-active,
+#pageSpeedAuditRunBtn[data-audit-state="active"] {
+  animation: hunt-ring 1.25s ease-in-out infinite;
+  border-color: rgba(253, 224, 71, 0.65) !important;
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.12) 0%, rgba(255, 255, 255, 1) 45%);
+}
+
+.dark #pageSpeedAuditRunBtn[data-audit-state="active"] {
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.14) 0%, rgb(30 41 59) 50%);
+}
+
+#pageSpeedAuditRunBtn .page-speed-audit-active:not(.hidden) {
+  display: flex !important;
+}
+
+#pageSpeedAuditRunBtn[data-audit-state="active"] .page-speed-audit-idle,
+#pageSpeedAuditRunBtn[data-audit-state="idle"] .page-speed-audit-active {
+  display: none !important;
+}
+
+.page-speed-audit-progress-fill {
+  min-width: 6%;
+}
+
+#reviewIntelGrid.review-intel-loading {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
 .deep-enhance-progress-fill {
   min-width: 6%;
 }

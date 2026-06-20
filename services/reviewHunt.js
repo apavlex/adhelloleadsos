@@ -102,6 +102,8 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
   let mapsPlace = opts.mapsPlace || null;
   let snippets = [];
   let reviewsFetched = false;
+  let reviewError = null;
+  let reviewQuery = '';
 
   if (!mapsPlace || opts.forceMapsSearch) {
     mapsPlace = await mapsEnrichFallback.findMapsPlaceForLead(lead, integrationEnv);
@@ -123,11 +125,11 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
   }
 
   if (outscraper.isConfigured(integrationEnv)) {
-    const query = resolveReviewQuery(lead, mapsPlace);
-    if (query) {
+    reviewQuery = resolveReviewQuery(lead, mapsPlace);
+    if (reviewQuery) {
       try {
         const pack = await outscraper.fetchGoogleMapsReviews({
-          query,
+          query: reviewQuery,
           reviewsLimit: REVIEWS_FETCH_LIMIT,
           integrationEnv,
         });
@@ -141,10 +143,15 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
         if (snippets.length) {
           patch.reviewSnippets = snippets;
           reviewsFetched = true;
+        } else if (Array.isArray(pack.reviews) && pack.reviews.length > 0) {
+          reviewError = 'Reviews fetched but none had enough text for quotes.';
         }
       } catch (e) {
-        console.warn('[reviewHunt] Outscraper reviews failed:', e.message);
+        reviewError = e.message || 'Outscraper reviews request failed';
+        console.warn('[reviewHunt] Outscraper reviews failed:', reviewError);
       }
+    } else {
+      reviewError = 'No Maps place id, URL, or name to query for reviews.';
     }
   }
 
@@ -172,7 +179,16 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
     (Array.isArray(patch.reviewSnippets) && patch.reviewSnippets.length > 0) ||
     !!patch.reviewIntel;
 
-  return { patch, used, mapsPlace, snippets };
+  return {
+    patch,
+    used,
+    mapsPlace,
+    snippets,
+    reviewsFetched,
+    reviewError,
+    reviewQuery,
+    outscraperConfigured: outscraper.isConfigured(integrationEnv),
+  };
 }
 
 module.exports = {

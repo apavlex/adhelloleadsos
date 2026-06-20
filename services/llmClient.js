@@ -321,8 +321,12 @@ async function chatCompletion({
   max_tokens = 900,
   temperature = 0.45,
   providerChain = 'openrouter',
+  providersOverride = null,
 }) {
-  const chain = providersForChain(providerChain);
+  const chain =
+    Array.isArray(providersOverride) && providersOverride.length
+      ? providersOverride
+      : providersForChain(providerChain);
   if (!chain.length) {
     return { content: null, provider: 'none', error: true };
   }
@@ -345,8 +349,8 @@ async function chatCompletion({
     try {
       if (prov.name === 'gemini') {
         const out = await runGemini(prov, { messages, jsonObject, max_tokens, temperature });
-        last = out;
-        if (out.content && !out.error) return out;
+        last = { ...out, model: prov.model || null };
+        if (out.content && !out.error) return last;
         break; // gemini doesn't retry
       }
 
@@ -359,8 +363,8 @@ async function chatCompletion({
       }
 
       const out = await runOpenAICompatible(prov, url, body);
-      last = out;
-      if (out.content && !out.error) return out;
+      last = { ...out, model: prov.model || null };
+      if (out.content && !out.error) return last;
       if (attempt < retries - 1) {
         console.warn(`[llmClient] ${prov.name} attempt ${attempt + 1} failed, retrying...`);
       }
@@ -374,6 +378,41 @@ async function chatCompletion({
   return last;
 }
 
+/** Cheap audit chain: free → flash (skip pro unless OPENROUTER_AUDIT_MODEL set). */
+function auditOpenRouterProviders() {
+  const list = [];
+  const orKey = process.env.OPENROUTER_API_KEY;
+  if (!orKey || !String(orKey).trim()) return list;
+  const key = orKey.trim();
+  const url = 'https://openrouter.ai/api/v1/chat/completions';
+  const custom =
+    (process.env.OPENROUTER_AUDIT_MODEL && String(process.env.OPENROUTER_AUDIT_MODEL).trim()) ||
+    (process.env.OPENROUTER_MODEL && String(process.env.OPENROUTER_MODEL).trim());
+  if (custom) {
+    list.push({ name: 'openrouter-audit', apiKey: key, url, model: custom });
+    return list;
+  }
+  list.push({ name: 'openrouter-audit-free', apiKey: key, url, model: OPENROUTER_FREE_MODEL });
+  list.push({ name: 'openrouter-audit-flash', apiKey: key, url, model: OPENROUTER_CHEAP_MODEL });
+  return list;
+}
+
+/**
+ * OpenRouter completions for audits — prefers free qwen3-coder, then deepseek-v4-flash.
+ * @returns {Promise<{ content: string|null, provider: string, model: string|null, error?: boolean }>}
+ */
+async function auditChatCompletion(opts) {
+  const providers = auditOpenRouterProviders();
+  if (!providers.length) {
+    return { content: null, provider: 'none', model: null, error: true };
+  }
+  const out = await chatCompletion({
+    ...opts,
+    providersOverride: providers,
+  });
+  return { ...out, model: out.model || providers[0]?.model || null };
+}
+
 function activeProviderLabel(chain = 'openrouter') {
   const p = pickProvider(chain);
   return p ? normalizeProviderName(p.name) : null;
@@ -381,6 +420,8 @@ function activeProviderLabel(chain = 'openrouter') {
 
 module.exports = {
   chatCompletion,
+  auditChatCompletion,
+  auditOpenRouterProviders,
   pickProvider,
   activeProviderLabel,
   providersForChain,

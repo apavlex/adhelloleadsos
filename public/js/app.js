@@ -4254,8 +4254,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyIntel(data, heuristicFallback) {
-      if (loading) loading.classList.add('hidden');
-      if (grid) grid.classList.remove('hidden');
+      if (loading) {
+        loading.classList.add('hidden');
+        loading.setAttribute('aria-busy', 'false');
+      }
+      if (grid) {
+        grid.classList.remove('hidden', 'review-intel-loading');
+      }
+      if (refreshBtn) refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
       if (errEl) errEl.classList.add('hidden');
       const src = data && data.sourceNote;
       if (foot) {
@@ -4315,13 +4321,53 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    let persistedIntel = null;
+    try {
+      const rawIntel = row.dataset.reviewIntel;
+      if (rawIntel && rawIntel !== 'null' && rawIntel !== '') {
+        persistedIntel = JSON.parse(rawIntel);
+      }
+    } catch (_) {
+      persistedIntel = null;
+    }
+
+    if (persistedIntel && typeof persistedIntel === 'object') {
+      applyIntel(
+        {
+          strengths: persistedIntel.strengths,
+          weaknesses: persistedIntel.weaknesses,
+          sourceNote: persistedIntel.sourceNote,
+          cached: true,
+        },
+        null
+      );
+      if (!refresh) return;
+    }
+
+    try {
+      section.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (_) {}
+
     if (errEl) {
       errEl.classList.add('hidden');
       errEl.textContent = '';
     }
-    if (loading) loading.classList.remove('hidden');
-    if (grid) grid.classList.add('hidden');
-    if (foot) {
+    if (loading) {
+      loading.classList.remove('hidden');
+      loading.setAttribute('aria-busy', 'true');
+      const loadLabel = document.getElementById('reviewIntelLoadingLabel');
+      if (loadLabel) {
+        loadLabel.textContent = refresh
+          ? 'Refreshing AI reputation analysis…'
+          : 'Analyzing Google reviews & reputation…';
+      }
+    }
+    if (grid) {
+      if (persistedIntel) grid.classList.add('review-intel-loading');
+      else grid.classList.add('hidden');
+    }
+    if (refreshBtn) refreshBtn.classList.add('opacity-50', 'pointer-events-none');
+    if (foot && !persistedIntel) {
       foot.textContent = '';
       foot.classList.add('hidden');
     }
@@ -4337,9 +4383,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (reqId !== reviewIntelRequestId) return;
         if (data.success) {
           applyIntel(data, null);
+          try {
+            row.dataset.reviewIntel = JSON.stringify({
+              strengths: data.strengths || [],
+              weaknesses: data.weaknesses || [],
+              sourceNote: data.sourceNote || '',
+            });
+          } catch (_) {
+            /* ignore */
+          }
         } else {
-          if (loading) loading.classList.add('hidden');
-          if (grid) grid.classList.remove('hidden');
+          if (loading) {
+            loading.classList.add('hidden');
+            loading.setAttribute('aria-busy', 'false');
+          }
+          if (grid) grid.classList.remove('hidden', 'review-intel-loading');
+          if (refreshBtn) refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
           applyIntel(null, heuristic);
           if (errEl) {
             const hint = data.error ? String(data.error) : '';
@@ -4352,8 +4411,12 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .catch(() => {
         if (reqId !== reviewIntelRequestId) return;
-        if (loading) loading.classList.add('hidden');
-        if (grid) grid.classList.remove('hidden');
+        if (loading) {
+          loading.classList.add('hidden');
+          loading.setAttribute('aria-busy', 'false');
+        }
+        if (grid) grid.classList.remove('hidden', 'review-intel-loading');
+        if (refreshBtn) refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
         applyIntel(null, heuristic);
         if (errEl) {
           errEl.textContent = 'Could not reach review analysis. Showing quick signals below.';
@@ -4414,6 +4477,17 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.reviewSnippets = Array.isArray(L.reviewSnippets)
         ? JSON.stringify(L.reviewSnippets)
         : String(L.reviewSnippets || '[]');
+    }
+    if (L.reviewIntel != null) {
+      try {
+        ds.reviewIntel =
+          typeof L.reviewIntel === 'string' ? L.reviewIntel : JSON.stringify(L.reviewIntel);
+      } catch {
+        ds.reviewIntel = '';
+      }
+    }
+    if (L.totalScore != null || L.reviewsCount != null) {
+      syncRowReviewsDisplay(row);
     }
     if (L.status != null) ds.status = L.status;
     if (L.hasSchemaMarkup !== undefined && L.hasSchemaMarkup !== null) ds.hasSchemaMarkup = L.hasSchemaMarkup;
@@ -4482,6 +4556,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (L.pageSpeedAuditAt != null) ds.pageSpeedAuditAt = String(L.pageSpeedAuditAt || '');
     if (L.ownerSignal != null) ds.ownerSignal = String(L.ownerSignal || '');
+    if (L.geoSeoGhlAudit != null) {
+      try {
+        ds.geoSeoGhlAudit =
+          typeof L.geoSeoGhlAudit === 'object'
+            ? JSON.stringify(L.geoSeoGhlAudit)
+            : String(L.geoSeoGhlAudit || '');
+      } catch {
+        ds.geoSeoGhlAudit = '';
+      }
+    }
+    if (L.geoSeoGhlAuditAt != null) ds.geoSeoGhlAuditAt = String(L.geoSeoGhlAuditAt || '');
+    if (L.primaryServiceKey != null) {
+      ds.primaryServiceKey = L.primaryServiceKey ? String(L.primaryServiceKey).trim() : '';
+    }
     coalesceRowDatasetFromContacts(row);
     hydrateRowDatasetFromTableDom(row);
   }
@@ -4495,6 +4583,132 @@ document.addEventListener('DOMContentLoaded', () => {
       return o && typeof o === 'object' ? o : null;
     } catch {
       return null;
+    }
+  }
+
+  function parseGeoSeoGhlAuditFromRow(row) {
+    if (!row || !row.dataset) return null;
+    try {
+      const raw = row.dataset.geoSeoGhlAudit;
+      if (!raw || raw === 'null' || raw === '') return null;
+      const o = JSON.parse(raw);
+      return o && typeof o === 'object' ? o : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderGeoSeoGhlAuditInto(container, r) {
+    if (!container || !r) return;
+    const score = parseInt(r.overallScore, 10) || 0;
+    let scoreColor = 'text-rose-500';
+    if (score >= 85) scoreColor = 'text-emerald-500';
+    else if (score >= 70) scoreColor = 'text-sky-500';
+    else if (score >= 55) scoreColor = 'text-amber-500';
+
+    const gapsHtml = (Array.isArray(r.gaps) ? r.gaps : [])
+      .slice(0, 6)
+      .map((g) => {
+        const sev = String(g.severity || 'medium').toLowerCase();
+        const sevClass =
+          sev === 'high'
+            ? 'text-rose-600 dark:text-rose-400'
+            : sev === 'low'
+              ? 'text-brand-muted'
+              : 'text-amber-600 dark:text-amber-400';
+        return `<li class="mb-2 last:mb-0"><span class="text-[9px] font-black uppercase tracking-widest ${sevClass}">${escapeHtmlText(g.area || 'Gap')} · ${escapeHtmlText(sev)}</span><p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-0.5">${escapeHtmlText(g.finding || '')}</p><p class="text-[10px] text-brand-muted dark:text-slate-400">${escapeHtmlText(g.impact || '')}</p></li>`;
+      })
+      .join('');
+
+    const ghlHtml = (Array.isArray(r.ghlRecommendations) ? r.ghlRecommendations : [])
+      .slice(0, 6)
+      .sort((a, b) => (parseInt(a.priority, 10) || 99) - (parseInt(b.priority, 10) || 99))
+      .map(
+        (t) =>
+          `<li class="rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/80 dark:bg-slate-900/40 p-3 mb-2 last:mb-0"><div class="flex items-start justify-between gap-2"><p class="text-[11px] font-black text-brand-dark dark:text-white">${escapeHtmlText(t.toolName || 'GHL tool')}</p><span class="text-[9px] font-black uppercase tracking-widest text-brand-yellow shrink-0">P${escapeHtmlText(String(t.priority || ''))}</span></div><p class="text-[10px] text-brand-muted dark:text-slate-400 mt-1">${escapeHtmlText(t.why || '')}</p><p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-1.5 leading-relaxed">${escapeHtmlText(t.whatToSell || '')}</p></li>`,
+      )
+      .join('');
+
+    const winsHtml = (Array.isArray(r.quickWins) ? r.quickWins : [])
+      .slice(0, 5)
+      .map((w) => `<li class="text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed">${escapeHtmlText(w)}</li>`)
+      .join('');
+
+    const planHtml = (Array.isArray(r.thirtyDayPlan) ? r.thirtyDayPlan : [])
+      .slice(0, 4)
+      .map(
+        (p) =>
+          `<li class="text-[11px] text-brand-muted dark:text-slate-400"><span class="font-black text-brand-dark dark:text-white">Wk ${escapeHtmlText(String(p.week || ''))}:</span> ${escapeHtmlText(p.action || '')} <span class="text-brand-yellow">→ ${escapeHtmlText(p.ghlTool || '')}</span></li>`,
+      )
+      .join('');
+
+    const offer = r.agencyOffer && typeof r.agencyOffer === 'object' ? r.agencyOffer : {};
+    const modelNote = r.model
+      ? `Model: ${escapeHtmlText(r.model)}${r.aiUnavailable ? ' (heuristic fallback)' : ''}`
+      : r.source === 'heuristic'
+        ? 'Heuristic report (AI unavailable)'
+        : '';
+
+    container.innerHTML = `<div class="rounded-[1.75rem] border border-brand-border/25 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/30 p-4 sm:p-5 space-y-4"><div class="flex items-start justify-between gap-3"><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">GEO / SEO audit</p><p class="text-[28px] font-black leading-none ${scoreColor}">${score}<span class="text-sm font-bold text-brand-muted dark:text-slate-500">/100</span></p><p class="text-[10px] font-bold text-brand-muted mt-1">GEO ${parseInt(r.geoSeoScore, 10) || '—'} · Conversion ${parseInt(r.conversionScore, 10) || '—'}</p></div><span class="inline-block px-3 py-1 rounded-full text-[13px] font-black ${score >= 70 ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : score >= 55 ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400' : 'bg-rose-500/10 text-rose-600 dark:text-rose-400'}">${escapeHtmlText(r.grade || '—')}</span></div><p class="text-[12px] font-semibold text-brand-dark dark:text-slate-200 leading-relaxed">${escapeHtmlText(r.headline || '')}</p><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">Gaps to fix</p><ul class="list-none m-0 p-0">${gapsHtml}</ul></div><div class="rounded-xl border border-brand-yellow/30 bg-brand-yellow/5 dark:bg-brand-yellow/10 px-3 py-3"><p class="text-[9px] font-black uppercase tracking-widest text-brand-yellow mb-1">Sell first (agency)</p><p class="text-[12px] font-black text-brand-dark dark:text-white">${escapeHtmlText(offer.primaryServiceLabel || '')}</p><p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 leading-relaxed">${escapeHtmlText(offer.rationale || '')}</p><p class="text-[11px] font-semibold text-brand-dark dark:text-slate-200 mt-2 italic">"${escapeHtmlText(offer.talkTrack || '')}"</p></div><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-2">GoHighLevel tools to implement</p><ul class="list-none m-0 p-0">${ghlHtml}</ul></div><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">Quick wins</p><ul class="space-y-0.5 ml-0.5">${winsHtml}</ul></div><div><p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-1">30-day rollout</p><ul class="space-y-1">${planHtml}</ul></div>${modelNote ? `<p class="text-[9px] text-brand-muted/80 dark:text-slate-500">${modelNote}</p>` : ''}</div>`;
+  }
+
+  function syncGeoSeoGhlAuditPanel(row) {
+    const el = document.getElementById('geoSeoGhlAuditResult');
+    if (!el) return;
+    const report = row ? parseGeoSeoGhlAuditFromRow(row) : null;
+    if (!report) {
+      el.classList.add('hidden');
+      el.innerHTML = '';
+      return;
+    }
+    renderGeoSeoGhlAuditInto(el, report);
+    el.classList.remove('hidden');
+    const body = document.getElementById('pageSpeedAuditPanelBody');
+    if (body) body.classList.remove('hidden');
+  }
+
+  async function runGeoSeoGhlAuditForRow(row, opts) {
+    if (!row) throw new Error('No lead selected.');
+    setGeoSeoGhlAuditLoading(true, 'Generating GEO/SEO + GHL sell report…');
+    await ensureRowHasLeadKey(row);
+    const key = String(row.dataset.leadKey || '').trim();
+    const website = resolveRowWebsiteForAudit(row);
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/geo-seo-ghl-audit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ website, refresh: !!(opts && opts.refresh) }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'GEO/SEO audit failed');
+      }
+      if (data.lead) syncPersistedLeadToRowDataset(row, data.lead);
+      else if (data.report) {
+        row.dataset.geoSeoGhlAudit = JSON.stringify(data.report);
+        row.dataset.geoSeoGhlAuditAt = data.report.generatedAt || new Date().toISOString();
+      }
+      if (data.report) {
+        setGeoSeoGhlAuditLoading(false);
+        const errEl = document.getElementById('geoSeoGhlAuditError');
+        if (errEl) errEl.classList.add('hidden');
+        renderGeoSeoGhlAuditInto(document.getElementById('geoSeoGhlAuditResult'), data.report);
+        const resultEl = document.getElementById('geoSeoGhlAuditResult');
+        if (resultEl) resultEl.classList.remove('hidden');
+        const body = document.getElementById('pageSpeedAuditPanelBody');
+        if (body) body.classList.remove('hidden');
+      }
+      if (data.report && data.report.agencyOffer && data.report.agencyOffer.primaryServiceKey) {
+        row.dataset.primaryServiceKey = String(data.report.agencyOffer.primaryServiceKey);
+        if (typeof window.__renderLeadTagsPanel === 'function') {
+          window.__renderLeadTagsPanel(row);
+        }
+      }
+      return data;
+    } catch (err) {
+      setGeoSeoGhlAuditLoading(false);
+      throw err;
     }
   }
 
@@ -4704,20 +4918,162 @@ document.addEventListener('DOMContentLoaded', () => {
     else runBtn.textContent = label;
   }
 
+  function setGeoSeoGhlAuditLoading(running, label) {
+    const el = document.getElementById('geoSeoGhlAuditLoading');
+    const labelEl = document.getElementById('geoSeoGhlAuditLoadingLabel');
+    const resultEl = document.getElementById('geoSeoGhlAuditResult');
+    const body = document.getElementById('pageSpeedAuditPanelBody');
+    if (el) {
+      el.classList.toggle('hidden', !running);
+      el.setAttribute('aria-busy', running ? 'true' : 'false');
+    }
+    if (labelEl && label) labelEl.textContent = String(label);
+    if (running) {
+      if (resultEl) resultEl.classList.add('hidden');
+      if (body) body.classList.remove('hidden');
+      try {
+        el && el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      } catch (_) {}
+    }
+    syncPageSpeedAuditPanelBodyVisibility();
+  }
+
+  function updatePageSpeedAuditProgress(pct, statusLabel, detail, stepTitle) {
+    const bar = document.getElementById('pageSpeedAuditProgressBar');
+    const status = document.getElementById('pageSpeedAuditStatusLabel');
+    const detailEl = document.getElementById('pageSpeedAuditLoadingLabel');
+    const stepEl = document.getElementById('pageSpeedAuditStepTitle');
+    if (bar && pct != null) {
+      const clamped = Math.max(6, Math.min(100, Number(pct) || 0));
+      bar.style.width = `${clamped}%`;
+    }
+    if (status && statusLabel) status.textContent = String(statusLabel);
+    if (detailEl && detail) detailEl.textContent = String(detail);
+    if (stepEl && stepTitle) stepEl.textContent = String(stepTitle);
+  }
+
+  const AUDIT_PROGRESS_PHASES = [
+    { afterMs: 0, pct: 8, label: 'Scanning website…', detail: 'Fetching HTML, meta tags, and conversion signals.', step: 'Step 1 · Site scan' },
+    { afterMs: 4000, pct: 28, label: 'Building context…', detail: 'Merging reviews, ratings, and enrichment data.', step: 'Step 2 · Context' },
+    { afterMs: 12000, pct: 52, label: 'Generating GEO/SEO report…', detail: 'OpenRouter is analyzing gaps and local visibility.', step: 'Step 3 · AI report' },
+    { afterMs: 28000, pct: 72, label: 'Mapping GHL tools…', detail: 'Matching GoHighLevel features to what you can sell.', step: 'Step 4 · GHL stack' },
+    { afterMs: 45000, pct: 88, label: 'Almost done…', detail: 'Finishing recommendations and 30-day rollout.', step: 'Step 5 · Finalizing' },
+  ];
+
+  function auditProgressForElapsed(elapsedMs) {
+    let phase = AUDIT_PROGRESS_PHASES[0];
+    for (let i = 0; i < AUDIT_PROGRESS_PHASES.length; i += 1) {
+      if (elapsedMs >= AUDIT_PROGRESS_PHASES[i].afterMs) phase = AUDIT_PROGRESS_PHASES[i];
+    }
+    return phase;
+  }
+
+  let pageSpeedAuditProgressTimer = null;
+
+  function stopPageSpeedAuditProgressTicker() {
+    if (pageSpeedAuditProgressTimer) {
+      clearInterval(pageSpeedAuditProgressTimer);
+      pageSpeedAuditProgressTimer = null;
+    }
+  }
+
+  function startPageSpeedAuditProgressTicker() {
+    stopPageSpeedAuditProgressTicker();
+    const t0 = Date.now();
+    const tick = () => {
+      const phase = auditProgressForElapsed(Date.now() - t0);
+      updatePageSpeedAuditProgress(phase.pct, phase.label, phase.detail, phase.step);
+      setGeoSeoGhlAuditLoading(true, phase.label);
+    };
+    tick();
+    pageSpeedAuditProgressTimer = setInterval(tick, 900);
+  }
+
+  function setPageSpeedAuditUi(state, opts) {
+    const btn = document.getElementById('pageSpeedAuditRunBtn');
+    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
+    const idle = btn && btn.querySelector('.page-speed-audit-idle');
+    const active = btn && btn.querySelector('.page-speed-audit-active');
+    if (!btn) return;
+
+    const next = state || 'idle';
+    btn.dataset.auditState = next;
+    pageSpeedAuditInFlight = next === 'active';
+
+    if (next === 'active') {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('audit-active', 'cursor-wait', 'opacity-70');
+      if (idle) {
+        idle.classList.add('hidden');
+        idle.setAttribute('aria-hidden', 'true');
+      }
+      if (active) {
+        active.classList.remove('hidden');
+        active.removeAttribute('aria-hidden');
+      }
+      if (progressWrap) {
+        progressWrap.classList.remove('hidden');
+        progressWrap.setAttribute('aria-busy', 'true');
+        try {
+          progressWrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        } catch (_) {}
+      }
+      const phase = (opts && opts.phase) || AUDIT_PROGRESS_PHASES[0];
+      updatePageSpeedAuditProgress(phase.pct, phase.label, phase.detail, phase.step);
+      setGeoSeoGhlAuditLoading(true, phase.label);
+      const body = document.getElementById('pageSpeedAuditPanelBody');
+      if (body) body.classList.remove('hidden');
+      const results = document.getElementById('pageSpeedAuditResults');
+      const errEl = document.getElementById('pageSpeedAuditError');
+      if (results) results.classList.add('hidden');
+      if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+      }
+      startPageSpeedAuditProgressTicker();
+      return;
+    }
+
+    stopPageSpeedAuditProgressTicker();
+    setGeoSeoGhlAuditLoading(false);
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    btn.classList.remove('audit-active', 'cursor-wait', 'opacity-70');
+    if (idle) {
+      idle.classList.remove('hidden');
+      idle.removeAttribute('aria-hidden');
+    }
+    if (active) {
+      active.classList.add('hidden');
+      active.setAttribute('aria-hidden', 'true');
+    }
+    if (progressWrap) {
+      progressWrap.classList.add('hidden');
+      progressWrap.setAttribute('aria-busy', 'false');
+    }
+  }
+
   function syncPageSpeedAuditPanelBodyVisibility() {
     const body = document.getElementById('pageSpeedAuditPanelBody');
     const results = document.getElementById('pageSpeedAuditResults');
     const errEl = document.getElementById('pageSpeedAuditError');
+    const geoLoading = document.getElementById('geoSeoGhlAuditLoading');
+    const geoResult = document.getElementById('geoSeoGhlAuditResult');
     if (!body) return;
     const showResults = !!(results && !results.classList.contains('hidden'));
     const showError = !!(errEl && !errEl.classList.contains('hidden') && String(errEl.textContent || '').trim());
-    body.classList.toggle('hidden', !(showResults || showError));
+    const showGeoLoading = !!(geoLoading && !geoLoading.classList.contains('hidden'));
+    const showGeoResult = !!(geoResult && !geoResult.classList.contains('hidden'));
+    body.classList.toggle(
+      'hidden',
+      !(showResults || showError || showGeoLoading || showGeoResult || pageSpeedAuditInFlight),
+    );
   }
 
   function showPageSpeedAuditError(message) {
     const errEl = document.getElementById('pageSpeedAuditError');
-    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
-    if (progressWrap) progressWrap.classList.add('hidden');
+    setPageSpeedAuditUi('idle');
     if (errEl) {
       errEl.textContent = String(message || '').trim();
       if (errEl.textContent) errEl.classList.remove('hidden');
@@ -4730,53 +5086,22 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setPageSpeedAuditRunning(running) {
-    pageSpeedAuditInFlight = !!running;
-    const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
-    const results = document.getElementById('pageSpeedAuditResults');
-    const errEl = document.getElementById('pageSpeedAuditError');
-    const runBtn = document.getElementById('pageSpeedAuditRunBtn');
-    const icon = runBtn ? runBtn.querySelector('.page-speed-audit-icon') : null;
-
-    if (progressWrap) {
-      progressWrap.classList.toggle('hidden', !running);
-      progressWrap.setAttribute('aria-busy', running ? 'true' : 'false');
-      if (running) {
-        try {
-          progressWrap.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        } catch (_) {}
-      }
-    }
     if (running) {
-      if (results) results.classList.add('hidden');
-      if (errEl) {
-        errEl.classList.add('hidden');
-        errEl.textContent = '';
-      }
+      setPageSpeedAuditUi('active');
+    } else {
+      setPageSpeedAuditUi('idle');
     }
-    if (runBtn) {
-      runBtn.setAttribute('aria-busy', running ? 'true' : 'false');
-      if (running) {
-        runBtn.disabled = true;
-        runBtn.classList.add('opacity-70', 'cursor-wait', 'border-brand-yellow/50');
-        setPageSpeedAuditButtonLabel(runBtn, 'Running audit…');
-        if (icon) icon.classList.add('animate-spin');
-      } else {
-        runBtn.disabled = false;
-        runBtn.classList.remove('opacity-70', 'cursor-wait', 'border-brand-yellow/50');
-        if (icon) icon.classList.remove('animate-spin');
-      }
-    }
-    syncPageSpeedAuditPanelBodyVisibility();
   }
 
   function syncLeadPanelEmailReportSection(row) {
     const section = document.getElementById('leadPanelEmailReportSection');
     if (!section) return;
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
+    const geo = row ? parseGeoSeoGhlAuditFromRow(row) : null;
     const hasAnalysis = row ? !!getAiAnalysisFromRow(row) : false;
     const hasAssessment = row ? !!getAiToolsAssessmentFromRow(row) : false;
     const hasWebsite = !!(row && row.dataset && row.dataset.website && row.dataset.website !== 'N/A');
-    section.classList.toggle('hidden', !(audit || hasAnalysis || hasAssessment || hasWebsite));
+    section.classList.toggle('hidden', !(audit || geo || hasAnalysis || hasAssessment || hasWebsite));
   }
 
   function syncPageSpeedAuditPanel(row) {
@@ -4786,9 +5111,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
     if (!runBtn) return;
 
+    syncGeoSeoGhlAuditPanel(row);
+
     const websiteUrl = resolveRowWebsiteForAudit(row);
     const hasWebsite = !!websiteUrl;
     const audit = row ? parsePageSpeedAuditFromRow(row) : null;
+    const geoReport = row ? parseGeoSeoGhlAuditFromRow(row) : null;
 
     if (!pageSpeedAuditInFlight) {
       const blocked = !hasWebsite;
@@ -4798,18 +5126,28 @@ document.addEventListener('DOMContentLoaded', () => {
       runBtn.classList.toggle('cursor-not-allowed', blocked);
       runBtn.title = !hasWebsite
         ? 'Add a website URL first'
-        : audit
-          ? 'Re-run Lighthouse + AI readiness on this site'
-          : 'Run Lighthouse + AI readiness (saves lead if needed)';
-      setPageSpeedAuditButtonLabel(runBtn, pageSpeedAuditButtonLabel(!!audit, false));
+        : geoReport || audit
+          ? 'Re-run GEO/SEO + GHL audit (and Lighthouse if configured)'
+          : 'Run GEO/SEO audit + GoHighLevel sell report';
+      setPageSpeedAuditButtonLabel(runBtn, pageSpeedAuditButtonLabel(!!(audit || geoReport), false));
     }
 
     if (pageSpeedAuditInFlight) return;
 
     if (progressWrap && !pageSpeedAuditInFlight) progressWrap.classList.add('hidden');
 
-    if (!audit) {
+    if (!audit && !geoReport) {
       if (results) results.classList.add('hidden');
+      syncPageSpeedAuditPanelBodyVisibility();
+      return;
+    }
+
+    if (geoReport) {
+      const body = document.getElementById('pageSpeedAuditPanelBody');
+      if (body) body.classList.remove('hidden');
+    }
+
+    if (!audit) {
       syncPageSpeedAuditPanelBodyVisibility();
       return;
     }
@@ -5801,14 +6139,44 @@ document.addEventListener('DOMContentLoaded', () => {
       const txt = line ? line.textContent : '';
       const m = txt.match(/([\d]+(?:\.[\d]+)?)\s*\(\s*(\d+)\s*\)/);
       if (m) {
-        rating = parseFloat(m[1]) || rating;
-        reviews = parseInt(m[2], 10) || reviews;
+        const domRating = parseFloat(m[1]) || 0;
+        const domReviews = parseInt(m[2], 10) || 0;
+        if (domRating > 0 && rating === 0) rating = domRating;
+        reviews = Math.max(reviews, domReviews);
       } else {
         const m2 = txt.match(/\(\s*(\d+)\s*\)/);
-        if (m2) reviews = parseInt(m2[1], 10) || reviews;
+        if (m2) reviews = Math.max(reviews, parseInt(m2[1], 10) || 0);
+        const m3 = txt.match(/([\d]+(?:\.[\d]+)?)\s*reviews/i);
+        if (m3 && rating === 0) rating = parseFloat(m3[1]) || rating;
       }
     }
     return { rating, reviews };
+  }
+
+  function syncRowReviewsDisplay(row) {
+    if (!row || !row.dataset) return;
+    const rating = parseFloat(row.dataset.rating) || 0;
+    const reviews = parseInt(row.dataset.reviews, 10) || 0;
+    const reviewsInner = row.querySelector('.lead-reviews-inner');
+    if (reviewsInner && typeof renderLeadsReviewsInnerHtml === 'function') {
+      reviewsInner.innerHTML = renderLeadsReviewsInnerHtml(rating, reviews);
+      const starEl = reviewsInner.querySelector('.row-stars');
+      if (starEl && typeof renderStarsInElement === 'function') {
+        renderStarsInElement(starEl, rating);
+      }
+      return;
+    }
+    const starContainer = row.querySelector('td .row-stars');
+    if (starContainer && typeof renderReviewsCellInner === 'function') {
+      const cell = starContainer.closest('td');
+      if (cell) {
+        cell.innerHTML = renderReviewsCellInner(rating, reviews);
+        const starEl = cell.querySelector('.row-stars');
+        if (starEl && typeof renderStarsInElement === 'function') {
+          renderStarsInElement(starEl, rating);
+        }
+      }
+    }
   }
 
   function guessLeadPanelTimeZone(row) {
@@ -10039,27 +10407,31 @@ document.addEventListener('DOMContentLoaded', () => {
       await ensureRowHasLeadKey(row);
       if (loadingLabel) {
         loadingLabel.textContent =
-          'Running Lighthouse via PageSpeed (typically 30–60 seconds)…';
+          'Scanning website and generating GEO/SEO + GoHighLevel sell report…';
       }
-      await runPageSpeedAuditForRow(row);
+      const geoData = await runGeoSeoGhlAuditForRow(row, { refresh: true });
+      if (typeof window.showAppToast === 'function') {
+        const r = geoData.report || {};
+        window.showAppToast(
+          `GEO/SEO audit ready — ${r.overallScore || '—'}/100 (${r.grade || '—'}). See GHL tools below.`,
+          { variant: 'success' },
+        );
+      }
+
       if (loadingLabel) {
-        loadingLabel.textContent = 'Running AI readiness assessment…';
+        loadingLabel.textContent = 'Running Lighthouse (optional, if PageSpeed key is set)…';
       }
+      updatePageSpeedAuditProgress(92, 'Running Lighthouse…', 'Optional PageSpeed scan for performance scores.', 'Bonus · Lighthouse');
       try {
-        await runAiReadinessForRow(row);
-      } catch (aiErr) {
-        console.warn('[ai-readiness] after PageSpeed:', aiErr);
-        const errorEl = document.getElementById('aiReadinessError');
-        if (errorEl) {
-          errorEl.textContent =
-            (aiErr && aiErr.message) ||
-            'Lighthouse finished, but AI readiness could not run.';
-          errorEl.classList.remove('hidden');
-        }
+        await runPageSpeedAuditForRow(row);
+      } catch (psErr) {
+        console.warn('[pagespeed] optional after GEO audit:', psErr);
       }
+
       if (loadingLabel) {
         loadingLabel.textContent = 'Preparing shareable audit report link…';
       }
+      updatePageSpeedAuditProgress(96, 'Building share link…', 'Creating hosted audit report URL.', 'Final · Share link');
       try {
         await ensureLeadAiAnalysis(row);
         const bundle = await fetchAuditReportLinkBundle(row);
@@ -10092,21 +10464,15 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (gbpErr) {
         console.warn('[gbp-audit] after audit:', gbpErr);
       }
-
-      if (typeof window.showAppToast === 'function') {
-        const audit = parsePageSpeedAuditFromRow(row);
-        const avg = audit && audit.averageScore != null ? audit.averageScore : '—';
-        const reportReady = String(row.dataset.auditReportUrl || '').trim();
-        window.showAppToast(
-          reportReady
-            ? `Website audit complete (avg ${avg}/100). Open the shareable report link below.`
-            : `Website audit saved (avg ${avg}/100).`,
-          { variant: 'success' },
-        );
-      }
+      updatePageSpeedAuditProgress(100, 'Audit complete', 'GEO/SEO report and GHL recommendations are ready below.', 'Done');
     } catch (err) {
-      const msg = err && err.message ? err.message : 'PageSpeed audit failed';
+      const msg = err && err.message ? err.message : 'Website audit failed';
       showPageSpeedAuditError(msg);
+      const geoErr = document.getElementById('geoSeoGhlAuditError');
+      if (geoErr) {
+        geoErr.textContent = msg;
+        geoErr.classList.remove('hidden');
+      }
       if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
       else if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
       else window.alert(msg);
@@ -10116,9 +10482,11 @@ document.addEventListener('DOMContentLoaded', () => {
       syncLeadPanelEmailReportSection(row);
       const results = document.getElementById('pageSpeedAuditResults');
       const body = document.getElementById('pageSpeedAuditPanelBody');
+      if (parseGeoSeoGhlAuditFromRow(row) || parsePageSpeedAuditFromRow(row)) {
+        if (body) body.classList.remove('hidden');
+      }
       if (results && parsePageSpeedAuditFromRow(row)) {
         results.classList.remove('hidden');
-        if (body) body.classList.remove('hidden');
         syncPageSpeedAuditPanelBodyVisibility();
       }
     }
@@ -10143,6 +10511,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Contact hunt (sidebar + pipeline row sparkle) ---
   window.__contactHuntInFlight = window.__contactHuntInFlight || new Set();
+  window.__huntProgressInterval = window.__huntProgressInterval || null;
+  window.__huntProgressStartedAt = 0;
+
+  function stopHuntProgressTickerGlobal() {
+    if (window.__huntProgressInterval) {
+      clearInterval(window.__huntProgressInterval);
+      window.__huntProgressInterval = null;
+    }
+  }
+
+  function startHuntProgressTickerGlobal() {
+    stopHuntProgressTickerGlobal();
+    window.__huntProgressStartedAt = Date.now();
+    const tick = () => {
+      const elapsed = Date.now() - window.__huntProgressStartedAt;
+      const phase = huntProgressForElapsed(elapsed);
+      updateDeepEnhanceHuntProgress(phase.pct, phase.label, phase.detail);
+    };
+    tick();
+    window.__huntProgressInterval = setInterval(tick, 900);
+  }
 
   const HUNT_PROGRESS_PHASES = [
     { afterMs: 0, pct: 10, label: 'Starting hunt…', detail: 'Queuing BetterContact, website search, and Google reviews.' },
@@ -10279,12 +10668,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const inFlight = isContactHuntInFlightForRow(row);
     if (inFlight) {
       setDeepEnhanceHuntUi('active');
+      startHuntProgressTickerGlobal();
       if (meta) {
         meta.textContent = 'Hunt in progress — contacts, reviews, and AI summary…';
         meta.classList.remove('hidden');
       }
       return;
     }
+
+    stopHuntProgressTickerGlobal();
 
     const btn = document.getElementById('deepEnhanceBtn');
     if (btn && btn.dataset.huntState === 'done') return;
@@ -10308,10 +10700,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const onTick = opts && opts.onTick;
     const deadline = Date.now() + maxMs;
     const started = Date.now();
+    if (onTick) onTick(0);
     while (Date.now() < deadline) {
-      const elapsed = Date.now() - started;
-      if (onTick) onTick(elapsed);
       await new Promise((r) => setTimeout(r, interval));
+      if (onTick) onTick(Date.now() - started);
       const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/enhance-status`, {
         credentials: 'same-origin',
         headers: { Accept: 'application/json' },
@@ -10384,13 +10776,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const originalHTML = triggerBtn ? triggerBtn.innerHTML : '';
     const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
-    let huntProgressTimer = null;
 
     const stopHuntProgressTicker = () => {
-      if (huntProgressTimer) {
-        clearInterval(huntProgressTimer);
-        huntProgressTimer = null;
-      }
+      stopHuntProgressTickerGlobal();
     };
 
     const tickHuntProgress = (elapsedMs) => {
@@ -10400,10 +10788,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const startHuntProgressTicker = () => {
-      stopHuntProgressTicker();
-      const t0 = Date.now();
-      tickHuntProgress(0);
-      huntProgressTimer = setInterval(() => tickHuntProgress(Date.now() - t0), 900);
+      startHuntProgressTickerGlobal();
     };
 
     const clearHuntBusy = () => {
@@ -10499,6 +10884,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         updateRowContactCells(row);
+        syncRowReviewsDisplay(row);
 
         const keyAfter = row.dataset.leadKey;
         if (keyAfter) {
@@ -10513,7 +10899,29 @@ document.addEventListener('DOMContentLoaded', () => {
         stopHuntProgressTicker();
         updateProcessingStatus(false);
         populatePanel(row);
+        if (currentRow === row) {
+          paintPanelHeaderContactStrip(row);
+        }
         scheduleReviewIntelligence(row, { refresh: true });
+
+        const rh = data.reviewHunt;
+        if (rh && rh.reviewError && currentRow === row) {
+          const meta = document.getElementById('huntLastRunMeta');
+          if (meta) {
+            meta.textContent = `Contacts updated. Google reviews: ${rh.reviewError}`;
+            meta.classList.remove('hidden');
+          }
+        } else if (rh && rh.reviewsCount != null && currentRow === row) {
+          const meta = document.getElementById('huntLastRunMeta');
+          if (meta) {
+            const n = parseInt(rh.reviewsCount, 10) || 0;
+            const sn = rh.snippetCount != null ? parseInt(rh.snippetCount, 10) || 0 : 0;
+            meta.textContent = n > 0
+              ? `Google: ${Number(row.dataset.rating || 0).toFixed(1)}★ · ${n} reviews${sn ? ` · ${sn} quote(s)` : ''}`
+              : 'Google reviews refreshed (count pending).';
+            meta.classList.remove('hidden');
+          }
+        }
 
         if (currentRow === row && deepEnhanceBtn && isSidebarTrigger) {
           setDeepEnhanceHuntUi('done');
@@ -10557,6 +10965,13 @@ document.addEventListener('DOMContentLoaded', () => {
   if (deepEnhanceBtn) {
     deepEnhanceBtn.addEventListener('click', async () => {
       await runContactHuntForRow(currentRow, { triggerBtn: deepEnhanceBtn });
+    });
+  }
+
+  const reviewIntelRefreshBtn = document.getElementById('reviewIntelRefreshBtn');
+  if (reviewIntelRefreshBtn) {
+    reviewIntelRefreshBtn.addEventListener('click', () => {
+      if (currentRow) scheduleReviewIntelligence(currentRow, { refresh: true });
     });
   }
 
@@ -14196,6 +14611,11 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.reviewSnippets = JSON.stringify(lead.reviewSnippets || []);
     } catch (_) {
       ds.reviewSnippets = '[]';
+    }
+    try {
+      ds.reviewIntel = lead.reviewIntel ? JSON.stringify(lead.reviewIntel) : '';
+    } catch (_) {
+      ds.reviewIntel = '';
     }
     try {
       ds.sequenceState = JSON.stringify(lead.sequenceState || null);
