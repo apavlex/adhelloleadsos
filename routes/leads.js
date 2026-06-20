@@ -279,6 +279,7 @@ router.post('/save', async (req, res, next) => {
       folderKey,
       jobType,
       sourceType,
+      tagKeys,
       listing,
       realEstate,
     } = req.body;
@@ -333,6 +334,13 @@ router.post('/save', async (req, res, next) => {
     }
     if (resolvedFolderKey) {
       leadData.folderKey = resolvedFolderKey;
+    }
+
+    const incomingTags = dbService.normalizeTagKeys(
+      Array.isArray(tagKeys) ? tagKeys : tagKeys ? [tagKeys] : []
+    );
+    if (incomingTags.length) {
+      leadData.tags = incomingTags;
     }
 
     const noteText = note != null ? String(note).trim() : '';

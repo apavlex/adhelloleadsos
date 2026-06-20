@@ -11,12 +11,25 @@ const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
 const { resolveTargetFolder } = require('../services/pipelineFolders');
+const { parseAutoTags, resolveAutoTagKeys } = require('../services/folderSearchPreset');
 
 // POST /search — Google Maps list (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto)
 router.post('/', async (req, res, next) => {
   try {
     const wid = req.workspaceId;
-    const { keyword, city, state, maxResults, mode, directorySupplement } = req.body;
+    const {
+      keyword,
+      city,
+      state,
+      maxResults,
+      mode,
+      directorySupplement,
+      mapsProvider,
+      minRating,
+      minReviews,
+      autoTags,
+      searchNotes,
+    } = req.body;
     const activationUserEmail = userEmail(req);
     const activationWorkspaceId = wid;
 
@@ -53,10 +66,17 @@ router.post('/', async (req, res, next) => {
             state,
             maxResults: maxRes,
             integrationEnv,
+            mapsProvider: String(mapsProvider || '').trim() || undefined,
           });
           if (!results || results.length === 0) {
             throw new Error(
               'No businesses found for this keyword and area. Try a broader keyword, check city/state, and run Test connection on RapidAPI under Workspace → API integrations.'
+            );
+          }
+          results = mapsSearch.filterMapsResults(results, { minRating, minReviews });
+          if (!results || results.length === 0) {
+            throw new Error(
+              'No businesses matched your search criteria after rating/review filters. Try lowering min rating or review count.'
             );
           }
           if (wantDirectorySupplement) {
@@ -87,6 +107,11 @@ router.post('/', async (req, res, next) => {
             maxResults: parseInt(maxResults, 10) || 20,
             targetFolderKey,
             targetFolderName,
+            mapsProvider: String(mapsProvider || '').trim() || 'auto',
+            minRating: minRating != null && minRating !== '' ? parseFloat(minRating) : null,
+            minReviews: minReviews != null && minReviews !== '' ? parseInt(minReviews, 10) : null,
+            autoTags: parseAutoTags(autoTags),
+            searchNotes: String(searchNotes || '').trim(),
             resultCount: results.length,
             results,
             timestamp: new Date().toISOString(),
@@ -232,6 +257,11 @@ router.get('/:key', async (req, res, next) => {
       targetFolderName = resolved.targetFolderName || '';
     }
 
+    let autoTagKeys = [];
+    if (data.autoTags && data.autoTags.length) {
+      autoTagKeys = await resolveAutoTagKeys(req.workspaceId, data.autoTags);
+    }
+
     res.render('results', {
       title: `Results: ${data.keyword} in ${data.city}, ${data.state}`,
       activePage: 'search',
@@ -244,6 +274,10 @@ router.get('/:key', async (req, res, next) => {
       searchKey: fullKey,
       targetFolderKey,
       targetFolderName,
+      autoTags: data.autoTags || [],
+      autoTagKeys,
+      searchNotes: data.searchNotes || '',
+      mapsProvider: data.mapsProvider || 'auto',
       savedLeads,
       folders,
       message: null,

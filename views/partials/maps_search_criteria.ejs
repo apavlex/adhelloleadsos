@@ -1,0 +1,51 @@
+<%#
+  idPrefix: e.g. 'find' or 'folderSearch'
+  preset: optional normalized search preset object
+%>
+<% const _pfx = typeof idPrefix !== 'undefined' ? String(idPrefix) : 'find'; %>
+<% const _pre = typeof preset !== 'undefined' && preset ? preset : {}; %>
+<div class="space-y-4">
+  <div>
+    <label for="<%= _pfx %>MapsProvider" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Maps scraper</label>
+    <select id="<%= _pfx %>MapsProvider" name="mapsProvider" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
+      <option value="auto"<%= !_pre.mapsProvider || _pre.mapsProvider === 'auto' ? ' selected' : '' %>>Auto (best available)</option>
+      <option value="rapidapi"<%= _pre.mapsProvider === 'rapidapi' ? ' selected' : '' %>>RapidAPI Google Local</option>
+      <option value="searchapi"<%= _pre.mapsProvider === 'searchapi' ? ' selected' : '' %>>SearchAPI.io</option>
+      <option value="serpapi"<%= _pre.mapsProvider === 'serpapi' ? ' selected' : '' %>>SerpAPI</option>
+      <option value="oxylabs"<%= _pre.mapsProvider === 'oxylabs' ? ' selected' : '' %>>Oxylabs</option>
+      <option value="outscraper"<%= _pre.mapsProvider === 'outscraper' ? ' selected' : '' %>>Outscraper</option>
+      <option value="apify"<%= _pre.mapsProvider === 'apify' ? ' selected' : '' %>>Apify</option>
+    </select>
+    <p class="text-[11px] text-brand-muted mt-1">Configure API keys under Workspace → Integrations. Auto tries providers in priority order.</p>
+  </div>
+
+  <fieldset class="rounded-2xl border border-brand-border/40 dark:border-white/10 p-4 space-y-4">
+    <legend class="text-[10px] font-black uppercase tracking-widest text-brand-muted px-1">Search criteria</legend>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label for="<%= _pfx %>MinRating" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min Google rating</label>
+        <input type="number" id="<%= _pfx %>MinRating" name="minRating" min="0" max="5" step="0.1" placeholder="e.g. 4.0" value="<%= _pre.minRating != null ? _pre.minRating : '' %>" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+      </div>
+      <div>
+        <label for="<%= _pfx %>MinReviews" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min review count</label>
+        <input type="number" id="<%= _pfx %>MinReviews" name="minReviews" min="0" step="1" placeholder="e.g. 10" value="<%= _pre.minReviews != null ? _pre.minReviews : '' %>" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+      </div>
+    </div>
+    <div>
+      <label for="<%= _pfx %>AutoTags" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Auto-apply tags on save</label>
+      <input type="text" id="<%= _pfx %>AutoTags" name="autoTags" placeholder="GBP Setup, Local SEO, Review System" value="<%= Array.isArray(_pre.autoTags) ? _pre.autoTags.join(', ') : (_pre.autoTags || '') %>" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+      <p class="text-[11px] text-brand-muted mt-1">Comma-separated. Matches workspace tag names when leads are saved from results.</p>
+    </div>
+    <div>
+      <label for="<%= _pfx %>SearchNotes" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Features / custom criteria (notes)</label>
+      <textarea id="<%= _pfx %>SearchNotes" name="searchNotes" rows="2" placeholder="e.g. Must have website, prefer 4.5+ stars, no franchises…" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold"><%= _pre.searchNotes || '' %></textarea>
+    </div>
+    <label class="inline-flex items-start gap-2 text-sm cursor-pointer">
+      <input type="checkbox" id="<%= _pfx %>DirectorySupplement" name="directorySupplement" value="on" <%= _pre.directorySupplement !== false ? 'checked' : '' %> class="mt-1 rounded border-brand-border" />
+      <span>
+        <span class="font-semibold">Also mine directory listings</span>
+        <span class="block text-[11px] text-brand-muted mt-0.5">Yelp, Yellow Pages, and BBB when available.</span>
+      </span>
+    </label>
+  </fieldset>
+</div>

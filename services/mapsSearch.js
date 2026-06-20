@@ -180,7 +180,9 @@ async function runAutoMapsSearch(params, integrationEnv) {
  */
 async function searchGoogleMaps(params) {
   const integrationEnv = params.integrationEnv || null;
-  const primary = resolvePrimary(integrationEnv);
+  const override = String(params.mapsProvider || '').toLowerCase().trim();
+  const primary =
+    override && override !== 'auto' ? override : resolvePrimary(integrationEnv);
 
   if (primary === 'rapidapi') {
     if (!rapidapi.isConfigured(integrationEnv)) {
@@ -227,6 +229,19 @@ async function searchGoogleMaps(params) {
   return runAutoMapsSearch(params, integrationEnv);
 }
 
+function filterMapsResults(results, criteria = {}) {
+  let out = Array.isArray(results) ? [...results] : [];
+  const minRating = parseFloat(criteria.minRating);
+  if (Number.isFinite(minRating) && minRating > 0) {
+    out = out.filter((r) => parseFloat(r.totalScore) >= minRating);
+  }
+  const minReviews = parseInt(criteria.minReviews, 10);
+  if (Number.isFinite(minReviews) && minReviews > 0) {
+    out = out.filter((r) => parseInt(r.reviewsCount, 10) >= minReviews);
+  }
+  return out;
+}
+
 /** Status row for Workspace → Integrations (Auto chain order). */
 function getMapsProviderStatusList(integrationEnv) {
   return [
@@ -268,4 +283,5 @@ module.exports = {
   isMapsSearchConfigured,
   resolvePrimary,
   getMapsProviderStatusList,
+  filterMapsResults,
 };

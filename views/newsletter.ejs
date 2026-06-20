@@ -11,8 +11,8 @@
   <div class="flex items-center justify-between mb-8">
     <div>
       <div class="flex items-center gap-3 mb-1">
-        <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg" style="background:#3E2723">
-          <span class="text-lg">☕</span>
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-lg text-[#D7CCC8]" style="background:#3E2723">
+          <%- include('partials/icon', { name: 'coffee', iconClass: 'w-5 h-5' }) %>
         </div>
         <h1 class="text-3xl font-black tracking-tight text-brand-dark uppercase">Presso Newsletter</h1>
       </div>
@@ -56,14 +56,15 @@
       <textarea id="newsletterInstructions" rows="2" placeholder="e.g. Mention the Camas Farmers Market, highlight our new cold brew, keep it short this week" class="w-full rounded-xl border border-brand-border/40 bg-brand-cream/30 px-4 py-2.5 text-sm font-semibold text-brand-dark placeholder:text-brand-muted/50 focus:outline-none focus:border-brand-yellow resize-none"></textarea>
     </div>
 
-    <button id="btnGenerate" class="w-full md:w-auto px-8 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-white transition-all" style="background:#3E2723" onclick="generateNewsletter()">
-      ☕ Generate Newsletter Draft
+    <button id="btnGenerate" class="inline-flex items-center justify-center gap-2 w-full md:w-auto px-8 py-3 rounded-xl text-sm font-black uppercase tracking-widest text-white transition-all" style="background:#3E2723" onclick="generateNewsletter()">
+      <%- include('partials/icon', { name: 'coffee', iconClass: 'w-4 h-4' }) %>
+      Generate Newsletter Draft
     </button>
 
     <!-- Generation status -->
     <div id="genStatus" class="hidden mt-4 p-4 bg-brand-cream/40 rounded-xl border border-brand-border/20">
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:#FFD93D"><span>😊</span></div>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-brand-yellow/30 text-brand-dark"><%- include('partials/icon', { name: 'sparkles', iconClass: 'w-4 h-4' }) %></div>
         <div>
           <span id="genStatusLabel" class="text-sm font-bold text-brand-dark">Generating your newsletter...</span>
           <div class="flex gap-1 mt-1">
@@ -158,7 +159,7 @@
       clearInterval(labelInterval);
       status.classList.add('hidden');
       btn.disabled = false;
-      btn.textContent = '☕ Generate Newsletter Draft';
+      btn.textContent = 'Generate Newsletter Draft';
       btn.style.opacity = '1';
       isGenerating = false;
 
@@ -177,7 +178,7 @@
       clearInterval(labelInterval);
       status.classList.add('hidden');
       btn.disabled = false;
-      btn.textContent = '☕ Generate Newsletter Draft';
+      btn.textContent = 'Generate Newsletter Draft';
       btn.style.opacity = '1';
       isGenerating = false;
       alert('Connection error: ' + err.message);
@@ -308,7 +309,7 @@
     navigator.clipboard.writeText(text).then(function() {
       var btn = document.getElementById('btnCopyRaw');
       var orig = btn.textContent;
-      btn.textContent = '✓ Copied!';
+      btn.textContent = 'Copied!';
       setTimeout(function() { btn.textContent = orig; }, 2000);
     });
   });

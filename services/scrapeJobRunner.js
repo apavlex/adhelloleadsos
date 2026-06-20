@@ -19,6 +19,11 @@ async function runMapsBusinessJob(schedule, integrationEnv, options = {}) {
     state: schedule.state,
     maxResults: schedule.maxResults || 20,
     integrationEnv,
+    mapsProvider: schedule.mapsProvider || undefined,
+  });
+  results = mapsSearch.filterMapsResults(results, {
+    minRating: schedule.minRating,
+    minReviews: schedule.minReviews,
   });
 
   if (wantDirectorySupplement && results && results.length > 0) {

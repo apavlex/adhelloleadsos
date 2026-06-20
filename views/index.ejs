@@ -177,21 +177,10 @@
                 </div>
               </div>
 
-              <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30 open:pb-2">
-                <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white">
-                  <span>Maps extras</span>
-                  <span class="text-brand-muted group-open:rotate-180 transition-transform">▾</span>
-                </summary>
-                <div class="px-4 pb-4 space-y-4 border-t border-brand-border/30 dark:border-white/10 pt-4">
-                  <label class="inline-flex items-start gap-2 text-sm text-brand-dark dark:text-slate-200 cursor-pointer">
-                    <input type="checkbox" name="directorySupplement" value="on" checked class="mt-1 rounded border-brand-border" />
-                    <span>
-                      <span class="font-semibold">Also mine directory listings</span>
-                      <span class="block text-[11px] text-brand-muted mt-0.5">Yelp, Yellow Pages, and BBB when available.</span>
-                    </span>
-                  </label>
-                </div>
-              </details>
+              <%- include('partials/maps_search_criteria', {
+                idPrefix: 'find',
+                preset: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && _findType === 'maps') ? folderSearchPreset : {}
+              }) %>
               </div>
 
               <!-- Mobile homes -->
@@ -205,7 +194,8 @@
               <div data-find-panel="real_estate" class="find-type-panel space-y-6 <%= _findType !== 'real_estate' ? 'hidden' : '' %>">
                 <%- include('partials/find_panel_real_estate', {
                   minPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.minPrice != null) ? folderSearchPreset.minPrice : '',
-                  maxPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.maxPrice != null) ? folderSearchPreset.maxPrice : ''
+                  maxPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.maxPrice != null) ? folderSearchPreset.maxPrice : '',
+                  scraper: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.scraper) ? folderSearchPreset.scraper : 'auto'
                 }) %>
               </div>
 
@@ -398,8 +388,22 @@
       });
       var mhPanel = document.querySelector('[data-find-panel="mobile_homes"]');
       if (mhPanel && p.sources) applyListingSources(mhPanel, p.sources);
-      var dirCb = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
+      var dirCb = document.getElementById('findDirectorySupplement');
       if (dirCb && p.jobType === 'maps_business') dirCb.checked = p.directorySupplement !== false;
+      var mapsProv = document.getElementById('findMapsProvider');
+      if (mapsProv && p.mapsProvider) mapsProv.value = p.mapsProvider;
+      var minRat = document.getElementById('findMinRating');
+      if (minRat && p.minRating != null) minRat.value = String(p.minRating);
+      var minRev = document.getElementById('findMinReviews');
+      if (minRev && p.minReviews != null) minRev.value = String(p.minReviews);
+      var autoTags = document.getElementById('findAutoTags');
+      if (autoTags && p.autoTags) autoTags.value = Array.isArray(p.autoTags) ? p.autoTags.join(', ') : p.autoTags;
+      var notes = document.getElementById('findSearchNotes');
+      if (notes && p.searchNotes) notes.value = p.searchNotes;
+      var dirSup = document.getElementById('findDirectorySupplement');
+      if (dirSup) dirSup.checked = p.directorySupplement !== false;
+      var reScraper = document.getElementById('findReScraper');
+      if (reScraper && p.scraper) reScraper.value = p.scraper;
       if (p.flipFilter && p.flipFilter.enabled) {
         var flipCb = document.getElementById('findFlipEnabled');
         if (flipCb) {
@@ -548,6 +552,7 @@
       var hint = document.getElementById('findStep1Hint');
       var summary = document.getElementById('findLocationSummaryText');
       var dir = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
+      if (!dir) dir = document.getElementById('findDirectorySupplement');
       var cfg = FIND_CONFIG[currentType];
       var k = '—';
       if (currentType === 'maps') {
@@ -576,6 +581,8 @@
         var extra = '';
         if (currentType === 'maps') {
           if (dir && dir.checked) extra += ' · directory supplement on';
+          var mp = document.getElementById('findMapsProvider');
+          if (mp && mp.value && mp.value !== 'auto') extra += ' · ' + mp.options[mp.selectedIndex].text;
         } else if (currentType === 'mobile_homes') {
           var mhPanel = document.querySelector('[data-find-panel="mobile_homes"]');
           if (mhPanel) {
@@ -611,7 +618,7 @@
     document.querySelectorAll('[data-listing-source]').forEach(function (el) {
       el.addEventListener('change', syncFindPreview);
     });
-    var dirCb = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
+    var dirCb = document.getElementById('findDirectorySupplement');
     if (dirCb) dirCb.addEventListener('change', syncFindPreview);
     document.addEventListener('find:locationUpdated', syncFindPreview);
 

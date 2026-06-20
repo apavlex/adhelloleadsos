@@ -439,6 +439,9 @@
       twitter: row.dataset.twitter,
       folderKey: folderFromBar || folderFromSearch,
     };
+    if (Array.isArray(window.SEARCH_AUTO_TAG_KEYS) && window.SEARCH_AUTO_TAG_KEYS.length) {
+      leadData.tagKeys = window.SEARCH_AUTO_TAG_KEYS;
+    }
     try {
       const res = await fetch('/leads/save', {
         method: 'POST',

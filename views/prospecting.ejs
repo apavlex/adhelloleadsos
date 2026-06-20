@@ -271,14 +271,7 @@
             <label for="folderSearchKeyword" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Business keyword</label>
             <input type="text" id="folderSearchKeyword" placeholder="e.g. electrician" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
           </div>
-          <label class="inline-flex items-start gap-2 text-sm cursor-pointer">
-            <input type="checkbox" id="folderSearchDirectorySupplement" checked class="mt-1 rounded border-brand-border" />
-            <span>
-              <span class="font-semibold">Also mine directory listings</span>
-              <span class="block text-[11px] text-brand-muted mt-0.5">Yelp, Yellow Pages, and BBB when available.</span>
-            </span>
-          </label>
-          <p class="text-[11px] text-brand-muted">Scraper: Google Maps business search + background enrichment.</p>
+          <%- include('partials/maps_search_criteria', { idPrefix: 'folderSearch', preset: {} }) %>
         </div>
         <div id="folderSearchMhFields" class="space-y-3 hidden">
           <div>
@@ -336,7 +329,14 @@
           </div>
         </div>
         <div id="folderSearchReFields" class="space-y-3 hidden">
-          <p class="text-[11px] text-brand-muted">Scraper: Apify Zillow actor (Oxylabs fallback when configured in Workspace → API integrations).</p>
+          <div>
+            <label for="folderSearchReScraper" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Property scraper</label>
+            <select id="folderSearchReScraper" name="scraper" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+              <option value="auto">Auto (Apify Zillow → Oxylabs fallback)</option>
+              <option value="apify_zillow">Apify Zillow only</option>
+              <option value="oxylabs">Oxylabs only</option>
+            </select>
+          </div>
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label for="folderSearchReMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
@@ -466,9 +466,17 @@
       if ($('folderSearchJobType')) $('folderSearchJobType').value = jt;
       if ($('folderSearchMaxResults')) $('folderSearchMaxResults').value = String(p.maxResults || 25);
       if ($('folderSearchKeyword')) $('folderSearchKeyword').value = p.keyword || p.query || '';
+      if ($('folderSearchMapsProvider')) $('folderSearchMapsProvider').value = p.mapsProvider || 'auto';
+      if ($('folderSearchMinRating')) $('folderSearchMinRating').value = p.minRating != null ? String(p.minRating) : '';
+      if ($('folderSearchMinReviews')) $('folderSearchMinReviews').value = p.minReviews != null ? String(p.minReviews) : '';
+      if ($('folderSearchAutoTags')) {
+        $('folderSearchAutoTags').value = Array.isArray(p.autoTags) ? p.autoTags.join(', ') : (p.autoTags || '');
+      }
+      if ($('folderSearchSearchNotes')) $('folderSearchSearchNotes').value = p.searchNotes || '';
       if ($('folderSearchDirectorySupplement')) {
         $('folderSearchDirectorySupplement').checked = p.directorySupplement !== false;
       }
+      if ($('folderSearchReScraper')) $('folderSearchReScraper').value = p.scraper || 'auto';
       if ($('folderSearchQuery')) $('folderSearchQuery').value = p.query || 'mobile home';
       if ($('folderSearchMinPrice')) $('folderSearchMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
       if ($('folderSearchMaxPrice')) $('folderSearchMaxPrice').value = p.maxPrice != null ? String(p.maxPrice) : '';
@@ -552,8 +560,14 @@
       } else if (jt === 'real_estate') {
         body.minPrice = ($('folderSearchReMinPrice') && $('folderSearchReMinPrice').value) || '';
         body.maxPrice = ($('folderSearchReMaxPrice') && $('folderSearchReMaxPrice').value) || '';
+        body.scraper = ($('folderSearchReScraper') && $('folderSearchReScraper').value) || 'auto';
       } else {
         body.keyword = ($('folderSearchKeyword') && $('folderSearchKeyword').value) || 'plumber';
+        body.mapsProvider = ($('folderSearchMapsProvider') && $('folderSearchMapsProvider').value) || 'auto';
+        body.minRating = ($('folderSearchMinRating') && $('folderSearchMinRating').value) || '';
+        body.minReviews = ($('folderSearchMinReviews') && $('folderSearchMinReviews').value) || '';
+        body.autoTags = ($('folderSearchAutoTags') && $('folderSearchAutoTags').value) || '';
+        body.searchNotes = ($('folderSearchSearchNotes') && $('folderSearchSearchNotes').value) || '';
         if ($('folderSearchDirectorySupplement') && $('folderSearchDirectorySupplement').checked) {
           body.directorySupplement = 'on';
         }

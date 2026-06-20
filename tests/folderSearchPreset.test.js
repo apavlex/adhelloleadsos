@@ -77,3 +77,19 @@ test('describeSearchPreset summarizes scrapers and prices', () => {
   assert.ok(summary.rows.some((r) => r.label === 'Scrapers' && r.value.includes('Craigslist')));
   assert.ok(summary.rows.some((r) => r.label === 'Price range' && r.value.includes('15,000')));
 });
+
+test('parseAutoTags splits comma-separated labels', () => {
+  const { parseAutoTags } = require('../services/folderSearchPreset');
+  assert.deepEqual(parseAutoTags('GBP Setup, Local SEO'), ['GBP Setup', 'Local SEO']);
+});
+
+test('filterMapsResults applies rating and review thresholds', () => {
+  const { filterMapsResults } = require('../services/mapsSearch');
+  const rows = [
+    { title: 'A', totalScore: 4.5, reviewsCount: 20 },
+    { title: 'B', totalScore: 3.5, reviewsCount: 5 },
+  ];
+  const out = filterMapsResults(rows, { minRating: 4, minReviews: 10 });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].title, 'A');
+});
