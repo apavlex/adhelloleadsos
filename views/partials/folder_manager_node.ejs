@@ -13,13 +13,13 @@
     <button type="button" class="folder-tree-expand shrink-0 w-10 sm:w-11 flex items-center justify-center text-brand-muted hover:text-brand-dark dark:hover:text-white text-xs font-bold transition-colors" aria-expanded="false" aria-label="Expand <%= _f.name %> subfolders" title="Show subfolders">▶</button>
     <% } else { %><span class="w-10 sm:w-11 shrink-0" aria-hidden="true"></span><% } %>
     <div class="flex-1 min-w-0 border-b border-brand-border/30 dark:border-white/10">
-      <%- include('partials/folder_manager_row', { f: _f, fc: _fc, depth: _depth, inTree: true, compact: _f.isPipelineDefault && _depth === 0 }) %>
+      <%- include('folder_manager_row', { f: _f, fc: _fc, depth: _depth, inTree: true, compact: _f.isPipelineDefault && _depth === 0 }) %>
     </div>
   </div>
   <% if (_hasChildren) { %>
   <ul class="folder-tree-children hidden m-0 p-0 list-none bg-brand-cream/5 dark:bg-slate-950/30" data-folder-tree-children>
     <% _children.forEach(function (child) { %>
-      <%- include('partials/folder_manager_node', {
+      <%- include('folder_manager_node', {
         f: child,
         fc: _counts[child.key] || 0,
         depth: _depth + 1,
