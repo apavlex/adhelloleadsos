@@ -1232,6 +1232,38 @@ module.exports = {
     return merged;
   },
 
+  _actionPlanCatalogKey(workspaceId, email) {
+    const wid = workspaceId || 'default';
+    const frag = this._emailKeyFragment(email);
+    return `action_plan_catalog:${wid}:${frag}`;
+  },
+
+  async getActionPlanCatalog(workspaceId, email) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'getActionPlanCatalog');
+    const key = this._actionPlanCatalogKey(wid, email);
+    const raw = kvGet(key);
+    if (!raw) return null;
+    try {
+      return typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch {
+      return null;
+    }
+  },
+
+  async saveActionPlanCatalog(workspaceId, email, data) {
+    const wid = await this._resolveWorkspaceIdForWrite(workspaceId);
+    assertLeadScopedWorkspaceId(wid, 'saveActionPlanCatalog');
+    const key = this._actionPlanCatalogKey(wid, email);
+    const merged = {
+      ...(data || {}),
+      email,
+      updatedAt: new Date().toISOString(),
+    };
+    kvSet(key, JSON.stringify(merged));
+    return merged;
+  },
+
   // --- Personal tasks (checklist + kanban) ---
 
   _userTaskKey(workspaceId, email, taskId) {

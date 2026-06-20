@@ -246,6 +246,29 @@ router.post('/action-plan/toggle', express.json(), async (req, res, next) => {
   }
 });
 
+/** Load the user's action-plan activity catalog (categories + client goal). */
+router.get('/action-plan/catalog', async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    const catalog = await actionPlanTracker.loadCatalog(req.workspaceId, email);
+    return res.json({ success: true, catalog });
+  } catch (e) {
+    return res.status(500).json({ success: false, error: e && e.message ? e.message : 'catalog_load_failed' });
+  }
+});
+
+/** Save or reset the action-plan activity catalog. */
+router.put('/action-plan/catalog', express.json(), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const catalog = await actionPlanTracker.saveCatalog(req.workspaceId, email, body);
+    return res.json({ success: true, catalog });
+  } catch (e) {
+    return res.status(400).json({ success: false, error: e && e.message ? e.message : 'catalog_save_failed' });
+  }
+});
+
 /** Load sample leads for empty-state onboarding (workspace-scoped). */
 router.post('/seed-demo', express.urlencoded({ extended: true }), async (req, res, next) => {
   try {

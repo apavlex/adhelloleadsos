@@ -4,7 +4,11 @@
 
 const dbService = require('./database');
 const pipelineStagesService = require('./pipelineStagesService');
-const { ACTION_PLAN_CATEGORIES, ALL_ACTIVITY_IDS } = require('./actionPlanActivities');
+const {
+  DEFAULT_ACTION_PLAN_CATEGORIES,
+  normalizeCatalog,
+  allActivityIds,
+} = require('./actionPlanActivities');
 
 const MONTH_NAMES = [
   'January',
@@ -41,15 +45,35 @@ function normalizeYearMonth(year, month) {
   return { year: y, month: m };
 }
 
-function normalizeCompletions(raw) {
+function normalizeCompletions(raw, validIds) {
+  const allowed = new Set(validIds || []);
   const out = {};
   if (!raw || typeof raw !== 'object') return out;
   Object.entries(raw).forEach(([date, val]) => {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) return;
     const ids = Array.isArray(val) ? val : [];
-    out[date] = ids.filter((id) => ALL_ACTIVITY_IDS.includes(id));
+    out[date] = ids.filter((id) => allowed.has(id));
   });
   return out;
+}
+
+async function loadCatalog(workspaceId, email) {
+  const stored = await dbService.getActionPlanCatalog(workspaceId, email);
+  if (stored && Array.isArray(stored.categories) && stored.categories.length) {
+    return normalizeCatalog(stored);
+  }
+  return normalizeCatalog({ categories: DEFAULT_ACTION_PLAN_CATEGORIES, clientGoal: 5 });
+}
+
+async function saveCatalog(workspaceId, email, payload) {
+  if (payload && payload.reset) {
+    const catalog = normalizeCatalog({ categories: DEFAULT_ACTION_PLAN_CATEGORIES, clientGoal: 5 });
+    await dbService.saveActionPlanCatalog(workspaceId, email, catalog);
+    return catalog;
+  }
+  const catalog = normalizeCatalog(payload || {});
+  await dbService.saveActionPlanCatalog(workspaceId, email, catalog);
+  return catalog;
 }
 
 async function countClientsAcquiredYtd(workspaceId, leads) {
@@ -108,10 +132,11 @@ async function loadMonthView(opts) {
   const { year, month } = normalizeYearMonth(opts.year, opts.month);
   const wid = opts.workspaceId || 'default';
   const email = opts.email || 'anon';
+  const catalog = await loadCatalog(wid, email);
+  const activityIds = allActivityIds(catalog.categories);
   const stored = await dbService.getActionPlanMonth(wid, email, year, month);
-  const completions = normalizeCompletions(stored && stored.completions);
-  const clientGoal =
-    stored && stored.clientGoal != null ? parseInt(stored.clientGoal, 10) || 5 : 5;
+  const completions = normalizeCompletions(stored && stored.completions, activityIds);
+  const clientGoal = catalog.clientGoal;
   const dim = daysInMonth(year, month);
   const today = new Date();
   const todayKey = dateKey(today.getFullYear(), today.getMonth() + 1, today.getDate());
@@ -127,11 +152,11 @@ async function loadMonthView(opts) {
     monthShort: MONTH_SHORT[month - 1],
     daysInMonth: dim,
     days: Array.from({ length: dim }, (_, i) => i + 1),
-    categories: ACTION_PLAN_CATEGORIES,
+    categories: catalog.categories,
+    clientGoal,
     completions,
     dailyTotals: buildDailyTotals(completions, year, month),
     monthlyTotal: monthlyTotal(completions, year, month),
-    clientGoal,
     clientsAcquiredYtd,
     todayKey,
     todayDay: today.getDate(),
@@ -143,14 +168,17 @@ async function toggleCell({ workspaceId, email, date, activityId }) {
   const dateStr = String(date || '').trim();
   const act = String(activityId || '').trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) throw new Error('Invalid date');
-  if (!ALL_ACTIVITY_IDS.includes(act)) throw new Error('Invalid activity');
+
+  const wid = workspaceId || 'default';
+  const catalog = await loadCatalog(wid, email);
+  const validIds = allActivityIds(catalog.categories);
+  if (!validIds.includes(act)) throw new Error('Invalid activity');
 
   const parts = dateStr.split('-');
   const year = parseInt(parts[0], 10);
   const month = parseInt(parts[1], 10);
-  const wid = workspaceId || 'default';
   const stored = await dbService.getActionPlanMonth(wid, email, year, month);
-  const completions = normalizeCompletions(stored && stored.completions);
+  const completions = normalizeCompletions(stored && stored.completions, validIds);
   const cur = new Set(completions[dateStr] || []);
   if (cur.has(act)) cur.delete(act);
   else cur.add(act);
@@ -174,5 +202,7 @@ async function toggleCell({ workspaceId, email, date, activityId }) {
 module.exports = {
   loadMonthView,
   toggleCell,
+  loadCatalog,
+  saveCatalog,
   MONTH_SHORT,
 };
