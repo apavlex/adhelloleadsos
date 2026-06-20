@@ -82,8 +82,14 @@ async function runMobileHomesJob(schedule, integrationEnv) {
     schedule._flipStats = scored.stats;
     if (!scored.listings.length) {
       const stats = scored.stats || {};
+      const landHint =
+        flipFilter.landMode === 'own_land_only'
+          ? ' Own-land automode may be filtering park deals and listings without land signals.'
+          : flipFilter.landMode === 'exclude_park'
+            ? ' Park / lot-rent exclusion may be removing most inventory.'
+            : '';
       throw new Error(
-        `Found ${stats.inputCount || results.length} listings but none met flip criteria (min score ${flipFilter.minFlipScore}, min ROI ${flipFilter.minRoiPercent}%). Try lowering thresholds or disabling "Flip deals only".`
+        `Found ${stats.inputCount || results.length} listings but none met flip criteria (min score ${flipFilter.minFlipScore}, min ROI ${flipFilter.minRoiPercent}%).${landHint} Try lowering thresholds or relaxing land filters.`
       );
     }
     results = scored.listings;

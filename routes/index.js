@@ -4,6 +4,8 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
+const { ensurePipelineFolders } = require('../services/pipelineFolders');
+const { JOB_TYPES } = require('../services/scrapeJobTypes');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -23,7 +25,12 @@ async function renderFindLeads(req, res, next) {
     const allSchedules = await dbService.listSchedules();
     const wid = req.workspaceId;
     const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
-    const folders = await dbService.listFolders(wid);
+    const folders = await ensurePipelineFolders(wid);
+    const pipelineFolderByType = {
+      maps: folders.find((f) => f && f.jobType === JOB_TYPES.MAPS_BUSINESS) || null,
+      mobile_homes: folders.find((f) => f && f.jobType === JOB_TYPES.MOBILE_HOMES) || null,
+      real_estate: folders.find((f) => f && f.jobType === JOB_TYPES.REAL_ESTATE) || null,
+    };
 
     const workspace = (await dbService.getWorkspace(wid)) || {};
     const presetIcp = String(req.query.preset || '').toLowerCase() === 'icp';
@@ -63,6 +70,7 @@ async function renderFindLeads(req, res, next) {
       mapDefaultZoom,
       schedules,
       folders,
+      pipelineFolderByType,
       searchPrefill,
       presetIcp,
       nightlyPrepMeta,

@@ -101,7 +101,7 @@
         One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
         (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> unfiled in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
         <% } %>
-        Drag cards on the kanban to move through stages; table view shows status and source. Filed leads live in <a href="/prospecting?tab=folders" class="font-bold text-brand-yellow hover:underline">Folders</a> until you open them here.
+        Use the <strong class="text-brand-dark dark:text-white">Folder</strong> filter to open a search-type pipeline — <strong>Businesses (Maps)</strong>, <strong>Mobile homes</strong>, or <strong>Real estate</strong>. Filed leads stay out of the main table until you pick their folder.
       </p>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-4 flex flex-wrap gap-x-4 gap-y-2">
         <a href="/sequences" class="font-bold text-brand-yellow hover:underline">Cadences</a>
@@ -156,7 +156,7 @@
       <select name="folderKey" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white" title="Show leads from a folder or main pipeline">
         <option value=""<%= !_fk ? ' selected' : '' %>>Main pipeline (unfiled)</option>
         <% _folders.forEach(function (fd) { if (!fd || !fd.key) return; %>
-        <option value="<%= fd.key %>"<%= _fk === String(fd.key) ? ' selected' : '' %>><%= fd.name || 'Folder' %></option>
+        <option value="<%= fd.key %>"<%= _fk === String(fd.key) ? ' selected' : '' %>><%= fd.isPipelineDefault ? '▸ ' : '' %><%= fd.name || 'Folder' %></option>
         <% }); %>
       </select>
     </div>
@@ -168,7 +168,10 @@
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Origin</label>
       <select name="origin" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white">
         <option value=""<%= !_lf.origin ? ' selected' : '' %>>All origins</option>
-        <option value="search"<%= _lf.origin === 'search' ? ' selected' : '' %>>Searched / maps</option>
+        <option value="maps_business"<%= _lf.origin === 'maps_business' ? ' selected' : '' %>>Businesses (Maps)</option>
+        <option value="mobile_homes"<%= _lf.origin === 'mobile_homes' ? ' selected' : '' %>>Mobile homes</option>
+        <option value="real_estate"<%= _lf.origin === 'real_estate' ? ' selected' : '' %>>Real estate</option>
+        <option value="search"<%= _lf.origin === 'search' ? ' selected' : '' %>>All searched</option>
         <option value="csv"<%= _lf.origin === 'csv' ? ' selected' : '' %>>CSV import</option>
         <option value="manual"<%= _lf.origin === 'manual' ? ' selected' : '' %>>Manual / offline</option>
         <option value="warm"<%= _lf.origin === 'warm' ? ' selected' : '' %>>Warm (inbound)</option>

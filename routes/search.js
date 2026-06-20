@@ -10,6 +10,7 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
+const { resolveTargetFolder } = require('../services/pipelineFolders');
 
 // POST /search — Google Maps list (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto)
 router.post('/', async (req, res, next) => {
@@ -79,6 +80,7 @@ router.post('/', async (req, res, next) => {
           console.log('[SEARCH-BG] Starting deep enrichment pass...');
           results = await enricher.enrichLeads(results, { workspaceId: activationWorkspaceId });
           const searchRecord = {
+            jobType: JOB_TYPES.MAPS_BUSINESS,
             keyword,
             city,
             state,
@@ -102,27 +104,19 @@ router.post('/', async (req, res, next) => {
       });
     }
 
-    const requestedFolderKey = String(req.body.folderKey || '').trim();
-    const newFolderName = String(req.body.newFolderName || '').trim();
-    let targetFolderKey = '';
-    let targetFolderName = '';
-
-    if (newFolderName) {
-      const folder = await dbService.createFolder(wid, newFolderName);
-      targetFolderKey = folder && folder.key ? String(folder.key) : '';
-      targetFolderName = folder && folder.name ? String(folder.name) : newFolderName;
-    } else if (requestedFolderKey) {
-      const folders = await dbService.listFolders(wid);
-      const existing = folders.find((f) => f && String(f.key) === requestedFolderKey);
-      if (!existing) {
-        return res.status(400).render('error', {
-          message: 'Selected folder no longer exists. Refresh and choose again.',
-          activePage: 'search',
-        });
-      }
-      targetFolderKey = String(existing.key);
-      targetFolderName = String(existing.name || '');
+    const folderResolved = await resolveTargetFolder(wid, {
+      folderKey: req.body.folderKey,
+      newFolderName: req.body.newFolderName,
+      jobType: JOB_TYPES.MAPS_BUSINESS,
+    });
+    if (folderResolved.error) {
+      return res.status(400).render('error', {
+        message: folderResolved.error,
+        activePage: 'search',
+      });
     }
+    const targetFolderKey = folderResolved.targetFolderKey;
+    const targetFolderName = folderResolved.targetFolderName;
 
     if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).render('error', {
@@ -227,6 +221,17 @@ router.get('/:key', async (req, res, next) => {
     const savedLeads = filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
     const folders = await dbService.listFolders(req.workspaceId);
 
+    let targetFolderKey = data.targetFolderKey || '';
+    let targetFolderName = data.targetFolderName || '';
+    if (!targetFolderKey && data.jobType) {
+      const resolved = await resolveTargetFolder(req.workspaceId, {
+        jobType: data.jobType,
+        autoDefault: true,
+      });
+      targetFolderKey = resolved.targetFolderKey || '';
+      targetFolderName = resolved.targetFolderName || '';
+    }
+
     res.render('results', {
       title: `Results: ${data.keyword} in ${data.city}, ${data.state}`,
       activePage: 'search',
@@ -234,10 +239,11 @@ router.get('/:key', async (req, res, next) => {
       city: data.city,
       state: data.state,
       maxResults: data.maxResults,
+      jobType: data.jobType || JOB_TYPES.MAPS_BUSINESS,
       results: data.results || [],
       searchKey: fullKey,
-      targetFolderKey: data.targetFolderKey || '',
-      targetFolderName: data.targetFolderName || '',
+      targetFolderKey,
+      targetFolderName,
       savedLeads,
       folders,
       message: null,

@@ -88,6 +88,9 @@
                     data-category="<%= place.categoryName || 'N/A' %>"
                     data-address="<%= place.address || 'N/A' %>"
                     data-city="<%= place.city || '' %>"
+                    data-state="<%= place.state || '' %>"
+                    data-job-type="<%= typeof jobType !== 'undefined' ? jobType : (place.jobType || '') %>"
+                    data-source-type="<%= place.sourceType || '' %>"
                     data-rating="<%= place.totalScore || 0 %>"
                     data-reviews="<%= place.reviewsCount || 0 %>"
                     data-url="<%= place.url || '' %>"
@@ -169,6 +172,11 @@
                       <% const tierCls = fs >= 8 ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300' : fs >= 6.5 ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300' : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'; %>
                       <div class="flex flex-col items-center gap-1 min-w-[5rem]" title="<%= flipAnalysis.summary || '' %>">
                         <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border <%= tierCls %>">Flip · <%= fs.toFixed(1) %>/10</span>
+                        <% if (flipAnalysis.landTenureLabel) { %>
+                          <% const lt = flipAnalysis.landTenure; %>
+                          <% const ltCls = lt === 'own_land' ? 'text-emerald-700 dark:text-emerald-400' : lt === 'park_lot_rent' ? 'text-rose-600 dark:text-rose-400' : 'text-brand-muted'; %>
+                          <span class="text-[9px] font-bold <%= ltCls %>"><%= flipAnalysis.landTenureLabel %></span>
+                        <% } %>
                         <% if (flipAnalysis.roiPercent != null) { %>
                           <span class="text-[9px] font-bold text-brand-muted">~<%= Math.round(flipAnalysis.roiPercent) %>% ROI</span>
                         <% } %>
@@ -239,7 +247,8 @@
     // Inject saved leads from server to app.js context
     window.INITIAL_SAVED_LEADS = <%- JSON.stringify(savedLeads || []) %>;
     window.SEARCH_TARGET_FOLDER_KEY = <%- JSON.stringify(targetFolderKey || '') %>;
-    window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %>;
+    window.SEARCH_JOB_TYPE = <%- JSON.stringify(typeof jobType !== 'undefined' ? jobType : '') %>;
+    window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name, jobType: f.jobType || '' })) : []) %>;
   </script>
 
   <script src="/js/app.js?v=<%= assetVersion %>"></script>

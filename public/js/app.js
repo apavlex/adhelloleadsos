@@ -10570,6 +10570,10 @@ document.addEventListener('DOMContentLoaded', () => {
       (typeof window.SEARCH_TARGET_FOLDER_KEY === 'string'
         ? window.SEARCH_TARGET_FOLDER_KEY.trim()
         : '');
+    const jobType =
+      (row.dataset.jobType && String(row.dataset.jobType).trim()) ||
+      (typeof window.SEARCH_JOB_TYPE === 'string' ? window.SEARCH_JOB_TYPE.trim() : '');
+    const sourceType = row.dataset.sourceType ? String(row.dataset.sourceType).trim() : '';
     const titleKey = normalizeLeadTitleKey(row.dataset.title);
     const leadData = {
       title: row.dataset.title,
@@ -10579,6 +10583,7 @@ document.addEventListener('DOMContentLoaded', () => {
       categoryName: row.dataset.category,
       address: row.dataset.address,
       city: row.dataset.city,
+      state: row.dataset.state || '',
       totalScore: parseFloat(row.dataset.rating),
       reviewsCount: parseInt(row.dataset.reviews, 10),
       url: row.dataset.url,
@@ -10586,6 +10591,8 @@ document.addEventListener('DOMContentLoaded', () => {
       instagram: row.dataset.instagram,
       twitter: row.dataset.twitter,
       folderKey: targetFolderKey,
+      jobType,
+      sourceType,
     };
 
     try {
@@ -11961,7 +11968,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isSearchBulk = !!document.getElementById('searchResultsLeadsTable');
     const folderKey = getBulkSaveFolderKey();
 
-    if (isSearchBulk && !folderKey) {
+    if (isSearchBulk && !folderKey && !window.SEARCH_TARGET_FOLDER_KEY) {
       window.alert('Select a folder (or create one) before saving leads.');
       return;
     }

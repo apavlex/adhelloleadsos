@@ -53,6 +53,11 @@ function scheduleDisplaySubtitle(schedule) {
       parts.push(`flip ≥${ff.minFlipScore || 7}`);
       if (ff.minRoiPercent) parts.push(`ROI ≥${ff.minRoiPercent}%`);
       if (ff.onlyUnique) parts.push('unique only');
+      const landMode = String(ff.landMode || 'any');
+      if (landMode === 'own_land_only') parts.push('own land only');
+      else if (landMode === 'exclude_park') parts.push('no park rent');
+      else if (landMode === 'prefer_own_land') parts.push('prefer land');
+      if (ff.requireNoHoa) parts.push('no HOA');
     }
     if (schedule && schedule.maxPrice) parts.push(`max $${Number(schedule.maxPrice).toLocaleString()}`);
     parts.push(`up to ${(schedule && schedule.maxResults) || 20} listings`);

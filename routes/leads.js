@@ -4,6 +4,8 @@ const path = require('path');
 const fs = require('fs/promises');
 const router = express.Router();
 const dbService = require('../services/database');
+const { folderKeyForJobType, leadMetadataForJobType } = require('../services/pipelineFolders');
+const { normalizeJobType } = require('../services/scrapeJobTypes');
 const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
@@ -275,6 +277,10 @@ router.post('/save', async (req, res, next) => {
       note,
       source,
       folderKey,
+      jobType,
+      sourceType,
+      listing,
+      realEstate,
     } = req.body;
 
     if (!title) {
@@ -312,9 +318,21 @@ router.post('/save', async (req, res, next) => {
 
     if (isManual) {
       leadData.source = 'manual_offline';
+    } else if (jobType) {
+      Object.assign(leadData, leadMetadataForJobType(jobType, { listing, realEstate }));
+    } else if (sourceType) {
+      leadData.sourceType = String(sourceType).trim();
+      if (source && String(source).trim()) leadData.source = String(source).trim();
+    } else if (source && String(source).trim()) {
+      leadData.source = String(source).trim();
     }
-    if (folderKey && String(folderKey).trim()) {
-      leadData.folderKey = String(folderKey).trim();
+
+    let resolvedFolderKey = folderKey && String(folderKey).trim() ? String(folderKey).trim() : '';
+    if (!resolvedFolderKey && jobType) {
+      resolvedFolderKey = await folderKeyForJobType(req.workspaceId, normalizeJobType(jobType));
+    }
+    if (resolvedFolderKey) {
+      leadData.folderKey = resolvedFolderKey;
     }
 
     const noteText = note != null ? String(note).trim() : '';

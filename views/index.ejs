@@ -185,16 +185,21 @@
 
               <details class="group rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/30 open:pb-2">
                 <summary class="cursor-pointer list-none flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white">
-                  <span>Target folder (optional)</span>
+                  <span>Pipeline folder</span>
                   <span class="text-brand-muted group-open:rotate-180 transition-transform">▾</span>
                 </summary>
                 <div class="px-4 pb-4 space-y-4 border-t border-brand-border/30 dark:border-white/10 pt-4">
+                  <p class="text-[11px] text-brand-muted leading-relaxed">Each search type saves to its own pipeline table by default — Businesses, Mobile homes, or Real estate. Override here if needed.</p>
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label for="searchFolderKey" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Folder</label>
                       <select id="searchFolderKey" name="folderKey" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
-                        <option value="">Main pipeline (no folder)</option>
-                        <% (folders || []).forEach((fd) => { if (!fd || !fd.key) return; %>
+                        <option value="">Auto (by search type)</option>
+                        <% const _pf = typeof pipelineFolderByType !== 'undefined' ? pipelineFolderByType : {}; %>
+                        <% if (_pf.maps && _pf.maps.key) { %><option value="<%= _pf.maps.key %>" data-job-type="maps"><%= _pf.maps.name %></option><% } %>
+                        <% if (_pf.mobile_homes && _pf.mobile_homes.key) { %><option value="<%= _pf.mobile_homes.key %>" data-job-type="mobile_homes"><%= _pf.mobile_homes.name %></option><% } %>
+                        <% if (_pf.real_estate && _pf.real_estate.key) { %><option value="<%= _pf.real_estate.key %>" data-job-type="real_estate"><%= _pf.real_estate.name %></option><% } %>
+                        <% (folders || []).forEach((fd) => { if (!fd || !fd.key || (fd.isPipelineDefault)) return; %>
                           <option value="<%= fd.key %>"><%= fd.name %></option>
                         <% }) %>
                         <option value="__new__">+ Create new folder</option>

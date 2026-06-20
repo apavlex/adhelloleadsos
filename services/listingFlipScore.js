@@ -70,6 +70,60 @@ const RISK_KEYWORDS = [
   'no financing',
 ];
 
+/** Land-owned / fee-simple signals — park rent eats flip margin. */
+const LAND_OWNED_KEYWORDS = [
+  'land included',
+  'own land',
+  'owns land',
+  'owned land',
+  'land owned',
+  'fee simple',
+  'deeded land',
+  'deeded lot',
+  'includes land',
+  'with land',
+  'on owned land',
+  'private land',
+  'no lot rent',
+  'no park rent',
+  'not in a park',
+  'not in park',
+  ' acre',
+  ' acres',
+  ' acreage',
+];
+
+const NO_HOA_KEYWORDS = [
+  'no hoa',
+  'without hoa',
+  'hoa free',
+  'no homeowners association',
+  'no association fee',
+];
+
+const PARK_LOT_RENT_KEYWORDS = [
+  'park rent',
+  'lot rent',
+  'space rent',
+  'pad rent',
+  'monthly lot',
+  'lot lease',
+  'leased lot',
+  'rent the lot',
+  'pay lot rent',
+  'in a park',
+  'mobile home park',
+  'manufactured home park',
+  'community park',
+  '55+ park',
+  'park community',
+  'community fee',
+  'hoa fee',
+  'association fee',
+];
+
+const LAND_MODES = ['any', 'exclude_park', 'prefer_own_land', 'own_land_only'];
+
 const DEFAULT_FLIP_FILTER = {
   enabled: false,
   minFlipScore: 7,
@@ -77,6 +131,13 @@ const DEFAULT_FLIP_FILTER = {
   onlyUnique: false,
   useAi: true,
   aiMaxCandidates: 20,
+  landMode: 'any',
+  requireOwnLand: false,
+  excludeParkRent: false,
+  requireNoHoa: false,
+  requirePhrases: [],
+  excludePhrases: [],
+  boostPhrases: [],
 };
 
 function parseNumber(raw, fallback) {
@@ -88,6 +149,51 @@ function parseBool(raw) {
   if (raw === true || raw === 1) return true;
   const s = String(raw || '').trim().toLowerCase();
   return s === 'on' || s === 'true' || s === '1' || s === 'yes';
+}
+
+function parsePhraseList(raw) {
+  if (Array.isArray(raw)) {
+    return raw.map((s) => String(s || '').trim().toLowerCase()).filter(Boolean);
+  }
+  if (raw == null) return [];
+  return String(raw)
+    .split(/[\n,;|]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function uniquePhrases(list) {
+  return [...new Set(list.map((s) => String(s || '').trim().toLowerCase()).filter(Boolean))];
+}
+
+function normalizeLandMode(raw) {
+  const mode = String(raw || '').trim().toLowerCase();
+  return LAND_MODES.includes(mode) ? mode : 'any';
+}
+
+function resolveDealCriteria(flipFilter) {
+  const filter = { ...DEFAULT_FLIP_FILTER, ...flipFilter };
+  const requirePhrases = uniquePhrases(filter.requirePhrases || []);
+  const excludePhrases = uniquePhrases(filter.excludePhrases || []);
+  const boostPhrases = uniquePhrases(filter.boostPhrases || []);
+
+  if (filter.requireOwnLand || filter.landMode === 'own_land_only') {
+    requirePhrases.push(...LAND_OWNED_KEYWORDS);
+  }
+  if (filter.requireNoHoa) {
+    requirePhrases.push(...NO_HOA_KEYWORDS);
+  }
+  if (filter.excludeParkRent || filter.landMode === 'exclude_park' || filter.landMode === 'own_land_only') {
+    excludePhrases.push(...PARK_LOT_RENT_KEYWORDS);
+  }
+
+  return {
+    ...filter,
+    landMode: normalizeLandMode(filter.landMode),
+    requirePhrases: uniquePhrases(requirePhrases),
+    excludePhrases: uniquePhrases(excludePhrases),
+    boostPhrases: uniquePhrases(boostPhrases),
+  };
 }
 
 /**
@@ -129,6 +235,27 @@ function parseFlipFilter(raw) {
           10
         ) || DEFAULT_FLIP_FILTER.aiMaxCandidates
       )
+    ),
+    landMode: normalizeLandMode(
+      nested ? nested.landMode : raw.landMode || raw.flipLandMode
+    ),
+    requireOwnLand: nested
+      ? parseBool(nested.requireOwnLand)
+      : parseBool(raw.requireOwnLand || raw.flipRequireOwnLand),
+    excludeParkRent: nested
+      ? parseBool(nested.excludeParkRent)
+      : parseBool(raw.excludeParkRent || raw.flipExcludePark),
+    requireNoHoa: nested
+      ? parseBool(nested.requireNoHoa)
+      : parseBool(raw.requireNoHoa || raw.flipRequireNoHoa),
+    requirePhrases: parsePhraseList(
+      nested ? nested.requirePhrases : raw.requirePhrases || raw.flipRequirePhrases
+    ),
+    excludePhrases: parsePhraseList(
+      nested ? nested.excludePhrases : raw.excludePhrases || raw.flipExcludePhrases
+    ),
+    boostPhrases: parsePhraseList(
+      nested ? nested.boostPhrases : raw.boostPhrases || raw.flipBoostPhrases
     ),
   };
 }
@@ -205,9 +332,92 @@ function countKeywordHits(text, keywords) {
 }
 
 /**
- * @returns {{ ruleScore: number, reasons: string[], risks: string[], sourceCount: number, pricePerSqft: number|null, passesPreFilter: boolean }}
+ * @returns {'own_land'|'park_lot_rent'|'unknown'}
  */
-function scoreListingRules(row, context) {
+function classifyLandTenure(text) {
+  const landHits = countKeywordHits(text, LAND_OWNED_KEYWORDS);
+  const parkHits = countKeywordHits(text, PARK_LOT_RENT_KEYWORDS);
+
+  if (parkHits.length && !landHits.length) return 'park_lot_rent';
+  if (landHits.length && !parkHits.length) return 'own_land';
+  if (landHits.length && parkHits.length) return 'own_land';
+  return 'unknown';
+}
+
+function landTenureLabel(tenure) {
+  if (tenure === 'own_land') return 'Land owned';
+  if (tenure === 'park_lot_rent') return 'Park / lot rent';
+  return 'Tenure unclear';
+}
+
+function evaluateDealCriteria(text, criteria) {
+  const requireHits = countKeywordHits(text, criteria.requirePhrases || []);
+  const excludeHits = countKeywordHits(text, criteria.excludePhrases || []);
+  const boostHits = countKeywordHits(text, criteria.boostPhrases || []);
+  const landTenure = classifyLandTenure(text);
+  const landHits = countKeywordHits(text, LAND_OWNED_KEYWORDS);
+  const parkHits = countKeywordHits(text, PARK_LOT_RENT_KEYWORDS);
+
+  let excluded = false;
+  let excludeReason = '';
+
+  if (excludeHits.length) {
+    excluded = true;
+    excludeReason = `Excluded phrase match (${excludeHits.slice(0, 2).join(', ')})`;
+  }
+
+  const requireActive =
+    (criteria.requirePhrases && criteria.requirePhrases.length > 0) ||
+    criteria.landMode === 'own_land_only' ||
+    criteria.requireOwnLand;
+
+  if (!excluded && requireActive) {
+    const passesRequire = requireHits.length > 0;
+    if (!passesRequire && criteria.landMode === 'own_land_only') {
+      excluded = true;
+      excludeReason = 'No land-owned signals in listing (own-land automode)';
+    } else if (!passesRequire && criteria.requirePhrases.length) {
+      excluded = true;
+      excludeReason = 'Missing required description phrases';
+    }
+  }
+
+  if (!excluded && criteria.landMode === 'own_land_only' && landTenure === 'park_lot_rent') {
+    excluded = true;
+    excludeReason = 'Park / lot-rent deal (own-land automode)';
+  }
+
+  if (!excluded && criteria.landMode === 'exclude_park' && landTenure === 'park_lot_rent') {
+    excluded = true;
+    excludeReason = 'Park / lot-rent deal';
+  }
+
+  let landScoreDelta = 0;
+  if (landTenure === 'own_land') landScoreDelta += 1.5;
+  if (landTenure === 'park_lot_rent') landScoreDelta -= 1.5;
+  if (criteria.landMode === 'prefer_own_land') {
+    if (landTenure === 'own_land') landScoreDelta += 1;
+    if (landTenure === 'park_lot_rent') landScoreDelta -= 1;
+  }
+  if (boostHits.length) landScoreDelta += Math.min(1.5, boostHits.length * 0.4);
+
+  return {
+    landTenure,
+    landHits,
+    parkHits,
+    requireHits,
+    excludeHits,
+    boostHits,
+    excluded,
+    excludeReason,
+    landScoreDelta,
+  };
+}
+
+/**
+ * @returns {{ ruleScore: number, reasons: string[], risks: string[], sourceCount: number, pricePerSqft: number|null, passesPreFilter: boolean, landTenure: string, dealCriteria: object }}
+ */
+function scoreListingRules(row, context, criteria = null) {
   const listing = row.listing || {};
   const text = listingText(row);
   const reasons = [];
@@ -243,6 +453,30 @@ function scoreListingRules(row, context) {
     ruleScore -= Math.min(2, riskHits.length * 0.5);
     risks.push(...riskHits.slice(0, 4).map((k) => `Mentioned: ${k}`));
   }
+
+  const dealCriteria = criteria ? evaluateDealCriteria(text, criteria) : {
+    landTenure: classifyLandTenure(text),
+    landHits: countKeywordHits(text, LAND_OWNED_KEYWORDS),
+    parkHits: countKeywordHits(text, PARK_LOT_RENT_KEYWORDS),
+    requireHits: [],
+    excludeHits: [],
+    boostHits: [],
+    excluded: false,
+    excludeReason: '',
+    landScoreDelta: 0,
+  };
+
+  if (dealCriteria.landTenure === 'own_land') {
+    reasons.push(`Land-owned (${dealCriteria.landHits.slice(0, 2).join(', ') || 'signals'})`);
+  } else if (dealCriteria.landTenure === 'park_lot_rent') {
+    risks.push(`Park / lot rent (${dealCriteria.parkHits.slice(0, 2).join(', ')})`);
+  }
+
+  if (dealCriteria.boostHits.length) {
+    reasons.push(`Boost phrases (${dealCriteria.boostHits.slice(0, 2).join(', ')})`);
+  }
+
+  ruleScore += dealCriteria.landScoreDelta || 0;
 
   if (pricePerSqft != null && context.medianPricePerSqft != null) {
     const ratio = pricePerSqft / context.medianPricePerSqft;
@@ -281,12 +515,14 @@ function scoreListingRules(row, context) {
   ruleScore = Math.max(0, Math.min(10, Math.round(ruleScore * 10) / 10));
 
   const passesPreFilter =
-    ruleScore >= 2 ||
-    motivated.length > 0 ||
-    flipSignals.length > 0 ||
-    (pricePerSqft != null &&
-      context.medianPricePerSqft != null &&
-      pricePerSqft <= context.medianPricePerSqft * 0.9);
+    !dealCriteria.excluded &&
+    (ruleScore >= 2 ||
+      motivated.length > 0 ||
+      flipSignals.length > 0 ||
+      dealCriteria.landTenure === 'own_land' ||
+      (pricePerSqft != null &&
+        context.medianPricePerSqft != null &&
+        pricePerSqft <= context.medianPricePerSqft * 0.9));
 
   return {
     ruleScore,
@@ -295,6 +531,8 @@ function scoreListingRules(row, context) {
     sourceCount,
     pricePerSqft,
     passesPreFilter,
+    landTenure: dealCriteria.landTenure,
+    dealCriteria,
   };
 }
 
@@ -329,7 +567,7 @@ function combineScores(ruleScore, aiResult) {
   };
 }
 
-function buildAiPrompt(row, ruleResult, context) {
+function buildAiPrompt(row, ruleResult, context, criteria = null) {
   const listing = row.listing || {};
   return JSON.stringify(
     {
@@ -346,16 +584,33 @@ function buildAiPrompt(row, ruleResult, context) {
       ruleScore: ruleResult.ruleScore,
       ruleReasons: ruleResult.reasons,
       ruleRisks: ruleResult.risks,
+      landTenure: ruleResult.landTenure,
       pricePerSqft: ruleResult.pricePerSqft,
       batchMedianPricePerSqft: context.medianPricePerSqft,
       sourceCount: ruleResult.sourceCount,
+      investorCriteria: criteria
+        ? {
+            landMode: criteria.landMode,
+            requirePhrases: (criteria.requirePhrases || []).slice(0, 12),
+            excludePhrases: (criteria.excludePhrases || []).slice(0, 12),
+          }
+        : null,
     },
     null,
     0
   );
 }
 
-async function scoreListingWithAi(row, ruleResult, context) {
+async function scoreListingWithAi(row, ruleResult, context, criteria = null) {
+  const landNote =
+    criteria && criteria.landMode === 'own_land_only'
+      ? ' Investor requires fee-simple / land-owned deals — heavily penalize park lot rent and missing land signals.'
+      : criteria && criteria.landMode === 'exclude_park'
+        ? ' Exclude park / lot-rent deals from strong scores.'
+        : criteria && criteria.landMode === 'prefer_own_land'
+          ? ' Prefer land-included deals; park rent erodes margin.'
+          : ' Penalize park-rent / lot-lease uncertainty.';
+
   const ai = await chatCompletion({
     messages: [
       {
@@ -375,11 +630,11 @@ Respond with JSON only:
   "summary": string (one sentence verdict)
 }
 
-Be conservative on ARV and ROI. Penalize park-rent / lot-lease uncertainty. Reward motivated seller language, land-included, and below-market pricing.`,
+Be conservative on ARV and ROI.${landNote} Reward motivated seller language, land-included / fee-simple tenure, and below-market pricing.`,
       },
       {
         role: 'user',
-        content: buildAiPrompt(row, ruleResult, context),
+        content: buildAiPrompt(row, ruleResult, context, criteria),
       },
     ],
     jsonObject: true,
@@ -400,6 +655,7 @@ Be conservative on ARV and ROI. Penalize park-rent / lot-lease uncertainty. Rewa
 }
 
 function passesFlipFilter(analysis, flipFilter) {
+  if (analysis.excludedByCriteria) return false;
   if (analysis.flipScore < flipFilter.minFlipScore) return false;
   if (
     flipFilter.minRoiPercent > 0 &&
@@ -415,6 +671,23 @@ function passesFlipFilter(analysis, flipFilter) {
     if (!unique) return false;
   }
   return true;
+}
+
+function landTenureSortRank(tenure, landMode) {
+  if (landMode === 'any') return 0;
+  if (tenure === 'own_land') return 0;
+  if (tenure === 'unknown') return 1;
+  if (tenure === 'park_lot_rent') return 2;
+  return 1;
+}
+
+function compareFlipListings(a, b, landMode) {
+  const aa = a.listing && a.listing.flipAnalysis ? a.listing.flipAnalysis : {};
+  const bb = b.listing && b.listing.flipAnalysis ? b.listing.flipAnalysis : {};
+  const landCmp =
+    landTenureSortRank(aa.landTenure, landMode) - landTenureSortRank(bb.landTenure, landMode);
+  if (landCmp !== 0 && landMode !== 'any') return landCmp;
+  return (b.flipScore || 0) - (a.flipScore || 0);
 }
 
 function attachAnalysis(row, analysis) {
@@ -436,7 +709,7 @@ function attachAnalysis(row, analysis) {
  * @returns {Promise<{ listings: object[], stats: object }>}
  */
 async function scoreAndFilterListings(listings, flipFilter, context = {}) {
-  const filter = { ...DEFAULT_FLIP_FILTER, ...flipFilter };
+  const filter = resolveDealCriteria({ ...DEFAULT_FLIP_FILTER, ...flipFilter });
   const rows = Array.isArray(listings) ? [...listings] : [];
 
   if (!filter.enabled) {
@@ -455,9 +728,11 @@ async function scoreAndFilterListings(listings, flipFilter, context = {}) {
   };
 
   const ruleScored = rows.map((row) => {
-    const rules = scoreListingRules(row, scoringContext);
+    const rules = scoreListingRules(row, scoringContext, filter);
     return { row, rules };
   });
+
+  const criteriaExcluded = ruleScored.filter((item) => item.rules.dealCriteria.excluded).length;
 
   const preFiltered = ruleScored.filter((item) => item.rules.passesPreFilter);
   const aiCandidates = preFiltered
@@ -472,7 +747,7 @@ async function scoreAndFilterListings(listings, flipFilter, context = {}) {
     for (const item of aiCandidates) {
       const key = normalizeAddressKey(item.row);
       try {
-        const aiOut = await scoreListingWithAi(item.row, item.rules, scoringContext);
+        const aiOut = await scoreListingWithAi(item.row, item.rules, scoringContext, filter);
         aiCalls += 1;
         if (aiOut.ai) {
           aiByKey.set(key, aiOut);
@@ -505,6 +780,10 @@ async function scoreAndFilterListings(listings, flipFilter, context = {}) {
       summary: combined.aiSummary || rules.reasons[0] || '',
       sourceCount: rules.sourceCount,
       pricePerSqft: rules.pricePerSqft,
+      landTenure: rules.landTenure,
+      landTenureLabel: landTenureLabel(rules.landTenure),
+      excludedByCriteria: rules.dealCriteria.excluded,
+      excludeReason: rules.dealCriteria.excludeReason || null,
       unique: combined.unique === true || rules.sourceCount === 1,
       aiUsed: !!(aiOut && aiOut.ai),
       aiProvider: aiOut && aiOut.provider ? aiOut.provider : null,
@@ -517,7 +796,7 @@ async function scoreAndFilterListings(listings, flipFilter, context = {}) {
 
   const passing = analyzed
     .filter((row) => passesFlipFilter(row.listing.flipAnalysis, filter))
-    .sort((a, b) => (b.flipScore || 0) - (a.flipScore || 0));
+    .sort((a, b) => compareFlipListings(a, b, filter.landMode));
 
   return {
     listings: passing,
@@ -525,21 +804,31 @@ async function scoreAndFilterListings(listings, flipFilter, context = {}) {
       enabled: true,
       inputCount: rows.length,
       preFilterCount: preFiltered.length,
+      criteriaExcluded,
       aiCalls,
       aiFailures,
       outputCount: passing.length,
       minFlipScore: filter.minFlipScore,
       minRoiPercent: filter.minRoiPercent,
       onlyUnique: filter.onlyUnique,
+      landMode: filter.landMode,
+      requirePhraseCount: filter.requirePhrases.length,
+      excludePhraseCount: filter.excludePhrases.length,
     },
   };
 }
 
 module.exports = {
   parseFlipFilter,
+  resolveDealCriteria,
+  classifyLandTenure,
+  landTenureLabel,
+  evaluateDealCriteria,
   scoreListingRules,
   scoreAndFilterListings,
   buildSourceCountMap,
   batchMedianPricePerSqft,
   DEFAULT_FLIP_FILTER,
+  LAND_OWNED_KEYWORDS,
+  PARK_LOT_RENT_KEYWORDS,
 };

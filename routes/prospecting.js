@@ -14,6 +14,7 @@ const {
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
 } = require('../services/leadListFilters');
+const { ensurePipelineFolders } = require('../services/pipelineFolders');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
@@ -32,7 +33,7 @@ router.get('/', async (req, res, next) => {
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
     const wid = req.workspaceId;
-    const folders = await dbService.listFolders(wid);
+    const folders = await ensurePipelineFolders(wid);
     const tags = await dbService.listTags(wid);
 
     const scheduleSuccess = req.query.scheduleSuccess === 'true';

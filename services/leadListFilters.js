@@ -57,6 +57,37 @@ function isSearchedSource(l) {
   return true;
 }
 
+function leadJobType(l) {
+  if (l && l.jobType) return String(l.jobType).trim().toLowerCase();
+  const src = String((l && l.source) || '').trim().toLowerCase();
+  if (src === 'mobile_homes_search' || (l && l.sourceType) === 'mobile_home_listing') {
+    return 'mobile_homes';
+  }
+  if (src === 'real_estate_search' || (l && l.sourceType) === 'real_estate') {
+    return 'real_estate';
+  }
+  if (src === 'maps_search' || (l && l.sourceType) === 'maps_business') {
+    return 'maps_business';
+  }
+  if (l && l.listing && typeof l.listing === 'object') return 'mobile_homes';
+  if (l && l.realEstate && typeof l.realEstate === 'object') return 'real_estate';
+  return '';
+}
+
+function matchesJobTypeFilter(l, origin) {
+  const want = String(origin || '').trim().toLowerCase();
+  if (!want || want === 'all') return true;
+  const jt = leadJobType(l);
+  if (want === 'maps_business' || want === 'maps' || want === 'business') {
+    return jt === 'maps_business' || (isSearchedSource(l) && !jt);
+  }
+  if (want === 'mobile_homes' || want === 'mobile') return jt === 'mobile_homes';
+  if (want === 'real_estate' || want === 'realestate' || want === 'zillow') {
+    return jt === 'real_estate';
+  }
+  return true;
+}
+
 /** Lead is bucketed into an outreach folder (not shown on main pipeline / working queue). */
 function isInOutreachFolder(l) {
   return Boolean(String(l.folderKey || '').trim());
@@ -161,8 +192,14 @@ function applyLeadListFilters(leads, filters) {
   if (origin && origin !== 'all') {
     if (origin === 'csv' || origin === 'imported' || origin === 'csv_import') {
       out = out.filter(isCsvImported);
-    } else if (origin === 'search' || origin === 'searched' || origin === 'maps') {
+    } else if (origin === 'search' || origin === 'searched') {
       out = out.filter(isSearchedSource);
+    } else if (origin === 'maps' || origin === 'maps_business' || origin === 'business') {
+      out = out.filter((l) => matchesJobTypeFilter(l, 'maps_business'));
+    } else if (origin === 'mobile_homes' || origin === 'mobile') {
+      out = out.filter((l) => matchesJobTypeFilter(l, 'mobile_homes'));
+    } else if (origin === 'real_estate' || origin === 'realestate' || origin === 'zillow') {
+      out = out.filter((l) => matchesJobTypeFilter(l, 'real_estate'));
     } else if (origin === 'manual') {
       out = out.filter(isManualSource);
     } else if (origin === 'warm') {
@@ -209,6 +246,8 @@ function mapLeadListJson(l) {
     folderKey: l.folderKey || '',
     tags: Array.isArray(l.tags) ? l.tags : [],
     source: l.source || '',
+    jobType: l.jobType || leadJobType(l) || '',
+    sourceType: l.sourceType || '',
     reviewsCount: l.reviewsCount ?? 0,
     totalScore: l.totalScore ?? 0,
   };
@@ -236,6 +275,8 @@ function mapLeadPipelineBootstrap(l) {
     folderKey: l.folderKey || '',
     tags: Array.isArray(l.tags) ? l.tags : [],
     source: l.source || '',
+    jobType: l.jobType || leadJobType(l) || '',
+    sourceType: l.sourceType || '',
     reviewsCount: l.reviewsCount ?? 0,
     totalScore: l.totalScore ?? 0,
     contacts: Array.isArray(l.contacts) ? l.contacts : [],
@@ -290,6 +331,8 @@ module.exports = {
   mapLeadPipelineBootstrap,
   isInOutreachFolder,
   excludeOutreachFolderLeads,
+  leadJobType,
+  matchesJobTypeFilter,
   hasUsableContactEmail,
   hasUsableContactPhone,
   hasUsableSocialLink,

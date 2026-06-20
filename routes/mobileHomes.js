@@ -9,6 +9,7 @@ const { userEmail } = require('../services/workspaceService');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { parseFlipFilter } = require('../services/listingFlipScore');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
+const { resolveTargetFolder } = require('../services/pipelineFolders');
 
 function parseSourcesFromBody(body) {
   const raw = body.sources;
@@ -35,27 +36,19 @@ router.post('/', async (req, res, next) => {
     const sources = parseSourcesFromBody(req.body);
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
-    let targetFolderKey = '';
-    let targetFolderName = '';
-    const requestedFolderKey = String(req.body.folderKey || '').trim();
-    const newFolderName = String(req.body.newFolderName || '').trim();
-
-    if (newFolderName) {
-      const folder = await dbService.createFolder(wid, newFolderName);
-      targetFolderKey = folder && folder.key ? String(folder.key) : '';
-      targetFolderName = folder && folder.name ? String(folder.name) : newFolderName;
-    } else if (requestedFolderKey) {
-      const folders = await dbService.listFolders(wid);
-      const existing = folders.find((f) => f && String(f.key) === requestedFolderKey);
-      if (!existing) {
-        return res.status(400).render('error', {
-          message: 'Selected folder no longer exists.',
-          activePage: 'find',
-        });
-      }
-      targetFolderKey = String(existing.key);
-      targetFolderName = String(existing.name || '');
+    const folderResolved = await resolveTargetFolder(wid, {
+      folderKey: req.body.folderKey,
+      newFolderName: req.body.newFolderName,
+      jobType: JOB_TYPES.MOBILE_HOMES,
+    });
+    if (folderResolved.error) {
+      return res.status(400).render('error', {
+        message: folderResolved.error,
+        activePage: 'find',
+      });
     }
+    const targetFolderKey = folderResolved.targetFolderKey;
+    const targetFolderName = folderResolved.targetFolderName;
 
     if (!city || !state) {
       return res.status(400).render('error', {

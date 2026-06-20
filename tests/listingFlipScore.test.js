@@ -2,6 +2,8 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const {
   parseFlipFilter,
+  resolveDealCriteria,
+  classifyLandTenure,
   scoreListingRules,
   scoreAndFilterListings,
   buildSourceCountMap,
@@ -84,4 +86,96 @@ test('scoreAndFilterListings passthrough when disabled', async () => {
   assert.equal(stats.enabled, false);
   assert.equal(listings.length, 1);
   assert.equal(listings[0].listing.flipAnalysis, undefined);
+});
+
+test('classifyLandTenure detects own land vs park rent', () => {
+  assert.equal(classifyLandTenure('fee simple with deeded land'), 'own_land');
+  assert.equal(classifyLandTenure('in a mobile home park, lot rent $450'), 'park_lot_rent');
+  assert.equal(classifyLandTenure('nice double wide for sale'), 'unknown');
+});
+
+test('parseFlipFilter reads land automode fields', () => {
+  const f = parseFlipFilter({
+    flipFilterEnabled: 'on',
+    flipLandMode: 'own_land_only',
+    flipRequireOwnLand: 'on',
+    flipExcludePark: 'on',
+    flipRequireNoHoa: 'on',
+    flipRequirePhrases: 'own land, fee simple',
+    flipExcludePhrases: 'lot rent, park rent',
+  });
+  assert.equal(f.landMode, 'own_land_only');
+  assert.equal(f.requireOwnLand, true);
+  assert.equal(f.excludeParkRent, true);
+  assert.equal(f.requireNoHoa, true);
+  assert.equal(f.requirePhrases.length, 2);
+  assert.equal(f.excludePhrases.length, 2);
+});
+
+test('resolveDealCriteria merges preset land phrases', () => {
+  const c = resolveDealCriteria({
+    landMode: 'exclude_park',
+    excludeParkRent: true,
+    requireOwnLand: true,
+  });
+  assert.ok(c.requirePhrases.includes('own land'));
+  assert.ok(c.excludePhrases.includes('lot rent'));
+});
+
+test('scoreAndFilterListings excludes park deals in own_land_only mode', async () => {
+  const landDeal = sampleListing({
+    url: 'https://example.com/land',
+    description: 'Motivated seller — fixer, fee simple, land included.',
+  });
+  const parkDeal = sampleListing({
+    url: 'https://example.com/park',
+    title: 'Double wide in park',
+    description: 'Nice home in mobile home park. Lot rent $500/mo. Must sell.',
+  });
+
+  const { listings, stats } = await scoreAndFilterListings(
+    [landDeal, parkDeal],
+    {
+      enabled: true,
+      minFlipScore: 4,
+      minRoiPercent: 0,
+      useAi: false,
+      landMode: 'own_land_only',
+      excludeParkRent: true,
+    },
+    { city: 'Phoenix', state: 'AZ' }
+  );
+
+  assert.ok(stats.criteriaExcluded >= 1);
+  assert.ok(listings.every((r) => r.listing.flipAnalysis.landTenure !== 'park_lot_rent'));
+  assert.ok(listings.some((r) => r.listing.flipAnalysis.landTenure === 'own_land'));
+});
+
+test('scoreAndFilterListings ranks land-owned above park when prefer_own_land', async () => {
+  const landDeal = sampleListing({
+    url: 'https://example.com/land2',
+    price: 45000,
+    description: 'Handyman special, own land included.',
+  });
+  const parkDeal = sampleListing({
+    url: 'https://example.com/park2',
+    price: 28000,
+    description: 'Motivated fixer in park, lot rent $400.',
+  });
+
+  const { listings } = await scoreAndFilterListings(
+    [parkDeal, landDeal],
+    {
+      enabled: true,
+      minFlipScore: 0,
+      minRoiPercent: 0,
+      useAi: false,
+      landMode: 'prefer_own_land',
+      excludeParkRent: false,
+    },
+    { city: 'Phoenix', state: 'AZ' }
+  );
+
+  assert.ok(listings.length >= 2);
+  assert.equal(listings[0].listing.flipAnalysis.landTenure, 'own_land');
 });

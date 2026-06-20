@@ -752,7 +752,7 @@ module.exports = {
     return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
   },
 
-  async createFolder(workspaceId, name) {
+  async createFolder(workspaceId, name, meta = {}) {
     const wid = workspaceId || 'default';
     const key = `folder:${wid}:${Date.now()}`;
     const folder = {
@@ -760,6 +760,8 @@ module.exports = {
       workspaceId: wid,
       createdAt: new Date().toISOString(),
     };
+    if (meta && meta.jobType) folder.jobType = String(meta.jobType);
+    if (meta && meta.isPipelineDefault) folder.isPipelineDefault = true;
     kvSet(key, JSON.stringify(folder));
     return { key, ...folder };
   },
