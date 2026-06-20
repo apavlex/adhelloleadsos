@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
+const { wantsJsonResponse } = require('../lib/httpRequest');
+const { migrateUnfiledLeadsToPipelineFolders } = require('../services/pipelineFolders');
+const { isInOutreachFolder } = require('../services/leadListFilters');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -49,9 +52,34 @@ router.post('/:folderKey/delete', async (req, res, next) => {
   }
 });
 
+router.post('/migrate-pipelines', async (req, res, next) => {
+  try {
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const unfiled = visible.filter((l) => !isInOutreachFolder(l));
+    const stats = await migrateUnfiledLeadsToPipelineFolders(req.workspaceId, unfiled);
+
+    if (wantsJsonResponse(req)) {
+      return res.json({ success: true, stats });
+    }
+
+    const params = new URLSearchParams({
+      tab: 'pipeline',
+      pipelineMigrate: '1',
+      migrated: String(stats.total || 0),
+      maps: String(stats.maps_business || 0),
+      mh: String(stats.mobile_homes || 0),
+      re: String(stats.real_estate || 0),
+      skipped: String(stats.skipped || 0),
+    });
+    return res.redirect(`/prospecting?${params.toString()}`);
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/assign', async (req, res, next) => {
   try {
-    const wid = req.workspaceId;
     const leadKey = String(req.body?.leadKey || '').trim();
     const folderKey = String(req.body?.folderKey || '').trim();
     if (!leadKey) return res.status(400).json({ success: false, error: 'leadKey is required.' });
@@ -61,9 +89,7 @@ router.post('/assign', async (req, res, next) => {
     const lead = visible.find((l) => l.key === leadKey || `lead:${leadKey}` === l.key);
     if (!lead) return res.status(404).json({ success: false, error: 'Lead not found.' });
 
-    const fullLeadKey = lead.key;
-    const patch = { folderKey: folderKey || '' };
-    const updated = await dbService.updateLead(fullLeadKey, patch);
+    const updated = await dbService.updateLead(lead.key, { folderKey: folderKey || '' });
     res.json({ success: true, lead: updated });
   } catch (e) {
     next(e);

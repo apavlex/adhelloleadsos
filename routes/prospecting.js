@@ -123,6 +123,17 @@ router.get('/', async (req, res, next) => {
         ? req.query.importError.trim()
         : null;
 
+    let pipelineMigrateNotice = null;
+    if (req.query.pipelineMigrate === '1') {
+      pipelineMigrateNotice = {
+        total: Math.max(0, parseInt(req.query.migrated, 10) || 0),
+        maps: Math.max(0, parseInt(req.query.maps, 10) || 0),
+        mobileHomes: Math.max(0, parseInt(req.query.mh, 10) || 0),
+        realEstate: Math.max(0, parseInt(req.query.re, 10) || 0),
+        skipped: Math.max(0, parseInt(req.query.skipped, 10) || 0),
+      };
+    }
+
     const queueListLeads = safeTab === 'queue' ? pipelineVisible.map(mapLeadListJson) : [];
     const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : [];
     const leadBootstrapLeads = safeTab === 'pipeline' ? leads.map(mapLeadPipelineBootstrap) : [];
@@ -143,6 +154,7 @@ router.get('/', async (req, res, next) => {
       activePage: 'prospecting',
       tab: safeTab,
       leadCount: pipelineVisible.length,
+      unfiledLeadCount: pipelineVisible.length,
       activeFolderKey,
       folders,
       tags,
@@ -159,6 +171,7 @@ router.get('/', async (req, res, next) => {
       pipelineStatusOptions,
       importNotice,
       importError,
+      pipelineMigrateNotice,
       pipelineStages,
       scriptLibraryOfferPicklist,
       outreachChannelLibrary,

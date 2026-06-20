@@ -4,6 +4,7 @@
 
 const dbService = require('./database');
 const { JOB_TYPES, normalizeJobType } = require('./scrapeJobTypes');
+const { isWarmSource, isManualSource, leadJobType } = require('./leadListFilters');
 
 const DEFAULT_PIPELINE_FOLDERS = {
   [JOB_TYPES.MAPS_BUSINESS]: { name: 'Businesses (Maps)', sourceType: 'maps_business' },
@@ -119,6 +120,74 @@ function leadMetadataForJobType(jobType, extra = {}) {
   return meta;
 }
 
+/**
+ * Classify an unfiled lead for one-click pipeline migration.
+ * @returns {string|null} jobType or null to skip (warm inbound, manual)
+ */
+function classifyLeadForPipelineMigration(lead) {
+  if (!lead || String(lead.folderKey || '').trim()) return null;
+  if (isWarmSource(lead)) return null;
+  if (isManualSource(lead)) return null;
+
+  const existing = leadJobType(lead);
+  if (existing) return normalizeJobType(existing);
+
+  return JOB_TYPES.MAPS_BUSINESS;
+}
+
+/**
+ * Move unfiled leads into default pipeline folders by search type.
+ * @param {string} workspaceId
+ * @param {object[]} leads — workspace-visible leads (typically unfiled only)
+ */
+async function migrateUnfiledLeadsToPipelineFolders(workspaceId, leads) {
+  const folders = await ensurePipelineFolders(workspaceId);
+  const folderByJobType = {};
+  for (const jt of Object.values(JOB_TYPES)) {
+    const folder = findFolderForJobType(folders, jt);
+    if (folder && folder.key) folderByJobType[jt] = String(folder.key);
+  }
+
+  const stats = {
+    total: 0,
+    maps_business: 0,
+    mobile_homes: 0,
+    real_estate: 0,
+    skipped: 0,
+  };
+
+  for (const lead of leads || []) {
+    const jobType = classifyLeadForPipelineMigration(lead);
+    if (!jobType) {
+      stats.skipped += 1;
+      continue;
+    }
+
+    const folderKey = folderByJobType[jobType];
+    if (!folderKey) {
+      stats.skipped += 1;
+      continue;
+    }
+
+    const meta = leadMetadataForJobType(jobType, {
+      listing: lead.listing,
+      realEstate: lead.realEstate,
+    });
+    const patch = { folderKey };
+    if (!lead.jobType) patch.jobType = meta.jobType;
+    if (!lead.sourceType && meta.sourceType) patch.sourceType = meta.sourceType;
+    const src = String(lead.source || '').trim();
+    if (!src || src === 'nightly_prep') patch.source = meta.source;
+
+    // eslint-disable-next-line no-await-in-loop
+    await dbService.updateLead(lead.key, patch);
+    stats[jobType] = (stats[jobType] || 0) + 1;
+    stats.total += 1;
+  }
+
+  return stats;
+}
+
 module.exports = {
   DEFAULT_PIPELINE_FOLDERS,
   sourceForJobType,
@@ -127,4 +196,6 @@ module.exports = {
   resolveTargetFolder,
   folderKeyForJobType,
   leadMetadataForJobType,
+  classifyLeadForPipelineMigration,
+  migrateUnfiledLeadsToPipelineFolders,
 };
