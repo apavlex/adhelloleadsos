@@ -170,7 +170,7 @@
       <div class="p-10 text-center text-brand-muted text-sm">No leads with a complete mailable address. Enrich leads or import addresses from search results.</div>
       <% } else { %>
       <div class="overflow-x-auto">
-        <table class="w-full text-left text-sm">
+        <table id="dmLeadsTable" class="w-full text-left text-sm">
           <thead>
             <tr class="border-b border-brand-border/30 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
               <th class="pl-5 pr-2 py-3 w-12"><input type="checkbox" id="dmCheckAll" class="rounded border-brand-border" aria-label="Select all" /></th>
@@ -182,7 +182,7 @@
           </thead>
           <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
             <% mailableLeads.forEach(function (l) { %>
-            <tr class="hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]">
+            <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]">
               <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>" /></td>
               <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %></td>
               <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address %></td>
