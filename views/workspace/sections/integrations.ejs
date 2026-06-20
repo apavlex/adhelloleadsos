@@ -7,6 +7,9 @@
     Keys saved here apply to <strong>everyone</strong> in this workspace. Values you set override deployment environment variables for that integration only.
     Use <strong>Test &amp; save</strong> on each card to save your settings and run a live check (Find Leads providers run a sample coffee-shop search). Or use <strong>Save integrations</strong> to save without testing.
   </p>
+  <% if (_sa) { %>
+  <%- include('../../partials/scrape_cost_advisor') %>
+  <% } %>
   <% if (!integrationsReady) { %>
   <div class="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-4 mb-6 text-sm text-amber-950 dark:text-amber-100">
     <p class="font-semibold text-brand-dark dark:text-white mb-1">Integration keys are managed in your deployment environment</p>
@@ -35,7 +38,7 @@
   <% const _mapsProviders = Array.isArray(mapsProviderStatus) ? mapsProviderStatus : []; %>
   <% const _mapsProviderById = {}; _mapsProviders.forEach(function (p) { if (p && p.id) _mapsProviderById[p.id] = p; }); %>
   <form method="post" action="/workspace/integrations" class="space-y-8">
-    <div>
+    <div id="integration-find-leads">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Find Leads — maps search</p>
       <p class="text-sm text-brand-muted mb-4 max-w-2xl leading-relaxed">Connect one or more providers below. In <strong>Auto</strong> mode the app tries them in order until results are returned.</p>
 
@@ -62,7 +65,7 @@
       </section>
 
       <div class="space-y-4">
-        <section class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+        <section id="integration-rapidapi" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">RapidAPI</h3>
             <% if (_mapsProviderById.rapidapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.rapidapi.label, connected: _mapsProviderById.rapidapi.configured }) %><% } %>
@@ -104,7 +107,7 @@
           <%- include('../../partials/integration_test_row', { provider: 'rapidapi' }) %>
         </section>
 
-        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+        <section id="integration-searchapi" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SearchAPI.io</h3>
             <% if (_mapsProviderById.searchapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.searchapi.label, connected: _mapsProviderById.searchapi.configured }) %><% } %>
@@ -119,9 +122,7 @@
           <%- include('../../partials/integration_test_row', { provider: 'searchapi' }) %>
         </section>
 
-        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
-          <header class="flex flex-wrap items-start justify-between gap-3">
-            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">SerpAPI</h3>
+        <section id="integration-serpapi" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
             <% if (_mapsProviderById.serpapi) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.serpapi.label, connected: _mapsProviderById.serpapi.configured }) %><% } %>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://serpapi.com/google-local-api" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Google Local</a> — optional; runs after SearchAPI.io in Auto mode.</p>
           </header>
@@ -134,11 +135,11 @@
           <%- include('../../partials/integration_test_row', { provider: 'serpapi' }) %>
         </section>
 
-        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+        <section id="integration-outscraper" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Outscraper</h3>
             <% if (_mapsProviderById.outscraper) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.outscraper.label, connected: _mapsProviderById.outscraper.configured }) %><% } %>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps listings via Outscraper — optional fallback in Auto mode.</p>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed">Google Maps listings and <strong>review quotes</strong> for Hunt contacts &amp; reviews — also optional fallback in Find Leads Auto mode.</p>
           </header>
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
@@ -155,7 +156,7 @@
           <%- include('../../partials/integration_test_row', { provider: 'outscraper' }) %>
         </section>
 
-        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+        <section id="integration-apify" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0 flex-1">
               <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Apify</h3>
@@ -203,10 +204,10 @@
     <div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">Enrich &amp; contact data</p>
       <div class="space-y-4">
-        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+        <section id="integration-bettercontact" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header>
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">BetterContact</h3>
-            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://bettercontact.rocks/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">BetterContact</a> — verified email/mobile for <strong>Hunt contacts &amp; reviews</strong>. <a href="https://outscraper.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Outscraper</a> — Google rating, review quotes, and AI reputation summary.</p>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://bettercontact.rocks/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">BetterContact</a> — verified email/mobile for <strong>Hunt contacts &amp; reviews</strong>. Pair with <a href="#integration-outscraper" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Outscraper</a> for Google review quotes.</p>
           </header>
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
@@ -217,7 +218,7 @@
           <%- include('../../partials/integration_test_row', { provider: 'bettercontact' }) %>
         </section>
 
-        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 space-y-4">
+        <section id="integration-website-enhance" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 space-y-4 scroll-mt-28">
           <header>
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Website enhance</h3>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed">Firecrawl and/or Crawl4AI for Enhance jobs on lead websites.</p>
@@ -230,7 +231,7 @@
               <option value="crawl4ai_first" <%= _enrichPrimary === 'crawl4ai_first' ? 'selected' : '' %>>Crawl4AI first, then Firecrawl fallback</option>
             </select>
           </div>
-          <div class="pt-2 border-t border-brand-border/40 dark:border-white/10 space-y-4">
+          <div id="integration-firecrawl" class="pt-2 border-t border-brand-border/40 dark:border-white/10 space-y-4 scroll-mt-28">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Firecrawl</p>
             <div>
               <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
@@ -240,7 +241,7 @@
             </div>
             <%- include('../../partials/integration_test_row', { provider: 'firecrawl' }) %>
           </div>
-          <div class="pt-2 border-t border-brand-border/40 dark:border-white/10 space-y-4">
+          <div id="integration-crawl4ai" class="pt-2 border-t border-brand-border/40 dark:border-white/10 space-y-4 scroll-mt-28">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Crawl4AI (self-hosted)</p>
             <div>
               <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Base URL</label>
@@ -435,6 +436,34 @@
 </div>
 <script>
 (function () {
+  document.querySelectorAll('.js-integration-connect').forEach(function (link) {
+    link.addEventListener('click', function (e) {
+      var href = link.getAttribute('href') || '';
+      if (href.charAt(0) !== '#') return;
+      var target = document.querySelector(href);
+      if (!target) return;
+      e.preventDefault();
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.classList.add('ring-2', 'ring-brand-yellow/50', 'shadow-lg');
+      window.setTimeout(function () {
+        target.classList.remove('ring-2', 'ring-brand-yellow/50', 'shadow-lg');
+      }, 2200);
+      var focusEl = target.querySelector(
+        'input[type="password"], input[type="text"]:not([type="checkbox"]), input[type="email"], input[type="url"], select, textarea'
+      );
+      if (focusEl) {
+        window.setTimeout(function () {
+          focusEl.focus({ preventScroll: true });
+        }, 450);
+      }
+    });
+  });
+
+  if (window.location.hash) {
+    var hashLink = document.querySelector('.js-integration-connect[href="' + window.location.hash + '"]');
+    if (hashLink) hashLink.click();
+  }
+
   var form = document.querySelector('form[action="/workspace/integrations"]');
   var testAllBtn = document.getElementById('testIntegrationsBtn');
   var testAllOut = document.getElementById('integrationsTestResult');
@@ -681,14 +710,9 @@
 </script>
 <% } else if (_sa) { %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 mb-8">
-  <p class="text-sm text-brand-muted leading-relaxed max-w-2xl">
-    API keys and sensitive credentials can only be edited by <strong>workspace owners and admins</strong>. The <strong>scrape stack</strong> guide below is visible to everyone in this workspace.
+  <p class="text-sm text-brand-muted leading-relaxed max-w-2xl mb-6">
+    API keys and sensitive credentials can only be edited by <strong>workspace owners and admins</strong>. The stack guide below is visible to everyone in this workspace.
   </p>
-</div>
-<% } %>
-
-<% if (_sa) { %>
-<div class="mt-2 md:mt-4">
   <%- include('../../partials/scrape_cost_advisor') %>
 </div>
 <% } %>

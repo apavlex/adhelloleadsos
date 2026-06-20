@@ -8,6 +8,7 @@ const outscraper = require('./outscraperClient');
 const searchapiGoogleLocal = require('./searchapiGoogleLocal');
 const serpapiGoogleLocal = require('./serpapiGoogleLocal');
 const rapidapiLocalBusiness = require('./rapidapiLocalBusiness');
+const betterContact = require('./betterContactClient');
 
 /** @param {Record<string, string>|null|undefined} [resolvedEnv] workspace-resolved env */
 function apifyConfigured(resolvedEnv) {
@@ -32,11 +33,37 @@ function buildSourceCards(live = {}, resolvedEnv) {
   const searchapi = searchapiGoogleLocal.isConfigured(resolvedEnv);
   const serpapi = serpapiGoogleLocal.isConfigured(resolvedEnv);
   const rapidapi = rapidapiLocalBusiness.isConfigured(resolvedEnv);
+  const bc = betterContact.isConfigured(resolvedEnv);
 
   return [
     {
+      id: 'bettercontact',
+      name: 'BetterContact',
+      connectAnchor: 'integration-bettercontact',
+      role: 'Hunt contacts & reviews — verified email and mobile.',
+      cost: 'Per BetterContact credits / plan.',
+      configured: bc,
+      live: null,
+      tip: bc
+        ? 'Runs in parallel during Hunt contacts & reviews on each lead.'
+        : 'Set BETTERCONTACT_API_KEY under Enrich & contact data to unlock contact waterfall on Hunt.',
+    },
+    {
+      id: 'outscraper',
+      name: 'Outscraper',
+      connectAnchor: 'integration-outscraper',
+      role: 'Hunt contacts & reviews — Google rating, review quotes, and Maps fallback.',
+      cost: 'Paid per Outscraper pricing (often competitive for bulk Maps + reviews).',
+      configured: os,
+      live: live.outscraper || null,
+      tip: os
+        ? 'Powers Google review scrape (highest/lowest quotes) during Hunt. Also runs in Find Leads Auto mode after RapidAPI, SearchAPI.io, and SerpAPI.'
+        : 'Set OUTSCRAPER_API_KEY for review quotes on Hunt and as another Maps list provider.',
+    },
+    {
       id: 'rapidapi',
       name: 'RapidAPI (Local Business Data)',
+      connectAnchor: 'integration-rapidapi',
       role: 'Find Leads — Google Maps via RapidAPI (first in Auto mode).',
       cost: 'Per your RapidAPI plan and per-request credits on the API you subscribe to.',
       configured: rapidapi,
@@ -48,6 +75,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
     {
       id: 'apify',
       name: 'Apify (Google Maps)',
+      connectAnchor: 'integration-apify',
       role: 'Find Leads — last fallback in Auto mode.',
       cost: 'Paid per Apify usage (actor run time + results).',
       configured: apify,
@@ -59,6 +87,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
     {
       id: 'firecrawl',
       name: 'Firecrawl',
+      connectAnchor: 'integration-firecrawl',
       role: 'Lead Enhance / deep extract — already wired.',
       cost: 'Hosted credits (free tier then paid).',
       configured: fc,
@@ -70,6 +99,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
     {
       id: 'crawl4ai',
       name: 'Crawl4AI (self-host)',
+      connectAnchor: 'integration-crawl4ai',
       role: 'Optional parallel path: cheap raw crawl / markdown when you run Docker yourself.',
       cost: 'Software is free; you pay compute + proxies + any LLM you attach.',
       configured: c4,
@@ -79,19 +109,9 @@ function buildSourceCards(live = {}, resolvedEnv) {
         : 'Set CRAWL4AI_BASE_URL (e.g. http://localhost:11235) when your Crawl4AI container is up.',
     },
     {
-      id: 'outscraper',
-      name: 'Outscraper',
-      role: 'Optional parallel Maps / reviews APIs — compare $/lead vs Apify.',
-      cost: 'Paid per Outscraper pricing (often competitive for bulk Maps).',
-      configured: os,
-      live: live.outscraper || null,
-      tip: os
-        ? 'Runs after RapidAPI and SearchAPI.io in Auto mode when those return zero rows or error.'
-        : 'Set OUTSCRAPER_API_KEY as another Maps list provider before Apify-only fallback.',
-    },
-    {
       id: 'searchapi',
       name: 'SearchAPI.io (Google Local)',
+      connectAnchor: 'integration-searchapi',
       role: 'Find Leads — Google Local / local pack listings.',
       cost: 'Per SearchAPI.io plan and credits.',
       configured: searchapi,
@@ -103,6 +123,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
     {
       id: 'serpapi',
       name: 'SerpAPI (Google Local)',
+      connectAnchor: 'integration-serpapi',
       role: 'Find Leads — Google Local via SerpAPI.',
       cost: 'Per SerpAPI searches/month.',
       configured: serpapi,
@@ -114,6 +135,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
     {
       id: 'local_scrape',
       name: 'Local scrape (Cheerio + Puppeteer)',
+      connectAnchor: 'integration-find-leads',
       role: 'Find Leads directory supplement + optional Enhance pre-step (no API credits).',
       cost: 'Free software; you pay server CPU/RAM (Puppeteer is heavier than fetch-only).',
       configured: true,
@@ -137,6 +159,14 @@ function buildSourceCards(live = {}, resolvedEnv) {
 /** Task rows for the Today dashboard — additive guidance only. */
 function buildTaskRows() {
   return [
+    {
+      task: 'Hunt contacts, reviews, and AI reputation on a lead',
+      startCheap:
+        'Maps providers you already use refresh rating/count for free-ish; Outscraper adds review quotes when you need verbatim highest/lowest.',
+      keepPaid:
+        'BetterContact when you need verified email/mobile without manual lookup.',
+      inApp: 'Pipeline sidebar: Hunt contacts & reviews. Needs BetterContact + Outscraper keys below for full coverage.',
+    },
     {
       task: 'Build a territory list from Google Maps',
       startCheap:
