@@ -635,6 +635,101 @@
     }
   }
 
+  function collectBulkActionKeys() {
+    if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
+      const keys = window.__getSelectedLeadKeysForBulk();
+      if (keys.length) return keys;
+    }
+    const out = [];
+    const seen = new Set();
+    document
+      .querySelectorAll('tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked')
+      .forEach((cb) => {
+        let k = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
+        if (!k) {
+          const row = cb.closest('tr.result-row, tr[data-lead-key]');
+          if (row) k = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
+        }
+        if (!k || seen.has(k)) return;
+        seen.add(k);
+        out.push(k);
+      });
+    return out;
+  }
+
+  function findBulkRowForKey(key) {
+    const k = String(key || '').trim();
+    if (!k) return null;
+    const variants = [k];
+    if (/^lead:/i.test(k)) variants.push(k.replace(/^lead:/i, ''));
+    else variants.push('lead:' + k);
+    for (let i = 0; i < variants.length; i += 1) {
+      const v = variants[i];
+      const row = document.querySelector(
+        '#prospectLeadsTable tr.result-row[data-lead-key="' +
+          CSS.escape(v) +
+          '"], tr.result-row[data-lead-key="' +
+          CSS.escape(v) +
+          '"]',
+      );
+      if (row) return row;
+    }
+    return null;
+  }
+
+  async function bulkDeleteSelectedLeads() {
+    const keys = collectBulkActionKeys();
+    if (!keys.length) return;
+    const n = keys.length;
+    const msg = 'Delete ' + n + ' selected lead' + (n === 1 ? '' : 's') + '? This cannot be undone.';
+    if (!window.confirm(msg)) return;
+
+    let deleted = 0;
+    const closePanel = document.getElementById('closeMobilePanel');
+    for (let i = 0; i < keys.length; i += 1) {
+      const leadKey = keys[i];
+      try {
+        const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/delete', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        });
+        const data = await res.json().catch(function () {
+          return {};
+        });
+        if (!res.ok || !data.success) continue;
+        deleted += 1;
+        const row = findBulkRowForKey(leadKey);
+        if (row) {
+          if (row.classList.contains('selected') && closePanel) closePanel.click();
+          row.remove();
+        }
+      } catch (err) {
+        console.error('[pipeline-bulk-select] delete failed for', leadKey, err);
+      }
+    }
+
+    const selectAllHeader = document.querySelector('#prospectLeadsTable thead input[data-select-all-leads]');
+    if (selectAllHeader) {
+      selectAllHeader.checked = false;
+      selectAllHeader.indeterminate = false;
+    }
+    if (typeof window.__resetBulkSelectAnchor === 'function') window.__resetBulkSelectAnchor();
+    showBulkActionBar(0);
+    if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+    if (typeof window.__pipelineTablePagingApply === 'function') window.__pipelineTablePagingApply();
+    if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(
+        deleted
+          ? 'Deleted ' + deleted + ' lead' + (deleted === 1 ? '' : 's')
+          : 'Could not delete selected leads',
+      );
+    }
+    const remaining = document.querySelectorAll('#prospectLeadsTable tbody tr.result-row').length;
+    if (remaining === 0) window.location.reload();
+  }
+  window.__bulkDeleteSelectedLeads = bulkDeleteSelectedLeads;
+
   /**
    * Capture-phase clicks on the bulk bar — fixes Folder actions when bubble handlers
    * or pointer-events on the portaled bar block individual button listeners.
@@ -713,6 +808,12 @@
           if (!keys.length) return;
           persistFocusSelectionKeys(keys);
           window.location.href = buildFocusSelectionUrl(keys, 'call');
+          return;
+        }
+        if (e.target.closest('#bulkDeleteBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          bulkDeleteSelectedLeads();
           return;
         }
       },

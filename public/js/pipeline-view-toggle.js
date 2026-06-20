@@ -39,7 +39,14 @@
       sessionStorage.setItem('adhello_pipeline_view', showKanban ? 'kanban' : 'table');
     } catch (_) {}
     if (showKanban && typeof window.__adhelloInitKanban === 'function') {
-      window.__adhelloInitKanban();
+      var bootKanban = function () {
+        window.__adhelloInitKanban();
+      };
+      if (typeof window.__ensureSortableJs === 'function') {
+        window.__ensureSortableJs().then(bootKanban).catch(function () {});
+      } else {
+        bootKanban();
+      }
     }
     return true;
   }
@@ -66,7 +73,14 @@
       if (document.documentElement.classList.contains('adhello-pipeline-view-kanban')) {
         syncToggleButtons(true);
         if (typeof window.__adhelloInitKanban === 'function') {
-          window.__adhelloInitKanban();
+          var bootKanban = function () {
+            window.__adhelloInitKanban();
+          };
+          if (typeof window.__ensureSortableJs === 'function') {
+            window.__ensureSortableJs().then(bootKanban).catch(function () {});
+          } else {
+            bootKanban();
+          }
         }
         return;
       }

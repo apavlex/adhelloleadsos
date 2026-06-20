@@ -3,7 +3,7 @@
 <head>
   <%- include('partials/head') %>
   <% if (typeof tab !== 'undefined' && tab === 'pipeline') { %>
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+  <script src="/js/sortable-loader.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <% } %>
 </head>
 <body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">

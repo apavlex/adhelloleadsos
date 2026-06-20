@@ -1,16 +1,16 @@
 <% const _lmv = typeof lmvProspectingMethods !== 'undefined' && lmvProspectingMethods ? lmvProspectingMethods : []; %>
 <% if (_lmv.length) { %>
-<details id="lmvPlaybookDetails" class="lmv-playbook brand-card dark:bg-slate-900 dark:border-white/10 mb-8 overflow-hidden group" open>
+<details id="lmvPlaybookDetails" class="lmv-playbook brand-card dark:bg-slate-900 dark:border-white/10 mb-8 overflow-hidden group">
   <script>
   (function () {
     var d = document.currentScript && document.currentScript.parentElement;
     if (!d || d.id !== 'lmvPlaybookDetails') return;
     try {
-      if (localStorage.getItem('lmvPlaybookOpen') === '0') d.removeAttribute('open');
+      if (localStorage.getItem('lmvPlaybookOpen') === '1') d.setAttribute('open', '');
     } catch (_) {}
   })();
   </script>
-  <summary class="lmv-playbook__summary px-5 py-4 md:px-6 md:py-5 border-b border-brand-border/30 dark:border-white/10 cursor-pointer list-none flex items-start justify-between gap-4 select-none">
+  <summary class="lmv-playbook__summary px-5 py-4 md:px-6 md:py-5 group-open:border-b group-open:border-brand-border/30 dark:group-open:border-white/10 cursor-pointer list-none flex items-start justify-between gap-4 select-none">
     <div class="min-w-0 flex-1">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Outreach playbook</p>
       <h3 class="font-display font-extrabold text-lg md:text-xl text-brand-dark dark:text-white">The 6 LMV prospecting methods</h3>

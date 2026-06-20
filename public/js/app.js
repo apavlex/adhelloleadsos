@@ -359,15 +359,25 @@ document.addEventListener('DOMContentLoaded', () => {
       return mult * c;
     });
 
-    rows.forEach((row) => tableBody.appendChild(row));
+    const frag = document.createDocumentFragment();
+    rows.forEach((row) => frag.appendChild(row));
+    tableBody.appendChild(frag);
     updateProspectSortHeaderUi(columnKey, descending);
     if (typeof window.__pipelineTablePagingResetToFirst === 'function') {
       window.__pipelineTablePagingResetToFirst();
     } else if (typeof window.__pipelineTablePagingApply === 'function') {
       window.__pipelineTablePagingApply();
     }
-    if (typeof window.__applyReviewStars === 'function') {
-      window.__applyReviewStars(tableBody);
+    const paintStars = () => {
+      if (typeof window.__applyReviewStars !== 'function') return;
+      window.__applyReviewStars(
+        tableBody.querySelectorAll('tr.result-row:not(.pipeline-row-page-hidden)'),
+      );
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(paintStars);
+    } else {
+      paintStars();
     }
     if (typeof window.__updateBulkActionBar === 'function') {
       window.__updateBulkActionBar();
@@ -424,7 +434,9 @@ document.addEventListener('DOMContentLoaded', () => {
           window.__updateBulkActionBar();
         }
         if (typeof window.__applyReviewStars === 'function') {
-          window.__applyReviewStars(tbody);
+          window.__applyReviewStars(
+            tbody.querySelectorAll('tr.result-row:not(.pipeline-row-page-hidden)'),
+          );
         }
       }
 
@@ -641,27 +653,38 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       scheduleSyncPipelineStickyOffsets();
 
-      PLC_META.forEach(({ id, label }) => {
-        const wrap = document.createElement('label');
-        wrap.className = 'flex items-center gap-3 cursor-pointer text-brand-dark dark:text-slate-200 py-0.5';
-        const cb = document.createElement('input');
-        cb.type = 'checkbox';
-        cb.checked = pipelineColVisible(vis, id);
-        cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
-        cb.addEventListener('change', () => {
-          vis[id] = cb.checked;
-          saveVis(vis);
-          applyVisibility(vis);
-          scheduleSyncPipelineStickyOffsets();
+      let columnCheckboxesBuilt = false;
+      function ensureColumnCheckboxesBuilt() {
+        if (columnCheckboxesBuilt || !boxHost) return;
+        columnCheckboxesBuilt = true;
+        PLC_META.forEach(({ id, label }) => {
+          const wrap = document.createElement('label');
+          wrap.className = 'flex items-center gap-3 cursor-pointer text-brand-dark dark:text-slate-200 py-0.5';
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = pipelineColVisible(vis, id);
+          cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
+          cb.addEventListener('change', () => {
+            vis[id] = cb.checked;
+            saveVis(vis);
+            applyVisibility(vis);
+            scheduleSyncPipelineStickyOffsets();
+          });
+          wrap.appendChild(cb);
+          const span = document.createElement('span');
+          span.textContent = label;
+          wrap.appendChild(span);
+          boxHost.appendChild(wrap);
         });
-        wrap.appendChild(cb);
-        const span = document.createElement('span');
-        span.textContent = label;
-        wrap.appendChild(span);
-        boxHost.appendChild(wrap);
-      });
+      }
 
-      document.body.appendChild(pop);
+      const colWrap = colBtn.closest('.js-pipeline-columns-wrap');
+      if (colWrap && pop.parentElement !== colWrap) {
+        colWrap.appendChild(pop);
+      }
+      ['position', 'top', 'left', 'right', 'bottom'].forEach((key) => {
+        pop.style.removeProperty(key);
+      });
 
       function closePop() {
         pop.classList.add('hidden');
@@ -672,7 +695,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
       }
 
-      function applyPipelineColumnsPopoverSurface() {
+      function applyColumnsPopoverSurface() {
         if (typeof window.applyPortaledPopoverSurface === 'function') {
           window.applyPortaledPopoverSurface(pop);
           return;
@@ -685,41 +708,13 @@ document.addEventListener('DOMContentLoaded', () => {
         pop.style.setProperty('opacity', '1', 'important');
       }
 
-      function positionColumnsPopover() {
-        if (pop.parentElement !== document.body) {
-          document.body.appendChild(pop);
-        }
-        applyPipelineColumnsPopoverSurface();
-        const measureHidden = pop.classList.contains('hidden');
-        if (measureHidden) {
-          pop.classList.remove('hidden');
-          pop.style.visibility = 'hidden';
-          pop.style.pointerEvents = 'none';
-        }
-        const rect = colBtn.getBoundingClientRect();
-        const menuWidth = Math.max(pop.offsetWidth || 0, 216);
-        let left = rect.right - menuWidth;
-        left = Math.max(12, Math.min(left, window.innerWidth - menuWidth - 12));
-        pop.style.position = 'fixed';
-        pop.style.top = `${Math.round(rect.bottom + 8)}px`;
-        pop.style.left = `${Math.round(left)}px`;
-        pop.style.right = 'auto';
-        pop.style.bottom = 'auto';
-        pop.style.zIndex = '10000';
-        if (measureHidden) {
-          pop.classList.add('hidden');
-          pop.style.visibility = '';
-          pop.style.pointerEvents = '';
-        }
-      }
-
       function openColumnsPopover() {
-        positionColumnsPopover();
+        ensureColumnCheckboxesBuilt();
+        applyColumnsPopoverSurface();
         pop.classList.remove('hidden');
         colBtn.setAttribute('aria-expanded', 'true');
-        applyPipelineColumnsPopoverSurface();
         requestAnimationFrame(function () {
-          applyPipelineColumnsPopoverSurface();
+          applyColumnsPopoverSurface();
         });
       }
 
@@ -738,14 +733,6 @@ document.addEventListener('DOMContentLoaded', () => {
       pop.addEventListener('click', (e) => {
         e.stopPropagation();
       });
-
-      window.addEventListener(
-        'resize',
-        () => {
-          if (!pop.classList.contains('hidden')) positionColumnsPopover();
-        },
-        { passive: true }
-      );
 
       document.addEventListener('click', (e) => {
         if (pop.classList.contains('hidden')) return;
@@ -770,6 +757,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let dragPlc = null;
       let dragStartX = 0;
       let dragStartW = 0;
+      let dragWidths = null;
+      let dragResizeRaf = null;
 
       document.addEventListener('mousedown', (e) => {
         const h = e.target.closest('.plc-col-resize');
@@ -782,6 +771,11 @@ document.addEventListener('DOMContentLoaded', () => {
         dragPlc = plc;
         dragStartX = e.clientX;
         dragStartW = th.getBoundingClientRect().width;
+        try {
+          dragWidths = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
+        } catch (_) {
+          dragWidths = {};
+        }
         h.classList.add('plc-col-resize--active');
         document.body.style.cursor = 'col-resize';
         document.body.style.userSelect = 'none';
@@ -793,24 +787,31 @@ document.addEventListener('DOMContentLoaded', () => {
         const dx = e.clientX - dragStartX;
         const floor = PLC_MIN_WIDTH[dragPlc] || 48;
         const next = Math.max(floor, dragStartW + dx);
-        let o = {};
-        try {
-          o = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
-        } catch (_) {
-          o = {};
-        }
-        o[dragPlc] = next;
-        try {
-          localStorage.setItem(WIDTH_KEY, JSON.stringify(o));
-        } catch (_) {
-          /* ignore */
-        }
-        applyWidths(o);
+        if (!dragWidths) dragWidths = {};
+        dragWidths[dragPlc] = next;
+        if (dragResizeRaf) return;
+        dragResizeRaf = requestAnimationFrame(() => {
+          dragResizeRaf = null;
+          if (dragWidths) applyWidths(dragWidths);
+        });
       });
 
       document.addEventListener('mouseup', () => {
         if (!dragPlc) return;
+        if (dragResizeRaf) {
+          cancelAnimationFrame(dragResizeRaf);
+          dragResizeRaf = null;
+        }
+        if (dragWidths) {
+          try {
+            localStorage.setItem(WIDTH_KEY, JSON.stringify(dragWidths));
+          } catch (_) {
+            /* ignore */
+          }
+          applyWidths(dragWidths);
+        }
         dragPlc = null;
+        dragWidths = null;
         document.body.style.cursor = '';
         document.body.style.userSelect = '';
         table.querySelectorAll('.plc-col-resize--active').forEach((x) => x.classList.remove('plc-col-resize--active'));
@@ -11596,26 +11597,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
   if (bulkDeleteBtn) {
-    bulkDeleteBtn.addEventListener('click', async () => {
+    bulkDeleteBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      if (typeof window.__bulkDeleteSelectedLeads === 'function') {
+        await window.__bulkDeleteSelectedLeads();
+        return;
+      }
       const keys = ensureBulkSelectionKeys();
       if (keys.length === 0) return;
       const n = keys.length;
       const msg = `Delete ${n} selected lead${n === 1 ? '' : 's'}? This cannot be undone.`;
       if (!window.confirm(msg)) return;
 
-      const deleteKeys = [...keys];
       const closePanel = document.getElementById('closeMobilePanel');
       for (const leadKey of keys) {
         try {
-          const res = await fetch(`/leads/${leadKey}/delete`, {
+          const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/delete`, {
             method: 'POST',
+            credentials: 'same-origin',
             headers: { Accept: 'application/json' },
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.success) continue;
 
-          const cb = Array.from(document.querySelectorAll('.lead-checkbox')).find((c) => c.dataset.key === leadKey);
-          const row = cb && cb.closest('.result-row');
+          const row = findLeadRowForBulkKey(leadKey);
           if (row) {
             const title = row.dataset.title ? row.dataset.title.trim() : '';
             if (row.classList.contains('selected') && closePanel) closePanel.click();
@@ -11636,10 +11641,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const remaining = document.querySelectorAll('.result-row').length;
-      const countEl = document.querySelector('.text-brand-muted.font-medium');
-      if (countEl && remaining > 0) {
-        countEl.textContent = `You have ${remaining} bookmarked lead${remaining !== 1 ? 's' : ''} in your collection.`;
-      }
       if (remaining === 0) {
         window.location.reload();
       }
@@ -12723,6 +12724,7 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // View toggle + kanban init hook (pipeline-view-toggle.js handles Table/Pipeline clicks)
   function initKanban() {
+    const run = () => {
     const columns = document.querySelectorAll('.kanban-list');
     const table = document.getElementById('prospectLeadsTable');
     const allRows = table
@@ -12865,6 +12867,12 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+    };
+    if (typeof window.__ensureSortableJs === 'function') {
+      window.__ensureSortableJs().then(run).catch(run);
+    } else {
+      run();
+    }
   }
 
   window.__adhelloInitKanban = initKanban;

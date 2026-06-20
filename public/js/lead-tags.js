@@ -428,7 +428,23 @@
   }
 
   function initRowTags() {
-    document.querySelectorAll('#prospectLeadsTable tbody tr.result-row').forEach(renderRowTagChips);
+    const table = document.getElementById('prospectLeadsTable');
+    if (!table) return;
+    const rows = Array.from(table.querySelectorAll('tbody tr.result-row'));
+    const visible = [];
+    const hidden = [];
+    rows.forEach((row) => {
+      if (row.classList.contains('pipeline-row-page-hidden')) hidden.push(row);
+      else visible.push(row);
+    });
+    visible.forEach(renderRowTagChips);
+    if (!hidden.length) return;
+    const paintRest = () => hidden.forEach(renderRowTagChips);
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(paintRest, { timeout: 2000 });
+    } else {
+      setTimeout(paintRest, 150);
+    }
   }
 
   function initPipelineTagFilter() {

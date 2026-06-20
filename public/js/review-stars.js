@@ -40,6 +40,17 @@
   }
 
   function applyReviewStars(root) {
+    if (root && typeof root.length === 'number' && typeof root.querySelectorAll !== 'function') {
+      Array.from(root).forEach((row) => {
+        if (!row || typeof row.querySelectorAll !== 'function') return;
+        row.querySelectorAll('.row-stars, [data-review-stars]').forEach((starContainer) => {
+          const rating = resolveRating(starContainer);
+          const size = starContainer.dataset.starSize || 'w-3.5 h-3.5';
+          renderStarsInElement(starContainer, rating, size);
+        });
+      });
+      return;
+    }
     const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
     scope.querySelectorAll('.row-stars, [data-review-stars]').forEach((starContainer) => {
       const rating = resolveRating(starContainer);
