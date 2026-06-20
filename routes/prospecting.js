@@ -14,7 +14,9 @@ const {
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
 } = require('../services/leadListFilters');
-const { ensurePipelineFolders } = require('../services/pipelineFolders');
+const { ensurePipelineFolders, ensureTradeSubfolders } = require('../services/pipelineFolders');
+const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
+const { buildFolderTree } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
@@ -33,7 +35,12 @@ router.get('/', async (req, res, next) => {
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
     const wid = req.workspaceId;
-    const folders = await ensurePipelineFolders(wid);
+    let folders = await ensurePipelineFolders(wid);
+    let folderTree = null;
+    if (safeTab === 'folders') {
+      folders = await ensureTradeSubfolders(wid, folders);
+      folderTree = buildFolderTree(folders);
+    }
     const tags = await dbService.listTags(wid);
 
     const scheduleSuccess = req.query.scheduleSuccess === 'true';
@@ -157,6 +164,8 @@ router.get('/', async (req, res, next) => {
       unfiledLeadCount: pipelineVisible.length,
       activeFolderKey,
       folders,
+      folderTree,
+      tradeFolderCount: TRADE_FOLDERS.length,
       tags,
       schedules: schedulesSorted,
       scheduleSuccess,

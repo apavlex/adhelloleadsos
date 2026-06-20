@@ -24,6 +24,9 @@ router.post('/', async (req, res, next) => {
     if (!name) return res.status(400).json({ success: false, error: 'Folder name is required.' });
     const meta = {};
     if (req.body && req.body.jobType) meta.jobType = String(req.body.jobType).trim();
+    if (req.body && req.body.parentFolderKey) {
+      meta.parentFolderKey = String(req.body.parentFolderKey).trim();
+    }
     const folder = await dbService.createFolder(wid, name, meta);
     res.json({ success: true, folder });
   } catch (e) {

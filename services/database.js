@@ -762,6 +762,12 @@ module.exports = {
     };
     if (meta && meta.jobType) folder.jobType = String(meta.jobType);
     if (meta && meta.isPipelineDefault) folder.isPipelineDefault = true;
+    if (meta && meta.parentFolderKey) folder.parentFolderKey = String(meta.parentFolderKey);
+    if (meta && meta.isTradeFolder) folder.isTradeFolder = true;
+    if (meta && meta.tradeSlug) folder.tradeSlug = String(meta.tradeSlug);
+    if (meta && meta.searchPreset && typeof meta.searchPreset === 'object') {
+      folder.searchPreset = meta.searchPreset;
+    }
     kvSet(key, JSON.stringify(folder));
     return { key, ...folder };
   },

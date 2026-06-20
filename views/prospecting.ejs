@@ -37,12 +37,20 @@
               <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
             </div>
             <h2 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h2>
-            <p class="text-sm text-brand-muted mt-2 max-w-2xl">Create folders to organize leads. Use <strong class="text-brand-dark dark:text-white">Search setup</strong> to save how a search should run (like mobile home flip filters), then <strong class="text-brand-dark dark:text-white">Run search</strong> to open Find with those settings. System folders (Businesses, Mobile homes, Real estate) can be removed — they won&apos;t come back unless you reset workspace defaults.</p>
+            <p class="text-sm text-brand-muted mt-2 max-w-2xl">System folders group your search types — <strong class="text-brand-dark dark:text-white">Businesses</strong> includes <%= typeof tradeFolderCount !== 'undefined' ? tradeFolderCount : 28 %> home-service trade subfolders (from <a href="https://www.servicetitan.com/industries" class="text-brand-yellow hover:underline" target="_blank" rel="noopener">ServiceTitan industries</a>). Use <strong class="text-brand-dark dark:text-white">Search setup</strong> per folder, then <strong class="text-brand-dark dark:text-white">Run search</strong>. Search below to filter folders instantly.</p>
           </div>
           <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
-            New folder
+            New subfolder
           </button>
+        </div>
+
+        <div class="relative max-w-xl">
+          <label for="folderSearchFilter" class="sr-only">Search folders</label>
+          <input type="search" id="folderSearchFilter" autocomplete="off" placeholder="Search folders — HVAC, plumbing, dental…"
+            class="w-full rounded-2xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 pl-11 pr-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
+          <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-brand-muted pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" /></svg>
+          <p id="folderSearchEmpty" class="hidden text-sm text-brand-muted mt-2">No folders match your search.</p>
         </div>
 
         <% if (!(folders || []).length) { %>
@@ -50,29 +58,40 @@
             <p class="text-brand-muted mb-6 max-w-md mx-auto">No folders yet. Create one to organize outreach (e.g. Referrals, Events, High-priority).</p>
           </div>
         <% } else { %>
-          <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
-            <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
-              <% (folders || []).forEach((f) => { %>
-                <% var _fc = _folderCounts[f.key] || 0; %>
-                <li class="folder-row flex flex-wrap items-center gap-4 px-6 py-5 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors" data-folder-row="<%= f.key %>" data-folder-name="<%= f.name %>" data-folder-job-type="<%= f.jobType || '' %>" data-folder-is-default="<%= f.isPipelineDefault ? '1' : '0' %>">
-                  <div class="min-w-0 flex-1">
-                    <p class="font-display font-bold text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
-                      <%= f.name %>
-                      <% if (f.isPipelineDefault) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
-                      <% if (f.searchPreset) { %><span class="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/40 rounded-full px-2 py-0.5">Search saved</span><% } %>
-                    </p>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder</p>
-                  </div>
-                  <div class="flex flex-wrap items-center gap-2 shrink-0">
-                    <a href="/leads/find?folderKey=<%= encodeURIComponent(f.key) %>" class="px-4 py-2.5 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm">Run search</a>
-                    <button type="button" class="folder-search-setup px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= f.key %>">Search setup</button>
-                    <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(f.key) %>" class="px-4 py-2.5 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
-                    <button type="button" class="folder-rename px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= f.key %>">Rename</button>
-                    <button type="button" class="folder-delete px-4 py-2.5 rounded-xl bg-white dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/50 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors" data-folder-key="<%= f.key %>">Remove</button>
-                  </div>
-                </li>
-              <% }) %>
-            </ul>
+          <% const _tree = typeof folderTree !== 'undefined' && folderTree ? folderTree : { groups: [] }; %>
+          <div class="space-y-4" id="folderTreeRoot">
+            <% (_tree.groups || []).forEach(function (group) {
+              var rootFolder = group.folder;
+              var rootFc = rootFolder ? (_folderCounts[rootFolder.key] || 0) : 0;
+              var childTotal = 0;
+              (group.children || []).forEach(function (c) { childTotal += _folderCounts[c.key] || 0; });
+              var groupTotal = rootFc + childTotal;
+            %>
+            <details class="folder-group brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" open data-folder-group="<%= group.key %>" data-folder-group-search="<%= (group.name + ' ' + (group.jobType || '')).toLowerCase() %>">
+              <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 px-6 py-4 bg-brand-cream/30 dark:bg-slate-950/40 border-b border-brand-border/30 dark:border-white/10 hover:bg-brand-cream/50 dark:hover:bg-slate-950/60 transition-colors">
+                <div class="min-w-0 flex-1">
+                  <p class="font-display font-black text-lg text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
+                    <%= group.name %>
+                    <% if (group.isSystem) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
+                    <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted"><%= (group.children || []).length %> subfolder<%= (group.children || []).length === 1 ? '' : 's' %></span>
+                  </p>
+                  <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= groupTotal %> lead<%= groupTotal === 1 ? '' : 's' %> total</p>
+                </div>
+                <span class="text-brand-muted text-xs font-bold uppercase tracking-widest group-open:rotate-180 transition-transform">▾</span>
+              </summary>
+              <ul class="divide-y divide-brand-border/40 dark:divide-white/10">
+                <% if (rootFolder) { %>
+                  <%- include('partials/folder_manager_row', { f: rootFolder, fc: rootFc, indent: false, compact: true }) %>
+                <% } %>
+                <% (group.children || []).forEach(function (child) { %>
+                  <%- include('partials/folder_manager_row', { f: child, fc: _folderCounts[child.key] || 0, indent: true }) %>
+                <% }); %>
+                <% if (!rootFolder && !(group.children || []).length) { %>
+                  <li class="px-6 py-8 text-sm text-brand-muted">No folders in this group.</li>
+                <% } %>
+              </ul>
+            </details>
+            <% }); %>
           </div>
         <% } %>
       </section>
@@ -237,8 +256,17 @@
     <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
     <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
       <h2 id="folderCreateTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">New folder</h2>
-      <p class="text-sm text-brand-muted mb-5">Create a folder to organize leads. Assign them from the Pipeline tab.</p>
-      <input id="folderCreateName" type="text" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" placeholder="e.g. Referrals" />
+      <p class="text-sm text-brand-muted mb-5">Create a subfolder under a system folder. Assign leads from the Pipeline tab.</p>
+      <label for="folderCreateParent" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Parent folder</label>
+      <select id="folderCreateParent" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3">
+        <% const _roots = typeof folderTree !== 'undefined' && folderTree && folderTree.groups ? folderTree.groups.filter(function (g) { return g.isSystem && g.folder; }) : []; %>
+        <% _roots.forEach(function (g) { if (!g.folder) return; %>
+        <option value="<%= g.folder.key %>" data-job-type="<%= g.folder.jobType || '' %>"><%= g.name %></option>
+        <% }); %>
+        <option value="">No parent (top-level)</option>
+      </select>
+      <label for="folderCreateName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Folder name</label>
+      <input id="folderCreateName" type="text" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white" placeholder="e.g. HVAC — Phoenix" />
       <p id="folderCreateError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
       <div class="flex gap-3 mt-6">
         <button id="folderCreateSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Create</button>
@@ -358,7 +386,7 @@
     wholesale: ['web_search', 'oxylabs', 'facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
   };
   window.WORKSPACE_FOLDERS = <%- JSON.stringify((folders || []).map(function (f) {
-    return { key: f.key, name: f.name, jobType: f.jobType || '', searchPreset: f.searchPreset || null, isPipelineDefault: !!f.isPipelineDefault };
+    return { key: f.key, name: f.name, jobType: f.jobType || '', parentFolderKey: f.parentFolderKey || '', searchPreset: f.searchPreset || null, isPipelineDefault: !!f.isPipelineDefault, isTradeFolder: !!f.isTradeFolder };
   })) %>;
   </script>
 
@@ -682,7 +710,16 @@
             method: 'POST',
             credentials: 'same-origin',
             headers: jsonHeaders,
-            body: JSON.stringify({ name: n })
+            body: JSON.stringify({
+              name: n,
+              parentFolderKey: ($('folderCreateParent') && $('folderCreateParent').value) || '',
+              jobType: (function () {
+                var sel = $('folderCreateParent');
+                if (!sel || !sel.value) return '';
+                var opt = sel.options[sel.selectedIndex];
+                return opt && opt.getAttribute('data-job-type') ? opt.getAttribute('data-job-type') : '';
+              })()
+            })
           })
             .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
             .then(function (pack) {
@@ -702,10 +739,36 @@
       });
     }
 
+    function bindFolderSearchFilter() {
+      var input = $('folderSearchFilter');
+      var empty = $('folderSearchEmpty');
+      if (!input) return;
+      function applyFilter() {
+        var q = String(input.value || '').trim().toLowerCase();
+        var anyVisible = false;
+        document.querySelectorAll('.folder-group').forEach(function (group) {
+          var groupMatch = !q || String(group.getAttribute('data-folder-group-search') || '').indexOf(q) >= 0;
+          var childVisible = 0;
+          group.querySelectorAll('.folder-row').forEach(function (row) {
+            var rowMatch = !q || String(row.getAttribute('data-folder-search') || '').indexOf(q) >= 0;
+            row.classList.toggle('hidden', !rowMatch && !groupMatch);
+            if (rowMatch) childVisible += 1;
+          });
+          var showGroup = !q || groupMatch || childVisible > 0;
+          group.classList.toggle('hidden', !showGroup);
+          if (showGroup) anyVisible = true;
+          if (q && showGroup && childVisible > 0) group.open = true;
+        });
+        if (empty) empty.classList.toggle('hidden', !q || anyVisible);
+      }
+      input.addEventListener('input', applyFilter);
+    }
+
     function init() {
       bindFolderManager();
       bindFolderCreateModal();
       bindFolderSearchSetupModal();
+      bindFolderSearchFilter();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();

@@ -1,0 +1,35 @@
+<%#
+  folder row — f, fc (lead count), indent (bool), compact (bool for system root header actions)
+%>
+<% const _f = typeof f !== 'undefined' ? f : {}; %>
+<% const _fc = typeof fc !== 'undefined' ? fc : 0; %>
+<% const _indent = typeof indent !== 'undefined' && indent; %>
+<% const _compact = typeof compact !== 'undefined' && compact; %>
+<li class="folder-row flex flex-wrap items-center gap-4 px-6 py-4 hover:bg-brand-cream/25 dark:hover:bg-white/5 transition-colors <%= _indent ? 'pl-10 sm:pl-14 bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
+  data-folder-row="<%= _f.key %>"
+  data-folder-name="<%= _f.name %>"
+  data-folder-job-type="<%= _f.jobType || '' %>"
+  data-folder-is-default="<%= _f.isPipelineDefault ? '1' : '0' %>"
+  data-folder-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>">
+  <div class="min-w-0 flex-1">
+    <p class="font-display font-bold <%= _compact ? 'text-base' : 'text-lg' %> text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
+      <% if (_indent) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
+      <%= _f.name %>
+      <% if (_f.isPipelineDefault) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
+      <% if (_f.isTradeFolder) { %><span class="text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 bg-sky-100/80 dark:bg-sky-950/40 rounded-full px-2 py-0.5">Trade</span><% } %>
+      <% if (_f.searchPreset) { %><span class="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/40 rounded-full px-2 py-0.5">Search saved</span><% } %>
+    </p>
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder</p>
+  </div>
+  <div class="flex flex-wrap items-center gap-2 shrink-0">
+    <a href="/leads/find?folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm">Run search</a>
+    <button type="button" class="folder-search-setup px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Search setup</button>
+    <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
+    <% if (!_f.isPipelineDefault) { %>
+    <button type="button" class="folder-rename px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Rename</button>
+    <button type="button" class="folder-delete px-3 py-2 rounded-xl bg-white dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/50 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors" data-folder-key="<%= _f.key %>">Remove</button>
+    <% } else { %>
+    <button type="button" class="folder-delete px-3 py-2 rounded-xl bg-white dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/50 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors" data-folder-key="<%= _f.key %>">Remove</button>
+    <% } %>
+  </div>
+</li>

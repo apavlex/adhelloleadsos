@@ -5,6 +5,9 @@
 const dbService = require('./database');
 const { JOB_TYPES, normalizeJobType } = require('./scrapeJobTypes');
 const { isWarmSource, isManualSource, leadJobType } = require('./leadListFilters');
+const { TRADE_FOLDERS } = require('./tradeFoldersCatalog');
+const { normalizeSearchPreset } = require('./folderSearchPreset');
+const { buildFolderTree } = require('./folderTree');
 
 const DEFAULT_PIPELINE_FOLDERS = {
   [JOB_TYPES.MAPS_BUSINESS]: { name: 'Businesses', sourceType: 'maps_business' },
@@ -80,6 +83,65 @@ async function ensurePipelineFolders(workspaceId) {
   }
 
   return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+}
+
+/**
+ * Seed ServiceTitan trade subfolders under the Businesses system folder.
+ * @returns {Promise<object[]>} updated folder list
+ */
+async function ensureTradeSubfolders(workspaceId, folders) {
+  const wid = workspaceId || 'default';
+  const businessRoot = findFolderForJobType(folders, JOB_TYPES.MAPS_BUSINESS);
+  if (!businessRoot || !businessRoot.key) return folders;
+
+  const parentKey = String(businessRoot.key);
+  const existingSlugs = new Set(
+    (folders || [])
+      .filter((f) => f && String(f.parentFolderKey || '') === parentKey && f.tradeSlug)
+      .map((f) => String(f.tradeSlug))
+  );
+  const existingNames = new Set(
+    (folders || [])
+      .filter((f) => f && String(f.parentFolderKey || '') === parentKey)
+      .map((f) => String(f.name || '').trim().toLowerCase())
+  );
+
+  const out = [...folders];
+  for (const trade of TRADE_FOLDERS) {
+    if (existingSlugs.has(trade.slug)) continue;
+    if (existingNames.has(String(trade.name).trim().toLowerCase())) continue;
+
+    const searchPreset = normalizeSearchPreset({
+      jobType: JOB_TYPES.MAPS_BUSINESS,
+      keyword: trade.keyword,
+      maxResults: 25,
+      mapsProvider: 'auto',
+      directorySupplement: true,
+    });
+
+    // eslint-disable-next-line no-await-in-loop
+    const created = await dbService.createFolder(wid, trade.name, {
+      parentFolderKey: parentKey,
+      jobType: JOB_TYPES.MAPS_BUSINESS,
+      isTradeFolder: true,
+      tradeSlug: trade.slug,
+      searchPreset,
+    });
+    out.push(created);
+    existingSlugs.add(trade.slug);
+    existingNames.add(String(trade.name).trim().toLowerCase());
+  }
+
+  return out;
+}
+
+async function ensurePipelineFoldersWithTree(workspaceId) {
+  const folders = await ensurePipelineFolders(workspaceId);
+  const withTrades = await ensureTradeSubfolders(workspaceId, folders);
+  return {
+    folders: withTrades,
+    folderTree: buildFolderTree(withTrades),
+  };
 }
 
 async function hideDefaultPipelineFolder(workspaceId, jobType) {
@@ -267,6 +329,8 @@ module.exports = {
   sourceForJobType,
   findFolderForJobType,
   ensurePipelineFolders,
+  ensureTradeSubfolders,
+  ensurePipelineFoldersWithTree,
   resolveTargetFolder,
   folderKeyForJobType,
   leadMetadataForJobType,
