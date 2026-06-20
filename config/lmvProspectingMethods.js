@@ -1,11 +1,12 @@
 /**
- * LMV prospecting methods — six outreach approaches shown on the pipeline.
+ * LMV prospecting methods — outreach approaches shown on the pipeline.
  */
 
 const OUTREACH_LIST_TAG_NAMES = {
   call: 'Call List',
   email: 'Email List',
   doubleTap: 'Double Tap List',
+  directMail: 'Direct Mail List',
 };
 
 const LMV_PROSPECTING_METHODS = [
@@ -71,6 +72,17 @@ const LMV_PROSPECTING_METHODS = [
     description: 'Multi-channel approach: DMs + email sequence for higher response rates.',
     actionLabel: 'Start tapping',
     actionHref: '/prospecting?tab=pipeline&reach=double_tap#tableView',
+  },
+  {
+    id: 'direct_mail',
+    icon: 'postcard',
+    title: 'Direct Mail',
+    temperature: 'cold',
+    temperatureLabel: 'Cold',
+    contactHint: 'Mailable address',
+    description: 'QR postcard to local businesses with a physical address — great when email and web are missing.',
+    actionLabel: 'Start mailing',
+    actionHref: '/direct-mail',
   },
 ];
 

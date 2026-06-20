@@ -12,6 +12,8 @@ const outscraperClient = require('../services/outscraperClient');
 const integrationProviderTests = require('../services/integrationProviderTests');
 const ghlClient = require('../services/ghlClient');
 const ghlSync = require('../services/ghlSync');
+const lobClient = require('../services/lobClient');
+const multer = require('multer');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/workspaceAccent');
@@ -327,6 +329,107 @@ router.get('/integrations/ghl-setup', async (req, res, next) => {
         'Step-by-step instructions to link your GHL sub-account, verify the connection, and start syncing contacts.',
     });
   } catch (e) {
+    next(e);
+  }
+});
+
+/** Step-by-step Lob direct mail + design upload guide. */
+router.get('/integrations/lob-setup', async (req, res, next) => {
+  try {
+    const locals = await loadWorkspacePageLocals(req);
+    const resolvedEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const lobStatus = {
+      configured: lobClient.isConfigured(resolvedEnv),
+      testMode: lobClient.isTestMode(resolvedEnv),
+      connectionMessage: '',
+    };
+    if (lobStatus.configured) {
+      try {
+        const test = await lobClient.testConnection(resolvedEnv);
+        lobStatus.connectionMessage = test.message || 'Connected';
+      } catch (e) {
+        lobStatus.connectionError = e && e.message ? e.message : 'Connection test failed';
+      }
+    }
+    res.render('workspace', {
+      ...locals,
+      lobStatus,
+      title: 'Lob direct mail setup · Workspace',
+      workspaceSection: 'lob-setup',
+      workspaceSectionTitle: 'Postcard & letter designs',
+      workspaceSectionDescription:
+        'Design specs, PDF upload, and how to send test postcards through Lob.',
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const lobDesignUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mt = String(file.mimetype || '').toLowerCase();
+    const name = String(file.originalname || '').toLowerCase();
+    if (mt === 'application/pdf' || name.endsWith('.pdf')) return cb(null, true);
+    cb(new Error('Upload a PDF file only.'));
+  },
+});
+
+const LOB_DESIGN_FIELD_BY_SLOT = {
+  postcard_front: 'lobPostcardFrontUrl',
+  postcard_back: 'lobPostcardBackUrl',
+  letter: 'lobLetterPdfUrl',
+};
+
+router.post('/integrations/lob-designs/upload', lobDesignUpload.single('file'), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can upload designs.' });
+    }
+    if (!workspaceIntegrations.isEncryptionAvailable()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Workspace integrations secret is not configured on the server.',
+      });
+    }
+    const slot = String(req.body && req.body.slot ? req.body.slot : req.query.slot || '').trim();
+    const field = LOB_DESIGN_FIELD_BY_SLOT[slot];
+    if (!field || !req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, error: 'Choose a design slot and upload a PDF.' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!lobClient.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Save your Lob API key and return address first, then upload designs.',
+      });
+    }
+
+    const uploaded = await lobClient.uploadPdfAsset({
+      buffer: req.file.buffer,
+      filename: req.file.originalname || `${slot}.pdf`,
+      integrationEnv,
+    });
+
+    const wid = req.workspaceId;
+    const ws = await dbService.getWorkspace(wid);
+    let plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+    plain[field] = uploaded.url;
+    await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
+
+    res.json({
+      success: true,
+      slot,
+      field,
+      url: uploaded.url,
+      uploadId: uploaded.id,
+    });
+  } catch (e) {
+    if (e && e.message && /pdf/i.test(e.message)) {
+      return res.status(400).json({ success: false, error: e.message });
+    }
     next(e);
   }
 });

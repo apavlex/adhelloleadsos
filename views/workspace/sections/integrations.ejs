@@ -322,6 +322,79 @@
           <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1 basis-full sm:basis-auto sm:ml-2" aria-live="polite"></p>
         </div>
       </section>
+
+      <section id="lob-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Lob — Direct Mail</h3>
+            <p class="text-sm text-brand-muted mt-1 max-w-2xl">Postcards via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Use a <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">test_</code> key for test mode (no postage). Live keys require a payment method on your Lob account.</p>
+          </div>
+          <div class="flex flex-wrap gap-2 shrink-0">
+            <a href="/workspace/integrations/lob-setup" class="rounded-xl border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Design guide</a>
+            <a href="/direct-mail" class="rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">Open Direct Mail</a>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="md:col-span-2">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Secret API key</label>
+            <% if (masks.lobApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobApiKey %></p><% } %>
+            <input type="password" name="lobApiKey" autocomplete="off" placeholder="test_… or live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.lobApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="lobApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Return name</label>
+            <% if (masks.lobFromName) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobFromName %></p><% } %>
+            <input type="text" name="lobFromName" autocomplete="off" placeholder="Your agency name" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Return street</label>
+            <% if (masks.lobFromAddressLine1) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.lobFromAddressLine1 %></p><% } %>
+            <input type="text" name="lobFromAddressLine1" autocomplete="off" placeholder="123 Main St" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">City</label>
+            <input type="text" name="lobFromCity" autocomplete="off" placeholder="Portland" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">State</label>
+            <input type="text" name="lobFromState" autocomplete="off" placeholder="OR" maxlength="2" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm uppercase" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">ZIP</label>
+            <input type="text" name="lobFromZip" autocomplete="off" placeholder="97201" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+          </div>
+        </div>
+
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 p-4 space-y-4">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white mb-1">Mail designs (PDF)</p>
+            <p class="text-xs text-brand-muted leading-relaxed">Upload print-ready PDFs — Agency OS sends them to Lob’s hosting. Postcards need <strong>both</strong> front and back. See the <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">design guide</a> for sizes.</p>
+          </div>
+          <% const _lobDesignSlots = [
+            { slot: 'postcard_front', field: 'lobPostcardFrontUrl', label: 'Postcard front (4×6 PDF)' },
+            { slot: 'postcard_back', field: 'lobPostcardBackUrl', label: 'Postcard back (4×6 PDF)' },
+            { slot: 'letter', field: 'lobLetterPdfUrl', label: 'Letter (8.5×11 PDF)' },
+          ]; %>
+          <% _lobDesignSlots.forEach(function (d) { %>
+          <div class="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2 items-end border-t border-brand-border/25 dark:border-white/10 pt-3 first:border-0 first:pt-0">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5"><%= d.label %></label>
+              <% if (masks[d.field]) { %><p class="text-xs text-brand-muted mb-1 truncate" title="<%= masks[d.field] %>">Saved: <%= masks[d.field] %></p><% } %>
+              <input type="url" name="<%= d.field %>" autocomplete="off" placeholder="https://… or upload PDF below" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            </div>
+            <div class="flex flex-col gap-1">
+              <label class="js-lob-design-upload cursor-pointer inline-flex items-center justify-center rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" data-lob-slot="<%= d.slot %>">
+                Upload PDF
+                <input type="file" accept="application/pdf,.pdf" class="sr-only js-lob-design-file" data-lob-slot="<%= d.slot %>" />
+              </label>
+              <p class="js-lob-design-upload-msg text-[10px] text-brand-muted min-h-[1rem]" data-lob-slot="<%= d.slot %>" aria-live="polite"></p>
+            </div>
+          </div>
+          <% }) %>
+        </div>
+
+        <%- include('../../partials/integration_test_row', { provider: 'lob' }) %>
+      </section>
     </div>
 
     <div class="flex flex-wrap items-center gap-3 pt-2 border-t border-brand-border/40 dark:border-white/10">
@@ -520,6 +593,47 @@
       } finally {
         btn.disabled = false;
         btn.textContent = prev;
+      }
+    });
+  });
+
+  document.querySelectorAll('.js-lob-design-file').forEach(function (input) {
+    input.addEventListener('change', async function () {
+      var slot = input.getAttribute('data-lob-slot') || '';
+      var msgEl = document.querySelector('.js-lob-design-upload-msg[data-lob-slot="' + slot + '"]');
+      var file = input.files && input.files[0];
+      if (!file) return;
+      if (msgEl) msgEl.textContent = 'Uploading…';
+      try {
+        var fd = new FormData();
+        fd.append('file', file);
+        fd.append('slot', slot);
+        var res = await fetch('/workspace/integrations/lob-designs/upload', {
+          method: 'POST',
+          credentials: 'same-origin',
+          body: fd,
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Upload failed');
+        var fieldName =
+          slot === 'postcard_front'
+            ? 'lobPostcardFrontUrl'
+            : slot === 'postcard_back'
+              ? 'lobPostcardBackUrl'
+              : 'lobLetterPdfUrl';
+        var urlInput = form && form.querySelector('[name="' + fieldName + '"]');
+        if (urlInput) urlInput.value = data.url || '';
+        if (msgEl) {
+          msgEl.textContent = '✓ Uploaded to Lob';
+          msgEl.classList.add('text-emerald-700', 'dark:text-emerald-300');
+        }
+      } catch (e) {
+        if (msgEl) {
+          msgEl.textContent = e && e.message ? e.message : 'Upload failed';
+          msgEl.classList.add('text-red-700', 'dark:text-red-300');
+        }
+      } finally {
+        input.value = '';
       }
     });
   });

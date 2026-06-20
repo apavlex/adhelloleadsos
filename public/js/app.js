@@ -127,12 +127,15 @@ document.addEventListener('DOMContentLoaded', () => {
     else if (typeof window.__renderSearchResultStars === 'function') window.__renderSearchResultStars();
   };
 
-  // Initial badge paint only — keep server row order; user sort is explicit.
-  setTimeout(() => {
-    updateOpportunityBadges();
-  }, 300);
-
-  setTimeout(updateOpportunityBadges, 1500);
+  // Defer badge paint — keeps server row order; avoids post-load table repaint flash.
+  (function scheduleInitialOpportunityBadges() {
+    const run = () => updateOpportunityBadges();
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(run, { timeout: 1800 });
+    } else {
+      setTimeout(run, 600);
+    }
+  })();
   
   const getProspectTableBody = () => document.querySelector('#prospectLeadsTable tbody');
 
@@ -533,7 +536,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       window.__syncPipelineStickyColumnOffsets = scheduleSyncPipelineStickyOffsets;
       window.addEventListener('resize', scheduleSyncPipelineStickyOffsets, { passive: true });
-      scheduleSyncPipelineStickyOffsets();
+      if (table.dataset.pipelinePrefsPrimed === '1') {
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(scheduleSyncPipelineStickyOffsets, { timeout: 800 });
+        } else {
+          setTimeout(scheduleSyncPipelineStickyOffsets, 100);
+        }
+      } else {
+        scheduleSyncPipelineStickyOffsets();
+      }
 
       const PLC_META = [
         { id: 'company', label: 'Company' },
@@ -13918,8 +13929,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  // Initial render of stars in the table
-  applyTableStars();
+  // Initial render of stars in the table — after pipeline prefs reveal to avoid visible repaint.
+  (function scheduleInitialTableStars() {
+    const run = () => applyTableStars();
+    if (document.getElementById('prospectLeadsTable')) {
+      if (document.documentElement.getAttribute('data-pipeline-prefs-ready') === '1') {
+        run();
+        return;
+      }
+      const reveal = () => {
+        if (document.documentElement.getAttribute('data-pipeline-prefs-ready') === '1') {
+          document.removeEventListener('adhello-pipeline-prefs-ready', reveal);
+          run();
+        }
+      };
+      document.addEventListener('adhello-pipeline-prefs-ready', reveal);
+      setTimeout(run, 2500);
+      return;
+    }
+    run();
+  })();
 
   const schedulePipelineFrame =
     typeof requestAnimationFrame === 'function'

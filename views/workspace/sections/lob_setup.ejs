@@ -1,0 +1,124 @@
+<% const _lobReady = typeof lobStatus !== 'undefined' ? lobStatus : {}; %>
+<% const _masks = typeof integrationMasks !== 'undefined' ? integrationMasks : {}; %>
+
+<div class="space-y-8 max-w-3xl">
+  <div class="rounded-xl border px-4 py-3 flex flex-wrap items-start gap-3 <%= _lobReady.configured ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-amber-500/40 bg-amber-500/10' %>">
+    <span class="w-2.5 h-2.5 rounded-full shrink-0 mt-1 <%= _lobReady.configured ? 'bg-emerald-500' : 'bg-amber-500' %>" aria-hidden="true"></span>
+    <div class="min-w-0 flex-1">
+      <% if (_lobReady.configured) { %>
+      <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-100">Lob is configured<%= _lobReady.testMode ? ' (test mode)' : '' %></p>
+      <p class="text-xs text-emerald-800/90 dark:text-emerald-200/90 leading-relaxed"><%= _lobReady.connectionMessage || 'API key and return address saved.' %></p>
+      <% } else { %>
+      <p class="text-sm font-semibold text-amber-950 dark:text-amber-100">Connect Lob first</p>
+      <p class="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed">Save your API key and return address on the <a href="/workspace/integrations#lob-integration" class="underline font-semibold">Integrations</a> page before uploading designs.</p>
+      <% } %>
+    </div>
+    <a href="/direct-mail" class="rounded-lg border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open Direct Mail</a>
+  </div>
+
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8">
+    <header class="mb-6">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Direct mail</p>
+      <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white mb-2">Postcard &amp; letter design guide</h2>
+      <p class="text-sm text-brand-muted leading-relaxed">
+        Lob prints from <strong class="text-brand-dark dark:text-white">PDF files</strong> (recommended) or HTML. Export your creative from Canva or Figma, upload it here, and Agency OS sends it through Lob when you mail leads.
+      </p>
+    </header>
+
+    <div class="rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden mb-8 text-sm">
+      <table class="w-full text-left">
+        <thead class="bg-brand-cream/50 dark:bg-slate-800/80 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+          <tr>
+            <th class="px-4 py-3">Format</th>
+            <th class="px-4 py-3">Page size</th>
+            <th class="px-4 py-3">Bleed</th>
+            <th class="px-4 py-3">Notes</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-brand-border/30 dark:divide-white/10 text-brand-muted">
+          <tr>
+            <td class="px-4 py-3 font-semibold text-brand-dark dark:text-white">Postcard (4×6)</td>
+            <td class="px-4 py-3">6.25″ × 4.25″</td>
+            <td class="px-4 py-3">0.125″</td>
+            <td class="px-4 py-3">Upload <strong>front</strong> and <strong>back</strong> PDFs separately.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-3 font-semibold text-brand-dark dark:text-white">Letter (8.5×11)</td>
+            <td class="px-4 py-3">8.5″ × 11″</td>
+            <td class="px-4 py-3">—</td>
+            <td class="px-4 py-3">Single PDF; Lob prints in color by default.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p class="px-4 py-3 text-xs text-brand-muted border-t border-brand-border/30 dark:border-white/10">Official specs: <a href="https://help.lob.com/print-and-mail/designing-mail-creatives/print-ready-files" class="text-brand-yellow hover:underline" target="_blank" rel="noopener noreferrer">Lob print-ready files</a></p>
+    </div>
+
+    <ol class="space-y-8 list-none p-0 m-0">
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">1</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Get your Lob API key</h3>
+          <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
+            <li>Sign in at <a href="https://dashboard.lob.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">dashboard.lob.com</a>.</li>
+            <li>Open <strong>Settings → API Keys</strong>.</li>
+            <li>Copy your <strong>Test</strong> secret key (<code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">test_…</code>) while designing — no postage is charged.</li>
+            <li>Switch to <strong>Live</strong> (<code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">live_…</code>) when you are ready to mail for real (requires a payment method on Lob).</li>
+          </ol>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">2</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Design your creative</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">Use any tool that exports PDF. Keep important text inside the safe zone (≈0.25″ from trim).</p>
+          <ul class="text-sm text-brand-muted space-y-2 list-disc list-inside leading-relaxed">
+            <li><strong>Canva:</strong> search “postcard 4×6” or “US letter”, design both sides for postcards, <strong>Download → PDF Print</strong>.</li>
+            <li><strong>Figma:</strong> frame at 1875×1275 px (4×6 @ 300dpi) or 2550×3300 px (letter), export as PDF.</li>
+            <li><strong>QR codes:</strong> link to your hosted audit or booking page — Lob does not generate QR for you in PDF mode.</li>
+          </ul>
+          <p class="text-xs text-brand-muted">Without custom PDFs, Agency OS uses a simple built-in HTML postcard template on the Direct Mail page.</p>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">3</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Upload PDFs to Lob (via Agency OS)</h3>
+          <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
+            <li>Go to <a href="/workspace/integrations#lob-integration" class="underline font-semibold text-brand-dark dark:text-white">Workspace → Integrations → Lob</a>.</li>
+            <li>Under <strong>Mail designs</strong>, choose the slot (postcard front, postcard back, or letter).</li>
+            <li>Click <strong>Upload PDF</strong>. Agency OS sends the file to Lob’s Uploads API and saves the hosted URL on your workspace.</li>
+            <li>Alternatively paste a <strong>public HTTPS URL</strong> to a PDF you host (S3, CDN, etc.) if you already have one.</li>
+          </ol>
+          <% if (_masks.lobPostcardFrontUrl || _masks.lobPostcardBackUrl || _masks.lobLetterPdfUrl) { %>
+          <p class="text-xs font-semibold text-emerald-700 dark:text-emerald-300">✓ At least one design URL is saved on this workspace.</p>
+          <% } %>
+          <a href="/workspace/integrations#lob-integration" class="inline-flex mt-1 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-2.5 text-xs font-black uppercase tracking-widest hover:opacity-90 transition-opacity">Upload designs</a>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">4</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Save return address &amp; test</h3>
+          <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
+            <li>On the same Lob card, enter your <strong>return address</strong> (required by USPS).</li>
+            <li>Click <strong>Test connection</strong> on the Lob row.</li>
+            <li>Open <a href="/direct-mail" class="underline font-semibold text-brand-dark dark:text-white">Direct Mail</a>, select a lead with a full address, and send with your <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">test_</code> key.</li>
+            <li>In Lob’s dashboard, open <strong>Mailings → Postcards</strong> to preview the proof.</li>
+          </ol>
+        </div>
+      </li>
+
+      <li class="flex gap-4">
+        <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-brand-dark text-sm font-black">5</span>
+        <div class="min-w-0 space-y-2">
+          <h3 class="font-bold text-brand-dark dark:text-white">Go live</h3>
+          <p class="text-sm text-brand-muted leading-relaxed">Replace the test API key with your live key on the Integrations page. Confirm billing is enabled in Lob before sending at scale.</p>
+          <p class="text-xs text-brand-muted">Letters use the letter PDF slot; postcards require <em>both</em> front and back PDFs. If only one side is uploaded, Agency OS falls back to the HTML template.</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+</div>

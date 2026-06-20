@@ -103,6 +103,12 @@
         css.push('html.adhello-pipeline-view-kanban #kanbanView{display:block!important}');
       }
 
+      css.push(
+        '#prospectLeadsTable:not([data-pipeline-paging-primed="1"]) tbody tr.result-row:nth-child(n+' +
+          (PAGE_SIZE + 1) +
+          '){display:none!important}',
+      );
+
       if (css.length) {
         var el = document.createElement('style');
         el.id = 'pipeline-prefs-prime';
@@ -150,6 +156,14 @@
         });
       }
       table.dataset.pipelinePrefsPrimed = '1';
+      table.setAttribute('data-pipeline-paging-primed', '1');
+      document.documentElement.classList.remove('pipeline-prefs-pending');
+      document.documentElement.setAttribute('data-pipeline-prefs-ready', '1');
+      try {
+        document.dispatchEvent(new CustomEvent('adhello-pipeline-prefs-ready'));
+      } catch (_) {
+        /* ignore */
+      }
     } catch (_) {
       /* ignore */
     }
@@ -160,4 +174,19 @@
   window.__PIPELINE_COL_META = PLC_META;
 
   primeHead();
+
+  function releasePipelinePrefsPending() {
+    if (document.documentElement.getAttribute('data-pipeline-prefs-ready') === '1') return;
+    document.documentElement.classList.remove('pipeline-prefs-pending');
+    document.documentElement.setAttribute('data-pipeline-prefs-ready', '1');
+    try {
+      document.dispatchEvent(new CustomEvent('adhello-pipeline-prefs-ready'));
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function () {
+    setTimeout(releasePipelinePrefsPending, 4000);
+  });
 })();

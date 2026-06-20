@@ -51,9 +51,25 @@
   global.__renderStarsInElement = renderStarsInElement;
   global.__applyReviewStars = applyReviewStars;
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => applyReviewStars());
-  } else {
+  function runInitialReviewStars() {
+    if (document.getElementById('prospectLeadsTable')) {
+      if (document.documentElement.getAttribute('data-pipeline-prefs-ready') === '1') {
+        applyReviewStars();
+        return;
+      }
+      const reveal = function () {
+        document.removeEventListener('adhello-pipeline-prefs-ready', reveal);
+        applyReviewStars();
+      };
+      document.addEventListener('adhello-pipeline-prefs-ready', reveal);
+      return;
+    }
     applyReviewStars();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', runInitialReviewStars);
+  } else {
+    runInitialReviewStars();
   }
 })(typeof window !== 'undefined' ? window : global);

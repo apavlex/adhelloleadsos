@@ -80,6 +80,18 @@ function hasUsableSocialLink(l) {
   return check(l.facebook) || check(l.instagram) || check(l.twitter) || check(l.linkedin);
 }
 
+function hasMailableStreetAddress(l) {
+  const address = String(l.address || '').trim();
+  if (!address || address === 'N/A' || address.length < 5) return false;
+  const city = String(l.city || '').trim();
+  const state = String(l.state || '').trim();
+  if (!city || !state) return false;
+  const zip =
+    String(l.postalCode || l.zip || '').trim() ||
+    ((address.match(/\b(\d{5})(?:-\d{4})?\b/) || [])[1] || '');
+  return !!zip;
+}
+
 function matchesReachFilter(l, reach) {
   const mode = String(reach || '').trim().toLowerCase();
   if (!mode || mode === 'all') return true;
@@ -87,6 +99,9 @@ function matchesReachFilter(l, reach) {
   if (mode === 'phone' || mode === 'call') return hasUsableContactPhone(l);
   if (mode === 'double_tap' || mode === 'doubletap') {
     return hasUsableContactEmail(l) && hasUsableContactPhone(l) && hasUsableSocialLink(l);
+  }
+  if (mode === 'direct_mail' || mode === 'directmail' || mode === 'mail') {
+    return hasMailableStreetAddress(l);
   }
   return true;
 }

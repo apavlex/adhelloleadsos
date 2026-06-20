@@ -41,6 +41,10 @@ function iaNav(req, res, next) {
     navPrimary = 'resources';
   } else if (p === '/ceo' || p.startsWith('/ceo/')) {
     navPrimary = 'ceo';
+  } else if (p === '/direct-mail' || p.startsWith('/direct-mail/')) {
+    navPrimary = 'direct-mail';
+  } else if (p === '/social-posts' || p.startsWith('/social-posts/')) {
+    navPrimary = 'social-posts';
   }
   res.locals.requestPath = p;
   res.locals.sidebarSettingsOpen =

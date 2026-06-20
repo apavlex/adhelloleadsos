@@ -38,6 +38,7 @@ const outreachRoutes = require('./routes/outreach');
 const prospectingRoutes = require('./routes/prospecting');
 const newsletterRoutes = require('./routes/newsletter');
 const socialPostsRoutes = require('./routes/socialPosts');
+const directMailRoutes = require('./routes/directMail');
 const foldersRoutes = require('./routes/folders');
 const tagsRoutes = require('./routes/tags');
 const ghlRoutes = require('./routes/ghl');
@@ -457,6 +458,7 @@ app.use('/api/assistant', assistantRoutes);
 app.use('/ceo', ceoRoutes);
 app.use('/newsletter', newsletterRoutes);
 app.use('/social-posts', socialPostsRoutes);
+app.use('/direct-mail', directMailRoutes);
 
 // Error handler
 app.use((err, req, res, next) => {

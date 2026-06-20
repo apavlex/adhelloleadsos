@@ -30,6 +30,15 @@ const INTEGRATION_FIELDS = [
   'ghlWebhookSecret',
   'ghlEmailFrom',
   'ghlSmsFromNumber',
+  'lobApiKey',
+  'lobFromName',
+  'lobFromAddressLine1',
+  'lobFromCity',
+  'lobFromState',
+  'lobFromZip',
+  'lobPostcardFrontUrl',
+  'lobPostcardBackUrl',
+  'lobLetterPdfUrl',
 ];
 
 /** Map stored field → process.env name used by provider clients */
@@ -56,6 +65,15 @@ const FIELD_TO_ENV = {
   ghlWebhookSecret: 'GHL_WEBHOOK_SECRET',
   ghlEmailFrom: 'GHL_EMAIL_FROM',
   ghlSmsFromNumber: 'GHL_SMS_FROM_NUMBER',
+  lobApiKey: 'LOB_API_KEY',
+  lobFromName: 'LOB_FROM_NAME',
+  lobFromAddressLine1: 'LOB_FROM_ADDRESS_LINE1',
+  lobFromCity: 'LOB_FROM_CITY',
+  lobFromState: 'LOB_FROM_STATE',
+  lobFromZip: 'LOB_FROM_ZIP',
+  lobPostcardFrontUrl: 'LOB_POSTCARD_FRONT_URL',
+  lobPostcardBackUrl: 'LOB_POSTCARD_BACK_URL',
+  lobLetterPdfUrl: 'LOB_LETTER_PDF_URL',
 };
 
 /**
@@ -157,6 +175,7 @@ function integrationMasks(workspace) {
     'pagespeedApiKey',
     'ghlApiKey',
     'ghlWebhookSecret',
+    'lobApiKey',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

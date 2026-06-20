@@ -13,6 +13,7 @@ const betterContactClient = require('./betterContactClient');
 const { resolvePageSpeedApiKey, PAGESPEED_ENDPOINT } = require('./pageSpeedInsights');
 const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
 const ghlClient = require('./ghlClient');
+const lobClient = require('./lobClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -42,6 +43,10 @@ const PROVIDERS = {
   crawl4ai: { label: 'Crawl4AI', fields: ['crawl4aiBaseUrl', 'crawl4aiApiToken'] },
   pagespeed: { label: 'PageSpeed Insights', fields: ['pagespeedApiKey'] },
   ghl: { label: 'Go High Level', fields: ['ghlApiKey', 'ghlLocationId'] },
+  lob: {
+    label: 'Lob Direct Mail',
+    fields: ['lobApiKey', 'lobFromAddressLine1', 'lobFromCity', 'lobFromState', 'lobFromZip'],
+  },
 };
 
 function listProviderIds() {
@@ -222,6 +227,14 @@ async function testGhl(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+async function testLob(integrationEnv) {
+  if (!lobClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing Lob API key or return address — paste all fields and save, or type them before testing.');
+  }
+  const result = await lobClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   searchapi: () => testSearchapi,
@@ -233,6 +246,7 @@ const RUNNERS = {
   bettercontact: () => testBetterContact,
   pagespeed: () => testPageSpeed,
   ghl: () => testGhl,
+  lob: () => testLob,
 };
 
 /**

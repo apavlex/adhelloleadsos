@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-4 sm:px-6 py-8 md:py-10">
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Outreach</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Direct Mail</h1>
+        <p class="text-sm text-brand-muted mt-2 max-w-2xl">Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.</p>
+      </div>
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <a href="/workspace/integrations/lob-setup" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 hover:border-brand-yellow/50 transition-colors">Design guide</a>
+        <a href="/prospecting?tab=pipeline&amp;reach=direct_mail#tableView" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 hover:border-brand-yellow/50 transition-colors">Pipeline filter</a>
+        <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
+        <a href="/workspace/integrations#lob-integration" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5">Lob settings</a>
+        <% } %>
+      </div>
+    </div>
+
+    <div id="lobStatusBanner" class="brand-card p-4 md:p-5 mb-6 dark:bg-slate-900 dark:border-white/10 <%= lobReady.configured ? 'border-emerald-300/60 dark:border-emerald-800/50' : 'border-amber-300/60 dark:border-amber-800/50' %>">
+      <% if (lobReady.configured) { %>
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 px-3 py-1 text-[10px] font-black uppercase tracking-widest">
+          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+          Lob connected<%= lobReady.testMode ? ' · test mode' : ' · live' %>
+        </span>
+        <p class="text-sm text-brand-muted"><%= mailableLeads.length %> lead<%= mailableLeads.length === 1 ? '' : 's' %> ready to mail in this workspace.<% if (lobReady.hasCustomPostcard) { %> Using your uploaded postcard PDFs.<% } else { %> Using built-in HTML template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %></p>
+      </div>
+      <% } else { %>
+      <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Lob is not configured yet</p>
+      <p class="text-sm text-brand-muted mt-1">Add your Lob API key and return address under <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">Workspace → Integrations</a>.</p>
+      <% } %>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
+      <div class="xl:col-span-2 brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10">
+        <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">Postcard copy</h2>
+        <p class="text-xs text-brand-muted mb-4">Optional — defaults work for a free audit pitch. Leave CTA URL blank to omit the link block.</p>
+        <div class="space-y-3">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmHeadline">Headline</label>
+            <input id="dmHeadline" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm" placeholder="Your free local visibility audit" />
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmBody">Body</label>
+            <textarea id="dmBody" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm resize-y" placeholder="We put together a quick review of how customers find you online."></textarea>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmCtaUrl">Audit / landing URL</label>
+            <input id="dmCtaUrl" type="url" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm" placeholder="https://yoursite.com/audit/…" />
+          </div>
+        </div>
+      </div>
+      <div class="brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10">
+        <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-3">Recent sends</h2>
+        <% if (!recentSends.length) { %>
+        <p class="text-sm text-brand-muted">No postcards sent yet.</p>
+        <% } else { %>
+        <ul class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
+          <% recentSends.forEach(function (s) { %>
+          <li class="text-sm border-b border-brand-border/20 dark:border-white/10 pb-2">
+            <p class="font-semibold text-brand-dark dark:text-white truncate"><%= s.title %></p>
+            <p class="text-[11px] text-brand-muted mt-0.5"><%= s.message %></p>
+          </li>
+          <% }) %>
+        </ul>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
+        <div>
+          <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Mailable leads</h2>
+          <p class="text-xs text-brand-muted mt-0.5">Street address, city, state, and ZIP required.</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
+          <button type="button" id="dmSendBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5 disabled:opacity-50" <%= lobReady.configured ? '' : 'disabled' %>>Send postcards</button>
+        </div>
+      </div>
+      <p id="dmStatus" class="hidden px-5 py-2 text-xs font-semibold" aria-live="polite"></p>
+      <% if (!mailableLeads.length) { %>
+      <div class="p-10 text-center text-brand-muted text-sm">No leads with a complete mailable address. Enrich leads or import addresses from search results.</div>
+      <% } else { %>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead>
+            <tr class="border-b border-brand-border/30 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+              <th class="pl-5 pr-2 py-3 w-12"><input type="checkbox" id="dmCheckAll" class="rounded border-brand-border" aria-label="Select all" /></th>
+              <th class="px-2 py-3">Company</th>
+              <th class="px-2 py-3">Address</th>
+              <th class="px-2 py-3">City</th>
+              <th class="px-2 py-3">State</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
+            <% mailableLeads.forEach(function (l) { %>
+            <tr class="hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]">
+              <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>" /></td>
+              <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %></td>
+              <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address %></td>
+              <td class="px-2 py-3 text-brand-muted"><%= l.city %></td>
+              <td class="px-2 py-3 text-brand-muted"><%= l.state %></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    </div>
+  </main>
+
+  <script src="/js/direct-mail.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+</body>
+</html>
