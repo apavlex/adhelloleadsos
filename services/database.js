@@ -479,7 +479,7 @@ module.exports = {
       }
       if (!parsed || typeof parsed !== 'object') continue;
       if (normLeadW(parsed.workspaceId) !== wid) continue;
-      leads.push({ key: parsed.key || key, ...parsed, workspaceId: wid });
+      leads.push({ ...parsed, key, workspaceId: wid });
     }
     return leads;
   },
@@ -682,6 +682,50 @@ module.exports = {
 
   async deleteLead(key) {
     kvDelete(key);
+    return true;
+  },
+
+  /** Resolve KV storage key from UI/checkbox key (handles legacy parsed.key mismatches). */
+  async resolveLeadStorageKey(rawKey, workspaceId) {
+    const k = String(rawKey || '').trim();
+    if (!k) return null;
+    const variants = [];
+    variants.push(k);
+    if (/^lead:/i.test(k)) variants.push(k.replace(/^lead:/i, ''));
+    else variants.push(`lead:${k}`);
+    for (let i = 0; i < variants.length; i += 1) {
+      const v = variants[i];
+      const storageKey = /^lead:/i.test(v) ? v : `lead:${v}`;
+      if (kvGet(storageKey)) return storageKey;
+    }
+    const wid = workspaceId != null && String(workspaceId).trim() !== ''
+      ? await this._resolveWorkspaceIdForWrite(workspaceId)
+      : null;
+    if (!wid) return null;
+    const norm = k.replace(/^lead:/i, '');
+    const keys = kvList('lead:');
+    for (const storageKey of keys) {
+      const raw = kvGet(storageKey);
+      if (!raw) continue;
+      let parsed;
+      try {
+        parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+      } catch {
+        continue;
+      }
+      if (!parsed || typeof parsed !== 'object') continue;
+      if (this._normalizeLeadWorkspaceId(parsed.workspaceId) !== wid) continue;
+      const pk = String(parsed.key || '').trim();
+      const sk = String(storageKey || '').trim();
+      if (
+        sk === k ||
+        sk.replace(/^lead:/i, '') === norm ||
+        (pk && (pk === k || pk.replace(/^lead:/i, '') === norm))
+      ) {
+        return storageKey;
+      }
+    }
+    return null;
   },
 
   // --- Add log entry to a lead (used by stitch-sync and other routes) ---

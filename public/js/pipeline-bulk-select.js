@@ -635,78 +635,93 @@
     }
   }
 
-  function collectBulkActionKeys() {
-    if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
-      const keys = window.__getSelectedLeadKeysForBulk();
-      if (keys.length) return keys;
-    }
-    const out = [];
+  function collectBulkDeleteTargets() {
+    const targets = [];
     const seen = new Set();
     document
-      .querySelectorAll('tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked')
+      .querySelectorAll(
+        '#prospectLeadsTable tbody input.lead-checkbox:checked, #prospectLeadsTable tbody input.row-checkbox:checked, tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked',
+      )
       .forEach((cb) => {
-        let k = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
-        if (!k) {
-          const row = cb.closest('tr.result-row, tr[data-lead-key]');
-          if (row) k = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
-        }
-        if (!k || seen.has(k)) return;
-        seen.add(k);
-        out.push(k);
+        const row = cb.closest('tr.result-row');
+        if (!row) return;
+        let key = String(
+          row.getAttribute('data-lead-key') ||
+            row.dataset.leadKey ||
+            cb.getAttribute('data-key') ||
+            cb.dataset.key ||
+            '',
+        ).trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        targets.push({ row, key });
       });
-    return out;
+    return targets;
   }
 
-  function findBulkRowForKey(key) {
-    const k = String(key || '').trim();
-    if (!k) return null;
-    const variants = [k];
-    if (/^lead:/i.test(k)) variants.push(k.replace(/^lead:/i, ''));
-    else variants.push('lead:' + k);
-    for (let i = 0; i < variants.length; i += 1) {
-      const v = variants[i];
-      const row = document.querySelector(
-        '#prospectLeadsTable tr.result-row[data-lead-key="' +
-          CSS.escape(v) +
-          '"], tr.result-row[data-lead-key="' +
-          CSS.escape(v) +
-          '"]',
-      );
-      if (row) return row;
-    }
-    return null;
-  }
+  let bulkDeleteInFlight = false;
 
   async function bulkDeleteSelectedLeads() {
-    const keys = collectBulkActionKeys();
-    if (!keys.length) return;
-    const n = keys.length;
+    if (bulkDeleteInFlight) return;
+    const targets = collectBulkDeleteTargets();
+    if (!targets.length) return;
+    const n = targets.length;
     const msg = 'Delete ' + n + ' selected lead' + (n === 1 ? '' : 's') + '? This cannot be undone.';
     if (!window.confirm(msg)) return;
 
+    bulkDeleteInFlight = true;
+    const deleteBtn = document.getElementById('bulkDeleteBtn');
+    if (deleteBtn) deleteBtn.disabled = true;
+
     let deleted = 0;
+    let errorMsg = '';
     const closePanel = document.getElementById('closeMobilePanel');
-    for (let i = 0; i < keys.length; i += 1) {
-      const leadKey = keys[i];
-      try {
-        const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/delete', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { Accept: 'application/json' },
-        });
-        const data = await res.json().catch(function () {
-          return {};
-        });
-        if (!res.ok || !data.success) continue;
-        deleted += 1;
-        const row = findBulkRowForKey(leadKey);
-        if (row) {
-          if (row.classList.contains('selected') && closePanel) closePanel.click();
-          row.remove();
+
+    try {
+      const res = await fetch('/leads/bulk-delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ keys: targets.map((t) => t.key) }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        errorMsg =
+          (data && data.error) ||
+          (data && data.errors && data.errors[0] && data.errors[0].error) ||
+          'Delete failed (' + res.status + ').';
+      } else {
+        deleted = Number(data.deleted) || 0;
+        if (deleted > 0) {
+          const deletedSet = new Set(
+            (Array.isArray(data.deletedKeys) ? data.deletedKeys : targets.map((t) => t.key)).map(
+              function (k) {
+                return String(k || '').trim();
+              },
+            ),
+          );
+          targets.forEach(function (target) {
+            if (!target.row || !target.row.isConnected) return;
+            if (!deletedSet.has(target.key)) return;
+            if (target.row.classList.contains('selected') && closePanel) closePanel.click();
+            target.row.remove();
+          });
         }
-      } catch (err) {
-        console.error('[pipeline-bulk-select] delete failed for', leadKey, err);
+        if (data.failed && !deleted) {
+          errorMsg = 'Could not delete selected leads.';
+        }
       }
+    } catch (err) {
+      console.error('[pipeline-bulk-select] bulk delete failed', err);
+      errorMsg = (err && err.message) || 'Delete failed.';
+    } finally {
+      bulkDeleteInFlight = false;
+      if (deleteBtn) deleteBtn.disabled = false;
     }
 
     const selectAllHeader = document.querySelector('#prospectLeadsTable thead input[data-select-all-leads]');
@@ -722,8 +737,10 @@
       window.showProspectToast(
         deleted
           ? 'Deleted ' + deleted + ' lead' + (deleted === 1 ? '' : 's')
-          : 'Could not delete selected leads',
+          : errorMsg || 'Could not delete selected leads',
       );
+    } else if (errorMsg && !deleted) {
+      window.alert(errorMsg);
     }
     const remaining = document.querySelectorAll('#prospectLeadsTable tbody tr.result-row').length;
     if (remaining === 0) window.location.reload();

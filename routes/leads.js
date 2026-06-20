@@ -2315,16 +2315,75 @@ router.post('/telephony/voicemail/upload', (req, res, next) => {
   }
 });
 
+// POST /leads/bulk-delete — delete multiple leads by key (JSON body)
+router.post('/bulk-delete', express.json(), async (req, res, next) => {
+  try {
+    const keys = Array.isArray(req.body && req.body.keys) ? req.body.keys : [];
+    const normKeys = keys.map((k) => String(k || '').trim()).filter(Boolean);
+    if (!normKeys.length) {
+      return res.status(400).json({ success: false, error: 'No lead keys provided.' });
+    }
+    let deleted = 0;
+    const errors = [];
+    const deletedKeys = [];
+    for (const raw of normKeys) {
+      const storageKey = await dbService.resolveLeadStorageKey(raw, req.workspaceId);
+      if (!storageKey) {
+        errors.push({ key: raw, error: 'Lead not found.' });
+        continue;
+      }
+      const existing = await dbService.getLead(storageKey);
+      if (
+        existing &&
+        existing.workspaceId &&
+        String(existing.workspaceId) !== String(req.workspaceId)
+      ) {
+        errors.push({ key: raw, error: 'Lead is in another workspace.' });
+        continue;
+      }
+      await dbService.deleteLead(storageKey);
+      deleted += 1;
+      deletedKeys.push(raw);
+    }
+    return res.json({
+      success: deleted > 0,
+      deleted,
+      deletedKeys,
+      failed: normKeys.length - deleted,
+      errors,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/delete — remove a saved lead
 router.post('/:key/delete', async (req, res, next) => {
   try {
-    const key = req.params.key;
-    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
-    await dbService.deleteLead(fullKey);
+    const rawKey = decodeURIComponent(String(req.params.key || '').trim());
+    const storageKey = await dbService.resolveLeadStorageKey(rawKey, req.workspaceId);
+    if (!storageKey) {
+      if (req.headers.accept && req.headers.accept.includes('application/json')) {
+        return res.status(404).json({ success: false, error: 'Lead not found.' });
+      }
+      return res.redirect('/prospecting?tab=pipeline');
+    }
+    const existing = await dbService.getLead(storageKey);
+    if (
+      existing &&
+      existing.workspaceId &&
+      String(existing.workspaceId) !== String(req.workspaceId)
+    ) {
+      if (req.headers.accept && req.headers.accept.includes('application/json')) {
+        return res.status(403).json({ success: false, error: 'Lead is in another workspace.' });
+      }
+      return res.redirect('/prospecting?tab=pipeline');
+    }
+    await dbService.deleteLead(storageKey);
 
     // If request is from fetch (JSON), return JSON; otherwise redirect
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
-      return res.json({ success: true });
+      return res.json({ success: true, key: storageKey });
     }
     res.redirect('/prospecting?tab=pipeline');
   } catch (err) {
