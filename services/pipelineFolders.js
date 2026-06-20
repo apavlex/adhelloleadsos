@@ -7,29 +7,49 @@ const { JOB_TYPES, normalizeJobType } = require('./scrapeJobTypes');
 const { isWarmSource, isManualSource, leadJobType } = require('./leadListFilters');
 
 const DEFAULT_PIPELINE_FOLDERS = {
-  [JOB_TYPES.MAPS_BUSINESS]: { name: 'Businesses (Maps)', sourceType: 'maps_business' },
-  [JOB_TYPES.MOBILE_HOMES]: { name: 'Mobile homes', sourceType: 'mobile_home_listing' },
+  [JOB_TYPES.MAPS_BUSINESS]: { name: 'Businesses', sourceType: 'maps_business' },
   [JOB_TYPES.REAL_ESTATE]: { name: 'Real estate', sourceType: 'real_estate' },
+  [JOB_TYPES.HOME_OWNERS]: { name: 'Home owners', sourceType: 'home_owners' },
+  [JOB_TYPES.PRODUCTS]: { name: 'Products', sourceType: 'product_listing' },
+  [JOB_TYPES.WHOLESALE]: { name: 'Wholesale', sourceType: 'wholesale_listing' },
 };
 
 function sourceForJobType(jobType) {
   const jt = normalizeJobType(jobType);
-  if (jt === JOB_TYPES.MOBILE_HOMES) return 'mobile_homes_search';
+  if (jt === JOB_TYPES.HOME_OWNERS) return 'home_owners_search';
+  if (jt === JOB_TYPES.PRODUCTS) return 'products_search';
+  if (jt === JOB_TYPES.WHOLESALE) return 'wholesale_search';
   if (jt === JOB_TYPES.REAL_ESTATE) return 'real_estate_search';
   return 'maps_search';
 }
 
 function findFolderForJobType(folders, jobType) {
   const jt = normalizeJobType(jobType);
+  const defName = DEFAULT_PIPELINE_FOLDERS[jt]?.name || '';
+  const byJobType = (folders || []).find((f) => f && String(f.jobType || '') === jt);
+  if (byJobType) return byJobType;
+
+  if (jt === JOB_TYPES.REAL_ESTATE) {
+    const legacy =
+      (folders || []).find((f) => f && String(f.jobType || '') === JOB_TYPES.MOBILE_HOMES) ||
+      (folders || []).find(
+        (f) =>
+          f &&
+          f.isPipelineDefault &&
+          String(f.name || '')
+            .trim()
+            .toLowerCase() === 'mobile homes'
+      );
+    if (legacy) return legacy;
+  }
+
   return (
-    (folders || []).find((f) => f && String(f.jobType || '') === jt) ||
     (folders || []).find(
       (f) =>
         f &&
         f.isPipelineDefault &&
-        String(f.name || '').trim() === String(DEFAULT_PIPELINE_FOLDERS[jt]?.name || '').trim()
-    ) ||
-    null
+        String(f.name || '').trim() === String(defName).trim()
+    ) || null
   );
 }
 
@@ -203,8 +223,10 @@ async function migrateUnfiledLeadsToPipelineFolders(workspaceId, leads) {
   const stats = {
     total: 0,
     maps_business: 0,
-    mobile_homes: 0,
     real_estate: 0,
+    home_owners: 0,
+    products: 0,
+    wholesale: 0,
     skipped: 0,
   };
 

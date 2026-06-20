@@ -2,15 +2,14 @@
  * Saved search configuration on outreach folders — run Find with preset params.
  */
 
-const { JOB_TYPES, normalizeJobType } = require('./scrapeJobTypes');
+const { JOB_TYPES, JOB_TYPE_LABELS, normalizeJobType, isListingJobType } = require('./scrapeJobTypes');
 const { parseFlipFilter, DEFAULT_FLIP_FILTER } = require('./listingFlipScore');
 const listingSearch = require('./listingSearch');
-
-const JOB_TYPE_LABELS = {
-  [JOB_TYPES.MAPS_BUSINESS]: 'Business (Google Maps)',
-  [JOB_TYPES.MOBILE_HOMES]: 'Mobile homes',
-  [JOB_TYPES.REAL_ESTATE]: 'Real estate (Zillow / Apify)',
-};
+const {
+  findTabForJobType,
+  defaultSourcesForJobType,
+  configForJobType,
+} = require('./searchTypeConfig');
 
 const LAND_MODE_LABELS = {
   any: 'Any tenure',
@@ -33,6 +32,7 @@ const REAL_ESTATE_SCRAPER_LABELS = {
   apify_zillow: 'Apify Zillow',
   oxylabs: 'Oxylabs',
   auto: 'Auto (Apify → Oxylabs fallback)',
+  listings: 'Multi-source listings',
 };
 
 function parseAutoTags(raw) {
@@ -63,19 +63,24 @@ function formatPriceRange(min, max) {
   return null;
 }
 
-function normalizeSearchPreset(raw) {
-  if (!raw || typeof raw !== 'object') return null;
-  const jobType = normalizeJobType(raw.jobType || JOB_TYPES.MAPS_BUSINESS);
-  const out = {
-    jobType,
-    maxResults: Math.min(100, Math.max(1, parseInt(raw.maxResults, 10) || 25)),
-  };
+function normalizeListingFields(raw, jobType) {
+  const typeConfig = configForJobType(jobType);
+  const out = {};
+  out.query =
+    String(raw.query || raw.keyword || typeConfig.defaultQuery || 'listings').trim() ||
+    typeConfig.defaultQuery ||
+    'listings';
+  out.minPrice = raw.minPrice != null && raw.minPrice !== '' ? parseInt(raw.minPrice, 10) : null;
+  out.maxPrice = raw.maxPrice != null && raw.maxPrice !== '' ? parseInt(raw.maxPrice, 10) : null;
+  const hadExplicitSources =
+    (Array.isArray(raw.sources) && raw.sources.length) ||
+    (typeof raw.sources === 'string' && raw.sources.trim());
+  const parsedSources = hadExplicitSources ? listingSearch.parseSourcesList(raw.sources) : [];
+  out.sources = parsedSources.length ? parsedSources : defaultSourcesForJobType(jobType);
 
-  if (jobType === JOB_TYPES.MOBILE_HOMES) {
-    out.query = String(raw.query || 'mobile home').trim() || 'mobile home';
-    out.minPrice = raw.minPrice != null && raw.minPrice !== '' ? parseInt(raw.minPrice, 10) : null;
-    out.maxPrice = raw.maxPrice != null && raw.maxPrice !== '' ? parseInt(raw.maxPrice, 10) : null;
-    out.sources = listingSearch.parseSourcesList(raw.sources);
+  if (jobType === JOB_TYPES.REAL_ESTATE) {
+    const scraper = String(raw.scraper || 'listings').trim().toLowerCase();
+    out.scraper = REAL_ESTATE_SCRAPER_LABELS[scraper] ? scraper : 'listings';
     const flip = parseFlipFilter({ flipFilter: raw.flipFilter || raw });
     out.flipFilter = flip.enabled
       ? {
@@ -91,11 +96,21 @@ function normalizeSearchPreset(raw) {
           excludePhrases: flip.excludePhrases,
         }
       : null;
-  } else if (jobType === JOB_TYPES.REAL_ESTATE) {
-    out.minPrice = raw.minPrice != null && raw.minPrice !== '' ? parseInt(raw.minPrice, 10) : null;
-    out.maxPrice = raw.maxPrice != null && raw.maxPrice !== '' ? parseInt(raw.maxPrice, 10) : null;
-    const scraper = String(raw.scraper || 'auto').trim().toLowerCase();
-    out.scraper = REAL_ESTATE_SCRAPER_LABELS[scraper] ? scraper : 'auto';
+  }
+
+  return out;
+}
+
+function normalizeSearchPreset(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const jobType = normalizeJobType(raw.jobType || JOB_TYPES.MAPS_BUSINESS);
+  const out = {
+    jobType,
+    maxResults: Math.min(100, Math.max(1, parseInt(raw.maxResults, 10) || 25)),
+  };
+
+  if (isListingJobType(jobType)) {
+    Object.assign(out, normalizeListingFields(raw, jobType));
   } else {
     out.keyword = String(raw.keyword || raw.query || 'plumber').trim() || 'plumber';
     out.mapsProvider = normalizeMapsProvider(raw.mapsProvider);
@@ -118,7 +133,7 @@ function describeSearchPreset(preset) {
   const rows = [{ label: 'Search type', value: JOB_TYPE_LABELS[p.jobType] || p.jobType }];
   rows.push({ label: 'Max results', value: String(p.maxResults) });
 
-  if (p.jobType === JOB_TYPES.MOBILE_HOMES) {
+  if (isListingJobType(p.jobType)) {
     rows.push({ label: 'Search terms', value: p.query });
     const price = formatPriceRange(p.minPrice, p.maxPrice);
     if (price) rows.push({ label: 'Price range', value: price });
@@ -128,28 +143,29 @@ function describeSearchPreset(preset) {
         value: p.sources.map((id) => listingSearch.sourceLabel(id)).join(', '),
       });
     }
-    if (p.flipFilter && p.flipFilter.enabled) {
-      rows.push({ label: 'Flip filter', value: 'On — AI scoring enabled' });
+    if (p.jobType === JOB_TYPES.REAL_ESTATE) {
       rows.push({
-        label: 'Min flip score / ROI',
-        value: `${p.flipFilter.minFlipScore} / ${p.flipFilter.minRoiPercent}%`,
+        label: 'Property scraper',
+        value: REAL_ESTATE_SCRAPER_LABELS[p.scraper] || REAL_ESTATE_SCRAPER_LABELS.listings,
       });
-      if (p.flipFilter.landMode) {
+      if (p.flipFilter && p.flipFilter.enabled) {
+        rows.push({ label: 'Flip filter', value: 'On — AI scoring enabled' });
         rows.push({
-          label: 'Land mode',
-          value: LAND_MODE_LABELS[p.flipFilter.landMode] || p.flipFilter.landMode,
+          label: 'Min flip score / ROI',
+          value: `${p.flipFilter.minFlipScore} / ${p.flipFilter.minRoiPercent}%`,
         });
+        if (p.flipFilter.landMode) {
+          rows.push({
+            label: 'Land mode',
+            value: LAND_MODE_LABELS[p.flipFilter.landMode] || p.flipFilter.landMode,
+          });
+        }
+      } else {
+        rows.push({ label: 'Flip filter', value: 'Off' });
       }
-    } else {
-      rows.push({ label: 'Flip filter', value: 'Off' });
     }
-  } else if (p.jobType === JOB_TYPES.REAL_ESTATE) {
-    const price = formatPriceRange(p.minPrice, p.maxPrice);
-    if (price) rows.push({ label: 'Price range', value: price });
-    rows.push({
-      label: 'Scraper',
-      value: REAL_ESTATE_SCRAPER_LABELS[p.scraper] || REAL_ESTATE_SCRAPER_LABELS.auto,
-    });
+    const hint = configForJobType(p.jobType).scraperHint;
+    if (hint) rows.push({ label: 'Recommended scrapers', value: hint });
   } else {
     rows.push({ label: 'Business keyword', value: p.keyword });
     rows.push({
@@ -180,13 +196,8 @@ function searchPresetToFindContext(preset) {
   const p = normalizeSearchPreset(preset);
   if (!p) return null;
 
-  const ctx = {
-    searchType:
-      p.jobType === JOB_TYPES.MOBILE_HOMES
-        ? 'mobile_homes'
-        : p.jobType === JOB_TYPES.REAL_ESTATE
-          ? 'real_estate'
-          : 'maps',
+  return {
+    searchType: findTabForJobType(p.jobType),
     searchPrefill: {
       keyword: p.keyword || p.query || '',
       city: '',
@@ -195,8 +206,6 @@ function searchPresetToFindContext(preset) {
     },
     searchPreset: p,
   };
-
-  return ctx;
 }
 
 function parseSearchPresetFromForm(body) {
@@ -206,16 +215,15 @@ function parseSearchPresetFromForm(body) {
     maxResults: body.maxResults,
   };
 
-  if (jobType === JOB_TYPES.MOBILE_HOMES) {
+  if (isListingJobType(jobType)) {
     raw.query = body.query;
     raw.minPrice = body.minPrice;
     raw.maxPrice = body.maxPrice;
     raw.sources = listingSearch.parseSourcesFromBody(body);
-    raw.flipFilter = parseFlipFilter(body);
-  } else if (jobType === JOB_TYPES.REAL_ESTATE) {
-    raw.minPrice = body.minPrice;
-    raw.maxPrice = body.maxPrice;
-    raw.scraper = body.scraper || body.realEstateScraper || 'auto';
+    if (jobType === JOB_TYPES.REAL_ESTATE) {
+      raw.scraper = body.scraper || body.realEstateScraper || 'listings';
+      raw.flipFilter = parseFlipFilter(body);
+    }
   } else {
     raw.keyword = body.keyword || body.query;
     raw.mapsProvider = body.mapsProvider;
@@ -242,19 +250,21 @@ function schedulePayloadFromFolder(folder, location = {}) {
     targetFolderName: folder.name,
   };
 
-  if (preset.jobType === JOB_TYPES.MOBILE_HOMES) {
-    return {
+  if (isListingJobType(preset.jobType)) {
+    const payload = {
       ...base,
       query: preset.query,
       sources: preset.sources,
       minPrice: preset.minPrice,
       maxPrice: preset.maxPrice,
-      flipFilter: preset.flipFilter,
     };
+    if (preset.jobType === JOB_TYPES.REAL_ESTATE) {
+      payload.flipFilter = preset.flipFilter;
+      payload.scraper = preset.scraper;
+    }
+    return payload;
   }
-  if (preset.jobType === JOB_TYPES.REAL_ESTATE) {
-    return { ...base, minPrice: preset.minPrice, maxPrice: preset.maxPrice, scraper: preset.scraper };
-  }
+
   return {
     ...base,
     keyword: preset.keyword,

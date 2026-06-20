@@ -7,6 +7,12 @@ const { getGoogleMapsApiKey } = require('../services/googleMapsKey');
 const { ensurePipelineFolders } = require('../services/pipelineFolders');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
 const { searchPresetToFindContext, normalizeSearchPreset, describeSearchPreset } = require('../services/folderSearchPreset');
+const {
+  SEARCH_TYPES,
+  DEFAULT_SOURCES,
+  resolveFindTab,
+  findTabForJobType,
+} = require('../services/searchTypeConfig');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -27,11 +33,15 @@ async function renderFindLeads(req, res, next) {
     const wid = req.workspaceId;
     const schedules = allSchedules.filter((s) => (s.workspaceId || 'default') === wid);
     const folders = await ensurePipelineFolders(wid);
-    const pipelineFolderByType = {
-      maps: folders.find((f) => f && f.jobType === JOB_TYPES.MAPS_BUSINESS) || null,
-      mobile_homes: folders.find((f) => f && f.jobType === JOB_TYPES.MOBILE_HOMES) || null,
-      real_estate: folders.find((f) => f && f.jobType === JOB_TYPES.REAL_ESTATE) || null,
-    };
+    const pipelineFolderByType = {};
+    for (const st of SEARCH_TYPES) {
+      pipelineFolderByType[st.findTab] =
+        folders.find((f) => f && String(f.jobType || '') === st.jobType) ||
+        (st.jobType === JOB_TYPES.REAL_ESTATE
+          ? folders.find((f) => f && String(f.jobType || '') === JOB_TYPES.MOBILE_HOMES)
+          : null) ||
+        null;
+    }
 
     const workspace = (await dbService.getWorkspace(wid)) || {};
     const presetIcp = String(req.query.preset || '').toLowerCase() === 'icp';
@@ -54,18 +64,13 @@ async function renderFindLeads(req, res, next) {
     }
 
     const rawType = String(
-      req.query.type || (folderSearchPreset && folderSearchPreset.jobType) || 'maps'
+      req.query.type || (folderSearchPreset && findTabForJobType(folderSearchPreset.jobType)) || 'maps'
     )
       .trim()
       .toLowerCase()
       .replace(/-/g, '_');
 
-    let searchType =
-      rawType === 'mobile_homes' || rawType === 'mobilehomes' || rawType === 'mobile'
-        ? 'mobile_homes'
-        : rawType === 'real_estate' || rawType === 'realestate' || rawType === 'zillow'
-          ? 'real_estate'
-          : 'maps';
+    let searchType = resolveFindTab(rawType);
 
     let searchPrefill = presetIcp
       ? {
@@ -106,6 +111,8 @@ async function renderFindLeads(req, res, next) {
       folderSearchPreset,
       folderSearchSummary,
       presetFolderKey,
+      searchTypes: SEARCH_TYPES,
+      defaultListingSources: DEFAULT_SOURCES,
     });
   } catch (e) {
     return next(e);
@@ -131,7 +138,25 @@ router.get('/leads/find/real-estate', (req, res) => {
 
 router.get('/leads/find/mobile-homes', (req, res) => {
   const params = new URLSearchParams(req.query);
-  params.set('type', 'mobile_homes');
+  params.set('type', 'real_estate');
+  res.redirect(302, `/leads/find?${params.toString()}`);
+});
+
+router.get('/leads/find/home-owners', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  params.set('type', 'home_owners');
+  res.redirect(302, `/leads/find?${params.toString()}`);
+});
+
+router.get('/leads/find/products', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  params.set('type', 'products');
+  res.redirect(302, `/leads/find?${params.toString()}`);
+});
+
+router.get('/leads/find/wholesale', (req, res) => {
+  const params = new URLSearchParams(req.query);
+  params.set('type', 'wholesale');
   res.redirect(302, `/leads/find?${params.toString()}`);
 });
 

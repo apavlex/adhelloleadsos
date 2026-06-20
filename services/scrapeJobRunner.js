@@ -54,17 +54,27 @@ async function runMapsBusinessJob(schedule, integrationEnv, options = {}) {
   return results;
 }
 
-async function runMobileHomesJob(schedule, integrationEnv) {
+async function runListingJob(schedule, integrationEnv) {
   if (!listingSearch.isConfigured(integrationEnv)) {
     throw new Error(
-      'Mobile home search requires Apify. Add APIFY_API_TOKEN under Workspace → API integrations.'
+      'Listing search requires Apify and/or SerpAPI. Add keys under Workspace → API integrations.'
     );
+  }
+
+  const jobType = normalizeJobType(schedule.jobType);
+  const scraperMode = String(schedule.scraper || 'listings').toLowerCase();
+
+  if (
+    jobType === JOB_TYPES.REAL_ESTATE &&
+    (scraperMode === 'apify_zillow' || scraperMode === 'auto')
+  ) {
+    return runRealEstateJob(schedule, integrationEnv);
   }
 
   let results = await listingSearch.searchListings({
     city: schedule.city,
     state: schedule.state,
-    query: schedule.query || 'mobile home',
+    query: schedule.query || schedule.keyword || 'listings',
     sources: schedule.sources,
     maxResults: schedule.maxResults || 20,
     minPrice: schedule.minPrice,
@@ -74,12 +84,12 @@ async function runMobileHomesJob(schedule, integrationEnv) {
 
   if (!results || results.length === 0) {
     throw new Error(
-      `No mobile home listings found in ${schedule.city}, ${schedule.state}. Try other sources or widen filters.`
+      `No listings found in ${schedule.city}, ${schedule.state}. Try other scrapers or widen filters.`
     );
   }
 
   const flipFilter = parseFlipFilter(schedule);
-  if (flipFilter.enabled) {
+  if (jobType === JOB_TYPES.REAL_ESTATE && flipFilter.enabled) {
     const scored = await scoreAndFilterListings(results, flipFilter, {
       city: schedule.city,
       state: schedule.state,
@@ -87,20 +97,18 @@ async function runMobileHomesJob(schedule, integrationEnv) {
     schedule._flipStats = scored.stats;
     if (!scored.listings.length) {
       const stats = scored.stats || {};
-      const landHint =
-        flipFilter.landMode === 'own_land_only'
-          ? ' Own-land automode may be filtering park deals and listings without land signals.'
-          : flipFilter.landMode === 'exclude_park'
-            ? ' Park / lot-rent exclusion may be removing most inventory.'
-            : '';
       throw new Error(
-        `Found ${stats.inputCount || results.length} listings but none met flip criteria (min score ${flipFilter.minFlipScore}, min ROI ${flipFilter.minRoiPercent}%).${landHint} Try lowering thresholds or relaxing land filters.`
+        `Found ${stats.inputCount || results.length} listings but none met flip criteria. Try lowering thresholds.`
       );
     }
     results = scored.listings;
   }
 
   return results;
+}
+
+async function runMobileHomesJob(schedule, integrationEnv) {
+  return runListingJob({ ...schedule, jobType: JOB_TYPES.REAL_ESTATE }, integrationEnv);
 }
 
 async function runRealEstateJob(schedule, integrationEnv) {
@@ -135,11 +143,14 @@ async function runRealEstateJob(schedule, integrationEnv) {
  */
 async function executeScrapeJob(schedule, integrationEnv, options = {}) {
   const jobType = normalizeJobType(schedule.jobType);
-  if (jobType === JOB_TYPES.MOBILE_HOMES) {
-    return runMobileHomesJob(schedule, integrationEnv);
-  }
-  if (jobType === JOB_TYPES.REAL_ESTATE) {
-    return runRealEstateJob(schedule, integrationEnv);
+  if (
+    jobType === JOB_TYPES.REAL_ESTATE ||
+    jobType === JOB_TYPES.HOME_OWNERS ||
+    jobType === JOB_TYPES.PRODUCTS ||
+    jobType === JOB_TYPES.WHOLESALE ||
+    jobType === JOB_TYPES.MOBILE_HOMES
+  ) {
+    return runListingJob(schedule, integrationEnv);
   }
   return runMapsBusinessJob(schedule, integrationEnv, options);
 }
@@ -160,30 +171,38 @@ function buildSearchRecord(schedule, results, timestampIso) {
     workspaceId: schedule.workspaceId || 'default',
   };
 
-  if (jobType === JOB_TYPES.MOBILE_HOMES) {
+  if (
+    jobType === JOB_TYPES.REAL_ESTATE ||
+    jobType === JOB_TYPES.HOME_OWNERS ||
+    jobType === JOB_TYPES.PRODUCTS ||
+    jobType === JOB_TYPES.WHOLESALE ||
+    jobType === JOB_TYPES.MOBILE_HOMES
+  ) {
     const flipFilter = parseFlipFilter(schedule);
+    const q = schedule.query || schedule.keyword || 'listings';
+    const label =
+      jobType === JOB_TYPES.HOME_OWNERS
+        ? 'Home owners'
+        : jobType === JOB_TYPES.PRODUCTS
+          ? 'Products'
+          : jobType === JOB_TYPES.WHOLESALE
+            ? 'Wholesale'
+            : 'Real estate';
     const record = {
       ...base,
-      keyword: `${schedule.query || 'mobile home'} · ${schedule.city}, ${schedule.state}`,
-      query: schedule.query || 'mobile home',
+      keyword: `${q} · ${schedule.city}, ${schedule.state}`,
+      query: q,
       sources: schedule.sources || listingSearch.ALL_SOURCES.map((s) => s.id),
       minPrice: schedule.minPrice || null,
       maxPrice: schedule.maxPrice || null,
       flipFilter: flipFilter.enabled ? flipFilter : null,
+      scraper: schedule.scraper || null,
     };
-    if (schedule._flipStats) {
-      record.flipStats = schedule._flipStats;
+    if (schedule._flipStats) record.flipStats = schedule._flipStats;
+    if (jobType !== JOB_TYPES.REAL_ESTATE) {
+      record.keyword = `${label}: ${q} · ${schedule.city}, ${schedule.state}`;
     }
     return record;
-  }
-
-  if (jobType === JOB_TYPES.REAL_ESTATE) {
-    return {
-      ...base,
-      keyword: `Real estate · ${schedule.city}, ${schedule.state}`,
-      minPrice: schedule.minPrice || null,
-      maxPrice: schedule.maxPrice || null,
-    };
   }
 
   return {
@@ -194,7 +213,13 @@ function buildSearchRecord(schedule, results, timestampIso) {
 
 function isJobConfigured(schedule, integrationEnv) {
   const jobType = normalizeJobType(schedule.jobType);
-  if (jobType === JOB_TYPES.MOBILE_HOMES || jobType === JOB_TYPES.REAL_ESTATE) {
+  if (
+    jobType === JOB_TYPES.REAL_ESTATE ||
+    jobType === JOB_TYPES.HOME_OWNERS ||
+    jobType === JOB_TYPES.PRODUCTS ||
+    jobType === JOB_TYPES.WHOLESALE ||
+    jobType === JOB_TYPES.MOBILE_HOMES
+  ) {
     return listingSearch.isConfigured(integrationEnv) || realEstateSearch.isConfigured(integrationEnv);
   }
   return mapsSearch.isMapsSearchConfigured(integrationEnv);
@@ -207,4 +232,5 @@ module.exports = {
   runMapsBusinessJob,
   runRealEstateJob,
   runMobileHomesJob,
+  runListingJob,
 };

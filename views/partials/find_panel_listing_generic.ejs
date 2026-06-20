@@ -1,0 +1,30 @@
+<%#
+  Generic listing search panel — home owners, products, wholesale
+  jobType, queryLabel, queryPlaceholder, defaultQuery, enabledSources
+%>
+<% const _jt = typeof jobType !== 'undefined' ? jobType : 'products'; %>
+<% const _qLabel = typeof queryLabel !== 'undefined' ? queryLabel : 'Search terms'; %>
+<% const _qPh = typeof queryPlaceholder !== 'undefined' ? queryPlaceholder : 'What to find…'; %>
+<% const _qVal = typeof defaultQuery !== 'undefined' ? defaultQuery : ''; %>
+<input type="hidden" name="jobType" value="<%= _jt %>" />
+<div>
+  <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1"><%= _qLabel %></label>
+  <input type="text" name="query" value="<%= _qVal %>" placeholder="<%= _qPh %>"
+    class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white" />
+</div>
+<% if (typeof scraperHint !== 'undefined' && scraperHint) { %>
+  <p class="text-[11px] text-brand-muted leading-relaxed rounded-xl border border-brand-border/30 bg-brand-cream/20 dark:bg-slate-950/30 px-3 py-2"><%= scraperHint %></p>
+<% } %>
+<%- include('listing_sources_fieldset', { enabledSources: typeof enabledSources !== 'undefined' ? enabledSources : null }) %>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
+    <input type="number" name="minPrice" min="0" step="1000" placeholder="Optional"
+      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+  </div>
+  <div>
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
+    <input type="number" name="maxPrice" min="0" step="1000" placeholder="Optional"
+      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
+  </div>
+</div>

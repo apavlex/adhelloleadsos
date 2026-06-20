@@ -61,15 +61,24 @@ function leadJobType(l) {
   if (l && l.jobType) return String(l.jobType).trim().toLowerCase();
   const src = String((l && l.source) || '').trim().toLowerCase();
   if (src === 'mobile_homes_search' || (l && l.sourceType) === 'mobile_home_listing') {
-    return 'mobile_homes';
+    return 'real_estate';
   }
   if (src === 'real_estate_search' || (l && l.sourceType) === 'real_estate') {
     return 'real_estate';
   }
+  if (src === 'home_owners_search' || (l && l.sourceType) === 'home_owners') {
+    return 'home_owners';
+  }
+  if (src === 'products_search' || (l && l.sourceType) === 'product_listing') {
+    return 'products';
+  }
+  if (src === 'wholesale_search' || (l && l.sourceType) === 'wholesale_listing') {
+    return 'wholesale';
+  }
   if (src === 'maps_search' || (l && l.sourceType) === 'maps_business') {
     return 'maps_business';
   }
-  if (l && l.listing && typeof l.listing === 'object') return 'mobile_homes';
+  if (l && l.listing && typeof l.listing === 'object') return 'real_estate';
   if (l && l.realEstate && typeof l.realEstate === 'object') return 'real_estate';
   return '';
 }
@@ -81,10 +90,13 @@ function matchesJobTypeFilter(l, origin) {
   if (want === 'maps_business' || want === 'maps' || want === 'business') {
     return jt === 'maps_business' || (isSearchedSource(l) && !jt);
   }
-  if (want === 'mobile_homes' || want === 'mobile') return jt === 'mobile_homes';
+  if (want === 'mobile_homes' || want === 'mobile') return jt === 'real_estate';
   if (want === 'real_estate' || want === 'realestate' || want === 'zillow') {
     return jt === 'real_estate';
   }
+  if (want === 'home_owners' || want === 'homeowners') return jt === 'home_owners';
+  if (want === 'products' || want === 'product') return jt === 'products';
+  if (want === 'wholesale') return jt === 'wholesale';
   return true;
 }
 
@@ -197,9 +209,15 @@ function applyLeadListFilters(leads, filters) {
     } else if (origin === 'maps' || origin === 'maps_business' || origin === 'business') {
       out = out.filter((l) => matchesJobTypeFilter(l, 'maps_business'));
     } else if (origin === 'mobile_homes' || origin === 'mobile') {
-      out = out.filter((l) => matchesJobTypeFilter(l, 'mobile_homes'));
+      out = out.filter((l) => matchesJobTypeFilter(l, 'real_estate'));
     } else if (origin === 'real_estate' || origin === 'realestate' || origin === 'zillow') {
       out = out.filter((l) => matchesJobTypeFilter(l, 'real_estate'));
+    } else if (origin === 'home_owners' || origin === 'homeowners') {
+      out = out.filter((l) => matchesJobTypeFilter(l, 'home_owners'));
+    } else if (origin === 'products' || origin === 'product') {
+      out = out.filter((l) => matchesJobTypeFilter(l, 'products'));
+    } else if (origin === 'wholesale') {
+      out = out.filter((l) => matchesJobTypeFilter(l, 'wholesale'));
     } else if (origin === 'manual') {
       out = out.filter(isManualSource);
     } else if (origin === 'warm') {

@@ -7,7 +7,7 @@ const {
 } = require('../services/folderSearchPreset');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
 
-test('normalizeSearchPreset mobile homes with flip filter', () => {
+test('normalizeSearchPreset maps legacy mobile_homes to real_estate with flip filter', () => {
   const p = normalizeSearchPreset({
     jobType: 'mobile_homes',
     query: 'manufactured home',
@@ -23,7 +23,7 @@ test('normalizeSearchPreset mobile homes with flip filter', () => {
       requireOwnLand: true,
     },
   });
-  assert.equal(p.jobType, JOB_TYPES.MOBILE_HOMES);
+  assert.equal(p.jobType, JOB_TYPES.REAL_ESTATE);
   assert.equal(p.query, 'manufactured home');
   assert.equal(p.maxResults, 40);
   assert.equal(p.minPrice, 10000);
@@ -37,14 +37,14 @@ test('searchPresetToFindContext maps job type to find tab', () => {
     query: 'mobile home',
     maxResults: 25,
   });
-  assert.equal(ctx.searchType, 'mobile_homes');
+  assert.equal(ctx.searchType, 'real_estate');
   assert.equal(ctx.searchPrefill.keyword, 'mobile home');
   assert.equal(ctx.searchPrefill.qty, 25);
 });
 
 test('parseSearchPresetFromForm reads flip toggles from body', () => {
   const p = parseSearchPresetFromForm({
-    jobType: 'mobile_homes',
+    jobType: 'real_estate',
     query: 'trailer',
     maxResults: '30',
     flipFilterEnabled: 'on',
@@ -55,7 +55,7 @@ test('parseSearchPresetFromForm reads flip toggles from body', () => {
     source_craigslist: 'on',
     source_zillow: 'on',
   });
-  assert.equal(p.jobType, JOB_TYPES.MOBILE_HOMES);
+  assert.equal(p.jobType, JOB_TYPES.REAL_ESTATE);
   assert.ok(p.flipFilter && p.flipFilter.enabled);
   assert.equal(p.flipFilter.landMode, 'exclude_park');
   assert.equal(p.flipFilter.excludeParkRent, true);
@@ -65,7 +65,7 @@ test('parseSearchPresetFromForm reads flip toggles from body', () => {
 test('describeSearchPreset summarizes scrapers and prices', () => {
   const { describeSearchPreset } = require('../services/folderSearchPreset');
   const summary = describeSearchPreset({
-    jobType: 'mobile_homes',
+    jobType: 'real_estate',
     query: 'manufactured home',
     maxResults: 25,
     minPrice: 15000,
@@ -73,9 +73,15 @@ test('describeSearchPreset summarizes scrapers and prices', () => {
     sources: ['craigslist', 'zillow'],
     flipFilter: { enabled: true, minFlipScore: 7, minRoiPercent: 15, landMode: 'prefer_own_land' },
   });
-  assert.equal(summary.typeLabel, 'Mobile homes');
+  assert.equal(summary.typeLabel, 'Real estate');
   assert.ok(summary.rows.some((r) => r.label === 'Scrapers' && r.value.includes('Craigslist')));
   assert.ok(summary.rows.some((r) => r.label === 'Price range' && r.value.includes('15,000')));
+});
+
+test('normalizeSearchPreset products defaults marketplace scrapers', () => {
+  const p = normalizeSearchPreset({ jobType: 'products', query: 'iPhone', maxResults: 20 });
+  assert.equal(p.jobType, JOB_TYPES.PRODUCTS);
+  assert.deepEqual(p.sources, ['facebook_marketplace', 'craigslist', 'offerup', 'ebay']);
 });
 
 test('parseAutoTags splits comma-separated labels', () => {

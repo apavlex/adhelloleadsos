@@ -1,0 +1,55 @@
+<fieldset class="rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-4">
+  <legend class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 px-1">Flip deal filter (AI)</legend>
+  <p class="text-[11px] text-brand-muted -mt-1">Score listings with rules + OpenRouter — only save high-ROI flip candidates when enabled. Ideal for mobile homes.</p>
+  <label class="flex items-start gap-3 cursor-pointer">
+    <input type="checkbox" name="flipFilterEnabled" value="on" id="<%= typeof idPrefix !== 'undefined' ? idPrefix : 'find' %>FlipEnabled" class="mt-1 rounded border-brand-border" />
+    <span>
+      <span class="font-bold text-sm block">Flip deals only</span>
+      <span class="text-[11px] text-brand-muted">Filter out generic inventory before saving.</span>
+    </span>
+  </label>
+  <div id="<%= typeof idPrefix !== 'undefined' ? idPrefix : 'find' %>FlipOptions" class="hidden space-y-4 pl-0 sm:pl-7">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min flip score</label>
+        <input type="number" name="minFlipScore" value="7" min="1" max="10" step="0.5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+      </div>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ROI %</label>
+        <input type="number" name="minRoiPercent" value="15" min="0" max="200" step="5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+      </div>
+      <div class="flex flex-col justify-end">
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" name="flipOnlyUnique" value="on" class="rounded border-brand-border" />
+          <span class="font-semibold">Unique only</span>
+        </label>
+      </div>
+    </div>
+    <fieldset class="rounded-xl border border-emerald-300/50 dark:border-emerald-700/40 p-3 space-y-3">
+      <legend class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 px-1">Land & tenure automode</legend>
+      <div>
+        <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Land mode</label>
+        <select name="flipLandMode" id="<%= typeof idPrefix !== 'undefined' ? idPrefix : 'find' %>FlipLandMode" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900">
+          <option value="any">Any tenure</option>
+          <option value="exclude_park">Exclude park / lot rent</option>
+          <option value="prefer_own_land" selected>Prefer land-owned (boost + sort)</option>
+          <option value="own_land_only">Own land only (strict automode)</option>
+        </select>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" name="flipRequireOwnLand" value="on" class="rounded border-brand-border" />
+          <span class="font-semibold text-xs">Require own-land phrases</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" name="flipExcludePark" value="on" checked class="rounded border-brand-border" />
+          <span class="font-semibold text-xs">Exclude park / lot rent</span>
+        </label>
+        <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+          <input type="checkbox" name="flipRequireNoHoa" value="on" class="rounded border-brand-border" />
+          <span class="font-semibold text-xs">Require no HOA</span>
+        </label>
+      </div>
+    </fieldset>
+  </div>
+</fieldset>

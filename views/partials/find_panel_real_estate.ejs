@@ -1,7 +1,18 @@
+<input type="hidden" name="jobType" value="real_estate" />
 <div>
-  <label for="findReScraper" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Property scraper</label>
+  <label for="findReQuery" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Search terms</label>
+  <input type="text" id="findReQuery" name="query" value="<%= typeof defaultQuery !== 'undefined' && defaultQuery ? defaultQuery : 'homes for sale' %>" placeholder="homes for sale, mobile home, land…"
+    class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white" />
+</div>
+<p class="text-[11px] text-brand-muted leading-relaxed rounded-xl border border-brand-border/30 bg-brand-cream/20 dark:bg-slate-950/30 px-3 py-2">
+  Zillow, Realtor, Redfin, MHVillage, Craigslist, Facebook, OfferUp, Oxylabs, and SerpAPI — merged and deduped. Mobile home flip scoring available below.
+</p>
+<%- include('listing_sources_fieldset', { enabledSources: typeof enabledSources !== 'undefined' ? enabledSources : null }) %>
+<div>
+  <label for="findReScraper" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Property scraper mode</label>
   <select id="findReScraper" name="scraper" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
-    <option value="auto"<%= typeof scraper === 'undefined' || !scraper || scraper === 'auto' ? ' selected' : '' %>>Auto (Apify Zillow → Oxylabs fallback)</option>
+    <option value="listings"<%= typeof scraper === 'undefined' || !scraper || scraper === 'listings' ? ' selected' : '' %>>Multi-source listings (recommended)</option>
+    <option value="auto"<%= scraper === 'auto' ? ' selected' : '' %>>Auto (Apify Zillow → Oxylabs fallback)</option>
     <option value="apify_zillow"<%= scraper === 'apify_zillow' ? ' selected' : '' %>>Apify Zillow only</option>
     <option value="oxylabs"<%= scraper === 'oxylabs' ? ' selected' : '' %>>Oxylabs only</option>
   </select>
@@ -18,6 +29,4 @@
       class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold" />
   </div>
 </div>
-<p class="text-[11px] text-brand-muted leading-relaxed">
-  Uses Apify Zillow scraper by default, with Oxylabs fallback when configured. Override actor via <code class="text-[10px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">APIFY_REAL_ESTATE_ACTOR_ID</code>.
-</p>
+<%- include('find_panel_flip_filter', { idPrefix: 'find' }) %>

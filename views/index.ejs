@@ -19,7 +19,7 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Prospecting</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Find leads</h1>
           <p class="text-sm md:text-base text-brand-muted mt-2 max-w-xl leading-relaxed">
-            Pick a search type, set your area, and run. Business leads, mobile home listings, or property deals — one workflow.
+            Pick a search type, set your area, and run. Business, real estate, home owners, products, or wholesale — one workflow.
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2 shrink-0">
@@ -65,18 +65,19 @@
         <div class="px-4 sm:px-6 py-4 border-b border-brand-border/20 dark:border-white/5 bg-brand-cream/15 dark:bg-slate-950/40">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">What are you searching for?</p>
           <div class="flex flex-wrap gap-2" role="tablist" aria-label="Search type" id="findTypeTabs">
-            <button type="button" role="tab" data-find-type="maps" aria-selected="<%= _findType === 'maps' ? 'true' : 'false' %>"
-              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'maps' ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
-              Business
+            <% const _searchTypes = typeof searchTypes !== 'undefined' && searchTypes ? searchTypes : [
+              { findTab: 'maps', shortLabel: 'Business' },
+              { findTab: 'real_estate', shortLabel: 'Real estate' },
+              { findTab: 'home_owners', shortLabel: 'Home owners' },
+              { findTab: 'products', shortLabel: 'Products' },
+              { findTab: 'wholesale', shortLabel: 'Wholesale' },
+            ]; %>
+            <% _searchTypes.forEach(function (st) { %>
+            <button type="button" role="tab" data-find-type="<%= st.findTab %>" aria-selected="<%= _findType === st.findTab ? 'true' : 'false' %>"
+              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === st.findTab ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
+              <%= st.shortLabel || st.label %>
             </button>
-            <button type="button" role="tab" data-find-type="mobile_homes" aria-selected="<%= _findType === 'mobile_homes' ? 'true' : 'false' %>"
-              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'mobile_homes' ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
-              Mobile homes
-            </button>
-            <button type="button" role="tab" data-find-type="real_estate" aria-selected="<%= _findType === 'real_estate' ? 'true' : 'false' %>"
-              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'real_estate' ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
-              Real estate
-            </button>
+            <% }); %>
           </div>
         </div>
         <!-- Step progress -->
@@ -183,19 +184,47 @@
               }) %>
               </div>
 
-              <!-- Mobile homes -->
-              <div data-find-panel="mobile_homes" class="find-type-panel space-y-6 <%= _findType !== 'mobile_homes' ? 'hidden' : '' %>">
-                <%- include('partials/find_panel_mobile_homes', {
+              <!-- Real estate (includes mobile homes) -->
+              <div data-find-panel="real_estate" class="find-type-panel space-y-6 <%= _findType !== 'real_estate' ? 'hidden' : '' %>">
+                <%- include('partials/find_panel_real_estate', {
+                  defaultQuery: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.query) ? folderSearchPreset.query : 'homes for sale',
+                  minPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.minPrice != null) ? folderSearchPreset.minPrice : '',
+                  maxPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.maxPrice != null) ? folderSearchPreset.maxPrice : '',
+                  scraper: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.scraper) ? folderSearchPreset.scraper : 'listings',
                   enabledSources: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.sources) ? folderSearchPreset.sources : null
                 }) %>
               </div>
 
-              <!-- Real estate -->
-              <div data-find-panel="real_estate" class="find-type-panel space-y-6 <%= _findType !== 'real_estate' ? 'hidden' : '' %>">
-                <%- include('partials/find_panel_real_estate', {
-                  minPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.minPrice != null) ? folderSearchPreset.minPrice : '',
-                  maxPrice: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.maxPrice != null) ? folderSearchPreset.maxPrice : '',
-                  scraper: (typeof folderSearchPreset !== 'undefined' && folderSearchPreset && folderSearchPreset.scraper) ? folderSearchPreset.scraper : 'auto'
+              <% const _defSrc = typeof defaultListingSources !== 'undefined' ? defaultListingSources : {}; %>
+              <% const _fp = typeof folderSearchPreset !== 'undefined' ? folderSearchPreset : null; %>
+              <div data-find-panel="home_owners" class="find-type-panel space-y-6 <%= _findType !== 'home_owners' ? 'hidden' : '' %>">
+                <%- include('partials/find_panel_listing_generic', {
+                  jobType: 'home_owners',
+                  queryLabel: 'Owner / property search terms',
+                  queryPlaceholder: 'property owner, tax records, deed…',
+                  defaultQuery: (_fp && _fp.query) ? _fp.query : 'property owner',
+                  scraperHint: 'SerpAPI web search + Oxylabs for owner/property queries; Zillow, Redfin, Realtor for listing context.',
+                  enabledSources: (_fp && _fp.sources) ? _fp.sources : (_defSrc.home_owners || null)
+                }) %>
+              </div>
+              <div data-find-panel="products" class="find-type-panel space-y-6 <%= _findType !== 'products' ? 'hidden' : '' %>">
+                <%- include('partials/find_panel_listing_generic', {
+                  jobType: 'products',
+                  queryLabel: 'Product search terms',
+                  queryPlaceholder: 'iPhone, furniture, tools…',
+                  defaultQuery: (_fp && _fp.query) ? _fp.query : '',
+                  scraperHint: 'Facebook Marketplace, Craigslist, OfferUp, and eBay.',
+                  enabledSources: (_fp && _fp.sources) ? _fp.sources : (_defSrc.products || null)
+                }) %>
+              </div>
+              <div data-find-panel="wholesale" class="find-type-panel space-y-6 <%= _findType !== 'wholesale' ? 'hidden' : '' %>">
+                <%- include('partials/find_panel_listing_generic', {
+                  jobType: 'wholesale',
+                  queryLabel: 'Wholesale / supplier search terms',
+                  queryPlaceholder: 'wholesale, bulk supplier, distributor…',
+                  defaultQuery: (_fp && _fp.query) ? _fp.query : 'wholesale',
+                  scraperHint: 'Web search + Oxylabs for supplier discovery; Facebook, Craigslist, OfferUp, eBay for bulk listings.',
+                  enabledSources: (_fp && _fp.sources) ? _fp.sources : (_defSrc.wholesale || null)
                 }) %>
               </div>
 
@@ -203,7 +232,7 @@
               <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-4">
                   <label for="findMaxResults" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max results</label>
-                  <input type="number" name="maxResults" id="findMaxResults" value="<%= _sp.qty != null ? _sp.qty : (_findType === 'mobile_homes' ? 30 : 20) %>" min="1" max="100"
+                  <input type="number" name="maxResults" id="findMaxResults" value="<%= _sp.qty != null ? _sp.qty : 25 %>" min="1" max="100"
                     class="w-full rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
                 </div>
               </div>
@@ -214,16 +243,17 @@
                   <span class="text-brand-muted group-open:rotate-180 transition-transform">▾</span>
                 </summary>
                 <div class="px-4 pb-4 space-y-4 border-t border-brand-border/30 dark:border-white/10 pt-4">
-                  <p class="text-[11px] text-brand-muted leading-relaxed">Each search type saves to its own pipeline table by default — Businesses, Mobile homes, or Real estate. Override here if needed.</p>
+                  <p class="text-[11px] text-brand-muted leading-relaxed">Each search type saves to its own pipeline folder by default. Override here if needed.</p>
                   <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <div>
                       <label for="searchFolderKey" class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1 block">Folder</label>
                       <select id="searchFolderKey" name="folderKey" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm font-semibold">
                         <option value="">Auto (by search type)</option>
                         <% const _pf = typeof pipelineFolderByType !== 'undefined' ? pipelineFolderByType : {}; %>
-                        <% if (_pf.maps && _pf.maps.key) { %><option value="<%= _pf.maps.key %>" data-job-type="maps"><%= _pf.maps.name %></option><% } %>
-                        <% if (_pf.mobile_homes && _pf.mobile_homes.key) { %><option value="<%= _pf.mobile_homes.key %>" data-job-type="mobile_homes"><%= _pf.mobile_homes.name %></option><% } %>
-                        <% if (_pf.real_estate && _pf.real_estate.key) { %><option value="<%= _pf.real_estate.key %>" data-job-type="real_estate"><%= _pf.real_estate.name %></option><% } %>
+                        <% _searchTypes.forEach(function (st) {
+                          var pf = _pf[st.findTab];
+                          if (!pf || !pf.key) return;
+                        %><option value="<%= pf.key %>" data-job-type="<%= st.findTab %>"><%= pf.name %></option><% }); %>
                         <% (folders || []).forEach((fd) => { if (!fd || !fd.key || (fd.isPipelineDefault)) return; %>
                           <option value="<%= fd.key %>"><%= fd.name %></option>
                         <% }) %>
@@ -372,22 +402,22 @@
       if (maxEl && p.maxResults) maxEl.value = String(p.maxResults);
       var kw = document.getElementById('searchKeywordField');
       if (kw && p.keyword) kw.value = p.keyword;
-      var mhQ = document.getElementById('findMhQuery');
+      var mhQ = document.getElementById('findReQuery');
       if (mhQ && p.query) mhQ.value = p.query;
-      document.querySelectorAll('[data-find-panel="mobile_homes"] input[name="minPrice"]').forEach(function (el) {
+      document.querySelectorAll('[data-find-panel="real_estate"] input[name="minPrice"], [data-find-panel="home_owners"] input[name="minPrice"], [data-find-panel="products"] input[name="minPrice"], [data-find-panel="wholesale"] input[name="minPrice"]').forEach(function (el) {
         if (p.minPrice != null) el.value = String(p.minPrice);
       });
-      document.querySelectorAll('[data-find-panel="mobile_homes"] input[name="maxPrice"]').forEach(function (el) {
+      document.querySelectorAll('[data-find-panel="real_estate"] input[name="maxPrice"], [data-find-panel="home_owners"] input[name="maxPrice"], [data-find-panel="products"] input[name="maxPrice"], [data-find-panel="wholesale"] input[name="maxPrice"]').forEach(function (el) {
         if (p.maxPrice != null) el.value = String(p.maxPrice);
       });
-      document.querySelectorAll('[data-find-panel="real_estate"] input[name="minPrice"]').forEach(function (el) {
-        if (p.minPrice != null) el.value = String(p.minPrice);
+      ['real_estate', 'home_owners', 'products', 'wholesale'].forEach(function (tab) {
+        var panel = document.querySelector('[data-find-panel="' + tab + '"]');
+        if (panel && p.sources) applyListingSources(panel, p.sources);
       });
-      document.querySelectorAll('[data-find-panel="real_estate"] input[name="maxPrice"]').forEach(function (el) {
-        if (p.maxPrice != null) el.value = String(p.maxPrice);
+      ['home_owners', 'products', 'wholesale'].forEach(function (tab) {
+        var q = document.querySelector('[data-find-panel="' + tab + '"] input[name="query"]');
+        if (q && p.query) q.value = p.query;
       });
-      var mhPanel = document.querySelector('[data-find-panel="mobile_homes"]');
-      if (mhPanel && p.sources) applyListingSources(mhPanel, p.sources);
       var dirCb = document.getElementById('findDirectorySupplement');
       if (dirCb && p.jobType === 'maps_business') dirCb.checked = p.directorySupplement !== false;
       var mapsProv = document.getElementById('findMapsProvider');
@@ -446,22 +476,43 @@
         submitRun: 'Start search',
         submitSched: 'Save scheduled job',
         previewLabel: 'leads',
+        defaultQuery: 'plumber',
       },
-      mobile_homes: {
-        action: '/mobile-homes/search',
-        title: 'Mobile home listings',
-        desc: 'Search Craigslist, Facebook, Zillow, and more — merged and deduped.',
+      real_estate: {
+        action: '/listings/search',
+        title: 'Real estate listings',
+        desc: 'Homes, land, and mobile homes — multi-source listings with optional flip scoring.',
         submitRun: 'Search all sources',
         submitSched: 'Save scheduled job',
         previewLabel: 'listings',
+        defaultQuery: 'homes for sale',
       },
-      real_estate: {
-        action: '/real-estate/search',
-        title: 'Property listings',
-        desc: 'Zillow-focused search with Apify (Oxylabs fallback when configured).',
-        submitRun: 'Start search',
+      home_owners: {
+        action: '/listings/search',
+        title: 'Home owners & property info',
+        desc: 'Property and owner signals — public records, listings, and web intelligence.',
+        submitRun: 'Search sources',
+        submitSched: 'Save scheduled job',
+        previewLabel: 'results',
+        defaultQuery: 'property owner',
+      },
+      products: {
+        action: '/listings/search',
+        title: 'Product listings',
+        desc: 'Marketplace listings — Facebook, Craigslist, OfferUp, eBay.',
+        submitRun: 'Search marketplaces',
         submitSched: 'Save scheduled job',
         previewLabel: 'listings',
+        defaultQuery: 'products',
+      },
+      wholesale: {
+        action: '/listings/search',
+        title: 'Wholesale suppliers',
+        desc: 'Bulk suppliers and wholesale listings across marketplaces and web search.',
+        submitRun: 'Search suppliers',
+        submitSched: 'Save scheduled job',
+        previewLabel: 'results',
+        defaultQuery: 'wholesale',
       },
     };
 
@@ -542,7 +593,7 @@
 
     function syncFindPreview() {
       var kw = document.getElementById('searchKeywordField');
-      var mhQ = document.getElementById('findMhQuery');
+      var reQ = document.getElementById('findReQuery');
       var city = document.getElementById('findManualCity');
       var state = document.getElementById('findManualState');
       var max = document.getElementById('findMaxResults');
@@ -553,14 +604,15 @@
       var summary = document.getElementById('findLocationSummaryText');
       var dir = document.querySelector('[data-find-panel="maps"] input[name="directorySupplement"]');
       if (!dir) dir = document.getElementById('findDirectorySupplement');
-      var cfg = FIND_CONFIG[currentType];
+      var cfg = FIND_CONFIG[currentType] || FIND_CONFIG.maps;
       var k = '—';
       if (currentType === 'maps') {
         k = kw && kw.value.trim() ? kw.value.trim() : 'Your keyword';
-      } else if (currentType === 'mobile_homes') {
-        k = mhQ && mhQ.value.trim() ? mhQ.value.trim() : 'mobile home';
       } else {
-        k = 'Homes for sale';
+        var panel = document.querySelector('[data-find-panel="' + currentType + '"]');
+        var qEl = panel && panel.querySelector('input[name="query"]');
+        var qVal = qEl && qEl.value.trim ? qEl.value.trim() : '';
+        k = qVal || (cfg.defaultQuery || 'listings');
       }
       var c = city && city.value.trim() ? city.value.trim() : '';
       var s = state && state.value.trim() ? state.value.trim().toUpperCase() : '';
@@ -583,25 +635,25 @@
           if (dir && dir.checked) extra += ' · directory supplement on';
           var mp = document.getElementById('findMapsProvider');
           if (mp && mp.value && mp.value !== 'auto') extra += ' · ' + mp.options[mp.selectedIndex].text;
-        } else if (currentType === 'mobile_homes') {
-          var mhPanel = document.querySelector('[data-find-panel="mobile_homes"]');
-          if (mhPanel) {
-            var srcCount = mhPanel.querySelectorAll('[data-listing-source]:checked').length;
+        } else {
+          var listPanel = document.querySelector('[data-find-panel="' + currentType + '"]');
+          if (listPanel) {
+            var srcCount = listPanel.querySelectorAll('[data-listing-source]:checked').length;
             if (srcCount) extra += ' · ' + srcCount + ' scraper' + (srcCount === 1 ? '' : 's');
+            var minP = listPanel.querySelector('input[name="minPrice"]');
+            var maxP = listPanel.querySelector('input[name="maxPrice"]');
+            if ((minP && minP.value) || (maxP && maxP.value)) extra += ' · price filter';
           }
-          var minP = mhPanel && mhPanel.querySelector('input[name="minPrice"]');
-          var maxP = mhPanel && mhPanel.querySelector('input[name="maxPrice"]');
-          if ((minP && minP.value) || (maxP && maxP.value)) extra += ' · price filter';
-          var flipOn = document.getElementById('findFlipEnabled');
-          if (flipOn && flipOn.checked) extra += ' · flip filter on';
-        } else if (currentType === 'real_estate') {
-          var rePanel = document.querySelector('[data-find-panel="real_estate"]');
-          var reMin = rePanel && rePanel.querySelector('input[name="minPrice"]');
-          var reMax = rePanel && rePanel.querySelector('input[name="maxPrice"]');
-          if ((reMin && reMin.value) || (reMax && reMax.value)) extra += ' · price filter';
-          extra += ' · Apify Zillow';
+          if (currentType === 'real_estate') {
+            var flipOn = document.getElementById('findFlipEnabled');
+            if (flipOn && flipOn.checked) extra += ' · flip filter on';
+            var scraperSel = document.getElementById('findReScraper');
+            if (scraperSel && scraperSel.value && scraperSel.value !== 'listings') {
+              extra += ' · ' + scraperSel.options[scraperSel.selectedIndex].text;
+            }
+          }
         }
-        meta.textContent = 'Up to ' + n + ' ' + cfg.previewLabel + extra;
+        meta.textContent = 'Up to ' + n + ' ' + (cfg.previewLabel || 'results') + extra;
       }
     }
 
@@ -611,9 +663,12 @@
       });
     });
 
-    ['searchKeywordField', 'findMhQuery', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
+    ['searchKeywordField', 'findReQuery', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', syncFindPreview);
+    });
+    document.querySelectorAll('[data-find-panel] input[name="query"]').forEach(function (el) {
+      el.addEventListener('input', syncFindPreview);
     });
     document.querySelectorAll('[data-listing-source]').forEach(function (el) {
       el.addEventListener('change', syncFindPreview);

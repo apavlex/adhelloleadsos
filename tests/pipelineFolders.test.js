@@ -7,19 +7,19 @@ const {
   findFolderForJobType,
 } = require('../services/pipelineFolders');
 
-test('leadMetadataForJobType tags mobile home saves', () => {
+test('leadMetadataForJobType maps legacy mobile homes to real estate', () => {
   const meta = leadMetadataForJobType(JOB_TYPES.MOBILE_HOMES);
-  assert.equal(meta.jobType, 'mobile_homes');
-  assert.equal(meta.sourceType, 'mobile_home_listing');
-  assert.equal(meta.source, 'mobile_homes_search');
+  assert.equal(meta.jobType, 'real_estate');
+  assert.equal(meta.sourceType, 'real_estate');
+  assert.equal(meta.source, 'real_estate_search');
 });
 
-test('findFolderForJobType matches jobType field on folder', () => {
+test('findFolderForJobType matches legacy mobile homes folder for real estate', () => {
   const folders = [
     { key: 'folder:1', name: 'Mobile homes', jobType: 'mobile_homes' },
     { key: 'folder:2', name: 'Other', jobType: '' },
   ];
-  const hit = findFolderForJobType(folders, JOB_TYPES.MOBILE_HOMES);
+  const hit = findFolderForJobType(folders, JOB_TYPES.REAL_ESTATE);
   assert.equal(hit.key, 'folder:1');
 });
 
@@ -33,7 +33,7 @@ test('classifyLeadForPipelineMigration defaults unfiled search leads to maps', (
   assert.equal(classifyLeadForPipelineMigration({ source: 'manual_offline' }), null);
   assert.equal(
     classifyLeadForPipelineMigration({ listing: { price: 32000 }, folderKey: '' }),
-    'mobile_homes'
+    'real_estate'
   );
 });
 
@@ -41,8 +41,8 @@ test('migrateUnfiledLeadsToPipelineFolders assigns folder and metadata', async (
   const updates = [];
   const mockDb = {
     listFolders: async () => [
-      { key: 'folder:maps', name: 'Businesses (Maps)', jobType: 'maps_business', isPipelineDefault: true },
-      { key: 'folder:mh', name: 'Mobile homes', jobType: 'mobile_homes', isPipelineDefault: true },
+      { key: 'folder:maps', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+      { key: 'folder:re', name: 'Real estate', jobType: 'real_estate', isPipelineDefault: true },
     ],
     getWorkspace: async () => ({ id: 'ws1', members: {} }),
     createFolder: async (wid, name, meta) => ({ key: `folder:${meta.jobType}`, name, ...meta }),
@@ -65,7 +65,7 @@ test('migrateUnfiledLeadsToPipelineFolders assigns folder and metadata', async (
 
   assert.equal(stats.total, 2);
   assert.equal(stats.maps_business, 1);
-  assert.equal(stats.mobile_homes, 1);
+  assert.equal(stats.real_estate, 1);
   assert.equal(stats.skipped, 1);
   assert.equal(updates[0].patch.folderKey, 'folder:maps');
   assert.equal(updates[0].patch.jobType, 'maps_business');
@@ -78,7 +78,7 @@ test('resolveTargetFolder auto-picks default pipeline folder', async () => {
   const created = [];
   const mockDb = {
     listFolders: async () => [
-      { key: 'folder:maps', name: 'Businesses (Maps)', jobType: 'maps_business', isPipelineDefault: true },
+      { key: 'folder:maps', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
     ],
     getWorkspace: async () => ({ id: 'ws1', members: {} }),
     createFolder: async (wid, name, meta) => {
@@ -95,7 +95,7 @@ test('resolveTargetFolder auto-picks default pipeline folder', async () => {
 
   const out = await resolveFresh('ws1', { jobType: JOB_TYPES.MAPS_BUSINESS });
   assert.equal(out.targetFolderKey, 'folder:maps');
-  assert.equal(out.targetFolderName, 'Businesses (Maps)');
+  assert.equal(out.targetFolderName, 'Businesses');
 
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];
@@ -129,7 +129,7 @@ test('deleteFolderComplete hides default pipeline folder from auto-recreate', as
   assert.equal(result.wasPipelineDefault, true);
 
   const folders = await ensureFresh('ws1');
-  assert.equal(folders.length, 2);
+  assert.equal(folders.length, 4);
   assert.ok(!folders.some((f) => f.jobType === 'real_estate'));
 
   require.cache[require.resolve('../services/database')].exports = orig;
@@ -153,7 +153,7 @@ test('ensurePipelineFolders skips hidden default job types', async () => {
 
   const folders = await ensureFresh('ws1');
   const names = folders.map((f) => f.name).sort();
-  assert.deepEqual(names, ['Businesses (Maps)', 'Mobile homes']);
+  assert.deepEqual(names, ['Businesses', 'Home owners', 'Products', 'Wholesale']);
 
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];

@@ -196,9 +196,11 @@
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Origin</label>
       <select name="origin" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white">
         <option value=""<%= !_lf.origin ? ' selected' : '' %>>All origins</option>
-        <option value="maps_business"<%= _lf.origin === 'maps_business' ? ' selected' : '' %>>Businesses (Maps)</option>
-        <option value="mobile_homes"<%= _lf.origin === 'mobile_homes' ? ' selected' : '' %>>Mobile homes</option>
-        <option value="real_estate"<%= _lf.origin === 'real_estate' ? ' selected' : '' %>>Real estate</option>
+        <option value="maps_business"<%= _lf.origin === 'maps_business' ? ' selected' : '' %>>Business</option>
+        <option value="real_estate"<%= _lf.origin === 'real_estate' || _lf.origin === 'mobile_homes' ? ' selected' : '' %>>Real estate</option>
+        <option value="home_owners"<%= _lf.origin === 'home_owners' ? ' selected' : '' %>>Home owners</option>
+        <option value="products"<%= _lf.origin === 'products' ? ' selected' : '' %>>Products</option>
+        <option value="wholesale"<%= _lf.origin === 'wholesale' ? ' selected' : '' %>>Wholesale</option>
         <option value="search"<%= _lf.origin === 'search' ? ' selected' : '' %>>All searched</option>
         <option value="csv"<%= _lf.origin === 'csv' ? ' selected' : '' %>>CSV import</option>
         <option value="manual"<%= _lf.origin === 'manual' ? ' selected' : '' %>>Manual / offline</option>

@@ -257,9 +257,11 @@
         <div>
           <label for="folderSearchJobType" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Search type</label>
           <select id="folderSearchJobType" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
-            <option value="maps_business">Business (Maps)</option>
-            <option value="mobile_homes">Mobile homes</option>
+            <option value="maps_business">Business</option>
             <option value="real_estate">Real estate</option>
+            <option value="home_owners">Home owners</option>
+            <option value="products">Products</option>
+            <option value="wholesale">Wholesale</option>
           </select>
         </div>
         <div>
@@ -273,10 +275,10 @@
           </div>
           <%- include('partials/maps_search_criteria', { idPrefix: 'folderSearch', preset: {} }) %>
         </div>
-        <div id="folderSearchMhFields" class="space-y-3 hidden">
+        <div id="folderSearchListingFields" class="space-y-3 hidden">
           <div>
             <label for="folderSearchQuery" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Listing search terms</label>
-            <input type="text" id="folderSearchQuery" placeholder="mobile home, manufactured home…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            <input type="text" id="folderSearchQuery" placeholder="homes for sale, mobile home, wholesale…" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
           </div>
           <%- include('partials/listing_sources_fieldset', { enabledSources: null }) %>
           <div class="grid grid-cols-2 gap-3">
@@ -289,62 +291,53 @@
               <input type="number" id="folderSearchMaxPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
             </div>
           </div>
-          <label class="flex items-start gap-3 cursor-pointer">
-            <input type="checkbox" id="folderSearchFlipEnabled" class="mt-1 rounded border-brand-border" />
-            <span>
-              <span class="font-bold text-sm block">Flip deals only (AI filter)</span>
-              <span class="text-[11px] text-brand-muted">Same flip scoring as Find → Mobile homes.</span>
-            </span>
-          </label>
-          <div id="folderSearchFlipFields" class="hidden space-y-3 pl-0 sm:pl-7">
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label for="folderSearchMinFlipScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min flip score</label>
-                <input type="number" id="folderSearchMinFlipScore" value="7" min="1" max="10" step="0.5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
-              </div>
-              <div>
-                <label for="folderSearchMinRoi" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ROI %</label>
-                <input type="number" id="folderSearchMinRoi" value="15" min="0" max="200" step="5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
-              </div>
-            </div>
+          <div id="folderSearchReExtras" class="space-y-3 hidden">
             <div>
-              <label for="folderSearchLandMode" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Land mode</label>
-              <select id="folderSearchLandMode" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800">
-                <option value="any">Any tenure</option>
-                <option value="exclude_park">Exclude park / lot rent</option>
-                <option value="prefer_own_land">Prefer land-owned</option>
-                <option value="own_land_only">Own land only</option>
+              <label for="folderSearchReScraper" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Property scraper mode</label>
+              <select id="folderSearchReScraper" name="scraper" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
+                <option value="listings">Multi-source listings (recommended)</option>
+                <option value="auto">Auto (Apify Zillow → Oxylabs fallback)</option>
+                <option value="apify_zillow">Apify Zillow only</option>
+                <option value="oxylabs">Oxylabs only</option>
               </select>
             </div>
-            <div class="flex flex-wrap gap-3">
-              <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" id="folderSearchRequireOwnLand" class="rounded border-brand-border" />
-                <span class="font-semibold text-xs">Require own-land phrases</span>
-              </label>
-              <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
-                <input type="checkbox" id="folderSearchExcludePark" checked class="rounded border-brand-border" />
-                <span class="font-semibold text-xs">Exclude park / lot rent</span>
-              </label>
-            </div>
-          </div>
-        </div>
-        <div id="folderSearchReFields" class="space-y-3 hidden">
-          <div>
-            <label for="folderSearchReScraper" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Property scraper</label>
-            <select id="folderSearchReScraper" name="scraper" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold">
-              <option value="auto">Auto (Apify Zillow → Oxylabs fallback)</option>
-              <option value="apify_zillow">Apify Zillow only</option>
-              <option value="oxylabs">Oxylabs only</option>
-            </select>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label for="folderSearchReMinPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min price</label>
-              <input type="number" id="folderSearchReMinPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
-            </div>
-            <div>
-              <label for="folderSearchReMaxPrice" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Max price</label>
-              <input type="number" id="folderSearchReMaxPrice" min="0" step="1000" placeholder="Optional" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold" />
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" id="folderSearchFlipEnabled" class="mt-1 rounded border-brand-border" />
+              <span>
+                <span class="font-bold text-sm block">Flip deals only (AI filter)</span>
+                <span class="text-[11px] text-brand-muted">Mobile home flip scoring — same as Find → Real estate.</span>
+              </span>
+            </label>
+            <div id="folderSearchFlipFields" class="hidden space-y-3 pl-0 sm:pl-7">
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label for="folderSearchMinFlipScore" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min flip score</label>
+                  <input type="number" id="folderSearchMinFlipScore" value="7" min="1" max="10" step="0.5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
+                </div>
+                <div>
+                  <label for="folderSearchMinRoi" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ROI %</label>
+                  <input type="number" id="folderSearchMinRoi" value="15" min="0" max="200" step="5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800" />
+                </div>
+              </div>
+              <div>
+                <label for="folderSearchLandMode" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Land mode</label>
+                <select id="folderSearchLandMode" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-800">
+                  <option value="any">Any tenure</option>
+                  <option value="exclude_park">Exclude park / lot rent</option>
+                  <option value="prefer_own_land">Prefer land-owned</option>
+                  <option value="own_land_only">Own land only</option>
+                </select>
+              </div>
+              <div class="flex flex-wrap gap-3">
+                <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" id="folderSearchRequireOwnLand" class="rounded border-brand-border" />
+                  <span class="font-semibold text-xs">Require own-land phrases</span>
+                </label>
+                <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" id="folderSearchExcludePark" checked class="rounded border-brand-border" />
+                  <span class="font-semibold text-xs">Exclude park / lot rent</span>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -358,6 +351,12 @@
   </div>
 
   <script>
+  window.FOLDER_DEFAULT_SOURCES = {
+    real_estate: ['zillow', 'realtor', 'redfin', 'mhvillage', 'craigslist', 'facebook_marketplace', 'offerup', 'oxylabs', 'web_search'],
+    home_owners: ['web_search', 'oxylabs', 'zillow', 'redfin', 'realtor'],
+    products: ['facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
+    wholesale: ['web_search', 'oxylabs', 'facebook_marketplace', 'craigslist', 'offerup', 'ebay'],
+  };
   window.WORKSPACE_FOLDERS = <%- JSON.stringify((folders || []).map(function (f) {
     return { key: f.key, name: f.name, jobType: f.jobType || '', searchPreset: f.searchPreset || null, isPipelineDefault: !!f.isPipelineDefault };
   })) %>;
@@ -449,19 +448,36 @@
     function syncFolderSearchJobPanels() {
       var jt = ($('folderSearchJobType') && $('folderSearchJobType').value) || 'maps_business';
       var maps = $('folderSearchMapsFields');
-      var mh = $('folderSearchMhFields');
-      var re = $('folderSearchReFields');
+      var listing = $('folderSearchListingFields');
+      var reExtras = $('folderSearchReExtras');
+      var isListing = jt === 'real_estate' || jt === 'home_owners' || jt === 'products' || jt === 'wholesale';
       if (maps) maps.classList.toggle('hidden', jt !== 'maps_business');
-      if (mh) mh.classList.toggle('hidden', jt !== 'mobile_homes');
-      if (re) re.classList.toggle('hidden', jt !== 'real_estate');
+      if (listing) listing.classList.toggle('hidden', !isListing);
+      if (reExtras) reExtras.classList.toggle('hidden', jt !== 'real_estate');
+      if (isListing) applyListingSourcesForJobType(jt);
+    }
+
+    function applyListingSourcesForJobType(jt) {
+      var root = $('folderSearchListingFields');
+      if (!root) return;
+      var defaults = (window.FOLDER_DEFAULT_SOURCES && window.FOLDER_DEFAULT_SOURCES[jt]) || [];
+      root.querySelectorAll('[data-listing-source]').forEach(function (cb) {
+        var sid = cb.getAttribute('data-listing-source');
+        cb.checked = !defaults.length || defaults.indexOf(sid) >= 0;
+        var label = cb.closest('label');
+        if (label) label.classList.toggle('hidden', defaults.length > 0 && defaults.indexOf(sid) < 0);
+      });
     }
 
     function fillFolderSearchForm(preset, folder) {
       var p = preset || {};
       var jt = p.jobType || (folder && folder.jobType) || 'maps_business';
-      if (jt === 'mobile_homes' || (folder && folder.isPipelineDefault && folder.name === 'Mobile homes')) jt = 'mobile_homes';
-      else if (jt === 'real_estate' || (folder && folder.isPipelineDefault && folder.name === 'Real estate')) jt = 'real_estate';
-      else if (jt !== 'mobile_homes' && jt !== 'real_estate') jt = 'maps_business';
+      if (jt === 'mobile_homes' || (folder && folder.isPipelineDefault && String(folder.name || '').toLowerCase() === 'mobile homes')) {
+        jt = 'real_estate';
+      }
+      if (['real_estate', 'home_owners', 'products', 'wholesale'].indexOf(jt) < 0 && jt !== 'maps_business') {
+        jt = 'maps_business';
+      }
 
       if ($('folderSearchJobType')) $('folderSearchJobType').value = jt;
       if ($('folderSearchMaxResults')) $('folderSearchMaxResults').value = String(p.maxResults || 25);
@@ -476,12 +492,13 @@
       if ($('folderSearchDirectorySupplement')) {
         $('folderSearchDirectorySupplement').checked = p.directorySupplement !== false;
       }
-      if ($('folderSearchReScraper')) $('folderSearchReScraper').value = p.scraper || 'auto';
-      if ($('folderSearchQuery')) $('folderSearchQuery').value = p.query || 'mobile home';
+      if ($('folderSearchReScraper')) $('folderSearchReScraper').value = p.scraper || 'listings';
+      if ($('folderSearchQuery')) {
+        var defaults = { real_estate: 'homes for sale', home_owners: 'property owner', products: '', wholesale: 'wholesale' };
+        $('folderSearchQuery').value = p.query || defaults[jt] || '';
+      }
       if ($('folderSearchMinPrice')) $('folderSearchMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
       if ($('folderSearchMaxPrice')) $('folderSearchMaxPrice').value = p.maxPrice != null ? String(p.maxPrice) : '';
-      if ($('folderSearchReMinPrice')) $('folderSearchReMinPrice').value = p.minPrice != null ? String(p.minPrice) : '';
-      if ($('folderSearchReMaxPrice')) $('folderSearchReMaxPrice').value = p.maxPrice != null ? String(p.maxPrice) : '';
 
       var ff = p.flipFilter || {};
       var flipOn = !!(ff && ff.enabled);
@@ -493,8 +510,8 @@
       if ($('folderSearchRequireOwnLand')) $('folderSearchRequireOwnLand').checked = !!ff.requireOwnLand;
       if ($('folderSearchExcludePark')) $('folderSearchExcludePark').checked = ff.excludeParkRent !== false;
 
-      var mhFields = $('folderSearchMhFields');
-      if (mhFields && p.sources) applyListingSources(mhFields, p.sources);
+      var listingRoot = $('folderSearchListingFields');
+      if (listingRoot && p.sources) applyListingSources(listingRoot, p.sources);
 
       syncFolderSearchJobPanels();
     }
@@ -538,29 +555,29 @@
         jobType: jt,
         maxResults: parseInt(($('folderSearchMaxResults') && $('folderSearchMaxResults').value) || '25', 10) || 25,
       };
-      if (jt === 'mobile_homes') {
-        body.query = ($('folderSearchQuery') && $('folderSearchQuery').value) || 'mobile home';
+      var isListing = jt === 'real_estate' || jt === 'home_owners' || jt === 'products' || jt === 'wholesale';
+      if (isListing) {
+        body.query = ($('folderSearchQuery') && $('folderSearchQuery').value) || '';
         body.minPrice = ($('folderSearchMinPrice') && $('folderSearchMinPrice').value) || '';
         body.maxPrice = ($('folderSearchMaxPrice') && $('folderSearchMaxPrice').value) || '';
-        var mhRoot = $('folderSearchMhFields');
-        if (mhRoot) {
-          mhRoot.querySelectorAll('[data-listing-source]').forEach(function (cb) {
+        var listingRoot = $('folderSearchListingFields');
+        if (listingRoot) {
+          listingRoot.querySelectorAll('[data-listing-source]').forEach(function (cb) {
             var sid = cb.getAttribute('data-listing-source');
             if (cb.checked && sid) body['source_' + sid] = 'on';
           });
         }
-        if ($('folderSearchFlipEnabled') && $('folderSearchFlipEnabled').checked) {
-          body.flipFilterEnabled = 'on';
-          body.minFlipScore = ($('folderSearchMinFlipScore') && $('folderSearchMinFlipScore').value) || '7';
-          body.minRoiPercent = ($('folderSearchMinRoi') && $('folderSearchMinRoi').value) || '15';
-          body.flipLandMode = ($('folderSearchLandMode') && $('folderSearchLandMode').value) || 'prefer_own_land';
-          if ($('folderSearchRequireOwnLand') && $('folderSearchRequireOwnLand').checked) body.flipRequireOwnLand = 'on';
-          if ($('folderSearchExcludePark') && $('folderSearchExcludePark').checked) body.flipExcludePark = 'on';
+        if (jt === 'real_estate') {
+          body.scraper = ($('folderSearchReScraper') && $('folderSearchReScraper').value) || 'listings';
+          if ($('folderSearchFlipEnabled') && $('folderSearchFlipEnabled').checked) {
+            body.flipFilterEnabled = 'on';
+            body.minFlipScore = ($('folderSearchMinFlipScore') && $('folderSearchMinFlipScore').value) || '7';
+            body.minRoiPercent = ($('folderSearchMinRoi') && $('folderSearchMinRoi').value) || '15';
+            body.flipLandMode = ($('folderSearchLandMode') && $('folderSearchLandMode').value) || 'prefer_own_land';
+            if ($('folderSearchRequireOwnLand') && $('folderSearchRequireOwnLand').checked) body.flipRequireOwnLand = 'on';
+            if ($('folderSearchExcludePark') && $('folderSearchExcludePark').checked) body.flipExcludePark = 'on';
+          }
         }
-      } else if (jt === 'real_estate') {
-        body.minPrice = ($('folderSearchReMinPrice') && $('folderSearchReMinPrice').value) || '';
-        body.maxPrice = ($('folderSearchReMaxPrice') && $('folderSearchReMaxPrice').value) || '';
-        body.scraper = ($('folderSearchReScraper') && $('folderSearchReScraper').value) || 'auto';
       } else {
         body.keyword = ($('folderSearchKeyword') && $('folderSearchKeyword').value) || 'plumber';
         body.mapsProvider = ($('folderSearchMapsProvider') && $('folderSearchMapsProvider').value) || 'auto';
