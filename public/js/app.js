@@ -10143,15 +10143,107 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Contact hunt (sidebar + pipeline row sparkle) ---
   window.__contactHuntInFlight = window.__contactHuntInFlight || new Set();
-  let deepEnhanceBtnDefaultHtml = '';
 
-  const DEEP_ENHANCE_BUSY_HTML = `
-        <svg class="deep-enhance-icon w-5 h-5 shrink-0 animate-spin text-brand-yellow" fill="none" viewBox="0 0 24 24" aria-hidden="true">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
-        </svg>
-        <span class="deep-enhance-label animate-pulse text-[11px] font-black uppercase tracking-wider">Hunting contacts &amp; reviews…</span>
-      `;
+  const HUNT_PROGRESS_PHASES = [
+    { afterMs: 0, pct: 10, label: 'Starting hunt…', detail: 'Queuing BetterContact, website search, and Google reviews.' },
+    { afterMs: 3500, pct: 32, label: 'Searching contacts…', detail: 'BetterContact waterfall + website scrape for email, phone, and socials.' },
+    { afterMs: 14000, pct: 55, label: 'Fetching Google reviews…', detail: 'Refreshing star rating, review count, and highest/lowest quotes.' },
+    { afterMs: 32000, pct: 78, label: 'AI reputation summary…', detail: 'Generating strengths and weaknesses from review data.' },
+    { afterMs: 55000, pct: 92, label: 'Still hunting…', detail: 'Large review sets can take up to 90 seconds — hang tight.' },
+  ];
+
+  function huntProgressForElapsed(elapsedMs) {
+    let phase = HUNT_PROGRESS_PHASES[0];
+    for (let i = 0; i < HUNT_PROGRESS_PHASES.length; i += 1) {
+      if (elapsedMs >= HUNT_PROGRESS_PHASES[i].afterMs) phase = HUNT_PROGRESS_PHASES[i];
+    }
+    return phase;
+  }
+
+  function updateDeepEnhanceHuntProgress(pct, label, detail) {
+    const bar = document.getElementById('deepEnhanceProgressBar');
+    const status = document.getElementById('deepEnhanceStatusLabel');
+    const stepDetail = document.getElementById('deepEnhanceStepDetail');
+    if (bar && pct != null) {
+      const clamped = Math.max(6, Math.min(100, Number(pct) || 0));
+      bar.style.width = `${clamped}%`;
+    }
+    if (status && label) status.textContent = String(label);
+    if (stepDetail && detail) stepDetail.textContent = String(detail);
+  }
+
+  function setDeepEnhanceHuntUi(state, opts) {
+    const btn = document.getElementById('deepEnhanceBtn');
+    const huntProgressWrap = document.getElementById('huntProgressWrap');
+    const idle = btn && btn.querySelector('.deep-enhance-idle');
+    const active = btn && btn.querySelector('.deep-enhance-active');
+    const done = btn && btn.querySelector('.deep-enhance-done');
+    if (!btn) return;
+
+    const next = state || 'idle';
+    btn.dataset.huntState = next;
+
+    if (next === 'active') {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+      if (idle) {
+        idle.classList.add('hidden');
+        idle.setAttribute('aria-hidden', 'true');
+      }
+      if (done) {
+        done.classList.add('hidden');
+        done.setAttribute('aria-hidden', 'true');
+      }
+      if (active) {
+        active.classList.remove('hidden');
+        active.removeAttribute('aria-hidden');
+      }
+      if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
+      const phase = (opts && opts.phase) || HUNT_PROGRESS_PHASES[0];
+      updateDeepEnhanceHuntProgress(phase.pct, phase.label, phase.detail);
+      return;
+    }
+
+    if (next === 'done') {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'false');
+      btn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+      if (idle) {
+        idle.classList.add('hidden');
+        idle.setAttribute('aria-hidden', 'true');
+      }
+      if (active) {
+        active.classList.add('hidden');
+        active.setAttribute('aria-hidden', 'true');
+      }
+      if (done) {
+        done.classList.remove('hidden');
+        done.removeAttribute('aria-hidden');
+      }
+      if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
+      updateDeepEnhanceHuntProgress(100, 'Hunt complete', 'Contacts, reviews, and AI summary updated.');
+      return;
+    }
+
+    btn.disabled = false;
+    btn.removeAttribute('aria-busy');
+    btn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
+    if (idle) {
+      idle.classList.remove('hidden');
+      idle.removeAttribute('aria-hidden');
+    }
+    if (active) {
+      active.classList.add('hidden');
+      active.setAttribute('aria-hidden', 'true');
+    }
+    if (done) {
+      done.classList.add('hidden');
+      done.setAttribute('aria-hidden', 'true');
+    }
+    if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
+    updateDeepEnhanceHuntProgress(8, 'Hunting…', 'BetterContact, website search, Google reviews, and AI reputation summary (may take 30–90s).');
+  }
 
   function readLastContactHuntAtFromRow(row) {
     if (!row) return '';
@@ -10176,25 +10268,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function setSidebarContactHuntBusy(busy) {
-    const deepEnhanceBtn = document.getElementById('deepEnhanceBtn');
-    const huntProgressWrap = document.getElementById('huntProgressWrap');
-    if (!deepEnhanceBtn) return;
-    if (!deepEnhanceBtnDefaultHtml) {
-      deepEnhanceBtnDefaultHtml = deepEnhanceBtn.innerHTML;
-    }
-    if (busy) {
-      deepEnhanceBtn.disabled = true;
-      deepEnhanceBtn.setAttribute('aria-busy', 'true');
-      deepEnhanceBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-      if (huntProgressWrap) huntProgressWrap.classList.remove('hidden');
-      deepEnhanceBtn.innerHTML = DEEP_ENHANCE_BUSY_HTML;
-    } else {
-      deepEnhanceBtn.disabled = false;
-      deepEnhanceBtn.removeAttribute('aria-busy');
-      deepEnhanceBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-      if (huntProgressWrap) huntProgressWrap.classList.add('hidden');
-      deepEnhanceBtn.innerHTML = deepEnhanceBtnDefaultHtml;
-    }
+    if (busy) setDeepEnhanceHuntUi('active');
+    else setDeepEnhanceHuntUi('idle');
   }
 
   function syncContactHuntPanel(row) {
@@ -10203,15 +10278,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const inFlight = isContactHuntInFlightForRow(row);
     if (inFlight) {
-      setSidebarContactHuntBusy(true);
+      setDeepEnhanceHuntUi('active');
       if (meta) {
-        meta.textContent = 'Contact hunt in progress…';
+        meta.textContent = 'Hunt in progress — contacts, reviews, and AI summary…';
         meta.classList.remove('hidden');
       }
       return;
     }
 
-    setSidebarContactHuntBusy(false);
+    const btn = document.getElementById('deepEnhanceBtn');
+    if (btn && btn.dataset.huntState === 'done') return;
+
+    setDeepEnhanceHuntUi('idle');
     const at = readLastContactHuntAtFromRow(row);
     if (meta) {
       if (at) {
@@ -10227,8 +10305,12 @@ document.addEventListener('DOMContentLoaded', () => {
   async function pollContactHuntStatus(leadKey, opts) {
     const maxMs = opts && opts.maxMs != null ? opts.maxMs : 130000;
     const interval = opts && opts.interval != null ? opts.interval : 2500;
+    const onTick = opts && opts.onTick;
     const deadline = Date.now() + maxMs;
+    const started = Date.now();
     while (Date.now() < deadline) {
+      const elapsed = Date.now() - started;
+      if (onTick) onTick(elapsed);
       await new Promise((r) => setTimeout(r, interval));
       const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/enhance-status`, {
         credentials: 'same-origin',
@@ -10272,16 +10354,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     if (!row) {
-      if (deepEnhanceBtn) {
-        const hint =
-          '<span class="flex items-center justify-center gap-2 text-[11px] font-bold text-brand-muted normal-case tracking-normal"><svg class="w-4 h-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>Select a lead first</span>';
-        const prev = deepEnhanceBtn.innerHTML;
-        deepEnhanceBtn.innerHTML = hint;
-        setTimeout(() => {
-          deepEnhanceBtn.innerHTML = deepEnhanceBtnDefaultHtml || prev;
-        }, 2200);
-      } else if (typeof window.showAppToast === 'function') {
+      if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead first.', { variant: 'warning' });
+      } else if (deepEnhanceBtn) {
+        setDeepEnhanceHuntUi('idle');
       }
       return { success: false };
     }
@@ -10308,38 +10384,53 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const originalHTML = triggerBtn ? triggerBtn.innerHTML : '';
     const isSidebarTrigger = !!(triggerBtn && triggerBtn.id === 'deepEnhanceBtn');
+    let huntProgressTimer = null;
+
+    const stopHuntProgressTicker = () => {
+      if (huntProgressTimer) {
+        clearInterval(huntProgressTimer);
+        huntProgressTimer = null;
+      }
+    };
+
+    const tickHuntProgress = (elapsedMs) => {
+      if (!isSidebarTrigger || currentRow !== row) return;
+      const phase = huntProgressForElapsed(elapsedMs);
+      updateDeepEnhanceHuntProgress(phase.pct, phase.label, phase.detail);
+    };
+
+    const startHuntProgressTicker = () => {
+      stopHuntProgressTicker();
+      const t0 = Date.now();
+      tickHuntProgress(0);
+      huntProgressTimer = setInterval(() => tickHuntProgress(Date.now() - t0), 900);
+    };
 
     const clearHuntBusy = () => {
+      stopHuntProgressTicker();
       if (key) window.__contactHuntInFlight.delete(key);
-      if (triggerBtn) {
+      if (triggerBtn && !isSidebarTrigger) {
         triggerBtn.disabled = false;
         triggerBtn.removeAttribute('aria-busy');
-        if (isSidebarTrigger) {
-          triggerBtn.classList.remove('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-        } else {
-          triggerBtn.innerHTML = originalHTML;
-        }
+        triggerBtn.innerHTML = originalHTML;
       }
-      syncSidebarForRow(false);
+      if (currentRow === row) syncSidebarForRow(false);
     };
 
     const setHuntBusy = () => {
       if (key) window.__contactHuntInFlight.add(key);
-      if (triggerBtn) {
+      if (isSidebarTrigger) {
+        setDeepEnhanceHuntUi('active');
+        startHuntProgressTicker();
+      } else if (triggerBtn) {
         triggerBtn.disabled = true;
         triggerBtn.setAttribute('aria-busy', 'true');
-        if (isSidebarTrigger) {
-          triggerBtn.classList.add('loading', 'animate-magic', 'cursor-wait', 'hunt-active');
-          triggerBtn.innerHTML = DEEP_ENHANCE_BUSY_HTML;
-        } else {
-          triggerBtn.innerHTML =
-            '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
-        }
+        triggerBtn.innerHTML =
+          '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
       }
-      syncSidebarForRow(true);
       const meta = document.getElementById('huntLastRunMeta');
       if (meta && currentRow === row) {
-        meta.textContent = 'Contact hunt in progress…';
+        meta.textContent = 'Hunt in progress — contacts, reviews, and AI summary…';
         meta.classList.remove('hidden');
       }
     };
@@ -10385,7 +10476,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (data.processing && key) {
-        data = await pollContactHuntStatus(key);
+        data = await pollContactHuntStatus(key, { onTick: tickHuntProgress });
       }
 
       if (data.success) {
@@ -10418,20 +10509,22 @@ document.addEventListener('DOMContentLoaded', () => {
           }).catch(() => {});
         }
 
-        clearHuntBusy();
+        if (key) window.__contactHuntInFlight.delete(key);
+        stopHuntProgressTicker();
         updateProcessingStatus(false);
         populatePanel(row);
         scheduleReviewIntelligence(row, { refresh: true });
 
-        if (currentRow === row && deepEnhanceBtn) {
-          deepEnhanceBtn.disabled = true;
-          deepEnhanceBtn.innerHTML =
-            '<span class="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400"><svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Hunt complete</span>';
+        if (currentRow === row && deepEnhanceBtn && isSidebarTrigger) {
+          setDeepEnhanceHuntUi('done');
           setTimeout(() => {
+            setDeepEnhanceHuntUi('idle');
             syncContactHuntPanel(row);
           }, 2600);
         } else if (fromRowAction) {
           notifyHunt('Hunt complete — check contacts, rating, and review summary.', 'success');
+        } else {
+          syncContactHuntPanel(row);
         }
 
         return { success: true, data };

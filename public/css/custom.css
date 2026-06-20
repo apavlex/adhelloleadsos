@@ -928,8 +928,41 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   }
 }
 
-#deepEnhanceBtn.hunt-active {
+#deepEnhanceBtn.hunt-active,
+#deepEnhanceBtn[data-hunt-state="active"] {
   animation: hunt-ring 1.25s ease-in-out infinite;
+  border-color: rgba(253, 224, 71, 0.65) !important;
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.12) 0%, rgba(255, 255, 255, 1) 45%);
+}
+
+.dark #deepEnhanceBtn[data-hunt-state="active"] {
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.14) 0%, rgb(30 41 59) 50%);
+}
+
+#deepEnhanceBtn[data-hunt-state="done"] {
+  border-color: rgba(16, 185, 129, 0.45) !important;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+#deepEnhanceBtn .deep-enhance-active:not(.hidden),
+#deepEnhanceBtn .deep-enhance-done:not(.hidden) {
+  display: flex !important;
+}
+
+#deepEnhanceBtn[data-hunt-state="active"] .deep-enhance-idle,
+#deepEnhanceBtn[data-hunt-state="done"] .deep-enhance-idle,
+#deepEnhanceBtn[data-hunt-state="active"] .deep-enhance-done,
+#deepEnhanceBtn[data-hunt-state="idle"] .deep-enhance-active,
+#deepEnhanceBtn[data-hunt-state="idle"] .deep-enhance-done {
+  display: none !important;
+}
+
+#deepEnhanceBtn[data-hunt-state="done"] .deep-enhance-active {
+  display: none !important;
+}
+
+.deep-enhance-progress-fill {
+  min-width: 6%;
 }
 
 @keyframes hunt-progress-slide {
