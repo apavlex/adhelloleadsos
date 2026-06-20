@@ -161,33 +161,7 @@ router.post('/touch-goal', async (req, res, next) => {
   }
 });
 
-function parseFocusKeysQuery(raw) {
-  const text = String(raw || '').trim();
-  if (!text) return [];
-  const seen = new Set();
-  const keys = [];
-  text.split(',').forEach((part) => {
-    const key = String(part || '').trim().replace(/^lead:/i, '');
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    keys.push(key);
-  });
-  return keys;
-}
-
-function orderLeadsByKeys(leads, keyOrder) {
-  if (!Array.isArray(keyOrder) || !keyOrder.length) return null;
-  const byKey = new Map();
-  (Array.isArray(leads) ? leads : []).forEach((l) => {
-    if (!l) return;
-    const raw = String(l.key || '').trim();
-    const short = shortLeadKey(l);
-    [short, raw, raw.replace(/^lead:/i, ''), short ? `lead:${short}` : ''].forEach((k) => {
-      if (k) byKey.set(k, l);
-    });
-  });
-  return keyOrder.map((k) => byKey.get(k)).filter(Boolean);
-}
+const { parseBulkSelectionKeys, orderLeadsByKeys } = require('../services/bulkSelectionKeys');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -197,7 +171,7 @@ router.get('/', async (req, res, next) => {
     const pipelineLeads = excludeOutreachFolderLeads(visible);
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-    const selectedKeyOrder = parseFocusKeysQuery(req.query.keys);
+    const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
     const selectedOnly = selectedKeyOrder.length > 0;
     let ordered = selectedOnly
       ? orderLeadsByKeys(pipelineLeads, selectedKeyOrder) || []

@@ -5,6 +5,7 @@ const dbService = require('../services/database');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { excludeOutreachFolderLeads } = require('../services/leadListFilters');
+const { parseBulkSelectionKeys, orderLeadsByKeys } = require('../services/bulkSelectionKeys');
 const lobClient = require('../services/lobClient');
 const lobDirectMail = require('../services/lobDirectMail');
 const kieImageClient = require('../services/kieImageClient');
@@ -47,24 +48,40 @@ router.get('/', async (req, res, next) => {
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const pipelineVisible = excludeOutreachFolderLeads(visible);
-    const mailableLeads = pipelineVisible
-      .filter((l) => lobDirectMail.hasMailableAddress(l))
-      .map((l) => ({
-        key: l.key,
-        title: l.title || 'Untitled',
-        address: l.address || '',
-        city: l.city || '',
-        state: l.state || '',
-        status: l.status || '',
-        nextChannel: l.next_channel || '',
-      }))
-      .sort((a, b) => String(a.title).localeCompare(String(b.title)));
+    const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
+    const selectedOnly = selectedKeyOrder.length > 0;
+
+    let tableLeads;
+    if (selectedOnly) {
+      tableLeads = orderLeadsByKeys(pipelineVisible, selectedKeyOrder) || [];
+    } else {
+      tableLeads = pipelineVisible.filter((l) => lobDirectMail.hasMailableAddress(l));
+    }
+
+    const mailableLeads = tableLeads.map((l) => ({
+      key: l.key,
+      title: l.title || 'Untitled',
+      address: l.address || '',
+      city: l.city || '',
+      state: l.state || '',
+      status: l.status || '',
+      nextChannel: l.next_channel || '',
+      mailable: lobDirectMail.hasMailableAddress(l),
+      preselected: selectedOnly,
+    }));
+
+    const mailableCount = mailableLeads.filter((l) => l.mailable).length;
+    const skippedCount = selectedOnly ? mailableLeads.length - mailableCount : 0;
 
     res.render('direct-mail', {
       activePage: 'direct-mail',
       lobReady: ready,
       kieImageReady: kieImageClient.isConfigured(),
       mailableLeads,
+      dmSelectionCount: selectedOnly ? selectedKeyOrder.length : null,
+      dmIsSelectionSession: selectedOnly,
+      dmMailableCount: mailableCount,
+      dmSkippedCount: skippedCount,
       recentSends: collectRecentSends(visible),
       canManageWorkspace: !!req.canManageWorkspace,
     });
@@ -118,6 +135,7 @@ Respond with JSON only, no markdown:
 
 Rules:
 - imagePrompt must be null until the user wants to generate or asks for a final prompt.
+- If the user asks you to generate, create, or make the design (e.g. "make it for me", "generate it", "go ahead"), set imagePrompt from the conversation so far — do not leave it null.
 - When writing imagePrompt, optimize for print: high contrast, readable at postcard size, professional local-business marketing aesthetic.
 - For the back side, assume minimal copy and return-address / compliance space unless the user says otherwise.
 - Escape double quotes inside strings as \\".`,
@@ -160,6 +178,12 @@ router.post('/api/generate-image', async (req, res, next) => {
     if (!prompt) {
       return res.status(400).json({ success: false, error: 'Image prompt is required.' });
     }
+    if (kieImageClient.isVagueImagePrompt(prompt)) {
+      return res.status(400).json({
+        success: false,
+        error: kieImageClient.friendlyKieImageError('', { prompt }),
+      });
+    }
 
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const aspectRatio = String(body.aspectRatio || '2:3').trim() || '2:3';
@@ -189,7 +213,11 @@ router.post('/api/generate-image', async (req, res, next) => {
     });
   } catch (err) {
     if (err && err.message) {
-      return res.status(502).json({ success: false, error: err.message });
+      const friendly =
+        err.kieFriendly || kieImageClient.friendlyKieImageError(err.message, {
+          prompt: req.body && req.body.prompt,
+        });
+      return res.status(err.status === 400 ? 400 : 502).json({ success: false, error: friendly });
     }
     next(err);
   }

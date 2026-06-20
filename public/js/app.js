@@ -10722,6 +10722,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkSaveBtn = document.getElementById('bulkSaveBtn');
   const bulkSmsBtn = document.getElementById('bulkSmsBtn');
   const bulkFocusModeBtn = document.getElementById('bulkFocusModeBtn');
+  const bulkDirectMailBtn = document.getElementById('bulkDirectMailBtn');
+  const bulkColdEmailBtn = document.getElementById('bulkColdEmailBtn');
 
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
@@ -11265,7 +11267,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkSmsBtn.classList.toggle('opacity-40', count === 0);
       bulkSmsBtn.classList.toggle('cursor-not-allowed', count === 0);
     }
-    if (bulkFocusModeBtn) {
+    if (bulkFocusModeBtn || bulkDirectMailBtn || bulkColdEmailBtn) {
       const keys =
         hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
           ? window.__collectFocusSelectionKeys()
@@ -11277,22 +11279,49 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof window.__persistFocusSelectionKeys === 'function') {
         window.__persistFocusSelectionKeys(keys);
       }
-      bulkFocusModeBtn.classList.toggle('opacity-40', !hasSelection);
-      bulkFocusModeBtn.classList.toggle('pointer-events-none', !hasSelection);
-      bulkFocusModeBtn.setAttribute('aria-disabled', !hasSelection ? 'true' : 'false');
-      bulkFocusModeBtn.setAttribute(
-        'href',
+      if (typeof window.__persistDirectMailSelectionKeys === 'function') {
+        window.__persistDirectMailSelectionKeys(keys);
+      }
+      const syncOutreachBtn = (btn, href, titleEnabled, titleDisabled) => {
+        if (!btn) return;
+        btn.classList.toggle('opacity-40', !hasSelection);
+        btn.classList.toggle('pointer-events-none', !hasSelection);
+        btn.setAttribute('aria-disabled', !hasSelection ? 'true' : 'false');
+        btn.setAttribute('href', href);
+        btn.setAttribute('title', hasSelection ? titleEnabled : titleDisabled);
+      };
+      syncOutreachBtn(
+        bulkFocusModeBtn,
         typeof window.__buildFocusSelectionUrl === 'function'
-          ? window.__buildFocusSelectionUrl(keys)
+          ? window.__buildFocusSelectionUrl(keys, 'call')
           : keys.length
-            ? `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}`
-            : '/focus',
-      );
-      bulkFocusModeBtn.setAttribute(
-        'title',
+            ? `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}&channel=call`
+            : '/focus?channel=call',
         keys.length
-          ? `Open Focus mode with ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
-          : 'Select at least one lead to seed Focus mode',
+          ? `Call and log ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
+          : 'Select at least one lead to start calling',
+      );
+      syncOutreachBtn(
+        bulkColdEmailBtn,
+        typeof window.__buildFocusSelectionUrl === 'function'
+          ? window.__buildFocusSelectionUrl(keys, 'email')
+          : keys.length
+            ? `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}&channel=email`
+            : '/focus?channel=email',
+        keys.length
+          ? `Draft cold emails for ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
+          : 'Select at least one lead to start cold email',
+      );
+      syncOutreachBtn(
+        bulkDirectMailBtn,
+        typeof window.__buildDirectMailSelectionUrl === 'function'
+          ? window.__buildDirectMailSelectionUrl(keys)
+          : keys.length
+            ? `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`
+            : '/direct-mail',
+        keys.length
+          ? `Send direct mail to ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
+          : 'Select at least one lead to send direct mail',
       );
     }
 

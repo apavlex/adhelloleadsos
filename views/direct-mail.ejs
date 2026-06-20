@@ -10,8 +10,8 @@
     <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Outreach</p>
-        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Direct Mail</h1>
-        <p class="text-sm text-brand-muted mt-2 max-w-2xl">Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Direct Mail<% } %></h1>
+        <p class="text-sm text-brand-muted mt-2 max-w-2xl"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>From your pipeline selection — design a postcard, pick mailable leads below, then send via Lob.<% if (typeof dmSkippedCount === 'number' && dmSkippedCount > 0) { %> <span class="text-amber-700 dark:text-amber-300 font-semibold"><%= dmSkippedCount %> lead<%= dmSkippedCount === 1 ? '' : 's' %> skipped (incomplete address).</span><% } %><% } else { %>Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.<% } %></p>
       </div>
       <div class="flex flex-wrap gap-2 shrink-0">
         <a href="/workspace/integrations/lob-setup" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 hover:border-brand-yellow/50 transition-colors">Design guide</a>
@@ -29,7 +29,7 @@
           <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
           Lob connected<%= lobReady.testMode ? ' · test mode' : ' · live' %>
         </span>
-        <p class="text-sm text-brand-muted"><%= mailableLeads.length %> lead<%= mailableLeads.length === 1 ? '' : 's' %> ready to mail in this workspace.<% if (lobReady.hasCustomPostcard) { %> Using your uploaded postcard PDFs.<% } else { %> Using built-in HTML template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %></p>
+        <p class="text-sm text-brand-muted"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %><%= typeof dmMailableCount === 'number' ? dmMailableCount : mailableLeads.length %> of <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected lead<%= (typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length) === 1 ? '' : 's' %> ready to mail.<% } else { %><%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length %> lead<%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length === 1 ? '' : 's' %> ready to mail in this workspace.<% } %><% if (lobReady.hasCustomPostcard) { %> Using your uploaded postcard PDFs.<% } else { %> Using built-in HTML template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %></p>
       </div>
       <% } else { %>
       <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Lob is not configured yet</p>
@@ -86,7 +86,7 @@
             <button type="button" id="dmGenerateBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2.5 disabled:opacity-50" <%= kieImageReady ? '' : 'disabled' %>>Generate</button>
           </div>
         </div>
-        <p id="dmDesignStatus" class="hidden mt-2 text-xs font-semibold" aria-live="polite"></p>
+        <p id="dmDesignStatus" class="hidden mt-2 text-xs font-semibold leading-relaxed text-left" aria-live="polite"></p>
       </div>
 
       <div class="brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10 flex flex-col">
@@ -157,8 +157,8 @@
     <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
       <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
         <div>
-          <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Mailable leads</h2>
-          <p class="text-xs text-brand-muted mt-0.5">Street address, city, state, and ZIP required.</p>
+          <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else { %>Mailable leads<% } %></h2>
+          <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
@@ -182,12 +182,12 @@
           </thead>
           <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
             <% mailableLeads.forEach(function (l) { %>
-            <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]">
-              <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>" /></td>
-              <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %></td>
-              <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address %></td>
-              <td class="px-2 py-3 text-brand-muted"><%= l.city %></td>
-              <td class="px-2 py-3 text-brand-muted"><%= l.state %></td>
+            <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>">
+              <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.mailable === false) { %> disabled<% } else if (l.preselected) { %> checked<% } %> /></td>
+              <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %><% if (l.mailable === false) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">No address</span><% } %></td>
+              <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>
+              <td class="px-2 py-3 text-brand-muted"><%= l.city || '—' %></td>
+              <td class="px-2 py-3 text-brand-muted"><%= l.state || '—' %></td>
             </tr>
             <% }) %>
           </tbody>

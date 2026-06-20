@@ -23,6 +23,64 @@ function isConfigured() {
   return !!apiKey();
 }
 
+/** True when the text is too short to send as a GPT Image 2 prompt. */
+function isVagueImagePrompt(prompt) {
+  const p = String(prompt || '').trim();
+  if (!p) return true;
+  if (p.length < 48) return true;
+  if (p.length < 140 && /^(ok|okay|yes|sure|make it|do it|generate|go ahead|please|create it|make this|make one|make the|build it|design it)\b/i.test(p)) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * Turn raw KIE / generation errors into actionable copy for the Design studio UI.
+ */
+function friendlyKieImageError(raw, { prompt } = {}) {
+  const msg = String(raw || '').trim();
+  const lower = msg.toLowerCase();
+  const vague = isVagueImagePrompt(prompt);
+
+  if (vague) {
+    return (
+      'That isn’t a detailed image prompt yet. Use Chat to describe the postcard, then ask for a “final image prompt.” ' +
+      'When you see “Prompt ready — click Generate,” hit Generate. Short phrases like “make it for me” are sent to Chat, not the image API.'
+    );
+  }
+
+  if (/moderator|moderation|moderat|caught by our ai/i.test(lower)) {
+    return (
+      'KIE’s content filter blocked this image prompt. Rephrase in Chat: describe layout, colors, and a professional local-business look. ' +
+      'Avoid urgent or scammy wording (e.g. “act now,” “limited time”). Ask for a revised final prompt, then Generate again.'
+    );
+  }
+
+  if (/401|unauthorized|invalid.*key|api key/i.test(lower)) {
+    return 'KIE API key is missing or invalid. Ask a workspace admin to set KIE_AI_API_KEY on the server.';
+  }
+
+  if (/timed out|timeout/i.test(lower)) {
+    return 'Image generation timed out — KIE was slow. Wait a few seconds and click Generate again.';
+  }
+
+  if (/no result url|no result/i.test(lower)) {
+    return 'KIE finished but returned no image URL. Try Generate again or shorten the prompt in Chat.';
+  }
+
+  if (msg) {
+    return `${msg} If this keeps happening, refine the prompt in Chat (layout, colors, style) and Generate again.`;
+  }
+
+  return 'Image generation failed. Use Chat to build a detailed prompt, wait for “Prompt ready,” then click Generate.';
+}
+
+function throwFriendlyKieError(raw, opts) {
+  const err = new Error(friendlyKieImageError(raw, opts));
+  err.kieFriendly = true;
+  throw err;
+}
+
 async function kieRequest(method, path, { body } = {}) {
   const key = apiKey();
   if (!key) throw new Error('KIE API key is not configured. Set KIE_AI_API_KEY or KIE_API_KEY.');
@@ -52,9 +110,11 @@ async function kieRequest(method, path, { body } = {}) {
       (data && data.message) ||
       (data && data.error) ||
       `KIE API error (${res.status})`;
-    const err = new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    const raw = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    const err = new Error(friendlyKieImageError(raw, { prompt: body && body.input && body.input.prompt }));
     err.status = res.status;
     err.body = data;
+    err.kieFriendly = true;
     throw err;
   }
 
@@ -64,6 +124,9 @@ async function kieRequest(method, path, { body } = {}) {
 async function createTask({ prompt, inputUrls, aspectRatio, resolution }) {
   const p = String(prompt || '').trim();
   if (!p) throw new Error('Image prompt is required.');
+  if (isVagueImagePrompt(p)) {
+    throwFriendlyKieError('', { prompt: p });
+  }
 
   const urls = (Array.isArray(inputUrls) ? inputUrls : [])
     .map((u) => String(u || '').trim())
@@ -132,7 +195,7 @@ function sleep(ms) {
  * Poll KIE task until success, fail, or timeout.
  * @returns {{ state: string, urls: string[], record: object }}
  */
-async function pollUntilDone(taskId, { maxWaitMs = 120000, intervalMs = 4000 } = {}) {
+async function pollUntilDone(taskId, { maxWaitMs = 120000, intervalMs = 4000, prompt } = {}) {
   const deadline = Date.now() + maxWaitMs;
   let last = {};
 
@@ -151,13 +214,13 @@ async function pollUntilDone(taskId, { maxWaitMs = 120000, intervalMs = 4000 } =
 
     if (state === 'fail') {
       const msg = data.failMsg || data.failCode || 'Image generation failed.';
-      throw new Error(String(msg));
+      throwFriendlyKieError(String(msg), { prompt });
     }
 
     await sleep(intervalMs);
   }
 
-  throw new Error('Image generation timed out — try again in a moment.');
+  throwFriendlyKieError('Image generation timed out — try again in a moment.', { prompt });
 }
 
 /**
@@ -165,7 +228,7 @@ async function pollUntilDone(taskId, { maxWaitMs = 120000, intervalMs = 4000 } =
  */
 async function generate({ prompt, inputUrls, aspectRatio, resolution, maxWaitMs, intervalMs }) {
   const { taskId, model } = await createTask({ prompt, inputUrls, aspectRatio, resolution });
-  const result = await pollUntilDone(taskId, { maxWaitMs, intervalMs });
+  const result = await pollUntilDone(taskId, { maxWaitMs, intervalMs, prompt });
   return {
     taskId,
     model,
@@ -180,6 +243,8 @@ module.exports = {
   IMAGE_MODEL,
   apiKey,
   isConfigured,
+  isVagueImagePrompt,
+  friendlyKieImageError,
   createTask,
   getTaskRecord,
   parseResultJson,

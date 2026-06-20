@@ -186,16 +186,45 @@
     }
   }
 
-  function buildFocusSelectionUrl(keys) {
+  function buildFocusSelectionUrl(keys, channel) {
     const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
-    if (!norm.length) return '/focus';
-    return `/focus?lead=${encodeURIComponent(norm[0])}&keys=${encodeURIComponent(norm.join(','))}`;
+    const ch = String(channel || '').trim().toLowerCase();
+    let url = '/focus';
+    const params = new URLSearchParams();
+    if (norm.length) {
+      params.set('lead', norm[0]);
+      params.set('keys', norm.join(','));
+    }
+    if (ch) params.set('channel', ch);
+    const qs = params.toString();
+    return qs ? `${url}?${qs}` : url;
+  }
+
+  function persistDirectMailSelectionKeys(keys) {
+    try {
+      const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
+      if (norm.length) {
+        sessionStorage.setItem('adhello_dm_selected_keys', JSON.stringify(norm));
+      } else {
+        sessionStorage.removeItem('adhello_dm_selected_keys');
+      }
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function buildDirectMailSelectionUrl(keys) {
+    const norm = (keys || []).map(normalizeFocusLeadKey).filter(Boolean);
+    if (!norm.length) return '/direct-mail';
+    return `/direct-mail?keys=${encodeURIComponent(norm.join(','))}`;
   }
 
   window.__normalizeFocusLeadKey = normalizeFocusLeadKey;
   window.__collectFocusSelectionKeys = collectFocusSelectionKeys;
   window.__persistFocusSelectionKeys = persistFocusSelectionKeys;
   window.__buildFocusSelectionUrl = buildFocusSelectionUrl;
+  window.__persistDirectMailSelectionKeys = persistDirectMailSelectionKeys;
+  window.__buildDirectMailSelectionUrl = buildDirectMailSelectionUrl;
 
   /** Last row index used for shift-click range selection (per table). */
   let lastBulkSelectAnchor = null;
@@ -654,13 +683,36 @@
           }
           return;
         }
+        if (e.target.closest('#bulkDirectMailBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const keys = collectFocusSelectionKeys();
+          if (!keys.length) return;
+          if (typeof window.__persistDirectMailSelectionKeys === 'function') {
+            window.__persistDirectMailSelectionKeys(keys);
+          }
+          window.location.href =
+            typeof window.__buildDirectMailSelectionUrl === 'function'
+              ? window.__buildDirectMailSelectionUrl(keys)
+              : `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`;
+          return;
+        }
+        if (e.target.closest('#bulkColdEmailBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const keys = collectFocusSelectionKeys();
+          if (!keys.length) return;
+          persistFocusSelectionKeys(keys);
+          window.location.href = buildFocusSelectionUrl(keys, 'email');
+          return;
+        }
         if (e.target.closest('#bulkFocusModeBtn')) {
           e.preventDefault();
           e.stopPropagation();
           const keys = collectFocusSelectionKeys();
           if (!keys.length) return;
           persistFocusSelectionKeys(keys);
-          window.location.href = buildFocusSelectionUrl(keys);
+          window.location.href = buildFocusSelectionUrl(keys, 'call');
           return;
         }
       },

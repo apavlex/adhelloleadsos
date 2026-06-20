@@ -44,3 +44,18 @@ test('isConfigured reflects env key presence', () => {
   if (prev) process.env.KIE_AI_API_KEY = prev;
   else delete process.env.KIE_AI_API_KEY;
 });
+
+test('friendlyKieImageError explains moderation and vague prompts', () => {
+  const { friendlyKieImageError, isVagueImagePrompt } = require('../services/kieImageClient');
+  assert.equal(isVagueImagePrompt('ok make it for me'), true);
+  assert.match(
+    friendlyKieImageError('Your prompt was caught by our AI moderator.', { prompt: 'ok make it for me' }),
+    /detailed image prompt yet/i,
+  );
+  assert.match(
+    friendlyKieImageError('Your prompt was caught by our AI moderator.', {
+      prompt: 'Professional 4x6 postcard front for a local marketing agency, navy and cream, headline zone at top, laptop mockup center, clean print layout',
+    }),
+    /content filter blocked/i,
+  );
+});

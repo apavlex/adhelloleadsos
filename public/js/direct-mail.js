@@ -35,10 +35,12 @@
     if (!text) {
       el.classList.add('hidden');
       el.textContent = '';
+      el.classList.remove('text-rose-700', 'dark:text-rose-300', 'text-emerald-700', 'dark:text-emerald-300');
+      el.classList.add('text-brand-muted');
       return;
     }
     el.textContent = text;
-    el.classList.remove('hidden', 'text-emerald-700', 'text-rose-700', 'dark:text-emerald-300', 'dark:text-rose-300');
+    el.classList.remove('hidden', 'text-emerald-700', 'text-rose-700', 'dark:text-emerald-300', 'dark:text-rose-300', 'text-brand-muted');
     el.classList.add(ok ? 'text-emerald-700' : 'text-rose-700', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
   }
 
@@ -172,6 +174,11 @@
           hint.classList.remove('hidden');
         }
         setDesignStatus('Prompt ready — click Generate.', true);
+      } else if (/make it|generate|go ahead|create it|design it|build it/i.test(text)) {
+        setDesignStatus(
+          'Ask in Chat for a “final image prompt,” or say “write the full GPT Image 2 prompt” — then click Generate when you see Prompt ready.',
+          false,
+        );
       } else {
         setDesignStatus('', true);
       }
@@ -190,7 +197,14 @@
 
     var prompt = lastImagePrompt || String((document.getElementById('dmChatInput') || {}).value || '').trim();
     if (!prompt) {
-      setDesignStatus('Describe the design in chat first, or paste a prompt.', false);
+      setDesignStatus('Describe the design in Chat first, or paste a detailed image prompt here.', false);
+      return;
+    }
+    if (!lastImagePrompt && prompt.length < 48) {
+      setDesignStatus(
+        'Use Chat to build a full image prompt first (e.g. describe the postcard, then ask for a “final image prompt”). Click Generate only after “Prompt ready.”',
+        false,
+      );
       return;
     }
 
@@ -230,9 +244,14 @@
   }
 
   function syncCheckAll() {
-    var boxes = getDmCheckboxes();
     var all = document.getElementById('dmCheckAll');
-    if (!all || !boxes.length) return;
+    if (!all) return;
+    var boxes = getMailableDmCheckboxes();
+    if (!boxes.length) {
+      all.indeterminate = false;
+      all.checked = false;
+      return;
+    }
     var checked = boxes.filter(function (b) {
       return b.checked;
     }).length;
@@ -244,6 +263,12 @@
 
   function getDmCheckboxes() {
     return Array.from(document.querySelectorAll('#dmLeadsTable .dm-lead-check'));
+  }
+
+  function getMailableDmCheckboxes() {
+    return getDmCheckboxes().filter(function (cb) {
+      return !cb.disabled;
+    });
   }
 
   function getDmCheckboxIndex(cb) {
@@ -362,7 +387,7 @@
   document.getElementById('dmCheckAll') &&
     document.getElementById('dmCheckAll').addEventListener('change', function () {
       var on = this.checked;
-      getDmCheckboxes().forEach(function (cb) {
+      getMailableDmCheckboxes().forEach(function (cb) {
         setDmCheckboxChecked(cb, on);
       });
       if (!on) dmSelectAnchor = null;
@@ -382,7 +407,7 @@
   var selectAllBtn = document.getElementById('dmSelectAll');
   if (selectAllBtn) {
     selectAllBtn.addEventListener('click', function () {
-      getDmCheckboxes().forEach(function (cb) {
+      getMailableDmCheckboxes().forEach(function (cb) {
         setDmCheckboxChecked(cb, true);
       });
       syncCheckAll();
@@ -457,4 +482,7 @@
       }
     });
   }
+
+  syncDmRowHighlights();
+  syncCheckAll();
 })();

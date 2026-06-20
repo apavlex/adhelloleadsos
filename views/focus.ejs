@@ -402,14 +402,33 @@
       if (sessionGoalEl) sessionGoalEl.textContent = String(count);
       var label = document.getElementById('focus-session-subtitle-label');
       if (label) {
+        var actionHint =
+          focusChannelPref === 'email'
+            ? ' — draft emails, log, next.'
+            : focusChannelPref === 'call-script'
+              ? ' — call, log, next.'
+              : ' — draft, log, next.';
         label.textContent =
           'Working through ' +
           count +
           ' selected lead' +
           (count === 1 ? '' : 's') +
-          ' — draft, log, next.';
+          actionHint;
       }
     }
+
+    function parseFocusChannelPref() {
+      var ch = String(new URLSearchParams(window.location.search).get('channel') || '')
+        .trim()
+        .toLowerCase();
+      if (ch === 'call' || ch === 'phone') return 'call-script';
+      if (ch === 'email') return 'email';
+      if (ch === 'sms') return 'sms';
+      if (ch === 'voicemail' || ch === 'vm') return 'voicemail-drop';
+      return '';
+    }
+
+    var focusChannelPref = parseFocusChannelPref();
 
     function applyFocusSelectionFilter(keyList) {
       if (!keyList || !keyList.length) return false;
@@ -1967,6 +1986,21 @@
       }
       if (currentChannel !== 'email' && currentChannel !== 'call-script' && currentChannel !== 'voicemail-drop' && currentChannel !== 'sms') {
         currentChannel = 'email';
+      }
+      if (focusChannelPref) {
+        if (focusChannelPref === 'email' && hasEmail) {
+          currentChannel = 'email';
+        } else if (focusChannelPref === 'call-script' && hasPhone) {
+          currentChannel = 'call-script';
+        } else if (focusChannelPref === 'voicemail-drop' && hasPhone) {
+          currentChannel = 'voicemail-drop';
+        } else if (focusChannelPref === 'sms' && hasPhone) {
+          currentChannel = 'sms';
+        } else if (focusChannelPref === 'email' && !hasEmail && hasPhone) {
+          currentChannel = 'call-script';
+        } else if (focusChannelPref === 'call-script' && !hasPhone && hasEmail) {
+          currentChannel = 'email';
+        }
       }
       if (elOutcome) elOutcome.value = '';
       syncQuickOutcomeButtons();

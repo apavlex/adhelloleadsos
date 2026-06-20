@@ -1092,6 +1092,42 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   filter: brightness(1.06);
 }
 
+#bulkActionBar .bulk-bar-btn--mail.bulk-bar-btn--primary-lg {
+  background: #f97316;
+  border-color: rgba(251, 146, 60, 0.85);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(249, 115, 22, 0.35);
+}
+
+#bulkActionBar .bulk-bar-btn--mail.bulk-bar-btn--primary-lg:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+#bulkActionBar .bulk-bar-btn--email.bulk-bar-btn--primary-lg {
+  background: #0ea5e9;
+  border-color: rgba(56, 189, 248, 0.85);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(14, 165, 233, 0.35);
+}
+
+#bulkActionBar .bulk-bar-btn--email.bulk-bar-btn--primary-lg:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+#bulkActionBar .bulk-bar-btn--mail {
+  background: rgba(249, 115, 22, 0.2);
+  border-color: rgba(251, 146, 60, 0.4);
+  color: #ffedd5;
+  text-decoration: none;
+}
+
+#bulkActionBar .bulk-bar-btn--email {
+  background: rgba(14, 165, 233, 0.2);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #e0f2fe;
+  text-decoration: none;
+}
+
 #bulkActionBar .bulk-bar-btn--call {
   background: rgba(244, 63, 94, 0.2);
   border-color: rgba(251, 113, 133, 0.35);

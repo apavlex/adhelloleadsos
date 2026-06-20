@@ -71,7 +71,9 @@
 
       <% if (_bulkMode === 'pipeline') { %>
       <div class="flex items-center gap-2 shrink-0 bulk-bar-primary-actions">
-        <a href="/focus" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg" title="Focus mode">Focus</a>
+        <a href="/direct-mail" id="bulkDirectMailBtn" class="bulk-bar-btn bulk-bar-btn--mail bulk-bar-btn--primary-lg" title="Send postcards to selected leads">Direct mail</a>
+        <a href="/focus?channel=email" id="bulkColdEmailBtn" class="bulk-bar-btn bulk-bar-btn--email bulk-bar-btn--primary-lg" title="Draft and send cold emails to selected leads">Cold email</a>
+        <a href="/focus?channel=call" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg" title="Call and log selected leads">Call</a>
       </div>
       <% } %>
     </div>
