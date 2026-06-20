@@ -7,6 +7,8 @@ const GHL_API_BASE = 'https://services.leadconnectorhq.com';
 const GHL_API_VERSION = '2021-07-28';
 const GHL_CONVERSATIONS_API_VERSION = '2021-04-15';
 
+const { mergeTagLists, tagsToAdd, parseGhlNotesResponse } = require('./ghlSyncHelpers');
+
 function resolveConfig(integrationEnv) {
   const env = integrationEnv || {};
   const apiKey = String(env.GHL_API_KEY || process.env.GHL_API_KEY || '').trim();
@@ -104,7 +106,7 @@ function splitName(title) {
   };
 }
 
-function leadToGhlContactPayload(lead, locationId) {
+function leadToGhlContactPayload(lead, locationId, { includeTags = true } = {}) {
   const title = String(lead.title || '').trim();
   const { firstName, lastName, companyName } = splitName(title);
   const email = lead.email && lead.email !== 'N/A' ? String(lead.email).trim() : '';
@@ -126,8 +128,9 @@ function leadToGhlContactPayload(lead, locationId) {
     state: lead.state ? String(lead.state).trim() : undefined,
     website: website || undefined,
     source: 'Agency OS',
-    tags: tags.length ? tags : undefined,
   };
+
+  if (includeTags && tags.length) payload.tags = tags;
 
   Object.keys(payload).forEach((k) => {
     if (payload[k] === undefined || payload[k] === '') delete payload[k];
@@ -136,7 +139,7 @@ function leadToGhlContactPayload(lead, locationId) {
   return payload;
 }
 
-function ghlContactToLeadPatch(contact) {
+function ghlContactToLeadPatch(contact, existingLead) {
   if (!contact || typeof contact !== 'object') return null;
   const id = String(contact.id || '').trim();
   const company =
@@ -147,6 +150,8 @@ function ghlContactToLeadPatch(contact) {
   const email = contact.email ? String(contact.email).trim() : 'N/A';
   const phone = contact.phone ? String(contact.phone).trim() : 'N/A';
   const website = contact.website ? String(contact.website).trim() : 'N/A';
+  const ghlTags = Array.isArray(contact.tags) ? contact.tags : [];
+  const localTags = existingLead && Array.isArray(existingLead.tags) ? existingLead.tags : [];
 
   return {
     title: company || 'GHL Contact',
@@ -159,7 +164,7 @@ function ghlContactToLeadPatch(contact) {
     ghlContactId: id,
     source: 'ghl_sync',
     ghlSyncedAt: new Date().toISOString(),
-    tags: Array.isArray(contact.tags) ? contact.tags : undefined,
+    tags: mergeTagLists(localTags, ghlTags),
   };
 }
 
@@ -173,13 +178,52 @@ async function createContact(lead, integrationEnv) {
 
 async function updateContact(contactId, lead, integrationEnv) {
   const { locationId } = resolveConfig(integrationEnv);
-  const payload = leadToGhlContactPayload(lead, locationId);
+  const payload = leadToGhlContactPayload(lead, locationId, { includeTags: false });
   delete payload.locationId;
   const data = await ghlRequest('PUT', `/contacts/${encodeURIComponent(contactId)}`, {
     integrationEnv,
     body: payload,
   });
   return data.contact || data;
+}
+
+async function addTagsToContact(contactId, tags, integrationEnv) {
+  const list = (Array.isArray(tags) ? tags : [])
+    .map((t) => String(t || '').trim())
+    .filter(Boolean);
+  if (!list.length) return null;
+  return ghlRequest('POST', `/contacts/${encodeURIComponent(contactId)}/tags`, {
+    integrationEnv,
+    body: { tags: list },
+  });
+}
+
+async function syncContactTags(contactId, leadTags, integrationEnv) {
+  const contact = await getContact(contactId, integrationEnv);
+  const remoteTags = Array.isArray(contact && contact.tags) ? contact.tags : [];
+  const localTags = Array.isArray(leadTags) ? leadTags : [];
+  const toAdd = tagsToAdd(remoteTags, localTags);
+  if (toAdd.length) {
+    await addTagsToContact(contactId, toAdd, integrationEnv);
+  }
+  return mergeTagLists(remoteTags, localTags);
+}
+
+async function listContactNotes(contactId, integrationEnv) {
+  const data = await ghlRequest('GET', `/contacts/${encodeURIComponent(contactId)}/notes`, {
+    integrationEnv,
+  });
+  return parseGhlNotesResponse(data);
+}
+
+async function createContactNote(contactId, body, integrationEnv) {
+  const text = String(body || '').trim();
+  if (!text) throw new Error('Note body is required');
+  const data = await ghlRequest('POST', `/contacts/${encodeURIComponent(contactId)}/notes`, {
+    integrationEnv,
+    body: { body: text },
+  });
+  return data.note || data;
 }
 
 async function getContact(contactId, integrationEnv) {
@@ -251,9 +295,13 @@ module.exports = {
   ghlContactToLeadPatch,
   createContact,
   updateContact,
+  addTagsToContact,
+  syncContactTags,
   getContact,
   searchContactByEmailOrPhone,
   listContacts,
+  listContactNotes,
+  createContactNote,
   normalizePhoneE164,
   sendConversationMessage,
   GHL_CONVERSATIONS_API_VERSION,

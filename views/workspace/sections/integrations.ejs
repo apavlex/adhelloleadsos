@@ -259,8 +259,9 @@
           <div class="min-w-0">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Go High Level</h3>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed">
-              Sync contacts and send SMS and email from the pipeline, lead panel, Focus mode, and bulk actions.
-              Requires <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> on your private integration token.
+              Sync contacts, tags, and notes with GHL. Send SMS and email from the pipeline, lead panel, Focus mode, and bulk actions.
+              Requires <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">contacts</code> (read + write) and
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> on your private integration token.
             </p>
           </div>
           <a href="/workspace/integrations/ghl-setup" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors">
@@ -577,8 +578,20 @@
         var data = await res.json();
         if (!res.ok || !data.success) throw new Error((data && data.error) || 'Sync failed');
         var parts = [];
-        if (data.pull) parts.push('Pull: ' + (data.pull.pulled || 0) + ' (' + (data.pull.created || 0) + ' new, ' + (data.pull.updated || 0) + ' updated)');
-        if (data.push) parts.push('Push: ' + (data.push.pushed || 0) + '/' + (data.push.total || 0));
+        if (data.pull) {
+          var pullNote = data.pull.notesPulled ? ', ' + data.pull.notesPulled + ' notes' : '';
+          parts.push('Pull: ' + (data.pull.pulled || 0) + ' (' + (data.pull.created || 0) + ' new, ' + (data.pull.updated || 0) + ' updated' + pullNote + ')');
+        }
+        if (data.push) {
+          var pushNote = '';
+          if (data.push.results && data.push.results.length) {
+            var np = 0;
+            var npl = 0;
+            data.push.results.forEach(function (r) { np += r.notesPushed || 0; npl += r.notesPulled || 0; });
+            if (np || npl) pushNote = ', notes ' + np + '↑ ' + npl + '↓';
+          }
+          parts.push('Push: ' + (data.push.pushed || 0) + '/' + (data.push.total || 0) + pushNote);
+        }
         if (ghlMsg) {
           ghlMsg.textContent = '✅ ' + (parts.length ? parts.join(' · ') : 'Done');
           ghlMsg.classList.remove('text-red-700', 'dark:text-red-300');

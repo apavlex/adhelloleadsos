@@ -5,6 +5,15 @@
 const dbService = require('./database');
 const ghlClient = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
+const {
+  mergeTagLists,
+  normalizeGhlLogSync,
+  logFingerprint,
+  formatLogAsNoteBody,
+  isAgencyOsNoteBody,
+  shouldPushLog,
+  ghlNoteToLogEntry,
+} = require('./ghlSyncHelpers');
 
 function normalizeEmail(email) {
   if (!email || email === 'N/A') return '';
@@ -34,9 +43,63 @@ function findLocalLeadMatch(leads, contact) {
   return null;
 }
 
+async function pushNotesToGhl(lead, contactId, integrationEnv) {
+  const syncState = normalizeGhlLogSync(lead);
+  const logs = Array.isArray(lead.logs) ? lead.logs : [];
+  const pending = logs.filter((log) => shouldPushLog(log, syncState));
+  if (!pending.length) {
+    return { pushed: 0, syncState };
+  }
+
+  let pushed = 0;
+  for (const log of pending) {
+    try {
+      // eslint-disable-next-line no-await-in-loop
+      await ghlClient.createContactNote(contactId, formatLogAsNoteBody(log), integrationEnv);
+      const fp = logFingerprint(log);
+      if (fp && !syncState.pushedFingerprints.includes(fp)) {
+        syncState.pushedFingerprints.push(fp);
+      }
+      pushed += 1;
+    } catch (e) {
+      /* continue with remaining notes */
+    }
+  }
+
+  return { pushed, syncState };
+}
+
+async function pullNotesFromGhl(lead, contactId, integrationEnv) {
+  const syncState = normalizeGhlLogSync(lead);
+  let notes = [];
+  try {
+    notes = await ghlClient.listContactNotes(contactId, integrationEnv);
+  } catch (e) {
+    return { pulled: 0, newLogs: [], syncState };
+  }
+
+  const newLogs = [];
+  for (const note of notes) {
+    const noteId = String((note && note.id) || '').trim();
+    if (!noteId || syncState.pulledNoteIds.includes(noteId)) continue;
+    const body = String((note && note.body) || '').trim();
+    if (!body || isAgencyOsNoteBody(body)) {
+      syncState.pulledNoteIds.push(noteId);
+      continue;
+    }
+    const entry = ghlNoteToLogEntry(note);
+    if (!entry) continue;
+    newLogs.push(entry);
+    syncState.pulledNoteIds.push(noteId);
+  }
+
+  return { pulled: newLogs.length, newLogs, syncState };
+}
+
 async function pushLeadToGhl(lead, integrationEnv) {
   if (!lead || !lead.key) throw new Error('Invalid lead');
   let contactId = String(lead.ghlContactId || '').trim();
+  let mergedTags = mergeTagLists(lead.tags);
 
   if (contactId) {
     try {
@@ -60,27 +123,56 @@ async function pushLeadToGhl(lead, integrationEnv) {
 
   if (!contactId) throw new Error('GHL did not return a contact id');
 
-  const updated = await dbService.updateLead(lead.key, {
+  mergedTags = await ghlClient.syncContactTags(contactId, lead.tags, integrationEnv);
+  const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
+  const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
+
+  const ghlLogSync = notePush.syncState;
+  notePull.syncState.pulledNoteIds.forEach((id) => {
+    if (!ghlLogSync.pulledNoteIds.includes(id)) ghlLogSync.pulledNoteIds.push(id);
+  });
+
+  const patch = {
     ghlContactId: contactId,
     ghlSyncedAt: new Date().toISOString(),
     ghlSyncDirection: 'push',
-  });
+    tags: mergedTags,
+    ghlLogSync,
+  };
+  if (notePull.newLogs.length) patch.logs = notePull.newLogs;
 
-  return { lead: updated, ghlContactId: contactId, action: 'pushed' };
+  const updated = await dbService.updateLead(lead.key, patch);
+
+  return {
+    lead: updated,
+    ghlContactId: contactId,
+    action: 'pushed',
+    notesPushed: notePush.pushed,
+    notesPulled: notePull.pulled,
+  };
 }
 
-async function pullContactToLead(contact, workspaceId, localLeads) {
-  const patch = ghlClient.ghlContactToLeadPatch(contact);
+async function pullContactToLead(contact, workspaceId, localLeads, integrationEnv) {
+  const existing = findLocalLeadMatch(localLeads, contact);
+  const patch = ghlClient.ghlContactToLeadPatch(contact, existing);
   if (!patch) return { skipped: true, reason: 'empty_contact' };
 
-  const existing = findLocalLeadMatch(localLeads, contact);
+  const contactId = String(patch.ghlContactId || contact.id || '').trim();
+  let notePull = { pulled: 0, newLogs: [], syncState: normalizeGhlLogSync(existing) };
+
+  if (contactId && ghlClient.isConfigured(integrationEnv)) {
+    notePull = await pullNotesFromGhl(existing || { ghlLogSync: {} }, contactId, integrationEnv);
+  }
+
   if (existing) {
     const merged = await dbService.updateLead(existing.key, {
       ...patch,
       workspaceId: existing.workspaceId || workspaceId,
       ghlSyncDirection: 'pull',
+      ghlLogSync: notePull.syncState,
+      ...(notePull.newLogs.length ? { logs: notePull.newLogs } : {}),
     });
-    return { lead: merged, action: 'updated', key: existing.key };
+    return { lead: merged, action: 'updated', key: existing.key, notesPulled: notePull.pulled };
   }
 
   const key = await dbService.saveLead({
@@ -89,9 +181,11 @@ async function pullContactToLead(contact, workspaceId, localLeads) {
     status: 'Not Contacted',
     pipelineStage: 1,
     savedAt: new Date().toISOString(),
+    ghlLogSync: notePull.syncState,
+    logs: notePull.newLogs,
   });
   const saved = await dbService.getLead(key);
-  return { lead: saved, action: 'created', key };
+  return { lead: saved, action: 'created', key, notesPulled: notePull.pulled };
 }
 
 /**
@@ -125,7 +219,13 @@ async function pushLeads(opts) {
     try {
       // eslint-disable-next-line no-await-in-loop
       const r = await pushLeadToGhl(lead, integrationEnv);
-      results.push({ key: lead.key, ok: true, ghlContactId: r.ghlContactId });
+      results.push({
+        key: lead.key,
+        ok: true,
+        ghlContactId: r.ghlContactId,
+        notesPushed: r.notesPushed,
+        notesPulled: r.notesPulled,
+      });
     } catch (e) {
       results.push({ key: lead.key, ok: false, error: e.message || 'push_failed' });
     }
@@ -154,6 +254,7 @@ async function pullContacts(opts) {
   let pulled = 0;
   let created = 0;
   let updated = 0;
+  let notesPulled = 0;
 
   for (let page = 0; page < maxPages; page += 1) {
     // eslint-disable-next-line no-await-in-loop
@@ -167,16 +268,23 @@ async function pullContacts(opts) {
     for (const contact of contacts) {
       try {
         // eslint-disable-next-line no-await-in-loop
-        const r = await pullContactToLead(contact, wid, localLeads);
+        const r = await pullContactToLead(contact, wid, localLeads, integrationEnv);
         if (r.skipped) {
           results.push({ ghlContactId: contact.id, ok: false, skipped: true });
           continue;
         }
         pulled += 1;
+        notesPulled += r.notesPulled || 0;
         if (r.action === 'created') created += 1;
         if (r.action === 'updated') updated += 1;
         if (r.lead) localLeads.push(r.lead);
-        results.push({ ghlContactId: contact.id, ok: true, action: r.action, key: r.key });
+        results.push({
+          ghlContactId: contact.id,
+          ok: true,
+          action: r.action,
+          key: r.key,
+          notesPulled: r.notesPulled || 0,
+        });
       } catch (e) {
         results.push({ ghlContactId: contact.id, ok: false, error: e.message || 'pull_failed' });
       }
@@ -186,7 +294,7 @@ async function pullContacts(opts) {
     if (!startAfterId || contacts.length < pageSize) break;
   }
 
-  return { pulled, created, updated, results };
+  return { pulled, created, updated, notesPulled, results };
 }
 
 async function syncBoth(opts) {
@@ -251,8 +359,9 @@ async function processWebhook(payload, opts = {}) {
   }
   if (!wid) wid = 'default';
 
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
   const localLeads = await dbService.getAllLeads(wid);
-  const result = await pullContactToLead(parsed.contact, wid, localLeads);
+  const result = await pullContactToLead(parsed.contact, wid, localLeads, integrationEnv);
   if (result.skipped) {
     return { ok: true, workspaceId: wid, ignored: true, reason: result.reason || 'skipped' };
   }
@@ -262,6 +371,7 @@ async function processWebhook(payload, opts = {}) {
     action: result.action,
     key: result.key,
     ghlContactId: parsed.contactId || (parsed.contact && parsed.contact.id),
+    notesPulled: result.notesPulled || 0,
   };
 }
 
@@ -274,4 +384,6 @@ module.exports = {
   findLocalLeadMatch,
   processWebhook,
   parseGhlWebhookPayload,
+  pushNotesToGhl,
+  pullNotesFromGhl,
 };
