@@ -16,7 +16,7 @@ const {
 } = require('../services/leadListFilters');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
-const { buildFolderTree, buildFolderPickerTree } = require('../services/folderTree');
+const { buildFolderTree, buildFolderPickerTree, folderKeysIncludingDescendants } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
@@ -60,8 +60,12 @@ router.get('/', async (req, res, next) => {
 
     const leadListFilters = normalizeLeadListFilters(req.query);
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
-    const folderMembers = activeFolderKey
-      ? visible.filter((l) => String(l.folderKey || '').trim() === activeFolderKey)
+    const folderKeys = activeFolderKey
+      ? folderKeysIncludingDescendants(folderTree, activeFolderKey)
+      : null;
+    if (folderKeys) leadListFilters.folderKeys = folderKeys;
+    const folderMembers = folderKeys
+      ? visible.filter((l) => folderKeys.has(String(l.folderKey || '').trim()))
       : null;
     const pipelineBase = folderMembers != null ? folderMembers : pipelineVisible;
 

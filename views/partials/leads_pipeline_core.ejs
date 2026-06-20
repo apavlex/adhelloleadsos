@@ -536,7 +536,7 @@
               </td>
               <td data-plc="actions" class="lead-actions-cell lead-col-tail-tight px-1.5 pr-4 sm:pr-5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] text-right">
                 <div class="flex items-center justify-end gap-1">
-                    <button type="button" class="ai-analysis-btn w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30 flex items-center justify-center hover:bg-sky-500/20 transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" title="Hunt for more contact data" aria-label="Hunt for more contact data">
+                    <button type="button" class="ai-analysis-btn w-8 h-8 rounded-lg bg-sky-500/10 text-sky-700 dark:text-sky-300 border border-sky-400/30 flex items-center justify-center hover:bg-sky-500/20 transition-all opacity-0 pointer-events-none group-hover/row:opacity-100 group-hover/row:pointer-events-auto" title="Hunt contacts &amp; reviews" aria-label="Hunt contacts and reviews">
                       <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.091 3.091L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
                     </button>
                     <%- include('quick_outreach_btn') %>
@@ -585,8 +585,13 @@
     </div>
     <% if (_emptyFName) { %>
     <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">No leads in “<%= _emptyFName %>”</h2>
-    <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mb-2 max-w-md mx-auto leading-relaxed">Move leads into this folder from the main pipeline (select rows → <strong class="text-brand-dark dark:text-white">Move</strong> in the bar below), or switch folders in <strong class="text-brand-dark dark:text-white">Search &amp; refine</strong>.</p>
-    <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-10 max-w-sm mx-auto"><a href="/prospecting?tab=pipeline" class="font-bold text-brand-yellow hover:underline">Main pipeline (unfiled)</a> · <a href="/prospecting?tab=folders" class="font-bold text-brand-yellow hover:underline">Folder manager</a></p>
+    <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mb-2 max-w-lg mx-auto leading-relaxed">Run a search from <a href="/leads/find" class="font-bold text-brand-yellow hover:underline">Find More Leads</a> and save into this folder (or a trade subfolder under it). You can also <strong class="text-brand-dark dark:text-white">Import</strong> CSV/XLSX from the toolbar above, or move unfiled leads from the <a href="/prospecting?tab=pipeline" class="font-bold text-brand-yellow hover:underline">main pipeline</a> with bulk <strong class="text-brand-dark dark:text-white">Move</strong>.</p>
+    <p class="text-[11px] text-brand-muted dark:text-slate-400 mb-10 max-w-sm mx-auto">Once leads appear, switch to <strong class="text-brand-dark dark:text-white">Pipeline</strong> view and drag cards between stages — new leads start in <strong class="text-brand-dark dark:text-white">New</strong>.</p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+      <a href="/leads/find" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">Run a search</a>
+      <a href="/prospecting?tab=folders" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-8 py-3 text-xs font-black uppercase tracking-widest hover:border-brand-yellow/60">Folder manager</a>
+    </div>
+    <p class="text-[11px] text-brand-muted dark:text-slate-400 max-w-sm mx-auto"><a href="/prospecting?tab=pipeline" class="font-bold text-brand-yellow hover:underline">Main pipeline (unfiled)</a></p>
     <% } else { %>
     <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Your Pipeline is empty</h2>
     <p class="text-brand-muted max-w-md mx-auto mb-8">Run a lead search to pull SMBs, or load sample leads to see how stages and cadences look.</p>

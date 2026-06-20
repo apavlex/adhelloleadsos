@@ -100,6 +100,7 @@ function normalizeMapsPlace(item) {
   const title = item.name || item.title || 'N/A';
   const site = item.site || item.website || '';
   const cat = item.category || item.type || (typeof item.subtypes === 'string' ? item.subtypes.split(',')[0] : '') || 'N/A';
+  const placeId = item.place_id || item.placeId || item.google_id || item.googleId || '';
   return {
     title,
     phone: item.phone || 'N/A',
@@ -113,10 +114,39 @@ function normalizeMapsPlace(item) {
     totalScore: item.rating != null ? item.rating : item.totalScore != null ? item.totalScore : 0,
     reviewsCount: item.reviews != null ? item.reviews : item.reviewsCount != null ? item.reviewsCount : 0,
     url: item.location_link || item.google_url || item.url || item.link || '',
+    placeId: placeId ? String(placeId).trim() : '',
     facebook: item.facebook || 'N/A',
     instagram: item.instagram || 'N/A',
     twitter: item.twitter || item.twitter_url || 'N/A',
   };
+}
+
+/**
+ * Flatten Outscraper reviews response (place row + reviews_data array).
+ * @param {unknown} data
+ * @returns {{ place: object|null, reviews: object[] }}
+ */
+function flattenOutscraperReviewsPayload(data) {
+  if (!Array.isArray(data) || !data.length) return { place: null, reviews: [] };
+  let place = null;
+  const reviews = [];
+  const rows = Array.isArray(data[0]) ? data.flat() : data;
+  for (const row of rows) {
+    if (!row || typeof row !== 'object') continue;
+    if (!place && (row.name || row.title || row.rating != null || row.reviews != null)) {
+      place = row;
+    }
+    const nested = row.reviews_data || row.reviewsData || row.reviews_list;
+    if (Array.isArray(nested)) {
+      for (const rev of nested) {
+        if (rev && typeof rev === 'object') reviews.push(rev);
+      }
+    }
+    if (row.review_text || row.reviewText || row.text) {
+      reviews.push(row);
+    }
+  }
+  return { place, reviews };
 }
 
 async function outscraperFetchJson(url, { method = 'GET', timeoutMs = DEFAULT_TIMEOUT_MS, integrationEnv } = {}) {
@@ -243,10 +273,108 @@ async function searchGoogleMaps({ keyword, city, state, maxResults, integrationE
   throw new Error(json?.errorMessage || `Unexpected Outscraper response (status=${status})`);
 }
 
+/**
+ * Google Maps reviews via Outscraper (GET /maps/reviews-v2, async + poll).
+ * @param {{ query: string, reviewsLimit?: number, sort?: string, integrationEnv?: Record<string, string> }} params
+ * @returns {Promise<{ reviews: object[], placeRating: number|null, placeReviewsCount: number|null }>}
+ */
+async function fetchGoogleMapsReviews({ query, reviewsLimit, sort, integrationEnv }) {
+  if (!isConfigured(integrationEnv)) {
+    throw new Error('Outscraper is not configured (set OUTSCRAPER_API_KEY).');
+  }
+  const q = String(query || '').trim();
+  if (!q) throw new Error('Review query is required (place_id, Maps URL, or business name).');
+
+  const limit = Math.min(100, Math.max(5, parseInt(reviewsLimit, 10) || 25));
+  const syncMode = ['1', 'true', 'yes'].includes(String(process.env.OUTSCRAPER_REVIEWS_SYNC || '').toLowerCase().trim());
+  const useAsync = !syncMode;
+  const sortVal = sort || 'newest';
+
+  const u = new URL(`${apiBase(integrationEnv)}/maps/reviews-v2`);
+  u.searchParams.set('query', q);
+  u.searchParams.set('reviewsLimit', String(limit));
+  u.searchParams.set('limit', '1');
+  u.searchParams.set('sort', sortVal);
+  u.searchParams.set('language', 'en');
+  u.searchParams.set('region', 'US');
+  u.searchParams.set('ignoreEmpty', 'true');
+  u.searchParams.set('async', useAsync ? 'true' : 'false');
+
+  console.log(`[Outscraper] Google Maps reviews: "${q.slice(0, 80)}" (limit=${limit}, async=${useAsync})`);
+
+  const initTimeout = useAsync ? MAPS_INIT_TIMEOUT_MS : Math.max(MAPS_INIT_TIMEOUT_MS, 120000);
+  const { ok, status, json } = await outscraperFetchJson(u.toString(), {
+    timeoutMs: initTimeout,
+    integrationEnv,
+  });
+
+  if (!ok) {
+    const msg = json?.errorMessage || json?.message || `HTTP ${status}`;
+    throw new Error(`Outscraper reviews: ${msg}`);
+  }
+
+  let payload = json;
+  if (payload?.status === 'Failure') {
+    throw new Error(payload.errorMessage || payload.message || 'Outscraper reviews task failed');
+  }
+
+  if (useAsync && payload?.id && payload?.status !== 'Success') {
+    let pollUrl = payload.results_location;
+    if (pollUrl && !String(pollUrl).startsWith('http')) {
+      pollUrl = `${apiBase(integrationEnv)}${String(pollUrl).startsWith('/') ? '' : '/'}${pollUrl}`;
+    }
+    if (!pollUrl) pollUrl = `${apiBase(integrationEnv)}/requests/${payload.id}`;
+    const deadline = Date.now() + MAPS_MAX_WAIT_MS;
+    let first = true;
+    while (Date.now() < deadline) {
+      if (!first) await sleep(MAPS_POLL_MS);
+      first = false;
+      const polled = await outscraperFetchJson(pollUrl, {
+        timeoutMs: MAPS_INIT_TIMEOUT_MS,
+        integrationEnv,
+      });
+      if (polled.status === 204 || (polled.json && polled.json.status === 'Failure')) {
+        throw new Error(polled.json?.errorMessage || polled.json?.message || 'Outscraper reviews failed');
+      }
+      if (polled.json?.status === 'Success' && polled.json.data) {
+        payload = polled.json;
+        break;
+      }
+    }
+    if (payload?.status !== 'Success' || !payload.data) {
+      throw new Error('Outscraper reviews timed out waiting for results');
+    }
+  }
+
+  if (payload?.status !== 'Success' || !payload.data) {
+    throw new Error(payload?.errorMessage || 'Unexpected Outscraper reviews response');
+  }
+
+  const { place, reviews } = flattenOutscraperReviewsPayload(payload.data);
+  const placeRating =
+    place && place.rating != null ? Number(place.rating)
+    : place && place.totalScore != null ? Number(place.totalScore)
+    : null;
+  const placeReviewsCount =
+    place && place.reviews != null ? parseInt(place.reviews, 10)
+    : place && place.reviewsCount != null ? parseInt(place.reviewsCount, 10)
+    : null;
+
+  console.log(`[Outscraper] Reviews returned ${reviews.length} rows for query.`);
+  return {
+    reviews,
+    placeRating: Number.isFinite(placeRating) ? placeRating : null,
+    placeReviewsCount: Number.isFinite(placeReviewsCount) ? placeReviewsCount : null,
+  };
+}
+
 module.exports = {
   isConfigured,
   pingHealth,
   apiBase,
   apiKey,
   searchGoogleMaps,
+  fetchGoogleMapsReviews,
+  flattenOutscraperReviewsPayload,
+  normalizeMapsPlace,
 };

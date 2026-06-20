@@ -106,7 +106,7 @@ async function enrichLeadSmart(url, options = {}) {
  * @param {string|null|undefined} url
  * @param {{ title?: string, city?: string, state?: string }} leadProfile
  * @param {{ integrationEnv?: Record<string, string> }} [options]
- * @returns {Promise<{ merged: object, mapsUsed: boolean, websiteHint: string|null }>}
+ * @returns {Promise<{ merged: object, mapsUsed: boolean, websiteHint: string|null, mapsPlace: object|null }>}
  */
 async function enrichLeadSmartWithMapsFallback(url, leadProfile, options = {}) {
   const integrationEnv = options.integrationEnv || null;
@@ -126,12 +126,14 @@ async function enrichLeadSmartWithMapsFallback(url, leadProfile, options = {}) {
   const missingCoreContact = mapsEnrichFallback.extractMissingCoreContact(fcData);
   let mapsExtract = null;
   let websiteHint = null;
+  let mapsPlace = null;
 
   if (fcFailed || !fcHadSignal || missingCoreContact) {
     const pack = await mapsEnrichFallback.enrichFromMapsForLead(leadProfile || {}, integrationEnv);
     if (pack) {
       mapsExtract = pack.extract;
       websiteHint = pack.websiteHint || null;
+      mapsPlace = pack.place || null;
     }
   }
 
@@ -141,7 +143,7 @@ async function enrichLeadSmartWithMapsFallback(url, leadProfile, options = {}) {
       ((mapsExtract && Object.keys(mapsExtract).length > 0) || Boolean(websiteHint))
   );
 
-  return { merged, mapsUsed, websiteHint };
+  return { merged, mapsUsed, websiteHint, mapsPlace };
 }
 
 module.exports = {

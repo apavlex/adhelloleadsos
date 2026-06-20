@@ -173,7 +173,9 @@ function applyLeadListFilters(leads, filters) {
   }
   const folderKey = String(filters.folderKey || '').trim();
   if (folderKey) {
-    out = out.filter((l) => String(l.folderKey || '') === folderKey);
+    const keySet =
+      filters.folderKeys instanceof Set ? filters.folderKeys : new Set([folderKey]);
+    out = out.filter((l) => keySet.has(String(l.folderKey || '').trim()));
   }
   const tagKey = String(filters.tagKey || '').trim();
   if (tagKey) {

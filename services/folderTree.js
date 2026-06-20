@@ -249,6 +249,51 @@ function buildFolderPickerTree(folderTree, selectedKey) {
 }
 
 /**
+ * Folder key plus all nested subfolder keys (for pipeline folder filter).
+ * @param {ReturnType<typeof buildFolderTree>} folderTree
+ * @param {string} folderKey
+ * @returns {Set<string>|null} null when folderKey empty
+ */
+function folderKeysIncludingDescendants(folderTree, folderKey) {
+  const root = String(folderKey || '').trim();
+  if (!root) return null;
+
+  const keys = new Set([root]);
+
+  function collectNested(folder) {
+    if (!folder || !folder.key) return;
+    keys.add(String(folder.key));
+    for (const child of folder.children || []) {
+      collectNested(child);
+    }
+  }
+
+  function findInNodes(nodes) {
+    for (const folder of nodes || []) {
+      if (!folder || !folder.key) continue;
+      if (String(folder.key) === root) {
+        collectNested(folder);
+        return true;
+      }
+      if (findInNodes(folder.children)) return true;
+    }
+    return false;
+  }
+
+  for (const group of folderTree?.groups || []) {
+    if (group.folder && String(group.folder.key) === root) {
+      for (const child of group.children || []) {
+        collectNested(child);
+      }
+      return keys;
+    }
+    if (findInNodes(group.children)) return keys;
+  }
+
+  return keys;
+}
+
+/**
  * @param {object[]} folders
  * @returns {{ groups: object[], rootsByJobType: Record<string,object>, allFolders: object[] }}
  */
@@ -325,6 +370,7 @@ module.exports = {
   buildFolderTree,
   buildFolderPickerOptions,
   buildFolderPickerTree,
+  folderKeysIncludingDescendants,
   dedupeFoldersByKey,
   countLeadsInFolder,
   groupLeadTotal,

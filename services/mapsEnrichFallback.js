@@ -98,10 +98,44 @@ function mergeExtractPreferFirecrawl(fc, maps) {
 
 /**
  * @param {{ title?: string, city?: string, state?: string }} lead
- * @param {Record<string, string>|null|undefined} integrationEnv
- * @returns {Promise<{ extract: object, websiteHint: string|null }|null>}
+ * @param {object[]} places
+ * @returns {object|null}
  */
-async function enrichFromMapsForLead(lead, integrationEnv) {
+function pickBestMapsPlace(lead, places) {
+  if (!places || !places.length) return null;
+  const title = String(lead.title || '').trim();
+  const city = String(lead.city || '').trim();
+  if (!title) return places[0];
+
+  let best = places[0];
+  let bestScore = titleSimilarity(title, best.title);
+  for (let i = 1; i < places.length; i += 1) {
+    const p = places[i];
+    const sc = titleSimilarity(title, p.title);
+    if (sc > bestScore) {
+      bestScore = sc;
+      best = p;
+    }
+  }
+
+  if (city && bestScore < 0.18) {
+    const cityL = normTitle(city);
+    const alt = places.find((p) => {
+      const pc = normTitle(p.city || '');
+      return pc && (pc.includes(cityL) || cityL.includes(pc));
+    });
+    if (alt) best = alt;
+  }
+  return best;
+}
+
+/**
+ * Resolve the best Google Maps place row for a lead (rating, place_id, URL).
+ * @param {{ title?: string, city?: string, state?: string }} lead
+ * @param {Record<string, string>|null|undefined} integrationEnv
+ * @returns {Promise<object|null>}
+ */
+async function findMapsPlaceForLead(lead, integrationEnv) {
   if (!mapsSearch.isMapsSearchConfigured(integrationEnv)) return null;
 
   const title = String(lead.title || '').trim();
@@ -120,27 +154,22 @@ async function enrichFromMapsForLead(lead, integrationEnv) {
       maxResults: 12,
       integrationEnv,
     });
-    if (!places || places.length === 0) return null;
+    return pickBestMapsPlace(lead, places);
+  } catch (e) {
+    console.warn('[mapsEnrichFallback] Maps place lookup failed:', e.message);
+    return null;
+  }
+}
 
-    let best = places[0];
-    let bestScore = titleSimilarity(title, best.title);
-    for (let i = 1; i < places.length; i += 1) {
-      const p = places[i];
-      const sc = titleSimilarity(title, p.title);
-      if (sc > bestScore) {
-        bestScore = sc;
-        best = p;
-      }
-    }
-
-    if (city && bestScore < 0.18) {
-      const cityL = normTitle(city);
-      const alt = places.find((p) => {
-        const pc = normTitle(p.city || '');
-        return pc && (pc.includes(cityL) || cityL.includes(pc));
-      });
-      if (alt) best = alt;
-    }
+/**
+ * @param {{ title?: string, city?: string, state?: string }} lead
+ * @param {Record<string, string>|null|undefined} integrationEnv
+ * @returns {Promise<{ extract: object, websiteHint: string|null, place: object|null }|null>}
+ */
+async function enrichFromMapsForLead(lead, integrationEnv) {
+  try {
+    const best = await findMapsPlaceForLead(lead, integrationEnv);
+    if (!best) return null;
 
     const extract = apifyPlaceToExtract(best);
     const websiteHint =
@@ -150,7 +179,7 @@ async function enrichFromMapsForLead(lead, integrationEnv) {
 
     if (!extractHasContactSignal(extract) && !websiteHint) return null;
 
-    return { extract, websiteHint };
+    return { extract, websiteHint, place: best };
   } catch (e) {
     console.warn('[mapsEnrichFallback] Maps enrich failed:', e.message);
     return null;
@@ -161,5 +190,7 @@ module.exports = {
   extractHasContactSignal,
   extractMissingCoreContact,
   mergeExtractPreferFirecrawl,
+  pickBestMapsPlace,
+  findMapsPlaceForLead,
   enrichFromMapsForLead,
 };

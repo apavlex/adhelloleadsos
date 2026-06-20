@@ -10,6 +10,8 @@ const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
+const reviewHunt = require('../services/reviewHunt');
+const { generateReviewIntelForLead } = require('../services/reviewIntel');
 const {
   normalizeLeadForPanel,
   leadMissingCoreContact,
@@ -2726,60 +2728,15 @@ router.post('/:key/review-intelligence', async (req, res, next) => {
     }
 
     const snippets = Array.isArray(lead.reviewSnippets) ? lead.reviewSnippets : [];
-    const snapshot = {
-      company: lead.title,
-      category: lead.categoryName,
-      city: lead.city,
-      state: lead.state,
-      mapsRating: lead.totalScore,
-      reviewCount: lead.reviewsCount,
-      auditSummary: lead.auditSummary || '',
-      reviewSnippets: snippets,
-    };
-
-    const ai = await chatCompletion({
-      messages: [
-        {
-          role: 'system',
-          content: `You analyze local business reputation for agency sales. Input is JSON with optional verbatim customer quotes in reviewSnippets, star rating mapsRating (0-5), reviewCount, category, location, and auditSummary.
-
-Rules:
-- If reviewSnippets has one or more strings: derive strengths and weaknesses only from themes in those quotes plus rating/count. Do not invent incidents not supported by the quotes.
-- If reviewSnippets is empty: infer plausible strengths and weaknesses from category, location, mapsRating, reviewCount, and auditSummary only. Use cautious wording ("Often…", "May…", "Typical risk…"). Do not claim you read specific reviews.
-
-Return JSON only, no markdown:
-{"strengths":["bullet 1",...],"weaknesses":["bullet 1",...],"sourceNote":"One sentence: cite verbatim snippets vs rating-only inference."}`,
-        },
-        {
-          role: 'user',
-          content: JSON.stringify(snapshot),
-        },
-      ],
-      jsonObject: true,
-      max_tokens: 800,
-      temperature: 0.35,
-    });
-
-    if (!ai.content || ai.error) {
-      return res.json({
-        success: false,
-        error:
-          'No AI provider configured (set OPENROUTER_API_KEY) or request failed.',
-      });
+    const aiPack = await generateReviewIntelForLead({ ...lead, reviewSnippets: snippets });
+    if (aiPack && aiPack.error) {
+      return res.json({ success: false, error: aiPack.error });
     }
-
-    const parsed = parseLlmJson(ai.content);
-    if (!parsed) {
+    if (!aiPack || !aiPack.intel) {
       return res.json({ success: false, error: 'Invalid AI response' });
     }
 
-    const intel = {
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths.map((s) => String(s || '').trim()).filter(Boolean) : [],
-      weaknesses: Array.isArray(parsed.weaknesses)
-        ? parsed.weaknesses.map((s) => String(s || '').trim()).filter(Boolean)
-        : [],
-      sourceNote: typeof parsed.sourceNote === 'string' ? parsed.sourceNote.trim() : '',
-    };
+    const intel = aiPack.intel;
 
     await dbService.updateLead(fullKey, {
       reviewIntel: intel,
@@ -2807,6 +2764,7 @@ async function runLeadEnhancement(lead, workspaceId) {
   let mapsFallbackUsed = false;
   let betterContactUsed = false;
   let urlToSave = null;
+  let mapsPlace = null;
 
   const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
@@ -2829,6 +2787,7 @@ async function runLeadEnhancement(lead, workspaceId) {
     });
     deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(pack.merged, deepData || {});
     mapsFallbackUsed = pack.mapsUsed;
+    if (pack.mapsPlace) mapsPlace = pack.mapsPlace;
   } else {
     console.log(`[ENHANCE] Website missing. Firecrawl search + Maps fallback for ${lead.title}...`);
     firecrawlViaSearch = true;
@@ -2870,6 +2829,7 @@ async function runLeadEnhancement(lead, workspaceId) {
         searchExtract = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, pack.extract);
         websiteHint = pack.websiteHint;
         mapsFallbackUsed = true;
+        if (pack.place) mapsPlace = pack.place;
       }
     }
     deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, deepData || {});
@@ -2910,20 +2870,49 @@ async function runLeadEnhancement(lead, workspaceId) {
     if (lead.phone && lead.phone !== 'N/A') delete patch.phone;
     if (lead.address && lead.address !== 'N/A') delete patch.address;
     if (lead.email && lead.email !== 'N/A') delete patch.email;
-    if (lead.totalScore != null && Number(lead.totalScore) > 0) delete patch.totalScore;
-    if (lead.reviewsCount != null && Number(lead.reviewsCount) > 0) delete patch.reviewsCount;
   }
 
   if ((!lead.website || lead.website === 'N/A') && urlToSave) {
     patch.website = urlToSave;
   }
 
-  if (hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed) {
+  let reviewHuntUsed = false;
+  try {
+    const reviewPack = await reviewHunt.runReviewHuntForLead(
+      { ...lead, ...patch },
+      integrationEnv,
+      { mapsPlace }
+    );
+    if (reviewPack && reviewPack.used && reviewPack.patch) {
+      reviewHuntUsed = true;
+      Object.assign(patch, reviewPack.patch);
+      if (reviewPack.mapsPlace) mapsPlace = reviewPack.mapsPlace;
+    }
+  } catch (e) {
+    console.warn('[ENHANCE] Review hunt failed:', e.message);
+  }
+
+  patch.lastContactHuntAt = new Date().toISOString();
+
+  const contactPatchKeys = Object.keys(patch).filter(
+    (k) =>
+      !['updates', 'lastContactHuntAt', 'reviewIntel', 'reviewIntelAt', 'reviewSnippets', 'totalScore', 'reviewsCount', 'url'].includes(k)
+  );
+  const contactUpdated = contactPatchKeys.length > 0;
+  const reviewUpdated =
+    reviewHuntUsed &&
+    (patch.reviewSnippets != null ||
+      patch.totalScore != null ||
+      patch.reviewsCount != null ||
+      patch.reviewIntel != null);
+
+  if (hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed || reviewHuntUsed) {
     const via = [
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,
       !firecrawlViaSearch && lead.website && lead.website !== 'N/A' && hadExtract ? 'website' : null,
       mapsFallbackUsed ? 'Maps backup' : null,
+      reviewHuntUsed ? 'Google reviews' : null,
     ]
       .filter(Boolean)
       .join(' + ');
@@ -2935,22 +2924,24 @@ async function runLeadEnhancement(lead, workspaceId) {
   }
 
   const hasNewUpdates = baseUpdates.length > priorUpdateLen;
-  const patchKeys = Object.keys(patch).filter((k) => k !== 'updates');
-  if (patchKeys.length > 0 || hasNewUpdates) {
+  const shouldPersist = contactUpdated || reviewUpdated || hasNewUpdates;
+
+  if (shouldPersist) {
     patch.updates = baseUpdates;
     const updatedLead = await dbService.updateLead(fullKey, patch, leadWorkspaceId);
+    if (contactUpdated || reviewUpdated) {
+      return { success: true, lead: updatedLead };
+    }
     return { success: true, lead: updatedLead };
   }
 
-  if (!betterContact.isConfigured(integrationEnv)) {
-    return {
-      success: false,
-      error:
-        'No new contact data discovered yet. Add BETTERCONTACT_API_KEY under Workspace → API integrations to enable BetterContact waterfall enrichment.',
-    };
-  }
-
-  return { success: false, error: 'No new contact data discovered yet. BetterContact and website search did not find new contacts.' };
+  return {
+    success: false,
+    error: betterContact.isConfigured(integrationEnv)
+      ? 'No new contact or review data discovered yet. BetterContact, website search, and Google reviews did not find new signals.'
+      : 'No new contact or review data discovered yet. Add BETTERCONTACT_API_KEY and/or OUTSCRAPER_API_KEY under Workspace → API integrations.',
+    lead: { ...lead, lastContactHuntAt: patch.lastContactHuntAt },
+  };
 }
 
 // POST /leads/enhance-missing-contacts — admin backfill for leads missing phone/email
@@ -3052,7 +3043,7 @@ router.post('/:key/enhance', async (req, res, next) => {
     res.json({
       success: true,
       processing: true,
-      message: 'Contact hunt started. BetterContact and website search may take up to 90 seconds.',
+      message: 'Deep hunt started. Contacts, Google reviews, and AI summary may take up to 90 seconds.',
     });
 
     setImmediate(async () => {

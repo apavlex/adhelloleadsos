@@ -4402,7 +4402,14 @@ document.addEventListener('DOMContentLoaded', () => {
     assignRowDatasetFieldIfBetter(ds, 'facebook', L.facebook);
     assignRowDatasetFieldIfBetter(ds, 'instagram', L.instagram);
     assignRowDatasetFieldIfBetter(ds, 'twitter', L.twitter);
-    assignRowDatasetScoreIfBetter(ds, L.totalScore, L.reviewsCount);
+    if (L.totalScore != null) {
+      const r = Number(L.totalScore);
+      if (Number.isFinite(r)) ds.rating = String(r);
+    }
+    if (L.reviewsCount != null) {
+      const n = parseInt(L.reviewsCount, 10);
+      if (Number.isFinite(n)) ds.reviews = String(n);
+    }
     if (L.reviewSnippets != null) {
       ds.reviewSnippets = Array.isArray(L.reviewSnippets)
         ? JSON.stringify(L.reviewSnippets)
@@ -10143,7 +10150,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span class="deep-enhance-label animate-pulse text-[11px] font-black uppercase tracking-wider">Searching…</span>
+        <span class="deep-enhance-label animate-pulse text-[11px] font-black uppercase tracking-wider">Hunting contacts &amp; reviews…</span>
       `;
 
   function readLastContactHuntAtFromRow(row) {
@@ -10414,16 +10421,17 @@ document.addEventListener('DOMContentLoaded', () => {
         clearHuntBusy();
         updateProcessingStatus(false);
         populatePanel(row);
+        scheduleReviewIntelligence(row, { refresh: true });
 
         if (currentRow === row && deepEnhanceBtn) {
           deepEnhanceBtn.disabled = true;
           deepEnhanceBtn.innerHTML =
-            '<span class="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400"><svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Data found</span>';
+            '<span class="flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400"><svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Hunt complete</span>';
           setTimeout(() => {
             syncContactHuntPanel(row);
           }, 2600);
         } else if (fromRowAction) {
-          notifyHunt('Contact hunt complete — check phone, email, and socials.', 'success');
+          notifyHunt('Hunt complete — check contacts, rating, and review summary.', 'success');
         }
 
         return { success: true, data };

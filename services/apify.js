@@ -90,6 +90,7 @@ module.exports = {
       totalScore: item.totalScore || 0,
       reviewsCount: item.reviewsCount || 0,
       url: item.url || '',
+      placeId: item.placeId || item.place_id || '',
       facebook: item.facebook || (item.facebookUrl && item.facebookUrl.length > 0 ? item.facebookUrl[0] : 'N/A'),
       instagram: item.instagram || (item.instagramUrl && item.instagramUrl.length > 0 ? item.instagramUrl[0] : 'N/A'),
       twitter: item.twitter || (item.twitterUrl && item.twitterUrl.length > 0 ? item.twitterUrl[0] : 'N/A'),
