@@ -39,15 +39,15 @@
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">What are you searching for?</p>
           <div class="flex flex-wrap gap-2" role="tablist" aria-label="Search type">
             <button type="button" role="tab" data-find-type="maps" aria-selected="<%= _findType === 'maps' ? 'true' : 'false' %>"
-              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'maps' ? 'border-brand-yellow/60 bg-brand-yellow/15 text-brand-dark dark:text-white' : 'border-brand-border/50 text-brand-muted hover:border-brand-yellow/40' %>">
-              Business (Maps)
+              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'maps' ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
+              Business
             </button>
             <button type="button" role="tab" data-find-type="mobile_homes" aria-selected="<%= _findType === 'mobile_homes' ? 'true' : 'false' %>"
-              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'mobile_homes' ? 'border-brand-yellow/60 bg-brand-yellow/15 text-brand-dark dark:text-white' : 'border-brand-border/50 text-brand-muted hover:border-brand-yellow/40' %>">
+              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'mobile_homes' ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
               Mobile homes
             </button>
             <button type="button" role="tab" data-find-type="real_estate" aria-selected="<%= _findType === 'real_estate' ? 'true' : 'false' %>"
-              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'real_estate' ? 'border-brand-yellow/60 bg-brand-yellow/15 text-brand-dark dark:text-white' : 'border-brand-border/50 text-brand-muted hover:border-brand-yellow/40' %>">
+              class="find-type-tab rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors <%= _findType === 'real_estate' ? 'border-brand-yellow bg-brand-yellow text-brand-dark shadow-sm' : 'border-brand-border/50 bg-white dark:bg-slate-900 text-brand-muted hover:border-brand-yellow/40 hover:text-brand-dark dark:hover:text-white' %>">
               Real estate
             </button>
           </div>
@@ -382,11 +382,13 @@
       document.querySelectorAll('.find-type-tab').forEach(function (tab) {
         var active = tab.getAttribute('data-find-type') === type;
         tab.setAttribute('aria-selected', active ? 'true' : 'false');
-        tab.classList.toggle('border-brand-yellow/60', active);
-        tab.classList.toggle('bg-brand-yellow/15', active);
+        tab.classList.toggle('border-brand-yellow', active);
+        tab.classList.toggle('bg-brand-yellow', active);
         tab.classList.toggle('text-brand-dark', active);
-        tab.classList.toggle('dark:text-white', active);
+        tab.classList.toggle('shadow-sm', active);
         tab.classList.toggle('border-brand-border/50', !active);
+        tab.classList.toggle('bg-white', !active);
+        tab.classList.toggle('dark:bg-slate-900', !active);
         tab.classList.toggle('text-brand-muted', !active);
       });
       var cfg = FIND_CONFIG[type];
