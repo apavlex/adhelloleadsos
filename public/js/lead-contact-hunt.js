@@ -119,4 +119,24 @@
       runContactHuntClick(e);
     }, true);
   }
+
+  function resetStuckHuntButton() {
+    window.__contactHuntInFlight = new Set();
+    var btn = document.getElementById('deepEnhanceBtn');
+    if (!btn) return;
+    if (btn.dataset.huntState === 'active') {
+      btn.dataset.huntState = 'idle';
+      btn.disabled = false;
+      btn.removeAttribute('aria-busy');
+      btn.classList.remove('hunt-active', 'loading', 'cursor-wait');
+      var progressRow = btn.querySelector('.deep-enhance-progress-row');
+      if (progressRow) progressRow.classList.add('hidden');
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', resetStuckHuntButton);
+  } else {
+    resetStuckHuntButton();
+  }
 })();

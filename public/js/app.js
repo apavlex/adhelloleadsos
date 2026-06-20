@@ -4930,9 +4930,46 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__resolveRowForLeadPanelActions = resolveRowForLeadPanelActions;
 
+  function withTimeout(promise, ms, message) {
+    let timer = null;
+    const timeout = new Promise((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new Error(message || 'Request timed out. Try again.'));
+      }, ms);
+    });
+    return Promise.race([promise, timeout]).finally(() => {
+      if (timer) clearTimeout(timer);
+    });
+  }
+
+  async function fetchJsonWithTimeout(url, options, ms) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { ...(options || {}), signal: ctrl.signal });
+      const data = await res.json().catch(() => ({}));
+      return { res, data };
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error('Request timed out. Try again.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function ensureRowHasLeadKey(row) {
     if (!row) throw new Error('Select a lead first.');
     let key = syncRowLeadKeyFromSavedMap(row);
+    if (!key && typeof findInitialSavedLeadRecord === 'function') {
+      const embedded = findInitialSavedLeadRecord(row);
+      const embeddedKey = embedded && embedded.key ? String(embedded.key).trim() : '';
+      if (embeddedKey) {
+        row.dataset.leadKey = embeddedKey;
+        key = embeddedKey;
+      }
+    }
     if (key) return normalizeLeadKeyForApi(key);
 
     if (typeof window.showAppToast === 'function') {
@@ -4951,7 +4988,11 @@ document.addEventListener('DOMContentLoaded', () => {
       throw new Error('Save is not ready yet. Refresh the page and try again.');
     }
 
-    const ok = await saver(row, { silent: true });
+    const ok = await withTimeout(
+      saver(row, { silent: true }),
+      25000,
+      'Saving this lead timed out. Check your connection and try again.',
+    );
     if (!ok) {
       throw new Error(
         'Could not save this lead. On search results, pick a folder in the bar at the bottom first, then try again.',
@@ -10803,14 +10844,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = document.getElementById('deepEnhanceBtn');
     const uiActive = !!(btn && btn.dataset.huntState === 'active');
     const inFlight = isContactHuntInFlightForRow(row);
-    if (inFlight || uiActive) {
+    if (inFlight) {
       if (btn && btn.dataset.huntState !== 'active') setDeepEnhanceHuntUi('active');
-      if (inFlight) startHuntProgressTickerGlobal();
+      startHuntProgressTickerGlobal();
       if (meta) {
         meta.textContent = 'Hunt in progress — contacts, reviews, and AI summary…';
         meta.classList.remove('hidden');
       }
       return;
+    }
+
+    if (uiActive && btn && btn.dataset.huntState !== 'done') {
+      stopHuntProgressTickerGlobal();
+      setDeepEnhanceHuntUi('idle');
     }
 
     stopHuntProgressTickerGlobal();
@@ -10831,21 +10877,25 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function pollContactHuntStatus(leadKey, opts) {
-    const maxMs = opts && opts.maxMs != null ? opts.maxMs : 130000;
+    const maxMs = opts && opts.maxMs != null ? opts.maxMs : 120000;
     const interval = opts && opts.interval != null ? opts.interval : 2500;
     const onTick = opts && opts.onTick;
     const deadline = Date.now() + maxMs;
     const started = Date.now();
+    let idleStreak = 0;
     if (onTick) onTick(0);
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, interval));
       if (onTick) onTick(Date.now() - started);
-      const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/enhance-status`, {
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-      });
-      const d = await res.json().catch(() => ({}));
-      if (d.status === 'processing') continue;
+      const { res, data: d } = await fetchJsonWithTimeout(
+        `/leads/${encodeURIComponent(leadKey)}/enhance-status`,
+        { credentials: 'same-origin', headers: { Accept: 'application/json' } },
+        15000,
+      );
+      if (d.status === 'processing') {
+        idleStreak = 0;
+        continue;
+      }
       if (d.status === 'done') {
         return {
           success: !!d.success,
@@ -10858,10 +10908,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return { success: false, error: d.error || 'Contact hunt failed.' };
       }
       if (d.status === 'idle') {
+        idleStreak += 1;
+        if (Date.now() - started < 20000 && idleStreak < 8) continue;
         return {
           success: false,
           error: 'Contact hunt ended before results were ready. Refresh and try again.',
         };
+      }
+      if (!res.ok) {
+        return { success: false, error: d.error || `Status check failed (${res.status}).` };
       }
     }
     throw new Error(
@@ -10935,7 +10990,23 @@ document.addEventListener('DOMContentLoaded', () => {
       setDeepEnhanceHuntUi('active', {
         phase: { pct: 8, label: 'Hunting…', detail: '' },
       });
+      startHuntProgressTickerGlobal();
     }
+
+    const releaseHuntUi = () => {
+      if (huntTrackKey) window.__contactHuntInFlight.delete(huntTrackKey);
+      const savedKey = String(row.dataset.leadKey || '').trim();
+      if (savedKey && savedKey !== huntTrackKey) window.__contactHuntInFlight.delete(savedKey);
+      stopHuntProgressTickerGlobal();
+      const reviewGridBusy = document.getElementById('reviewIntelGrid');
+      if (reviewGridBusy) reviewGridBusy.classList.remove('review-intel-loading');
+      updateProcessingStatus(false);
+      if (isSidebarTrigger) setDeepEnhanceHuntUi('idle');
+      else if (triggerBtn) {
+        triggerBtn.disabled = false;
+        triggerBtn.removeAttribute('aria-busy');
+      }
+    };
 
     try {
       await ensureRowHasLeadKey(row);
@@ -10944,11 +11015,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (ensureErr && ensureErr.message) ||
         'Save this lead before running contact hunt.';
       notifyHunt(msg, 'error');
-      if (huntTrackKey) window.__contactHuntInFlight.delete(huntTrackKey);
-      if (isSidebarTrigger) {
-        stopHuntProgressTickerGlobal();
-        setDeepEnhanceHuntUi('idle');
-      }
+      releaseHuntUi();
       return { success: false, error: msg };
     }
 
@@ -10998,7 +11065,12 @@ document.addEventListener('DOMContentLoaded', () => {
         triggerBtn.removeAttribute('aria-busy');
         triggerBtn.innerHTML = originalHTML;
       }
-      if (currentRow === row) syncSidebarForRow(false);
+      if (isSidebarTrigger) {
+        stopHuntProgressTickerGlobal();
+        setDeepEnhanceHuntUi('idle');
+      } else if (currentRow === row) {
+        syncContactHuntPanel(row);
+      }
     };
 
     const setHuntBusy = () => {
@@ -11035,17 +11107,20 @@ document.addEventListener('DOMContentLoaded', () => {
         throw new Error('Could not resolve a saved lead key for contact hunt.');
       }
 
-      let res = await fetch(`/leads/${encodeURIComponent(huntKey)}/enhance`, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { Accept: 'application/json' },
-      });
+      let res = await fetchJsonWithTimeout(
+        `/leads/${encodeURIComponent(huntKey)}/enhance`,
+        {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json' },
+        },
+        30000,
+      );
+      let data = res.data;
 
-      let data = await res.json().catch(() => ({}));
-
-      if (!res.ok && !data.success && !data.processing) {
-        const httpErr = data.error || `Request failed (${res.status})`;
-        notifyHunt(httpErr, res.status === 404 ? 'error' : 'warning');
+      if (!res.res.ok && !data.success && !data.processing) {
+        const httpErr = data.error || `Request failed (${res.res.status})`;
+        notifyHunt(httpErr, res.res.status === 404 ? 'error' : 'warning');
         updateProcessingStatus(false);
         clearHuntBusy();
         return { success: false, error: httpErr };
@@ -14961,5 +15036,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.45-pulse-progress-line';
+  window.__ADHELLO_BUILD = '1.0.46-hunt-unstick';
 });

@@ -39,7 +39,22 @@ function fail(leadKey, error) {
 function get(leadKey) {
   const key = String(leadKey || '').trim();
   if (!key) return null;
-  return jobs.get(key) || null;
+  const job = jobs.get(key);
+  if (!job) return null;
+  if (job.status === 'processing') {
+    const started = job.startedAt || 0;
+    if (started && Date.now() - started > 120000) {
+      const stale = {
+        status: 'error',
+        startedAt: started,
+        finishedAt: Date.now(),
+        error: 'Contact hunt timed out on the server. Try again.',
+      };
+      jobs.set(key, stale);
+      return stale;
+    }
+  }
+  return job;
 }
 
 function clear(leadKey) {
