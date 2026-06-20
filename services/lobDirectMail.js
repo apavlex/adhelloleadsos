@@ -3,6 +3,11 @@
  */
 
 const lobClient = require('./lobClient');
+const {
+  applyMergeFields,
+  wrapImageUrlAsPostcardHtml,
+  wrapImageWithPersonalizedOverlay,
+} = require('./directMailPersonalize');
 
 function escapeHtml(text) {
   return String(text || '')
@@ -10,13 +15,6 @@ function escapeHtml(text) {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-function extractZip(raw) {
-  const s = String(raw || '').trim();
-  if (!s) return '';
-  const m = s.match(/\b(\d{5})(?:-\d{4})?\b/);
-  return m ? m[1] : '';
 }
 
 function parseMailableAddress(lead) {
@@ -43,16 +41,29 @@ function parseMailableAddress(lead) {
   };
 }
 
+function extractZip(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return '';
+  const m = s.match(/\b(\d{5})(?:-\d{4})?\b/);
+  return m ? m[1] : '';
+}
+
 function hasMailableAddress(lead) {
   return !!parseMailableAddress(lead);
 }
 
 function buildPostcardHtml({ lead, headline, bodyText, ctaUrl }) {
+  const mergedHeadline = applyMergeFields(headline, lead) || 'Your free local visibility audit';
+  const mergedBody =
+    applyMergeFields(bodyText, lead) ||
+    'We put together a quick review of how customers find you online.';
+  const mergedCta = applyMergeFields(ctaUrl, lead);
+
   const business = escapeHtml(lead.title || 'Your business');
   const cityLine = escapeHtml([lead.city, lead.state].filter(Boolean).join(', '));
-  const head = escapeHtml(headline || 'Your free local visibility audit');
-  const body = escapeHtml(bodyText || 'We put together a quick review of how customers find you online.');
-  const cta = ctaUrl ? escapeHtml(ctaUrl) : '';
+  const head = escapeHtml(mergedHeadline);
+  const body = escapeHtml(mergedBody);
+  const cta = mergedCta ? escapeHtml(mergedCta) : '';
 
   const qrBlock = cta
     ? `<p style="margin-top:16px;font-size:11px;color:#555;word-break:break-all">${cta}</p>`
@@ -99,24 +110,40 @@ function isPdfOrHttpUrl(value) {
   return /^https?:\/\//i.test(v);
 }
 
-function wrapImageUrlAsPostcardHtml(imageUrl) {
-  const src = String(imageUrl || '').trim();
-  if (!/^https?:\/\//i.test(src)) return '';
-  const safe = src.replace(/"/g, '&quot;');
-  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;}img{width:100%;height:100%;object-fit:cover;display:block;}</style></head><body><img src="${safe}" alt="" /></body></html>`;
-}
-
-function resolvePostcardCreative(integrationEnv, htmlFallback, overrides) {
+function resolvePostcardCreative(integrationEnv, htmlFallback, overrides, opts) {
   const o = overrides && typeof overrides === 'object' ? overrides : {};
-  const frontImage = wrapImageUrlAsPostcardHtml(o.frontImageUrl);
-  const backImage = wrapImageUrlAsPostcardHtml(o.backImageUrl);
+  const personalize = opts && typeof opts === 'object' ? opts : {};
+  const lead = personalize.lead;
+  const personalizeOverlay = personalize.personalizeOverlay !== false;
+  const copy = {
+    headline: o.headline,
+    bodyText: o.bodyText,
+    ctaUrl: o.ctaUrl,
+  };
 
-  if (frontImage || backImage) {
+  const frontImageUrl = String(o.frontImageUrl || '').trim();
+  const backImageUrl = String(o.backImageUrl || '').trim();
+
+  if (frontImageUrl || backImageUrl) {
+    const frontHtml = frontImageUrl
+      ? personalizeOverlay && lead
+        ? wrapImageWithPersonalizedOverlay(frontImageUrl, {
+            lead,
+            ...copy,
+            showOverlay: true,
+          })
+        : wrapImageUrlAsPostcardHtml(frontImageUrl)
+      : htmlFallback.front;
+    const backHtml = backImageUrl
+      ? wrapImageUrlAsPostcardHtml(backImageUrl)
+      : htmlFallback.back;
+
     return {
-      front: frontImage || htmlFallback.front,
-      back: backImage || htmlFallback.back,
+      front: frontHtml,
+      back: backHtml,
       mode: 'html',
-      usedGenerated: { front: !!frontImage, back: !!backImage },
+      usedGenerated: { front: !!frontImageUrl, back: !!backImageUrl },
+      personalizedOverlay: !!(frontImageUrl && personalizeOverlay && lead),
     };
   }
 
@@ -139,6 +166,7 @@ async function sendPostcardToLead({
   ctaUrl,
   frontImageUrl,
   backImageUrl,
+  personalizeOverlay,
 }) {
   const to = parseMailableAddress(lead);
   if (!to) {
@@ -149,7 +177,12 @@ async function sendPostcardToLead({
   }
 
   const html = buildPostcardHtml({ lead, headline, bodyText, ctaUrl });
-  const creative = resolvePostcardCreative(integrationEnv, html, { frontImageUrl, backImageUrl });
+  const creative = resolvePostcardCreative(
+    integrationEnv,
+    html,
+    { frontImageUrl, backImageUrl, headline, bodyText, ctaUrl },
+    { lead, personalizeOverlay },
+  );
   const data = await lobClient.createPostcard({
     to,
     front: creative.front,
@@ -166,6 +199,7 @@ async function sendPostcardToLead({
     to,
     testMode: lobClient.isTestMode(integrationEnv),
     creativeMode: creative.mode,
+    personalizedOverlay: !!creative.personalizedOverlay,
   };
 }
 

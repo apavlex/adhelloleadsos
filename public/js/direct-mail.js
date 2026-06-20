@@ -59,6 +59,64 @@
       .replace(/"/g, '&quot;');
   }
 
+  function applyMergeFieldsClient(template, ctx) {
+    return String(template || '').replace(/\{(business|city|state|audit_url)\}/gi, function (_, key) {
+      return ctx[String(key).toLowerCase()] || '';
+    });
+  }
+
+  function mergePreviewLead() {
+    var keys = selectedKeys();
+    var row = null;
+    if (keys.length) {
+      var firstKey = keys[0];
+      getDmCheckboxes().some(function (cb) {
+        if (String(cb.value || '') === firstKey) {
+          row = cb.closest('tr');
+          return true;
+        }
+        return false;
+      });
+    }
+    if (!row) {
+      row = document.querySelector('#dmLeadsTable tr[data-mailable="1"]');
+    }
+    if (!row) return null;
+    return {
+      business: row.getAttribute('data-business') || 'Sample Business',
+      city: row.getAttribute('data-city') || '',
+      state: row.getAttribute('data-state') || '',
+      audit_url: row.getAttribute('data-audit-url') || '',
+    };
+  }
+
+  function updateMergePreview() {
+    var el = document.getElementById('dmMergePreview');
+    if (!el) return;
+    var ctx = mergePreviewLead();
+    if (!ctx) {
+      el.textContent = '';
+      return;
+    }
+    var headline = applyMergeFieldsClient((document.getElementById('dmHeadline') || {}).value, ctx);
+    var body = applyMergeFieldsClient((document.getElementById('dmBody') || {}).value, ctx);
+    var parts = [];
+    if (headline) parts.push('Headline: “' + headline + '”');
+    if (body) parts.push('Body: “' + body.slice(0, 80) + (body.length > 80 ? '…' : '') + '”');
+    el.textContent = parts.length
+      ? 'Preview for ' + ctx.business + ' — ' + parts.join(' · ')
+      : 'Preview for ' + ctx.business + ' — add copy above to see merged text.';
+  }
+
+  document.querySelectorAll('.dm-merge-field').forEach(function (field) {
+    field.addEventListener('input', updateMergePreview);
+  });
+  document.addEventListener('change', function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains('dm-lead-check')) {
+      updateMergePreview();
+    }
+  });
+
   function copyContext() {
     return {
       headline: (document.getElementById('dmHeadline') || {}).value || '',
@@ -778,6 +836,7 @@
             ctaUrl: (document.getElementById('dmCtaUrl') || {}).value || '',
             frontImageUrl: designUrls.frontImageUrl,
             backImageUrl: designUrls.backImageUrl,
+            personalizeOverlay: !((document.getElementById('dmPersonalizeOverlay') || {}).checked === false),
           }),
         });
         var data = await res.json().catch(function () {
@@ -808,4 +867,5 @@
 
   syncDmRowHighlights();
   syncCheckAll();
+  updateMergePreview();
 })();

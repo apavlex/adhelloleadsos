@@ -154,20 +154,25 @@
     <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
       <div class="xl:col-span-2 brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10">
         <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">Postcard copy</h2>
-        <p class="text-xs text-brand-muted mb-4">Optional — defaults work for a free audit pitch. Leave CTA URL blank to omit the link block.</p>
+        <p class="text-xs text-brand-muted mb-2">Personalize each send with merge tokens: <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{business}</code> <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{city}</code> <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{state}</code> <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{audit_url}</code> (Stitch preview or website).</p>
+        <p id="dmMergePreview" class="text-[11px] text-brand-muted mb-4 min-h-[1rem]" aria-live="polite"></p>
         <div class="space-y-3">
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmHeadline">Headline</label>
-            <input id="dmHeadline" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm" placeholder="Your free local visibility audit" />
+            <input id="dmHeadline" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm dm-merge-field" placeholder="Your new website is ready, {business}" />
           </div>
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmBody">Body</label>
-            <textarea id="dmBody" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm resize-y" placeholder="We put together a quick review of how customers find you online."></textarea>
+            <textarea id="dmBody" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm resize-y dm-merge-field" placeholder="We built a custom preview for {business} in {city}. Visit the link below to view your site."></textarea>
           </div>
           <div>
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmCtaUrl">Audit / landing URL</label>
-            <input id="dmCtaUrl" type="url" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm" placeholder="https://yoursite.com/audit/…" />
+            <input id="dmCtaUrl" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm dm-merge-field" placeholder="{audit_url}" />
           </div>
+          <label class="inline-flex items-start gap-2 text-xs text-brand-muted cursor-pointer">
+            <input type="checkbox" id="dmPersonalizeOverlay" class="rounded border-brand-border mt-0.5" checked />
+            <span><strong class="text-brand-dark dark:text-white">Personalize AI art at send time</strong> — overlay headline, business name, and copy on generated front images (one design, unique text per lead).</span>
+          </label>
         </div>
       </div>
       <div class="brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10">
@@ -215,7 +220,7 @@
           </thead>
           <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
             <% mailableLeads.forEach(function (l) { %>
-            <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>">
+            <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= (l.stitchDesignUrl || l.stitchScreenshotUrl || (l.website && l.website !== 'N/A' ? l.website : '') || '').replace(/"/g, '&quot;') %>">
               <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.mailable === false) { %> disabled<% } else if (l.preselected) { %> checked<% } %> /></td>
               <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %><% if (l.mailable === false) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">No address</span><% } %></td>
               <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>

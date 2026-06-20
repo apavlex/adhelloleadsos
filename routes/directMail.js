@@ -66,6 +66,9 @@ router.get('/', async (req, res, next) => {
       state: l.state || '',
       status: l.status || '',
       nextChannel: l.next_channel || '',
+      website: l.website || '',
+      stitchDesignUrl: l.stitchDesignUrl || '',
+      stitchScreenshotUrl: l.stitchScreenshotUrl || '',
       mailable: lobDirectMail.hasMailableAddress(l),
       preselected: selectedOnly,
     }));
@@ -127,6 +130,8 @@ Postcard copy context:
 - Headline: ${headline || '(not set yet)'}
 - Body: ${bodyText || '(not set yet)'}
 - CTA URL: ${ctaUrl || '(none)'}
+
+Merge tokens for per-recipient personalization (substituted at send time): {business}, {city}, {state}, {audit_url}. Use these in copy fields. For AI image prompts when mailing many leads, do not bake one specific business name into the artwork — leave the lower third clear for a text overlay with {business} and copy.
 
 Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images will be generated via KIE GPT Image 2 (text-to-image or image-to-image).
 
@@ -247,6 +252,7 @@ router.post('/api/send', async (req, res, next) => {
     const ctaUrl = String((req.body && req.body.ctaUrl) || '').trim();
     const frontImageUrl = String((req.body && req.body.frontImageUrl) || '').trim();
     const backImageUrl = String((req.body && req.body.backImageUrl) || '').trim();
+    const personalizeOverlay = req.body && req.body.personalizeOverlay !== false;
 
     const results = [];
     for (const key of keys) {
@@ -265,6 +271,7 @@ router.post('/api/send', async (req, res, next) => {
           ctaUrl: ctaUrl || undefined,
           frontImageUrl: frontImageUrl || undefined,
           backImageUrl: backImageUrl || undefined,
+          personalizeOverlay,
         });
         const updates = appendLeadUpdate(lead, {
           type: 'direct_mail_outbound',
