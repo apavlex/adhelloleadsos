@@ -74,12 +74,85 @@ function sumNestedLeadCounts(nodes, countsByKey) {
   return total;
 }
 
+function dedupeFoldersByKey(folders) {
+  const byKey = new Map();
+  for (const folder of folders || []) {
+    if (!folder || !folder.key) continue;
+    byKey.set(String(folder.key), folder);
+  }
+  return [...byKey.values()];
+}
+
+/**
+ * Flat, grouped folder options for searchable pipeline filter pickers.
+ * @param {ReturnType<typeof buildFolderTree>} folderTree
+ * @param {string} [selectedKey]
+ */
+function buildFolderPickerOptions(folderTree, selectedKey) {
+  const selected = String(selectedKey || '').trim();
+  const options = [
+    {
+      key: '',
+      label: 'Main pipeline (unfiled)',
+      groupKey: '',
+      groupName: '',
+      depth: 0,
+      searchText: 'main pipeline unfiled',
+      selected: !selected,
+    },
+  ];
+  const seenKeys = new Set(['']);
+  const seenTradeSlugs = new Set();
+
+  for (const group of folderTree?.groups || []) {
+    const groupName = String(group.name || '');
+    if (group.folder && group.isSystem && !seenKeys.has(String(group.folder.key))) {
+      seenKeys.add(String(group.folder.key));
+      options.push({
+        key: String(group.folder.key),
+        label: String(group.folder.name || groupName),
+        groupKey: String(group.key),
+        groupName,
+        depth: 0,
+        isSystem: true,
+        searchText: `${groupName} ${group.folder.name} system`.toLowerCase(),
+        selected: selected === String(group.folder.key),
+      });
+    }
+    for (const row of group.childRows || []) {
+      const folder = row.folder;
+      if (!folder || !folder.key || seenKeys.has(String(folder.key))) continue;
+      const tradeSlug = String(folder.tradeSlug || '').trim();
+      if (tradeSlug) {
+        if (seenTradeSlugs.has(tradeSlug)) continue;
+        seenTradeSlugs.add(tradeSlug);
+      }
+      seenKeys.add(String(folder.key));
+      const depth = row.depth || 1;
+      const prefix = depth > 1 ? '\u21b3 '.repeat(depth) : '\u21b3 ';
+      const plainName = String(folder.name || 'Folder');
+      options.push({
+        key: String(folder.key),
+        label: prefix + plainName,
+        groupKey: String(group.key),
+        groupName,
+        depth,
+        isTrade: !!folder.isTradeFolder,
+        searchText: `${groupName} ${plainName} ${folder.tradeSlug || ''} ${folder.jobType || ''}`.toLowerCase(),
+        selected: selected === String(folder.key),
+      });
+    }
+  }
+
+  return options;
+}
+
 /**
  * @param {object[]} folders
  * @returns {{ groups: object[], rootsByJobType: Record<string,object>, allFolders: object[] }}
  */
 function buildFolderTree(folders) {
-  const all = Array.isArray(folders) ? folders.filter(Boolean) : [];
+  const all = dedupeFoldersByKey(Array.isArray(folders) ? folders.filter(Boolean) : []);
   const roots = all.filter((f) => f.isPipelineDefault);
   const rootsByJobType = {};
   for (const root of roots) {
@@ -149,6 +222,8 @@ module.exports = {
   OTHER_GROUP_KEY,
   folderSearchText,
   buildFolderTree,
+  buildFolderPickerOptions,
+  dedupeFoldersByKey,
   countLeadsInFolder,
   groupLeadTotal,
   flattenFolderRows,

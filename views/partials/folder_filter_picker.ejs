@@ -1,0 +1,59 @@
+<%#
+  Searchable folder picker for pipeline filters.
+  Locals: folderPickerOptions (array), selectedFolderKey (string), inputName (optional, default folderKey)
+%>
+<% const _opts = typeof folderPickerOptions !== 'undefined' && Array.isArray(folderPickerOptions) ? folderPickerOptions : []; %>
+<% const _selKey = typeof selectedFolderKey !== 'undefined' ? String(selectedFolderKey || '') : ''; %>
+<% const _inputName = typeof inputName !== 'undefined' && inputName ? String(inputName) : 'folderKey'; %>
+<% let _selLabel = 'Main pipeline (unfiled)';
+   for (var _oi = 0; _oi < _opts.length; _oi++) {
+     if (_opts[_oi] && _opts[_oi].selected) { _selLabel = _opts[_oi].label; break; }
+   }
+%>
+<% const _groups = [];
+   var _groupIndex = {};
+   _opts.forEach(function (opt) {
+     if (!opt || opt.key === '') return;
+     var gk = opt.groupKey || '__ungrouped__';
+     if (!_groupIndex[gk]) {
+       _groupIndex[gk] = { key: gk, name: opt.groupName || 'Folders', options: [] };
+       _groups.push(_groupIndex[gk]);
+     }
+     _groupIndex[gk].options.push(opt);
+   });
+%>
+<div class="folder-filter-picker relative" data-folder-picker>
+  <input type="hidden" name="<%= _inputName %>" value="<%= _selKey %>" data-folder-picker-value />
+  <button type="button" class="folder-filter-picker-trigger w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white text-left flex items-center justify-between gap-2 hover:border-brand-yellow/40 transition-colors" aria-haspopup="listbox" aria-expanded="false">
+    <span class="folder-filter-picker-label truncate"><%= _selLabel %></span>
+    <span class="text-brand-muted text-xs shrink-0" aria-hidden="true">▾</span>
+  </button>
+  <div class="folder-filter-picker-panel hidden absolute left-0 right-0 top-full mt-1 z-[500] rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl overflow-hidden" role="listbox">
+    <div class="p-2 border-b border-brand-border/30 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40">
+      <input type="search" class="folder-filter-picker-search w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60" placeholder="Search folders…" autocomplete="off" aria-label="Search folders" />
+    </div>
+    <div class="folder-filter-picker-list max-h-64 overflow-y-auto custom-scrollbar p-1">
+      <button type="button" class="folder-filter-picker-option w-full text-left rounded-lg px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-colors<%= !_selKey ? ' bg-brand-yellow/15 dark:bg-brand-yellow/10' : '' %>"
+        data-key=""
+        data-label="Main pipeline (unfiled)"
+        data-search="main pipeline unfiled">
+        Main pipeline (unfiled)
+      </button>
+      <% _groups.forEach(function (grp) { %>
+      <div class="folder-filter-picker-group mt-1" data-folder-picker-group="<%= grp.key %>">
+        <p class="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400"><%= grp.name %></p>
+        <% grp.options.forEach(function (opt) { %>
+        <button type="button" class="folder-filter-picker-option w-full text-left rounded-lg px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/50 dark:hover:bg-white/5 transition-colors<%= opt.selected ? ' bg-brand-yellow/15 dark:bg-brand-yellow/10' : '' %>"
+          data-key="<%= opt.key %>"
+          data-label="<%= opt.label %>"
+          data-search="<%= opt.searchText %>"
+          style="padding-left: <%= Math.min(12 + (opt.depth || 0) * 12, 36) %>px">
+          <%= opt.label %>
+        </button>
+        <% }); %>
+      </div>
+      <% }); %>
+      <p class="folder-filter-picker-empty hidden px-3 py-4 text-sm text-brand-muted text-center">No folders match your search.</p>
+    </div>
+  </div>
+</div>

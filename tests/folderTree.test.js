@@ -48,3 +48,17 @@ test('buildFolderTree groups orphans without parent', () => {
   assert.ok(other);
   assert.equal(other.children.length, 1);
 });
+
+test('buildFolderPickerOptions groups folders and dedupes keys', () => {
+  const { buildFolderPickerOptions } = require('../services/folderTree');
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'sub:hvac', name: 'HVAC', parentFolderKey: 'root:biz', isTradeFolder: true, tradeSlug: 'hvac' },
+    { key: 'sub:hvac:dup', name: 'HVAC', parentFolderKey: 'root:biz', isTradeFolder: true, tradeSlug: 'hvac' },
+  ]);
+  const options = buildFolderPickerOptions(tree, 'sub:hvac');
+  const hvac = options.filter((o) => o.label.includes('HVAC'));
+  assert.equal(hvac.length, 1);
+  assert.equal(options.find((o) => o.selected)?.key, 'sub:hvac');
+  assert.ok(options.some((o) => o.groupName === 'Businesses'));
+});

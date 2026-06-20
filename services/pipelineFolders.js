@@ -98,13 +98,14 @@ async function ensureTradeSubfolders(workspaceId, folders) {
   const parentKey = String(businessRoot.key);
   const existingSlugs = new Set(
     (folders || [])
-      .filter((f) => f && String(f.parentFolderKey || '') === parentKey && f.tradeSlug)
+      .filter((f) => f && f.tradeSlug)
       .map((f) => String(f.tradeSlug))
   );
   const existingNames = new Set(
     (folders || [])
-      .filter((f) => f && String(f.parentFolderKey || '') === parentKey)
+      .filter((f) => f && (f.isTradeFolder || f.tradeSlug || String(f.jobType || '') === JOB_TYPES.MAPS_BUSINESS))
       .map((f) => String(f.name || '').trim().toLowerCase())
+      .filter(Boolean)
   );
 
   const out = [...folders];
@@ -134,6 +135,46 @@ async function ensureTradeSubfolders(workspaceId, folders) {
   }
 
   return out;
+}
+
+/**
+ * Remove duplicate folders with the same name (keeps trade/system-linked copy).
+ */
+async function consolidateDuplicateFolders(workspaceId, folders) {
+  const wid = workspaceId || 'default';
+  const byName = new Map();
+  for (const folder of folders || []) {
+    if (!folder || folder.isPipelineDefault || !folder.key) continue;
+    const name = String(folder.name || '')
+      .trim()
+      .toLowerCase();
+    if (!name) continue;
+    if (!byName.has(name)) byName.set(name, []);
+    byName.get(name).push(folder);
+  }
+
+  let removed = 0;
+  for (const [, group] of byName) {
+    if (group.length < 2) continue;
+    const score = (f) =>
+      (f.isTradeFolder ? 8 : 0) +
+      (f.tradeSlug ? 4 : 0) +
+      (f.parentFolderKey ? 2 : 0) +
+      (f.searchPreset ? 1 : 0);
+    group.sort((a, b) => score(b) - score(a));
+    const keep = group[0];
+    for (let i = 1; i < group.length; i += 1) {
+      const dup = group[i];
+      // eslint-disable-next-line no-await-in-loop
+      await dbService.reassignLeadsToFolder(wid, dup.key, keep.key);
+      // eslint-disable-next-line no-await-in-loop
+      await dbService.deleteFolder(wid, dup.key);
+      removed += 1;
+    }
+  }
+
+  if (!removed) return { folders, stats: { removed: 0 } };
+  return { folders: await dbService.listFolders(wid), stats: { removed } };
 }
 
 function isLegacyMobileHomesFolder(folder) {
@@ -298,6 +339,10 @@ async function migrateLegacyFolders(workspaceId, folders) {
 
   list = await ensurePipelineFolders(workspaceId);
   list = await ensureTradeSubfolders(workspaceId, list);
+
+  const deduped = await consolidateDuplicateFolders(workspaceId, list);
+  list = deduped.folders;
+  stats.duplicates = deduped.stats;
 
   const trade = await autoParentTradeLikeFolders(workspaceId, list);
   list = trade.folders;
@@ -505,6 +550,7 @@ module.exports = {
   ensureTradeSubfolders,
   migrateLegacyFolders,
   migrateLegacyMobileHomesFolder,
+  consolidateDuplicateFolders,
   autoParentTradeLikeFolders,
   ensurePipelineFoldersWithTree,
   resolveTargetFolder,

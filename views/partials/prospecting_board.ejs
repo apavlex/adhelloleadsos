@@ -129,7 +129,7 @@
         One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
         (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> unfiled in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
         <% } %>
-        Use the <strong class="text-brand-dark dark:text-white">Folder</strong> filter to open a search-type pipeline — <strong>Businesses (Maps)</strong>, <strong>Mobile homes</strong>, or <strong>Real estate</strong>. Filed leads stay out of the main table until you pick their folder.
+        Use the <strong class="text-brand-dark dark:text-white">Folder</strong> filter to open a pipeline by system folder or trade subfolder — <strong>Businesses</strong>, <strong>Real estate</strong>, <strong>Home owners</strong>, and more. Filed leads stay out of the main table until you pick their folder.
       </p>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-4 flex flex-wrap gap-x-4 gap-y-2">
         <a href="/sequences" class="font-bold text-brand-yellow hover:underline">Cadences</a>
@@ -181,12 +181,11 @@
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-12 gap-3 gap-y-3 items-end">
     <div class="lg:col-span-3">
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Folder</label>
-      <select name="folderKey" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-3 py-2 text-sm font-bold text-brand-dark dark:text-white" title="Show leads from a folder or main pipeline">
-        <option value=""<%= !_fk ? ' selected' : '' %>>Main pipeline (unfiled)</option>
-        <% _folders.forEach(function (fd) { if (!fd || !fd.key) return; %>
-        <option value="<%= fd.key %>"<%= _fk === String(fd.key) ? ' selected' : '' %>><%= fd.isPipelineDefault ? '▸ ' : '' %><%= fd.name || 'Folder' %></option>
-        <% }); %>
-      </select>
+      <%- include('folder_filter_picker', {
+        folderPickerOptions: typeof folderPickerOptions !== 'undefined' ? folderPickerOptions : [],
+        selectedFolderKey: _fk,
+        inputName: 'folderKey'
+      }) %>
     </div>
     <div class="lg:col-span-3">
       <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mb-1.5 block">Search</label>
