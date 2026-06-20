@@ -8,6 +8,7 @@ const outscraper = require('./outscraperClient');
 const rapidapi = require('./rapidapiLocalBusiness');
 const searchapi = require('./searchapiGoogleLocal');
 const serpapi = require('./serpapiGoogleLocal');
+const oxylabsGoogleLocal = require('./oxylabsGoogleLocal');
 
 function apifyConfigured(integrationEnv) {
   const t = (integrationEnv && integrationEnv.APIFY_API_TOKEN) || process.env.APIFY_API_TOKEN;
@@ -22,13 +23,18 @@ function serpapiConfigured(integrationEnv) {
   return serpapi.isConfigured(integrationEnv);
 }
 
+function oxylabsConfigured(integrationEnv) {
+  return oxylabsGoogleLocal.isConfigured(integrationEnv);
+}
+
 function isMapsSearchConfigured(integrationEnv) {
   return (
     rapidapi.isConfigured(integrationEnv) ||
     searchapiConfigured(integrationEnv) ||
     serpapiConfigured(integrationEnv) ||
     outscraper.isConfigured(integrationEnv) ||
-    apifyConfigured(integrationEnv)
+    apifyConfigured(integrationEnv) ||
+    oxylabsConfigured(integrationEnv)
   );
 }
 
@@ -36,7 +42,7 @@ function resolvePrimary(integrationEnv) {
   const fromWs = String((integrationEnv && integrationEnv.SEARCH_MAPS_PRIMARY) || '').toLowerCase().trim();
   const fromEnv = String(process.env.SEARCH_MAPS_PRIMARY || '').toLowerCase().trim();
   const v = fromWs || fromEnv;
-  if (v === 'rapidapi' || v === 'searchapi' || v === 'serpapi' || v === 'apify' || v === 'outscraper')
+  if (v === 'rapidapi' || v === 'searchapi' || v === 'serpapi' || v === 'apify' || v === 'outscraper' || v === 'oxylabs')
     return v;
   return 'auto';
 }
@@ -85,6 +91,11 @@ async function runAutoMapsSearch(params, integrationEnv) {
       label: 'SerpAPI',
       configured: () => serpapiConfigured(integrationEnv),
       search: (p) => serpapi.searchGoogleMaps(p),
+    },
+    {
+      label: 'Oxylabs',
+      configured: () => oxylabsConfigured(integrationEnv),
+      search: (p) => oxylabsGoogleLocal.searchGoogleMaps(p),
     },
     {
       label: 'Outscraper',
@@ -147,6 +158,7 @@ async function runAutoMapsSearch(params, integrationEnv) {
     rapidapi: rapidapi.isConfigured(integrationEnv),
     searchapi: searchapiConfigured(integrationEnv),
     serpapi: serpapiConfigured(integrationEnv),
+    oxylabs: oxylabsConfigured(integrationEnv),
     outscraper: outscraper.isConfigured(integrationEnv),
     apify: apifyConfigured(integrationEnv),
   };
@@ -205,6 +217,13 @@ async function searchGoogleMaps(params) {
     return outscraper.searchGoogleMaps(params);
   }
 
+  if (primary === 'oxylabs') {
+    if (!oxylabsConfigured(integrationEnv)) {
+      throw new Error('Maps provider is set to Oxylabs, but OXYLABS_USERNAME / OXYLABS_PASSWORD are missing.');
+    }
+    return oxylabsGoogleLocal.searchGoogleMaps(params);
+  }
+
   return runAutoMapsSearch(params, integrationEnv);
 }
 
@@ -225,6 +244,11 @@ function getMapsProviderStatusList(integrationEnv) {
       id: 'serpapi',
       label: 'SerpAPI',
       configured: serpapiConfigured(integrationEnv),
+    },
+    {
+      id: 'oxylabs',
+      label: 'Oxylabs',
+      configured: oxylabsConfigured(integrationEnv),
     },
     {
       id: 'outscraper',

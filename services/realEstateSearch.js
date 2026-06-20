@@ -18,7 +18,7 @@ function actorId() {
 }
 
 function isConfigured(integrationEnv) {
-  return Boolean(apifyToken(integrationEnv));
+  return Boolean(apifyToken(integrationEnv)) || require('./oxylabsRealEstate').isConfigured(integrationEnv);
 }
 
 function clientFor(integrationEnv) {
@@ -123,6 +123,64 @@ function applyPriceFilters(listings, { minPrice, maxPrice }) {
  * @param {Record<string,string>} [params.integrationEnv]
  */
 async function searchListings({ city, state, maxResults, minPrice, maxPrice, integrationEnv }) {
+  const oxylabsRealEstate = require('./oxylabsRealEstate');
+  const preferOxylabs =
+    String((integrationEnv && integrationEnv.REAL_ESTATE_PRIMARY) || process.env.REAL_ESTATE_PRIMARY || '')
+      .trim()
+      .toLowerCase() === 'oxylabs';
+
+  if (preferOxylabs && oxylabsRealEstate.isConfigured(integrationEnv)) {
+    return oxylabsRealEstate.searchListings({
+      city,
+      state,
+      maxResults,
+      minPrice,
+      maxPrice,
+      integrationEnv,
+    });
+  }
+
+  if (isConfigured(integrationEnv) && apifyToken(integrationEnv)) {
+    try {
+      return await searchListingsViaApify({
+        city,
+        state,
+        maxResults,
+        minPrice,
+        maxPrice,
+        integrationEnv,
+      });
+    } catch (err) {
+      if (oxylabsRealEstate.isConfigured(integrationEnv)) {
+        console.warn('[REAL-ESTATE] Apify failed, falling back to Oxylabs:', err.message);
+        return oxylabsRealEstate.searchListings({
+          city,
+          state,
+          maxResults,
+          minPrice,
+          maxPrice,
+          integrationEnv,
+        });
+      }
+      throw err;
+    }
+  }
+
+  if (oxylabsRealEstate.isConfigured(integrationEnv)) {
+    return oxylabsRealEstate.searchListings({
+      city,
+      state,
+      maxResults,
+      minPrice,
+      maxPrice,
+      integrationEnv,
+    });
+  }
+
+  throw new Error('Real estate search requires Apify or Oxylabs credentials.');
+}
+
+async function searchListingsViaApify({ city, state, maxResults, minPrice, maxPrice, integrationEnv }) {
   const client = clientFor(integrationEnv);
   const cap = Math.min(500, Math.max(1, parseInt(maxResults, 10) || 20));
   const locationQuery = `${String(city || '').trim()}, ${String(state || '').trim()}`.replace(/^,\s*|,\s*$/g, '').trim();

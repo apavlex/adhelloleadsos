@@ -6,6 +6,7 @@ const mapsSearch = require('./mapsSearch');
 const directoryLeadSearch = require('./directoryLeadSearch');
 const realEstateSearch = require('./realEstateSearch');
 const listingSearch = require('./listingSearch');
+const { parseFlipFilter, scoreAndFilterListings } = require('./listingFlipScore');
 const enricher = require('./enricher');
 const { JOB_TYPES, normalizeJobType } = require('./scrapeJobTypes');
 
@@ -55,7 +56,7 @@ async function runMobileHomesJob(schedule, integrationEnv) {
     );
   }
 
-  const results = await listingSearch.searchListings({
+  let results = await listingSearch.searchListings({
     city: schedule.city,
     state: schedule.state,
     query: schedule.query || 'mobile home',
@@ -70,6 +71,22 @@ async function runMobileHomesJob(schedule, integrationEnv) {
     throw new Error(
       `No mobile home listings found in ${schedule.city}, ${schedule.state}. Try other sources or widen filters.`
     );
+  }
+
+  const flipFilter = parseFlipFilter(schedule);
+  if (flipFilter.enabled) {
+    const scored = await scoreAndFilterListings(results, flipFilter, {
+      city: schedule.city,
+      state: schedule.state,
+    });
+    schedule._flipStats = scored.stats;
+    if (!scored.listings.length) {
+      const stats = scored.stats || {};
+      throw new Error(
+        `Found ${stats.inputCount || results.length} listings but none met flip criteria (min score ${flipFilter.minFlipScore}, min ROI ${flipFilter.minRoiPercent}%). Try lowering thresholds or disabling "Flip deals only".`
+      );
+    }
+    results = scored.listings;
   }
 
   return results;
@@ -133,14 +150,20 @@ function buildSearchRecord(schedule, results, timestampIso) {
   };
 
   if (jobType === JOB_TYPES.MOBILE_HOMES) {
-    return {
+    const flipFilter = parseFlipFilter(schedule);
+    const record = {
       ...base,
       keyword: `${schedule.query || 'mobile home'} · ${schedule.city}, ${schedule.state}`,
       query: schedule.query || 'mobile home',
       sources: schedule.sources || listingSearch.ALL_SOURCES.map((s) => s.id),
       minPrice: schedule.minPrice || null,
       maxPrice: schedule.maxPrice || null,
+      flipFilter: flipFilter.enabled ? flipFilter : null,
     };
+    if (schedule._flipStats) {
+      record.flipStats = schedule._flipStats;
+    }
+    return record;
   }
 
   if (jobType === JOB_TYPES.REAL_ESTATE) {

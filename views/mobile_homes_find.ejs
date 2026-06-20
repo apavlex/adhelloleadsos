@@ -11,7 +11,7 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Multi-source listings</p>
       <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Mobile homes for sale</h1>
       <p class="text-sm md:text-base text-brand-muted mt-2 max-w-2xl leading-relaxed">
-        Search Craigslist, Facebook, OfferUp, MHVillage, Zillow, Realtor.com, Redfin, eBay, and Google web results in one run. Each source merges into one deduped list — schedule nightly to watch the whole market.
+        Search Craigslist, Facebook, OfferUp, MHVillage, Zillow, Realtor.com, Redfin, eBay, Google web results, and Oxylabs in one run. Each source merges into one deduped list — schedule nightly to watch the whole market.
       </p>
       <div class="flex flex-wrap gap-3 mt-4 text-[11px] font-bold uppercase tracking-wider">
         <a href="/leads/find" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Business (Maps)</a>
@@ -82,6 +82,10 @@
                 <input type="checkbox" name="source_web_search" value="on" checked class="rounded border-brand-border" />
                 <span class="font-semibold">Google web search</span>
               </label>
+              <label class="flex items-center gap-2 text-sm cursor-pointer sm:col-span-2">
+                <input type="checkbox" name="source_oxylabs" value="on" checked class="rounded border-brand-border" />
+                <span class="font-semibold">Oxylabs (Google)</span>
+              </label>
             </div>
           </fieldset>
 
@@ -99,6 +103,37 @@
               <input type="number" name="maxResults" value="30" min="1" max="100" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
             </div>
           </div>
+
+          <fieldset class="rounded-2xl border border-emerald-200/60 dark:border-emerald-800/40 bg-emerald-50/40 dark:bg-emerald-950/20 p-4 space-y-4">
+            <legend class="text-[10px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-300 px-1">Flip deal filter (AI)</legend>
+            <p class="text-[11px] text-brand-muted -mt-1">When enabled, scrapes all sources first, then scores each listing with rules + OpenRouter AI. Only high-ROI flip candidates are saved — set <code class="text-[10px] bg-white/80 dark:bg-slate-800 px-1 rounded">OPENROUTER_API_KEY</code> for AI estimates.</p>
+            <label class="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" name="flipFilterEnabled" value="on" id="mhFlipEnabled" class="mt-1 rounded border-brand-border" />
+              <span>
+                <span class="font-bold text-sm block">Flip deals only</span>
+                <span class="text-[11px] text-brand-muted">Skip generic inventory — keep listings that pass your ROI thresholds.</span>
+              </span>
+            </label>
+            <div id="mhFlipOptions" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-4 pl-0 sm:pl-7">
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min flip score</label>
+                <input type="number" name="minFlipScore" value="7" min="1" max="10" step="0.5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+                <p class="text-[10px] text-brand-muted mt-1">0–10 scale (7+ = strong)</p>
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Min ROI %</label>
+                <input type="number" name="minRoiPercent" value="15" min="0" max="200" step="5" class="w-full rounded-xl border px-3 py-2.5 text-sm font-semibold dark:bg-slate-900" />
+                <p class="text-[10px] text-brand-muted mt-1">AI estimate; 0 = ignore</p>
+              </div>
+              <div class="flex flex-col justify-end">
+                <label class="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" name="flipOnlyUnique" value="on" class="rounded border-brand-border" />
+                  <span class="font-semibold">Unique only</span>
+                </label>
+                <p class="text-[10px] text-brand-muted mt-1">Single-source or AI-flagged unique</p>
+              </div>
+            </div>
+          </fieldset>
 
           <div class="rounded-2xl border border-brand-border/40 p-4 space-y-4">
             <div class="flex flex-wrap justify-between gap-3 items-center">
@@ -146,6 +181,13 @@
     }
     if (run) run.addEventListener('click', function () { setM('run'); });
     if (sched) sched.addEventListener('click', function () { setM('schedule'); });
+    var flipCb = document.getElementById('mhFlipEnabled');
+    var flipOpts = document.getElementById('mhFlipOptions');
+    function syncFlip() {
+      if (flipOpts && flipCb) flipOpts.classList.toggle('hidden', !flipCb.checked);
+    }
+    if (flipCb) flipCb.addEventListener('change', syncFlip);
+    syncFlip();
   })();
   </script>
   <script src="/js/app.js?v=<%= assetVersion %>"></script>

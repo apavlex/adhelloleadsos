@@ -13,6 +13,7 @@ const realtor = require('./sources/realtor');
 const redfin = require('./sources/redfin');
 const ebay = require('./sources/ebay');
 const webSearch = require('./sources/webSearch');
+const oxylabs = require('./sources/oxylabs');
 
 const ALL_SOURCES = [
   craigslist,
@@ -24,6 +25,7 @@ const ALL_SOURCES = [
   redfin,
   ebay,
   webSearch,
+  oxylabs,
 ];
 
 const SOURCE_BY_ID = ALL_SOURCES.reduce((acc, s) => {

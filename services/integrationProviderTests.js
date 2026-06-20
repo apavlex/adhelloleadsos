@@ -7,6 +7,7 @@ const rapidapiClient = require('./rapidapiLocalBusiness');
 const searchapiGoogleLocal = require('./searchapiGoogleLocal');
 const serpapiGoogleLocal = require('./serpapiGoogleLocal');
 const outscraperClient = require('./outscraperClient');
+const oxylabsGoogleLocal = require('./oxylabsGoogleLocal');
 const crawl4aiClient = require('./crawl4aiClient');
 const firecrawl = require('./firecrawl');
 const betterContactClient = require('./betterContactClient');
@@ -38,6 +39,7 @@ const PROVIDERS = {
   serpapi: { label: 'SerpAPI', fields: ['serpapiApiKey'] },
   outscraper: { label: 'Outscraper', fields: ['outscraperApiKey', 'outscraperApiBase'] },
   apify: { label: 'Apify', fields: ['apifyApiToken'] },
+  oxylabs: { label: 'Oxylabs', fields: ['oxylabsUsername', 'oxylabsPassword'] },
   bettercontact: { label: 'BetterContact', fields: ['bettercontactApiKey'] },
   firecrawl: { label: 'Firecrawl', fields: ['firecrawlApiKey'] },
   crawl4ai: { label: 'Crawl4AI', fields: ['crawl4aiBaseUrl', 'crawl4aiApiToken'] },
@@ -158,6 +160,23 @@ async function testOutscraper(integrationEnv) {
   return { message: health.message || 'Connected' };
 }
 
+async function testOxylabs(integrationEnv) {
+  if (!oxylabsGoogleLocal.isConfigured(integrationEnv)) {
+    throw new Error('Missing OXYLABS_USERNAME or OXYLABS_PASSWORD');
+  }
+  const rows = await oxylabsGoogleLocal.searchGoogleMaps({
+    ...SAMPLE_SEARCH,
+    integrationEnv,
+  });
+  const n = Array.isArray(rows) ? rows.length : 0;
+  return {
+    message:
+      n > 0
+        ? `Connected — Google Local sample returned ${n} result(s)`
+        : 'API responded but returned 0 local results for the sample search.',
+  };
+}
+
 async function testApify(integrationEnv) {
   const token = String((integrationEnv && integrationEnv.APIFY_API_TOKEN) || '').trim();
   if (!token) throw new Error('Missing APIFY_API_TOKEN');
@@ -241,6 +260,7 @@ const RUNNERS = {
   serpapi: () => testSerpapi,
   outscraper: () => testOutscraper,
   apify: () => testApify,
+  oxylabs: () => testOxylabs,
   firecrawl: () => testFirecrawl,
   crawl4ai: () => testCrawl4ai,
   bettercontact: () => testBetterContact,
@@ -261,7 +281,7 @@ async function runProviderTest(providerId, integrationEnv) {
   }
   const label = providerLabel(id);
   const timeoutMs =
-    id === 'rapidapi' || id === 'searchapi' || id === 'serpapi' ? 28000 : 12000;
+    id === 'rapidapi' || id === 'searchapi' || id === 'serpapi' || id === 'oxylabs' ? 90000 : 12000;
   const result = await runWithTimeout(label, () => runnerFactory()(integrationEnv), timeoutMs);
   return { ...result, provider: id };
 }

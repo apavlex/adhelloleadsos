@@ -7,6 +7,7 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const activationService = require('../services/activationService');
 const { userEmail } = require('../services/workspaceService');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
+const { parseFlipFilter } = require('../services/listingFlipScore');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
 
 function parseSourcesFromBody(body) {
@@ -23,6 +24,7 @@ function parseSourcesFromBody(body) {
   if (String(body.source_redfin || '').toLowerCase() === 'on') checked.push('redfin');
   if (String(body.source_ebay || '').toLowerCase() === 'on') checked.push('ebay');
   if (String(body.source_web_search || '').toLowerCase() === 'on') checked.push('web_search');
+  if (String(body.source_oxylabs || '').toLowerCase() === 'on') checked.push('oxylabs');
   return checked.length ? checked : listingSearch.ALL_SOURCES.map((s) => s.id);
 }
 
@@ -64,6 +66,22 @@ router.post('/', async (req, res, next) => {
 
     const maxRes = Math.min(100, Math.max(1, parseInt(maxResults, 10) || 25));
     const searchQuery = String(query || 'mobile home').trim() || 'mobile home';
+    const flipFilter = parseFlipFilter(req.body);
+
+    const jobParams = {
+      jobType: JOB_TYPES.MOBILE_HOMES,
+      city,
+      state,
+      query: searchQuery,
+      sources,
+      maxResults: maxRes,
+      minPrice,
+      maxPrice,
+      flipFilter,
+      targetFolderKey,
+      targetFolderName,
+      workspaceId: wid,
+    };
 
     async function startBackgroundRun() {
       await dbService.setActiveJob({
@@ -72,6 +90,7 @@ router.post('/', async (req, res, next) => {
         state,
         query: searchQuery,
         maxResults: maxRes,
+        flipFilter: flipFilter.enabled ? flipFilter : null,
       });
       setImmediate(async () => {
         try {
@@ -82,30 +101,9 @@ router.post('/', async (req, res, next) => {
             });
             return;
           }
-          const results = await listingSearch.searchListings({
-            city,
-            state,
-            query: searchQuery,
-            sources,
-            maxResults: maxRes,
-            minPrice,
-            maxPrice,
-            integrationEnv,
-          });
+          const results = await scrapeJobRunner.runMobileHomesJob(jobParams, integrationEnv);
           const searchRecord = scrapeJobRunner.buildSearchRecord(
-            {
-              jobType: JOB_TYPES.MOBILE_HOMES,
-              city,
-              state,
-              query: searchQuery,
-              sources,
-              maxResults: maxRes,
-              minPrice,
-              maxPrice,
-              targetFolderKey,
-              targetFolderName,
-              workspaceId: wid,
-            },
+            jobParams,
             results,
             new Date().toISOString()
           );
@@ -141,6 +139,7 @@ router.post('/', async (req, res, next) => {
         maxResults: maxRes,
         minPrice: minPrice || null,
         maxPrice: maxPrice || null,
+        flipFilter: flipFilter.enabled ? flipFilter : null,
         targetFolderKey,
         targetFolderName,
         ...parsed.data,

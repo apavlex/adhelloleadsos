@@ -45,6 +45,15 @@ function scheduleDisplaySubtitle(schedule) {
     const sources = Array.isArray(schedule && schedule.sources) ? schedule.sources : [];
     if (sources.length) parts.push(sources.map((s) => s.replace(/_/g, ' ')).join(' + '));
     else parts.push('all configured sources');
+    const ff =
+      schedule && schedule.flipFilter && schedule.flipFilter.enabled
+        ? schedule.flipFilter
+        : null;
+    if (ff) {
+      parts.push(`flip ≥${ff.minFlipScore || 7}`);
+      if (ff.minRoiPercent) parts.push(`ROI ≥${ff.minRoiPercent}%`);
+      if (ff.onlyUnique) parts.push('unique only');
+    }
     if (schedule && schedule.maxPrice) parts.push(`max $${Number(schedule.maxPrice).toLocaleString()}`);
     parts.push(`up to ${(schedule && schedule.maxResults) || 20} listings`);
     return parts.join(' · ');

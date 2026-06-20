@@ -51,10 +51,11 @@
         </div>
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
         <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-          <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify)</option>
+          <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Oxylabs → Outscraper → Apify)</option>
           <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
           <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io only</option>
           <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI only</option>
+          <option value="oxylabs" <%= _mapsPrimary === 'oxylabs' ? 'selected' : '' %>>Oxylabs only</option>
           <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
           <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
         </select>
@@ -169,6 +170,32 @@
             <% if (masks.apifyApiToken) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="apifyApiToken_clear" value="1" /> Remove saved token</label><% } %>
           </div>
           <%- include('../../partials/integration_test_row', { provider: 'apify' }) %>
+        </section>
+
+        <section class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0 flex-1">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Oxylabs</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://oxylabs.io/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Web Scraper API</a> — Google Maps leads, mobile home listing search, and real estate URLs. Create an <strong>API User</strong> under Web Scraper API → Users.</p>
+            </div>
+            <% if (_mapsProviderById.oxylabs) { %><%- include('../../partials/integration_provider_status_pill', { label: _mapsProviderById.oxylabs.label, connected: _mapsProviderById.oxylabs.configured }) %><% } %>
+          </header>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API username</label>
+              <% if (masks.oxylabsUsername) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.oxylabsUsername %></p><% } %>
+              <input type="text" name="oxylabsUsername" autocomplete="off" placeholder="customer-USERNAME" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.oxylabsUsername) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="oxylabsUsername_clear" value="1" /> Remove</label><% } %>
+            </div>
+            <div>
+              <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API password</label>
+              <% if (masks.oxylabsPassword) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.oxylabsPassword %></p><% } %>
+              <input type="password" name="oxylabsPassword" autocomplete="off" placeholder="Paste API user password (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+              <% if (masks.oxylabsPassword) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="oxylabsPassword_clear" value="1" /> Remove</label><% } %>
+            </div>
+          </div>
+          <p class="text-[11px] text-brand-muted leading-relaxed">Also powers the <strong>Oxylabs (Google)</strong> mobile homes source and real estate fallback. Set <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">REAL_ESTATE_PRIMARY=oxylabs</code> to prefer Oxylabs on the Zillow-only page.</p>
+          <%- include('../../partials/integration_test_row', { provider: 'oxylabs' }) %>
         </section>
       </div>
     </div>

@@ -43,10 +43,11 @@ test('parseSourcesList defaults to all sources', () => {
 });
 
 test('parseSourcesList includes new sources', () => {
-  const ids = parseSourcesList(['offerup', 'mhvillage', 'web_search']);
+  const ids = parseSourcesList(['offerup', 'mhvillage', 'web_search', 'oxylabs']);
   assert.ok(ids.includes('offerup'));
   assert.ok(ids.includes('mhvillage'));
   assert.ok(ids.includes('web_search'));
+  assert.ok(ids.includes('oxylabs'));
 });
 
 test('webSearch isConfigured with SerpAPI key', () => {
