@@ -1,10 +1,10 @@
 /**
- * Review hunt: refresh Google rating/count, scrape highest/lowest review quotes, AI summary.
+ * Review hunt: Outscraper GMB + review quotes, then OpenRouter summary.
  */
 
 const outscraper = require('./outscraperClient');
-const mapsEnrichFallback = require('./mapsEnrichFallback');
-const { generateReviewIntelForLead } = require('./reviewIntel');
+const { generateReviewSummaryForLead } = require('./reviewIntel');
+const outscraperGmbEnrich = require('./outscraperGmbEnrich');
 
 const REVIEWS_FETCH_LIMIT = Math.min(
   50,
@@ -94,73 +94,31 @@ function resolveReviewQuery(lead, place) {
 /**
  * @param {object} lead
  * @param {Record<string, string>|null|undefined} integrationEnv
- * @param {{ mapsPlace?: object|null, forceMapsSearch?: boolean }} [opts]
- * @returns {Promise<{ patch: object, used: boolean, mapsPlace: object|null, snippets: string[] }>}
+ * @param {{ mapsPlace?: object|null, gmbPack?: object|null, skipGmbFetch?: boolean }} [opts]
+ * @returns {Promise<{ patch: object, used: boolean, mapsPlace: object|null, snippets: string[], reviewsFetched: boolean, reviewError: string|null, reviewQuery: string, outscraperConfigured: boolean }>}
  */
 async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
   const patch = {};
-  let mapsPlace = opts.mapsPlace || null;
-  let snippets = [];
-  let reviewsFetched = false;
-  let reviewError = null;
-  let reviewQuery = '';
+  let mapsPlace = opts.mapsPlace || (opts.gmbPack && opts.gmbPack.place) || null;
+  let snippets = (opts.gmbPack && opts.gmbPack.snippets) || [];
+  let reviewsFetched = !!(opts.gmbPack && opts.gmbPack.reviewsFetched);
+  let reviewError = (opts.gmbPack && opts.gmbPack.reviewError) || null;
+  let reviewQuery = (opts.gmbPack && opts.gmbPack.reviewQuery) || '';
 
-  if (!mapsPlace || opts.forceMapsSearch) {
-    mapsPlace = await mapsEnrichFallback.findMapsPlaceForLead(lead, integrationEnv);
-  }
-
-  if (mapsPlace) {
-    if (mapsPlace.totalScore != null && Number(mapsPlace.totalScore) >= 0) {
-      patch.totalScore = Number(mapsPlace.totalScore);
+  if (!opts.skipGmbFetch && outscraper.isConfigured(integrationEnv) && !opts.gmbPack) {
+    const gmb = await outscraperGmbEnrich.enrichLeadFromOutscraperGmb(lead, integrationEnv);
+    if (gmb) {
+      mapsPlace = gmb.place || mapsPlace;
+      snippets = gmb.snippets.length ? gmb.snippets : snippets;
+      reviewsFetched = reviewsFetched || gmb.reviewsFetched;
+      reviewError = reviewError || gmb.reviewError;
+      reviewQuery = reviewQuery || gmb.reviewQuery;
+      if (gmb.patch) Object.assign(patch, gmb.patch);
     }
-    if (mapsPlace.reviewsCount != null && Number(mapsPlace.reviewsCount) >= 0) {
-      const n = parseInt(mapsPlace.reviewsCount, 10);
-      const cur = parseInt(lead.reviewsCount, 10) || 0;
-      if (Number.isFinite(n) && (n > 0 || cur <= 0)) {
-        patch.reviewsCount = n;
-      }
-    }
-    if (mapsPlace.url && String(mapsPlace.url).trim()) {
-      patch.url = String(mapsPlace.url).trim();
-    }
-    if (mapsPlace.website && mapsPlace.website !== 'N/A' && (!lead.website || lead.website === 'N/A')) {
-      patch.website = String(mapsPlace.website).trim();
-    }
-  }
-
-  if (outscraper.isConfigured(integrationEnv)) {
-    reviewQuery = resolveReviewQuery(lead, mapsPlace);
-    if (reviewQuery) {
-      try {
-        const pack = await outscraper.fetchGoogleMapsReviews({
-          query: reviewQuery,
-          reviewsLimit: REVIEWS_FETCH_LIMIT,
-          integrationEnv,
-        });
-        if (pack.placeRating != null && Number.isFinite(Number(pack.placeRating))) {
-          patch.totalScore = Number(pack.placeRating);
-        }
-        if (pack.placeReviewsCount != null && Number.isFinite(Number(pack.placeReviewsCount))) {
-          const n = parseInt(pack.placeReviewsCount, 10);
-          const cur = parseInt(lead.reviewsCount, 10) || 0;
-          if (Number.isFinite(n) && (n > 0 || cur <= 0)) {
-            patch.reviewsCount = n;
-          }
-        }
-        snippets = buildHighestLowestSnippets(pack.reviews);
-        if (snippets.length) {
-          patch.reviewSnippets = snippets;
-          reviewsFetched = true;
-        } else if (Array.isArray(pack.reviews) && pack.reviews.length > 0) {
-          reviewError = 'Reviews fetched but none had enough text for quotes.';
-        }
-      } catch (e) {
-        reviewError = e.message || 'Outscraper reviews request failed';
-        console.warn('[reviewHunt] Outscraper reviews failed:', reviewError);
-      }
-    } else {
-      reviewError = 'No Maps place id, URL, or name to query for reviews.';
-    }
+  } else if (opts.gmbPack && opts.gmbPack.patch) {
+    Object.assign(patch, opts.gmbPack.patch);
+  } else if (mapsPlace) {
+    Object.assign(patch, outscraperGmbEnrich.buildPatchFromPlace(mapsPlace, lead));
   }
 
   if (!snippets.length && Array.isArray(lead.reviewSnippets) && lead.reviewSnippets.length) {
@@ -168,15 +126,24 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
   }
 
   const intelLead = { ...lead, ...patch, reviewSnippets: snippets };
-  if (snippets.length || patch.totalScore != null || patch.reviewsCount != null) {
+  if (
+    snippets.length ||
+    patch.totalScore != null ||
+    patch.reviewsCount != null ||
+    intelLead.totalScore != null ||
+    intelLead.reviewsCount != null
+  ) {
     try {
-      const aiPack = await generateReviewIntelForLead(intelLead);
+      const aiPack = await generateReviewSummaryForLead(intelLead);
       if (aiPack && aiPack.intel) {
         patch.reviewIntel = aiPack.intel;
         patch.reviewIntelAt = new Date().toISOString();
+      } else if (aiPack && aiPack.error) {
+        reviewError = reviewError || aiPack.error;
       }
     } catch (e) {
-      console.warn('[reviewHunt] Review intel AI failed:', e.message);
+      console.warn('[reviewHunt] Review summary AI failed:', e.message);
+      reviewError = reviewError || e.message || 'Review summary AI failed';
     }
   }
 
@@ -185,7 +152,7 @@ async function runReviewHuntForLead(lead, integrationEnv, opts = {}) {
     patch.totalScore != null ||
     patch.reviewsCount != null ||
     (Array.isArray(patch.reviewSnippets) && patch.reviewSnippets.length > 0) ||
-    !!patch.reviewIntel;
+    !!(patch.reviewIntel && patch.reviewIntel.summary);
 
   return {
     patch,

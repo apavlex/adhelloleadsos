@@ -1,14 +1,14 @@
 /**
- * AI reputation summary (strengths / weaknesses) from review snippets + rating.
+ * AI reputation summary from Google review snippets + rating (OpenRouter).
  */
 
 const { chatCompletion, parseLlmJson } = require('./llmClient');
 
 /**
  * @param {object} lead
- * @returns {Promise<{ intel: { strengths: string[], weaknesses: string[], sourceNote: string }, error?: string }|null>}
+ * @returns {Promise<{ intel: { summary: string, sourceNote: string }, error?: string }|null>}
  */
-async function generateReviewIntelForLead(lead) {
+async function generateReviewSummaryForLead(lead) {
   if (!lead || typeof lead !== 'object') return null;
 
   const snippets = Array.isArray(lead.reviewSnippets) ? lead.reviewSnippets : [];
@@ -27,14 +27,19 @@ async function generateReviewIntelForLead(lead) {
     messages: [
       {
         role: 'system',
-        content: `You analyze local business reputation for agency sales. Input is JSON with optional verbatim customer quotes in reviewSnippets, star rating mapsRating (0-5), reviewCount, category, location, and auditSummary.
+        content: `You write concise Google review summaries for agency sales reps calling local business owners.
+
+Input JSON may include verbatim customer quotes in reviewSnippets, star rating mapsRating (0-5), reviewCount, category, location, and auditSummary.
 
 Rules:
-- If reviewSnippets has one or more strings: derive strengths and weaknesses only from themes in those quotes plus rating/count. Do not invent incidents not supported by the quotes.
-- If reviewSnippets is empty: infer plausible strengths and weaknesses from category, location, mapsRating, reviewCount, and auditSummary only. Use cautious wording ("Often…", "May…", "Typical risk…"). Do not claim you read specific reviews.
+- Write ONE paragraph (3-5 sentences, plain language). No bullet lists, no "Strengths/Weaknesses" headings.
+- If reviewSnippets has quotes: summarize what customers praise and complain about using only themes supported by those quotes plus rating/count.
+- If reviewSnippets is empty: summarize reputation from mapsRating, reviewCount, category, and location using cautious wording ("Based on their X★ rating…", "With N reviews…"). Do not invent specific incidents.
+- End with one practical angle for a sales conversation (reputation, reviews, or local visibility).
+- Do not mention AI, OpenRouter, or that you analyzed JSON.
 
 Return JSON only, no markdown:
-{"strengths":["bullet 1",...],"weaknesses":["bullet 1",...],"sourceNote":"One sentence: cite verbatim snippets vs rating-only inference."}`,
+{"summary":"paragraph text","sourceNote":"One short sentence: quoted reviews vs rating-only inference."}`,
       },
       {
         role: 'user',
@@ -42,7 +47,7 @@ Return JSON only, no markdown:
       },
     ],
     jsonObject: true,
-    max_tokens: 800,
+    max_tokens: 600,
     temperature: 0.35,
   });
 
@@ -57,19 +62,31 @@ Return JSON only, no markdown:
     return { error: 'Invalid AI response' };
   }
 
+  const summary =
+    typeof parsed.summary === 'string'
+      ? parsed.summary.trim()
+      : typeof parsed.text === 'string'
+        ? parsed.text.trim()
+        : '';
+
+  if (!summary) {
+    return { error: 'Invalid AI response' };
+  }
+
   const intel = {
-    strengths: Array.isArray(parsed.strengths)
-      ? parsed.strengths.map((s) => String(s || '').trim()).filter(Boolean)
-      : [],
-    weaknesses: Array.isArray(parsed.weaknesses)
-      ? parsed.weaknesses.map((s) => String(s || '').trim()).filter(Boolean)
-      : [],
+    summary,
     sourceNote: typeof parsed.sourceNote === 'string' ? parsed.sourceNote.trim() : '',
   };
 
   return { intel };
 }
 
+/** @deprecated use generateReviewSummaryForLead */
+async function generateReviewIntelForLead(lead) {
+  return generateReviewSummaryForLead(lead);
+}
+
 module.exports = {
+  generateReviewSummaryForLead,
   generateReviewIntelForLead,
 };

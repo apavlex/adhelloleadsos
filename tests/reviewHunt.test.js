@@ -1,10 +1,30 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const { buildPatchFromPlace } = require('../services/outscraperGmbEnrich');
 const {
   normalizeReviewRow,
   buildHighestLowestSnippets,
   resolveReviewQuery,
 } = require('../services/reviewHunt');
+
+describe('outscraperGmbEnrich', () => {
+  it('buildPatchFromPlace fills website and rating from GMB row', () => {
+    const patch = buildPatchFromPlace(
+      {
+        totalScore: 4.2,
+        reviewsCount: 18,
+        website: 'https://example.com',
+        url: 'https://maps.google.com/?cid=1',
+        phone: '(503) 555-0100',
+      },
+      { title: 'Acme', website: 'N/A' }
+    );
+    assert.equal(patch.website, 'https://example.com');
+    assert.equal(patch.totalScore, 4.2);
+    assert.equal(patch.reviewsCount, 18);
+    assert.equal(patch.phone, '(503) 555-0100');
+  });
+});
 
 describe('reviewHunt', () => {
   it('normalizeReviewRow maps Outscraper-style fields', () => {

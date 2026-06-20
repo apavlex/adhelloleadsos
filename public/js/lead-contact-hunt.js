@@ -17,6 +17,7 @@
     var btn = document.getElementById('deepEnhanceBtn');
     if (!btn) return;
     btn.dataset.huntState = 'active';
+    btn.dataset.huntStartedAt = String(Date.now());
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
     btn.classList.add('hunt-active', 'loading', 'cursor-wait');
@@ -99,14 +100,18 @@
     primeHuntUiActive();
 
     whenImplReady(function () {
-      runImpl(row, btn).catch(function (err) {
-        console.error('[Contact hunt]', err);
-        if (typeof window.__stopHuntProgressTickerGlobal === 'function') {
-          window.__stopHuntProgressTickerGlobal();
-        }
-        if (typeof window.__setDeepEnhanceHuntUi === 'function') window.__setDeepEnhanceHuntUi('idle');
-        notify((err && err.message) || 'Contact hunt failed.', 'error');
-      });
+      runImpl(row, btn)
+        .then(function (result) {
+          if (result && result.success) return;
+          if (result && result.error === 'busy') return;
+          releaseHuntUiAfterFailure(
+            result && result.error ? { message: result.error } : { message: 'Contact hunt failed.' }
+          );
+        })
+        .catch(function (err) {
+          console.error('[Contact hunt]', err);
+          releaseHuntUiAfterFailure(err);
+        });
     });
   }
 
@@ -128,10 +133,21 @@
       btn.dataset.huntState = 'idle';
       btn.disabled = false;
       btn.removeAttribute('aria-busy');
+      delete btn.dataset.huntStartedAt;
       btn.classList.remove('hunt-active', 'loading', 'cursor-wait');
       var progressRow = btn.querySelector('.deep-enhance-progress-row');
       if (progressRow) progressRow.classList.add('hidden');
     }
+  }
+
+  function releaseHuntUiAfterFailure(err) {
+    if (typeof window.__stopHuntProgressTickerGlobal === 'function') {
+      window.__stopHuntProgressTickerGlobal();
+    }
+    if (typeof window.__setDeepEnhanceHuntUi === 'function') {
+      window.__setDeepEnhanceHuntUi('idle');
+    }
+    if (err && err.message) notify(err.message, 'error');
   }
 
   if (document.readyState === 'loading') {

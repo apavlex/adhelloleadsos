@@ -11,6 +11,7 @@ const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const reviewHunt = require('../services/reviewHunt');
+const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
 const outscraper = require('../services/outscraperClient');
 const { generateReviewIntelForLead } = require('../services/reviewIntel');
 const {
@@ -2699,7 +2700,7 @@ Respond with JSON only, no markdown:
   }
 });
 
-// POST /leads/:key/review-intelligence — strengths / weaknesses from review snippets + rating (cached 7d)
+// POST /leads/:key/review-intelligence — AI review summary from snippets + rating (cached 7d)
 router.post('/:key/review-intelligence', async (req, res, next) => {
   try {
     const key = req.params.key;
@@ -2718,11 +2719,16 @@ router.post('/:key/review-intelligence', async (req, res, next) => {
       const age = Date.now() - new Date(lead.reviewIntelAt).getTime();
       if (age >= 0 && age < maxAgeMs) {
         const ri = lead.reviewIntel;
+        const summary =
+          typeof ri.summary === 'string'
+            ? ri.summary
+            : Array.isArray(ri.strengths)
+              ? [...(ri.strengths || []), ...(ri.weaknesses || [])].filter(Boolean).join(' ')
+              : '';
         return res.json({
           success: true,
           cached: true,
-          strengths: Array.isArray(ri.strengths) ? ri.strengths : [],
-          weaknesses: Array.isArray(ri.weaknesses) ? ri.weaknesses : [],
+          summary,
           sourceNote: typeof ri.sourceNote === 'string' ? ri.sourceNote : '',
         });
       }
@@ -2747,9 +2753,8 @@ router.post('/:key/review-intelligence', async (req, res, next) => {
     return res.json({
       success: true,
       cached: false,
-      strengths: intel.strengths,
-      weaknesses: intel.weaknesses,
-      sourceNote: intel.sourceNote,
+      summary: intel.summary || '',
+      sourceNote: intel.sourceNote || '',
     });
   } catch (err) {
     next(err);
@@ -2764,33 +2769,70 @@ async function runLeadEnhancement(lead, workspaceId) {
   let firecrawlViaSearch = false;
   let mapsFallbackUsed = false;
   let betterContactUsed = false;
+  let outscraperUsed = false;
   let urlToSave = null;
   let mapsPlace = null;
+  let gmbPack = null;
 
   const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
   const leadProfile = { title: lead.title, city: lead.city, state: lead.state };
 
-  const bcPromise =
-    betterContact.isConfigured(integrationEnv) ?
-      betterContact
-        .enrichLeadForBusiness(lead, integrationEnv)
-        .catch((e) => {
-          console.warn('[ENHANCE] BetterContact failed:', e.message);
-          return null;
-        })
-    : Promise.resolve(null);
+  // Step 1: Outscraper Google Business Profile — listing, domain, reviews
+  if (outscraper.isConfigured(integrationEnv)) {
+    try {
+      gmbPack = await outscraperGmbEnrich.enrichLeadFromOutscraperGmb(lead, integrationEnv);
+      if (gmbPack && gmbPack.used) {
+        outscraperUsed = true;
+        mapsPlace = gmbPack.place || mapsPlace;
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(gmbPack.extract || {}, deepData || {});
+        if (gmbPack.patch && gmbPack.patch.website && gmbPack.patch.website !== 'N/A') {
+          urlToSave = gmbPack.patch.website;
+        }
+        console.log(
+          `[ENHANCE] Outscraper GMB for ${lead.title}: ${gmbPack.place ? 'place found' : 'no place'}, ${gmbPack.snippets?.length || 0} quote(s)`,
+        );
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] Outscraper GMB failed:', e.message);
+    }
+  }
 
-  if (lead.website && lead.website !== 'N/A') {
-    console.log(`[ENHANCE] Triggering enrich for ${lead.title} (${lead.website})...`);
-    const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(lead.website, leadProfile, {
+  const websiteForEnrich =
+    (lead.website && lead.website !== 'N/A' ? lead.website : null) ||
+    urlToSave ||
+    null;
+  const enrichLead = websiteForEnrich ? { ...lead, website: websiteForEnrich } : lead;
+
+  // Step 2: BetterContact — contacts / socials (uses domain from GMB when available)
+  let bcExtract = null;
+  if (betterContact.isConfigured(integrationEnv)) {
+    try {
+      const bcPack = await betterContact.enrichLeadForBusiness(enrichLead, integrationEnv);
+      if (bcPack && bcPack.extract && betterContact.extractHasSignal(bcPack.extract)) {
+        bcExtract = bcPack.extract;
+        betterContactUsed = true;
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(deepData || {}, bcExtract);
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] BetterContact failed:', e.message);
+    }
+  }
+
+  // Step 3: Firecrawl — website scrape or search for extra socials / audit signals
+  if (websiteForEnrich) {
+    console.log(`[ENHANCE] Website scrape for ${lead.title} (${websiteForEnrich})...`);
+    const pack = await webEnrichment.enrichLeadSmartWithMapsFallback(websiteForEnrich, leadProfile, {
       integrationEnv,
+      skipMapsFallback: outscraperUsed,
     });
     deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(pack.merged, deepData || {});
-    mapsFallbackUsed = pack.mapsUsed;
-    if (pack.mapsPlace) mapsPlace = pack.mapsPlace;
+    if (!outscraperUsed) {
+      mapsFallbackUsed = pack.mapsUsed;
+      if (pack.mapsPlace) mapsPlace = pack.mapsPlace;
+    }
   } else {
-    console.log(`[ENHANCE] Website missing. Firecrawl search + Maps fallback for ${lead.title}...`);
+    console.log(`[ENHANCE] Website missing. Firecrawl search for ${lead.title}...`);
     firecrawlViaSearch = true;
     const searchQuery = `${lead.title} business in ${lead.city}${lead.state ? ', ' + lead.state : ''} official website contact`;
     let searchExtract = {};
@@ -2821,9 +2863,10 @@ async function runLeadEnhancement(lead, workspaceId) {
     let websiteHint = null;
     const missingCoreContact = mapsEnrichFallback.extractMissingCoreContact(searchExtract);
     if (
-      !mapsEnrichFallback.extractHasContactSignal(searchExtract) ||
-      missingCoreContact ||
-      !firecrawlFoundUrl
+      !outscraperUsed &&
+      (!mapsEnrichFallback.extractHasContactSignal(searchExtract) ||
+        missingCoreContact ||
+        !firecrawlFoundUrl)
     ) {
       const pack = await mapsEnrichFallback.enrichFromMapsForLead(lead, integrationEnv);
       if (pack) {
@@ -2835,20 +2878,13 @@ async function runLeadEnhancement(lead, workspaceId) {
     }
     deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(searchExtract, deepData || {});
     if (!lead.website || lead.website === 'N/A') {
-      urlToSave = websiteHint || firecrawlFoundUrl || null;
+      urlToSave = urlToSave || websiteHint || firecrawlFoundUrl || null;
     }
-  }
-
-  let bcExtract = null;
-  const bcPack = await bcPromise;
-  if (bcPack && bcPack.extract && betterContact.extractHasSignal(bcPack.extract)) {
-    bcExtract = bcPack.extract;
-    betterContactUsed = true;
-    deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(deepData || {}, bcExtract);
   }
 
   const baseUpdates = [...(lead.updates || [])];
   const patch = {};
+  if (gmbPack && gmbPack.patch) Object.assign(patch, gmbPack.patch);
   const priorUpdateLen = baseUpdates.length;
 
   const hadExtract = deepData && Object.keys(deepData).length > 0;
@@ -2877,13 +2913,14 @@ async function runLeadEnhancement(lead, workspaceId) {
     patch.website = urlToSave;
   }
 
+  // Step 4: OpenRouter review summary (Outscraper data already fetched in step 1)
   let reviewHuntUsed = false;
   let reviewHuntMeta = null;
   try {
     const reviewPack = await reviewHunt.runReviewHuntForLead(
       { ...lead, ...patch },
       integrationEnv,
-      { mapsPlace }
+      { mapsPlace, gmbPack, skipGmbFetch: true }
     );
     if (reviewPack) {
       reviewHuntMeta = {
@@ -2919,15 +2956,16 @@ async function runLeadEnhancement(lead, workspaceId) {
     (patch.reviewSnippets != null ||
       patch.totalScore != null ||
       patch.reviewsCount != null ||
-      patch.reviewIntel != null);
+      (patch.reviewIntel && patch.reviewIntel.summary));
 
-  if (hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed || reviewHuntUsed) {
+  if (hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed || outscraperUsed || reviewHuntUsed) {
     const via = [
+      outscraperUsed ? 'Outscraper GMB' : null,
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,
-      !firecrawlViaSearch && lead.website && lead.website !== 'N/A' && hadExtract ? 'website' : null,
+      !firecrawlViaSearch && websiteForEnrich && hadExtract ? 'website' : null,
       mapsFallbackUsed ? 'Maps backup' : null,
-      reviewHuntUsed ? 'Google reviews' : null,
+      reviewHuntUsed ? 'review summary' : null,
     ]
       .filter(Boolean)
       .join(' + ');
@@ -2952,8 +2990,8 @@ async function runLeadEnhancement(lead, workspaceId) {
   const fail = {
     success: false,
     error: betterContact.isConfigured(integrationEnv) || outscraper.isConfigured(integrationEnv)
-      ? 'No new contact or review data discovered yet. BetterContact, website search, and Google reviews did not find new signals.'
-      : 'No new contact or review data discovered yet. Add BetterContact and/or Outscraper under Workspace → API integrations.',
+      ? 'No new contact or review data discovered yet. Outscraper GMB, BetterContact, and website search did not find new signals.'
+      : 'No new contact or review data discovered yet. Add Outscraper (GMB + reviews) and/or BetterContact under Workspace → API integrations.',
     lead: { ...lead, lastContactHuntAt: patch.lastContactHuntAt },
   };
   if (reviewHuntMeta) fail.reviewHunt = reviewHuntMeta;

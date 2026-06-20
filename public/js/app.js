@@ -4226,25 +4226,28 @@ document.addEventListener('DOMContentLoaded', () => {
   function reviewHeuristicsFromRowDataset(ds) {
     const rating = parseFloat(ds.rating) || 0;
     const n = parseInt(ds.reviews, 10) || 0;
-    const strengths = [];
-    const weaknesses = [];
-    if (rating >= 4.3) strengths.push('Strong average rating — customers generally rate the experience highly.');
-    else if (rating >= 3.8 && rating > 0) strengths.push('Solid average rating with room to sharpen the public narrative.');
-    if (n >= 50) strengths.push('High review volume — strong social proof in local search.');
-    else if (n >= 10) strengths.push('Meaningful review count — an established local footprint.');
-    if (rating < 4.0 && rating > 0) weaknesses.push('Below ~4.0★ — sentiment and response cadence may need attention.');
-    if (n > 0 && n < 10) weaknesses.push('Thin review footprint — easier for competitors to look more trusted.');
-    if (rating === 0 && n === 0) {
-      strengths.push('Greenfield — a structured review program can be positioned as growth, not chores.');
-      weaknesses.push('No star/review signals on file — enrich or import listings data to tighten the pitch.');
+    if (rating > 0 || n > 0) {
+      const stars = rating > 0 ? `${rating.toFixed(1)}★` : 'no rating on file';
+      const count = n > 0 ? `${n} Google review${n === 1 ? '' : 's'}` : 'few or no reviews on file';
+      return {
+        summary: `This business shows ${stars} with ${count}. Run hunt with Outscraper configured for quoted reviews and an AI-written summary.`,
+        sourceNote: 'Quick read from stars and review count only.',
+      };
     }
-    if (strengths.length === 0) strengths.push('—');
-    if (weaknesses.length === 0) weaknesses.push('—');
     return {
-      strengths,
-      weaknesses,
-      sourceNote: 'Quick read from stars and review count only (save the lead for AI + quoted snippets).',
+      summary:
+        'No Google review data on file yet. Run hunt to pull the Google Business listing, reviews, and an AI summary.',
+      sourceNote: 'Save the lead and run hunt with Outscraper configured.',
     };
+  }
+
+  function readReviewSummaryFromIntel(intel) {
+    if (!intel || typeof intel !== 'object') return '';
+    if (typeof intel.summary === 'string' && intel.summary.trim()) return intel.summary.trim();
+    const strengths = Array.isArray(intel.strengths) ? intel.strengths : [];
+    const weaknesses = Array.isArray(intel.weaknesses) ? intel.weaknesses : [];
+    const parts = [...strengths, ...weaknesses].filter(Boolean);
+    return parts.length ? parts.join(' ') : '';
   }
 
   function scheduleReviewIntelligence(row, opts) {
@@ -4256,31 +4259,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const grid = document.getElementById('reviewIntelGrid');
     const errEl = document.getElementById('reviewIntelError');
     const foot = document.getElementById('reviewIntelFootnote');
-    const strengthsUl = document.getElementById('reviewStrengthsList');
-    const weaknessesUl = document.getElementById('reviewWeaknessesList');
+    const summaryEl = document.getElementById('reviewSummaryText');
     const snippetsWrap = document.getElementById('reviewSnippetsWrap');
     const snippetsUl = document.getElementById('reviewSnippetsList');
     const refreshBtn = document.getElementById('reviewIntelRefreshBtn');
-
-    function fillReviewBullets(ul, items) {
-      if (!ul) return;
-      ul.innerHTML = '';
-      const list = Array.isArray(items) ? items : [];
-      if (!list.length) {
-        const li = document.createElement('li');
-        li.className = 'text-xs text-brand-muted dark:text-slate-400';
-        li.textContent = '—';
-        ul.appendChild(li);
-        return;
-      }
-      for (const t of list.slice(0, 8)) {
-        const li = document.createElement('li');
-        li.className =
-          'text-xs font-semibold text-brand-dark dark:text-slate-200 leading-relaxed pl-3 border-l-2 border-brand-yellow/50 mb-2 last:mb-0';
-        li.textContent = String(t);
-        ul.appendChild(li);
-      }
-    }
 
     function applyIntel(data, heuristicFallback) {
       if (loading) {
@@ -4302,16 +4284,14 @@ document.addEventListener('DOMContentLoaded', () => {
           foot.classList.add('hidden');
         }
       }
-      if (data && Array.isArray(data.strengths)) {
-        fillReviewBullets(strengthsUl, data.strengths);
-        fillReviewBullets(weaknessesUl, data.weaknesses);
-      } else if (heuristicFallback) {
-        fillReviewBullets(strengthsUl, heuristicFallback.strengths);
-        fillReviewBullets(weaknessesUl, heuristicFallback.weaknesses);
-        if (foot && heuristicFallback.sourceNote) {
-          foot.textContent = heuristicFallback.sourceNote;
-          foot.classList.remove('hidden');
-        }
+      const summary =
+        (data && data.summary) ||
+        (heuristicFallback && heuristicFallback.summary) ||
+        '';
+      if (summaryEl) {
+        summaryEl.textContent =
+          summary ||
+          'Run hunt to pull Google reviews and generate an AI summary.';
       }
     }
 
@@ -4363,8 +4343,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (persistedIntel && typeof persistedIntel === 'object') {
       applyIntel(
         {
-          strengths: persistedIntel.strengths,
-          weaknesses: persistedIntel.weaknesses,
+          summary: readReviewSummaryFromIntel(persistedIntel),
           sourceNote: persistedIntel.sourceNote,
           cached: true,
         },
@@ -4414,8 +4393,7 @@ document.addEventListener('DOMContentLoaded', () => {
           applyIntel(data, null);
           try {
             row.dataset.reviewIntel = JSON.stringify({
-              strengths: data.strengths || [],
-              weaknesses: data.weaknesses || [],
+              summary: data.summary || '',
               sourceNote: data.sourceNote || '',
             });
           } catch (_) {
@@ -4432,8 +4410,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (errEl) {
             const hint = data.error ? String(data.error) : '';
             errEl.textContent = hint
-              ? `${hint} Showing quick signals below.`
-              : 'AI unavailable. Showing quick signals below.';
+              ? `${hint} Showing quick summary below.`
+              : 'AI unavailable. Showing quick summary below.';
             errEl.classList.remove('hidden');
           }
         }
@@ -4448,7 +4426,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (refreshBtn) refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
         applyIntel(null, heuristic);
         if (errEl) {
-          errEl.textContent = 'Could not reach review analysis. Showing quick signals below.';
+          errEl.textContent = 'Could not reach review analysis. Showing quick summary below.';
           errEl.classList.remove('hidden');
         }
       });
@@ -10705,12 +10683,26 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const HUNT_PROGRESS_PHASES = [
-    { afterMs: 0, pct: 10, label: 'Starting hunt…', detail: 'Queuing BetterContact, website search, and Google reviews.' },
-    { afterMs: 3500, pct: 32, label: 'Searching contacts…', detail: 'BetterContact waterfall + website scrape for email, phone, and socials.' },
-    { afterMs: 14000, pct: 55, label: 'Fetching Google reviews…', detail: 'Refreshing star rating, review count, and highest/lowest quotes.' },
-    { afterMs: 32000, pct: 78, label: 'AI reputation summary…', detail: 'Generating strengths and weaknesses from review data.' },
+    { afterMs: 0, pct: 10, label: 'Starting hunt…', detail: 'Outscraper Google Business lookup, then contacts and website enrich.' },
+    { afterMs: 3500, pct: 32, label: 'Fetching GMB & reviews…', detail: 'Outscraper pulls listing, domain, star rating, and review quotes.' },
+    { afterMs: 14000, pct: 55, label: 'Enriching contacts…', detail: 'BetterContact + website scrape for email, phone, and socials.' },
+    { afterMs: 32000, pct: 78, label: 'AI review summary…', detail: 'OpenRouter writes a short reputation summary from Google reviews.' },
     { afterMs: 55000, pct: 92, label: 'Still hunting…', detail: 'Large review sets can take up to 90 seconds — hang tight.' },
   ];
+  const HUNT_CLIENT_MAX_MS = 130000;
+
+  function expireStaleContactHunt(row) {
+    const btn = document.getElementById('deepEnhanceBtn');
+    if (!btn || btn.dataset.huntState !== 'active') return false;
+    const started = parseInt(btn.dataset.huntStartedAt || '0', 10) || 0;
+    if (!started || Date.now() - started < HUNT_CLIENT_MAX_MS) return false;
+    const key = contactHuntTrackingKey(row);
+    if (key && window.__contactHuntInFlight) window.__contactHuntInFlight.delete(key);
+    stopHuntProgressTickerGlobal();
+    delete btn.dataset.huntStartedAt;
+    setDeepEnhanceHuntUi('idle');
+    return true;
+  }
 
   function huntProgressForElapsed(elapsedMs) {
     let phase = HUNT_PROGRESS_PHASES[0];
@@ -10744,6 +10736,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.dataset.huntState = next;
 
     if (next === 'active') {
+      btn.dataset.huntStartedAt = String(Date.now());
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('loading', 'cursor-wait', 'hunt-active');
@@ -10788,6 +10781,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     btn.disabled = false;
     btn.removeAttribute('aria-busy');
+    delete btn.dataset.huntStartedAt;
     btn.classList.remove('loading', 'cursor-wait', 'hunt-active');
     if (main) {
       main.classList.remove('hidden');
@@ -10832,6 +10826,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function isContactHuntInFlightForRow(row) {
+    expireStaleContactHunt(row);
     const key = contactHuntTrackingKey(row);
     return !!(key && window.__contactHuntInFlight && window.__contactHuntInFlight.has(key));
   }
@@ -10844,6 +10839,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncContactHuntPanel(row) {
     const meta = document.getElementById('huntLastRunMeta');
     if (!row || currentRow !== row) return;
+
+    expireStaleContactHunt(row);
 
     const btn = document.getElementById('deepEnhanceBtn');
     const uiActive = !!(btn && btn.dataset.huntState === 'active');
@@ -10956,9 +10953,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row) {
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Select a lead from the table first.', { variant: 'warning' });
-      } else if (deepEnhanceBtn) {
-        setDeepEnhanceHuntUi('idle');
       }
+      if (isSidebarTrigger) setDeepEnhanceHuntUi('idle');
       return { success: false };
     }
 
@@ -10974,8 +10970,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isSidebarTrigger) {
         triggerBtn.disabled = false;
         triggerBtn.removeAttribute('aria-busy');
+      } else {
+        setDeepEnhanceHuntUi('idle');
       }
     }
+
+    expireStaleContactHunt(row);
 
     const existingKey = String(row.dataset.leadKey || '').trim();
     const pendingTrackKey = existingKey || contactHuntTrackingKey(row);
@@ -15040,5 +15040,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.47-audit-fix';
+  window.__ADHELLO_BUILD = '1.0.49-outscraper-hunt';
 });
