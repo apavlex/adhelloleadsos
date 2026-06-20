@@ -256,13 +256,39 @@
     <div id="folderCreateBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
     <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
       <h2 id="folderCreateTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">New folder</h2>
-      <p class="text-sm text-brand-muted mb-5">Create a subfolder under a system folder. Assign leads from the Pipeline tab.</p>
+      <p class="text-sm text-brand-muted mb-5">Create a subfolder under a system folder or an existing subfolder. Assign leads from the Pipeline tab.</p>
       <label for="folderCreateParent" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Parent folder</label>
       <select id="folderCreateParent" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3">
         <% const _roots = typeof folderTree !== 'undefined' && folderTree && folderTree.groups ? folderTree.groups.filter(function (g) { return g.isSystem && g.folder; }) : []; %>
-        <% _roots.forEach(function (g) { if (!g.folder) return; %>
-        <option value="<%= g.folder.key %>" data-job-type="<%= g.folder.jobType || '' %>"><%= g.name %></option>
+        <% _roots.forEach(function (g) {
+          if (!g.folder) return;
+          var rootJt = g.folder.jobType || '';
+        %>
+        <optgroup label="<%= g.name %>">
+          <option value="<%= g.folder.key %>" data-job-type="<%= rootJt %>"><%= g.name %></option>
+          <% (g.childRows || []).forEach(function (row) {
+            var child = row.folder;
+            if (!child) return;
+            var depth = row.depth || 1;
+            var prefix = depth > 1 ? '\u21b3 '.repeat(depth) : '\u21b3 ';
+            var childJt = child.jobType || rootJt;
+          %>
+          <option value="<%= child.key %>" data-job-type="<%= childJt %>"><%= prefix %><%= child.name %></option>
+          <% }); %>
+        </optgroup>
         <% }); %>
+        <% const _other = typeof folderTree !== 'undefined' && folderTree && folderTree.groups ? folderTree.groups.find(function (g) { return !g.isSystem && g.key === '__other__'; }) : null; %>
+        <% if (_other && (_other.childRows || []).length) { %>
+        <optgroup label="Other folders">
+          <% (_other.childRows || []).forEach(function (row) {
+            var child = row.folder;
+            if (!child) return;
+            var childJt = child.jobType || '';
+          %>
+          <option value="<%= child.key %>" data-job-type="<%= childJt %>"><%= child.name %></option>
+          <% }); %>
+        </optgroup>
+        <% } %>
         <option value="">No parent (top-level)</option>
       </select>
       <label for="folderCreateName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Folder name</label>

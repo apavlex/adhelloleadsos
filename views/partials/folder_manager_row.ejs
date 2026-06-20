@@ -24,7 +24,9 @@
   </div>
   <div class="flex flex-wrap items-center gap-2 shrink-0">
     <a href="/leads/find?folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm">Run search</a>
+    <% if (_f.isPipelineDefault) { %>
     <button type="button" class="folder-search-setup px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Search setup</button>
+    <% } %>
     <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
     <% if (!_f.isPipelineDefault) { %>
     <button type="button" class="folder-rename px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Rename</button>
