@@ -2,4 +2,4 @@ run = "npm start"
 entrypoint = "server.js"
 
 [env]
-PORT = "3000"
+PORT = "8080"
