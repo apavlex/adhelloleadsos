@@ -439,16 +439,15 @@ app.post('/api/course/capture', express.json(), async (req, res) => {
 
 // Public API endpoint — auto-import real estate listings (called by scraper cron)
 app.get('/api/leads/import-real-estate', async (req, res) => {
+  // Redirect to docs
+  res.json({ usage: 'POST JSON array of listings to this endpoint' });
+});
+
+app.post('/api/leads/import-real-estate', express.json({ limit: '5mb' }), async (req, res) => {
   try {
-    const fsSync = require('fs');
-    const path = require('path');
-    const jsonPath = path.resolve(__dirname, 'leads-real-estate', 'all-listings-master.json');
-    if (!fsSync.existsSync(jsonPath)) {
-      return res.json({ success: false, error: 'No listings file found.' });
-    }
-    const listings = JSON.parse(fsSync.readFileSync(jsonPath, 'utf8'));
+    const listings = req.body;
     if (!Array.isArray(listings) || listings.length === 0) {
-      return res.json({ success: false, error: 'Empty listings file.' });
+      return res.json({ success: false, error: 'POST a JSON array of listings.' });
     }
     const dbService = require('./services/database');
     const wid = process.env.DEFAULT_WORKSPACE_ID || 'default';
@@ -456,7 +455,8 @@ app.get('/api/leads/import-real-estate', async (req, res) => {
     let created = 0, skipped = 0;
     for (const item of listings) {
       if (item._imported) { skipped++; continue; }
-      const title = `${item.source === 'craigslist' ? 'CL' : 'FB'}: ${item.title || 'Mobile Home Listing'}`;
+      const sourceLabel = item.source === 'facebook' ? 'FB' : item.source === 'craigslist' ? 'CL' : (item.source || '??');
+      const title = `${sourceLabel}: ${item.title || 'Mobile Home Listing'}`;
       const location = (item.location || '').trim();
       const cityState = location.split(',').map(s => s.trim());
       const leadData = {
@@ -467,15 +467,14 @@ app.get('/api/leads/import-real-estate', async (req, res) => {
         status: 'Lead Captured',
         source: item.source === 'facebook' ? 'facebook marketplace' : 'craigslist',
         folderKey: 'real-estate', workspaceId: wid, pipelineStage: 1,
-        updates: [{ type: 'note', value: `Price: ${item.price_str || '$?'}\nBeds: ${item.beds || '?'} | Baths: ${item.baths || '?'}\nScraped: ${item.date || 'unknown'}`, timestamp: new Date().toISOString() }],
+        updates: [{ type: 'note', value: `Price: ${item.price_str || '$?'}\nBeds: ${item.beds || '?'} | Baths: ${item.baths || '?'}\n${item.cross_listed ? 'Cross-listed (CL + FB)' : ''}\nScraped: ${item.date || 'unknown'}`, timestamp: new Date().toISOString() }],
       };
       try {
         const key = await dbService.saveLead(leadData);
-        if (key) { item._imported = true; item._leadKey = key; created++; }
+        if (key) { created++; }
         else { skipped++; }
       } catch (e) { console.error('[import-real-estate]', e.message); skipped++; }
     }
-    fsSync.writeFileSync(jsonPath, JSON.stringify(listings, null, 2));
     res.json({ success: true, created, skipped, total: listings.length });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
