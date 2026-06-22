@@ -26,7 +26,9 @@
     { id: 'website', defaultHidden: true },
     { id: 'claimStatus', defaultHidden: true },
     { id: 'optimizationScore', defaultHidden: true },
-    { id: 'contact' },
+    { id: 'phone' },
+    { id: 'email' },
+    { id: 'domain' },
     { id: 'socials' },
     { id: 'added' },
     { id: 'pipeline' },
@@ -45,7 +47,9 @@
     'listingSource',
     'reviews',
     'website',
-    'contact',
+    'phone',
+    'email',
+    'domain',
   ];
 
   function applyRealEstateImportColumnVis(vis) {
@@ -64,7 +68,32 @@
     }
   }
 
-  var PLC_MIN_WIDTH = { socials: 120, contact: 168, website: 72, methods: 88, listingPrice: 72, listingSource: 96 };
+  var PLC_MIN_WIDTH = {
+    socials: 120,
+    contactGroup: 168,
+    phone: 88,
+    email: 96,
+    domain: 120,
+    website: 72,
+    methods: 88,
+    listingPrice: 72,
+    listingSource: 96,
+  };
+
+  function migrateContactColumnVis(vis) {
+    if (!vis || typeof vis !== 'object') return vis;
+    if (!Object.prototype.hasOwnProperty.call(vis, 'contact')) return vis;
+    var on = vis.contact !== false;
+    if (!Object.prototype.hasOwnProperty.call(vis, 'phone')) vis.phone = on;
+    if (!Object.prototype.hasOwnProperty.call(vis, 'email')) vis.email = on;
+    if (!Object.prototype.hasOwnProperty.call(vis, 'domain')) vis.domain = on;
+    delete vis.contact;
+    return vis;
+  }
+
+  function contactGroupVisible(map) {
+    return colVisible(map, 'phone') || colVisible(map, 'email') || colVisible(map, 'domain');
+  }
 
   function colVisible(map, id) {
     var meta = null;
@@ -87,6 +116,15 @@
       vis = {};
     }
     if (vis && vis.check === false) delete vis.check;
+    var hadLegacyContact = Object.prototype.hasOwnProperty.call(vis, 'contact');
+    vis = migrateContactColumnVis(vis);
+    if (hadLegacyContact) {
+      try {
+        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+      } catch (_) {
+        /* ignore */
+      }
+    }
     if (wantsRealEstateColumnPreset()) {
       vis = applyRealEstateImportColumnVis(vis);
       try {
@@ -111,12 +149,29 @@
           css.push('#prospectLeadsTable [data-plc="' + m.id + '"]{display:none!important}');
         }
       });
+      if (!contactGroupVisible(vis)) {
+        css.push('#prospectLeadsTable [data-plc="contactGroup"]{display:none!important}');
+      } else {
+        if (!colVisible(vis, 'phone')) {
+          css.push('#prospectLeadsTable .lead-contact-row-phone{display:none!important}');
+        }
+        if (!colVisible(vis, 'email')) {
+          css.push('#prospectLeadsTable .lead-contact-row-email{display:none!important}');
+        }
+        if (!colVisible(vis, 'domain')) {
+          css.push('#prospectLeadsTable .lead-contact-row-domain{display:none!important}');
+        }
+      }
 
       var widths = {};
       try {
         widths = JSON.parse(localStorage.getItem(WIDTH_KEY) || '{}');
       } catch (_) {
         widths = {};
+      }
+      if (widths.contact && !widths.contactGroup) {
+        widths.contactGroup = widths.contact;
+        delete widths.contact;
       }
       Object.keys(widths).forEach(function (id) {
         var px = Number(widths[id]);

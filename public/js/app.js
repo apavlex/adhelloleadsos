@@ -215,7 +215,10 @@ document.addEventListener('DOMContentLoaded', () => {
       website: 'website',
       claimStatus: 'claimstatus',
       optimizationScore: 'gbpscore',
-      contact: 'contact',
+      phone: 'phone',
+      email: 'email',
+      domain: 'domain',
+      contactGroup: 'contact',
       socials: 'socials',
       added: 'added',
       pipeline: 'pipeline',
@@ -632,7 +635,9 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'website', label: 'Website (Yes / No)', defaultHidden: true },
         { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
         { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
-        { id: 'contact', label: 'Contact (phone, email, domain)' },
+        { id: 'phone', label: 'Phone' },
+        { id: 'email', label: 'Email' },
+        { id: 'domain', label: 'Domain' },
         { id: 'socials', label: 'Socials' },
         { id: 'added', label: 'Added' },
         { id: 'pipeline', label: 'Pipeline' },
@@ -650,16 +655,40 @@ document.addEventListener('DOMContentLoaded', () => {
         'listingSource',
         'reviews',
         'website',
-        'contact',
+        'phone',
+        'email',
+        'domain',
       ];
       const PLC_MIN_WIDTH = {
         socials: 120,
-        contact: 168,
+        contactGroup: 168,
+        phone: 88,
+        email: 96,
+        domain: 120,
         website: 72,
         methods: 88,
         listingPrice: 72,
         listingSource: 96,
       };
+
+      function migrateContactColumnVis(map) {
+        if (!map || typeof map !== 'object') return map;
+        if (!Object.prototype.hasOwnProperty.call(map, 'contact')) return map;
+        const on = map.contact !== false;
+        if (!Object.prototype.hasOwnProperty.call(map, 'phone')) map.phone = on;
+        if (!Object.prototype.hasOwnProperty.call(map, 'email')) map.email = on;
+        if (!Object.prototype.hasOwnProperty.call(map, 'domain')) map.domain = on;
+        delete map.contact;
+        return map;
+      }
+
+      function contactGroupVisible(map) {
+        return (
+          pipelineColVisible(map, 'phone') ||
+          pipelineColVisible(map, 'email') ||
+          pipelineColVisible(map, 'domain')
+        );
+      }
 
       function applyRealEstateImportColumnVis(map) {
         REAL_ESTATE_IMPORT_COLUMNS.forEach((id) => {
@@ -689,7 +718,7 @@ document.addEventListener('DOMContentLoaded', () => {
       function loadVis() {
         try {
           const raw = localStorage.getItem(VIS_KEY);
-          return raw ? JSON.parse(raw) : {};
+          return migrateContactColumnVis(raw ? JSON.parse(raw) : {});
         } catch (_) {
           return {};
         }
@@ -712,6 +741,19 @@ document.addEventListener('DOMContentLoaded', () => {
           table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
             el.classList.toggle('plc-col-hidden', !on);
           });
+        });
+        const groupOn = contactGroupVisible(map);
+        table.querySelectorAll('[data-plc="contactGroup"]').forEach((el) => {
+          el.classList.toggle('plc-col-hidden', !groupOn);
+        });
+        table.querySelectorAll('.lead-contact-row-phone').forEach((el) => {
+          el.classList.toggle('hidden', !pipelineColVisible(map, 'phone'));
+        });
+        table.querySelectorAll('.lead-contact-row-email').forEach((el) => {
+          el.classList.toggle('hidden', !pipelineColVisible(map, 'email'));
+        });
+        table.querySelectorAll('.lead-contact-row-domain').forEach((el) => {
+          el.classList.toggle('hidden', !pipelineColVisible(map, 'domain'));
         });
       }
 
@@ -738,7 +780,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
 
-      let vis = window.__pipelinePrefsPrimedVis || loadVis();
+      let vis = migrateContactColumnVis(window.__pipelinePrefsPrimedVis || loadVis());
       if (wantsRealEstateColumnPreset()) {
         vis = applyRealEstateImportColumnVis({ ...vis });
         saveVis(vis);
