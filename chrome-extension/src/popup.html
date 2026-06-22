@@ -11,6 +11,7 @@
     <header>
       <h1>AdHello Lead Saver</h1>
       <p id="platformLabel">Detecting page…</p>
+      <p id="saveTypeLabel" class="save-type hidden"></p>
     </header>
 
     <div id="setupNotice" class="notice notice--warn hidden">
@@ -19,9 +20,27 @@
 
     <form id="leadForm">
       <label>
-        <span>Name / title</span>
+        <span>Title</span>
         <input type="text" name="title" required />
       </label>
+      <label>
+        <span>Price</span>
+        <input type="text" name="price" placeholder="$0" />
+      </label>
+      <div class="row-3">
+        <label>
+          <span>Beds</span>
+          <input type="text" name="beds" />
+        </label>
+        <label>
+          <span>Baths</span>
+          <input type="text" name="baths" />
+        </label>
+        <label>
+          <span>Sqft</span>
+          <input type="text" name="sqft" />
+        </label>
+      </div>
       <label>
         <span>Headline / notes</span>
         <textarea name="note" rows="3"></textarea>

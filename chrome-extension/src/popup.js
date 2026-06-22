@@ -1,6 +1,7 @@
 const form = document.getElementById('leadForm');
 const statusEl = document.getElementById('status');
 const platformLabel = document.getElementById('platformLabel');
+const saveTypeLabel = document.getElementById('saveTypeLabel');
 const setupNotice = document.getElementById('setupNotice');
 const saveBtn = document.getElementById('saveBtn');
 const openOptions = document.getElementById('openOptions');
@@ -15,17 +16,43 @@ function setStatus(msg, type = '') {
   statusEl.className = `status${type ? ` status--${type}` : ''}`;
 }
 
+function parsePriceInput(raw) {
+  const n = parseInt(String(raw || '').replace(/[^\d]/g, ''), 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function buildListingPayload(base, formEl) {
+  if (!base?.listing && !base?.jobType && !base?.listingType) return {};
+  const price = parsePriceInput(formEl.price.value);
+  const beds = formEl.beds.value !== '' ? parseFloat(formEl.beds.value) : null;
+  const baths = formEl.baths.value !== '' ? parseFloat(formEl.baths.value) : null;
+  const sqft = formEl.sqft.value !== '' ? parseInt(formEl.sqft.value, 10) : null;
+  const listing = {
+    ...(base.listing || {}),
+    source: base.listing?.source || base.sourceChannel || 'chrome_extension',
+    price: price ?? base.listing?.price ?? null,
+    beds: beds ?? base.listing?.beds ?? null,
+    baths: baths ?? base.listing?.baths ?? null,
+    sqft: sqft ?? base.listing?.sqft ?? null,
+  };
+  return {
+    jobType: base.jobType || base.listingType || 'real_estate',
+    sourceType: base.sourceType,
+    listing,
+  };
+}
+
 async function getActiveTabLead() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('No active tab');
 
-  try {
-    await chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      files: ['src/extractors.js'],
-    });
-  } catch (_) {
-    // Content script may already be present on supported hosts.
+  const scripts = ['src/listing-helpers.js', 'src/listing-extractors.js', 'src/extractors.js'];
+  for (const file of scripts) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [file] });
+    } catch (_) {
+      /* content script may already be present */
+    }
   }
 
   const [{ result }] = await chrome.scripting.executeScript({
@@ -42,6 +69,15 @@ async function getActiveTabLead() {
 function fillForm(lead) {
   if (!lead) return;
   form.title.value = lead.title || '';
+  form.price.value =
+    lead.listingPrice != null
+      ? `$${Number(lead.listingPrice).toLocaleString()}`
+      : lead.listing?.price != null
+        ? `$${Number(lead.listing.price).toLocaleString()}`
+        : '';
+  form.beds.value = lead.listingBeds ?? lead.listing?.beds ?? '';
+  form.baths.value = lead.listingBaths ?? lead.listing?.baths ?? '';
+  form.sqft.value = lead.listingSqft ?? lead.listing?.sqft ?? '';
   form.note.value = lead.note || '';
   form.address.value = lead.address && lead.address !== 'N/A' ? lead.address : '';
   form.city.value = lead.city || '';
@@ -49,6 +85,20 @@ function fillForm(lead) {
   form.website.value = lead.website && lead.website !== 'N/A' ? lead.website : '';
   form.email.value = lead.email && lead.email !== 'N/A' ? lead.email : '';
   form.phone.value = lead.phone && lead.phone !== 'N/A' ? lead.phone : '';
+
+  const listingLabel =
+    lead.listingType === 'products' || lead.jobType === 'products'
+      ? 'Product listing'
+      : lead.listingType === 'real_estate' || lead.jobType === 'real_estate'
+        ? 'Real estate listing'
+        : '';
+  if (listingLabel) {
+    saveTypeLabel.textContent = listingLabel;
+    saveTypeLabel.classList.remove('hidden');
+  } else {
+    saveTypeLabel.textContent = '';
+    saveTypeLabel.classList.add('hidden');
+  }
 }
 
 async function init() {
@@ -61,7 +111,7 @@ async function init() {
     const platform = lead?.sourceChannel || 'current page';
     platformLabel.textContent = lead
       ? `From ${platform.replace(/_/g, ' ')} · ${new URL(tab.url).hostname}`
-      : 'Open a supported profile or business listing to auto-fill.';
+      : 'Open a supported listing, profile, or business page to auto-fill.';
     fillForm(lead);
   } catch (err) {
     platformLabel.textContent = 'Could not read this page. Use the on-page Save lead button.';
@@ -86,6 +136,7 @@ form.addEventListener('submit', async (e) => {
     const { lead: base } = await getActiveTabLead();
     const payload = {
       ...(base || {}),
+      ...buildListingPayload(base, form),
       title,
       note: form.note.value.trim(),
       address: form.address.value.trim() || 'N/A',

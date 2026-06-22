@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "AdHello Lead Saver",
-  "version": "1.2.0",
-  "description": "Save leads from social profiles and business directories (Google Maps, Yelp, and more) into AdHello.",
+  "version": "1.3.0",
+  "description": "Save leads, listings, and products from social profiles and directories into AdHello.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "https://*/*",
@@ -76,9 +76,23 @@
         "https://nextdoor.com/*",
         "https://*.nextdoor.com/*",
         "https://www.houzz.com/*",
-        "https://houzz.com/*"
+        "https://houzz.com/*",
+        "https://www.zillow.com/*",
+        "https://zillow.com/*",
+        "https://*.zillow.com/*",
+        "https://www.mhvillage.com/*",
+        "https://mhvillage.com/*",
+        "https://*.mhvillage.com/*",
+        "https://www.realtor.com/*",
+        "https://realtor.com/*",
+        "https://www.redfin.com/*",
+        "https://redfin.com/*",
+        "https://www.offerup.com/*",
+        "https://offerup.com/*",
+        "https://www.ebay.com/*",
+        "https://ebay.com/*"
       ],
-      "js": ["src/extractors.js", "src/content.js"],
+      "js": ["src/listing-helpers.js", "src/listing-extractors.js", "src/extractors.js", "src/content.js"],
       "css": ["src/content.css"],
       "run_at": "document_idle"
     }

@@ -11,6 +11,8 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
+const { folderKeyForJobType, leadMetadataForJobType } = require('../services/pipelineFolders');
+const { normalizeJobType } = require('../services/scrapeJobTypes');
 const mapsSearch = require('../services/mapsSearch');
 const enricher = require('../services/enricher');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
@@ -259,6 +261,22 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
 
     if (req.body.note) {
       leadData.updates = [{ type: 'note', value: String(req.body.note), timestamp: new Date().toISOString() }];
+    }
+
+    if (req.body.jobType) {
+      const jt = normalizeJobType(req.body.jobType);
+      Object.assign(
+        leadData,
+        leadMetadataForJobType(jt, {
+          listing: req.body.listing,
+          realEstate: req.body.realEstate,
+        }),
+      );
+      const folderKey = await folderKeyForJobType(wid, jt);
+      if (folderKey) leadData.folderKey = folderKey;
+    } else if (req.body.listing && typeof req.body.listing === 'object') {
+      leadData.listing = req.body.listing;
+      if (req.body.sourceType) leadData.sourceType = String(req.body.sourceType).trim();
     }
 
     const key = await dbService.saveLead(leadData);

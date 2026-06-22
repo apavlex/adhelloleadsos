@@ -209,8 +209,14 @@
     }
 
     if (host.includes('linkedin.com')) return 'linkedin';
-    if (host.includes('facebook.com') || host.includes('fb.com')) return 'facebook';
+    if (host.includes('facebook.com') || host.includes('fb.com')) {
+      if (path.includes('/marketplace/')) return 'facebook_marketplace';
+      return 'facebook';
+    }
     if (host.includes('instagram.com')) return 'instagram';
+
+    const listingPlatform = window.AdHelloListingExtractors?.detectListingPlatform?.(url);
+    if (listingPlatform && listingPlatform !== 'craigslist_listing') return listingPlatform;
 
     if ((host.endsWith('google.com') || host.startsWith('google.')) && path.includes('/maps')) return 'google_maps';
     if (host.includes('yelp.com')) return 'yelp';
@@ -550,7 +556,19 @@
   }
 
   function extractLeadFromPage() {
-    const platform = detectPlatform(window.location.href);
+    const url = window.location.href;
+    try {
+      const path = new URL(url).pathname;
+      const listingPlatform = window.AdHelloListingExtractors?.detectListingPlatform?.(url);
+      if (listingPlatform && window.AdHelloListingExtractors?.isListingPage?.(listingPlatform, url)) {
+        const listingLead = window.AdHelloListingExtractors.extractListing(listingPlatform, path);
+        if (listingLead) return listingLead;
+      }
+    } catch (_) {
+      /* ignore */
+    }
+
+    const platform = detectPlatform(url);
 
     switch (platform) {
       case 'linkedin': return extractLinkedIn();
@@ -590,6 +608,17 @@
         return extractNextdoor();
       case 'houzz':
         return extractHouzz();
+      case 'zillow':
+      case 'mhvillage':
+      case 'realtor':
+      case 'redfin':
+      case 'offerup':
+      case 'ebay':
+      case 'facebook_marketplace': {
+        const listingLead = window.AdHelloListingExtractors?.extractListing?.(platform, new URL(url).pathname);
+        if (listingLead) return listingLead;
+        break;
+      }
       default:
         return {
           title: cleanTitle(meta('og:title') || document.title) || 'Web prospect',
@@ -605,15 +634,27 @@
 
   function isSupportedPage() {
     const url = window.location.href;
-    const platform = detectPlatform(url);
-    if (platform === 'unknown') return false;
+    let path = '';
+    try {
+      path = new URL(url).pathname.toLowerCase();
+    } catch (_) {
+      return false;
+    }
 
-    const path = window.location.pathname.toLowerCase();
+    const listingPlatform = window.AdHelloListingExtractors?.detectListingPlatform?.(url);
+    if (listingPlatform && window.AdHelloListingExtractors?.isListingPage?.(listingPlatform, url)) {
+      return true;
+    }
+
+    const platform = detectPlatform(url);
 
     if (platform === 'linkedin') {
       return /\/in\//.test(path) || /\/company\//.test(path) || /\/sales\/lead\//.test(path);
     }
+    if (platform === 'unknown') return false;
+
     if (platform === 'facebook') {
+      if (path.includes('/marketplace/')) return false;
       return !['/home', '/watch', '/gaming', '/marketplace', '/groups/feed'].some((p) => path === p || path.startsWith(`${p}/`));
     }
     if (platform === 'instagram') {

@@ -1,6 +1,6 @@
 # AdHello Lead Saver — Chrome Extension
 
-Save prospects from **social profiles** and **business directories** directly into your AdHello lead database while you browse.
+Save **leads**, **real estate listings**, and **product listings** from social profiles and directories directly into your AdHello pipeline.
 
 ## Supported sites
 
@@ -10,80 +10,75 @@ Save prospects from **social profiles** and **business directories** directly in
 - Instagram (profiles)
 
 ### Business directories
-- **Google Maps** — business listings
-- **Yelp** — `/biz/` pages
-- **Yellow Pages**
-- **BBB** (Better Business Bureau)
-- **TripAdvisor** (restaurants, hotels, attractions)
-- **Angi** & **HomeAdvisor**
-- **Thumbtack**
-- **Apple Maps** & **Bing Maps**
-- **Foursquare**, **Manta**, **Citysearch**, **Superpages**
-- **Groupon** — deals & merchant pages
-- **Craigslist** — services & business listings
-- **Nextdoor** — local business pages
-- **Houzz** — pro profiles
+- Google Maps, Yelp, Yellow Pages, BBB, TripAdvisor
+- Angi, HomeAdvisor, Thumbtack, Apple/Bing Maps
+- Foursquare, Manta, Citysearch, Superpages
+- Groupon, Nextdoor, Houzz
+
+### Real estate listings
+- **Zillow** — homes & property detail pages
+- **MHVillage** — mobile / manufactured homes
+- **Realtor.com** — property detail pages
+- **Redfin** — home listings
+- **Craigslist** — real estate & for-sale posts
+- **Facebook Marketplace** — homes and land (auto-detected as real estate when applicable)
+
+### Product / marketplace listings
+- **Facebook Marketplace** — general items
+- **OfferUp**
+- **eBay**
+- **Craigslist** — for-sale categories
+
+Listings save with `jobType`, `sourceType`, and a `listing` object (price, beds, baths, sqft) — the same shape as Find → Real estate / Products search.
 
 ## Install (developer mode)
 
-1. Open Chrome → **Extensions** → enable **Developer mode**
-2. Click **Load unpacked**
-3. Select this folder: `chrome-extension/`
-4. Open extension **Settings** and enter:
-   - **API base URL** — e.g. `https://adhelloleadsos.onrender.com` or `http://localhost:3000`
-   - **API key** — your server `API_INGEST_KEY`
+1. Chrome → **Extensions** → enable **Developer mode**
+2. **Load unpacked** → select `chrome-extension/`
+3. Open extension **Settings**:
+   - **API base URL** — e.g. `https://adhelloleadsos.onrender.com`
+   - **API key** — your `API_INGEST_KEY`
    - **Workspace ID** — usually `default`
 
-After updating the extension, click **Reload** on the Extensions page.
+Reload the extension after updates.
 
 ## How to use
 
-1. Visit a profile or business listing on any supported site
-2. Click the floating **Save lead** button (bottom-right), or click the extension icon
-3. Review auto-filled fields (name, phone, address, website, rating)
-4. Edit anything that looks off, then save
+1. Open a listing or profile on any supported site
+2. Click **Save lead** (floating button) or the extension icon
+3. Review auto-filled title, price, beds/baths/sqft, address, and notes
+4. Save — the lead lands in the correct pipeline folder (Real estate or Products)
 
-Leads are stored via `POST /autonomous/leads` with `source: chrome_extension`.
-
-## What gets captured
-
-| Source | Auto-filled fields |
-|--------|-------------------|
-| LinkedIn | Name, headline, profile URL |
-| Facebook / Instagram | Name, bio, profile URL |
-| Google Maps / Yelp / directories | Business name, phone, address, city/state, website, rating, review count, listing URL |
-| Groupon | Merchant name, deal title, address, category |
-| Craigslist | Posting title, location, phone/website from ad body |
-| Nextdoor | Business name, address, category |
-| Houzz | Pro name, specialty, location, rating |
-
-Directory extractors use **JSON-LD** (schema.org LocalBusiness) when available, plus DOM fallbacks for phone, website, and address.
-
-## API reference
+## API payload (listings)
 
 ```http
 POST /autonomous/leads
 x-api-key: <API_INGEST_KEY>
 x-workspace-id: default
-Content-Type: application/json
 
 {
-  "title": "Joe's Plumbing",
-  "phone": "(512) 555-0100",
-  "website": "https://joesplumbing.com",
-  "address": "123 Main St, Austin, TX 78701",
+  "title": "3bd Mobile Home · $45,000",
+  "address": "123 Park Ln, Austin, TX",
   "city": "Austin",
   "state": "TX",
-  "totalScore": 4.6,
-  "reviewsCount": 128,
-  "url": "https://google.com/maps/place/...",
+  "url": "https://www.mhvillage.com/...",
+  "jobType": "real_estate",
+  "sourceType": "real_estate",
   "source": "chrome_extension",
-  "sourceChannel": "google_maps"
+  "sourceChannel": "mhvillage",
+  "listing": {
+    "source": "mhvillage",
+    "price": 45000,
+    "beds": 3,
+    "baths": 2,
+    "sqft": 1200,
+    "propertyType": "mobile_home"
+  }
 }
 ```
 
 ## Notes
 
-- Directory sites change their HTML often. If a field is wrong, edit it before saving.
-- Google Maps in particular is heavily dynamic — wait for the side panel to fully load before clicking Save.
-- Respect each platform's terms of service for personal use and outreach compliance.
+- Zillow, MHVillage, and other sites change their HTML often — edit fields before saving if needed.
+- Wait for listing pages to fully load before clicking Save.
+- Facebook Marketplace auto-classifies as real estate when the title/description mentions homes, land, or mobile homes.

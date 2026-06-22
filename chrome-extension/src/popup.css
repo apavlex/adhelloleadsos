@@ -45,6 +45,26 @@ label span {
   margin-bottom: 0;
 }
 
+.row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.row-3 label {
+  margin-bottom: 0;
+}
+
+.save-type {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #b45309;
+}
+
 input,
 textarea {
   width: 100%;

@@ -74,6 +74,19 @@
   color: #4b5563;
 }
 
+#adhello-lead-saver-root .adhello-save-type {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #b45309;
+}
+
+#adhello-lead-saver-root .adhello-field--third {
+  flex: 1;
+}
+
 #adhello-lead-saver-root .adhello-field-row {
   display: flex;
   gap: 8px;

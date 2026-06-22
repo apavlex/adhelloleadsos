@@ -35,10 +35,29 @@
           <strong>Save to AdHello</strong>
           <button type="button" class="adhello-panel__close" aria-label="Close">×</button>
         </div>
+        <p id="adhello-save-type" class="adhello-save-type"></p>
         <label class="adhello-field">
           <span>Name / title</span>
           <input type="text" name="title" required />
         </label>
+        <label class="adhello-field">
+          <span>Price</span>
+          <input type="text" name="price" placeholder="$0" />
+        </label>
+        <div class="adhello-field-row">
+          <label class="adhello-field adhello-field--third">
+            <span>Beds</span>
+            <input type="text" name="beds" inputmode="decimal" />
+          </label>
+          <label class="adhello-field adhello-field--third">
+            <span>Baths</span>
+            <input type="text" name="baths" inputmode="decimal" />
+          </label>
+          <label class="adhello-field adhello-field--third">
+            <span>Sqft</span>
+            <input type="text" name="sqft" inputmode="numeric" />
+          </label>
+        </div>
         <label class="adhello-field">
           <span>Headline / notes</span>
           <textarea name="note" rows="3"></textarea>
@@ -82,8 +101,14 @@
     const cancelBtn = root.querySelector('.adhello-cancel');
     const saveBtn = root.querySelector('.adhello-save');
 
+    const saveTypeEl = root.querySelector('#adhello-save-type');
+
     const fields = {
       title: root.querySelector('[name="title"]'),
+      price: root.querySelector('[name="price"]'),
+      beds: root.querySelector('[name="beds"]'),
+      baths: root.querySelector('[name="baths"]'),
+      sqft: root.querySelector('[name="sqft"]'),
       note: root.querySelector('[name="note"]'),
       address: root.querySelector('[name="address"]'),
       city: root.querySelector('[name="city"]'),
@@ -95,6 +120,15 @@
 
     function fill(data) {
       fields.title.value = data.title || '';
+      fields.price.value =
+        data.listingPrice != null
+          ? `$${Number(data.listingPrice).toLocaleString()}`
+          : data.listing?.price != null
+            ? `$${Number(data.listing.price).toLocaleString()}`
+            : '';
+      fields.beds.value = data.listingBeds ?? data.listing?.beds ?? '';
+      fields.baths.value = data.listingBaths ?? data.listing?.baths ?? '';
+      fields.sqft.value = data.listingSqft ?? data.listing?.sqft ?? '';
       fields.note.value = data.note || '';
       fields.address.value = data.address && data.address !== 'N/A' ? data.address : '';
       fields.city.value = data.city || '';
@@ -102,6 +136,46 @@
       fields.website.value = data.website && data.website !== 'N/A' ? data.website : '';
       fields.email.value = data.email && data.email !== 'N/A' ? data.email : '';
       fields.phone.value = data.phone && data.phone !== 'N/A' ? data.phone : '';
+      if (saveTypeEl) {
+        const label =
+          data.listingType === 'products'
+            ? 'Product listing'
+            : data.listingType === 'real_estate'
+              ? 'Real estate listing'
+              : data.jobType === 'products'
+                ? 'Product listing'
+                : data.jobType === 'real_estate'
+                  ? 'Real estate listing'
+                  : '';
+        saveTypeEl.textContent = label;
+        saveTypeEl.style.display = label ? 'block' : 'none';
+      }
+    }
+
+    function parsePriceInput(raw) {
+      const n = parseInt(String(raw || '').replace(/[^\d]/g, ''), 10);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    }
+
+    function buildListingPayload(base, form) {
+      if (!base.listing && !base.jobType && !base.listingType) return {};
+      const price = parsePriceInput(form.price);
+      const beds = form.beds !== '' ? parseFloat(form.beds) : null;
+      const baths = form.baths !== '' ? parseFloat(form.baths) : null;
+      const sqft = form.sqft !== '' ? parseInt(form.sqft, 10) : null;
+      const listing = {
+        ...(base.listing || {}),
+        source: (base.listing && base.listing.source) || base.sourceChannel || 'chrome_extension',
+        price: price ?? base.listing?.price ?? null,
+        beds: beds ?? base.listing?.beds ?? null,
+        baths: baths ?? base.listing?.baths ?? null,
+        sqft: sqft ?? base.listing?.sqft ?? null,
+      };
+      return {
+        jobType: base.jobType || base.listingType || 'real_estate',
+        sourceType: base.sourceType,
+        listing,
+      };
     }
 
     fill(initial);
@@ -130,6 +204,12 @@
       const base = extractLeadFromPage();
       const lead = {
         ...base,
+        ...buildListingPayload(base, {
+          price: fields.price.value,
+          beds: fields.beds.value,
+          baths: fields.baths.value,
+          sqft: fields.sqft.value,
+        }),
         title,
         note: fields.note.value.trim(),
         address: fields.address.value.trim() || 'N/A',
