@@ -271,6 +271,112 @@ function trimGbpField(raw, maxLen) {
   return s.slice(0, maxLen);
 }
 
+function parseListingNote(note) {
+  const s = String(note || '');
+  const priceRaw = (s.match(/Price:\s*\$?\s*([\d,]+)/i) || [])[1];
+  const bedsRaw = (s.match(/Beds:\s*([\d.]+)/i) || [])[1];
+  const bathsRaw = (s.match(/Baths:\s*([\d.]+)/i) || [])[1];
+  const price = priceRaw ? parseInt(String(priceRaw).replace(/,/g, ''), 10) : null;
+  const beds = bedsRaw ? parseFloat(bedsRaw) : null;
+  const baths = bathsRaw ? parseFloat(bathsRaw) : null;
+  return {
+    price: Number.isFinite(price) && price > 0 ? price : null,
+    beds: Number.isFinite(beds) ? beds : null,
+    baths: Number.isFinite(baths) ? baths : null,
+  };
+}
+
+function mapImportSourceChannel(raw) {
+  const s = String(raw || '')
+    .trim()
+    .toLowerCase();
+  if (!s) return '';
+  if (s.includes('facebook') || s.includes('marketplace')) return 'facebook_marketplace';
+  if (s.includes('craigslist')) return 'craigslist';
+  if (s.includes('zillow')) return 'zillow';
+  if (s.includes('mhvillage') || s.includes('mh village')) return 'mhvillage';
+  if (s.includes('realtor')) return 'realtor';
+  if (s.includes('redfin')) return 'redfin';
+  if (s.includes('offerup')) return 'offerup';
+  if (s.includes('ebay')) return 'ebay';
+  return s.replace(/\s+/g, '_').slice(0, 48);
+}
+
+function isRealEstateImportRow(r) {
+  const blob = [
+    r.categoryname,
+    r.category,
+    r.company_type,
+    r.source,
+    r.company_name,
+    r.title,
+    r.name,
+  ]
+    .join(' ')
+    .toLowerCase();
+  return (
+    /real\s*estate|mobile\s*home|manufactured\s*home|manufactured|mhvillage|zillow/.test(blob) ||
+    /facebook\s*marketplace|craigslist/.test(blob) ||
+    /^fb:|^facebook:|^craigslist:/i.test(String(r.company_name || r.title || r.name || ''))
+  );
+}
+
+function pickListingUrl(r) {
+  return firstNonEmpty(r, [
+    'url',
+    'listing_url',
+    'source_url',
+    'source_urls',
+    'company_website',
+    'website',
+    'website_url',
+  ]);
+}
+
+function applyRealEstateListingFields(lead, r, options = {}) {
+  const listingUrl = pickListingUrl(r);
+  const importSourceRaw = firstNonEmpty(r, ['source', 'source_channel']);
+  const sourceChannel = mapImportSourceChannel(importSourceRaw);
+  const noteText = firstNonEmpty(r, ['note', 'notes', 'why_prospect', 'why']);
+  const noteParsed = parseListingNote(noteText);
+  const isListing = isRealEstateImportRow(r) || (!!listingUrl && !!sourceChannel);
+
+  if (!isListing) return lead;
+
+  lead.jobType = 'real_estate';
+  lead.sourceType = 'real_estate';
+  if (sourceChannel) lead.sourceChannel = sourceChannel;
+
+  if (listingUrl) {
+    const normalized = normalizeWebsite(listingUrl);
+    lead.url = normalized;
+    lead.website = normalized;
+    if (sourceChannel === 'facebook_marketplace' || /facebook\.com/i.test(normalized)) {
+      lead.facebook = normalized;
+    }
+  }
+
+  const categoryLabel = firstNonEmpty(r, [
+    'categoryname',
+    'category',
+    'company_type',
+    'industry',
+    'type',
+  ]);
+  if (categoryLabel) lead.categoryName = categoryLabel;
+
+  lead.listing = {
+    source: sourceChannel || options.leadSource || 'csv_import',
+    price: noteParsed.price,
+    beds: noteParsed.beds,
+    baths: noteParsed.baths,
+    propertyType: /mobile|manufactured/i.test(categoryLabel || '') ? 'mobile_home' : 'real_estate',
+    url: lead.url || listingUrl || undefined,
+  };
+
+  return lead;
+}
+
 function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   const r = normalizeKeys(row);
   const importFields = collectImportFields(row);
@@ -359,7 +465,7 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
       'industry',
       'type',
       'business_type',
-    ]) || 'Painters';
+    ]) || (isRealEstateImportRow(r) ? 'Real Estate' : 'Imported');
 
   const socials = parseSocialUrls(
     firstNonEmpty(r, ['social_urls', 'socials', 'social_links', 'social_profiles'])
@@ -375,6 +481,7 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   const lng = firstNonEmpty(r, ['longitude', 'lng', 'lon']);
 
   const mapsUrl = pickMapsUrlFromSources(r);
+  const listingUrlEarly = pickListingUrl(r);
   const whyProspect = firstNonEmpty(r, ['why_prospect', 'why', 'prospect_reason', 'notes', 'note']);
   const importedTier = normalizeProspectTier(
     firstNonEmpty(r, ['score', 'prospect_tier', 'tier', 'priority', 'lead_score'])
@@ -393,7 +500,7 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     state: areaPack.state || firstNonEmpty(r, ['state', 'region']) || '',
     totalScore: parseStarRating(r),
     reviewsCount: parseReviewCount(r),
-    url: mapsUrl,
+    url: mapsUrl || listingUrlEarly || '',
     gbpClaimStatus: trimGbpField(
       firstNonEmpty(r, ['claim_status', 'gbp_claim_status', 'claimed']),
       80
@@ -435,6 +542,8 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
       },
     ];
   }
+
+  applyRealEstateListingFields(lead, r, options);
 
   const scored = scoreLocalProspect(lead);
   if (!lead.prospectTier) lead.prospectTier = scored.prospectTier;
@@ -490,4 +599,9 @@ module.exports = {
   isPlaceholderValue,
   parseSocialUrls,
   parseAreaField,
+  parseListingNote,
+  mapImportSourceChannel,
+  isRealEstateImportRow,
+  pickListingUrl,
+  applyRealEstateListingFields,
 };

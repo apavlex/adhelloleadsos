@@ -86,14 +86,26 @@ function normalizeEmail(email) {
   return String(email).trim().toLowerCase();
 }
 
+const AGGREGATOR_LISTING_HOST_RE =
+  /(?:^|\.)facebook\.com$|(?:^|\.)craigslist\.org$|(?:^|\.)offerup\.com$|(?:^|\.)ebay\.com$|(?:^|\.)zillow\.com$|(?:^|\.)realtor\.com$|(?:^|\.)redfin\.com$|(?:^|\.)mhvillage\.com$/i;
+
 function normalizeDomain(website) {
   if (!website || website === 'N/A') return '';
-  let s = String(website).trim();
-  if (!s) return '';
-  s = s.replace(/^https?:\/\//i, '');
-  s = s.replace(/^www\./i, '');
-  s = s.split(/[/?#]/)[0] || '';
-  return s.trim().toLowerCase();
+  const raw = String(website).trim();
+  if (!raw) return '';
+  try {
+    const u = new URL(raw.includes('://') ? raw : `https://${raw}`);
+    const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+    if (AGGREGATOR_LISTING_HOST_RE.test(host)) {
+      const path = (u.pathname || '/').replace(/\/+$/, '') || '/';
+      return `${host}${path}`.toLowerCase();
+    }
+    return host;
+  } catch {
+    let s = raw.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
+    s = s.split(/[/?#]/)[0] || '';
+    return s.trim().toLowerCase();
+  }
 }
 
 function normalizePhone(phone) {
@@ -1946,4 +1958,6 @@ module.exports = {
     } catch { /* ignore */ }
     return true;
   },
+
+  normalizeDomain,
 };
