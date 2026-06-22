@@ -7,9 +7,9 @@
 }) %>
 
 <script>
-  window.ADHELLO_SERVICE_OFFERS = <%- JSON.stringify(Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : []) %>;
-  window.__ADHELLO_OUTREACH_LIBRARY__ = <%- JSON.stringify(locals.outreachChannelLibrary && typeof locals.outreachChannelLibrary === 'object' ? locals.outreachChannelLibrary : {}) %>;
-  window.ADHELLO_SEQUENCE_TEMPLATES = <%- JSON.stringify(
+  window.ADHELLO_SERVICE_OFFERS = <%- safeJsonForScript(Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : []) %>;
+  window.__ADHELLO_OUTREACH_LIBRARY__ = <%- safeJsonForScript(locals.outreachChannelLibrary && typeof locals.outreachChannelLibrary === 'object' ? locals.outreachChannelLibrary : {}) %>;
+  window.ADHELLO_SEQUENCE_TEMPLATES = <%- safeJsonForScript(
     (typeof sequenceTemplates !== 'undefined' && Array.isArray(sequenceTemplates))
       ? sequenceTemplates
       : (typeof locals !== 'undefined' && Array.isArray(locals.sequenceTemplates) ? locals.sequenceTemplates : [])
@@ -17,16 +17,16 @@
 </script>
 
 <script>
-  window.INITIAL_SAVED_LEADS = <%- JSON.stringify(
+  window.INITIAL_SAVED_LEADS = <%- safeJsonForScript(
     typeof leadBootstrapLeads !== 'undefined' && leadBootstrapLeads
       ? leadBootstrapLeads
       : (leads || [])
   ) %>;
-  window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
-  window.PIPELINE_STAGE_COLORS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
+  window.PIPELINE_STAGE_LABELS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
+  window.PIPELINE_STAGE_COLORS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
 </script>
-<script type="application/json" id="workspace-folders-json"><%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %></script>
-<script type="application/json" id="workspace-tags-json"><%- JSON.stringify(typeof tags !== 'undefined' && tags ? tags.map((t) => ({ key: t.key, name: t.name, color: t.color || '#94a3b8' })) : []) %></script>
+<script type="application/json" id="workspace-folders-json"><%- safeJsonForScript(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %></script>
+<script type="application/json" id="workspace-tags-json"><%- safeJsonForScript(typeof tags !== 'undefined' && tags ? tags.map((t) => ({ key: t.key, name: t.name, color: t.color || '#94a3b8' })) : []) %></script>
 <script>
   try {
     window.WORKSPACE_FOLDERS = JSON.parse(document.getElementById('workspace-folders-json')?.textContent || '[]');

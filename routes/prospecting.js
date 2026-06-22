@@ -159,12 +159,17 @@ router.get('/', async (req, res, next) => {
     const email = userEmail(req);
     const driveImport = await buildDriveImportBundle(req, email);
 
+    const folderedLeadCount = visible.filter((l) => String(l.folderKey || '').trim()).length;
+    const totalVisibleLeadCount = visible.length;
+
     res.render('prospecting', {
       title: 'Prospecting | Agency OS',
       activePage: 'prospecting',
       tab: safeTab,
       leadCount: pipelineVisible.length,
       unfiledLeadCount: pipelineVisible.length,
+      totalVisibleLeadCount,
+      folderedLeadCount,
       activeFolderKey,
       folders,
       folderTree,
