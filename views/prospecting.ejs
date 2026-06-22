@@ -227,7 +227,7 @@
                       throw new Error((imp.j && imp.j.error) || 'Import failed');
                     }
                     var j = imp.j;
-                    var q = 'tab=pipeline&rows=' + encodeURIComponent(j.totalRows || 0)
+                    var q = 'tab=pipeline&origin=csv&includeFoldered=1&source=all&rows=' + encodeURIComponent(j.totalRows || 0)
                       + '&rawRows=' + encodeURIComponent(j.rawRows != null ? j.rawRows : j.totalRows || 0)
                       + '&rejected=' + encodeURIComponent(j.rejected || 0)
                       + '&created=' + encodeURIComponent(j.created || 0)
