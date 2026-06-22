@@ -1,5 +1,6 @@
 <% const _sa = typeof scrapeAdvisor !== 'undefined' && scrapeAdvisor; %>
 <% const _admin = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+<%- include('../../partials/chrome_extension_card') %>
 <% if (_admin) { %>
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
   <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">API keys &amp; preferences</h2>

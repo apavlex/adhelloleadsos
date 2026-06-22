@@ -1,0 +1,101 @@
+<% const _wid = workspace && workspace.id ? workspace.id : 'default'; %>
+<% const _apiBase = typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl ? publicAppBaseUrl : ''; %>
+<% const _repoUrl = typeof chromeExtensionRepoUrl !== 'undefined' && chromeExtensionRepoUrl
+  ? chromeExtensionRepoUrl
+  : 'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension'; %>
+<% const _ingestReady = typeof apiIngestKeyConfigured !== 'undefined' && apiIngestKeyConfigured; %>
+<% const _ingestMask = typeof apiIngestKeyMask !== 'undefined' ? apiIngestKeyMask : ''; %>
+<% const _admin = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
+
+<section id="chrome-extension" class="scroll-mt-28 mb-8 md:mb-10" aria-labelledby="chrome-extension-heading">
+  <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-6 md:p-8 shadow-sm">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Browser extension</p>
+        <h2 id="chrome-extension-heading" class="font-display font-extrabold text-xl md:text-2xl text-brand-dark dark:text-white tracking-tight">AdHello Lead Saver for Chrome</h2>
+        <p class="text-sm text-brand-muted mt-2 max-w-3xl leading-relaxed">
+          Save leads, real estate listings, and product listings while you browse — from LinkedIn and Google Maps to Zillow, MHVillage, OfferUp, and more. Saved items land in your
+          <a href="/prospecting?tab=pipeline" class="text-brand-yellow hover:underline font-semibold">pipeline</a>
+          with the correct folder (Real estate or Products).
+        </p>
+      </div>
+      <a href="<%= _repoUrl %>" target="_blank" rel="noopener noreferrer" class="shrink-0 inline-flex items-center justify-center rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">
+        Download from GitHub
+        <span class="ml-1.5" aria-hidden="true">↗</span>
+      </a>
+    </div>
+
+    <% if (!_ingestReady) { %>
+    <div class="rounded-xl border border-amber-400/50 bg-amber-50 dark:bg-amber-950/40 px-4 py-3 text-sm text-amber-950 dark:text-amber-100 mb-6 leading-relaxed">
+      <p class="font-semibold mb-1">API ingest key not configured</p>
+      <p>Your operator must set <code class="text-[11px] px-1 rounded bg-white/50 dark:bg-slate-900/60">API_INGEST_KEY</code> on the server before the extension can save leads. Ask them to add it in Render (or your <code class="text-[11px] px-1 rounded bg-white/50 dark:bg-slate-900/60">.env</code>), then paste the same value in the extension settings.</p>
+    </div>
+    <% } %>
+
+    <div class="grid lg:grid-cols-2 gap-6 mb-6">
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/40 p-5">
+        <h3 class="font-display font-bold text-sm text-brand-dark dark:text-white mb-3">Install (one time)</h3>
+        <ol class="text-sm text-brand-muted space-y-2.5 list-decimal list-inside leading-relaxed">
+          <li>Open Chrome → <strong>Extensions</strong> (<code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">chrome://extensions/</code>)</li>
+          <li>Enable <strong>Developer mode</strong> (top right)</li>
+          <li>Click <strong>Load unpacked</strong> and select the <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">chrome-extension</code> folder from the repo</li>
+          <li>Pin <strong>AdHello Lead Saver</strong> in your toolbar</li>
+        </ol>
+        <p class="text-xs text-brand-muted mt-4 leading-relaxed">Not in the Chrome Web Store yet — install from the GitHub folder above. Reload the extension after each update.</p>
+      </div>
+
+      <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/40 p-5">
+        <h3 class="font-display font-bold text-sm text-brand-dark dark:text-white mb-3">Extension settings</h3>
+        <p class="text-xs text-brand-muted mb-3 leading-relaxed">Right-click the extension icon → <strong>Options</strong> (or open from <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">chrome://extensions</code>).</p>
+        <dl class="space-y-3 text-sm">
+          <div>
+            <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API base URL</dt>
+            <dd class="font-mono text-xs text-brand-dark dark:text-slate-200 break-all"><%= _apiBase || 'https://your-adhello-url.onrender.com' %></dd>
+          </div>
+          <div>
+            <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Workspace ID</dt>
+            <dd class="font-mono text-xs text-brand-dark dark:text-slate-200"><%= _wid %></dd>
+          </div>
+          <div>
+            <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</dt>
+            <dd class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed">
+              <% if (_ingestReady) { %>
+                Server key is configured<% if (_admin && _ingestMask) { %> (<code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60"><%= _ingestMask %></code>)<% } %>.
+                Paste the full <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">API_INGEST_KEY</code> value from your deployment env into the extension.
+              <% } else { %>
+                <span class="text-amber-800 dark:text-amber-200">Not set on server — extension saves will fail until configured.</span>
+              <% } %>
+            </dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+
+    <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-5 mb-6">
+      <h3 class="font-display font-bold text-sm text-brand-dark dark:text-white mb-2">Supported sites</h3>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-2 text-xs text-brand-muted leading-relaxed">
+        <div>
+          <p class="font-bold text-brand-dark dark:text-white mb-1">Social</p>
+          <p>LinkedIn, Facebook, Instagram</p>
+        </div>
+        <div>
+          <p class="font-bold text-brand-dark dark:text-white mb-1">Directories</p>
+          <p>Google Maps, Yelp, BBB, Angi, Houzz, Groupon, Nextdoor, and more</p>
+        </div>
+        <div>
+          <p class="font-bold text-brand-dark dark:text-white mb-1">Real estate</p>
+          <p>Zillow, MHVillage, Realtor.com, Redfin, Craigslist</p>
+        </div>
+        <div>
+          <p class="font-bold text-brand-dark dark:text-white mb-1">Products</p>
+          <p>Facebook Marketplace, OfferUp, eBay, Craigslist for-sale</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="/prospecting?tab=pipeline" class="rounded-xl border border-brand-border/70 dark:border-white/15 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open pipeline</a>
+      <a href="<%= _repoUrl %>" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-brand-yellow hover:underline">Full install guide in repo README</a>
+    </div>
+  </div>
+</section>

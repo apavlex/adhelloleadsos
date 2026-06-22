@@ -186,7 +186,7 @@ const WORKSPACE_SECTION_META = {
   integrations: {
     title: 'Integrations',
     description:
-      'API keys and provider preferences for this workspace, plus a cost-aware guide to how Find Leads and Enhance use each provider.',
+      'API keys and provider preferences for this workspace, the Chrome Lead Saver extension, and a cost-aware guide to how Find Leads and Enhance use each provider.',
   },
   phones: {
     title: 'Phone number bank',
@@ -263,6 +263,14 @@ async function loadWorkspacePageLocals(req) {
   const persistenceIntegrationsHint = dataPersistence.workspaceIntegrationsPersistenceHint(ws);
 
   const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  const ingestKeyRaw = String(process.env.API_INGEST_KEY || '').trim();
+  const apiIngestKeyConfigured = !!ingestKeyRaw;
+  const apiIngestKeyMask =
+    apiIngestKeyConfigured && ingestKeyRaw.length >= 4 ? `••••${ingestKeyRaw.slice(-4)}` : '';
+  const chromeExtensionRepoUrl = String(
+    process.env.CHROME_EXTENSION_REPO_URL ||
+      'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension',
+  ).trim();
   const ghlWebhookTokenHint = String(process.env.GHL_WEBHOOK_SECRET || process.env.API_INGEST_KEY || '').trim()
     ? 'configured-on-server'
     : '';
@@ -272,6 +280,9 @@ async function loadWorkspacePageLocals(req) {
     activePage: 'workspace',
     workspace: ws,
     publicAppBaseUrl: base,
+    apiIngestKeyConfigured,
+    apiIngestKeyMask,
+    chromeExtensionRepoUrl,
     ghlWebhookTokenHint,
     ghlStatus,
     telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
