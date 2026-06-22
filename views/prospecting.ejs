@@ -235,6 +235,7 @@
                       + '&imported=' + encodeURIComponent(j.imported || 0)
                       + '&skipped=' + encodeURIComponent(j.skipped || 0)
                       + '&failed=' + encodeURIComponent(j.failed || 0);
+                    if (j.realEstateImport) q += '&realEstate=1';
                     window.location.href = '/prospecting?' + q;
                   })
                   .catch(function (e) {

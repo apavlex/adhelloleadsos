@@ -178,9 +178,20 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const prospectSortDefaultDesc = (key) =>
-    !['company', 'category', 'cadence', 'pipeline', 'status', 'claimstatus', 'email', 'phone', 'domain'].includes(
-      key,
-    );
+    ![
+      'company',
+      'category',
+      'cadence',
+      'pipeline',
+      'status',
+      'claimstatus',
+      'email',
+      'phone',
+      'domain',
+      'city',
+      'state',
+      'listingsource',
+    ].includes(key);
 
   let prospectSortState = { key: null, desc: true };
 
@@ -191,6 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const plc = th.getAttribute('data-plc');
     const fallback = {
       company: 'company',
+      listingPrice: 'listingprice',
+      listingBeds: 'listingbeds',
+      listingBaths: 'listingbaths',
+      city: 'city',
+      state: 'state',
+      listingSource: 'listingsource',
       lastTouch: 'lasttouch',
       cadence: 'cadence',
       category: 'category',
@@ -343,6 +360,48 @@ document.addEventListener('DOMContentLoaded', () => {
         case 'domain': {
           c = Number(prospectHasWebsite(a)) - Number(prospectHasWebsite(b));
           if (c === 0) c = cmpStr(a.website || '', b.website || '');
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'listingprice': {
+          const pa = parseFloat(a.listingPrice);
+          const pb = parseFloat(b.listingPrice);
+          const na = Number.isFinite(pa) ? pa : -1;
+          const nb = Number.isFinite(pb) ? pb : -1;
+          c = na - nb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'listingbeds': {
+          const ba = parseFloat(a.listingBeds);
+          const bb = parseFloat(b.listingBeds);
+          const na = Number.isFinite(ba) ? ba : -1;
+          const nb = Number.isFinite(bb) ? bb : -1;
+          c = na - nb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'listingbaths': {
+          const ba = parseFloat(a.listingBaths);
+          const bb = parseFloat(b.listingBaths);
+          const na = Number.isFinite(ba) ? ba : -1;
+          const nb = Number.isFinite(bb) ? bb : -1;
+          c = na - nb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'city': {
+          c = cmpStr((a.city || '').trim(), (b.city || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'state': {
+          c = cmpStr((a.state || '').trim(), (b.state || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'listingsource': {
+          c = cmpStr((a.listingSource || '').trim(), (b.listingSource || '').trim());
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         }
@@ -560,6 +619,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const PLC_META = [
         { id: 'company', label: 'Company' },
+        { id: 'listingPrice', label: 'Price', defaultHidden: true },
+        { id: 'listingBeds', label: 'Beds', defaultHidden: true },
+        { id: 'listingBaths', label: 'Baths', defaultHidden: true },
+        { id: 'city', label: 'City', defaultHidden: true },
+        { id: 'state', label: 'State', defaultHidden: true },
+        { id: 'listingSource', label: 'Source', defaultHidden: true },
         { id: 'lastTouch', label: 'Last touch' },
         { id: 'cadence', label: 'Cadence' },
         { id: 'category', label: 'Category' },
@@ -575,7 +640,42 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'methods', label: 'Methods (Call / Email)' },
         { id: 'actions', label: 'Actions' },
       ];
-      const PLC_MIN_WIDTH = { socials: 120, contact: 168, website: 72, methods: 88 };
+      const REAL_ESTATE_IMPORT_COLUMNS = [
+        'company',
+        'listingPrice',
+        'listingBeds',
+        'listingBaths',
+        'city',
+        'state',
+        'listingSource',
+        'reviews',
+        'website',
+        'contact',
+      ];
+      const PLC_MIN_WIDTH = {
+        socials: 120,
+        contact: 168,
+        website: 72,
+        methods: 88,
+        listingPrice: 72,
+        listingSource: 96,
+      };
+
+      function applyRealEstateImportColumnVis(map) {
+        REAL_ESTATE_IMPORT_COLUMNS.forEach((id) => {
+          map[id] = true;
+        });
+        return map;
+      }
+
+      function wantsRealEstateColumnPreset() {
+        try {
+          const params = new URLSearchParams(window.location.search || '');
+          return params.get('realEstate') === '1' || params.get('preset') === 'real_estate';
+        } catch (_) {
+          return false;
+        }
+      }
 
       function pipelineColVisible(map, id) {
         const meta = PLC_META.find((x) => x.id === id);
@@ -639,6 +739,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       let vis = window.__pipelinePrefsPrimedVis || loadVis();
+      if (wantsRealEstateColumnPreset()) {
+        vis = applyRealEstateImportColumnVis({ ...vis });
+        saveVis(vis);
+      }
       if (vis && vis.check === false) {
         delete vis.check;
         saveVis(vis);

@@ -43,4 +43,22 @@ describe('csvLeadImport real estate listings', () => {
     assert.equal(new Set(domains).size, 2);
     assert.ok(domains.every((d) => d.includes('/marketplace/item/')));
   });
+
+  it('maps spreadsheet columns Title, Price, Beds, Baths, City, State, Source, URL', () => {
+    const csv = [
+      'Title,Price,Beds,Baths,City,State,Source,URL',
+      '1 Bed 1 Bath - House,"$1,000",1,1,Camas,WA,facebook marketplace,https://www.facebook.com/marketplace/item/1369773571376466',
+    ].join('\n');
+    const { leads } = parseImportFile(Buffer.from(csv, 'utf8'), 'mobile-home-fixers-latest.csv');
+    assert.equal(leads.length, 1);
+    const lead = leads[0];
+    assert.equal(lead.jobType, 'real_estate');
+    assert.match(lead.title, /1 Bed 1 Bath/i);
+    assert.equal(lead.city, 'Camas');
+    assert.equal(lead.state, 'WA');
+    assert.equal(lead.sourceChannel, 'facebook_marketplace');
+    assert.equal(lead.listing.price, 1000);
+    assert.equal(lead.listing.beds, 1);
+    assert.equal(lead.listing.baths, 1);
+  });
 });

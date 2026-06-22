@@ -2465,7 +2465,7 @@
           if (mlUploadSubmit) { mlUploadSubmit.disabled = false; mlUploadSubmit.textContent = 'Upload & import'; }
           if (ok && data.success) {
             closeManualLead();
-            window.location.href = '/prospecting?tab=pipeline&imported=' + (data.imported || 0) + '&created=' + (data.created || 0) + '&updated=' + (data.updated || 0) + '&skipped=' + (data.skipped || 0) + '&failed=' + (data.failed || 0);
+            window.location.href = '/prospecting?tab=pipeline&origin=csv&includeFoldered=1&source=all&imported=' + (data.imported || 0) + '&created=' + (data.created || 0) + '&updated=' + (data.updated || 0) + '&skipped=' + (data.skipped || 0) + '&failed=' + (data.failed || 0) + (data.realEstateImport ? '&realEstate=1' : '');
             return;
           }
           if (mlFileName && file) {

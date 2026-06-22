@@ -271,6 +271,22 @@ function trimGbpField(raw, maxLen) {
   return s.slice(0, maxLen);
 }
 
+function parseImportPrice(raw) {
+  const s = String(raw ?? '')
+    .trim()
+    .replace(/[$,\s]/g, '');
+  if (!s) return null;
+  const n = parseFloat(s);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+function parseImportNumber(raw) {
+  const s = String(raw ?? '').trim();
+  if (!s) return null;
+  const n = parseFloat(s);
+  return Number.isFinite(n) ? n : null;
+}
+
 function parseListingNote(note) {
   const s = String(note || '');
   const priceRaw = (s.match(/Price:\s*\$?\s*([\d,]+)/i) || [])[1];
@@ -339,6 +355,9 @@ function applyRealEstateListingFields(lead, r, options = {}) {
   const sourceChannel = mapImportSourceChannel(importSourceRaw);
   const noteText = firstNonEmpty(r, ['note', 'notes', 'why_prospect', 'why']);
   const noteParsed = parseListingNote(noteText);
+  const priceFromCol = parseImportPrice(firstNonEmpty(r, ['price', 'listing_price', 'list_price', 'asking_price']));
+  const bedsFromCol = parseImportNumber(firstNonEmpty(r, ['beds', 'bedrooms', 'bed', 'br']));
+  const bathsFromCol = parseImportNumber(firstNonEmpty(r, ['baths', 'bathrooms', 'bath', 'ba']));
   const isListing = isRealEstateImportRow(r) || (!!listingUrl && !!sourceChannel);
 
   if (!isListing) return lead;
@@ -367,9 +386,9 @@ function applyRealEstateListingFields(lead, r, options = {}) {
 
   lead.listing = {
     source: sourceChannel || options.leadSource || 'csv_import',
-    price: noteParsed.price,
-    beds: noteParsed.beds,
-    baths: noteParsed.baths,
+    price: priceFromCol ?? noteParsed.price,
+    beds: bedsFromCol ?? noteParsed.beds,
+    baths: bathsFromCol ?? noteParsed.baths,
     propertyType: /mobile|manufactured/i.test(categoryLabel || '') ? 'mobile_home' : 'real_estate',
     url: lead.url || listingUrl || undefined,
   };

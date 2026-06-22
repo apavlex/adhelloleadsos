@@ -13,6 +13,12 @@
 
   var PLC_META = [
     { id: 'company' },
+    { id: 'listingPrice', defaultHidden: true },
+    { id: 'listingBeds', defaultHidden: true },
+    { id: 'listingBaths', defaultHidden: true },
+    { id: 'city', defaultHidden: true },
+    { id: 'state', defaultHidden: true },
+    { id: 'listingSource', defaultHidden: true },
     { id: 'lastTouch' },
     { id: 'cadence' },
     { id: 'category' },
@@ -29,7 +35,36 @@
     { id: 'actions' },
   ];
 
-  var PLC_MIN_WIDTH = { socials: 120, contact: 168, website: 72, methods: 88 };
+  var REAL_ESTATE_IMPORT_COLUMNS = [
+    'company',
+    'listingPrice',
+    'listingBeds',
+    'listingBaths',
+    'city',
+    'state',
+    'listingSource',
+    'reviews',
+    'website',
+    'contact',
+  ];
+
+  function applyRealEstateImportColumnVis(vis) {
+    REAL_ESTATE_IMPORT_COLUMNS.forEach(function (id) {
+      vis[id] = true;
+    });
+    return vis;
+  }
+
+  function wantsRealEstateColumnPreset() {
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      return params.get('realEstate') === '1' || params.get('preset') === 'real_estate';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  var PLC_MIN_WIDTH = { socials: 120, contact: 168, website: 72, methods: 88, listingPrice: 72, listingSource: 96 };
 
   function colVisible(map, id) {
     var meta = null;
@@ -52,6 +87,14 @@
       vis = {};
     }
     if (vis && vis.check === false) delete vis.check;
+    if (wantsRealEstateColumnPreset()) {
+      vis = applyRealEstateImportColumnVis(vis);
+      try {
+        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+      } catch (_) {
+        /* ignore */
+      }
+    }
     return vis;
   }
 

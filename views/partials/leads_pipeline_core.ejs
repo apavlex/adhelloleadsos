@@ -42,6 +42,13 @@
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;');
     }
+    function formatListingSourceLabel(raw) {
+      var s = String(raw || '').trim();
+      if (!s) return '';
+      if (s === 'facebook_marketplace') return 'Facebook Marketplace';
+      if (s === 'csv_import' || s === 'google_drive') return '';
+      return s.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+    }
   %>
   <style>
     .plc-th-wrap {
@@ -140,6 +147,30 @@
             <th data-plc="company" class="plc-th-wrap lead-sticky-company px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[13rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="company" title="Sort by company name">Company <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="company" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="listingPrice" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[4.5rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="listingprice" title="Sort by listing price">Price <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="listingPrice" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="listingBeds" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[3rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="listingbeds" title="Sort by bedrooms">Beds <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="listingBeds" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="listingBaths" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[3rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="listingbaths" title="Sort by bathrooms">Baths <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="listingBaths" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="city" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[5rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="city" title="Sort by city">City <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="city" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="state" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[3rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="state" title="Sort by state">State <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="state" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="listingSource" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[6rem] max-w-[10rem]" scope="col">
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="listingsource" title="Sort by listing source">Source <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <span class="plc-col-resize" data-plc-resize="listingSource" title="Resize column" aria-hidden="true"></span>
             </th>
             <th data-plc="lastTouch" class="plc-th-wrap lead-col-last-touch lead-col-tail-tight px-1.5 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="lasttouch" title="Sort by last activity date">Last touch <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
@@ -274,6 +305,22 @@
               else if (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) {
                 _psk = String(lead.kieServiceInsight.primaryServiceKey).trim();
               }
+              var _listing = lead.listing && typeof lead.listing === 'object' ? lead.listing : {};
+              var _listPrice = _listing.price != null && _listing.price !== '' ? Number(_listing.price) : null;
+              var _listBeds = _listing.beds != null && _listing.beds !== '' ? Number(_listing.beds) : null;
+              var _listBaths = _listing.baths != null && _listing.baths !== '' ? Number(_listing.baths) : null;
+              var _listCity = String(lead.city || '').trim();
+              var _listState = String(lead.state || '').trim();
+              var _listSourceRaw = String(lead.sourceChannel || '').trim();
+              if (!_listSourceRaw && lead.importFields && lead.importFields.source) {
+                _listSourceRaw = String(lead.importFields.source);
+              }
+              var _listSource = formatListingSourceLabel(_listSourceRaw);
+              var _priceDisp = Number.isFinite(_listPrice) && _listPrice > 0
+                ? ('$' + _listPrice.toLocaleString('en-US'))
+                : '—';
+              var _bedsDisp = Number.isFinite(_listBeds) ? String(_listBeds) : '—';
+              var _bathsDisp = Number.isFinite(_listBaths) ? String(_listBaths) : '—';
             %>
             <tr class="result-row group/row scroll-mt-28 transition-colors duration-150 border-b border-brand-border/15 dark:border-white/[0.07]"
                 onclick="if(window.__pipelineRowActivate){window.__pipelineRowActivate(event,this);}"
@@ -333,6 +380,10 @@
                 data-owner-first-name="<%= plcEscAttr(String(lead.ownerFirstName || '')) %>"
                 data-do-not-call="<%= lead.doNotCall ? '1' : '' %>"
                 data-primary-service-key="<%= plcEscAttr(_psk) %>"
+                data-listing-price="<%= Number.isFinite(_listPrice) ? _listPrice : '' %>"
+                data-listing-beds="<%= Number.isFinite(_listBeds) ? _listBeds : '' %>"
+                data-listing-baths="<%= Number.isFinite(_listBaths) ? _listBaths : '' %>"
+                data-listing-source="<%= plcEscAttr(_listSource || _listSourceRaw || '') %>"
                 data-contacts="<%= plcEscJson(lead.contacts || []) %>"
                 data-last-contact-hunt-at="<%= plcEscAttr(lead.lastContactHuntAt || '') %>"
                 data-tags="<%= plcEscJson(Array.isArray(lead.tags) ? lead.tags : []) %>">
@@ -361,6 +412,24 @@
                     </div>
                   </div>
                 </div>
+              </td>
+              <td data-plc="listingPrice" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <span class="text-xs font-bold tabular-nums text-brand-dark dark:text-slate-200"><%= _priceDisp %></span>
+              </td>
+              <td data-plc="listingBeds" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap text-center">
+                <span class="text-xs font-semibold tabular-nums text-brand-dark dark:text-slate-200"><%= _bedsDisp %></span>
+              </td>
+              <td data-plc="listingBaths" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap text-center">
+                <span class="text-xs font-semibold tabular-nums text-brand-dark dark:text-slate-200"><%= _bathsDisp %></span>
+              </td>
+              <td data-plc="city" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap max-w-[8rem]">
+                <span class="text-xs font-semibold text-brand-dark dark:text-slate-200 truncate block" title="<%= _listCity %>"><%= _listCity || '—' %></span>
+              </td>
+              <td data-plc="state" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <span class="text-xs font-semibold text-brand-dark dark:text-slate-200"><%= _listState || '—' %></span>
+              </td>
+              <td data-plc="listingSource" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap max-w-[10rem]">
+                <span class="text-[10px] font-semibold text-brand-dark dark:text-slate-200 truncate block" title="<%= _listSource || _listSourceRaw %>"><%= _listSource || '—' %></span>
               </td>
               <td data-plc="lastTouch" class="lead-col-last-touch lead-col-tail-tight px-1.5 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400 tabular-nums inline-block" title="<%= _lastTouchRaw || '' %>"><%= _lastTouchShort %></span>

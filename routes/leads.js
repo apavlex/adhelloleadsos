@@ -129,6 +129,10 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
     );
   }
 
+  const realEstateCount = records.filter((r) => r.jobType === 'real_estate').length;
+  const realEstateImport =
+    realEstateCount > 0 && realEstateCount >= Math.max(1, Math.floor(records.length * 0.5));
+
   return {
     records,
     rawRowCount,
@@ -139,6 +143,7 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
     failed,
     applied,
     rows: records.length,
+    realEstateImport,
   };
 }
 
@@ -498,6 +503,7 @@ router.post('/drive-import/google', async (req, res, next) => {
       totalRows: pack.rows,
       rawRows: pack.rawRowCount,
       rejected: pack.rejected,
+      realEstateImport: !!pack.realEstateImport,
     });
   } catch (e) {
     console.error('[drive-import]', e);
@@ -530,9 +536,12 @@ router.post('/import', (req, res, next) => {
     }
 
     const pack = await importLeadRecordsFromBuffer(req.file.buffer, req.file.originalname || 'import.csv', req);
-    const { created, updated, skipped, failed, rows, rawRowCount, rejected } = pack;
+    const { created, updated, skipped, failed, rows, rawRowCount, rejected, realEstateImport } = pack;
     const applied = pack.applied;
-    const q = `rows=${rows}&rawRows=${rawRowCount}&rejected=${rejected}&created=${created}&updated=${updated}&imported=${applied}&skipped=${skipped}&failed=${failed}`;
+    let q = `rows=${rows}&rawRows=${rawRowCount}&rejected=${rejected}&created=${created}&updated=${updated}&imported=${applied}&skipped=${skipped}&failed=${failed}`;
+    if (realEstateImport) {
+      q += '&realEstate=1&origin=csv&includeFoldered=1&source=all';
+    }
     if (req.headers.accept && req.headers.accept.includes('application/json')) {
       return res.json({
         success: true,
@@ -542,6 +551,7 @@ router.post('/import', (req, res, next) => {
         skipped,
         failed,
         totalRows: rows,
+        realEstateImport: !!realEstateImport,
       });
     }
     res.redirect(`/prospecting?tab=pipeline&${q}`);
