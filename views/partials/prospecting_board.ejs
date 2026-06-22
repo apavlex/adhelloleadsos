@@ -104,12 +104,37 @@
           <% if (importNotice.skipped > 0) { %> <strong><%= importNotice.skipped %></strong> skipped.<% } %>
           <% if (importNotice.failed > 0) { %> <strong><%= importNotice.failed %></strong> failed.<% } %>
         </p>
+        <p class="text-sm <%= _impTextClass %> opacity-90">Leads in folders won’t show on the main board — use <strong>View imported leads</strong> below or open <strong>Leads → Folders</strong>.</p>
       <% } else { %>
         <p class="text-sm font-semibold <%= _impTextClass %>">Import finished but no leads were saved (<%= _impRows %> row<%= _impRows === 1 ? '' : 's' %> parsed).</p>
         <% if (importNotice.failed > 0) { %><p class="text-sm <%= _impTextClass %> opacity-90"><strong><%= importNotice.failed %></strong> row<%= importNotice.failed === 1 ? '' : 's' %> failed — check server logs.</p><% } %>
       <% } %>
     </div>
-    <a href="/prospecting?tab=pipeline" class="text-xs font-black uppercase <%= _impApplied > 0 ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-900 dark:text-amber-200' %> underline shrink-0">Dismiss</a>
+    <div class="flex flex-wrap items-center gap-3 shrink-0">
+      <% if (_impApplied > 0) { %>
+      <a href="/prospecting?tab=pipeline&amp;origin=csv&amp;includeFoldered=1&amp;source=all" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">View imported leads</a>
+      <% } %>
+      <a href="/prospecting?tab=pipeline" class="text-xs font-black uppercase <%= _impApplied > 0 ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-900 dark:text-amber-200' %> underline">Dismiss</a>
+    </div>
+  </div>
+<% } %>
+<% const _csvInWorkspace = typeof csvImportLeadCount !== 'undefined' ? Number(csvImportLeadCount) : 0; %>
+<% const _totalInWorkspace = typeof totalVisibleLeadCount !== 'undefined' ? Number(totalVisibleLeadCount) : 0; %>
+<% const _folderedInWorkspace = typeof folderedLeadCount !== 'undefined' ? Number(folderedLeadCount) : 0; %>
+<% if (_totalInWorkspace > 0 && leads.length === 0 && !importNotice) { %>
+  <div class="mb-8 rounded-2xl border border-sky-200 bg-sky-50 dark:bg-sky-950/30 dark:border-sky-800 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+    <div class="max-w-3xl space-y-1">
+      <p class="text-sm font-semibold text-sky-950 dark:text-sky-100">
+        This workspace has <strong><%= _totalInWorkspace %></strong> lead<%= _totalInWorkspace === 1 ? '' : 's' %><% if (_folderedInWorkspace > 0) { %> — <strong><%= _folderedInWorkspace %></strong> in folders<% } %>, but none match the current view.
+      </p>
+      <p class="text-sm text-sky-900/90 dark:text-sky-200/90">Try <strong>Reset</strong> on the filter bar, open a folder, or view CSV imports directly.</p>
+    </div>
+    <div class="flex flex-wrap gap-2 shrink-0">
+      <% if (_csvInWorkspace > 0) { %>
+      <a href="/prospecting?tab=pipeline&amp;origin=csv&amp;includeFoldered=1&amp;source=all" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest">CSV imports (<%= _csvInWorkspace %>)</a>
+      <% } %>
+      <a href="/prospecting?tab=folders" class="rounded-xl border border-sky-300 dark:border-sky-700 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-sky-950 dark:text-sky-100">Open folders</a>
+    </div>
   </div>
 <% } %>
 <div class="space-y-6 mb-10 md:mb-12">
@@ -125,6 +150,9 @@
         <% if (_activeFolder) { %>
         Viewing folder <strong class="text-brand-dark dark:text-white"><%= _activeFolder.name %></strong>
         (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> lead<%= _wsAll === 1 ? '' : 's' %> here<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this source filter<% } %>).
+        <% } else if (typeof includeFoldered !== 'undefined' && includeFoldered) { %>
+        Showing <strong class="text-brand-dark dark:text-white">all leads</strong> in this workspace, including foldered imports
+        (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> total<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
         <% } else { %>
         One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
         (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> unfiled in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).

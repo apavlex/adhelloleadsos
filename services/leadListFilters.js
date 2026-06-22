@@ -41,7 +41,13 @@ function isWarmSource(l) {
 
 function isCsvImported(l) {
   const s = String(l.source || '');
-  return s === 'csv_import' || s === 'google_drive';
+  if (s === 'csv_import' || s === 'google_drive' || s === 'autonomous') return true;
+  if (l.importFilename) return true;
+  if (l.importRowIndex != null && l.importRowIndex !== '') return true;
+  if (l.importFields && typeof l.importFields === 'object' && Object.keys(l.importFields).length > 0) {
+    return true;
+  }
+  return false;
 }
 
 function isManualSource(l) {

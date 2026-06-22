@@ -13,6 +13,7 @@ const {
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
+  isCsvImported,
 } = require('../services/leadListFilters');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
@@ -59,6 +60,10 @@ router.get('/', async (req, res, next) => {
     }
 
     const leadListFilters = normalizeLeadListFilters(req.query);
+    const includeFoldered =
+      req.query.includeFoldered === '1' ||
+      req.query.includeFoldered === 'true' ||
+      String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
     const folderKeys = activeFolderKey
       ? folderKeysIncludingDescendants(folderTree, activeFolderKey)
@@ -67,7 +72,12 @@ router.get('/', async (req, res, next) => {
     const folderMembers = folderKeys
       ? visible.filter((l) => folderKeys.has(String(l.folderKey || '').trim()))
       : null;
-    const pipelineBase = folderMembers != null ? folderMembers : pipelineVisible;
+    const pipelineBase =
+      folderMembers != null
+        ? folderMembers
+        : includeFoldered
+          ? visible
+          : pipelineVisible;
 
     const sourceFilter = String(req.query.source || 'all').toLowerCase();
     let leads = pipelineBase;
@@ -161,15 +171,19 @@ router.get('/', async (req, res, next) => {
 
     const folderedLeadCount = visible.filter((l) => String(l.folderKey || '').trim()).length;
     const totalVisibleLeadCount = visible.length;
+    const csvImportLeadCount = visible.filter(isCsvImported).length;
+    const unfiledLeadCount = pipelineVisible.length;
 
     res.render('prospecting', {
       title: 'Prospecting | Agency OS',
       activePage: 'prospecting',
       tab: safeTab,
-      leadCount: pipelineVisible.length,
-      unfiledLeadCount: pipelineVisible.length,
+      leadCount: unfiledLeadCount,
+      unfiledLeadCount,
       totalVisibleLeadCount,
       folderedLeadCount,
+      csvImportLeadCount,
+      includeFoldered,
       activeFolderKey,
       folders,
       folderTree,

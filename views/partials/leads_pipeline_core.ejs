@@ -598,7 +598,15 @@
     <% } else { %>
     <% const _folderedCount = typeof folderedLeadCount !== 'undefined' ? Number(folderedLeadCount) : 0; %>
     <% const _totalLeads = typeof totalVisibleLeadCount !== 'undefined' ? Number(totalVisibleLeadCount) : 0; %>
-    <% if (!_emptyFName && _folderedCount > 0 && _totalLeads > 0) { %>
+    <% const _csvLeads = typeof csvImportLeadCount !== 'undefined' ? Number(csvImportLeadCount) : 0; %>
+    <% if (!_emptyFName && _csvLeads > 0 && _totalLeads > 0) { %>
+    <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Imported leads aren’t on the main board</h2>
+    <p class="text-brand-muted max-w-lg mx-auto mb-4 leading-relaxed">You have <strong class="text-brand-dark dark:text-white"><%= _csvLeads %></strong> imported lead<%= _csvLeads === 1 ? '' : 's' %> in this workspace<% if (_folderedCount > 0) { %> — <strong class="text-brand-dark dark:text-white"><%= _folderedCount %></strong> are filed in folders<% } %>.</p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+      <a href="/prospecting?tab=pipeline&amp;origin=csv&amp;includeFoldered=1&amp;source=all" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest">View imported leads</a>
+      <a href="/prospecting?tab=folders" class="btn-pill bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-white border border-brand-border dark:border-white/10 px-8 py-3 text-xs font-black uppercase tracking-widest hover:border-brand-yellow/60">Open folders</a>
+    </div>
+    <% } else if (!_emptyFName && _folderedCount > 0 && _totalLeads > 0) { %>
     <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white mb-3">Main pipeline is empty</h2>
     <p class="text-brand-muted max-w-lg mx-auto mb-4 leading-relaxed">You have <strong class="text-brand-dark dark:text-white"><%= _folderedCount %></strong> lead<%= _folderedCount === 1 ? '' : 's' %> in folders — they don’t appear on the unified board until you open that folder or move them here.</p>
     <div class="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
