@@ -161,7 +161,7 @@ router.post('/touch-goal', async (req, res, next) => {
   }
 });
 
-const { parseBulkSelectionKeys, orderLeadsByKeys } = require('../services/bulkSelectionKeys');
+const { parseBulkSelectionKeys, orderLeadsByKeys, resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 
 router.get('/', async (req, res, next) => {
   try {
@@ -173,9 +173,19 @@ router.get('/', async (req, res, next) => {
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
     const selectedOnly = selectedKeyOrder.length > 0;
-    let ordered = selectedOnly
-      ? orderLeadsByKeys(pipelineLeads, selectedKeyOrder) || []
-      : buildFocusQueue(pipelineLeads);
+    let ordered;
+    if (selectedOnly) {
+      // Use full visible set so foldered pipeline picks are not dropped (excludeOutreachFolderLeads
+      // only applies to the default auto queue, not explicit bulk selection).
+      ordered = await resolveLeadsBySelectedKeys({
+        dbService,
+        workspaceId: req.workspaceId,
+        visibleLeads: visible,
+        keyOrder: selectedKeyOrder,
+      });
+    } else {
+      ordered = buildFocusQueue(pipelineLeads);
+    }
     const queue = ordered.map((l) => leadToFocusPayload(l, sortedStages));
     const prefer = String(req.query.lead || req.query.leadId || '')
       .trim()

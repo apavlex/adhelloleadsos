@@ -249,6 +249,8 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       facebook: req.body.facebook || 'N/A',
       instagram: req.body.instagram || 'N/A',
       twitter: req.body.twitter || 'N/A',
+      linkedin: req.body.linkedin || 'N/A',
+      sourceChannel: req.body.sourceChannel || req.body.channel || '',
       status: req.body.status || 'Not Contacted',
       source: req.body.source || 'autonomous',
       savedAt: new Date().toISOString(),

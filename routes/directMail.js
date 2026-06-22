@@ -5,7 +5,7 @@ const dbService = require('../services/database');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { excludeOutreachFolderLeads } = require('../services/leadListFilters');
-const { parseBulkSelectionKeys, orderLeadsByKeys } = require('../services/bulkSelectionKeys');
+const { parseBulkSelectionKeys, orderLeadsByKeys, resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 const lobClient = require('../services/lobClient');
 const lobDirectMail = require('../services/lobDirectMail');
 const kieImageClient = require('../services/kieImageClient');
@@ -53,7 +53,12 @@ router.get('/', async (req, res, next) => {
 
     let tableLeads;
     if (selectedOnly) {
-      tableLeads = orderLeadsByKeys(pipelineVisible, selectedKeyOrder) || [];
+      tableLeads = await resolveLeadsBySelectedKeys({
+        dbService,
+        workspaceId: req.workspaceId,
+        visibleLeads: visible,
+        keyOrder: selectedKeyOrder,
+      });
     } else {
       tableLeads = pipelineVisible.filter((l) => lobDirectMail.hasMailableAddress(l));
     }

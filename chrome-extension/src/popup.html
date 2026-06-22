@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AdHello Lead Saver</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <h1>AdHello Lead Saver</h1>
+      <p id="platformLabel">Detecting page…</p>
+    </header>
+
+    <div id="setupNotice" class="notice notice--warn hidden">
+      Set your API key in <a href="#" id="openOptions">Settings</a> before saving.
+    </div>
+
+    <form id="leadForm">
+      <label>
+        <span>Name / title</span>
+        <input type="text" name="title" required />
+      </label>
+      <label>
+        <span>Headline / notes</span>
+        <textarea name="note" rows="3"></textarea>
+      </label>
+      <label>
+        <span>Address</span>
+        <input type="text" name="address" />
+      </label>
+      <div class="row-2">
+        <label>
+          <span>City</span>
+          <input type="text" name="city" />
+        </label>
+        <label>
+          <span>State</span>
+          <input type="text" name="state" />
+        </label>
+      </div>
+      <label>
+        <span>Website</span>
+        <input type="url" name="website" placeholder="https://" />
+      </label>
+      <label class="row">
+        <span>Email</span>
+        <input type="email" name="email" />
+      </label>
+      <label class="row">
+        <span>Phone</span>
+        <input type="tel" name="phone" />
+      </label>
+      <button type="submit" id="saveBtn">Save to AdHello</button>
+    </form>
+
+    <p id="status" class="status" aria-live="polite"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>

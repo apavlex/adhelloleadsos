@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AdHello Lead Saver — Settings</title>
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main>
+    <h1>AdHello Lead Saver</h1>
+    <p class="lead">Connect the extension to your AdHello workspace.</p>
+
+    <form id="settingsForm">
+      <label>
+        <span>API base URL</span>
+        <input type="url" name="apiBaseUrl" required placeholder="https://adhelloleadsos.onrender.com" />
+      </label>
+      <label>
+        <span>API key</span>
+        <input type="password" name="apiKey" required autocomplete="off" placeholder="API_INGEST_KEY from your server" />
+      </label>
+      <label>
+        <span>Workspace ID</span>
+        <input type="text" name="workspaceId" placeholder="default" />
+      </label>
+      <button type="submit">Save settings</button>
+    </form>
+
+    <p id="status" class="status" aria-live="polite"></p>
+
+    <section class="help">
+      <h2>Setup</h2>
+      <ol>
+        <li>Copy <code>API_INGEST_KEY</code> from your AdHello server environment.</li>
+        <li>Use your production URL or <code>http://localhost:3000</code> for local dev.</li>
+        <li>Set workspace ID if you use multi-workspace (defaults to <code>default</code>).</li>
+        <li>Visit a supported profile or listing — social, Google Maps, Yelp, Groupon, Craigslist, Nextdoor, Houzz, and more.</li>
+      </ol>
+    </section>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>
