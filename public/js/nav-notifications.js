@@ -442,6 +442,9 @@
   }
 
   window.agencyOsBulkEnhance = {
+    isRunning() {
+      return isBulkEnhanceJobRunning();
+    },
     start(keys) {
       if (!keys || !keys.length) return;
       const list = keys.slice(0, 20).filter(Boolean);
@@ -766,7 +769,19 @@
 
     if (isBulkEnhanceJobRunning()) {
       const jr = readBulkEnhanceJob();
-      if (jr) updateBulkEnhanceBellBadge(jr.index, jr.keys.length);
+      if (jr) {
+        updateBulkEnhanceBellBadge(jr.index, jr.keys.length);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(
+            'Resuming bulk enrich for ' +
+              jr.keys.length +
+              ' selected lead' +
+              (jr.keys.length !== 1 ? 's' : '') +
+              ' from your last session (not the single-lead panel hunt).',
+            { variant: 'info', duration: 8000 },
+          );
+        }
+      }
       processBulkEnhanceQueue().catch((e) => console.warn('[bulk-enhance-resume]', e));
     }
 

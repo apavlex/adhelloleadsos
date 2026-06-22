@@ -7,30 +7,6 @@
 
   var clickLock = false;
 
-  function primeHuntUiActive() {
-    if (typeof window.__setDeepEnhanceHuntUi === 'function') {
-      window.__setDeepEnhanceHuntUi('active', {
-        phase: { pct: 8, label: 'Hunting…', detail: '' },
-      });
-      return;
-    }
-    var btn = document.getElementById('deepEnhanceBtn');
-    if (!btn) return;
-    btn.dataset.huntState = 'active';
-    btn.dataset.huntStartedAt = String(Date.now());
-    btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
-    btn.classList.add('hunt-active', 'loading', 'cursor-wait');
-    var progressRow = btn.querySelector('.deep-enhance-progress-row');
-    var done = btn.querySelector('.deep-enhance-done');
-    if (progressRow) progressRow.classList.remove('hidden');
-    if (done) done.classList.add('hidden');
-    var bar = document.getElementById('deepEnhanceProgressBar');
-    if (bar) bar.style.width = '8%';
-    var status = document.getElementById('deepEnhanceStatusLabel');
-    if (status) status.textContent = 'Hunting…';
-  }
-
   function resolveRow() {
     if (typeof window.__resolveRowForLeadPanelActions === 'function') {
       return window.__resolveRowForLeadPanelActions();
@@ -97,8 +73,6 @@
       window.__adhelloSetCurrentLeadRow(row);
     }
 
-    primeHuntUiActive();
-
     whenImplReady(function () {
       runImpl(row, btn)
         .then(function (result) {
@@ -127,6 +101,9 @@
 
   function resetStuckHuntButton() {
     window.__contactHuntInFlight = new Set();
+    window.__panelHuntLeadKey = '';
+    window.__panelHuntLeadTitle = '';
+    window.__leadPanelJob = null;
     var btn = document.getElementById('deepEnhanceBtn');
     if (!btn) return;
     if (btn.dataset.huntState === 'active') {

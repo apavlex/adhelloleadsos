@@ -6,28 +6,6 @@
 
   var clickLock = false;
 
-  function primeAuditUiActive() {
-    if (typeof window.__setPageSpeedAuditUi === 'function') {
-      window.__setPageSpeedAuditUi('active', {
-        deferProgressTicker: true,
-        phase: { pct: 8, label: 'Running audit…', detail: '', step: 'Step 1 · Prep' },
-      });
-      return;
-    }
-    var btn = document.getElementById('pageSpeedAuditRunBtn');
-    if (!btn) return;
-    btn.dataset.auditState = 'active';
-    btn.disabled = true;
-    btn.setAttribute('aria-busy', 'true');
-    btn.classList.add('audit-active', 'cursor-wait');
-    var progressRow = btn.querySelector('.page-speed-audit-progress-row');
-    if (progressRow) progressRow.classList.remove('hidden');
-    var bar = document.getElementById('pageSpeedAuditProgressBar');
-    if (bar) bar.style.width = '8%';
-    var status = document.getElementById('pageSpeedAuditStatusLabel');
-    if (status) status.textContent = 'Running audit…';
-  }
-
   function resolveRow() {
     if (typeof window.__resolveRowForLeadPanelActions === 'function') {
       return window.__resolveRowForLeadPanelActions();
@@ -74,11 +52,9 @@
       window.__adhelloSetCurrentLeadRow(row);
     }
 
-    primeAuditUiActive();
-
     function attempt(n) {
       if (typeof window.__adhelloRunPageSpeedAudit === 'function') {
-        window.__adhelloRunPageSpeedAudit(ev).catch(function (err) {
+        window.__adhelloRunPageSpeedAudit(row, ev).catch(function (err) {
           console.error('[Website audit]', err);
           if (typeof window.__stopPageSpeedAuditProgressTicker === 'function') {
             window.__stopPageSpeedAuditProgressTicker();
@@ -114,6 +90,11 @@
   }
 
   function resetStuckAuditButton() {
+    window.__pageSpeedAuditLeadKey = '';
+    window.__pageSpeedAuditLeadTitle = '';
+    if (window.__leadPanelJob && window.__leadPanelJob.kind === 'audit') {
+      window.__leadPanelJob = null;
+    }
     var btn = document.getElementById('pageSpeedAuditRunBtn');
     if (!btn) return;
     if (btn.dataset.auditState === 'active') {

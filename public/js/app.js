@@ -4791,6 +4791,110 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let pageSpeedAuditInFlight = false;
+  window.__pageSpeedAuditLeadKey = window.__pageSpeedAuditLeadKey || '';
+  window.__pageSpeedAuditLeadTitle = window.__pageSpeedAuditLeadTitle || '';
+  /** Single scoped panel job — hunt or audit runs for one lead key only. */
+  window.__leadPanelJob = window.__leadPanelJob || null;
+
+  /** Stable identity for panel hunt/audit scoping (lead key or title fallback). */
+  function leadPanelRowKey(row) {
+    if (!row || !row.dataset) return '';
+    let k = String(row.dataset.leadKey || '').trim();
+    if (k) return k.replace(/^lead:/i, '');
+    const tk = normalizeLeadTitleKey(row.dataset.title || '');
+    return tk ? `title:${tk}` : '';
+  }
+  window.__leadPanelRowKey = leadPanelRowKey;
+
+  function beginLeadPanelJob(kind, row) {
+    if (!row) return;
+    const key = leadPanelRowKey(row);
+    if (!key) return;
+    const title = String(row.dataset.title || 'Lead').trim() || 'Lead';
+    window.__leadPanelJob = { kind: kind === 'audit' ? 'audit' : 'hunt', key, title };
+    if (kind === 'audit') {
+      window.__pageSpeedAuditLeadKey = key;
+      window.__pageSpeedAuditLeadTitle = title;
+    } else {
+      window.__panelHuntLeadKey = key;
+      window.__panelHuntLeadTitle = title;
+    }
+  }
+
+  function clearLeadPanelJob(kind, row) {
+    const job = window.__leadPanelJob;
+    const rowKey = row ? leadPanelRowKey(row) : '';
+    if (job && job.kind === (kind === 'audit' ? 'audit' : 'hunt')) {
+      if (!rowKey || job.key === rowKey) window.__leadPanelJob = null;
+    }
+    if (kind === 'audit') clearPanelAuditLead(rowKey);
+    else clearPanelHuntLeadKey(rowKey);
+  }
+
+  function leadPanelJobOnOtherRow(row) {
+    const job = window.__leadPanelJob;
+    if (!job || !row) return null;
+    const viewKey = leadPanelRowKey(row);
+    if (!viewKey || job.key === viewKey) return null;
+    return job;
+  }
+
+  function coerceLeadPanelButtonsForView(row) {
+    if (!row) return;
+    const viewKey = leadPanelRowKey(row);
+    const job = window.__leadPanelJob;
+    const huntBtn = document.getElementById('deepEnhanceBtn');
+    const auditBtn = document.getElementById('pageSpeedAuditRunBtn');
+
+    const huntActiveForView =
+      job &&
+      job.kind === 'hunt' &&
+      job.key === viewKey &&
+      window.__contactHuntInFlight &&
+      window.__contactHuntInFlight.has(viewKey);
+    const auditActiveForView = job && job.kind === 'audit' && job.key === viewKey && pageSpeedAuditInFlight;
+
+    if (huntBtn && !huntActiveForView && huntBtn.dataset.huntState === 'active') {
+      stopHuntProgressTickerGlobal();
+      setDeepEnhanceHuntUi('idle');
+    }
+    if (auditBtn && !auditActiveForView && auditBtn.dataset.auditState === 'active') {
+      stopPageSpeedAuditProgressTicker();
+      setPageSpeedAuditUi('idle');
+    }
+  }
+  window.__coerceLeadPanelButtonsForView = coerceLeadPanelButtonsForView;
+
+  function rowLeadKeyForPanel(row) {
+    return leadPanelRowKey(row);
+  }
+
+  function isPanelAuditActiveForRow(row) {
+    if (!pageSpeedAuditInFlight) return false;
+    const job = window.__leadPanelJob;
+    if (!job || job.kind !== 'audit') return false;
+    return job.key === leadPanelRowKey(row);
+  }
+
+  function isAuditRunningOnAnotherPanelLead(row) {
+    if (!pageSpeedAuditInFlight) return false;
+    const other = leadPanelJobOnOtherRow(row);
+    return !!(other && other.kind === 'audit');
+  }
+
+  function setPanelAuditLead(row) {
+    window.__pageSpeedAuditLeadKey = rowLeadKeyForPanel(row);
+    window.__pageSpeedAuditLeadTitle = String((row && row.dataset && row.dataset.title) || 'Lead').trim() || 'Lead';
+  }
+
+  function clearPanelAuditLead(key) {
+    const k = String(key || '').trim();
+    const auditKey = String(window.__pageSpeedAuditLeadKey || '').trim();
+    if (!auditKey || !k || auditKey === k) {
+      window.__pageSpeedAuditLeadKey = '';
+      window.__pageSpeedAuditLeadTitle = '';
+    }
+  }
 
   function pageSpeedAuditButtonLabel(hasAudit, running) {
     if (running) return 'Running audit…';
@@ -5080,6 +5184,14 @@ document.addEventListener('DOMContentLoaded', () => {
     stopPageSpeedAuditProgressTicker();
     const t0 = Date.now();
     const tick = () => {
+      const auditKey = String(window.__pageSpeedAuditLeadKey || '').trim();
+      const rowKey = currentRow ? leadPanelRowKey(currentRow) : '';
+      if (auditKey && rowKey && rowKey !== auditKey) return;
+      const btn = document.getElementById('pageSpeedAuditRunBtn');
+      if (!btn || btn.dataset.auditState !== 'active') {
+        stopPageSpeedAuditProgressTicker();
+        return;
+      }
       const phase = auditProgressForElapsed(Date.now() - t0);
       updatePageSpeedAuditProgress(phase.pct, phase.label, phase.detail, phase.step);
       setGeoSeoGhlAuditLoading(true, phase.label);
@@ -5097,7 +5209,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const next = state || 'idle';
     btn.dataset.auditState = next;
-    pageSpeedAuditInFlight = next === 'active';
 
     if (next === 'active') {
       btn.disabled = true;
@@ -5168,6 +5279,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showPageSpeedAuditError(message) {
+    pageSpeedAuditInFlight = false;
+    clearLeadPanelJob('audit', null);
     const errEl = document.getElementById('pageSpeedAuditError');
     setPageSpeedAuditUi('idle');
     if (errEl) {
@@ -5205,7 +5318,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const results = document.getElementById('pageSpeedAuditResults');
     const runBtn = document.getElementById('pageSpeedAuditRunBtn');
     const progressWrap = document.getElementById('pageSpeedAuditProgressWrap');
+    const runMeta = document.getElementById('pageSpeedAuditRunMeta');
     if (!runBtn) return;
+    if (!row) return;
+    coerceLeadPanelButtonsForView(row);
 
     syncGeoSeoGhlAuditPanel(row);
 
@@ -5215,6 +5331,47 @@ document.addEventListener('DOMContentLoaded', () => {
     const geoReport = row ? parseGeoSeoGhlAuditFromRow(row) : null;
 
     const uiActive = runBtn.dataset.auditState === 'active';
+    const forThisRow = isPanelAuditActiveForRow(row);
+    const forOtherLead = isAuditRunningOnAnotherPanelLead(row);
+
+    if (forThisRow) {
+      if (runBtn.dataset.auditState !== 'active') {
+        setPageSpeedAuditUi('active', { deferProgressTicker: true });
+      }
+      if (!pageSpeedAuditProgressTimer) startPageSpeedAuditProgressTicker();
+      if (runMeta) {
+        const name = (row.dataset.title || window.__pageSpeedAuditLeadTitle || 'this lead').trim();
+        runMeta.textContent = `Website audit in progress for ${name} (15–45 seconds).`;
+        runMeta.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (forOtherLead) {
+      if (uiActive) {
+        stopPageSpeedAuditProgressTicker();
+        setPageSpeedAuditUi('idle');
+      }
+      if (progressWrap) progressWrap.classList.add('hidden');
+      if (runMeta) {
+        const other = String(window.__pageSpeedAuditLeadTitle || 'another lead').trim() || 'another lead';
+        runMeta.textContent = `Website audit still running on ${other}. Use ← → to return to that lead, or wait for the toast when it finishes.`;
+        runMeta.classList.remove('hidden');
+      }
+      const blocked = !hasWebsite;
+      runBtn.disabled = blocked;
+      runBtn.setAttribute('aria-disabled', blocked ? 'true' : 'false');
+      runBtn.classList.toggle('opacity-50', blocked);
+      runBtn.classList.toggle('cursor-not-allowed', blocked);
+      setPageSpeedAuditButtonLabel(runBtn, pageSpeedAuditButtonLabel(!!(audit || geoReport), false));
+      return;
+    }
+
+    if (runMeta) {
+      runMeta.textContent = '';
+      runMeta.classList.add('hidden');
+    }
+
     if (!pageSpeedAuditInFlight && uiActive) {
       stopPageSpeedAuditProgressTicker();
       setPageSpeedAuditUi('idle');
@@ -8952,6 +9109,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncSidebarOutreachButtons(row);
+    coerceLeadPanelButtonsForView(row);
     syncPageSpeedAuditPanel(row);
     syncContactHuntPanel(row);
     syncLeadPanelEmailReportSection(row);
@@ -10475,12 +10633,25 @@ document.addEventListener('DOMContentLoaded', () => {
     if (statusDetail) statusDetail.textContent = 'Grade: ' + a.grade + ' · Generated just now';
   }
 
-  async function handlePageSpeedAuditClick(ev) {
+  async function handlePageSpeedAuditClick(rowOrEv, maybeEv) {
+    let row = null;
+    let ev = null;
+    if (
+      rowOrEv &&
+      rowOrEv.dataset &&
+      rowOrEv.classList &&
+      rowOrEv.classList.contains('result-row')
+    ) {
+      row = resolveRowForLeadPanelActions(rowOrEv);
+      ev = maybeEv;
+    } else {
+      ev = rowOrEv;
+      row = resolveRowForLeadPanelActions();
+    }
     if (ev) {
       ev.preventDefault();
       ev.stopPropagation();
     }
-    const row = resolveRowForLeadPanelActions();
     if (row) currentRow = row;
 
     scrollLeadPanelToSection('pageSpeedAuditSection');
@@ -10503,13 +10674,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (pageSpeedAuditInFlight) {
-      const busyKey = String(row.dataset.leadKey || '').trim();
-      if (!busyKey || window.__pageSpeedAuditLeadKey !== busyKey) {
-        pageSpeedAuditInFlight = false;
-        setPageSpeedAuditUi('idle');
-      } else {
+      if (isPanelAuditActiveForRow(row)) return;
+      if (isAuditRunningOnAnotherPanelLead(row)) {
+        const other = String(window.__pageSpeedAuditLeadTitle || 'another lead').trim() || 'another lead';
+        const msg = `Website audit already running on ${other}. Wait for it to finish or use ← → to return to that lead.`;
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(msg, { variant: 'info' });
+        }
         return;
       }
+      pageSpeedAuditInFlight = false;
+      clearLeadPanelJob('audit', null);
+      setPageSpeedAuditUi('idle');
     }
 
     if (websiteUrl && (!row.dataset.website || row.dataset.website === 'N/A')) {
@@ -10527,10 +10703,14 @@ document.addEventListener('DOMContentLoaded', () => {
       },
     });
     updatePageSpeedAuditProgress(8, 'Running audit…', '', 'Step 1 · Prep');
+    pageSpeedAuditInFlight = true;
+    beginLeadPanelJob('audit', row);
 
     try {
       await ensureRowHasLeadKey(row);
     } catch (ensureErr) {
+      pageSpeedAuditInFlight = false;
+      clearLeadPanelJob('audit', row);
       setPageSpeedAuditUi('idle');
       const msg = (ensureErr && ensureErr.message) || 'Save this lead before running website audit.';
       showPageSpeedAuditError(msg);
@@ -10540,7 +10720,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    window.__pageSpeedAuditLeadKey = String(row.dataset.leadKey || '').trim();
+    beginLeadPanelJob('audit', row);
     startPageSpeedAuditProgressTicker();
     updatePageSpeedAuditProgress(
       12,
@@ -10622,8 +10802,9 @@ document.addEventListener('DOMContentLoaded', () => {
       else if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
       else window.alert(msg);
     } finally {
-      window.__pageSpeedAuditLeadKey = '';
-      setPageSpeedAuditRunning(false);
+      pageSpeedAuditInFlight = false;
+      clearLeadPanelJob('audit', row);
+      setPageSpeedAuditUi('idle');
       syncPageSpeedAuditPanel(row);
       syncLeadPanelEmailReportSection(row);
       const results = document.getElementById('pageSpeedAuditResults');
@@ -10667,6 +10848,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Contact hunt (sidebar + pipeline row sparkle) ---
   window.__contactHuntInFlight = window.__contactHuntInFlight || new Set();
+  /** Lead key/title for the panel "Hunt contacts & reviews" button — avoids showing progress on every lead you browse. */
+  window.__panelHuntLeadKey = window.__panelHuntLeadKey || '';
+  window.__panelHuntLeadTitle = window.__panelHuntLeadTitle || '';
   window.__huntProgressInterval = window.__huntProgressInterval || null;
   window.__huntProgressStartedAt = 0;
 
@@ -10682,6 +10866,14 @@ document.addEventListener('DOMContentLoaded', () => {
     stopHuntProgressTickerGlobal();
     window.__huntProgressStartedAt = Date.now();
     const tick = () => {
+      const panelKey = String(window.__panelHuntLeadKey || '').trim();
+      const rowKey = currentRow ? leadPanelRowKey(currentRow) : '';
+      if (panelKey && rowKey && rowKey !== panelKey) return;
+      const btn = document.getElementById('deepEnhanceBtn');
+      if (!btn || btn.dataset.huntState !== 'active') {
+        stopHuntProgressTickerGlobal();
+        return;
+      }
       const elapsed = Date.now() - window.__huntProgressStartedAt;
       const phase = huntProgressForElapsed(elapsed);
       updateDeepEnhanceHuntProgress(phase.pct, phase.label, phase.detail);
@@ -10826,11 +11018,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function contactHuntTrackingKey(row) {
-    if (!row || !row.dataset) return '';
-    const leadKey = String(row.dataset.leadKey || '').trim();
-    if (leadKey) return leadKey;
-    const titleKey = normalizeLeadTitleKey(row.dataset.title || '');
-    return titleKey ? `prep:${titleKey}` : '';
+    return leadPanelRowKey(row);
   }
 
   function isContactHuntInFlightForRow(row) {
@@ -10839,25 +11027,69 @@ document.addEventListener('DOMContentLoaded', () => {
     return !!(key && window.__contactHuntInFlight && window.__contactHuntInFlight.has(key));
   }
 
-  function setSidebarContactHuntBusy(busy) {
+  function isPanelHuntUiActiveForRow(row) {
+    const job = window.__leadPanelJob;
+    if (!job || job.kind !== 'hunt') return false;
+    if (job.key !== leadPanelRowKey(row)) return false;
+    return isContactHuntInFlightForRow(row);
+  }
+
+  function setPanelHuntLeadKey(key, title) {
+    window.__panelHuntLeadKey = String(key || '').trim();
+    window.__panelHuntLeadTitle = String(title || '').trim();
+  }
+
+  function clearPanelHuntLeadKey(key) {
+    const k = String(key || '').trim();
+    const panelKey = String(window.__panelHuntLeadKey || '').trim();
+    if (!panelKey || !k || panelKey === k) {
+      window.__panelHuntLeadKey = '';
+      window.__panelHuntLeadTitle = '';
+    }
+  }
+
+  function isHuntRunningOnAnotherPanelLead(row) {
+    const other = leadPanelJobOnOtherRow(row);
+    if (!other || other.kind !== 'hunt') return false;
+    return !!(window.__contactHuntInFlight && window.__contactHuntInFlight.has(other.key));
+  }
+
+  function setSidebarContactHuntBusy(busy, row) {
+    if (busy && row && !isPanelHuntUiActiveForRow(row)) return;
     if (busy) setDeepEnhanceHuntUi('active');
     else setDeepEnhanceHuntUi('idle');
   }
 
   function syncContactHuntPanel(row) {
     const meta = document.getElementById('huntLastRunMeta');
-    if (!row || currentRow !== row) return;
+    if (!row) return;
+    coerceLeadPanelButtonsForView(row);
 
     expireStaleContactHunt(row);
 
     const btn = document.getElementById('deepEnhanceBtn');
     const uiActive = !!(btn && btn.dataset.huntState === 'active');
-    const inFlight = isContactHuntInFlightForRow(row);
+    const inFlight = isPanelHuntUiActiveForRow(row);
     if (inFlight) {
       if (btn && btn.dataset.huntState !== 'active') setDeepEnhanceHuntUi('active');
       startHuntProgressTickerGlobal();
       if (meta) {
-        meta.textContent = 'Hunt in progress — contacts, reviews, and AI summary…';
+        const name = (row.dataset.title || window.__panelHuntLeadTitle || 'this lead').trim();
+        meta.textContent = `Hunt in progress for ${name} — contacts, Google reviews, and AI summary (30–90s).`;
+        meta.classList.remove('hidden');
+      }
+      return;
+    }
+
+    if (isHuntRunningOnAnotherPanelLead(row)) {
+      if (uiActive && btn && btn.dataset.huntState !== 'done') {
+        stopHuntProgressTickerGlobal();
+        setDeepEnhanceHuntUi('idle');
+      }
+      stopHuntProgressTickerGlobal();
+      if (meta) {
+        const other = String(window.__panelHuntLeadTitle || 'another lead').trim() || 'another lead';
+        meta.textContent = `Contact hunt still running on ${other}. Use ← → to return to that lead, or wait for the bell notification.`;
         meta.classList.remove('hidden');
       }
       return;
@@ -10886,10 +11118,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function findRowByLeadKey(leadKey) {
-    const k = String(leadKey || '').trim();
+    const k = String(leadKey || '').trim().replace(/^lead:/i, '');
     if (!k) return null;
     for (const row of document.querySelectorAll('.result-row')) {
-      if (String(row.dataset.leadKey || '').trim() === k) return row;
+      if (leadPanelRowKey(row) === k) return row;
     }
     return null;
   }
@@ -10934,14 +11166,21 @@ document.addEventListener('DOMContentLoaded', () => {
       }).catch(() => {});
     }
 
-    if (huntKey) window.__contactHuntInFlight.delete(huntKey);
+    if (huntKey) {
+      const huntNorm = huntKey.replace(/^lead:/i, '');
+      window.__contactHuntInFlight.delete(huntNorm);
+    }
+    clearLeadPanelJob('hunt', row);
     stopHuntProgressTickerGlobal();
     updateProcessingStatus(false);
 
     const reviewGridDone = document.getElementById('reviewIntelGrid');
     if (reviewGridDone) reviewGridDone.classList.remove('review-intel-loading');
 
-    if (currentRow === row) {
+    if (
+      currentRow === row ||
+      (currentRow && row && leadPanelRowKey(currentRow) === leadPanelRowKey(row))
+    ) {
       populatePanel(row);
       if (data.lead && typeof data.lead === 'object' && typeof window.__paintPanelFromLeadRecord === 'function') {
         try {
@@ -11050,7 +11289,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let huntTrackKey = '';
     const syncSidebarForRow = (busy) => {
       if (currentRow === row) {
-        if (busy) setSidebarContactHuntBusy(true);
+        if (busy) setSidebarContactHuntBusy(true, row);
         else syncContactHuntPanel(row);
       }
     };
@@ -11083,8 +11322,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!isSidebarTrigger) {
         triggerBtn.disabled = false;
         triggerBtn.removeAttribute('aria-busy');
-      } else {
-        setDeepEnhanceHuntUi('idle');
       }
     }
 
@@ -11102,6 +11339,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     huntTrackKey = pendingTrackKey || contactHuntTrackingKey(row);
     if (huntTrackKey) window.__contactHuntInFlight.add(huntTrackKey);
+    if (isSidebarTrigger && huntTrackKey) {
+      beginLeadPanelJob('hunt', row);
+    }
 
     if (isSidebarTrigger) {
       setDeepEnhanceHuntUi('active', {
@@ -11113,7 +11353,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const releaseHuntUi = () => {
       if (huntTrackKey) window.__contactHuntInFlight.delete(huntTrackKey);
       const savedKey = String(row.dataset.leadKey || '').trim();
-      if (savedKey && savedKey !== huntTrackKey) window.__contactHuntInFlight.delete(savedKey);
+      const savedNorm = savedKey ? savedKey.replace(/^lead:/i, '') : '';
+      if (savedNorm && savedNorm !== huntTrackKey) window.__contactHuntInFlight.delete(savedNorm);
+      clearLeadPanelJob('hunt', row);
       stopHuntProgressTickerGlobal();
       const reviewGridBusy = document.getElementById('reviewIntelGrid');
       if (reviewGridBusy) reviewGridBusy.classList.remove('review-intel-loading');
@@ -11137,13 +11379,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const savedKey = String(row.dataset.leadKey || '').trim();
-    if (savedKey && huntTrackKey && huntTrackKey !== savedKey) {
+    if (savedKey && huntTrackKey && huntTrackKey !== leadPanelRowKey(row)) {
       window.__contactHuntInFlight.delete(huntTrackKey);
-      huntTrackKey = savedKey;
+      huntTrackKey = leadPanelRowKey(row);
       window.__contactHuntInFlight.add(huntTrackKey);
     } else if (savedKey) {
-      huntTrackKey = savedKey;
+      huntTrackKey = leadPanelRowKey(row);
       window.__contactHuntInFlight.add(huntTrackKey);
+    }
+    if (isSidebarTrigger && huntTrackKey) {
+      beginLeadPanelJob('hunt', row);
     }
 
     const key = row.dataset.leadKey;
@@ -11175,8 +11420,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const reviewGridBusy = document.getElementById('reviewIntelGrid');
       if (reviewGridBusy) reviewGridBusy.classList.remove('review-intel-loading');
       const lk = String(row.dataset.leadKey || key || huntTrackKey || '').trim();
-      if (lk) window.__contactHuntInFlight.delete(lk);
-      if (huntTrackKey && huntTrackKey !== lk) window.__contactHuntInFlight.delete(huntTrackKey);
+      const lkNorm = lk ? lk.replace(/^lead:/i, '') : '';
+      if (lkNorm) window.__contactHuntInFlight.delete(lkNorm);
+      if (huntTrackKey && huntTrackKey !== lkNorm) window.__contactHuntInFlight.delete(huntTrackKey);
+      clearLeadPanelJob('hunt', row);
       if (triggerBtn && !isSidebarTrigger) {
         triggerBtn.disabled = false;
         triggerBtn.removeAttribute('aria-busy');
@@ -11263,7 +11510,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const errMsg = data.error || 'No additional contact data discovered yet.';
       if (data.lead && typeof data.lead === 'object') {
         syncPersistedLeadToRowDataset(row, data.lead);
-        populatePanel(row);
+        if (currentRow && leadPanelRowKey(currentRow) === leadPanelRowKey(row)) {
+          populatePanel(row);
+        }
       } else {
         row.dataset.lastContactHuntAt = new Date().toISOString();
         syncContactHuntPanel(row);
@@ -15081,5 +15330,5 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.50-hunt-background-save';
+  window.__ADHELLO_BUILD = '1.0.51-panel-scoped-hunt-audit';
 });
