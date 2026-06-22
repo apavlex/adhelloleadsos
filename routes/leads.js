@@ -3724,6 +3724,128 @@ router.post('/ai-analysis/export-csv', express.json(), async (req, res) => {
   }
 });
 
+// ── Real Estate Leads Import ──────────────────────────────────────────────────
+
+const fsSync = require('fs');
+
+// GET /leads/import-real-estate — import mobile home listings from JSON to pipeline
+router.get('/import-real-estate', async (req, res, next) => {
+  try {
+    const jsonPath = path.resolve(__dirname, '..', 'leads-real-estate', 'all-listings-master.json');
+    if (!fsSync.existsSync(jsonPath)) {
+      return res.json({ success: false, error: 'No listings file found. Run the scraper first.' });
+    }
+
+    const listings = JSON.parse(fsSync.readFileSync(jsonPath, 'utf8'));
+    if (!Array.isArray(listings) || listings.length === 0) {
+      return res.json({ success: false, error: 'Listings file is empty.' });
+    }
+
+    const imported = [];
+    const skipped = [];
+    let created = 0, updated = 0;
+
+    for (const item of listings) {
+      // Skip listings already marked as imported
+      if (item._imported) {
+        skipped.push(item.url);
+        continue;
+      }
+
+      const title = `${item.source === 'craigslist' ? 'CL' : 'FB'}: ${item.title || 'Mobile Home Listing'}`;
+      const location = (item.location || '').trim();
+      const cityState = location.split(',').map(s => s.trim());
+      const city = cityState[0] || '';
+      const state = cityState[1] || '';
+      const address = location || 'N/A';
+
+      const leadData = {
+        title,
+        phone: 'N/A',
+        website: item.url || 'N/A',
+        email: 'N/A',
+        categoryName: 'Real Estate - Mobile Home',
+        address,
+        city,
+        state,
+        totalScore: 0,
+        reviewsCount: 0,
+        url: item.url || '',
+        status: 'Lead Captured',
+        source: item.source === 'facebook' ? 'facebook marketplace' : 'craigslist',
+        folderKey: 'real-estate',
+        workspaceId: req.workspaceId,
+        pipelineStage: 1,
+        updates: [{
+          type: 'note',
+          value: [
+            `Price: ${item.price_str || '$?'}`,
+            `Beds: ${item.beds || '?'} | Baths: ${item.baths || '?'}`,
+            item.cross_listed ? `Cross-listed on both platforms (CL: ${item.url}, FB: ${item.fb_url})` : '',
+            `Scraped: ${item.date || 'unknown'}`,
+            item.title ? `Original title: ${item.title}` : '',
+          ].filter(Boolean).join('\n'),
+          timestamp: new Date().toISOString(),
+        }],
+      };
+
+      try {
+        const key = await dbService.saveLead(leadData);
+        if (key) {
+          item._imported = true;
+          item._leadKey = key;
+          created += 1;
+          imported.push({ url: item.url, key });
+        }
+      } catch (e) {
+        console.error('[import-real-estate] save error:', e.message);
+        skipped.push(item.url);
+      }
+    }
+
+    // Update the JSON with _imported flags
+    fsSync.writeFileSync(jsonPath, JSON.stringify(listings, null, 2));
+
+    res.json({
+      success: true,
+      created,
+      updated,
+      skipped: skipped.length,
+      total: listings.length,
+      imported: imported.length,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/import-real-estate — reimport all (clear _imported flags first)
+router.post('/import-real-estate', async (req, res, next) => {
+  try {
+    const jsonPath = path.resolve(__dirname, '..', 'leads-real-estate', 'all-listings-master.json');
+    if (!fs.existsSync(jsonPath)) {
+      return res.json({ success: false, error: 'No listings file found.' });
+    }
+
+    const listings = JSON.parse(fs.readFileSync(jsonPath, 'utf8'));
+    const force = req.body && (req.body.force === 'true' || req.body.force === true);
+    
+    if (force) {
+      // Clear _imported flags to reimport everything
+      for (const item of listings) {
+        delete item._imported;
+        delete item._leadKey;
+      }
+      fsSync.writeFileSync(jsonPath, JSON.stringify(listings, null, 2));
+    }
+
+    // Redirect to GET handler
+    res.redirect(307, '/leads/import-real-estate');
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
 
 // ── Omnichannel dashboard ────────────────────────────────────────────────────
