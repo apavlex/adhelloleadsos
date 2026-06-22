@@ -11,6 +11,7 @@ const {
 } = require('../services/trackerStats');
 const { loadDailyTouchGoal, saveDailyTouchGoal } = require('../services/touchGoalPrefs');
 const { buildFocusQueue, shortLeadKey, lastActivityMs } = require('../services/focusQueue');
+const { scoreLeadRecord } = require('../services/opportunityScore');
 
 const pipelineStagesService = require('../services/pipelineStagesService');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
@@ -104,6 +105,10 @@ function leadToFocusPayload(l, sortedStages) {
     String(l.contactName || '').trim() ||
     (hasEmail ? email.split('@')[0].replace(/[._]+/g, ' ') : '');
 
+  const opp = scoreLeadRecord(l);
+  const whyReasons = (opp.reasons || []).slice(0, 5);
+  const whyTier = opp.tier || 'low';
+
   return {
     key: shortLeadKey(l),
     title: l.title || 'Company',
@@ -132,6 +137,8 @@ function leadToFocusPayload(l, sortedStages) {
     hasAiWebsiteAnalysis: !!(l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object'),
     hasAiToolsAssessment: !!(l.aiToolsAssessment && typeof l.aiToolsAssessment === 'object'),
     defaultChannel,
+    whyReasons,
+    whyTier,
   };
 }
 
