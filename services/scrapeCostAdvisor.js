@@ -9,6 +9,8 @@ const searchapiGoogleLocal = require('./searchapiGoogleLocal');
 const serpapiGoogleLocal = require('./serpapiGoogleLocal');
 const rapidapiLocalBusiness = require('./rapidapiLocalBusiness');
 const betterContact = require('./betterContactClient');
+const ghlClient = require('./ghlClient');
+const lobClient = require('./lobClient');
 
 /** @param {Record<string, string>|null|undefined} [resolvedEnv] workspace-resolved env */
 function apifyConfigured(resolvedEnv) {
@@ -34,6 +36,8 @@ function buildSourceCards(live = {}, resolvedEnv) {
   const serpapi = serpapiGoogleLocal.isConfigured(resolvedEnv);
   const rapidapi = rapidapiLocalBusiness.isConfigured(resolvedEnv);
   const bc = betterContact.isConfigured(resolvedEnv);
+  const ghl = ghlClient.isConfigured(resolvedEnv);
+  const lob = lobClient.isConfigured(resolvedEnv);
 
   return [
     {
@@ -133,6 +137,30 @@ function buildSourceCards(live = {}, resolvedEnv) {
         : 'Set SERPAPI_API_KEY from serpapi.com for Google Local as a Maps list source.',
     },
     {
+      id: 'ghl',
+      name: 'Go High Level',
+      connectAnchor: 'ghl-integration',
+      role: 'CRM — sync contacts, send SMS & email, inbound webhooks.',
+      cost: 'Included with your GHL sub-account; API usage is part of your plan.',
+      configured: ghl,
+      live: null,
+      tip: ghl
+        ? 'Push/pull from Workspace → Integrations, bulk actions on the pipeline, Focus mode, and sub-agents. Outbound email needs a verified sender; SMS can use your location default number.'
+        : 'Set GHL private integration token + location ID under CRM. Enable contacts (read/write) and conversations/message.write scopes. See the setup guide for webhook URL.',
+    },
+    {
+      id: 'lob',
+      name: 'Lob (Direct Mail)',
+      connectAnchor: 'lob-integration',
+      role: 'Direct mail — postcards and letters from pipeline / Direct Mail.',
+      cost: 'Per piece printed and mailed (test_ keys are free proofs; live_ keys bill postage).',
+      configured: lob,
+      live: null,
+      tip: lob
+        ? 'Upload front/back PDFs on the Lob card, then mail from Direct Mail or bulk pipeline actions. test_ keys queue proofs without postage.'
+        : 'Set Lob API key + return address under CRM → Lob. Use test_… for proofs; switch to live_… when billing is enabled on Lob.',
+    },
+    {
       id: 'local_scrape',
       name: 'Local scrape (Cheerio + Puppeteer)',
       connectAnchor: 'integration-find-leads',
@@ -199,6 +227,24 @@ function buildTaskRows() {
         'Paid Maps APIs when you need Google-native ratings/reviews at scale.',
       inApp: 'Find Leads checkbox “Also mine directory listings” (on by default). Disable with SEARCH_DIRECTORY_SUPPLEMENT=0.',
     },
+    {
+      task: 'Sync pipeline leads with your CRM and send SMS/email',
+      startCheap:
+        'Manual CSV export/import if you only need occasional handoffs.',
+      keepPaid:
+        'Go High Level when you want two-way sync, verified outbound, and webhook-driven inbound contacts.',
+      inApp:
+        'Workspace → Integrations → Go High Level. Push/pull on the card; send from lead panel, Focus, or bulk GHL actions.',
+    },
+    {
+      task: 'Mail physical postcards to selected leads',
+      startCheap:
+        'Export addresses and print locally when volume is tiny.',
+      keepPaid:
+        'Lob when you want print-and-mail at scale with PDF creatives and delivery tracking.',
+      inApp:
+        'Workspace → Integrations → Lob (API key + return address + PDF uploads), then Direct Mail or pipeline bulk send.',
+    },
   ];
 }
 
@@ -207,7 +253,7 @@ function getDashboardPayload(live = {}, resolvedEnv) {
     sources: buildSourceCards(live, resolvedEnv),
     tasks: buildTaskRows(),
     principle:
-      'Cheaper lanes stack on top of what you already have: Maps search can chain RapidAPI, SearchAPI.io, SerpAPI, Outscraper, then Apify; Enhance can try Crawl4AI HTML before Firecrawl. Keep paid tools when they save time or unblock quality.',
+      'Cheaper lanes stack on top of what you already have: Maps search can chain RapidAPI, SearchAPI.io, SerpAPI, Outscraper, then Apify; Enhance can try Crawl4AI HTML before Firecrawl; Go High Level handles CRM sync and outbound; Lob handles print-and-mail. Keep paid tools when they save time or unblock quality.',
   };
 }
 
