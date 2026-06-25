@@ -931,6 +931,96 @@
   }
   window.__runBulkSmsFromBarEarly = runBulkSmsFromBarEarly;
 
+  async function waitForBulkPushGhlHandler(maxMs) {
+    const limit = typeof maxMs === 'number' ? maxMs : 8000;
+    const step = 100;
+    for (let elapsed = 0; elapsed < limit; elapsed += step) {
+      if (typeof window.__openBulkPushGhlFromBar === 'function') return window.__openBulkPushGhlFromBar;
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(function (resolve) {
+        window.setTimeout(resolve, step);
+      });
+    }
+    return null;
+  }
+
+  async function runBulkPushGhlFromBarEarly() {
+    if (window.__bulkPushGhlInFlight) return { ok: false, error: 'in_flight' };
+    if (typeof window.__openBulkPushGhlFromBar === 'function') {
+      return window.__openBulkPushGhlFromBar();
+    }
+
+    const btn = document.getElementById('bulkPushGhlBtn');
+    const leadKeys = collectSelectedLeadKeysEarly();
+    if (!leadKeys.length) {
+      showBulkBarFeedbackEarly('Select at least one lead.', 'error');
+      return { ok: false, error: 'no_selection' };
+    }
+    const noWebsiteCount = countNoWebsiteSelectedEarly();
+    const labelDefault = 'Push GHL';
+    const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Pushing…';
+      btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('is-busy');
+    }
+    showBulkBarFeedbackEarly(
+      `Syncing ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} to GHL…`,
+      'loading',
+    );
+
+    const handler = await waitForBulkPushGhlHandler(8000);
+    if (typeof handler === 'function') {
+      return handler();
+    }
+
+    window.__bulkPushGhlInFlight = true;
+    try {
+      const res = await fetch('/ghl/push', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: leadKeys, tagNoWebsite: true }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      }
+      const pushed = data.pushed != null ? data.pushed : 0;
+      const failed = data.failed != null ? data.failed : 0;
+      const taggedNote = noWebsiteCount > 0 ? ` · ${noWebsiteCount} tagged no website` : '';
+      const msg = `GHL sync complete · ${pushed} contact${pushed === 1 ? '' : 's'}${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
+      showBulkBarFeedbackEarly(msg, failed === 0 ? 'success' : 'error');
+      if (typeof window.__flashBulkBarBtn === 'function') {
+        window.__flashBulkBarBtn(btn, failed === 0 ? '✓ Synced' : 'Failed');
+      }
+      const link = document.getElementById('bulkOpenGhlContactsLink');
+      if (link && pushed > 0) link.classList.remove('hidden');
+      return { ok: true, pushed, failed };
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'GHL push failed';
+      showBulkBarFeedbackEarly(msg, 'error');
+      if (typeof window.__flashBulkBarBtn === 'function') {
+        window.__flashBulkBarBtn(btn, 'Failed', 1200);
+      }
+      return { ok: false, error: msg };
+    } finally {
+      window.__bulkPushGhlInFlight = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.classList.remove('is-busy');
+        if (!btn.__flashTimer) btn.textContent = prev;
+      }
+      if (typeof window.__syncBulkBarFromDom === 'function') window.__syncBulkBarFromDom();
+      else if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+    }
+  }
+  window.__runBulkPushGhlFromBarEarly = runBulkPushGhlFromBarEarly;
+
   async function runBulkGhlEmailFromBarEarly() {
     if (typeof window.__openBulkGhlEmailFromBar === 'function') {
       return window.__openBulkGhlEmailFromBar();
@@ -1102,6 +1192,12 @@
           }, 120);
           return;
         }
+        if (e.target.closest('#bulkPushGhlBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          runBulkPushGhlFromBarEarly();
+          return;
+        }
         if (e.target.closest('#bulkSmsBtn')) {
           handleBulkPrimaryActionClick(e, 'sms');
           return;
@@ -1158,7 +1254,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '7';
+  window.__PIPELINE_BULK_SELECT_V2 = '8';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

@@ -13495,6 +13495,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function openBulkPushGhlFromBar() {
+    if (window.__bulkPushGhlInFlight) return { ok: false, error: 'in_flight' };
     const btn = bulkPushGhlBtn || document.getElementById('bulkPushGhlBtn');
     const keys = ensureBulkSelectionKeys();
     if (keys.length === 0) {
@@ -13505,6 +13506,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
     const labelDefault = 'Push GHL';
     const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
+    window.__bulkPushGhlInFlight = true;
     if (btn) {
       __bulkBarBtnLabels.set(btn, prev);
       btn.disabled = true;
@@ -13512,7 +13514,11 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('is-busy');
     }
-    showBulkSaveFeedback(`Syncing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, 'loading');
+    const syncNote =
+      keys.length > 10
+        ? `Syncing ${keys.length} leads to GHL… this may take a minute.`
+        : `Syncing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`;
+    showBulkSaveFeedback(syncNote, 'loading');
     try {
       const res = await fetch('/ghl/push', {
         method: 'POST',
@@ -13538,6 +13544,7 @@ document.addEventListener('DOMContentLoaded', () => {
       flashBulkBarBtn(btn, 'Failed', 1200);
       return { ok: false, error: msg };
     } finally {
+      window.__bulkPushGhlInFlight = false;
       if (btn) {
         btn.disabled = false;
         btn.removeAttribute('aria-busy');
@@ -13552,6 +13559,10 @@ document.addEventListener('DOMContentLoaded', () => {
     bulkPushGhlBtn.addEventListener('click', async (e) => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      if (typeof window.__runBulkPushGhlFromBarEarly === 'function') {
+        await window.__runBulkPushGhlFromBarEarly();
+        return;
+      }
       await openBulkPushGhlFromBar();
     });
   }
