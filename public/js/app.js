@@ -10142,6 +10142,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
   mountSmsModalToBody();
+  window.__mountSmsModalToBody = mountSmsModalToBody;
   const smsScriptSelect = document.getElementById('smsScriptSelect');
   const smsBodyInput = document.getElementById('smsBodyInput');
   const smsBodyCount = document.getElementById('smsBodyCount');
@@ -12841,10 +12842,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function collectPhoneLeadKeysFromRows(rows) {
     const keys = [];
-    (Array.isArray(rows) ? rows : []).forEach((row) => {
-      if (!rowHasUsablePhone(row)) return;
+    const seen = new Set();
+    const addFromRow = (row) => {
+      if (!row || !rowHasUsablePhone(row)) return;
       const raw = String((row.dataset && row.dataset.leadKey) || '').trim();
-      if (raw) keys.push(raw);
+      if (!raw || seen.has(raw)) return;
+      seen.add(raw);
+      keys.push(raw);
+    };
+    (Array.isArray(rows) ? rows : []).forEach(addFromRow);
+    if (keys.length) return keys;
+    getSelectedLeadKeysForBulk().forEach((key) => {
+      const row = findLeadRowForBulkKey(key);
+      if (row) addFromRow(row);
     });
     return keys;
   }
@@ -13170,7 +13180,8 @@ document.addEventListener('DOMContentLoaded', () => {
           btn.setAttribute('aria-disabled', !enabled ? 'true' : 'false');
           if (href) btn.setAttribute('href', href);
         } else {
-          btn.disabled = !enabled;
+          btn.disabled = false;
+          btn.setAttribute('aria-disabled', !enabled ? 'true' : 'false');
           btn.classList.toggle('opacity-40', !enabled);
           btn.classList.toggle('cursor-not-allowed', !enabled);
         }
@@ -13582,49 +13593,66 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  async function openBulkGhlEmailFromBar() {
+    const btn = document.getElementById('bulkGhlNoWebsiteBtn');
+    const selectedRows = getSelectedLeadRowsForBulk();
+    const leadKeys = ensureBulkSelectionKeys();
+    if (leadKeys.length === 0) {
+      showBulkSaveFeedback('Select at least one lead.', 'error');
+      return { ok: false, error: 'no_selection' };
+    }
+
+    const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
+
+    const prev = bulkGhlNoWebsiteBtn ? bulkGhlNoWebsiteBtn.textContent : btn && btn.textContent;
+    if (bulkGhlNoWebsiteBtn) {
+      bulkGhlNoWebsiteBtn.disabled = false;
+      bulkGhlNoWebsiteBtn.textContent = 'Saving…';
+      bulkGhlNoWebsiteBtn.setAttribute('aria-busy', 'true');
+    }
+    showBulkSaveFeedback(`Saving ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} to GHL…`, 'loading');
+    try {
+      const res = await fetch('/ghl/push', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys, tagNoWebsite: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      }
+      const pushed = data.pushed != null ? data.pushed : 0;
+      const failed = data.failed != null ? data.failed : 0;
+      const taggedNote =
+        noWebsiteCount > 0
+          ? ` · ${noWebsiteCount} tagged no website`
+          : '';
+      const msg = `GHL: ${pushed} saved for email${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
+      showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
+      showBulkOpenGhlLink(pushed > 0);
+      flashBulkBarBtn(bulkGhlNoWebsiteBtn, failed === 0 ? '✓ Saved' : 'Failed');
+      return { ok: true, pushed, failed };
+    } catch (err) {
+      const msg = err && err.message ? err.message : 'GHL save failed';
+      showBulkSaveFeedback(msg, 'error');
+      flashBulkBarBtn(bulkGhlNoWebsiteBtn, 'Failed', 1200);
+      return { ok: false, error: msg };
+    } finally {
+      if (bulkGhlNoWebsiteBtn) {
+        bulkGhlNoWebsiteBtn.textContent = prev || 'Email (GHL)';
+        bulkGhlNoWebsiteBtn.removeAttribute('aria-busy');
+      }
+      updateBulkActionBar();
+    }
+  }
+  window.__openBulkGhlEmailFromBar = openBulkGhlEmailFromBar;
+
   if (bulkGhlNoWebsiteBtn) {
     bulkGhlNoWebsiteBtn.addEventListener('click', async (e) => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
-      const selectedRows = getSelectedLeadRowsForBulk();
-      const leadKeys = ensureBulkSelectionKeys();
-      if (leadKeys.length === 0) return;
-
-      const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
-
-      const prev = bulkGhlNoWebsiteBtn.textContent;
-      bulkGhlNoWebsiteBtn.disabled = true;
-      bulkGhlNoWebsiteBtn.textContent = 'Saving…';
-      showBulkSaveFeedback(`Saving ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} to GHL…`, 'loading');
-      try {
-        const res = await fetch('/ghl/push', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ leadKeys, tagNoWebsite: true }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || `HTTP ${res.status}`);
-        }
-        const pushed = data.pushed != null ? data.pushed : 0;
-        const failed = data.failed != null ? data.failed : 0;
-        const taggedNote =
-          noWebsiteCount > 0
-            ? ` · ${noWebsiteCount} tagged no website`
-            : '';
-        const msg = `GHL: ${pushed} saved for email${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
-        showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
-        showBulkOpenGhlLink(pushed > 0);
-        flashBulkBarBtn(bulkGhlNoWebsiteBtn, failed === 0 ? '✓ Saved' : 'Failed');
-      } catch (err) {
-        const msg = err && err.message ? err.message : 'GHL save failed';
-        showBulkSaveFeedback(msg, 'error');
-        flashBulkBarBtn(bulkGhlNoWebsiteBtn, 'Failed', 1200);
-      } finally {
-        bulkGhlNoWebsiteBtn.textContent = prev;
-        updateBulkActionBar();
-      }
+      await openBulkGhlEmailFromBar();
     });
   }
 
@@ -13714,7 +13742,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function openBulkSmsFromBar() {
     const btn = document.getElementById('bulkSmsBtn');
-    if (btn && btn.disabled) return { ok: false, error: 'disabled' };
+    mountSmsModalToBody();
     const phoneKeys = collectPhoneLeadKeysFromRows(getSelectedLeadRowsForBulk());
     if (phoneKeys.length === 0) {
       showBulkSaveFeedback('Selected leads have no phone numbers for SMS.', 'error');
