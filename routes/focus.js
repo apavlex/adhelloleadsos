@@ -5,7 +5,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
-const { excludeOutreachFolderLeads, filterBusinessPipelineLeads } = require('../services/leadListFilters');
+const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const {
   countUniqueLeadsTouchedOnUtcDate,
 } = require('../services/trackerStats');
@@ -176,7 +176,9 @@ router.get('/', async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
-    const pipelineLeads = filterBusinessPipelineLeads(excludeOutreachFolderLeads(visible));
+    // Include pipeline-folder businesses (maps saves file into Businesses folder).
+    // Listing/product folders are excluded via filterBusinessPipelineLeads.
+    const pipelineLeads = filterBusinessPipelineLeads(visible);
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
@@ -205,6 +207,13 @@ router.get('/', async (req, res, next) => {
       if (idx > 0) {
         const [item] = queue.splice(idx, 1);
         queue.unshift(item);
+      } else if (idx < 0) {
+        const leadRow =
+          pipelineLeads.find((l) => shortLeadKey(l) === prefer) ||
+          visible.find((l) => shortLeadKey(l) === prefer);
+        if (leadRow && filterBusinessPipelineLeads([leadRow]).length) {
+          queue.unshift(leadToFocusPayload(leadRow, sortedStages));
+        }
       }
     }
 
