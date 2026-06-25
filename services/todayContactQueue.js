@@ -2,7 +2,7 @@
  * Ranked "who to contact today" rows for /today — Focus queue + next cadence channel/hint.
  */
 
-const { excludeOutreachFolderLeads } = require('./leadListFilters');
+const { excludeOutreachFolderLeads, filterBusinessPipelineLeads } = require('./leadListFilters');
 const { buildFocusQueue, shortLeadKey } = require('./focusQueue');
 const { getTemplate } = require('./sequenceTemplates');
 const { expandCadenceText } = require('./cadenceTokens');
@@ -76,7 +76,9 @@ function nextCadencePresentation(lead, baseUrl) {
  * @param {number} [max]
  */
 function buildTodayContactQueue(leads, baseUrl, max = 20) {
-  const filtered = excludeOutreachFolderLeads(Array.isArray(leads) ? leads : []);
+  const filtered = filterBusinessPipelineLeads(
+    excludeOutreachFolderLeads(Array.isArray(leads) ? leads : []),
+  );
   const ordered = buildFocusQueue(filtered, 200);
   const cap = Math.min(Math.max(5, max), 50);
 

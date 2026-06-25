@@ -288,7 +288,7 @@
           <div class="min-w-0">
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Go High Level</h3>
             <p class="text-xs text-brand-muted mt-1 leading-relaxed">
-              GHL is your system of record for contacts, tags, SMS, and email. Push contacts from the pipeline or lead panel; tag and note changes sync automatically when GHL is connected.
+              GHL is your system of record for contacts, tags, SMS, and email. Sync contacts from the pipeline or lead panel; tag and note changes sync automatically when GHL is connected.
               Dispositions and cadence channels also sync <strong>AO:</strong> action tags to GHL (e.g. <em>AO: Call back</em>, <em>AO: Text</em>) so you can filter follow-up in GHL.
               Requires <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">contacts</code> (read + write) and
               <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> on your private integration token.
@@ -348,7 +348,7 @@
         </div>
         <div class="flex flex-wrap gap-2 pt-2 border-t border-brand-border/30 dark:border-white/10">
           <button type="button" class="js-ghl-sync rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50" data-direction="pull">Pull from GHL</button>
-          <button type="button" class="js-ghl-sync rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50" data-direction="push">Push to GHL</button>
+          <button type="button" class="js-ghl-sync rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50" data-direction="push">Sync to GHL</button>
           <button type="button" class="js-ghl-sync rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors disabled:opacity-50" data-direction="both">Sync both ways</button>
           <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1 basis-full sm:basis-auto sm:ml-2" aria-live="polite"></p>
         </div>
@@ -648,7 +648,7 @@
             data.push.results.forEach(function (r) { np += r.notesPushed || 0; npl += r.notesPulled || 0; });
             if (np || npl) pushNote = ', notes ' + np + '↑ ' + npl + '↓';
           }
-          parts.push('Push: ' + (data.push.pushed || 0) + '/' + (data.push.total || 0) + pushNote);
+          parts.push('Sync: ' + (data.push.pushed || 0) + '/' + (data.push.total || 0) + pushNote);
         }
         if (ghlMsg) {
           ghlMsg.textContent = '✅ ' + (parts.length ? parts.join(' · ') : 'Done');

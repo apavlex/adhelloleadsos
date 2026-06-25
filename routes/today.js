@@ -17,6 +17,7 @@ const { buildWeekReview } = require('../services/weekReview');
 const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue } = require('../services/todayContactQueue');
+const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { loadSalesTrackerReviewCore } = require('../services/salesTrackerLocals');
 const actionPlanTracker = require('../services/actionPlanTracker');
 function firstNameFromUser(user) {
@@ -94,21 +95,22 @@ router.get('/', async (req, res, next) => {
   try {
     const all = await dbService.getAllLeads(req.workspaceId);
     const workspaceLeads = filterLeadsForRequest(req, all);
+    const businessLeads = filterBusinessPipelineLeads(workspaceLeads);
     const email = userEmail(req);
     const today = new Date().toISOString().slice(0, 10);
     const history = await dbService.listDailyTrackers(req.workspaceId, email, 60);
     const streak = computeOutreachStreakWithLeads(history, today, workspaceLeads);
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
     const touchGoal = await loadDailyTouchGoal(req);
-    const repliesWaiting = countReplySignals(workspaceLeads);
-    const overdueFollowUps = countOverdueSequences(workspaceLeads);
-    const queueNeedingAction = countQueueNeedingAction(workspaceLeads);
+    const repliesWaiting = countReplySignals(businessLeads);
+    const overdueFollowUps = countOverdueSequences(businessLeads);
+    const queueNeedingAction = countQueueNeedingAction(businessLeads);
 
     const activation = await activationService.getState(email);
     const seededNotice = req.query.demo === '1' || req.query.seeded === '1';
     const searchInProgressNotice = req.query.searchInProgress === '1';
     const scheduleSavedNotice = req.query.scheduleSaved === '1';
-    const outreachCoach = await buildOutreachCoachSnapshot(req);
+    const outreachCoach = await buildOutreachCoachSnapshot(req, { businessesOnly: true });
 
     const workspaceDoc = await dbService.getWorkspace(req.workspaceId);
     const conversionSnapshot = buildConversionSnapshot(workspaceLeads, workspaceDoc);
@@ -135,8 +137,8 @@ router.get('/', async (req, res, next) => {
     );
 
     const baseUrl = `${req.protocol}://${req.get('host')}`.replace(/\/$/, '');
-    const cadenceQueue = buildCadenceQueue(workspaceLeads, baseUrl);
-    const contactQueue = buildTodayContactQueue(workspaceLeads, baseUrl, 20);
+    const cadenceQueue = buildCadenceQueue(businessLeads, baseUrl);
+    const contactQueue = buildTodayContactQueue(businessLeads, baseUrl, 20);
     const since24 = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const reportViewsRaw = await dbService.listReportViewsForWorkspaceSince(req.workspaceId, since24, 600);
     const byLead = new Map();
@@ -198,7 +200,7 @@ router.get('/', async (req, res, next) => {
       repliesWaiting,
       overdueFollowUps,
       queueNeedingAction,
-      totalLeads: workspaceLeads.length,
+      totalLeads: businessLeads.length,
       outreachCoach,
       activation,
       activationComplete,

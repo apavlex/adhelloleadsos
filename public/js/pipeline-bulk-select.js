@@ -970,7 +970,7 @@
       return { ok: false, error: 'no_selection' };
     }
     const noWebsiteCount = countNoWebsiteSelectedEarly();
-    const labelDefault = 'Push GHL';
+    const labelDefault = 'Sync GHL';
     const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
     window.__bulkPushGhlInFlight = true;
     if (btn) {
@@ -992,7 +992,7 @@
 
     try {
       if (typeof pushWithProgress !== 'function') {
-        throw new Error('GHL push handler failed to load. Hard-refresh and try again.');
+        throw new Error('GHL sync handler failed to load. Hard-refresh and try again.');
       }
       const result = await pushWithProgress({
         leadKeys: leadKeys,
@@ -1010,7 +1010,7 @@
       if (link && result.pushed > 0) link.classList.remove('hidden');
       return { ok: result.failed === 0, pushed: result.pushed, failed: result.failed };
     } catch (err) {
-      const msg = err && err.message ? err.message : 'GHL push failed';
+      const msg = err && err.message ? err.message : 'GHL sync failed';
       showBulkBarFeedbackEarly(msg, 'error');
       if (typeof window.__flashBulkBarBtn === 'function') {
         window.__flashBulkBarBtn(btn, 'Failed', 1200);

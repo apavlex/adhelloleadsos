@@ -10,7 +10,7 @@ const {
 } = require('./outreachCoachSnapshot');
 
 async function generateOutreachCoachPayload(req) {
-  const snapshot = await buildOutreachCoachSnapshot(req);
+  const snapshot = await buildOutreachCoachSnapshot(req, { businessesOnly: true });
   const { entrepreneurQuote, firstName, stageBreakdown } = snapshot;
   const wid = req.workspaceId;
   if (!wid) throw new Error('generateOutreachCoachPayload requires req.workspaceId');

@@ -89,6 +89,17 @@ function leadJobType(l) {
   return '';
 }
 
+const NON_BUSINESS_JOB_TYPES = new Set(['real_estate', 'home_owners', 'products', 'wholesale']);
+
+/** Maps / manual / CSV business leads — excludes listings, products, and real estate. */
+function isBusinessPipelineLead(l) {
+  return !NON_BUSINESS_JOB_TYPES.has(leadJobType(l));
+}
+
+function filterBusinessPipelineLeads(leads) {
+  return (Array.isArray(leads) ? leads : []).filter(isBusinessPipelineLead);
+}
+
 function matchesJobTypeFilter(l, origin) {
   const want = String(origin || '').trim().toLowerCase();
   if (!want || want === 'all') return true;
@@ -367,6 +378,8 @@ module.exports = {
   isCsvImported,
   isSearchedSource,
   leadJobType,
+  isBusinessPipelineLead,
+  filterBusinessPipelineLeads,
   matchesJobTypeFilter,
   hasUsableContactEmail,
   hasUsableWebsite,

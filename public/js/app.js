@@ -3140,7 +3140,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     if (!rowDatasetHasUsableEmail(row)) {
-      notifyLeadPanelDial('No email on file — run Hunt contacts or Push to GHL first.', 'error');
+      notifyLeadPanelDial('No email on file — run Hunt contacts or Sync to GHL first.', 'error');
       resetOutreachBtn(btn);
       return;
     }
@@ -3238,13 +3238,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const btn = document.getElementById('leadPanelPushGhlBtn');
-    const labelDefault = 'Push GHL';
+    const labelDefault = 'Sync GHL';
     const original = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
-    notifyLeadPanelDial('Pushing contact to Go High Level…', 'info');
+    notifyLeadPanelDial('Syncing contact to Go High Level…', 'info');
     if (btn) {
       __leadPanelOutreachBtnLabels.set(btn, original);
       btn.disabled = true;
-      btn.textContent = 'Pushing…';
+      btn.textContent = 'Syncing…';
     }
     try {
       const key = await ensureRowHasLeadKey(row);
@@ -3269,7 +3269,7 @@ document.addEventListener('DOMContentLoaded', () => {
       notifyLeadPanelDial(msg, 'success');
       confirmOutreachBtnSuccess(btn, '✓ Synced');
     } catch (err) {
-      notifyLeadPanelDial(err.message || 'GHL push failed.', 'error');
+      notifyLeadPanelDial(err.message || 'GHL sync failed.', 'error');
       resetOutreachBtn(btn);
     } finally {
       if (btn) {
@@ -5427,7 +5427,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute('title', enabled ? titleOn : titleOff);
     };
     setBtn(callBtn, phone, 'Call this lead', 'Add a phone number first');
-    setBtn(ghlBtn, !!row, 'Push to Go High Level for SMS, email, and voicemail', 'Select a lead first');
+    setBtn(ghlBtn, !!row, 'Sync to Go High Level for SMS, email, and voicemail', 'Select a lead first');
   }
   window.__syncLeadPanelOutreachIntelButtons = syncLeadPanelOutreachIntelButtons;
 
@@ -13166,8 +13166,8 @@ document.addEventListener('DOMContentLoaded', () => {
         null,
         hasSelection && keys.length > 0,
         keys.length
-          ? `Push ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to Go High Level`
-          : 'Select leads to push to GHL',
+          ? `Sync ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to Go High Level`
+          : 'Select leads to sync to GHL',
         'Select at least one lead',
       );
     }
@@ -13203,8 +13203,8 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute(
         'title',
         hasSelection
-          ? `Push ${count} selected lead${count === 1 ? '' : 's'} to Go High Level`
-          : 'Select leads to push to Go High Level',
+          ? `Sync ${count} selected lead${count === 1 ? '' : 's'} to Go High Level`
+          : 'Select leads to sync to Go High Level',
       );
     });
 
@@ -13562,7 +13562,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const selectedRows = getSelectedLeadRowsForBulk();
     const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
-    const labelDefault = 'Push GHL';
+    const labelDefault = 'Sync GHL';
     const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
     window.__bulkPushGhlInFlight = true;
     if (btn) {
@@ -13599,7 +13599,7 @@ document.addEventListener('DOMContentLoaded', () => {
       flashBulkBarBtn(btn, result.failed === 0 ? '✓ Synced' : 'Failed');
       return { ok: result.failed === 0, pushed: result.pushed, failed: result.failed };
     } catch (err) {
-      const msg = err && err.message ? err.message : 'GHL push failed';
+      const msg = err && err.message ? err.message : 'GHL sync failed';
       showBulkSaveFeedback(msg, 'error');
       flashBulkBarBtn(btn, 'Failed', 1200);
       return { ok: false, error: msg };

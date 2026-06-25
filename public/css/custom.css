@@ -59,7 +59,7 @@ h1, h2, h3, h4, .font-display {
 }
 
 .btn-primary:hover {
-    background-color: #FACC15;
+    background-color: color-mix(in srgb, var(--brand-yellow) 88%, #000);
 }
 
 /* Solid brand-yellow fills: always dark lettering. In .dark, text-brand-dark is a light token for body copy. Use exact class tokens so hover:bg-brand-yellow alone does not match. */

@@ -11,6 +11,7 @@ const { loadDailyTouchGoal } = require('./touchGoalPrefs');
 const pipelineStagesService = require('./pipelineStagesService');
 const { scoreLeadRecord } = require('./opportunityScore');
 const { filterLeadsForRequest, userEmail } = require('./workspaceService');
+const { filterBusinessPipelineLeads } = require('./leadListFilters');
 
 const ENTREPRENEUR_QUOTES = [
   { text: 'The way to get started is to quit talking and begin doing.', author: 'Walt Disney' },
@@ -104,7 +105,7 @@ function companyTitle(l) {
  * @returns {Array<{ label: string, leadId: string, leadName: string, href: string, actionType: string }>}
  */
 function buildNamedCoachActions(leads, snapshot) {
-  const list = Array.isArray(leads) ? leads : [];
+  const list = filterBusinessPipelineLeads(Array.isArray(leads) ? leads : []);
   const actions = [];
   const used = new Set();
   const now = Date.now();
@@ -206,7 +207,7 @@ function pickQuoteForDate(isoDate) {
 /**
  * @param {import('express').Request} req
  */
-async function buildOutreachCoachSnapshot(req) {
+async function buildOutreachCoachSnapshot(req, opts = {}) {
   const email = userEmail(req);
   const today = new Date().toISOString().slice(0, 10);
   const touchGoal = await loadDailyTouchGoal(req);
@@ -216,7 +217,10 @@ async function buildOutreachCoachSnapshot(req) {
   }
 
   const all = await dbService.getAllLeads(wid);
-  const leads = filterLeadsForRequest(req, all);
+  let leads = filterLeadsForRequest(req, all);
+  if (opts.businessesOnly) {
+    leads = filterBusinessPipelineLeads(leads);
+  }
 
   const allSchedules = await dbService.listSchedules();
   const scheduledSearchesCount = allSchedules.filter((s) => (s.workspaceId || 'default') === wid).length;

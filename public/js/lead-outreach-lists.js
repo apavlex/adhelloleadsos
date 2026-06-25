@@ -209,7 +209,7 @@
     }
     const prev = btn.textContent;
     btn.disabled = true;
-    toolbarMsg(`Pushing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, true);
+    toolbarMsg(`Syncing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, true);
     try {
       const data = await apiJson('/ghl/push', {
         method: 'POST',
@@ -219,12 +219,12 @@
       });
       const pushed = data.pushed != null ? data.pushed : keys.length;
       const failed = data.failed != null ? data.failed : 0;
-      const msg = `GHL: ${pushed} pushed${failed ? `, ${failed} failed` : ''}`;
+      const msg = `GHL: ${pushed} synced${failed ? `, ${failed} failed` : ''}`;
       toolbarMsg(msg, failed === 0);
       toast(msg);
     } catch (err) {
-      toolbarMsg(err.message || 'GHL push failed', false);
-      toast(err.message || 'GHL push failed');
+      toolbarMsg(err.message || 'GHL sync failed', false);
+      toast(err.message || 'GHL sync failed');
     } finally {
       btn.disabled = false;
       if (prev) btn.textContent = prev;

@@ -5,7 +5,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
-const { excludeOutreachFolderLeads } = require('../services/leadListFilters');
+const { excludeOutreachFolderLeads, filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const {
   countUniqueLeadsTouchedOnUtcDate,
 } = require('../services/trackerStats');
@@ -176,7 +176,7 @@ router.get('/', async (req, res, next) => {
     const today = new Date().toISOString().slice(0, 10);
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
-    const pipelineLeads = excludeOutreachFolderLeads(visible);
+    const pipelineLeads = filterBusinessPipelineLeads(excludeOutreachFolderLeads(visible));
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
@@ -185,12 +185,14 @@ router.get('/', async (req, res, next) => {
     if (selectedOnly) {
       // Use full visible set so foldered pipeline picks are not dropped (excludeOutreachFolderLeads
       // only applies to the default auto queue, not explicit bulk selection).
-      ordered = await resolveLeadsBySelectedKeys({
-        dbService,
-        workspaceId: req.workspaceId,
-        visibleLeads: visible,
-        keyOrder: selectedKeyOrder,
-      });
+      ordered = filterBusinessPipelineLeads(
+        await resolveLeadsBySelectedKeys({
+          dbService,
+          workspaceId: req.workspaceId,
+          visibleLeads: visible,
+          keyOrder: selectedKeyOrder,
+        }),
+      );
     } else {
       ordered = buildFocusQueue(pipelineLeads);
     }

@@ -145,7 +145,7 @@ function buildSourceCards(live = {}, resolvedEnv) {
       configured: ghl,
       live: null,
       tip: ghl
-        ? 'Push/pull from Workspace → Integrations, bulk actions on the pipeline, Focus mode, and sub-agents. Outbound email needs a verified sender; SMS can use your location default number.'
+        ? 'Sync/pull from Workspace → Integrations, bulk actions on the pipeline, Focus mode, and sub-agents. Outbound email needs a verified sender; SMS can use your location default number.'
         : 'Set GHL private integration token + location ID under CRM. Enable contacts (read/write) and conversations/message.write scopes. See the setup guide for webhook URL.',
     },
     {
@@ -234,7 +234,7 @@ function buildTaskRows() {
       keepPaid:
         'Go High Level when you want two-way sync, verified outbound, and webhook-driven inbound contacts.',
       inApp:
-        'Workspace → Integrations → Go High Level. Push/pull on the card; send from lead panel, Focus, or bulk GHL actions.',
+        'Workspace → Integrations → Go High Level. Sync/pull on the card; send from lead panel, Focus, or bulk GHL actions.',
     },
     {
       task: 'Mail physical postcards to selected leads',
