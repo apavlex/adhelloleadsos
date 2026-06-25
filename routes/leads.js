@@ -3842,6 +3842,8 @@ router.get('/import-real-estate', async (req, res, next) => {
         url: item.url || '',
         status: 'Lead Captured',
         source: item.source === 'facebook' ? 'facebook marketplace' : 'craigslist',
+        jobType: 'real_estate',
+        sourceType: 'real_estate',
         folderKey: 'real-estate',
         workspaceId: req.workspaceId,
         pipelineStage: 1,

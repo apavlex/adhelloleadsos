@@ -63,6 +63,19 @@ function isSearchedSource(l) {
   return true;
 }
 
+const LISTING_SOURCE_RE =
+  /craigslist|facebook\s*marketplace|marketplace|offerup|ebay|zillow|realtor|redfin|mhvillage|mh\s*village/i;
+
+const LISTING_TITLE_PREFIX_RE = /^(cl|fb|facebook|craigslist|zillow|realtor|redfin|offerup|ebay)\s*:/i;
+
+const LISTING_CATEGORY_RE =
+  /real\s*estate|mobile\s*home|manufactured\s*home|single\s*wide|double\s*wide|trailer|home\s*for\s*sale|property\s*for\s*sale|homes?\s*for\s*rent|land\s*for\s*sale/i;
+
+const LISTING_FOLDER_KEY_RE = /real[-_]?estate|mobile[-_]?home|product|wholesale|listing/i;
+
+const LISTING_AGGREGATOR_HOST_RE =
+  /(?:^|\.)facebook\.com$|(?:^|\.)craigslist\.org$|(?:^|\.)offerup\.com$|(?:^|\.)ebay\.com$|(?:^|\.)zillow\.com$|(?:^|\.)realtor\.com$|(?:^|\.)redfin\.com$|(?:^|\.)mhvillage\.com$/i;
+
 function leadJobType(l) {
   if (l && l.jobType) return String(l.jobType).trim().toLowerCase();
   const src = String((l && l.source) || '').trim().toLowerCase();
@@ -84,6 +97,7 @@ function leadJobType(l) {
   if (src === 'maps_search' || (l && l.sourceType) === 'maps_business') {
     return 'maps_business';
   }
+  if (LISTING_SOURCE_RE.test(src)) return 'real_estate';
   if (l && l.listing && typeof l.listing === 'object') return 'real_estate';
   if (l && l.realEstate && typeof l.realEstate === 'object') return 'real_estate';
   return '';
@@ -91,9 +105,47 @@ function leadJobType(l) {
 
 const NON_BUSINESS_JOB_TYPES = new Set(['real_estate', 'home_owners', 'products', 'wholesale']);
 
+function isListingAggregatorUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw || raw === 'N/A' || raw === '—') return false;
+  try {
+    const u = new URL(raw.includes('://') ? raw : `https://${raw}`);
+    const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+    return LISTING_AGGREGATOR_HOST_RE.test(host);
+  } catch {
+    return LISTING_AGGREGATOR_HOST_RE.test(raw.toLowerCase());
+  }
+}
+
+/** Heuristic for legacy imports missing jobType (e.g. CL:/FB: craigslist scrapes). */
+function looksLikeListingPipelineLead(l) {
+  if (!l || typeof l !== 'object') return false;
+
+  const folderKey = String(l.folderKey || '').trim().toLowerCase();
+  if (folderKey && LISTING_FOLDER_KEY_RE.test(folderKey)) return true;
+
+  const src = String(l.source || '').trim();
+  if (LISTING_SOURCE_RE.test(src)) return true;
+
+  const sourceChannel = String(l.sourceChannel || '').trim();
+  if (LISTING_SOURCE_RE.test(sourceChannel)) return true;
+
+  const title = String(l.title || l.company || '').trim();
+  if (LISTING_TITLE_PREFIX_RE.test(title)) return true;
+
+  const category = String(l.categoryName || l.category || '').trim();
+  if (category && LISTING_CATEGORY_RE.test(category)) return true;
+
+  if (isListingAggregatorUrl(l.website) || isListingAggregatorUrl(l.url)) return true;
+
+  return false;
+}
+
 /** Maps / manual / CSV business leads — excludes listings, products, and real estate. */
 function isBusinessPipelineLead(l) {
-  return !NON_BUSINESS_JOB_TYPES.has(leadJobType(l));
+  if (NON_BUSINESS_JOB_TYPES.has(leadJobType(l))) return false;
+  if (looksLikeListingPipelineLead(l)) return false;
+  return true;
 }
 
 function filterBusinessPipelineLeads(leads) {

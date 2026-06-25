@@ -468,6 +468,8 @@ app.post('/api/leads/import-real-estate', express.json({ limit: '5mb' }), async 
         totalScore: 0, reviewsCount: 0, url: item.url || '',
         status: 'Lead Captured',
         source: item.source === 'facebook' ? 'facebook marketplace' : 'craigslist',
+        jobType: 'real_estate',
+        sourceType: 'real_estate',
         folderKey: 'real-estate', workspaceId: wid, pipelineStage: 1,
         updates: [{ type: 'note', value: `Price: ${item.price_str || '$?'}\nBeds: ${item.beds || '?'} | Baths: ${item.baths || '?'}\n${item.cross_listed ? 'Cross-listed (CL + FB)' : ''}\nScraped: ${item.date || 'unknown'}`, timestamp: new Date().toISOString() }],
       };
