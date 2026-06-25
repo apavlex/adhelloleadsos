@@ -3,7 +3,7 @@
 <% const _bulkFolderPref = typeof activeFolderKey !== 'undefined' && activeFolderKey ? String(activeFolderKey) : (typeof targetFolderKey !== 'undefined' && targetFolderKey ? String(targetFolderKey) : ''); %>
 <div
   id="bulkActionBar"
-  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col items-center gap-1.5 w-max max-w-[min(100vw-1rem,56rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
+  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col items-stretch gap-1.5 w-[min(100vw-1rem,56rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
   role="toolbar"
   aria-label="Bulk lead actions"
   aria-hidden="true"
@@ -65,14 +65,14 @@
         <span>Export</span>
       </button>
       </div>
-
-      <% if (_bulkMode === 'pipeline') { %>
-      <div class="flex items-center gap-2 shrink-0 bulk-bar-primary-actions">
-        <a href="/focus?channel=call" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg hidden" title="Call and log selected leads">Call</a>
-        <button type="button" id="bulkPushGhlBtn" class="bulk-bar-btn bulk-bar-btn--ghl bulk-bar-btn--primary-lg hidden" title="Push selected leads to Go High Level — run SMS, email, and voicemail from GHL">Push GHL</button>
-      </div>
-      <% } %>
     </div>
+
+    <% if (_bulkMode === 'pipeline') { %>
+    <div class="bulk-bar-primary-row w-full" role="group" aria-label="Primary outreach">
+      <a href="/focus?channel=call" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Call and log selected leads">Call</a>
+      <button type="button" id="bulkPushGhlBtn" class="bulk-bar-btn bulk-bar-btn--ghl bulk-bar-btn--primary-lg bulk-bar-primary-split hidden" title="Push selected leads to Go High Level — run SMS, email, and voicemail from GHL">Push GHL</button>
+    </div>
+    <% } %>
 
     <div class="flex flex-wrap items-center justify-center gap-2 w-full bulk-bar-secondary-actions pt-0.5">
       <button type="button" id="cancelSelectionBtn" class="text-[10px] font-bold text-white/45 hover:text-white transition-colors uppercase tracking-wide px-1">Cancel</button>

@@ -13503,12 +13503,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const selectedRows = getSelectedLeadRowsForBulk();
     const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
-    const prev = btn ? btn.textContent : 'Push GHL';
+    const labelDefault = 'Push GHL';
+    const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
     if (btn) {
+      __bulkBarBtnLabels.set(btn, prev);
+      btn.disabled = true;
       btn.textContent = 'Pushing…';
       btn.setAttribute('aria-busy', 'true');
+      btn.classList.add('is-busy');
     }
-    showBulkSaveFeedback(`Pushing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, 'loading');
+    showBulkSaveFeedback(`Syncing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, 'loading');
     try {
       const res = await fetch('/ghl/push', {
         method: 'POST',
@@ -13523,10 +13527,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const pushed = data.pushed != null ? data.pushed : 0;
       const failed = data.failed != null ? data.failed : 0;
       const taggedNote = noWebsiteCount > 0 ? ` · ${noWebsiteCount} tagged no website` : '';
-      const msg = `GHL: ${pushed} pushed${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
+      const msg = `GHL sync complete · ${pushed} contact${pushed === 1 ? '' : 's'}${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
       showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
       showBulkOpenGhlLink(pushed > 0);
-      flashBulkBarBtn(btn, failed === 0 ? '✓ Pushed' : 'Failed');
+      flashBulkBarBtn(btn, failed === 0 ? '✓ Synced' : 'Failed');
       return { ok: true, pushed, failed };
     } catch (err) {
       const msg = err && err.message ? err.message : 'GHL push failed';
@@ -13535,8 +13539,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return { ok: false, error: msg };
     } finally {
       if (btn) {
-        btn.textContent = prev || 'Push GHL';
+        btn.disabled = false;
         btn.removeAttribute('aria-busy');
+        btn.classList.remove('is-busy');
       }
       updateBulkActionBar();
     }
