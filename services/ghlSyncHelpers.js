@@ -110,6 +110,34 @@ function parseGhlNotesResponse(data) {
   return [];
 }
 
+/**
+ * Fresh activity note on every AdHello → GHL sync (bumps GHL Last activity).
+ * @param {object} lead
+ * @param {{ actionLabel?: string, syncedAt?: Date }} [opts]
+ */
+function buildGhlSyncActivityNote(lead, opts = {}) {
+  const actionLabel = String(opts.actionLabel || 'Follow-up').trim() || 'Follow-up';
+  const syncedAt = opts.syncedAt instanceof Date && !Number.isNaN(opts.syncedAt.getTime())
+    ? opts.syncedAt
+    : new Date();
+  const when = syncedAt.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: 'America/Los_Angeles',
+  });
+  const lines = [
+    `${AGENCY_OS_NOTE_PREFIX} prospect_sync`,
+    `Prospected in AdHello · ${when}`,
+    `Next action: ${actionLabel}`,
+  ];
+  const notes = String((lead && lead.lastDispositionNotes) || '').trim();
+  if (notes) lines.push(notes);
+  return lines.join('\n');
+}
+
 module.exports = {
   AGENCY_OS_NOTE_PREFIX,
   mergeTagLists,
@@ -122,4 +150,5 @@ module.exports = {
   shouldPushLog,
   ghlNoteToLogEntry,
   parseGhlNotesResponse,
+  buildGhlSyncActivityNote,
 };

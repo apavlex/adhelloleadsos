@@ -10,6 +10,7 @@ const {
   shouldPushLog,
   ghlNoteToLogEntry,
   parseGhlNotesResponse,
+  buildGhlSyncActivityNote,
 } = require('../services/ghlSyncHelpers');
 
 test('mergeTagLists unions tags case-insensitively', () => {
@@ -59,4 +60,15 @@ test('logFingerprint is stable for identical logs', () => {
   const a = logFingerprint({ type: 'sms', message: 'Sent', timestamp: '2024-01-01' });
   const b = logFingerprint({ type: 'sms', message: 'Sent', timestamp: '2024-01-01' });
   assert.equal(a, b);
+});
+
+test('buildGhlSyncActivityNote includes sync time, action, and disposition notes', () => {
+  const body = buildGhlSyncActivityNote(
+    { lastDispositionNotes: 'Left voicemail with value prop and callback number.' },
+    { actionLabel: 'Voicemail', syncedAt: new Date('2026-06-25T20:30:00.000Z') },
+  );
+  assert.match(body, /^\[Agency OS\] prospect_sync/);
+  assert.match(body, /Prospected in AdHello/);
+  assert.match(body, /Next action: Voicemail/);
+  assert.match(body, /Left voicemail with value prop/);
 });

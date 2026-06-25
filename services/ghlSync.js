@@ -14,11 +14,13 @@ const {
   isAgencyOsNoteBody,
   shouldPushLog,
   ghlNoteToLogEntry,
+  buildGhlSyncActivityNote,
 } = require('./ghlSyncHelpers');
 const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require('./ghlActionTags');
 const ghlProspectSync = require('./ghlProspectSync');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
+const GHL_TAG_PROSPECTED = 'AO: Prospected';
 
 /** Serialize GHL pushes per lead so disposition auto-sync and manual Sync GHL do not race. */
 const ghlPushInFlight = new Map();
@@ -123,6 +125,21 @@ async function pullNotesFromGhl(lead, contactId, integrationEnv) {
   return { pulled: newLogs.length, newLogs, syncState };
 }
 
+async function pushSyncActivityNote(lead, contactId, integrationEnv) {
+  const actionTags = computeActionTagsFromLead(lead);
+  const actionLabel = actionTags.length
+    ? actionTags[0].replace(/^AO:\s*/, '')
+    : 'Follow-up';
+  const body = buildGhlSyncActivityNote(lead, { actionLabel });
+  if (!body) return { pushed: false };
+  try {
+    await ghlClient.createContactNote(contactId, body, integrationEnv);
+    return { pushed: true };
+  } catch (e) {
+    return { pushed: false, error: e && e.message ? e.message : 'note_failed' };
+  }
+}
+
 function buildGhlFollowUpTaskPayload(lead) {
   const dueRaw = lead && lead.nextActionAt ? String(lead.nextActionAt).trim() : '';
   if (!dueRaw) return null;
@@ -207,6 +224,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
   if (!contactId) throw new Error('GHL did not return a contact id');
 
   let tagsForPush = lead.ghlTagNamesForPush || mergeTagLists(lead.tags);
+  tagsForPush = mergeTagLists(tagsForPush, [GHL_TAG_PROSPECTED]);
   if (Array.isArray(lead.ghlExtraTagNames) && lead.ghlExtraTagNames.length) {
     tagsForPush = mergeTagLists(tagsForPush, lead.ghlExtraTagNames);
   }
@@ -215,6 +233,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     replaceActionTags: true,
     isActionTag,
   });
+  const syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
   const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
   const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
   const followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
@@ -248,9 +267,10 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     lead: updated,
     ghlContactId: contactId,
     action: 'pushed',
-    notesPushed: notePush.pushed,
+    notesPushed: notePush.pushed + (syncActivityNote.pushed ? 1 : 0),
     notesPulled: notePull.pulled,
     followUpTask,
+    syncActivityNote,
   };
 }
 
