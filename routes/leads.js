@@ -926,10 +926,13 @@ router.post('/:key/disposition', async (req, res, next) => {
       }
     }
     const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
-    triggerGhlProspectSync(fullKey, req.workspaceId, {
-      trigger: `disposition:${code}`,
-      note: notes ? `Disposition: ${code}\n${notes}` : '',
-    });
+    const deferGhlSync = !!(req.body && req.body.deferGhlSync);
+    if (!deferGhlSync) {
+      triggerGhlProspectSync(fullKey, req.workspaceId, {
+        trigger: `disposition:${code}`,
+        note: notes ? `Disposition: ${code}\n${notes}` : '',
+      });
+    }
     return res.json({ success: true, lead: updated, status, nextStep, automation });
   } catch (err) {
     next(err);

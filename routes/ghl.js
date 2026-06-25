@@ -61,6 +61,15 @@ router.post('/push', express.json(), async (req, res, next) => {
       limit: body.limit,
       tagNoWebsite: body.tagNoWebsite === true || body.tagNoWebsite === '1',
     });
+    const requested = Array.isArray(body.leadKeys) ? body.leadKeys.filter(Boolean).length : 0;
+    if (requested > 0 && result.pushed === 0) {
+      const firstErr = (result.results || []).find((r) => r && r.ok === false);
+      return res.status(422).json({
+        success: false,
+        error: (firstErr && firstErr.error) || 'GHL sync failed for the requested lead.',
+        ...result,
+      });
+    }
     return res.json({ success: true, ...result });
   } catch (e) {
     next(e);

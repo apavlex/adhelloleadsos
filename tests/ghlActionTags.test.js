@@ -43,6 +43,7 @@ describe('ghlActionTags', () => {
   it('maps send info and not interested quick logs to AO tags', () => {
     assert.equal(dispositionToActionTag('send_info'), AO_ACTION_TAGS.SEND_INFO);
     assert.equal(dispositionToActionTag('not_interested'), AO_ACTION_TAGS.NOT_INTERESTED);
+    assert.equal(dispositionToActionTag('no_answer'), AO_ACTION_TAGS.NO_ANSWER);
     assert.deepEqual(computeActionTagsFromLead({ lastDisposition: 'send_info' }), [
       AO_ACTION_TAGS.SEND_INFO,
     ]);

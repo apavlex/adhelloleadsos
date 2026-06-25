@@ -20,6 +20,28 @@ const ghlProspectSync = require('./ghlProspectSync');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
 
+/** Serialize GHL pushes per lead so disposition auto-sync and manual Sync GHL do not race. */
+const ghlPushInFlight = new Map();
+
+async function withGhlPushLock(leadKey, fn) {
+  const lockKey = String(leadKey || '').trim();
+  if (!lockKey) return fn();
+  const prev = ghlPushInFlight.get(lockKey) || Promise.resolve();
+  let release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  const chain = prev.then(() => gate);
+  ghlPushInFlight.set(lockKey, chain);
+  await prev;
+  try {
+    return await fn();
+  } finally {
+    release();
+    if (ghlPushInFlight.get(lockKey) === chain) ghlPushInFlight.delete(lockKey);
+  }
+}
+
 function normalizeEmail(email) {
   if (!email || email === 'N/A') return '';
   return String(email).trim().toLowerCase();
@@ -154,6 +176,11 @@ async function syncFollowUpTaskToGhl(lead, contactId, integrationEnv) {
 
 async function pushLeadToGhl(lead, integrationEnv) {
   if (!lead || !lead.key) throw new Error('Invalid lead');
+  return withGhlPushLock(lead.key, () => pushLeadToGhlInner(lead, integrationEnv));
+}
+
+async function pushLeadToGhlInner(lead, integrationEnv) {
+  if (!lead || !lead.key) throw new Error('Invalid lead');
   let contactId = String(lead.ghlContactId || '').trim();
   let mergedTags = mergeTagLists(lead.tags);
 
@@ -285,14 +312,21 @@ async function pushLeads(opts) {
 
   let leads = await dbService.getAllLeads(wid);
   if (Array.isArray(opts.leadKeys) && opts.leadKeys.length) {
-    const want = new Set(
-      opts.leadKeys.flatMap((k) => {
-        const s = String(k || '').trim();
-        if (!s) return [];
-        return [s, s.startsWith('lead:') ? s : `lead:${s}`, s.startsWith('lead:') ? s.slice(5) : null].filter(Boolean);
-      }),
-    );
-    leads = leads.filter((l) => want.has(l.key) || want.has(String(l.key).replace(/^lead:/, '')));
+    const resolved = [];
+    const seen = new Set();
+    for (const rawKey of opts.leadKeys) {
+      const trimmed = String(rawKey || '').trim();
+      if (!trimmed) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const storageKey = await dbService.resolveLeadStorageKey(trimmed, wid);
+      if (!storageKey || seen.has(storageKey)) continue;
+      // eslint-disable-next-line no-await-in-loop
+      const lead = await dbService.getLead(storageKey);
+      if (!lead) continue;
+      seen.add(storageKey);
+      resolved.push(lead);
+    }
+    leads = resolved;
   }
 
   const limit = Math.min(parseInt(opts.limit, 10) || 500, 500);
@@ -316,6 +350,7 @@ async function pushLeads(opts) {
         key: lead.key,
         ok: true,
         ghlContactId: r.ghlContactId,
+        actionTags: leadForPush.ghlActionTags || computeActionTagsFromLead(leadForPush),
         notesPushed: r.notesPushed,
         notesPulled: r.notesPulled,
       });

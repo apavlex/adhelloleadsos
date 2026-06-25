@@ -48,4 +48,16 @@ describe('ghlProspectSync', () => {
     assert.ok(Array.isArray(prepared.ghlTagNamesForPush));
     assert.ok(prepared.ghlTagNamesForPush.includes(AO_ACTION_TAGS.VOICEMAIL));
   });
+
+  it('prepareLeadForGhlPush maps no_answer to AO: No answer', async () => {
+    await patchLeadDispositionForGhlPush({
+      leadKey: testKey,
+      code: 'no_answer',
+      notes: 'No pickup. Retry in next calling window.',
+      workspaceId: 'default',
+    });
+    const lead = await dbService.getLead(testKey);
+    const prepared = await prepareLeadForGhlPush(lead, 'default');
+    assert.ok(prepared.ghlTagNamesForPush.includes(AO_ACTION_TAGS.NO_ANSWER));
+  });
 });

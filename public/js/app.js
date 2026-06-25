@@ -2805,16 +2805,18 @@ document.addEventListener('DOMContentLoaded', () => {
     return data;
   }
 
-  async function applyLeadPanelDisposition(code, notes) {
+  async function applyLeadPanelDisposition(code, notes, opts = {}) {
     if (!currentRow || !currentRow.dataset.leadKey) {
       throw new Error('Save this lead before logging a disposition.');
     }
     const key = String(currentRow.dataset.leadKey).trim();
+    const body = { code, notes: notes || '' };
+    if (opts.deferGhlSync) body.deferGhlSync = true;
     const res = await fetch(`/leads/${encodeURIComponent(key)}/disposition`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
       credentials: 'same-origin',
-      body: JSON.stringify({ code, notes: notes || '' }),
+      body: JSON.stringify(body),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
@@ -3278,7 +3280,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const noteInput = document.getElementById('noteInput');
     const notes = noteInput ? String(noteInput.value || '').trim() : '';
     if (selection.disposition) {
-      const data = await applyLeadPanelDisposition(selection.disposition, notes);
+      const data = await applyLeadPanelDisposition(selection.disposition, notes, { deferGhlSync: true });
       if (data.lead) syncPersistedLeadToRowDataset(row, data.lead);
       return;
     }
@@ -3344,9 +3346,14 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.results && data.results[0] && data.results[0].ghlContactId) {
         row.dataset.ghlContactId = String(data.results[0].ghlContactId);
       }
-      const msg = payload.tagNoWebsite
-        ? 'GHL sync complete (tagged no website).'
-        : 'GHL sync complete.';
+      const result = data.results && data.results[0] ? data.results[0] : null;
+      const actionTags = result && Array.isArray(result.actionTags) ? result.actionTags : [];
+      const tagLabel = actionTags.length
+        ? actionTags[0].replace(/^AO:\s*/i, '')
+        : (payload.disposition ? payload.disposition.replace(/_/g, ' ') : '');
+      let msg = 'GHL sync complete';
+      if (tagLabel) msg += ` · AO: ${tagLabel}`;
+      if (payload.tagNoWebsite) msg += ' · no website';
       notifyLeadPanelDial(msg, 'success');
       confirmOutreachBtnSuccess(btn, '✓ Synced');
     } catch (err) {

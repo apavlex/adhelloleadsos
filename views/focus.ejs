@@ -824,17 +824,20 @@
       return payload;
     }
 
-    function applyFocusQuickLogIfNeeded(lead) {
+    function applyFocusQuickLogIfNeeded(lead, opts) {
+      opts = opts || {};
       if (!lead || !lead.key) return Promise.resolve();
       var parsed = parseFocusQuickLogSelection(elOutcome && elOutcome.value);
       if (!parsed) return Promise.resolve();
       var notes = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim();
       if (parsed.code) {
+        var body = { code: parsed.code, notes: notes };
+        if (opts.deferGhlSync) body.deferGhlSync = true;
         return fetch('/leads/' + encodeURIComponent(lead.key) + '/disposition', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ code: parsed.code, notes: notes }),
+          body: JSON.stringify(body),
         }).then(function (r) {
           return r.json().then(function (j) {
             if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save disposition.');
@@ -885,7 +888,7 @@
     }
 
     function saveFocusContextBeforeGhlSync(lead) {
-      return applyFocusQuickLogIfNeeded(lead)
+      return applyFocusQuickLogIfNeeded(lead, { deferGhlSync: true })
         .then(function () { return syncFocusFollowupToLead(lead); })
         .then(function () { return createFollowupTaskIfRequested(); });
     }
@@ -913,29 +916,37 @@
       }
       setOutcomeFeedback('Saving disposition and notes…', false);
 
-      var payload = focusGhlPushPayload(lead);
-
       return saveFocusContextBeforeGhlSync(lead)
         .then(function () {
+          var payload = focusGhlPushPayload(lead);
           setOutcomeFeedback('Syncing to Go High Level…', false);
           return fetch('/ghl/push', {
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
             body: JSON.stringify(payload),
+          }).then(function (r) {
+            return r.json().then(function (j) {
+              return { ok: r.ok, j: j };
+            });
           });
         })
-        .then(function (r) {
-          return r.json().then(function (j) {
-            if (!r.ok || !j.success) throw new Error((j && j.error) || 'GHL sync failed');
-            return j;
-          });
+        .then(function (res) {
+          var data = res.j || {};
+          if (!res.ok || !data.success) throw new Error((data && data.error) || 'GHL sync failed');
+          return data;
         })
         .then(function (data) {
+          var payload = focusGhlPushPayload(lead);
           postNote().catch(function () { /* note is optional after GHL sync */ });
-          var msg = payload.tagNoWebsite
-            ? 'GHL sync complete (tagged no website).'
-            : 'GHL sync complete.';
+          var result = data.results && data.results.length ? data.results[0] : null;
+          var actionTags = result && Array.isArray(result.actionTags) ? result.actionTags : [];
+          var tagLabel = actionTags.length
+            ? actionTags[0].replace(/^AO:\s*/i, '')
+            : (payload.disposition ? payload.disposition.replace(/_/g, ' ') : '');
+          var msg = 'GHL sync complete';
+          if (tagLabel) msg += ' · AO: ' + tagLabel;
+          if (payload.tagNoWebsite) msg += ' · no website';
           setOutcomeFeedback(msg, false);
           setCopyFeedback(msg, false);
           if (btnPushGhl) {

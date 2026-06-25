@@ -25,15 +25,19 @@ function normalizeLeadStorageKey(leadKey) {
  * @param {{ leadKey: string, code: string, notes?: string, workspaceId: string }} opts
  */
 async function patchLeadDispositionForGhlPush(opts) {
-  const fullKey = normalizeLeadStorageKey(opts.leadKey);
   const code = String(opts.code || '').trim().toLowerCase();
   const workspaceId = opts.workspaceId || 'default';
-  if (!fullKey || !code) return { skipped: true, reason: 'missing_fields' };
+  if (!opts.leadKey || !code) return { skipped: true, reason: 'missing_fields' };
+
+  const storageKey =
+    (await dbService.resolveLeadStorageKey(opts.leadKey, workspaceId)) ||
+    normalizeLeadStorageKey(opts.leadKey);
+  if (!storageKey) return { skipped: true, reason: 'lead_not_found' };
 
   const item = quickLogItemForDisposition(code);
   if (!item) return { skipped: true, reason: 'unknown_disposition' };
 
-  const existing = await dbService.getLead(fullKey);
+  const existing = await dbService.getLead(storageKey);
   if (!existing) return { skipped: true, reason: 'lead_not_found' };
 
   const notes = String(opts.notes || '').trim();
@@ -44,8 +48,8 @@ async function patchLeadDispositionForGhlPush(opts) {
   if (notes) patch.lastDispositionNotes = notes.slice(0, 2000);
   if (item.status) patch.status = item.status;
 
-  const updated = await dbService.updateLead(fullKey, patch, workspaceId);
-  return { ok: true, lead: updated, code };
+  const updated = await dbService.updateLead(storageKey, patch, workspaceId);
+  return { ok: true, lead: updated, code, key: storageKey };
 }
 
 /**
