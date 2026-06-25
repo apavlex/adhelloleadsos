@@ -3238,9 +3238,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const btn = document.getElementById('leadPanelPushGhlBtn');
-    const original = btn ? btn.textContent : 'Push GHL';
+    const labelDefault = 'Push GHL';
+    const original = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
     notifyLeadPanelDial('Pushing contact to Go High Level…', 'info');
     if (btn) {
+      __leadPanelOutreachBtnLabels.set(btn, original);
       btn.disabled = true;
       btn.textContent = 'Pushing…';
     }
@@ -3268,10 +3270,10 @@ document.addEventListener('DOMContentLoaded', () => {
       confirmOutreachBtnSuccess(btn, '✓ Synced');
     } catch (err) {
       notifyLeadPanelDial(err.message || 'GHL push failed.', 'error');
+      resetOutreachBtn(btn);
     } finally {
       if (btn) {
         btn.disabled = false;
-        btn.textContent = original;
         syncLeadPanelOutreachIntelButtons(row);
       }
     }
