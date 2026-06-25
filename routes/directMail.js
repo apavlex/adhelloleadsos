@@ -53,6 +53,9 @@ router.get('/', async (req, res, next) => {
     const selectedOnly = selectedKeyOrder.length > 0;
 
     let tableLeads;
+    let dmIsQueueSession = false;
+    let dmQueueEmpty = false;
+
     if (selectedOnly) {
       tableLeads = await resolveLeadsBySelectedKeys({
         dbService,
@@ -61,7 +64,19 @@ router.get('/', async (req, res, next) => {
         keyOrder: selectedKeyOrder,
       });
     } else {
-      tableLeads = pipelineVisible.filter((l) => lobDirectMail.hasMailableAddress(l));
+      const queue = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
+      if (queue.leads.length) {
+        dmIsQueueSession = true;
+        const byKey = new Map(visible.map((l) => [l.key, l]));
+        tableLeads = [];
+        for (const q of queue.leads) {
+          const lead = byKey.get(q.key);
+          if (lead) tableLeads.push(lead);
+        }
+      } else {
+        dmQueueEmpty = true;
+        tableLeads = pipelineVisible.filter((l) => lobDirectMail.hasMailableAddress(l));
+      }
     }
 
     const mailableLeads = tableLeads.map((l) => ({
@@ -89,6 +104,8 @@ router.get('/', async (req, res, next) => {
       mailableLeads,
       dmSelectionCount: selectedOnly ? selectedKeyOrder.length : null,
       dmIsSelectionSession: selectedOnly,
+      dmIsQueueSession,
+      dmQueueEmpty,
       dmMailableCount: mailableCount,
       dmSkippedCount: skippedCount,
       recentSends: collectRecentSends(visible),

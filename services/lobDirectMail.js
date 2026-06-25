@@ -19,18 +19,40 @@ function escapeHtml(text) {
 
 function parseMailableAddress(lead) {
   if (!lead || typeof lead !== 'object') return null;
-  const address = String(lead.address || '').trim();
+  let address = String(lead.address || '').trim();
   if (!address || address === 'N/A' || address.length < 5) return null;
-  const city = String(lead.city || '').trim();
-  const state = String(lead.state || '').trim();
+
+  let city = String(lead.city || '').trim();
+  let state = String(lead.state || '').trim();
+  let zip = String(lead.postalCode || lead.zip || '').trim();
+
+  if ((!city || !state) && address) {
+    const tail = address.match(/,\s*([^,]+),\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/);
+    if (tail) {
+      if (!city) city = tail[1].trim();
+      if (!state) state = tail[2].toUpperCase();
+      if (!zip) zip = tail[3].slice(0, 5);
+    }
+  }
+
   if (!city || !state) return null;
 
-  let zip = String(lead.postalCode || lead.zip || '').trim();
   if (!zip) zip = extractZip(address);
   if (!zip) return null;
 
   let line1 = address.replace(/\b\d{5}(?:-\d{4})?\b/g, '').replace(/,\s*$/, '').trim();
-  if (!line1) line1 = address;
+  if (line1.includes(',')) {
+    const parts = line1.split(',').map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 3 && /^[A-Za-z]{2}$/.test(parts[parts.length - 1])) {
+      line1 = parts.slice(0, -2).join(', ');
+    } else if (parts.length >= 2 && city && state) {
+      const last = parts[parts.length - 1];
+      if (last.toLowerCase() === city.toLowerCase() || last.toUpperCase() === state) {
+        line1 = parts.slice(0, -1).join(', ');
+      }
+    }
+  }
+  if (!line1) line1 = address.split(',')[0].trim() || address;
 
   return {
     name: String(lead.title || 'Business').trim() || 'Business',

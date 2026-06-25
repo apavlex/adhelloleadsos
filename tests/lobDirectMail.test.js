@@ -20,6 +20,18 @@ test('hasMailableAddress rejects incomplete leads', () => {
   assert.equal(hasMailableAddress({ address: 'N/A', city: 'Portland', state: 'OR', zip: '97201' }), false);
 });
 
+test('parseMailableAddress reads city, state, and zip from a single address line', () => {
+  const parsed = parseMailableAddress({
+    title: 'Seattle Electric Pros',
+    address: '7323 20th Ave NW, Seattle, WA 98117',
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.address_city, 'Seattle');
+  assert.equal(parsed.address_state, 'WA');
+  assert.equal(parsed.address_zip, '98117');
+  assert.match(parsed.address_line1, /7323 20th Ave NW/i);
+});
+
 test('lobClient isConfigured requires key and return address', () => {
   const lobClient = require('../services/lobClient');
   assert.equal(lobClient.isConfigured({}), false);

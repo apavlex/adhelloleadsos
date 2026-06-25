@@ -195,8 +195,8 @@
     <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
       <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
         <div>
-          <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else { %>Mailable leads<% } %></h2>
-          <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
+          <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Direct Mail queue<% } else { %>Mailable leads<% } %></h2>
+          <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Leads you tagged for direct mail — mailable rows can be selected to send.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
           <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
@@ -205,7 +205,7 @@
       </div>
       <p id="dmStatus" class="hidden px-5 py-2 text-xs font-semibold" aria-live="polite"></p>
       <% if (!mailableLeads.length) { %>
-      <div class="p-10 text-center text-brand-muted text-sm">No leads with a complete mailable address. Enrich leads or import addresses from search results.</div>
+      <div class="p-10 text-center text-brand-muted text-sm"><% if (typeof dmQueueEmpty !== 'undefined' && dmQueueEmpty) { %>No leads in your Direct Mail queue yet. In Focus or the dialer <strong>Mail</strong> tab, tap <strong>+ Add current lead</strong>, or tag leads with <em>Direct Mail List</em> in the pipeline.<% } else { %>No leads with a complete mailable address. Enrich leads or import addresses from search results.<% } %></div>
       <% } else { %>
       <div class="overflow-x-auto">
         <table id="dmLeadsTable" class="w-full text-left text-sm">
