@@ -1306,6 +1306,12 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   }
 }
 
+#focus-btn-push-ghl.is-busy,
+#focus-btn-push-ghl[aria-busy='true'] {
+  cursor: wait;
+  animation: bulk-ghl-push-pulse 1.1s ease-in-out infinite;
+}
+
 #bulkActionBar .bulk-bar-main,
 #bulkActionBar .bulk-bar-expand-row:not(.hidden) {
   align-items: center;

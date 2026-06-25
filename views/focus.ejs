@@ -260,20 +260,24 @@
         </div>
         <p id="focus-outcome-feedback" class="min-h-[1rem] text-[11px] text-brand-muted"></p>
         </div>
-        <div id="focus-outcome-actions" class="flex flex-col sm:flex-row flex-wrap gap-3 pt-1">
+        <div id="focus-outcome-actions" class="flex flex-col gap-3 pt-1">
         <button
           type="button"
           id="focus-btn-open-dialer"
-          class="btn-pill border-2 border-brand-yellow bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/25"
+          class="btn-pill border-2 border-brand-yellow bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-brand-yellow/25 w-full sm:w-auto"
           title="Open AdHello softphone and fill this lead number"
         >
           Open in dialer
         </button>
-        <button type="button" id="focus-btn-call" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors ring-2 ring-brand-yellow/40 shadow-md">Call</button>
-        <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors" title="Push this lead to Go High Level">Push GHL</button>
+        <div class="focus-primary-actions grid grid-cols-2 gap-3 w-full">
+          <button type="button" id="focus-btn-call" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest transition-colors ring-2 ring-brand-yellow/40 shadow-md min-h-[3rem]">Call</button>
+          <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors min-h-[3rem]" title="Push this lead to Go High Level">Push GHL</button>
+        </div>
+        <div class="focus-secondary-actions flex flex-col sm:flex-row flex-wrap gap-3 w-full">
         <button type="button" id="focus-btn-log" class="btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800">Log &amp; next</button>
         <button type="button" id="focus-btn-call-next" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 hover:border-emerald-500 transition-colors" title="Log, advance, and dial the next lead">Call next</button>
         <button type="button" id="focus-btn-skip" class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40">Skip</button>
+        </div>
         </div>
         <p id="focus-outcome-shortcuts" class="text-[10px] text-brand-muted mt-1"><kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">⌘</kbd>/<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Ctrl</kbd>+<kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">Enter</kbd> run selected channel · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">N</kbd> call next · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">L</kbd> log · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">J</kbd> skip · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">D</kbd> delete · <kbd class="px-1 py-0.5 rounded bg-brand-cream dark:bg-slate-800 font-mono">E</kbd> focus draft</p>
       </div>
@@ -741,12 +745,32 @@
     }
 
     function pushFocusLeadToGhl() {
+      if (window.__focusPushGhlInFlight) return Promise.resolve();
       var lead = currentLead();
-      if (!lead || !lead.key) return Promise.resolve();
-      if (btnPushGhl) btnPushGhl.disabled = true;
-      var payload = { leadKeys: [lead.key] };
+      if (!lead) {
+        setOutcomeFeedback('No lead loaded.', true);
+        return Promise.resolve();
+      }
+      var key = String(lead.key || '').trim();
+      if (!key) {
+        setOutcomeFeedback('Save this lead before pushing to GHL.', true);
+        return Promise.resolve();
+      }
+
+      var labelDefault = 'Push GHL';
+      window.__focusPushGhlInFlight = true;
+      if (btnPushGhl) {
+        btnPushGhl.disabled = true;
+        btnPushGhl.setAttribute('aria-busy', 'true');
+        btnPushGhl.classList.add('is-busy');
+        btnPushGhl.textContent = 'Pushing…';
+      }
+      setOutcomeFeedback('Syncing to Go High Level…', false);
+
+      var payload = { leadKeys: [key] };
       var website = lead.website ? String(lead.website).trim() : '';
       if (!website || website === 'N/A' || website === '—') payload.tagNoWebsite = true;
+
       return fetch('/ghl/push', {
         method: 'POST',
         credentials: 'same-origin',
@@ -763,17 +787,44 @@
           var msg = payload.tagNoWebsite
             ? 'GHL sync complete (tagged no website).'
             : 'GHL sync complete.';
-          setCopyFeedback(msg);
+          setOutcomeFeedback(msg, false);
+          setCopyFeedback(msg, false);
+          if (btnPushGhl) {
+            btnPushGhl.textContent = '✓ Synced';
+            if (window.__focusPushGhlFlashTimer) clearTimeout(window.__focusPushGhlFlashTimer);
+            window.__focusPushGhlFlashTimer = setTimeout(function () {
+              if (btnPushGhl) {
+                btnPushGhl.textContent = labelDefault;
+                btnPushGhl.classList.remove('is-busy');
+                btnPushGhl.removeAttribute('aria-busy');
+              }
+            }, 1600);
+          }
           return data;
         })
         .catch(function (err) {
-          setCopyFeedback(err && err.message ? err.message : 'Could not push to GHL.', true);
+          var errMsg = err && err.message ? err.message : 'Could not push to GHL.';
+          setOutcomeFeedback(errMsg, true);
+          setCopyFeedback(errMsg, true);
+          if (btnPushGhl) {
+            btnPushGhl.textContent = 'Failed';
+            if (window.__focusPushGhlFlashTimer) clearTimeout(window.__focusPushGhlFlashTimer);
+            window.__focusPushGhlFlashTimer = setTimeout(function () {
+              if (btnPushGhl) {
+                btnPushGhl.textContent = labelDefault;
+                btnPushGhl.classList.remove('is-busy');
+                btnPushGhl.removeAttribute('aria-busy');
+              }
+            }, 1200);
+          }
           throw err;
         })
         .finally(function () {
+          window.__focusPushGhlInFlight = false;
           if (btnPushGhl) btnPushGhl.disabled = false;
         });
     }
+    window.__pushFocusLeadToGhl = pushFocusLeadToGhl;
 
     function placeFocusCall() {
       var lead = currentLead();
@@ -1875,7 +1926,26 @@
     }
 
     if (btnCall) btnCall.addEventListener('click', function () { onSendAdvance(); });
-    if (btnPushGhl) btnPushGhl.addEventListener('click', function () { pushFocusLeadToGhl(); });
+    if (btnPushGhl) {
+      btnPushGhl.addEventListener('click', function (e) {
+        if (e) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        pushFocusLeadToGhl();
+      });
+    }
+    document.addEventListener(
+      'click',
+      function (e) {
+        if (!e.target || !e.target.closest || !e.target.closest('#focus-btn-push-ghl')) return;
+        if (e.defaultPrevented) return;
+        e.preventDefault();
+        e.stopPropagation();
+        pushFocusLeadToGhl();
+      },
+      true,
+    );
     btnLog.addEventListener('click', onLogNext);
     btnSkip.addEventListener('click', onSkip);
     if (btnCallNext) btnCallNext.addEventListener('click', function () {
