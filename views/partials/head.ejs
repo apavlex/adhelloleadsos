@@ -172,3 +172,6 @@
   }, true);
 })();
 </script>
+<% if (typeof quickLogClient !== 'undefined' && quickLogClient) { %>
+<script>window.__QUICK_LOG=<%- JSON.stringify(quickLogClient).replace(/</g, '\\u003c') %>;</script>
+<% } %>

@@ -19,6 +19,7 @@ const AO_ACTION_TAGS = Object.freeze({
   LINKEDIN: `${ACTION_TAG_PREFIX} LinkedIn`,
   SOCIAL: `${ACTION_TAG_PREFIX} Social`,
   MEETING: `${ACTION_TAG_PREFIX} Meeting`,
+  SITE_AUDIT: `${ACTION_TAG_PREFIX} Site audit`,
 });
 
 const ALL_ACTION_TAG_VALUES = Object.freeze(Object.values(AO_ACTION_TAGS));
@@ -55,6 +56,7 @@ function dispositionToActionTag(code) {
   if (c === 'voicemail') return AO_ACTION_TAGS.VOICEMAIL;
   if (c === 'no_answer') return AO_ACTION_TAGS.NO_ANSWER;
   if (c === 'gatekeeper') return AO_ACTION_TAGS.GATEKEEPER;
+  if (c === 'site_audit') return AO_ACTION_TAGS.SITE_AUDIT;
   return null;
 }
 
@@ -67,6 +69,7 @@ function statusToActionTag(status) {
   if (s.includes('no answer')) return AO_ACTION_TAGS.NO_ANSWER;
   if (s.includes('gatekeeper')) return AO_ACTION_TAGS.GATEKEEPER;
   if (s === 'follow-up') return AO_ACTION_TAGS.FOLLOW_UP;
+  if (s.includes('site audit')) return AO_ACTION_TAGS.SITE_AUDIT;
   return null;
 }
 

@@ -34,6 +34,12 @@ describe('ghlActionTags', () => {
     assert.equal(isActionTag('VIP'), false);
   });
 
+  it('maps site audit disposition to AO: Site audit', () => {
+    assert.equal(dispositionToActionTag('site_audit'), AO_ACTION_TAGS.SITE_AUDIT);
+    const tags = computeActionTagsFromLead({ lastDisposition: 'site_audit' });
+    assert.deepEqual(tags, [AO_ACTION_TAGS.SITE_AUDIT]);
+  });
+
   it('clears action tags for closed leads', () => {
     const tags = computeActionTagsFromLead({
       lastDisposition: 'callback',

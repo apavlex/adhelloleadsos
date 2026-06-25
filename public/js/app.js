@@ -2629,14 +2629,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
   restoreLeadPanelNotepadCollapsedState();
 
-  const QUICK_LOG_TAG_CONFIG = {
-    Gatekeeper: { disposition: 'gatekeeper' },
-    'Left VM': { disposition: 'voicemail' },
-    'Not interested': { status: 'Closed - Lost' },
-    'Callback requested': { disposition: 'callback' },
-    'DM connected': { disposition: 'connected' },
-    'Send info': { status: 'Email Sent' },
-  };
+  const QUICK_LOG_TAG_CONFIG =
+    (window.__QUICK_LOG && window.__QUICK_LOG.tagConfig) || {
+      Gatekeeper: { disposition: 'gatekeeper' },
+      'No pickup': { disposition: 'no_answer' },
+      'Left VM': { disposition: 'voicemail' },
+      'Not interested': { status: 'Closed - Lost' },
+      'Callback requested': { disposition: 'callback' },
+      'DM connected': { disposition: 'connected' },
+      'Send info': { status: 'Email Sent' },
+      'Site audit': { disposition: 'site_audit' },
+    };
+
+  function resolveActiveQuickLogLabel(row) {
+    if (!row || !row.dataset) return '';
+    const disp = String(row.dataset.lastDisposition || '').trim().toLowerCase();
+    const items = (window.__QUICK_LOG && window.__QUICK_LOG.items) || [];
+    if (disp) {
+      const fromDisp = items.find((i) => i.disposition === disp);
+      if (fromDisp) return fromDisp.label;
+    }
+    const status = String(row.dataset.status || '').trim();
+    if (status) {
+      const fromStatus = items.find((i) => i.status === status);
+      if (fromStatus) return fromStatus.label;
+    }
+    return '';
+  }
+
+  function syncLeadPanelQuickLogPills(row) {
+    const host = document.getElementById('leadNotepadTagRow');
+    if (!host) return;
+    const activeLabel = resolveActiveQuickLogLabel(row);
+    host.querySelectorAll('.lead-notepad-tag').forEach((b) => {
+      const label = b.getAttribute('data-tag') || '';
+      const on = !!activeLabel && label === activeLabel;
+      b.classList.toggle('ring-2', on);
+      b.classList.toggle('ring-brand-yellow/60', on);
+    });
+  }
 
   function isLeadDetailPanelOpen() {
     const panel = getLeadDetailPanel();
@@ -4911,6 +4942,8 @@ document.addEventListener('DOMContentLoaded', () => {
       syncRowReviewsDisplay(row);
     }
     if (L.status != null) ds.status = L.status;
+    if (L.lastDisposition != null) ds.lastDisposition = String(L.lastDisposition || '').trim().toLowerCase();
+    if (L.lastDispositionNotes != null) ds.lastDispositionNotes = String(L.lastDispositionNotes || '');
     if (L.hasSchemaMarkup !== undefined && L.hasSchemaMarkup !== null) ds.hasSchemaMarkup = L.hasSchemaMarkup;
     if (L.hasChatbot !== undefined && L.hasChatbot !== null) ds.hasChatbot = L.hasChatbot;
     if (L.hasClickToCall !== undefined && L.hasClickToCall !== null) ds.hasClickToCall = L.hasClickToCall;
@@ -7224,7 +7257,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const QUICK_LOG_PILL_LABELS =
-    'Gatekeeper|Left VM|Not interested|Callback requested|DM connected|Send info';
+    (window.__QUICK_LOG && window.__QUICK_LOG.pillLabelsPattern) ||
+    'Gatekeeper|No pickup|Left VM|Not interested|Callback requested|DM connected|Send info|Site audit';
 
   function isQuickLogMirroredNote(entry) {
     const typ = String(entry.typ || '').toLowerCase();
@@ -9534,6 +9568,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasOption = Array.from(panelStatusSelect.options).some((o) => o.value === st);
       panelStatusSelect.value = hasOption ? st : 'Not Contacted';
     }
+    syncLeadPanelQuickLogPills(row);
 
     // Loom / pitch video URL (after status select so visibility matches "Video Recorded")
     const loomInput = document.getElementById('loomUrlInput');

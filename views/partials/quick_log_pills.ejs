@@ -1,0 +1,16 @@
+<%
+  var _qlItems = (typeof quickLogClient !== 'undefined' && quickLogClient && quickLogClient.items)
+    ? quickLogClient.items
+    : [];
+  var _qlBtnClass = typeof quickLogBtnClass !== 'undefined' ? quickLogBtnClass : 'lead-notepad-tag btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border/40 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider text-brand-dark dark:text-white hover:border-brand-yellow';
+  var _qlBtnExtra = typeof quickLogBtnExtraClass !== 'undefined' ? quickLogBtnExtraClass : '';
+%>
+<% _qlItems.forEach(function (item) { %>
+<button
+  type="button"
+  class="<%= _qlBtnClass %><%= _qlBtnExtra ? ' ' + _qlBtnExtra : '' %>"
+  data-tag="<%= item.label %>"
+  <% if (item.disposition) { %>data-disposition="<%= item.disposition %>"<% } %>
+  <% if (item.status) { %>data-status="<%= item.status %>"<% } %>
+><%= item.label %></button>
+<% }); %>

@@ -873,6 +873,11 @@ router.post('/:key/disposition', async (req, res, next) => {
       patch.scriptVariant = 'gatekeeper_bypass';
       automation = 'Switched to gatekeeper bypass script variant.';
       nextStep = 'Use gatekeeper bypass opener on next touch.';
+    } else if (code === 'site_audit') {
+      status = 'Follow-up';
+      patch.lastTouchChannel = 'hosted_audit';
+      automation = 'Site audit tagged for GHL follow-up.';
+      nextStep = 'Deliver or confirm site audit review; follow up after they open it.';
     } else if (code === 'wrong_number') {
       status = 'Bad Number';
       patch.needsReenrichment = true;

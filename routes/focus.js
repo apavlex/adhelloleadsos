@@ -117,6 +117,8 @@ function leadToFocusPayload(l, sortedStages) {
     pipelineStage: stage,
     pipelineLabel: stageLabelFromLead(l, sortedStages),
     lastTouchLabel: formatLastTouchDisplay(l),
+    lastDisposition: String(l.lastDisposition || '').trim().toLowerCase(),
+    lastDispositionNotes: String(l.lastDispositionNotes || '').trim(),
     website: l.website && l.website !== 'N/A' ? l.website : '',
     phone: l.phone && l.phone !== 'N/A' ? l.phone : '',
     email: hasEmail ? email : '',

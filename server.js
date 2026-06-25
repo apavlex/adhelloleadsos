@@ -130,11 +130,15 @@ app.use(passport.session());
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
 
+const { getQuickLogClientPayload } = require('./services/quickLogConfig');
+const quickLogClientPayload = getQuickLogClientPayload();
+
 // Global middleware for templates
 app.use((req, res, next) => {
   res.locals.user = req.user || null;
   res.locals.hermesWebUiUrl = process.env.HERMES_WEBUI_URL || '';
   res.locals.ghlDashboardUrl = process.env.GHL_DASHBOARD_URL || '';
+  res.locals.quickLogClient = quickLogClientPayload;
   next();
 });
 

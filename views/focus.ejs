@@ -202,22 +202,16 @@
         </div>
         <div id="focus-outcome-details" class="space-y-3">
         <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick disposition</p>
-          <div class="flex flex-wrap gap-2">
-            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="no_pickup">No pickup</button>
-            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="voicemail">Voicemail</button>
-            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="talked_owner">Spoke owner</button>
-            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="callback_requested">Callback</button>
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick log</p>
+          <div class="flex flex-wrap gap-2" id="focus-quick-log-row">
+            <%- include('quick_log_pills', {
+              quickLogBtnClass: 'focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15',
+            }) %>
           </div>
           <p id="focus-selected-outcome-label" class="mt-2 text-[11px] text-brand-muted">Selected: none</p>
         </div>
         <select id="focus-outcome" class="hidden" aria-hidden="true" tabindex="-1">
           <option value="">Select outcome…</option>
-          <option value="voicemail">Went to voicemail</option>
-          <option value="no_pickup">No pickup</option>
-          <option value="talked_owner">Talked to business owner</option>
-          <option value="callback_requested">Callback requested</option>
-          <option value="other">Other</option>
         </select>
         <div>
           <label for="focus-outcome-notes" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Notes</label>
@@ -767,33 +761,67 @@
       if (lead.email) elLinks.appendChild(iconLink('mailto:' + encodeURIComponent(lead.email), 'Email', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>'));
     }
 
-    function focusOutcomeToDispositionCode(outcome) {
-      var map = {
-        no_pickup: 'no_answer',
-        voicemail: 'voicemail',
-        talked_owner: 'connected',
-        callback_requested: 'callback',
-      };
-      return map[String(outcome || '').trim()] || '';
+    function focusQuickLogItems() {
+      return (window.__QUICK_LOG && window.__QUICK_LOG.items) || [];
     }
 
-    function applyFocusDispositionIfNeeded(lead) {
+    function focusQuickLogItemForValue(value) {
+      var v = String(value || '').trim();
+      if (!v) return null;
+      if (v.indexOf('status:') === 0) {
+        var status = v.slice(7);
+        return focusQuickLogItems().find(function (i) { return i.status === status; }) || null;
+      }
+      return focusQuickLogItems().find(function (i) { return i.disposition === v; }) || null;
+    }
+
+    function focusBtnSelectionValue(btn) {
+      var disp = String(btn.getAttribute('data-disposition') || '').trim();
+      if (disp) return disp;
+      var status = String(btn.getAttribute('data-status') || '').trim();
+      if (status) return 'status:' + status;
+      return '';
+    }
+
+    function parseFocusQuickLogSelection(value) {
+      var v = String(value || '').trim();
+      if (!v) return null;
+      if (v.indexOf('status:') === 0) return { status: v.slice(7) };
+      return { code: v };
+    }
+
+    function applyFocusQuickLogIfNeeded(lead) {
       if (!lead || !lead.key) return Promise.resolve();
-      var outcome = String((elOutcome && elOutcome.value) || '').trim();
-      var code = focusOutcomeToDispositionCode(outcome);
-      if (!code) return Promise.resolve();
+      var parsed = parseFocusQuickLogSelection(elOutcome && elOutcome.value);
+      if (!parsed) return Promise.resolve();
       var notes = String((elOutcomeNotes && elOutcomeNotes.value) || '').trim();
-      return fetch('/leads/' + encodeURIComponent(lead.key) + '/disposition', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ code: code, notes: notes }),
-      }).then(function (r) {
-        return r.json().then(function (j) {
-          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save disposition.');
-          return j;
+      if (parsed.code) {
+        return fetch('/leads/' + encodeURIComponent(lead.key) + '/disposition', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ code: parsed.code, notes: notes }),
+        }).then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save disposition.');
+            return j;
+          });
         });
-      });
+      }
+      if (parsed.status) {
+        return fetch('/leads/' + encodeURIComponent(lead.key) + '/update', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ status: parsed.status }),
+        }).then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save status.');
+            return j;
+          });
+        });
+      }
+      return Promise.resolve();
     }
 
     function syncFocusFollowupToLead(lead) {
@@ -823,7 +851,7 @@
     }
 
     function saveFocusContextBeforeGhlSync(lead) {
-      return applyFocusDispositionIfNeeded(lead)
+      return applyFocusQuickLogIfNeeded(lead)
         .then(function () { return postNote(); })
         .then(function () { return syncFocusFollowupToLead(lead); })
         .then(function () { return createFollowupTaskIfRequested(); });
@@ -1517,16 +1545,29 @@
     }
 
     function outcomeLabel(v) {
-      var map = {
-        voicemail: 'Went to voicemail',
-        no_pickup: 'No pickup',
-        talked_owner: 'Talked to business owner',
-        callback_requested: 'Callback requested',
-        sent_sms: 'Sent SMS',
-        sent_email: 'Sent email',
-        other: 'Other',
-      };
-      return map[String(v || '').trim()] || '';
+      var item = focusQuickLogItemForValue(v);
+      return item ? item.label : '';
+    }
+
+    function hydrateFocusQuickLogFromLead(lead) {
+      if (!elOutcome) return;
+      var value = '';
+      var disp = String((lead && lead.lastDisposition) || '').trim().toLowerCase();
+      if (disp) {
+        var dispItem = focusQuickLogItems().find(function (i) { return i.disposition === disp; });
+        if (dispItem) {
+          value = dispItem.disposition || (dispItem.status ? 'status:' + dispItem.status : '');
+        }
+      }
+      if (!value && lead && lead.status) {
+        var statusItem = focusQuickLogItems().find(function (i) { return i.status === lead.status; });
+        if (statusItem && statusItem.status) value = 'status:' + statusItem.status;
+      }
+      elOutcome.value = value;
+      syncQuickOutcomeButtons();
+      if (elOutcomeNotes) {
+        elOutcomeNotes.value = lead && lead.lastDispositionNotes ? String(lead.lastDispositionNotes) : '';
+      }
     }
 
     function ensureSuggestedOutcome() {
@@ -1541,21 +1582,16 @@
         btn.classList.remove(
           'border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow',
           'border-violet-500/60', 'bg-violet-500/15', 'text-violet-800', 'dark:text-violet-200',
-          'border-blue-500/60', 'bg-blue-500/15', 'text-blue-800', 'dark:text-blue-200',
-          'border-brand-border/80', 'dark:border-white/25', 'bg-white', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-100',
           'border-emerald-500/60', 'bg-emerald-500/15', 'text-emerald-800', 'dark:text-emerald-200'
         );
-        var active = String(btn.getAttribute('data-outcome') || '') === selected;
+        var active = focusBtnSelectionValue(btn) === selected;
         btn.setAttribute('data-active', active ? 'true' : 'false');
         if (!active) return;
-        var outcome = String(btn.getAttribute('data-outcome') || '');
-        if (outcome === 'voicemail') {
+        var item = focusQuickLogItemForValue(selected);
+        var disp = item && item.disposition ? item.disposition : '';
+        if (disp === 'voicemail') {
           btn.classList.add('border-violet-500/60', 'bg-violet-500/15', 'text-violet-800', 'dark:text-violet-200');
-        } else if (outcome === 'sent_sms') {
-          btn.classList.add('border-blue-500/60', 'bg-blue-500/15', 'text-blue-800', 'dark:text-blue-200');
-        } else if (outcome === 'sent_email') {
-          btn.classList.add('border-brand-border/80', 'dark:border-white/25', 'bg-white', 'dark:bg-slate-800', 'text-slate-700', 'dark:text-slate-100');
-        } else if (outcome === 'talked_owner') {
+        } else if (disp === 'connected') {
           btn.classList.add('border-emerald-500/60', 'bg-emerald-500/15', 'text-emerald-800', 'dark:text-emerald-200');
         } else {
           btn.classList.add('border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
@@ -1573,28 +1609,26 @@
       if (!v) return;
       elOutcome.value = v;
       syncQuickOutcomeButtons();
-      if (elOutcomeNotes) {
+      var item = focusQuickLogItemForValue(v);
+      if (elOutcomeNotes && item && item.noteTemplate) {
         var existing = String(elOutcomeNotes.value || '').trim();
-        var templates = {
-          no_pickup: 'No pickup. Retry in next calling window.',
-          voicemail: 'Left voicemail with value prop and callback number.',
-          talked_owner: 'Spoke with owner. Interested - follow up with tailored recap.',
-          callback_requested: 'Requested callback. Confirm best time and call back as scheduled.',
-          sent_sms: 'Sent SMS follow-up with short CTA.',
-          sent_email: 'Sent follow-up email with concise summary and CTA.',
-        };
+        var templates = {};
+        focusQuickLogItems().forEach(function (i) {
+          var key = i.disposition || (i.status ? 'status:' + i.status : '');
+          if (key && i.noteTemplate) templates[key] = i.noteTemplate;
+        });
         var isExistingTemplate = Object.keys(templates).some(function (k) {
           return String(templates[k]) === existing;
         });
-        if (( !existing || isExistingTemplate ) && templates[v]) {
+        if ((!existing || isExistingTemplate) && templates[v]) {
           elOutcomeNotes.value = templates[v];
         }
       }
-      if (elFollowupEnable && (v === 'callback_requested' || v === 'talked_owner')) {
+      if (item && item.enableFollowup && elFollowupEnable) {
         elFollowupEnable.checked = true;
         if (elFollowupWrap) elFollowupWrap.classList.remove('hidden');
       }
-      setOutcomeFeedback('Outcome set: ' + (outcomeLabel(v) || v.replace(/_/g, ' ')), false);
+      setOutcomeFeedback('Quick log: ' + (outcomeLabel(v) || v.replace(/_/g, ' ')), false);
     }
 
     function copyLeadField(field, label) {
@@ -1672,9 +1706,7 @@
         elServiceSelect.value = getDefaultProductKey();
       }
       currentChannel = 'call-script';
-      if (elOutcome) elOutcome.value = '';
-      syncQuickOutcomeButtons();
-      if (elOutcomeNotes) elOutcomeNotes.value = '';
+      hydrateFocusQuickLogFromLead(lead);
       if (elFollowupEnable) elFollowupEnable.checked = false;
       if (elFollowupWrap) elFollowupWrap.classList.add('hidden');
       if (elFollowupAt) elFollowupAt.value = '';
@@ -1923,7 +1955,7 @@
     if (elQuickOutcomeBtns && elQuickOutcomeBtns.length) {
       elQuickOutcomeBtns.forEach(function (btn) {
         btn.addEventListener('click', function () {
-          quickSetOutcome(btn.getAttribute('data-outcome'));
+          quickSetOutcome(focusBtnSelectionValue(btn));
         });
       });
     }
