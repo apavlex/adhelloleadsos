@@ -3263,6 +3263,55 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function readLeadPanelSelectedQuickLog() {
+    const active = document.querySelector('.lead-notepad-tag[data-active="true"]');
+    if (!active) return null;
+    const label = String(active.getAttribute('data-tag') || '').trim();
+    if (!label) return null;
+    const cfg = QUICK_LOG_TAG_CONFIG[label] || {};
+    return { label, ...cfg };
+  }
+
+  async function saveLeadPanelContextBeforeGhlSync(row) {
+    const selection = readLeadPanelSelectedQuickLog();
+    if (!selection) return;
+    const noteInput = document.getElementById('noteInput');
+    const notes = noteInput ? String(noteInput.value || '').trim() : '';
+    if (selection.disposition) {
+      const data = await applyLeadPanelDisposition(selection.disposition, notes);
+      if (data.lead) syncPersistedLeadToRowDataset(row, data.lead);
+      return;
+    }
+    if (selection.status) {
+      const key = String(row.dataset.leadKey || '').trim();
+      if (!key) return;
+      const res = await fetch(`/leads/${encodeURIComponent(key)}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({ status: selection.status }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Status update failed');
+      }
+      if (data.lead) syncPersistedLeadToRowDataset(row, data.lead);
+    }
+  }
+
+  function leadPanelGhlPushPayload(row, key) {
+    const payload = { leadKeys: [key] };
+    if (rowDatasetMissingWebsite(row)) payload.tagNoWebsite = true;
+    const selection = readLeadPanelSelectedQuickLog();
+    const noteInput = document.getElementById('noteInput');
+    const notes = noteInput ? String(noteInput.value || '').trim() : '';
+    if (selection && selection.disposition) {
+      payload.disposition = selection.disposition;
+      if (notes) payload.dispositionNotes = notes;
+    }
+    return payload;
+  }
+
   async function pushLeadPanelToGhl() {
     const row = resolvePanelActionRow();
     if (!row) {
@@ -3280,8 +3329,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     try {
       const key = await ensureRowHasLeadKey(row);
-      const payload = { leadKeys: [key] };
-      if (rowDatasetMissingWebsite(row)) payload.tagNoWebsite = true;
+      await saveLeadPanelContextBeforeGhlSync(row);
+      const payload = leadPanelGhlPushPayload(row, key);
       const res = await fetch('/ghl/push', {
         method: 'POST',
         credentials: 'same-origin',
@@ -6430,7 +6479,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderStars(rating, reviews);
     syncGoogleReviewsLink(tableRow);
     syncHeaderPhoneRow(tableRow, phone);
-    syncHeaderSocialsRow(tableRow);
+    syncLeadPanelContactLinks(tableRow);
 
     const locationLine = address
       ? formatLeadPanelAddress(address)
@@ -6976,8 +7025,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function renderRowSocialBrandLinksHtml(row, gradSuffix) {
+  const LEAD_PANEL_CONTACT_ICON_CLASS =
+    'inline-flex items-center justify-center w-9 h-9 rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors shrink-0';
+
+  function renderLeadPanelContactIconSvg(pathD) {
+    return (
+      '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">' +
+      '<path stroke-linecap="round" stroke-linejoin="round" d="' +
+      pathD +
+      '"/></svg>'
+    );
+  }
+
+  function renderRowSocialBrandLinksHtml(row, gradSuffix, opts) {
     if (!row || !row.dataset) return '';
+    opts = opts || {};
     const suffix =
       gradSuffix != null
         ? String(gradSuffix)
@@ -6995,6 +7057,8 @@ document.addEventListener('DOMContentLoaded', () => {
       ig: sanitizeSocialUrl(row.dataset.instagram),
       tw: sanitizeSocialUrl(row.dataset.twitter),
       gradSuffix: suffix,
+      size: opts.size,
+      emptyDash: opts.emptyDash,
     };
     if (__socialBrand) {
       const html = __socialBrand.renderLinks(links);
@@ -7015,14 +7079,73 @@ document.addEventListener('DOMContentLoaded', () => {
     return slot.includes('<a ') ? slot : '';
   }
 
-  function syncHeaderSocialsRow(row) {
-    const el = document.getElementById('mobilePanelHeaderSocials');
-    const rowWrap = document.getElementById('headerSocialsRow');
+  function renderLeadPanelContactLinksHtml(row) {
+    if (!row || !row.dataset) return '';
+    const parts = [];
+    const website = readPipelineRowDisplayWebsite(row);
+    const phone = readPipelineRowDisplayPhone(row);
+    const email = readPipelineRowDisplayEmail(row);
+    const lk = String(row.dataset.leadKey || '').trim();
+    const cls = LEAD_PANEL_CONTACT_ICON_CLASS;
+
+    if (website) {
+      const href = normalizeWebsiteHref(website);
+      parts.push(
+        '<a href="' +
+          escapeHtmlAttr(href) +
+          '" target="_blank" rel="noopener noreferrer" class="' +
+          cls +
+          '" title="Website" aria-label="Website">' +
+          renderLeadPanelContactIconSvg(
+            'M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9'
+          ) +
+          '</a>'
+      );
+    }
+    if (phone) {
+      parts.push(
+        '<a href="#" class="' +
+          cls +
+          ' js-click-to-call-number" data-phone="' +
+          escapeHtmlAttr(phone.trim()) +
+          '"' +
+          (lk ? ' data-lead-key="' + escapeHtmlAttr(lk) + '"' : '') +
+          ' title="Call" aria-label="Call">' +
+          renderLeadPanelContactIconSvg(
+            'M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z'
+          ) +
+          '</a>'
+      );
+    }
+    if (email) {
+      parts.push(
+        '<a href="mailto:' +
+          encodeURIComponent(email) +
+          '" class="' +
+          cls +
+          '" title="Email" aria-label="Email">' +
+          renderLeadPanelContactIconSvg(
+            'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'
+          ) +
+          '</a>'
+      );
+    }
+
+    const socialHtml = renderRowSocialBrandLinksHtml(
+      row,
+      `panel-${String(row.dataset.leadKey || row.id || 'x').replace(/[^a-z0-9]+/gi, '-')}`,
+      { size: 'panel', emptyDash: false }
+    );
+    return parts.join('') + (socialHtml || '');
+  }
+
+  function syncLeadPanelContactLinks(row) {
+    const el = document.getElementById('leadPanelContactLinks');
     if (!el) return;
-    const html = renderRowSocialBrandLinksHtml(row, `panel-${String(row.dataset.leadKey || row.id || 'x').replace(/[^a-z0-9]+/gi, '-')}`);
+    const html = renderLeadPanelContactLinksHtml(row);
     el.innerHTML = html;
     const hasLinks = html && html.includes('<a ');
-    if (rowWrap) rowWrap.classList.toggle('hidden', !hasLinks);
+    el.classList.toggle('hidden', !hasLinks);
   }
 
   function syncRowSocialsUnderPhone(row) {

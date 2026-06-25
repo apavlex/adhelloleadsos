@@ -12,6 +12,41 @@ const {
   formatNextActionNote,
   isActionTag,
 } = require('./ghlActionTags');
+const { quickLogItemForDisposition } = require('./quickLogConfig');
+
+function normalizeLeadStorageKey(leadKey) {
+  const k = String(leadKey || '').trim();
+  if (!k) return '';
+  return k.startsWith('lead:') ? k : `lead:${k}`;
+}
+
+/**
+ * Persist quick-log disposition on a lead before GHL push (tags derive from lastDisposition).
+ * @param {{ leadKey: string, code: string, notes?: string, workspaceId: string }} opts
+ */
+async function patchLeadDispositionForGhlPush(opts) {
+  const fullKey = normalizeLeadStorageKey(opts.leadKey);
+  const code = String(opts.code || '').trim().toLowerCase();
+  const workspaceId = opts.workspaceId || 'default';
+  if (!fullKey || !code) return { skipped: true, reason: 'missing_fields' };
+
+  const item = quickLogItemForDisposition(code);
+  if (!item) return { skipped: true, reason: 'unknown_disposition' };
+
+  const existing = await dbService.getLead(fullKey);
+  if (!existing) return { skipped: true, reason: 'lead_not_found' };
+
+  const notes = String(opts.notes || '').trim();
+  const patch = {
+    lastDisposition: code,
+    lastDispositionAt: new Date().toISOString(),
+  };
+  if (notes) patch.lastDispositionNotes = notes.slice(0, 2000);
+  if (item.status) patch.status = item.status;
+
+  const updated = await dbService.updateLead(fullKey, patch, workspaceId);
+  return { ok: true, lead: updated, code };
+}
 
 /**
  * Map GHL tag names to workspace tag keys (by catalog name). Keeps existing keys and
@@ -140,6 +175,8 @@ function triggerGhlProspectSync(leadKey, workspaceId, extra = {}) {
 }
 
 module.exports = {
+  normalizeLeadStorageKey,
+  patchLeadDispositionForGhlPush,
   resolveGhlTagNamesToLeadKeys,
   resolveLeadTagNamesForGhl,
   prepareLeadForGhlPush,

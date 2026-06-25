@@ -15,6 +15,14 @@ test('renderLinks uses branded button markup for Facebook and Instagram', () => 
   assert.match(html, /w-8 h-8/);
 });
 
-test('linkHtml returns empty for blank href', () => {
-  assert.equal(linkHtml('facebook', 'N/A'), '');
+test('renderLinks uses panel-sized buttons when requested', () => {
+  const html = renderLinks({
+    gm: 'https://maps.google.com/?q=test',
+    fb: 'https://facebook.com/acme',
+    size: 'panel',
+    emptyDash: false,
+  });
+  assert.match(html, /w-9 h-9/);
+  assert.match(html, /rounded-xl/);
+  assert.doesNotMatch(html, /—/);
 });

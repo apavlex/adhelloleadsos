@@ -63,14 +63,15 @@
     (leads || []).forEach(function (lead) {
       var k = normalizeKey(lead && lead.key);
       if (!k) return;
+      var prev = byKey[k];
       byKey[k] = {
         key: k,
-        title: String((lead && lead.title) || 'Lead').trim(),
-        address: String((lead && lead.address) || '').trim(),
-        city: String((lead && lead.city) || '').trim(),
-        state: String((lead && lead.state) || '').trim(),
-        mailable: !!(lead && lead.mailable),
-        addedAt: new Date().toISOString(),
+        title: String((lead && lead.title) || (prev && prev.title) || 'Lead').trim(),
+        address: String((lead && lead.address) || (prev && prev.address) || '').trim(),
+        city: String((lead && lead.city) || (prev && prev.city) || '').trim(),
+        state: String((lead && lead.state) || (prev && prev.state) || '').trim(),
+        mailable: lead && lead.mailable != null ? !!lead.mailable : !!(prev && prev.mailable),
+        addedAt: String((lead && lead.addedAt) || (prev && prev.addedAt) || new Date().toISOString()),
       };
     });
     writeSession(Object.keys(byKey).map(function (k) {
@@ -144,6 +145,16 @@
     return true;
   }
 
+  function focusLeadLooksMailable(lead) {
+    if (!lead) return false;
+    var address = String(lead.address || '').trim();
+    if (!address || address === 'N/A' || address === '—') return false;
+    var city = String(lead.city || '').trim();
+    var state = String(lead.state || '').trim();
+    if (!city || !state) return /\b\d{5}(?:-\d{4})?\b/.test(address);
+    return true;
+  }
+
   function collectDirectMailCandidates() {
     var out = [];
     var seen = Object.create(null);
@@ -158,18 +169,18 @@
         address: String((item && item.address) || '').trim(),
         city: String((item && item.city) || '').trim(),
         state: String((item && item.state) || '').trim(),
-        mailable: item.mailable != null ? !!item.mailable : rowLooksMailable(item._row),
+        mailable: item.mailable != null ? !!item.mailable : focusLeadLooksMailable(item),
       });
+    }
+
+    if (typeof window.__getFocusCurrentLead === 'function') {
+      var focusLead = window.__getFocusCurrentLead();
+      if (focusLead && focusLead.key) add(focusLead);
     }
 
     if (typeof window.__getSoftphoneActiveLead === 'function') {
       var active = window.__getSoftphoneActiveLead();
-      if (active && active.key) {
-        add({
-          key: active.key,
-          title: active.title,
-        });
-      }
+      if (active && active.key) add(active);
     }
 
     if (typeof window.__getActiveLeadPanelRow === 'function') {
@@ -178,7 +189,6 @@
         var payload = rowLeadPayload(panelRow);
         if (payload) {
           payload.mailable = rowLooksMailable(panelRow);
-          payload._row = panelRow;
           add(payload);
         }
       }
@@ -189,13 +199,31 @@
         var p = rowLeadPayload(row);
         if (p) {
           p.mailable = rowLooksMailable(row);
-          p._row = row;
           add(p);
         }
       });
     }
 
     return out;
+  }
+
+  async function refreshDirectMailQueueFromServer() {
+    var res = await fetch('/direct-mail/api/queue', {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    });
+    var data = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not load Direct Mail queue.');
+    }
+    if (data.folderKey) rememberFolderKey(data.folderKey);
+    if (Array.isArray(data.leads)) {
+      upsertSessionItems(data.leads);
+    }
+    return data;
   }
 
   async function queueLeadKeys(leadKeys) {
@@ -218,6 +246,8 @@
     if (data.folderKey) rememberFolderKey(data.folderKey);
     if (Array.isArray(data.leads) && data.leads.length) {
       upsertSessionItems(data.leads);
+    } else {
+      await refreshDirectMailQueueFromServer();
     }
     if (data.folderKey && Array.isArray(window.WORKSPACE_FOLDERS)) {
       var hasFolder = window.WORKSPACE_FOLDERS.some(function (f) {
@@ -268,6 +298,7 @@
   window.__addLeadsToDirectMailQueue = queueLeadKeys;
   window.__addCurrentLeadToDirectMailQueue = addCurrentLeadToDirectMailQueue;
   window.__collectDirectMailCandidates = collectDirectMailCandidates;
+  window.__refreshDirectMailQueueFromServer = refreshDirectMailQueueFromServer;
   window.__buildDirectMailFolderUrl = buildDirectMailFolderUrl;
   window.__updateDirectMailNavBadge = updateDirectMailNavBadge;
 

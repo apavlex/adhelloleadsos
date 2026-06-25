@@ -334,10 +334,29 @@ router.post('/api/queue', express.json(), async (req, res, next) => {
     const visible = filterLeadsForRequest(req, all);
     const result = await directMailQueue.addLeadsToDirectMailQueue(req.workspaceId, leadKeys, visible);
 
+    if (!result.leads.length && leadKeys.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'Could not queue those leads. Open a saved lead or check your access.',
+        ...result,
+      });
+    }
+
     res.json({
       success: true,
       ...result,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/api/queue', async (req, res, next) => {
+  try {
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const result = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
+    res.json({ success: true, ...result });
   } catch (err) {
     next(err);
   }

@@ -7,6 +7,7 @@ const router = express.Router();
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
+const { patchLeadDispositionForGhlPush } = require('../services/ghlProspectSync');
 
 router.get('/status', async (req, res) => {
   try {
@@ -39,6 +40,20 @@ router.post('/push', express.json(), async (req, res, next) => {
     const wid = req.workspaceId || 'default';
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const disposition = String(body.disposition || '').trim().toLowerCase();
+    const dispositionNotes = String(body.dispositionNotes || body.notes || '').trim();
+    const leadKeys = Array.isArray(body.leadKeys) ? body.leadKeys : [];
+    if (disposition && leadKeys.length) {
+      for (const leadKey of leadKeys) {
+        // eslint-disable-next-line no-await-in-loop
+        await patchLeadDispositionForGhlPush({
+          leadKey,
+          code: disposition,
+          notes: dispositionNotes,
+          workspaceId: wid,
+        });
+      }
+    }
     const result = await ghlSync.pushLeads({
       workspaceId: wid,
       integrationEnv,

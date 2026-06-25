@@ -46,6 +46,82 @@ async function ensureDirectMailListTag(workspaceId) {
   return dbService.createTag(wid, DIRECT_MAIL_TAG_NAME);
 }
 
+async function resolveLeadKeyForQueue(rawKey, visibleLeads, workspaceId) {
+  const visibleKeys = new Set((visibleLeads || []).map((l) => l.key));
+  const fromVisible = resolveLeadKey(rawKey, visibleKeys);
+  if (fromVisible) return fromVisible;
+
+  const resolved = await dbService.resolveLeadStorageKey(rawKey, workspaceId);
+  if (!resolved) return null;
+  if (visibleKeys.has(resolved)) return resolved;
+
+  const short = resolved.replace(/^lead:/i, '');
+  for (const key of visibleKeys) {
+    if (String(key).replace(/^lead:/i, '') === short) return key;
+  }
+  return null;
+}
+
+function leadQueuedAt(lead) {
+  const updates = Array.isArray(lead && lead.updates) ? lead.updates : [];
+  for (let i = updates.length - 1; i >= 0; i -= 1) {
+    const u = updates[i];
+    if (u && u.type === 'direct_mail_queued' && u.timestamp) return String(u.timestamp);
+  }
+  const logs = Array.isArray(lead && lead.logs) ? lead.logs : [];
+  for (let j = logs.length - 1; j >= 0; j -= 1) {
+    const log = logs[j];
+    if (log && log.type === 'direct_mail_queued' && log.timestamp) return String(log.timestamp);
+  }
+  return '';
+}
+
+function serializeQueuedLead(lead, extra = {}) {
+  return {
+    key: lead.key,
+    title: lead.title || 'Lead',
+    address: lead.address || '',
+    city: lead.city || '',
+    state: lead.state || '',
+    mailable: lobDirectMail.hasMailableAddress(lead),
+    addedAt: leadQueuedAt(lead) || extra.addedAt || '',
+    alreadyQueued: !!extra.alreadyQueued,
+  };
+}
+
+/**
+ * List leads currently tagged / filed for direct mail in this workspace.
+ * @param {string} workspaceId
+ * @param {object[]} visibleLeads
+ */
+async function listDirectMailQueueLeads(workspaceId, visibleLeads) {
+  const folder = await ensureDirectMailFolder(workspaceId);
+  const tag = await ensureDirectMailListTag(workspaceId);
+  const folderKey = String(folder.key || '').trim();
+  const tagKey = String(tag.key || '').trim();
+  const out = [];
+  const seen = new Set();
+
+  for (const lead of visibleLeads || []) {
+    if (!lead || !lead.key || seen.has(lead.key)) continue;
+    const inFolder = folderKey && String(lead.folderKey || '') === folderKey;
+    const tags = dbService.normalizeTagKeys(lead.tags);
+    const hasTag = tagKey && tags.includes(tagKey);
+    if (!inFolder && !hasTag) continue;
+    seen.add(lead.key);
+    out.push(serializeQueuedLead(lead));
+  }
+
+  out.sort((a, b) => String(b.addedAt || '').localeCompare(String(a.addedAt || '')));
+  return {
+    folderKey,
+    folderName: folder.name || DIRECT_MAIL_FOLDER_NAME,
+    tagKey,
+    tagName: tag.name || DIRECT_MAIL_TAG_NAME,
+    leads: out,
+  };
+}
+
 /**
  * Tag leads and move them into the Direct Mail folder.
  * @param {string} workspaceId
@@ -72,12 +148,12 @@ async function addLeadsToDirectMailQueue(workspaceId, leadKeys, visibleLeads) {
   let skipped = 0;
 
   for (const raw of keysIn) {
-    const fullKey = resolveLeadKey(raw, visibleKeys);
+    const fullKey = await resolveLeadKeyForQueue(raw, visibleLeads, workspaceId);
     if (!fullKey) {
       skipped += 1;
       continue;
     }
-    const existing = visibleByKey.get(fullKey) || (await dbService.getLead(fullKey));
+    const existing = visibleByKey.get(fullKey);
     if (!existing) {
       skipped += 1;
       continue;
@@ -105,15 +181,12 @@ async function addLeadsToDirectMailQueue(workspaceId, leadKeys, visibleLeads) {
     };
 
     const updated = await dbService.updateLead(fullKey, patch, workspaceId);
-    out.push({
-      key: updated.key,
-      title: updated.title || existing.title || 'Lead',
-      address: updated.address || existing.address || '',
-      city: updated.city || existing.city || '',
-      state: updated.state || existing.state || '',
-      mailable: lobDirectMail.hasMailableAddress(updated),
-      alreadyQueued,
-    });
+    out.push(
+      serializeQueuedLead(updated, {
+        alreadyQueued,
+        addedAt: new Date().toISOString(),
+      }),
+    );
     if (!alreadyQueued) added += 1;
     else skipped += 1;
   }
@@ -134,5 +207,6 @@ module.exports = {
   DIRECT_MAIL_TAG_NAME,
   ensureDirectMailFolder,
   ensureDirectMailListTag,
+  listDirectMailQueueLeads,
   addLeadsToDirectMailQueue,
 };

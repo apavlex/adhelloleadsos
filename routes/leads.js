@@ -63,6 +63,7 @@ const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
+const { quickLogItemForStatus } = require('../services/quickLogConfig');
 
 const GHL_CONTACT_SYNC_FIELDS = [
   'email',
@@ -1024,6 +1025,11 @@ router.post('/:key/update', async (req, res, next) => {
 
     // Add to activity log if status changed
     if (updateData.status && existing) {
+      const quickItem = quickLogItemForStatus(updateData.status);
+      if (quickItem && quickItem.disposition) {
+        updateData.lastDisposition = quickItem.disposition;
+        updateData.lastDispositionAt = new Date().toISOString();
+      }
       const lead = existing;
       const updates = lead.updates || [];
       updates.push({
@@ -1052,6 +1058,7 @@ router.post('/:key/update', async (req, res, next) => {
     const shouldSyncGhl =
       updateData.lastTouchChannel !== undefined ||
       updateData.status ||
+      updateData.lastDisposition !== undefined ||
       updateData.nextActionAt !== undefined ||
       updateData.pipelineStage !== undefined ||
       (req.body && req.body.stageId != null) ||

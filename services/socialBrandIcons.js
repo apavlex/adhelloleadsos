@@ -5,6 +5,13 @@
 const SOCIAL_BTN_BASE =
   'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 transition-all hover:scale-105';
 
+const SOCIAL_BTN_PANEL =
+  'inline-flex w-9 h-9 shrink-0 rounded-xl items-center justify-center border border-brand-border/60 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 text-brand-dark dark:text-white transition-colors';
+
+function socialBtnBaseForSize(size) {
+  return size === 'panel' ? SOCIAL_BTN_PANEL : SOCIAL_BTN_BASE;
+}
+
 const PLATFORMS = {
   google: {
     title: 'Google Maps / Business Profile',
@@ -77,9 +84,10 @@ function linkHtml(platform, href, opts = {}) {
       ? p.iconForId(gradId)
       : p.icon;
   const stop = opts.stopPropagation !== false ? ' onclick="event.stopPropagation()"' : '';
+  const btnBase = socialBtnBaseForSize(opts.size);
   return (
     `<a href="${escapeHtmlAttr(url)}" target="_blank" rel="noopener noreferrer"` +
-    ` class="${SOCIAL_BTN_BASE} ${p.hover}" title="${escapeHtmlAttr(p.title)}"` +
+    ` class="${btnBase} ${p.hover}" title="${escapeHtmlAttr(p.title)}"` +
     ` aria-label="${escapeHtmlAttr(p.ariaLabel)}"${stop}>${icon}</a>`
   );
 }
@@ -89,22 +97,29 @@ function linkHtml(platform, href, opts = {}) {
  */
 function renderLinks(links = {}) {
   const suffix = links.gradSuffix != null ? String(links.gradSuffix) : '';
+  const size = links.size === 'panel' ? 'panel' : 'table';
+  const linkOpts = { size };
   const parts = [];
-  if (!isBlankLink(links.gm)) parts.push(linkHtml('google', links.gm));
-  if (!isBlankLink(links.fb)) parts.push(linkHtml('facebook', links.fb));
+  if (!isBlankLink(links.gm)) parts.push(linkHtml('google', links.gm, linkOpts));
+  if (!isBlankLink(links.fb)) parts.push(linkHtml('facebook', links.fb, linkOpts));
   if (!isBlankLink(links.ig)) {
-    parts.push(linkHtml('instagram', links.ig, { gradId: `igGrad${suffix}` }));
+    parts.push(linkHtml('instagram', links.ig, { ...linkOpts, gradId: `igGrad${suffix}` }));
   }
-  if (!isBlankLink(links.tw)) parts.push(linkHtml('twitter', links.tw));
-  if (!isBlankLink(links.li)) parts.push(linkHtml('linkedin', links.li));
+  if (!isBlankLink(links.tw)) parts.push(linkHtml('twitter', links.tw, linkOpts));
+  if (!isBlankLink(links.li)) parts.push(linkHtml('linkedin', links.li, linkOpts));
   if (!parts.length) {
+    if (links.emptyDash === false) return '';
     return '<span class="text-xs font-semibold text-brand-muted/60 dark:text-slate-500">—</span>';
   }
-  return `<span class="inline-flex flex-nowrap items-center gap-2">${parts.join('')}</span>`;
+  const inner = parts.join('');
+  if (size === 'panel') return inner;
+  return `<span class="inline-flex flex-nowrap items-center gap-2">${inner}</span>`;
 }
 
 module.exports = {
   SOCIAL_BTN_BASE,
+  SOCIAL_BTN_PANEL,
+  socialBtnBaseForSize,
   PLATFORMS,
   linkHtml,
   renderLinks,
