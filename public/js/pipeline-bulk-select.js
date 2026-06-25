@@ -936,12 +936,25 @@
     const step = 100;
     for (let elapsed = 0; elapsed < limit; elapsed += step) {
       if (typeof window.__openBulkPushGhlFromBar === 'function') return window.__openBulkPushGhlFromBar;
+      if (typeof window.__pushLeadKeysToGhlWithProgress === 'function') {
+        return window.__pushLeadKeysToGhlWithProgress;
+      }
       // eslint-disable-next-line no-await-in-loop
       await new Promise(function (resolve) {
         window.setTimeout(resolve, step);
       });
     }
     return null;
+  }
+
+  function setBulkGhlProgressEarly(progress) {
+    const el = document.getElementById('bulkSaveFeedback');
+    const msg = `Syncing ${progress.current} of ${progress.total} · ${progress.remaining} left`;
+    if (el) {
+      el.textContent = msg;
+      el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-sky-200');
+      el.classList.add('text-white/80');
+    }
   }
 
   async function runBulkPushGhlFromBarEarly() {
@@ -959,47 +972,43 @@
     const noWebsiteCount = countNoWebsiteSelectedEarly();
     const labelDefault = 'Push GHL';
     const prev = btn ? String(btn.textContent || '').trim() || labelDefault : labelDefault;
+    window.__bulkPushGhlInFlight = true;
     if (btn) {
       btn.disabled = true;
-      btn.textContent = 'Pushing…';
+      btn.textContent = `${leadKeys.length} left`;
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('is-busy');
     }
-    showBulkBarFeedbackEarly(
-      `Syncing ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} to GHL…`,
-      'loading',
-    );
+    setBulkGhlProgressEarly({ current: 0, total: leadKeys.length, remaining: leadKeys.length });
 
     const handler = await waitForBulkPushGhlHandler(8000);
-    if (typeof handler === 'function') {
+    if (typeof handler === 'function' && handler === window.__openBulkPushGhlFromBar) {
+      window.__bulkPushGhlInFlight = false;
       return handler();
     }
 
-    window.__bulkPushGhlInFlight = true;
+    const pushWithProgress =
+      typeof handler === 'function' ? handler : window.__pushLeadKeysToGhlWithProgress;
+
     try {
-      const res = await fetch('/ghl/push', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ leadKeys: leadKeys, tagNoWebsite: true }),
-      });
-      const data = await res.json().catch(function () {
-        return {};
-      });
-      if (!res.ok || !data.success) {
-        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      if (typeof pushWithProgress !== 'function') {
+        throw new Error('GHL push handler failed to load. Hard-refresh and try again.');
       }
-      const pushed = data.pushed != null ? data.pushed : 0;
-      const failed = data.failed != null ? data.failed : 0;
+      const result = await pushWithProgress({
+        leadKeys: leadKeys,
+        tagNoWebsite: true,
+        btn: btn,
+        onProgress: setBulkGhlProgressEarly,
+      });
       const taggedNote = noWebsiteCount > 0 ? ` · ${noWebsiteCount} tagged no website` : '';
-      const msg = `GHL sync complete · ${pushed} contact${pushed === 1 ? '' : 's'}${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
-      showBulkBarFeedbackEarly(msg, failed === 0 ? 'success' : 'error');
+      const msg = `GHL sync complete · ${result.pushed} contact${result.pushed === 1 ? '' : 's'}${taggedNote}${result.failed ? ` · ${result.failed} failed` : ''}`;
+      showBulkBarFeedbackEarly(msg, result.failed === 0 ? 'success' : 'error');
       if (typeof window.__flashBulkBarBtn === 'function') {
-        window.__flashBulkBarBtn(btn, failed === 0 ? '✓ Synced' : 'Failed');
+        window.__flashBulkBarBtn(btn, result.failed === 0 ? '✓ Synced' : 'Failed');
       }
       const link = document.getElementById('bulkOpenGhlContactsLink');
-      if (link && pushed > 0) link.classList.remove('hidden');
-      return { ok: true, pushed, failed };
+      if (link && result.pushed > 0) link.classList.remove('hidden');
+      return { ok: result.failed === 0, pushed: result.pushed, failed: result.failed };
     } catch (err) {
       const msg = err && err.message ? err.message : 'GHL push failed';
       showBulkBarFeedbackEarly(msg, 'error');
@@ -1254,7 +1263,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '8';
+  window.__PIPELINE_BULK_SELECT_V2 = '9';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

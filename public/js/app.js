@@ -5411,8 +5411,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function getGhlContactsUrl() {
-    const url = String(window.GHL_DASHBOARD_URL || '').trim();
-    return url || 'https://app.gohighlevel.com';
+    return 'https://my.adhello.ai/';
   }
 
   function syncLeadPanelOutreachIntelButtons(row) {
@@ -13494,6 +13493,65 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  async function pushLeadKeysToGhlWithProgress(opts) {
+    const leadKeys = Array.isArray(opts && opts.leadKeys)
+      ? opts.leadKeys.map((k) => String(k || '').trim()).filter(Boolean)
+      : [];
+    const tagNoWebsite = !(opts && opts.tagNoWebsite === false);
+    const btn = opts && opts.btn ? opts.btn : null;
+    const onProgress =
+      opts && typeof opts.onProgress === 'function' ? opts.onProgress : null;
+    let pushed = 0;
+    let failed = 0;
+    const total = leadKeys.length;
+    const results = [];
+
+    for (let i = 0; i < leadKeys.length; i += 1) {
+      const key = leadKeys[i];
+      const current = i + 1;
+      const remaining = total - current;
+      const progress = { current, total, remaining, pushed, failed, key };
+      if (onProgress) onProgress(progress);
+      if (btn) btn.textContent = remaining > 0 ? `${remaining} left` : 'Finishing…';
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: [key], tagNoWebsite }),
+        });
+        // eslint-disable-next-line no-await-in-loop
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        const row = data.results && data.results[0] ? data.results[0] : null;
+        if (!row) {
+          failed += 1;
+          results.push({ key, ok: false, error: 'lead_not_found' });
+        } else if (row.ok === false) {
+          failed += 1;
+          results.push({ key, ok: false, error: row.error || 'push_failed' });
+        } else {
+          pushed += 1;
+          results.push({ key, ok: true, ghlContactId: row.ghlContactId });
+        }
+      } catch (err) {
+        failed += 1;
+        results.push({
+          key,
+          ok: false,
+          error: err && err.message ? err.message : 'push_failed',
+        });
+      }
+    }
+
+    return { ok: failed === 0, pushed, failed, total, results };
+  }
+  window.__pushLeadKeysToGhlWithProgress = pushLeadKeysToGhlWithProgress;
+
   async function openBulkPushGhlFromBar() {
     if (window.__bulkPushGhlInFlight) return { ok: false, error: 'in_flight' };
     const btn = bulkPushGhlBtn || document.getElementById('bulkPushGhlBtn');
@@ -13510,34 +13568,36 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn) {
       __bulkBarBtnLabels.set(btn, prev);
       btn.disabled = true;
-      btn.textContent = 'Pushing…';
+      btn.textContent = `${keys.length} left`;
       btn.setAttribute('aria-busy', 'true');
       btn.classList.add('is-busy');
     }
-    const syncNote =
-      keys.length > 10
-        ? `Syncing ${keys.length} leads to GHL… this may take a minute.`
-        : `Syncing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`;
-    showBulkSaveFeedback(syncNote, 'loading');
-    try {
-      const res = await fetch('/ghl/push', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ leadKeys: keys, tagNoWebsite: true }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error((data && data.error) || `HTTP ${res.status}`);
+
+    const setProgressMessage = (progress) => {
+      const el = document.getElementById('bulkSaveFeedback');
+      const msg = `Syncing ${progress.current} of ${progress.total} · ${progress.remaining} left`;
+      if (el) {
+        el.textContent = msg;
+        el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-sky-200');
+        el.classList.add('text-white/80');
       }
-      const pushed = data.pushed != null ? data.pushed : 0;
-      const failed = data.failed != null ? data.failed : 0;
+    };
+
+    setProgressMessage({ current: 0, total: keys.length, remaining: keys.length });
+
+    try {
+      const result = await pushLeadKeysToGhlWithProgress({
+        leadKeys: keys,
+        tagNoWebsite: true,
+        btn,
+        onProgress: setProgressMessage,
+      });
       const taggedNote = noWebsiteCount > 0 ? ` · ${noWebsiteCount} tagged no website` : '';
-      const msg = `GHL sync complete · ${pushed} contact${pushed === 1 ? '' : 's'}${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
-      showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
-      showBulkOpenGhlLink(pushed > 0);
-      flashBulkBarBtn(btn, failed === 0 ? '✓ Synced' : 'Failed');
-      return { ok: true, pushed, failed };
+      const msg = `GHL sync complete · ${result.pushed} contact${result.pushed === 1 ? '' : 's'}${taggedNote}${result.failed ? ` · ${result.failed} failed` : ''}`;
+      showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
+      showBulkOpenGhlLink(result.pushed > 0);
+      flashBulkBarBtn(btn, result.failed === 0 ? '✓ Synced' : 'Failed');
+      return { ok: result.failed === 0, pushed: result.pushed, failed: result.failed };
     } catch (err) {
       const msg = err && err.message ? err.message : 'GHL push failed';
       showBulkSaveFeedback(msg, 'error');
