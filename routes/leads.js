@@ -878,6 +878,15 @@ router.post('/:key/disposition', async (req, res, next) => {
       patch.lastTouchChannel = 'hosted_audit';
       automation = 'Site audit tagged for GHL follow-up.';
       nextStep = 'Deliver or confirm site audit review; follow up after they open it.';
+    } else if (code === 'not_interested') {
+      status = 'Closed - Lost';
+      automation = 'Tagged not interested in GHL.';
+      nextStep = 'Archive or remove from active prospecting lists.';
+    } else if (code === 'send_info') {
+      status = 'Email Sent';
+      patch.lastTouchChannel = 'email';
+      automation = 'Send-info action tagged for GHL follow-up.';
+      nextStep = 'Confirm info was sent and schedule a review follow-up.';
     } else if (code === 'wrong_number') {
       status = 'Bad Number';
       patch.needsReenrichment = true;
@@ -1043,6 +1052,7 @@ router.post('/:key/update', async (req, res, next) => {
     const shouldSyncGhl =
       updateData.lastTouchChannel !== undefined ||
       updateData.status ||
+      updateData.nextActionAt !== undefined ||
       updateData.pipelineStage !== undefined ||
       (req.body && req.body.stageId != null) ||
       leadContactFieldsChanged(req.body, existing);

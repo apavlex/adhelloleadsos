@@ -15,7 +15,7 @@ const {
   shouldPushLog,
   ghlNoteToLogEntry,
 } = require('./ghlSyncHelpers');
-const { isActionTag } = require('./ghlActionTags');
+const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require('./ghlActionTags');
 const ghlProspectSync = require('./ghlProspectSync');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
@@ -101,6 +101,57 @@ async function pullNotesFromGhl(lead, contactId, integrationEnv) {
   return { pulled: newLogs.length, newLogs, syncState };
 }
 
+function buildGhlFollowUpTaskPayload(lead) {
+  const dueRaw = lead && lead.nextActionAt ? String(lead.nextActionAt).trim() : '';
+  if (!dueRaw) return null;
+  const dueDate = new Date(dueRaw);
+  if (Number.isNaN(dueDate.getTime())) return null;
+
+  const actionTags = computeActionTagsFromLead(lead);
+  const actionLabel = actionTags.length
+    ? actionTags[0].replace(/^AO:\s*/, '')
+    : 'Follow-up';
+  const title = `Follow up: ${String((lead && lead.title) || 'Lead').trim()} — ${actionLabel}`;
+  const notes = String((lead && lead.lastDispositionNotes) || '').trim();
+  const body = notes || formatNextActionNote(lead) || '';
+  return {
+    title,
+    body,
+    dueDate: dueDate.toISOString(),
+  };
+}
+
+async function syncFollowUpTaskToGhl(lead, contactId, integrationEnv) {
+  const payload = buildGhlFollowUpTaskPayload(lead);
+  if (!payload) return { skipped: true, reason: 'no_follow_up' };
+
+  const dueKey = payload.dueDate;
+  const existingTaskId = String((lead && lead.ghlFollowUpTaskId) || '').trim();
+  const existingDue = String((lead && lead.ghlFollowUpTaskDueAt) || '').trim();
+  if (existingTaskId && existingDue === dueKey) {
+    return { skipped: true, reason: 'unchanged', taskId: existingTaskId, dueAt: dueKey };
+  }
+
+  try {
+    if (existingTaskId) {
+      await ghlClient.updateContactTask(contactId, existingTaskId, payload, integrationEnv);
+      return { taskId: existingTaskId, dueAt: dueKey, action: 'updated' };
+    }
+    const created = await ghlClient.createContactTask(contactId, payload, integrationEnv);
+    const taskId = String((created && created.id) || '').trim();
+    if (!taskId) throw new Error('GHL did not return a task id');
+    return { taskId, dueAt: dueKey, action: 'created' };
+  } catch (e) {
+    if (existingTaskId && (e.status === 404 || e.status === 422)) {
+      const created = await ghlClient.createContactTask(contactId, payload, integrationEnv);
+      const taskId = String((created && created.id) || '').trim();
+      if (!taskId) throw new Error('GHL did not return a task id');
+      return { taskId, dueAt: dueKey, action: 'recreated' };
+    }
+    throw e;
+  }
+}
+
 async function pushLeadToGhl(lead, integrationEnv) {
   if (!lead || !lead.key) throw new Error('Invalid lead');
   let contactId = String(lead.ghlContactId || '').trim();
@@ -139,6 +190,7 @@ async function pushLeadToGhl(lead, integrationEnv) {
   });
   const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
   const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
+  const followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
 
   const ghlLogSync = notePush.syncState;
   notePull.syncState.pulledNoteIds.forEach((id) => {
@@ -154,6 +206,10 @@ async function pushLeadToGhl(lead, integrationEnv) {
   if (Array.isArray(lead.ghlActionTags)) {
     patch.ghlActionTags = lead.ghlActionTags;
   }
+  if (followUpTask && followUpTask.taskId) {
+    patch.ghlFollowUpTaskId = followUpTask.taskId;
+    patch.ghlFollowUpTaskDueAt = followUpTask.dueAt || '';
+  }
   if (!lead.ghlTagNamesForPush) {
     patch.tags = mergedTags;
   }
@@ -167,6 +223,7 @@ async function pushLeadToGhl(lead, integrationEnv) {
     action: 'pushed',
     notesPushed: notePush.pushed,
     notesPulled: notePull.pulled,
+    followUpTask,
   };
 }
 

@@ -8,6 +8,7 @@
     call: 'Call List',
     email: 'Email List',
     doubleTap: 'Double Tap List',
+    directMail: 'Direct Mail List',
   };
 
   function toast(msg) {

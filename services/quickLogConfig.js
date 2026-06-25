@@ -21,6 +21,7 @@ const QUICK_LOG_ITEMS = Object.freeze([
   },
   {
     label: 'Not interested',
+    disposition: 'not_interested',
     status: 'Closed - Lost',
     noteTemplate: 'Not interested at this time.',
   },
@@ -38,6 +39,7 @@ const QUICK_LOG_ITEMS = Object.freeze([
   },
   {
     label: 'Send info',
+    disposition: 'send_info',
     status: 'Email Sent',
     noteTemplate: 'Sending info package — follow up after they review.',
   },

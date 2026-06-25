@@ -40,7 +40,19 @@ describe('ghlActionTags', () => {
     assert.deepEqual(tags, [AO_ACTION_TAGS.SITE_AUDIT]);
   });
 
-  it('clears action tags for closed leads', () => {
+  it('maps send info and not interested quick logs to AO tags', () => {
+    assert.equal(dispositionToActionTag('send_info'), AO_ACTION_TAGS.SEND_INFO);
+    assert.equal(dispositionToActionTag('not_interested'), AO_ACTION_TAGS.NOT_INTERESTED);
+    assert.deepEqual(computeActionTagsFromLead({ lastDisposition: 'send_info' }), [
+      AO_ACTION_TAGS.SEND_INFO,
+    ]);
+    assert.deepEqual(
+      computeActionTagsFromLead({ lastDisposition: 'not_interested', status: 'Closed - Lost' }),
+      [AO_ACTION_TAGS.NOT_INTERESTED],
+    );
+  });
+
+  it('clears action tags for closed won leads', () => {
     const tags = computeActionTagsFromLead({
       lastDisposition: 'callback',
       status: 'Closed - Won',

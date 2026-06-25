@@ -256,6 +256,42 @@ async function createContactNote(contactId, body, integrationEnv) {
   return data.note || data;
 }
 
+async function createContactTask(contactId, task, integrationEnv) {
+  const title = String((task && task.title) || 'Follow-up').trim();
+  const dueDate = String((task && task.dueDate) || '').trim();
+  if (!title || !dueDate) throw new Error('Task title and dueDate are required');
+  const body = {
+    title,
+    dueDate,
+    completed: false,
+  };
+  const notes = String((task && task.body) || '').trim();
+  if (notes) body.body = notes;
+  const data = await ghlRequest('POST', `/contacts/${encodeURIComponent(contactId)}/tasks`, {
+    integrationEnv,
+    body,
+  });
+  return data.task || data;
+}
+
+async function updateContactTask(contactId, taskId, task, integrationEnv) {
+  const id = String(taskId || '').trim();
+  if (!id) throw new Error('Task id is required');
+  const body = {
+    title: String((task && task.title) || 'Follow-up').trim(),
+    dueDate: String((task && task.dueDate) || '').trim(),
+    completed: !!(task && task.completed),
+  };
+  const notes = String((task && task.body) || '').trim();
+  if (notes) body.body = notes;
+  const data = await ghlRequest(
+    'PUT',
+    `/contacts/${encodeURIComponent(contactId)}/tasks/${encodeURIComponent(id)}`,
+    { integrationEnv, body },
+  );
+  return data.task || data;
+}
+
 async function getContact(contactId, integrationEnv) {
   const data = await ghlRequest('GET', `/contacts/${encodeURIComponent(contactId)}`, { integrationEnv });
   return data.contact || data;
@@ -333,6 +369,8 @@ module.exports = {
   listContacts,
   listContactNotes,
   createContactNote,
+  createContactTask,
+  updateContactTask,
   normalizePhoneE164,
   sendConversationMessage,
   GHL_CONVERSATIONS_API_VERSION,

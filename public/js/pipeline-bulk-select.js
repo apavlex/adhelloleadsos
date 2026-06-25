@@ -1155,19 +1155,52 @@
           e.stopPropagation();
           const keys = collectFocusSelectionKeys();
           if (!keys.length) return;
-          if (typeof window.__persistDirectMailSelectionKeys === 'function') {
-            window.__persistDirectMailSelectionKeys(keys);
-          }
           const mailBtn = document.getElementById('bulkDirectMailBtn');
           const n = keys.length;
           if (typeof window.showBulkActionConfirmation === 'function') {
             window.showBulkActionConfirmation(
-              `Opening direct mail for ${n} selected lead${n === 1 ? '' : 's'}…`,
+              `Queuing ${n} selected lead${n === 1 ? '' : 's'} for direct mail…`,
               'info',
             );
           }
           if (typeof window.__flashBulkBarBtn === 'function') {
-            window.__flashBulkBarBtn(mailBtn, 'Opening…', 700);
+            window.__flashBulkBarBtn(mailBtn, 'Saving…', 700);
+          }
+          const finish = function (msg, ok) {
+            if (typeof window.showBulkActionConfirmation === 'function') {
+              window.showBulkActionConfirmation(msg, ok ? 'success' : 'error');
+            }
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast(msg, { variant: ok ? 'success' : 'error' });
+            }
+            if (typeof window.__flashBulkBarBtn === 'function' && mailBtn) {
+              window.__flashBulkBarBtn(mailBtn, ok ? 'Queued ✓' : 'Failed', 900);
+            }
+          };
+          if (typeof window.__addLeadsToDirectMailQueue === 'function') {
+            window
+              .__addLeadsToDirectMailQueue(keys)
+              .then(function (data) {
+                const added = data && data.added != null ? data.added : n;
+                finish(
+                  `Added ${added} lead${added === 1 ? '' : 's'} to Direct Mail folder.`,
+                  true,
+                );
+                if (typeof window.__persistDirectMailSelectionKeys === 'function') {
+                  window.__persistDirectMailSelectionKeys(
+                    typeof window.__directMailSessionKeys === 'function'
+                      ? window.__directMailSessionKeys()
+                      : keys,
+                  );
+                }
+              })
+              .catch(function (err) {
+                finish((err && err.message) || 'Could not queue for direct mail.', false);
+              });
+            return;
+          }
+          if (typeof window.__persistDirectMailSelectionKeys === 'function') {
+            window.__persistDirectMailSelectionKeys(keys);
           }
           const href =
             typeof window.__buildDirectMailSelectionUrl === 'function'

@@ -8,6 +8,7 @@ const { excludeOutreachFolderLeads } = require('../services/leadListFilters');
 const { parseBulkSelectionKeys, orderLeadsByKeys, resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 const lobClient = require('../services/lobClient');
 const lobDirectMail = require('../services/lobDirectMail');
+const directMailQueue = require('../services/directMailQueue');
 const kieImageClient = require('../services/kieImageClient');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 
@@ -315,6 +316,27 @@ router.post('/api/send', async (req, res, next) => {
       sent: okCount,
       failed: results.length - okCount,
       results,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/api/queue', express.json(), async (req, res, next) => {
+  try {
+    const leadKeysRaw = Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [];
+    const leadKeys = leadKeysRaw.map((k) => String(k || '').trim()).filter(Boolean);
+    if (!leadKeys.length) {
+      return res.status(400).json({ success: false, error: 'leadKeys is required.' });
+    }
+
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const result = await directMailQueue.addLeadsToDirectMailQueue(req.workspaceId, leadKeys, visible);
+
+    res.json({
+      success: true,
+      ...result,
     });
   } catch (err) {
     next(err);

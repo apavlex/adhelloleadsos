@@ -2431,6 +2431,21 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
     padding-top: 0;
 }
 
+.focus-quick-outcome[data-active="true"],
+.lead-notepad-tag[data-active="true"] {
+    border-color: var(--brand-yellow, #ca8a04) !important;
+    background: color-mix(in srgb, var(--brand-yellow, #facc15) 20%, transparent) !important;
+    color: var(--brand-dark, #111827);
+    box-shadow:
+        0 0 0 2px color-mix(in srgb, var(--brand-yellow, #facc15) 35%, transparent),
+        inset 0 0 0 1px color-mix(in srgb, var(--brand-yellow, #facc15) 25%, transparent);
+}
+
+.dark .focus-quick-outcome[data-active="true"],
+.dark .lead-notepad-tag[data-active="true"] {
+    color: var(--brand-yellow, #facc15);
+}
+
 /* Brand-aligned datetime picker (Focus follow-up) */
 .gcal-datetime {
   position: relative;
@@ -2484,16 +2499,17 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 .gcal-datetime-popover {
   position: absolute;
   left: 0;
-  right: 0;
-  top: calc(100% + 0.4rem);
+  top: calc(100% + 0.35rem);
   z-index: 80;
-  padding: 1rem 1rem 0.75rem;
-  border-radius: 1.15rem;
+  width: 13.25rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.55rem 0.6rem 0.45rem;
+  border-radius: 0.75rem;
   border: 1px solid color-mix(in srgb, var(--brand-border, #d6d3d1) 55%, transparent);
   background: color-mix(in srgb, #fff 92%, var(--brand-cream, #faf7ed));
   box-shadow:
     0 4px 6px -1px rgba(15, 23, 42, 0.06),
-    0 18px 36px -10px rgba(15, 23, 42, 0.16);
+    0 12px 24px -8px rgba(15, 23, 42, 0.14);
 }
 
 .dark .gcal-datetime-popover {
@@ -2506,14 +2522,14 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
+  gap: 0.25rem;
+  margin-bottom: 0.35rem;
 }
 
 .gcal-datetime-month {
   flex: 1;
   text-align: center;
-  font-size: 0.95rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: -0.01em;
   color: var(--brand-dark, #111827);
@@ -2527,8 +2543,8 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.15rem;
-  height: 2.15rem;
+  width: 1.35rem;
+  height: 1.35rem;
   border: 1px solid color-mix(in srgb, var(--brand-border, #d6d3d1) 50%, transparent);
   border-radius: 9999px;
   background: #fff;
@@ -2549,43 +2565,46 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 }
 
 .gcal-datetime-nav svg {
-  width: 1rem;
-  height: 1rem;
+  width: 0.65rem;
+  height: 0.65rem;
 }
 
 .gcal-datetime-weekdays,
 .gcal-datetime-grid {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.2rem;
+  grid-template-columns: repeat(7, 1.5rem);
+  justify-content: center;
+  gap: 0.125rem;
 }
 
 .gcal-datetime-weekdays {
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.2rem;
 }
 
 .gcal-datetime-weekdays span {
   text-align: center;
-  font-size: 0.68rem;
+  font-size: 0.55rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--brand-muted, #64748b);
 }
 
 .gcal-datetime-day {
-  aspect-ratio: 1;
+  width: 1.5rem;
+  height: 1.5rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: 0;
   border-radius: 9999px;
   background: transparent;
-  font-size: 0.82rem;
+  font-size: 0.625rem;
   font-weight: 700;
   color: var(--brand-dark, #111827);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+  padding: 0;
 }
 
 .dark .gcal-datetime-day {
@@ -2624,9 +2643,9 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.85rem;
-  padding-top: 0.85rem;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  padding-top: 0.4rem;
   border-top: 1px solid color-mix(in srgb, var(--brand-border, #d6d3d1) 45%, transparent);
 }
 
@@ -2635,10 +2654,10 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 }
 
 .gcal-datetime-time-label {
-  margin-right: 0.15rem;
-  font-size: 0.68rem;
+  margin-right: 0.05rem;
+  font-size: 0.55rem;
   font-weight: 800;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--brand-muted, #64748b);
 }
@@ -2646,21 +2665,21 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 .gcal-datetime-hour,
 .gcal-datetime-minute,
 .gcal-datetime-ampm {
-  min-width: 3.35rem;
-  min-height: 2.35rem;
-  border-radius: 0.75rem;
+  min-width: 2.35rem;
+  min-height: 1.5rem;
+  border-radius: 0.45rem;
   border: 1px solid color-mix(in srgb, var(--brand-border, #d6d3d1) 65%, transparent);
   background: #fff;
   color: var(--brand-dark, #111827);
-  font-size: 0.82rem;
+  font-size: 0.625rem;
   font-weight: 700;
-  padding: 0.4rem 0.55rem;
+  padding: 0.15rem 0.35rem;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b' stroke-width='2.5'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 0.45rem center;
-  background-size: 0.85rem;
-  padding-right: 1.65rem;
+  background-position: right 0.25rem center;
+  background-size: 0.55rem;
+  padding-right: 1.1rem;
   cursor: pointer;
   transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
@@ -2682,6 +2701,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 }
 
 .gcal-datetime-time-sep {
+  font-size: 0.625rem;
   font-weight: 800;
   color: var(--brand-muted, #64748b);
 }
@@ -2690,19 +2710,19 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 0.65rem;
+  margin-top: 0.35rem;
 }
 
 .gcal-datetime-footer-btn {
   border: 0;
   background: transparent;
   color: var(--brand-dark, #111827);
-  font-size: 0.72rem;
+  font-size: 0.55rem;
   font-weight: 800;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  padding: 0.45rem 0.55rem;
-  border-radius: 0.55rem;
+  padding: 0.2rem 0.35rem;
+  border-radius: 0.35rem;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
@@ -2718,7 +2738,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 
 @media (min-width: 420px) {
   .gcal-datetime-popover {
-    min-width: 18.5rem;
+    width: 13.25rem;
   }
 }
 

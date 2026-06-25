@@ -2634,10 +2634,10 @@ document.addEventListener('DOMContentLoaded', () => {
       Gatekeeper: { disposition: 'gatekeeper' },
       'No pickup': { disposition: 'no_answer' },
       'Left VM': { disposition: 'voicemail' },
-      'Not interested': { status: 'Closed - Lost' },
+      'Not interested': { disposition: 'not_interested', status: 'Closed - Lost' },
       'Callback requested': { disposition: 'callback' },
       'DM connected': { disposition: 'connected' },
-      'Send info': { status: 'Email Sent' },
+      'Send info': { disposition: 'send_info', status: 'Email Sent' },
       'Site audit': { disposition: 'site_audit' },
     };
 
@@ -2664,8 +2664,8 @@ document.addEventListener('DOMContentLoaded', () => {
     host.querySelectorAll('.lead-notepad-tag').forEach((b) => {
       const label = b.getAttribute('data-tag') || '';
       const on = !!activeLabel && label === activeLabel;
-      b.classList.toggle('ring-2', on);
-      b.classList.toggle('ring-brand-yellow/60', on);
+      b.setAttribute('data-active', on ? 'true' : 'false');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
 
@@ -3009,9 +3009,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const noteLine = `[${stamp}] ${label}`;
     const tagBtns = document.querySelectorAll('.lead-notepad-tag');
     tagBtns.forEach((b) => {
-      b.classList.toggle('ring-2', (b.getAttribute('data-tag') || '') === label);
-      b.classList.toggle('ring-brand-yellow/60', (b.getAttribute('data-tag') || '') === label);
+      const on = (b.getAttribute('data-tag') || '') === label;
+      b.setAttribute('data-active', on ? 'true' : 'false');
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    if (cfg.disposition) currentRow.dataset.lastDisposition = cfg.disposition;
+    if (cfg.status) currentRow.dataset.status = cfg.status;
 
     appendRowActivityEntry(currentRow, {
       type: 'quick_log',
@@ -3076,9 +3079,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(err.message || 'Quick log failed');
       }
     } finally {
-      setTimeout(() => {
-        tagBtns.forEach((b) => b.classList.remove('ring-2', 'ring-brand-yellow/60'));
-      }, 1200);
+      syncLeadPanelQuickLogPills(currentRow);
     }
   }
 
@@ -12553,6 +12554,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkFolderNewCancel = document.getElementById('bulkFolderNewCancel');
   const bulkSaveBtn = document.getElementById('bulkSaveBtn');
   const bulkFocusModeBtn = document.getElementById('bulkFocusModeBtn');
+  const bulkDirectMailBtn = document.getElementById('bulkDirectMailBtn');
   const bulkPushGhlBtn = document.getElementById('bulkPushGhlBtn');
 
   let selectedKeys = new Set();
@@ -13153,7 +13155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
       });
     }
-    if (bulkFocusModeBtn || bulkPushGhlBtn) {
+    if (bulkFocusModeBtn || bulkDirectMailBtn || bulkPushGhlBtn) {
       const keys =
         hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
           ? window.__collectFocusSelectionKeys()
@@ -13195,6 +13197,15 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `Call and log ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
           : 'Select leads with phone numbers to call',
         'Selected leads have no phone number',
+      );
+      syncPrimaryBtn(
+        bulkDirectMailBtn,
+        null,
+        hasSelection && keys.length > 0,
+        keys.length
+          ? `Tag ${keys.length} selected lead${keys.length === 1 ? '' : 's'} for direct mail`
+          : 'Select leads to queue for direct mail',
+        'Select at least one lead',
       );
       syncPrimaryBtn(
         bulkPushGhlBtn,

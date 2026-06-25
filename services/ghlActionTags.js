@@ -20,6 +20,8 @@ const AO_ACTION_TAGS = Object.freeze({
   SOCIAL: `${ACTION_TAG_PREFIX} Social`,
   MEETING: `${ACTION_TAG_PREFIX} Meeting`,
   SITE_AUDIT: `${ACTION_TAG_PREFIX} Site audit`,
+  NOT_INTERESTED: `${ACTION_TAG_PREFIX} Not interested`,
+  SEND_INFO: `${ACTION_TAG_PREFIX} Send info`,
 });
 
 const ALL_ACTION_TAG_VALUES = Object.freeze(Object.values(AO_ACTION_TAGS));
@@ -57,6 +59,8 @@ function dispositionToActionTag(code) {
   if (c === 'no_answer') return AO_ACTION_TAGS.NO_ANSWER;
   if (c === 'gatekeeper') return AO_ACTION_TAGS.GATEKEEPER;
   if (c === 'site_audit') return AO_ACTION_TAGS.SITE_AUDIT;
+  if (c === 'not_interested') return AO_ACTION_TAGS.NOT_INTERESTED;
+  if (c === 'send_info') return AO_ACTION_TAGS.SEND_INFO;
   return null;
 }
 
@@ -70,6 +74,8 @@ function statusToActionTag(status) {
   if (s.includes('gatekeeper')) return AO_ACTION_TAGS.GATEKEEPER;
   if (s === 'follow-up') return AO_ACTION_TAGS.FOLLOW_UP;
   if (s.includes('site audit')) return AO_ACTION_TAGS.SITE_AUDIT;
+  if (s.includes('email sent')) return AO_ACTION_TAGS.SEND_INFO;
+  if (s.includes('closed') && s.includes('lost')) return AO_ACTION_TAGS.NOT_INTERESTED;
   return null;
 }
 
@@ -86,13 +92,22 @@ function isTerminalProspectStatus(lead) {
  */
 function computeActionTagsFromLead(lead) {
   if (!lead || typeof lead !== 'object') return [];
-  if (isTerminalProspectStatus(lead)) return [];
 
   const fromDisposition = dispositionToActionTag(lead.lastDisposition);
-  if (fromDisposition) return [fromDisposition];
+  if (fromDisposition) {
+    if (fromDisposition === AO_ACTION_TAGS.NOT_INTERESTED) return [fromDisposition];
+    if (isTerminalProspectStatus(lead)) return [];
+    return [fromDisposition];
+  }
 
   const fromStatus = statusToActionTag(lead.status);
-  if (fromStatus) return [fromStatus];
+  if (fromStatus) {
+    if (fromStatus === AO_ACTION_TAGS.NOT_INTERESTED) return [fromStatus];
+    if (isTerminalProspectStatus(lead)) return [];
+    return [fromStatus];
+  }
+
+  if (isTerminalProspectStatus(lead)) return [];
 
   const fromChannel = channelToActionTag(lead.lastTouchChannel);
   if (fromChannel) return [fromChannel];

@@ -1174,6 +1174,7 @@
     if (spTo) setTimeout(function () { spTo.focus(); }, 80);
     renderRecentDials();
     renderSoftphoneCallQueue();
+    renderSoftphoneDirectMailQueue();
     softphoneSetCallState('idle');
     softphoneSetWrapRequired(false);
     updateControlToggles();
@@ -1791,6 +1792,102 @@
   }
   window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
 
+  var spDirectMailList = document.getElementById('softphoneDirectMailList');
+  var spDirectMailMeta = document.getElementById('softphoneDirectMailMeta');
+  var spDirectMailAddBtn = document.getElementById('softphoneDirectMailAddBtn');
+  var spDirectMailSendLink = document.getElementById('softphoneDirectMailSendLink');
+  var spDirectMailFolderLink = document.getElementById('softphoneDirectMailFolderLink');
+
+  window.__getSoftphoneActiveLead = function () {
+    return {
+      key: String(softphoneSession.leadKey || '').trim(),
+      title: String(softphoneSession.leadTitle || '').trim(),
+    };
+  };
+
+  function buildSoftphoneDirectMailRow(item) {
+    var row = document.createElement('div');
+    row.className =
+      'flex items-start justify-between gap-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/70 px-3 py-2.5';
+    var left = document.createElement('div');
+    left.className = 'min-w-0 flex-1';
+    var titleEl = document.createElement('p');
+    titleEl.className = 'text-sm font-semibold text-slate-800 dark:text-white truncate';
+    titleEl.textContent = String(item.title || 'Lead').trim();
+    left.appendChild(titleEl);
+    var addrParts = [item.address, item.city, item.state].filter(function (p) {
+      return String(p || '').trim() && String(p) !== 'N/A';
+    });
+    if (addrParts.length) {
+      var addrEl = document.createElement('p');
+      addrEl.className = 'text-[11px] text-slate-500 dark:text-slate-400 truncate mt-0.5';
+      addrEl.textContent = addrParts.join(', ');
+      left.appendChild(addrEl);
+    } else {
+      var warnEl = document.createElement('p');
+      warnEl.className = 'text-[11px] text-amber-600 dark:text-amber-300 mt-0.5';
+      warnEl.textContent = 'No mailable address on file';
+      left.appendChild(warnEl);
+    }
+    var badge = document.createElement('span');
+    badge.className =
+      'inline-block mt-1 text-[9px] font-black uppercase tracking-wider rounded-md px-1.5 py-0.5 ' +
+      (item.mailable
+        ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+        : 'bg-amber-500/15 text-amber-700 dark:text-amber-300');
+    badge.textContent = item.mailable ? 'Ready to mail' : 'Needs address';
+    left.appendChild(badge);
+    var removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.className =
+      'softphone-direct-mail-remove flex-shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-xl border border-slate-200 dark:border-white/15 text-slate-500 dark:text-slate-300 px-2.5 py-1.5 hover:border-rose-400/50 hover:text-rose-600';
+    removeBtn.setAttribute('data-lead-key', String(item.key || '').trim());
+    removeBtn.textContent = 'Remove';
+    row.appendChild(left);
+    row.appendChild(removeBtn);
+    return row;
+  }
+
+  function renderSoftphoneDirectMailQueue() {
+    if (!spDirectMailList) return;
+    var session =
+      typeof window.__readDirectMailSession === 'function' ? window.__readDirectMailSession() : [];
+    var keys =
+      typeof window.__directMailSessionKeys === 'function' ? window.__directMailSessionKeys() : [];
+    if (spDirectMailMeta) {
+      if (!session.length) {
+        spDirectMailMeta.textContent =
+          'During calls, tap + Add current lead to tag and save prospects for direct mail after your session.';
+      } else {
+        spDirectMailMeta.textContent =
+          session.length +
+          ' lead' +
+          (session.length === 1 ? '' : 's') +
+          ' tagged for direct mail this session.';
+      }
+    }
+    if (spDirectMailSendLink && typeof window.__buildDirectMailSelectionUrl === 'function') {
+      spDirectMailSendLink.href = keys.length
+        ? window.__buildDirectMailSelectionUrl(keys)
+        : '/direct-mail';
+    }
+    if (spDirectMailFolderLink && typeof window.__buildDirectMailFolderUrl === 'function') {
+      spDirectMailFolderLink.href = window.__buildDirectMailFolderUrl('');
+    }
+    spDirectMailList.innerHTML = '';
+    if (!session.length) {
+      spDirectMailList.innerHTML =
+        '<p class="text-xs text-slate-500">No leads queued yet. Open a lead or select pipeline rows, then tap + Add current lead.</p>';
+      if (typeof window.__updateDirectMailNavBadge === 'function') window.__updateDirectMailNavBadge();
+      return;
+    }
+    session.forEach(function (item) {
+      spDirectMailList.appendChild(buildSoftphoneDirectMailRow(item));
+    });
+    if (typeof window.__updateDirectMailNavBadge === 'function') window.__updateDirectMailNavBadge();
+  }
+  window.__renderSoftphoneDirectMailQueue = renderSoftphoneDirectMailQueue;
+
   function setSoftphoneTab(tab) {
     var name = String(tab || 'keypad');
     document.querySelectorAll('.softphone-tab-panel').forEach(function (panel) {
@@ -1804,6 +1901,7 @@
     try { localStorage.setItem(SOFTPHONE_TAB_KEY, name); } catch (_) {}
     if (name === 'recents') renderRecentDials();
     if (name === 'queue') renderSoftphoneCallQueue();
+    if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
     if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
     if (name === 'keypad') setTimeout(updateSoftphoneScrollHint, 80);
   }
@@ -1829,7 +1927,58 @@
     if (!e.target || !e.target.matches('input.lead-checkbox, input.row-checkbox')) return;
     var queuePanel = document.getElementById('softphoneTabQueue');
     if (queuePanel && !queuePanel.classList.contains('hidden')) renderSoftphoneCallQueue();
+    var mailPanel = document.getElementById('softphoneTabDirectMail');
+    if (mailPanel && !mailPanel.classList.contains('hidden')) renderSoftphoneDirectMailQueue();
   });
+
+  if (spDirectMailAddBtn) {
+    spDirectMailAddBtn.addEventListener('click', function () {
+      if (typeof window.__addCurrentLeadToDirectMailQueue !== 'function') return;
+      var prev = spDirectMailAddBtn.textContent;
+      spDirectMailAddBtn.disabled = true;
+      spDirectMailAddBtn.textContent = 'Saving…';
+      window
+        .__addCurrentLeadToDirectMailQueue()
+        .then(function (data) {
+          var n = data && data.added != null ? data.added : 0;
+          softphoneSetStatus(
+            n > 0
+              ? 'Added ' + n + ' lead' + (n === 1 ? '' : 's') + ' to Direct Mail.'
+              : 'Lead already in Direct Mail queue.',
+          );
+          renderSoftphoneDirectMailQueue();
+        })
+        .catch(function (err) {
+          softphoneSetStatus((err && err.message) || 'Could not queue for direct mail.', true);
+        })
+        .finally(function () {
+          spDirectMailAddBtn.disabled = false;
+          spDirectMailAddBtn.textContent = prev;
+        });
+    });
+  }
+
+  if (spDirectMailList) {
+    spDirectMailList.addEventListener('click', function (e) {
+      var removeBtn = e.target.closest('.softphone-direct-mail-remove');
+      if (!removeBtn) return;
+      var key = String(removeBtn.getAttribute('data-lead-key') || '').trim();
+      if (!key) return;
+      if (typeof window.__readDirectMailSession === 'function') {
+        var session = window.__readDirectMailSession().filter(function (item) {
+          var k = String(item && item.key || '').trim();
+          return k !== key && k.replace(/^lead:/i, '') !== key.replace(/^lead:/i, '');
+        });
+        try {
+          sessionStorage.setItem('adhello_dm_call_queue', JSON.stringify(session));
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      renderSoftphoneDirectMailQueue();
+      softphoneSetStatus('Removed from session queue (lead stays in Direct Mail folder).');
+    });
+  }
 
   if (spBackspace && spTo) {
     spBackspace.addEventListener('click', function () {

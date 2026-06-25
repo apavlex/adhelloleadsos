@@ -102,9 +102,19 @@
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-1">AI review summary</p>
           <p id="focus-review-summary" class="text-[11px] text-brand-muted leading-snug">Loading review summary…</p>
         </div>
-        <div class="mt-3 rounded-xl border border-sky-300/40 dark:border-sky-700/40 bg-sky-50/60 dark:bg-sky-900/20 p-3">
+        <div id="focus-owner-signal-callout" class="mt-3 rounded-xl border border-sky-300/40 dark:border-sky-700/40 bg-sky-50/60 dark:bg-sky-900/20 p-3">
           <p class="text-[9px] font-black uppercase tracking-wider text-sky-700 dark:text-sky-300 mb-1">Owner signal</p>
-          <p id="focus-owner-signal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug">Run AI Analysis in pipeline to generate a concrete signal.</p>
+          <p id="focus-owner-signal" class="text-[12px] font-semibold text-brand-dark dark:text-slate-100 leading-snug">Run AI analysis to generate a concrete signal for your call.</p>
+          <button
+            type="button"
+            id="focus-owner-signal-ai-btn"
+            class="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider border border-sky-400/50 bg-sky-500/15 text-sky-800 dark:text-sky-200 hover:bg-sky-500/25 transition-colors disabled:opacity-40 disabled:pointer-events-none"
+            title="Analyze this lead's website and generate an owner signal"
+          >
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            Run AI analysis
+          </button>
+          <p id="focus-owner-signal-feedback" class="text-[11px] text-brand-muted mt-1.5 min-h-[1rem]"></p>
         </div>
         <div class="mt-3 pt-3 border-t border-brand-border/50 dark:border-white/10">
           <p class="text-[9px] font-black uppercase tracking-wider text-brand-muted mb-2">Client deliverables</p>
@@ -215,9 +225,7 @@
           </div>
           <p id="focus-selected-outcome-label" class="mt-2 text-[11px] text-brand-muted">Selected: none</p>
         </div>
-        <select id="focus-outcome" class="hidden" aria-hidden="true" tabindex="-1">
-          <option value="">Select outcome…</option>
-        </select>
+        <input type="hidden" id="focus-outcome" value="" />
         <div>
           <label for="focus-outcome-notes" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-1.5">Notes</label>
           <textarea id="focus-outcome-notes" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-brand-dark dark:text-white" placeholder="Owner response, objection, timing, next step…"></textarea>
@@ -342,6 +350,8 @@
     var elBizReviewStars = document.getElementById('focus-biz-review-stars');
     var elReviewSummary = document.getElementById('focus-review-summary');
     var elOwnerSignal = document.getElementById('focus-owner-signal');
+    var btnOwnerSignalAi = document.getElementById('focus-owner-signal-ai-btn');
+    var elOwnerSignalFeedback = document.getElementById('focus-owner-signal-feedback');
     var elBizSocials = document.getElementById('focus-biz-socials');
     var btnCopyPhone = document.getElementById('focus-copy-phone');
     var btnCopyEmail = document.getElementById('focus-copy-email');
@@ -1153,10 +1163,7 @@
       }
       applyReviewTone(score, reviews);
       renderReviewStars(score);
-      if (elOwnerSignal) {
-        var ownerSignal = String(lead.ownerSignal || '').trim();
-        elOwnerSignal.textContent = ownerSignal || 'Run AI Analysis in pipeline to generate a concrete signal.';
-      }
+      syncFocusOwnerSignalUi(lead);
 
       renderFocusPipelineSocials(elBizSocials, lead);
       renderFocusMap(lead);
@@ -1391,6 +1398,64 @@
       return !!(lead && lead.hasAiWebsiteAnalysis);
     }
 
+    function setOwnerSignalFeedback(msg, isError) {
+      if (!elOwnerSignalFeedback) return;
+      elOwnerSignalFeedback.textContent = msg || '';
+      elOwnerSignalFeedback.classList.toggle('text-rose-600', !!isError);
+      elOwnerSignalFeedback.classList.toggle('text-emerald-700', !!msg && !isError);
+      elOwnerSignalFeedback.classList.toggle('text-brand-muted', !msg);
+    }
+
+    function syncFocusOwnerSignalUi(lead) {
+      if (!elOwnerSignal) return;
+      var ownerSignal = String((lead && lead.ownerSignal) || '').trim();
+      var website = lead && lead.website ? String(lead.website).trim() : '';
+      var hasWebsite = !!website && website !== 'N/A' && website !== '—';
+      elOwnerSignal.textContent = ownerSignal || 'Run AI analysis to generate a concrete signal for your call.';
+      if (btnOwnerSignalAi) {
+        btnOwnerSignalAi.classList.toggle('hidden', !!ownerSignal);
+        btnOwnerSignalAi.disabled = !hasWebsite;
+        btnOwnerSignalAi.title = hasWebsite
+          ? 'Analyze this lead\'s website and generate an owner signal'
+          : 'Add a website URL for this lead first';
+      }
+      if (ownerSignal) setOwnerSignalFeedback('');
+    }
+
+    function runFocusOwnerSignalAnalysis(lead) {
+      var key = focusLeadKeyParam(lead);
+      if (!key) return Promise.reject(new Error('Lead key missing'));
+      var website = lead && lead.website ? String(lead.website).trim() : '';
+      if (!website || website === 'N/A' || website === '—') {
+        return Promise.reject(new Error('Add a website URL for this lead first.'));
+      }
+      if (btnOwnerSignalAi) {
+        btnOwnerSignalAi.disabled = true;
+        btnOwnerSignalAi.setAttribute('aria-busy', 'true');
+      }
+      setOwnerSignalFeedback('Running AI analysis…', false);
+      return focusPostJson('/leads/' + encodeURIComponent(key) + '/ai-analysis', {})
+        .then(function (data) {
+          if (lead) {
+            lead.hasAiWebsiteAnalysis = true;
+            if (data && data.ownerSignal) lead.ownerSignal = String(data.ownerSignal).trim();
+          }
+          syncFocusOwnerSignalUi(lead || {});
+          setOwnerSignalFeedback('Owner signal ready.', false);
+          return data;
+        })
+        .catch(function (err) {
+          setOwnerSignalFeedback((err && err.message) || 'AI analysis failed.', true);
+          throw err;
+        })
+        .finally(function () {
+          if (btnOwnerSignalAi) {
+            btnOwnerSignalAi.removeAttribute('aria-busy');
+            syncFocusOwnerSignalUi(lead || currentLead());
+          }
+        });
+    }
+
     function focusEnsureAiWebsiteAnalysis(lead) {
       var key = focusLeadKeyParam(lead);
       if (!key) return Promise.reject(new Error('Lead key missing'));
@@ -1402,11 +1467,8 @@
         );
       }
       setDeliverablesFeedback('Running AI analysis for hosted audit…');
-      return focusPostJson('/leads/' + encodeURIComponent(key) + '/ai-analysis', {}).then(function (data) {
-        if (lead) {
-          lead.hasAiWebsiteAnalysis = true;
-          if (data && data.ownerSignal) lead.ownerSignal = String(data.ownerSignal).trim();
-        }
+      return runFocusOwnerSignalAnalysis(lead).then(function (data) {
+        setDeliverablesFeedback('');
         return data;
       });
     }
@@ -1594,23 +1656,9 @@
       if (!elQuickOutcomeBtns || !elQuickOutcomeBtns.length || !elOutcome) return;
       var selected = String(elOutcome.value || '').trim();
       elQuickOutcomeBtns.forEach(function (btn) {
-        btn.classList.remove(
-          'border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow',
-          'border-violet-500/60', 'bg-violet-500/15', 'text-violet-800', 'dark:text-violet-200',
-          'border-emerald-500/60', 'bg-emerald-500/15', 'text-emerald-800', 'dark:text-emerald-200'
-        );
         var active = focusBtnSelectionValue(btn) === selected;
         btn.setAttribute('data-active', active ? 'true' : 'false');
-        if (!active) return;
-        var item = focusQuickLogItemForValue(selected);
-        var disp = item && item.disposition ? item.disposition : '';
-        if (disp === 'voicemail') {
-          btn.classList.add('border-violet-500/60', 'bg-violet-500/15', 'text-violet-800', 'dark:text-violet-200');
-        } else if (disp === 'connected') {
-          btn.classList.add('border-emerald-500/60', 'bg-emerald-500/15', 'text-emerald-800', 'dark:text-emerald-200');
-        } else {
-          btn.classList.add('border-brand-yellow', 'bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
-        }
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
       });
       if (elSelectedOutcomeLabel) {
         var label = outcomeLabel(selected);
@@ -2032,6 +2080,17 @@
       focusFollowupPicker = window.initGcalDatetimePicker(elFollowupAt, {
         label: 'Schedule follow-up date and time',
         triggerId: 'focus-followup-at-trigger',
+      });
+    }
+
+    if (btnOwnerSignalAi) {
+      btnOwnerSignalAi.addEventListener('click', function () {
+        var lead = currentLead();
+        if (!lead || !lead.key) {
+          setOwnerSignalFeedback('No lead selected.', true);
+          return;
+        }
+        runFocusOwnerSignalAnalysis(lead);
       });
     }
 
