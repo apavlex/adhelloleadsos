@@ -744,11 +744,14 @@
       var lead = currentLead();
       if (!lead || !lead.key) return Promise.resolve();
       if (btnPushGhl) btnPushGhl.disabled = true;
+      var payload = { leadKeys: [lead.key] };
+      var website = lead.website ? String(lead.website).trim() : '';
+      if (!website || website === 'N/A' || website === '—') payload.tagNoWebsite = true;
       return fetch('/ghl/push', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ leadKeys: [lead.key] }),
+        body: JSON.stringify(payload),
       })
         .then(function (r) {
           return r.json().then(function (j) {
@@ -757,7 +760,10 @@
           });
         })
         .then(function (data) {
-          setCopyFeedback('Pushed to Go High Level.');
+          var msg = payload.tagNoWebsite
+            ? 'Pushed to GHL (tagged no website). Run SMS, email, and voicemail in GHL.'
+            : 'Pushed to GHL. Run SMS, email, and voicemail in GHL.';
+          setCopyFeedback(msg);
           return data;
         })
         .catch(function (err) {

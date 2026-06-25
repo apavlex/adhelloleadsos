@@ -64,6 +64,31 @@ const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 
+const GHL_CONTACT_SYNC_FIELDS = [
+  'email',
+  'phone',
+  'title',
+  'website',
+  'address',
+  'city',
+  'state',
+  'zip',
+  'tags',
+];
+
+function leadContactFieldsChanged(body, existing) {
+  if (!body || typeof body !== 'object' || !existing) return false;
+  return GHL_CONTACT_SYNC_FIELDS.some((field) => {
+    if (body[field] === undefined) return false;
+    const prev = existing[field];
+    const next = body[field];
+    if (Array.isArray(prev) || Array.isArray(next)) {
+      return JSON.stringify(prev || []) !== JSON.stringify(next || []);
+    }
+    return String(prev || '').trim() !== String(next || '').trim();
+  });
+}
+
 async function importLeadRecordsFromBuffer(buffer, originalFilename, req, importOptions = {}) {
   const parseOpts =
     typeof importOptions.leadSource === 'string' && importOptions.leadSource.trim()
@@ -1010,14 +1035,19 @@ router.post('/:key/update', async (req, res, next) => {
     }
 
     const updated = await dbService.updateLead(fullKey, updateData, wid);
-    if (
+    const shouldSyncGhl =
       updateData.lastTouchChannel !== undefined ||
       updateData.status ||
       updateData.pipelineStage !== undefined ||
-      (req.body && req.body.stageId != null)
-    ) {
+      (req.body && req.body.stageId != null) ||
+      leadContactFieldsChanged(req.body, existing);
+    if (shouldSyncGhl) {
       triggerGhlProspectSync(fullKey, wid, {
-        trigger: updateData.lastTouchChannel ? `channel:${updateData.lastTouchChannel}` : 'lead_update',
+        trigger: updateData.lastTouchChannel
+          ? `channel:${updateData.lastTouchChannel}`
+          : leadContactFieldsChanged(req.body, existing)
+            ? 'contact_update'
+            : 'lead_update',
       });
     }
     res.json({ success: true, lead: updated });
@@ -1060,6 +1090,10 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
     const updates = appendLeadUpdate(lead, entry);
 
     const updated = await dbService.updateLead(fullKey, { updates }, req.workspaceId);
+    triggerGhlProspectSync(fullKey, req.workspaceId, {
+      trigger: entryType === 'quick_log' ? 'quick_log' : 'note_added',
+      note: content,
+    });
     res.json({ success: true, updates: updated.updates || updates, lead: updated });
   } catch (err) {
     next(err);

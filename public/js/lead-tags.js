@@ -272,7 +272,7 @@
           if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
           renderLeadTagsPanel(row);
           if (typeof window.showProspectToast === 'function') {
-            window.showProspectToast('Tags updated');
+            window.showProspectToast('Tags updated · syncing to GHL');
           }
         } catch (err) {
           window.alert(err.message || 'Could not update tags.');
@@ -354,8 +354,8 @@
         applyTagsToRowsFromBulkResult(data.leads);
         const msg =
           mode === 'remove'
-            ? `Removed tag from ${(data.updatedKeys || []).length} lead(s)`
-            : `Tagged ${(data.updatedKeys || []).length} lead(s)`;
+            ? `Removed tag from ${(data.updatedKeys || []).length} lead(s) · syncing to GHL`
+            : `Tagged ${(data.updatedKeys || []).length} lead(s) · syncing to GHL`;
         if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
         else window.alert(msg);
       } catch (err) {

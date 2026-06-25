@@ -13,6 +13,38 @@ const {
   isActionTag,
 } = require('./ghlActionTags');
 
+/**
+ * Map GHL tag names to workspace tag keys (by catalog name). Keeps existing keys and
+ * non-catalog strings that are already on the lead.
+ */
+async function resolveGhlTagNamesToLeadKeys(workspaceId, ghlTagNames, localTags = []) {
+  const catalog = await dbService.listTags(workspaceId);
+  const byNameLower = new Map(
+    catalog.map((t) => [String(t.name || '').trim().toLowerCase(), t.key]),
+  );
+  const merged = dbService.normalizeTagKeys([
+    ...(Array.isArray(localTags) ? localTags : []),
+    ...(Array.isArray(ghlTagNames) ? ghlTagNames : []),
+  ]);
+  const out = [];
+  for (const item of merged) {
+    const raw = String(item || '').trim();
+    if (!raw) continue;
+    if (raw.startsWith('tag:')) {
+      if (!out.includes(raw)) out.push(raw);
+      continue;
+    }
+    if (isActionTag(raw)) continue;
+    const key = byNameLower.get(raw.toLowerCase());
+    if (key) {
+      if (!out.includes(key)) out.push(key);
+    } else if (!out.includes(raw)) {
+      out.push(raw);
+    }
+  }
+  return dbService.normalizeTagKeys(out);
+}
+
 async function resolveLeadTagNamesForGhl(workspaceId, lead) {
   const catalog = await dbService.listTags(workspaceId);
   const byKey = new Map(catalog.map((t) => [t.key, t.name]));
@@ -108,6 +140,7 @@ function triggerGhlProspectSync(leadKey, workspaceId, extra = {}) {
 }
 
 module.exports = {
+  resolveGhlTagNamesToLeadKeys,
   resolveLeadTagNamesForGhl,
   prepareLeadForGhlPush,
   syncLeadProspectActionToGhl,

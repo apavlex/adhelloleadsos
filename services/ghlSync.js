@@ -175,6 +175,15 @@ async function pullContactToLead(contact, workspaceId, localLeads, integrationEn
   const patch = ghlClient.ghlContactToLeadPatch(contact, existing);
   if (!patch) return { skipped: true, reason: 'empty_contact' };
 
+  const ghlTags = Array.isArray(contact.tags) ? contact.tags : [];
+  if (ghlTags.length) {
+    patch.tags = await ghlProspectSync.resolveGhlTagNamesToLeadKeys(
+      workspaceId,
+      ghlTags,
+      existing && Array.isArray(existing.tags) ? existing.tags : patch.tags,
+    );
+  }
+
   const contactId = String(patch.ghlContactId || contact.id || '').trim();
   let notePull = { pulled: 0, newLogs: [], syncState: normalizeGhlLogSync(existing) };
 
@@ -236,17 +245,13 @@ async function pushLeads(opts) {
   const results = [];
   for (const lead of leads) {
     try {
-      let leadForPush = lead;
-      if (tagNoWebsite) {
-        const extra = hasUsableWebsite(lead) ? [] : [GHL_TAG_NO_WEBSITE];
-        if (extra.length) {
-          // eslint-disable-next-line no-await-in-loop
-          const names = await ghlProspectSync.resolveLeadTagNamesForGhl(wid, lead);
-          leadForPush = {
-            ...lead,
-            ghlTagNamesForPush: mergeTagLists(names, extra),
-          };
-        }
+      // eslint-disable-next-line no-await-in-loop
+      let leadForPush = await ghlProspectSync.prepareLeadForGhlPush(lead, wid);
+      if (tagNoWebsite && !hasUsableWebsite(lead)) {
+        leadForPush = {
+          ...leadForPush,
+          ghlTagNamesForPush: mergeTagLists(leadForPush.ghlTagNamesForPush, [GHL_TAG_NO_WEBSITE]),
+        };
       }
       // eslint-disable-next-line no-await-in-loop
       const r = await pushLeadToGhl(leadForPush, integrationEnv);
