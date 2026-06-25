@@ -44,6 +44,7 @@ router.post('/push', express.json(), async (req, res, next) => {
       integrationEnv,
       leadKeys: body.leadKeys,
       limit: body.limit,
+      tagNoWebsite: body.tagNoWebsite === true || body.tagNoWebsite === '1',
     });
     return res.json({ success: true, ...result });
   } catch (e) {

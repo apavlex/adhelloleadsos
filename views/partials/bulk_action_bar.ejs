@@ -71,9 +71,10 @@
 
       <% if (_bulkMode === 'pipeline') { %>
       <div class="flex items-center gap-2 shrink-0 bulk-bar-primary-actions">
-        <a href="/direct-mail" id="bulkDirectMailBtn" class="bulk-bar-btn bulk-bar-btn--mail bulk-bar-btn--primary-lg" title="Send postcards to selected leads">Direct mail</a>
-        <a href="/focus?channel=email" id="bulkColdEmailBtn" class="bulk-bar-btn bulk-bar-btn--email bulk-bar-btn--primary-lg" title="Draft and send cold emails to selected leads">Cold email</a>
-        <a href="/focus?channel=call" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg" title="Call and log selected leads">Call</a>
+        <a href="/direct-mail" id="bulkDirectMailBtn" class="bulk-bar-btn bulk-bar-btn--mail bulk-bar-btn--primary-lg hidden" title="Send postcards to selected leads">Direct mail</a>
+        <button type="button" id="bulkGhlNoWebsiteBtn" class="bulk-bar-btn bulk-bar-btn--email bulk-bar-btn--primary-lg hidden" title="Save no-website businesses to Go High Level with tag no website">GHL — no website</button>
+        <button type="button" id="bulkSmsBtn" class="bulk-bar-btn bulk-bar-btn--sms bulk-bar-btn--primary-lg hidden" title="Send SMS via Go High Level to selected leads">SMS</button>
+        <a href="/focus?channel=call" id="bulkFocusModeBtn" class="bulk-bar-btn bulk-bar-btn--focus bulk-bar-btn--primary-lg hidden" title="Call and log selected leads">Call</a>
       </div>
       <% } %>
     </div>
@@ -88,4 +89,5 @@
   </div>
 
   <p id="bulkSaveFeedback" class="hidden w-full text-center text-[10px] font-semibold leading-tight px-0.5" role="status" aria-live="polite"></p>
+  <a id="bulkOpenGhlContactsLink" href="#" target="_blank" rel="noopener noreferrer" class="hidden text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:text-white underline underline-offset-2">Open GHL contacts →</a>
 </div>

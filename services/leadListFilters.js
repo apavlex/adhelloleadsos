@@ -116,6 +116,11 @@ function hasUsableContactEmail(l) {
   return e.length > 0 && e !== 'N/A' && e.includes('@');
 }
 
+function hasUsableWebsite(l) {
+  const w = String(l.website || '').trim();
+  return w.length > 0 && w !== 'N/A' && w !== '—';
+}
+
 function hasUsableContactPhone(l) {
   const p = String(l.phone || '').trim();
   return p.length > 0 && p !== 'N/A' && /\d/.test(p);
@@ -364,6 +369,7 @@ module.exports = {
   leadJobType,
   matchesJobTypeFilter,
   hasUsableContactEmail,
+  hasUsableWebsite,
   hasUsableContactPhone,
   hasUsableSocialLink,
   matchesReachFilter,

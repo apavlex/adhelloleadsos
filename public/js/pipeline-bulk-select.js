@@ -836,15 +836,6 @@
               : `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`;
           return;
         }
-        if (e.target.closest('#bulkColdEmailBtn')) {
-          e.preventDefault();
-          e.stopPropagation();
-          const keys = collectFocusSelectionKeys();
-          if (!keys.length) return;
-          persistFocusSelectionKeys(keys);
-          window.location.href = buildFocusSelectionUrl(keys, 'email');
-          return;
-        }
         if (e.target.closest('#bulkFocusModeBtn')) {
           e.preventDefault();
           e.stopPropagation();

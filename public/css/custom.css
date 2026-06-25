@@ -1204,6 +1204,17 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   filter: brightness(1.06);
 }
 
+#bulkActionBar .bulk-bar-btn--sms.bulk-bar-btn--primary-lg {
+  background: #10b981;
+  border-color: rgba(52, 211, 153, 0.85);
+  color: #fff;
+  box-shadow: 0 2px 10px rgba(16, 185, 129, 0.35);
+}
+
+#bulkActionBar .bulk-bar-btn--sms.bulk-bar-btn--primary-lg:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
 #bulkActionBar .bulk-bar-btn--mail {
   background: rgba(249, 115, 22, 0.2);
   border-color: rgba(251, 146, 60, 0.4);
@@ -2757,6 +2768,50 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 
 .softphone-backspace-btn:hover {
   color: #334155;
+}
+
+.softphone-scroll-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  margin: 0.1rem auto 0.35rem;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.95);
+  color: #64748b;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.12s ease;
+}
+
+.dark .softphone-scroll-hint {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #94a3b8;
+}
+
+.softphone-scroll-hint:hover {
+  color: #334155;
+  border-color: rgba(148, 163, 184, 0.55);
+}
+
+.dark .softphone-scroll-hint:hover {
+  color: #e2e8f0;
+}
+
+.softphone-scroll-hint:not(.hidden) {
+  animation: softphone-scroll-hint-bounce 1.6s ease-in-out infinite;
+}
+
+@keyframes softphone-scroll-hint-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(3px);
+  }
 }
 
 .softphone-bottom-nav {

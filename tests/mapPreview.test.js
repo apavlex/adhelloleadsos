@@ -5,6 +5,7 @@ const {
   buildOsmStaticMapUrl,
   buildGoogleStaticMapUrl,
   buildGeocodeQueryVariants,
+  isGoogleStaticMapErrorImage,
 } = require('../services/mapPreview');
 
 describe('mapPreview helpers', () => {
@@ -41,5 +42,11 @@ describe('mapPreview helpers', () => {
     assert.ok(variants.some((v) => /8644 SW Canyon Rd, Portland, OR 97225/i.test(v)));
     assert.ok(variants.some((v) => /Portland, OR 97225/i.test(v)));
     assert.ok(!variants.some((v) => /#1590/.test(v) && v.includes('8644 SW Canyon Rd, Portland')));
+  });
+
+  it('isGoogleStaticMapErrorImage detects Google error PNG payloads', () => {
+    const errBuf = Buffer.from('PNG fake Google Maps Platform rejected your request');
+    assert.equal(isGoogleStaticMapErrorImage(errBuf), true);
+    assert.equal(isGoogleStaticMapErrorImage(Buffer.from('valid-image-bytes'.repeat(20))), false);
   });
 });

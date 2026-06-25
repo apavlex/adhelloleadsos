@@ -9,6 +9,19 @@
 
   function resolveRow() {
     if (typeof window.__resolveRowForLeadPanelActions === 'function') {
+      var fromPanel = window.__resolveRowForLeadPanelActions();
+      if (fromPanel) return fromPanel;
+    }
+    var panel = document.getElementById('mobilePanel');
+    if (panel && panel.classList.contains('open') && typeof window.__getActiveLeadPanelRow === 'function') {
+      var panelRow = window.__getActiveLeadPanelRow();
+      if (panelRow) return panelRow;
+    }
+    if (typeof window.__resolveActiveLeadRow === 'function') {
+      var active = window.__resolveActiveLeadRow();
+      if (active) return active;
+    }
+    if (typeof window.__resolveRowForLeadPanelActions === 'function') {
       return window.__resolveRowForLeadPanelActions();
     }
     if (typeof window.__resolveActiveLeadRow === 'function') {

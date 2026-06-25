@@ -59,9 +59,20 @@ function buildOsmFrStaticMapUrl(lat, lng, width, height) {
   );
 }
 
-async function tryFetchImage(url) {
+function isGoogleStaticMapErrorImage(buffer) {
+  if (!buffer || !buffer.length) return true;
+  const hay = buffer.toString('latin1');
+  if (/Google Maps Platform/i.test(hay)) return true;
+  if (/This API (?:key|project) is not/i.test(hay)) return true;
+  if (/Static Maps API has not been used/i.test(hay)) return true;
+  if (/The Google Maps Platform server rejected your request/i.test(hay)) return true;
+  return false;
+}
+
+async function tryFetchImage(url, opts) {
   const u = String(url || '').trim();
   if (!u) return null;
+  opts = opts || {};
   try {
     const res = await fetch(u, { headers: { Accept: 'image/*,*/*' } });
     if (!res.ok) return null;
@@ -69,6 +80,7 @@ async function tryFetchImage(url) {
     if (!contentType.startsWith('image/')) return null;
     const buffer = Buffer.from(await res.arrayBuffer());
     if (!buffer.length || buffer.length < 256) return null;
+    if (opts.rejectGoogleErrorImages && isGoogleStaticMapErrorImage(buffer)) return null;
     return { buffer, contentType };
   } catch (e) {
     console.warn('[mapPreview] fetch failed:', e.message);
@@ -240,7 +252,7 @@ async function getMapPreviewImage(opts) {
   const mapKey = getGoogleMapsApiKey();
   const googleUrl = buildGoogleStaticMapUrl(lat, lng, mapKey, width, height);
   if (googleUrl) {
-    const googleImg = await tryFetchImage(googleUrl);
+    const googleImg = await tryFetchImage(googleUrl, { rejectGoogleErrorImages: true });
     if (googleImg) {
       return { ...googleImg, lat, lng, source: 'google-static' };
     }
@@ -266,4 +278,5 @@ module.exports = {
   buildOsmStaticMapUrl,
   buildGeocodeQueryVariants,
   getMapPreviewImage,
+  isGoogleStaticMapErrorImage,
 };

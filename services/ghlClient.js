@@ -113,7 +113,11 @@ function leadToGhlContactPayload(lead, locationId, { includeTags = true } = {}) 
   const phone = normalizePhoneE164(lead.phone && lead.phone !== 'N/A' ? lead.phone : '');
   const website = lead.website && lead.website !== 'N/A' ? String(lead.website).trim() : '';
   const address = lead.address && lead.address !== 'N/A' ? String(lead.address).trim() : '';
-  const tags = Array.isArray(lead.tags) ? lead.tags.map((t) => String(t).trim()).filter(Boolean) : [];
+  const tags = Array.isArray(lead.ghlTagNamesForPush)
+    ? lead.ghlTagNamesForPush.map((t) => String(t).trim()).filter(Boolean)
+    : Array.isArray(lead.tags)
+      ? lead.tags.map((t) => String(t).trim()).filter(Boolean)
+      : [];
 
   const payload = {
     locationId,
@@ -198,10 +202,36 @@ async function addTagsToContact(contactId, tags, integrationEnv) {
   });
 }
 
-async function syncContactTags(contactId, leadTags, integrationEnv) {
+async function removeTagsFromContact(contactId, tags, integrationEnv) {
+  const list = (Array.isArray(tags) ? tags : [])
+    .map((t) => String(t || '').trim())
+    .filter(Boolean);
+  if (!list.length) return null;
+  return ghlRequest('DELETE', `/contacts/${encodeURIComponent(contactId)}/tags`, {
+    integrationEnv,
+    body: { tags: list },
+  });
+}
+
+async function syncContactTags(contactId, leadTags, integrationEnv, options = {}) {
+  const replaceActionTags = options.replaceActionTags !== false;
+  const isActionTagFn =
+    typeof options.isActionTag === 'function'
+      ? options.isActionTag
+      : (t) => String(t || '').trim().toLowerCase().startsWith('ao:');
+
   const contact = await getContact(contactId, integrationEnv);
-  const remoteTags = Array.isArray(contact && contact.tags) ? contact.tags : [];
+  let remoteTags = Array.isArray(contact && contact.tags) ? contact.tags : [];
   const localTags = Array.isArray(leadTags) ? leadTags : [];
+
+  if (replaceActionTags) {
+    const toRemove = remoteTags.filter((t) => isActionTagFn(t));
+    if (toRemove.length) {
+      await removeTagsFromContact(contactId, toRemove, integrationEnv);
+      remoteTags = remoteTags.filter((t) => !toRemove.some((r) => tagKey(r) === tagKey(t)));
+    }
+  }
+
   const toAdd = tagsToAdd(remoteTags, localTags);
   if (toAdd.length) {
     await addTagsToContact(contactId, toAdd, integrationEnv);
@@ -296,6 +326,7 @@ module.exports = {
   createContact,
   updateContact,
   addTagsToContact,
+  removeTagsFromContact,
   syncContactTags,
   getContact,
   searchContactByEmailOrPhone,

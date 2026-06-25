@@ -999,6 +999,20 @@ document.addEventListener('DOMContentLoaded', () => {
         });
       }
     })();
+
+    (function scheduleBusinessesDefaultSort() {
+      if (!window.PROSPECTING_BUSINESSES_VIEW) return;
+      const run = () => {
+        prospectSortState = { key: 'website', desc: false };
+        sortProspectTableBy('website', false);
+        updateProspectSortHeaderUi('website', false);
+      };
+      if (typeof requestIdleCallback === 'function') {
+        requestIdleCallback(run, { timeout: 1200 });
+      } else {
+        setTimeout(run, 400);
+      }
+    })();
   }
 
   // Attach Sort Listener
@@ -1198,6 +1212,7 @@ document.addEventListener('DOMContentLoaded', () => {
       modal.setAttribute('aria-hidden', 'true');
     }
     document.body.style.overflow = '';
+    emailIntelActiveRow = null;
   }
 
   /** Plain-text outreach script templates (idx 0–5). */
@@ -1309,6 +1324,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return html;
   }
 
+  let emailIntelActiveRow = null;
+
   async function openEmailIntelModal(row) {
     const modal = document.getElementById('emailIntelModal');
     const titleEl = document.getElementById('emailIntelTitle');
@@ -1317,7 +1334,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const draftSection = document.getElementById('emailIntelDraftSection');
     const draftEl = document.getElementById('emailIntelDraft');
     const copyDraftBtn = document.getElementById('emailIntelCopyDraft');
+    const sendGhlBtn = document.getElementById('emailIntelSendGhlBtn');
     if (!modal || !row) return;
+
+    emailIntelActiveRow = resolvePanelActionRow() || row;
+    if (emailIntelActiveRow) currentRow = emailIntelActiveRow;
 
     const reqId = ++emailIntelRequestSeq;
 
@@ -1329,13 +1350,18 @@ document.addEventListener('DOMContentLoaded', () => {
     modal.setAttribute('aria-hidden', 'false');
     document.body.style.overflow = 'hidden';
 
-    const company = row.dataset.title || 'Lead';
+    const company = emailIntelActiveRow.dataset.title || 'Lead';
     if (titleEl) titleEl.textContent = company;
 
-    const emailRaw = (row.dataset.email || '').trim();
+    const emailRaw = (emailIntelActiveRow.dataset.email || '').trim();
     const email = emailRaw && emailRaw !== 'N/A' ? emailRaw : '';
     if (emailLineEl) {
-      emailLineEl.textContent = email ? `Email on file: ${email}` : 'Copy scripts below — paste into your outreach tool';
+      emailLineEl.textContent = email
+        ? `Email on file: ${email} · send via Go High Level`
+        : 'No email on file — copy script or push contact to GHL for SMS';
+    }
+    if (sendGhlBtn) {
+      sendGhlBtn.classList.toggle('hidden', !email);
     }
 
     wireEmailIntelOfferLinks(company);
@@ -1357,10 +1383,10 @@ document.addEventListener('DOMContentLoaded', () => {
         '<p class="text-sm text-brand-muted dark:text-slate-500 animate-pulse">Loading outreach script…</p>';
     }
 
-    let key = row.dataset.leadKey ? String(row.dataset.leadKey).trim() : '';
+    let key = emailIntelActiveRow.dataset.leadKey ? String(emailIntelActiveRow.dataset.leadKey).trim() : '';
     try {
       if (!key && typeof ensureRowHasLeadKey === 'function') {
-        key = await ensureRowHasLeadKey(row);
+        key = await ensureRowHasLeadKey(emailIntelActiveRow);
       } else if (key) {
         key = key.startsWith('lead:') ? key : `lead:${key}`;
       }
@@ -1374,7 +1400,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (key) {
       try {
-        await hydrateLeadRowFromPanelData(row);
+        await hydrateLeadRowFromPanelData(emailIntelActiveRow);
       } catch (_) {
         /* non-fatal — fall back to row dataset */
       }
@@ -3056,11 +3082,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function triggerLeadPanelEmail() {
-    if (!currentRow) {
+    const row = resolvePanelActionRow();
+    if (!row) {
       notifyLeadPanelDial('Select a lead first.', 'error');
       return;
     }
-    const email = readPipelineRowDisplayEmail(currentRow);
+    if (typeof openEmailIntelModal === 'function') {
+      openEmailIntelModal(row);
+      return;
+    }
+    const email = readPipelineRowDisplayEmail(row);
     if (!email) {
       notifyLeadPanelDial('This lead has no email on file.', 'error');
       return;
@@ -3068,15 +3099,66 @@ document.addEventListener('DOMContentLoaded', () => {
     window.location.href = `mailto:${encodeURIComponent(email)}`;
   }
 
-  async function triggerLeadPanelCall() {
-    if (!currentRow) {
+  async function pushLeadPanelToGhl() {
+    const row = resolvePanelActionRow();
+    if (!row) {
       notifyLeadPanelDial('Select a lead first.', 'error');
       return;
     }
-    const key = currentRow.dataset.leadKey;
-    if (!key) {
-      notifyLeadPanelDial('Save this lead first before calling.', 'error');
+    const btn = document.getElementById('leadPanelPushGhlBtn');
+    const original = btn ? btn.textContent : 'Push GHL';
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Pushing…';
+    }
+    try {
+      const key = await ensureRowHasLeadKey(row);
+      const payload = { leadKeys: [key] };
+      if (rowDatasetMissingWebsite(row)) payload.tagNoWebsite = true;
+      const res = await fetch('/ghl/push', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      }
+      if (data.results && data.results[0] && data.results[0].ghlContactId) {
+        row.dataset.ghlContactId = String(data.results[0].ghlContactId);
+      }
+      const msg = payload.tagNoWebsite
+        ? 'Contact saved to GHL with tag no website.'
+        : 'Contact saved to Go High Level.';
+      notifyLeadPanelDial(msg, 'success');
+      const open = window.confirm(`${msg}\n\nOpen GHL contacts now?`);
+      if (open) window.open(getGhlContactsUrl(), '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      notifyLeadPanelDial(err.message || 'GHL push failed.', 'error');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = original;
+        syncLeadPanelOutreachIntelButtons(row);
+      }
+    }
+  }
+
+  async function triggerLeadPanelCall() {
+    const row = resolvePanelActionRow();
+    if (!row) {
+      notifyLeadPanelDial('Select a lead first.', 'error');
       return;
+    }
+    let key = String(row.dataset.leadKey || '').trim();
+    if (!key) {
+      try {
+        key = await ensureRowHasLeadKey(row);
+      } catch (err) {
+        notifyLeadPanelDial(err.message || 'Save this lead first before calling.', 'error');
+        return;
+      }
     }
     const phone = resolveCurrentLeadDialPhone();
     if (!phone) {
@@ -5161,6 +5243,56 @@ document.addEventListener('DOMContentLoaded', () => {
     return resolvePipelineTableRowForPanel(active) || active;
   }
   window.__resolveRowForLeadPanelActions = resolveRowForLeadPanelActions;
+
+  /** Active pipeline row for panel outreach (hunt, SMS, GHL push). Sets currentRow. */
+  function resolvePanelActionRow() {
+    let row = resolveRowForLeadPanelActions(currentRow);
+    if (!row) row = resolveActiveLeadRow();
+    if (row) currentRow = row;
+    return row;
+  }
+  window.__resolvePanelActionRow = resolvePanelActionRow;
+
+  function rowDatasetHasUsablePhone(row) {
+    const p = row && row.dataset ? String(row.dataset.phone || '').trim() : '';
+    return p.length > 0 && p !== 'N/A' && /\d/.test(p);
+  }
+
+  function rowDatasetHasUsableEmail(row) {
+    const e = row && row.dataset ? String(row.dataset.email || '').trim() : '';
+    return e.length > 0 && e !== 'N/A' && e.includes('@');
+  }
+
+  function rowDatasetMissingWebsite(row) {
+    const w = row && row.dataset ? String(row.dataset.website || '').trim() : '';
+    return !(w && w !== 'N/A' && w !== '—');
+  }
+
+  function getGhlContactsUrl() {
+    const url = String(window.GHL_DASHBOARD_URL || '').trim();
+    return url || 'https://app.gohighlevel.com';
+  }
+
+  function syncLeadPanelOutreachIntelButtons(row) {
+    const phone = rowDatasetHasUsablePhone(row);
+    const email = rowDatasetHasUsableEmail(row);
+    const smsBtn = document.getElementById('sendSmsBtn');
+    const emailBtn = document.getElementById('leadPanelOutreachEmailBtn');
+    const callBtn = document.getElementById('clickToCallBtn');
+    const ghlBtn = document.getElementById('leadPanelPushGhlBtn');
+    const setBtn = (btn, enabled, titleOn, titleOff) => {
+      if (!btn) return;
+      btn.disabled = !enabled;
+      btn.classList.toggle('opacity-40', !enabled);
+      btn.classList.toggle('cursor-not-allowed', !enabled);
+      btn.setAttribute('title', enabled ? titleOn : titleOff);
+    };
+    setBtn(callBtn, phone, 'Call this lead', 'Add a phone number first');
+    setBtn(smsBtn, phone, 'Send SMS via Go High Level', 'Add a phone number first');
+    setBtn(emailBtn, email, 'Email via Go High Level', 'No email on file — hunt contacts or push to GHL for SMS');
+    setBtn(ghlBtn, !!row, 'Save contact to Go High Level', 'Select a lead first');
+  }
+  window.__syncLeadPanelOutreachIntelButtons = syncLeadPanelOutreachIntelButtons;
 
   function withTimeout(promise, ms, message) {
     let timer = null;
@@ -7673,8 +7805,8 @@ document.addEventListener('DOMContentLoaded', () => {
         iframe.classList.add('hidden');
       }
       if (fallback) {
-        fallback.classList.remove('hidden');
-        fallback.classList.add('flex');
+        fallback.classList.add('hidden');
+        fallback.classList.remove('flex');
       }
     };
 
@@ -7722,17 +7854,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       loadPreviewImage(`/leads/map-preview?${params.toString()}`, () => {
         if (!isCurrentLoad()) return;
-        if (mapKey && geocodeQ) {
-          const clientStatic = buildGoogleStaticMapUrl(geocodeQ, mapKey, 640, 300);
-          if (clientStatic) {
-            loadPreviewImage(clientStatic, () => {
-              if (!isCurrentLoad()) return;
-              if (typeof onExhausted === 'function') onExhausted();
-              else showFallback();
-            });
-            return;
-          }
-        }
         if (typeof onExhausted === 'function') onExhausted();
         else showFallback();
       });
@@ -7848,8 +7969,8 @@ document.addEventListener('DOMContentLoaded', () => {
             heroImg.removeAttribute('src');
             heroEmbed.removeAttribute('src');
             heroEmbed.classList.add('hidden');
-            heroFallback.classList.remove('hidden');
-            heroFallback.classList.add('flex', 'flex-col');
+            heroFallback.classList.add('hidden');
+            heroFallback.classList.remove('flex', 'flex-col');
           };
 
           const openHeroEmbed = (useKeyless) => {
@@ -7862,6 +7983,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!src) return false;
             heroEmbed.onerror = function onHeroEmbedErr() {
               heroEmbed.onerror = null;
+              heroEmbed.removeAttribute('src');
+              heroEmbed.classList.add('hidden');
               if (!useKeyless && mapKey) openHeroEmbed(true);
               else showHeroPinFallback();
             };
@@ -7878,8 +8001,15 @@ document.addEventListener('DOMContentLoaded', () => {
             return true;
           };
 
-          if (mapKey && center) {
-            const heroMapUrl = buildGoogleStaticMapUrl(geocodeCenter || center, mapKey, 640, 320);
+          const previewUrl = buildLeadPanelMapPreviewUrl({
+            center,
+            geocodeCenter,
+            lat: Number.isFinite(rowLat) ? rowLat : undefined,
+            lng: Number.isFinite(rowLng) ? rowLng : undefined,
+            w: 640,
+            h: 320,
+          });
+          if (previewUrl) {
             heroImg.onload = () => {
               setLeadPanelMapEmbedMode(false);
               heroImg.classList.remove('hidden');
@@ -7891,7 +8021,7 @@ document.addEventListener('DOMContentLoaded', () => {
             heroImg.onerror = () => {
               heroImg.classList.add('hidden');
               heroImg.removeAttribute('src');
-              if (!openHeroEmbed()) showHeroPinFallback();
+              if (!openHeroEmbed(false)) showHeroPinFallback();
             };
             heroImg.alt = address
               ? `Map near ${address.slice(0, 120)}`
@@ -7899,10 +8029,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? `Location of ${title}`
                 : 'Location map';
             requestAnimationFrame(() => {
-              heroImg.src = heroMapUrl;
+              heroImg.src = previewUrl;
             });
-          } else if (openHeroEmbed()) {
-            /* embedded map, no static API key */
+          } else if (openHeroEmbed(false)) {
+            /* embedded map fallback */
           } else {
             showHeroPinFallback();
           }
@@ -7987,11 +8117,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const showStaticFallback = () => {
       wideImg.classList.add('hidden');
-      fallback.style.display = 'flex';
+      wideImg.removeAttribute('src');
+      fallback.style.display = 'none';
     };
 
-    if (mapKey && center) {
-      const staticUrl = buildGoogleStaticMapUrl(geocodeCenter || center, mapKey, 640, 280);
+    const previewUrl = buildLeadPanelMapPreviewUrl({
+      center,
+      geocodeCenter,
+      lat: Number.isFinite(rowLat) ? rowLat : undefined,
+      lng: Number.isFinite(rowLng) ? rowLng : undefined,
+      w: 640,
+      h: 280,
+    });
+    if (previewUrl) {
       wideImg.onload = () => {
         wideImg.classList.remove('hidden');
         fallback.style.display = 'none';
@@ -8005,7 +8143,7 @@ document.addEventListener('DOMContentLoaded', () => {
           ? `Location of ${title}`
           : 'Location map';
       requestAnimationFrame(() => {
-        wideImg.src = staticUrl;
+        wideImg.src = previewUrl;
       });
     } else {
       showStaticFallback();
@@ -8665,6 +8803,24 @@ document.addEventListener('DOMContentLoaded', () => {
     return `https://maps.googleapis.com/maps/api/staticmap?center=${encCenter}&zoom=15&size=${w}x${h}&scale=2&maptype=roadmap&markers=${encMarkers}&key=${encKey}`;
   }
 
+  function buildLeadPanelMapPreviewUrl(opts) {
+    opts = opts || {};
+    const params = new URLSearchParams();
+    const geocodeQ = String(opts.geocodeCenter || opts.center || '').trim();
+    const centerQ = String(opts.center || '').trim();
+    if (geocodeQ) params.set('center', geocodeQ);
+    else if (centerQ) params.set('center', centerQ);
+    if (centerQ && centerQ !== geocodeQ) params.set('q', centerQ);
+    if (Number.isFinite(opts.lat) && Number.isFinite(opts.lng)) {
+      params.set('lat', String(opts.lat));
+      params.set('lng', String(opts.lng));
+    }
+    params.set('w', String(opts.w || 640));
+    params.set('h', String(opts.h || 300));
+    if (!params.get('center') && !params.get('lat')) return '';
+    return `/leads/map-preview?${params.toString()}`;
+  }
+
   function syncMobilePanelHeroMap(row) {
     const mapImg = document.getElementById('mobilePanelStaticMapImg');
     const mapLink = document.getElementById('mobilePanelMapLink');
@@ -9255,6 +9411,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     syncSidebarOutreachButtons(row);
+    syncLeadPanelOutreachIntelButtons(row);
     coerceLeadPanelButtonsForView(row);
     syncPageSpeedAuditPanel(row);
     syncContactHuntPanel(row);
@@ -9639,11 +9796,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function runLeadTelephonyAction(path, body, loadingLabel) {
-    if (!currentRow) return null;
-    const key = currentRow.dataset.leadKey;
-    if (!key) {
-      alert('Save this lead first before running telephony actions.');
+    const row = resolvePanelActionRow();
+    if (!row) {
+      alert('Select a lead first.');
       return null;
+    }
+    let key = String(row.dataset.leadKey || '').trim();
+    if (!key) {
+      try {
+        key = await ensureRowHasLeadKey(row);
+      } catch (err) {
+        alert(err.message || 'Save this lead first before running this action.');
+        return null;
+      }
     }
     const res = await fetch(`/leads/${encodeURIComponent(key)}${path}`, {
       method: 'POST',
@@ -9656,8 +9821,8 @@ document.addEventListener('DOMContentLoaded', () => {
       throw new Error(msg);
     }
     if (data.lead && Array.isArray(data.lead.updates)) {
-      currentRow.dataset.updates = JSON.stringify(data.lead.updates);
-      if (data.lead.status) currentRow.dataset.status = String(data.lead.status);
+      row.dataset.updates = JSON.stringify(data.lead.updates);
+      if (data.lead.status) row.dataset.status = String(data.lead.status);
     }
     if (data && data.dialMode === 'browser_device' && data.phone) {
       openSoftphoneOrTel(data.phone);
@@ -9665,7 +9830,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof window.showProspectToast === 'function') {
       window.showProspectToast(loadingLabel || 'Done');
     }
-    populatePanel(currentRow);
+    populatePanel(row);
     return data;
   }
 
@@ -9835,20 +10000,68 @@ document.addEventListener('DOMContentLoaded', () => {
   const smsScriptSendBtn = document.getElementById('smsScriptSendBtn');
   const smsScriptModalClose = document.getElementById('smsScriptModalClose');
   const smsScriptCancelBtn = document.getElementById('smsScriptCancelBtn');
+  const smsScriptModalTitle = document.getElementById('smsScriptModalTitle');
+  const smsScriptBulkLabel = document.getElementById('smsScriptBulkLabel');
+  const smsScriptHelpText = document.getElementById('smsScriptHelpText');
   let smsScriptOptions = [];
+  let bulkSmsLeadKeys = [];
+  let smsModalMode = 'single';
 
-  function setSmsCharCount() {
-    if (!smsBodyInput || !smsBodyCount) return;
-    smsBodyCount.textContent = String((smsBodyInput.value || '').length);
+  function resetSmsModalMode() {
+    smsModalMode = 'single';
+    bulkSmsLeadKeys = [];
+    if (smsScriptModalTitle) {
+      smsScriptModalTitle.textContent = 'Script + AI Personalization';
+    }
+    if (smsScriptBulkLabel) {
+      smsScriptBulkLabel.textContent = '';
+      smsScriptBulkLabel.classList.add('hidden');
+    }
+    if (smsScriptHelpText) {
+      smsScriptHelpText.textContent = 'Pick a script, personalize with AI, edit, then send.';
+    }
+    if (smsPersonalizeBtn) {
+      smsPersonalizeBtn.classList.remove('hidden');
+      smsPersonalizeBtn.disabled = false;
+    }
+    if (smsScriptSendBtn) {
+      smsScriptSendBtn.textContent = 'Send SMS';
+    }
+  }
+
+  function updateSmsModalBulkUi() {
+    const n = bulkSmsLeadKeys.length;
+    if (smsScriptModalTitle) {
+      smsScriptModalTitle.textContent = n > 1 ? `Bulk SMS — ${n} leads` : 'Bulk SMS';
+    }
+    if (smsScriptBulkLabel) {
+      smsScriptBulkLabel.textContent =
+        n > 0
+          ? `Each lead gets an AI-personalized message via GHL (company, city, category, reviews).`
+          : '';
+      smsScriptBulkLabel.classList.toggle('hidden', n === 0);
+    }
+    if (smsScriptHelpText) {
+      smsScriptHelpText.textContent =
+        'Choose a base script below. On send, AdHello personalizes it for each business, then sends through GHL.';
+    }
+    if (smsPersonalizeBtn) {
+      smsPersonalizeBtn.classList.add('hidden');
+    }
+    if (smsScriptSendBtn) {
+      smsScriptSendBtn.textContent = n > 1 ? `Send personalized to ${n} leads` : 'Send personalized SMS';
+    }
   }
 
   function closeSmsModal() {
     if (!smsScriptModal) return;
     smsScriptModal.classList.add('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'true');
+    resetSmsModalMode();
   }
 
   function openSmsModal() {
+    resetSmsModalMode();
     if (!smsScriptModal) return;
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
@@ -9859,13 +10072,97 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  function getCurrentLeadKey() {
-    if (!currentRow || !currentRow.dataset) return '';
-    return String(currentRow.dataset.leadKey || '').trim();
+  async function openBulkSmsModal(phoneKeys) {
+    const keys = (Array.isArray(phoneKeys) ? phoneKeys : [])
+      .map((k) => String(k || '').trim())
+      .filter(Boolean);
+    if (!keys.length || !smsScriptModal) return;
+    smsModalMode = 'bulk';
+    bulkSmsLeadKeys = keys;
+    smsScriptModal.classList.remove('hidden');
+    smsScriptModal.setAttribute('aria-hidden', 'false');
+    updateSmsModalBulkUi();
+    if (smsScriptWorkspaceLabel) {
+      const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
+      const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
+      smsScriptWorkspaceLabel.textContent = `Workspace: ${wsName || 'Current workspace'}`;
+    }
+    await loadSmsScriptOptions(keys[0]);
+    if (smsBodyInput) smsBodyInput.focus();
+  }
+  window.__openBulkSmsModal = openBulkSmsModal;
+
+  function setSmsCharCount() {
+    if (!smsBodyInput || !smsBodyCount) return;
+    smsBodyCount.textContent = String((smsBodyInput.value || '').length);
   }
 
-  async function loadSmsScriptOptions() {
-    const leadKey = getCurrentLeadKey();
+  function getSelectedSmsScriptText() {
+    const fromTextarea = String((smsBodyInput && smsBodyInput.value) || '').trim();
+    if (smsModalMode === 'bulk') return fromTextarea;
+    if (!smsScriptSelect) return fromTextarea;
+    const idx = parseInt(smsScriptSelect.value, 10);
+    const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
+    if (selected && selected.text) return String(selected.text).trim();
+    return fromTextarea;
+  }
+
+  async function personalizeSmsForLead(leadKey, scriptText) {
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-personalize`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ scriptText }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not personalize SMS.');
+    }
+    return String(data.personalized || scriptText).trim();
+  }
+
+  async function sendSmsToLeadKey(leadKey, body) {
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ body }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || `HTTP ${res.status}`);
+    }
+    return data;
+  }
+
+  async function sendBulkPersonalizedSms(phoneKeys, scriptText, onProgress) {
+    let ok = 0;
+    let failed = 0;
+    for (let i = 0; i < phoneKeys.length; i += 1) {
+      const leadKey = phoneKeys[i];
+      if (typeof onProgress === 'function') {
+        onProgress(i + 1, phoneKeys.length, leadKey);
+      }
+      try {
+        const personalized = await personalizeSmsForLead(leadKey, scriptText);
+        if (!personalized) throw new Error('Empty personalized message');
+        // eslint-disable-next-line no-await-in-loop
+        await sendSmsToLeadKey(leadKey, personalized);
+        ok += 1;
+      } catch (err) {
+        failed += 1;
+        console.warn('Bulk personalized SMS failed for', leadKey, err && err.message ? err.message : err);
+      }
+    }
+    return { ok, failed };
+  }
+
+  function getCurrentLeadKey() {
+    const row = resolvePanelActionRow();
+    if (!row || !row.dataset) return '';
+    return String(row.dataset.leadKey || '').trim();
+  }
+
+  async function loadSmsScriptOptions(forLeadKey) {
+    const leadKey = String(forLeadKey || getCurrentLeadKey() || '').trim();
     if (!leadKey || !smsScriptSelect || !smsBodyInput) return;
     smsScriptSelect.disabled = true;
     smsScriptSelect.innerHTML = '<option value="">Loading scripts...</option>';
@@ -9878,12 +10175,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not load SMS scripts.');
       smsScriptOptions = Array.isArray(data.options) ? data.options : [];
       if (!smsScriptOptions.length) {
-        const title = String((currentRow && currentRow.dataset && currentRow.dataset.title) || 'there').trim();
+        const title = String((currentRow && currentRow.dataset && currentRow.dataset.title) || '').trim();
         smsScriptOptions = [
           {
             id: 'fallback',
             label: 'Default outreach',
-            text: `Hi ${title} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`,
+            text:
+              smsModalMode === 'bulk'
+                ? 'Hi, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?'
+                : `Hi ${title || 'there'} team, this is [your name] from AdHello. We had a quick idea to help improve your local lead flow. Open to a short call this week?`,
           },
         ];
       }
@@ -9908,10 +10208,27 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (sendSmsBtn) {
-    sendSmsBtn.addEventListener('click', async () => {
-      if (!currentRow) return;
+    sendSmsBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const row = resolvePanelActionRow();
+      if (!row) {
+        notifyLeadPanelDial('Select a lead first.', 'error');
+        return;
+      }
+      if (!rowDatasetHasUsablePhone(row)) {
+        notifyLeadPanelDial('This lead has no phone number.', 'error');
+        return;
+      }
       openSmsModal();
-      await loadSmsScriptOptions();
+      try {
+        await ensureRowHasLeadKey(row);
+      } catch (err) {
+        notifyLeadPanelDial(err.message || 'Save this lead first.', 'error');
+        closeSmsModal();
+        return;
+      }
+      await loadSmsScriptOptions(row.dataset.leadKey);
       if (smsBodyInput) smsBodyInput.focus();
     });
   }
@@ -9957,6 +10274,50 @@ document.addEventListener('DOMContentLoaded', () => {
   if (smsScriptSendBtn) {
     smsScriptSendBtn.addEventListener('click', async () => {
       if (!smsBodyInput) return;
+      const scriptText = getSelectedSmsScriptText();
+      if (!scriptText) return;
+
+      if (smsModalMode === 'bulk' && bulkSmsLeadKeys.length) {
+        const n = bulkSmsLeadKeys.length;
+        if (
+          !window.confirm(
+            `Personalize and send this script via GHL to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
+          )
+        ) {
+          return;
+        }
+        const original = smsScriptSendBtn.textContent;
+        smsScriptSendBtn.disabled = true;
+        smsPersonalizeBtn && (smsPersonalizeBtn.disabled = true);
+        const feedback = document.getElementById('bulkSaveFeedback');
+        const showFeedback = (text, ok) => {
+          if (!feedback) return;
+          feedback.textContent = text;
+          feedback.classList.remove('hidden', 'text-emerald-300', 'text-rose-300');
+          feedback.classList.add(ok ? 'text-emerald-300' : 'text-rose-300');
+        };
+        try {
+          const result = await sendBulkPersonalizedSms(bulkSmsLeadKeys, scriptText, (done, total) => {
+            smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
+            showFeedback(`Personalizing & sending SMS ${done}/${total} via GHL…`, true);
+          });
+          const msg = `SMS: ${result.ok} personalized & sent via GHL${result.failed ? `, ${result.failed} failed` : ''}`;
+          showFeedback(msg, result.failed === 0);
+          if (typeof showProspectToast === 'function') showProspectToast(msg);
+          else window.alert(msg);
+          closeSmsModal();
+          if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+        } catch (err) {
+          window.alert(err.message || 'Bulk SMS failed.');
+        } finally {
+          smsScriptSendBtn.disabled = false;
+          smsScriptSendBtn.textContent = original;
+          if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
+          updateSmsModalBulkUi();
+        }
+        return;
+      }
+
       const smsBody = String(smsBodyInput.value || '').trim();
       if (!smsBody) return;
       const original = smsScriptSendBtn.textContent;
@@ -10140,6 +10501,44 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       e.stopPropagation();
       triggerLeadPanelEmail();
+    });
+  }
+  const leadPanelPushGhlBtn = document.getElementById('leadPanelPushGhlBtn');
+  if (leadPanelPushGhlBtn) {
+    leadPanelPushGhlBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pushLeadPanelToGhl();
+    });
+  }
+  const emailIntelSendGhlBtn = document.getElementById('emailIntelSendGhlBtn');
+  if (emailIntelSendGhlBtn) {
+    emailIntelSendGhlBtn.addEventListener('click', async () => {
+      const row = emailIntelActiveRow || resolvePanelActionRow();
+      const draftEl = document.getElementById('emailIntelDraft');
+      const body = draftEl ? String(draftEl.value || '').trim() : '';
+      if (!row || !body) {
+        notifyLeadPanelDial('Add email body first.', 'error');
+        return;
+      }
+      if (!rowDatasetHasUsableEmail(row)) {
+        notifyLeadPanelDial('No email on file for this lead.', 'error');
+        return;
+      }
+      const company = row.dataset.title || 'your business';
+      const subject = `Quick idea for ${company}`;
+      const original = emailIntelSendGhlBtn.textContent;
+      emailIntelSendGhlBtn.disabled = true;
+      emailIntelSendGhlBtn.textContent = 'Sending…';
+      try {
+        await runLeadTelephonyAction('/email', { subject, body }, 'Email sent via Go High Level');
+        closeEmailIntelModal();
+      } catch (err) {
+        notifyLeadPanelDial(err.message || 'Email send failed.', 'error');
+      } finally {
+        emailIntelSendGhlBtn.disabled = false;
+        emailIntelSendGhlBtn.textContent = original;
+      }
     });
   }
   if (leadPanelScriptsBtn) {
@@ -12020,7 +12419,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkSmsBtn = document.getElementById('bulkSmsBtn');
   const bulkFocusModeBtn = document.getElementById('bulkFocusModeBtn');
   const bulkDirectMailBtn = document.getElementById('bulkDirectMailBtn');
-  const bulkColdEmailBtn = document.getElementById('bulkColdEmailBtn');
+  const bulkGhlNoWebsiteBtn = document.getElementById('bulkGhlNoWebsiteBtn');
 
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
@@ -12292,6 +12691,45 @@ document.addEventListener('DOMContentLoaded', () => {
     return rows;
   }
   window.__getSelectedLeadRowsForBulk = getSelectedLeadRowsForBulk;
+
+  function rowHasUsableEmail(row) {
+    const e = String((row && row.dataset && row.dataset.email) || '').trim();
+    return e.length > 0 && e !== 'N/A' && e.includes('@');
+  }
+  function rowHasUsablePhone(row) {
+    const p = String((row && row.dataset && row.dataset.phone) || '').trim();
+    return p.length > 0 && p !== 'N/A' && /\d/.test(p);
+  }
+  function rowHasMailableAddress(row) {
+    const address = String((row && row.dataset && row.dataset.address) || '').trim();
+    const city = String((row && row.dataset && row.dataset.city) || '').trim();
+    const state = String((row && row.dataset && row.dataset.state) || '').trim();
+    if (!address || address === 'N/A' || address.length < 5) return false;
+    return !!(city && state);
+  }
+  function rowMissingWebsite(row) {
+    const w = String((row && row.dataset && row.dataset.website) || '').trim();
+    return !(w && w !== 'N/A' && w !== '—');
+  }
+  function collectPhoneLeadKeysFromRows(rows) {
+    const keys = [];
+    (Array.isArray(rows) ? rows : []).forEach((row) => {
+      if (!rowHasUsablePhone(row)) return;
+      const raw = String((row.dataset && row.dataset.leadKey) || '').trim();
+      if (raw) keys.push(raw);
+    });
+    return keys;
+  }
+  function showBulkOpenGhlLink(show) {
+    const link = document.getElementById('bulkOpenGhlContactsLink');
+    if (!link) return;
+    if (show) {
+      link.href = getGhlContactsUrl();
+      link.classList.remove('hidden');
+    } else {
+      link.classList.add('hidden');
+    }
+  }
   window.__readPipelineRowDisplayPhone = readPipelineRowDisplayPhone;
   window.__getActiveLeadPanelRow = function () {
     return currentRow && currentRow.dataset ? currentRow : null;
@@ -12514,6 +12952,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncSelectedKeysFromDom();
     syncBulkRowHighlights();
     const count = getBulkSelectionCount();
+    if (count === 0) showBulkOpenGhlLink(false);
     const hasSelection = count > 0;
 
     const bar = mountBulkActionBarToBody();
@@ -12559,12 +12998,7 @@ document.addEventListener('DOMContentLoaded', () => {
       bulkVoicemailBtn.classList.toggle('opacity-40', count === 0);
       bulkVoicemailBtn.classList.toggle('cursor-not-allowed', count === 0);
     }
-    if (bulkSmsBtn) {
-      bulkSmsBtn.disabled = count === 0;
-      bulkSmsBtn.classList.toggle('opacity-40', count === 0);
-      bulkSmsBtn.classList.toggle('cursor-not-allowed', count === 0);
-    }
-    if (bulkFocusModeBtn || bulkDirectMailBtn || bulkColdEmailBtn) {
+    if (bulkFocusModeBtn || bulkDirectMailBtn || bulkGhlNoWebsiteBtn || bulkSmsBtn) {
       const keys =
         hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
           ? window.__collectFocusSelectionKeys()
@@ -12573,52 +13007,74 @@ document.addEventListener('DOMContentLoaded', () => {
                 .map((k) => String(k || '').trim().replace(/^lead:/i, ''))
                 .filter(Boolean)
             : [];
+      const selectedRows = hasSelection ? getSelectedLeadRowsForBulk() : [];
+      const anyPhone = selectedRows.some(rowHasUsablePhone);
+      const anyMail = selectedRows.some(rowHasMailableAddress);
+      const anyNoWebsite = selectedRows.some(rowMissingWebsite);
       if (typeof window.__persistFocusSelectionKeys === 'function') {
         window.__persistFocusSelectionKeys(keys);
       }
       if (typeof window.__persistDirectMailSelectionKeys === 'function') {
         window.__persistDirectMailSelectionKeys(keys);
       }
-      const syncOutreachBtn = (btn, href, titleEnabled, titleDisabled) => {
+      const syncPrimaryBtn = (btn, href, enabled, titleEnabled, titleDisabled) => {
         if (!btn) return;
-        btn.classList.toggle('opacity-40', !hasSelection);
-        btn.classList.toggle('pointer-events-none', !hasSelection);
-        btn.setAttribute('aria-disabled', !hasSelection ? 'true' : 'false');
-        btn.setAttribute('href', href);
-        btn.setAttribute('title', hasSelection ? titleEnabled : titleDisabled);
+        btn.classList.toggle('hidden', !enabled);
+        if (btn.tagName === 'A') {
+          btn.classList.toggle('opacity-40', !enabled);
+          btn.classList.toggle('pointer-events-none', !enabled);
+          btn.setAttribute('aria-disabled', !enabled ? 'true' : 'false');
+          if (href) btn.setAttribute('href', href);
+        } else {
+          btn.disabled = !enabled;
+          btn.classList.toggle('opacity-40', !enabled);
+          btn.classList.toggle('cursor-not-allowed', !enabled);
+        }
+        btn.setAttribute('title', enabled ? titleEnabled : titleDisabled);
       };
-      syncOutreachBtn(
+      syncPrimaryBtn(
         bulkFocusModeBtn,
         typeof window.__buildFocusSelectionUrl === 'function'
           ? window.__buildFocusSelectionUrl(keys, 'call')
           : keys.length
             ? `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}&channel=call`
             : '/focus?channel=call',
+        hasSelection && anyPhone,
         keys.length
           ? `Call and log ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
-          : 'Select at least one lead to start calling',
+          : 'Select leads with phone numbers to call',
+        'Selected leads have no phone number',
       );
-      syncOutreachBtn(
-        bulkColdEmailBtn,
-        typeof window.__buildFocusSelectionUrl === 'function'
-          ? window.__buildFocusSelectionUrl(keys, 'email')
-          : keys.length
-            ? `/focus?lead=${encodeURIComponent(keys[0])}&keys=${encodeURIComponent(keys.join(','))}&channel=email`
-            : '/focus?channel=email',
-        keys.length
-          ? `Draft cold emails for ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
-          : 'Select at least one lead to start cold email',
-      );
-      syncOutreachBtn(
+      syncPrimaryBtn(
         bulkDirectMailBtn,
         typeof window.__buildDirectMailSelectionUrl === 'function'
           ? window.__buildDirectMailSelectionUrl(keys)
           : keys.length
             ? `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`
             : '/direct-mail',
+        hasSelection && anyMail,
         keys.length
           ? `Send direct mail to ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
-          : 'Select at least one lead to send direct mail',
+          : 'Select leads with a mailable address',
+        'Selected leads have no mailable address',
+      );
+      syncPrimaryBtn(
+        bulkGhlNoWebsiteBtn,
+        null,
+        hasSelection && anyNoWebsite,
+        keys.length
+          ? `Save ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to GHL with tag no website`
+          : 'Select no-website businesses to save in GHL',
+        'Selected leads all have websites',
+      );
+      syncPrimaryBtn(
+        bulkSmsBtn,
+        null,
+        hasSelection && anyPhone,
+        keys.length
+          ? `Send SMS via GHL to ${keys.length} selected lead${keys.length === 1 ? '' : 's'} with phone numbers`
+          : 'Select leads with phone numbers to send SMS',
+        'Selected leads have no phone number',
       );
     }
 
@@ -12991,6 +13447,62 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
+  if (bulkGhlNoWebsiteBtn) {
+    bulkGhlNoWebsiteBtn.addEventListener('click', async (e) => {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      const selectedRows = getSelectedLeadRowsForBulk();
+      const noWebsiteKeys = [];
+      selectedRows.forEach((row) => {
+        if (!rowMissingWebsite(row)) return;
+        const raw = String((row.dataset && row.dataset.leadKey) || '').trim();
+        if (raw) noWebsiteKeys.push(raw);
+      });
+      if (noWebsiteKeys.length === 0) return;
+
+      const feedback = document.getElementById('bulkSaveFeedback');
+      const showFeedback = (text, ok) => {
+        if (!feedback) return;
+        feedback.textContent = text;
+        feedback.classList.remove('hidden', 'text-emerald-300', 'text-rose-300');
+        feedback.classList.add(ok ? 'text-emerald-300' : 'text-rose-300');
+      };
+
+      const prev = bulkGhlNoWebsiteBtn.textContent;
+      bulkGhlNoWebsiteBtn.disabled = true;
+      bulkGhlNoWebsiteBtn.textContent = 'Saving…';
+      showFeedback(`Saving ${noWebsiteKeys.length} lead${noWebsiteKeys.length === 1 ? '' : 's'} to GHL…`, true);
+      try {
+        const res = await fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: noWebsiteKeys, tagNoWebsite: true }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        const pushed = data.pushed != null ? data.pushed : 0;
+        const failed = data.failed != null ? data.failed : 0;
+        const msg = `GHL: ${pushed} saved with tag no website${failed ? `, ${failed} failed` : ''}`;
+        showFeedback(msg, failed === 0);
+        showBulkOpenGhlLink(pushed > 0);
+        if (typeof showProspectToast === 'function') showProspectToast(msg);
+        else if (failed === 0) alert(msg);
+        else alert(`${msg}\n\nConfigure GHL in Workspace → Integrations if pushes failed.`);
+      } catch (err) {
+        const msg = err && err.message ? err.message : 'GHL save failed';
+        showFeedback(msg, false);
+        showBulkOpenGhlLink(false);
+        alert(msg);
+      } finally {
+        bulkGhlNoWebsiteBtn.textContent = prev;
+        updateBulkActionBar();
+      }
+    });
+  }
+
   if (bulkMoveFolderBtn && bulkFolderSelect) {
     bulkMoveFolderBtn.addEventListener('click', async () => {
       const keys = ensureBulkSelectionKeys();
@@ -13076,48 +13588,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (bulkSmsBtn) {
-    bulkSmsBtn.addEventListener('click', async () => {
-      const keys = ensureBulkSelectionKeys();
-      if (keys.length === 0) return;
-      const n = keys.length;
-      const smsBody = window.prompt(
-        `Type the SMS to send to ${n} selected lead${n === 1 ? '' : 's'}:`,
-        'Hi! Quick follow-up from Agency OS. Want a short idea for improving your local lead flow this week?',
-      );
-      if (smsBody == null) return;
-      const body = String(smsBody || '').trim();
-      if (!body) {
-        window.alert('SMS body cannot be empty.');
-        return;
-      }
-      if (!window.confirm(`Send this SMS to ${n} selected lead${n === 1 ? '' : 's'}?`)) return;
-      const original = bulkSmsBtn.textContent;
-      bulkSmsBtn.disabled = true;
-      bulkSmsBtn.textContent = 'Sending...';
-      let ok = 0;
-      let failed = 0;
-      for (const leadKey of keys) {
-        try {
-          const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ body }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || !data.success) throw new Error((data && data.error) || `HTTP ${res.status}`);
-          ok += 1;
-        } catch (err) {
-          failed += 1;
-          console.warn('Bulk SMS failed for', leadKey, err && err.message ? err.message : err);
-        }
-      }
-      window.alert(`Bulk SMS complete: ${ok} sent${failed ? `, ${failed} failed` : ''}.`);
-      bulkSmsBtn.textContent = original;
-      bulkSmsBtn.disabled = selectedKeys.size === 0;
-      if (bulkSmsBtn.disabled) {
-        bulkSmsBtn.classList.add('opacity-40', 'cursor-not-allowed');
-      } else {
-        bulkSmsBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+    bulkSmsBtn.addEventListener('click', async (e) => {
+      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
+      if (e && typeof e.preventDefault === 'function') e.preventDefault();
+      const phoneKeys = collectPhoneLeadKeysFromRows(getSelectedLeadRowsForBulk());
+      if (phoneKeys.length === 0) return;
+      if (typeof window.__openBulkSmsModal === 'function') {
+        await window.__openBulkSmsModal(phoneKeys);
       }
     });
   }

@@ -160,6 +160,9 @@
   var spAiSummary = document.getElementById('softphoneAiSummaryBtn');
   var spCompleteWrap = document.getElementById('softphoneCompleteWrapBtn');
   var spNextStep = document.getElementById('softphoneNextStep');
+  var spScrollHint = document.getElementById('softphoneScrollHint');
+  var spKeypadTab = document.getElementById('softphoneTabKeypad');
+  var spInCallBar = document.getElementById('softphoneInCallBar');
   var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
   var spRelayWebrtc = false;
   var spWorkspaceCallMode = 'cloud_dial';
@@ -925,6 +928,17 @@
     } else if (softphoneSession.webrtc) { spCallState.textContent = s + ' · WebRTC' + (verbose ? ' · ' + verbose : ''); return; }
     spCallState.textContent = s;
   }
+  function softphoneInCallBarBelowFold() {
+    if (!spKeypadTab || !spInCallBar || spInCallBar.classList.contains('hidden')) return false;
+    if (spKeypadTab.classList.contains('hidden')) return false;
+    var scrollBottom = spKeypadTab.scrollTop + spKeypadTab.clientHeight;
+    return spInCallBar.offsetTop + 24 > scrollBottom;
+  }
+  function updateSoftphoneScrollHint() {
+    if (!spScrollHint) return;
+    var show = softphoneInCallBarBelowFold();
+    spScrollHint.classList.toggle('hidden', !show);
+  }
   function softphoneSetCallState(state) {
     var prev = softphoneSession.state;
     softphoneSession.state = state;
@@ -944,10 +958,16 @@
     updateControlToggles();
     updateRecordingToggle();
     syncNavBarCallIndicator();
-    var inCallBar = document.getElementById('softphoneInCallBar');
-    if (inCallBar) {
-      var active = state === 'dialing' || state === 'in_call' || state === 'ended';
-      inCallBar.classList.toggle('hidden', !active);
+    var inCallBarActive = state === 'dialing' || state === 'in_call' || state === 'ended';
+    if (spInCallBar) {
+      spInCallBar.classList.toggle('hidden', !inCallBarActive);
+    }
+    if (inCallBarActive && spKeypadTab && spInCallBar) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(updateSoftphoneScrollHint);
+      });
+    } else {
+      updateSoftphoneScrollHint();
     }
   }
   function softphoneStopPolling() {
@@ -1129,6 +1149,9 @@
     } catch (e) {}
     applyDockRight();
   }
+  window.__adhelloIsSoftphoneOpen = function () {
+    return !!(spModal && !spModal.classList.contains('hidden'));
+  };
   function openSoftphone() {
     if (!spModal) return;
     spModal.classList.remove('hidden');
@@ -1782,8 +1805,19 @@
     if (name === 'recents') renderRecentDials();
     if (name === 'queue') renderSoftphoneCallQueue();
     if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
+    if (name === 'keypad') setTimeout(updateSoftphoneScrollHint, 80);
   }
   window.__adhelloSoftphoneSetTab = setSoftphoneTab;
+
+  if (spKeypadTab) {
+    spKeypadTab.addEventListener('scroll', updateSoftphoneScrollHint, { passive: true });
+  }
+  if (spScrollHint && spInCallBar) {
+    spScrollHint.addEventListener('click', function () {
+      spInCallBar.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }
+  window.addEventListener('resize', updateSoftphoneScrollHint);
 
   document.querySelectorAll('.softphone-nav-btn').forEach(function (btn) {
     btn.addEventListener('click', function () {

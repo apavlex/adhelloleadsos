@@ -114,6 +114,7 @@ module.exports = {
   AGENCY_OS_NOTE_PREFIX,
   mergeTagLists,
   tagsToAdd,
+  tagKey,
   normalizeGhlLogSync,
   logFingerprint,
   formatLogAsNoteBody,

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
+const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 
 function resolveVisibleLeadKey(visible, rawKey) {
   const k = String(rawKey || '').trim();
@@ -65,6 +66,7 @@ router.post('/assign', async (req, res, next) => {
     }
 
     const lead = await dbService.setLeadTags(fullKey, nextTags);
+    triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'tag_assign' });
     res.json({ success: true, lead });
   } catch (e) {
     next(e);
@@ -108,6 +110,10 @@ router.post('/assign-bulk', async (req, res, next) => {
       const lead = await dbService.setLeadTags(fullKey, nextTags);
       if (lead) updated.push(lead);
     }
+
+    updated.forEach((lead) => {
+      triggerGhlProspectSync(lead.key, req.workspaceId, { trigger: 'tag_assign_bulk' });
+    });
 
     res.json({ success: true, updatedKeys: updated.map((l) => l.key), leads: updated });
   } catch (e) {

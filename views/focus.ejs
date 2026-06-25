@@ -55,8 +55,8 @@
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
         <div class="flex flex-col md:flex-row gap-4 items-stretch">
-          <div id="focus-map-wrap" class="hidden w-full md:w-[min(100%,280px)] shrink-0 rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner">
-            <iframe id="focus-map-iframe" class="absolute inset-0 w-full h-full border-0" title="Business location on Google Maps" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen="allowfullscreen"></iframe>
+          <div id="focus-map-wrap" class="hidden w-full md:w-[min(100%,280px)] shrink-0 rounded-xl border border-brand-border/50 dark:border-white/10 overflow-hidden bg-slate-200/80 dark:bg-slate-950/80 aspect-[4/3] md:aspect-auto md:h-52 min-h-[11rem] relative shadow-inner" aria-hidden="true">
+            <img id="focus-map-img" class="absolute inset-0 w-full h-full object-cover hidden" alt="" loading="lazy" width="560" height="336" decoding="async" />
           </div>
           <div class="flex-1 min-w-0 w-full">
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -487,6 +487,7 @@
           return;
         }
         setCopyFeedback('Dialer opened with lead number loaded. Press Call in the softphone to dial.');
+        updateDialerCta();
       } else {
         setCopyFeedback('Dialer opened. Copy phone if needed.', false);
       }
@@ -530,11 +531,20 @@
       }
     }
 
+    function isSoftphoneOpen() {
+      if (typeof window.__adhelloIsSoftphoneOpen === 'function') {
+        return window.__adhelloIsSoftphoneOpen();
+      }
+      var spModal = document.getElementById('softphoneModal');
+      return !!(spModal && !spModal.classList.contains('hidden'));
+    }
+
     function updateDialerCta() {
       var lead = currentLead();
       var hasPhone = Boolean(lead && String(lead.phone || '').trim() && String(lead.phone) !== 'N/A');
+      var dialerOpen = isSoftphoneOpen();
       if (btnOpenDialer) {
-        btnOpenDialer.classList.toggle('hidden', !hasPhone);
+        btnOpenDialer.classList.toggle('hidden', !hasPhone || dialerOpen);
       }
       if (btnCallNext) {
         btnCallNext.classList.toggle('hidden', !hasPhone || currentChannel !== 'call-script');
@@ -893,44 +903,46 @@
 
     function renderFocusMap(lead) {
       var wrap = document.getElementById('focus-map-wrap');
-      var iframe = document.getElementById('focus-map-iframe');
-      if (!wrap || !iframe) return;
+      var img = document.getElementById('focus-map-img');
+      if (!wrap || !img) return;
       var q = mapQueryFromFocusLead(lead);
       if (!q) {
         wrap.classList.add('hidden');
-        iframe.removeAttribute('src');
+        wrap.setAttribute('aria-hidden', 'true');
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.classList.add('hidden');
         return;
       }
-      var key =
-        typeof window !== 'undefined' && window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__
-          ? String(window.__ADHELLO_GOOGLE_MAPS_STATIC_KEY__).trim()
-          : '';
-      function setFocusMapSrc(useKeyless) {
-        if (typeof window.AdhelloMaps !== 'undefined' && window.AdhelloMaps.embedSrc) {
-          return window.AdhelloMaps.embedSrc(q, useKeyless ? '' : key);
-        }
-        if (key && !useKeyless) {
-          return (
-            'https://www.google.com/maps/embed/v1/place?key=' +
-            encodeURIComponent(key) +
-            '&q=' +
-            encodeURIComponent(q) +
-            '&zoom=15&maptype=roadmap'
-          );
-        }
-        return (
-          'https://www.google.com/maps?q=' +
-          encodeURIComponent(q) +
-          '&hl=en&z=15&output=embed'
-        );
-      }
       wrap.classList.remove('hidden');
-      iframe.onerror = null;
-      iframe.onerror = function () {
-        iframe.onerror = null;
-        if (key) iframe.src = setFocusMapSrc(true);
+      wrap.setAttribute('aria-hidden', 'false');
+      img.onload = null;
+      img.onerror = null;
+      img.removeAttribute('src');
+      img.classList.add('hidden');
+
+      var params = new URLSearchParams();
+      params.set('center', q);
+      params.set('w', '560');
+      params.set('h', '336');
+      var lat = Number(lead && lead.latitude);
+      var lng = Number(lead && lead.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        params.set('lat', String(lat));
+        params.set('lng', String(lng));
+      }
+
+      img.onload = function () {
+        img.classList.remove('hidden');
       };
-      iframe.src = setFocusMapSrc(false);
+      img.onerror = function () {
+        img.onload = null;
+        img.onerror = null;
+        img.removeAttribute('src');
+        img.classList.add('hidden');
+      };
+      img.src = '/leads/map-preview?' + params.toString();
     }
 
     function renderBusinessInfo(lead) {
@@ -1532,10 +1544,16 @@
         elEmptyTitle.textContent = 'No leads in this queue';
         elEmptyDesc.textContent = 'Add or import leads to your pipeline, then come back.';
         var fwEmpty = document.getElementById('focus-map-wrap');
-        var fiEmpty = document.getElementById('focus-map-iframe');
-        if (fwEmpty && fiEmpty) {
+        var fiEmpty = document.getElementById('focus-map-img');
+        if (fwEmpty) {
           fwEmpty.classList.add('hidden');
+          fwEmpty.setAttribute('aria-hidden', 'true');
+        }
+        if (fiEmpty) {
+          fiEmpty.onload = null;
+          fiEmpty.onerror = null;
           fiEmpty.removeAttribute('src');
+          fiEmpty.classList.add('hidden');
         }
         return;
       }
@@ -2055,6 +2073,7 @@
       location.reload();
     });
     window.addEventListener('resize', updateDialerCta);
+    window.addEventListener('adhello-softphone-state', updateDialerCta);
 
     if (!queue.length) {
       elSection.classList.add('hidden');

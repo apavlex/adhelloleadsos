@@ -5,6 +5,7 @@
 const dbService = require('./database');
 const ghlClient = require('./ghlClient');
 const workspaceIntegrations = require('./workspaceIntegrations');
+const { hasUsableWebsite } = require('./leadListFilters');
 const {
   mergeTagLists,
   normalizeGhlLogSync,
@@ -14,6 +15,10 @@ const {
   shouldPushLog,
   ghlNoteToLogEntry,
 } = require('./ghlSyncHelpers');
+const { isActionTag } = require('./ghlActionTags');
+const ghlProspectSync = require('./ghlProspectSync');
+
+const GHL_TAG_NO_WEBSITE = 'no website';
 
 function normalizeEmail(email) {
   if (!email || email === 'N/A') return '';
@@ -123,7 +128,15 @@ async function pushLeadToGhl(lead, integrationEnv) {
 
   if (!contactId) throw new Error('GHL did not return a contact id');
 
-  mergedTags = await ghlClient.syncContactTags(contactId, lead.tags, integrationEnv);
+  let tagsForPush = lead.ghlTagNamesForPush || mergeTagLists(lead.tags);
+  if (Array.isArray(lead.ghlExtraTagNames) && lead.ghlExtraTagNames.length) {
+    tagsForPush = mergeTagLists(tagsForPush, lead.ghlExtraTagNames);
+  }
+
+  mergedTags = await ghlClient.syncContactTags(contactId, tagsForPush, integrationEnv, {
+    replaceActionTags: true,
+    isActionTag,
+  });
   const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
   const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
 
@@ -136,9 +149,14 @@ async function pushLeadToGhl(lead, integrationEnv) {
     ghlContactId: contactId,
     ghlSyncedAt: new Date().toISOString(),
     ghlSyncDirection: 'push',
-    tags: mergedTags,
     ghlLogSync,
   };
+  if (Array.isArray(lead.ghlActionTags)) {
+    patch.ghlActionTags = lead.ghlActionTags;
+  }
+  if (!lead.ghlTagNamesForPush) {
+    patch.tags = mergedTags;
+  }
   if (notePull.newLogs.length) patch.logs = notePull.newLogs;
 
   const updated = await dbService.updateLead(lead.key, patch);
@@ -214,11 +232,24 @@ async function pushLeads(opts) {
   const limit = Math.min(parseInt(opts.limit, 10) || 500, 500);
   leads = leads.slice(0, limit);
 
+  const tagNoWebsite = opts.tagNoWebsite === true;
   const results = [];
   for (const lead of leads) {
     try {
+      let leadForPush = lead;
+      if (tagNoWebsite) {
+        const extra = hasUsableWebsite(lead) ? [] : [GHL_TAG_NO_WEBSITE];
+        if (extra.length) {
+          // eslint-disable-next-line no-await-in-loop
+          const names = await ghlProspectSync.resolveLeadTagNamesForGhl(wid, lead);
+          leadForPush = {
+            ...lead,
+            ghlTagNamesForPush: mergeTagLists(names, extra),
+          };
+        }
+      }
       // eslint-disable-next-line no-await-in-loop
-      const r = await pushLeadToGhl(lead, integrationEnv);
+      const r = await pushLeadToGhl(leadForPush, integrationEnv);
       results.push({
         key: lead.key,
         ok: true,
@@ -376,6 +407,7 @@ async function processWebhook(payload, opts = {}) {
 }
 
 module.exports = {
+  GHL_TAG_NO_WEBSITE,
   pushLeadToGhl,
   pushLeads,
   pullContacts,

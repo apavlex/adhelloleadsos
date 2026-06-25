@@ -14,6 +14,7 @@ const {
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
   isCsvImported,
+  hasUsableWebsite,
 } = require('../services/leadListFilters');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
@@ -60,6 +61,23 @@ router.get('/', async (req, res, next) => {
     }
 
     const leadListFilters = normalizeLeadListFilters(req.query);
+    if (
+      safeTab === 'pipeline' &&
+      !String(leadListFilters.folderKey || '').trim() &&
+      !String(leadListFilters.origin || '').trim() &&
+      req.query.includeFoldered !== '1' &&
+      req.query.includeFoldered !== 'true'
+    ) {
+      const bizFolder = folders.find(
+        (f) => f && f.jobType === 'maps_business' && f.isPipelineDefault,
+      );
+      if (bizFolder && bizFolder.key) {
+        const qs = new URLSearchParams(req.query);
+        qs.set('tab', 'pipeline');
+        qs.set('folderKey', String(bizFolder.key));
+        return res.redirect(302, `/prospecting?${qs.toString()}`);
+      }
+    }
     const includeFoldered =
       req.query.includeFoldered === '1' ||
       req.query.includeFoldered === 'true' ||
@@ -89,6 +107,25 @@ router.get('/', async (req, res, next) => {
 
     leads = applyLeadListFilters(leads, leadListFilters);
     leads = leads.map((l) => normalizeLeadForPanel(l));
+
+    const activeFolder = folders.find((f) => f && String(f.key) === activeFolderKey);
+    const originFilter = String(leadListFilters.origin || '').trim().toLowerCase();
+    const isBusinessesView =
+      (activeFolder && activeFolder.jobType === 'maps_business') ||
+      originFilter === 'maps_business' ||
+      originFilter === 'maps' ||
+      originFilter === 'business';
+    if (isBusinessesView) {
+      leads.sort((a, b) => {
+        const ha = hasUsableWebsite(a) ? 1 : 0;
+        const hb = hasUsableWebsite(b) ? 1 : 0;
+        if (ha !== hb) return ha - hb;
+        return String(a.title || '').localeCompare(String(b.title || ''), undefined, {
+          sensitivity: 'base',
+        });
+      });
+    }
+
     const leadsFilterSuffix = leadListFilterQuerySuffix(leadListFilters);
 
     const statusUniq = new Map();
@@ -185,6 +222,7 @@ router.get('/', async (req, res, next) => {
       csvImportLeadCount,
       includeFoldered,
       activeFolderKey,
+      isBusinessesView,
       folders,
       folderTree,
       folderPickerTree,

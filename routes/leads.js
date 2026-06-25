@@ -62,6 +62,7 @@ const ghlMessaging = require('../services/ghlMessaging');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
+const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 
 async function importLeadRecordsFromBuffer(buffer, originalFilename, req, importOptions = {}) {
   const parseOpts =
@@ -856,6 +857,12 @@ router.post('/:key/disposition', async (req, res, next) => {
     patch.status = status;
     patch.lastDisposition = code;
     patch.lastDispositionAt = new Date().toISOString();
+    if (notes) patch.lastDispositionNotes = notes.slice(0, 2000);
+    if (code === 'callback' || code === 'connected' || code === 'gatekeeper') {
+      patch.lastTouchChannel = 'call';
+    } else if (code === 'voicemail') {
+      patch.lastTouchChannel = 'email';
+    }
     const updates = appendLeadUpdate(lead, {
       type: 'call_disposition',
       value: `Disposition: ${code}${notes ? ` — ${notes}` : ''}`,
@@ -879,6 +886,10 @@ router.post('/:key/disposition', async (req, res, next) => {
       }
     }
     const updated = await dbService.updateLead(fullKey, patch, req.workspaceId);
+    triggerGhlProspectSync(fullKey, req.workspaceId, {
+      trigger: `disposition:${code}`,
+      note: notes ? `Disposition: ${code}\n${notes}` : '',
+    });
     return res.json({ success: true, lead: updated, status, nextStep, automation });
   } catch (err) {
     next(err);
@@ -999,6 +1010,16 @@ router.post('/:key/update', async (req, res, next) => {
     }
 
     const updated = await dbService.updateLead(fullKey, updateData, wid);
+    if (
+      updateData.lastTouchChannel !== undefined ||
+      updateData.status ||
+      updateData.pipelineStage !== undefined ||
+      (req.body && req.body.stageId != null)
+    ) {
+      triggerGhlProspectSync(fullKey, wid, {
+        trigger: updateData.lastTouchChannel ? `channel:${updateData.lastTouchChannel}` : 'lead_update',
+      });
+    }
     res.json({ success: true, lead: updated });
   } catch (err) {
     next(err);
@@ -1871,6 +1892,7 @@ router.post('/:key/sms', async (req, res, next) => {
         ...contactedPatch,
         ghlContactId: sent.contactId || lead.ghlContactId,
         status: 'Follow-up',
+        lastTouchChannel: 'sms',
         updates,
         logs: [
           {
@@ -1880,6 +1902,7 @@ router.post('/:key/sms', async (req, res, next) => {
           },
         ],
       });
+      triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'sms_sent' });
       return res.json({
         success: true,
         provider: 'ghl',
@@ -1968,6 +1991,7 @@ router.post('/:key/email', async (req, res, next) => {
       ...contactedPatch,
       ghlContactId: sent.contactId || lead.ghlContactId,
       status: 'Email Sent',
+      lastTouchChannel: 'email',
       updates,
       logs: [
         {
@@ -1977,6 +2001,7 @@ router.post('/:key/email', async (req, res, next) => {
         },
       ],
     });
+    triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'email_sent' });
     res.json({
       success: true,
       provider: 'ghl',

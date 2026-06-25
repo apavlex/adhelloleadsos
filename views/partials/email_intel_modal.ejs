@@ -22,7 +22,7 @@
         </div>
         <div id="emailIntelDraftSection" class="hidden">
           <p class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-2">Script draft</p>
-          <textarea id="emailIntelDraft" readonly rows="8" class="w-full rounded-2xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-slate-100 leading-relaxed resize-y min-h-[9rem] focus:outline-none focus:ring-2 focus:ring-brand-yellow/40"></textarea>
+          <textarea id="emailIntelDraft" rows="8" class="w-full rounded-2xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-slate-100 leading-relaxed resize-y min-h-[9rem] focus:outline-none focus:ring-2 focus:ring-brand-yellow/40"></textarea>
           <button type="button" id="emailIntelCopyDraft" class="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline">Copy script</button>
         </div>
         <div>
@@ -37,7 +37,8 @@
           </div>
         </div>
       </div>
-      <div class="p-6 pt-0">
+      <div class="p-6 pt-0 space-y-2">
+        <button type="button" id="emailIntelSendGhlBtn" class="hidden w-full btn-pill bg-sky-600 text-white py-4 text-xs font-black uppercase tracking-widest hover:bg-sky-700 transition-colors">Send via Go High Level</button>
         <button type="button" class="email-intel-close w-full btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">
           Close
         </button>

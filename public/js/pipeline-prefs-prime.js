@@ -68,6 +68,15 @@
     }
   }
 
+  function wantsBusinessesColumnPreset() {
+    return window.PROSPECTING_BUSINESSES_VIEW === true;
+  }
+
+  function applyBusinessesColumnPreset(vis) {
+    vis.website = true;
+    return vis;
+  }
+
   var PLC_MIN_WIDTH = {
     socials: 120,
     contactGroup: 168,
@@ -127,6 +136,14 @@
     }
     if (wantsRealEstateColumnPreset()) {
       vis = applyRealEstateImportColumnVis(vis);
+      try {
+        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (wantsBusinessesColumnPreset()) {
+      vis = applyBusinessesColumnPreset(vis);
       try {
         localStorage.setItem(VIS_KEY, JSON.stringify(vis));
       } catch (_) {
