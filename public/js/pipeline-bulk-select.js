@@ -830,10 +830,24 @@
           if (typeof window.__persistDirectMailSelectionKeys === 'function') {
             window.__persistDirectMailSelectionKeys(keys);
           }
-          window.location.href =
+          const mailBtn = document.getElementById('bulkDirectMailBtn');
+          const n = keys.length;
+          if (typeof window.showBulkActionConfirmation === 'function') {
+            window.showBulkActionConfirmation(
+              `Opening direct mail for ${n} selected lead${n === 1 ? '' : 's'}…`,
+              'info',
+            );
+          }
+          if (typeof window.__flashBulkBarBtn === 'function') {
+            window.__flashBulkBarBtn(mailBtn, 'Opening…', 700);
+          }
+          const href =
             typeof window.__buildDirectMailSelectionUrl === 'function'
               ? window.__buildDirectMailSelectionUrl(keys)
               : `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`;
+          window.setTimeout(function () {
+            window.location.href = href;
+          }, 120);
           return;
         }
         if (e.target.closest('#bulkFocusModeBtn')) {
@@ -842,7 +856,33 @@
           const keys = collectFocusSelectionKeys();
           if (!keys.length) return;
           persistFocusSelectionKeys(keys);
-          window.location.href = buildFocusSelectionUrl(keys, 'call');
+          const callBtn = document.getElementById('bulkFocusModeBtn');
+          const n = keys.length;
+          if (typeof window.showBulkActionConfirmation === 'function') {
+            window.showBulkActionConfirmation(
+              `Opening call queue for ${n} selected lead${n === 1 ? '' : 's'}…`,
+              'info',
+            );
+          }
+          if (typeof window.__flashBulkBarBtn === 'function') {
+            window.__flashBulkBarBtn(callBtn, 'Opening…', 700);
+          }
+          const href = buildFocusSelectionUrl(keys, 'call');
+          window.setTimeout(function () {
+            window.location.href = href;
+          }, 120);
+          return;
+        }
+        if (e.target.closest('#bulkSmsBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const smsBtn = document.getElementById('bulkSmsBtn');
+          if (smsBtn && smsBtn.disabled) return;
+          if (typeof window.__openBulkSmsFromBar === 'function') {
+            window.__openBulkSmsFromBar();
+          } else {
+            smsBtn && smsBtn.click();
+          }
           return;
         }
         if (e.target.closest('#bulkDeleteBtn')) {

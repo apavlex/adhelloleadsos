@@ -1579,6 +1579,57 @@ html.dark #pipelineColumnsPopover {
   z-index: 500 !important;
 }
 
+#smsScriptModal {
+  z-index: 520 !important;
+  pointer-events: auto !important;
+}
+
+#smsScriptModal:not(.hidden) {
+  display: flex !important;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+#leadPanelOutreachFeedback.lead-panel-outreach-feedback--info {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.35);
+  color: #1e40af;
+}
+
+.dark #leadPanelOutreachFeedback.lead-panel-outreach-feedback--info {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #bfdbfe;
+}
+
+#leadPanelOutreachFeedback.lead-panel-outreach-feedback--success {
+  background: rgba(16, 185, 129, 0.12);
+  border-color: rgba(16, 185, 129, 0.4);
+  color: #047857;
+}
+
+.dark #leadPanelOutreachFeedback.lead-panel-outreach-feedback--success {
+  background: rgba(16, 185, 129, 0.16);
+  border-color: rgba(52, 211, 153, 0.35);
+  color: #a7f3d0;
+}
+
+#leadPanelOutreachFeedback.lead-panel-outreach-feedback--error {
+  background: rgba(244, 63, 94, 0.1);
+  border-color: rgba(244, 63, 94, 0.35);
+  color: #be123c;
+}
+
+.dark #leadPanelOutreachFeedback.lead-panel-outreach-feedback--error {
+  background: rgba(244, 63, 94, 0.14);
+  border-color: rgba(251, 113, 133, 0.35);
+  color: #fecdd3;
+}
+
+#leadPanelOutreachDrawer [aria-disabled='true'] {
+  pointer-events: auto;
+}
+
 #prospectLeadsTable {
   border-collapse: separate !important;
 }

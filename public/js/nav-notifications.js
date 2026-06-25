@@ -15,8 +15,16 @@
   window.showAppToast = function showAppToast(message, opts) {
     if (!message) return;
     opts = opts || {};
-    const variant = opts.variant === 'error' ? 'error' : 'info';
-    const duration = typeof opts.duration === 'number' ? opts.duration : variant === 'error' ? 11000 : 2800;
+    const variant =
+      opts.variant === 'error' ? 'error' : opts.variant === 'success' ? 'success' : 'info';
+    const duration =
+      typeof opts.duration === 'number'
+        ? opts.duration
+        : variant === 'error'
+          ? 11000
+          : variant === 'success'
+            ? 4200
+            : 2800;
 
     var el = document.getElementById('appToast');
     if (!el) {
@@ -28,14 +36,16 @@
 
     var errSkin =
       'top-[4.5rem] bg-rose-900 text-white border-rose-300/65 shadow-[0_10px_28px_rgba(0,0,0,0.38)]';
+    var successSkin =
+      'top-[4.5rem] bg-emerald-900 text-white border-emerald-300/55 shadow-[0_10px_28px_rgba(0,0,0,0.34)]';
     var infoSkin =
       'top-[4.5rem] bg-brand-dark text-white border-brand-yellow/55 shadow-[0_10px_28px_rgba(0,0,0,0.34)]';
     el.className = [
-      'fixed left-1/2 z-[220] max-w-[min(92vw,26rem)] -translate-x-1/2',
+      'fixed left-1/2 z-[520] max-w-[min(92vw,26rem)] -translate-x-1/2',
       'translate-y-2 opacity-0 transition-all duration-200 ease-out',
       'px-5 py-3.5 rounded-2xl text-sm font-semibold leading-snug',
       'border',
-      variant === 'error' ? errSkin : infoSkin,
+      variant === 'error' ? errSkin : variant === 'success' ? successSkin : infoSkin,
     ].join(' ');
     el.style.whiteSpace = 'pre-line';
     el.textContent = message;

@@ -3052,6 +3052,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function notifyLeadPanelDial(message, variant) {
+    if (typeof isLeadDetailPanelOpen === 'function' && isLeadDetailPanelOpen()) {
+      setLeadPanelOutreachFeedback(message, variant);
+    }
     if (typeof window.showAppToast === 'function') {
       window.showAppToast(message, { variant: variant || 'info' });
     } else if (typeof window.showProspectToast === 'function') {
@@ -3059,6 +3062,51 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       alert(message);
     }
+  }
+
+  let __leadPanelOutreachFeedbackTimer = null;
+  const __leadPanelOutreachBtnLabels = new WeakMap();
+
+  function setLeadPanelOutreachFeedback(message, variant) {
+    const el = document.getElementById('leadPanelOutreachFeedback');
+    if (!el) return;
+    clearTimeout(__leadPanelOutreachFeedbackTimer);
+    const msg = String(message || '').trim();
+    if (!msg) {
+      el.textContent = '';
+      el.className = 'hidden mx-3 mt-3 mb-0 rounded-xl px-3 py-2 text-[11px] font-semibold leading-snug border';
+      return;
+    }
+    el.textContent = msg;
+    el.className =
+      'mx-3 mt-3 mb-0 rounded-xl px-3 py-2 text-[11px] font-semibold leading-snug border lead-panel-outreach-feedback--' +
+      (variant === 'success' ? 'success' : variant === 'error' ? 'error' : 'info');
+    __leadPanelOutreachFeedbackTimer = setTimeout(
+      () => {
+        el.textContent = '';
+        el.className = 'hidden mx-3 mt-3 mb-0 rounded-xl px-3 py-2 text-[11px] font-semibold leading-snug border';
+      },
+      variant === 'error' ? 12000 : 7000,
+    );
+  }
+
+  function flashOutreachBtn(btn, label) {
+    if (!btn) return;
+    if (!__leadPanelOutreachBtnLabels.has(btn)) {
+      __leadPanelOutreachBtnLabels.set(btn, btn.textContent);
+    }
+    btn.textContent = label;
+  }
+
+  function resetOutreachBtn(btn) {
+    if (!btn) return;
+    const original = __leadPanelOutreachBtnLabels.get(btn);
+    if (original != null) btn.textContent = original;
+  }
+
+  function confirmOutreachBtnSuccess(btn, tempLabel) {
+    flashOutreachBtn(btn, tempLabel || '✓ Done');
+    setTimeout(() => resetOutreachBtn(btn), 1600);
   }
 
   function openLeadPanelSoftphone(phone, leadKey, options) {
@@ -3082,21 +3130,105 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function triggerLeadPanelEmail() {
+    const btn = document.getElementById('leadPanelOutreachEmailBtn');
+    flashOutreachBtn(btn, 'Opening…');
+    notifyLeadPanelDial('Opening email composer…', 'info');
     const row = resolvePanelActionRow();
     if (!row) {
       notifyLeadPanelDial('Select a lead first.', 'error');
+      resetOutreachBtn(btn);
+      return;
+    }
+    if (!rowDatasetHasUsableEmail(row)) {
+      notifyLeadPanelDial('No email on file — run Hunt contacts or Push to GHL first.', 'error');
+      resetOutreachBtn(btn);
       return;
     }
     if (typeof openEmailIntelModal === 'function') {
       openEmailIntelModal(row);
+      notifyLeadPanelDial('Email script ready — edit and send via GHL.', 'success');
+      confirmOutreachBtnSuccess(btn, '✓ Opened');
+      resetOutreachBtn(btn);
       return;
     }
     const email = readPipelineRowDisplayEmail(row);
     if (!email) {
       notifyLeadPanelDial('This lead has no email on file.', 'error');
+      resetOutreachBtn(btn);
       return;
     }
     window.location.href = `mailto:${encodeURIComponent(email)}`;
+    resetOutreachBtn(btn);
+  }
+
+  async function triggerLeadPanelVoicemail() {
+    const btn = document.getElementById('voicemailDropBtn');
+    const row = resolvePanelActionRow();
+    if (!row) {
+      notifyLeadPanelDial('Select a lead first.', 'error');
+      return;
+    }
+    if (!rowDatasetHasUsablePhone(row)) {
+      notifyLeadPanelDial('This lead has no phone number.', 'error');
+      return;
+    }
+    const ok = window.confirm(
+      'Start a voicemail drop attempt for this lead? This places an outbound call immediately.',
+    );
+    if (!ok) {
+      notifyLeadPanelDial('Voicemail drop cancelled.', 'info');
+      return;
+    }
+    flashOutreachBtn(btn, 'Starting…');
+    notifyLeadPanelDial('Starting voicemail drop via GHL…', 'info');
+    try {
+      await runLeadTelephonyAction('/voicemail-drop', {}, 'Voicemail drop started');
+      notifyLeadPanelDial('Voicemail drop started.', 'success');
+      confirmOutreachBtnSuccess(btn, '✓ Started');
+    } catch (err) {
+      notifyLeadPanelDial(err.message || 'Failed to start voicemail drop.', 'error');
+    } finally {
+      resetOutreachBtn(btn);
+    }
+  }
+
+  async function triggerLeadPanelSms() {
+    const btn = document.getElementById('sendSmsBtn');
+    const row = resolvePanelActionRow();
+    if (!row) {
+      notifyLeadPanelDial('Select a lead first.', 'error');
+      return;
+    }
+    if (!rowDatasetHasUsablePhone(row)) {
+      notifyLeadPanelDial('Add a phone number first — or run Hunt contacts.', 'error');
+      return;
+    }
+    flashOutreachBtn(btn, 'Opening…');
+    notifyLeadPanelDial('Opening SMS composer…', 'info');
+    try {
+      await ensureRowHasLeadKey(row);
+    } catch (err) {
+      notifyLeadPanelDial(err.message || 'Save this lead first.', 'error');
+      resetOutreachBtn(btn);
+      return;
+    }
+    if (typeof openSmsModal !== 'function') {
+      notifyLeadPanelDial('SMS modal failed to load. Refresh the page.', 'error');
+      resetOutreachBtn(btn);
+      return;
+    }
+    openSmsModal();
+    try {
+      await loadSmsScriptOptions(row.dataset.leadKey);
+      const bodyInput = document.getElementById('smsBodyInput');
+      if (bodyInput) bodyInput.focus();
+      notifyLeadPanelDial('Personalize your SMS, then send via Go High Level.', 'success');
+      confirmOutreachBtnSuccess(btn, '✓ Opened');
+    } catch (err) {
+      notifyLeadPanelDial(err.message || 'Could not load SMS scripts.', 'error');
+    } finally {
+      resetOutreachBtn(btn);
+    }
   }
 
   async function pushLeadPanelToGhl() {
@@ -3107,6 +3239,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     const btn = document.getElementById('leadPanelPushGhlBtn');
     const original = btn ? btn.textContent : 'Push GHL';
+    notifyLeadPanelDial('Pushing contact to Go High Level…', 'info');
     if (btn) {
       btn.disabled = true;
       btn.textContent = 'Pushing…';
@@ -3132,6 +3265,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ? 'Contact saved to GHL with tag no website.'
         : 'Contact saved to Go High Level.';
       notifyLeadPanelDial(msg, 'success');
+      confirmOutreachBtnSuccess(btn, '✓ Pushed');
       const open = window.confirm(`${msg}\n\nOpen GHL contacts now?`);
       if (open) window.open(getGhlContactsUrl(), '_blank', 'noopener,noreferrer');
     } catch (err) {
@@ -3175,6 +3309,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const opened = openLeadPanelSoftphone(phone, key, { autoDial: true });
       if (opened) {
         notifyLeadPanelDial('AdHello dialer opened — number loaded.', 'success');
+        confirmOutreachBtnSuccess(clickToCallBtn, '✓ Dialer open');
         return;
       }
       if (typeof window.__adhelloOpenSoftphoneWithDial !== 'function') {
@@ -3285,6 +3420,34 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         await triggerLeadPanelCall();
+        return;
+      }
+
+      if (e.target.closest('#voicemailDropBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await triggerLeadPanelVoicemail();
+        return;
+      }
+
+      if (e.target.closest('#sendSmsBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await triggerLeadPanelSms();
+        return;
+      }
+
+      if (e.target.closest('#leadPanelOutreachEmailBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        triggerLeadPanelEmail();
+        return;
+      }
+
+      if (e.target.closest('#leadPanelPushGhlBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await pushLeadPanelToGhl();
         return;
       }
 
@@ -5282,7 +5445,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const ghlBtn = document.getElementById('leadPanelPushGhlBtn');
     const setBtn = (btn, enabled, titleOn, titleOff) => {
       if (!btn) return;
-      btn.disabled = !enabled;
+      btn.removeAttribute('disabled');
+      btn.setAttribute('aria-disabled', enabled ? 'false' : 'true');
       btn.classList.toggle('opacity-40', !enabled);
       btn.classList.toggle('cursor-not-allowed', !enabled);
       btn.setAttribute('title', enabled ? titleOn : titleOff);
@@ -9135,6 +9299,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function populatePanel(row) {
     if (!row) return;
     closeLeadPanelComposer();
+    setLeadPanelOutreachFeedback('');
     prepareLeadRowForPanel(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     const paintActivityTimeline = () => {
@@ -9798,7 +9963,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function runLeadTelephonyAction(path, body, loadingLabel) {
     const row = resolvePanelActionRow();
     if (!row) {
-      alert('Select a lead first.');
+      notifyLeadPanelDial('Select a lead first.', 'error');
       return null;
     }
     let key = String(row.dataset.leadKey || '').trim();
@@ -9806,7 +9971,7 @@ document.addEventListener('DOMContentLoaded', () => {
       try {
         key = await ensureRowHasLeadKey(row);
       } catch (err) {
-        alert(err.message || 'Save this lead first before running this action.');
+        notifyLeadPanelDial(err.message || 'Save this lead first before running this action.', 'error');
         return null;
       }
     }
@@ -9827,9 +9992,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data && data.dialMode === 'browser_device' && data.phone) {
       openSoftphoneOrTel(data.phone);
     }
-    if (typeof window.showProspectToast === 'function') {
-      window.showProspectToast(loadingLabel || 'Done');
-    }
+    notifyLeadPanelDial(loadingLabel || 'Action completed.', 'success');
     populatePanel(row);
     return data;
   }
@@ -9970,28 +10133,15 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
-  if (voicemailDropBtn) {
-    voicemailDropBtn.addEventListener('click', async () => {
-      const ok = window.confirm(
-        'Start a voicemail drop attempt for this lead? This places an outbound call immediately.'
-      );
-      if (!ok) return;
-      const original = voicemailDropBtn.textContent;
-      voicemailDropBtn.disabled = true;
-      voicemailDropBtn.textContent = 'Starting...';
-      try {
-        await runLeadTelephonyAction('/voicemail-drop', {}, 'Voicemail drop started');
-      } catch (err) {
-        alert(err.message || 'Failed to start voicemail drop.');
-      } finally {
-        voicemailDropBtn.disabled = false;
-        voicemailDropBtn.textContent = original;
-      }
-    });
-  }
 
   const sendSmsBtn = document.getElementById('sendSmsBtn');
   const smsScriptModal = document.getElementById('smsScriptModal');
+  function mountSmsModalToBody() {
+    if (smsScriptModal && smsScriptModal.parentElement !== document.body) {
+      document.body.appendChild(smsScriptModal);
+    }
+  }
+  mountSmsModalToBody();
   const smsScriptSelect = document.getElementById('smsScriptSelect');
   const smsBodyInput = document.getElementById('smsBodyInput');
   const smsBodyCount = document.getElementById('smsBodyCount');
@@ -10062,7 +10212,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function openSmsModal() {
     resetSmsModalMode();
-    if (!smsScriptModal) return;
+    mountSmsModalToBody();
+    if (!smsScriptModal) return false;
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
     if (smsScriptWorkspaceLabel) {
@@ -10070,13 +10221,20 @@ document.addEventListener('DOMContentLoaded', () => {
       const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
       smsScriptWorkspaceLabel.textContent = `Workspace: ${wsName || 'Current workspace'}`;
     }
+    return true;
   }
 
   async function openBulkSmsModal(phoneKeys) {
+    mountSmsModalToBody();
     const keys = (Array.isArray(phoneKeys) ? phoneKeys : [])
       .map((k) => String(k || '').trim())
       .filter(Boolean);
-    if (!keys.length || !smsScriptModal) return;
+    if (!keys.length) {
+      return { ok: false, error: 'no_phone', message: 'Selected leads have no phone numbers for SMS.' };
+    }
+    if (!smsScriptModal) {
+      return { ok: false, error: 'no_modal', message: 'SMS composer failed to load. Refresh the page.' };
+    }
     smsModalMode = 'bulk';
     bulkSmsLeadKeys = keys;
     smsScriptModal.classList.remove('hidden');
@@ -10087,8 +10245,17 @@ document.addEventListener('DOMContentLoaded', () => {
       const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
       smsScriptWorkspaceLabel.textContent = `Workspace: ${wsName || 'Current workspace'}`;
     }
-    await loadSmsScriptOptions(keys[0]);
-    if (smsBodyInput) smsBodyInput.focus();
+    try {
+      await loadSmsScriptOptions(keys[0]);
+      if (smsBodyInput) smsBodyInput.focus();
+      return { ok: true, count: keys.length };
+    } catch (err) {
+      return {
+        ok: false,
+        error: 'load_failed',
+        message: (err && err.message) || 'Could not load SMS scripts.',
+      };
+    }
   }
   window.__openBulkSmsModal = openBulkSmsModal;
 
@@ -10208,29 +10375,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (sendSmsBtn) {
-    sendSmsBtn.addEventListener('click', async (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const row = resolvePanelActionRow();
-      if (!row) {
-        notifyLeadPanelDial('Select a lead first.', 'error');
-        return;
-      }
-      if (!rowDatasetHasUsablePhone(row)) {
-        notifyLeadPanelDial('This lead has no phone number.', 'error');
-        return;
-      }
-      openSmsModal();
-      try {
-        await ensureRowHasLeadKey(row);
-      } catch (err) {
-        notifyLeadPanelDial(err.message || 'Save this lead first.', 'error');
-        closeSmsModal();
-        return;
-      }
-      await loadSmsScriptOptions(row.dataset.leadKey);
-      if (smsBodyInput) smsBodyInput.focus();
-    });
+    /* Click handled via bindLeadPanelBottomActions delegation */
   }
 
   if (smsScriptSelect && smsBodyInput) {
@@ -10289,26 +10434,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const original = smsScriptSendBtn.textContent;
         smsScriptSendBtn.disabled = true;
         smsPersonalizeBtn && (smsPersonalizeBtn.disabled = true);
-        const feedback = document.getElementById('bulkSaveFeedback');
-        const showFeedback = (text, ok) => {
-          if (!feedback) return;
-          feedback.textContent = text;
-          feedback.classList.remove('hidden', 'text-emerald-300', 'text-rose-300');
-          feedback.classList.add(ok ? 'text-emerald-300' : 'text-rose-300');
-        };
         try {
           const result = await sendBulkPersonalizedSms(bulkSmsLeadKeys, scriptText, (done, total) => {
             smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
-            showFeedback(`Personalizing & sending SMS ${done}/${total} via GHL…`, true);
+            showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total} via GHL…`, 'loading');
           });
-          const msg = `SMS: ${result.ok} personalized & sent via GHL${result.failed ? `, ${result.failed} failed` : ''}`;
-          showFeedback(msg, result.failed === 0);
-          if (typeof showProspectToast === 'function') showProspectToast(msg);
-          else window.alert(msg);
+          const msg = `SMS: ${result.ok} sent via GHL${result.failed ? ` · ${result.failed} failed` : ''}`;
+          showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
+          if (typeof window.__flashBulkBarBtn === 'function') {
+            window.__flashBulkBarBtn(document.getElementById('bulkSmsBtn'), result.failed === 0 ? '✓ Sent' : 'Failed');
+          }
           closeSmsModal();
           if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
         } catch (err) {
-          window.alert(err.message || 'Bulk SMS failed.');
+          showBulkSaveFeedback(err.message || 'Bulk SMS failed.', 'error');
         } finally {
           smsScriptSendBtn.disabled = false;
           smsScriptSendBtn.textContent = original;
@@ -10324,10 +10463,11 @@ document.addEventListener('DOMContentLoaded', () => {
       smsScriptSendBtn.disabled = true;
       smsScriptSendBtn.textContent = 'Sending...';
       try {
-        await runLeadTelephonyAction('/sms', { body: smsBody }, 'SMS sent');
+        await runLeadTelephonyAction('/sms', { body: smsBody }, 'SMS sent via Go High Level');
+        confirmOutreachBtnSuccess(document.getElementById('sendSmsBtn'), '✓ Sent');
         closeSmsModal();
       } catch (err) {
-        alert(err.message || 'Failed to send SMS.');
+        notifyLeadPanelDial(err.message || 'Failed to send SMS.', 'error');
       } finally {
         smsScriptSendBtn.disabled = false;
         smsScriptSendBtn.textContent = original;
@@ -10496,21 +10636,8 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   if (sidebarIncludeCoupon) sidebarIncludeCoupon.addEventListener('change', syncSidebarCouponWarning);
   syncSidebarCouponWarning();
-  if (leadPanelOutreachEmailBtn) {
-    leadPanelOutreachEmailBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      triggerLeadPanelEmail();
-    });
-  }
+  /* Outreach buttons: bindLeadPanelBottomActions delegation */
   const leadPanelPushGhlBtn = document.getElementById('leadPanelPushGhlBtn');
-  if (leadPanelPushGhlBtn) {
-    leadPanelPushGhlBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      pushLeadPanelToGhl();
-    });
-  }
   const emailIntelSendGhlBtn = document.getElementById('emailIntelSendGhlBtn');
   if (emailIntelSendGhlBtn) {
     emailIntelSendGhlBtn.addEventListener('click', async () => {
@@ -10532,6 +10659,7 @@ document.addEventListener('DOMContentLoaded', () => {
       emailIntelSendGhlBtn.textContent = 'Sending…';
       try {
         await runLeadTelephonyAction('/email', { subject, body }, 'Email sent via Go High Level');
+        confirmOutreachBtnSuccess(document.getElementById('leadPanelOutreachEmailBtn'), '✓ Sent');
         closeEmailIntelModal();
       } catch (err) {
         notifyLeadPanelDial(err.message || 'Email send failed.', 'error');
@@ -12377,12 +12505,12 @@ document.addEventListener('DOMContentLoaded', () => {
       el.id = 'prospectToast';
       el.setAttribute('role', 'status');
       el.className =
-        'fixed left-1/2 z-[240] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center';
+        'fixed left-1/2 z-[520] -translate-x-1/2 translate-y-3 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center';
       document.body.appendChild(el);
     }
     const bulkBarVisible = document.getElementById('bulkActionBar')?.dataset.visible === 'true';
     el.className =
-      'fixed left-1/2 z-[240] -translate-x-1/2 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center ' +
+      'fixed left-1/2 z-[520] -translate-x-1/2 opacity-0 pointer-events-none transition-all duration-200 ease-out px-5 py-3 rounded-2xl bg-brand-dark text-white text-sm font-semibold shadow-[0_10px_24px_rgba(0,0,0,0.34)] border border-brand-yellow/50 max-w-[min(90vw,20rem)] text-center ' +
       (bulkBarVisible ? 'bottom-24 translate-y-0' : 'bottom-28 translate-y-3');
     el.textContent = message || 'Done';
     requestAnimationFrame(() => {
@@ -12730,6 +12858,23 @@ document.addEventListener('DOMContentLoaded', () => {
       link.classList.add('hidden');
     }
   }
+
+  const __bulkBarBtnLabels = new WeakMap();
+  function flashBulkBarBtn(btn, tempLabel, ms) {
+    if (!btn) return;
+    const duration = typeof ms === 'number' ? ms : 1600;
+    if (!__bulkBarBtnLabels.has(btn)) {
+      __bulkBarBtnLabels.set(btn, String(btn.textContent || '').trim());
+    }
+    btn.textContent = tempLabel;
+    if (btn.__flashTimer) clearTimeout(btn.__flashTimer);
+    btn.__flashTimer = setTimeout(() => {
+      const orig = __bulkBarBtnLabels.get(btn);
+      if (orig != null) btn.textContent = orig;
+      btn.__flashTimer = null;
+    }, duration);
+  }
+  window.__flashBulkBarBtn = flashBulkBarBtn;
   window.__readPipelineRowDisplayPhone = readPipelineRowDisplayPhone;
   window.__getActiveLeadPanelRow = function () {
     return currentRow && currentRow.dataset ? currentRow : null;
@@ -13010,7 +13155,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const selectedRows = hasSelection ? getSelectedLeadRowsForBulk() : [];
       const anyPhone = selectedRows.some(rowHasUsablePhone);
       const anyMail = selectedRows.some(rowHasMailableAddress);
-      const anyNoWebsite = selectedRows.some(rowMissingWebsite);
       if (typeof window.__persistFocusSelectionKeys === 'function') {
         window.__persistFocusSelectionKeys(keys);
       }
@@ -13061,11 +13205,11 @@ document.addEventListener('DOMContentLoaded', () => {
       syncPrimaryBtn(
         bulkGhlNoWebsiteBtn,
         null,
-        hasSelection && anyNoWebsite,
+        hasSelection && keys.length > 0,
         keys.length
-          ? `Save ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to GHL with tag no website`
-          : 'Select no-website businesses to save in GHL',
-        'Selected leads all have websites',
+          ? `Save ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to GHL for email — no-website contacts tagged automatically`
+          : 'Select leads to save in GHL',
+        'Select at least one lead',
       );
       syncPrimaryBtn(
         bulkSmsBtn,
@@ -13405,18 +13549,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const keys = ensureBulkSelectionKeys();
       if (keys.length === 0) return;
 
-      const feedback = document.getElementById('bulkSaveFeedback');
-      const showFeedback = (text, ok) => {
-        if (!feedback) return;
-        feedback.textContent = text;
-        feedback.classList.remove('hidden', 'text-emerald-300', 'text-rose-300');
-        feedback.classList.add(ok ? 'text-emerald-300' : 'text-rose-300');
-      };
-
       const prev = btn.textContent;
       btn.disabled = true;
       btn.textContent = 'Pushing…';
-      showFeedback(`Pushing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, true);
+      showBulkSaveFeedback(`Pushing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, 'loading');
       try {
         const res = await fetch('/ghl/push', {
           method: 'POST',
@@ -13430,15 +13566,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const pushed = data.pushed != null ? data.pushed : 0;
         const failed = data.failed != null ? data.failed : 0;
-        const msg = `GHL: ${pushed} pushed${failed ? `, ${failed} failed` : ''}`;
-        showFeedback(msg, failed === 0);
-        if (typeof showProspectToast === 'function') showProspectToast(msg);
-        else if (failed === 0) alert(msg);
-        else alert(`${msg}\n\nConfigure GHL in Workspace → Integrations if pushes failed.`);
+        const msg = `GHL: ${pushed} contact${pushed === 1 ? '' : 's'} pushed${failed ? ` · ${failed} failed` : ''}`;
+        showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
+        showBulkOpenGhlLink(pushed > 0);
+        flashBulkBarBtn(btn, failed === 0 ? '✓ Pushed' : 'Failed');
       } catch (err) {
         const msg = err && err.message ? err.message : 'GHL push failed';
-        showFeedback(msg, false);
-        alert(msg);
+        showBulkSaveFeedback(msg, 'error');
+        flashBulkBarBtn(btn, 'Failed', 1200);
       } finally {
         btn.disabled = selectedKeys.size === 0;
         btn.textContent = prev;
@@ -13452,32 +13587,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
       const selectedRows = getSelectedLeadRowsForBulk();
-      const noWebsiteKeys = [];
-      selectedRows.forEach((row) => {
-        if (!rowMissingWebsite(row)) return;
-        const raw = String((row.dataset && row.dataset.leadKey) || '').trim();
-        if (raw) noWebsiteKeys.push(raw);
-      });
-      if (noWebsiteKeys.length === 0) return;
+      const leadKeys = ensureBulkSelectionKeys();
+      if (leadKeys.length === 0) return;
 
-      const feedback = document.getElementById('bulkSaveFeedback');
-      const showFeedback = (text, ok) => {
-        if (!feedback) return;
-        feedback.textContent = text;
-        feedback.classList.remove('hidden', 'text-emerald-300', 'text-rose-300');
-        feedback.classList.add(ok ? 'text-emerald-300' : 'text-rose-300');
-      };
+      const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
 
       const prev = bulkGhlNoWebsiteBtn.textContent;
       bulkGhlNoWebsiteBtn.disabled = true;
       bulkGhlNoWebsiteBtn.textContent = 'Saving…';
-      showFeedback(`Saving ${noWebsiteKeys.length} lead${noWebsiteKeys.length === 1 ? '' : 's'} to GHL…`, true);
+      showBulkSaveFeedback(`Saving ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} to GHL…`, 'loading');
       try {
         const res = await fetch('/ghl/push', {
           method: 'POST',
           credentials: 'same-origin',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ leadKeys: noWebsiteKeys, tagNoWebsite: true }),
+          body: JSON.stringify({ leadKeys, tagNoWebsite: true }),
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
@@ -13485,17 +13609,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const pushed = data.pushed != null ? data.pushed : 0;
         const failed = data.failed != null ? data.failed : 0;
-        const msg = `GHL: ${pushed} saved with tag no website${failed ? `, ${failed} failed` : ''}`;
-        showFeedback(msg, failed === 0);
+        const taggedNote =
+          noWebsiteCount > 0
+            ? ` · ${noWebsiteCount} tagged no website`
+            : '';
+        const msg = `GHL: ${pushed} saved for email${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
+        showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
         showBulkOpenGhlLink(pushed > 0);
-        if (typeof showProspectToast === 'function') showProspectToast(msg);
-        else if (failed === 0) alert(msg);
-        else alert(`${msg}\n\nConfigure GHL in Workspace → Integrations if pushes failed.`);
+        flashBulkBarBtn(bulkGhlNoWebsiteBtn, failed === 0 ? '✓ Saved' : 'Failed');
       } catch (err) {
         const msg = err && err.message ? err.message : 'GHL save failed';
-        showFeedback(msg, false);
-        showBulkOpenGhlLink(false);
-        alert(msg);
+        showBulkSaveFeedback(msg, 'error');
+        flashBulkBarBtn(bulkGhlNoWebsiteBtn, 'Failed', 1200);
       } finally {
         bulkGhlNoWebsiteBtn.textContent = prev;
         updateBulkActionBar();
@@ -13587,15 +13712,42 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  async function openBulkSmsFromBar() {
+    const btn = document.getElementById('bulkSmsBtn');
+    if (btn && btn.disabled) return { ok: false, error: 'disabled' };
+    const phoneKeys = collectPhoneLeadKeysFromRows(getSelectedLeadRowsForBulk());
+    if (phoneKeys.length === 0) {
+      showBulkSaveFeedback('Selected leads have no phone numbers for SMS.', 'error');
+      return { ok: false, error: 'no_phone' };
+    }
+    showBulkSaveFeedback(
+      `Opening SMS composer for ${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}…`,
+      'info',
+    );
+    flashBulkBarBtn(btn, 'Opening…', 900);
+    if (typeof window.__openBulkSmsModal !== 'function') {
+      showBulkSaveFeedback('SMS composer failed to load. Refresh the page.', 'error');
+      return { ok: false, error: 'no_fn' };
+    }
+    const result = await window.__openBulkSmsModal(phoneKeys);
+    if (result && result.ok) {
+      showBulkSaveFeedback(
+        `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
+        'success',
+      );
+      flashBulkBarBtn(btn, '✓ Opened');
+    } else {
+      showBulkSaveFeedback((result && result.message) || 'Could not open SMS composer.', 'error');
+    }
+    return result;
+  }
+  window.__openBulkSmsFromBar = openBulkSmsFromBar;
+
   if (bulkSmsBtn) {
     bulkSmsBtn.addEventListener('click', async (e) => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
-      const phoneKeys = collectPhoneLeadKeysFromRows(getSelectedLeadRowsForBulk());
-      if (phoneKeys.length === 0) return;
-      if (typeof window.__openBulkSmsModal === 'function') {
-        await window.__openBulkSmsModal(phoneKeys);
-      }
+      await openBulkSmsFromBar();
     });
   }
 
@@ -13620,22 +13772,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const el = document.getElementById('bulkSaveFeedback');
     if (el) {
       el.textContent = message || '';
-      el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-white/80');
+      el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-white/80', 'text-sky-200');
       if (variant === 'error') {
         el.classList.add('text-rose-300');
       } else if (variant === 'loading') {
         el.classList.add('text-white/80');
+      } else if (variant === 'info') {
+        el.classList.add('text-sky-200');
       } else {
         el.classList.add('text-emerald-300');
       }
       if (!message) el.classList.add('hidden');
     }
-    if (variant === 'error' && typeof window.showAppToast === 'function') {
-      window.showAppToast(message, { variant: 'error', duration: 9000 });
-    } else if (message && variant === 'ok' && typeof window.showAppToast === 'function') {
-      window.showAppToast(message, { duration: 4200 });
+    if (!message) return;
+    if (typeof window.showAppToast === 'function') {
+      const toastVariant =
+        variant === 'error' ? 'error' : variant === 'success' || variant === 'ok' ? 'success' : 'info';
+      window.showAppToast(message, {
+        variant: toastVariant,
+        duration: variant === 'error' ? 9000 : variant === 'loading' ? 3200 : 5200,
+      });
+    } else if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(message);
     }
   }
+  window.showBulkActionConfirmation = showBulkSaveFeedback;
 
   function setBulkSaveButtonsState(buttons, html, disabled, success) {
     buttons.forEach((b) => {
