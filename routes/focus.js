@@ -16,6 +16,7 @@ const { scoreLeadRecord } = require('../services/opportunityScore');
 const pipelineStagesService = require('../services/pipelineStagesService');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
+const salesScriptsStorage = require('../services/salesScriptsStorage');
 
 function stageLabelFromLead(l, sortedStages) {
   const row =
@@ -213,6 +214,9 @@ router.get('/', async (req, res, next) => {
       label: (SCRIPT_LIBRARY[k] && SCRIPT_LIBRARY[k].label) || k,
     }));
 
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const focusScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+
     res.render('focus', {
       title: 'Focus Mode | Agency OS',
       activePage: 'today',
@@ -220,6 +224,7 @@ router.get('/', async (req, res, next) => {
       touchGoal,
       focusQueueJson: JSON.stringify(queue),
       focusProductOptions,
+      focusScriptLibraryJson: JSON.stringify(focusScriptLibrary),
       focusSelectionCount: selectedOnly ? queue.length : null,
       focusIsSelectionSession: selectedOnly,
     });
