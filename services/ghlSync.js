@@ -18,6 +18,7 @@ const {
 } = require('./ghlSyncHelpers');
 const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require('./ghlActionTags');
 const ghlProspectSync = require('./ghlProspectSync');
+const { pushLastProspectedField } = require('./ghlLastProspectedField');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
 const GHL_TAG_PROSPECTED = 'AO: Prospected';
@@ -224,7 +225,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
   if (!contactId) throw new Error('GHL did not return a contact id');
 
   let tagsForPush = lead.ghlTagNamesForPush || mergeTagLists(lead.tags);
-  tagsForPush = mergeTagLists(tagsForPush, [GHL_TAG_PROSPECTED]);
+  tagsForPush = mergeTagLists(tagsForPush, [GHL_TAG_PROSPECTED, ghlClient.syncedDateTagFor()]);
   if (Array.isArray(lead.ghlExtraTagNames) && lead.ghlExtraTagNames.length) {
     tagsForPush = mergeTagLists(tagsForPush, lead.ghlExtraTagNames);
   }
@@ -234,6 +235,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     isActionTag,
   });
   const syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
+  const lastProspected = await pushLastProspectedField(contactId, integrationEnv);
   const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
   const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
   const followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
@@ -271,6 +273,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     notesPulled: notePull.pulled,
     followUpTask,
     syncActivityNote,
+    lastProspected,
   };
 }
 
@@ -371,6 +374,7 @@ async function pushLeads(opts) {
         ok: true,
         ghlContactId: r.ghlContactId,
         actionTags: leadForPush.ghlActionTags || computeActionTagsFromLead(leadForPush),
+        lastProspected: r.lastProspected,
         notesPushed: r.notesPushed,
         notesPulled: r.notesPulled,
       });

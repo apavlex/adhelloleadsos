@@ -9,6 +9,15 @@ const GHL_CONVERSATIONS_API_VERSION = '2021-04-15';
 
 const { mergeTagLists, tagsToAdd, tagKey, parseGhlNotesResponse } = require('./ghlSyncHelpers');
 
+function syncedDateTagFor(date = new Date()) {
+  const d = date instanceof Date && !Number.isNaN(date.getTime()) ? date : new Date();
+  return `AO: Synced ${d.toISOString().slice(0, 10)}`;
+}
+
+function isSyncedDateTag(tag) {
+  return /^ao:\s*synced\s+\d{4}-\d{2}-\d{2}$/i.test(String(tag || '').trim());
+}
+
 function resolveConfig(integrationEnv) {
   const env = integrationEnv || {};
   const apiKey = String(env.GHL_API_KEY || process.env.GHL_API_KEY || '').trim();
@@ -180,6 +189,47 @@ async function createContact(lead, integrationEnv) {
   return contact && contact.id ? contact : data;
 }
 
+async function listLocationContactCustomFields(integrationEnv) {
+  const { locationId } = resolveConfig(integrationEnv);
+  const data = await ghlRequest('GET', `/locations/${encodeURIComponent(locationId)}/customFields`, {
+    integrationEnv,
+    query: { model: 'contact' },
+  });
+  return Array.isArray(data.customFields) ? data.customFields : [];
+}
+
+async function createLocationContactCustomField(integrationEnv, body) {
+  const { locationId } = resolveConfig(integrationEnv);
+  const payload = {
+    name: String((body && body.name) || '').trim(),
+    dataType: String((body && body.dataType) || 'TEXT').trim(),
+    model: 'contact',
+    position: Number.isFinite(parseInt(body && body.position, 10)) ? parseInt(body.position, 10) : 0,
+  };
+  const placeholder = String((body && body.placeholder) || '').trim();
+  if (placeholder) payload.placeholder = placeholder;
+  const data = await ghlRequest('POST', `/locations/${encodeURIComponent(locationId)}/customFields`, {
+    integrationEnv,
+    body: payload,
+  });
+  return data.customField || data;
+}
+
+async function patchContactCustomFields(contactId, customFields, integrationEnv) {
+  const list = (Array.isArray(customFields) ? customFields : [])
+    .map((f) => ({
+      id: String((f && f.id) || '').trim(),
+      value: f && f.value != null ? String(f.value) : '',
+    }))
+    .filter((f) => f.id && f.value);
+  if (!list.length) return null;
+  const data = await ghlRequest('PUT', `/contacts/${encodeURIComponent(contactId)}`, {
+    integrationEnv,
+    body: { customFields: list },
+  });
+  return data.contact || data;
+}
+
 async function updateContact(contactId, lead, integrationEnv) {
   const { locationId } = resolveConfig(integrationEnv);
   const payload = leadToGhlContactPayload(lead, locationId, { includeTags: false });
@@ -225,7 +275,7 @@ async function syncContactTags(contactId, leadTags, integrationEnv, options = {}
   const localTags = Array.isArray(leadTags) ? leadTags : [];
 
   if (replaceActionTags) {
-    const toRemove = remoteTags.filter((t) => isActionTagFn(t));
+    const toRemove = remoteTags.filter((t) => isActionTagFn(t) || isSyncedDateTag(t));
     if (toRemove.length) {
       await removeTagsFromContact(contactId, toRemove, integrationEnv);
       remoteTags = remoteTags.filter((t) => !toRemove.some((r) => tagKey(r) === tagKey(t)));
@@ -361,9 +411,14 @@ module.exports = {
   ghlContactToLeadPatch,
   createContact,
   updateContact,
+  patchContactCustomFields,
+  listLocationContactCustomFields,
+  createLocationContactCustomField,
   addTagsToContact,
   removeTagsFromContact,
   syncContactTags,
+  syncedDateTagFor,
+  isSyncedDateTag,
   getContact,
   searchContactByEmailOrPhone,
   listContacts,
