@@ -761,8 +761,8 @@
         })
         .then(function (data) {
           var msg = payload.tagNoWebsite
-            ? 'Pushed to GHL (tagged no website). Run SMS, email, and voicemail in GHL.'
-            : 'Pushed to GHL. Run SMS, email, and voicemail in GHL.';
+            ? 'GHL sync complete (tagged no website).'
+            : 'GHL sync complete.';
           setCopyFeedback(msg);
           return data;
         })

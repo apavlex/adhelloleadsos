@@ -3262,12 +3262,10 @@ document.addEventListener('DOMContentLoaded', () => {
         row.dataset.ghlContactId = String(data.results[0].ghlContactId);
       }
       const msg = payload.tagNoWebsite
-        ? 'Pushed to GHL (tagged no website). Run SMS, email, and voicemail from GHL.'
-        : 'Pushed to GHL. Run SMS, email, and voicemail from GHL.';
+        ? 'GHL sync complete (tagged no website).'
+        : 'GHL sync complete.';
       notifyLeadPanelDial(msg, 'success');
-      confirmOutreachBtnSuccess(btn, '✓ Pushed');
-      const open = window.confirm(`${msg}\n\nOpen GHL contacts now?`);
-      if (open) window.open(getGhlContactsUrl(), '_blank', 'noopener,noreferrer');
+      confirmOutreachBtnSuccess(btn, '✓ Synced');
     } catch (err) {
       notifyLeadPanelDial(err.message || 'GHL push failed.', 'error');
     } finally {
