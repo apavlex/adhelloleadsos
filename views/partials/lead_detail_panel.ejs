@@ -714,16 +714,11 @@
               <button type="button" id="leadPanelCallDockFocus" class="shrink-0 rounded-lg border border-emerald-600/40 bg-white/90 dark:bg-slate-900 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest text-emerald-800 dark:text-emerald-200 hover:bg-emerald-50 dark:hover:bg-slate-800 transition-colors">Open dialer</button>
               <button type="button" id="leadPanelCallDockHangup" class="shrink-0 rounded-lg bg-rose-600 text-white px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest hover:bg-rose-500 transition-colors">Hang up</button>
             </div>
-            <div class="p-3 grid grid-cols-2 sm:grid-cols-3 gap-2">
+            <div class="p-3 grid grid-cols-2 gap-2">
               <button type="button" id="clickToCallBtn" class="btn-pill bg-emerald-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">Call</button>
-              <button type="button" id="voicemailDropBtn" class="btn-pill bg-violet-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-colors">Voicemail</button>
-              <button type="button" id="sendSmsBtn" class="btn-pill bg-blue-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors">SMS</button>
-              <button type="button" id="leadPanelOutreachEmailBtn" class="btn-pill bg-sky-600 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-sky-700 transition-colors flex items-center justify-center gap-1.5" title="Email this lead via Go High Level">
-                <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
-                Email
-              </button>
-              <button type="button" id="leadPanelPushGhlBtn" class="btn-pill bg-orange-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-colors col-span-2 sm:col-span-1" title="Save this contact to Go High Level">Push GHL</button>
+              <button type="button" id="leadPanelPushGhlBtn" class="btn-pill bg-orange-500 text-white py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-colors" title="Save this contact to Go High Level — run SMS, email, and voicemail from GHL">Push GHL</button>
             </div>
+            <p class="px-3 pb-3 text-[10px] text-brand-muted dark:text-slate-400 leading-snug">SMS, email, and voicemail drops run in Go High Level after you push the contact.</p>
           </div>
         </div>
 
@@ -776,41 +771,6 @@
         <iframe id="previewIframe" class="w-full h-full border-0 relative z-10 bg-white" sandbox="allow-same-origin allow-scripts"></iframe>
       </div>
     </div>
-
-  <!-- SMS Script Modal -->
-  <div id="smsScriptModal" class="app-body-portal hidden fixed inset-0 z-[520] bg-brand-dark/55 dark:bg-black/70 p-4 sm:p-6" aria-hidden="true">
-    <div class="absolute inset-0" data-sms-modal-close></div>
-    <div class="relative mx-auto mt-8 sm:mt-14 w-full max-w-2xl rounded-[2rem] border border-brand-border/30 dark:border-white/10 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden">
-      <div class="px-6 py-4 border-b border-brand-border/20 dark:border-white/10 flex items-center justify-between gap-4">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Send SMS</p>
-          <h3 id="smsScriptModalTitle" class="font-display font-extrabold text-xl text-brand-dark dark:text-white mt-1">Script + AI Personalization</h3>
-          <p id="smsScriptWorkspaceLabel" class="text-[10px] font-bold uppercase tracking-wider text-brand-muted dark:text-slate-400 mt-1">Workspace: —</p>
-          <p id="smsScriptBulkLabel" class="hidden text-[10px] font-semibold normal-case tracking-normal text-sky-600 dark:text-sky-300 mt-1"></p>
-        </div>
-        <button type="button" id="smsScriptModalClose" class="w-9 h-9 rounded-xl border border-brand-border/40 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">✕</button>
-      </div>
-      <div class="px-6 py-5 space-y-4">
-        <div>
-          <label for="smsScriptSelect" class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 block mb-2">Choose script</label>
-          <select id="smsScriptSelect" class="w-full rounded-xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white"></select>
-        </div>
-        <div class="flex items-center justify-between gap-2">
-          <p id="smsScriptHelpText" class="text-[11px] text-brand-muted dark:text-slate-400">Pick a script, personalize with AI, edit, then send.</p>
-          <button type="button" id="smsPersonalizeBtn" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow transition-colors">Personalize with AI</button>
-        </div>
-        <div>
-          <label for="smsBodyInput" class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 block mb-2">Message</label>
-          <textarea id="smsBodyInput" rows="7" maxlength="480" class="w-full rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-3 text-sm text-brand-dark dark:text-white leading-relaxed resize-y" placeholder="SMS draft..."></textarea>
-          <p class="text-[10px] text-brand-muted mt-1"><span id="smsBodyCount">0</span>/480 chars</p>
-        </div>
-      </div>
-      <div class="px-6 py-4 border-t border-brand-border/20 dark:border-white/10 flex items-center justify-end gap-2">
-        <button type="button" id="smsScriptCancelBtn" class="btn-pill border-2 border-brand-border dark:border-white/20 px-5 py-2 text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white">Cancel</button>
-        <button type="button" id="smsScriptSendBtn" class="btn-pill bg-blue-600 text-white px-5 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors">Send SMS</button>
-      </div>
-    </div>
-  </div>
 
   <script src="/js/lead-contact-hunt.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script src="/js/lead-website-audit.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>

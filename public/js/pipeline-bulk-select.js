@@ -516,7 +516,6 @@
 
   function init() {
     mountBulkBarToBody();
-    mountSmsModalToBodyEarly();
     rebuildBulkFolderSelectEarly(
       typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
         ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
@@ -1159,7 +1158,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '6';
+  window.__PIPELINE_BULK_SELECT_V2 = '7';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 

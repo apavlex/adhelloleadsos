@@ -3262,8 +3262,8 @@ document.addEventListener('DOMContentLoaded', () => {
         row.dataset.ghlContactId = String(data.results[0].ghlContactId);
       }
       const msg = payload.tagNoWebsite
-        ? 'Contact saved to GHL with tag no website.'
-        : 'Contact saved to Go High Level.';
+        ? 'Pushed to GHL (tagged no website). Run SMS, email, and voicemail from GHL.'
+        : 'Pushed to GHL. Run SMS, email, and voicemail from GHL.';
       notifyLeadPanelDial(msg, 'success');
       confirmOutreachBtnSuccess(btn, '✓ Pushed');
       const open = window.confirm(`${msg}\n\nOpen GHL contacts now?`);
@@ -3420,27 +3420,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         await triggerLeadPanelCall();
-        return;
-      }
-
-      if (e.target.closest('#voicemailDropBtn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        await triggerLeadPanelVoicemail();
-        return;
-      }
-
-      if (e.target.closest('#sendSmsBtn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        await triggerLeadPanelSms();
-        return;
-      }
-
-      if (e.target.closest('#leadPanelOutreachEmailBtn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        triggerLeadPanelEmail();
         return;
       }
 
@@ -5438,9 +5417,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function syncLeadPanelOutreachIntelButtons(row) {
     const phone = rowDatasetHasUsablePhone(row);
-    const email = rowDatasetHasUsableEmail(row);
-    const smsBtn = document.getElementById('sendSmsBtn');
-    const emailBtn = document.getElementById('leadPanelOutreachEmailBtn');
     const callBtn = document.getElementById('clickToCallBtn');
     const ghlBtn = document.getElementById('leadPanelPushGhlBtn');
     const setBtn = (btn, enabled, titleOn, titleOff) => {
@@ -5452,9 +5428,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute('title', enabled ? titleOn : titleOff);
     };
     setBtn(callBtn, phone, 'Call this lead', 'Add a phone number first');
-    setBtn(smsBtn, phone, 'Send SMS via Go High Level', 'Add a phone number first');
-    setBtn(emailBtn, email, 'Email via Go High Level', 'No email on file — hunt contacts or push to GHL for SMS');
-    setBtn(ghlBtn, !!row, 'Save contact to Go High Level', 'Select a lead first');
+    setBtn(ghlBtn, !!row, 'Push to Go High Level for SMS, email, and voicemail', 'Select a lead first');
   }
   window.__syncLeadPanelOutreachIntelButtons = syncLeadPanelOutreachIntelButtons;
 
@@ -12543,12 +12517,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const bulkFolderNewName = document.getElementById('bulkFolderNewName');
   const bulkFolderNewSave = document.getElementById('bulkFolderNewSave');
   const bulkFolderNewCancel = document.getElementById('bulkFolderNewCancel');
-  const bulkVoicemailBtn = document.getElementById('bulkVoicemailBtn');
   const bulkSaveBtn = document.getElementById('bulkSaveBtn');
-  const bulkSmsBtn = document.getElementById('bulkSmsBtn');
   const bulkFocusModeBtn = document.getElementById('bulkFocusModeBtn');
-  const bulkDirectMailBtn = document.getElementById('bulkDirectMailBtn');
-  const bulkGhlNoWebsiteBtn = document.getElementById('bulkGhlNoWebsiteBtn');
+  const bulkPushGhlBtn = document.getElementById('bulkPushGhlBtn');
 
   let selectedKeys = new Set();
   let bulkSelectSyncing = false;
@@ -13148,12 +13119,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
       });
     }
-    if (bulkVoicemailBtn) {
-      bulkVoicemailBtn.disabled = count === 0;
-      bulkVoicemailBtn.classList.toggle('opacity-40', count === 0);
-      bulkVoicemailBtn.classList.toggle('cursor-not-allowed', count === 0);
-    }
-    if (bulkFocusModeBtn || bulkDirectMailBtn || bulkGhlNoWebsiteBtn || bulkSmsBtn) {
+    if (bulkFocusModeBtn || bulkPushGhlBtn) {
       const keys =
         hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
           ? window.__collectFocusSelectionKeys()
@@ -13164,12 +13130,8 @@ document.addEventListener('DOMContentLoaded', () => {
             : [];
       const selectedRows = hasSelection ? getSelectedLeadRowsForBulk() : [];
       const anyPhone = selectedRows.some(rowHasUsablePhone);
-      const anyMail = selectedRows.some(rowHasMailableAddress);
       if (typeof window.__persistFocusSelectionKeys === 'function') {
         window.__persistFocusSelectionKeys(keys);
-      }
-      if (typeof window.__persistDirectMailSelectionKeys === 'function') {
-        window.__persistDirectMailSelectionKeys(keys);
       }
       const syncPrimaryBtn = (btn, href, enabled, titleEnabled, titleDisabled) => {
         if (!btn) return;
@@ -13201,35 +13163,13 @@ document.addEventListener('DOMContentLoaded', () => {
         'Selected leads have no phone number',
       );
       syncPrimaryBtn(
-        bulkDirectMailBtn,
-        typeof window.__buildDirectMailSelectionUrl === 'function'
-          ? window.__buildDirectMailSelectionUrl(keys)
-          : keys.length
-            ? `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`
-            : '/direct-mail',
-        hasSelection && anyMail,
-        keys.length
-          ? `Send direct mail to ${keys.length} selected lead${keys.length === 1 ? '' : 's'}`
-          : 'Select leads with a mailable address',
-        'Selected leads have no mailable address',
-      );
-      syncPrimaryBtn(
-        bulkGhlNoWebsiteBtn,
+        bulkPushGhlBtn,
         null,
         hasSelection && keys.length > 0,
         keys.length
-          ? `Save ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to GHL for email — no-website contacts tagged automatically`
-          : 'Select leads to save in GHL',
+          ? `Push ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to Go High Level`
+          : 'Select leads to push to GHL',
         'Select at least one lead',
-      );
-      syncPrimaryBtn(
-        bulkSmsBtn,
-        null,
-        hasSelection && anyPhone,
-        keys.length
-          ? `Send SMS via GHL to ${keys.length} selected lead${keys.length === 1 ? '' : 's'} with phone numbers`
-          : 'Select leads with phone numbers to send SMS',
-        'Selected leads have no phone number',
       );
     }
 
@@ -13554,69 +13494,27 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  document.querySelectorAll('.js-bulk-push-ghl').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-      const keys = ensureBulkSelectionKeys();
-      if (keys.length === 0) return;
-
-      const prev = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'Pushing…';
-      showBulkSaveFeedback(`Pushing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, 'loading');
-      try {
-        const res = await fetch('/ghl/push', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ leadKeys: keys }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || `HTTP ${res.status}`);
-        }
-        const pushed = data.pushed != null ? data.pushed : 0;
-        const failed = data.failed != null ? data.failed : 0;
-        const msg = `GHL: ${pushed} contact${pushed === 1 ? '' : 's'} pushed${failed ? ` · ${failed} failed` : ''}`;
-        showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
-        showBulkOpenGhlLink(pushed > 0);
-        flashBulkBarBtn(btn, failed === 0 ? '✓ Pushed' : 'Failed');
-      } catch (err) {
-        const msg = err && err.message ? err.message : 'GHL push failed';
-        showBulkSaveFeedback(msg, 'error');
-        flashBulkBarBtn(btn, 'Failed', 1200);
-      } finally {
-        btn.disabled = selectedKeys.size === 0;
-        btn.textContent = prev;
-        updateBulkActionBar();
-      }
-    });
-  });
-
-  async function openBulkGhlEmailFromBar() {
-    const btn = document.getElementById('bulkGhlNoWebsiteBtn');
-    const selectedRows = getSelectedLeadRowsForBulk();
-    const leadKeys = ensureBulkSelectionKeys();
-    if (leadKeys.length === 0) {
+  async function openBulkPushGhlFromBar() {
+    const btn = bulkPushGhlBtn || document.getElementById('bulkPushGhlBtn');
+    const keys = ensureBulkSelectionKeys();
+    if (keys.length === 0) {
       showBulkSaveFeedback('Select at least one lead.', 'error');
       return { ok: false, error: 'no_selection' };
     }
-
+    const selectedRows = getSelectedLeadRowsForBulk();
     const noWebsiteCount = selectedRows.filter((row) => rowMissingWebsite(row)).length;
-
-    const prev = bulkGhlNoWebsiteBtn ? bulkGhlNoWebsiteBtn.textContent : btn && btn.textContent;
-    if (bulkGhlNoWebsiteBtn) {
-      bulkGhlNoWebsiteBtn.disabled = false;
-      bulkGhlNoWebsiteBtn.textContent = 'Saving…';
-      bulkGhlNoWebsiteBtn.setAttribute('aria-busy', 'true');
+    const prev = btn ? btn.textContent : 'Push GHL';
+    if (btn) {
+      btn.textContent = 'Pushing…';
+      btn.setAttribute('aria-busy', 'true');
     }
-    showBulkSaveFeedback(`Saving ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'} to GHL…`, 'loading');
+    showBulkSaveFeedback(`Pushing ${keys.length} lead${keys.length === 1 ? '' : 's'} to GHL…`, 'loading');
     try {
       const res = await fetch('/ghl/push', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ leadKeys, tagNoWebsite: true }),
+        body: JSON.stringify({ leadKeys: keys, tagNoWebsite: true }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
@@ -13624,35 +13522,32 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const pushed = data.pushed != null ? data.pushed : 0;
       const failed = data.failed != null ? data.failed : 0;
-      const taggedNote =
-        noWebsiteCount > 0
-          ? ` · ${noWebsiteCount} tagged no website`
-          : '';
-      const msg = `GHL: ${pushed} saved for email${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
+      const taggedNote = noWebsiteCount > 0 ? ` · ${noWebsiteCount} tagged no website` : '';
+      const msg = `GHL: ${pushed} pushed${taggedNote}${failed ? ` · ${failed} failed` : ''}`;
       showBulkSaveFeedback(msg, failed === 0 ? 'success' : 'error');
       showBulkOpenGhlLink(pushed > 0);
-      flashBulkBarBtn(bulkGhlNoWebsiteBtn, failed === 0 ? '✓ Saved' : 'Failed');
+      flashBulkBarBtn(btn, failed === 0 ? '✓ Pushed' : 'Failed');
       return { ok: true, pushed, failed };
     } catch (err) {
-      const msg = err && err.message ? err.message : 'GHL save failed';
+      const msg = err && err.message ? err.message : 'GHL push failed';
       showBulkSaveFeedback(msg, 'error');
-      flashBulkBarBtn(bulkGhlNoWebsiteBtn, 'Failed', 1200);
+      flashBulkBarBtn(btn, 'Failed', 1200);
       return { ok: false, error: msg };
     } finally {
-      if (bulkGhlNoWebsiteBtn) {
-        bulkGhlNoWebsiteBtn.textContent = prev || 'Email (GHL)';
-        bulkGhlNoWebsiteBtn.removeAttribute('aria-busy');
+      if (btn) {
+        btn.textContent = prev || 'Push GHL';
+        btn.removeAttribute('aria-busy');
       }
       updateBulkActionBar();
     }
   }
-  window.__openBulkGhlEmailFromBar = openBulkGhlEmailFromBar;
+  window.__openBulkPushGhlFromBar = openBulkPushGhlFromBar;
 
-  if (bulkGhlNoWebsiteBtn) {
-    bulkGhlNoWebsiteBtn.addEventListener('click', async (e) => {
+  if (bulkPushGhlBtn) {
+    bulkPushGhlBtn.addEventListener('click', async (e) => {
       if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
       if (e && typeof e.preventDefault === 'function') e.preventDefault();
-      await openBulkGhlEmailFromBar();
+      await openBulkPushGhlFromBar();
     });
   }
 
@@ -13702,80 +13597,6 @@ document.addEventListener('DOMContentLoaded', () => {
       } finally {
         bulkMoveFolderBtn.disabled = selectedKeys.size === 0;
       }
-    });
-  }
-
-  if (bulkVoicemailBtn) {
-    bulkVoicemailBtn.addEventListener('click', async () => {
-      const keys = ensureBulkSelectionKeys();
-      if (keys.length === 0) return;
-      const n = keys.length;
-      if (!window.confirm(`Run voicemail drop for ${n} selected lead${n === 1 ? '' : 's'}?`)) return;
-      const original = bulkVoicemailBtn.textContent;
-      bulkVoicemailBtn.disabled = true;
-      bulkVoicemailBtn.textContent = 'Dropping...';
-      let ok = 0;
-      let failed = 0;
-      for (const leadKey of keys) {
-        const cb = Array.from(document.querySelectorAll('.lead-checkbox')).find((c) => c.dataset.key === leadKey);
-        const row = cb && cb.closest('.result-row');
-        try {
-          const data = await requestLeadVoicemailByKey(leadKey, {});
-          if (row && data && data.lead && data.lead.updates) {
-            row.dataset.updates = JSON.stringify(data.lead.updates);
-            if (data.lead.status) row.dataset.status = String(data.lead.status);
-          }
-          ok += 1;
-        } catch (err) {
-          failed += 1;
-          console.warn('Bulk voicemail drop failed for', leadKey, err && err.message ? err.message : err);
-        }
-      }
-      window.alert(`Voicemail drops complete: ${ok} succeeded${failed ? `, ${failed} failed` : ''}.`);
-      bulkVoicemailBtn.textContent = original;
-      bulkVoicemailBtn.disabled = selectedKeys.size === 0;
-      if (bulkVoicemailBtn.disabled) {
-        bulkVoicemailBtn.classList.add('opacity-40', 'cursor-not-allowed');
-      }
-    });
-  }
-
-  async function openBulkSmsFromBar() {
-    const btn = document.getElementById('bulkSmsBtn');
-    mountSmsModalToBody();
-    const phoneKeys = collectPhoneLeadKeysFromRows(getSelectedLeadRowsForBulk());
-    if (phoneKeys.length === 0) {
-      showBulkSaveFeedback('Selected leads have no phone numbers for SMS.', 'error');
-      return { ok: false, error: 'no_phone' };
-    }
-    showBulkSaveFeedback(
-      `Opening SMS composer for ${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}…`,
-      'info',
-    );
-    flashBulkBarBtn(btn, 'Opening…', 900);
-    if (typeof window.__openBulkSmsModal !== 'function') {
-      showBulkSaveFeedback('SMS composer failed to load. Refresh the page.', 'error');
-      return { ok: false, error: 'no_fn' };
-    }
-    const result = await window.__openBulkSmsModal(phoneKeys);
-    if (result && result.ok) {
-      showBulkSaveFeedback(
-        `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
-        'success',
-      );
-      flashBulkBarBtn(btn, '✓ Opened');
-    } else {
-      showBulkSaveFeedback((result && result.message) || 'Could not open SMS composer.', 'error');
-    }
-    return result;
-  }
-  window.__openBulkSmsFromBar = openBulkSmsFromBar;
-
-  if (bulkSmsBtn) {
-    bulkSmsBtn.addEventListener('click', async (e) => {
-      if (e && typeof e.stopPropagation === 'function') e.stopPropagation();
-      if (e && typeof e.preventDefault === 'function') e.preventDefault();
-      await openBulkSmsFromBar();
     });
   }
 

@@ -43,9 +43,6 @@
   window.GHL_DASHBOARD_URL = <%- JSON.stringify(typeof ghlDashboardUrl !== 'undefined' && ghlDashboardUrl ? String(ghlDashboardUrl) : '') %>;
 </script>
 
-<!-- Email outreach: service lines + AI recommendation -->
-<%- include('/partials/email_intel_modal') %>
-
 <!-- Cold call war room: high-contrast panel, script tabs, notes, primary dial in footer -->
 <div id="warRoomModal" class="fixed inset-0 z-[500] hidden overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="warRoomTitle">
   <div class="absolute inset-0 bg-slate-950/92 backdrop-blur-sm transition-opacity" aria-hidden="true"></div>

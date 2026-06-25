@@ -172,15 +172,9 @@
       </div>
 
       <div class="mb-4 rounded-2xl border-2 border-brand-yellow/35 dark:border-brand-yellow/35 bg-brand-yellow/10 dark:bg-brand-yellow/10 px-4 py-3 shadow-sm">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Channel</p>
-        <p class="text-xs text-brand-muted dark:text-slate-400 mb-2">Use <strong>Call</strong>, <strong>Voicemail drop</strong>, <strong>SMS</strong>, or <strong>Email</strong> as separate touch channels, then log and move to the next lead.</p>
-        <div class="flex flex-wrap gap-2" role="group" aria-label="Outreach channel">
-          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-yellow/50 bg-brand-yellow/10 dark:bg-brand-yellow/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:border-brand-yellow data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/25" data-channel="call-script" title="Call script and dialer">Call</button>
-          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-yellow/50 bg-brand-yellow/10 dark:bg-brand-yellow/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:border-brand-yellow data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/25" data-channel="voicemail-drop" title="One-touch voicemail drop to this lead">Voicemail drop</button>
-          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-yellow/50 bg-brand-yellow/10 dark:bg-brand-yellow/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:border-brand-yellow data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/25" data-channel="sms" title="SMS touch">SMS</button>
-          <button type="button" class="focus-channel-btn btn-pill border-2 border-brand-yellow/50 bg-brand-yellow/10 dark:bg-brand-yellow/15 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:border-brand-yellow data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/25" data-channel="email">Email</button>
-        </div>
-        <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[2.5rem] leading-snug" aria-live="polite"></p>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outreach</p>
+        <p class="text-xs text-brand-muted dark:text-slate-400 leading-snug">Use <strong>Call</strong> for live dials in AdHello. Push the contact to <strong>Go High Level</strong> for SMS, email, and voicemail drops.</p>
+        <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[1.25rem] leading-snug" aria-live="polite">Rehearse the call script below, then Call or Push GHL.</p>
       </div>
 
       <div class="mb-4 rounded-2xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/35 dark:bg-slate-800/35 px-4 py-3">
@@ -239,8 +233,6 @@
           <div class="flex flex-wrap gap-2">
             <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="no_pickup">No pickup</button>
             <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="voicemail">Voicemail</button>
-            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="sent_sms">Sent SMS</button>
-            <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="sent_email">Sent email</button>
             <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="talked_owner">Spoke owner</button>
             <button type="button" class="focus-quick-outcome btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 data-[active=true]:border-brand-yellow data-[active=true]:bg-brand-yellow/15" data-outcome="callback_requested">Callback</button>
           </div>
@@ -252,8 +244,6 @@
           <option value="no_pickup">No pickup</option>
           <option value="talked_owner">Talked to business owner</option>
           <option value="callback_requested">Callback requested</option>
-          <option value="sent_sms">Sent SMS</option>
-          <option value="sent_email">Sent email</option>
           <option value="other">Other</option>
         </select>
         <div>
@@ -279,10 +269,8 @@
         >
           Open in dialer
         </button>
-        <button type="button" id="focus-btn-call" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">Call</button>
-        <button type="button" id="focus-btn-voicemail" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">Voicemail drop</button>
-        <button type="button" id="focus-btn-sms" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">SMS</button>
-        <button type="button" id="focus-btn-email" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors">Email</button>
+        <button type="button" id="focus-btn-call" class="btn-pill border-2 border-brand-yellow/55 bg-brand-yellow/10 dark:bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest transition-colors ring-2 ring-brand-yellow/40 shadow-md">Call</button>
+        <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors" title="Push this lead to Go High Level">Push GHL</button>
         <button type="button" id="focus-btn-log" class="btn-pill border-2 border-brand-dark dark:border-white/25 bg-white dark:bg-slate-900 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/40 dark:hover:bg-slate-800">Log &amp; next</button>
         <button type="button" id="focus-btn-call-next" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 hover:border-emerald-500 transition-colors" title="Log, advance, and dial the next lead">Call next</button>
         <button type="button" id="focus-btn-skip" class="btn-pill border-2 border-brand-border dark:border-white/15 bg-brand-cream/30 dark:bg-slate-800/50 flex-1 px-6 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:border-brand-yellow/40">Skip</button>
@@ -343,7 +331,7 @@
     }
 
     var idx = 0;
-    var currentChannel = 'email';
+    var currentChannel = 'call-script';
     var touchGoal = parseInt(document.getElementById('focus-touch-goal').textContent, 10) || 54;
     var celebrateDismissed = false;
 
@@ -382,9 +370,7 @@
     var elBody = document.getElementById('focus-body');
     var channelBtns = document.querySelectorAll('.focus-channel-btn');
     var btnCall = document.getElementById('focus-btn-call');
-    var btnVoicemail = document.getElementById('focus-btn-voicemail');
-    var btnSms = document.getElementById('focus-btn-sms');
-    var btnEmail = document.getElementById('focus-btn-email');
+    var btnPushGhl = document.getElementById('focus-btn-push-ghl');
     var btnLog = document.getElementById('focus-btn-log');
     var btnSkip = document.getElementById('focus-btn-skip');
     var btnCallNext = document.getElementById('focus-btn-call-next');
@@ -495,40 +481,13 @@
 
     function setChannelHint() {
       if (!elChannelHint) return;
-      if (currentChannel === 'email') {
-        elChannelHint.textContent =
-          'Email: edit subject and message, then click Email below to log and advance. Script style above swaps the copy.';
-        return;
-      }
-      if (currentChannel === 'call-script') {
-        elChannelHint.textContent =
-          'Call: rehearse the script. Click Call to dial + advance, or Call next to log + advance + dial next. Log & next auto-dials on mobile.';
-        return;
-      }
-      if (currentChannel === 'voicemail-drop') {
-        elChannelHint.textContent =
-          'Voicemail drop: click Drop voicemail below to run your saved workspace voicemail audio for this lead.';
-        return;
-      }
-      if (currentChannel === 'sms') {
-        elChannelHint.textContent =
-          'SMS: keep this short and direct. Run SMS to log this touch and open your device/app composer when possible.';
-        return;
-      }
-      elChannelHint.textContent = '';
+      elChannelHint.textContent =
+        'Call: rehearse the script, dial, and log. Push GHL first if you need SMS, email, or voicemail in Go High Level.';
     }
 
     function updateBodyLabel() {
       if (!elBodyLabel) return;
-      if (currentChannel === 'email') {
-        elBodyLabel.textContent = 'Outreach draft';
-      } else if (currentChannel === 'sms') {
-        elBodyLabel.textContent = 'SMS script';
-      } else if (currentChannel === 'voicemail-drop') {
-        elBodyLabel.textContent = 'Voicemail / call script (rehearsal)';
-      } else {
-        elBodyLabel.textContent = 'Call script';
-      }
+      elBodyLabel.textContent = 'Call script';
     }
 
     function isSoftphoneOpen() {
@@ -779,6 +738,35 @@
         elLinks.appendChild(phoneBtn);
       }
       if (lead.email) elLinks.appendChild(iconLink('mailto:' + encodeURIComponent(lead.email), 'Email', '<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>'));
+    }
+
+    function pushFocusLeadToGhl() {
+      var lead = currentLead();
+      if (!lead || !lead.key) return Promise.resolve();
+      if (btnPushGhl) btnPushGhl.disabled = true;
+      return fetch('/ghl/push', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: [lead.key] }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            if (!r.ok || !j.success) throw new Error((j && j.error) || 'GHL push failed');
+            return j;
+          });
+        })
+        .then(function (data) {
+          setCopyFeedback('Pushed to Go High Level.');
+          return data;
+        })
+        .catch(function (err) {
+          setCopyFeedback(err && err.message ? err.message : 'Could not push to GHL.', true);
+          throw err;
+        })
+        .finally(function () {
+          if (btnPushGhl) btnPushGhl.disabled = false;
+        });
     }
 
     function placeFocusCall() {
@@ -1397,9 +1385,6 @@
 
     function ensureSuggestedOutcome() {
       if (!elOutcome || String(elOutcome.value || '').trim()) return;
-      if (currentChannel === 'voicemail-drop') elOutcome.value = 'voicemail';
-      else if (currentChannel === 'sms') elOutcome.value = 'sent_sms';
-      else if (currentChannel === 'email') elOutcome.value = 'sent_email';
       syncQuickOutcomeButtons();
     }
 
@@ -1484,46 +1469,18 @@
     }
 
     function setChannelButtons() {
-      channelBtns.forEach(function (b) {
-        var isActive = b.getAttribute('data-channel') === currentChannel;
-        b.setAttribute('data-active', isActive ? 'true' : 'false');
-        b.classList.remove(
-          'border-brand-yellow', 'bg-brand-yellow/25', 'text-brand-dark', 'dark:text-brand-yellow',
-          'border-brand-yellow/50', 'bg-brand-yellow/10', 'dark:bg-brand-yellow/15', 'opacity-65'
-        );
-        b.classList.add('border-brand-yellow/50', 'bg-brand-yellow/10', 'dark:bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow');
-        if (!isActive) b.classList.add('opacity-65');
-        else b.classList.add('border-brand-yellow', 'bg-brand-yellow/25');
-      });
+      /* call-only mode */
     }
 
     function setPrimaryActionVisual() {
-      var map = {
-        'call-script': btnCall,
-        'voicemail-drop': btnVoicemail,
-        sms: btnSms,
-        email: btnEmail,
-      };
-      [btnCall, btnVoicemail, btnSms, btnEmail].forEach(function (btn) {
-        if (!btn) return;
-        btn.classList.remove(
-          'ring-2', 'ring-brand-yellow/40', 'shadow-md',
-          'border-brand-yellow', 'bg-brand-yellow/25', 'text-brand-dark', 'dark:text-brand-yellow',
-          'border-brand-yellow/55', 'bg-brand-yellow/10', 'dark:bg-brand-yellow/15', 'opacity-60'
-        );
-        btn.classList.add('border-brand-yellow/55', 'bg-brand-yellow/10', 'dark:bg-brand-yellow/15', 'text-brand-dark', 'dark:text-brand-yellow', 'opacity-60');
-      });
-      var activeBtn = map[currentChannel];
-      if (activeBtn) {
-        activeBtn.classList.remove('opacity-60');
-        activeBtn.classList.add('ring-2', 'ring-brand-yellow/40', 'shadow-md');
-        activeBtn.classList.add('border-brand-yellow', 'bg-brand-yellow/25', 'text-brand-dark', 'dark:text-brand-yellow');
+      if (btnCall) {
+        btnCall.classList.add('ring-2', 'ring-brand-yellow/40', 'shadow-md');
       }
     }
 
     function applyChannelUI() {
-      var isEmail = currentChannel === 'email';
-      elSubjectWrap.classList.toggle('hidden', !isEmail);
+      if (elSubjectWrap) elSubjectWrap.classList.add('hidden');
+      currentChannel = 'call-script';
       setChannelButtons();
       setPrimaryActionVisual();
       setChannelHint();
@@ -1578,18 +1535,7 @@
       if (elRecommendedToggle) {
         elRecommendedToggle.setAttribute('aria-expanded', 'false');
       }
-      currentChannel = lead.defaultChannel || 'email';
-      var hasEmail = Boolean(String(lead.email || '').trim());
-      var hasPhone = Boolean(String(lead.phone || '').trim());
-      if (!hasEmail && hasPhone && !lead.defaultChannel) {
-        currentChannel = 'voicemail-drop';
-      }
-      if (currentChannel === 'dm' || currentChannel === 'objection-handling') {
-        currentChannel = 'call-script';
-      }
-      if (currentChannel !== 'email' && currentChannel !== 'call-script' && currentChannel !== 'voicemail-drop' && currentChannel !== 'sms') {
-        currentChannel = 'email';
-      }
+      currentChannel = 'call-script';
       if (elOutcome) elOutcome.value = '';
       syncQuickOutcomeButtons();
       if (elOutcomeNotes) elOutcomeNotes.value = '';
@@ -1782,18 +1728,8 @@
       var lead = currentLead();
       if (!lead) return;
       ensureSuggestedOutcome();
-      var actionBtn = null;
-      if (currentChannel === 'call-script') actionBtn = btnCall;
-      else if (currentChannel === 'voicemail-drop') actionBtn = btnVoicemail;
-      else if (currentChannel === 'sms') actionBtn = btnSms;
-      else actionBtn = btnEmail;
-      if (actionBtn) actionBtn.disabled = true;
-      var callStep = Promise.resolve();
-      if (currentChannel === 'call-script') callStep = placeFocusCall();
-      else if (currentChannel === 'voicemail-drop') callStep = placeFocusVoicemail();
-      else if (currentChannel === 'sms') callStep = placeFocusSms();
-      else if (currentChannel === 'email') callStep = placeFocusEmail();
-      callStep
+      if (btnCall) btnCall.disabled = true;
+      placeFocusCall()
         .then(function () { return postNote(); })
         .then(function () { return createFollowupTaskIfRequested(); })
         .then(function () { return maybeAdvanceStage(); })
@@ -1804,7 +1740,7 @@
         .catch(function (err) {
           setOutcomeFeedback(err && err.message ? err.message : 'Could not complete this action.', true);
         })
-        .finally(function () { if (actionBtn) actionBtn.disabled = false; });
+        .finally(function () { if (btnCall) btnCall.disabled = false; });
     }
 
     function onLogNext() {
@@ -1932,10 +1868,8 @@
       });
     }
 
-    if (btnCall) btnCall.addEventListener('click', function () { currentChannel = 'call-script'; applyChannelUI(); onSendAdvance(); });
-    if (btnVoicemail) btnVoicemail.addEventListener('click', function () { currentChannel = 'voicemail-drop'; applyChannelUI(); onSendAdvance(); });
-    if (btnSms) btnSms.addEventListener('click', function () { currentChannel = 'sms'; applyChannelUI(); onSendAdvance(); });
-    if (btnEmail) btnEmail.addEventListener('click', function () { currentChannel = 'email'; applyChannelUI(); onSendAdvance(); });
+    if (btnCall) btnCall.addEventListener('click', function () { onSendAdvance(); });
+    if (btnPushGhl) btnPushGhl.addEventListener('click', function () { pushFocusLeadToGhl(); });
     btnLog.addEventListener('click', onLogNext);
     btnSkip.addEventListener('click', onSkip);
     if (btnCallNext) btnCallNext.addEventListener('click', function () {
