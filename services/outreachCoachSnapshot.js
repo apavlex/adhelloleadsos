@@ -218,7 +218,7 @@ async function buildOutreachCoachSnapshot(req, opts = {}) {
 
   const all = await dbService.getAllLeads(wid);
   let leads = filterLeadsForRequest(req, all);
-  if (opts.businessesOnly) {
+  if (opts.businessesOnly !== false) {
     leads = filterBusinessPipelineLeads(leads);
   }
 

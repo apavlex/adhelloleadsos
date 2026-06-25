@@ -4,6 +4,7 @@
 const dbService = require('./database');
 const { chatCompletion, parseLlmJson } = require('./llmClient');
 const { filterLeadsForRequest } = require('./workspaceService');
+const { filterBusinessPipelineLeads } = require('./leadListFilters');
 const {
   buildOutreachCoachSnapshot,
   buildNamedCoachActions,
@@ -15,7 +16,7 @@ async function generateOutreachCoachPayload(req) {
   const wid = req.workspaceId;
   if (!wid) throw new Error('generateOutreachCoachPayload requires req.workspaceId');
   const allLeads = await dbService.getAllLeads(wid);
-  const workspaceLeads = filterLeadsForRequest(req, allLeads);
+  const workspaceLeads = filterBusinessPipelineLeads(filterLeadsForRequest(req, allLeads));
   const actions = buildNamedCoachActions(workspaceLeads, snapshot);
 
   const wsDoc = await dbService.getWorkspace(wid);

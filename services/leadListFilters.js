@@ -68,6 +68,13 @@ const LISTING_SOURCE_RE =
 
 const LISTING_TITLE_PREFIX_RE = /^(cl|fb|facebook|craigslist|zillow|realtor|redfin|offerup|ebay)\s*:/i;
 
+/** Craigslist-style titles without a CL:/FB: prefix (price + housing keywords). */
+const LISTING_TITLE_BODY_RE =
+  /\bhome for (sale|rent)\b|\b(mobile|manufactured) home\b|\bsingle\s*wide\b|\bdouble\s*wide\b|\bmove-?in ready\b|\bfor rent\b|\bfor sale\b|\b\d+\s*(bed|bd|br|bath|ba)\b|\$\s*[\d,]+(?:\.\d{2})?/i;
+
+const LISTING_TITLE_PRICE_HOME_RE =
+  /\$\s*[\d,]+(?:\.\d{2})?.*\b(home|house|mobile home|manufactured home|property|lot|acre|duplex|rent|sale)\b|\b(home|house|mobile home|manufactured home|property|lot|duplex)\b.*\$\s*[\d,]+(?:\.\d{2})?/i;
+
 const LISTING_CATEGORY_RE =
   /real\s*estate|mobile\s*home|manufactured\s*home|single\s*wide|double\s*wide|trailer|home\s*for\s*sale|property\s*for\s*sale|homes?\s*for\s*rent|land\s*for\s*sale/i;
 
@@ -132,6 +139,9 @@ function looksLikeListingPipelineLead(l) {
 
   const title = String(l.title || l.company || '').trim();
   if (LISTING_TITLE_PREFIX_RE.test(title)) return true;
+  if (LISTING_TITLE_BODY_RE.test(title) && LISTING_TITLE_PRICE_HOME_RE.test(title)) return true;
+  if (/\bhome for (sale|rent)\b/i.test(title)) return true;
+  if (/\b(mobile|manufactured) home (for )?(sale|rent)\b/i.test(title)) return true;
 
   const category = String(l.categoryName || l.category || '').trim();
   if (category && LISTING_CATEGORY_RE.test(category)) return true;

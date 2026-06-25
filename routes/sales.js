@@ -14,6 +14,7 @@ const {
 } = require('../services/trackerAutoFill');
 const activationService = require('../services/activationService');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const {
   buildOutreachCoachSnapshot,
   buildNamedCoachActions,
@@ -545,14 +546,18 @@ router.get('/outreach-coach/stream', async (req, res, next) => {
     if (!force) {
       const cached = await getCoachBriefForToday(dbService, wid, ymd);
       if (cached) {
+        const snapshot = await buildOutreachCoachSnapshot(req, { businessesOnly: true });
+        const allLeads = await dbService.getAllLeads(wid);
+        const businessLeads = filterBusinessPipelineLeads(filterLeadsForRequest(req, allLeads));
+        const actions = buildNamedCoachActions(businessLeads, snapshot);
         writeEv('complete', {
           success: true,
           headline: cached.headline,
           body: cached.body,
           focusToday: cached.focusToday,
-          actions: cached.actions,
+          actions,
           provider: cached.provider,
-          snapshot: cached.snapshot,
+          snapshot,
           cached: true,
         });
         res.end();
