@@ -107,25 +107,40 @@
     let reviewsCount = 0;
     let rating = 0;
 
-    document.querySelectorAll('[aria-label]').forEach((el) => {
-      const label = el.getAttribute('aria-label') || '';
-      if (!/review|star/i.test(label)) return;
-      reviewsCount = Math.max(reviewsCount, parseReviewCount(label));
-      rating = Math.max(rating, parseRating(label));
-    });
-
-    document.querySelectorAll('.F7nice, [role="img"][aria-label*="star"]').forEach((block) => {
-      const label = block.getAttribute('aria-label') || '';
-      const combined = [label, block.textContent || ''].filter(Boolean).join(' ');
-      reviewsCount = Math.max(reviewsCount, parseReviewCount(combined));
-      rating = Math.max(rating, parseRating(combined));
-    });
+    function applyCandidate(label, text) {
+      const combined = [label, text].filter(Boolean).join(' ');
+      const nextRating = parseRating(combined);
+      const nextReviews = parseReviewCount(combined);
+      if (nextRating > 0) rating = nextRating;
+      if (nextReviews > 0) reviewsCount = nextReviews;
+    }
 
     const nice = document.querySelector('.F7nice');
     if (nice) {
-      const blob = nice.innerText || '';
-      reviewsCount = Math.max(reviewsCount, parseReviewCount(blob));
-      rating = Math.max(rating, parseRating(blob));
+      applyCandidate(nice.getAttribute('aria-label') || '', nice.textContent || '');
+      const parent = nice.parentElement;
+      if (parent && reviewsCount === 0) {
+        parent.querySelectorAll('button, span, a').forEach((el) => {
+          if (reviewsCount > 0) return;
+          applyCandidate(el.getAttribute('aria-label') || '', el.textContent || '');
+        });
+      }
+      if (rating > 0 && reviewsCount > 0) return { rating, reviewsCount };
+    }
+
+    const starEl =
+      document.querySelector('h1[aria-level="1"]')?.closest('div')?.querySelector('[role="img"][aria-label*="star"]') ||
+      document.querySelector('[role="img"][aria-label*="star"]');
+    if (starEl) {
+      applyCandidate(starEl.getAttribute('aria-label') || '', starEl.textContent || '');
+      if (rating > 0 && reviewsCount > 0) return { rating, reviewsCount };
+    }
+
+    const reviewBtn = document.querySelector(
+      'button[aria-label*="reviews"], button[jsaction*="review"], [data-item-id*="review"]'
+    );
+    if (reviewBtn && reviewsCount === 0) {
+      applyCandidate(reviewBtn.getAttribute('aria-label') || '', reviewBtn.textContent || '');
     }
 
     return { rating, reviewsCount };
@@ -374,8 +389,8 @@
       lead.city = geo.city;
       lead.state = geo.state;
     }
-    const finalRating = rating || gmapsReviews.rating;
-    const finalReviews = reviewsCount || gmapsReviews.reviewsCount;
+    const finalRating = rating > 0 ? rating : gmapsReviews.rating;
+    const finalReviews = reviewsCount > 0 ? reviewsCount : gmapsReviews.reviewsCount;
     if (finalRating) lead.totalScore = finalRating;
     if (finalReviews) lead.reviewsCount = finalReviews;
 

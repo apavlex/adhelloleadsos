@@ -6902,7 +6902,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function readPipelineRowReviewsSnapshot(row) {
     let rating = parseFloat(row.dataset.rating) || 0;
     let reviews = parseInt(row.dataset.reviews, 10) || 0;
-    if (row && typeof row.querySelector === 'function') {
+    if (row && typeof row.querySelector === 'function' && (rating === 0 || reviews === 0)) {
       const line = row.querySelector('.lead-reviews-line');
       const txt = line ? line.textContent : '';
       const m = txt.match(/([\d]+(?:\.[\d]+)?)\s*\(\s*(\d+)\s*\)/);
@@ -6910,10 +6910,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const domRating = parseFloat(m[1]) || 0;
         const domReviews = parseInt(m[2], 10) || 0;
         if (domRating > 0 && rating === 0) rating = domRating;
-        reviews = Math.max(reviews, domReviews);
-      } else {
+        if (domReviews > 0 && reviews === 0) reviews = domReviews;
+      } else if (reviews === 0) {
         const m2 = txt.match(/\(\s*(\d+)\s*\)/);
-        if (m2) reviews = Math.max(reviews, parseInt(m2[1], 10) || 0);
+        if (m2) reviews = parseInt(m2[1], 10) || 0;
         const m3 = txt.match(/([\d]+(?:\.[\d]+)?)\s*reviews/i);
         if (m3 && rating === 0) rating = parseFloat(m3[1]) || rating;
       }
@@ -16166,4 +16166,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   ensureLeadDetailPanelNotBlockingPage();
   window.__ADHELLO_BUILD = '1.0.51-panel-scoped-hunt-audit';
+  window.__postLeadJsonUpdate = postLeadJsonUpdate;
+  window.__syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
+  window.__populateLeadPanel = populatePanel;
+  window.__getLeadPanelCurrentRow = function getLeadPanelCurrentRow() {
+    return currentRow;
+  };
 });

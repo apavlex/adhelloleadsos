@@ -45,10 +45,10 @@ function placeToExtract(place) {
 function buildPatchFromPlace(place, lead) {
   const patch = {};
   if (!place) return patch;
-  if (place.totalScore != null && Number(place.totalScore) >= 0) {
+  if (place.totalScore != null && Number(place.totalScore) >= 0 && !lead.reviewsCountManual) {
     patch.totalScore = Number(place.totalScore);
   }
-  if (place.reviewsCount != null && Number(place.reviewsCount) >= 0) {
+  if (place.reviewsCount != null && Number(place.reviewsCount) >= 0 && !lead.reviewsCountManual) {
     const n = parseInt(place.reviewsCount, 10);
     const cur = parseInt(lead.reviewsCount, 10) || 0;
     if (Number.isFinite(n) && (n > 0 || cur <= 0)) patch.reviewsCount = n;
@@ -158,10 +158,10 @@ async function enrichLeadFromOutscraperGmb(lead, integrationEnv) {
         query: reviewQuery,
         integrationEnv,
       });
-      if (pack.placeRating != null && Number.isFinite(Number(pack.placeRating))) {
+      if (pack.placeRating != null && Number.isFinite(Number(pack.placeRating)) && !lead.reviewsCountManual) {
         patch.totalScore = Number(pack.placeRating);
       }
-      if (pack.placeReviewsCount != null && Number.isFinite(Number(pack.placeReviewsCount))) {
+      if (pack.placeReviewsCount != null && Number.isFinite(Number(pack.placeReviewsCount)) && !lead.reviewsCountManual) {
         const n = parseInt(pack.placeReviewsCount, 10);
         const cur = parseInt(lead.reviewsCount, 10) || 0;
         if (Number.isFinite(n) && (n > 0 || cur <= 0)) patch.reviewsCount = n;

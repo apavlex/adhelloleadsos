@@ -225,9 +225,10 @@
     setBulkTagsRowVisible(show);
   };
 
-  function renderLeadTagsPanel(row) {
-    const host = document.getElementById('leadPanelTagsHost');
+  function renderLeadTagsEditor(host, row, opts) {
     if (!host) return;
+    const compact = !!(opts && opts.compact);
+    const hostId = host.id || 'leadPanelTagsHost';
     if (!row || !row.dataset) {
       host.innerHTML =
         '<p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Select a lead to manage tags.</p>';
@@ -238,10 +239,11 @@
     const active = new Set(parseRowTags(row));
     const tags = getWorkspaceTags();
 
-    let html = '<div class="flex flex-wrap gap-1.5 mb-3" id="leadPanelTagPills">';
+    let html = `<div class="flex flex-wrap gap-1.5 ${compact ? '' : 'mb-3'}" data-tag-pills-host="${escapeHtml(hostId)}">`;
     if (!tags.length) {
-      html +=
-        '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No workspace tags yet — create one below.</p>';
+      html += compact
+        ? '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No tags yet — use Full editor to create one.</p>'
+        : '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No workspace tags yet — create one below.</p>';
     } else {
       tags.forEach((t) => {
         if (!t || !t.key) return;
@@ -249,14 +251,16 @@
         const color = t.color || '#94a3b8';
         html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${
           on ? 'ring-2 ring-offset-1 ring-brand-yellow/50' : 'opacity-75 hover:opacity-100'
-        }" data-tag-key="${escapeHtml(t.key)}" style="background:${color}${on ? '33' : '18'};border-color:${color}66;color:${color}" aria-pressed="${on ? 'true' : 'false'}">${escapeHtml(t.name)}</button>`;
+        }" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}${on ? '33' : '18'};border-color:${color}66;color:${color}" aria-pressed="${on ? 'true' : 'false'}">${escapeHtml(t.name)}</button>`;
       });
     }
     html += '</div>';
-    html += `<div class="flex flex-wrap gap-2 items-center border-t border-brand-border/20 dark:border-white/10 pt-3">
+    if (!compact) {
+      html += `<div class="flex flex-wrap gap-2 items-center border-t border-brand-border/20 dark:border-white/10 pt-3">
       <input type="text" id="leadPanelNewTagName" placeholder="New tag name…" class="min-w-[6rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" />
       <button type="button" id="leadPanelCreateTagBtn" class="btn-pill bg-brand-yellow text-brand-dark px-3 py-1.5 text-[9px] font-black uppercase tracking-widest">Create</button>
     </div>`;
+    }
     host.innerHTML = html;
 
     host.querySelectorAll('.lead-panel-tag-toggle').forEach((btn) => {
@@ -273,6 +277,8 @@
           renderLeadTagsPanel(row);
           if (typeof window.showProspectToast === 'function') {
             window.showProspectToast('Tags updated · syncing to GHL');
+          } else if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Tags updated · syncing to GHL', { variant: 'success' });
           }
         } catch (err) {
           window.alert(err.message || 'Could not update tags.');
@@ -281,36 +287,43 @@
       });
     });
 
-    const createBtn = document.getElementById('leadPanelCreateTagBtn');
-    const nameInput = document.getElementById('leadPanelNewTagName');
-    if (createBtn && nameInput) {
-      const doCreate = async () => {
-        const name = String(nameInput.value || '').trim();
-        if (!name) return;
-        createBtn.disabled = true;
-        try {
-          const tag = await createWorkspaceTag(name);
-          const set = new Set(parseRowTags(row));
-          if (tag && tag.key) set.add(tag.key);
-          if (leadKey) {
-            const lead = await saveLeadTags(leadKey, [...set]);
-            if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
+    if (!compact) {
+      const createBtn = document.getElementById('leadPanelCreateTagBtn');
+      const nameInput = document.getElementById('leadPanelNewTagName');
+      if (createBtn && nameInput) {
+        const doCreate = async () => {
+          const name = String(nameInput.value || '').trim();
+          if (!name) return;
+          createBtn.disabled = true;
+          try {
+            const tag = await createWorkspaceTag(name);
+            const set = new Set(parseRowTags(row));
+            if (tag && tag.key) set.add(tag.key);
+            if (leadKey) {
+              const lead = await saveLeadTags(leadKey, [...set]);
+              if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
+            }
+            renderLeadTagsPanel(row);
+          } catch (err) {
+            window.alert(err.message || 'Could not create tag.');
+          } finally {
+            createBtn.disabled = false;
           }
-          renderLeadTagsPanel(row);
-        } catch (err) {
-          window.alert(err.message || 'Could not create tag.');
-        } finally {
-          createBtn.disabled = false;
-        }
-      };
-      createBtn.addEventListener('click', doCreate);
-      nameInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          doCreate();
-        }
-      });
+        };
+        createBtn.addEventListener('click', doCreate);
+        nameInput.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            doCreate();
+          }
+        });
+      }
     }
+  }
+
+  function renderLeadTagsPanel(row) {
+    renderLeadTagsEditor(document.getElementById('leadPanelTagsHost'), row, { compact: false });
+    renderLeadTagsEditor(document.getElementById('leadPanelCompanyTagsHost'), row, { compact: true });
   }
 
   function bindBulkTags() {

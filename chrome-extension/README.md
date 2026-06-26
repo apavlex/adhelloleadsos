@@ -47,7 +47,7 @@ Reload the extension after updates.
 1. Open a listing or profile on any supported site
 2. Click **Save lead** (floating button) or the extension icon
 3. Review auto-filled title, price, beds/baths/sqft, address, and notes
-4. Save — the lead lands in the correct pipeline folder (Real estate or Products)
+4. Save — the lead lands in the **Chrome Extension** folder in Pipeline (created automatically on first save)
 
 ## API payload (listings)
 
