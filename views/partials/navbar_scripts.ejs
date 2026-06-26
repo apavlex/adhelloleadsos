@@ -170,10 +170,14 @@
   var spKeypadTab = document.getElementById('softphoneTabKeypad');
   var spInCallBar = document.getElementById('softphoneInCallBar');
   var spRemoteAudio = document.getElementById('softphoneRemoteAudio');
+  var spLocalAudio = document.getElementById('softphoneLocalAudio');
   var spTestMicBtn = document.getElementById('softphoneTestMicBtn');
+  var spMicSelect = document.getElementById('softphoneMicSelect');
+  var spSpeakerSelect = document.getElementById('softphoneSpeakerSelect');
   var spMicStatus = document.getElementById('softphoneMicStatus');
   var spPreferredMicId = '';
   var spPreferredSpeakerId = '';
+  var SOFTPHONE_AUDIO_PREFS_KEY = 'adhelloSoftphoneAudioPrefs';
   var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
   var spRelayWebrtc = false;
   var spWorkspaceCallMode = 'cloud_dial';
@@ -265,12 +269,121 @@
   function softphoneMicBlockedMessage(err) {
     var name = err && err.name ? String(err.name) : '';
     if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
-      return 'Microphone blocked. On Mac: System Settings → Privacy & Security → Microphone → turn on your browser (Chrome, Safari, Arc, etc.), then reload this page and tap Test microphone again.';
+      return 'Microphone blocked. On Mac: System Settings → Privacy & Security → Microphone → turn on your browser, then tap Allow mic & refresh devices.';
     }
     if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
-      return 'No microphone found. Plug in a headset or check Mac Sound settings → Input.';
+      return 'No microphone found. Pair your Bluetooth headset or check Mac Sound → Input.';
     }
     return (err && err.message) || 'Could not access microphone.';
+  }
+
+  function loadSoftphoneAudioPrefs() {
+    try {
+      var raw = localStorage.getItem(SOFTPHONE_AUDIO_PREFS_KEY);
+      if (!raw) return { micId: '', speakerId: '' };
+      var parsed = JSON.parse(raw);
+      return {
+        micId: String((parsed && parsed.micId) || '').trim(),
+        speakerId: String((parsed && parsed.speakerId) || '').trim(),
+      };
+    } catch (_) {
+      return { micId: '', speakerId: '' };
+    }
+  }
+
+  function saveSoftphoneAudioPrefs() {
+    try {
+      localStorage.setItem(
+        SOFTPHONE_AUDIO_PREFS_KEY,
+        JSON.stringify({
+          micId: String(spPreferredMicId || '').trim(),
+          speakerId: String(spPreferredSpeakerId || '').trim(),
+        }),
+      );
+    } catch (_) {}
+  }
+
+  function audioDeviceScore(label) {
+    var l = String(label || '').toLowerCase();
+    var score = 0;
+    if (/bluetooth|airpod|headset|headphone|beats|bose|wh-|jabra|plantronics|poly|sony|skullcandy|buds/.test(l)) {
+      score += 60;
+    }
+    if (/external|usb|wireless/.test(l)) score += 15;
+    if (/macbook|built-in|internal|default|display/.test(l)) score -= 8;
+    return score;
+  }
+
+  function pickBestAudioDevice(devices, kind, savedId) {
+    var list = (devices || []).filter(function (d) {
+      return d && d.kind === kind && String(d.deviceId || '').trim();
+    });
+    if (!list.length) return '';
+    if (savedId && list.some(function (d) { return d.deviceId === savedId; })) return savedId;
+    var best = list.slice().sort(function (a, b) {
+      return audioDeviceScore(b.label) - audioDeviceScore(a.label);
+    })[0];
+    return best ? String(best.deviceId).trim() : '';
+  }
+
+  function syncSoftphoneAudioSelectValues() {
+    if (spMicSelect) spMicSelect.value = String(spPreferredMicId || '');
+    if (spSpeakerSelect) spSpeakerSelect.value = String(spPreferredSpeakerId || '');
+  }
+
+  function populateSoftphoneAudioSelects(mics, speakers) {
+    if (spMicSelect) {
+      var micVal = String(spPreferredMicId || '');
+      spMicSelect.innerHTML = '<option value="">Default microphone</option>';
+      (mics || []).forEach(function (d) {
+        var opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || 'Microphone';
+        spMicSelect.appendChild(opt);
+      });
+      spMicSelect.value = micVal;
+    }
+    if (spSpeakerSelect) {
+      var spVal = String(spPreferredSpeakerId || '');
+      spSpeakerSelect.innerHTML = '<option value="">Default speakers</option>';
+      (speakers || []).forEach(function (d) {
+        var opt = document.createElement('option');
+        opt.value = d.deviceId;
+        opt.textContent = d.label || 'Speakers';
+        spSpeakerSelect.appendChild(opt);
+      });
+      spSpeakerSelect.value = spVal;
+    }
+  }
+
+  function softphoneAudioDeviceSummary(mics, speakers) {
+    var mic = (mics || []).find(function (d) { return d.deviceId === spPreferredMicId; });
+    var spk = (speakers || []).find(function (d) { return d.deviceId === spPreferredSpeakerId; });
+    var micLabel = mic && mic.label ? mic.label : (spPreferredMicId ? 'Selected mic' : 'Default mic');
+    var spkLabel = spk && spk.label ? spk.label : (spPreferredSpeakerId ? 'Selected output' : 'Default output');
+    return { micLabel: micLabel, spkLabel: spkLabel };
+  }
+
+  function refreshSoftphoneAudioDevices(opts) {
+    opts = opts || {};
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+      return Promise.reject(new Error('This browser does not support audio device selection.'));
+    }
+    var prefs = loadSoftphoneAudioPrefs();
+    var ensurePerm = opts.requestPermission ? ensureSoftphoneMicPermission() : Promise.resolve();
+    return ensurePerm
+      .then(function () {
+        return navigator.mediaDevices.enumerateDevices();
+      })
+      .then(function (devices) {
+        var mics = (devices || []).filter(function (d) { return d && d.kind === 'audioinput'; });
+        var speakers = (devices || []).filter(function (d) { return d && d.kind === 'audiooutput'; });
+        spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', prefs.micId || spPreferredMicId);
+        spPreferredSpeakerId = pickBestAudioDevice(speakers, 'audiooutput', prefs.speakerId || spPreferredSpeakerId);
+        populateSoftphoneAudioSelects(mics, speakers);
+        saveSoftphoneAudioPrefs();
+        return { mics: mics, speakers: speakers };
+      });
   }
 
   function ensureSoftphoneMicPermission() {
@@ -278,31 +391,72 @@
       return Promise.reject(new Error('This browser does not support in-tab microphone access.'));
     }
     var constraints = spPreferredMicId
-      ? { audio: { deviceId: { exact: spPreferredMicId } } }
-      : { audio: true };
+      ? { audio: { deviceId: { exact: spPreferredMicId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true } }
+      : { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
     return navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+      if (spLocalAudio && stream) {
+        try {
+          spLocalAudio.srcObject = stream;
+          spLocalAudio.muted = true;
+        } catch (_) {}
+      }
       if (stream && stream.getTracks) {
         stream.getTracks().forEach(function (track) {
           try { track.stop(); } catch (_) {}
         });
       }
+      if (spLocalAudio) {
+        try { spLocalAudio.srcObject = null; } catch (_) {}
+      }
       return true;
     });
   }
 
+  function attachSoftphoneRemoteStream() {
+    if (!spRemoteAudio || !softphoneSession.relayCall) return;
+    try {
+      var call = softphoneSession.relayCall;
+      var stream =
+        call.remoteStream ||
+        call.remoteMediaStream ||
+        (typeof call.getRemoteStream === 'function' ? call.getRemoteStream() : null);
+      if (stream) spRemoteAudio.srcObject = stream;
+    } catch (_) {}
+  }
+
   function playSoftphoneRemoteAudio() {
+    attachSoftphoneRemoteStream();
     if (!spRemoteAudio || typeof spRemoteAudio.play !== 'function') return Promise.resolve();
     spRemoteAudio.volume = 1;
     spRemoteAudio.muted = false;
-    return spRemoteAudio.play().catch(function () {
-      softphoneSetStatus('If you cannot hear the other party, click Test microphone in Contacts or tap anywhere in the dialer.', true);
+    return applySoftphoneAudioOutput(true).then(function () {
+      return spRemoteAudio.play().catch(function () {
+        softphoneSetStatus('Tap Allow mic & refresh devices in Contacts, then try the call again.', true);
+      });
     });
   }
 
-  function applySoftphoneSpeakerRoute() {
-    if (!spRemoteAudio || !softphoneSession.speaker) return Promise.resolve();
-    if (typeof spRemoteAudio.setSinkId !== 'function' || !spPreferredSpeakerId) return Promise.resolve();
-    return spRemoteAudio.setSinkId(spPreferredSpeakerId).catch(function () {});
+  function applySoftphoneAudioOutput(force) {
+    if (!spRemoteAudio || typeof spRemoteAudio.setSinkId !== 'function') return Promise.resolve();
+    var sinkId = String(spPreferredSpeakerId || '').trim();
+    if (!sinkId && !force) return Promise.resolve();
+    if (!sinkId) return Promise.resolve();
+    return spRemoteAudio.setSinkId(sinkId).catch(function (err) {
+      console.warn('[Softphone] setSinkId failed:', err);
+    });
+  }
+
+  function applySoftphoneMicToActiveCall() {
+    if (!softphoneSession.relayCall || !spPreferredMicId) return;
+    try {
+      if (typeof softphoneSession.relayCall.setAudioInDevice === 'function') {
+        softphoneSession.relayCall.setAudioInDevice(spPreferredMicId);
+        return;
+      }
+      if (typeof softphoneSession.relayCall.switchMicrophone === 'function') {
+        softphoneSession.relayCall.switchMicrophone(spPreferredMicId);
+      }
+    } catch (_) {}
   }
 
   function setSoftphoneMicStatus(msg, isError) {
@@ -318,22 +472,17 @@
     if (!spTestMicBtn) return Promise.resolve();
     var original = spTestMicBtn.textContent;
     spTestMicBtn.disabled = true;
-    spTestMicBtn.textContent = 'Testing…';
+    spTestMicBtn.textContent = 'Refreshing…';
     setSoftphoneMicStatus('Requesting microphone access…', false);
-    return ensureSoftphoneMicPermission()
-      .then(function () {
-        return navigator.mediaDevices.enumerateDevices();
-      })
-      .then(function (devices) {
-        var mics = (devices || []).filter(function (d) { return d && d.kind === 'audioinput'; });
-        var speakers = (devices || []).filter(function (d) { return d && d.kind === 'audiooutput'; });
-        if (mics.length) spPreferredMicId = String(mics[0].deviceId || '').trim();
-        if (speakers.length) spPreferredSpeakerId = String(speakers[0].deviceId || '').trim();
-        var micLabel = mics.length && mics[0].label ? mics[0].label : (mics.length ? 'Microphone ready' : 'Microphone ready (no label until permitted)');
-        var speakerLabel = speakers.length && speakers[0].label ? speakers[0].label : 'Default speakers';
-        setSoftphoneMicStatus('Mic OK: ' + micLabel + ' · Output: ' + speakerLabel, false);
-        softphoneSetStatus('Microphone access granted. Browser audio is ready for calls.');
-        return applySoftphoneSpeakerRoute();
+    return refreshSoftphoneAudioDevices({ requestPermission: true })
+      .then(function (result) {
+        var summary = softphoneAudioDeviceSummary(result.mics, result.speakers);
+        var btHint = /bluetooth|airpod|headset|headphone|buds/i.test(summary.micLabel + summary.spkLabel)
+          ? ' Bluetooth headset detected.'
+          : '';
+        setSoftphoneMicStatus('Mic: ' + summary.micLabel + ' · Hear: ' + summary.spkLabel + btHint, false);
+        softphoneSetStatus('Audio devices ready. Place a call — voice routes through your selected mic and speakers.');
+        return applySoftphoneAudioOutput(true);
       })
       .catch(function (err) {
         var msg = softphoneMicBlockedMessage(err);
@@ -358,8 +507,8 @@
       if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
       softphoneSetCallState('in_call');
       playSoftphoneRemoteAudio();
-      applySoftphoneSpeakerRoute();
-      softphoneSetStatus('In call (WebRTC). Talk through your Mac mic and speakers.');
+      applySoftphoneMicToActiveCall();
+      softphoneSetStatus('In call (WebRTC). Using your selected mic and speakers/headset.');
     } else if (st === 'held') {
       softphoneSession.hold = true;
       softphoneSetCallState('in_call');
@@ -1186,7 +1335,7 @@
     var m = String(mode || '').trim() || 'cloud_dial';
     if (m === 'cloud_dial') {
       if (hasRelayWebrtc) {
-        return 'Call routing: Cloud + browser audio — talk through your computer mic and speakers (WebRTC). Allow microphone when the browser prompts you.';
+        return 'Call routing: Cloud + browser audio — pick your Bluetooth headset under Contacts → Browser audio, then call.';
       }
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
@@ -2042,22 +2191,23 @@
           remoteElement: remoteTarget,
         });
         softphoneSession.relayClient = client;
-        var callAudio = spPreferredMicId
-          ? { deviceId: { exact: spPreferredMicId }, echoCancellation: true, noiseSuppression: true }
-          : { echoCancellation: true, noiseSuppression: true };
+        var callOpts = {
+          destinationNumber: to,
+          callerNumber: fromNum,
+          remoteCallerName: 'Outbound',
+          remoteCallerNumber: '',
+          callerName: 'AdHello',
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          video: false,
+          remoteElement: remoteTarget,
+          onNotification: webrtcOnNotification,
+        };
+        if (spPreferredMicId) callOpts.micId = spPreferredMicId;
         return client
           .connect()
           .then(function () {
-            return client.newCall({
-              destinationNumber: to,
-              callerNumber: fromNum,
-              remoteCallerName: 'Outbound',
-              remoteCallerNumber: '',
-              callerName: 'AdHello',
-              audio: callAudio,
-              video: false,
-              remoteElement: remoteTarget,
-              onNotification: webrtcOnNotification,
+            return applySoftphoneAudioOutput(true).then(function () {
+              return client.newCall(callOpts);
             });
           })
           .then(function (call) {
@@ -2108,14 +2258,24 @@
       spRelayWebrtc &&
       spWorkspaceCallMode === 'cloud_dial';
     if (tryWebrtc) {
-      p = tryWebrtcSoftphone(to).then(function (ok) {
+      p = refreshSoftphoneAudioDevices({ requestPermission: true })
+        .catch(function () {
+          return refreshSoftphoneAudioDevices({ requestPermission: false });
+        })
+        .then(function () {
+          return tryWebrtcSoftphone(to);
+        })
+        .then(function (ok) {
         if (ok) return;
         if (spMicStatus && /microphone blocked|not support/i.test(String(spMicStatus.textContent || ''))) {
           throw new Error(String(spMicStatus.textContent || 'Microphone access is required for browser audio.'));
         }
-        softphoneSetStatus('In-browser audio failed — falling back to cloud dial. This tab will NOT have sound. Fix mic in Contacts → Test microphone, or use Agent first / My device dialer.', true);
+        softphoneSetStatus('Browser audio failed — falling back to server dial (no sound in this tab). In Contacts: Allow mic, pick your Bluetooth headset, then call again.', true);
         return startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
       });
+    } else if (action === 'call' && spWorkspaceCallMode === 'cloud_dial' && !spRelayWebrtc) {
+      softphoneSetStatus('Browser audio unavailable on server — using cloud dial without tab sound. Ask admin to set SIGNALWIRE_SPACE_URL for WebRTC.', true);
+      p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
     } else {
       p = startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
     }
@@ -2512,7 +2672,10 @@
     });
     try { localStorage.setItem(SOFTPHONE_TAB_KEY, name); } catch (_) {}
     if (name === 'recents') renderRecentDials();
-    if (name === 'contacts') renderSoftphoneFocusContacts();
+    if (name === 'contacts') {
+      renderSoftphoneFocusContacts();
+      refreshSoftphoneAudioDevices({ requestPermission: false }).catch(function () {});
+    }
     if (name === 'queue') renderSoftphoneCallQueue();
     if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
     if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);
@@ -2882,20 +3045,68 @@
   }
   if (spSpeaker) {
     spSpeaker.addEventListener('click', function () {
-      softphoneSession.speaker = !softphoneSession.speaker;
-      updateControlToggles();
-      if (softphoneSession.speaker) {
-        applySoftphoneSpeakerRoute()
-          .then(function () { return playSoftphoneRemoteAudio(); })
-          .then(function () {
-            softphoneSetStatus('Routing call audio to your selected output device.');
-          })
-          .catch(function () {
-            softphoneSetStatus('Speaker on — if still quiet, run Test microphone in Contacts and check Mac Sound → Output.', false);
-          });
+      if (!spSpeakerSelect || !spSpeakerSelect.options || spSpeakerSelect.options.length <= 1) {
+        setSoftphoneTab('contacts');
+        runSoftphoneMicSpeakerTest();
         return;
       }
-      softphoneSetStatus('Speaker mode off (default output).');
+      var opts = [];
+      for (var i = 0; i < spSpeakerSelect.options.length; i++) {
+        var o = spSpeakerSelect.options[i];
+        if (o && o.value) opts.push(o);
+      }
+      if (!opts.length) {
+        setSoftphoneTab('contacts');
+        runSoftphoneMicSpeakerTest();
+        return;
+      }
+      var idx = 0;
+      for (var j = 0; j < opts.length; j++) {
+        if (opts[j].value === spPreferredSpeakerId) {
+          idx = j;
+          break;
+        }
+      }
+      var next = opts[(idx + 1) % opts.length];
+      spPreferredSpeakerId = String(next.value || '').trim();
+      spSpeakerSelect.value = spPreferredSpeakerId;
+      saveSoftphoneAudioPrefs();
+      softphoneSession.speaker = true;
+      updateControlToggles();
+      applySoftphoneAudioOutput(true)
+        .then(function () { return playSoftphoneRemoteAudio(); })
+        .then(function () {
+          softphoneSetStatus('Hear call on: ' + String(next.textContent || 'selected output'));
+        });
+    });
+  }
+  if (spMicSelect) {
+    spMicSelect.addEventListener('change', function () {
+      spPreferredMicId = String(spMicSelect.value || '').trim();
+      saveSoftphoneAudioPrefs();
+      applySoftphoneMicToActiveCall();
+      var label =
+        spMicSelect.options && spMicSelect.selectedIndex >= 0
+          ? spMicSelect.options[spMicSelect.selectedIndex].text
+          : 'Default microphone';
+      setSoftphoneMicStatus('Microphone: ' + label, false);
+    });
+  }
+  if (spSpeakerSelect) {
+    spSpeakerSelect.addEventListener('change', function () {
+      spPreferredSpeakerId = String(spSpeakerSelect.value || '').trim();
+      saveSoftphoneAudioPrefs();
+      softphoneSession.speaker = !!spPreferredSpeakerId;
+      updateControlToggles();
+      var label =
+        spSpeakerSelect.options && spSpeakerSelect.selectedIndex >= 0
+          ? spSpeakerSelect.options[spSpeakerSelect.selectedIndex].text
+          : 'Default speakers';
+      applySoftphoneAudioOutput(true)
+        .then(function () { return playSoftphoneRemoteAudio(); })
+        .then(function () {
+          setSoftphoneMicStatus('Output: ' + label, false);
+        });
     });
   }
   if (spTestMicBtn) {
@@ -2903,6 +3114,23 @@
       runSoftphoneMicSpeakerTest();
     });
   }
+  if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {
+    navigator.mediaDevices.addEventListener('devicechange', function () {
+      refreshSoftphoneAudioDevices({ requestPermission: false })
+        .then(function (result) {
+          var summary = softphoneAudioDeviceSummary(result.mics, result.speakers);
+          setSoftphoneMicStatus('Devices updated — ' + summary.micLabel + ' · ' + summary.spkLabel, false);
+        })
+        .catch(function () {});
+    });
+  }
+  (function initSoftphoneAudioPrefs() {
+    var prefs = loadSoftphoneAudioPrefs();
+    spPreferredMicId = prefs.micId;
+    spPreferredSpeakerId = prefs.speakerId;
+    syncSoftphoneAudioSelectValues();
+    refreshSoftphoneAudioDevices({ requestPermission: false }).catch(function () {});
+  })();
   if (spKeypad) {
     spKeypad.addEventListener('click', function () {
       setSoftphoneTab('keypad');
