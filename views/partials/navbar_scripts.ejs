@@ -184,6 +184,7 @@
   var SOFTPHONE_AUDIO_PREFS_KEY = 'adhelloSoftphoneAudioPrefs';
   var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
   var spRelayWebrtc = false;
+  var spSignalwireNumbers = [];
   var spWorkspaceCallMode = 'cloud_dial';
   var spDefaultFrom = '';
   var spActiveFrom = '';
@@ -200,6 +201,7 @@
     webrtcDialWatchdog: null,
     webrtcDialHardStop: null,
     webrtcSkipDeviceRetry: false,
+    webrtcCloudFallback: false,
     timerTicker: null,
     startedAtMs: 0,
     stateVerbose: '',
@@ -288,6 +290,60 @@
     }
     softphoneSetStatus(msg || 'Call canceled.', !!opts.isError);
   }
+  function softphoneWebrtcFallbackToCloud(to, msg) {
+    webrtcClearDialWatchdog();
+    softphoneClearWebrtcSession();
+    softphoneSession.webrtc = false;
+    softphoneSetCallState('dialing');
+    softphoneSetStatus(msg || 'Switching to cloud dial (no sound in this tab)…', true);
+    return startCloudSoftphoneDial(to, 'call', null).catch(function (err) {
+      softphoneSetCallState('ready');
+      softphoneSetWrapRequired(false);
+      softphoneSetStatus((err && err.message) || 'Cloud dial failed.', true);
+    });
+  }
+  function softphoneCallerWebrtcError(fromNum) {
+    var from = normalizeDial(fromNum || '');
+    if (!from || !spSignalwireNumbers || !spSignalwireNumbers.length) return '';
+    var owned = spSignalwireNumbers.some(function (n) { return normalizeDial(n) === from; });
+    if (owned) return '';
+    return (
+      'Caller ID ' +
+      from +
+      ' is not in your SignalWire project. Tap Change next to “Calling from” and pick a verified number from Workspace → Phone bank.'
+    );
+  }
+  function waitForRelayReady(client, timeoutMs) {
+    timeoutMs = timeoutMs || 12000;
+    return new Promise(function (resolve, reject) {
+      if (!client) return reject(new Error('Relay client missing'));
+      if (client.connected === true) return resolve(client);
+      var settled = false;
+      var timer = setTimeout(function () {
+        if (settled) return;
+        settled = true;
+        reject(new Error('SignalWire session did not become ready'));
+      }, timeoutMs);
+      function done(err) {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (err) reject(err);
+        else resolve(client);
+      }
+      try {
+        client.on('signalwire.ready', function () { done(null); });
+        client.on('signalwire.error', function (payload) {
+          var msg =
+            (payload && (payload.message || payload.error || payload.code)) ||
+            'SignalWire connection error';
+          done(new Error(String(msg)));
+        });
+      } catch (e) {
+        done(e);
+      }
+    });
+  }
   function webrtcHandleDialStuck() {
     if (softphoneSession.state !== 'dialing' || !softphoneSession.webrtc) return;
     webrtcClearDialWatchdog();
@@ -298,32 +354,46 @@
       softphoneSetCallState('dialing');
       softphoneSetStatus('Still connecting… retrying with default mic and speakers.', true);
       tryWebrtcSoftphone(to, { skipDeviceIds: true }).then(function (ok) {
-        if (!ok) {
-          softphoneCancelWebrtcDial(
-            'Browser audio could not connect. In Contacts: Allow mic & refresh devices, pick your headset, then call again.',
-            { readyToRedial: true, isError: true },
-          );
-        }
+        if (ok) return;
+        softphoneWebrtcFallbackToCloud(
+          to,
+          'Browser audio failed — placing the call via SignalWire cloud (no sound in this tab). Check caller ID in Workspace → Phone bank.',
+        );
       });
       return;
     }
+    if (!softphoneSession.webrtcCloudFallback && to) {
+      softphoneSession.webrtcCloudFallback = true;
+      softphoneDestroyWebrtc();
+      softphoneWebrtcFallbackToCloud(
+        to,
+        'Browser audio timed out — placing the call via SignalWire cloud (no sound in this tab). Verify caller ID in Workspace → Phone bank.',
+      );
+      return;
+    }
     softphoneCancelWebrtcDial(
-      'Call setup timed out. Allow mic in Contacts, pick your Bluetooth headset, hang up, and try again.',
+      'Call setup timed out. Check Workspace → Phone bank (caller ID must be a SignalWire number), allow mic in Contacts, then try again.',
       { readyToRedial: true, isError: true },
     );
   }
-  function webrtcStartDialWatchdog() {
+  function webrtcStartDialWatchdog(opts) {
+    opts = opts || {};
+    var phase = opts.phase || 1;
     webrtcClearDialWatchdog();
+    var warnMs = phase === 2 ? 12000 : 15000;
+    var stopMs = phase === 2 ? 25000 : 30000;
     softphoneSession.webrtcDialWatchdog = setTimeout(function () {
       if (softphoneSession.state !== 'dialing' || !softphoneSession.webrtc) return;
       softphoneSetStatus(
-        'Still connecting (WebRTC). Check mic permission and your headset in Contacts. Will retry with default audio if this continues.',
+        phase === 2
+          ? 'Still connecting on retry… will switch to cloud dial if this continues.'
+          : 'Still connecting. Check mic in Contacts and that “Calling from” is a SignalWire number. Retrying with default audio soon.',
         true,
       );
-    }, 20000);
+    }, warnMs);
     softphoneSession.webrtcDialHardStop = setTimeout(function () {
       webrtcHandleDialStuck();
-    }, 55000);
+    }, stopMs);
   }
   function softphoneRelayMicIdForDial(skipDeviceIds) {
     if (skipDeviceIds || !spPreferredMicId) return Promise.resolve('');
@@ -2180,6 +2250,9 @@
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) return;
         spRelayWebrtc = !!res.j.relayWebrtcAvailable;
+        spSignalwireNumbers = Array.isArray(res.j.signalwireNumbers)
+          ? res.j.signalwireNumbers.map(function (n) { return normalizeDial(n); }).filter(Boolean)
+          : [];
         spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
         spActiveFrom = String(res.j.activeFromNumber || '').trim();
         if (res.j && res.j.callMode) spWorkspaceCallMode = String(res.j.callMode).trim() || 'cloud_dial';
@@ -2432,7 +2505,12 @@
     var q =
       '/leads/telephony/webrtc-token?fromNumber=' +
       encodeURIComponent(String(fromPick || '')) +
-      '&expires_in=600';
+      '&expires_in=30';
+    var callerErr = softphoneCallerWebrtcError(fromPick);
+    if (callerErr) {
+      softphoneSetStatus(callerErr, true);
+      return Promise.resolve(false);
+    }
     return ensureSoftphoneMicPermission()
       .catch(function (err) {
         var msg = softphoneMicBlockedMessage(err);
@@ -2447,6 +2525,11 @@
       .then(function (res) {
         if (!res.ok || !res.j || !res.j.success) {
           var apiErr = (res.j && res.j.error) || 'WebRTC token unavailable';
+          if (res.j && Array.isArray(res.j.signalwireNumbers) && res.j.signalwireNumbers.length) {
+            spSignalwireNumbers = res.j.signalwireNumbers.map(function (n) {
+              return normalizeDial(n);
+            }).filter(Boolean);
+          }
           softphoneSetStatus(apiErr, true);
           return false;
         }
@@ -2486,8 +2569,19 @@
           };
           if (!skipDeviceIds && micId) callOpts.micId = micId;
           if (!skipDeviceIds && spPreferredSpeakerId) callOpts.speakerId = spPreferredSpeakerId;
+          try {
+            client.on('signalwire.notification', function (notification) {
+              if (!notification || notification.type !== 'userMediaError') return;
+              var mediaErr = notification.error || notification;
+              console.error('[Softphone] userMediaError:', mediaErr);
+              softphoneSetStatus(softphoneMicBlockedMessage(mediaErr), true);
+            });
+          } catch (_) {}
           return client
             .connect()
+            .then(function () {
+              return waitForRelayReady(client, 12000);
+            })
             .then(function () {
               return applySoftphoneAudioOutput(true).then(function () {
                 return client.newCall(callOpts);
@@ -2499,7 +2593,7 @@
               softphoneSession.callSid = '';
               softphoneStopPolling();
               webrtcAttachCallHandlers(call);
-              webrtcStartDialWatchdog();
+              webrtcStartDialWatchdog({ phase: opts.skipDeviceIds ? 2 : 1 });
               addRecentDial(to, {
                 title: softphoneSession.leadTitle,
                 leadKey: softphoneSession.leadKey,
@@ -2536,6 +2630,7 @@
     if (btn) { btn.disabled = true; btn.innerHTML = action === 'voicemail_drop' ? 'Dropping…' : 'Dialing…'; }
     softphoneSession.stateVerbose = '';
     softphoneSession.webrtcSkipDeviceRetry = false;
+    softphoneSession.webrtcCloudFallback = false;
     softphoneResetRecordingState();
     softphoneSession.startedAtMs = 0;
     softphoneSetTimerSeconds(0);

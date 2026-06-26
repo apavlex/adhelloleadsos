@@ -1300,6 +1300,8 @@ router.get('/telephony/call-options', async (req, res, next) => {
       signalwire.normalizePhone(resolveRequestedCallerNumber(ws, null)) ||
       signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
       '';
+    const swNumbers = await signalwire.listIncomingPhoneNumbers();
+    const signalwireNumbers = (swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean);
     return res.json({
       success: true,
       options: numbers,
@@ -1309,6 +1311,8 @@ router.get('/telephony/call-options', async (req, res, next) => {
       relayWebrtcAvailable:
         callMode !== 'browser_device' && callMode !== 'agent_first' && signalwire.relayWebrtcCanMint(),
       defaultFromNumber: defaultFrom,
+      signalwireNumbers,
+      signalwireNumbersError: swNumbers.error || null,
       pacing: {
         perNumberHourCap: pacingCfg.perNumberHourCap,
         quietHoursStart: pacingCfg.quietStart,
@@ -1349,14 +1353,24 @@ router.get('/telephony/webrtc-token', async (req, res, next) => {
         error: 'Configure a workspace outbound number (or SIGNALWIRE_FROM_NUMBER) before using the browser softphone.',
       });
     }
+    const swNumbers = await signalwire.listIncomingPhoneNumbers();
+    const owned = new Set((swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean));
+    if (owned.size && !owned.has(fromNumber)) {
+      return res.status(400).json({
+        success: false,
+        error: `Caller ID ${fromNumber} is not a SignalWire number in your project. In Workspace → Phone bank, use a number from “Available numbers”, or fix SIGNALWIRE_FROM_NUMBER on the server.`,
+        fromNumber,
+        signalwireNumbers: [...owned].slice(0, 25),
+      });
+    }
     const resource = String(
       (req.query && req.query.resource) || `adhello-softphone-ws-${String(req.workspaceId).slice(0, 36)}`,
     )
       .trim()
       .slice(0, 200);
-    let expires = parseInt(String((req.query && req.query.expires_in) || '600'), 10);
-    if (!Number.isFinite(expires) || expires < 30) expires = 600;
-    if (expires > 3600) expires = 3600;
+    let expires = parseInt(String((req.query && req.query.expires_in) || '30'), 10);
+    if (!Number.isFinite(expires) || expires < 5) expires = 30;
+    if (expires > 120) expires = 120;
     const { token, refresh } = await signalwire.createRelayBrowserJwt({
       resource,
       expires_in: expires,
