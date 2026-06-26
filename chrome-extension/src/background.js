@@ -31,6 +31,11 @@ async function saveLeadToAdHello(lead) {
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
+    if (res.status === 401) {
+      throw new Error(
+        'Unauthorized — API key does not match server API_INGEST_KEY. In Render (or .env), copy the full API_INGEST_KEY into extension Settings → Save, then try again.',
+      );
+    }
     throw new Error(data.error || data.message || `Save failed (${res.status})`);
   }
   return data;
