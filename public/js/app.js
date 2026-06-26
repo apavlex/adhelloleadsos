@@ -13669,63 +13669,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  async function pushLeadKeysToGhlWithProgress(opts) {
-    const leadKeys = Array.isArray(opts && opts.leadKeys)
-      ? opts.leadKeys.map((k) => String(k || '').trim()).filter(Boolean)
-      : [];
-    const tagNoWebsite = !(opts && opts.tagNoWebsite === false);
-    const btn = opts && opts.btn ? opts.btn : null;
-    const onProgress =
-      opts && typeof opts.onProgress === 'function' ? opts.onProgress : null;
-    let pushed = 0;
-    let failed = 0;
-    const total = leadKeys.length;
-    const results = [];
-
-    for (let i = 0; i < leadKeys.length; i += 1) {
-      const key = leadKeys[i];
-      const current = i + 1;
-      const remaining = total - current;
-      const progress = { current, total, remaining, pushed, failed, key };
-      if (onProgress) onProgress(progress);
-      if (btn) btn.textContent = remaining > 0 ? `${remaining} left` : 'Finishing…';
-
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const res = await fetch('/ghl/push', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ leadKeys: [key], tagNoWebsite }),
-        });
-        // eslint-disable-next-line no-await-in-loop
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || `HTTP ${res.status}`);
-        }
-        const row = data.results && data.results[0] ? data.results[0] : null;
-        if (!row) {
-          failed += 1;
-          results.push({ key, ok: false, error: 'lead_not_found' });
-        } else if (row.ok === false) {
-          failed += 1;
-          results.push({ key, ok: false, error: row.error || 'push_failed' });
-        } else {
-          pushed += 1;
-          results.push({ key, ok: true, ghlContactId: row.ghlContactId });
-        }
-      } catch (err) {
-        failed += 1;
-        results.push({
-          key,
-          ok: false,
-          error: err && err.message ? err.message : 'push_failed',
-        });
-      }
-    }
-
-    return { ok: failed === 0, pushed, failed, total, results };
-  }
+  const pushLeadKeysToGhlWithProgress =
+    typeof window.__pushLeadKeysToGhlWithProgress === 'function'
+      ? window.__pushLeadKeysToGhlWithProgress
+      : async function pushLeadKeysToGhlWithProgressFallback(opts) {
+          throw new Error('GHL sync handler failed to load. Hard-refresh and try again.');
+        };
   window.__pushLeadKeysToGhlWithProgress = pushLeadKeysToGhlWithProgress;
 
   async function openBulkPushGhlFromBar() {

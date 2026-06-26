@@ -153,6 +153,31 @@
     return String(key || '').trim().replace(/^lead:/i, '');
   }
 
+  function leadKeyFromCheckboxOrRow(cb) {
+    let key = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
+    if (!key) {
+      const row = cb.closest('tr.result-row, tr[data-lead-key]');
+      key = row ? String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim() : '';
+    }
+    return key;
+  }
+
+  function collectSelectedLeadKeysFromDom() {
+    const out = [];
+    const seen = new Set();
+    document
+      .querySelectorAll(
+        'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
+      )
+      .forEach((cb) => {
+        const key = leadKeyFromCheckboxOrRow(cb);
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        out.push(key);
+      });
+    return out;
+  }
+
   function collectFocusSelectionKeys() {
     if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
       const keys = window.__getSelectedLeadKeysForBulk();
@@ -160,17 +185,7 @@
         return keys.map(normalizeFocusLeadKey).filter(Boolean);
       }
     }
-    const out = [];
-    const seen = new Set();
-    document
-      .querySelectorAll('tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked')
-      .forEach((cb) => {
-        const k = normalizeFocusLeadKey(cb.getAttribute('data-key') || cb.dataset.key || '');
-        if (!k || seen.has(k)) return;
-        seen.add(k);
-        out.push(k);
-      });
-    return out;
+    return collectSelectedLeadKeysFromDom().map(normalizeFocusLeadKey).filter(Boolean);
   }
 
   function persistFocusSelectionKeys(keys) {
@@ -225,6 +240,66 @@
   window.__buildFocusSelectionUrl = buildFocusSelectionUrl;
   window.__persistDirectMailSelectionKeys = persistDirectMailSelectionKeys;
   window.__buildDirectMailSelectionUrl = buildDirectMailSelectionUrl;
+
+  /** GHL bulk push — registered here so Sync GHL works before app.js finishes init. */
+  async function pushLeadKeysToGhlWithProgress(opts) {
+    const leadKeys = Array.isArray(opts && opts.leadKeys)
+      ? opts.leadKeys.map((k) => String(k || '').trim()).filter(Boolean)
+      : [];
+    const tagNoWebsite = !(opts && opts.tagNoWebsite === false);
+    const btn = opts && opts.btn ? opts.btn : null;
+    const onProgress =
+      opts && typeof opts.onProgress === 'function' ? opts.onProgress : null;
+    let pushed = 0;
+    let failed = 0;
+    const total = leadKeys.length;
+    const results = [];
+
+    for (let i = 0; i < leadKeys.length; i += 1) {
+      const key = leadKeys[i];
+      const current = i + 1;
+      const remaining = total - current;
+      const progress = { current, total, remaining, pushed, failed, key };
+      if (onProgress) onProgress(progress);
+      if (btn) btn.textContent = remaining > 0 ? `${remaining} left` : 'Finishing…';
+
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: [key], tagNoWebsite }),
+        });
+        // eslint-disable-next-line no-await-in-loop
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        const row = data.results && data.results[0] ? data.results[0] : null;
+        if (!row) {
+          failed += 1;
+          results.push({ key, ok: false, error: 'lead_not_found' });
+        } else if (row.ok === false) {
+          failed += 1;
+          results.push({ key, ok: false, error: row.error || 'push_failed' });
+        } else {
+          pushed += 1;
+          results.push({ key, ok: true, ghlContactId: row.ghlContactId });
+        }
+      } catch (err) {
+        failed += 1;
+        results.push({
+          key,
+          ok: false,
+          error: err && err.message ? err.message : 'push_failed',
+        });
+      }
+    }
+
+    return { ok: failed === 0, pushed, failed, total, results };
+  }
+  window.__pushLeadKeysToGhlWithProgress = pushLeadKeysToGhlWithProgress;
 
   /** Last row index used for shift-click range selection (per table). */
   let lastBulkSelectAnchor = null;
@@ -807,23 +882,7 @@
       const keys = window.__ensureBulkSelectionKeys();
       if (keys.length) return keys;
     }
-    const out = [];
-    const seen = new Set();
-    document
-      .querySelectorAll(
-        'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
-      )
-      .forEach(function (cb) {
-        let key = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
-        if (!key) {
-          const row = cb.closest('tr.result-row, tr[data-lead-key]');
-          key = row ? String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim() : '';
-        }
-        if (!key || seen.has(key)) return;
-        seen.add(key);
-        out.push(key);
-      });
-    return out;
+    return collectSelectedLeadKeysFromDom();
   }
 
   function collectPhoneLeadKeysEarly() {
@@ -981,14 +1040,16 @@
     }
     setBulkGhlProgressEarly({ current: 0, total: leadKeys.length, remaining: leadKeys.length });
 
-    const handler = await waitForBulkPushGhlHandler(8000);
-    if (typeof handler === 'function' && handler === window.__openBulkPushGhlFromBar) {
-      window.__bulkPushGhlInFlight = false;
-      return handler();
+    let pushWithProgress = window.__pushLeadKeysToGhlWithProgress;
+    if (typeof pushWithProgress !== 'function') {
+      const handler = await waitForBulkPushGhlHandler(8000);
+      if (typeof handler === 'function' && handler === window.__openBulkPushGhlFromBar) {
+        window.__bulkPushGhlInFlight = false;
+        return handler();
+      }
+      pushWithProgress =
+        typeof handler === 'function' ? handler : window.__pushLeadKeysToGhlWithProgress;
     }
-
-    const pushWithProgress =
-      typeof handler === 'function' ? handler : window.__pushLeadKeysToGhlWithProgress;
 
     try {
       if (typeof pushWithProgress !== 'function') {
