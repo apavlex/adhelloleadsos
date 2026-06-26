@@ -196,6 +196,7 @@
     wrapRequired: false,
     activeNumber: '',
     callSid: '',
+    hangupInFlight: false,
     recordingSid: '',
     recordingPending: false,
     pollTimer: null,
@@ -745,6 +746,8 @@
       webrtcClearDialWatchdog();
       softphoneClearWebrtcSession();
       softphoneSession.stateVerbose = '';
+      softphoneSession.callSid = '';
+      softphoneStopPolling();
       softphoneSetCallState('ended');
       softphoneSetWrapRequired(true);
       softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
@@ -2060,6 +2063,47 @@
       clearInterval(softphoneSession.pollTimer);
       softphoneSession.pollTimer = null;
     }
+  }
+  function softphoneHangupAlreadyFinishedMessage(msg) {
+    return /completed call|not in-progress|already ended|already completed|cannot update/i.test(
+      String(msg || ''),
+    );
+  }
+  function requestSoftphoneCloudHangup(callSid) {
+    var sid = String(callSid || softphoneSession.callSid || '').trim();
+    if (!sid || softphoneSession.hangupInFlight) return Promise.resolve({ alreadyCompleted: true });
+    softphoneSession.hangupInFlight = true;
+    softphoneSession.callSid = '';
+    softphoneStopPolling();
+    return fetch('/leads/telephony/call-control', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ action: 'hangup', callSid: sid }),
+    })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          var errMsg = (res.j && res.j.error) || 'Hangup failed.';
+          if (softphoneHangupAlreadyFinishedMessage(errMsg)) {
+            return { alreadyCompleted: true };
+          }
+          throw new Error(errMsg);
+        }
+        return { alreadyCompleted: !!(res.j && res.j.alreadyCompleted) };
+      })
+      .catch(function (err) {
+        if (softphoneHangupAlreadyFinishedMessage(err && err.message)) {
+          return { alreadyCompleted: true };
+        }
+        throw err;
+      })
+      .finally(function () {
+        softphoneSession.hangupInFlight = false;
+      });
   }
   function applyCloudPollState(st, durationStr) {
     if (st === 'completed' || st === 'canceled' || st === 'failed' || st === 'busy' || st === 'no-answer') {
@@ -3658,6 +3702,8 @@
         spHangup.disabled = true;
         try { softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true); } catch (e) {}
         softphoneClearWebrtcSession();
+        softphoneSession.callSid = '';
+        softphoneStopPolling();
         softphoneResetRecordingState();
         softphoneSetCallState('ended');
         softphoneSetWrapRequired(true);
@@ -3673,7 +3719,6 @@
         return;
       }
       if (softphoneSession.state === 'ended') {
-        softphoneStopPolling();
         softphoneSession.callSid = '';
         softphoneResetRecordingState();
         softphoneSetWrapRequired(true);
@@ -3681,33 +3726,15 @@
         return;
       }
       spHangup.disabled = true;
-      fetch('/leads/telephony/call-control', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ action: 'hangup', callSid: softphoneSession.callSid }),
-      })
-        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-        .then(function (res) {
-          if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'Hangup failed.');
-          softphoneStopPolling();
-          softphoneSession.callSid = '';
+      requestSoftphoneCloudHangup(softphoneSession.callSid)
+        .then(function () {
           softphoneResetRecordingState();
           softphoneSetCallState('ended');
           softphoneSetWrapRequired(true);
           softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
         })
         .catch(function (err) {
-          var msg = String((err && err.message) || 'Hangup failed.');
-          if (/completed call|not in-progress|already ended/i.test(msg)) {
-            softphoneStopPolling();
-            softphoneSession.callSid = '';
-            softphoneResetRecordingState();
-            softphoneSetCallState('ended');
-            softphoneSetWrapRequired(true);
-            softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
-            return;
-          }
-          softphoneSetStatus(msg, true);
+          softphoneSetStatus((err && err.message) || 'Hangup failed.', true);
         })
         .finally(function () {
           spHangup.disabled = false;
@@ -3731,11 +3758,9 @@
         try { softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true); } catch (e) {}
         softphoneClearWebrtcSession();
       } else if (softphoneSession.callSid && softphoneSession.state !== 'ended') {
-        hangupCurrent = fetch('/leads/telephony/call-control', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ action: 'hangup', callSid: softphoneSession.callSid }),
-        }).catch(function () {});
+        hangupCurrent = requestSoftphoneCloudHangup(softphoneSession.callSid).catch(function () {
+          return { alreadyCompleted: true };
+        });
       }
       hangupCurrent
         .then(beginVm)

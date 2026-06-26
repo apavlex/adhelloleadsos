@@ -527,7 +527,16 @@ async function getCall(callSid) {
 
 function normalizeCallStatus(obj) {
   if (!obj || typeof obj !== 'object') return '';
-  return String(obj.status || obj.Status || '').trim().toLowerCase();
+  return String(
+    obj.status ||
+      obj.Status ||
+      obj.call_status ||
+      obj.CallStatus ||
+      obj.callStatus ||
+      '',
+  )
+    .trim()
+    .toLowerCase();
 }
 
 function isTerminalCallStatus(status) {
@@ -544,12 +553,16 @@ function isTerminalCallStatus(status) {
 }
 
 function isCallAlreadyFinishedError(err) {
-  const m = String((err && err.message) || '').toLowerCase();
+  const m = String((err && err.message) || err || '').toLowerCase();
   return (
     m.includes('cannot update a completed call') ||
+    m.includes('update a completed call') ||
+    m.includes('completed calls cannot be updated') ||
     m.includes('call is not in-progress') ||
     m.includes('not in-progress') ||
-    (m.includes('completed') && m.includes('call'))
+    m.includes('already completed') ||
+    m.includes('21220') ||
+    (m.includes('completed') && (m.includes('call') || m.includes('calls')))
   );
 }
 
@@ -558,8 +571,9 @@ async function completeCall(callSid) {
   if (!sid) throw new Error('Call SID is required.');
   try {
     const current = await getCall(sid);
-    if (isTerminalCallStatus(normalizeCallStatus(current))) {
-      return { ...(current && typeof current === 'object' ? current : {}), sid, alreadyCompleted: true };
+    const status = normalizeCallStatus(current);
+    if (isTerminalCallStatus(status)) {
+      return { ...(current && typeof current === 'object' ? current : {}), sid, status, alreadyCompleted: true };
     }
   } catch (err) {
     const msg = String((err && err.message) || '');
@@ -685,6 +699,9 @@ module.exports = {
   sendSms,
   getCall,
   completeCall,
+  isTerminalCallStatus,
+  isCallAlreadyFinishedError,
+  normalizeCallStatus,
   redirectCall,
   extractRecordingSid,
   startCallRecording,
