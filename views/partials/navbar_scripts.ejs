@@ -176,6 +176,8 @@
   var spInCallBar = document.getElementById('softphoneInCallBar');
   var spRemoteAudio = document.getElementById('softphoneRemoteAudio');
   var spLocalAudio = document.getElementById('softphoneLocalAudio');
+  var spEnableAudioBtn = document.getElementById('softphoneEnableAudioBtn');
+  var spCallAudioMode = document.getElementById('softphoneCallAudioMode');
   var spTestMicBtn = document.getElementById('softphoneTestMicBtn');
   var spSoundcheckBtn = document.getElementById('softphoneSoundcheckBtn');
   var spSoundcheckAudio = document.getElementById('softphoneSoundcheckAudio');
@@ -221,6 +223,8 @@
     leadKey: '',
     leadTitle: '',
     wasInCall: false,
+    audioPrimed: false,
+    remoteAudioWatchdog: null,
     focusDialQueue: [],
     focusDialIndex: 0,
   };
@@ -245,6 +249,8 @@
   }
   function softphoneClearWebrtcSession() {
     webrtcClearDialWatchdog();
+    clearSoftphoneRemoteAudioWatchdog();
+    showSoftphoneEnableAudioBtn(false);
     try {
       if (softphoneSession.relayClient) {
         softphoneSession.relayClient.disconnect();
@@ -619,27 +625,123 @@
   }
 
   function attachSoftphoneRemoteStream() {
-    if (!spRemoteAudio || !softphoneSession.relayCall) return;
+    if (!spRemoteAudio || !softphoneSession.relayCall) return false;
     try {
       var call = softphoneSession.relayCall;
       var stream =
         call.remoteStream ||
         call.remoteMediaStream ||
         (typeof call.getRemoteStream === 'function' ? call.getRemoteStream() : null);
-      if (stream) spRemoteAudio.srcObject = stream;
+      if (stream) {
+        spRemoteAudio.srcObject = stream;
+        return true;
+      }
     } catch (_) {}
+    return false;
+  }
+
+  function showSoftphoneEnableAudioBtn(show, msg) {
+    if (spEnableAudioBtn) spEnableAudioBtn.classList.toggle('hidden', !show);
+    if (show && msg) softphoneSetStatus(msg, true);
+  }
+
+  function updateSoftphoneCallAudioModeLine() {
+    if (!spCallAudioMode) return;
+    var inCall = softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call';
+    if (!inCall) {
+      spCallAudioMode.classList.add('hidden');
+      spCallAudioMode.textContent = '';
+      return;
+    }
+    spCallAudioMode.classList.remove('hidden');
+    if (softphoneSession.webrtc) {
+      spCallAudioMode.textContent = 'Audio path: browser WebRTC → your selected headset.';
+      spCallAudioMode.classList.remove('text-amber-700', 'dark:text-amber-300');
+      spCallAudioMode.classList.add('text-emerald-700', 'dark:text-emerald-300');
+    } else if (softphoneSession.isCloudPstn) {
+      spCallAudioMode.textContent =
+        'Audio path: cloud PSTN only — no sound in this tab. Set SIGNALWIRE_SPACE_URL on the server or wait for WebRTC to connect.';
+      spCallAudioMode.classList.remove('text-emerald-700', 'dark:text-emerald-300');
+      spCallAudioMode.classList.add('text-amber-700', 'dark:text-amber-300');
+    } else {
+      spCallAudioMode.textContent = '';
+      spCallAudioMode.classList.add('hidden');
+    }
+  }
+
+  function clearSoftphoneRemoteAudioWatchdog() {
+    if (softphoneSession.remoteAudioWatchdog) {
+      clearInterval(softphoneSession.remoteAudioWatchdog);
+      softphoneSession.remoteAudioWatchdog = null;
+    }
+  }
+
+  function primeSoftphoneAudioPlayback() {
+    if (!spRemoteAudio || typeof spRemoteAudio.play !== 'function') return Promise.resolve(false);
+    spRemoteAudio.muted = true;
+    return spRemoteAudio
+      .play()
+      .then(function () {
+        try {
+          spRemoteAudio.pause();
+          spRemoteAudio.currentTime = 0;
+        } catch (_) {}
+        spRemoteAudio.muted = false;
+        softphoneSession.audioPrimed = true;
+        return true;
+      })
+      .catch(function () {
+        softphoneSession.audioPrimed = false;
+        return false;
+      });
   }
 
   function playSoftphoneRemoteAudio() {
     attachSoftphoneRemoteStream();
-    if (!spRemoteAudio || typeof spRemoteAudio.play !== 'function') return Promise.resolve();
+    if (!spRemoteAudio || typeof spRemoteAudio.play !== 'function') return Promise.resolve(false);
     spRemoteAudio.volume = 1;
     spRemoteAudio.muted = false;
-    return applySoftphoneAudioOutput(true).then(function () {
-      return spRemoteAudio.play().catch(function () {
-        softphoneSetStatus('Tap Allow mic & refresh devices in Settings, then try the call again.', true);
+    var chain = Promise.resolve();
+    if (softphoneSession.relayCall && spPreferredSpeakerId && typeof softphoneSession.relayCall.setAudioOutDevice === 'function') {
+      chain = Promise.resolve(softphoneSession.relayCall.setAudioOutDevice(spPreferredSpeakerId)).catch(function () {});
+    }
+    return chain
+      .then(function () {
+        return applySoftphoneAudioOutput(true);
+      })
+      .then(function () {
+        return spRemoteAudio.play().then(function () {
+          showSoftphoneEnableAudioBtn(false);
+          return true;
+        });
+      })
+      .catch(function () {
+        showSoftphoneEnableAudioBtn(
+          true,
+          'Browser blocked call audio. Tap “Enable call audio” in the on-call panel.',
+        );
+        return false;
       });
-    });
+  }
+
+  function applySoftphoneAudioToActiveCall() {
+    applySoftphoneMicToActiveCall();
+    return playSoftphoneRemoteAudio();
+  }
+
+  function startSoftphoneRemoteAudioWatchdog() {
+    clearSoftphoneRemoteAudioWatchdog();
+    var attempts = 0;
+    softphoneSession.remoteAudioWatchdog = setInterval(function () {
+      if (softphoneSession.state !== 'in_call' || !softphoneSession.webrtc) {
+        clearSoftphoneRemoteAudioWatchdog();
+        return;
+      }
+      attempts += 1;
+      applySoftphoneAudioToActiveCall().then(function (playing) {
+        if (playing || attempts >= 30) clearSoftphoneRemoteAudioWatchdog();
+      });
+    }, 500);
   }
 
   function applySoftphoneAudioOutput(force) {
@@ -949,8 +1051,8 @@
       webrtcClearDialWatchdog();
       if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
       softphoneSetCallState('in_call');
-      playSoftphoneRemoteAudio();
-      applySoftphoneMicToActiveCall();
+      applySoftphoneAudioToActiveCall();
+      startSoftphoneRemoteAudioWatchdog();
       softphoneSetStatus('In call (WebRTC). Using your selected mic and speakers/headset.');
     } else if (st === 'held') {
       softphoneSession.hold = true;
@@ -2282,6 +2384,7 @@
       if (state !== 'in_call' && prev !== 'in_call') softphoneSetTimerSeconds(0);
     }
     updateCallStateLabel();
+    updateSoftphoneCallAudioModeLine();
     updateStatusPill();
     updateAudioPulse();
     updateControlToggles();
@@ -2855,7 +2958,10 @@
         } else if (res.j.dialMode === 'agent_first') {
           softphoneSetStatus('Ringing you first on your mobile — answer, then the lead is dialed. Audio is on your phone (Bluetooth, etc.); this tab is only a remote.');
         } else {
-          softphoneSetStatus('Cloud call started. SignalWire is calling this number from your workspace. This tab does not play call audio. For sound here, use WebRTC if available, or set Call routing in Workspace → Phone / telephony settings.');
+          softphoneSetStatus(
+            'Cloud call started (PSTN only — no audio in this tab). For headset audio here, confirm SIGNALWIRE_SPACE_URL on Render and that Settings shows “Cloud + browser audio”.',
+            true,
+          );
         }
       });
   }
@@ -2904,7 +3010,7 @@
         softphoneDestroyWebrtc();
         var fromNum = normalizeDial(tok.fromNumber) || normalizeDial(fromPick);
         if (!fromNum) return false;
-        var remoteTarget = spRemoteAudio || 'softphoneRemoteAudio';
+        var remoteTarget = 'softphoneRemoteAudio';
         var skipDeviceIds = !!opts.skipDeviceIds;
         return softphoneRelayMicIdForDial(skipDeviceIds).then(function (micId) {
           var clientOpts = {
@@ -2993,6 +3099,9 @@
     softphoneSession.webrtcSkipDeviceRetry = false;
     softphoneSession.webrtcCloudFallback = false;
     softphoneSession.wasInCall = false;
+    softphoneSession.audioPrimed = false;
+    clearSoftphoneRemoteAudioWatchdog();
+    showSoftphoneEnableAudioBtn(false);
     softphoneResetRecordingState();
     softphoneSession.startedAtMs = 0;
     softphoneSetTimerSeconds(0);
@@ -3004,9 +3113,14 @@
       spRelayWebrtc &&
       spWorkspaceCallMode === 'cloud_dial';
     if (tryWebrtc) {
-      p = refreshSoftphoneAudioDevices({ requestPermission: true })
+      p = primeSoftphoneAudioPlayback()
         .catch(function () {
-          return refreshSoftphoneAudioDevices({ requestPermission: false });
+          return false;
+        })
+        .then(function () {
+          return refreshSoftphoneAudioDevices({ requestPermission: true }).catch(function () {
+            return refreshSoftphoneAudioDevices({ requestPermission: false });
+          });
         })
         .then(function () {
           return tryWebrtcSoftphone(to);
@@ -3904,6 +4018,16 @@
   if (spSoundcheckBtn) {
     spSoundcheckBtn.addEventListener('click', function () {
       runSoftphoneSoundcheck();
+    });
+  }
+  if (spEnableAudioBtn) {
+    spEnableAudioBtn.addEventListener('click', function () {
+      applySoftphoneAudioToActiveCall().then(function (playing) {
+        if (playing) {
+          softphoneSetStatus('Call audio enabled on your selected output.');
+          startSoftphoneRemoteAudioWatchdog();
+        }
+      });
     });
   }
   if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {

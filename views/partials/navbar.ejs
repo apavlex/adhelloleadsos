@@ -404,6 +404,8 @@
               <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500">On call</span>
               <span id="softphoneCallState" class="text-[10px] font-bold uppercase tracking-wide text-slate-700 dark:text-slate-200">Idle</span>
             </div>
+            <button type="button" id="softphoneEnableAudioBtn" class="hidden w-full mb-2 rounded-xl border-2 border-brand-yellow/70 bg-brand-yellow/20 px-3 py-2 text-[11px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/30 transition-colors">Tap to enable call audio</button>
+            <p id="softphoneCallAudioMode" class="hidden text-[10px] font-semibold text-slate-500 dark:text-slate-400 mb-2 leading-snug"></p>
             <div class="grid grid-cols-3 gap-1.5">
               <button type="button" id="softphoneMuteBtn" class="softphone-ctrl-btn" title="Toggle mute (M)">Mute</button>
               <button type="button" id="softphoneHoldBtn" class="softphone-ctrl-btn" title="Toggle hold (H)">Hold</button>
