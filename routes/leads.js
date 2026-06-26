@@ -1354,9 +1354,9 @@ router.get('/telephony/webrtc-token', async (req, res, next) => {
     )
       .trim()
       .slice(0, 200);
-    let expires = parseInt(String((req.query && req.query.expires_in) || '30'), 10);
-    if (!Number.isFinite(expires) || expires < 5) expires = 30;
-    if (expires > 120) expires = 120;
+    let expires = parseInt(String((req.query && req.query.expires_in) || '600'), 10);
+    if (!Number.isFinite(expires) || expires < 30) expires = 600;
+    if (expires > 3600) expires = 3600;
     const { token, refresh } = await signalwire.createRelayBrowserJwt({
       resource,
       expires_in: expires,

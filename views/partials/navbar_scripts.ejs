@@ -198,6 +198,8 @@
     recordingPending: false,
     pollTimer: null,
     webrtcDialWatchdog: null,
+    webrtcDialHardStop: null,
+    webrtcSkipDeviceRetry: false,
     timerTicker: null,
     startedAtMs: 0,
     stateVerbose: '',
@@ -242,6 +244,7 @@
     softphoneSession.webrtc = false;
   }
   function softphoneDestroyWebrtc() {
+    webrtcClearDialWatchdog();
     try {
       if (softphoneSession.relayCall) {
         softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true);
@@ -261,16 +264,101 @@
       clearTimeout(softphoneSession.webrtcDialWatchdog);
       softphoneSession.webrtcDialWatchdog = null;
     }
+    if (softphoneSession.webrtcDialHardStop) {
+      clearTimeout(softphoneSession.webrtcDialHardStop);
+      softphoneSession.webrtcDialHardStop = null;
+    }
+  }
+  function softphoneCancelWebrtcDial(msg, opts) {
+    opts = opts || {};
+    webrtcClearDialWatchdog();
+    try {
+      if (softphoneSession.relayCall) {
+        softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true);
+      }
+    } catch (_) {}
+    softphoneClearWebrtcSession();
+    softphoneSession.stateVerbose = '';
+    if (opts.readyToRedial) {
+      softphoneSetWrapRequired(false);
+      softphoneSetCallState('ready');
+    } else {
+      softphoneSetWrapRequired(!!opts.requireWrap);
+      softphoneSetCallState('ended');
+    }
+    softphoneSetStatus(msg || 'Call canceled.', !!opts.isError);
+  }
+  function webrtcHandleDialStuck() {
+    if (softphoneSession.state !== 'dialing' || !softphoneSession.webrtc) return;
+    webrtcClearDialWatchdog();
+    var to = String(softphoneSession.activeNumber || '').trim();
+    if (!softphoneSession.webrtcSkipDeviceRetry && to) {
+      softphoneSession.webrtcSkipDeviceRetry = true;
+      softphoneDestroyWebrtc();
+      softphoneSetCallState('dialing');
+      softphoneSetStatus('Still connecting… retrying with default mic and speakers.', true);
+      tryWebrtcSoftphone(to, { skipDeviceIds: true }).then(function (ok) {
+        if (!ok) {
+          softphoneCancelWebrtcDial(
+            'Browser audio could not connect. In Contacts: Allow mic & refresh devices, pick your headset, then call again.',
+            { readyToRedial: true, isError: true },
+          );
+        }
+      });
+      return;
+    }
+    softphoneCancelWebrtcDial(
+      'Call setup timed out. Allow mic in Contacts, pick your Bluetooth headset, hang up, and try again.',
+      { readyToRedial: true, isError: true },
+    );
   }
   function webrtcStartDialWatchdog() {
     webrtcClearDialWatchdog();
     softphoneSession.webrtcDialWatchdog = setTimeout(function () {
       if (softphoneSession.state !== 'dialing' || !softphoneSession.webrtc) return;
       softphoneSetStatus(
-        'Still in “requesting” (WebRTC is setting up the call). If this never connects: allow microphone, try another number, or switch Workspace → call routing to “Cloud dial (SignalWire).” If it persists, check SignalWire logs and browser console for errors.',
+        'Still connecting (WebRTC). Check mic permission and your headset in Contacts. Will retry with default audio if this continues.',
         true,
       );
-    }, 35000);
+    }, 20000);
+    softphoneSession.webrtcDialHardStop = setTimeout(function () {
+      webrtcHandleDialStuck();
+    }, 55000);
+  }
+  function softphoneRelayMicIdForDial(skipDeviceIds) {
+    if (skipDeviceIds || !spPreferredMicId) return Promise.resolve('');
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+      return Promise.resolve(spPreferredMicId);
+    }
+    return navigator.mediaDevices
+      .enumerateDevices()
+      .then(function (devices) {
+        var mics = (devices || []).filter(function (d) { return d && d.kind === 'audioinput'; });
+        var found = mics.some(function (d) { return d.deviceId === spPreferredMicId; });
+        if (!found) {
+          spPreferredMicId = pickBestAudioDevice(mics, 'audioinput', '');
+          saveSoftphoneAudioPrefs();
+          syncSoftphoneAudioSelectValues();
+          return spPreferredMicId || '';
+        }
+        return spPreferredMicId;
+      })
+      .catch(function () {
+        return spPreferredMicId || '';
+      });
+  }
+  function webrtcAttachCallHandlers(call) {
+    if (!call) return;
+    try {
+      if (call.errors$ && typeof call.errors$.subscribe === 'function') {
+        call.errors$.subscribe(function (err) {
+          console.error('[Softphone] WebRTC call error:', err);
+          if (softphoneSession.state !== 'dialing' && softphoneSession.state !== 'in_call') return;
+          var detail = (err && (err.message || err.code || err.error)) || 'unknown error';
+          softphoneSetStatus('WebRTC error: ' + detail + '. Check browser console or try default mic in Contacts.', true);
+        });
+      }
+    } catch (_) {}
   }
   function softphoneMicBlockedMessage(err) {
     var name = err && err.name ? String(err.name) : '';
@@ -396,10 +484,20 @@
     if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
       return Promise.reject(new Error('This browser does not support in-tab microphone access.'));
     }
-    var constraints = spPreferredMicId
-      ? { audio: { deviceId: { exact: spPreferredMicId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true } }
-      : { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
-    return navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+    function micConstraints(useExact) {
+      if (!spPreferredMicId) {
+        return { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+      }
+      return {
+        audio: {
+          deviceId: useExact ? { exact: spPreferredMicId } : { ideal: spPreferredMicId },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      };
+    }
+    function releaseStream(stream) {
       if (spLocalAudio && stream) {
         try {
           spLocalAudio.srcObject = stream;
@@ -414,7 +512,30 @@
       if (spLocalAudio) {
         try { spLocalAudio.srcObject = null; } catch (_) {}
       }
+    }
+    return navigator.mediaDevices.getUserMedia(micConstraints(true)).then(function (stream) {
+      releaseStream(stream);
       return true;
+    }).catch(function (err) {
+      if (!spPreferredMicId) throw err;
+      var retryable =
+        err &&
+        (err.name === 'OverconstrainedError' ||
+          err.name === 'NotFoundError' ||
+          err.name === 'DevicesNotFoundError');
+      if (!retryable) throw err;
+      return navigator.mediaDevices.getUserMedia(micConstraints(false)).then(function (stream) {
+        releaseStream(stream);
+        return true;
+      }).catch(function () {
+        spPreferredMicId = '';
+        saveSoftphoneAudioPrefs();
+        syncSoftphoneAudioSelectValues();
+        return navigator.mediaDevices.getUserMedia(micConstraints(false)).then(function (stream) {
+          releaseStream(stream);
+          return true;
+        });
+      });
     });
   }
 
@@ -536,7 +657,7 @@
       softphoneSession.stateVerbose = '';
       softphoneSetCallState('ended');
       softphoneSetWrapRequired(true);
-      softphoneSetStatus('Call did not connect (WebRTC: ' + (st || 'error') + '). Check the number, your SignalWire number/caller ID, and account. Complete wrap-up to try again or use “Cloud dial” in Workspace.');
+      softphoneSetStatus('Call did not connect (WebRTC: ' + (st || 'error') + '). Check the number, caller ID, mic permission in Contacts, and SignalWire logs.');
     } else if (st === 'hangup' || st === 'destroy' || st === 'purge') {
       webrtcClearDialWatchdog();
       softphoneClearWebrtcSession();
@@ -2304,10 +2425,14 @@
         }
       });
   }
-  function tryWebrtcSoftphone(to) {
+  function tryWebrtcSoftphone(to, opts) {
+    opts = opts || {};
     softphoneResetRecordingState();
     var fromPick = (spFrom && spFrom.value) || spDefaultFrom;
-    var q = '/leads/telephony/webrtc-token?fromNumber=' + encodeURIComponent(String(fromPick || ''));
+    var q =
+      '/leads/telephony/webrtc-token?fromNumber=' +
+      encodeURIComponent(String(fromPick || '')) +
+      '&expires_in=600';
     return ensureSoftphoneMicPermission()
       .catch(function (err) {
         var msg = softphoneMicBlockedMessage(err);
@@ -2336,47 +2461,58 @@
         var fromNum = normalizeDial(tok.fromNumber) || normalizeDial(fromPick);
         if (!fromNum) return false;
         var remoteTarget = spRemoteAudio || 'softphoneRemoteAudio';
-        var client = new Relay({
-          project: tok.projectId,
-          token: tok.token,
-          host: tok.host,
-          remoteElement: remoteTarget,
+        var skipDeviceIds = !!opts.skipDeviceIds;
+        return softphoneRelayMicIdForDial(skipDeviceIds).then(function (micId) {
+          var clientOpts = {
+            project: tok.projectId,
+            token: tok.token,
+            host: tok.host,
+            remoteElement: remoteTarget,
+          };
+          if (!skipDeviceIds && micId) clientOpts.micId = micId;
+          if (!skipDeviceIds && spPreferredSpeakerId) clientOpts.speakerId = spPreferredSpeakerId;
+          var client = new Relay(clientOpts);
+          softphoneSession.relayClient = client;
+          var callOpts = {
+            destinationNumber: to,
+            callerNumber: fromNum,
+            remoteCallerName: 'Outbound',
+            remoteCallerNumber: '',
+            callerName: 'AdHello',
+            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+            video: false,
+            remoteElement: remoteTarget,
+            onNotification: webrtcOnNotification,
+          };
+          if (!skipDeviceIds && micId) callOpts.micId = micId;
+          if (!skipDeviceIds && spPreferredSpeakerId) callOpts.speakerId = spPreferredSpeakerId;
+          return client
+            .connect()
+            .then(function () {
+              return applySoftphoneAudioOutput(true).then(function () {
+                return client.newCall(callOpts);
+              });
+            })
+            .then(function (call) {
+              softphoneSession.relayCall = call;
+              softphoneSession.webrtc = true;
+              softphoneSession.callSid = '';
+              softphoneStopPolling();
+              webrtcAttachCallHandlers(call);
+              webrtcStartDialWatchdog();
+              addRecentDial(to, {
+                title: softphoneSession.leadTitle,
+                leadKey: softphoneSession.leadKey,
+              });
+              softphoneSetCallState('dialing');
+              var deviceHint = skipDeviceIds
+                ? 'Using default mic and speakers.'
+                : 'Using your selected mic and speakers.';
+              softphoneSetStatus('Connecting via browser audio. ' + deviceHint);
+              softphoneSession.isCloudPstn = false;
+              return true;
+            });
         });
-        softphoneSession.relayClient = client;
-        var callOpts = {
-          destinationNumber: to,
-          callerNumber: fromNum,
-          remoteCallerName: 'Outbound',
-          remoteCallerNumber: '',
-          callerName: 'AdHello',
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-          video: false,
-          remoteElement: remoteTarget,
-          onNotification: webrtcOnNotification,
-        };
-        if (spPreferredMicId) callOpts.micId = spPreferredMicId;
-        return client
-          .connect()
-          .then(function () {
-            return applySoftphoneAudioOutput(true).then(function () {
-              return client.newCall(callOpts);
-            });
-          })
-          .then(function (call) {
-            softphoneSession.relayCall = call;
-            softphoneSession.webrtc = true;
-            softphoneSession.callSid = '';
-            softphoneStopPolling();
-            webrtcStartDialWatchdog();
-            addRecentDial(to, {
-              title: softphoneSession.leadTitle,
-              leadKey: softphoneSession.leadKey,
-            });
-            softphoneSetCallState('dialing');
-            softphoneSetStatus('WebRTC connected — allow mic if prompted. Audio plays in this browser tab.');
-            softphoneSession.isCloudPstn = false;
-            return true;
-          });
       })
       .catch(function (err) {
         if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
@@ -2399,6 +2535,7 @@
     var originalHtml = btn ? btn.innerHTML : '';
     if (btn) { btn.disabled = true; btn.innerHTML = action === 'voicemail_drop' ? 'Dropping…' : 'Dialing…'; }
     softphoneSession.stateVerbose = '';
+    softphoneSession.webrtcSkipDeviceRetry = false;
     softphoneResetRecordingState();
     softphoneSession.startedAtMs = 0;
     softphoneSetTimerSeconds(0);
