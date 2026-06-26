@@ -212,6 +212,7 @@
     isCloudPstn: false,
     leadKey: '',
     leadTitle: '',
+    wasInCall: false,
     focusDialQueue: [],
     focusDialIndex: 0,
   };
@@ -725,6 +726,17 @@
       webrtcClearDialWatchdog();
       softphoneClearWebrtcSession();
       softphoneSession.stateVerbose = '';
+      if (!softphoneSession.wasInCall) {
+        softphoneSetWrapRequired(false);
+        softphoneSetCallState('ready');
+        softphoneSetStatus(
+          'Call did not connect (WebRTC: ' +
+            (st || 'error') +
+            '). Check caller ID in Workspace → Phone bank and mic in Contacts.',
+          true,
+        );
+        return;
+      }
       softphoneSetCallState('ended');
       softphoneSetWrapRequired(true);
       softphoneSetStatus('Call did not connect (WebRTC: ' + (st || 'error') + '). Check the number, caller ID, mic permission in Contacts, and SignalWire logs.');
@@ -1994,6 +2006,7 @@
     if (spCall) spCall.disabled = needsWrap;
     if (spVm) spVm.disabled = needsWrap;
     if (state === 'in_call') {
+      softphoneSession.wasInCall = true;
       if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
       softphoneStartTimer();
     } else if (state === 'ended' || state === 'idle' || state === 'ready') {
@@ -2029,12 +2042,23 @@
   function applyCloudPollState(st, durationStr) {
     if (st === 'completed' || st === 'canceled' || st === 'failed' || st === 'busy' || st === 'no-answer') {
       softphoneSession.stateVerbose = st;
-      softphoneSetCallState('ended');
-      softphoneSetWrapRequired(true);
-      softphoneSetStatus('Call ended (' + st + '). Complete wrap-up to unlock next dial.');
       softphoneStopPolling();
       softphoneSession.isCloudPstn = false;
       softphoneResetRecordingState();
+      if (!softphoneSession.wasInCall) {
+        softphoneSetWrapRequired(false);
+        softphoneSetCallState('ready');
+        softphoneSetStatus(
+          'Call did not connect (' +
+            st +
+            '). Check caller ID in Workspace → Phone bank, then try again from Focus or the keypad.',
+          true,
+        );
+        return;
+      }
+      softphoneSetCallState('ended');
+      softphoneSetWrapRequired(true);
+      softphoneSetStatus('Call ended (' + st + '). Complete wrap-up to unlock next dial.');
       return;
     }
     softphoneSession.stateVerbose = st;
@@ -2300,7 +2324,17 @@
     opts = opts && typeof opts === 'object' ? opts : {};
     var to = normalizeDial(String(raw || ''));
     if (!to) return false;
-    softphoneSession.leadKey = opts.leadKey ? String(opts.leadKey).trim() : '';
+    var nextLeadKey = opts.leadKey ? String(opts.leadKey).trim() : '';
+    if (
+      nextLeadKey &&
+      softphoneSession.wrapRequired &&
+      softphoneSession.state === 'ended' &&
+      nextLeadKey !== String(softphoneSession.leadKey || '').trim()
+    ) {
+      softphoneSetWrapRequired(false);
+      softphoneSetCallState('ready');
+    }
+    softphoneSession.leadKey = nextLeadKey;
     softphoneSession.leadTitle = opts.title ? String(opts.title).trim() : '';
     if (!softphoneSession.leadTitle && softphoneSession.leadKey) {
       softphoneSession.leadTitle = resolveSoftphoneLeadTitle(softphoneSession.leadKey, to);
@@ -2363,6 +2397,20 @@
     return openSoftphoneWithDial(raw, opts);
   }
   window.__adhelloOpenSoftphoneWithDial = openSoftphoneWithDial;
+  window.__adhelloSetSoftphoneFocusQueue = function (items, activeKey) {
+    setSoftphoneFocusDialQueue(items);
+    var key = String(activeKey || '').trim();
+    if (key) {
+      var q = softphoneSession.focusDialQueue || [];
+      for (var i = 0; i < q.length; i++) {
+        if (String(q[i].key || '').trim() === key) {
+          softphoneSession.focusDialIndex = i;
+          break;
+        }
+      }
+    }
+    updateSoftphoneLeadNavUi();
+  };
   window.__adhelloPipelinePhoneClick = adhelloPipelinePhoneClick;
   window.__adhelloSoftphoneDialNow = function () {
     runSoftphoneAction('call');
@@ -2631,6 +2679,7 @@
     softphoneSession.stateVerbose = '';
     softphoneSession.webrtcSkipDeviceRetry = false;
     softphoneSession.webrtcCloudFallback = false;
+    softphoneSession.wasInCall = false;
     softphoneResetRecordingState();
     softphoneSession.startedAtMs = 0;
     softphoneSetTimerSeconds(0);

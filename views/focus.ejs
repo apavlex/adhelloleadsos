@@ -444,7 +444,31 @@
       return plus + digits;
     }
 
-    function openDialerForLead() {
+    function focusCallableQueue() {
+      return (queue || [])
+        .filter(function (lead) {
+          var phone = String((lead && lead.phone) || '').trim();
+          return phone && phone !== 'N/A';
+        })
+        .map(function (lead) {
+          return {
+            key: String(lead.key || '').trim(),
+            title: String(lead.title || 'Lead').trim(),
+            phone: String(lead.phone || '').trim(),
+          };
+        });
+    }
+
+    window.__getFocusCallQueueLeads = focusCallableQueue;
+
+    function syncFocusQueueToSoftphone() {
+      if (typeof window.__adhelloSetSoftphoneFocusQueue !== 'function') return;
+      var lead = currentLead();
+      window.__adhelloSetSoftphoneFocusQueue(focusCallableQueue(), lead && lead.key);
+    }
+
+    function openDialerForLead(opts) {
+      opts = opts && typeof opts === 'object' ? opts : {};
       var lead = currentLead();
       if (!lead || !String(lead.phone || '').trim()) {
         setCopyFeedback('No phone on this lead.', true);
@@ -460,21 +484,44 @@
         window.location.href = 'tel:' + to;
         return;
       }
+      syncFocusQueueToSoftphone();
+      if (typeof window.__adhelloSoftphoneGetSession === 'function') {
+        var sess = window.__adhelloSoftphoneGetSession();
+        if (sess.wrapRequired && sess.leadKey && String(sess.leadKey) === String(lead.key || '')) {
+          setCopyFeedback('Complete wrap-up in the dialer (quick log + Done) before calling this lead again.', true);
+          if (typeof window.__adhelloFocusSoftphone === 'function') window.__adhelloFocusSoftphone();
+          return;
+        }
+      }
       var navSoftphoneBtn = document.getElementById('navSoftphoneOpen') || document.getElementById('navSoftphoneOpenMobile');
       if (navSoftphoneBtn) navSoftphoneBtn.click();
       if (typeof window.__adhelloOpenSoftphoneWithDial === 'function') {
+        var autoDial = opts.autoDial !== false;
         if (!window.__adhelloOpenSoftphoneWithDial(lead.phone, {
           leadKey: lead.key,
           title: lead.title || '',
+          autoDial: autoDial,
         })) {
           setCopyFeedback('Could not normalize that phone number for the dialer.', true);
           return;
         }
-        setCopyFeedback('Dialer opened with lead number loaded. Press Call in the softphone to dial.');
+        setCopyFeedback(
+          autoDial
+            ? 'Dialing ' + (lead.title || 'lead') + ' via browser audio…'
+            : 'Dialer opened — press the green call button to dial.',
+        );
         updateDialerCta();
       } else {
         setCopyFeedback('Dialer opened. Copy phone if needed.', false);
       }
+    }
+
+    function onFocusCall() {
+      var lead = currentLead();
+      if (!lead) return;
+      if (btnCall) btnCall.disabled = true;
+      openDialerForLead({ autoDial: true });
+      if (btnCall) btnCall.disabled = false;
     }
 
     function setChannelHint() {
@@ -2008,22 +2055,7 @@
     }
 
     function onSendAdvance() {
-      var lead = currentLead();
-      if (!lead) return;
-      ensureSuggestedOutcome();
-      if (btnCall) btnCall.disabled = true;
-      placeFocusCall()
-        .then(function () { return postNote(); })
-        .then(function () { return createFollowupTaskIfRequested(); })
-        .then(function () { return maybeAdvanceStage(); })
-        .then(function () {
-          nextLead();
-          return refreshMetrics();
-        })
-        .catch(function (err) {
-          setOutcomeFeedback(err && err.message ? err.message : 'Could not complete this action.', true);
-        })
-        .finally(function () { if (btnCall) btnCall.disabled = false; });
+      onFocusCall();
     }
 
     function onLogNext() {
@@ -2038,7 +2070,7 @@
           nextLead();
           if (autoDialNext && currentLead() && String(currentLead().phone || '').trim()) {
             autoDialNext = false;
-            setTimeout(function () { openDialerForLead(); }, 300);
+            setTimeout(function () { openDialerForLead({ autoDial: true }); }, 300);
           }
           autoDialNext = false;
           return refreshMetrics();
@@ -2174,7 +2206,7 @@
       });
     }
 
-    if (btnCall) btnCall.addEventListener('click', function () { onSendAdvance(); });
+    if (btnCall) btnCall.addEventListener('click', function () { onFocusCall(); });
     if (btnPushGhl) {
       btnPushGhl.addEventListener('click', function (e) {
         if (e) {
@@ -2213,7 +2245,7 @@
           nextLead();
           var next = currentLead();
           if (next && String(next.phone || '').trim()) {
-            setTimeout(function () { openDialerForLead(); }, 300);
+            setTimeout(function () { openDialerForLead({ autoDial: true }); }, 300);
           }
           return refreshMetrics();
         })
