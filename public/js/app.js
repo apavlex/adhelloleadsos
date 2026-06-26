@@ -13328,21 +13328,22 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Select leads with phone numbers to call',
         'Selected leads have no phone number',
       );
+      const outreachCount = keys.length > 0 ? keys.length : count;
       syncPrimaryBtn(
         bulkDirectMailBtn,
         null,
-        hasSelection && keys.length > 0,
-        keys.length
-          ? `Tag ${keys.length} selected lead${keys.length === 1 ? '' : 's'} for direct mail`
+        hasSelection,
+        outreachCount
+          ? `Tag ${outreachCount} selected lead${outreachCount === 1 ? '' : 's'} for direct mail`
           : 'Select leads to queue for direct mail',
         'Select at least one lead',
       );
       syncPrimaryBtn(
         bulkPushGhlBtn,
         null,
-        hasSelection && keys.length > 0,
-        keys.length
-          ? `Sync ${keys.length} selected lead${keys.length === 1 ? '' : 's'} to Go High Level`
+        hasSelection,
+        outreachCount
+          ? `Sync ${outreachCount} selected lead${outreachCount === 1 ? '' : 's'} to Go High Level`
           : 'Select leads to sync to GHL',
         'Select at least one lead',
       );

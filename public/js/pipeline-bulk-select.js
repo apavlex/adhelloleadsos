@@ -120,6 +120,14 @@
           el.disabled = false;
         }
       });
+      if (bar.dataset.bulkMode !== 'search') {
+        ['bulkFocusModeBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn'].forEach((id) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');
+          el.setAttribute('aria-disabled', 'false');
+        });
+      }
       if (!_bulkBarVisibleForFolderRefresh) {
         refreshBulkFolderSelectEarly().catch(function () {
           rebuildBulkFolderSelectEarly();
@@ -178,14 +186,27 @@
     return out;
   }
 
-  function collectFocusSelectionKeys() {
+  function collectSelectedLeadKeysEarly() {
+    const out = [];
+    const seen = new Set();
+    const add = (raw) => {
+      const k = String(raw || '').trim();
+      if (!k || seen.has(k)) return;
+      seen.add(k);
+      out.push(k);
+    };
     if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
-      const keys = window.__getSelectedLeadKeysForBulk();
-      if (keys.length) {
-        return keys.map(normalizeFocusLeadKey).filter(Boolean);
-      }
+      window.__getSelectedLeadKeysForBulk().forEach(add);
     }
-    return collectSelectedLeadKeysFromDom().map(normalizeFocusLeadKey).filter(Boolean);
+    if (typeof window.__ensureBulkSelectionKeys === 'function') {
+      window.__ensureBulkSelectionKeys().forEach(add);
+    }
+    collectSelectedLeadKeysFromDom().forEach(add);
+    return out;
+  }
+
+  function collectFocusSelectionKeys() {
+    return collectSelectedLeadKeysEarly().map(normalizeFocusLeadKey).filter(Boolean);
   }
 
   function persistFocusSelectionKeys(keys) {
@@ -235,6 +256,7 @@
   }
 
   window.__normalizeFocusLeadKey = normalizeFocusLeadKey;
+  window.__collectSelectedLeadKeysEarly = collectSelectedLeadKeysEarly;
   window.__collectFocusSelectionKeys = collectFocusSelectionKeys;
   window.__persistFocusSelectionKeys = persistFocusSelectionKeys;
   window.__buildFocusSelectionUrl = buildFocusSelectionUrl;
@@ -853,18 +875,6 @@
     else el.classList.add('text-sky-200');
   }
 
-  function collectSelectedLeadKeysEarly() {
-    if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
-      const keys = window.__getSelectedLeadKeysForBulk();
-      if (keys.length) return keys;
-    }
-    if (typeof window.__ensureBulkSelectionKeys === 'function') {
-      const keys = window.__ensureBulkSelectionKeys();
-      if (keys.length) return keys;
-    }
-    return collectSelectedLeadKeysFromDom();
-  }
-
   function collectPhoneLeadKeysEarly() {
     const keys = [];
     const seen = new Set();
@@ -1194,9 +1204,12 @@
         if (e.target.closest('#bulkDirectMailBtn')) {
           e.preventDefault();
           e.stopPropagation();
-          const keys = collectFocusSelectionKeys();
-          if (!keys.length) return;
           const mailBtn = document.getElementById('bulkDirectMailBtn');
+          const keys = collectSelectedLeadKeysEarly();
+          if (!keys.length) {
+            showBulkBarFeedbackEarly('Select at least one lead.', 'error');
+            return;
+          }
           const n = keys.length;
           if (typeof window.showBulkActionConfirmation === 'function') {
             window.showBulkActionConfirmation(
