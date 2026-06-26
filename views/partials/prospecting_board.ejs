@@ -192,6 +192,8 @@
   <% } %>
 </div>
 
+<%- include('/partials/lmv_prospecting_methods', { lmvProspectingMethods: typeof lmvProspectingMethods !== 'undefined' ? lmvProspectingMethods : [] }) %>
+
 <div class="brand-card pipeline-search-card dark:bg-slate-900 dark:border-white/10 mb-8 overflow-visible">
   <div class="px-5 py-3 md:px-6 md:py-4 border-b border-brand-border/30 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -359,7 +361,5 @@
 <p class="text-[11px] font-medium text-brand-muted dark:text-slate-400 mb-10 max-w-2xl leading-relaxed">
   CSV / XLSX import maps common export columns into saved leads — e.g. <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">business</code> / <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">company_name</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">phone</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">website_url</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">area</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">social_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">source_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">why_prospect</code>, plus Agency-style GBP fields. Rows with the same email in this workspace merge into one lead; re-import to backfill fields that were missing before.
 </p>
-
-<%- include('/partials/lmv_prospecting_methods', { lmvProspectingMethods: typeof lmvProspectingMethods !== 'undefined' ? lmvProspectingMethods : [] }) %>
 
 <%- include('/partials/leads_pipeline_core') %>
