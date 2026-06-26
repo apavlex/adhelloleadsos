@@ -2813,6 +2813,18 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   border-color: rgba(100, 116, 139, 0.45);
 }
 
+.softphone-settings-section {
+  padding: 0.85rem 0.9rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.dark .softphone-settings-section {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(30, 41, 59, 0.55);
+}
+
 .softphone-status-pill,
 .softphone-timer-pill {
   display: inline-flex;

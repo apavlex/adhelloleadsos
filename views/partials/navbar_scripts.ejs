@@ -122,6 +122,7 @@
   var spModeLine = document.getElementById('softphoneModeLine');
   var spCallModeSelect = document.getElementById('softphoneCallModeSelect');
   var spCallModeSaveHint = document.getElementById('softphoneCallModeSaveHint');
+  var spAgentPhone = document.getElementById('softphoneAgentPhone');
   var spCallModeLocked = !!(spCallModeSelect && spCallModeSelect.disabled);
   var spOpen = document.getElementById('navSoftphoneOpen');
   var spOpenIcon = spOpen ? spOpen.querySelector('svg') : null;
@@ -373,7 +374,7 @@
       return;
     }
     softphoneCancelWebrtcDial(
-      'Call setup timed out. Check Workspace → Phone bank (caller ID must be a SignalWire number), allow mic in Contacts, then try again.',
+      'Call setup timed out. Check Workspace → Phone bank (caller ID must be a SignalWire number), allow mic in Settings, then try again.',
       { readyToRedial: true, isError: true },
     );
   }
@@ -388,7 +389,7 @@
       softphoneSetStatus(
         phase === 2
           ? 'Still connecting on retry… will switch to cloud dial if this continues.'
-          : 'Still connecting. Check mic in Contacts and that “Calling from” is a SignalWire number. Retrying with default audio soon.',
+          : 'Still connecting. Check mic in Settings and that “Calling from” is a SignalWire number. Retrying with default audio soon.',
         true,
       );
     }, warnMs);
@@ -426,7 +427,7 @@
           console.error('[Softphone] WebRTC call error:', err);
           if (softphoneSession.state !== 'dialing' && softphoneSession.state !== 'in_call') return;
           var detail = (err && (err.message || err.code || err.error)) || 'unknown error';
-          softphoneSetStatus('WebRTC error: ' + detail + '. Check browser console or try default mic in Contacts.', true);
+          softphoneSetStatus('WebRTC error: ' + detail + '. Check browser console or try default mic in Settings.', true);
         });
       }
     } catch (_) {}
@@ -629,7 +630,7 @@
     spRemoteAudio.muted = false;
     return applySoftphoneAudioOutput(true).then(function () {
       return spRemoteAudio.play().catch(function () {
-        softphoneSetStatus('Tap Allow mic & refresh devices in Contacts, then try the call again.', true);
+        softphoneSetStatus('Tap Allow mic & refresh devices in Settings, then try the call again.', true);
       });
     });
   }
@@ -732,14 +733,14 @@
         softphoneSetStatus(
           'Call did not connect (WebRTC: ' +
             (st || 'error') +
-            '). Check caller ID in Workspace → Phone bank and mic in Contacts.',
+            '). Check caller ID in Workspace → Phone bank and mic in Settings.',
           true,
         );
         return;
       }
       softphoneSetCallState('ended');
       softphoneSetWrapRequired(true);
-      softphoneSetStatus('Call did not connect (WebRTC: ' + (st || 'error') + '). Check the number, caller ID, mic permission in Contacts, and SignalWire logs.');
+      softphoneSetStatus('Call did not connect (WebRTC: ' + (st || 'error') + '). Check the number, caller ID, mic permission in Settings, and SignalWire logs.');
     } else if (st === 'hangup' || st === 'destroy' || st === 'purge') {
       webrtcClearDialWatchdog();
       softphoneClearWebrtcSession();
@@ -1690,7 +1691,7 @@
     var m = String(mode || '').trim() || 'cloud_dial';
     if (m === 'cloud_dial') {
       if (hasRelayWebrtc) {
-        return 'Call routing: Cloud + browser audio — pick your Bluetooth headset under Contacts → Browser audio, then call.';
+        return 'Call routing: Cloud + browser audio — pick your Bluetooth headset in Settings, then call.';
       }
       return 'Call routing: Cloud (SignalWire) — the server places the call. No in-tab audio until WebRTC is configured (Workspace phone bank + SIGNALWIRE_SPACE_URL on the server).';
     }
@@ -1711,13 +1712,28 @@
     if (v === 'browser_device') return 'My device dialer';
     return 'Cloud dial';
   }
+  function updateSoftphoneSettingsPanels() {
+    var mode = String(spWorkspaceCallMode || 'cloud_dial').trim();
+    var spAgentPhoneWrap = document.getElementById('softphoneAgentPhoneWrap');
+    var spBrowserAudioSection = document.getElementById('softphoneBrowserAudioSection');
+    var spSettingsModeDetail = document.getElementById('softphoneSettingsModeDetail');
+    if (spAgentPhoneWrap) spAgentPhoneWrap.classList.toggle('hidden', mode !== 'agent_first');
+    if (spBrowserAudioSection) spBrowserAudioSection.classList.toggle('hidden', mode === 'browser_device');
+    if (spSettingsModeDetail) {
+      spSettingsModeDetail.textContent = softphoneModeDescription(mode, spRelayWebrtc).replace(/^Call routing:\s*/i, '');
+    }
+  }
   function updateSoftphoneCallModeUi() {
     if (spCallModeSelect) spCallModeSelect.value = spWorkspaceCallMode || 'cloud_dial';
     if (spModeLine) spModeLine.textContent = softphoneModeDescription(spWorkspaceCallMode, spRelayWebrtc);
+    updateSoftphoneSettingsPanels();
     var wbtn = document.getElementById('callRoutingWalkthroughSoftphoneBtn');
     if (wbtn) {
-      wbtn.textContent = 'Guided setup · ' + callRoutingModeShortLabel(spWorkspaceCallMode);
+      wbtn.textContent = 'Guided setup for call routing · ' + callRoutingModeShortLabel(spWorkspaceCallMode);
     }
+  }
+  function openSoftphoneSettingsTab() {
+    setSoftphoneTab('settings');
   }
   function softphoneAnnounce(msg) {
     if (!spLive) return;
@@ -2297,6 +2313,9 @@
           relayWebrtcAvailable: !!res.j.relayWebrtcAvailable,
         };
         updateSoftphoneCallModeUi();
+        if (spAgentPhone && res.j.agentPhone != null) {
+          spAgentPhone.value = String(res.j.agentPhone || '').trim();
+        }
         if (!spFrom) return;
         var options = Array.isArray(res.j.options) ? res.j.options : [];
         var active = String(res.j.activeFromNumber || '').trim();
@@ -2710,7 +2729,7 @@
         if (spMicStatus && /microphone blocked|not support/i.test(String(spMicStatus.textContent || ''))) {
           throw new Error(String(spMicStatus.textContent || 'Microphone access is required for browser audio.'));
         }
-        softphoneSetStatus('Browser audio failed — falling back to server dial (no sound in this tab). In Contacts: Allow mic, pick your Bluetooth headset, then call again.', true);
+        softphoneSetStatus('Browser audio failed — falling back to server dial (no sound in this tab). In Settings: Allow mic, pick your Bluetooth headset, then call again.', true);
         return startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
       });
     } else if (action === 'call' && spWorkspaceCallMode === 'cloud_dial' && !spRelayWebrtc) {
@@ -3111,10 +3130,13 @@
       btn.classList.toggle('softphone-nav-btn--active', on);
       btn.setAttribute('aria-selected', on ? 'true' : 'false');
     });
+    var spSettingsBtn = document.getElementById('softphoneSettingsBtn');
+    if (spSettingsBtn) spSettingsBtn.classList.toggle('softphone-chrome-btn--active', name === 'settings');
     try { localStorage.setItem(SOFTPHONE_TAB_KEY, name); } catch (_) {}
     if (name === 'recents') renderRecentDials();
-    if (name === 'contacts') {
-      renderSoftphoneFocusContacts();
+    if (name === 'contacts') renderSoftphoneFocusContacts();
+    if (name === 'settings') {
+      updateSoftphoneSettingsPanels();
       refreshSoftphoneAudioDevices({ requestPermission: false }).catch(function () {});
     }
     if (name === 'queue') renderSoftphoneCallQueue();
@@ -3230,23 +3252,18 @@
     });
   }
 
-  if (spChangeFrom && spFrom) {
-    spChangeFrom.addEventListener('click', function () {
-      setSoftphoneTab('contacts');
-      try {
-        spFrom.classList.remove('sr-only');
-        spFrom.focus();
-        spFrom.addEventListener(
-          'blur',
-          function onBlur() {
-            spFrom.classList.add('sr-only');
-            spFrom.removeEventListener('blur', onBlur);
-          },
-          { once: true },
-        );
-      } catch (_) {
-        spFrom.focus();
-      }
+  if (spChangeFrom) {
+    spChangeFrom.addEventListener('click', openSoftphoneSettingsTab);
+  }
+  var spModeSettingsLink = document.getElementById('softphoneModeSettingsLink');
+  if (spModeSettingsLink) {
+    spModeSettingsLink.addEventListener('click', openSoftphoneSettingsTab);
+  }
+  var spSettingsBtn = document.getElementById('softphoneSettingsBtn');
+  if (spSettingsBtn) {
+    spSettingsBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      openSoftphoneSettingsTab();
     });
   }
 
@@ -3376,8 +3393,39 @@
         })
         .finally(function () {
           spCallModeSelect.disabled = spCallModeLocked;
+          updateSoftphoneSettingsPanels();
         });
     });
+  }
+  var spAgentPhoneSaveTimer = null;
+  function saveSoftphoneAgentPhone() {
+    if (!spAgentPhone || spCallModeLocked) return;
+    clearTimeout(spAgentPhoneSaveTimer);
+    spAgentPhoneSaveTimer = setTimeout(function () {
+      var hint = document.getElementById('softphoneAgentPhoneHint');
+      if (hint) hint.textContent = 'Saving…';
+      fetch('/workspace/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ agentPhone: spAgentPhone.value || '' }),
+      })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Could not save agent phone.');
+          }
+          if (hint) {
+            hint.textContent = 'Your phone rings first; when you answer, the lead is connected.';
+          }
+        })
+        .catch(function (err) {
+          if (hint) hint.textContent = (err && err.message) || 'Could not save agent phone.';
+        });
+    }, 450);
+  }
+  if (spAgentPhone) {
+    spAgentPhone.addEventListener('change', saveSoftphoneAgentPhone);
+    spAgentPhone.addEventListener('blur', saveSoftphoneAgentPhone);
   }
   function softphoneIsVisible() {
     return !!(spModal && !spModal.classList.contains('hidden'));
@@ -3498,7 +3546,7 @@
   if (spSpeaker) {
     spSpeaker.addEventListener('click', function () {
       if (!spSpeakerSelect || !spSpeakerSelect.options || spSpeakerSelect.options.length <= 1) {
-        setSoftphoneTab('contacts');
+        openSoftphoneSettingsTab();
         runSoftphoneMicSpeakerTest();
         return;
       }
@@ -3508,7 +3556,7 @@
         if (o && o.value) opts.push(o);
       }
       if (!opts.length) {
-        setSoftphoneTab('contacts');
+        openSoftphoneSettingsTab();
         runSoftphoneMicSpeakerTest();
         return;
       }
