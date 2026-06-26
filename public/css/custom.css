@@ -1568,14 +1568,19 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   background: var(--brand-card-bg) !important;
 }
 
-/* Pipeline "Columns" menu — anchored dropdown under Columns button */
+/* Pipeline "Columns" menu — portaled fixed dropdown (above sticky table header) */
 .js-pipeline-columns-wrap {
   position: relative;
+  z-index: 20;
+}
+
+.js-pipeline-columns-wrap--open {
+  z-index: 10051;
 }
 
 .pipeline-columns-popover,
 #pipelineColumnsPopover {
-  z-index: 10000 !important;
+  z-index: 10050 !important;
   background-color: #ffffff !important;
   background: #ffffff !important;
   color: var(--brand-dark);
@@ -1583,11 +1588,7 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   -webkit-backdrop-filter: none !important;
   isolation: isolate;
   opacity: 1 !important;
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  left: auto;
-  bottom: auto;
+  position: fixed;
   box-shadow:
     0 20px 40px -12px rgba(17, 24, 39, 0.18),
     0 8px 16px -8px rgba(17, 24, 39, 0.1);

@@ -755,6 +755,37 @@ document.addEventListener('DOMContentLoaded', () => {
         table.querySelectorAll('.lead-contact-row-domain').forEach((el) => {
           el.classList.toggle('hidden', !pipelineColVisible(map, 'domain'));
         });
+        syncLiveColumnCss(map);
+      }
+
+      function syncLiveColumnCss(map) {
+        let el = document.getElementById('pipelineColVisLive');
+        if (!el) {
+          el = document.createElement('style');
+          el.id = 'pipelineColVisLive';
+          document.head.appendChild(el);
+        }
+        const css = [];
+        PLC_META.forEach(({ id }) => {
+          const on = pipelineColVisible(map, id);
+          css.push(
+            `#prospectLeadsTable [data-plc="${id}"]{display:${on ? 'table-cell' : 'none'}!important}`,
+          );
+        });
+        const groupOn = contactGroupVisible(map);
+        css.push(
+          `#prospectLeadsTable [data-plc="contactGroup"]{display:${groupOn ? 'table-cell' : 'none'}!important}`,
+        );
+        css.push(
+          `#prospectLeadsTable .lead-contact-row-phone{display:${pipelineColVisible(map, 'phone') ? 'flex' : 'none'}!important}`,
+        );
+        css.push(
+          `#prospectLeadsTable .lead-contact-row-email{display:${pipelineColVisible(map, 'email') ? 'flex' : 'none'}!important}`,
+        );
+        css.push(
+          `#prospectLeadsTable .lead-contact-row-domain{display:${pipelineColVisible(map, 'domain') ? 'flex' : 'none'}!important}`,
+        );
+        el.textContent = css.join('\n');
       }
 
       function applyWidths(obj) {
@@ -816,6 +847,12 @@ document.addEventListener('DOMContentLoaded', () => {
             applyVisibility(vis);
             scheduleSyncPipelineStickyOffsets();
           });
+          cb.addEventListener('input', () => {
+            vis[id] = cb.checked;
+            saveVis(vis);
+            applyVisibility(vis);
+            scheduleSyncPipelineStickyOffsets();
+          });
           wrap.appendChild(cb);
           const span = document.createElement('span');
           span.textContent = label;
@@ -825,16 +862,34 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const colWrap = colBtn.closest('.js-pipeline-columns-wrap');
-      if (colWrap && pop.parentElement !== colWrap) {
-        colWrap.appendChild(pop);
+
+      function positionColumnsPopover() {
+        if (pop.parentElement !== document.body) {
+          document.body.appendChild(pop);
+        }
+        const rect = colBtn.getBoundingClientRect();
+        pop.style.position = 'fixed';
+        pop.style.top = `${Math.round(rect.bottom + 8)}px`;
+        pop.style.right = `${Math.max(12, Math.round(window.innerWidth - rect.right))}px`;
+        pop.style.left = 'auto';
+        pop.style.bottom = 'auto';
+        pop.style.zIndex = '10050';
+        pop.style.width = 'min(calc(100vw - 2rem), 17rem)';
       }
-      ['position', 'top', 'left', 'right', 'bottom'].forEach((key) => {
-        pop.style.removeProperty(key);
-      });
+
+      function repositionColumnsPopoverIfOpen() {
+        if (pop.classList.contains('hidden')) return;
+        positionColumnsPopover();
+        applyColumnsPopoverSurface();
+      }
+
+      window.addEventListener('resize', repositionColumnsPopoverIfOpen, { passive: true });
+      window.addEventListener('scroll', repositionColumnsPopoverIfOpen, { passive: true, capture: true });
 
       function closePop() {
         pop.classList.add('hidden');
         colBtn.setAttribute('aria-expanded', 'false');
+        if (colWrap) colWrap.classList.remove('js-pipeline-columns-wrap--open');
       }
 
       function pipelineColumnsPopoverSolidBg() {
@@ -856,10 +911,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       function openColumnsPopover() {
         ensureColumnCheckboxesBuilt();
+        positionColumnsPopover();
         applyColumnsPopoverSurface();
         pop.classList.remove('hidden');
         colBtn.setAttribute('aria-expanded', 'true');
+        if (colWrap) colWrap.classList.add('js-pipeline-columns-wrap--open');
         requestAnimationFrame(function () {
+          positionColumnsPopover();
           applyColumnsPopoverSurface();
         });
       }
