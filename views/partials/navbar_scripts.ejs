@@ -177,12 +177,18 @@
   var spRemoteAudio = document.getElementById('softphoneRemoteAudio');
   var spLocalAudio = document.getElementById('softphoneLocalAudio');
   var spTestMicBtn = document.getElementById('softphoneTestMicBtn');
+  var spSoundcheckBtn = document.getElementById('softphoneSoundcheckBtn');
+  var spSoundcheckAudio = document.getElementById('softphoneSoundcheckAudio');
+  var spMicLevelWrap = document.getElementById('softphoneMicLevelWrap');
+  var spMicLevelFill = document.getElementById('softphoneMicLevelFill');
+  var spMicLevelLabel = document.getElementById('softphoneMicLevelLabel');
   var spMicSelect = document.getElementById('softphoneMicSelect');
   var spSpeakerSelect = document.getElementById('softphoneSpeakerSelect');
   var spMicStatus = document.getElementById('softphoneMicStatus');
   var spPreferredMicId = '';
   var spPreferredSpeakerId = '';
   var SOFTPHONE_AUDIO_PREFS_KEY = 'adhelloSoftphoneAudioPrefs';
+  var softphoneSoundcheckState = { active: false, cancel: false, raf: null };
   var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
   var spRelayWebrtc = false;
   var spSignalwireNumbers = [];
@@ -668,6 +674,243 @@
     spMicStatus.classList.toggle('dark:text-emerald-300', !!msg && !isError);
   }
 
+  function setSoftphoneMicLevelUi(level, label) {
+    var pct = Math.max(0, Math.min(100, Math.round((Number(level) || 0) * 100)));
+    if (spMicLevelFill) spMicLevelFill.style.width = pct + '%';
+    if (spMicLevelLabel && label != null) spMicLevelLabel.textContent = label;
+  }
+
+  function stopSoftphoneSoundcheck(opts) {
+    opts = opts || {};
+    softphoneSoundcheckState.cancel = true;
+    if (softphoneSoundcheckState.raf) {
+      cancelAnimationFrame(softphoneSoundcheckState.raf);
+      softphoneSoundcheckState.raf = null;
+    }
+    if (softphoneSoundcheckState.stream && softphoneSoundcheckState.stream.getTracks) {
+      softphoneSoundcheckState.stream.getTracks().forEach(function (track) {
+        try { track.stop(); } catch (_) {}
+      });
+    }
+    softphoneSoundcheckState.stream = null;
+    if (softphoneSoundcheckState.audioCtx) {
+      try { softphoneSoundcheckState.audioCtx.close(); } catch (_) {}
+      softphoneSoundcheckState.audioCtx = null;
+    }
+    if (spSoundcheckAudio) {
+      try {
+        spSoundcheckAudio.pause();
+        spSoundcheckAudio.srcObject = null;
+      } catch (_) {}
+    }
+    if (opts.hideMeter !== false && spMicLevelWrap) spMicLevelWrap.classList.add('hidden');
+    if (opts.hideMeter !== false) setSoftphoneMicLevelUi(0, 'Waiting…');
+    softphoneSoundcheckState.active = false;
+  }
+
+  function softphoneSoundcheckMicConstraints() {
+    if (!spPreferredMicId) {
+      return { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } };
+    }
+    return {
+      audio: {
+        deviceId: { ideal: spPreferredMicId },
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      },
+    };
+  }
+
+  function playSoftphoneSpeakerTestTone(sinkId) {
+    return new Promise(function (resolve, reject) {
+      if (softphoneSoundcheckState.cancel) {
+        resolve({ skipped: true });
+        return;
+      }
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (!AudioCtx) {
+        reject(new Error('Web Audio is not supported in this browser.'));
+        return;
+      }
+      if (!spSoundcheckAudio) {
+        reject(new Error('Soundcheck audio is unavailable.'));
+        return;
+      }
+      var ctx = new AudioCtx();
+      softphoneSoundcheckState.audioCtx = ctx;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      var dest = ctx.createMediaStreamDestination();
+      gain.gain.value = 0.22;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.setValueAtTime(554.37, ctx.currentTime + 0.35);
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.7);
+      osc.connect(gain);
+      gain.connect(dest);
+      spSoundcheckAudio.srcObject = dest.stream;
+      spSoundcheckAudio.volume = 1;
+      spSoundcheckAudio.muted = false;
+      var route = Promise.resolve();
+      if (sinkId && typeof spSoundcheckAudio.setSinkId === 'function') {
+        route = spSoundcheckAudio.setSinkId(sinkId);
+      }
+      route
+        .then(function () {
+          if (softphoneSoundcheckState.cancel) {
+            resolve({ skipped: true });
+            return;
+          }
+          return spSoundcheckAudio.play();
+        })
+        .then(function () {
+          if (softphoneSoundcheckState.cancel) {
+            resolve({ skipped: true });
+            return;
+          }
+          osc.start(ctx.currentTime);
+          osc.stop(ctx.currentTime + 1.05);
+          setTimeout(function () {
+            try {
+              spSoundcheckAudio.pause();
+              spSoundcheckAudio.srcObject = null;
+            } catch (_) {}
+            try { ctx.close(); } catch (_) {}
+            if (softphoneSoundcheckState.audioCtx === ctx) softphoneSoundcheckState.audioCtx = null;
+            resolve({ played: true, sinkRouted: !!sinkId });
+          }, 1150);
+        })
+        .catch(reject);
+    });
+  }
+
+  function runSoftphoneMicLevelTest(durationMs) {
+    durationMs = Math.max(1500, parseInt(durationMs, 10) || 3500);
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      return Promise.reject(new Error('This browser does not support microphone access.'));
+    }
+    if (spMicLevelWrap) spMicLevelWrap.classList.remove('hidden');
+    setSoftphoneMicLevelUi(0, 'Listening…');
+    return navigator.mediaDevices.getUserMedia(softphoneSoundcheckMicConstraints()).then(function (stream) {
+      if (softphoneSoundcheckState.cancel) {
+        stream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (_) {}
+        });
+        return { maxLevel: 0, heard: false, cancelled: true };
+      }
+      softphoneSoundcheckState.stream = stream;
+      var AudioCtx = window.AudioContext || window.webkitAudioContext;
+      var ctx = new AudioCtx();
+      softphoneSoundcheckState.audioCtx = ctx;
+      var src = ctx.createMediaStreamSource(stream);
+      var analyser = ctx.createAnalyser();
+      analyser.fftSize = 512;
+      analyser.smoothingTimeConstant = 0.35;
+      src.connect(analyser);
+      var data = new Uint8Array(analyser.frequencyBinCount);
+      var maxLevel = 0;
+      var started = Date.now();
+      return new Promise(function (resolve) {
+        function tick() {
+          if (softphoneSoundcheckState.cancel) {
+            stream.getTracks().forEach(function (track) {
+              try { track.stop(); } catch (_) {}
+            });
+            try { ctx.close(); } catch (_) {}
+            resolve({ maxLevel: maxLevel, heard: maxLevel > 0.06, cancelled: true });
+            return;
+          }
+          analyser.getByteFrequencyData(data);
+          var sum = 0;
+          for (var i = 0; i < data.length; i++) sum += data[i];
+          var level = sum / data.length / 255;
+          if (level > maxLevel) maxLevel = level;
+          var label = level > 0.45 ? 'Strong' : level > 0.12 ? 'Good' : level > 0.04 ? 'Quiet' : 'Silent';
+          setSoftphoneMicLevelUi(level, label);
+          if (Date.now() - started < durationMs) {
+            softphoneSoundcheckState.raf = requestAnimationFrame(tick);
+            return;
+          }
+          stream.getTracks().forEach(function (track) {
+            try { track.stop(); } catch (_) {}
+          });
+          softphoneSoundcheckState.stream = null;
+          try { ctx.close(); } catch (_) {}
+          if (softphoneSoundcheckState.audioCtx === ctx) softphoneSoundcheckState.audioCtx = null;
+          resolve({ maxLevel: maxLevel, heard: maxLevel > 0.06 });
+        }
+        tick();
+      });
+    });
+  }
+
+  function runSoftphoneSoundcheck() {
+    if (softphoneSoundcheckState.active) {
+      stopSoftphoneSoundcheck();
+      return Promise.resolve();
+    }
+    if (!spSoundcheckBtn) return Promise.resolve();
+    softphoneSoundcheckState.active = true;
+    softphoneSoundcheckState.cancel = false;
+    var original = spSoundcheckBtn.textContent;
+    spSoundcheckBtn.disabled = true;
+    if (spTestMicBtn) spTestMicBtn.disabled = true;
+    spSoundcheckBtn.textContent = 'Running…';
+    setSoftphoneMicStatus('Step 1/3 — refreshing devices…', false);
+
+    return refreshSoftphoneAudioDevices({ requestPermission: true })
+      .then(function (result) {
+        if (softphoneSoundcheckState.cancel) return null;
+        var summary = softphoneAudioDeviceSummary(result.mics, result.speakers);
+        setSoftphoneMicStatus('Step 2/3 — playing test tone in ' + summary.spkLabel + '…', false);
+        softphoneSetStatus('Soundcheck: listen for three beeps in your headset or speakers.');
+        return playSoftphoneSpeakerTestTone(spPreferredSpeakerId).then(function (toneResult) {
+          return { summary: summary, toneResult: toneResult || {} };
+        });
+      })
+      .then(function (payload) {
+        if (!payload || softphoneSoundcheckState.cancel) return null;
+        setSoftphoneMicStatus('Step 3/3 — speak now. Checking mic on ' + payload.summary.micLabel + '…', false);
+        softphoneSetStatus('Soundcheck: say “testing one two three” while the mic meter moves.');
+        return runSoftphoneMicLevelTest(4000).then(function (micResult) {
+          return { summary: payload.summary, toneResult: payload.toneResult, micResult: micResult || {} };
+        });
+      })
+      .then(function (payload) {
+        if (!payload || softphoneSoundcheckState.cancel) return;
+        var heardMic = !!payload.micResult.heard;
+        var sinkNote =
+          payload.toneResult && payload.toneResult.sinkRouted
+            ? 'Tone routed to ' + payload.summary.spkLabel + '.'
+            : 'Tone played on default output (this browser may not route to a specific headset).';
+        var micNote = heardMic
+          ? 'Mic is picking up sound on ' + payload.summary.micLabel + '.'
+          : 'No mic input detected on ' +
+            payload.summary.micLabel +
+            '. Check Mac System Settings → Sound → Input, or pick a different mic above.';
+        var webrtcNote = spRelayWebrtc
+          ? ' WebRTC is ready — place a call to use this headset in-browser.'
+          : ' Note: in-tab call audio still needs WebRTC on the server (SIGNALWIRE_SPACE_URL). Soundcheck only verifies your browser + headset.';
+        setSoftphoneMicStatus(sinkNote + ' ' + micNote, !heardMic);
+        softphoneSetStatus(
+          (heardMic ? 'Soundcheck passed.' : 'Soundcheck finished with mic warnings.') + webrtcNote,
+          !heardMic,
+        );
+      })
+      .catch(function (err) {
+        var msg = softphoneMicBlockedMessage(err);
+        setSoftphoneMicStatus(msg, true);
+        softphoneSetStatus(msg, true);
+      })
+      .finally(function () {
+        stopSoftphoneSoundcheck({ hideMeter: false });
+        spSoundcheckBtn.disabled = false;
+        if (spTestMicBtn) spTestMicBtn.disabled = false;
+        spSoundcheckBtn.textContent = original;
+      });
+  }
+
   function runSoftphoneMicSpeakerTest() {
     if (!spTestMicBtn) return Promise.resolve();
     var original = spTestMicBtn.textContent;
@@ -680,7 +923,7 @@
         var btHint = /bluetooth|airpod|headset|headphone|buds/i.test(summary.micLabel + summary.spkLabel)
           ? ' Bluetooth headset detected.'
           : '';
-        setSoftphoneMicStatus('Mic: ' + summary.micLabel + ' · Hear: ' + summary.spkLabel + btHint, false);
+        setSoftphoneMicStatus('Mic: ' + summary.micLabel + ' · Hear: ' + summary.spkLabel + btHint + ' Tap Run soundcheck to play a test tone.', false);
         softphoneSetStatus('Audio devices ready. Place a call — voice routes through your selected mic and speakers.');
         return applySoftphoneAudioOutput(true);
       })
@@ -3656,6 +3899,11 @@
   if (spTestMicBtn) {
     spTestMicBtn.addEventListener('click', function () {
       runSoftphoneMicSpeakerTest();
+    });
+  }
+  if (spSoundcheckBtn) {
+    spSoundcheckBtn.addEventListener('click', function () {
+      runSoftphoneSoundcheck();
     });
   }
   if (navigator.mediaDevices && typeof navigator.mediaDevices.addEventListener === 'function') {

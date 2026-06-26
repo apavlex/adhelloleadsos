@@ -336,6 +336,7 @@
       <div id="softphoneLiveAnnouncer" class="sr-only" role="status" aria-live="polite"></div>
       <audio id="softphoneRemoteAudio" autoplay playsinline class="sr-only" aria-hidden="true"></audio>
       <audio id="softphoneLocalAudio" autoplay playsinline muted class="sr-only" aria-hidden="true"></audio>
+      <audio id="softphoneSoundcheckAudio" autoplay playsinline class="sr-only" aria-hidden="true"></audio>
 
       <div class="softphone-body flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f7f7f8] dark:bg-slate-900">
         <div id="softphoneTabKeypad" class="softphone-tab-panel flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 pt-3 pb-4" data-tab="keypad">
@@ -517,8 +518,19 @@
             <select id="softphoneSpeakerSelect" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-semibold text-slate-800 dark:text-white mb-2">
               <option value="">Default speakers</option>
             </select>
-            <button type="button" id="softphoneTestMicBtn" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-bold text-slate-800 dark:text-white hover:border-brand-yellow/50 transition-colors">Allow mic &amp; refresh devices</button>
-            <p id="softphoneMicStatus" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug" role="status" aria-live="polite">Pair your Bluetooth headset, pick mic and speakers above, then place a call.</p>
+            <button type="button" id="softphoneSoundcheckBtn" class="w-full rounded-xl border-2 border-brand-yellow/70 bg-brand-yellow/15 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Run soundcheck</button>
+            <p id="softphoneSoundcheckHint" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug">Plays a test tone in your headset, then checks mic levels. Use this before your first call.</p>
+            <div id="softphoneMicLevelWrap" class="hidden mt-2">
+              <div class="flex items-center justify-between gap-2 mb-1">
+                <span class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Mic level</span>
+                <span id="softphoneMicLevelLabel" class="text-[10px] font-semibold text-slate-500 dark:text-slate-400">Waiting…</span>
+              </div>
+              <div class="softphone-soundcheck-meter" aria-hidden="true">
+                <div id="softphoneMicLevelFill" class="softphone-soundcheck-meter-fill" style="width:0%"></div>
+              </div>
+            </div>
+            <button type="button" id="softphoneTestMicBtn" class="w-full mt-2 rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 px-3 py-2 text-[11px] font-bold text-slate-800 dark:text-white hover:border-brand-yellow/50 transition-colors">Allow mic &amp; refresh devices</button>
+            <p id="softphoneMicStatus" class="text-[10px] text-slate-500 dark:text-slate-400 mt-1.5 leading-snug" role="status" aria-live="polite">Pair your Bluetooth headset, pick mic and speakers above, then run soundcheck.</p>
           </div>
 
           <div class="space-y-2 pt-2 border-t border-slate-200/70 dark:border-white/10">
