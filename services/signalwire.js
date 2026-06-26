@@ -685,11 +685,43 @@ async function createRelayBrowserJwt(body) {
   };
 }
 
+async function probeRelayJwtMint() {
+  if (!relayWebrtcCanMint()) {
+    return { ok: false, error: 'WebRTC prerequisites are not configured on the server.' };
+  }
+  try {
+    await createRelayBrowserJwt({
+      resource: 'adhello-webrtc-probe',
+      expires_in: 5,
+    });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: String((err && err.message) || err || 'JWT mint failed') };
+  }
+}
+
+function relayWebrtcDiagnostics() {
+  const cfg = envConfig();
+  return {
+    enabled: cfg.enabled,
+    webrtcEnabled: webrtcEnabled(),
+    spaceHost: relaySpaceHost(),
+    jwtUrl: relayJwtRequestUrl(),
+    projectIdSet: !!cfg.projectId,
+    tokenSet: !!cfg.token,
+    fromNumber: normalizePhone(cfg.fromNumber),
+    fromNumberSet: !!normalizePhone(cfg.fromNumber),
+    relayCanMint: relayWebrtcCanMint(),
+  };
+}
+
 module.exports = {
   configured,
   envConfig,
   webrtcEnabled,
   relayWebrtcCanMint,
+  relayWebrtcDiagnostics,
+  probeRelayJwtMint,
   relaySpaceHost,
   createRelayBrowserJwt,
   normalizePhone,

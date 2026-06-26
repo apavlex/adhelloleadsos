@@ -1324,6 +1324,89 @@ router.get('/telephony/call-options', async (req, res, next) => {
   }
 });
 
+  }
+});
+
+// GET /leads/telephony/webrtc-diagnostics — checklist for in-tab WebRTC audio
+router.get('/telephony/webrtc-diagnostics', async (req, res, next) => {
+  try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const callMode = resolveWorkspaceCallMode(ws);
+    const base = signalwire.relayWebrtcDiagnostics ? signalwire.relayWebrtcDiagnostics() : {};
+    const cfg = signalwire.envConfig();
+    const fromQuery = String((req.query && req.query.fromNumber) || '').trim();
+    const activeFrom =
+      signalwire.normalizePhone(resolveRequestedCallerNumber(ws, fromQuery)) ||
+      signalwire.normalizePhone(cfg.callerId || cfg.fromNumber) ||
+      '';
+    const swNumbers = await signalwire.listIncomingPhoneNumbers();
+    const owned = new Set((swNumbers.numbers || []).map((n) => n.phoneNumber).filter(Boolean));
+    const callerInBank = !owned.size || (activeFrom && owned.has(activeFrom));
+    const jwtProbe =
+      base.relayCanMint && signalwire.probeRelayJwtMint
+        ? await signalwire.probeRelayJwtMint()
+        : { ok: false, error: 'Server cannot mint Relay JWT yet.' };
+    const modeOk = callMode === 'cloud_dial';
+    const readyForInTabAudio = !!(modeOk && base.relayCanMint && jwtProbe.ok && activeFrom && callerInBank);
+    const checks = [
+      {
+        key: 'space_url',
+        label: 'SignalWire space URL',
+        ok: !!base.spaceHost,
+        detail: base.spaceHost ? `https://${base.spaceHost}` : 'Set SIGNALWIRE_SPACE_URL on Render',
+      },
+      {
+        key: 'project_token',
+        label: 'Project ID + API token',
+        ok: !!(base.projectIdSet && base.tokenSet),
+        detail:
+          base.projectIdSet && base.tokenSet
+            ? 'Configured — must be from the same adhello-ai space'
+            : 'Set SIGNALWIRE_PROJECT_ID and SIGNALWIRE_TOKEN',
+      },
+      {
+        key: 'from_number',
+        label: 'Default outbound number',
+        ok: !!activeFrom,
+        detail: activeFrom || 'Set SIGNALWIRE_FROM_NUMBER or workspace phone bank default',
+      },
+      {
+        key: 'caller_in_bank',
+        label: 'Caller ID in phone bank',
+        ok: callerInBank,
+        detail: callerInBank
+          ? activeFrom || 'OK'
+          : `${activeFrom || 'Selected number'} is not in this SignalWire project`,
+      },
+      {
+        key: 'call_mode',
+        label: 'Call routing mode',
+        ok: modeOk,
+        detail: modeOk ? 'Cloud dial (browser mic)' : `Current mode: ${callMode}`,
+      },
+      {
+        key: 'jwt_mint',
+        label: 'Browser WebRTC token',
+        ok: !!jwtProbe.ok,
+        detail: jwtProbe.ok ? 'Server can mint Relay JWT' : jwtProbe.error || 'JWT mint failed',
+      },
+    ];
+    return res.json({
+      success: true,
+      readyForInTabAudio,
+      callMode,
+      activeFromNumber: activeFrom,
+      relayWebrtcAvailable:
+        callMode !== 'browser_device' && callMode !== 'agent_first' && !!base.relayCanMint,
+      checks,
+      signalwireNumbers: [...owned].slice(0, 25),
+      signalwireNumbersError: swNumbers.error || null,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // GET /leads/telephony/webrtc-token — Relay (Verto) JWT for browser WebRTC softphone
 router.get('/telephony/webrtc-token', async (req, res, next) => {
   try {

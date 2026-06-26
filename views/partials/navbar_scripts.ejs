@@ -2071,6 +2071,64 @@
       spSettingsModeDetail.textContent = softphoneModeDescription(mode, spRelayWebrtc).replace(/^Call routing:\s*/i, '');
     }
   }
+  function renderSoftphoneWebrtcDiagnostics(payload) {
+    var wrap = document.getElementById('softphoneWebrtcDiagnostics');
+    var list = document.getElementById('softphoneWebrtcChecklist');
+    var summary = document.getElementById('softphoneWebrtcDiagSummary');
+    if (!wrap || !list || !summary) return;
+    if (!payload || !payload.success) {
+      wrap.classList.remove('hidden');
+      list.innerHTML = '<li class="text-rose-600 dark:text-rose-400">Could not load WebRTC diagnostics.</li>';
+      summary.textContent = '';
+      return;
+    }
+    wrap.classList.remove('hidden');
+    list.innerHTML = '';
+    (payload.checks || []).forEach(function (check) {
+      var li = document.createElement('li');
+      li.className = check.ok ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300';
+      li.textContent = (check.ok ? '✓ ' : '• ') + check.label + ' — ' + (check.detail || '');
+      list.appendChild(li);
+    });
+    if (payload.readyForInTabAudio) {
+      summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-emerald-700 dark:text-emerald-300';
+      summary.textContent = 'Ready for in-tab call audio. Place a call — status should say “Connecting via browser audio”.';
+    } else {
+      summary.className = 'mt-2 text-[10px] font-semibold leading-snug text-amber-700 dark:text-amber-300';
+      summary.textContent =
+        'Not ready for in-tab audio yet. Fix the items above on Render or in Workspace → Phone bank, redeploy, then hard-refresh.';
+    }
+    spRelayWebrtc = !!payload.relayWebrtcAvailable;
+    if (spModeLine) {
+      spModeLine.textContent = softphoneModeDescription(spWorkspaceCallMode, spRelayWebrtc);
+    }
+    var spSettingsModeDetail = document.getElementById('softphoneSettingsModeDetail');
+    if (spSettingsModeDetail) {
+      spSettingsModeDetail.textContent = softphoneModeDescription(
+        spWorkspaceCallMode,
+        spRelayWebrtc,
+      ).replace(/^Call routing:\s*/i, '');
+    }
+  }
+  function refreshSoftphoneWebrtcDiagnostics() {
+    var fromPick = spFrom && spFrom.value ? String(spFrom.value) : '';
+    var q = '/leads/telephony/webrtc-diagnostics';
+    if (fromPick) q += '?fromNumber=' + encodeURIComponent(fromPick);
+    return fetch(q, { headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j) throw new Error((res.j && res.j.error) || 'Diagnostics unavailable');
+        renderSoftphoneWebrtcDiagnostics(res.j);
+        return res.j;
+      })
+      .catch(function () {
+        renderSoftphoneWebrtcDiagnostics(null);
+      });
+  }
   function updateSoftphoneCallModeUi() {
     if (spCallModeSelect) spCallModeSelect.value = spWorkspaceCallMode || 'cloud_dial';
     if (spModeLine) spModeLine.textContent = softphoneModeDescription(spWorkspaceCallMode, spRelayWebrtc);
@@ -3539,6 +3597,7 @@
     if (name === 'settings') {
       updateSoftphoneSettingsPanels();
       refreshSoftphoneAudioDevices({ requestPermission: false }).catch(function () {});
+      refreshSoftphoneWebrtcDiagnostics();
     }
     if (name === 'queue') renderSoftphoneCallQueue();
     if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
@@ -3763,7 +3822,10 @@
     });
   }
   if (spFrom) {
-    spFrom.addEventListener('change', updateSoftphoneOutboundMeta);
+    spFrom.addEventListener('change', function () {
+      updateSoftphoneOutboundMeta();
+      refreshSoftphoneWebrtcDiagnostics();
+    });
   }
   if (spCallModeSelect) {
     spCallModeSelect.addEventListener('change', function () {
