@@ -1,4 +1,4 @@
-# AdHello Lead Saver — Chrome Extension
+# AdHello Leads — Chrome Extension
 
 Save **leads**, **real estate listings**, and **product listings** from social profiles and directories directly into your AdHello pipeline.
 

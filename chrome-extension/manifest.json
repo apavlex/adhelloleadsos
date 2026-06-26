@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "AdHello Lead Saver",
-  "version": "1.3.0",
+  "name": "AdHello Leads",
+  "version": "1.3.1",
   "description": "Save leads, listings, and products from social profiles and directories into AdHello.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
@@ -11,7 +11,7 @@
   ],
   "action": {
     "default_popup": "src/popup.html",
-    "default_title": "Save lead to AdHello",
+    "default_title": "AdHello Leads",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
