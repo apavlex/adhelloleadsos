@@ -142,6 +142,10 @@
   var spOutboundMeta = document.getElementById('softphoneOutboundMeta');
   var spTo = document.getElementById('softphoneToNumber');
   var spCalleeName = document.getElementById('softphoneCalleeName');
+  var spLeadNav = document.getElementById('softphoneLeadNav');
+  var spLeadNavLabel = document.getElementById('softphoneLeadNavLabel');
+  var spPrevLeadBtn = document.getElementById('softphonePrevLeadBtn');
+  var spNextLeadBtn = document.getElementById('softphoneNextLeadBtn');
   var spCall = document.getElementById('softphoneCallBtn');
   var spVm = document.getElementById('softphoneVmBtn');
   var spKeys = document.querySelectorAll('.softphone-key');
@@ -204,6 +208,8 @@
     isCloudPstn: false,
     leadKey: '',
     leadTitle: '',
+    focusDialQueue: [],
+    focusDialIndex: 0,
   };
   var RELAY_SDK_SRC = 'https://unpkg.com/@signalwire/js@1.5.0/dist/index.min.js';
   function loadRelayScript() {
@@ -607,29 +613,154 @@
         '<p class="text-xs text-slate-500">No callable focus contacts right now. Open Focus mode or add phone numbers to your pipeline leads.</p>';
       return;
     }
-    var queueItems = items.map(function (item) {
-      return { number: item.phone, title: item.title, leadKey: item.key };
+    var queueItems = items.map(function (item, idx) {
+      return {
+        number: item.phone,
+        title: item.title,
+        leadKey: item.key,
+        queueIndex: idx,
+        metaLine: [].concat(
+          item.city || item.state ? [[item.city, item.state].filter(Boolean).join(', ')] : [],
+          item.pipelineLabel ? [item.pipelineLabel] : [],
+        ).join(' · '),
+      };
     });
     hydrateSoftphoneContactTitles(queueItems, function (enriched) {
       if (!host) return;
       host.innerHTML = '';
       enriched.forEach(function (item, idx) {
-        var row = buildSoftphoneContactListRow(item, fillClass, callClass);
         var source = items[idx];
-        if (source && (source.city || source.state || source.pipelineLabel)) {
-          var meta = document.createElement('p');
-          meta.className = 'text-[10px] text-slate-500 dark:text-slate-400 -mt-1 mb-1 px-3';
+        var metaLine = '';
+        if (source) {
           var parts = [];
           if (source.city || source.state) {
             parts.push([source.city, source.state].filter(Boolean).join(', '));
           }
           if (source.pipelineLabel) parts.push(source.pipelineLabel);
-          meta.textContent = parts.join(' · ');
-          row.appendChild(meta);
+          metaLine = parts.join(' · ');
         }
-        host.appendChild(row);
+        host.appendChild(
+          buildSoftphoneContactListRow(item, fillClass, callClass, metaLine, idx),
+        );
       });
     });
+  }
+
+  function setSoftphoneFocusDialQueue(items) {
+    softphoneSession.focusDialQueue = (items || [])
+      .map(normalizeFocusQueueContact)
+      .filter(Boolean);
+    if (softphoneSession.focusDialIndex >= softphoneSession.focusDialQueue.length) {
+      softphoneSession.focusDialIndex = 0;
+    }
+    updateSoftphoneLeadNavUi();
+  }
+
+  function updateSoftphoneLeadNavUi() {
+    var q = softphoneSession.focusDialQueue || [];
+    var show = q.length > 1;
+    if (spLeadNav) spLeadNav.classList.toggle('hidden', !show);
+    if (!show) return;
+    var idx = Math.max(0, Math.min(q.length - 1, softphoneSession.focusDialIndex || 0));
+    softphoneSession.focusDialIndex = idx;
+    var item = q[idx];
+    if (spLeadNavLabel && item) {
+      spLeadNavLabel.textContent =
+        'Lead ' + (idx + 1) + ' of ' + q.length + ' · ' + String(item.title || 'Contact');
+      spLeadNavLabel.title = String(item.title || '') + (item.phone ? ' · ' + item.phone : '');
+    }
+    var inActiveCall = softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call';
+    var locked = !!softphoneSession.wrapRequired || inActiveCall;
+    if (spPrevLeadBtn) spPrevLeadBtn.disabled = idx <= 0 || locked;
+    if (spNextLeadBtn) spNextLeadBtn.disabled = idx >= q.length - 1 || locked;
+  }
+
+  function softphoneSetFocusDialIndexFromBtn(btn) {
+    if (!btn) return;
+    var rawIdx = btn.getAttribute('data-queue-index');
+    if (rawIdx !== null && rawIdx !== '') {
+      var parsed = parseInt(rawIdx, 10);
+      if (!isNaN(parsed)) {
+        softphoneSession.focusDialIndex = parsed;
+        updateSoftphoneLeadNavUi();
+        return;
+      }
+    }
+    var key = String(btn.getAttribute('data-lead-key') || '').trim();
+    var num = normalizeDial(btn.getAttribute('data-number') || '');
+    var q = softphoneSession.focusDialQueue || [];
+    for (var i = 0; i < q.length; i++) {
+      if (key && q[i].key === key) {
+        softphoneSession.focusDialIndex = i;
+        updateSoftphoneLeadNavUi();
+        return;
+      }
+      if (num && normalizeDial(q[i].phone) === num) {
+        softphoneSession.focusDialIndex = i;
+        updateSoftphoneLeadNavUi();
+        return;
+      }
+    }
+  }
+
+  function loadSoftphoneFocusLeadAtIndex(idx, opts) {
+    opts = opts || {};
+    var q = softphoneSession.focusDialQueue || [];
+    if (!q.length) return false;
+    var i = Math.max(0, Math.min(q.length - 1, idx));
+    softphoneSession.focusDialIndex = i;
+    var item = q[i];
+    if (!item) return false;
+    setSoftphoneDialNumber(item.phone);
+    setSoftphoneLeadContext(item.key, item.title, item.phone);
+    updateSoftphoneLeadNavUi();
+    if (
+      opts.autoCall &&
+      !softphoneSession.wrapRequired &&
+      softphoneSession.state !== 'dialing' &&
+      softphoneSession.state !== 'in_call'
+    ) {
+      runSoftphoneAction('call');
+    } else {
+      softphoneSetStatus(
+        'Loaded ' + String(item.title || 'lead') + ' — press the green call button on the keypad.',
+      );
+    }
+    return true;
+  }
+
+  function stepSoftphoneFocusLead(delta, opts) {
+    var q = softphoneSession.focusDialQueue || [];
+    if (!q.length) {
+      softphoneSetStatus('Open Contacts to load your focus list.', true);
+      return;
+    }
+    if (softphoneSession.wrapRequired) {
+      softphoneSetStatus('Complete wrap-up before moving to the next lead.', true);
+      return;
+    }
+    if (softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call') {
+      softphoneSetStatus('End the current call before switching leads.', true);
+      return;
+    }
+    var next = (softphoneSession.focusDialIndex || 0) + delta;
+    loadSoftphoneFocusLeadAtIndex(next, opts || {});
+    setSoftphoneTab('keypad');
+  }
+
+  function openSoftphoneContactOnKeypad(btn, opts) {
+    opts = opts || {};
+    if (!btn) return;
+    applySoftphoneListSelection(btn);
+    softphoneSetFocusDialIndexFromBtn(btn);
+    setSoftphoneTab('keypad');
+    updateSoftphoneCalleeDisplay();
+    if (spTo) spTo.focus();
+    if (opts.autoCall) {
+      runSoftphoneAction('call');
+      return;
+    }
+    softphoneSetStatus('On keypad — press the green call button when ready.');
   }
 
   function renderSoftphoneFocusContacts() {
@@ -640,6 +771,7 @@
         .map(normalizeFocusQueueContact)
         .filter(Boolean);
       if (normalized.length) writeFocusCallQueueCache(normalized);
+      setSoftphoneFocusDialQueue(normalized);
       if (spContactsMeta) {
         if (!normalized.length) {
           spContactsMeta.textContent =
@@ -1205,47 +1337,61 @@
       });
   }
 
-  function buildSoftphoneContactListRow(item, fillClass, callClass) {
+  function buildSoftphoneContactListRow(item, fillClass, callClass, metaLine, queueIndex) {
     var row = document.createElement('div');
-    row.className =
-      'flex items-center justify-between gap-2 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/85 dark:bg-slate-800/70 px-3 py-2.5';
-    var left = document.createElement('div');
-    left.className = 'min-w-0 flex-1';
+    row.className = 'softphone-contact-row';
+    var body = document.createElement('div');
+    body.className = 'softphone-contact-row__body';
     var num = String(item.number || item.phone || '').trim();
     var title = String(item.title || '').trim();
     var leadKey = String(item.leadKey || item.key || '').trim();
+    var idx =
+      typeof queueIndex === 'number'
+        ? queueIndex
+        : typeof item.queueIndex === 'number'
+          ? item.queueIndex
+          : null;
     var fillBtn = document.createElement('button');
     fillBtn.type = 'button';
     fillBtn.className = fillClass + ' text-left block w-full min-w-0';
     fillBtn.setAttribute('data-number', num);
     fillBtn.setAttribute('data-lead-key', leadKey);
     fillBtn.setAttribute('data-title', title);
+    if (idx !== null && !isNaN(idx)) fillBtn.setAttribute('data-queue-index', String(idx));
     if (title) {
       var nameEl = document.createElement('span');
-      nameEl.className = 'block text-sm font-semibold text-slate-800 dark:text-white truncate';
+      nameEl.className = 'block text-sm font-semibold text-slate-800 dark:text-white leading-snug line-clamp-2';
       nameEl.textContent = title;
       fillBtn.appendChild(nameEl);
       var phoneEl = document.createElement('span');
       phoneEl.className =
-        'block text-[11px] tabular-nums text-slate-500 dark:text-slate-400 truncate mt-0.5';
+        'block text-[11px] tabular-nums text-slate-500 dark:text-slate-400 mt-0.5';
       phoneEl.textContent = num;
       fillBtn.appendChild(phoneEl);
     } else {
       fillBtn.className +=
-        ' text-sm font-semibold text-slate-800 dark:text-white hover:text-brand-yellow truncate tabular-nums';
+        ' text-sm font-semibold text-slate-800 dark:text-white hover:text-brand-yellow tabular-nums';
       fillBtn.textContent = num;
     }
-    left.appendChild(fillBtn);
+    body.appendChild(fillBtn);
+    var meta = String(metaLine || item.metaLine || '').trim();
+    if (meta) {
+      var metaEl = document.createElement('p');
+      metaEl.className = 'softphone-contact-row__meta truncate';
+      metaEl.textContent = meta;
+      body.appendChild(metaEl);
+    }
     var callBtn = document.createElement('button');
     callBtn.type = 'button';
     callBtn.className =
       callClass +
-      ' flex-shrink-0 text-[10px] font-bold uppercase tracking-wide rounded-xl bg-[#6ee7b7] text-white px-2.5 py-1.5 hover:brightness-105';
+      ' softphone-contact-row__call softphone-queue-dial';
     callBtn.setAttribute('data-number', num);
     callBtn.setAttribute('data-lead-key', leadKey);
     callBtn.setAttribute('data-title', title);
+    if (idx !== null && !isNaN(idx)) callBtn.setAttribute('data-queue-index', String(idx));
     callBtn.textContent = 'Call';
-    row.appendChild(left);
+    row.appendChild(body);
     row.appendChild(callBtn);
     return row;
   }
@@ -1681,6 +1827,7 @@
       updateSoftphoneScrollHint();
     }
     if (state === 'ended') scrollSoftphoneToWrapPanel();
+    updateSoftphoneLeadNavUi();
   }
   function softphoneStopPolling() {
     if (softphoneSession.pollTimer) {
@@ -1892,6 +2039,11 @@
     softphoneSetCallState('idle');
     softphoneSetWrapRequired(false);
     updateSoftphoneWrapLeadHint();
+    if (!softphoneSession.focusDialQueue.length) {
+      var cachedQueue = readFocusCallQueueCache();
+      if (cachedQueue.length) setSoftphoneFocusDialQueue(cachedQueue);
+    }
+    updateSoftphoneLeadNavUi();
     updateControlToggles();
     syncNavBarCallIndicator();
     if (spCallModeSaveHint) {
@@ -2532,22 +2684,23 @@
       spQueueList.innerHTML = '<p class="text-xs text-slate-500">No callable leads in your current selection.</p>';
       return;
     }
-    var queueItems = callable.map(function (item) {
-      return { number: item.phone, title: item.title, leadKey: item.key };
+    var normalized = callable.map(function (item, idx) {
+      return {
+        key: item.key,
+        title: item.title,
+        phone: item.phone,
+        city: '',
+        state: '',
+        pipelineLabel: '',
+        queueIndex: idx,
+      };
     });
-    hydrateSoftphoneContactTitles(queueItems, function (enriched) {
-      if (!spQueueList) return;
-      spQueueList.innerHTML = '';
-      enriched.forEach(function (item) {
-        spQueueList.appendChild(
-          buildSoftphoneContactListRow(
-            item,
-            'softphone-queue-fill hover:text-brand-yellow',
-            'softphone-queue-call',
-          ),
-        );
-      });
-    });
+    paintSoftphoneContactRows(
+      spQueueList,
+      normalized,
+      'softphone-queue-fill hover:text-brand-yellow',
+      'softphone-queue-call',
+    );
   }
   window.__renderSoftphoneCallQueue = renderSoftphoneCallQueue;
 
@@ -2995,20 +3148,31 @@
       }
     });
   }
-  if (spQueueList && spTo) {
-    spQueueList.addEventListener('click', function (e) {
+  function bindSoftphoneContactListClicks(host) {
+    if (!host || !spTo || host.dataset.softphoneListBound === '1') return;
+    host.dataset.softphoneListBound = '1';
+    host.addEventListener('click', function (e) {
       var fill = e.target.closest('.softphone-queue-fill');
       if (fill) {
-        applySoftphoneListSelection(fill);
-        setSoftphoneTab('keypad');
-        spTo.focus();
+        openSoftphoneContactOnKeypad(fill);
         return;
       }
       var callBtn = e.target.closest('.softphone-queue-call');
       if (callBtn) {
-        applySoftphoneListSelection(callBtn);
-        runSoftphoneAction('call');
+        openSoftphoneContactOnKeypad(callBtn);
       }
+    });
+  }
+  bindSoftphoneContactListClicks(spQueueList);
+  bindSoftphoneContactListClicks(spContactsList);
+  if (spPrevLeadBtn) {
+    spPrevLeadBtn.addEventListener('click', function () {
+      stepSoftphoneFocusLead(-1);
+    });
+  }
+  if (spNextLeadBtn) {
+    spNextLeadBtn.addEventListener('click', function () {
+      stepSoftphoneFocusLead(1, { autoCall: true });
     });
   }
   if (spMute) {

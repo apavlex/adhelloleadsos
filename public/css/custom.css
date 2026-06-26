@@ -3026,6 +3026,73 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   filter: brightness(1.05);
 }
 
+.softphone-contact-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 0.7rem;
+  border-radius: 1rem;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.dark .softphone-contact-row {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(30, 41, 59, 0.85);
+}
+
+.softphone-contact-row__body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.softphone-contact-row__meta {
+  margin-top: 0.15rem;
+  font-size: 0.625rem;
+  line-height: 1.25;
+  color: #64748b;
+}
+
+.dark .softphone-contact-row__meta {
+  color: #94a3b8;
+}
+
+.softphone-contact-row__call {
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.softphone-lead-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.65rem;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: rgba(255, 255, 255, 0.95);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #334155;
+}
+
+.dark .softphone-lead-nav-btn {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+.softphone-lead-nav-btn:hover:not(:disabled) {
+  border-color: rgba(250, 204, 21, 0.55);
+}
+
+.softphone-lead-nav-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 @media (max-height: 720px) {
   .softphone-key {
     width: 3.75rem;
