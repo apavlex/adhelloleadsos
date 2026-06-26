@@ -525,10 +525,56 @@ async function getCall(callSid) {
   return getJson(`/Calls/${encodeURIComponent(sid)}.json`);
 }
 
+function normalizeCallStatus(obj) {
+  if (!obj || typeof obj !== 'object') return '';
+  return String(obj.status || obj.Status || '').trim().toLowerCase();
+}
+
+function isTerminalCallStatus(status) {
+  const s = String(status || '').trim().toLowerCase();
+  return (
+    s === 'completed' ||
+    s === 'canceled' ||
+    s === 'cancelled' ||
+    s === 'failed' ||
+    s === 'busy' ||
+    s === 'no-answer' ||
+    s === 'noanswer'
+  );
+}
+
+function isCallAlreadyFinishedError(err) {
+  const m = String((err && err.message) || '').toLowerCase();
+  return (
+    m.includes('cannot update a completed call') ||
+    m.includes('call is not in-progress') ||
+    m.includes('not in-progress') ||
+    (m.includes('completed') && m.includes('call'))
+  );
+}
+
 async function completeCall(callSid) {
   const sid = String(callSid || '').trim();
   if (!sid) throw new Error('Call SID is required.');
-  return postForm(`/Calls/${encodeURIComponent(sid)}.json`, { Status: 'completed' });
+  try {
+    const current = await getCall(sid);
+    if (isTerminalCallStatus(normalizeCallStatus(current))) {
+      return { ...(current && typeof current === 'object' ? current : {}), sid, alreadyCompleted: true };
+    }
+  } catch (err) {
+    const msg = String((err && err.message) || '');
+    if (/\b404\b/.test(msg) || /not found/i.test(msg)) {
+      return { sid, status: 'completed', alreadyCompleted: true };
+    }
+  }
+  try {
+    return await postForm(`/Calls/${encodeURIComponent(sid)}.json`, { Status: 'completed' });
+  } catch (err) {
+    if (isCallAlreadyFinishedError(err)) {
+      return { sid, status: 'completed', alreadyCompleted: true };
+    }
+    throw err;
+  }
 }
 
 /**

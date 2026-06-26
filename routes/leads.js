@@ -1685,8 +1685,13 @@ router.post('/telephony/call-control', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'callSid is required.' });
     }
     if (action === 'hangup') {
-      await signalwire.completeCall(callSid);
-      return res.json({ success: true, action: 'hangup', callSid });
+      const result = await signalwire.completeCall(callSid);
+      return res.json({
+        success: true,
+        action: 'hangup',
+        callSid,
+        alreadyCompleted: !!(result && result.alreadyCompleted),
+      });
     }
     if (action === 'record_start') {
       const cb = signalwire.buildAppUrl('/api/telephony/voice/recording-status', {});

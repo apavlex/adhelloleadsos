@@ -2050,6 +2050,7 @@
       softphoneSession.stateVerbose = st;
       softphoneStopPolling();
       softphoneSession.isCloudPstn = false;
+      softphoneSession.callSid = '';
       softphoneResetRecordingState();
       if (!softphoneSession.wasInCall) {
         softphoneSetWrapRequired(false);
@@ -3623,6 +3624,14 @@
         softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
         return;
       }
+      if (softphoneSession.state === 'ended') {
+        softphoneStopPolling();
+        softphoneSession.callSid = '';
+        softphoneResetRecordingState();
+        softphoneSetWrapRequired(true);
+        softphoneSetStatus('Call already ended. Complete wrap-up to unlock next dial.');
+        return;
+      }
       spHangup.disabled = true;
       fetch('/leads/telephony/call-control', {
         method: 'POST',
@@ -3633,13 +3642,24 @@
         .then(function (res) {
           if (!res.ok || !res.j || !res.j.success) throw new Error((res.j && res.j.error) || 'Hangup failed.');
           softphoneStopPolling();
+          softphoneSession.callSid = '';
           softphoneResetRecordingState();
           softphoneSetCallState('ended');
           softphoneSetWrapRequired(true);
           softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
         })
         .catch(function (err) {
-          softphoneSetStatus((err && err.message) || 'Hangup failed.', true);
+          var msg = String((err && err.message) || 'Hangup failed.');
+          if (/completed call|not in-progress|already ended/i.test(msg)) {
+            softphoneStopPolling();
+            softphoneSession.callSid = '';
+            softphoneResetRecordingState();
+            softphoneSetCallState('ended');
+            softphoneSetWrapRequired(true);
+            softphoneSetStatus('Call ended. Complete wrap-up to unlock next dial.');
+            return;
+          }
+          softphoneSetStatus(msg, true);
         })
         .finally(function () {
           spHangup.disabled = false;
@@ -3662,7 +3682,7 @@
       if (softphoneSession.webrtc && softphoneSession.relayCall) {
         try { softphoneSession.relayCall.hangup({ cause: 'NORMAL_CLEARING' }, true); } catch (e) {}
         softphoneClearWebrtcSession();
-      } else if (softphoneSession.callSid) {
+      } else if (softphoneSession.callSid && softphoneSession.state !== 'ended') {
         hangupCurrent = fetch('/leads/telephony/call-control', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
