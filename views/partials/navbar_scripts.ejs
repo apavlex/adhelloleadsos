@@ -169,6 +169,11 @@
   var spScrollHint = document.getElementById('softphoneScrollHint');
   var spKeypadTab = document.getElementById('softphoneTabKeypad');
   var spInCallBar = document.getElementById('softphoneInCallBar');
+  var spRemoteAudio = document.getElementById('softphoneRemoteAudio');
+  var spTestMicBtn = document.getElementById('softphoneTestMicBtn');
+  var spMicStatus = document.getElementById('softphoneMicStatus');
+  var spPreferredMicId = '';
+  var spPreferredSpeakerId = '';
   var SOFTPHONE_RECENT_KEY = 'softphoneRecentNumbers';
   var spRelayWebrtc = false;
   var spWorkspaceCallMode = 'cloud_dial';
@@ -257,6 +262,90 @@
       );
     }, 35000);
   }
+  function softphoneMicBlockedMessage(err) {
+    var name = err && err.name ? String(err.name) : '';
+    if (name === 'NotAllowedError' || name === 'PermissionDeniedError') {
+      return 'Microphone blocked. On Mac: System Settings → Privacy & Security → Microphone → turn on your browser (Chrome, Safari, Arc, etc.), then reload this page and tap Test microphone again.';
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      return 'No microphone found. Plug in a headset or check Mac Sound settings → Input.';
+    }
+    return (err && err.message) || 'Could not access microphone.';
+  }
+
+  function ensureSoftphoneMicPermission() {
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.getUserMedia !== 'function') {
+      return Promise.reject(new Error('This browser does not support in-tab microphone access.'));
+    }
+    var constraints = spPreferredMicId
+      ? { audio: { deviceId: { exact: spPreferredMicId } } }
+      : { audio: true };
+    return navigator.mediaDevices.getUserMedia(constraints).then(function (stream) {
+      if (stream && stream.getTracks) {
+        stream.getTracks().forEach(function (track) {
+          try { track.stop(); } catch (_) {}
+        });
+      }
+      return true;
+    });
+  }
+
+  function playSoftphoneRemoteAudio() {
+    if (!spRemoteAudio || typeof spRemoteAudio.play !== 'function') return Promise.resolve();
+    spRemoteAudio.volume = 1;
+    spRemoteAudio.muted = false;
+    return spRemoteAudio.play().catch(function () {
+      softphoneSetStatus('If you cannot hear the other party, click Test microphone in Contacts or tap anywhere in the dialer.', true);
+    });
+  }
+
+  function applySoftphoneSpeakerRoute() {
+    if (!spRemoteAudio || !softphoneSession.speaker) return Promise.resolve();
+    if (typeof spRemoteAudio.setSinkId !== 'function' || !spPreferredSpeakerId) return Promise.resolve();
+    return spRemoteAudio.setSinkId(spPreferredSpeakerId).catch(function () {});
+  }
+
+  function setSoftphoneMicStatus(msg, isError) {
+    if (!spMicStatus) return;
+    spMicStatus.textContent = msg || '';
+    spMicStatus.classList.toggle('text-rose-600', !!isError);
+    spMicStatus.classList.toggle('dark:text-rose-400', !!isError);
+    spMicStatus.classList.toggle('text-emerald-700', !!msg && !isError);
+    spMicStatus.classList.toggle('dark:text-emerald-300', !!msg && !isError);
+  }
+
+  function runSoftphoneMicSpeakerTest() {
+    if (!spTestMicBtn) return Promise.resolve();
+    var original = spTestMicBtn.textContent;
+    spTestMicBtn.disabled = true;
+    spTestMicBtn.textContent = 'Testing…';
+    setSoftphoneMicStatus('Requesting microphone access…', false);
+    return ensureSoftphoneMicPermission()
+      .then(function () {
+        return navigator.mediaDevices.enumerateDevices();
+      })
+      .then(function (devices) {
+        var mics = (devices || []).filter(function (d) { return d && d.kind === 'audioinput'; });
+        var speakers = (devices || []).filter(function (d) { return d && d.kind === 'audiooutput'; });
+        if (mics.length) spPreferredMicId = String(mics[0].deviceId || '').trim();
+        if (speakers.length) spPreferredSpeakerId = String(speakers[0].deviceId || '').trim();
+        var micLabel = mics.length && mics[0].label ? mics[0].label : (mics.length ? 'Microphone ready' : 'Microphone ready (no label until permitted)');
+        var speakerLabel = speakers.length && speakers[0].label ? speakers[0].label : 'Default speakers';
+        setSoftphoneMicStatus('Mic OK: ' + micLabel + ' · Output: ' + speakerLabel, false);
+        softphoneSetStatus('Microphone access granted. Browser audio is ready for calls.');
+        return applySoftphoneSpeakerRoute();
+      })
+      .catch(function (err) {
+        var msg = softphoneMicBlockedMessage(err);
+        setSoftphoneMicStatus(msg, true);
+        softphoneSetStatus(msg, true);
+      })
+      .finally(function () {
+        spTestMicBtn.disabled = false;
+        spTestMicBtn.textContent = original;
+      });
+  }
+
   function webrtcOnNotification(notification) {
     if (!notification || !notification.call) return;
     var c = notification.call;
@@ -268,7 +357,9 @@
       webrtcClearDialWatchdog();
       if (!softphoneSession.startedAtMs) softphoneSession.startedAtMs = Date.now();
       softphoneSetCallState('in_call');
-      softphoneSetStatus('In call (WebRTC).');
+      playSoftphoneRemoteAudio();
+      applySoftphoneSpeakerRoute();
+      softphoneSetStatus('In call (WebRTC). Talk through your Mac mic and speakers.');
     } else if (st === 'held') {
       softphoneSession.hold = true;
       softphoneSetCallState('in_call');
@@ -1807,10 +1898,23 @@
     softphoneResetRecordingState();
     var fromPick = (spFrom && spFrom.value) || spDefaultFrom;
     var q = '/leads/telephony/webrtc-token?fromNumber=' + encodeURIComponent(String(fromPick || ''));
-    return fetch(q, { headers: { Accept: 'application/json' } })
-      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    return ensureSoftphoneMicPermission()
+      .catch(function (err) {
+        var msg = softphoneMicBlockedMessage(err);
+        softphoneSetStatus(msg, true);
+        setSoftphoneMicStatus(msg, true);
+        throw err;
+      })
+      .then(function () {
+        return fetch(q, { headers: { Accept: 'application/json' } })
+          .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); });
+      })
       .then(function (res) {
-        if (!res.ok || !res.j || !res.j.success) return false;
+        if (!res.ok || !res.j || !res.j.success) {
+          var apiErr = (res.j && res.j.error) || 'WebRTC token unavailable';
+          softphoneSetStatus(apiErr, true);
+          return false;
+        }
         return loadRelayScript().then(function () { return res.j; });
       })
       .then(function (tok) {
@@ -1821,12 +1925,17 @@
         softphoneDestroyWebrtc();
         var fromNum = normalizeDial(tok.fromNumber) || normalizeDial(fromPick);
         if (!fromNum) return false;
+        var remoteTarget = spRemoteAudio || 'softphoneRemoteAudio';
         var client = new Relay({
           project: tok.projectId,
           token: tok.token,
           host: tok.host,
+          remoteElement: remoteTarget,
         });
         softphoneSession.relayClient = client;
+        var callAudio = spPreferredMicId
+          ? { deviceId: { exact: spPreferredMicId }, echoCancellation: true, noiseSuppression: true }
+          : { echoCancellation: true, noiseSuppression: true };
         return client
           .connect()
           .then(function () {
@@ -1836,8 +1945,9 @@
               remoteCallerName: 'Outbound',
               remoteCallerNumber: '',
               callerName: 'AdHello',
-              audio: true,
+              audio: callAudio,
               video: false,
+              remoteElement: remoteTarget,
               onNotification: webrtcOnNotification,
             });
           })
@@ -1852,12 +1962,19 @@
               leadKey: softphoneSession.leadKey,
             });
             softphoneSetCallState('dialing');
-            softphoneSetStatus('WebRTC: allow microphone. Audio plays in the browser for this call. “Requesting” means the call is being set up — it may take 10–30s before the phone rings.');
+            softphoneSetStatus('WebRTC connected — allow mic if prompted. Audio plays in this browser tab.');
             softphoneSession.isCloudPstn = false;
             return true;
           });
       })
-      .catch(function () { return false; });
+      .catch(function (err) {
+        if (err && (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError')) {
+          return false;
+        }
+        var msg = (err && err.message) || 'WebRTC call failed.';
+        softphoneSetStatus(msg, true);
+        return false;
+      });
   }
   function runSoftphoneAction(action) {
     if (!spTo) return;
@@ -1884,7 +2001,10 @@
     if (tryWebrtc) {
       p = tryWebrtcSoftphone(to).then(function (ok) {
         if (ok) return;
-        softphoneSetStatus('In-browser call did not start — using cloud. No audio in this tab for cloud calls.');
+        if (spMicStatus && /microphone blocked|not support/i.test(String(spMicStatus.textContent || ''))) {
+          throw new Error(String(spMicStatus.textContent || 'Microphone access is required for browser audio.'));
+        }
+        softphoneSetStatus('In-browser audio failed — falling back to cloud dial. This tab will NOT have sound. Fix mic in Contacts → Test microphone, or use Agent first / My device dialer.', true);
         return startCloudSoftphoneDial(to, action, action === 'voicemail_drop' ? { forceCloudVoicemail: true } : null);
       });
     } else {
@@ -2652,7 +2772,23 @@
     spSpeaker.addEventListener('click', function () {
       softphoneSession.speaker = !softphoneSession.speaker;
       updateControlToggles();
-      softphoneSetStatus(softphoneSession.speaker ? 'Speaker mode on (UI state).' : 'Speaker mode off (UI state).');
+      if (softphoneSession.speaker) {
+        applySoftphoneSpeakerRoute()
+          .then(function () { return playSoftphoneRemoteAudio(); })
+          .then(function () {
+            softphoneSetStatus('Routing call audio to your selected output device.');
+          })
+          .catch(function () {
+            softphoneSetStatus('Speaker on — if still quiet, run Test microphone in Contacts and check Mac Sound → Output.', false);
+          });
+        return;
+      }
+      softphoneSetStatus('Speaker mode off (default output).');
+    });
+  }
+  if (spTestMicBtn) {
+    spTestMicBtn.addEventListener('click', function () {
+      runSoftphoneMicSpeakerTest();
     });
   }
   if (spKeypad) {
