@@ -95,8 +95,40 @@
   }
 
   function parseReviewCount(raw) {
-    const m = String(raw || '').replace(/,/g, '').match(/(\d+)/);
-    return m ? parseInt(m[1], 10) : 0;
+    const s = String(raw || '');
+    const labeled = s.replace(/,/g, '').match(/(\d+)\s*reviews?\b/i);
+    if (labeled) return parseInt(labeled[1], 10);
+    const paren = s.replace(/,/g, '').match(/\((\d+)\)/);
+    if (paren) return parseInt(paren[1], 10);
+    return 0;
+  }
+
+  function parseGoogleMapsReviewsFromDom() {
+    let reviewsCount = 0;
+    let rating = 0;
+
+    document.querySelectorAll('[aria-label]').forEach((el) => {
+      const label = el.getAttribute('aria-label') || '';
+      if (!/review|star/i.test(label)) return;
+      reviewsCount = Math.max(reviewsCount, parseReviewCount(label));
+      rating = Math.max(rating, parseRating(label));
+    });
+
+    document.querySelectorAll('.F7nice, [role="img"][aria-label*="star"]').forEach((block) => {
+      const label = block.getAttribute('aria-label') || '';
+      const combined = [label, block.textContent || ''].filter(Boolean).join(' ');
+      reviewsCount = Math.max(reviewsCount, parseReviewCount(combined));
+      rating = Math.max(rating, parseRating(combined));
+    });
+
+    const nice = document.querySelector('.F7nice');
+    if (nice) {
+      const blob = nice.innerText || '';
+      reviewsCount = Math.max(reviewsCount, parseReviewCount(blob));
+      rating = Math.max(rating, parseRating(blob));
+    }
+
+    return { rating, reviewsCount };
   }
 
   function flattenJsonLd(node, out) {
@@ -319,6 +351,7 @@
 
     const rating = parseRating(ratingText);
     const reviewsCount = parseReviewCount(reviewsText);
+    const gmapsReviews = parseGoogleMapsReviewsFromDom();
 
     const lead = baseBusinessLead({
       title: name,
@@ -326,7 +359,13 @@
       url,
       sourceChannel: 'google_maps',
       blocklist,
-      noteParts: [category, rating ? `${rating}★` : '', reviewsCount ? `${reviewsCount} reviews` : ''],
+      noteParts: [
+        category,
+        rating || gmapsReviews.rating ? `${rating || gmapsReviews.rating}★` : '',
+        reviewsCount || gmapsReviews.reviewsCount
+          ? `${reviewsCount || gmapsReviews.reviewsCount} reviews`
+          : '',
+      ],
     });
 
     if (address && address !== 'N/A') {
@@ -335,8 +374,10 @@
       lead.city = geo.city;
       lead.state = geo.state;
     }
-    if (rating) lead.totalScore = rating;
-    if (reviewsCount) lead.reviewsCount = reviewsCount;
+    const finalRating = rating || gmapsReviews.rating;
+    const finalReviews = reviewsCount || gmapsReviews.reviewsCount;
+    if (finalRating) lead.totalScore = finalRating;
+    if (finalReviews) lead.reviewsCount = finalReviews;
 
     return lead;
   }

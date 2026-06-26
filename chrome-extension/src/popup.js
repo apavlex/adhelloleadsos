@@ -23,11 +23,15 @@ function parsePriceInput(raw) {
 
 function formatReviewsField(lead) {
   if (!lead) return '';
-  const rating = parseFloat(lead.totalScore || lead.rating || 0);
-  const count = parseInt(lead.reviewsCount || lead.reviews || 0, 10) || 0;
+  let rating = parseFloat(lead.totalScore || lead.rating || 0);
+  let count = parseInt(lead.reviewsCount || lead.reviews || 0, 10) || 0;
+  if (!count && lead.note) {
+    const fromNote = String(lead.note).match(/(\d[\d,]*)\s*reviews?\b/i);
+    if (fromNote) count = parseInt(fromNote[1].replace(/,/g, ''), 10) || 0;
+  }
   const parts = [];
   if (Number.isFinite(rating) && rating > 0) parts.push(`${rating}★`);
-  if (count > 0) parts.push(`${count} review${count === 1 ? '' : 's'}`);
+  if (count > 0) parts.push(`${count.toLocaleString()} review${count === 1 ? '' : 's'}`);
   return parts.join(' · ');
 }
 
@@ -177,7 +181,13 @@ form.addEventListener('submit', async (e) => {
 
     const res = await chrome.runtime.sendMessage({ type: 'SAVE_LEAD', lead: payload });
     if (!res?.ok) throw new Error(res?.error || 'Save failed');
-    setStatus(`Saved (${res.data?.key || 'ok'})`, 'success');
+    const folderNote =
+      res.data?.folderName && res.data?.folderUrl
+        ? ` · Open ${res.data.folderName} folder in AdHello`
+        : res.data?.folderName
+          ? ` · ${res.data.folderName} folder`
+          : '';
+    setStatus(`Saved (${res.data?.key || 'ok'})${folderNote}`, 'success');
   } catch (err) {
     setStatus(err.message || 'Save failed', 'error');
   } finally {

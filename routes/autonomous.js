@@ -29,6 +29,7 @@ const pageSpeedInsights = require('../services/pageSpeedInsights');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
+const { ensureChromeExtensionFolder, chromeExtensionFolderUrl } = require('../services/chromeExtensionInbox');
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -279,10 +280,28 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       if (req.body.sourceType) leadData.sourceType = String(req.body.sourceType).trim();
     }
 
+    const isChromeExtension =
+      String(req.body.source || leadData.source || '').trim() === 'chrome_extension';
+    if (isChromeExtension) {
+      const folder = await ensureChromeExtensionFolder(wid);
+      if (folder && folder.key) {
+        leadData.folderKey = folder.key;
+        leadData.sourceType = leadData.sourceType || 'chrome_extension';
+      }
+    }
+
     const key = await dbService.saveLead(leadData);
     try { await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
 
-    res.json({ success: true, key, title });
+    const folderKey = leadData.folderKey || '';
+    res.json({
+      success: true,
+      key,
+      title,
+      folderKey,
+      folderName: isChromeExtension ? 'Chrome Extension' : '',
+      folderUrl: isChromeExtension ? chromeExtensionFolderUrl(folderKey) : '',
+    });
   } catch (err) {
     next(err);
   }
