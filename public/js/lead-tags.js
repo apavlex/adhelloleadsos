@@ -354,8 +354,8 @@
         applyTagsToRowsFromBulkResult(data.leads);
         const msg =
           mode === 'remove'
-            ? `Removed tag from ${(data.updatedKeys || []).length} lead(s) · syncing to GHL`
-            : `Tagged ${(data.updatedKeys || []).length} lead(s) · syncing to GHL`;
+            ? `Removed tag from ${(data.updatedKeys || []).length} lead(s) · tap Sync GHL to push`
+            : `Tagged ${(data.updatedKeys || []).length} lead(s) · tap Sync GHL to push tags`;
         if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
         else window.alert(msg);
       } catch (err) {
@@ -406,7 +406,7 @@
           applyTagsToRowsFromBulkResult(data.leads);
           if (newName) newName.value = '';
           if (select) select.value = tag.key;
-          const msg = `Created “${tag.name}” and tagged ${(data.updatedKeys || []).length} lead(s)`;
+          const msg = `Created “${tag.name}” and tagged ${(data.updatedKeys || []).length} lead(s) · tap Sync GHL to push`;
           if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
           else window.alert(msg);
         } catch (err) {

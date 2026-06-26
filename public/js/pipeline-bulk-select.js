@@ -250,54 +250,34 @@
     const btn = opts && opts.btn ? opts.btn : null;
     const onProgress =
       opts && typeof opts.onProgress === 'function' ? opts.onProgress : null;
-    let pushed = 0;
-    let failed = 0;
     const total = leadKeys.length;
-    const results = [];
+    if (!total) return { ok: true, pushed: 0, failed: 0, total: 0, results: [] };
 
-    for (let i = 0; i < leadKeys.length; i += 1) {
-      const key = leadKeys[i];
-      const current = i + 1;
-      const remaining = total - current;
-      const progress = { current, total, remaining, pushed, failed, key };
-      if (onProgress) onProgress(progress);
-      if (btn) btn.textContent = remaining > 0 ? `${remaining} left` : 'Finishing…';
+    if (onProgress) onProgress({ current: 0, total, remaining: total, pushed: 0, failed: 0 });
+    if (btn) btn.textContent = total > 1 ? `${total} left` : 'Syncing…';
 
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        const res = await fetch('/ghl/push', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ leadKeys: [key], tagNoWebsite }),
-        });
-        // eslint-disable-next-line no-await-in-loop
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || `HTTP ${res.status}`);
-        }
-        const row = data.results && data.results[0] ? data.results[0] : null;
-        if (!row) {
-          failed += 1;
-          results.push({ key, ok: false, error: 'lead_not_found' });
-        } else if (row.ok === false) {
-          failed += 1;
-          results.push({ key, ok: false, error: row.error || 'push_failed' });
-        } else {
-          pushed += 1;
-          results.push({ key, ok: true, ghlContactId: row.ghlContactId });
-        }
-      } catch (err) {
-        failed += 1;
-        results.push({
-          key,
-          ok: false,
-          error: err && err.message ? err.message : 'push_failed',
-        });
+    try {
+      const res = await fetch('/ghl/push', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys, tagNoWebsite }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
       }
+      const pushed = data.pushed != null ? data.pushed : 0;
+      const failed = data.failed != null ? data.failed : 0;
+      const results = Array.isArray(data.results) ? data.results : [];
+      if (onProgress) {
+        onProgress({ current: total, total, remaining: 0, pushed, failed });
+      }
+      if (btn) btn.textContent = failed > 0 ? 'Failed' : 'Finishing…';
+      return { ok: failed === 0, pushed, failed, total, results };
+    } catch (err) {
+      throw err;
     }
-
-    return { ok: failed === 0, pushed, failed, total, results };
   }
   window.__pushLeadKeysToGhlWithProgress = pushLeadKeysToGhlWithProgress;
 

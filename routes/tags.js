@@ -111,10 +111,6 @@ router.post('/assign-bulk', async (req, res, next) => {
       if (lead) updated.push(lead);
     }
 
-    updated.forEach((lead) => {
-      triggerGhlProspectSync(lead.key, req.workspaceId, { trigger: 'tag_assign_bulk' });
-    });
-
     res.json({ success: true, updatedKeys: updated.map((l) => l.key), leads: updated });
   } catch (e) {
     next(e);
