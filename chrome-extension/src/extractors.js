@@ -103,9 +103,36 @@
     return 0;
   }
 
-  function parseGoogleMapsReviewsFromDom() {
+  function findGoogleMapsPlaceRoot() {
+    const h1 = document.querySelector('h1.DUwDvf, h1[aria-level="1"]');
+    if (!h1) return null;
+    return (
+      h1.closest('[role="main"]') ||
+      h1.closest('.x3AX1-L') ||
+      h1.closest('.TIHn2') ||
+      h1.parentElement?.parentElement?.parentElement ||
+      h1.parentElement
+    );
+  }
+
+  function textIn(scope, sel) {
+    const root = scope || document;
+    const el = root.querySelector(sel);
+    return el?.textContent?.trim() || '';
+  }
+
+  function textsIn(scope, sels) {
+    for (const sel of sels) {
+      const val = textIn(scope, sel);
+      if (val) return val;
+    }
+    return '';
+  }
+
+  function parseGoogleMapsReviewsFromDom(scope) {
     let reviewsCount = 0;
     let rating = 0;
+    const root = scope || findGoogleMapsPlaceRoot() || document;
 
     function applyCandidate(label, text) {
       const combined = [label, text].filter(Boolean).join(' ');
@@ -115,31 +142,29 @@
       if (nextReviews > 0) reviewsCount = nextReviews;
     }
 
-    const nice = document.querySelector('.F7nice');
+    const nice = root.querySelector('.F7nice');
     if (nice) {
       applyCandidate(nice.getAttribute('aria-label') || '', nice.textContent || '');
       const parent = nice.parentElement;
-      if (parent && reviewsCount === 0) {
+      if (parent) {
         parent.querySelectorAll('button, span, a').forEach((el) => {
-          if (reviewsCount > 0) return;
+          if (reviewsCount > 0 && rating > 0) return;
           applyCandidate(el.getAttribute('aria-label') || '', el.textContent || '');
         });
       }
       if (rating > 0 && reviewsCount > 0) return { rating, reviewsCount };
     }
 
-    const starEl =
-      document.querySelector('h1[aria-level="1"]')?.closest('div')?.querySelector('[role="img"][aria-label*="star"]') ||
-      document.querySelector('[role="img"][aria-label*="star"]');
+    const starEl = root.querySelector('[role="img"][aria-label*="star"]');
     if (starEl) {
       applyCandidate(starEl.getAttribute('aria-label') || '', starEl.textContent || '');
       if (rating > 0 && reviewsCount > 0) return { rating, reviewsCount };
     }
 
-    const reviewBtn = document.querySelector(
-      'button[aria-label*="reviews"], button[jsaction*="review"], [data-item-id*="review"]'
+    const reviewBtn = root.querySelector(
+      'button[aria-label*="reviews"], button[jsaction*="review"], [data-item-id*="review"]',
     );
-    if (reviewBtn && reviewsCount === 0) {
+    if (reviewBtn) {
       applyCandidate(reviewBtn.getAttribute('aria-label') || '', reviewBtn.textContent || '');
     }
 
@@ -348,25 +373,34 @@
   function extractGoogleMaps() {
     const url = canonicalUrl();
     const blocklist = ['google.com', 'goo.gl', 'googleusercontent.com', 'gstatic.com'];
+    const placeRoot = findGoogleMapsPlaceRoot();
 
     const name =
+      cleanTitle(textsIn(placeRoot, ['h1.DUwDvf', 'h1[aria-level="1"]', 'h1', '[data-attrid="title"]'])) ||
       cleanTitle(texts(['h1.DUwDvf', 'h1[aria-level="1"]', 'h1', '[data-attrid="title"]'])) ||
       cleanTitle(meta('og:title')) ||
       cleanTitle(document.title);
 
-    const category = texts(['button[jsaction*="category"]', '[data-item-id*="category"]', '.DkEaL']);
-    const ratingText = texts(['[role="img"][aria-label*="stars"]', '.F7nice', '[jsaction*="rating"]']);
-    const reviewsText = texts(['[aria-label*="reviews"]', 'button[aria-label*="review"]', '.F7nice + span']);
-    const address = texts([
-      'button[data-item-id="address"]',
-      '[data-item-id="address"]',
-      'button[aria-label*="Address"]',
-      '[data-tooltip="Copy address"]',
-    ]) || meta('og:description');
+    const category = textsIn(placeRoot, ['button[jsaction*="category"]', '[data-item-id*="category"]', '.DkEaL']);
+    const ratingText = textsIn(placeRoot, ['[role="img"][aria-label*="star"]', '.F7nice', '[jsaction*="rating"]']);
+    const reviewsText = textsIn(placeRoot, [
+      'button[aria-label*="reviews"]',
+      'button[aria-label*="review"]',
+      '[aria-label*=" reviews"]',
+      '.F7nice + span',
+      '.F7nice ~ button',
+    ]);
+    const address =
+      textsIn(placeRoot, [
+        'button[data-item-id="address"]',
+        '[data-item-id="address"]',
+        'button[aria-label*="Address"]',
+        '[data-tooltip="Copy address"]',
+      ]) || meta('og:description');
 
     const rating = parseRating(ratingText);
     const reviewsCount = parseReviewCount(reviewsText);
-    const gmapsReviews = parseGoogleMapsReviewsFromDom();
+    const gmapsReviews = parseGoogleMapsReviewsFromDom(placeRoot);
 
     const lead = baseBusinessLead({
       title: name,
@@ -374,14 +408,12 @@
       url,
       sourceChannel: 'google_maps',
       blocklist,
-      noteParts: [
-        category,
-        rating || gmapsReviews.rating ? `${rating || gmapsReviews.rating}★` : '',
-        reviewsCount || gmapsReviews.reviewsCount
-          ? `${reviewsCount || gmapsReviews.reviewsCount} reviews`
-          : '',
-      ],
+      noteParts: [],
     });
+
+    // JSON-LD on Maps often reflects brand/chain totals — use the visible listing only.
+    lead.reviewsCount = 0;
+    lead.totalScore = 0;
 
     if (address && address !== 'N/A') {
       lead.address = address;
@@ -393,6 +425,14 @@
     const finalReviews = reviewsCount > 0 ? reviewsCount : gmapsReviews.reviewsCount;
     if (finalRating) lead.totalScore = finalRating;
     if (finalReviews) lead.reviewsCount = finalReviews;
+
+    lead.note = [
+      category,
+      finalRating ? `${finalRating}★` : '',
+      finalReviews ? `${finalReviews} reviews` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     return lead;
   }

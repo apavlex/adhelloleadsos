@@ -183,10 +183,24 @@ function mergePreferExisting(existing, incoming) {
   const curRev = parseInt(String(existing?.reviewsCount ?? ''), 10);
   if (Number.isFinite(incRev) && incRev > 0 && (!Number.isFinite(curRev) || curRev === 0)) {
     out.reviewsCount = incoming.reviewsCount;
+  } else if (
+    incoming?.source === 'chrome_extension' &&
+    Number.isFinite(incRev) &&
+    incRev > 0 &&
+    incRev !== curRev
+  ) {
+    out.reviewsCount = incoming.reviewsCount;
   }
   const incRating = parseFloat(String(incoming?.totalScore ?? ''));
   const curRating = parseFloat(String(existing?.totalScore ?? ''));
   if (Number.isFinite(incRating) && incRating > 0 && (!Number.isFinite(curRating) || curRating === 0)) {
+    out.totalScore = incoming.totalScore;
+  } else if (
+    incoming?.source === 'chrome_extension' &&
+    Number.isFinite(incRating) &&
+    incRating > 0 &&
+    incRating !== curRating
+  ) {
     out.totalScore = incoming.totalScore;
   }
   if (isBlankValue(existing?.gbpClaimStatus) && !isBlankValue(incoming?.gbpClaimStatus)) {
