@@ -873,9 +873,18 @@
       spLeadNavLabel.title = String(item.title || '') + (item.phone ? ' · ' + item.phone : '');
     }
     var inActiveCall = softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call';
-    var locked = !!softphoneSession.wrapRequired || inActiveCall;
-    if (spPrevLeadBtn) spPrevLeadBtn.disabled = idx <= 0 || locked;
-    if (spNextLeadBtn) spNextLeadBtn.disabled = idx >= q.length - 1 || locked;
+    if (spPrevLeadBtn) spPrevLeadBtn.disabled = idx <= 0 || inActiveCall;
+    if (spNextLeadBtn) spNextLeadBtn.disabled = idx >= q.length - 1 || inActiveCall;
+  }
+
+  function softphoneClearWrapForLeadAdvance() {
+    if (!softphoneSession.wrapRequired) return;
+    softphoneSetWrapRequired(false);
+    if (softphoneSession.state === 'ended') {
+      softphoneSetCallState('ready');
+      softphoneSetTimerSeconds(0);
+      softphoneSession.stateVerbose = '';
+    }
   }
 
   function softphoneSetFocusDialIndexFromBtn(btn) {
@@ -938,14 +947,11 @@
       softphoneSetStatus('Open Contacts to load your focus list.', true);
       return;
     }
-    if (softphoneSession.wrapRequired) {
-      softphoneSetStatus('Complete wrap-up before moving to the next lead.', true);
-      return;
-    }
     if (softphoneSession.state === 'dialing' || softphoneSession.state === 'in_call') {
       softphoneSetStatus('End the current call before switching leads.', true);
       return;
     }
+    softphoneClearWrapForLeadAdvance();
     var next = (softphoneSession.focusDialIndex || 0) + delta;
     loadSoftphoneFocusLeadAtIndex(next, opts || {});
     setSoftphoneTab('keypad');
