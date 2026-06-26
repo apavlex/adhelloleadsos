@@ -1324,9 +1324,6 @@ router.get('/telephony/call-options', async (req, res, next) => {
   }
 });
 
-  }
-});
-
 // GET /leads/telephony/webrtc-diagnostics — checklist for in-tab WebRTC audio
 router.get('/telephony/webrtc-diagnostics', async (req, res, next) => {
   try {
