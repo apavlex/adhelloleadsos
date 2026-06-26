@@ -3131,6 +3131,66 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   color: #fff;
 }
 
+.softphone-ctrl-btn--ghl {
+  background: #f97316;
+  border-color: #ea580c;
+  color: #fff;
+}
+
+.softphone-ctrl-btn--ghl:hover {
+  background: #ea580c;
+}
+
+.softphone-ctrl-btn--ghl:disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.softphone-ctrl-btn--primary {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.dark .softphone-ctrl-btn--primary {
+  background: #f8fafc;
+  border-color: #f8fafc;
+  color: #0f172a;
+}
+
+.softphone-quick-log {
+  border-radius: 9999px;
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: #faf8f3;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.5625rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.dark .softphone-quick-log {
+  background: rgba(30, 41, 59, 0.95);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+}
+
+.softphone-quick-log:hover {
+  border-color: rgba(250, 204, 21, 0.55);
+}
+
+.softphone-quick-log[data-active='true'] {
+  border-color: #facc15;
+  box-shadow: 0 0 0 1px rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.14);
+}
+
+.dark .softphone-quick-log[data-active='true'] {
+  background: rgba(250, 204, 21, 0.12);
+}
+
 .softphone-action-btn {
   border-radius: 0.95rem;
   padding: 0.75rem 1rem;

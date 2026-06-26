@@ -157,6 +157,12 @@
   var spVmNow = document.getElementById('softphoneVmNowBtn');
   var spDisposition = document.getElementById('softphoneDisposition');
   var spNotes = document.getElementById('softphoneNotes');
+  var spStatusSelect = document.getElementById('softphoneStatusSelect');
+  var spQuickLogRow = document.getElementById('softphoneQuickLogRow');
+  var spWrapPanel = document.getElementById('softphoneWrapPanel');
+  var spWrapLeadHint = document.getElementById('softphoneWrapLeadHint');
+  var spWrapFeedback = document.getElementById('softphoneWrapFeedback');
+  var spPushGhl = document.getElementById('softphonePushGhlBtn');
   var spAiSummary = document.getElementById('softphoneAiSummaryBtn');
   var spCompleteWrap = document.getElementById('softphoneCompleteWrapBtn');
   var spNextStep = document.getElementById('softphoneNextStep');
@@ -496,6 +502,359 @@
       );
     }
     updateSoftphoneCalleeDisplay();
+    updateSoftphoneWrapLeadHint();
+    hydrateSoftphoneLeadFromPanel();
+  }
+
+  function updateSoftphoneWrapLeadHint() {
+    if (!spWrapLeadHint) return;
+    var key = softphoneLeadStorageKey();
+    var title = String(softphoneSession.leadTitle || '').trim();
+    if (key && title) {
+      spWrapLeadHint.textContent = title;
+      spWrapLeadHint.title = title;
+      return;
+    }
+    if (key) {
+      spWrapLeadHint.textContent = 'Lead linked';
+      spWrapLeadHint.title = key;
+      return;
+    }
+    spWrapLeadHint.textContent = 'Dial a saved lead to sync GHL';
+    spWrapLeadHint.title = '';
+  }
+
+  function scrollSoftphoneToWrapPanel() {
+    if (!spKeypadTab || !spWrapPanel) return;
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        spWrapPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        updateSoftphoneScrollHint();
+      });
+    });
+  }
+
+  function softphoneQuickLogItems() {
+    return (window.__QUICK_LOG && window.__QUICK_LOG.items) || [];
+  }
+
+  function softphoneQuickLogTagConfig() {
+    return (window.__QUICK_LOG && window.__QUICK_LOG.tagConfig) || {};
+  }
+
+  function softphoneQuickLogItemForValue(value) {
+    var v = String(value || '').trim();
+    if (!v) return null;
+    if (v.indexOf('status:') === 0) {
+      var status = v.slice(7);
+      return softphoneQuickLogItems().find(function (i) { return i.status === status; }) || null;
+    }
+    return softphoneQuickLogItems().find(function (i) { return i.disposition === v; }) || null;
+  }
+
+  function softphoneBtnSelectionValue(btn) {
+    var disp = String(btn.getAttribute('data-disposition') || '').trim();
+    if (disp) return disp;
+    var status = String(btn.getAttribute('data-status') || '').trim();
+    if (status) return 'status:' + status;
+    return '';
+  }
+
+  function parseSoftphoneQuickLogSelection(value) {
+    var v = String(value || '').trim();
+    if (!v) return null;
+    if (v.indexOf('status:') === 0) {
+      var status = v.slice(7);
+      var statusItem = softphoneQuickLogItems().find(function (i) { return i.status === status; });
+      if (statusItem && statusItem.disposition) return { code: statusItem.disposition };
+      return { status: status };
+    }
+    return { code: v };
+  }
+
+  function softphoneOutcomeLabel(value) {
+    var item = softphoneQuickLogItemForValue(value);
+    if (item && item.label) return item.label;
+    return String(value || '').trim().replace(/_/g, ' ');
+  }
+
+  function setSoftphoneWrapFeedback(msg, isError) {
+    if (!spWrapFeedback) return;
+    spWrapFeedback.textContent = msg || '';
+    spWrapFeedback.classList.toggle('text-rose-600', !!isError);
+    spWrapFeedback.classList.toggle('dark:text-rose-400', !!isError);
+    spWrapFeedback.classList.toggle('text-emerald-700', !!msg && !isError);
+    spWrapFeedback.classList.toggle('dark:text-emerald-300', !!msg && !isError);
+    spWrapFeedback.classList.toggle('text-slate-500', !msg);
+    spWrapFeedback.classList.toggle('dark:text-slate-400', !msg);
+  }
+
+  function syncSoftphoneQuickLogButtons() {
+    if (!spQuickLogRow || !spDisposition) return;
+    var selected = String(spDisposition.value || '').trim();
+    spQuickLogRow.querySelectorAll('.softphone-quick-log').forEach(function (btn) {
+      var active = softphoneBtnSelectionValue(btn) === selected;
+      btn.setAttribute('data-active', active ? 'true' : 'false');
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function softphoneQuickSetOutcome(value) {
+    if (!spDisposition) return;
+    var v = String(value || '').trim();
+    if (!v) return;
+    spDisposition.value = v;
+    syncSoftphoneQuickLogButtons();
+    var item = softphoneQuickLogItemForValue(v);
+    if (spNotes && item && item.noteTemplate) {
+      var existing = String(spNotes.value || '').trim();
+      var templates = {};
+      softphoneQuickLogItems().forEach(function (i) {
+        var key = i.disposition || (i.status ? 'status:' + i.status : '');
+        if (key && i.noteTemplate) templates[key] = i.noteTemplate;
+      });
+      var isExistingTemplate = Object.keys(templates).some(function (k) {
+        return String(templates[k]) === existing;
+      });
+      if ((!existing || isExistingTemplate) && templates[v]) {
+        spNotes.value = templates[v];
+      }
+    }
+    if (item && item.status && spStatusSelect) {
+      spStatusSelect.value = item.status;
+    }
+    setSoftphoneWrapFeedback('Quick log: ' + (softphoneOutcomeLabel(v) || v.replace(/_/g, ' ')), false);
+  }
+
+  function readSoftphoneQuickLogSelection() {
+    if (!spDisposition) return null;
+    var value = String(spDisposition.value || '').trim();
+    if (!value) return null;
+    var item = softphoneQuickLogItemForValue(value);
+    if (item) {
+      return {
+        label: item.label,
+        disposition: item.disposition || '',
+        status: item.status || '',
+        value: value,
+      };
+    }
+    var parsed = parseSoftphoneQuickLogSelection(value);
+    if (!parsed) return null;
+    return {
+      label: softphoneOutcomeLabel(value),
+      disposition: parsed.code || '',
+      status: parsed.status || '',
+      value: value,
+    };
+  }
+
+  function softphoneLeadStorageKey() {
+    return String(softphoneSession.leadKey || '').trim().replace(/^lead:/i, '');
+  }
+
+  function hydrateSoftphoneLeadFromPanel() {
+    var key = softphoneLeadStorageKey();
+    if (!key) return;
+    fetch('/leads/' + encodeURIComponent(key) + '/panel-data', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (!data || !data.success || !data.lead) return;
+        var lead = data.lead;
+        if (spStatusSelect && lead.status) spStatusSelect.value = String(lead.status);
+        if (spDisposition && !String(spDisposition.value || '').trim()) {
+          if (lead.lastDisposition) {
+            spDisposition.value = String(lead.lastDisposition);
+            syncSoftphoneQuickLogButtons();
+          }
+        }
+        if (spNotes && lead.lastDispositionNotes && !String(spNotes.value || '').trim()) {
+          spNotes.value = String(lead.lastDispositionNotes);
+        }
+      })
+      .catch(function () {});
+  }
+
+  function applySoftphoneStatusIfNeeded(key) {
+    if (!key || !spStatusSelect) return Promise.resolve();
+    var status = String(spStatusSelect.value || '').trim();
+    if (!status) return Promise.resolve();
+    return fetch('/leads/' + encodeURIComponent(key) + '/update', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ status: status }),
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save pipeline status.');
+        return j;
+      });
+    });
+  }
+
+  function applySoftphoneQuickLogIfNeeded(opts) {
+    opts = opts || {};
+    var key = softphoneLeadStorageKey();
+    if (!key || !spDisposition) return Promise.resolve();
+    var parsed = parseSoftphoneQuickLogSelection(spDisposition.value);
+    if (!parsed) return Promise.resolve();
+    var notes = spNotes ? String(spNotes.value || '').trim() : '';
+    if (parsed.code) {
+      var body = { code: parsed.code, notes: notes };
+      if (opts.deferGhlSync) body.deferGhlSync = true;
+      return fetch('/leads/' + encodeURIComponent(key) + '/disposition', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(body),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save disposition.');
+          return j;
+        });
+      });
+    }
+    if (parsed.status) {
+      return fetch('/leads/' + encodeURIComponent(key) + '/update', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ status: parsed.status }),
+      }).then(function (r) {
+        return r.json().then(function (j) {
+          if (!r.ok || !j.success) throw new Error((j && j.error) || 'Could not save status.');
+          return j;
+        });
+      });
+    }
+    return Promise.resolve();
+  }
+
+  function softphoneGhlPushPayload(key) {
+    var payload = { leadKeys: [key] };
+    var parsed = parseSoftphoneQuickLogSelection(spDisposition ? spDisposition.value : '');
+    var notes = spNotes ? String(spNotes.value || '').trim() : '';
+    if (parsed && parsed.code) {
+      payload.disposition = parsed.code;
+      if (notes) payload.dispositionNotes = notes;
+    }
+    return payload;
+  }
+
+  function softphoneUnlockAfterWrap() {
+    softphoneSession.callSid = '';
+    softphoneResetRecordingState();
+    softphoneStopPolling();
+    softphoneClearWebrtcSession();
+    softphoneSetWrapRequired(false);
+    softphoneSetCallState('ready');
+  }
+
+  function softphoneWrapNextStepHint(disp) {
+    var d = String(disp || '').trim();
+    if (/callback/i.test(d)) return 'Auto workflow: schedule callback task + send confirmation SMS.';
+    if (/no.?answer|voicemail/i.test(d)) return 'Auto workflow: queue retry window + send follow-up SMS.';
+    if (/connected/i.test(d)) return 'Auto workflow: send recap SMS/email and set next-step task.';
+    return 'Auto workflow: update pipeline status and assign follow-up owner.';
+  }
+
+  function saveSoftphoneWrapContext(opts) {
+    opts = opts || {};
+    var key = softphoneLeadStorageKey();
+    if (!key) return Promise.resolve();
+    return applySoftphoneStatusIfNeeded(key)
+      .then(function () { return applySoftphoneQuickLogIfNeeded({ deferGhlSync: !!opts.deferGhlSync }); });
+  }
+
+  function pushSoftphoneLeadToGhl() {
+    if (window.__softphonePushGhlInFlight) return Promise.resolve();
+    var key = softphoneLeadStorageKey();
+    if (!key) {
+      setSoftphoneWrapFeedback('Open a saved lead to sync to GHL.', true);
+      softphoneSetStatus('Link a saved lead to sync to Go High Level.', true);
+      return Promise.resolve();
+    }
+    var selection = readSoftphoneQuickLogSelection();
+    if (!selection) {
+      setSoftphoneWrapFeedback('Pick a quick log first.', true);
+      softphoneSetStatus('Select a quick log before syncing to GHL.', true);
+      return Promise.resolve();
+    }
+
+    var labelDefault = 'Sync GHL';
+    window.__softphonePushGhlInFlight = true;
+    if (spPushGhl) {
+      spPushGhl.disabled = true;
+      spPushGhl.setAttribute('aria-busy', 'true');
+      spPushGhl.textContent = 'Syncing…';
+    }
+    setSoftphoneWrapFeedback('Saving disposition and notes…', false);
+
+    return saveSoftphoneWrapContext({ deferGhlSync: true })
+      .then(function () {
+        var payload = softphoneGhlPushPayload(key);
+        setSoftphoneWrapFeedback('Syncing to Go High Level…', false);
+        return fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(payload),
+        }).then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        });
+      })
+      .then(function (res) {
+        var data = res.j || {};
+        if (!res.ok || !data.success) throw new Error((data && data.error) || 'GHL sync failed');
+        var result = data.results && data.results[0] ? data.results[0] : null;
+        var actionTags = result && Array.isArray(result.actionTags) ? result.actionTags : [];
+        var tagLabel = actionTags.length
+          ? actionTags[0].replace(/^AO:\s*/i, '')
+          : (selection.disposition ? selection.disposition.replace(/_/g, ' ') : selection.label);
+        var msg = 'GHL sync complete';
+        if (tagLabel) msg += ' · AO: ' + tagLabel;
+        setSoftphoneWrapFeedback(msg, false);
+        softphoneSetStatus(msg);
+        if (spPushGhl) spPushGhl.textContent = '✓ Synced';
+        if (spNextStep) {
+          spNextStep.textContent = softphoneWrapNextStepHint(selection.disposition || selection.label);
+          spNextStep.classList.remove('hidden');
+        }
+        softphoneUnlockAfterWrap();
+        softphoneSetStatus('Synced to GHL. Ready for next dial.');
+        if (typeof window.dispatchEvent === 'function') {
+          window.dispatchEvent(
+            new CustomEvent('adhello-softphone-wrap-complete', {
+              detail: {
+                leadKey: key,
+                disposition: selection.disposition || selection.value,
+                notes: spNotes ? String(spNotes.value || '').trim() : '',
+                number: String(softphoneSession.activeNumber || (spTo ? spTo.value : '')),
+                ghlSynced: true,
+              },
+            })
+          );
+        }
+      })
+      .catch(function (err) {
+        var msg = (err && err.message) || 'GHL sync failed.';
+        setSoftphoneWrapFeedback(msg, true);
+        softphoneSetStatus(msg, true);
+        if (spPushGhl) spPushGhl.textContent = labelDefault;
+      })
+      .finally(function () {
+        window.__softphonePushGhlInFlight = false;
+        if (spPushGhl) {
+          spPushGhl.disabled = false;
+          spPushGhl.removeAttribute('aria-busy');
+          if (spPushGhl.textContent === 'Syncing…') spPushGhl.textContent = labelDefault;
+        }
+      });
   }
 
   function buildSoftphoneContactListRow(item, fillClass, callClass) {
@@ -929,10 +1288,14 @@
     spCallState.textContent = s;
   }
   function softphoneInCallBarBelowFold() {
-    if (!spKeypadTab || !spInCallBar || spInCallBar.classList.contains('hidden')) return false;
+    if (!spKeypadTab) return false;
     if (spKeypadTab.classList.contains('hidden')) return false;
     var scrollBottom = spKeypadTab.scrollTop + spKeypadTab.clientHeight;
-    return spInCallBar.offsetTop + 24 > scrollBottom;
+    if (spInCallBar && !spInCallBar.classList.contains('hidden')) {
+      if (spInCallBar.offsetTop + 24 > scrollBottom) return true;
+    }
+    if (spWrapPanel && spWrapPanel.offsetTop + 24 > scrollBottom) return true;
+    return false;
   }
   function updateSoftphoneScrollHint() {
     if (!spScrollHint) return;
@@ -969,6 +1332,7 @@
     } else {
       updateSoftphoneScrollHint();
     }
+    if (state === 'ended') scrollSoftphoneToWrapPanel();
   }
   function softphoneStopPolling() {
     if (softphoneSession.pollTimer) {
@@ -1037,6 +1401,7 @@
     softphoneSession.wrapRequired = !!v;
     if (spCall) spCall.disabled = !!v;
     if (spVm) spVm.disabled = !!v;
+    if (v) hydrateSoftphoneLeadFromPanel();
   }
   function isSoftphoneMobileViewport() {
     return window.matchMedia('(max-width: 767px)').matches;
@@ -1177,6 +1542,7 @@
     renderSoftphoneDirectMailQueue();
     softphoneSetCallState('idle');
     softphoneSetWrapRequired(false);
+    updateSoftphoneWrapLeadHint();
     updateControlToggles();
     syncNavBarCallIndicator();
     if (spCallModeSaveHint) {
@@ -1244,6 +1610,8 @@
     if (!softphoneSession.leadTitle && softphoneSession.leadKey) {
       softphoneSession.leadTitle = resolveSoftphoneLeadTitle(softphoneSession.leadKey, to);
     }
+    updateSoftphoneWrapLeadHint();
+    hydrateSoftphoneLeadFromPanel();
     setSoftphoneDialNumber(to);
     if (opts.leadKey && !isSoftphoneMobileViewport()) {
       applyDockRight();
@@ -2385,49 +2753,72 @@
     });
   }
   function completeWrap() {
-    var disp = spDisposition ? String(spDisposition.value || '').trim() : '';
+    var selection = readSoftphoneQuickLogSelection();
+    var disp = selection
+      ? (selection.disposition || selection.value || selection.label)
+      : (spDisposition ? String(spDisposition.value || '').trim() : '');
     var notes = spNotes ? String(spNotes.value || '').trim() : '';
     if (!disp) {
-      softphoneSetStatus('Select a disposition to complete wrap-up.', true);
+      softphoneSetStatus('Select a quick log to complete wrap-up.', true);
+      setSoftphoneWrapFeedback('Pick a quick log first.', true);
       return;
     }
-    if (!notes) {
-      softphoneSetStatus('Add brief notes to complete wrap-up.', true);
-      return;
-    }
-    var next = '';
-    if (/callback/i.test(disp)) next = 'Auto workflow: schedule callback task + send confirmation SMS.';
-    else if (/no answer|voicemail/i.test(disp)) next = 'Auto workflow: queue retry window + send follow-up SMS.';
-    else if (/connected/i.test(disp)) next = 'Auto workflow: send recap SMS/email and set next-step task.';
-    else next = 'Auto workflow: update pipeline status and assign follow-up owner.';
-    if (spNextStep) spNextStep.textContent = next;
-    softphoneSession.callSid = '';
-    softphoneResetRecordingState();
-    softphoneStopPolling();
-    softphoneClearWebrtcSession();
-    softphoneSetWrapRequired(false);
-    softphoneSetCallState('ready');
-    softphoneSetStatus('Wrap-up completed. Ready for next dial.');
-    if (typeof window.dispatchEvent === 'function') {
-      window.dispatchEvent(
-        new CustomEvent('adhello-softphone-wrap-complete', {
-          detail: {
-            leadKey: String(softphoneSession.leadKey || ''),
-            disposition: disp,
-            notes: notes,
-            number: String(softphoneSession.activeNumber || (spTo ? spTo.value : '')),
-          },
+    var key = softphoneLeadStorageKey();
+    var finalize = function () {
+      if (spNextStep) {
+        spNextStep.textContent = softphoneWrapNextStepHint(disp);
+        spNextStep.classList.remove('hidden');
+      }
+      softphoneUnlockAfterWrap();
+      softphoneSetStatus('Wrap-up completed. Ready for next dial.');
+      if (typeof window.dispatchEvent === 'function') {
+        window.dispatchEvent(
+          new CustomEvent('adhello-softphone-wrap-complete', {
+            detail: {
+              leadKey: key,
+              disposition: disp,
+              notes: notes,
+              number: String(softphoneSession.activeNumber || (spTo ? spTo.value : '')),
+            },
+          })
+        );
+      }
+    };
+    if (key) {
+      if (spCompleteWrap) spCompleteWrap.disabled = true;
+      saveSoftphoneWrapContext()
+        .then(finalize)
+        .catch(function (err) {
+          var msg = (err && err.message) || 'Wrap-up save failed.';
+          softphoneSetStatus(msg, true);
+          setSoftphoneWrapFeedback(msg, true);
         })
-      );
+        .finally(function () {
+          if (spCompleteWrap) spCompleteWrap.disabled = false;
+        });
+      return;
     }
+    finalize();
   }
+  if (spQuickLogRow) {
+    spQuickLogRow.addEventListener('click', function (e) {
+      var btn = e.target.closest('.softphone-quick-log');
+      if (!btn) return;
+      softphoneQuickSetOutcome(softphoneBtnSelectionValue(btn));
+    });
+  }
+  if (spPushGhl) spPushGhl.addEventListener('click', function () { pushSoftphoneLeadToGhl(); });
   if (spCompleteWrap) spCompleteWrap.addEventListener('click', completeWrap);
   if (spAiSummary) {
     spAiSummary.addEventListener('click', function () {
-      var disp = spDisposition ? String(spDisposition.value || '').trim() : '';
+      var selection = readSoftphoneQuickLogSelection();
+      var disp = selection
+        ? (selection.disposition || selection.value || selection.label)
+        : (spDisposition ? String(spDisposition.value || '').trim() : '');
       var notes = spNotes ? String(spNotes.value || '').trim() : '';
-      if (!disp || !notes) {
-        softphoneSetStatus('Pick disposition and add notes first.', true);
+      if (!disp) {
+        softphoneSetStatus('Pick a quick log first.', true);
+        setSoftphoneWrapFeedback('Pick a quick log first.', true);
         return;
       }
       var original = spAiSummary.textContent;
