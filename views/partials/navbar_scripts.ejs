@@ -430,6 +430,114 @@
     }
   }
 
+  function writeFocusCallQueueCache(items) {
+    try {
+      sessionStorage.setItem(SOFTPHONE_FOCUS_QUEUE_CACHE_KEY, JSON.stringify(Array.isArray(items) ? items : []));
+    } catch (_) {}
+  }
+
+  function normalizeFocusQueueContact(item) {
+    if (!item) return null;
+    var phone = String(item.phone || item.number || '').trim();
+    if (!softphoneQueuePhoneValid(phone)) return null;
+    return {
+      key: normalizeFocusQueueKey(item.key || item.leadKey || ''),
+      title: String(item.title || 'Lead').trim(),
+      phone: normalizeDial(phone) || phone,
+      city: String(item.city || '').trim(),
+      state: String(item.state || '').trim(),
+      pipelineLabel: String(item.pipelineLabel || '').trim(),
+    };
+  }
+
+  function paintSoftphoneContactRows(host, items, fillClass, callClass) {
+    if (!host) return;
+    host.innerHTML = '';
+    if (!items || !items.length) {
+      host.innerHTML =
+        '<p class="text-xs text-slate-500">No callable focus contacts right now. Open Focus mode or add phone numbers to your pipeline leads.</p>';
+      return;
+    }
+    var queueItems = items.map(function (item) {
+      return { number: item.phone, title: item.title, leadKey: item.key };
+    });
+    hydrateSoftphoneContactTitles(queueItems, function (enriched) {
+      if (!host) return;
+      host.innerHTML = '';
+      enriched.forEach(function (item, idx) {
+        var row = buildSoftphoneContactListRow(item, fillClass, callClass);
+        var source = items[idx];
+        if (source && (source.city || source.state || source.pipelineLabel)) {
+          var meta = document.createElement('p');
+          meta.className = 'text-[10px] text-slate-500 dark:text-slate-400 -mt-1 mb-1 px-3';
+          var parts = [];
+          if (source.city || source.state) {
+            parts.push([source.city, source.state].filter(Boolean).join(', '));
+          }
+          if (source.pipelineLabel) parts.push(source.pipelineLabel);
+          meta.textContent = parts.join(' · ');
+          row.appendChild(meta);
+        }
+        host.appendChild(row);
+      });
+    });
+  }
+
+  function renderSoftphoneFocusContacts() {
+    if (!spContactsList) return;
+
+    function apply(items, fromCache) {
+      var normalized = (items || [])
+        .map(normalizeFocusQueueContact)
+        .filter(Boolean);
+      if (normalized.length) writeFocusCallQueueCache(normalized);
+      if (spContactsMeta) {
+        if (!normalized.length) {
+          spContactsMeta.textContent =
+            'No callable phone numbers in your focus queue. Open Focus mode to work leads or add phones in the pipeline.';
+        } else {
+          spContactsMeta.textContent =
+            normalized.length +
+            ' focus contact' +
+            (normalized.length === 1 ? '' : 's') +
+            ' ready to dial.';
+        }
+      }
+      paintSoftphoneContactRows(
+        spContactsList,
+        normalized,
+        'softphone-queue-fill hover:text-brand-yellow',
+        'softphone-queue-call',
+      );
+    }
+
+    var domItems = parseFocusQueueEntriesFromDom();
+    if (domItems.length) {
+      apply(domItems, false);
+      return;
+    }
+
+    var cached = readFocusCallQueueCache();
+    if (cached.length) apply(cached, true);
+
+    fetch('/focus/queue.json', { credentials: 'same-origin', headers: { Accept: 'application/json' } })
+      .then(function (r) {
+        return r.json().then(function (j) {
+          return { ok: r.ok, j: j };
+        });
+      })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success || !Array.isArray(res.j.queue)) return;
+        apply(res.j.queue, false);
+      })
+      .catch(function () {
+        if (!cached.length && spContactsMeta) {
+          spContactsMeta.textContent = 'Could not load focus contacts. Try again or open Focus mode.';
+        }
+      });
+  }
+  window.__renderSoftphoneFocusContacts = renderSoftphoneFocusContacts;
+
   function normalizeRecentDialEntry(x) {
     if (!x) return null;
     if (typeof x === 'string') {
@@ -1629,6 +1737,7 @@
     setSoftphoneTab('keypad');
     if (spTo) setTimeout(function () { spTo.focus(); }, 80);
     renderRecentDials();
+    renderSoftphoneFocusContacts();
     renderSoftphoneCallQueue();
     renderSoftphoneDirectMailQueue();
     softphoneSetCallState('idle');
@@ -2074,6 +2183,8 @@
   var spOpenAddLead = document.getElementById('softphoneOpenAddLead');
   var spQueueList = document.getElementById('softphoneQueueList');
   var spQueueMeta = document.getElementById('softphoneQueueMeta');
+  var spContactsList = document.getElementById('softphoneContactsList');
+  var spContactsMeta = document.getElementById('softphoneContactsMeta');
 
   function softphoneQueueRowTitle(row) {
     if (!row || !row.dataset) return 'Lead';
@@ -2401,6 +2512,7 @@
     });
     try { localStorage.setItem(SOFTPHONE_TAB_KEY, name); } catch (_) {}
     if (name === 'recents') renderRecentDials();
+    if (name === 'contacts') renderSoftphoneFocusContacts();
     if (name === 'queue') renderSoftphoneCallQueue();
     if (name === 'direct_mail') renderSoftphoneDirectMailQueue();
     if (name === 'keypad' && spTo) setTimeout(function () { spTo.focus(); }, 60);

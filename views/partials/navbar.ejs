@@ -453,11 +453,17 @@
         </div>
 
         <div id="softphoneTabContacts" class="softphone-tab-panel hidden flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 py-3" data-tab="contacts">
-          <p class="text-[15px] font-bold text-slate-800 dark:text-white mb-3">Contacts</p>
-          <div class="space-y-2">
-            <a href="/pipeline" class="softphone-link-card">Pipeline <span class="text-slate-400">→</span></a>
-            <a href="/prospecting?tab=folders" class="softphone-link-card">Folders <span class="text-slate-400">→</span></a>
-            <a href="/leads/find" class="softphone-link-card">Find leads <span class="text-slate-400">→</span></a>
+          <div class="flex items-start justify-between gap-2 mb-2">
+            <div class="min-w-0">
+              <p class="text-[10px] font-bold uppercase tracking-wide text-brand-yellow">Today&apos;s queue</p>
+              <p class="text-[15px] font-bold text-slate-800 dark:text-white leading-tight">Focus contacts</p>
+            </div>
+            <a href="/focus?channel=call" class="shrink-0 text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:underline pt-1">Focus mode →</a>
+          </div>
+          <p id="softphoneContactsMeta" class="text-[11px] text-slate-500 dark:text-slate-400 mb-3 leading-snug">Highest-ROI leads to call — same order as Focus mode.</p>
+          <div id="softphoneContactsList" class="space-y-2 mb-4"></div>
+          <div class="space-y-2 mb-4">
+            <a href="/today" class="softphone-link-card">Open Today&apos;s queue <span class="text-slate-400">→</span></a>
             <button type="button" id="softphoneOpenAddLead" class="softphone-link-card w-full text-left">Add lead <span class="text-slate-400">→</span></button>
           </div>
           <div class="mt-4 pt-3 border-t border-slate-200/70 dark:border-white/10">

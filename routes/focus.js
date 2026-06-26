@@ -158,6 +158,27 @@ router.get('/metrics.json', async (req, res, next) => {
   }
 });
 
+/** Callable focus queue for softphone Contacts tab and dialer integrations. */
+router.get('/queue.json', async (req, res, next) => {
+  try {
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const pipelineLeads = filterBusinessPipelineLeads(visible);
+    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
+    const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    const ordered = buildFocusQueue(pipelineLeads);
+    const queue = ordered
+      .map((l) => leadToFocusPayload(l, sortedStages))
+      .filter((item) => {
+        const phone = String(item.phone || '').trim();
+        return phone && phone !== 'N/A' && phone !== '—';
+      });
+    res.json({ success: true, queue });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/touch-goal', async (req, res, next) => {
   try {
     const email = userEmail(req);
