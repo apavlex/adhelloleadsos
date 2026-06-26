@@ -21,6 +21,29 @@ function parsePriceInput(raw) {
   return Number.isFinite(n) && n > 0 ? n : null;
 }
 
+function formatReviewsField(lead) {
+  if (!lead) return '';
+  const rating = parseFloat(lead.totalScore || lead.rating || 0);
+  const count = parseInt(lead.reviewsCount || lead.reviews || 0, 10) || 0;
+  const parts = [];
+  if (Number.isFinite(rating) && rating > 0) parts.push(`${rating}★`);
+  if (count > 0) parts.push(`${count} review${count === 1 ? '' : 's'}`);
+  return parts.join(' · ');
+}
+
+function parseReviewsField(raw) {
+  const s = String(raw || '').trim();
+  if (!s) return { totalScore: 0, reviewsCount: 0 };
+  const ratingMatch = s.match(/([\d.]+)\s*★/);
+  const countMatch = s.match(/([\d,]+)\s*reviews?\b/i);
+  const totalScore = ratingMatch ? parseFloat(ratingMatch[1]) : parseFloat(s) || 0;
+  const reviewsCount = countMatch ? parseInt(countMatch[1].replace(/,/g, ''), 10) : 0;
+  return {
+    totalScore: Number.isFinite(totalScore) ? totalScore : 0,
+    reviewsCount: Number.isFinite(reviewsCount) ? reviewsCount : 0,
+  };
+}
+
 function buildListingPayload(base, formEl) {
   if (!base?.listing && !base?.jobType && !base?.listingType) return {};
   const price = parsePriceInput(formEl.price.value);
@@ -85,6 +108,7 @@ function fillForm(lead) {
   form.website.value = lead.website && lead.website !== 'N/A' ? lead.website : '';
   form.email.value = lead.email && lead.email !== 'N/A' ? lead.email : '';
   form.phone.value = lead.phone && lead.phone !== 'N/A' ? lead.phone : '';
+  form.reviews.value = formatReviewsField(lead);
 
   const listingLabel =
     lead.listingType === 'products' || lead.jobType === 'products'
@@ -134,6 +158,7 @@ form.addEventListener('submit', async (e) => {
 
   try {
     const { lead: base } = await getActiveTabLead();
+    const reviews = parseReviewsField(form.reviews.value);
     const payload = {
       ...(base || {}),
       ...buildListingPayload(base, form),
@@ -145,6 +170,8 @@ form.addEventListener('submit', async (e) => {
       website: form.website.value.trim() || 'N/A',
       email: form.email.value.trim() || 'N/A',
       phone: form.phone.value.trim() || 'N/A',
+      totalScore: reviews.totalScore || base?.totalScore || 0,
+      reviewsCount: reviews.reviewsCount || base?.reviewsCount || 0,
       source: 'chrome_extension',
     };
 

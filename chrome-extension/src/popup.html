@@ -24,24 +24,6 @@
         <input type="text" name="title" required />
       </label>
       <label>
-        <span>Price</span>
-        <input type="text" name="price" placeholder="$0" />
-      </label>
-      <div class="row-3">
-        <label>
-          <span>Beds</span>
-          <input type="text" name="beds" />
-        </label>
-        <label>
-          <span>Baths</span>
-          <input type="text" name="baths" />
-        </label>
-        <label>
-          <span>Sqft</span>
-          <input type="text" name="sqft" />
-        </label>
-      </div>
-      <label>
         <span>Headline / notes</span>
         <textarea name="note" rows="3"></textarea>
       </label>
@@ -63,14 +45,42 @@
         <span>Website</span>
         <input type="url" name="website" placeholder="https://" />
       </label>
-      <label class="row">
+      <label>
         <span>Email</span>
         <input type="email" name="email" />
       </label>
-      <label class="row">
+      <label>
         <span>Phone</span>
         <input type="tel" name="phone" />
       </label>
+      <label>
+        <span>Reviews</span>
+        <input type="text" name="reviews" placeholder="4.5★ · 120 reviews" />
+      </label>
+
+      <section class="form-section" aria-labelledby="listingSectionTitle">
+        <h2 id="listingSectionTitle" class="form-section__title">Real estate &amp; products</h2>
+        <p class="form-section__hint">Optional — for Zillow, MHVillage, OfferUp, and other listings.</p>
+        <label>
+          <span>Price</span>
+          <input type="text" name="price" placeholder="$0" />
+        </label>
+        <div class="row-3">
+          <label>
+            <span>Beds</span>
+            <input type="text" name="beds" />
+          </label>
+          <label>
+            <span>Baths</span>
+            <input type="text" name="baths" />
+          </label>
+          <label>
+            <span>Sqft</span>
+            <input type="text" name="sqft" />
+          </label>
+        </div>
+      </section>
+
       <button type="submit" id="saveBtn">Save to AdHello</button>
     </form>
 
