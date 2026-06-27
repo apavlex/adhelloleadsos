@@ -65,7 +65,8 @@ Set **Default folder name** in Settings to pre-fill the popup and single-save fo
 3. Enter a **folder name** (created automatically in Pipeline if new).
 4. Leave **Scroll to load all results** checked to auto-scroll the list, or uncheck to scrape only what is already loaded.
 5. Click **Scrape & import to AdHello** — while scrolling, the button becomes **Stop scrolling**.
-6. Leads import into your folder with name, phone, address, category, rating, reviews, review snippet, sponsored, website, and Maps URL. Duplicates merge with existing leads.
+6. Leave **Open each listing to fetch website & domain** checked (recommended) — this opens each Maps result briefly to capture the business website and domain. Uncheck for a faster import with phone/address/reviews only.
+7. Leads import into your folder with name, phone, full address, city, state, category, rating, reviews, review snippet, website, domain, and Maps URL. Duplicates merge with existing leads.
 
 No separate scraper extension required — this is built into AdHello Leads v1.5+.
 

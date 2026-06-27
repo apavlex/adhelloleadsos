@@ -495,6 +495,11 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   ]);
   const website = websiteRaw ? normalizeWebsite(websiteRaw) : 'N/A';
 
+  let companyDomain = firstNonEmpty(r, ['company_domain', 'domain']);
+  if (!companyDomain && website && website !== 'N/A') {
+    companyDomain = safeHostname(website);
+  }
+
   const phone = firstNonEmpty(r, ['phone_number', 'phone', 'telephone', 'mobile', 'tel']) || 'N/A';
 
   const emailRaw = pickPrimaryEmail(r);
@@ -572,7 +577,7 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     decisionMakerName: decisionMakerName || undefined,
     decisionMakerTitle: decisionMakerTitle || undefined,
     companyEmails: firstNonEmpty(r, ['company_emails']) || undefined,
-    companyDomain: firstNonEmpty(r, ['company_domain']) || undefined,
+    companyDomain: companyDomain || undefined,
     latitude: lat || undefined,
     longitude: lng || undefined,
     emailValidationStatus: firstNonEmpty(r, ['email_validation_status']) || undefined,

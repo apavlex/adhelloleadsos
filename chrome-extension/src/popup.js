@@ -15,7 +15,7 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.5.2';
+const EXT_VERSION = '1.5.3';
 const BULK_IMPORT_BATCH_SIZE = 15;
 
 let bulkRunning = false;
@@ -43,7 +43,11 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.action !== 'bulkScrapeProgress' || !bulkProgressEl) return;
-  bulkProgressEl.textContent = `Scrolling… ${message.businessCount || 0} businesses loaded (${message.scrollAttempts || 0} scrolls)`;
+  if (message.phase === 'enrich') {
+    bulkProgressEl.textContent = `Fetching websites… ${message.current || 0}/${message.total || 0}`;
+  } else {
+    bulkProgressEl.textContent = `Scrolling… ${message.businessCount || 0} businesses loaded (${message.scrollAttempts || 0} scrolls)`;
+  }
   bulkProgressEl.classList.add('bulk-progress--active');
 });
 
@@ -150,21 +154,63 @@ function sendTabMessage(tabId, message) {
   });
 }
 
+function mapCompanyToImportRow(company) {
+  const address = String(company.Address || '').trim();
+  const parsed = window.AdHelloAddressUtils?.parseCityState
+    ? window.AdHelloAddressUtils.parseCityState(address)
+    : { street: address, city: '', state: '' };
+  const city = String(company.City || parsed.city || '').trim();
+  const state = String(company.State || parsed.state || '').trim();
+  const street = parsed.street || address;
+  const fullAddress = city && state ? `${street}, ${city}, ${state}` : city ? `${street}, ${city}` : street;
+  let snippet = String(company['Review Snippet'] || '').trim();
+  if (snippet.startsWith('"') && snippet.endsWith('"')) snippet = snippet.slice(1, -1).trim();
+  const website = String(company.Website || '').trim();
+  const domain = window.AdHelloAddressUtils?.hostnameFromUrl?.(website) || '';
+  return {
+    company_name: company['Business Name'] || '',
+    phone_number: company['Phone Number'] || '',
+    company_location: fullAddress || address,
+    address: fullAddress || address,
+    city,
+    state,
+    company_type: company.Category || '',
+    category: company.Category || '',
+    rating: company.Rating || '',
+    review_count: String(company['Review Count'] || '').replace(/[^\d]/g, ''),
+    review_snippet: snippet,
+    sponsored: company.Sponsored || '',
+    company_website: website,
+    website,
+    company_domain: domain,
+    domain,
+    google_maps_url: company['Google Maps URL'] || '',
+    booking_url: company['Booking URL'] || '',
+    source: 'chrome_extension_maps_bulk',
+  };
+}
+
 function companiesToCsv(companies) {
   if (!companies?.length) return '';
   const headers = [
     'company_name',
     'phone_number',
     'company_location',
+    'address',
     'city',
     'state',
     'company_type',
+    'category',
     'rating',
     'review_count',
     'review_snippet',
     'sponsored',
     'company_website',
+    'website',
+    'company_domain',
+    'domain',
     'google_maps_url',
+    'booking_url',
     'source',
   ];
   const esc = (val) => {
@@ -172,35 +218,7 @@ function companiesToCsv(companies) {
     if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
     return s;
   };
-  const rows = companies.map((c) => {
-    const address = String(c.Address || '').trim();
-    const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
-    let city = '';
-    let state = '';
-    if (parts.length >= 2) {
-      const last = parts[parts.length - 1];
-      const stateMatch = last.match(/\b([A-Z]{2})\b/);
-      city = parts.length >= 3 ? parts[parts.length - 2] : parts[0];
-      state = stateMatch ? stateMatch[1] : '';
-    }
-    let snippet = String(c['Review Snippet'] || '').trim();
-    if (snippet.startsWith('"') && snippet.endsWith('"')) snippet = snippet.slice(1, -1).trim();
-    return {
-      company_name: c['Business Name'] || '',
-      phone_number: c['Phone Number'] || '',
-      company_location: address,
-      city,
-      state,
-      company_type: c.Category || '',
-      rating: c.Rating || '',
-      review_count: String(c['Review Count'] || '').replace(/[^\d]/g, ''),
-      review_snippet: snippet,
-      sponsored: c.Sponsored || '',
-      company_website: c.Website || '',
-      google_maps_url: c['Google Maps URL'] || '',
-      source: 'chrome_extension_maps_bulk',
-    };
-  });
+  const rows = companies.map((c) => mapCompanyToImportRow(c));
   let csv = headers.join(',') + '\n';
   rows.forEach((row) => {
     csv += headers.map((h) => esc(row[h] ?? '')).join(',') + '\n';
@@ -484,6 +502,7 @@ async function runBulkScrapeSubmit(e) {
 
   const folderName = bulkForm.bulkFolderName.value.trim();
   const scrollAll = !!bulkForm.bulkScrollAll?.checked;
+  const enrichDetails = !!bulkForm.bulkEnrichDetails?.checked;
   if (!folderName) {
     setBulkStatus('Folder name is required.', 'error');
     return;
@@ -518,7 +537,10 @@ async function runBulkScrapeSubmit(e) {
     }
 
     if (bulkProgressEl) bulkProgressEl.textContent = 'Extracting business data…';
-    const extract = await sendTabMessage(tab.id, { action: 'bulkGetCompanies' });
+    const extract = await sendTabMessage(tab.id, {
+      action: 'bulkGetCompanies',
+      enrichDetails,
+    });
     const companies = extract?.companies || [];
     if (!companies.length) {
       throw new Error('No businesses found. Scroll the Maps list manually, then try again.');
@@ -537,8 +559,10 @@ async function runBulkScrapeSubmit(e) {
     const parts = [`${data.created} new`];
     if (data.updated) parts.push(`${data.updated} updated`);
     if (data.failed) parts.push(`${data.failed} failed`);
+    const enrichNote =
+      enrichDetails && extract?.enrichedCount != null ? ` · ${extract.enrichedCount} websites found` : '';
     setBulkStatus(
-      `Imported ${companies.length} scraped businesses (${parts.join(', ')}) into “${data.folderName || folderName}”.`,
+      `Imported ${companies.length} scraped businesses (${parts.join(', ')}) into “${data.folderName || folderName}”.${enrichNote}`,
       'success',
     );
     if (bulkProgressEl) bulkProgressEl.textContent = '';

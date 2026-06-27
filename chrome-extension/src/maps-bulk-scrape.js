@@ -8,7 +8,19 @@
   const PHONE_RE = /\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/;
   const SKIP_LABEL_RE =
     /^(Open|Closed|Opens?|Closes?|Order online|Book online|Reserve|Directions|Website|Call|Menu|View|Save|Share|Search|More|View all|See all|Filter|Sort)$/i;
-  const SOCIAL_BLOCK = ['facebook.com', 'instagram.com', 'twitter.com', 'yelp.com'];
+  const SOCIAL_BLOCK = ['facebook.com', 'instagram.com', 'twitter.com', 'x.com', 'yelp.com'];
+  const BOOKING_BLOCK = [
+    'opentable.com',
+    'resy.com',
+    'bookatable.',
+    'tock.com',
+    'thumbtack.com',
+    'angi.com',
+    'homeadvisor.com',
+    'calendly.com',
+    'booksy.com',
+    'setmore.com',
+  ];
   const AD_HOST_BLOCK = [
     'google.com',
     'goo.gl',
@@ -59,10 +71,57 @@
     ].some((re) => re.test(s));
   }
 
-  function isCleanWebsite(url) {
-    if (!url) return false;
+  function isBlockedWebsite(url) {
+    if (!url) return true;
     const t = url.toLowerCase();
-    return !AD_HOST_BLOCK.some((h) => t.includes(h));
+    if (AD_HOST_BLOCK.some((h) => t.includes(h))) return true;
+    if (SOCIAL_BLOCK.some((d) => t.includes(d))) return true;
+    if (BOOKING_BLOCK.some((d) => t.includes(d))) return true;
+    return false;
+  }
+
+  function pickWebsiteFromLinks(links, requireLabel = false) {
+    for (const link of links) {
+      const href = link.href;
+      if (!href || !/^https?:\/\//i.test(href)) continue;
+      if (isBlockedWebsite(href)) continue;
+      const label = `${link.textContent || ''} ${link.getAttribute('aria-label') || ''}`.toLowerCase();
+      if (requireLabel && !label.includes('website') && !label.includes('visit')) continue;
+      return href.split('?')[0];
+    }
+    if (requireLabel) return '';
+    for (const link of links) {
+      const href = link.href;
+      if (!href || !/^https?:\/\//i.test(href)) continue;
+      if (isBlockedWebsite(href)) continue;
+      return href.split('?')[0];
+    }
+    return '';
+  }
+
+  function extractAddressFromContainer(container) {
+    for (const el of container.querySelectorAll('[aria-label*="Address"], [data-tooltip*="address" i]')) {
+      const val = window.AdHelloAddressUtils?.extractAddressFromElement?.(el) || '';
+      if (val && val.length >= 5) return val;
+    }
+
+    const leafNodes = Array.from(container.querySelectorAll('div, span')).filter(
+      (el) => !el.querySelector('div, span'),
+    );
+    for (const el of leafNodes) {
+      const t = el.textContent.trim();
+      if (!looksLikeAddress(t)) continue;
+      let addr = t.replace(/^[^·]+·\s*/, '').trim();
+      if (addr.includes('·')) {
+        const parts = t
+          .split('·')
+          .map((p) => p.trim())
+          .filter(Boolean);
+        if (parts.length >= 2) addr = `${parts[0]} · ${parts.slice(1).join(', ')}`;
+      }
+      return addr;
+    }
+    return '';
   }
 
   function findBusinessContainers() {
@@ -80,6 +139,8 @@
     const row = {
       'Business Name': '',
       Address: '',
+      City: '',
+      State: '',
       Rating: '',
       'Review Count': '',
       Category: '',
@@ -87,6 +148,7 @@
       'Google Maps URL': '',
       'Phone Number': '',
       Website: '',
+      'Booking URL': '',
       'Review Snippet': '',
       'Extraction Date': new Date().toISOString().split('T')[0],
     };
@@ -120,11 +182,16 @@
       if (reviewMatch) row['Review Count'] = reviewMatch[1].replace(/,/g, '');
     }
 
-    for (const el of leafNodes) {
-      const t = el.textContent.trim();
-      if (looksLikeAddress(t)) {
-        row.Address = t.replace(/^[^·]+·\s*/, '').trim();
-        break;
+    const addrFromContainer = extractAddressFromContainer(container);
+    if (addrFromContainer) {
+      row.Address = addrFromContainer;
+    } else {
+      for (const el of leafNodes) {
+        const t = el.textContent.trim();
+        if (looksLikeAddress(t)) {
+          row.Address = t.replace(/^[^·]+·\s*/, '').trim();
+          break;
+        }
       }
     }
 
@@ -197,24 +264,183 @@
       }
     }
 
+    row.Website = pickWebsiteFromLinks(links, true) || pickWebsiteFromLinks(links, false);
+
     for (const link of links) {
       const href = link.href;
-      if ([...SOCIAL_BLOCK, 'opentable.com', 'resy.com'].some((d) => href.includes(d))) continue;
-      if (!isCleanWebsite(href)) continue;
-      const label = (link.textContent + ' ' + (link.getAttribute('aria-label') || '')).toLowerCase();
-      if (label.includes('website') || label.includes('visit')) {
-        row.Website = href;
-        break;
-      }
+      if (!href || isBlockedWebsite(href)) continue;
+      if (!BOOKING_BLOCK.some((d) => href.includes(d))) continue;
+      row['Booking URL'] = href.split('?')[0];
+      break;
     }
+
+    const geo = parseCityStateFromAddress(row.Address);
+    if (geo.city) row.City = geo.city;
+    if (geo.state) row.State = geo.state;
 
     return row['Business Name'] ? row : null;
   }
 
-  function extractAllCompanies() {
+  function readSearchAreaContext() {
+    const href = window.location.href;
+    const inMatch = href.match(/\/in\/([^/@]+)/i);
+    if (inMatch) {
+      const decoded = decodeURIComponent(inMatch[1].replace(/\+/g, ' ')).trim();
+      const parts = decoded.split(',').map((p) => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        return { city: parts[0], state: parts[parts.length - 1].replace(/\d{5}.*/, '').trim() };
+      }
+      return { city: decoded, state: '' };
+    }
+
+    const q = readSearchQuery();
+    const nearMatch = q.match(/\bnear\s+(.+)$/i);
+    if (nearMatch) {
+      const parts = nearMatch[1].split(',').map((p) => p.trim()).filter(Boolean);
+      if (parts.length >= 2) {
+        return { city: parts[0], state: parts[parts.length - 1].replace(/\d{5}.*/, '').trim() };
+      }
+    }
+
+    const stateTail = q.match(/(.+?)[,\s]+([A-Z]{2})\s*$/);
+    if (stateTail) {
+      const cityPart = stateTail[1]
+        .replace(/^.*\b(in|near)\b\s+/i, '')
+        .trim()
+        .split(/\s+/)
+        .slice(-2)
+        .join(' ');
+      return { city: cityPart, state: stateTail[2].toUpperCase() };
+    }
+
+    return { city: '', state: '' };
+  }
+
+  function waitMs(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function waitForDetailPanel(businessName, maxMs = 6000) {
+    const needle = String(businessName || '')
+      .trim()
+      .slice(0, 12)
+      .toLowerCase();
+    const start = Date.now();
+    while (Date.now() - start < maxMs) {
+      const h1 = document.querySelector('h1.DUwDvf, h1[aria-level="1"]');
+      const title = (h1?.textContent || '').trim().toLowerCase();
+      if (needle && title.includes(needle)) {
+        const hasDetail =
+          document.querySelector('[data-item-id="address"], a[data-item-id="authority"], button[data-item-id="address"]');
+        if (hasDetail) return true;
+      }
+      await waitMs(120);
+    }
+    return false;
+  }
+
+  function scrapeOpenDetailPanel() {
+    const out = { Website: '', Address: '', 'Phone Number': '' };
+    const websiteEl = document.querySelector(
+      'a[data-item-id="authority"], a[aria-label*="website" i][href^="http"], a[data-tooltip*="website" i][href^="http"]',
+    );
+    if (websiteEl?.href && !isBlockedWebsite(websiteEl.href)) {
+      out.Website = websiteEl.href.split('?')[0];
+    }
+
+    const addressEl = document.querySelector(
+      'button[data-item-id="address"], [data-item-id="address"], button[aria-label*="Address"]',
+    );
+    if (addressEl) {
+      const addr = window.AdHelloAddressUtils?.extractAddressFromElement?.(addressEl) || '';
+      if (addr) out.Address = addr;
+    }
+
+    const tel = document.querySelector('button[data-item-id^="phone"], a[href^="tel:"]');
+    if (tel) {
+      const phone = tel.getAttribute('href')?.replace(/^tel:/i, '') || tel.textContent || '';
+      if (phone) out['Phone Number'] = phone.trim();
+    }
+
+    return out;
+  }
+
+  function findContainerForCompany(containers, company) {
+    const name = String(company['Business Name'] || '').trim().toLowerCase();
+    if (!name) return null;
+    return (
+      containers.find((container) => {
+        const link = container.querySelector('a[href*="/maps/place/"]');
+        const label = (link?.getAttribute('aria-label') || link?.textContent || '').trim().toLowerCase();
+        return label === name || label.startsWith(name) || name.startsWith(label);
+      }) || null
+    );
+  }
+
+  async function enrichCompaniesFromDetailPanels(companies, onProgress) {
+    const containers = findBusinessContainers();
+    const area = readSearchAreaContext();
+    let enrichedCount = 0;
+
+    for (let i = 0; i < companies.length; i += 1) {
+      const company = companies[i];
+      if (typeof onProgress === 'function') {
+        onProgress({ phase: 'enrich', current: i + 1, total: companies.length, name: company['Business Name'] });
+      }
+      try {
+        chrome.runtime.sendMessage({
+          action: 'bulkScrapeProgress',
+          phase: 'enrich',
+          current: i + 1,
+          total: companies.length,
+          businessCount: companies.length,
+        });
+      } catch (_) {
+        /* ignore */
+      }
+
+      const container = findContainerForCompany(containers, company);
+      if (!container) continue;
+
+      const needsDetail =
+        !company.Website ||
+        !String(company.Address || '').includes(',') ||
+        !company['Phone Number'];
+      if (!needsDetail && company.City && company.State) continue;
+
+      const link = container.querySelector('a[href*="/maps/place/"]');
+      if (!link) continue;
+
+      link.scrollIntoView({ block: 'center', behavior: 'instant' in Object ? 'instant' : 'auto' });
+      link.click();
+      const loaded = await waitForDetailPanel(company['Business Name']);
+      if (!loaded) continue;
+
+      const detail = scrapeOpenDetailPanel();
+      if (detail.Website && !company.Website) {
+        company.Website = detail.Website;
+        enrichedCount += 1;
+      }
+      if (detail.Address && (!company.Address || !company.Address.includes(','))) {
+        company.Address = detail.Address;
+      }
+      if (detail['Phone Number'] && !company['Phone Number']) {
+        company['Phone Number'] = detail['Phone Number'];
+      }
+
+      if (!company.City && area.city) company.City = area.city;
+      if (!company.State && area.state) company.State = area.state;
+    }
+
+    return { companies, enrichedCount };
+  }
+
+  async function extractAllCompanies(options = {}) {
     const containers = findBusinessContainers();
     const companies = [];
     const seen = new Set();
+    const area = readSearchAreaContext();
+
     containers.forEach((container, idx) => {
       try {
         const row = extractFromContainer(container);
@@ -222,12 +448,23 @@
         const key = `${row['Business Name']}|${row['Phone Number']}|${row.Address}`.toLowerCase();
         if (seen.has(key)) return;
         seen.add(key);
+        if (!row.City && area.city) row.City = area.city;
+        if (!row.State && area.state) row.State = area.state;
+        if (row.Address && (!row.City || !row.State)) {
+          const geo = parseCityStateFromAddress(row.Address);
+          if (!row.City && geo.city) row.City = geo.city;
+          if (!row.State && geo.state) row.State = geo.state;
+        }
         companies.push(row);
       } catch (err) {
         console.warn('[AdHello bulk] container error', idx, err);
       }
     });
-    return companies;
+
+    if (options.enrichDetails) {
+      return enrichCompaniesFromDetailPanels(companies, options.onProgress);
+    }
+    return { companies, enrichedCount: 0 };
   }
 
   function findScrollContainer() {
@@ -346,7 +583,8 @@
 
   function parseCityStateFromAddress(address) {
     if (window.AdHelloAddressUtils?.parseCityState) {
-      return window.AdHelloAddressUtils.parseCityState(address);
+      const parsed = window.AdHelloAddressUtils.parseCityState(address);
+      return { city: parsed.city || '', state: parsed.state || '' };
     }
     const parts = String(address || '')
       .split(',')
@@ -361,25 +599,40 @@
 
   function mapCompanyToCsvRow(company) {
     const address = String(company.Address || '').trim();
-    const geo = parseCityStateFromAddress(address);
+    const parsed = window.AdHelloAddressUtils?.parseCityState
+      ? window.AdHelloAddressUtils.parseCityState(address)
+      : { street: address, city: '', state: '' };
+    const city = String(company.City || parsed.city || '').trim();
+    const state = String(company.State || parsed.state || '').trim();
+    const street = parsed.street || address;
+    const fullAddress =
+      city && state ? `${street}, ${city}, ${state}` : city ? `${street}, ${city}` : street;
     const reviewCount = String(company['Review Count'] || '').replace(/[^\d]/g, '');
     let snippet = String(company['Review Snippet'] || '').trim();
     if (snippet.startsWith('"') && snippet.endsWith('"')) {
       snippet = snippet.slice(1, -1).trim();
     }
+    const website = String(company.Website || '').trim();
+    const domain = window.AdHelloAddressUtils?.hostnameFromUrl?.(website) || '';
     return {
       company_name: company['Business Name'] || '',
       phone_number: company['Phone Number'] || '',
-      company_location: address,
-      city: geo.city,
-      state: geo.state,
+      company_location: fullAddress || address,
+      address: fullAddress || address,
+      city,
+      state,
       company_type: company.Category || '',
+      category: company.Category || '',
       rating: company.Rating || '',
       review_count: reviewCount,
       review_snippet: snippet,
       sponsored: company.Sponsored || '',
-      company_website: company.Website || '',
+      company_website: website,
+      website: website,
+      company_domain: domain,
+      domain: domain,
       google_maps_url: company['Google Maps URL'] || '',
+      booking_url: company['Booking URL'] || '',
       source: 'chrome_extension_maps_bulk',
     };
   }
@@ -391,15 +644,21 @@
       'company_name',
       'phone_number',
       'company_location',
+      'address',
       'city',
       'state',
       'company_type',
+      'category',
       'rating',
       'review_count',
       'review_snippet',
       'sponsored',
       'company_website',
+      'website',
+      'company_domain',
+      'domain',
       'google_maps_url',
+      'booking_url',
       'source',
     ];
     const esc = (val) => {
@@ -431,12 +690,17 @@
   chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     const action = message?.action;
     if (action === 'bulkGetCompanies') {
-      try {
-        const companies = extractAllCompanies();
-        sendResponse({ companies, searchQuery: readSearchQuery() });
-      } catch (err) {
-        sendResponse({ companies: [], searchQuery: readSearchQuery(), error: err.message });
-      }
+      const enrichDetails = !!message?.enrichDetails;
+      extractAllCompanies({
+        enrichDetails,
+        onProgress: () => {},
+      })
+        .then(({ companies, enrichedCount }) => {
+          sendResponse({ companies, searchQuery: readSearchQuery(), enrichedCount });
+        })
+        .catch((err) => {
+          sendResponse({ companies: [], searchQuery: readSearchQuery(), error: err.message });
+        });
       return true;
     }
     if (action === 'bulkPreload') {
