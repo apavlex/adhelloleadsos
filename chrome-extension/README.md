@@ -75,8 +75,8 @@ Yelp and other directories do **not** support in-browser bulk scrape yet — use
 3. Enter a **folder name** (created automatically in Pipeline if new).
 4. Leave **Scroll to load all results** checked to auto-scroll the list, or uncheck to scrape only what is already loaded.
 5. Click **Scrape & import to AdHello** — while scrolling, the button becomes **Stop scrolling**.
-6. Leave **Open each listing to fetch website & domain** checked (recommended) — this opens each Maps result briefly to capture the business website and domain. Uncheck for a faster import with phone/address/reviews only.
-7. Leads import into your folder with name, phone, full address, city, state, category, rating, reviews, review snippet, website, domain, and Maps URL. Duplicates merge with existing leads.
+6. Optional: leave **Fetch websites in parallel** checked — scrapes the full list first, then opens **5 hidden Maps tabs at once** for websites/domains (about 4–5× faster than one-by-one).
+7. Uncheck that box for the fastest import (name, phone, address, reviews only) — use **Re-enrich folder** later for websites.
 
 ### Re-enrich an existing folder (no re-scroll)
 

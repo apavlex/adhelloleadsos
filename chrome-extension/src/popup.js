@@ -15,8 +15,9 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.6.1';
+const EXT_VERSION = '1.6.2';
 const BULK_IMPORT_BATCH_SIZE = 15;
+const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
 let bulkStopRequested = false;
@@ -44,7 +45,11 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
 
 chrome.runtime.onMessage.addListener((message) => {
   if (message?.action !== 'bulkScrapeProgress' || !bulkProgressEl) return;
-  if (message.phase === 'enrich') {
+  if (message?.phase === 'enrich-parallel') {
+    bulkProgressEl.textContent = `Fetching websites (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
+  } else if (message?.phase === 're-enrich-parallel') {
+    bulkProgressEl.textContent = `Re-enriching (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
+  } else if (message.phase === 'enrich') {
     bulkProgressEl.textContent = `Fetching websites… ${message.current || 0}/${message.total || 0}`;
   } else {
     bulkProgressEl.textContent = `Scrolling… ${message.businessCount || 0} businesses loaded (${message.scrollAttempts || 0} scrolls)`;
@@ -559,14 +564,28 @@ async function runBulkScrapeSubmit(e) {
       }
     }
 
-    if (bulkProgressEl) bulkProgressEl.textContent = 'Extracting business data…';
+    if (bulkProgressEl) bulkProgressEl.textContent = 'Extracting business data from results list…';
     const extract = await sendTabMessage(tab.id, {
       action: 'bulkGetCompanies',
-      enrichDetails,
+      enrichDetails: false,
     });
-    const companies = extract?.companies || [];
+    let companies = extract?.companies || [];
     if (!companies.length) {
       throw new Error('No businesses found. Scroll the Maps list manually, then try again.');
+    }
+
+    let enrichedCount = 0;
+    if (enrichDetails) {
+      if (bulkProgressEl) {
+        bulkProgressEl.textContent = `Fetching websites in parallel (${PARALLEL_LABEL})…`;
+      }
+      const enrichRes = await chrome.runtime.sendMessage({
+        type: 'PARALLEL_ENRICH_COMPANIES',
+        companies,
+      });
+      if (!enrichRes?.ok) throw new Error(enrichRes?.error || 'Website enrichment failed');
+      companies = enrichRes.data?.companies || companies;
+      enrichedCount = enrichRes.data?.enrichedCount || 0;
     }
 
     const searchSlug = String(extract?.searchQuery || 'maps-scrape')
@@ -583,7 +602,7 @@ async function runBulkScrapeSubmit(e) {
     if (data.updated) parts.push(`${data.updated} updated`);
     if (data.failed) parts.push(`${data.failed} failed`);
     const enrichNote =
-      enrichDetails && extract?.enrichedCount != null ? ` · ${extract.enrichedCount} websites found` : '';
+      enrichDetails && enrichedCount ? ` · ${enrichedCount} websites found` : '';
     setBulkStatus(
       `Imported ${companies.length} scraped businesses (${parts.join(', ')}) into “${data.folderName || folderName}”.${enrichNote}`,
       'success',
@@ -599,52 +618,6 @@ async function runBulkScrapeSubmit(e) {
 }
 
 bulkForm?.addEventListener('submit', runBulkScrapeSubmit);
-
-function waitForTabLoad(tabId, maxMs = 20000) {
-  return new Promise((resolve) => {
-    let done = false;
-    const finish = () => {
-      if (done) return;
-      done = true;
-      chrome.tabs.onUpdated.removeListener(onUpdated);
-      resolve();
-    };
-    const onUpdated = (updatedId, info) => {
-      if (updatedId !== tabId || info.status !== 'complete') return;
-      finish();
-    };
-    chrome.tabs.onUpdated.addListener(onUpdated);
-    chrome.tabs.get(tabId, (tab) => {
-      if (chrome.runtime.lastError || tab?.status === 'complete') finish();
-    });
-    setTimeout(finish, maxMs);
-  });
-}
-
-function buildReEnrichPatch(detail, lead) {
-  const patch = {};
-  const missing = new Set(lead.missing || []);
-  const website = String(detail?.Website || '').trim();
-  if (website && missing.has('website')) {
-    patch.website = website;
-    const domain = window.AdHelloAddressUtils?.hostnameFromUrl?.(website) || '';
-    if (domain) patch.companyDomain = domain;
-  }
-
-  const address = String(detail?.Address || '').trim();
-  if (address) {
-    const parsed = window.AdHelloAddressUtils?.parseCityState?.(address) || {};
-    if (missing.has('city') && parsed.city) patch.city = parsed.city;
-    if (missing.has('state') && parsed.state) patch.state = parsed.state;
-    patch.address = address;
-  }
-  if (missing.has('city') && detail?.City) patch.city = detail.City;
-  if (missing.has('state') && detail?.State) patch.state = detail.State;
-
-  const phone = String(detail?.['Phone Number'] || '').trim();
-  if (phone) patch.phone = phone;
-  return patch;
-}
 
 async function runReEnrichFolder() {
   if (bulkRunning || reEnrichRunning) return;
@@ -663,64 +636,30 @@ async function runReEnrichFolder() {
     reEnrichBtn.textContent = 'Re-enriching…';
   }
 
-  let updated = 0;
-  let attempted = 0;
   try {
-    const queueRes = await chrome.runtime.sendMessage({
-      type: 'GET_REENRICH_QUEUE',
-      folderName,
-      limit: 150,
-    });
-    if (!queueRes?.ok) throw new Error(queueRes?.error || 'Could not load folder queue');
-
-    const queue = queueRes.data || {};
-    const leads = queue.leads || [];
-    if (!leads.length) {
-      setBulkStatus(`No leads in “${folderName}” need website or city/state backfill.`, 'success');
-      return;
-    }
-
     if (bulkProgressEl) {
-      bulkProgressEl.textContent = `${leads.length} lead(s) queued in “${folderName}”…`;
+      bulkProgressEl.textContent = `Loading folder queue…`;
       bulkProgressEl.classList.add('bulk-progress--active');
     }
 
-    const tab = await getActiveTab();
-    await ensureBulkScript(tab.id);
+    const res = await chrome.runtime.sendMessage({
+      type: 'PARALLEL_REENRICH_FOLDER',
+      folderName,
+      limit: 150,
+    });
+    if (!res?.ok) throw new Error(res?.error || 'Re-enrich failed');
 
-    for (const lead of leads) {
-      attempted += 1;
-      if (bulkProgressEl) {
-        bulkProgressEl.textContent = `Re-enriching ${attempted}/${leads.length}: ${lead.title}`;
-      }
-
-      await chrome.tabs.update(tab.id, { url: lead.mapsUrl, active: true });
-      await waitForTabLoad(tab.id);
-      await new Promise((resolve) => setTimeout(resolve, 900));
-
-      let detail = {};
-      try {
-        await ensureBulkScript(tab.id);
-        const scraped = await sendTabMessage(tab.id, { action: 'bulkScrapePlacePage' });
-        detail = scraped?.detail || {};
-      } catch (_) {
-        continue;
-      }
-
-      const patch = buildReEnrichPatch(detail, lead);
-      if (!Object.keys(patch).length) continue;
-
-      const patchRes = await chrome.runtime.sendMessage({
-        type: 'PATCH_LEAD',
-        leadKey: lead.key,
-        patch,
-      });
-      if (patchRes?.ok && patchRes.data?.updated) updated += 1;
+    const data = res.data || {};
+    if (data.empty) {
+      setBulkStatus(`No leads in “${folderName}” need website or city/state backfill.`, 'success');
+      if (bulkProgressEl) bulkProgressEl.textContent = '';
+      return;
     }
-
-    const remaining = Math.max(0, (queue.totalNeeding || leads.length) - updated);
+    const updated = data.updated || 0;
+    const attempted = data.attempted || 0;
+    const remaining = Math.max(0, (data.totalNeeding || attempted) - updated);
     setBulkStatus(
-      `Re-enriched ${updated} of ${attempted} leads in “${folderName}”.${remaining ? ` ~${remaining} may still need data — run again if needed.` : ''}`,
+      `Re-enriched ${updated} of ${attempted} leads in “${data.folderName || folderName}” (${PARALLEL_LABEL}).${remaining ? ` Run again for any that timed out.` : ''}`,
       'success',
     );
     if (bulkProgressEl) bulkProgressEl.textContent = '';
