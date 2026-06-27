@@ -58,6 +58,17 @@ Reload the extension after updates.
 
 Set **Default folder name** in Settings to pre-fill the popup and single-save folder field.
 
+### Bulk scrape Google Maps search results
+
+1. In Chrome, run a **Google Maps search** (e.g. “electricians in Gig Harbor”) so the **left results list** is visible.
+2. Open the extension → **Bulk scrape** tab.
+3. Enter a **folder name** (created automatically in Pipeline if new).
+4. Leave **Scroll to load all results** checked to auto-scroll the list, or uncheck to scrape only what is already loaded.
+5. Click **Scrape & import to AdHello** — while scrolling, the button becomes **Stop scrolling**.
+6. Leads import into your folder with name, phone, address, category, rating, reviews, review snippet, sponsored, website, and Maps URL. Duplicates merge with existing leads.
+
+No separate scraper extension required — this is built into AdHello Leads v1.5+.
+
 ## API payload (listings)
 
 ```http

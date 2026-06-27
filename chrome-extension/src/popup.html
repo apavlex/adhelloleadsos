@@ -18,8 +18,9 @@
       <p id="saveTypeLabel" class="save-type hidden"></p>
     </header>
 
-    <nav class="popup-tabs" aria-label="Extension mode">
+    <nav class="popup-tabs popup-tabs--three" aria-label="Extension mode">
       <button type="button" class="popup-tab popup-tab--active" data-tab="save" id="tabSave">Save lead</button>
+      <button type="button" class="popup-tab" data-tab="bulk" id="tabBulk">Bulk scrape</button>
       <button type="button" class="popup-tab" data-tab="import" id="tabImport">Import CSV</button>
     </nav>
 
@@ -103,6 +104,29 @@
         </div>
       </form>
       <p id="status" class="status" aria-live="polite"></p>
+    </div>
+
+    <div id="panelBulk" class="popup-panel hidden">
+      <p class="import-hint">On a <strong>Google Maps search results</strong> page, scroll the list and import every visible business into a Pipeline folder.</p>
+      <p id="bulkMapsHint" class="bulk-maps-hint">Checking active tab…</p>
+      <form id="bulkForm">
+        <label>
+          <span>Folder name</span>
+          <input type="text" name="bulkFolderName" required placeholder="e.g. Gig Harbor electricians — March" />
+        </label>
+        <label class="bulk-check-row">
+          <input type="checkbox" name="bulkScrollAll" id="bulkScrollAll" checked />
+          <span>Scroll to load all results before scraping</span>
+        </label>
+        <div class="popup-form-actions popup-form-actions--top">
+          <button type="submit" id="bulkRunBtnTop">Scrape &amp; import to AdHello</button>
+        </div>
+        <p id="bulkProgress" class="bulk-progress" aria-live="polite"></p>
+        <div class="popup-form-actions popup-form-actions--bottom">
+          <button type="submit" id="bulkRunBtn">Scrape &amp; import to AdHello</button>
+        </div>
+      </form>
+      <p id="bulkStatus" class="status" aria-live="polite"></p>
     </div>
 
     <div id="panelImport" class="popup-panel hidden">

@@ -1,7 +1,11 @@
 const form = document.getElementById('leadForm');
 const importForm = document.getElementById('importForm');
+const bulkForm = document.getElementById('bulkForm');
 const statusEl = document.getElementById('status');
 const importStatusEl = document.getElementById('importStatus');
+const bulkStatusEl = document.getElementById('bulkStatus');
+const bulkProgressEl = document.getElementById('bulkProgress');
+const bulkMapsHintEl = document.getElementById('bulkMapsHint');
 const platformLabel = document.getElementById('platformLabel');
 const saveTypeLabel = document.getElementById('saveTypeLabel');
 const setupNotice = document.getElementById('setupNotice');
@@ -10,7 +14,11 @@ const saveBtnTop = document.getElementById('saveBtnTop');
 const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
-const EXT_VERSION = '1.4.3';
+const panelBulk = document.getElementById('panelBulk');
+const EXT_VERSION = '1.5.0';
+
+let bulkRunning = false;
+let bulkStopRequested = false;
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
@@ -26,13 +34,32 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
       b.classList.toggle('popup-tab--active', b === tabBtn);
     });
     panelSave.classList.toggle('hidden', tab !== 'save');
+    panelBulk.classList.toggle('hidden', tab !== 'bulk');
     panelImport.classList.toggle('hidden', tab !== 'import');
+    if (tab === 'bulk') refreshBulkMapsHint();
   });
+});
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.action !== 'bulkScrapeProgress' || !bulkProgressEl) return;
+  bulkProgressEl.textContent = `Scrolling… ${message.businessCount || 0} businesses loaded (${message.scrollAttempts || 0} scrolls)`;
+  bulkProgressEl.classList.add('bulk-progress--active');
 });
 
 function setStatus(msg, type = '') {
   statusEl.textContent = msg;
   statusEl.className = `status${type ? ` status--${type}` : ''}`;
+}
+
+function setBulkStatus(msg, type = '') {
+  if (!bulkStatusEl) return;
+  bulkStatusEl.textContent = msg;
+  bulkStatusEl.className = `status${type ? ` status--${type}` : ''}`;
+}
+
+function isGoogleMapsUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return u.includes('google.com/maps') || u.includes('maps.google.com');
 }
 
 function parsePriceInput(raw) {
@@ -88,9 +115,130 @@ function buildListingPayload(base, formEl) {
   };
 }
 
-async function getActiveTabLead() {
+async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('No active tab');
+  return tab;
+}
+
+async function ensureBulkScript(tabId) {
+  const files = ['src/address-utils.js', 'src/maps-bulk-scrape.js'];
+  for (const file of files) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
+    } catch (_) {
+      /* content script may already be present */
+    }
+  }
+}
+
+function sendTabMessage(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+function companiesToCsv(companies) {
+  if (!companies?.length) return '';
+  const headers = [
+    'company_name',
+    'phone_number',
+    'company_location',
+    'city',
+    'state',
+    'company_type',
+    'rating',
+    'review_count',
+    'review_snippet',
+    'sponsored',
+    'company_website',
+    'google_maps_url',
+    'source',
+  ];
+  const esc = (val) => {
+    const s = val == null ? '' : String(val);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const rows = companies.map((c) => {
+    const address = String(c.Address || '').trim();
+    const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
+    let city = '';
+    let state = '';
+    if (parts.length >= 2) {
+      const last = parts[parts.length - 1];
+      const stateMatch = last.match(/\b([A-Z]{2})\b/);
+      city = parts.length >= 3 ? parts[parts.length - 2] : parts[0];
+      state = stateMatch ? stateMatch[1] : '';
+    }
+    let snippet = String(c['Review Snippet'] || '').trim();
+    if (snippet.startsWith('"') && snippet.endsWith('"')) snippet = snippet.slice(1, -1).trim();
+    return {
+      company_name: c['Business Name'] || '',
+      phone_number: c['Phone Number'] || '',
+      company_location: address,
+      city,
+      state,
+      company_type: c.Category || '',
+      rating: c.Rating || '',
+      review_count: String(c['Review Count'] || '').replace(/[^\d]/g, ''),
+      review_snippet: snippet,
+      sponsored: c.Sponsored || '',
+      company_website: c.Website || '',
+      google_maps_url: c['Google Maps URL'] || '',
+      source: 'chrome_extension_maps_bulk',
+    };
+  });
+  let csv = headers.join(',') + '\n';
+  rows.forEach((row) => {
+    csv += headers.map((h) => esc(row[h] ?? '')).join(',') + '\n';
+  });
+  return csv;
+}
+
+async function refreshBulkMapsHint() {
+  if (!bulkMapsHintEl) return;
+  try {
+    const tab = await getActiveTab();
+    if (isGoogleMapsUrl(tab.url)) {
+      bulkMapsHintEl.textContent = 'Connected to Google Maps — ready to bulk scrape this results list.';
+      bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--ready';
+    } else {
+      bulkMapsHintEl.textContent =
+        'Open a Google Maps search results page first (e.g. “electricians near me”), then reopen this tab.';
+      bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--warn';
+    }
+  } catch (_) {
+    bulkMapsHintEl.textContent = 'Could not detect the active tab.';
+    bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--warn';
+  }
+}
+
+function setBulkButtonsRunning(running, asStop = false) {
+  const buttons = [document.getElementById('bulkRunBtn'), document.getElementById('bulkRunBtnTop')].filter(Boolean);
+  buttons.forEach((btn) => {
+    btn.disabled = false;
+    btn.classList.toggle('btn-stop', running && asStop);
+    if (running && asStop) {
+      btn.textContent = 'Stop scrolling';
+    } else if (running) {
+      btn.textContent = 'Working…';
+      btn.disabled = true;
+    } else {
+      btn.textContent = 'Scrape & import to AdHello';
+      btn.classList.remove('btn-stop');
+    }
+  });
+}
+
+async function getActiveTabLead() {
+  const tab = await getActiveTab();
 
   const scripts = ['src/address-utils.js', 'src/listing-helpers.js', 'src/listing-extractors.js', 'src/extractors.js'];
   for (const file of scripts) {
@@ -168,11 +316,14 @@ async function init() {
   if (defaultFolderName) {
     form.folderName.value = defaultFolderName;
     if (importForm) importForm.importFolderName.value = defaultFolderName;
+    if (bulkForm) bulkForm.bulkFolderName.value = defaultFolderName;
   }
 
   if (window.AdHelloTheme && settingsRes?.settings) {
     await window.AdHelloTheme.fetchAndApplyTheme(settingsRes.settings);
   }
+
+  refreshBulkMapsHint();
 
   try {
     const { tab, lead } = await getActiveTabLead();
@@ -248,6 +399,107 @@ form.addEventListener('submit', async (e) => {
     });
   }
 });
+
+async function runBulkScrapeSubmit(e) {
+  e.preventDefault();
+  if (bulkRunning) {
+    bulkStopRequested = true;
+    try {
+      const tab = await getActiveTab();
+      await sendTabMessage(tab.id, { action: 'bulkStopPreload' });
+    } catch (_) {
+      /* ignore */
+    }
+    if (bulkProgressEl) bulkProgressEl.textContent = 'Stopping scroll…';
+    return;
+  }
+
+  setBulkStatus('');
+  if (bulkProgressEl) {
+    bulkProgressEl.textContent = '';
+    bulkProgressEl.classList.remove('bulk-progress--active');
+  }
+
+  const folderName = bulkForm.bulkFolderName.value.trim();
+  const scrollAll = !!bulkForm.bulkScrollAll?.checked;
+  if (!folderName) {
+    setBulkStatus('Folder name is required.', 'error');
+    return;
+  }
+
+  bulkRunning = true;
+  bulkStopRequested = false;
+  setBulkButtonsRunning(true, scrollAll);
+
+  try {
+    const tab = await getActiveTab();
+    if (!isGoogleMapsUrl(tab.url)) {
+      throw new Error('Open a Google Maps search results page first.');
+    }
+
+    await chrome.tabs.update(tab.id, { active: true });
+    await ensureBulkScript(tab.id);
+
+    if (scrollAll) {
+      if (bulkProgressEl) bulkProgressEl.textContent = 'Scrolling to load all results…';
+      const preload = await sendTabMessage(tab.id, { action: 'bulkPreload' });
+      if (!preload?.success) {
+        throw new Error(
+          preload?.reason === 'no_container'
+            ? 'Could not find the Maps results list. Try opening the left-side results panel.'
+            : 'Could not scroll the results list.',
+        );
+      }
+      if (bulkStopRequested || preload.stoppedByUser) {
+        if (bulkProgressEl) bulkProgressEl.textContent = `Stopped early — extracting ${preload.businessCount || 0} loaded businesses…`;
+      }
+    }
+
+    if (bulkProgressEl) bulkProgressEl.textContent = 'Extracting business data…';
+    const extract = await sendTabMessage(tab.id, { action: 'bulkGetCompanies' });
+    const companies = extract?.companies || [];
+    if (!companies.length) {
+      throw new Error('No businesses found. Scroll the Maps list manually, then try again.');
+    }
+
+    if (bulkProgressEl) {
+      bulkProgressEl.textContent = `Importing ${companies.length} businesses to AdHello…`;
+    }
+
+    const csvContent = companiesToCsv(companies);
+    const searchSlug = String(extract?.searchQuery || 'maps-scrape')
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9_-]/g, '')
+      .slice(0, 40);
+    const res = await chrome.runtime.sendMessage({
+      type: 'IMPORT_CSV',
+      csvContent,
+      fileName: `${searchSlug || 'maps-scrape'}.csv`,
+      folderName,
+    });
+    if (!res?.ok) throw new Error(res?.error || 'Import failed');
+
+    const data = res.data || {};
+    const created = data.created || 0;
+    const updated = data.updated || 0;
+    const parts = [`${created} new`];
+    if (updated) parts.push(`${updated} updated`);
+    setBulkStatus(
+      `Imported ${companies.length} scraped businesses (${parts.join(', ')}) into “${data.folderName || folderName}”.`,
+      'success',
+    );
+    if (bulkProgressEl) bulkProgressEl.textContent = '';
+  } catch (err) {
+    setBulkStatus(err.message || 'Bulk scrape failed', 'error');
+  } finally {
+    bulkRunning = false;
+    bulkStopRequested = false;
+    setBulkButtonsRunning(false);
+  }
+}
+
+bulkForm?.addEventListener('submit', runBulkScrapeSubmit);
 
 function readFileAsText(file) {
   return new Promise((resolve, reject) => {

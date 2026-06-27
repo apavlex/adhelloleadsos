@@ -62,6 +62,15 @@ header h1 {
   margin-bottom: 12px;
 }
 
+.popup-tabs--three {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.popup-tabs--three .popup-tab {
+  font-size: 10px;
+  padding: 8px 6px;
+}
+
 .popup-tab {
   border: 1px solid #d1d5db;
   border-radius: 8px;
@@ -266,4 +275,67 @@ button[type='submit']:disabled {
 
 a {
   color: var(--ws-accent);
+}
+
+.bulk-maps-hint {
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 11px;
+  line-height: 1.45;
+  background: var(--ws-accent-soft);
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 35%, white);
+  color: var(--ws-accent-text);
+}
+
+.bulk-maps-hint--warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.bulk-maps-hint--ready {
+  background: #ecfdf5;
+  border-color: #6ee7b7;
+  color: #065f46;
+}
+
+.bulk-check-row {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 12px !important;
+}
+
+.bulk-check-row input[type='checkbox'] {
+  width: auto;
+  margin-top: 2px;
+}
+
+.bulk-check-row span {
+  margin: 0 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  line-height: 1.4;
+}
+
+.bulk-progress {
+  min-height: 18px;
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.bulk-progress--active {
+  color: var(--ws-accent-text);
+}
+
+#bulkForm button[type='submit'].btn-stop {
+  background: #dc2626;
+  color: #fff;
+}
+
+#bulkForm button[type='submit'].btn-stop:hover:not(:disabled) {
+  background: #b91c1c;
 }

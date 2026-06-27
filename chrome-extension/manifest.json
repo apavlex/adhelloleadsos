@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AdHello Leads",
-  "version": "1.4.3",
+  "version": "1.5.0",
   "description": "Save leads, listings, and products from social profiles and directories into AdHello.",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
@@ -92,7 +92,7 @@
         "https://www.ebay.com/*",
         "https://ebay.com/*"
       ],
-      "js": ["src/address-utils.js", "src/listing-helpers.js", "src/listing-extractors.js", "src/extractors.js", "src/theme.js", "src/content.js"],
+      "js": ["src/address-utils.js", "src/listing-helpers.js", "src/listing-extractors.js", "src/extractors.js", "src/theme.js", "src/maps-bulk-scrape.js", "src/content.js"],
       "css": ["src/content.css"],
       "run_at": "document_idle"
     }
