@@ -13,6 +13,7 @@ const {
   findExistingLead,
   leadMapsPlaceKey,
   shouldResyncIngestSource,
+  shouldApplyIncomingFolderKey,
 } = require('./leadDedupe');
 const { normalizeLeadForPanel } = require('./leadPanelNormalize');
 
@@ -112,7 +113,9 @@ function mergePreferExisting(existing, incoming) {
     if (k === 'pipelineStage' || k === 'status') continue;
     if (k === 'folderKey') {
       const incomingFolder = v != null ? String(v).trim() : '';
-      if (incomingFolder) out.folderKey = incomingFolder;
+      if (incomingFolder && shouldApplyIncomingFolderKey(existing, incoming)) {
+        out.folderKey = incomingFolder;
+      }
       continue;
     }
     if (isBlankValue(v)) continue;

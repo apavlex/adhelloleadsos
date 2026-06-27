@@ -15,7 +15,7 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.6.3';
+const EXT_VERSION = '1.6.4';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;

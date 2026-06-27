@@ -199,6 +199,26 @@ function shouldResyncIngestSource(source) {
   );
 }
 
+/**
+ * Whether an incoming lead save should move an already-foldered lead.
+ * Single extension re-saves must not pull leads out of bulk/import folders.
+ */
+function shouldApplyIncomingFolderKey(existing, incoming) {
+  const incomingFolder = incoming?.folderKey != null ? String(incoming.folderKey).trim() : '';
+  if (!incomingFolder) return false;
+  const existingFolder = existing ? String(existing.folderKey || '').trim() : '';
+  if (!existingFolder) return true;
+  if (incoming.forceFolderKey === true) return true;
+
+  const importFilename = String(incoming?.importFilename || '').trim();
+  if (importFilename) return true;
+
+  const src = String(incoming?.source || '').trim();
+  if (src === 'csv_import' || src === 'chrome_extension_maps_bulk') return true;
+
+  return false;
+}
+
 function upsertLeadInMemoryList(list, lead) {
   if (!lead || !lead.key) return;
   const idx = (list || []).findIndex((l) => l && l.key === lead.key);
@@ -217,5 +237,6 @@ module.exports = {
   computeDedupeKey,
   findExistingLead,
   shouldResyncIngestSource,
+  shouldApplyIncomingFolderKey,
   upsertLeadInMemoryList,
 };

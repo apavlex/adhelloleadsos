@@ -260,7 +260,7 @@
       try {
         const res = await saveLead(lead);
         if (!res?.ok) throw new Error(res?.error || 'Save failed');
-        toast('Lead saved to AdHello', 'success');
+        toast(res.data?.merged ? 'Lead updated (kept in same folder)' : 'Lead saved to AdHello', 'success');
         closePanel();
       } catch (err) {
         toast(err.message || 'Save failed', 'error');
