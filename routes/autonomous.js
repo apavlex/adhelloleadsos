@@ -21,6 +21,7 @@ const { getValidAccessToken } = require('../services/googleDriveAccess');
 const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const { clampPipelineStage } = require('../services/pipelineConstants');
 const { parseImportFile } = require('../services/csvLeadImport');
+const { findExistingLead, upsertLeadInMemoryList } = require('../services/leadDedupe');
 const { recommendCadenceTemplate } = require('../services/leadCadence');
 const sequenceEngine = require('../services/sequenceEngine');
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -322,13 +323,14 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       }
     }
 
-    const key = await dbService.saveLead(leadData);
-    try { await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
+    const result = await dbService.saveLeadWithMeta(leadData);
+    try { await autoAttachCadenceIfNeeded({ leadKey: result.key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
 
     const folderKey = leadData.folderKey || '';
     res.json({
       success: true,
-      key,
+      key: result.key,
+      merged: !!result.merged,
       title,
       folderKey,
       folderName: resolvedFolderName || (isChromeExtension ? 'Chrome Extension' : ''),
@@ -500,6 +502,7 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
     let updated = 0;
     let failed = 0;
     const savedKeys = [];
+    const workspaceLeads = await dbService.getAllLeads(wid);
 
     for (const rec of records) {
       if (!rec.title) { continue; }
@@ -510,10 +513,13 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
           payload.source = 'chrome_extension';
           payload.sourceType = payload.sourceType || 'chrome_extension';
         }
-        const key = await dbService.saveLead(payload);
-        savedKeys.push(key);
-        created++;
-        try { await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
+        const existing = findExistingLead(workspaceLeads, payload, wid);
+        const result = await dbService.saveLeadWithMeta(payload);
+        savedKeys.push(result.key);
+        if (result.lead) upsertLeadInMemoryList(workspaceLeads, result.lead);
+        if (existing || result.merged) updated++;
+        else created++;
+        try { await autoAttachCadenceIfNeeded({ leadKey: result.key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
       } catch (e) {
         failed++;
       }

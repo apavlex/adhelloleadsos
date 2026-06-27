@@ -162,13 +162,16 @@
     try {
       var vis = readVis();
       var css = [];
+      var density = localStorage.getItem(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact';
+      var comfortable = density === 'comfortable';
 
       PLC_META.forEach(function (m) {
-        if (!colVisible(vis, m.id)) {
+        var isSplitContact = m.id === 'phone' || m.id === 'email' || m.id === 'domain';
+        if (!colVisible(vis, m.id) || (comfortable && isSplitContact)) {
           css.push('#prospectLeadsTable [data-plc="' + m.id + '"]{display:none!important}');
         }
       });
-      if (!contactGroupVisible(vis)) {
+      if (!contactGroupVisible(vis) || !comfortable) {
         css.push('#prospectLeadsTable [data-plc="contactGroup"]{display:none!important}');
       } else {
         if (!colVisible(vis, 'phone')) {
@@ -210,7 +213,6 @@
         );
       });
 
-      var density = localStorage.getItem(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact';
       document.documentElement.setAttribute('data-prospect-density', density);
 
       var view = sessionStorage.getItem(VIEW_KEY);

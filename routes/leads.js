@@ -30,6 +30,7 @@ const {
 } = require('../services/aiToolsAssessment');
 const { buildAiToolsReportViewModel } = require('../services/aiToolsReportModel');
 const { parseImportFile } = require('../services/csvLeadImport');
+const { findExistingLead, upsertLeadInMemoryList } = require('../services/leadDedupe');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const { CHANNELS: OUTREACH_CHANNELS, buildOutreachLibrary } = require('../services/outreachChannelScripts');
 const pipelineStagesService = require('../services/pipelineStagesService');
@@ -103,31 +104,24 @@ async function importLeadRecordsFromBuffer(buffer, originalFilename, req, import
   let updated = 0;
   let skipped = 0;
   let failed = 0;
+  const workspaceLeads = await dbService.getAllLeads(wid);
 
   for (const rec of records) {
     if (!rec.title) {
       skipped += 1;
       continue;
     }
-    let willMerge = false;
-    if (rec.email && rec.email !== 'N/A') {
-      const ex = await dbService.findLeadByEmail(rec.email, wid);
-      willMerge = !!ex;
-    } else if (rec.ip) {
-      const ex = await dbService.findLeadByIp(rec.ip, wid);
-      willMerge = !!ex;
-    }
+    const payload = { ...rec, workspaceId: wid };
+    const existing = findExistingLead(workspaceLeads, payload, wid);
     try {
-      const key = await dbService.saveLead({
-        ...rec,
-        workspaceId: wid,
-      });
+      const result = await dbService.saveLeadWithMeta(payload);
       try {
-        await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid });
+        await autoAttachCadenceIfNeeded({ leadKey: result.key, workspaceId: wid });
       } catch (_) {
         /* non-fatal */
       }
-      if (willMerge) updated += 1;
+      if (result.lead) upsertLeadInMemoryList(workspaceLeads, result.lead);
+      if (existing || result.merged) updated += 1;
       else created += 1;
     } catch (e) {
       console.error('[CSV import] row error:', rec.title, e.message);

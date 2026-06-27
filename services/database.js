@@ -3,6 +3,17 @@ const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 const { clampPipelineStage, PIPELINE_SCHEMA_VERSION } = require('./pipelineConstants');
+const {
+  normalizeEmail,
+  normalizeDomain,
+  normalizePhone,
+  normalizeName,
+  normalizeGeo,
+  computeDedupeKey,
+  findExistingLead,
+  leadMapsPlaceKey,
+  shouldResyncIngestSource,
+} = require('./leadDedupe');
 const { normalizeLeadForPanel } = require('./leadPanelNormalize');
 
 // ── SQLite setup ──────────────────────────────────────────────────────────────
@@ -81,71 +92,6 @@ function isBlankValue(v) {
   return false;
 }
 
-function normalizeEmail(email) {
-  if (!email || email === 'N/A') return '';
-  return String(email).trim().toLowerCase();
-}
-
-const AGGREGATOR_LISTING_HOST_RE =
-  /(?:^|\.)facebook\.com$|(?:^|\.)craigslist\.org$|(?:^|\.)offerup\.com$|(?:^|\.)ebay\.com$|(?:^|\.)zillow\.com$|(?:^|\.)realtor\.com$|(?:^|\.)redfin\.com$|(?:^|\.)mhvillage\.com$/i;
-
-function normalizeDomain(website) {
-  if (!website || website === 'N/A') return '';
-  const raw = String(website).trim();
-  if (!raw) return '';
-  try {
-    const u = new URL(raw.includes('://') ? raw : `https://${raw}`);
-    const host = u.hostname.replace(/^www\./i, '').toLowerCase();
-    if (AGGREGATOR_LISTING_HOST_RE.test(host)) {
-      const path = (u.pathname || '/').replace(/\/+$/, '') || '/';
-      return `${host}${path}`.toLowerCase();
-    }
-    return host;
-  } catch {
-    let s = raw.replace(/^https?:\/\//i, '').replace(/^www\./i, '');
-    s = s.split(/[/?#]/)[0] || '';
-    return s.trim().toLowerCase();
-  }
-}
-
-function normalizePhone(phone) {
-  if (!phone || phone === 'N/A') return '';
-  const digits = String(phone).replace(/\D+/g, '');
-  if (!digits) return '';
-  return digits.length > 10 ? digits.slice(-10) : digits;
-}
-
-function normalizeName(name) {
-  if (!name) return '';
-  return String(name)
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
-    .replace(/\b(llc|inc|corp|co|company|ltd|pllc|pc|group|studio)\b/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function normalizeGeo(city, state) {
-  const c = city ? String(city).trim().toLowerCase() : '';
-  const st = state ? String(state).trim().toLowerCase() : '';
-  if (!c || !st) return '';
-  return `${c}|${st}`;
-}
-
-function computeDedupeKey(lead) {
-  const em = normalizeEmail(lead.email);
-  if (em) return `email:${em}`;
-  const dom = normalizeDomain(lead.website);
-  if (dom) return `domain:${dom}`;
-  const ph = normalizePhone(lead.phone);
-  if (ph) return `phone:${ph}`;
-  const nm = normalizeName(lead.title);
-  const geo = normalizeGeo(lead.city, lead.state);
-  if (nm && geo) return `namegeo:${nm}|${geo}`;
-  return '';
-}
-
 function appendUpdates(existingUpdates, incomingUpdates) {
   const base = Array.isArray(existingUpdates) ? existingUpdates : [];
   const add = Array.isArray(incomingUpdates) ? incomingUpdates : [];
@@ -184,7 +130,7 @@ function mergePreferExisting(existing, incoming) {
   if (Number.isFinite(incRev) && incRev > 0 && (!Number.isFinite(curRev) || curRev === 0)) {
     out.reviewsCount = incoming.reviewsCount;
   } else if (
-    incoming?.source === 'chrome_extension' &&
+    shouldResyncIngestSource(incoming?.source) &&
     Number.isFinite(incRev) &&
     incRev > 0 &&
     incRev !== curRev
@@ -196,7 +142,7 @@ function mergePreferExisting(existing, incoming) {
   if (Number.isFinite(incRating) && incRating > 0 && (!Number.isFinite(curRating) || curRating === 0)) {
     out.totalScore = incoming.totalScore;
   } else if (
-    incoming?.source === 'chrome_extension' &&
+    shouldResyncIngestSource(incoming?.source) &&
     Number.isFinite(incRating) &&
     incRating > 0 &&
     incRating !== curRating
@@ -218,12 +164,12 @@ function mergePreferExisting(existing, incoming) {
     : [];
   if (
     incSnippets.length &&
-    (!curSnippets.length || incoming?.source === 'chrome_extension')
+    (!curSnippets.length || shouldResyncIngestSource(incoming?.source))
   ) {
     out.reviewSnippets = incSnippets;
   }
 
-  if (incoming?.source === 'chrome_extension' && typeof incoming?.sponsored === 'boolean') {
+  if (shouldResyncIngestSource(incoming?.source) && typeof incoming?.sponsored === 'boolean') {
     out.sponsored = incoming.sponsored;
   }
 
@@ -233,9 +179,17 @@ function mergePreferExisting(existing, incoming) {
   if (
     incCat &&
     !genericCategory.test(incCat) &&
-    (!curCat || genericCategory.test(curCat) || incoming?.source === 'chrome_extension')
+    (!curCat || genericCategory.test(curCat) || shouldResyncIngestSource(incoming?.source))
   ) {
     out.categoryName = incCat;
+  }
+
+  if (shouldResyncIngestSource(incoming?.source)) {
+    for (const field of ['address', 'city', 'state', 'website', 'url', 'phone', 'email']) {
+      if (!isBlankValue(incoming[field])) out[field] = incoming[field];
+    }
+    const mapsKey = leadMapsPlaceKey(incoming);
+    if (mapsKey) out.mapsPlaceKey = mapsKey;
   }
 
   return out;
@@ -358,7 +312,7 @@ module.exports = {
     return this._normalizeLeadWorkspaceId(lead.workspaceId) === wid;
   },
 
-  async saveLead(leadData) {
+  async saveLeadWithMeta(leadData) {
     const resolved = await this._resolveWorkspaceIdForWrite(leadData.workspaceId);
     assertLeadScopedWorkspaceId(resolved, 'saveLead');
     const wid = resolved;
@@ -368,8 +322,8 @@ module.exports = {
     incoming.phoneNorm = normalizePhone(incoming.phone);
     incoming.nameNorm = normalizeName(incoming.title);
     incoming.geoNorm = normalizeGeo(incoming.city, incoming.state);
+    incoming.mapsPlaceKey = leadMapsPlaceKey(incoming) || undefined;
 
-    // ── Omnichannel labeling ──
     const { analyzeLead } = require('./omnichannel');
     const channelAnalysis = analyzeLead(incoming);
     if (channelAnalysis.labels.length > 0) {
@@ -382,19 +336,7 @@ module.exports = {
     incoming.dedupeKey = computeDedupeKey(incoming);
 
     const leads = await this.getAllLeads(wid);
-    const sameWorkspace = (l) => (l.workspaceId || 'default') === wid;
-    const findBy = (pred) => leads.find((l) => sameWorkspace(l) && pred(l)) || null;
-
-    const existing =
-      (incoming.emailNorm ? findBy((l) => normalizeEmail(l.email) === incoming.emailNorm) : null) ||
-      (incoming.domainNorm ? findBy((l) => normalizeDomain(l.website) === incoming.domainNorm) : null) ||
-      (incoming.phoneNorm ? findBy((l) => normalizePhone(l.phone) === incoming.phoneNorm) : null) ||
-      (incoming.nameNorm && incoming.geoNorm
-        ? findBy(
-            (l) => normalizeName(l.title) === incoming.nameNorm && normalizeGeo(l.city, l.state) === incoming.geoNorm
-          )
-        : null) ||
-      (incoming.ip ? findBy((l) => l.ip === incoming.ip) : null);
+    const existing = findExistingLead(leads, incoming, wid);
 
     if (existing) {
       const patch = mergePreferExisting(existing, incoming);
@@ -405,6 +347,7 @@ module.exports = {
       patch.nameNorm = existing.nameNorm || incoming.nameNorm || undefined;
       patch.geoNorm = existing.geoNorm || incoming.geoNorm || undefined;
       patch.dedupeKey = existing.dedupeKey || incoming.dedupeKey || undefined;
+      patch.mapsPlaceKey = existing.mapsPlaceKey || incoming.mapsPlaceKey || undefined;
 
       patch.updates = appendUpdates(existing.updates, incoming.updates);
 
@@ -417,7 +360,7 @@ module.exports = {
       ];
 
       await this.updateLead(existing.key, patch, wid);
-      return existing.key;
+      return { key: existing.key, merged: true, lead: { ...existing, ...patch, key: existing.key } };
     }
 
     const key = `lead:${Date.now()}`;
@@ -459,7 +402,12 @@ module.exports = {
     }
 
     kvSet(key, JSON.stringify(newLead));
-    return key;
+    return { key, merged: false, lead: { key, ...newLead } };
+  },
+
+  async saveLead(leadData) {
+    const result = await this.saveLeadWithMeta(leadData);
+    return result.key;
   },
 
   async findLeadByEmail(email, workspaceId) {

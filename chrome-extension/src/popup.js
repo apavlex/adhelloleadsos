@@ -216,6 +216,7 @@ form.addEventListener('submit', async (e) => {
       phone: form.phone.value.trim() || 'N/A',
       totalScore: reviews.totalScore || base?.totalScore || 0,
       reviewsCount: reviews.reviewsCount || base?.reviewsCount || 0,
+      url: base?.url || '',
       categoryName: base?.categoryName || undefined,
       reviewSnippets: base?.reviewSnippets || undefined,
       sponsored: typeof base?.sponsored === 'boolean' ? base.sponsored : undefined,
@@ -232,7 +233,8 @@ form.addEventListener('submit', async (e) => {
         : res.data?.folderName
           ? ` · ${res.data.folderName} folder`
           : '';
-    setStatus(`Saved (${res.data?.key || 'ok'})${folderNote}`, 'success');
+    const mergeNote = res.data?.merged ? ' · Updated existing lead' : '';
+    setStatus(`Saved (${res.data?.key || 'ok'})${mergeNote}${folderNote}`, 'success');
   } catch (err) {
     setStatus(err.message || 'Save failed', 'error');
   } finally {

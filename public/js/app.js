@@ -556,6 +556,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.__syncPipelineStickyColumnOffsets === 'function') {
           window.__syncPipelineStickyColumnOffsets();
         }
+        if (typeof window.__syncPipelineContactColumnLayout === 'function') {
+          window.__syncPipelineContactColumnLayout();
+        }
       }
       const savedDensity =
         document.documentElement.getAttribute('data-prospect-density') ||
@@ -734,17 +737,26 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
+      function isPipelineComfortableContactLayout() {
+        return (
+          table.classList.contains('prospect-leads-table--comfortable') ||
+          document.documentElement.getAttribute('data-prospect-density') === 'comfortable'
+        );
+      }
+
       function applyVisibility(map) {
+        const comfortable = isPipelineComfortableContactLayout();
         table.querySelectorAll('[data-plc="check"]').forEach((el) => {
           el.classList.remove('plc-col-hidden');
         });
         PLC_META.forEach(({ id }) => {
-          const on = pipelineColVisible(map, id);
+          const isSplitContact = id === 'phone' || id === 'email' || id === 'domain';
+          const on = pipelineColVisible(map, id) && !(comfortable && isSplitContact);
           table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
             el.classList.toggle('plc-col-hidden', !on);
           });
         });
-        const groupOn = contactGroupVisible(map);
+        const groupOn = contactGroupVisible(map) && comfortable;
         table.querySelectorAll('[data-plc="contactGroup"]').forEach((el) => {
           el.classList.toggle('plc-col-hidden', !groupOn);
         });
@@ -767,14 +779,16 @@ document.addEventListener('DOMContentLoaded', () => {
           el.id = 'pipelineColVisLive';
           document.head.appendChild(el);
         }
+        const comfortable = isPipelineComfortableContactLayout();
         const css = [];
         PLC_META.forEach(({ id }) => {
-          const on = pipelineColVisible(map, id);
+          const isSplitContact = id === 'phone' || id === 'email' || id === 'domain';
+          const on = pipelineColVisible(map, id) && !(comfortable && isSplitContact);
           css.push(
             `#prospectLeadsTable [data-plc="${id}"]{display:${on ? 'table-cell' : 'none'}!important}`,
           );
         });
-        const groupOn = contactGroupVisible(map);
+        const groupOn = contactGroupVisible(map) && comfortable;
         css.push(
           `#prospectLeadsTable [data-plc="contactGroup"]{display:${groupOn ? 'table-cell' : 'none'}!important}`,
         );
@@ -789,6 +803,11 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         el.textContent = css.join('\n');
       }
+
+      window.__syncPipelineContactColumnLayout = () => {
+        syncLiveColumnCss(loadVis());
+        applyVisibility(loadVis());
+      };
 
       function applyWidths(obj) {
         if (!obj || typeof obj !== 'object') return;
@@ -4772,6 +4791,30 @@ document.addEventListener('DOMContentLoaded', () => {
     return parts.length ? parts.join(' ') : '';
   }
 
+  function readReviewSnippetsFromRow(row) {
+    if (!row || !row.dataset) return [];
+    try {
+      const raw = row.dataset.reviewSnippets;
+      if (raw && raw !== '[]' && raw !== '') {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          return parsed.map((s) => String(s || '').trim()).filter(Boolean);
+        }
+      }
+    } catch (_) {
+      /* ignore */
+    }
+    return [];
+  }
+
+  function formatReviewSnippetSummary(snippets) {
+    const list = (Array.isArray(snippets) ? snippets : [])
+      .map((s) => String(s || '').trim())
+      .filter(Boolean);
+    if (!list.length) return '';
+    return list.length === 1 ? `"${list[0]}"` : list.map((s) => `"${s}"`).join('\n\n');
+  }
+
   function scheduleReviewIntelligence(row, opts) {
     const refresh = !!(opts && opts.refresh);
     const section = document.getElementById('reviewReputationSection');
@@ -4785,6 +4828,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const snippetsWrap = document.getElementById('reviewSnippetsWrap');
     const snippetsUl = document.getElementById('reviewSnippetsList');
     const refreshBtn = document.getElementById('reviewIntelRefreshBtn');
+    const snippets = readReviewSnippetsFromRow(row);
 
     function applyIntel(data, heuristicFallback) {
       if (loading) {
@@ -4796,47 +4840,46 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (refreshBtn) refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
       if (errEl) errEl.classList.add('hidden');
-      const src = data && data.sourceNote;
+      const aiSummary = (data && data.summary) || '';
+      const snippetSummary = aiSummary ? '' : formatReviewSnippetSummary(snippets);
+      const heuristicSummary =
+        aiSummary || snippetSummary ? '' : (heuristicFallback && heuristicFallback.summary) || '';
+      const summary = aiSummary || snippetSummary || heuristicSummary;
+      const src =
+        (data && data.sourceNote) ||
+        (snippetSummary && !aiSummary ? 'Review quote from Google Maps listing.' : '') ||
+        (heuristicSummary && heuristicFallback && heuristicFallback.sourceNote) ||
+        '';
       if (foot) {
         if (src) {
-          foot.textContent = data.cached ? `${src} (cached)` : src;
+          foot.textContent = data && data.cached ? `${src} (cached)` : src;
           foot.classList.remove('hidden');
         } else {
           foot.textContent = '';
           foot.classList.add('hidden');
         }
       }
-      const summary =
-        (data && data.summary) ||
-        (heuristicFallback && heuristicFallback.summary) ||
-        '';
       if (summaryEl) {
         summaryEl.textContent =
-          summary ||
-          'Run hunt to pull Google reviews and generate an AI summary.';
+          summary || 'Run hunt to pull Google reviews and generate an AI summary.';
+        summaryEl.classList.toggle('italic', !!snippetSummary && !aiSummary);
+        summaryEl.classList.toggle('font-semibold', !snippetSummary || !!aiSummary);
       }
-    }
-
-    let snippets = [];
-    try {
-      const raw = row.dataset.reviewSnippets;
-      if (raw && raw !== '[]' && raw !== '') snippets = JSON.parse(raw);
-    } catch (_) {
-      snippets = [];
-    }
-    if (snippetsUl && snippetsWrap) {
-      snippetsUl.innerHTML = '';
-      if (snippets.length) {
-        snippetsWrap.classList.remove('hidden');
-        for (const s of snippets.slice(0, 8)) {
-          const li = document.createElement('li');
-          li.className =
-            'text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed italic border-l-2 border-brand-border/40 dark:border-white/10 pl-3';
-          li.textContent = `"${String(s)}"`;
-          snippetsUl.appendChild(li);
+      if (snippetsUl && snippetsWrap) {
+        snippetsUl.innerHTML = '';
+        const extraSnippets = aiSummary ? snippets : snippets.slice(1);
+        if (extraSnippets.length) {
+          snippetsWrap.classList.remove('hidden');
+          for (const s of extraSnippets.slice(0, 8)) {
+            const li = document.createElement('li');
+            li.className =
+              'text-[11px] text-brand-muted dark:text-slate-400 leading-relaxed italic border-l-2 border-brand-border/40 dark:border-white/10 pl-3';
+            li.textContent = `"${String(s)}"`;
+            snippetsUl.appendChild(li);
+          }
+        } else {
+          snippetsWrap.classList.add('hidden');
         }
-      } else {
-        snippetsWrap.classList.add('hidden');
       }
     }
 
@@ -4872,6 +4915,8 @@ document.addEventListener('DOMContentLoaded', () => {
         null
       );
       if (!refresh) return;
+    } else if (snippets.length) {
+      applyIntel(null, null);
     }
 
     try {
@@ -4894,7 +4939,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (grid) {
       if (persistedIntel) grid.classList.add('review-intel-loading');
-      else grid.classList.add('hidden');
+      else if (!snippets.length) grid.classList.add('hidden');
+      else grid.classList.remove('hidden', 'review-intel-loading');
     }
     if (refreshBtn) refreshBtn.classList.add('opacity-50', 'pointer-events-none');
     if (foot && !persistedIntel) {

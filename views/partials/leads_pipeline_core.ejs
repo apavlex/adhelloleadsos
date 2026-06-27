@@ -337,6 +337,10 @@
               if (!_reviewSnippetText && lead.importFields && lead.importFields.review_snippet) {
                 _reviewSnippetText = String(lead.importFields.review_snippet).replace(/^["']+|["']+$/g, '').trim();
               }
+              var _reviewSnippetsForRow = _reviewSnippets.slice();
+              if (!_reviewSnippetsForRow.length && _reviewSnippetText) {
+                _reviewSnippetsForRow = [_reviewSnippetText];
+              }
               var _sponsoredRaw = lead.sponsored;
               if (_sponsoredRaw == null && lead.importFields && lead.importFields.sponsored) {
                 _sponsoredRaw = String(lead.importFields.sponsored).trim().toLowerCase();
@@ -362,7 +366,7 @@
                 data-state="<%= plcEscAttr(lead.state || '') %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
-                data-review-snippets="<%= plcEscJson(lead.reviewSnippets || []) %>"
+                data-review-snippets="<%= plcEscJson(_reviewSnippetsForRow) %>"
                 data-sponsored="<%= _sponsoredYes ? 'yes' : (_sponsoredNo ? 'no' : '') %>"
                 <% if (lead.latitude != null && lead.latitude !== '' && lead.longitude != null && lead.longitude !== '') { %>
                 data-latitude="<%= plcEscAttr(String(lead.latitude)) %>"
