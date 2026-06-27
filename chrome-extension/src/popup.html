@@ -9,83 +9,110 @@
 <body>
   <main>
     <header>
-      <h1>AdHello Leads</h1>
+      <h1>AdHello Leads <span id="extVersion" class="ext-version"></span></h1>
       <p id="platformLabel">Detecting page…</p>
       <p id="saveTypeLabel" class="save-type hidden"></p>
     </header>
+
+    <nav class="popup-tabs" aria-label="Extension mode">
+      <button type="button" class="popup-tab popup-tab--active" data-tab="save" id="tabSave">Save lead</button>
+      <button type="button" class="popup-tab" data-tab="import" id="tabImport">Import CSV</button>
+    </nav>
 
     <div id="setupNotice" class="notice notice--warn hidden">
       Set your API key in <a href="#" id="openOptions">Settings</a> before saving.
     </div>
 
-    <form id="leadForm">
-      <label>
-        <span>Title</span>
-        <input type="text" name="title" required />
-      </label>
-      <label>
-        <span>Headline / notes</span>
-        <textarea name="note" rows="3"></textarea>
-      </label>
-      <label>
-        <span>Address</span>
-        <input type="text" name="address" />
-      </label>
-      <div class="row-2">
+    <div id="panelSave" class="popup-panel">
+      <form id="leadForm">
         <label>
-          <span>City</span>
-          <input type="text" name="city" />
+          <span>Title</span>
+          <input type="text" name="title" required />
         </label>
         <label>
-          <span>State</span>
-          <input type="text" name="state" />
+          <span>Headline / notes</span>
+          <textarea name="note" rows="3"></textarea>
         </label>
-      </div>
-      <label>
-        <span>Website</span>
-        <input type="url" name="website" placeholder="https://" />
-      </label>
-      <label>
-        <span>Email</span>
-        <input type="email" name="email" />
-      </label>
-      <label>
-        <span>Phone</span>
-        <input type="tel" name="phone" />
-      </label>
-      <label>
-        <span>Reviews</span>
-        <input type="text" name="reviews" placeholder="4.5★ · 120 reviews" />
-      </label>
-
-      <section class="form-section" aria-labelledby="listingSectionTitle">
-        <h2 id="listingSectionTitle" class="form-section__title">Real estate &amp; products</h2>
-        <p class="form-section__hint">Optional — for Zillow, MHVillage, OfferUp, and other listings.</p>
         <label>
-          <span>Price</span>
-          <input type="text" name="price" placeholder="$0" />
+          <span>Folder</span>
+          <input type="text" name="folderName" placeholder="Chrome Extension (default)" />
         </label>
-        <div class="row-3">
+        <label>
+          <span>Address</span>
+          <input type="text" name="address" />
+        </label>
+        <div class="row-2">
           <label>
-            <span>Beds</span>
-            <input type="text" name="beds" />
+            <span>City</span>
+            <input type="text" name="city" />
           </label>
           <label>
-            <span>Baths</span>
-            <input type="text" name="baths" />
-          </label>
-          <label>
-            <span>Sqft</span>
-            <input type="text" name="sqft" />
+            <span>State</span>
+            <input type="text" name="state" />
           </label>
         </div>
-      </section>
+        <label>
+          <span>Website</span>
+          <input type="url" name="website" placeholder="https://" />
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" />
+        </label>
+        <label>
+          <span>Phone</span>
+          <input type="tel" name="phone" />
+        </label>
+        <label>
+          <span>Reviews</span>
+          <input type="text" name="reviews" placeholder="4.5★ · 120 reviews" />
+        </label>
 
-      <button type="submit" id="saveBtn">Save to AdHello</button>
-    </form>
+        <section class="form-section" aria-labelledby="listingSectionTitle">
+          <h2 id="listingSectionTitle" class="form-section__title">Real estate &amp; products</h2>
+          <p class="form-section__hint">Optional — for Zillow, MHVillage, OfferUp, and other listings.</p>
+          <label>
+            <span>Price</span>
+            <input type="text" name="price" placeholder="$0" />
+          </label>
+          <div class="row-3">
+            <label>
+              <span>Beds</span>
+              <input type="text" name="beds" />
+            </label>
+            <label>
+              <span>Baths</span>
+              <input type="text" name="baths" />
+            </label>
+            <label>
+              <span>Sqft</span>
+              <input type="text" name="sqft" />
+            </label>
+          </div>
+        </section>
 
-    <p id="status" class="status" aria-live="polite"></p>
+        <button type="submit" id="saveBtn">Save to AdHello</button>
+      </form>
+      <p id="status" class="status" aria-live="polite"></p>
+    </div>
+
+    <div id="panelImport" class="popup-panel hidden">
+      <p class="import-hint">Upload a CSV list into a Pipeline folder. The folder is created automatically if it does not exist yet.</p>
+      <form id="importForm">
+        <label>
+          <span>Folder name</span>
+          <input type="text" name="importFolderName" required placeholder="e.g. Vancouver flooring — March" />
+        </label>
+        <label>
+          <span>CSV file</span>
+          <input type="file" name="importFile" accept=".csv,text/csv" required />
+        </label>
+        <button type="submit" id="importBtn">Import list to AdHello</button>
+      </form>
+      <p id="importStatus" class="status" aria-live="polite"></p>
+    </div>
   </main>
+  <script src="address-utils.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

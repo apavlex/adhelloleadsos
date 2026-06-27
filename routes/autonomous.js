@@ -29,7 +29,7 @@ const pageSpeedInsights = require('../services/pageSpeedInsights');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
-const { ensureChromeExtensionFolder, chromeExtensionFolderUrl } = require('../services/chromeExtensionInbox');
+const { ensureChromeExtensionFolder, ensureFolderByName, chromeExtensionFolderUrl } = require('../services/chromeExtensionInbox');
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -282,11 +282,16 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
 
     const isChromeExtension =
       String(req.body.source || leadData.source || '').trim() === 'chrome_extension';
+    const requestedFolderName = String(req.body.folderName || req.body.newFolderName || '').trim();
+    let resolvedFolderName = '';
     if (isChromeExtension) {
-      const folder = await ensureChromeExtensionFolder(wid);
+      const folder = requestedFolderName
+        ? await ensureFolderByName(wid, requestedFolderName)
+        : await ensureChromeExtensionFolder(wid);
       if (folder && folder.key) {
         leadData.folderKey = folder.key;
         leadData.sourceType = leadData.sourceType || 'chrome_extension';
+        resolvedFolderName = String(folder.name || requestedFolderName || 'Chrome Extension').trim();
       }
     }
 
@@ -299,8 +304,8 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       key,
       title,
       folderKey,
-      folderName: isChromeExtension ? 'Chrome Extension' : '',
-      folderUrl: isChromeExtension ? chromeExtensionFolderUrl(folderKey) : '',
+      folderName: resolvedFolderName || (isChromeExtension ? 'Chrome Extension' : ''),
+      folderUrl: folderKey ? chromeExtensionFolderUrl(folderKey) : '',
     });
   } catch (err) {
     next(err);
@@ -453,6 +458,17 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
     const parsed = parseImportFile(buffer, fileName, { leadSource: req.body.leadSource || 'autonomous' });
     const records = parsed.leads;
 
+    const folderName = String(req.body.folderName || req.body.newFolderName || '').trim();
+    let folderKey = String(req.body.folderKey || '').trim();
+    let resolvedFolderName = '';
+    if (folderName) {
+      const folder = await ensureFolderByName(wid, folderName);
+      if (folder && folder.key) {
+        folderKey = String(folder.key);
+        resolvedFolderName = String(folder.name || folderName).trim();
+      }
+    }
+
     let created = 0;
     let updated = 0;
     let failed = 0;
@@ -461,7 +477,13 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
     for (const rec of records) {
       if (!rec.title) { continue; }
       try {
-        const key = await dbService.saveLead({ ...rec, workspaceId: wid });
+        const payload = { ...rec, workspaceId: wid };
+        if (folderKey) payload.folderKey = folderKey;
+        if (String(req.body.source || '').trim() === 'chrome_extension') {
+          payload.source = 'chrome_extension';
+          payload.sourceType = payload.sourceType || 'chrome_extension';
+        }
+        const key = await dbService.saveLead(payload);
         savedKeys.push(key);
         created++;
         try { await autoAttachCadenceIfNeeded({ leadKey: key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
@@ -470,7 +492,16 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
       }
     }
 
-    res.json({ success: true, created, updated, failed, keys: savedKeys });
+    res.json({
+      success: true,
+      created,
+      updated,
+      failed,
+      keys: savedKeys,
+      folderKey,
+      folderName: resolvedFolderName,
+      folderUrl: folderKey ? chromeExtensionFolderUrl(folderKey) : '',
+    });
   } catch (err) {
     next(err);
   }

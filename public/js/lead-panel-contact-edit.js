@@ -4,8 +4,69 @@
 (function () {
   'use strict';
 
+  const FIELDS = {
+    address: {
+      editBtnId: 'mobilePanelEditAddressBtn',
+      viewId: 'mobilePanelHeaderAddress',
+      inputId: 'mobilePanelHeaderAddressInput',
+      buildPatch: (value) => {
+        const geo = parseCityStateFromAddress(value);
+        return {
+          address: value || 'N/A',
+          city: geo.city || '',
+          state: geo.state || '',
+        };
+      },
+      onSaved: (row, patch) => {
+        if (patch.address) row.dataset.address = patch.address;
+        if (patch.city) row.dataset.city = patch.city;
+        if (patch.state) row.dataset.state = patch.state;
+      },
+      readViewValue(viewEl) {
+        const t = viewEl && viewEl.textContent ? viewEl.textContent.trim() : '';
+        return t === '—' ? '' : t;
+      },
+    },
+    phone: {
+      editBtnId: 'mobilePanelEditPhoneBtn',
+      viewId: 'mobilePanelHeaderPhone',
+      inputId: 'mobilePanelHeaderPhoneInput',
+      buildPatch: (value) => ({ phone: value || 'N/A' }),
+      onSaved: (row, patch) => {
+        if (patch.phone) row.dataset.phone = patch.phone;
+      },
+      readViewValue(viewEl) {
+        if (!viewEl) return '';
+        const raw =
+          viewEl.dataset && viewEl.dataset.phone ? String(viewEl.dataset.phone).trim() : '';
+        if (raw && raw !== 'N/A') return raw;
+        const t = viewEl.textContent ? viewEl.textContent.trim() : '';
+        return t === '—' ? '' : t;
+      },
+    },
+  };
+
+  const editState = {
+    address: { editing: false },
+    phone: { editing: false },
+  };
+
+  let suppressBlurCommit = false;
+
   function getCurrentRow() {
-    return typeof window.__getLeadPanelCurrentRow === 'function' ? window.__getLeadPanelCurrentRow() : null;
+    if (typeof window.__getLeadPanelCurrentRow === 'function') {
+      const fromApp = window.__getLeadPanelCurrentRow();
+      if (fromApp && fromApp.dataset) return fromApp;
+    }
+    const selected = document.querySelector('.result-row.selected');
+    if (selected && selected.dataset) return selected;
+    const phoneEl = document.getElementById('mobilePanelHeaderPhone');
+    const lk = phoneEl && phoneEl.dataset ? String(phoneEl.dataset.leadKey || '').trim() : '';
+    if (lk) {
+      const match = document.querySelector(`.result-row[data-lead-key="${CSS.escape(lk)}"]`);
+      if (match) return match;
+    }
+    return null;
   }
 
   function toast(msg, variant) {
@@ -57,74 +118,112 @@
     else if (typeof window.populatePanel === 'function') window.populatePanel(row);
   }
 
-  function bindTextFieldEdit(opts) {
-    const {
-      editBtn,
-      viewEl,
-      inputEl,
-      buildPatch,
-      onSaved,
-    } = opts;
-    if (!editBtn || !viewEl || !inputEl) return;
-
-    let editing = false;
-
-    const showView = () => {
-      editing = false;
-      viewEl.classList.remove('hidden');
-      inputEl.classList.add('hidden');
+  function fieldEls(fieldKey) {
+    const cfg = FIELDS[fieldKey];
+    if (!cfg) return null;
+    return {
+      cfg,
+      editBtn: document.getElementById(cfg.editBtnId),
+      viewEl: document.getElementById(cfg.viewId),
+      inputEl: document.getElementById(cfg.inputId),
     };
+  }
 
-    const showEdit = () => {
-      const row = getCurrentRow();
-      if (!row || !row.dataset.leadKey) {
-        toast('Save this lead before editing.', 'error');
-        return;
-      }
-      editing = true;
-      inputEl.value = viewEl.textContent && viewEl.textContent.trim() !== '—' ? viewEl.textContent.trim() : '';
-      viewEl.classList.add('hidden');
-      inputEl.classList.remove('hidden');
-      inputEl.focus();
-      inputEl.select();
-    };
+  function showView(fieldKey) {
+    const els = fieldEls(fieldKey);
+    if (!els || !els.viewEl || !els.inputEl) return;
+    editState[fieldKey].editing = false;
+    els.viewEl.classList.remove('hidden');
+    els.inputEl.classList.add('hidden');
+  }
 
-    const commit = async () => {
-      if (!editing) return;
-      const row = getCurrentRow();
-      if (!row) return;
-      const patch = buildPatch(String(inputEl.value || '').trim());
-      try {
-        editBtn.disabled = true;
-        await savePatch(patch);
-        if (typeof onSaved === 'function') onSaved(row, patch);
-        refreshPanel(row);
-        toast('Saved');
-      } catch (e) {
-        toast(e.message || 'Save failed', 'error');
-      } finally {
-        editBtn.disabled = false;
-        showView();
-      }
-    };
-
-    editBtn.addEventListener('click', () => {
-      if (editing) commit();
-      else showEdit();
+  function showEdit(fieldKey) {
+    const els = fieldEls(fieldKey);
+    if (!els || !els.viewEl || !els.inputEl) return false;
+    const row = getCurrentRow();
+    if (!row || !row.dataset.leadKey) {
+      toast('Save this lead before editing.', 'error');
+      return false;
+    }
+    editState[fieldKey].editing = true;
+    els.inputEl.value = els.cfg.readViewValue(els.viewEl);
+    els.viewEl.classList.add('hidden');
+    els.inputEl.classList.remove('hidden');
+    requestAnimationFrame(() => {
+      els.inputEl.focus();
+      els.inputEl.select();
     });
-    inputEl.addEventListener('keydown', (e) => {
+    return true;
+  }
+
+  async function commitField(fieldKey) {
+    const els = fieldEls(fieldKey);
+    if (!els || !editState[fieldKey].editing) return;
+    const row = getCurrentRow();
+    if (!row) {
+      showView(fieldKey);
+      return;
+    }
+    const patch = els.cfg.buildPatch(String(els.inputEl.value || '').trim());
+    try {
+      if (els.editBtn) els.editBtn.disabled = true;
+      await savePatch(patch);
+      if (typeof els.cfg.onSaved === 'function') els.cfg.onSaved(row, patch);
+      refreshPanel(row);
+      toast('Saved');
+    } catch (e) {
+      toast(e.message || 'Save failed', 'error');
+    } finally {
+      if (els.editBtn) els.editBtn.disabled = false;
+      showView(fieldKey);
+    }
+  }
+
+  function bindTextFieldEdit(fieldKey) {
+    const els = fieldEls(fieldKey);
+    if (!els || !els.editBtn || !els.viewEl || !els.inputEl) return;
+    if (els.editBtn.dataset.contactEditBound === '1') return;
+    els.editBtn.dataset.contactEditBound = '1';
+    els.editBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (editState[fieldKey].editing) commitField(fieldKey);
+      else showEdit(fieldKey);
+    });
+
+    els.viewEl.addEventListener('click', (e) => {
+      if (fieldKey === 'phone') return;
+      e.preventDefault();
+      e.stopPropagation();
+      showEdit(fieldKey);
+    });
+    if (fieldKey === 'address') {
+      els.viewEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          showEdit(fieldKey);
+        }
+      });
+    }
+
+    els.inputEl.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
-        commit();
+        commitField(fieldKey);
       } else if (e.key === 'Escape') {
         e.preventDefault();
-        showView();
+        showView(fieldKey);
       }
     });
-    inputEl.addEventListener('blur', () => {
+    els.inputEl.addEventListener('mousedown', (e) => e.stopPropagation());
+    els.inputEl.addEventListener('click', (e) => e.stopPropagation());
+    els.inputEl.addEventListener('blur', () => {
       setTimeout(() => {
-        if (editing && document.activeElement !== editBtn) commit();
-      }, 120);
+        if (!editState[fieldKey].editing || suppressBlurCommit) return;
+        const active = document.activeElement;
+        if (active === els.editBtn || active === els.inputEl) return;
+        commitField(fieldKey);
+      }, 160);
     });
   }
 
@@ -137,9 +236,14 @@
     const cancelBtn = document.getElementById('mobilePanelReviewsCancelBtn');
     const reviewsLink = document.getElementById('mobilePanelReviewsLink');
     if (!editBtn || !editRow || !ratingInp || !countInp) return;
-
+    if (editBtn.dataset.contactEditBound === '1') return;
+    editBtn.dataset.contactEditBound = '1';
     const hide = () => editRow.classList.add('hidden');
-    const show = () => {
+    const show = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       const row = getCurrentRow();
       if (!row || !row.dataset.leadKey) {
         toast('Save this lead before editing.', 'error');
@@ -179,8 +283,8 @@
     };
 
     editBtn.addEventListener('click', show);
-    if (saveBtn) saveBtn.addEventListener('click', commit);
-    if (cancelBtn) cancelBtn.addEventListener('click', hide);
+    if (saveBtn) saveBtn.addEventListener('click', (e) => { e.stopPropagation(); commit(); });
+    if (cancelBtn) cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); hide(); });
     if (reviewsLink) {
       reviewsLink.addEventListener('click', (e) => {
         if (!editRow.classList.contains('hidden')) e.preventDefault();
@@ -190,50 +294,37 @@
 
   function bindCompanyTagsJump() {
     const btn = document.getElementById('leadPanelCompanyTagsMoreBtn');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
+    if (!btn || btn.dataset.contactEditBound === '1') return;
+    btn.dataset.contactEditBound = '1';    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
       const target = document.getElementById('leadPanelTagsHost');
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       const historyBtn = document.querySelector('[data-scroll-target="leadPanelHistorySection"]');
       if (historyBtn) historyBtn.click();
     });
   }
 
+  function bindPointerGuards() {
+    const root = document.getElementById('leadPanelGlanceContent') || document.getElementById('leadPanelCallerGlance');
+    if (!root || root.dataset.contactEditGuards === '1') return;
+    root.dataset.contactEditGuards = '1';
+    root.addEventListener('mousedown', (e) => {
+      suppressBlurCommit = !!e.target.closest(
+        '#headerAddressRow, #headerPhoneRow, #mobilePanelReviewsEditRow, #mobilePanelEditAddressBtn, #mobilePanelEditPhoneBtn, #mobilePanelEditReviewsBtn'
+      );
+    });
+  }
+
   function init() {
-    bindTextFieldEdit({
-      editBtn: document.getElementById('mobilePanelEditAddressBtn'),
-      viewEl: document.getElementById('mobilePanelHeaderAddress'),
-      inputEl: document.getElementById('mobilePanelHeaderAddressInput'),
-      buildPatch: (value) => {
-        const geo = parseCityStateFromAddress(value);
-        return {
-          address: value || 'N/A',
-          city: geo.city || '',
-          state: geo.state || '',
-        };
-      },
-      onSaved: (row, patch) => {
-        if (patch.address) row.dataset.address = patch.address;
-        if (patch.city) row.dataset.city = patch.city;
-        if (patch.state) row.dataset.state = patch.state;
-      },
-    });
-
-    bindTextFieldEdit({
-      editBtn: document.getElementById('mobilePanelEditPhoneBtn'),
-      viewEl: document.getElementById('mobilePanelHeaderPhone'),
-      inputEl: document.getElementById('mobilePanelHeaderPhoneInput'),
-      buildPatch: (value) => ({ phone: value || 'N/A' }),
-      onSaved: (row, patch) => {
-        if (patch.phone) row.dataset.phone = patch.phone;
-      },
-    });
-
+    bindPointerGuards();
+    bindTextFieldEdit('address');
+    bindTextFieldEdit('phone');
     bindReviewsEdit();
     bindCompanyTagsJump();
   }
+
+  window.__ensureLeadPanelContactEdit = init;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

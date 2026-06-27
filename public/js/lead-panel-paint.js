@@ -412,6 +412,9 @@
           if (typeof window.syncLeadPanelMapAfterContactPaint === 'function') {
             window.syncLeadPanelMapAfterContactPaint(row);
           }
+          if (typeof window.__renderLeadTagsPanel === 'function') {
+            window.__renderLeadTagsPanel(row);
+          }
         } catch (_) {
           /* map sync optional until app.js loads */
         }

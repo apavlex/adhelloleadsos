@@ -2193,7 +2193,11 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 #mobilePanel.open #leadPanelComposerDrawer.lead-panel-composer-drawer--open,
 #mobilePanel.open #leadPanelComposerDrawer.lead-panel-composer-drawer--open *,
 #mobilePanel.open #leadPanelOutreachDrawer.lead-panel-outreach-drawer--open,
-#mobilePanel.open #leadPanelOutreachDrawer.lead-panel-outreach-drawer--open * {
+#mobilePanel.open #leadPanelOutreachDrawer.lead-panel-outreach-drawer--open *,
+#mobilePanel.open #leadPanelGlanceContent,
+#mobilePanel.open #leadPanelGlanceContent *,
+#mobilePanel.open #leadPanelCompanyTagsSection,
+#mobilePanel.open #leadPanelCompanyTagsSection * {
     pointer-events: auto;
 }
 #leadPanelOutreachChevron {

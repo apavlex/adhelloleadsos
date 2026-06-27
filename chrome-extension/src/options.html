@@ -24,11 +24,32 @@
         <span>Workspace ID</span>
         <input type="text" name="workspaceId" placeholder="default" />
       </label>
+      <label>
+        <span>Default folder name</span>
+        <input type="text" name="defaultFolderName" placeholder="Chrome Extension" />
+      </label>
       <button type="submit">Save settings</button>
       <button type="button" id="testConnectionBtn" class="btn-secondary">Test connection</button>
     </form>
 
     <p id="status" class="status" aria-live="polite"></p>
+
+    <section class="help">
+      <h2>Import a lead list</h2>
+      <p class="help-lead">Upload a CSV or Excel file and file every row into a folder (created automatically if it does not exist).</p>
+      <form id="importForm">
+        <label>
+          <span>Folder name</span>
+          <input type="text" name="importFolderName" required placeholder="e.g. Vancouver flooring — March" />
+        </label>
+        <label>
+          <span>CSV / Excel file</span>
+          <input type="file" name="importFile" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required />
+        </label>
+        <button type="submit" id="importBtn">Import list to AdHello</button>
+      </form>
+      <p id="importStatus" class="status" aria-live="polite"></p>
+    </section>
 
     <section class="help">
       <h2>Setup</h2>

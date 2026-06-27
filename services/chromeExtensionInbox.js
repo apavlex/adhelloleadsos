@@ -18,6 +18,18 @@ async function ensureChromeExtensionFolder(workspaceId) {
   });
 }
 
+async function ensureFolderByName(workspaceId, folderName) {
+  const name = String(folderName || '').trim();
+  if (!name) return null;
+  const wid = workspaceId || 'default';
+  const folders = await dbService.listFolders(wid);
+  const hit = (folders || []).find(
+    (f) => String(f.name || '').trim().toLowerCase() === name.toLowerCase(),
+  );
+  if (hit) return hit;
+  return dbService.createFolder(wid, name);
+}
+
 function chromeExtensionFolderUrl(folderKey) {
   const key = String(folderKey || '').trim();
   if (!key) return '/prospecting?tab=pipeline';
@@ -27,5 +39,6 @@ function chromeExtensionFolderUrl(folderKey) {
 module.exports = {
   CHROME_EXTENSION_FOLDER_NAME,
   ensureChromeExtensionFolder,
+  ensureFolderByName,
   chromeExtensionFolderUrl,
 };

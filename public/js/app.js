@@ -827,6 +827,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (_) {
           /* ignore */
         }
+      } else {
+        syncLiveColumnCss(vis);
       }
       scheduleSyncPipelineStickyOffsets();
 
@@ -842,12 +844,6 @@ document.addEventListener('DOMContentLoaded', () => {
           cb.checked = pipelineColVisible(vis, id);
           cb.className = 'rounded border-brand-border text-brand-yellow focus:ring-brand-yellow';
           cb.addEventListener('change', () => {
-            vis[id] = cb.checked;
-            saveVis(vis);
-            applyVisibility(vis);
-            scheduleSyncPipelineStickyOffsets();
-          });
-          cb.addEventListener('input', () => {
             vis[id] = cb.checked;
             saveVis(vis);
             applyVisibility(vis);
@@ -9289,9 +9285,6 @@ document.addEventListener('DOMContentLoaded', () => {
       paintLeadPanelQuickOutreach(tableRow);
       paintPanelHeaderContactStrip(tableRow);
       scheduleReviewIntelligence(tableRow);
-      if (typeof window.__renderLeadTagsPanel === 'function') {
-        window.__renderLeadTagsPanel(tableRow);
-      }
     } catch (paintErr) {
       console.warn('[Lead panel] row paint failed:', paintErr);
       try {
@@ -9299,6 +9292,16 @@ document.addEventListener('DOMContentLoaded', () => {
       } catch (retryOutreachErr) {
         console.warn('[Lead panel] retry quick outreach paint failed:', retryOutreachErr);
       }
+    }
+    try {
+      if (typeof window.__renderLeadTagsPanel === 'function') {
+        window.__renderLeadTagsPanel(tableRow);
+      }
+    } catch (tagsErr) {
+      console.warn('[Lead panel] tags paint failed:', tagsErr);
+    }
+    if (typeof window.__ensureLeadPanelContactEdit === 'function') {
+      window.__ensureLeadPanelContactEdit();
     }
   }
   window.paintLeadPanelFromRow = paintLeadPanelFromRow;

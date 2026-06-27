@@ -47,7 +47,16 @@ Reload the extension after updates.
 1. Open a listing or profile on any supported site
 2. Click **Save lead** (floating button) or the extension icon
 3. Review auto-filled title, price, beds/baths/sqft, address, and notes
-4. Save — the lead lands in the **Chrome Extension** folder in Pipeline (created automatically on first save)
+4. Save — the lead lands in the **Chrome Extension** folder in Pipeline (created automatically on first save), or in a **custom folder** if you set one in the popup or Settings.
+
+### Import a lead list (CSV)
+
+1. Open extension **Settings** (right-click the extension icon → Options).
+2. Under **Import a lead list**, enter a **folder name** (created automatically if new).
+3. Choose a **CSV** file with columns like `company_name`, `phone`, `address`, `website`.
+4. Click **Import list to AdHello** — all rows file into that folder in Pipeline.
+
+Set **Default folder name** in Settings to pre-fill the popup and single-save folder field.
 
 ## API payload (listings)
 

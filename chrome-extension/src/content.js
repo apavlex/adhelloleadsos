@@ -130,7 +130,10 @@
       fields.baths.value = data.listingBaths ?? data.listing?.baths ?? '';
       fields.sqft.value = data.listingSqft ?? data.listing?.sqft ?? '';
       fields.note.value = data.note || '';
-      fields.address.value = data.address && data.address !== 'N/A' ? data.address : '';
+      fields.address.value =
+        data.address && data.address !== 'N/A'
+          ? (window.AdHelloAddressUtils?.cleanAddress?.(data.address) || data.address)
+          : '';
       fields.city.value = data.city || '';
       fields.state.value = data.state || '';
       fields.website.value = data.website && data.website !== 'N/A' ? data.website : '';

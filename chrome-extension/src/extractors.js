@@ -75,7 +75,7 @@
   }
 
   function parseCityState(address) {
-    const raw = String(address || '').trim();
+    const raw = cleanAddress(address);
     if (!raw) return { city: '', state: '' };
     const parts = raw.split(',').map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 3) {
@@ -127,6 +127,40 @@
       if (val) return val;
     }
     return '';
+  }
+
+  const cleanAddress =
+    window.AdHelloAddressUtils && typeof window.AdHelloAddressUtils.cleanAddress === 'function'
+      ? window.AdHelloAddressUtils.cleanAddress
+      : function cleanAddressFallback(raw) {
+          return String(raw || '')
+            .replace(/[\uE000-\uF8FF\u200B-\u200D\uFEFF]/g, '')
+            .replace(/^[^\dA-Za-z#]+/, '')
+            .trim();
+        };
+
+  const extractAddressFromElement =
+    window.AdHelloAddressUtils && typeof window.AdHelloAddressUtils.extractAddressFromElement === 'function'
+      ? window.AdHelloAddressUtils.extractAddressFromElement
+      : function extractAddressFromElementFallback(el) {
+          if (!el) return '';
+          return cleanAddress(el.textContent || '');
+        };
+
+  function googleMapsAddress(placeRoot) {
+    const root = placeRoot || document;
+    const selectors = [
+      'button[data-item-id="address"]',
+      '[data-item-id="address"]',
+      'button[aria-label*="Address"]',
+      '[data-tooltip="Copy address"]',
+    ];
+    for (const sel of selectors) {
+      const el = root.querySelector(sel);
+      const val = extractAddressFromElement(el);
+      if (val) return val;
+    }
+    return cleanAddress(meta('og:description'));
   }
 
   function parseGoogleMapsReviewsFromDom(scope) {
@@ -390,13 +424,7 @@
       '.F7nice + span',
       '.F7nice ~ button',
     ]);
-    const address =
-      textsIn(placeRoot, [
-        'button[data-item-id="address"]',
-        '[data-item-id="address"]',
-        'button[aria-label*="Address"]',
-        '[data-tooltip="Copy address"]',
-      ]) || meta('og:description');
+    const address = googleMapsAddress(placeRoot);
 
     const rating = parseRating(ratingText);
     const reviewsCount = parseReviewCount(reviewsText);
@@ -457,7 +485,7 @@
     });
 
     if (address) {
-      lead.address = address;
+      lead.address = cleanAddress(address);
       const geo = parseCityState(address);
       lead.city = geo.city;
       lead.state = geo.state;
@@ -498,7 +526,7 @@
     });
 
     if (address) {
-      lead.address = address;
+      lead.address = cleanAddress(address);
       const geo = parseCityState(address);
       lead.city = geo.city;
       lead.state = geo.state;
@@ -570,7 +598,7 @@
     });
 
     if (address) {
-      lead.address = address;
+      lead.address = cleanAddress(address);
       const geo = parseCityState(address);
       lead.city = geo.city;
       lead.state = geo.state;
@@ -640,7 +668,7 @@
     });
 
     if (address) {
-      lead.address = address;
+      lead.address = cleanAddress(address);
       const geo = parseCityState(address);
       lead.city = geo.city;
       lead.state = geo.state;
@@ -651,81 +679,115 @@
     return lead;
   }
 
+  function sanitizeLeadAddress(lead) {
+    if (!lead || typeof lead !== 'object') return lead;
+    if (lead.address) lead.address = cleanAddress(lead.address);
+    return lead;
+  }
+
   function extractLeadFromPage() {
     const url = window.location.href;
+    let lead = null;
     try {
       const path = new URL(url).pathname;
       const listingPlatform = window.AdHelloListingExtractors?.detectListingPlatform?.(url);
       if (listingPlatform && window.AdHelloListingExtractors?.isListingPage?.(listingPlatform, url)) {
-        const listingLead = window.AdHelloListingExtractors.extractListing(listingPlatform, path);
-        if (listingLead) return listingLead;
+        lead = window.AdHelloListingExtractors.extractListing(listingPlatform, path);
       }
     } catch (_) {
       /* ignore */
     }
 
-    const platform = detectPlatform(url);
-
-    switch (platform) {
-      case 'linkedin': return extractLinkedIn();
-      case 'facebook': return extractFacebook();
-      case 'instagram': return extractInstagram();
-      case 'google_maps': return extractGoogleMaps();
-      case 'yelp': return extractYelp();
-      case 'yellowpages':
-        return extractGenericDirectory({ sourceChannel: 'yellowpages', categoryName: 'Yellow Pages', blocklist: ['yellowpages.com'] });
-      case 'bbb':
-        return extractGenericDirectory({ sourceChannel: 'bbb', categoryName: 'BBB', blocklist: ['bbb.org'] });
-      case 'tripadvisor':
-        return extractGenericDirectory({ sourceChannel: 'tripadvisor', categoryName: 'TripAdvisor', blocklist: ['tripadvisor.'] });
-      case 'angi':
-        return extractGenericDirectory({ sourceChannel: 'angi', categoryName: 'Angi', blocklist: ['angi.com'] });
-      case 'homeadvisor':
-        return extractGenericDirectory({ sourceChannel: 'homeadvisor', categoryName: 'HomeAdvisor', blocklist: ['homeadvisor.com'] });
-      case 'thumbtack':
-        return extractGenericDirectory({ sourceChannel: 'thumbtack', categoryName: 'Thumbtack', blocklist: ['thumbtack.com'] });
-      case 'apple_maps':
-        return extractGenericDirectory({ sourceChannel: 'apple_maps', categoryName: 'Apple Maps', blocklist: ['apple.com', 'maps.apple.com'] });
-      case 'bing_maps':
-        return extractGenericDirectory({ sourceChannel: 'bing_maps', categoryName: 'Bing Maps', blocklist: ['bing.com', 'microsoft.com'] });
-      case 'foursquare':
-        return extractGenericDirectory({ sourceChannel: 'foursquare', categoryName: 'Foursquare', blocklist: ['foursquare.com'] });
-      case 'manta':
-        return extractGenericDirectory({ sourceChannel: 'manta', categoryName: 'Manta', blocklist: ['manta.com'] });
-      case 'citysearch':
-        return extractGenericDirectory({ sourceChannel: 'citysearch', categoryName: 'Citysearch', blocklist: ['citysearch.com'] });
-      case 'superpages':
-        return extractGenericDirectory({ sourceChannel: 'superpages', categoryName: 'Superpages', blocklist: ['superpages.com'] });
-      case 'groupon':
-        return extractGroupon();
-      case 'craigslist':
-        return extractCraigslist();
-      case 'nextdoor':
-        return extractNextdoor();
-      case 'houzz':
-        return extractHouzz();
-      case 'zillow':
-      case 'mhvillage':
-      case 'realtor':
-      case 'redfin':
-      case 'offerup':
-      case 'ebay':
-      case 'facebook_marketplace': {
-        const listingLead = window.AdHelloListingExtractors?.extractListing?.(platform, new URL(url).pathname);
-        if (listingLead) return listingLead;
-        break;
+    if (!lead) {
+      const platform = detectPlatform(url);
+      switch (platform) {
+        case 'linkedin':
+          lead = extractLinkedIn();
+          break;
+        case 'facebook':
+          lead = extractFacebook();
+          break;
+        case 'instagram':
+          lead = extractInstagram();
+          break;
+        case 'google_maps':
+          lead = extractGoogleMaps();
+          break;
+        case 'yelp':
+          lead = extractYelp();
+          break;
+        case 'yellowpages':
+          lead = extractGenericDirectory({ sourceChannel: 'yellowpages', categoryName: 'Yellow Pages', blocklist: ['yellowpages.com'] });
+          break;
+        case 'bbb':
+          lead = extractGenericDirectory({ sourceChannel: 'bbb', categoryName: 'BBB', blocklist: ['bbb.org'] });
+          break;
+        case 'tripadvisor':
+          lead = extractGenericDirectory({ sourceChannel: 'tripadvisor', categoryName: 'TripAdvisor', blocklist: ['tripadvisor.'] });
+          break;
+        case 'angi':
+          lead = extractGenericDirectory({ sourceChannel: 'angi', categoryName: 'Angi', blocklist: ['angi.com'] });
+          break;
+        case 'homeadvisor':
+          lead = extractGenericDirectory({ sourceChannel: 'homeadvisor', categoryName: 'HomeAdvisor', blocklist: ['homeadvisor.com'] });
+          break;
+        case 'thumbtack':
+          lead = extractGenericDirectory({ sourceChannel: 'thumbtack', categoryName: 'Thumbtack', blocklist: ['thumbtack.com'] });
+          break;
+        case 'apple_maps':
+          lead = extractGenericDirectory({ sourceChannel: 'apple_maps', categoryName: 'Apple Maps', blocklist: ['apple.com', 'maps.apple.com'] });
+          break;
+        case 'bing_maps':
+          lead = extractGenericDirectory({ sourceChannel: 'bing_maps', categoryName: 'Bing Maps', blocklist: ['bing.com', 'microsoft.com'] });
+          break;
+        case 'foursquare':
+          lead = extractGenericDirectory({ sourceChannel: 'foursquare', categoryName: 'Foursquare', blocklist: ['foursquare.com'] });
+          break;
+        case 'manta':
+          lead = extractGenericDirectory({ sourceChannel: 'manta', categoryName: 'Manta', blocklist: ['manta.com'] });
+          break;
+        case 'citysearch':
+          lead = extractGenericDirectory({ sourceChannel: 'citysearch', categoryName: 'Citysearch', blocklist: ['citysearch.com'] });
+          break;
+        case 'superpages':
+          lead = extractGenericDirectory({ sourceChannel: 'superpages', categoryName: 'Superpages', blocklist: ['superpages.com'] });
+          break;
+        case 'groupon':
+          lead = extractGroupon();
+          break;
+        case 'craigslist':
+          lead = extractCraigslist();
+          break;
+        case 'nextdoor':
+          lead = extractNextdoor();
+          break;
+        case 'houzz':
+          lead = extractHouzz();
+          break;
+        case 'zillow':
+        case 'mhvillage':
+        case 'realtor':
+        case 'redfin':
+        case 'offerup':
+        case 'ebay':
+        case 'facebook_marketplace':
+          lead = window.AdHelloListingExtractors?.extractListing?.(platform, new URL(url).pathname) || null;
+          break;
+        default:
+          lead = {
+            title: cleanTitle(meta('og:title') || document.title) || 'Web prospect',
+            categoryName: 'Web page',
+            url: canonicalUrl(),
+            website: canonicalUrl(),
+            note: meta('og:description') || '',
+            source: 'chrome_extension',
+            sourceChannel: 'web',
+          };
+          break;
       }
-      default:
-        return {
-          title: cleanTitle(meta('og:title') || document.title) || 'Web prospect',
-          categoryName: 'Web page',
-          url: canonicalUrl(),
-          website: canonicalUrl(),
-          note: meta('og:description') || '',
-          source: 'chrome_extension',
-          sourceChannel: 'web',
-        };
     }
+
+    return sanitizeLeadAddress(lead);
   }
 
   function isSupportedPage() {

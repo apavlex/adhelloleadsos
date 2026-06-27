@@ -79,6 +79,16 @@ button[type='submit'] {
   color: #dc2626;
 }
 
+.help-lead {
+  margin: 0 0 12px;
+  color: #4b5563;
+  line-height: 1.5;
+}
+
+#importForm button[type='submit'] {
+  margin-top: 8px;
+}
+
 .help {
   margin-top: 28px;
   padding: 16px;

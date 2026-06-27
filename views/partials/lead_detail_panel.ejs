@@ -63,7 +63,7 @@
             </div>
           </div>
 
-          <div class="p-4 sm:p-5 pointer-events-none overflow-hidden rounded-b-[2rem]">
+          <div id="leadPanelGlanceContent" class="lead-panel-glance-content p-4 sm:p-5 overflow-hidden rounded-b-[2rem]">
             <div class="flex items-start gap-3">
               <a id="mobilePanelMapLink" href="#" class="relative shrink-0 w-12 h-12 sm:w-14 sm:h-14 rounded-2xl overflow-hidden shadow-brutal bg-brand-yellow border-2 border-brand-border/30 dark:border-white/15 ring-2 ring-black/10 dark:ring-white/10 focus-visible:ring-2 focus-visible:ring-brand-yellow focus-visible:outline-none pointer-events-auto" aria-label="Open location in Google Maps" target="_blank" rel="noopener noreferrer">
                 <img id="mobilePanelStaticMapImg" class="absolute inset-0 w-full h-full object-cover hidden" alt="" loading="lazy" width="256" height="256" decoding="async" />
@@ -117,7 +117,7 @@
                   <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                  <a href="#" id="mobilePanelHeaderPhone" class="js-click-to-call-number text-[13px] font-bold text-brand-dark dark:text-white tabular-nums hover:text-brand-yellow transition-colors no-underline" data-phone="" data-lead-key="">—</a>
+                  <a href="#" id="mobilePanelHeaderPhone" class="js-click-to-call-number lead-panel-editable-field text-[13px] font-bold text-brand-dark dark:text-white tabular-nums hover:text-brand-yellow transition-colors no-underline" data-phone="" data-lead-key="">—</a>
                   <input id="mobilePanelHeaderPhoneInput" type="tel" class="hidden w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-[13px] font-bold text-brand-dark dark:text-white tabular-nums" placeholder="(555) 555-5555" autocomplete="tel" />
                 </div>
                 <button type="button" id="mobilePanelEditPhoneBtn" class="shrink-0 w-7 h-7 rounded-lg border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center" aria-label="Edit phone" title="Edit phone">

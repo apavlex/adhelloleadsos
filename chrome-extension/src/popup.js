@@ -1,14 +1,32 @@
 const form = document.getElementById('leadForm');
+const importForm = document.getElementById('importForm');
 const statusEl = document.getElementById('status');
+const importStatusEl = document.getElementById('importStatus');
 const platformLabel = document.getElementById('platformLabel');
 const saveTypeLabel = document.getElementById('saveTypeLabel');
 const setupNotice = document.getElementById('setupNotice');
 const saveBtn = document.getElementById('saveBtn');
 const openOptions = document.getElementById('openOptions');
+const panelSave = document.getElementById('panelSave');
+const panelImport = document.getElementById('panelImport');
+const EXT_VERSION = '1.4.0';
+
+document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
 openOptions.addEventListener('click', (e) => {
   e.preventDefault();
   chrome.runtime.openOptionsPage();
+});
+
+document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
+  tabBtn.addEventListener('click', () => {
+    const tab = tabBtn.getAttribute('data-tab');
+    document.querySelectorAll('.popup-tab').forEach((b) => {
+      b.classList.toggle('popup-tab--active', b === tabBtn);
+    });
+    panelSave.classList.toggle('hidden', tab !== 'save');
+    panelImport.classList.toggle('hidden', tab !== 'import');
+  });
 });
 
 function setStatus(msg, type = '') {
@@ -73,7 +91,7 @@ async function getActiveTabLead() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('No active tab');
 
-  const scripts = ['src/listing-helpers.js', 'src/listing-extractors.js', 'src/extractors.js'];
+  const scripts = ['src/address-utils.js', 'src/listing-helpers.js', 'src/listing-extractors.js', 'src/extractors.js'];
   for (const file of scripts) {
     try {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [file] });
@@ -93,7 +111,17 @@ async function getActiveTabLead() {
   return { tab, lead: result };
 }
 
-function fillForm(lead) {
+function cleanAddress(raw) {
+  if (window.AdHelloAddressUtils && typeof window.AdHelloAddressUtils.cleanAddress === 'function') {
+    return window.AdHelloAddressUtils.cleanAddress(raw);
+  }
+  return String(raw || '')
+    .replace(/[\uE000-\uF8FF\u200B-\u200D\uFEFF]/g, '')
+    .replace(/^[^\dA-Za-z#]+/, '')
+    .trim();
+}
+
+function fillForm(lead, defaultFolderName) {
   if (!lead) return;
   form.title.value = lead.title || '';
   form.price.value =
@@ -106,7 +134,9 @@ function fillForm(lead) {
   form.baths.value = lead.listingBaths ?? lead.listing?.baths ?? '';
   form.sqft.value = lead.listingSqft ?? lead.listing?.sqft ?? '';
   form.note.value = lead.note || '';
-  form.address.value = lead.address && lead.address !== 'N/A' ? lead.address : '';
+  if (defaultFolderName) form.folderName.value = defaultFolderName;
+  form.address.value =
+    lead.address && lead.address !== 'N/A' ? cleanAddress(lead.address) : '';
   form.city.value = lead.city || '';
   form.state.value = lead.state || '';
   form.website.value = lead.website && lead.website !== 'N/A' ? lead.website : '';
@@ -132,7 +162,12 @@ function fillForm(lead) {
 async function init() {
   const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
   const hasKey = !!settingsRes?.settings?.apiKey;
+  const defaultFolderName = settingsRes?.settings?.defaultFolderName || '';
   setupNotice.classList.toggle('hidden', hasKey);
+  if (defaultFolderName) {
+    form.folderName.value = defaultFolderName;
+    if (importForm) importForm.importFolderName.value = defaultFolderName;
+  }
 
   try {
     const { tab, lead } = await getActiveTabLead();
@@ -140,10 +175,11 @@ async function init() {
     platformLabel.textContent = lead
       ? `From ${platform.replace(/_/g, ' ')} · ${new URL(tab.url).hostname}`
       : 'Open a supported listing, profile, or business page to auto-fill.';
-    fillForm(lead);
+    fillForm(lead, defaultFolderName);
   } catch (err) {
     platformLabel.textContent = 'Could not read this page. Use the on-page Save lead button.';
     setStatus(err.message, 'error');
+    if (defaultFolderName) form.folderName.value = defaultFolderName;
   }
 }
 
@@ -178,6 +214,8 @@ form.addEventListener('submit', async (e) => {
       reviewsCount: reviews.reviewsCount || base?.reviewsCount || 0,
       source: 'chrome_extension',
     };
+    const folderName = form.folderName.value.trim();
+    if (folderName) payload.folderName = folderName;
 
     const res = await chrome.runtime.sendMessage({ type: 'SAVE_LEAD', lead: payload });
     if (!res?.ok) throw new Error(res?.error || 'Save failed');
@@ -193,6 +231,59 @@ form.addEventListener('submit', async (e) => {
   } finally {
     saveBtn.disabled = false;
     saveBtn.textContent = 'Save to AdHello';
+  }
+});
+
+function readFileAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('Could not read file.'));
+    reader.readAsText(file);
+  });
+}
+
+importForm?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  importStatusEl.textContent = '';
+  importStatusEl.className = 'status';
+
+  const folderName = importForm.importFolderName.value.trim();
+  const file = importForm.importFile.files && importForm.importFile.files[0];
+  if (!folderName) {
+    importStatusEl.textContent = 'Folder name is required.';
+    importStatusEl.className = 'status status--error';
+    return;
+  }
+  if (!file) {
+    importStatusEl.textContent = 'Choose a CSV file.';
+    importStatusEl.className = 'status status--error';
+    return;
+  }
+
+  const importBtn = document.getElementById('importBtn');
+  importBtn.disabled = true;
+  importBtn.textContent = 'Importing…';
+
+  try {
+    const csvContent = await readFileAsText(file);
+    const res = await chrome.runtime.sendMessage({
+      type: 'IMPORT_CSV',
+      csvContent,
+      fileName: file.name || 'import.csv',
+      folderName,
+    });
+    if (!res?.ok) throw new Error(res?.error || 'Import failed');
+    const data = res.data || {};
+    importStatusEl.textContent = `Imported ${data.created || 0} lead(s) into “${data.folderName || folderName}”.`;
+    importStatusEl.className = 'status status--success';
+    importForm.importFile.value = '';
+  } catch (err) {
+    importStatusEl.textContent = err.message || 'Import failed';
+    importStatusEl.className = 'status status--error';
+  } finally {
+    importBtn.disabled = false;
+    importBtn.textContent = 'Import list to AdHello';
   }
 });
 
