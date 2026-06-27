@@ -267,6 +267,7 @@ async function loadWorkspacePageLocals(req) {
   const apiIngestKeyConfigured = !!ingestKeyRaw;
   const apiIngestKeyMask =
     apiIngestKeyConfigured && ingestKeyRaw.length >= 4 ? `••••${ingestKeyRaw.slice(-4)}` : '';
+  const apiIngestKeyPlain = apiIngestKeyConfigured ? ingestKeyRaw : '';
   const chromeExtensionRepoUrl = String(
     process.env.CHROME_EXTENSION_REPO_URL ||
       'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension',
@@ -282,6 +283,7 @@ async function loadWorkspacePageLocals(req) {
     publicAppBaseUrl: base,
     apiIngestKeyConfigured,
     apiIngestKeyMask,
+    apiIngestKeyPlain,
     chromeExtensionRepoUrl,
     ghlWebhookTokenHint,
     ghlStatus,

@@ -5,6 +5,7 @@
   : 'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension'; %>
 <% const _ingestReady = typeof apiIngestKeyConfigured !== 'undefined' && apiIngestKeyConfigured; %>
 <% const _ingestMask = typeof apiIngestKeyMask !== 'undefined' ? apiIngestKeyMask : ''; %>
+<% const _ingestPlain = typeof apiIngestKeyPlain !== 'undefined' ? apiIngestKeyPlain : ''; %>
 <% const _admin = typeof canManageWorkspace !== 'undefined' && canManageWorkspace; %>
 
 <section id="chrome-extension" class="scroll-mt-28 mb-8 md:mb-10" aria-labelledby="chrome-extension-heading">
@@ -60,8 +61,30 @@
             <dt class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</dt>
             <dd class="text-xs text-brand-dark dark:text-slate-200 leading-relaxed">
               <% if (_ingestReady) { %>
-                Server key is configured<% if (_admin && _ingestMask) { %> (<code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60"><%= _ingestMask %></code>)<% } %>.
-                Paste the full <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">API_INGEST_KEY</code> value from your deployment env into the extension.
+                <% if (_admin && _ingestPlain) { %>
+                  <p class="mb-2">Copy this into the extension <strong>API key</strong> field, then click Save settings.</p>
+                  <div class="flex flex-wrap items-stretch gap-2">
+                    <input
+                      type="text"
+                      readonly
+                      id="chromeExtApiKeyField"
+                      value="<%= _ingestPlain %>"
+                      class="flex-1 min-w-0 font-mono text-[11px] rounded-lg border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-3 py-2 text-brand-dark dark:text-slate-100"
+                      aria-label="API ingest key"
+                    />
+                    <button
+                      type="button"
+                      id="chromeExtApiKeyCopyBtn"
+                      class="shrink-0 rounded-lg border border-brand-border/60 dark:border-white/15 bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-3 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                  <p id="chromeExtApiKeyCopyMsg" class="mt-1.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 hidden" role="status">Copied</p>
+                <% } else { %>
+                  Server key is configured<% if (_ingestMask) { %> (<code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60"><%= _ingestMask %></code>)<% } %>.
+                  Ask a workspace admin for the full key, or copy <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">API_INGEST_KEY</code> from your deployment env into the extension.
+                <% } %>
               <% } else { %>
                 <span class="text-amber-800 dark:text-amber-200">Not set on server — extension saves will fail until configured.</span>
               <% } %>
@@ -99,3 +122,33 @@
     </div>
   </div>
 </section>
+<% if (_admin && _ingestPlain) { %>
+<script>
+(function () {
+  var btn = document.getElementById('chromeExtApiKeyCopyBtn');
+  var field = document.getElementById('chromeExtApiKeyField');
+  var msg = document.getElementById('chromeExtApiKeyCopyMsg');
+  if (!btn || !field) return;
+  btn.addEventListener('click', function () {
+    var text = field.value || '';
+    function flash() {
+      if (msg) {
+        msg.classList.remove('hidden');
+        setTimeout(function () { msg.classList.add('hidden'); }, 2200);
+      }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(flash).catch(function () {
+        field.select();
+        document.execCommand('copy');
+        flash();
+      });
+    } else {
+      field.select();
+      document.execCommand('copy');
+      flash();
+    }
+  });
+})();
+</script>
+<% } %>
