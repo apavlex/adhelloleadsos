@@ -317,6 +317,22 @@
     </div>
   </div>
 
+  <div id="folderMoveModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderMoveTitle">
+    <div id="folderMoveBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
+    <div class="relative max-w-md w-full rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
+      <h2 id="folderMoveTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mb-2">Move folder</h2>
+      <p id="folderMoveSubtitle" class="text-sm text-brand-muted mb-5">Choose which system folder or subfolder should contain this folder.</p>
+      <input type="hidden" id="folderMoveKey" value="" />
+      <label for="folderMoveParent" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Move to</label>
+      <select id="folderMoveParent" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/80 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white mb-3"></select>
+      <p id="folderMoveError" class="text-sm text-red-600 dark:text-red-400 mt-3 hidden"></p>
+      <div class="flex gap-3 mt-6">
+        <button id="folderMoveSave" type="button" class="flex-1 btn-pill btn-primary py-4 text-xs font-black uppercase tracking-widest">Move folder</button>
+        <button id="folderMoveCancel" type="button" class="flex-1 btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 py-4 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="folderSearchSetupModal" class="fixed inset-0 z-[6000] flex items-center justify-center p-4" style="display: none;" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="folderSearchSetupTitle">
     <div id="folderSearchSetupBackdrop" class="absolute inset-0 bg-brand-dark/60 backdrop-blur-sm cursor-pointer" tabindex="-1"></div>
     <div class="relative max-w-2xl w-full max-h-[90vh] overflow-y-auto rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 p-8 shadow-2xl z-10">
@@ -430,6 +446,19 @@
   window.WORKSPACE_FOLDERS = <%- JSON.stringify((folders || []).map(function (f) {
     return { key: f.key, name: f.name, jobType: f.jobType || '', parentFolderKey: f.parentFolderKey || '', searchPreset: f.searchPreset || null, isPipelineDefault: !!f.isPipelineDefault, isTradeFolder: !!f.isTradeFolder };
   })) %>;
+  window.FOLDER_TREE_GROUPS = <%- JSON.stringify((folderTree && folderTree.groups || []).map(function (g) {
+    return {
+      key: g.key,
+      name: g.name,
+      isSystem: !!g.isSystem,
+      folderKey: g.folder && g.folder.key ? g.folder.key : '',
+      folderName: g.folder && g.folder.name ? g.folder.name : '',
+      childRows: (g.childRows || []).map(function (row) {
+        var f = row.folder || {};
+        return { key: f.key || '', name: f.name || '', depth: row.depth || 1, isTrade: !!f.isTradeFolder };
+      })
+    };
+  })) %>;
   </script>
 
   <script>
@@ -504,6 +533,150 @@
           var key = btn.getAttribute('data-folder-key') || '';
           openFolderSearchSetup(key);
         });
+      });
+
+      document.querySelectorAll('.folder-move').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          var key = btn.getAttribute('data-folder-key') || '';
+          var row = btn.closest('[data-folder-row]');
+          var currentName = (row && row.getAttribute('data-folder-name')) || 'Folder';
+          var currentParent = (row && row.getAttribute('data-folder-parent-key')) || '';
+          openFolderMoveModal(key, currentName, currentParent);
+        });
+      });
+    }
+
+    function collectFolderDescendantKeys(folderKey, folders) {
+      var root = String(folderKey || '').trim();
+      var blocked = new Set();
+      if (!root) return blocked;
+      var byParent = new Map();
+      (folders || []).forEach(function (f) {
+        if (!f || !f.key) return;
+        var parent = String(f.parentFolderKey || '').trim();
+        if (!parent) return;
+        if (!byParent.has(parent)) byParent.set(parent, []);
+        byParent.get(parent).push(String(f.key));
+      });
+      var queue = [root];
+      while (queue.length) {
+        var k = queue.shift();
+        (byParent.get(k) || []).forEach(function (child) {
+          if (blocked.has(child)) return;
+          blocked.add(child);
+          queue.push(child);
+        });
+      }
+      return blocked;
+    }
+
+    function populateFolderMoveSelect(movingKey, currentParentKey) {
+      var select = $('folderMoveParent');
+      if (!select) return;
+      var folders = window.WORKSPACE_FOLDERS || [];
+      var groups = window.FOLDER_TREE_GROUPS || [];
+      var blocked = collectFolderDescendantKeys(movingKey, folders);
+      blocked.add(String(movingKey || '').trim());
+      select.innerHTML = '';
+
+      var topOpt = document.createElement('option');
+      topOpt.value = '';
+      topOpt.textContent = 'Other folders (top-level)';
+      select.appendChild(topOpt);
+
+      groups.forEach(function (group) {
+        var og = document.createElement('optgroup');
+        og.label = String(group.name || 'Folders');
+        if (group.isSystem && group.folderKey && !blocked.has(group.folderKey)) {
+          var rootOpt = document.createElement('option');
+          rootOpt.value = group.folderKey;
+          rootOpt.textContent = group.folderName || group.name;
+          og.appendChild(rootOpt);
+        }
+        (group.childRows || []).forEach(function (row) {
+          if (!row.key || blocked.has(row.key)) return;
+          var opt = document.createElement('option');
+          opt.value = row.key;
+          var prefix = row.depth > 1 ? '\u21b3 '.repeat(row.depth) : '\u21b3 ';
+          opt.textContent = prefix + row.name;
+          og.appendChild(opt);
+        });
+        if (og.children.length) select.appendChild(og);
+      });
+
+      var desired = String(currentParentKey || '').trim();
+      select.value = desired;
+      if (select.value !== desired && desired) {
+        var fallback = document.createElement('option');
+        fallback.value = desired;
+        fallback.textContent = 'Current parent';
+        select.insertBefore(fallback, select.firstChild.nextSibling);
+        select.value = desired;
+      }
+    }
+
+    function openFolderMoveModal(folderKey, folderName, currentParentKey) {
+      var modal = $('folderMoveModal');
+      if (!modal) return;
+      if ($('folderMoveKey')) $('folderMoveKey').value = folderKey || '';
+      if ($('folderMoveTitle')) $('folderMoveTitle').textContent = 'Move “' + (folderName || 'Folder') + '”';
+      populateFolderMoveSelect(folderKey, currentParentKey);
+      var err = $('folderMoveError');
+      if (err) { err.classList.add('hidden'); err.textContent = ''; }
+      modal.style.display = 'flex';
+      modal.setAttribute('aria-hidden', 'false');
+      if ($('folderMoveParent')) $('folderMoveParent').focus();
+    }
+
+    function closeFolderMoveModal() {
+      var modal = $('folderMoveModal');
+      if (!modal) return;
+      modal.style.display = 'none';
+      modal.setAttribute('aria-hidden', 'true');
+      if ($('folderMoveKey')) $('folderMoveKey').value = '';
+    }
+
+    function bindFolderMoveModal() {
+      var modal = $('folderMoveModal');
+      var bd = $('folderMoveBackdrop');
+      var cancel = $('folderMoveCancel');
+      var save = $('folderMoveSave');
+      if (bd) bd.addEventListener('click', closeFolderMoveModal);
+      if (cancel) cancel.addEventListener('click', closeFolderMoveModal);
+      if (save) {
+        save.addEventListener('click', function () {
+          var key = ($('folderMoveKey') && $('folderMoveKey').value) || '';
+          var parentKey = ($('folderMoveParent') && $('folderMoveParent').value) || '';
+          var err = $('folderMoveError');
+          if (!key) return;
+          save.disabled = true;
+          fetch('/folders/move', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: jsonHeaders,
+            body: JSON.stringify({ folderKey: key, parentFolderKey: parentKey })
+          })
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+            .then(function (pack) {
+              if (!pack.ok || !pack.data || !pack.data.success) {
+                throw new Error((pack.data && pack.data.error) || 'Could not move folder.');
+              }
+              closeFolderMoveModal();
+              window.location.reload();
+            })
+            .catch(function (e) {
+              if (err) {
+                err.textContent = e && e.message ? e.message : 'Could not move folder.';
+                err.classList.remove('hidden');
+              }
+            })
+            .finally(function () { save.disabled = false; });
+        });
+      }
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal && modal.style.display === 'flex') closeFolderMoveModal();
       });
     }
 
@@ -876,6 +1049,7 @@
       bindFolderManager();
       bindFolderTreeToggle();
       bindFolderCreateModal();
+      bindFolderMoveModal();
       bindFolderSearchSetupModal();
       bindFolderSearchFilter();
     }

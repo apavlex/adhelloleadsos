@@ -4,6 +4,7 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { wantsJsonResponse } = require('../lib/httpRequest');
 const { migrateUnfiledLeadsToPipelineFolders, deleteFolderComplete } = require('../services/pipelineFolders');
+const { moveFolder } = require('../services/folderMove');
 const { isInOutreachFolder } = require('../services/leadListFilters');
 const { parseSearchPresetFromForm, normalizeSearchPreset } = require('../services/folderSearchPreset');
 
@@ -169,6 +170,24 @@ router.post('/rename', async (req, res, next) => {
     const folder = await dbService.renameFolder(wid, folderKey, name);
     if (!folder) return res.status(404).json({ success: false, error: 'Folder not found.' });
     res.json({ success: true, folder });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/move', async (req, res, next) => {
+  try {
+    const folderKey = String(req.body?.folderKey || '').trim();
+    const parentFolderKey =
+      req.body?.parentFolderKey != null ? String(req.body.parentFolderKey).trim() : '';
+    if (!folderKey) {
+      return res.status(400).json({ success: false, error: 'folderKey is required.' });
+    }
+    const result = await moveFolder(req.workspaceId, folderKey, parentFolderKey);
+    if (!result.ok) {
+      return res.status(400).json({ success: false, error: result.error || 'Could not move folder.' });
+    }
+    res.json({ success: true, folder: result.folder });
   } catch (e) {
     next(e);
   }
