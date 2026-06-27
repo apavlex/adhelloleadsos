@@ -57,4 +57,24 @@ describe('csvLeadImport parse', () => {
     assert.equal(leads[0].website, 'N/A');
     assert.equal(leads[0].title, 'No Site Co');
   });
+
+  it('maps Chrome extension Flooring Leads CSV columns', () => {
+    const csv = [
+      'Business Name,Phone Number,Address,Category,Rating,Review Count,Extraction Date,Google Maps URL,Review Snippet,Sponsored',
+      'Floor & Decor,(503) 382-0506,11919 North Jantzen Drive,Flooring store,4.5,397,2026-06-27,https://www.google.com/maps/place/test,,"Yes"',
+      'All About Floors NW,(360) 947-2876,6700 NE 152nd Ave #140,Flooring store,4.8,120,2026-06-27,https://www.google.com/maps/place/test2,"Great service and fair prices",No',
+    ].join('\n');
+    const { leads } = parseImportFile(Buffer.from(csv, 'utf8'), 'Flooring Leads.csv', {
+      leadSource: 'chrome_extension',
+    });
+    assert.equal(leads.length, 2);
+    assert.equal(leads[0].reviewsCount, 397);
+    assert.equal(leads[0].categoryName, 'Flooring store');
+    assert.equal(leads[0].totalScore, 4.5);
+    assert.equal(leads[0].sponsored, true);
+    assert.equal(leads[0].reviewSnippets, undefined);
+    assert.equal(leads[1].reviewsCount, 120);
+    assert.deepEqual(leads[1].reviewSnippets, ['Great service and fair prices']);
+    assert.equal(leads[1].sponsored, false);
+  });
 });

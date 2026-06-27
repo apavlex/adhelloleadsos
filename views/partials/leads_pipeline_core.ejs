@@ -188,6 +188,14 @@
               <button type="button" class="prospect-sort-btn" data-prospect-sort="reviews" title="Sort by rating and review count">Reviews <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="reviews" title="Resize column" aria-hidden="true"></span>
             </th>
+            <th data-plc="reviewSnippet" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[8rem] max-w-[14rem]" scope="col">
+              Review snippet
+              <span class="plc-col-resize" data-plc-resize="reviewSnippet" title="Resize column" aria-hidden="true"></span>
+            </th>
+            <th data-plc="sponsored" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[5rem]" scope="col">
+              Sponsored
+              <span class="plc-col-resize" data-plc-resize="sponsored" title="Resize column" aria-hidden="true"></span>
+            </th>
             <th data-plc="website" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap min-w-[4.5rem]" scope="col">
               <button type="button" class="prospect-sort-btn" data-prospect-sort="website" title="Sort by website (Yes / No)">Website <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="website" title="Resize column" aria-hidden="true"></span>
@@ -274,6 +282,9 @@
               var _tw = lead.twitter && lead.twitter !== 'N/A' ? String(lead.twitter) : '';
               var _rNum = lead.totalScore ? Number(lead.totalScore).toFixed(1) : '';
               var _rc = parseInt(String(lead.reviewsCount || 0), 10) || 0;
+              if (!_rc && lead.importFields && lead.importFields.review_count) {
+                _rc = parseInt(String(lead.importFields.review_count).replace(/,/g, ''), 10) || 0;
+              }
               var _claimSt = lead.gbpClaimStatus ? String(lead.gbpClaimStatus).trim() : '';
               var _gbpOpt = lead.gbpOptimizationScore ? String(lead.gbpOptimizationScore).trim() : '';
               var _lastTouchRaw = lead.updatedAt || lead.lastTouchAt || lead.lastContactAt || lead.createdAt || lead.savedAt || '';
@@ -321,6 +332,17 @@
                 : '—';
               var _bedsDisp = Number.isFinite(_listBeds) ? String(_listBeds) : '—';
               var _bathsDisp = Number.isFinite(_listBaths) ? String(_listBaths) : '—';
+              var _reviewSnippets = Array.isArray(lead.reviewSnippets) ? lead.reviewSnippets : [];
+              var _reviewSnippetText = _reviewSnippets.length ? String(_reviewSnippets[0] || '').trim() : '';
+              if (!_reviewSnippetText && lead.importFields && lead.importFields.review_snippet) {
+                _reviewSnippetText = String(lead.importFields.review_snippet).replace(/^["']+|["']+$/g, '').trim();
+              }
+              var _sponsoredRaw = lead.sponsored;
+              if (_sponsoredRaw == null && lead.importFields && lead.importFields.sponsored) {
+                _sponsoredRaw = String(lead.importFields.sponsored).trim().toLowerCase();
+              }
+              var _sponsoredYes = _sponsoredRaw === true || _sponsoredRaw === 'yes' || _sponsoredRaw === 'true' || _sponsoredRaw === '1';
+              var _sponsoredNo = _sponsoredRaw === false || _sponsoredRaw === 'no' || _sponsoredRaw === 'false' || _sponsoredRaw === '0';
             %>
             <tr class="result-row group/row scroll-mt-28 transition-colors duration-150 border-b border-brand-border/15 dark:border-white/[0.07]"
                 onclick="if(window.__pipelineRowActivate){window.__pipelineRowActivate(event,this);}"
@@ -340,6 +362,8 @@
                 data-state="<%= plcEscAttr(lead.state || '') %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
+                data-review-snippets="<%= plcEscJson(lead.reviewSnippets || []) %>"
+                data-sponsored="<%= _sponsoredYes ? 'yes' : (_sponsoredNo ? 'no' : '') %>"
                 <% if (lead.latitude != null && lead.latitude !== '' && lead.longitude != null && lead.longitude !== '') { %>
                 data-latitude="<%= plcEscAttr(String(lead.latitude)) %>"
                 data-longitude="<%= plcEscAttr(String(lead.longitude)) %>"
@@ -466,6 +490,22 @@
                     <span class="text-sm font-semibold text-brand-muted/60 dark:text-slate-500">—</span>
                   <% } %>
                 </div>
+              </td>
+              <td data-plc="reviewSnippet" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] max-w-[14rem]">
+                <% if (_reviewSnippetText) { %>
+                  <span class="text-[10px] leading-snug text-brand-dark dark:text-slate-200 block truncate max-w-[13rem]" title="<%= plcEscAttr(_reviewSnippetText) %>">“<%= _reviewSnippetText %>”</span>
+                <% } else { %>
+                  <span class="text-xs text-brand-muted dark:text-slate-500">—</span>
+                <% } %>
+              </td>
+              <td data-plc="sponsored" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
+                <% if (_sponsoredYes) { %>
+                  <span class="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 px-1.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/40">Yes</span>
+                <% } else if (_sponsoredNo) { %>
+                  <span class="text-[10px] font-semibold text-brand-muted dark:text-slate-400">No</span>
+                <% } else { %>
+                  <span class="text-xs text-brand-muted dark:text-slate-500">—</span>
+                <% } %>
               </td>
               <td data-plc="website" class="lead-cell-website px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <% if (_ws) { %>

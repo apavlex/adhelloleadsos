@@ -632,6 +632,8 @@ document.addEventListener('DOMContentLoaded', () => {
         { id: 'cadence', label: 'Cadence' },
         { id: 'category', label: 'Category' },
         { id: 'reviews', label: 'Reviews' },
+        { id: 'reviewSnippet', label: 'Review snippet' },
+        { id: 'sponsored', label: 'Sponsored' },
         { id: 'website', label: 'Website (Yes / No)', defaultHidden: true },
         { id: 'claimStatus', label: 'Claim status', defaultHidden: true },
         { id: 'optimizationScore', label: 'GBP optimization score', defaultHidden: true },
@@ -16108,6 +16110,9 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (_) {
       ds.reviewSnippets = '[]';
     }
+    if (lead.sponsored === true) ds.sponsored = 'yes';
+    else if (lead.sponsored === false) ds.sponsored = 'no';
+    else ds.sponsored = '';
     try {
       ds.reviewIntel = lead.reviewIntel ? JSON.stringify(lead.reviewIntel) : '';
     } catch (_) {

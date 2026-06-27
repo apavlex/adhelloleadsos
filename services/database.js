@@ -210,6 +210,34 @@ function mergePreferExisting(existing, incoming) {
     out.gbpOptimizationScore = incoming.gbpOptimizationScore;
   }
 
+  const incSnippets = Array.isArray(incoming?.reviewSnippets)
+    ? incoming.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean)
+    : [];
+  const curSnippets = Array.isArray(existing?.reviewSnippets)
+    ? existing.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean)
+    : [];
+  if (
+    incSnippets.length &&
+    (!curSnippets.length || incoming?.source === 'chrome_extension')
+  ) {
+    out.reviewSnippets = incSnippets;
+  }
+
+  if (incoming?.source === 'chrome_extension' && typeof incoming?.sponsored === 'boolean') {
+    out.sponsored = incoming.sponsored;
+  }
+
+  const incCat = String(incoming?.categoryName || '').trim();
+  const curCat = String(existing?.categoryName || '').trim();
+  const genericCategory = /^(n\/a|na|imported|google maps|directory listing)$/i;
+  if (
+    incCat &&
+    !genericCategory.test(incCat) &&
+    (!curCat || genericCategory.test(curCat) || incoming?.source === 'chrome_extension')
+  ) {
+    out.categoryName = incCat;
+  }
+
   return out;
 }
 

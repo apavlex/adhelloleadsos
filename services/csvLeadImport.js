@@ -249,6 +249,8 @@ function pickPrimaryEmail(r) {
 function parseReviewCount(r) {
   const raw =
     r.reviews ||
+    r.review_count ||
+    r.reviewcount ||
     r.reviewscount ||
     r.reviews_count ||
     r.total_review ||
@@ -257,6 +259,29 @@ function parseReviewCount(r) {
     r.num_reviews;
   const n = parseInt(String(raw ?? '').replace(/,/g, ''), 10);
   return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+function parseReviewSnippet(r) {
+  const raw = firstNonEmpty(r, [
+    'review_snippet',
+    'reviewsnippet',
+    'review_text',
+    'review_quote',
+    'snippet',
+    'customer_review',
+  ]);
+  if (!raw) return undefined;
+  const text = String(raw).replace(/^["']+|["']+$/g, '').trim();
+  return text ? [text.slice(0, 2000)] : undefined;
+}
+
+function parseSponsored(r) {
+  const raw = firstNonEmpty(r, ['sponsored', 'is_sponsored', 'ad', 'is_ad', 'paid_listing']);
+  if (!raw) return undefined;
+  const s = String(raw).trim().toLowerCase();
+  if (['yes', 'true', '1', 'y'].includes(s)) return true;
+  if (['no', 'false', '0', 'n'].includes(s)) return false;
+  return undefined;
 }
 
 function parseStarRating(r) {
@@ -508,6 +533,9 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   const importedWebsiteStatus = firstNonEmpty(r, ['website_status', 'website_status_label', 'site_status']);
   const distanceKm = firstNonEmpty(r, ['distance_km', 'distance', 'distance_miles']);
 
+  const reviewSnippets = parseReviewSnippet(r);
+  const sponsored = parseSponsored(r);
+
   const lead = {
     title,
     phone,
@@ -519,6 +547,8 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     state: areaPack.state || firstNonEmpty(r, ['state', 'region']) || '',
     totalScore: parseStarRating(r),
     reviewsCount: parseReviewCount(r),
+    reviewSnippets: reviewSnippets || undefined,
+    sponsored: sponsored !== undefined ? sponsored : undefined,
     url: mapsUrl || listingUrlEarly || '',
     gbpClaimStatus: trimGbpField(
       firstNonEmpty(r, ['claim_status', 'gbp_claim_status', 'claimed']),
@@ -619,6 +649,9 @@ module.exports = {
   parseSocialUrls,
   parseAreaField,
   parseListingNote,
+  parseReviewCount,
+  parseReviewSnippet,
+  parseSponsored,
   mapImportSourceChannel,
   isRealEstateImportRow,
   pickListingUrl,

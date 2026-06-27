@@ -9,7 +9,7 @@ const saveBtn = document.getElementById('saveBtn');
 const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
-const EXT_VERSION = '1.4.1';
+const EXT_VERSION = '1.4.2';
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
@@ -216,6 +216,9 @@ form.addEventListener('submit', async (e) => {
       phone: form.phone.value.trim() || 'N/A',
       totalScore: reviews.totalScore || base?.totalScore || 0,
       reviewsCount: reviews.reviewsCount || base?.reviewsCount || 0,
+      categoryName: base?.categoryName || undefined,
+      reviewSnippets: base?.reviewSnippets || undefined,
+      sponsored: typeof base?.sponsored === 'boolean' ? base.sponsored : undefined,
       source: 'chrome_extension',
     };
     const folderName = form.folderName.value.trim();

@@ -205,6 +205,66 @@
     return { rating, reviewsCount };
   }
 
+  function googleMapsReviewSnippet(placeRoot) {
+    const root = placeRoot || findGoogleMapsPlaceRoot() || document;
+    const skip = /^(more|see all|reviews?|google|translated|original)$/i;
+    const selectors = [
+      '.MyEned span',
+      '.MyEned',
+      '.wiI7pd span',
+      '.wiI7pd',
+      '[data-review-id] .wiI7pd',
+      '[data-review-id] span[jslog]',
+      'div[aria-label*="review" i] .MyEned',
+    ];
+    for (const sel of selectors) {
+      const nodes = root.querySelectorAll(sel);
+      for (const el of nodes) {
+        let text = String(el.textContent || '')
+          .replace(/\s+/g, ' ')
+          .trim()
+          .replace(/^["']+|["']+$/g, '')
+          .trim();
+        if (text.length < 12) continue;
+        if (skip.test(text)) continue;
+        if (/^\(\d+\)$/.test(text)) continue;
+        if (/^\d+(\.\d+)?\s*stars?\b/i.test(text)) continue;
+        return text.slice(0, 2000);
+      }
+    }
+    return '';
+  }
+
+  function googleMapsSponsored(placeRoot) {
+    function isSponsoredEl(el) {
+      if (!el) return false;
+      const t = String(el.textContent || '').trim();
+      const label = String(el.getAttribute('aria-label') || '').trim();
+      if (/^sponsored$/i.test(t)) return true;
+      if (/\bsponsored\b/i.test(label) && label.length < 48) return true;
+      return false;
+    }
+
+    const scopes = [];
+    if (placeRoot) scopes.push(placeRoot);
+    const h1 = document.querySelector('h1.DUwDvf, h1[aria-level="1"]');
+    if (h1) {
+      const feedItem =
+        h1.closest('[role="article"]') ||
+        document.querySelector('[role="feed"] [aria-current="true"]') ||
+        document.querySelector('[role="feed"] .Nv2PK.HHpBE') ||
+        document.querySelector('[role="feed"] .hfpxzc[aria-current]')?.closest('.Nv2PK');
+      if (feedItem) scopes.push(feedItem);
+    }
+
+    for (const scope of scopes) {
+      for (const el of scope.querySelectorAll('span, div, button, label')) {
+        if (isSponsoredEl(el)) return true;
+      }
+    }
+    return false;
+  }
+
   function flattenJsonLd(node, out) {
     if (!node) return;
     if (Array.isArray(node)) {
@@ -453,6 +513,11 @@
     const finalReviews = reviewsCount > 0 ? reviewsCount : gmapsReviews.reviewsCount;
     if (finalRating) lead.totalScore = finalRating;
     if (finalReviews) lead.reviewsCount = finalReviews;
+
+    const reviewSnippet = googleMapsReviewSnippet(placeRoot);
+    if (reviewSnippet) lead.reviewSnippets = [reviewSnippet];
+    if (category) lead.categoryName = category;
+    lead.sponsored = googleMapsSponsored(placeRoot);
 
     lead.note = [
       category,

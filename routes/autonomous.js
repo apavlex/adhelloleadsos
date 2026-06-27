@@ -47,6 +47,27 @@ function workspaceId(req) {
   return String(req.headers['x-workspace-id'] || req.query.workspaceId || 'default').trim() || 'default';
 }
 
+function parseExtensionReviewSnippets(body) {
+  if (Array.isArray(body?.reviewSnippets)) {
+    const list = body.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean);
+    return list.length ? list.slice(0, 20) : undefined;
+  }
+  const one = body?.reviewSnippet ?? body?.review_snippet;
+  if (one) {
+    const text = String(one).trim().slice(0, 2000);
+    return text ? [text] : undefined;
+  }
+  return undefined;
+}
+
+function parseExtensionSponsored(body) {
+  if (body?.sponsored === true || body?.sponsored === false) return body.sponsored;
+  const raw = String(body?.sponsored ?? '').trim().toLowerCase();
+  if (['yes', 'true', '1', 'y'].includes(raw)) return true;
+  if (['no', 'false', '0', 'n'].includes(raw)) return false;
+  return undefined;
+}
+
 // ── 1. SEARCH — trigger a Google Maps lead search ────────────────────────────
 
 /**
@@ -260,6 +281,11 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       savedAt: new Date().toISOString(),
       workspaceId: wid,
     };
+
+    const reviewSnippets = parseExtensionReviewSnippets(req.body);
+    if (reviewSnippets) leadData.reviewSnippets = reviewSnippets;
+    const sponsored = parseExtensionSponsored(req.body);
+    if (sponsored !== undefined) leadData.sponsored = sponsored;
 
     if (req.body.note) {
       leadData.updates = [{ type: 'note', value: String(req.body.note), timestamp: new Date().toISOString() }];

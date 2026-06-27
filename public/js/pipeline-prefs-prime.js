@@ -23,6 +23,8 @@
     { id: 'cadence' },
     { id: 'category' },
     { id: 'reviews' },
+    { id: 'reviewSnippet' },
+    { id: 'sponsored' },
     { id: 'website', defaultHidden: true },
     { id: 'claimStatus', defaultHidden: true },
     { id: 'optimizationScore', defaultHidden: true },
