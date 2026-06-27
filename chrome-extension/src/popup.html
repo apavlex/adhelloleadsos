@@ -107,7 +107,33 @@
     </div>
 
     <div id="panelBulk" class="popup-panel hidden">
-      <p class="import-hint">On a <strong>Google Maps search results</strong> page, scroll the list and import every visible business into a Pipeline folder.</p>
+      <p class="import-hint">Scroll a directory <strong>search results</strong> list and import every visible business into a Pipeline folder.</p>
+      <section class="platform-guide" aria-labelledby="bulkPlatformGuideTitle">
+        <h2 id="bulkPlatformGuideTitle" class="platform-guide__title">Where bulk scrape works</h2>
+        <ul class="platform-guide__bulk-list">
+          <li><span class="platform-pill platform-pill--bulk">Google Maps</span> search results (left list)</li>
+        </ul>
+        <p class="platform-guide__note">Not bulk scrape — use <strong>Save lead</strong> or <strong>Import CSV</strong> instead:</p>
+        <details class="platform-guide__details">
+          <summary>Yelp, directories, social &amp; listings</summary>
+          <p class="platform-guide__tags">
+            <span class="platform-pill">Yelp</span>
+            <span class="platform-pill">Yellow Pages</span>
+            <span class="platform-pill">BBB</span>
+            <span class="platform-pill">TripAdvisor</span>
+            <span class="platform-pill">Angi</span>
+            <span class="platform-pill">HomeAdvisor</span>
+            <span class="platform-pill">Thumbtack</span>
+            <span class="platform-pill">Apple Maps</span>
+            <span class="platform-pill">Bing Maps</span>
+            <span class="platform-pill">LinkedIn</span>
+            <span class="platform-pill">Facebook</span>
+            <span class="platform-pill">Instagram</span>
+            <span class="platform-pill">Zillow</span>
+            <span class="platform-pill">+ more</span>
+          </p>
+        </details>
+      </section>
       <p id="bulkMapsHint" class="bulk-maps-hint">Checking active tab…</p>
       <form id="bulkForm">
         <label>
@@ -134,7 +160,11 @@
     </div>
 
     <div id="panelImport" class="popup-panel hidden">
-      <p class="import-hint">Upload a CSV list into a Pipeline folder. The folder is created automatically if it does not exist yet.</p>
+      <p class="import-hint">Upload a CSV from <strong>any source</strong> into a Pipeline folder — exports from Google Maps, Yelp, Outscraper, SmartScraper, Apollo, or your own spreadsheets.</p>
+      <section class="platform-guide platform-guide--compact" aria-labelledby="importPlatformGuideTitle">
+        <h2 id="importPlatformGuideTitle" class="platform-guide__title">Typical CSV columns</h2>
+        <p class="platform-guide__note"><code>company_name</code>, <code>phone</code>, <code>address</code>, <code>city</code>, <code>state</code>, <code>website</code>, <code>google_maps_url</code>, <code>rating</code>, <code>review_count</code></p>
+      </section>
       <form id="importForm">
         <div class="popup-form-actions popup-form-actions--top">
           <button type="submit" id="importBtnTop">Import list to AdHello</button>

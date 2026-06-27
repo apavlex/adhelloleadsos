@@ -15,7 +15,7 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.6.0';
+const EXT_VERSION = '1.6.1';
 const BULK_IMPORT_BATCH_SIZE = 15;
 
 let bulkRunning = false;
@@ -270,16 +270,37 @@ async function importCompaniesInBatches(companies, folderName, fileSlug, onProgr
   return { created, updated, failed, folderName: folderLabel };
 }
 
+function detectActiveSiteLabel(url) {
+  const u = String(url || '').toLowerCase();
+  if (isGoogleMapsUrl(url)) return 'Google Maps';
+  if (u.includes('yelp.com')) return 'Yelp';
+  if (u.includes('yellowpages.com')) return 'Yellow Pages';
+  if (u.includes('bbb.org')) return 'BBB';
+  if (u.includes('tripadvisor.com')) return 'TripAdvisor';
+  if (u.includes('angi.com')) return 'Angi';
+  if (u.includes('homeadvisor.com')) return 'HomeAdvisor';
+  if (u.includes('thumbtack.com')) return 'Thumbtack';
+  if (u.includes('linkedin.com')) return 'LinkedIn';
+  if (u.includes('facebook.com')) return 'Facebook';
+  if (u.includes('instagram.com')) return 'Instagram';
+  if (u.includes('zillow.com')) return 'Zillow';
+  return '';
+}
+
 async function refreshBulkMapsHint() {
   if (!bulkMapsHintEl) return;
   try {
     const tab = await getActiveTab();
+    const site = detectActiveSiteLabel(tab.url);
     if (isGoogleMapsUrl(tab.url)) {
       bulkMapsHintEl.textContent = 'Connected to Google Maps — ready to bulk scrape this results list.';
       bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--ready';
+    } else if (site) {
+      bulkMapsHintEl.textContent = `${site} — bulk scrape is Google Maps only. Use Save lead here, or Import CSV for a ${site} export.`;
+      bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--warn';
     } else {
       bulkMapsHintEl.textContent =
-        'Open a Google Maps search results page first (e.g. “electricians near me”), then reopen this tab.';
+        'Open Google Maps search results first (e.g. “flooring near Vancouver WA”). Other sites: Save lead or Import CSV.';
       bulkMapsHintEl.className = 'bulk-maps-hint bulk-maps-hint--warn';
     }
   } catch (_) {

@@ -58,6 +58,16 @@ Reload the extension after updates.
 
 Set **Default folder name** in Settings to pre-fill the popup and single-save folder field.
 
+## Import modes — which sites use which
+
+| Mode | Where it works | Best for |
+|------|----------------|----------|
+| **Bulk scrape** | **Google Maps** search results only (left results list) | Scraping a full local search without a separate tool |
+| **Save lead** | One business at a time on Google Maps, **Yelp**, Yellow Pages, BBB, TripAdvisor, Angi, HomeAdvisor, Thumbtack, Apple/Bing Maps, Foursquare, Manta, Groupon, Nextdoor, Houzz, LinkedIn, Facebook, Instagram, Zillow, MHVillage, Realtor.com, Redfin, OfferUp, eBay, Craigslist, Facebook Marketplace | Saving while you browse |
+| **Import CSV** | **Any source** — paste/upload a spreadsheet or export from Google Maps, Yelp, Outscraper, SmartScraper, Apollo, etc. | Lists you already exported elsewhere |
+
+Yelp and other directories do **not** support in-browser bulk scrape yet — use **Save lead** per page or **Import CSV** from an export.
+
 ### Bulk scrape Google Maps search results
 
 1. In Chrome, run a **Google Maps search** (e.g. “electricians in Gig Harbor”) so the **left results list** is visible.
