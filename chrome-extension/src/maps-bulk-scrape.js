@@ -365,6 +365,22 @@
     return out;
   }
 
+  function scrapePlacePageDetail() {
+    const detail = scrapeOpenDetailPanel();
+    const h1 = document.querySelector('h1.DUwDvf, h1[aria-level="1"]');
+    if (h1?.textContent?.trim()) {
+      detail['Business Name'] = h1.textContent.trim();
+    }
+    const category = document.querySelector('button[jsaction*="category"], [data-item-id*="category"]');
+    if (category?.textContent?.trim()) {
+      detail.Category = category.textContent.trim();
+    }
+    const geo = parseCityStateFromAddress(detail.Address || '');
+    if (geo.city) detail.City = geo.city;
+    if (geo.state) detail.State = geo.state;
+    return detail;
+  }
+
   function findContainerForCompany(containers, company) {
     const name = String(company['Business Name'] || '').trim().toLowerCase();
     if (!name) return null;
@@ -707,6 +723,14 @@
       preloadAllResults()
         .then((result) => sendResponse(result))
         .catch((err) => sendResponse({ success: false, reason: 'error', error: err.message }));
+      return true;
+    }
+    if (action === 'bulkScrapePlacePage') {
+      try {
+        sendResponse({ success: true, detail: scrapePlacePageDetail() });
+      } catch (err) {
+        sendResponse({ success: false, error: err.message });
+      }
       return true;
     }
     if (action === 'bulkStopPreload') {

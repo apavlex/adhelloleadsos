@@ -339,3 +339,28 @@ a {
 #bulkForm button[type='submit'].btn-stop:hover:not(:disabled) {
   background: #b91c1c;
 }
+
+.popup-form-actions--secondary {
+  margin-bottom: 8px;
+}
+
+#bulkReEnrichBtn {
+  width: 100%;
+  border: 1px solid color-mix(in srgb, var(--ws-accent) 45%, #d1d5db);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fff;
+  color: var(--ws-accent-text);
+  cursor: pointer;
+}
+
+#bulkReEnrichBtn:hover:not(:disabled) {
+  background: var(--ws-accent-soft);
+}
+
+#bulkReEnrichBtn:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}

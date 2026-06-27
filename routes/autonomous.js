@@ -32,6 +32,58 @@ const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
 const { ensureChromeExtensionFolder, ensureFolderByName, chromeExtensionFolderUrl } = require('../services/chromeExtensionInbox');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
+const { scoreLocalProspect } = require('../services/localProspectScore');
+const { normalizeDomain } = require('../services/leadDedupe');
+
+function isMissingWebsiteValue(website) {
+  const w = String(website || '').trim();
+  return !w || w === 'N/A';
+}
+
+function isMissingPhoneValue(phone) {
+  const p = String(phone || '').trim();
+  return !p || p === 'N/A';
+}
+
+function isGoogleMapsLeadUrl(url) {
+  const s = String(url || '').trim().toLowerCase();
+  return (
+    s.includes('google.com/maps') ||
+    s.includes('maps.app.goo.gl') ||
+    s.includes('goo.gl/maps') ||
+    s.includes('maps.google.com')
+  );
+}
+
+function pickLeadMapsUrl(lead) {
+  if (!lead) return '';
+  const direct = String(lead.url || '').trim();
+  if (isGoogleMapsLeadUrl(direct)) return direct;
+  const imp = lead.importFields && typeof lead.importFields === 'object' ? lead.importFields : {};
+  for (const key of ['google_maps_url', 'maps_url', 'gbp_url', 'place_url']) {
+    const v = String(imp[key] || '').trim();
+    if (isGoogleMapsLeadUrl(v)) return v;
+  }
+  return '';
+}
+
+function hostnameFromWebsite(raw) {
+  const s = String(raw || '').trim();
+  if (!s || s === 'N/A') return '';
+  try {
+    const u = new URL(s.includes('://') ? s : `https://${s}`);
+    return u.hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function leadNeedsReEnrichment(lead) {
+  if (!pickLeadMapsUrl(lead)) return false;
+  const missingWebsite = isMissingWebsiteValue(lead.website);
+  const missingGeo = !String(lead.city || '').trim() || !String(lead.state || '').trim();
+  return missingWebsite || missingGeo;
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -384,6 +436,137 @@ router.get('/leads', apiKeyAuth, async (req, res, next) => {
         source: l.source,
         savedAt: l.savedAt,
       })),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /autonomous/re-enrich-queue
+ * Query: folderName (required), limit?
+ * Leads in folder with a Google Maps URL but missing website and/or city/state.
+ */
+router.get('/re-enrich-queue', apiKeyAuth, async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const folderName = String(req.query.folderName || '').trim();
+    if (!folderName) {
+      return res.status(400).json({ success: false, error: 'folderName is required.' });
+    }
+
+    const folder = await ensureFolderByName(wid, folderName);
+    if (!folder?.key) {
+      return res.status(404).json({ success: false, error: `Folder “${folderName}” not found.` });
+    }
+
+    const all = await dbService.getAllLeads(wid);
+    const inFolder = all.filter((l) => String(l.folderKey || '') === String(folder.key));
+    const needing = inFolder.filter(leadNeedsReEnrichment);
+    const limit = Math.min(parseInt(req.query.limit, 10) || 150, 200);
+    const leads = needing.slice(0, limit).map((lead) => ({
+      key: lead.key,
+      title: lead.title,
+      mapsUrl: pickLeadMapsUrl(lead),
+      missing: [
+        isMissingWebsiteValue(lead.website) ? 'website' : null,
+        !String(lead.city || '').trim() ? 'city' : null,
+        !String(lead.state || '').trim() ? 'state' : null,
+      ].filter(Boolean),
+    }));
+
+    res.json({
+      success: true,
+      folderName: folder.name || folderName,
+      folderKey: folder.key,
+      folderUrl: chromeExtensionFolderUrl(folder.key),
+      totalInFolder: inFolder.length,
+      totalNeeding: needing.length,
+      count: leads.length,
+      leads,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PATCH /autonomous/leads/:leadKey
+ * Body: { website?, city?, state?, address?, phone?, companyDomain? }
+ * Fills missing contact/location fields only (does not overwrite existing values).
+ */
+router.patch('/leads/:leadKey', apiKeyAuth, express.json(), async (req, res, next) => {
+  try {
+    const wid = workspaceId(req);
+    const raw = req.params.leadKey;
+    const key = raw.startsWith('lead:') ? raw : `lead:${raw}`;
+    const lead = await dbService.getLead(key);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || 'default') !== wid) {
+      return res.status(403).json({ success: false, error: 'Lead is not in this workspace.' });
+    }
+
+    const body = req.body || {};
+    const patch = {};
+
+    if (isMissingWebsiteValue(lead.website) && body.website && !isMissingWebsiteValue(body.website)) {
+      patch.website = String(body.website).trim();
+    }
+    if (!String(lead.city || '').trim() && body.city) {
+      patch.city = String(body.city).trim();
+    }
+    if (!String(lead.state || '').trim() && body.state) {
+      patch.state = String(body.state).trim();
+    }
+    if ((!lead.address || lead.address === 'N/A') && body.address && body.address !== 'N/A') {
+      patch.address = String(body.address).trim();
+    }
+    if (isMissingPhoneValue(lead.phone) && body.phone && !isMissingPhoneValue(body.phone)) {
+      patch.phone = String(body.phone).trim();
+    }
+
+    const domain =
+      String(body.companyDomain || '').trim() ||
+      hostnameFromWebsite(patch.website || lead.website);
+    if (domain && isMissingWebsiteValue(lead.website)) {
+      patch.importFields = {
+        ...(lead.importFields || {}),
+        company_domain: domain,
+        domain,
+      };
+    }
+
+    if (Object.keys(patch).length === 0) {
+      return res.json({ success: true, key, updated: false, message: 'Nothing to update.' });
+    }
+
+    if (patch.website) {
+      patch.domainNorm = normalizeDomain(patch.website);
+    }
+
+    const merged = { ...lead, ...patch };
+    const scored = scoreLocalProspect(merged);
+    patch.websiteStatus = scored.websiteStatus;
+    patch.websiteStatusLabel = scored.websiteStatusLabel;
+    if (!lead.prospectTier) patch.prospectTier = scored.prospectTier;
+
+    patch.logs = [
+      {
+        type: 're_enrich',
+        message: `Chrome extension backfill: ${Object.keys(patch).filter((k) => k !== 'logs').join(', ')}`,
+        timestamp: new Date().toISOString(),
+      },
+    ];
+
+    await dbService.updateLead(key, patch, wid);
+    res.json({
+      success: true,
+      key,
+      updated: true,
+      fields: Object.keys(patch).filter((k) => k !== 'logs'),
+      websiteStatusLabel: patch.websiteStatusLabel,
     });
   } catch (err) {
     next(err);

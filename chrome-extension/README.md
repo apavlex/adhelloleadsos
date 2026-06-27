@@ -68,6 +68,17 @@ Set **Default folder name** in Settings to pre-fill the popup and single-save fo
 6. Leave **Open each listing to fetch website & domain** checked (recommended) — this opens each Maps result briefly to capture the business website and domain. Uncheck for a faster import with phone/address/reviews only.
 7. Leads import into your folder with name, phone, full address, city, state, category, rating, reviews, review snippet, website, domain, and Maps URL. Duplicates merge with existing leads.
 
+### Re-enrich an existing folder (no re-scroll)
+
+Already imported a folder but **Website** / **Domain** / **City** / **State** are empty?
+
+1. Open any Google Maps tab (the extension will visit each saved Maps URL).
+2. Extension → **Bulk scrape** → enter the **same folder name** (e.g. `Flooring`).
+3. Click **Re-enrich folder (websites & domains)**.
+4. AdHello loads leads missing website or city/state, opens each Google Maps place page, scrapes the site + address, and patches only empty fields.
+
+Run again if some listings had no website on Maps or the tab timed out.
+
 No separate scraper extension required — this is built into AdHello Leads v1.5+.
 
 ## API payload (listings)

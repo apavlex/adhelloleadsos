@@ -15,11 +15,12 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.5.3';
+const EXT_VERSION = '1.6.0';
 const BULK_IMPORT_BATCH_SIZE = 15;
 
 let bulkRunning = false;
 let bulkStopRequested = false;
+let reEnrichRunning = false;
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
@@ -482,6 +483,7 @@ form.addEventListener('submit', async (e) => {
 
 async function runBulkScrapeSubmit(e) {
   e.preventDefault();
+  if (reEnrichRunning) return;
   if (bulkRunning) {
     bulkStopRequested = true;
     try {
@@ -576,6 +578,143 @@ async function runBulkScrapeSubmit(e) {
 }
 
 bulkForm?.addEventListener('submit', runBulkScrapeSubmit);
+
+function waitForTabLoad(tabId, maxMs = 20000) {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      chrome.tabs.onUpdated.removeListener(onUpdated);
+      resolve();
+    };
+    const onUpdated = (updatedId, info) => {
+      if (updatedId !== tabId || info.status !== 'complete') return;
+      finish();
+    };
+    chrome.tabs.onUpdated.addListener(onUpdated);
+    chrome.tabs.get(tabId, (tab) => {
+      if (chrome.runtime.lastError || tab?.status === 'complete') finish();
+    });
+    setTimeout(finish, maxMs);
+  });
+}
+
+function buildReEnrichPatch(detail, lead) {
+  const patch = {};
+  const missing = new Set(lead.missing || []);
+  const website = String(detail?.Website || '').trim();
+  if (website && missing.has('website')) {
+    patch.website = website;
+    const domain = window.AdHelloAddressUtils?.hostnameFromUrl?.(website) || '';
+    if (domain) patch.companyDomain = domain;
+  }
+
+  const address = String(detail?.Address || '').trim();
+  if (address) {
+    const parsed = window.AdHelloAddressUtils?.parseCityState?.(address) || {};
+    if (missing.has('city') && parsed.city) patch.city = parsed.city;
+    if (missing.has('state') && parsed.state) patch.state = parsed.state;
+    patch.address = address;
+  }
+  if (missing.has('city') && detail?.City) patch.city = detail.City;
+  if (missing.has('state') && detail?.State) patch.state = detail.State;
+
+  const phone = String(detail?.['Phone Number'] || '').trim();
+  if (phone) patch.phone = phone;
+  return patch;
+}
+
+async function runReEnrichFolder() {
+  if (bulkRunning || reEnrichRunning) return;
+
+  const folderName = bulkForm.bulkFolderName.value.trim();
+  if (!folderName) {
+    setBulkStatus('Folder name is required.', 'error');
+    return;
+  }
+
+  reEnrichRunning = true;
+  setBulkStatus('');
+  const reEnrichBtn = document.getElementById('bulkReEnrichBtn');
+  if (reEnrichBtn) {
+    reEnrichBtn.disabled = true;
+    reEnrichBtn.textContent = 'Re-enriching…';
+  }
+
+  let updated = 0;
+  let attempted = 0;
+  try {
+    const queueRes = await chrome.runtime.sendMessage({
+      type: 'GET_REENRICH_QUEUE',
+      folderName,
+      limit: 150,
+    });
+    if (!queueRes?.ok) throw new Error(queueRes?.error || 'Could not load folder queue');
+
+    const queue = queueRes.data || {};
+    const leads = queue.leads || [];
+    if (!leads.length) {
+      setBulkStatus(`No leads in “${folderName}” need website or city/state backfill.`, 'success');
+      return;
+    }
+
+    if (bulkProgressEl) {
+      bulkProgressEl.textContent = `${leads.length} lead(s) queued in “${folderName}”…`;
+      bulkProgressEl.classList.add('bulk-progress--active');
+    }
+
+    const tab = await getActiveTab();
+    await ensureBulkScript(tab.id);
+
+    for (const lead of leads) {
+      attempted += 1;
+      if (bulkProgressEl) {
+        bulkProgressEl.textContent = `Re-enriching ${attempted}/${leads.length}: ${lead.title}`;
+      }
+
+      await chrome.tabs.update(tab.id, { url: lead.mapsUrl, active: true });
+      await waitForTabLoad(tab.id);
+      await new Promise((resolve) => setTimeout(resolve, 900));
+
+      let detail = {};
+      try {
+        await ensureBulkScript(tab.id);
+        const scraped = await sendTabMessage(tab.id, { action: 'bulkScrapePlacePage' });
+        detail = scraped?.detail || {};
+      } catch (_) {
+        continue;
+      }
+
+      const patch = buildReEnrichPatch(detail, lead);
+      if (!Object.keys(patch).length) continue;
+
+      const patchRes = await chrome.runtime.sendMessage({
+        type: 'PATCH_LEAD',
+        leadKey: lead.key,
+        patch,
+      });
+      if (patchRes?.ok && patchRes.data?.updated) updated += 1;
+    }
+
+    const remaining = Math.max(0, (queue.totalNeeding || leads.length) - updated);
+    setBulkStatus(
+      `Re-enriched ${updated} of ${attempted} leads in “${folderName}”.${remaining ? ` ~${remaining} may still need data — run again if needed.` : ''}`,
+      'success',
+    );
+    if (bulkProgressEl) bulkProgressEl.textContent = '';
+  } catch (err) {
+    setBulkStatus(err.message || 'Re-enrich failed', 'error');
+  } finally {
+    reEnrichRunning = false;
+    if (reEnrichBtn) {
+      reEnrichBtn.disabled = false;
+      reEnrichBtn.textContent = 'Re-enrich folder (websites & domains)';
+    }
+  }
+}
+
+document.getElementById('bulkReEnrichBtn')?.addEventListener('click', runReEnrichFolder);
 
 function readFileAsText(file) {
   return new Promise((resolve, reject) => {
