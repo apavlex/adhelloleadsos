@@ -1663,6 +1663,14 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.category = String(lead.categoryName).trim();
     }
     assignRowDatasetScoreIfBetter(ds, lead.totalScore, lead.reviewsCount);
+    const snippets = reviewSnippetsFromLeadObj(lead);
+    if (snippets.length) {
+      try {
+        ds.reviewSnippets = JSON.stringify(snippets);
+      } catch (_) {
+        /* ignore */
+      }
+    }
     return true;
   }
 
@@ -4791,6 +4799,20 @@ document.addEventListener('DOMContentLoaded', () => {
     return parts.length ? parts.join(' ') : '';
   }
 
+  function reviewSnippetsFromLeadObj(lead) {
+    if (!lead || typeof lead !== 'object') return [];
+    const fromArr = Array.isArray(lead.reviewSnippets)
+      ? lead.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean)
+      : [];
+    if (fromArr.length) return fromArr;
+    const imp = lead.importFields && typeof lead.importFields === 'object' ? lead.importFields : null;
+    if (!imp) return [];
+    const raw = imp.review_snippet ?? imp.reviewsnippet ?? imp.review_quote;
+    if (raw == null || raw === '') return [];
+    const cleaned = String(raw).replace(/^["']+|["']+$/g, '').trim();
+    return cleaned ? [cleaned] : [];
+  }
+
   function readReviewSnippetsFromRow(row) {
     if (!row || !row.dataset) return [];
     try {
@@ -4798,11 +4820,39 @@ document.addEventListener('DOMContentLoaded', () => {
       if (raw && raw !== '[]' && raw !== '') {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) {
-          return parsed.map((s) => String(s || '').trim()).filter(Boolean);
+          const list = parsed.map((s) => String(s || '').trim()).filter(Boolean);
+          if (list.length) return list;
         }
       }
     } catch (_) {
       /* ignore */
+    }
+    if (typeof findInitialSavedLeadRecord === 'function') {
+      const embedded = findInitialSavedLeadRecord(row);
+      const fromLead = reviewSnippetsFromLeadObj(embedded);
+      if (fromLead.length) {
+        try {
+          row.dataset.reviewSnippets = JSON.stringify(fromLead);
+        } catch (_) {
+          /* ignore */
+        }
+        return fromLead;
+      }
+    }
+    if (typeof row.querySelector === 'function') {
+      const cell = row.querySelector('[data-plc="reviewSnippet"] span[title]');
+      const fromCell = cell ? String(cell.getAttribute('title') || '').trim() : '';
+      if (fromCell && fromCell !== '—') {
+        const cleaned = fromCell.replace(/^["']+|["']+$/g, '').trim();
+        if (cleaned) {
+          try {
+            row.dataset.reviewSnippets = JSON.stringify([cleaned]);
+          } catch (_) {
+            /* ignore */
+          }
+          return [cleaned];
+        }
+      }
     }
     return [];
   }
@@ -4840,7 +4890,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (refreshBtn) refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
       if (errEl) errEl.classList.add('hidden');
-      const aiSummary = (data && data.summary) || '';
+      const aiSummary = (data && data.summary && String(data.summary).trim()) || '';
       const snippetSummary = aiSummary ? '' : formatReviewSnippetSummary(snippets);
       const heuristicSummary =
         aiSummary || snippetSummary ? '' : (heuristicFallback && heuristicFallback.summary) || '';
@@ -4906,15 +4956,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (persistedIntel && typeof persistedIntel === 'object') {
+      const cachedSummary = readReviewSummaryFromIntel(persistedIntel);
       applyIntel(
         {
-          summary: readReviewSummaryFromIntel(persistedIntel),
+          summary: cachedSummary,
           sourceNote: persistedIntel.sourceNote,
           cached: true,
         },
         null
       );
-      if (!refresh) return;
+      if (!refresh && (cachedSummary || snippets.length)) return;
     } else if (snippets.length) {
       applyIntel(null, null);
     }
@@ -6406,6 +6457,7 @@ document.addEventListener('DOMContentLoaded', () => {
         parseInt(lead.reviewsCount ?? lead.reviews ?? lead.reviews_count, 10) ||
         parseInt(lead.reviewCount, 10) ||
         0,
+      reviewSnippets: reviewSnippetsFromLeadObj(lead),
     };
     const contacts = Array.isArray(lead.contacts) ? lead.contacts : [];
     const priPhone =
@@ -6487,7 +6539,15 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function mergePanelSnapField(snap, key, value) {
-    if (!snap || isEmptyLeadField(value)) return;
+    if (!snap) return;
+    if (key === 'reviewSnippets') {
+      const list = Array.isArray(value)
+        ? value.map((s) => String(s || '').trim()).filter(Boolean)
+        : [];
+      if (list.length) snap.reviewSnippets = list;
+      return;
+    }
+    if (isEmptyLeadField(value)) return;
     if (key === 'rating') {
       const n = parseFloat(value);
       if (Number.isFinite(n) && n > 0) snap.rating = n;
@@ -6518,6 +6578,7 @@ document.addEventListener('DOMContentLoaded', () => {
       twitter: '',
       rating: 0,
       reviews: 0,
+      reviewSnippets: [],
     };
     if (!tableRow) return { tableRow: row, snap };
 
@@ -6541,6 +6602,13 @@ document.addEventListener('DOMContentLoaded', () => {
     mergePanelSnapField(snap, 'twitter', ds.twitter);
     mergePanelSnapField(snap, 'rating', ds.rating);
     mergePanelSnapField(snap, 'reviews', ds.reviews);
+    if (ds.reviewSnippets && ds.reviewSnippets !== '[]') {
+      try {
+        mergePanelSnapField(snap, 'reviewSnippets', JSON.parse(ds.reviewSnippets));
+      } catch (_) {
+        /* ignore */
+      }
+    }
 
     Object.entries(scrapePipelineRowPanelFields(tableRow)).forEach(([k, v]) => mergePanelSnapField(snap, k, v));
 
@@ -6619,6 +6687,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (snap.twitter) ds.twitter = snap.twitter;
     if (snap.rating > 0) ds.rating = String(snap.rating);
     if (snap.reviews > 0) ds.reviews = String(snap.reviews);
+    if (Array.isArray(snap.reviewSnippets) && snap.reviewSnippets.length) {
+      try {
+        ds.reviewSnippets = JSON.stringify(snap.reviewSnippets);
+      } catch (_) {
+        /* ignore */
+      }
+    }
   }
 
   function readPipelineRowDisplayAddress(row) {

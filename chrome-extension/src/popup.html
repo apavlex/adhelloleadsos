@@ -29,6 +29,9 @@
 
     <div id="panelSave" class="popup-panel">
       <form id="leadForm">
+        <div class="popup-form-actions popup-form-actions--top">
+          <button type="submit" id="saveBtnTop">Save to AdHello</button>
+        </div>
         <label>
           <span>Title</span>
           <input type="text" name="title" required />
@@ -95,7 +98,9 @@
           </div>
         </section>
 
-        <button type="submit" id="saveBtn">Save to AdHello</button>
+        <div class="popup-form-actions popup-form-actions--bottom">
+          <button type="submit" id="saveBtn">Save to AdHello</button>
+        </div>
       </form>
       <p id="status" class="status" aria-live="polite"></p>
     </div>
@@ -103,6 +108,9 @@
     <div id="panelImport" class="popup-panel hidden">
       <p class="import-hint">Upload a CSV list into a Pipeline folder. The folder is created automatically if it does not exist yet.</p>
       <form id="importForm">
+        <div class="popup-form-actions popup-form-actions--top">
+          <button type="submit" id="importBtnTop">Import list to AdHello</button>
+        </div>
         <label>
           <span>Folder name</span>
           <input type="text" name="importFolderName" required placeholder="e.g. Vancouver flooring — March" />
@@ -111,7 +119,9 @@
           <span>CSV file</span>
           <input type="file" name="importFile" accept=".csv,text/csv" required />
         </label>
-        <button type="submit" id="importBtn">Import list to AdHello</button>
+        <div class="popup-form-actions popup-form-actions--bottom">
+          <button type="submit" id="importBtn">Import list to AdHello</button>
+        </div>
       </form>
       <p id="importStatus" class="status" aria-live="polite"></p>
     </div>

@@ -16,6 +16,7 @@ const outscraper = require('../services/outscraperClient');
 const { generateReviewIntelForLead } = require('../services/reviewIntel');
 const {
   normalizeLeadForPanel,
+  coalesceReviewSnippets,
   leadMissingCoreContact,
   hasContactValue,
 } = require('../services/leadPanelNormalize');
@@ -2933,7 +2934,7 @@ router.post('/:key/review-intelligence', async (req, res, next) => {
       }
     }
 
-    const snippets = Array.isArray(lead.reviewSnippets) ? lead.reviewSnippets : [];
+    const snippets = coalesceReviewSnippets(lead);
     const aiPack = await generateReviewIntelForLead({ ...lead, reviewSnippets: snippets });
     if (aiPack && aiPack.error) {
       return res.json({ success: false, error: aiPack.error });

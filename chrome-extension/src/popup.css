@@ -11,6 +11,7 @@ body {
   --ws-accent-soft: #fffbeb;
   --ws-accent-muted: #fef3c7;
   --ws-accent-text: #92400e;
+  --ws-accent-hover: #a16207;
 }
 
 main {
@@ -96,10 +97,27 @@ header h1 {
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 14px;
-  font-weight: 600;
-  background: #111827;
-  color: #fff;
+  font-weight: 700;
+  background: var(--ws-accent);
+  color: #111827;
   cursor: pointer;
+}
+
+#importForm button[type='submit']:hover:not(:disabled) {
+  background: var(--ws-accent-hover, #a16207);
+}
+
+.popup-form-actions--top {
+  margin-bottom: 12px;
+}
+
+.popup-form-actions--top button[type='submit'] {
+  width: 100%;
+  margin-top: 0;
+}
+
+.popup-form-actions--bottom {
+  margin-top: 4px;
 }
 
 #importForm button[type='submit']:disabled {
@@ -177,10 +195,14 @@ button[type='submit'] {
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   background: var(--ws-accent);
   color: #111827;
   cursor: pointer;
+}
+
+button[type='submit']:hover:not(:disabled) {
+  background: var(--ws-accent-hover);
 }
 
 button[type='submit']:disabled {

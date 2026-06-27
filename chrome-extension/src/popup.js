@@ -6,10 +6,11 @@ const platformLabel = document.getElementById('platformLabel');
 const saveTypeLabel = document.getElementById('saveTypeLabel');
 const setupNotice = document.getElementById('setupNotice');
 const saveBtn = document.getElementById('saveBtn');
+const saveBtnTop = document.getElementById('saveBtnTop');
 const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
-const EXT_VERSION = '1.4.2';
+const EXT_VERSION = '1.4.3';
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
@@ -197,8 +198,11 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
-  saveBtn.disabled = true;
-  saveBtn.textContent = 'Saving…';
+  const saveButtons = [saveBtn, saveBtnTop].filter(Boolean);
+  saveButtons.forEach((btn) => {
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+  });
 
   try {
     const { lead: base } = await getActiveTabLead();
@@ -238,8 +242,10 @@ form.addEventListener('submit', async (e) => {
   } catch (err) {
     setStatus(err.message || 'Save failed', 'error');
   } finally {
-    saveBtn.disabled = false;
-    saveBtn.textContent = 'Save to AdHello';
+    saveButtons.forEach((btn) => {
+      btn.disabled = false;
+      btn.textContent = 'Save to AdHello';
+    });
   }
 });
 
@@ -271,8 +277,12 @@ importForm?.addEventListener('submit', async (e) => {
   }
 
   const importBtn = document.getElementById('importBtn');
-  importBtn.disabled = true;
-  importBtn.textContent = 'Importing…';
+  const importBtnTop = document.getElementById('importBtnTop');
+  const importButtons = [importBtn, importBtnTop].filter(Boolean);
+  importButtons.forEach((btn) => {
+    btn.disabled = true;
+    btn.textContent = 'Importing…';
+  });
 
   try {
     const csvContent = await readFileAsText(file);
@@ -291,8 +301,10 @@ importForm?.addEventListener('submit', async (e) => {
     importStatusEl.textContent = err.message || 'Import failed';
     importStatusEl.className = 'status status--error';
   } finally {
-    importBtn.disabled = false;
-    importBtn.textContent = 'Import list to AdHello';
+    importButtons.forEach((btn) => {
+      btn.disabled = false;
+      btn.textContent = 'Import list to AdHello';
+    });
   }
 });
 

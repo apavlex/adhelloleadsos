@@ -37,28 +37,36 @@
   }
 
   function applyWorkspaceTheme(theme) {
+    applyWorkspaceThemeToElement(document.documentElement, theme);
+  }
+
+  function applyWorkspaceThemeToElement(el, theme) {
+    if (!el) return;
     const accent = normalizeHex(theme && theme.accentColor) || DEFAULT_ACCENT;
-    const root = document.documentElement;
-    root.style.setProperty('--ws-accent', accent);
-    root.style.setProperty('--ws-accent-soft', mixHex(accent, '#FFFFFF', 0.88));
-    root.style.setProperty('--ws-accent-muted', mixHex(accent, '#FFFFFF', 0.72));
-    root.style.setProperty('--ws-accent-text', mixHex(accent, '#111827', 0.72));
+    el.style.setProperty('--ws-accent', accent);
+    el.style.setProperty('--ws-accent-soft', mixHex(accent, '#FFFFFF', 0.88));
+    el.style.setProperty('--ws-accent-muted', mixHex(accent, '#FFFFFF', 0.72));
+    el.style.setProperty('--ws-accent-text', mixHex(accent, '#111827', 0.72));
+    el.style.setProperty('--ws-accent-hover', mixHex(accent, '#111827', 0.12));
+    el.style.setProperty('--ws-accent-hover', mixHex(accent, '#111827', 0.12));
 
-    const nameEl = document.getElementById('workspaceThemeName');
-    const rowEl = document.getElementById('workspaceThemeRow');
-    if (nameEl) {
-      const name = theme && theme.name ? String(theme.name).trim() : '';
-      if (name) {
-        nameEl.textContent = name;
-        if (rowEl) rowEl.classList.remove('hidden');
-      } else {
-        nameEl.textContent = '';
-        if (rowEl) rowEl.classList.add('hidden');
+    if (el === document.documentElement) {
+      const nameEl = document.getElementById('workspaceThemeName');
+      const rowEl = document.getElementById('workspaceThemeRow');
+      if (nameEl) {
+        const name = theme && theme.name ? String(theme.name).trim() : '';
+        if (name) {
+          nameEl.textContent = name;
+          if (rowEl) rowEl.classList.remove('hidden');
+        } else {
+          nameEl.textContent = '';
+          if (rowEl) rowEl.classList.add('hidden');
+        }
       }
-    }
 
-    const swatch = document.getElementById('workspaceThemeSwatch');
-    if (swatch) swatch.style.backgroundColor = accent;
+      const swatch = document.getElementById('workspaceThemeSwatch');
+      if (swatch) swatch.style.backgroundColor = accent;
+    }
   }
 
   async function fetchWorkspaceTheme(settings) {
@@ -102,6 +110,7 @@
   window.AdHelloTheme = {
     DEFAULT_ACCENT,
     applyWorkspaceTheme,
+    applyWorkspaceThemeToElement,
     fetchWorkspaceTheme,
     fetchAndApplyTheme,
   };

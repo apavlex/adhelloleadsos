@@ -194,6 +194,19 @@ function normalizeLeadForPanel(lead) {
   if (totalScore > 0) out.totalScore = totalScore;
   if (reviewsCount > 0) out.reviewsCount = reviewsCount;
 
+  const snippetKeys = ['review_snippet', 'reviewsnippet', 'review quote', 'review_quote'];
+  let reviewSnippets = Array.isArray(lead.reviewSnippets)
+    ? lead.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean)
+    : [];
+  if (!reviewSnippets.length && imp) {
+    const one = pickImportField(imp, snippetKeys);
+    if (one) {
+      const cleaned = String(one).replace(/^["']+|["']+$/g, '').trim();
+      if (cleaned) reviewSnippets = [cleaned];
+    }
+  }
+  if (reviewSnippets.length) out.reviewSnippets = reviewSnippets;
+
   if (Array.isArray(lead.tags)) {
     out.tags = [...new Set(lead.tags.map((t) => String(t || '').trim()).filter(Boolean))];
   } else if (!Array.isArray(out.tags)) {
@@ -201,6 +214,13 @@ function normalizeLeadForPanel(lead) {
   }
 
   return out;
+}
+
+function coalesceReviewSnippets(lead) {
+  const normalized = normalizeLeadForPanel(lead);
+  return Array.isArray(normalized.reviewSnippets)
+    ? normalized.reviewSnippets.map((s) => String(s || '').trim()).filter(Boolean)
+    : [];
 }
 
 function leadMissingCoreContact(lead) {
@@ -211,5 +231,6 @@ function leadMissingCoreContact(lead) {
 module.exports = {
   hasContactValue,
   normalizeLeadForPanel,
+  coalesceReviewSnippets,
   leadMissingCoreContact,
 };

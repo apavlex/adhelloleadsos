@@ -227,8 +227,9 @@
 
   function renderLeadTagsEditor(host, row, opts) {
     if (!host) return;
-    const compact = !!(opts && opts.compact);
-    const hostId = host.id || 'leadPanelTagsHost';
+    const primary = !!(opts && opts.primary);
+    const compact = !!(opts && opts.compact) && !primary;
+    const hostId = host.id || 'leadPanelCompanyTagsHost';
     if (!row || !row.dataset) {
       host.innerHTML =
         '<p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Select a lead to manage tags.</p>';
@@ -238,48 +239,78 @@
     const leadKey = row.dataset.leadKey || '';
     const active = new Set(parseRowTags(row));
     const tags = getWorkspaceTags();
+    const inputId = `leadPanelNewTagName-${hostId}`;
+    const createBtnId = `leadPanelCreateTagBtn-${hostId}`;
 
-    let html = `<div class="flex flex-wrap gap-1.5 ${compact ? '' : 'mb-3'}" data-tag-pills-host="${escapeHtml(hostId)}">`;
+    let html = '';
+    if (!compact) {
+      html += `<div class="flex flex-wrap gap-2 items-center mb-3 pb-3 border-b border-brand-border/20 dark:border-white/10">
+      <input type="text" id="${escapeHtml(inputId)}" placeholder="New tag name…" class="min-w-[6rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" />
+      <button type="button" id="${escapeHtml(createBtnId)}" class="btn-pill bg-brand-yellow text-brand-dark px-3 py-1.5 text-[9px] font-black uppercase tracking-widest shrink-0">Create</button>
+    </div>`;
+    }
+
+    const applied = tags.filter((t) => t && t.key && active.has(t.key));
+    const available = tags.filter((t) => t && t.key && !active.has(t.key));
+
+    html += `<div class="flex flex-wrap gap-1.5 ${compact ? '' : 'mb-2'}" data-tag-pills-host="${escapeHtml(hostId)}">`;
     if (!tags.length) {
       html += compact
-        ? '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No tags yet — use Full editor to create one.</p>'
-        : '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No workspace tags yet — create one below.</p>';
+        ? '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No tags yet — create one below.</p>'
+        : '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No workspace tags yet — create one above.</p>';
+    } else if (!applied.length) {
+      html += '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No tags on this lead yet.</p>';
     } else {
-      tags.forEach((t) => {
-        if (!t || !t.key) return;
-        const on = active.has(t.key);
+      applied.forEach((t) => {
         const color = t.color || '#94a3b8';
-        html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all ${
-          on ? 'ring-2 ring-offset-1 ring-brand-yellow/50' : 'opacity-75 hover:opacity-100'
-        }" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}${on ? '33' : '18'};border-color:${color}66;color:${color}" aria-pressed="${on ? 'true' : 'false'}">${escapeHtml(t.name)}</button>`;
+        html += `<span class="inline-flex items-center gap-1 pl-2.5 pr-1 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border ring-2 ring-offset-1 ring-brand-yellow/50" style="background:${color}33;border-color:${color}66;color:${color}">
+          <span>${escapeHtml(t.name)}</span>
+          <button type="button" class="lead-panel-tag-remove w-5 h-5 rounded-md flex items-center justify-center text-[13px] leading-none font-bold opacity-70 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10 transition-opacity" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" aria-label="Remove ${escapeHtml(t.name)} tag">×</button>
+        </span>`;
       });
     }
     html += '</div>';
-    if (!compact) {
-      html += `<div class="flex flex-wrap gap-2 items-center border-t border-brand-border/20 dark:border-white/10 pt-3">
-      <input type="text" id="leadPanelNewTagName" placeholder="New tag name…" class="min-w-[6rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" />
-      <button type="button" id="leadPanelCreateTagBtn" class="btn-pill bg-brand-yellow text-brand-dark px-3 py-1.5 text-[9px] font-black uppercase tracking-widest">Create</button>
-    </div>`;
+
+    if (!compact && available.length) {
+      html += `<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1.5 mt-1">Add tag</p>`;
+      html += `<div class="flex flex-wrap gap-1.5" data-tag-add-host="${escapeHtml(hostId)}">`;
+      available.forEach((t) => {
+        const color = t.color || '#94a3b8';
+        html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
+      });
+      html += '</div>';
+    } else if (compact) {
+      html += `<div class="flex flex-wrap gap-1.5 mt-1" data-tag-add-host="${escapeHtml(hostId)}">`;
+      tags.forEach((t) => {
+        if (!t || !t.key || active.has(t.key)) return;
+        const color = t.color || '#94a3b8';
+        html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
+      });
+      html += '</div>';
     }
+
     host.innerHTML = html;
+
+    async function mutateTags(mutator) {
+      const set = new Set(parseRowTags(row));
+      mutator(set);
+      const lead = await saveLeadTags(leadKey, [...set]);
+      if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
+      renderLeadTagsPanel(row);
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast('Tags updated · syncing to GHL');
+      } else if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Tags updated · syncing to GHL', { variant: 'success' });
+      }
+    }
 
     host.querySelectorAll('.lead-panel-tag-toggle').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const tk = btn.getAttribute('data-tag-key');
         if (!tk || !leadKey) return;
-        const set = new Set(parseRowTags(row));
-        if (set.has(tk)) set.delete(tk);
-        else set.add(tk);
         btn.disabled = true;
         try {
-          const lead = await saveLeadTags(leadKey, [...set]);
-          if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
-          renderLeadTagsPanel(row);
-          if (typeof window.showProspectToast === 'function') {
-            window.showProspectToast('Tags updated · syncing to GHL');
-          } else if (typeof window.showAppToast === 'function') {
-            window.showAppToast('Tags updated · syncing to GHL', { variant: 'success' });
-          }
+          await mutateTags((set) => set.add(tk));
         } catch (err) {
           window.alert(err.message || 'Could not update tags.');
           btn.disabled = false;
@@ -287,9 +318,25 @@
       });
     });
 
+    host.querySelectorAll('.lead-panel-tag-remove').forEach((btn) => {
+      btn.addEventListener('click', async (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const tk = btn.getAttribute('data-tag-key');
+        if (!tk || !leadKey) return;
+        btn.disabled = true;
+        try {
+          await mutateTags((set) => set.delete(tk));
+        } catch (err) {
+          window.alert(err.message || 'Could not remove tag.');
+          btn.disabled = false;
+        }
+      });
+    });
+
     if (!compact) {
-      const createBtn = document.getElementById('leadPanelCreateTagBtn');
-      const nameInput = document.getElementById('leadPanelNewTagName');
+      const createBtn = document.getElementById(createBtnId);
+      const nameInput = document.getElementById(inputId);
       if (createBtn && nameInput) {
         const doCreate = async () => {
           const name = String(nameInput.value || '').trim();
@@ -297,13 +344,12 @@
           createBtn.disabled = true;
           try {
             const tag = await createWorkspaceTag(name);
-            const set = new Set(parseRowTags(row));
-            if (tag && tag.key) set.add(tag.key);
-            if (leadKey) {
-              const lead = await saveLeadTags(leadKey, [...set]);
-              if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
+            if (tag && tag.key && leadKey) {
+              await mutateTags((set) => set.add(tag.key));
+            } else {
+              renderLeadTagsPanel(row);
             }
-            renderLeadTagsPanel(row);
+            nameInput.value = '';
           } catch (err) {
             window.alert(err.message || 'Could not create tag.');
           } finally {
@@ -322,8 +368,7 @@
   }
 
   function renderLeadTagsPanel(row) {
-    renderLeadTagsEditor(document.getElementById('leadPanelTagsHost'), row, { compact: false });
-    renderLeadTagsEditor(document.getElementById('leadPanelCompanyTagsHost'), row, { compact: true });
+    renderLeadTagsEditor(document.getElementById('leadPanelCompanyTagsHost'), row, { primary: true });
   }
 
   function bindBulkTags() {
