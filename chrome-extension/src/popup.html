@@ -10,6 +10,10 @@
   <main>
     <header>
       <h1>AdHello Leads <span id="extVersion" class="ext-version"></span></h1>
+      <p id="workspaceThemeRow" class="workspace-theme-row hidden">
+        <span id="workspaceThemeSwatch" class="workspace-theme-swatch" aria-hidden="true"></span>
+        <span id="workspaceThemeName" class="workspace-theme-name"></span>
+      </p>
       <p id="platformLabel">Detecting page…</p>
       <p id="saveTypeLabel" class="save-type hidden"></p>
     </header>
@@ -112,6 +116,7 @@
       <p id="importStatus" class="status" aria-live="polite"></p>
     </div>
   </main>
+  <script src="theme.js"></script>
   <script src="address-utils.js"></script>
   <script src="popup.js"></script>
 </body>

@@ -10,6 +10,10 @@
   <main>
     <h1>AdHello Leads</h1>
     <p class="lead">Connect the extension to your AdHello workspace.</p>
+    <p id="workspaceThemeRow" class="workspace-theme-row hidden">
+      <span id="workspaceThemeSwatch" class="workspace-theme-swatch" aria-hidden="true"></span>
+      <span id="workspaceThemeName" class="workspace-theme-name"></span>
+    </p>
 
     <form id="settingsForm">
       <label>
@@ -61,6 +65,7 @@
       </ol>
     </section>
   </main>
+  <script src="theme.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

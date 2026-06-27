@@ -10,6 +10,15 @@ const DEFAULTS = {
   defaultFolderName: '',
 };
 
+async function refreshThemeFromForm() {
+  if (!window.AdHelloTheme || typeof window.AdHelloTheme.fetchAndApplyTheme !== 'function') return null;
+  return window.AdHelloTheme.fetchAndApplyTheme({
+    apiBaseUrl: form.apiBaseUrl.value.trim().replace(/\/+$/, ''),
+    apiKey: form.apiKey.value.trim(),
+    workspaceId: form.workspaceId.value.trim() || 'default',
+  });
+}
+
 async function load() {
   const stored = await chrome.storage.sync.get(DEFAULTS);
   form.apiBaseUrl.value = stored.apiBaseUrl || DEFAULTS.apiBaseUrl;
@@ -19,6 +28,7 @@ async function load() {
   if (importForm) {
     importForm.importFolderName.value = stored.defaultFolderName || '';
   }
+  await refreshThemeFromForm();
 }
 
 form.addEventListener('submit', async (e) => {
@@ -30,6 +40,7 @@ form.addEventListener('submit', async (e) => {
     defaultFolderName: form.defaultFolderName.value.trim(),
   });
   statusEl.textContent = 'Settings saved.';
+  await refreshThemeFromForm();
   setTimeout(() => { statusEl.textContent = ''; }, 2500);
 });
 
@@ -58,10 +69,18 @@ document.getElementById('testConnectionBtn')?.addEventListener('click', async ()
     }
     statusEl.textContent = `Connected · workspace ${data.workspaceId || workspaceId}`;
     statusEl.className = 'status status--ok';
+    await refreshThemeFromForm();
   } catch (err) {
     statusEl.textContent = err.message || 'Connection failed';
     statusEl.className = 'status status--error';
   }
+});
+
+form.workspaceId?.addEventListener('change', () => {
+  refreshThemeFromForm().catch(() => {});
+});
+form.workspaceId?.addEventListener('blur', () => {
+  refreshThemeFromForm().catch(() => {});
 });
 
 function readFileAsText(file) {

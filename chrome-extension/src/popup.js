@@ -9,7 +9,7 @@ const saveBtn = document.getElementById('saveBtn');
 const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
-const EXT_VERSION = '1.4.0';
+const EXT_VERSION = '1.4.1';
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
@@ -167,6 +167,10 @@ async function init() {
   if (defaultFolderName) {
     form.folderName.value = defaultFolderName;
     if (importForm) importForm.importFolderName.value = defaultFolderName;
+  }
+
+  if (window.AdHelloTheme && settingsRes?.settings) {
+    await window.AdHelloTheme.fetchAndApplyTheme(settingsRes.settings);
   }
 
   try {

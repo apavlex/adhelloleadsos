@@ -30,6 +30,7 @@ const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
 const { ensureChromeExtensionFolder, ensureFolderByName, chromeExtensionFolderUrl } = require('../services/chromeExtensionInbox');
+const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -516,9 +517,16 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
 router.get('/status', apiKeyAuth, async (req, res) => {
   const wid = workspaceId(req);
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid).catch(() => ({}));
+  const ws = await dbService.getWorkspace(wid).catch(() => null);
+  const accentColor = normalizeWorkspaceAccentHex(ws && ws.accentColor) || '#CA8A04';
   res.json({
     success: true,
     workspaceId: wid,
+    workspace: {
+      id: wid,
+      name: (ws && ws.name) || wid,
+      accentColor,
+    },
     mapsConfigured: mapsSearch.isMapsSearchConfigured(integrationEnv),
     timestamp: new Date().toISOString(),
   });
