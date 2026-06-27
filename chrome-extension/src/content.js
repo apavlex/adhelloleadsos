@@ -110,7 +110,7 @@
         </div>
         <div class="adhello-panel__actions">
           <button type="button" class="adhello-btn adhello-btn--ghost adhello-cancel">Cancel</button>
-          <button type="button" class="adhello-btn adhello-btn--primary adhello-save adhello-save--footer">Save lead</button>
+          <button type="button" class="adhello-btn adhello-btn--primary adhello-btn--compact adhello-save adhello-save--footer">Save lead</button>
         </div>
       </div>
     `;
@@ -206,10 +206,12 @@
     function openPanel() {
       fill(extractLeadFromPage());
       panel.classList.remove('adhello-panel--hidden');
+      fab.classList.add('adhello-fab--hidden');
     }
 
     function closePanel() {
       panel.classList.add('adhello-panel--hidden');
+      fab.classList.remove('adhello-fab--hidden');
     }
 
     function setSaving(isSaving) {

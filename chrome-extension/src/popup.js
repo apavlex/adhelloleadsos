@@ -15,7 +15,8 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.5.0';
+const EXT_VERSION = '1.5.1';
+const BULK_IMPORT_BATCH_SIZE = 15;
 
 let bulkRunning = false;
 let bulkStopRequested = false;
@@ -60,6 +61,11 @@ function setBulkStatus(msg, type = '') {
 function isGoogleMapsUrl(url) {
   const u = String(url || '').toLowerCase();
   return u.includes('google.com/maps') || u.includes('maps.google.com');
+}
+
+function isGoogleMapsSearchUrl(url) {
+  const u = String(url || '').toLowerCase();
+  return u.includes('/maps/search') || (u.includes('google.com/maps') && u.includes('search?'));
 }
 
 function parsePriceInput(raw) {
@@ -327,6 +333,19 @@ async function init() {
 
   try {
     const { tab, lead } = await getActiveTabLead();
+    const onMapsSearch =
+      isGoogleMapsUrl(tab.url) &&
+      (isGoogleMapsSearchUrl(tab.url) ||
+        !lead?.title ||
+        /^(results?|search)$/i.test(String(lead.title || '').trim()) ||
+        /find local businesses/i.test(String(lead?.address || '')));
+
+    if (onMapsSearch) {
+      platformLabel.textContent = 'Maps search results — use Bulk scrape to import the full list.';
+      document.querySelector('.popup-tab[data-tab="bulk"]')?.click();
+      return;
+    }
+
     const platform = lead?.sourceChannel || 'current page';
     platformLabel.textContent = lead
       ? `From ${platform.replace(/_/g, ' ')} · ${new URL(tab.url).hostname}`
@@ -462,29 +481,19 @@ async function runBulkScrapeSubmit(e) {
       throw new Error('No businesses found. Scroll the Maps list manually, then try again.');
     }
 
-    if (bulkProgressEl) {
-      bulkProgressEl.textContent = `Importing ${companies.length} businesses to AdHello…`;
-    }
-
-    const csvContent = companiesToCsv(companies);
     const searchSlug = String(extract?.searchQuery || 'maps-scrape')
       .toLowerCase()
       .replace(/\s+/g, '-')
       .replace(/[^a-z0-9_-]/g, '')
       .slice(0, 40);
-    const res = await chrome.runtime.sendMessage({
-      type: 'IMPORT_CSV',
-      csvContent,
-      fileName: `${searchSlug || 'maps-scrape'}.csv`,
-      folderName,
-    });
-    if (!res?.ok) throw new Error(res?.error || 'Import failed');
 
-    const data = res.data || {};
-    const created = data.created || 0;
-    const updated = data.updated || 0;
-    const parts = [`${created} new`];
-    if (updated) parts.push(`${updated} updated`);
+    const data = await importCompaniesInBatches(companies, folderName, searchSlug, (msg) => {
+      if (bulkProgressEl) bulkProgressEl.textContent = msg;
+    });
+
+    const parts = [`${data.created} new`];
+    if (data.updated) parts.push(`${data.updated} updated`);
+    if (data.failed) parts.push(`${data.failed} failed`);
     setBulkStatus(
       `Imported ${companies.length} scraped businesses (${parts.join(', ')}) into “${data.folderName || folderName}”.`,
       'success',

@@ -147,6 +147,12 @@
           return cleanAddress(el.textContent || '');
         };
 
+  function isGenericMapsSeoText(text) {
+    const s = String(text || '').trim();
+    if (!s) return true;
+    return /find local businesses|view maps and get driving directions|google maps$/i.test(s);
+  }
+
   function googleMapsAddress(placeRoot) {
     const root = placeRoot || document;
     const selectors = [
@@ -158,9 +164,22 @@
     for (const sel of selectors) {
       const el = root.querySelector(sel);
       const val = extractAddressFromElement(el);
-      if (val) return val;
+      if (val && !isGenericMapsSeoText(val)) return val;
     }
-    return cleanAddress(meta('og:description'));
+    const ogDesc = cleanAddress(meta('og:description'));
+    return isGenericMapsSeoText(ogDesc) ? '' : ogDesc;
+  }
+
+  function isGoogleMapsPlaceDetailPage(url, path) {
+    if (path.includes('/maps/place') || /!1s0x|\/place\//.test(url)) return true;
+    const h1 = document.querySelector('h1.DUwDvf, h1[aria-level="1"]');
+    const title = cleanTitle(h1?.textContent || '');
+    if (!title || /^(results?|search)$/i.test(title)) return false;
+    const placeRoot = findGoogleMapsPlaceRoot();
+    if (!placeRoot) return false;
+    const address = googleMapsAddress(placeRoot);
+    if (address) return true;
+    return !!placeRoot.querySelector('[role="img"][aria-label*="star"], [aria-label*="reviews"]');
   }
 
   function parseGoogleMapsReviewsFromDom(scope) {
@@ -885,7 +904,7 @@
       return seg && !['p', 'reel', 'stories', 'explore', 'direct', 'accounts'].includes(seg);
     }
     if (platform === 'google_maps') {
-      return path.includes('/maps/place') || path.includes('/maps/search') || !!url.match(/!1s0x|\/place\//);
+      return isGoogleMapsPlaceDetailPage(url, path);
     }
     if (platform === 'yelp') return path.includes('/biz/');
     if (platform === 'yellowpages') return path.includes('/mip/') || path.includes('/bp/');

@@ -17,19 +17,23 @@
   right: 20px;
   bottom: 20px;
   z-index: 2147483646;
-  border: 1px solid var(--ws-accent);
-  border-radius: 999px;
-  padding: 12px 18px;
-  font-size: 14px;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 13px;
   font-weight: 700;
-  color: var(--ws-accent-text);
-  background: var(--ws-accent-soft);
+  color: #111827;
+  background: var(--ws-accent);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
   cursor: pointer;
 }
 
 #adhello-lead-saver-root .adhello-fab:hover {
-  background: var(--ws-accent-muted);
+  background: var(--ws-accent-hover);
+}
+
+#adhello-lead-saver-root .adhello-fab--hidden {
+  display: none;
 }
 
 #adhello-lead-saver-root .adhello-panel {
