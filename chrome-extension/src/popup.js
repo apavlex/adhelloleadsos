@@ -15,7 +15,7 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.5.1';
+const EXT_VERSION = '1.5.2';
 const BULK_IMPORT_BATCH_SIZE = 15;
 
 let bulkRunning = false;
@@ -208,6 +208,49 @@ function companiesToCsv(companies) {
   return csv;
 }
 
+async function importCompaniesInBatches(companies, folderName, fileSlug, onProgress) {
+  let created = 0;
+  let updated = 0;
+  let failed = 0;
+  let folderLabel = folderName;
+  const total = companies.length;
+
+  for (let i = 0; i < total; i += BULK_IMPORT_BATCH_SIZE) {
+    const chunk = companies.slice(i, i + BULK_IMPORT_BATCH_SIZE);
+    const batchNum = Math.floor(i / BULK_IMPORT_BATCH_SIZE) + 1;
+    const batchTotal = Math.ceil(total / BULK_IMPORT_BATCH_SIZE);
+    if (onProgress) {
+      onProgress(
+        `Importing batch ${batchNum}/${batchTotal} (${Math.min(i + chunk.length, total)}/${total} businesses)…`,
+      );
+    }
+
+    const res = await chrome.runtime.sendMessage({
+      type: 'IMPORT_CSV',
+      csvContent: companiesToCsv(chunk),
+      fileName: `${fileSlug || 'maps-scrape'}-batch-${batchNum}.csv`,
+      folderName,
+    });
+    if (!res?.ok) {
+      const msg = res?.error || 'Import failed';
+      if (/502|503|504|timeout/i.test(msg) && i > 0) {
+        throw new Error(
+          `${msg} — ${created + updated} of ${total} imported before the server timed out. Try again; duplicates will merge.`,
+        );
+      }
+      throw new Error(msg);
+    }
+
+    const data = res.data || {};
+    created += data.created || 0;
+    updated += data.updated || 0;
+    failed += data.failed || 0;
+    if (data.folderName) folderLabel = data.folderName;
+  }
+
+  return { created, updated, failed, folderName: folderLabel };
+}
+
 async function refreshBulkMapsHint() {
   if (!bulkMapsHintEl) return;
   try {
@@ -227,7 +270,7 @@ async function refreshBulkMapsHint() {
 }
 
 function setBulkButtonsRunning(running, asStop = false) {
-  const buttons = [document.getElementById('bulkRunBtn'), document.getElementById('bulkRunBtnTop')].filter(Boolean);
+  const buttons = [document.getElementById('bulkRunBtnTop')].filter(Boolean);
   buttons.forEach((btn) => {
     btn.disabled = false;
     btn.classList.toggle('btn-stop', running && asStop);

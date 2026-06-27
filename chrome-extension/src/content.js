@@ -207,6 +207,9 @@
       fill(extractLeadFromPage());
       panel.classList.remove('adhello-panel--hidden');
       fab.classList.add('adhello-fab--hidden');
+      if (!fields.title.value.trim()) {
+        toast('Select a business on the map to auto-fill, or enter details manually.');
+      }
     }
 
     function closePanel() {

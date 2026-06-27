@@ -147,6 +147,11 @@
           return cleanAddress(el.textContent || '');
         };
 
+  function isGenericMapsTitle(title) {
+    const s = String(title || '').trim();
+    return !s || /^(results?|search)$/i.test(s) || isGenericMapsSeoText(s);
+  }
+
   function isGenericMapsSeoText(text) {
     const s = String(text || '').trim();
     if (!s) return true;
@@ -488,11 +493,12 @@
     const blocklist = ['google.com', 'goo.gl', 'googleusercontent.com', 'gstatic.com'];
     const placeRoot = findGoogleMapsPlaceRoot();
 
-    const name =
+    let name =
       cleanTitle(textsIn(placeRoot, ['h1.DUwDvf', 'h1[aria-level="1"]', 'h1', '[data-attrid="title"]'])) ||
       cleanTitle(texts(['h1.DUwDvf', 'h1[aria-level="1"]', 'h1', '[data-attrid="title"]'])) ||
       cleanTitle(meta('og:title')) ||
       cleanTitle(document.title);
+    if (isGenericMapsTitle(name)) name = '';
 
     const category = textsIn(placeRoot, ['button[jsaction*="category"]', '[data-item-id*="category"]', '.DkEaL']);
     const ratingText = textsIn(placeRoot, ['[role="img"][aria-label*="star"]', '.F7nice', '[jsaction*="rating"]']);
@@ -904,7 +910,7 @@
       return seg && !['p', 'reel', 'stories', 'explore', 'direct', 'accounts'].includes(seg);
     }
     if (platform === 'google_maps') {
-      return isGoogleMapsPlaceDetailPage(url, path);
+      return path.includes('/maps');
     }
     if (platform === 'yelp') return path.includes('/biz/');
     if (platform === 'yellowpages') return path.includes('/mip/') || path.includes('/bp/');
