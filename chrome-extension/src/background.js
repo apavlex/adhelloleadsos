@@ -1,3 +1,5 @@
+importScripts('bulk-import-utils.js');
+
 const DEFAULTS = {
   apiBaseUrl: 'https://adhelloleadsos.onrender.com',
   apiKey: '',
@@ -358,6 +360,173 @@ async function parallelReEnrichFolder({ folderName, limit = 150, concurrency = P
   };
 }
 
+const BULK_IMPORT_BATCH_SIZE = AdHelloBulkImport.BULK_IMPORT_BATCH_SIZE;
+
+let bulkScrapeJobRunning = false;
+let bulkScrapeStopRequested = false;
+
+function emitBulkJobProgress(payload) {
+  try {
+    chrome.runtime.sendMessage({ action: 'bulkScrapeProgress', ...payload });
+  } catch (_) {
+    /* popup may be closed */
+  }
+  chrome.storage.local.set({
+    bulkScrapeJob: { ...payload, updatedAt: Date.now() },
+  });
+}
+
+async function ensureBulkScript(tabId) {
+  const files = ['src/address-utils.js', 'src/maps-bulk-scrape.js'];
+  for (const file of files) {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
+    } catch (_) {
+      /* content script may already be present */
+    }
+  }
+}
+
+function sendTabMessage(tabId, message) {
+  return new Promise((resolve, reject) => {
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        reject(new Error(chrome.runtime.lastError.message));
+        return;
+      }
+      resolve(response);
+    });
+  });
+}
+
+async function importCompaniesInBatches(companies, folderName, fileSlug, onProgress) {
+  let created = 0;
+  let updated = 0;
+  let failed = 0;
+  let folderLabel = folderName;
+  let folderKey = '';
+  let folderUrl = '';
+  const total = companies.length;
+
+  for (let i = 0; i < total; i += BULK_IMPORT_BATCH_SIZE) {
+    const chunk = companies.slice(i, i + BULK_IMPORT_BATCH_SIZE);
+    const batchNum = Math.floor(i / BULK_IMPORT_BATCH_SIZE) + 1;
+    const batchTotal = Math.ceil(total / BULK_IMPORT_BATCH_SIZE);
+    if (onProgress) {
+      onProgress(
+        `Importing batch ${batchNum}/${batchTotal} (${Math.min(i + chunk.length, total)}/${total} businesses)…`,
+      );
+    }
+
+    const data = await importCsvToAdHello({
+      csvContent: AdHelloBulkImport.companiesToCsv(chunk),
+      fileName: `${fileSlug || 'maps-scrape'}-batch-${batchNum}.csv`,
+      folderName,
+    });
+
+    created += data.created || 0;
+    updated += data.updated || 0;
+    failed += data.failed || 0;
+    if (data.folderName) folderLabel = data.folderName;
+    if (data.folderKey) folderKey = data.folderKey;
+    if (data.folderUrl) folderUrl = data.folderUrl;
+  }
+
+  return { created, updated, failed, folderName: folderLabel, folderKey, folderUrl };
+}
+
+function slugFromSearchQuery(searchQuery) {
+  return String(searchQuery || 'maps-scrape')
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9_-]/g, '')
+    .slice(0, 40);
+}
+
+async function runBulkScrapeJob({ tabId, folderName, scrollAll, enrichDetails }) {
+  if (bulkScrapeJobRunning) {
+    throw new Error('A bulk scrape is already running. Wait for it to finish or reload the extension.');
+  }
+
+  bulkScrapeJobRunning = true;
+  bulkScrapeStopRequested = false;
+
+  try {
+    emitBulkJobProgress({ phase: 'start', folderName });
+
+    await chrome.tabs.update(tabId, { active: true });
+    await ensureBulkScript(tabId);
+
+    if (scrollAll) {
+      emitBulkJobProgress({ phase: 'scroll', businessCount: 0, scrollAttempts: 0 });
+      const preload = await sendTabMessage(tabId, { action: 'bulkPreload' });
+      if (!preload?.success) {
+        throw new Error(
+          preload?.reason === 'no_container'
+            ? 'Could not find the Maps results list. Try opening the left-side results panel.'
+            : 'Could not scroll the results list.',
+        );
+      }
+      if (bulkScrapeStopRequested || preload.stoppedByUser) {
+        emitBulkJobProgress({
+          phase: 'scroll-stopped',
+          businessCount: preload.businessCount || 0,
+        });
+      }
+    }
+
+    emitBulkJobProgress({ phase: 'extract' });
+    const extract = await sendTabMessage(tabId, {
+      action: 'bulkGetCompanies',
+      enrichDetails: false,
+    });
+    const companies = extract?.companies || [];
+    if (!companies.length) {
+      throw new Error('No businesses found. Scroll the Maps list manually, then try again.');
+    }
+
+    const searchSlug = slugFromSearchQuery(extract?.searchQuery);
+    const importData = await importCompaniesInBatches(companies, folderName, searchSlug, (msg) => {
+      emitBulkJobProgress({ phase: 'import', message: msg });
+    });
+
+    emitBulkJobProgress({
+      phase: 'import-done',
+      businessCount: companies.length,
+      created: importData.created,
+      updated: importData.updated,
+      failed: importData.failed,
+      folderName: importData.folderName || folderName,
+      folderKey: importData.folderKey || '',
+      folderUrl: importData.folderUrl || '',
+    });
+
+    let enrichData = null;
+    const targetFolder = importData.folderName || folderName;
+    if (enrichDetails) {
+      emitBulkJobProgress({ phase: 're-enrich-start', folderName: targetFolder });
+      enrichData = await parallelReEnrichFolder({
+        folderName: targetFolder,
+        limit: Math.max(companies.length, 150),
+      });
+    }
+
+    const result = {
+      companiesCount: companies.length,
+      ...importData,
+      enrichData,
+    };
+    emitBulkJobProgress({ phase: 'done', ...result });
+    return result;
+  } catch (err) {
+    emitBulkJobProgress({ phase: 'error', error: err.message || String(err) });
+    throw err;
+  } finally {
+    bulkScrapeJobRunning = false;
+    bulkScrapeStopRequested = false;
+  }
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'SAVE_LEAD') {
     saveLeadToAdHello(message.lead)
@@ -403,6 +572,29 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     parallelReEnrichFolder(message)
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
+
+  if (message?.type === 'RUN_BULK_SCRAPE') {
+    runBulkScrapeJob(message)
+      .then((data) => sendResponse({ ok: true, data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
+    return true;
+  }
+
+  if (message?.type === 'BULK_SCRAPE_STOP') {
+    bulkScrapeStopRequested = true;
+    if (message?.tabId) {
+      sendTabMessage(message.tabId, { action: 'bulkStopPreload' }).catch(() => {});
+    }
+    sendResponse({ ok: true });
+    return true;
+  }
+
+  if (message?.type === 'GET_BULK_SCRAPE_STATUS') {
+    chrome.storage.local.get('bulkScrapeJob').then(({ bulkScrapeJob }) => {
+      sendResponse({ ok: true, job: bulkScrapeJob || null, running: bulkScrapeJobRunning });
+    });
     return true;
   }
 });

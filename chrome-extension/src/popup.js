@@ -15,8 +15,7 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.6.2';
-const BULK_IMPORT_BATCH_SIZE = 15;
+const EXT_VERSION = '1.6.3';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -44,7 +43,28 @@ document.querySelectorAll('.popup-tab').forEach((tabBtn) => {
 });
 
 chrome.runtime.onMessage.addListener((message) => {
-  if (message?.action !== 'bulkScrapeProgress' || !bulkProgressEl) return;
+  if (message?.action !== 'bulkScrapeProgress') return;
+  if (message?.phase === 'import' && message.message && bulkProgressEl) {
+    bulkProgressEl.textContent = message.message;
+    bulkProgressEl.classList.add('bulk-progress--active');
+    return;
+  }
+  if (message?.phase === 'import-done' && bulkProgressEl) {
+    bulkProgressEl.textContent = `Saved ${message.businessCount || 0} leads to “${message.folderName || 'folder'}”. Fetching websites…`;
+    bulkProgressEl.classList.add('bulk-progress--active');
+    return;
+  }
+  if (message?.phase === 'extract' && bulkProgressEl) {
+    bulkProgressEl.textContent = 'Extracting business data from results list…';
+    bulkProgressEl.classList.add('bulk-progress--active');
+    return;
+  }
+  if (message?.phase === 're-enrich-start' && bulkProgressEl) {
+    bulkProgressEl.textContent = `Leads saved — fetching websites (${PARALLEL_LABEL})…`;
+    bulkProgressEl.classList.add('bulk-progress--active');
+    return;
+  }
+  if (!bulkProgressEl) return;
   if (message?.phase === 'enrich-parallel') {
     bulkProgressEl.textContent = `Fetching websites (${PARALLEL_LABEL})… ${message.current || 0}/${message.total || 0}`;
   } else if (message?.phase === 're-enrich-parallel') {
@@ -135,144 +155,6 @@ async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.id) throw new Error('No active tab');
   return tab;
-}
-
-async function ensureBulkScript(tabId) {
-  const files = ['src/address-utils.js', 'src/maps-bulk-scrape.js'];
-  for (const file of files) {
-    try {
-      await chrome.scripting.executeScript({ target: { tabId }, files: [file] });
-    } catch (_) {
-      /* content script may already be present */
-    }
-  }
-}
-
-function sendTabMessage(tabId, message) {
-  return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        reject(new Error(chrome.runtime.lastError.message));
-        return;
-      }
-      resolve(response);
-    });
-  });
-}
-
-function mapCompanyToImportRow(company) {
-  const address = String(company.Address || '').trim();
-  const parsed = window.AdHelloAddressUtils?.parseCityState
-    ? window.AdHelloAddressUtils.parseCityState(address)
-    : { street: address, city: '', state: '' };
-  const city = String(company.City || parsed.city || '').trim();
-  const state = String(company.State || parsed.state || '').trim();
-  const street = parsed.street || address;
-  const fullAddress = city && state ? `${street}, ${city}, ${state}` : city ? `${street}, ${city}` : street;
-  let snippet = String(company['Review Snippet'] || '').trim();
-  if (snippet.startsWith('"') && snippet.endsWith('"')) snippet = snippet.slice(1, -1).trim();
-  const website = String(company.Website || '').trim();
-  const domain = window.AdHelloAddressUtils?.hostnameFromUrl?.(website) || '';
-  return {
-    company_name: company['Business Name'] || '',
-    phone_number: company['Phone Number'] || '',
-    company_location: fullAddress || address,
-    address: fullAddress || address,
-    city,
-    state,
-    company_type: company.Category || '',
-    category: company.Category || '',
-    rating: company.Rating || '',
-    review_count: String(company['Review Count'] || '').replace(/[^\d]/g, ''),
-    review_snippet: snippet,
-    sponsored: company.Sponsored || '',
-    company_website: website,
-    website,
-    company_domain: domain,
-    domain,
-    google_maps_url: company['Google Maps URL'] || '',
-    booking_url: company['Booking URL'] || '',
-    source: 'chrome_extension_maps_bulk',
-  };
-}
-
-function companiesToCsv(companies) {
-  if (!companies?.length) return '';
-  const headers = [
-    'company_name',
-    'phone_number',
-    'company_location',
-    'address',
-    'city',
-    'state',
-    'company_type',
-    'category',
-    'rating',
-    'review_count',
-    'review_snippet',
-    'sponsored',
-    'company_website',
-    'website',
-    'company_domain',
-    'domain',
-    'google_maps_url',
-    'booking_url',
-    'source',
-  ];
-  const esc = (val) => {
-    const s = val == null ? '' : String(val);
-    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-    return s;
-  };
-  const rows = companies.map((c) => mapCompanyToImportRow(c));
-  let csv = headers.join(',') + '\n';
-  rows.forEach((row) => {
-    csv += headers.map((h) => esc(row[h] ?? '')).join(',') + '\n';
-  });
-  return csv;
-}
-
-async function importCompaniesInBatches(companies, folderName, fileSlug, onProgress) {
-  let created = 0;
-  let updated = 0;
-  let failed = 0;
-  let folderLabel = folderName;
-  const total = companies.length;
-
-  for (let i = 0; i < total; i += BULK_IMPORT_BATCH_SIZE) {
-    const chunk = companies.slice(i, i + BULK_IMPORT_BATCH_SIZE);
-    const batchNum = Math.floor(i / BULK_IMPORT_BATCH_SIZE) + 1;
-    const batchTotal = Math.ceil(total / BULK_IMPORT_BATCH_SIZE);
-    if (onProgress) {
-      onProgress(
-        `Importing batch ${batchNum}/${batchTotal} (${Math.min(i + chunk.length, total)}/${total} businesses)…`,
-      );
-    }
-
-    const res = await chrome.runtime.sendMessage({
-      type: 'IMPORT_CSV',
-      csvContent: companiesToCsv(chunk),
-      fileName: `${fileSlug || 'maps-scrape'}-batch-${batchNum}.csv`,
-      folderName,
-    });
-    if (!res?.ok) {
-      const msg = res?.error || 'Import failed';
-      if (/502|503|504|timeout/i.test(msg) && i > 0) {
-        throw new Error(
-          `${msg} — ${created + updated} of ${total} imported before the server timed out. Try again; duplicates will merge.`,
-        );
-      }
-      throw new Error(msg);
-    }
-
-    const data = res.data || {};
-    created += data.created || 0;
-    updated += data.updated || 0;
-    failed += data.failed || 0;
-    if (data.folderName) folderLabel = data.folderName;
-  }
-
-  return { created, updated, failed, folderName: folderLabel };
 }
 
 function detectActiveSiteLabel(url) {
@@ -514,7 +396,7 @@ async function runBulkScrapeSubmit(e) {
     bulkStopRequested = true;
     try {
       const tab = await getActiveTab();
-      await sendTabMessage(tab.id, { action: 'bulkStopPreload' });
+      await chrome.runtime.sendMessage({ type: 'BULK_SCRAPE_STOP', tabId: tab.id });
     } catch (_) {
       /* ignore */
     }
@@ -546,65 +428,28 @@ async function runBulkScrapeSubmit(e) {
       throw new Error('Open a Google Maps search results page first.');
     }
 
-    await chrome.tabs.update(tab.id, { active: true });
-    await ensureBulkScript(tab.id);
-
-    if (scrollAll) {
-      if (bulkProgressEl) bulkProgressEl.textContent = 'Scrolling to load all results…';
-      const preload = await sendTabMessage(tab.id, { action: 'bulkPreload' });
-      if (!preload?.success) {
-        throw new Error(
-          preload?.reason === 'no_container'
-            ? 'Could not find the Maps results list. Try opening the left-side results panel.'
-            : 'Could not scroll the results list.',
-        );
-      }
-      if (bulkStopRequested || preload.stoppedByUser) {
-        if (bulkProgressEl) bulkProgressEl.textContent = `Stopped early — extracting ${preload.businessCount || 0} loaded businesses…`;
-      }
-    }
-
-    if (bulkProgressEl) bulkProgressEl.textContent = 'Extracting business data from results list…';
-    const extract = await sendTabMessage(tab.id, {
-      action: 'bulkGetCompanies',
-      enrichDetails: false,
+    const res = await chrome.runtime.sendMessage({
+      type: 'RUN_BULK_SCRAPE',
+      tabId: tab.id,
+      folderName,
+      scrollAll,
+      enrichDetails,
     });
-    let companies = extract?.companies || [];
-    if (!companies.length) {
-      throw new Error('No businesses found. Scroll the Maps list manually, then try again.');
-    }
+    if (!res?.ok) throw new Error(res?.error || 'Bulk scrape failed');
 
-    let enrichedCount = 0;
-    if (enrichDetails) {
-      if (bulkProgressEl) {
-        bulkProgressEl.textContent = `Fetching websites in parallel (${PARALLEL_LABEL})…`;
-      }
-      const enrichRes = await chrome.runtime.sendMessage({
-        type: 'PARALLEL_ENRICH_COMPANIES',
-        companies,
-      });
-      if (!enrichRes?.ok) throw new Error(enrichRes?.error || 'Website enrichment failed');
-      companies = enrichRes.data?.companies || companies;
-      enrichedCount = enrichRes.data?.enrichedCount || 0;
-    }
-
-    const searchSlug = String(extract?.searchQuery || 'maps-scrape')
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9_-]/g, '')
-      .slice(0, 40);
-
-    const data = await importCompaniesInBatches(companies, folderName, searchSlug, (msg) => {
-      if (bulkProgressEl) bulkProgressEl.textContent = msg;
-    });
-
-    const parts = [`${data.created} new`];
+    const data = res.data || {};
+    const parts = [`${data.created || 0} new`];
     if (data.updated) parts.push(`${data.updated} updated`);
     if (data.failed) parts.push(`${data.failed} failed`);
     const enrichNote =
-      enrichDetails && enrichedCount ? ` · ${enrichedCount} websites found` : '';
+      enrichDetails && data.enrichData?.updated
+        ? ` · ${data.enrichData.updated} websites backfilled`
+        : enrichDetails && data.enrichData?.empty
+          ? ' · websites already complete'
+          : '';
+    const folderLabel = data.folderName || folderName;
     setBulkStatus(
-      `Imported ${companies.length} scraped businesses (${parts.join(', ')}) into “${data.folderName || folderName}”.${enrichNote}`,
+      `Imported ${data.companiesCount || 0} businesses (${parts.join(', ')}) into “${folderLabel}”.${enrichNote} Check Pipeline → Folders.`,
       'success',
     );
     if (bulkProgressEl) bulkProgressEl.textContent = '';

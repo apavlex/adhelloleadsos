@@ -233,6 +233,8 @@
       }
 
       const base = extractLeadFromPage();
+      const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+      const defaultFolderName = String(settingsRes?.settings?.defaultFolderName || '').trim();
       const lead = {
         ...base,
         ...buildListingPayload(base, {
@@ -249,7 +251,9 @@
         website: fields.website.value.trim() || 'N/A',
         email: fields.email.value.trim() || 'N/A',
         phone: fields.phone.value.trim() || 'N/A',
+        source: 'chrome_extension',
       };
+      if (defaultFolderName) lead.folderName = defaultFolderName;
 
       setSaving(true);
 

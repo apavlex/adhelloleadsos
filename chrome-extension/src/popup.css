@@ -319,6 +319,13 @@ a {
   line-height: 1.4;
 }
 
+.bulk-folder-note {
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted, #64748b);
+}
+
 .bulk-progress {
   min-height: 18px;
   margin: 0 0 8px;
