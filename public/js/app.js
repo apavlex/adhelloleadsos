@@ -2877,20 +2877,113 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!keyParam) {
       throw new Error('Lead key missing — select a saved lead and try again.');
     }
-    const { res, data } = await fetchJsonWithTimeout(
-      `/leads/${encodeURIComponent(keyParam)}/notes`,
-      {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const res = await fetch(`/leads/${encodeURIComponent(keyParam)}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         credentials: 'same-origin',
         body: JSON.stringify(payload || {}),
-      },
-      15000,
-    );
-    if (!res.ok || !data.success) {
-      throw new Error((data && data.error) || 'Could not save activity');
+        signal: ctrl.signal,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Could not save activity');
+      }
+      return data;
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        throw new Error('Saving the note timed out. Try again.');
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-    return data;
+  }
+
+  function panelNotesStorageKey(row) {
+    if (!row || !row.dataset) return '';
+    const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
+    if (lk) return lk;
+    const tk = normalizeLeadTitleKey(row.dataset.title || '');
+    return tk ? `title:${tk}` : '';
+  }
+
+  function readMergedRowUpdates(row) {
+    const base = readRowUpdatesArray(row);
+    const key = panelNotesStorageKey(row);
+    if (!key) return base;
+    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
+    const cached = window.__leadPanelNotesByKey[key] || [];
+    if (!cached.length) return base;
+    const merged = base.slice();
+    cached.forEach((note) => {
+      if (!note) return;
+      const exists = merged.some(
+        (u) =>
+          u &&
+          String(u.type) === 'note' &&
+          String(u.timestamp || '') === String(note.timestamp || '') &&
+          String(u.value || '') === String(note.value || ''),
+      );
+      if (!exists) merged.push(note);
+    });
+    merged.sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
+    return merged;
+  }
+
+  function cachePanelNoteEntry(row, entry) {
+    const key = panelNotesStorageKey(row);
+    if (!key || !entry) return;
+    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
+    const list = window.__leadPanelNotesByKey[key] || [];
+    const exists = list.some(
+      (n) =>
+        n &&
+        String(n.timestamp || '') === String(entry.timestamp || '') &&
+        String(n.value || '') === String(entry.value || ''),
+    );
+    if (!exists) {
+      window.__leadPanelNotesByKey[key] = [...list, entry];
+    }
+  }
+
+  function syncPanelNotesCacheFromRow(row) {
+    const key = panelNotesStorageKey(row);
+    if (!key || !row) return;
+    const notes = readRowUpdatesArray(row).filter((u) => u && String(u.type) === 'note');
+    if (!notes.length) return;
+    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
+    window.__leadPanelNotesByKey[key] = notes.slice();
+  }
+
+  function resolveLeadPanelNoteRow() {
+    if (typeof resolvePanelActionRow === 'function') {
+      const actionRow = resolvePanelActionRow();
+      if (actionRow) return resolvePipelineTableRowForPanel(actionRow) || actionRow;
+    }
+    if (currentRow) return resolvePipelineTableRowForPanel(currentRow) || currentRow;
+    const selected = document.querySelector(
+      '#prospectLeadsTable tbody tr.result-row.selected, tr.result-row.selected:not(.result-row--panel-source)',
+    );
+    if (selected) {
+      currentRow = selected;
+      return resolvePipelineTableRowForPanel(selected) || selected;
+    }
+    const activeKey = String(window.__leadPanelActiveRowKey || '').trim().replace(/^lead:/i, '');
+    if (activeKey) {
+      const byKey = document.querySelector(
+        `#prospectLeadsTable tbody tr.result-row[data-lead-key="${CSS.escape(activeKey)}"], #prospectLeadsTable tbody tr.result-row[data-lead-key="lead:${CSS.escape(activeKey)}"]`,
+      );
+      if (byKey) {
+        currentRow = byKey;
+        return byKey;
+      }
+    }
+    const host = document.getElementById('leadPanelDatasetHost');
+    if (host && host.dataset && host.dataset.leadKey) return host;
+    return null;
   }
 
   async function persistLeadPanelNoteToServer(row, content) {
@@ -2909,17 +3002,19 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (Array.isArray(data.updates)) {
       applyServerUpdatesToRow(row, data.updates);
     }
-    refreshLeadActivityTimeline(row);
+    refreshLeadActivityTimeline(row, 'notes');
     return data;
   }
 
   async function submitLeadPanelNote() {
-    if (leadPanelNoteSubmitInflight) return false;
+    if (leadPanelNoteSubmitInflight) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Posting note…', { variant: 'info' });
+      }
+      return false;
+    }
 
-    const actionRow =
-      typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : currentRow;
-    const row =
-      (actionRow && resolvePipelineTableRowForPanel(actionRow)) || actionRow || currentRow;
+    const row = resolveLeadPanelNoteRow();
     if (row && row !== currentRow) currentRow = row;
 
     const noteInput = getLeadPanelEl('noteInput');
@@ -2931,7 +3026,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return false;
     }
     if (!row) {
-      const msg = 'Select a lead first.';
+      const msg = 'Select a lead in the pipeline first, then post your note.';
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
       }
@@ -2950,6 +3045,7 @@ document.addEventListener('DOMContentLoaded', () => {
         manual: true,
       };
       appendRowActivityEntry(row, noteEntry);
+      cachePanelNoteEntry(row, noteEntry);
 
       if (noteInput) noteInput.value = '';
 
@@ -2987,7 +3083,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         alert(msg);
       }
-      refreshLeadActivityTimeline(row);
+      refreshLeadActivityTimeline(row, 'notes');
       setLeadPanelNotePostLoading(false);
       return false;
     } finally {
@@ -3205,16 +3301,22 @@ document.addEventListener('DOMContentLoaded', () => {
       statusChange: entry.statusChange || '',
     };
     if (entry.source) rec.source = entry.source;
+    if (entry.manual === true) rec.manual = true;
     updates.push(rec);
     writeRowUpdatesArray(row, updates);
+    cachePanelNoteEntry(row, rec);
   }
 
-  function refreshLeadActivityTimeline(row) {
+  function refreshLeadActivityTimeline(row, filter) {
     const target =
       (row && resolvePipelineTableRowForPanel(row)) ||
       row ||
+      resolveLeadPanelNoteRow() ||
       (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null);
     if (!target) return;
+    if (filter) {
+      window.__leadActivityFilter = filter;
+    }
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     renderLeadActivityTimeline(target, window.__leadActivityFilter);
     syncLeadActivityFilterButtons(window.__leadActivityFilter);
@@ -3839,13 +3941,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('click', async (e) => {
-      if (e.target.closest('#addNoteBtn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        await submitLeadPanelNote();
-        return;
-      }
-
       if (!isLeadDetailPanelOpen()) return;
       const inBottom =
         e.target.closest('#leadPanelNotepad') || e.target.closest('#leadPanelOutreachDrawer');
@@ -3866,6 +3961,16 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
     });
+
+    const addNoteBtn = getLeadPanelEl('addNoteBtn');
+    if (addNoteBtn && !addNoteBtn.dataset.adhelloNoteBound) {
+      addNoteBtn.dataset.adhelloNoteBound = '1';
+      addNoteBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void submitLeadPanelNote();
+      });
+    }
 
     const noteInputEl = getLeadPanelEl('noteInput');
     if (noteInputEl && !noteInputEl.dataset.adhelloNoteBound) {
@@ -3914,6 +4019,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tableRow.classList.add('selected');
     
     currentRow = tableRow;
+    window.__leadPanelActiveRowKey = String(tableRow.dataset.leadKey || '').trim();
     const nav = navigableRows();
     currentIndex = nav.indexOf(tableRow);
 
@@ -3964,6 +4070,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openLeadPanelOutreach();
 
     prepareLeadRowForPanel(tableRow);
+    syncPanelNotesCacheFromRow(tableRow);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     try {
       renderLeadActivityTimeline(tableRow, window.__leadActivityFilter);
@@ -4089,9 +4196,8 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       window.__leadActivityFilter = activityFilterBtn.getAttribute('data-activity-filter') || 'all';
       syncLeadActivityFilterButtons(window.__leadActivityFilter);
-      const activityRow =
-        typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : currentRow;
-      if (activityRow) renderLeadActivityTimeline(activityRow, window.__leadActivityFilter);
+      const activityRow = resolveLeadPanelNoteRow();
+      renderLeadActivityTimeline(activityRow, window.__leadActivityFilter);
       return;
     }
     const chBtn = e.target.closest('#leadPanelWhatToSellCard .lead-outreach-channel');
@@ -7866,7 +7972,7 @@ document.addEventListener('DOMContentLoaded', () => {
       seen.add(key);
       out.push(entry);
     };
-    const updates = readRowUpdatesArray(row);
+    const updates = readMergedRowUpdates(row);
     (Array.isArray(updates) ? updates : []).forEach((u) => {
       const ts = u.timestamp || u.ts || u.createdAt || '';
       const val = activityEntryTextFromRaw(u);
@@ -7967,9 +8073,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderLeadActivityTimeline(row, filter) {
     const host = getLeadActivityLogHost();
-    if (!host || !row) return;
-    const entries = mergeActivityEntries(row);
     const f = String(filter || window.__leadActivityFilter || 'all');
+    if (!host) return;
+    if (!row) {
+      const emptyMsg =
+        f === 'notes'
+          ? 'Select a lead, then post a note below.'
+          : f === 'calls'
+            ? 'Select a lead to see call activity.'
+            : 'Select a lead to load activity.';
+      host.innerHTML = `<div class="pl-10 text-xs text-brand-muted italic leading-relaxed">${emptyMsg}</div>`;
+      return;
+    }
+    const entries = mergeActivityEntries(row);
     const filtered = entries.filter((e) => activityEntryMatchesFilter(e, f));
     if (!filtered.length) {
       const emptyMsg =
