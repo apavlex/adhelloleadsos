@@ -2824,11 +2824,16 @@ document.addEventListener('DOMContentLoaded', () => {
     '<svg class="animate-spin h-4 w-4 text-white dark:text-brand-dark mx-auto" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>';
 
   let leadPanelNoteSubmitInflight = false;
+  let leadPanelNotePostSuccessTimer = null;
 
   function setLeadPanelNotePostLoading(loading) {
     const addNoteBtn = getLeadPanelEl('addNoteBtn');
     if (!addNoteBtn) return;
     if (loading) {
+      if (leadPanelNotePostSuccessTimer) {
+        clearTimeout(leadPanelNotePostSuccessTimer);
+        leadPanelNotePostSuccessTimer = null;
+      }
       if (!addNoteBtn.getAttribute('data-default-label')) {
         addNoteBtn.setAttribute('data-default-label', addNoteBtn.textContent.trim() || 'Post');
       }
@@ -2840,6 +2845,31 @@ document.addEventListener('DOMContentLoaded', () => {
     addNoteBtn.disabled = false;
     addNoteBtn.removeAttribute('aria-busy');
     addNoteBtn.textContent = addNoteBtn.getAttribute('data-default-label') || 'Post';
+  }
+
+  function setLeadPanelNotePostSuccess() {
+    const addNoteBtn = getLeadPanelEl('addNoteBtn');
+    if (!addNoteBtn) return;
+    if (leadPanelNotePostSuccessTimer) clearTimeout(leadPanelNotePostSuccessTimer);
+    addNoteBtn.disabled = false;
+    addNoteBtn.removeAttribute('aria-busy');
+    addNoteBtn.textContent = 'Posted ✓';
+    addNoteBtn.classList.add(
+      '!bg-emerald-600',
+      '!text-white',
+      'dark:!bg-emerald-500',
+      'dark:!text-white',
+    );
+    leadPanelNotePostSuccessTimer = setTimeout(() => {
+      leadPanelNotePostSuccessTimer = null;
+      addNoteBtn.textContent = addNoteBtn.getAttribute('data-default-label') || 'Post';
+      addNoteBtn.classList.remove(
+        '!bg-emerald-600',
+        '!text-white',
+        'dark:!bg-emerald-500',
+        'dark:!text-white',
+      );
+    }, 2000);
   }
 
   async function postLeadPanelActivity(key, payload) {
@@ -2899,20 +2929,7 @@ document.addEventListener('DOMContentLoaded', () => {
       };
       appendRowActivityEntry(row, noteEntry);
 
-      const logsRaw = row.dataset.logsSnippet;
-      let logs = [];
-      try {
-        logs = JSON.parse(logsRaw || '[]');
-      } catch {
-        logs = [];
-      }
-      if (!Array.isArray(logs)) logs = [];
-      logs.push({ type: 'note', message: content, timestamp: clickedAt });
-      row.dataset.logsSnippet = JSON.stringify(logs.slice(-14));
-      const embedded = findInitialSavedLeadRecord(row);
-      if (embedded) {
-        embedded.logs = logs.slice(-14);
-      }
+      if (noteInput) noteInput.value = '';
 
       window.__leadActivityFilter = 'notes';
       syncLeadActivityFilterButtons('notes');
@@ -2930,17 +2947,14 @@ document.addEventListener('DOMContentLoaded', () => {
         applyServerUpdatesToRow(row, data.updates);
       }
 
-      if (noteInput) noteInput.value = '';
       window.__leadActivityFilter = 'notes';
       syncLeadActivityFilterButtons('notes');
       renderLeadActivityTimeline(row, 'notes');
-      if (typeof scrollLeadPanelToSection === 'function') {
-        scrollLeadPanelToSection('leadPanelHistorySection');
-      }
 
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Note saved.', { variant: 'success' });
       }
+      setLeadPanelNotePostSuccess();
       return true;
     } catch (err) {
       console.error('Note addition failed:', err);
@@ -2951,10 +2965,10 @@ document.addEventListener('DOMContentLoaded', () => {
         alert(msg);
       }
       refreshLeadActivityTimeline(row);
+      setLeadPanelNotePostLoading(false);
       return false;
     } finally {
       leadPanelNoteSubmitInflight = false;
-      setLeadPanelNotePostLoading(false);
     }
   }
 
@@ -3732,6 +3746,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
     });
+
+    const noteInputEl = getLeadPanelEl('noteInput');
+    if (noteInputEl && !noteInputEl.dataset.adhelloNoteBound) {
+      noteInputEl.dataset.adhelloNoteBound = '1';
+      noteInputEl.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        e.preventDefault();
+        e.stopPropagation();
+        void submitLeadPanelNote();
+      });
+    }
   }
 
   // Determine page type
@@ -7693,12 +7718,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function mergeActivityEntries(row) {
     const out = [];
+    const seen = new Set();
+    const pushUnique = (entry) => {
+      const text = String(entry.text || '').trim();
+      if (!text) return;
+      const tsMs = Date.parse(entry.ts) || 0;
+      const bucket = tsMs ? Math.floor(tsMs / 1000) : String(entry.ts || '');
+      const key = `${bucket}|${text.toLowerCase()}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(entry);
+    };
     const updates = readRowUpdatesArray(row);
     (Array.isArray(updates) ? updates : []).forEach((u) => {
       const ts = u.timestamp || u.ts || u.createdAt || '';
       const val = activityEntryTextFromRaw(u);
       const typ = String(u.type || 'update');
-      out.push({ ts, typ, text: val, raw: u });
+      pushUnique({ ts, typ, text: val, raw: u });
     });
     let logs = [];
     try {
@@ -7710,7 +7746,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const ts = e.timestamp || '';
       const msg = typeof e.message === 'string' ? e.message : JSON.stringify(e).slice(0, 220);
       const typ = String(e.type || 'log');
-      out.push({ ts, typ, text: msg, raw: e });
+      pushUnique({ ts, typ, text: msg, raw: e });
     });
     out.sort((a, b) => {
       const ta = Date.parse(a.ts) || 0;
@@ -10266,24 +10302,6 @@ document.addEventListener('DOMContentLoaded', () => {
         currentRow.dataset.status = prevStatus;
         syncQuickPitchSectionVisibility(currentRow);
       }
-    });
-  }
-
-  const addNoteBtn = document.getElementById('addNoteBtn');
-  const noteInputEl = document.getElementById('noteInput');
-  if (addNoteBtn) {
-    addNoteBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      void submitLeadPanelNote();
-    });
-  }
-  if (noteInputEl) {
-    noteInputEl.addEventListener('keydown', (e) => {
-      if (e.key !== 'Enter') return;
-      e.preventDefault();
-      e.stopPropagation();
-      void submitLeadPanelNote();
     });
   }
 
