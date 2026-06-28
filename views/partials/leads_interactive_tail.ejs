@@ -5,6 +5,9 @@
     ? sequenceTemplates
     : (Array.isArray(locals.sequenceTemplates) ? locals.sequenceTemplates : [])
 }) %>
+<div id="leadPanelDatasetHost" class="result-row result-row--panel-source fixed left-[-9999px] top-0 w-px h-px overflow-hidden opacity-0 pointer-events-none" aria-hidden="true" tabindex="-1"></div>
+
+<script src="/js/lead-panel-notes.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '' %>"></script>
 
 <script>
   window.ADHELLO_SERVICE_OFFERS = <%- safeJsonForScript(Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : []) %>;

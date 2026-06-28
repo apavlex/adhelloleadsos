@@ -3194,7 +3194,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       window.__leadActivityFilter = 'notes';
       syncLeadActivityFilterButtons('notes');
-      renderLeadActivityTimeline(row || resolveLeadPanelNoteRow(), 'notes');
+      if (typeof window.__adhelloPaintLeadPanelNotes === 'function') {
+        window.__adhelloPaintLeadPanelNotes('notes');
+      } else {
+        renderLeadActivityTimeline(row || resolveLeadPanelNoteRow(), 'notes');
+      }
       if (typeof scrollLeadPanelToSection === 'function') {
         scrollLeadPanelToSection('leadPanelHistorySection');
       }
@@ -3240,6 +3244,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.__adhelloSubmitLeadPanelNote = submitLeadPanelNote;
+  window.__adhelloSubmitLeadPanelNoteImpl = submitLeadPanelNote;
   window.__applyLeadPanelQuickLogTag = applyLeadPanelQuickLogTag;
 
   function leadPanelNoteMatchEntry(entry, timestamp, value) {
@@ -4110,21 +4115,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     });
 
-    const panelRoot = getLeadDetailPanel();
-    if (panelRoot && !panelRoot.dataset.adhelloNoteDelegationBound) {
-      panelRoot.dataset.adhelloNoteDelegationBound = '1';
-      panelRoot.addEventListener(
-        'click',
-        (e) => {
-          if (!e.target.closest('#addNoteBtn')) return;
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          void submitLeadPanelNote();
-        },
-        true,
-      );
-    }
-
     const noteInputEl = getLeadPanelEl('noteInput');
     if (noteInputEl && !noteInputEl.dataset.adhelloNoteBound) {
       noteInputEl.dataset.adhelloNoteBound = '1';
@@ -4174,6 +4164,16 @@ document.addEventListener('DOMContentLoaded', () => {
     currentRow = tableRow;
     window.__leadPanelActiveRowKey = String(tableRow.dataset.leadKey || '').trim();
     migratePanelNotesCacheOnSelect(tableRow);
+    const panelRootForCtx = getLeadDetailPanel();
+    if (panelRootForCtx && panelRootForCtx.dataset) {
+      const lk = String(tableRow.dataset.leadKey || '').trim().replace(/^lead:/i, '');
+      const title = normalizeLeadTitleKey(tableRow.dataset.title || '');
+      if (lk) panelRootForCtx.dataset.adhelloLeadKey = lk;
+      if (title) panelRootForCtx.dataset.adhelloLeadTitleKey = `title:${title.toLowerCase()}`;
+    }
+    if (window.__adhelloLeadPanelNotes && typeof window.__adhelloLeadPanelNotes.syncFromRow === 'function') {
+      window.__adhelloLeadPanelNotes.syncFromRow(tableRow);
+    }
     const nav = navigableRows();
     currentIndex = nav.indexOf(tableRow);
 
@@ -8228,6 +8228,14 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderLeadActivityTimeline(row, filter) {
+    if (typeof window.__adhelloPaintLeadPanelNotes === 'function') {
+      if (row && window.__adhelloLeadPanelNotes && typeof window.__adhelloLeadPanelNotes.syncFromRow === 'function') {
+        window.__adhelloLeadPanelNotes.syncFromRow(row, filter);
+        return;
+      }
+      window.__adhelloPaintLeadPanelNotes(filter);
+      return;
+    }
     const host = getLeadActivityLogHost();
     const f = String(filter || window.__leadActivityFilter || 'all');
     if (!host) return;

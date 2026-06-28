@@ -251,6 +251,7 @@
     window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name, jobType: f.jobType || '' })) : []) %>;
   </script>
 
+  <script src="/js/lead-panel-notes.js?v=<%= assetVersion %>"></script>
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <script src="/js/search-results-table.js?v=<%= assetVersion %>"></script>
 </body>
