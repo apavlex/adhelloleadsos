@@ -118,7 +118,12 @@
   }
 
   function clientNavbarWorkActive() {
-    return isBulkEnhanceJobRunning() || syncEnhanceSessionActive() || isContactHuntJobRunning();
+    return (
+      isBulkEnhanceJobRunning() ||
+      syncEnhanceSessionActive() ||
+      isContactHuntJobRunning() ||
+      isGhlSyncJobRunning()
+    );
   }
 
   function escapeLeadRunText(s) {
@@ -344,7 +349,7 @@
     updateLeadRunProgressBanner({ isProcessing: false });
   };
 
-  function updateBulkEnhanceBellBadge(currentZeroBasedIndex, total) {
+  function updateBulkEnhanceBellBadge(currentZeroBasedIndex, total, label) {
     const el = document.getElementById('bulkEnhanceBellBadge');
     if (!el) return;
     if (total > 0 && currentZeroBasedIndex < total) {
@@ -352,9 +357,14 @@
       el.classList.remove('hidden');
       el.setAttribute(
         'title',
-        'Enhancing leads: ' + (currentZeroBasedIndex + 1) + ' of ' + total + ' (safe to change pages)'
+        (label || 'Enhancing leads') +
+          ': ' +
+          (currentZeroBasedIndex + 1) +
+          ' of ' +
+          total +
+          ' (safe to change pages)',
       );
-    } else {
+    } else if (!isGhlSyncJobRunning()) {
       el.textContent = '';
       el.classList.add('hidden');
       el.removeAttribute('title');
@@ -364,11 +374,20 @@
   function applyProcessingRing() {
     if (!processingIndicator) return;
     const bulk = isBulkEnhanceJobRunning();
-    if (activeProcessingCount > 0 || localStorage.getItem('is_searching') === 'true' || bulk) {
+    const ghl = isGhlSyncJobRunning();
+    if (
+      activeProcessingCount > 0 ||
+      localStorage.getItem('is_searching') === 'true' ||
+      bulk ||
+      ghl
+    ) {
       processingIndicator.classList.add('processing-active');
       if (bulk) {
         const j = readBulkEnhanceJob();
-        if (j) updateBulkEnhanceBellBadge(j.index, j.keys.length);
+        if (j) updateBulkEnhanceBellBadge(j.index, j.keys.length, 'Enhancing leads');
+      } else if (ghl) {
+        const j = readGhlSyncJob();
+        if (j) updateBulkEnhanceBellBadge(j.index, j.keys.length, 'GHL sync');
       }
     } else {
       processingIndicator.classList.remove('processing-active');
@@ -450,6 +469,242 @@
       window.dispatchEvent(new CustomEvent('agency-os-bulk-enhance-finished', { detail: summary }));
     }
   }
+
+  const GHL_SYNC_JOB_KEY = 'agencyOsGhlSyncJob';
+  let ghlSyncProcessorLock = false;
+  const ghlSyncWaiters = [];
+
+  function readGhlSyncJob() {
+    try {
+      const raw = sessionStorage.getItem(GHL_SYNC_JOB_KEY);
+      if (!raw) return null;
+      const o = JSON.parse(raw);
+      if (!o || !Array.isArray(o.keys)) return null;
+      return o;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function writeGhlSyncJob(job) {
+    try {
+      if (!job) sessionStorage.removeItem(GHL_SYNC_JOB_KEY);
+      else sessionStorage.setItem(GHL_SYNC_JOB_KEY, JSON.stringify(job));
+    } catch (_) {}
+  }
+
+  function isGhlSyncJobRunning() {
+    const j = readGhlSyncJob();
+    return !!(j && j.running === true && j.index < j.keys.length);
+  }
+
+  function emitGhlSyncProgress(detail) {
+    window.dispatchEvent(new CustomEvent('agency-os-ghl-sync-progress', { detail: detail || {} }));
+    ghlSyncWaiters.forEach(function (w) {
+      if (w && typeof w.onProgress === 'function') w.onProgress(detail || {});
+    });
+  }
+
+  function finishGhlSyncWaiters(summary) {
+    const waiters = ghlSyncWaiters.splice(0, ghlSyncWaiters.length);
+    waiters.forEach(function (w) {
+      if (w && typeof w.resolve === 'function') w.resolve(summary);
+    });
+  }
+
+  function failGhlSyncWaiters(err) {
+    const waiters = ghlSyncWaiters.splice(0, ghlSyncWaiters.length);
+    waiters.forEach(function (w) {
+      if (w && typeof w.reject === 'function') w.reject(err);
+    });
+  }
+
+  function activateNavbarWorkBell(label) {
+    if (typeof window.updateProcessingStatus === 'function') {
+      window.updateProcessingStatus(true);
+    }
+    if (processingIndicator) processingIndicator.classList.add('processing-active');
+    const ping = document.getElementById('notificationPing');
+    if (ping) {
+      ping.classList.remove('hidden');
+      ping.classList.add('animate-ping');
+    }
+    const job = readGhlSyncJob();
+    if (job) updateBulkEnhanceBellBadge(job.index, job.keys.length, label || 'GHL sync');
+  }
+
+  function buildGhlSyncProgressBellHtml(job) {
+    if (!job) return '';
+    const current = Math.min(job.index + 1, job.keys.length);
+    const total = job.keys.length;
+    const pushed = job.pushedCount || 0;
+    const failed = job.failedCount || 0;
+    return (
+      '<div class="p-4 border-b border-brand-border/10 bg-orange-500/5 dark:bg-orange-500/10">' +
+      '<div class="flex items-start gap-3">' +
+      '<div class="w-8 h-8 rounded-full bg-orange-500/15 flex items-center justify-center text-orange-600 dark:text-orange-300 shrink-0">' +
+      '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>' +
+      '</div><div class="min-w-0">' +
+      '<div class="text-[11px] font-black text-brand-dark dark:text-white uppercase tracking-tight mb-0.5">GHL sync in progress</div>' +
+      '<div class="text-[10px] font-bold text-brand-muted dark:text-slate-400 leading-tight">' +
+      escapeBellHtml(String(current) + ' of ' + String(total) + ' contacts') +
+      (pushed || failed ? ' · ' + pushed + ' synced' + (failed ? ', ' + failed + ' failed' : '') : '') +
+      '</div>' +
+      '<div class="mt-1 text-[9px] font-semibold text-brand-muted dark:text-slate-500">Safe to browse other pages — we will ping the bell when done.</div>' +
+      '</div></div></div>'
+    );
+  }
+
+  async function pushSingleLeadKeyToGhl(leadKey, tagNoWebsite) {
+    const res = await fetch('/ghl/push', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ leadKeys: [String(leadKey || '').trim()], tagNoWebsite: tagNoWebsite !== false }),
+    });
+    const data = await res.json().catch(function () {
+      return {};
+    });
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'HTTP ' + res.status);
+    }
+    return data;
+  }
+
+  async function processGhlSyncQueue() {
+    if (ghlSyncProcessorLock) return;
+    ghlSyncProcessorLock = true;
+    var summary = { ok: true, pushed: 0, failed: 0, total: 0, results: [] };
+    try {
+      while (true) {
+        var job = readGhlSyncJob();
+        if (!job || !job.running || job.index >= job.keys.length) break;
+
+        var key = job.keys[job.index];
+        var total = job.keys.length;
+
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          var data = await pushSingleLeadKeyToGhl(key, job.tagNoWebsite);
+          var leadPushed = data.pushed != null ? data.pushed : 0;
+          var leadFailed = data.failed != null ? data.failed : 0;
+          if (leadPushed > 0) job.pushedCount = (job.pushedCount || 0) + leadPushed;
+          else job.failedCount = (job.failedCount || 0) + Math.max(1, leadFailed);
+          if (Array.isArray(data.results)) summary.results = summary.results.concat(data.results);
+        } catch (err) {
+          job.failedCount = (job.failedCount || 0) + 1;
+          job.lastError = err && err.message ? err.message : String(err);
+          summary.results.push({ key: key, ok: false, error: job.lastError });
+        }
+
+        job.index += 1;
+        writeGhlSyncJob(job);
+        emitGhlSyncProgress({
+          current: job.index,
+          total: total,
+          remaining: Math.max(0, total - job.index),
+          pushed: job.pushedCount || 0,
+          failed: job.failedCount || 0,
+        });
+        updateBulkEnhanceBellBadge(job.index, total, 'GHL sync');
+      }
+
+      var finalJob = readGhlSyncJob();
+      if (finalJob) {
+        summary.pushed = finalJob.pushedCount || 0;
+        summary.failed = finalJob.failedCount || 0;
+        summary.total = finalJob.keys.length;
+        summary.ok = summary.failed === 0;
+      }
+    } finally {
+      ghlSyncProcessorLock = false;
+      writeGhlSyncJob(null);
+      updateBulkEnhanceBellBadge(0, 0);
+      if (typeof window.updateProcessingStatus === 'function') {
+        window.updateProcessingStatus(false);
+      }
+      applyProcessingRing();
+
+      if (summary.total > 0) {
+        var doneMsg =
+          'GHL sync complete · ' +
+          summary.pushed +
+          ' contact' +
+          (summary.pushed === 1 ? '' : 's') +
+          (summary.failed ? ' · ' + summary.failed + ' failed' : '');
+        pushClientBellNotification({
+          headline: summary.failed ? 'GHL sync finished with errors' : 'GHL sync complete',
+          body: doneMsg,
+          href: '/prospecting?tab=pipeline',
+        });
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(doneMsg, {
+            variant: summary.failed ? 'error' : 'success',
+            duration: summary.failed ? 9000 : 5000,
+          });
+        }
+        var pingDone = document.getElementById('notificationPing');
+        if (pingDone) {
+          pingDone.classList.remove('hidden');
+          pingDone.classList.add('animate-ping');
+        }
+      }
+
+      window.dispatchEvent(new CustomEvent('agency-os-ghl-sync-finished', { detail: summary }));
+      finishGhlSyncWaiters(summary);
+    }
+  }
+
+  window.agencyOsGhlSync = {
+    isRunning() {
+      return isGhlSyncJobRunning();
+    },
+    readJob() {
+      return readGhlSyncJob();
+    },
+    buildProgressHtml(job) {
+      return buildGhlSyncProgressBellHtml(job || readGhlSyncJob());
+    },
+    run(opts) {
+      opts = opts || {};
+      var leadKeys = Array.isArray(opts.leadKeys)
+        ? opts.leadKeys.map(function (k) {
+            return String(k || '').trim();
+          }).filter(Boolean)
+        : [];
+      var total = leadKeys.length;
+      if (!total) {
+        return Promise.resolve({ ok: true, pushed: 0, failed: 0, total: 0, results: [] });
+      }
+
+      return new Promise(function (resolve, reject) {
+        ghlSyncWaiters.push({
+          resolve: resolve,
+          reject: reject,
+          onProgress: typeof opts.onProgress === 'function' ? opts.onProgress : null,
+        });
+
+        if (isGhlSyncJobRunning()) return;
+
+        var job = {
+          keys: leadKeys,
+          index: 0,
+          running: true,
+          tagNoWebsite: opts.tagNoWebsite !== false,
+          pushedCount: 0,
+          failedCount: 0,
+          startedAt: Date.now(),
+        };
+        writeGhlSyncJob(job);
+        activateNavbarWorkBell('GHL sync');
+        emitGhlSyncProgress({ current: 0, total: total, remaining: total, pushed: 0, failed: 0 });
+        processGhlSyncQueue().catch(function (err) {
+          console.warn('[ghl-sync]', err);
+          failGhlSyncWaiters(err);
+        });
+      });
+    },
+  };
 
   window.agencyOsBulkEnhance = {
     isRunning() {
@@ -799,6 +1054,28 @@
       runContactHuntPollLoop().catch((e) => console.warn('[contact-hunt-resume]', e));
     }
 
+    if (isGhlSyncJobRunning()) {
+      const ghlJob = readGhlSyncJob();
+      if (ghlJob) {
+        updateBulkEnhanceBellBadge(ghlJob.index, ghlJob.keys.length, 'GHL sync');
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(
+            'Resuming GHL sync for ' +
+              ghlJob.keys.length +
+              ' contact' +
+              (ghlJob.keys.length !== 1 ? 's' : '') +
+              ' (' +
+              (ghlJob.index + 1) +
+              ' of ' +
+              ghlJob.keys.length +
+              ').',
+            { variant: 'info', duration: 7000 },
+          );
+        }
+      }
+      processGhlSyncQueue().catch((e) => console.warn('[ghl-sync-resume]', e));
+    }
+
     function maybeDesktopNotify(data) {
       if (!data.notification || data.notification.isRead || !data.notification.finishedAt) return;
       if (!('Notification' in window)) return;
@@ -921,12 +1198,19 @@
           }
         } else if (renderClientBellNotifications(notificationList, notificationPing)) {
           /* client-side hunt / enhance notifications */
+        } else if (isGhlSyncJobRunning() && notificationList) {
+          notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
+          if (notificationPing) {
+            notificationPing.classList.remove('hidden');
+            notificationPing.classList.add('animate-ping');
+          }
         } else {
           const keepPingForClientWork =
             localStorage.getItem('is_searching') === 'true' ||
             isBulkEnhanceJobRunning() ||
             syncEnhanceSessionActive() ||
             isContactHuntJobRunning() ||
+            isGhlSyncJobRunning() ||
             readClientBellNotifications().some((n) => !n.isRead);
           if (notificationPing && !keepPingForClientWork) {
             notificationPing.classList.remove('animate-ping');
@@ -971,11 +1255,14 @@
       const isHidden = notificationDropdown.classList.contains('hidden');
       if (isHidden) {
         notificationDropdown.classList.remove('hidden');
+        if (isGhlSyncJobRunning() && notificationList) {
+          notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
+        }
         try {
           await fetch('/api/notifications/read', { method: 'POST' });
         } catch (_) {}
         markClientBellNotificationsRead();
-        if (notificationPing) notificationPing.classList.add('hidden');
+        if (notificationPing && !isGhlSyncJobRunning()) notificationPing.classList.add('hidden');
       } else {
         notificationDropdown.classList.add('hidden');
       }

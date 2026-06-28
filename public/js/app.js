@@ -13885,7 +13885,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const setProgressMessage = (progress) => {
       const el = document.getElementById('bulkSaveFeedback');
-      const msg = `Syncing ${progress.current} of ${progress.total} · ${progress.remaining} left`;
+      const done = progress && progress.current != null ? progress.current : 0;
+      const total = progress && progress.total != null ? progress.total : 0;
+      const remaining =
+        progress && progress.remaining != null ? progress.remaining : Math.max(0, total - done);
+      const msg = `Syncing ${done} of ${total} · ${remaining} left`;
       if (el) {
         el.textContent = msg;
         el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-sky-200');

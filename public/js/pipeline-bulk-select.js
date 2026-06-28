@@ -263,7 +263,7 @@
   window.__persistDirectMailSelectionKeys = persistDirectMailSelectionKeys;
   window.__buildDirectMailSelectionUrl = buildDirectMailSelectionUrl;
 
-  /** GHL bulk push — registered here so Sync GHL works before app.js finishes init. */
+  /** GHL bulk push — one contact per request so progress updates; survives page changes via bell queue. */
   async function pushLeadKeysToGhlWithProgress(opts) {
     const leadKeys = Array.isArray(opts && opts.leadKeys)
       ? opts.leadKeys.map((k) => String(k || '').trim()).filter(Boolean)
@@ -275,31 +275,68 @@
     const total = leadKeys.length;
     if (!total) return { ok: true, pushed: 0, failed: 0, total: 0, results: [] };
 
+    if (typeof window.agencyOsGhlSync === 'object' && typeof window.agencyOsGhlSync.run === 'function') {
+      if (onProgress) onProgress({ current: 0, total, remaining: total, pushed: 0, failed: 0 });
+      if (btn) btn.textContent = total > 1 ? `${total} left` : 'Syncing…';
+      const result = await window.agencyOsGhlSync.run({
+        leadKeys,
+        tagNoWebsite,
+        onProgress: function (progress) {
+          if (onProgress) onProgress(progress);
+          if (btn && progress && progress.remaining != null) {
+            btn.textContent = progress.remaining > 0 ? `${progress.remaining} left` : 'Finishing…';
+          }
+        },
+      });
+      if (btn) btn.textContent = result.failed > 0 ? 'Failed' : 'Finishing…';
+      return result;
+    }
+
     if (onProgress) onProgress({ current: 0, total, remaining: total, pushed: 0, failed: 0 });
     if (btn) btn.textContent = total > 1 ? `${total} left` : 'Syncing…';
 
-    try {
-      const res = await fetch('/ghl/push', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ leadKeys, tagNoWebsite }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.success) {
-        throw new Error((data && data.error) || `HTTP ${res.status}`);
-      }
-      const pushed = data.pushed != null ? data.pushed : 0;
-      const failed = data.failed != null ? data.failed : 0;
-      const results = Array.isArray(data.results) ? data.results : [];
+    let pushed = 0;
+    let failed = 0;
+    const results = [];
+    for (let i = 0; i < leadKeys.length; i += 1) {
+      const key = leadKeys[i];
       if (onProgress) {
-        onProgress({ current: total, total, remaining: 0, pushed, failed });
+        onProgress({
+          current: i,
+          total,
+          remaining: total - i,
+          pushed,
+          failed,
+        });
       }
-      if (btn) btn.textContent = failed > 0 ? 'Failed' : 'Finishing…';
-      return { ok: failed === 0, pushed, failed, total, results };
-    } catch (err) {
-      throw err;
+      if (btn) btn.textContent = total - i > 1 ? `${total - i} left` : 'Syncing…';
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const res = await fetch('/ghl/push', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys: [key], tagNoWebsite }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        const batchPushed = data.pushed != null ? data.pushed : 0;
+        const batchFailed = data.failed != null ? data.failed : 0;
+        pushed += batchPushed;
+        failed += batchFailed > 0 ? batchFailed : batchPushed > 0 ? 0 : 1;
+        if (Array.isArray(data.results)) results.push(...data.results);
+      } catch (err) {
+        failed += 1;
+        results.push({ key, ok: false, error: err.message || String(err) });
+      }
     }
+    if (onProgress) {
+      onProgress({ current: total, total, remaining: 0, pushed, failed });
+    }
+    if (btn) btn.textContent = failed > 0 ? 'Failed' : 'Finishing…';
+    return { ok: failed === 0, pushed, failed, total, results };
   }
   window.__pushLeadKeysToGhlWithProgress = pushLeadKeysToGhlWithProgress;
 
@@ -998,7 +1035,11 @@
 
   function setBulkGhlProgressEarly(progress) {
     const el = document.getElementById('bulkSaveFeedback');
-    const msg = `Syncing ${progress.current} of ${progress.total} · ${progress.remaining} left`;
+    const done = progress && progress.current != null ? progress.current : 0;
+    const total = progress && progress.total != null ? progress.total : 0;
+    const remaining =
+      progress && progress.remaining != null ? progress.remaining : Math.max(0, total - done);
+    const msg = `Syncing ${done} of ${total} · ${remaining} left`;
     if (el) {
       el.textContent = msg;
       el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-sky-200');
