@@ -177,11 +177,66 @@
 
   function parseReviewCount(raw) {
     const s = String(raw || '');
-    const labeled = s.replace(/,/g, '').match(/(\d+)\s*reviews?\b/i);
-    if (labeled) return parseInt(labeled[1], 10);
+    const labeled = s.replace(/,/g, '').match(/([\d.]+)\s*([kKmM])?\s*reviews?\b/i);
+    if (labeled) {
+      let n = parseFloat(labeled[1]);
+      if (labeled[2]) {
+        const mult = labeled[2].toLowerCase() === 'k' ? 1000 : 1000000;
+        n = Math.round(n * mult);
+      } else {
+        n = parseInt(labeled[1], 10);
+      }
+      if (Number.isFinite(n) && n > 0) return n;
+    }
     const paren = s.replace(/,/g, '').match(/\((\d+)\)/);
     if (paren) return parseInt(paren[1], 10);
     return 0;
+  }
+
+  function parseYelpReviewsFromDom(scope) {
+    let reviewsCount = 0;
+    let rating = 0;
+    const root = scope || findYelpBusinessRoot();
+
+    function applyCandidate(label, text) {
+      const combined = [label, text].filter(Boolean).join(' ');
+      const nextRating = parseRating(combined);
+      const nextReviews = parseReviewCount(combined);
+      if (nextRating > 0 && nextRating <= 5) rating = nextRating;
+      if (nextReviews > 0) reviewsCount = nextReviews;
+    }
+
+    const ratingEl =
+      root.querySelector('[data-testid="star-rating-score"]') ||
+      root.querySelector('[data-testid="rating"]') ||
+      root.querySelector('[role="img"][aria-label*="star" i]');
+    if (ratingEl) {
+      applyCandidate(ratingEl.getAttribute('aria-label') || '', ratingEl.textContent || '');
+    }
+
+    const reviewCountEl =
+      root.querySelector('[data-testid="reviewCount"]') ||
+      root.querySelector('[data-testid="review-count"]') ||
+      root.querySelector('a[href*="#reviews"]');
+    if (reviewCountEl) {
+      applyCandidate(reviewCountEl.getAttribute('aria-label') || '', reviewCountEl.textContent || '');
+    }
+
+    root.querySelectorAll('[aria-label*="star rating" i], [aria-label*="stars" i]').forEach((el) => {
+      applyCandidate(el.getAttribute('aria-label') || '', el.textContent || '');
+    });
+
+    const header =
+      root.querySelector('[data-testid="BizHeader"]') ||
+      root.querySelector('h1')?.closest('[data-testid="biz-name"]')?.parentElement;
+    if (header && (!rating || !reviewsCount)) {
+      header.querySelectorAll('a, span, div[role="img"]').forEach((el) => {
+        if (rating > 0 && reviewsCount > 0) return;
+        applyCandidate(el.getAttribute('aria-label') || '', el.textContent || '');
+      });
+    }
+
+    return { rating, reviewsCount };
   }
 
   function findGoogleMapsPlaceRoot() {
@@ -647,11 +702,12 @@
   function extractYelp() {
     const url = canonicalUrl();
     const blocklist = ['yelp.com', 'yelpcdn.com'];
+    const root = findYelpBusinessRoot();
 
     const name = cleanTitle(texts(['h1', '[data-testid="biz-name"]'])) || cleanTitle(meta('og:title'));
     const category = texts(['span[class*="category"]', '[data-testid="BizHeaderCategory"] a', '.price-category']);
-    const ratingText = texts(['[aria-label*="star rating"]', '[data-testid="rating"]']);
-    const reviewsText = texts(['[aria-label*="review"]', 'a[href*="#reviews"]']);
+    const ratingText = texts(['[aria-label*="star rating"]', '[data-testid="rating"]', '[data-testid="star-rating-score"]']);
+    const reviewsText = texts(['[aria-label*="review"]', '[data-testid="reviewCount"]', 'a[href*="#reviews"]']);
     const address = texts(['address', '[data-testid="address"]', 'p[class*="address"]']);
 
     const lead = baseBusinessLead({
@@ -660,7 +716,7 @@
       url,
       sourceChannel: 'yelp',
       blocklist,
-      noteParts: [category, ratingText, reviewsText],
+      noteParts: [category],
     });
 
     const yelpWebsite = findYelpWebsite(blocklist);
@@ -674,8 +730,20 @@
       lead.city = geo.city;
       lead.state = geo.state;
     }
-    lead.totalScore = parseRating(ratingText) || lead.totalScore;
-    lead.reviewsCount = parseReviewCount(reviewsText) || lead.reviewsCount;
+
+    const yelpReviews = parseYelpReviewsFromDom(root);
+    const finalRating = parseRating(ratingText) || yelpReviews.rating || lead.totalScore;
+    const finalReviews = parseReviewCount(reviewsText) || yelpReviews.reviewsCount || lead.reviewsCount;
+    if (finalRating) lead.totalScore = finalRating;
+    if (finalReviews) lead.reviewsCount = finalReviews;
+
+    lead.note = [
+      category,
+      finalRating ? `${finalRating}★` : '',
+      finalReviews ? `${finalReviews} reviews` : '',
+    ]
+      .filter(Boolean)
+      .join(' · ');
 
     return lead;
   }
