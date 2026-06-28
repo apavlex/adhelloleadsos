@@ -2877,16 +2877,39 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!keyParam) {
       throw new Error('Lead key missing — select a saved lead and try again.');
     }
-    const res = await fetch(`/leads/${encodeURIComponent(keyParam)}/notes`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify(payload || {}),
-    });
-    const data = await res.json().catch(() => ({}));
+    const { res, data } = await fetchJsonWithTimeout(
+      `/leads/${encodeURIComponent(keyParam)}/notes`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify(payload || {}),
+      },
+      15000,
+    );
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || 'Could not save activity');
     }
+    return data;
+  }
+
+  async function persistLeadPanelNoteToServer(row, content) {
+    const key = await withTimeout(
+      ensureRowHasLeadKey(row),
+      20000,
+      'Saving this lead timed out. Your note is still shown here — try Post again in a moment.',
+    );
+    const data = await postLeadPanelActivity(key, {
+      content,
+      type: 'note',
+      deferGhlSync: true,
+    });
+    if (data.lead) {
+      syncPersistedLeadToRowDataset(row, data.lead);
+    } else if (Array.isArray(data.updates)) {
+      applyServerUpdatesToRow(row, data.updates);
+    }
+    refreshLeadActivityTimeline(row);
     return data;
   }
 
@@ -2916,7 +2939,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     leadPanelNoteSubmitInflight = true;
-    setLeadPanelNotePostLoading(true);
 
     try {
       const clickedAt = new Date().toISOString();
@@ -2938,23 +2960,24 @@ document.addEventListener('DOMContentLoaded', () => {
         scrollLeadPanelToSection('leadPanelHistorySection');
       }
 
-      const key = await ensureRowHasLeadKey(row);
-      const data = await postLeadPanelActivity(key, { content, type: 'note' });
-
-      if (data.lead) {
-        syncPersistedLeadToRowDataset(row, data.lead);
-      } else if (Array.isArray(data.updates)) {
-        applyServerUpdatesToRow(row, data.updates);
-      }
-
-      window.__leadActivityFilter = 'notes';
-      syncLeadActivityFilterButtons('notes');
-      renderLeadActivityTimeline(row, 'notes');
-
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Note saved.', { variant: 'success' });
-      }
       setLeadPanelNotePostSuccess();
+
+      void persistLeadPanelNoteToServer(row, content)
+        .then(() => {
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Note saved.', { variant: 'success' });
+          }
+        })
+        .catch((err) => {
+          console.error('Note save failed:', err);
+          const msg =
+            (err && err.message) ||
+            'Note is shown here but could not save to the server. Try Post again.';
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(msg, { variant: 'error' });
+          }
+        });
+
       return true;
     } catch (err) {
       console.error('Note addition failed:', err);
