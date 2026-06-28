@@ -49,29 +49,110 @@
     return String(raw || '').trim();
   }
 
-  function findTelPhone() {
-    const tel = document.querySelector('a[href^="tel:"]');
+  function findTelPhone(scope) {
+    const root = scope || document;
+    const tel = root.querySelector('a[href^="tel:"]');
     if (tel) return normalizePhone(tel.href.replace(/^tel:/i, '') || tel.textContent);
-    const phoneMatch = document.body?.innerText?.match(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
+    const phoneMatch = root.body
+      ? root.body.innerText?.match(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/)
+      : root.innerText?.match?.(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
     return phoneMatch ? normalizePhone(phoneMatch[0]) : '';
   }
 
-  function findExternalWebsite(blocklist) {
-    const blocked = blocklist || [];
-    const anchors = document.querySelectorAll('a[href^="http"]');
+  const websiteUtils = window.AdHelloWebsiteUtils || {};
+  const isBlockedExternalUrl =
+    typeof websiteUtils.isBlockedExternalUrl === 'function'
+      ? websiteUtils.isBlockedExternalUrl
+      : function fallbackIsBlockedExternalUrl(href, blocklist) {
+          const blocked = blocklist || [];
+          try {
+            const host = new URL(href).hostname;
+            return blocked.some((d) => host.includes(d));
+          } catch (_) {
+            return true;
+          }
+        };
+  const normalizeBusinessWebsite =
+    typeof websiteUtils.normalizeBusinessWebsite === 'function'
+      ? websiteUtils.normalizeBusinessWebsite
+      : function fallbackNormalizeBusinessWebsite(href, blocklist) {
+          if (isBlockedExternalUrl(href, blocklist)) return '';
+          return String(href || '').split('?')[0];
+        };
+  const decodeYelpRedirectUrl =
+    typeof websiteUtils.decodeYelpRedirectUrl === 'function'
+      ? websiteUtils.decodeYelpRedirectUrl
+      : function fallbackDecodeYelpRedirectUrl(href) {
+          return String(href || '').split('?')[0];
+        };
+
+  function findExternalWebsite(blocklist, scope) {
+    const root = scope || document;
+    const anchors = root.querySelectorAll('a[href^="http"]');
     for (const a of anchors) {
       const href = a.href || '';
-      if (blocked.some((d) => href.includes(d))) continue;
       if (/^(mailto:|javascript:)/i.test(href)) continue;
-      try {
-        const host = new URL(href).hostname;
-        if (blocked.some((d) => host.includes(d))) continue;
-      } catch (_) {
-        continue;
-      }
-      return href.split('?')[0];
+      const normalized = normalizeBusinessWebsite(href, blocklist);
+      if (normalized) return normalized;
     }
     return '';
+  }
+
+  function findYelpBusinessRoot() {
+    return (
+      document.querySelector('[data-testid="BizHeader"]')?.closest('main') ||
+      document.querySelector('[data-testid="BizHeader"]')?.parentElement ||
+      document.querySelector('main[role="main"]') ||
+      document.querySelector('#app-body-main-content') ||
+      document.querySelector('main') ||
+      document.body
+    );
+  }
+
+  function findYelpWebsite(blocklist) {
+    const root = findYelpBusinessRoot();
+    const redirectSelectors = [
+      'a[href*="biz_redir"]',
+      'a[href*="adredir"]',
+      'a[aria-label*="Business website" i]',
+      'a[aria-label*="business website" i]',
+      '[data-testid="website"] a[href]',
+      '[data-testid="BizHeaderWebsite"] a[href]',
+      'p[class*="website"] a[href]',
+    ];
+    for (const sel of redirectSelectors) {
+      const links = root.querySelectorAll(sel);
+      for (const a of links) {
+        const normalized = normalizeBusinessWebsite(decodeYelpRedirectUrl(a.href) || a.href, blocklist);
+        if (normalized) return normalized;
+      }
+    }
+
+    const jsonLd = findLocalBusinessJsonLd();
+    const fromLd = businessFromJsonLd(jsonLd, {}, blocklist);
+    if (fromLd.website) return fromLd.website;
+
+    return findExternalWebsite(blocklist, root);
+  }
+
+  function findYelpPhone() {
+    const root = findYelpBusinessRoot();
+    const phoneSelectors = [
+      '[data-testid="BizHeaderPhone"] a[href^="tel:"]',
+      '[data-testid="phone"] a[href^="tel:"]',
+      'p[class*="phone"] a[href^="tel:"]',
+      'a[href^="tel:"][role="link"]',
+    ];
+    for (const sel of phoneSelectors) {
+      const tel = root.querySelector(sel);
+      if (tel) return normalizePhone(tel.href.replace(/^tel:/i, '') || tel.textContent);
+    }
+    const phoneBlock = root.querySelector('[data-testid="BizHeaderPhone"], [data-testid="phone"], p[class*="phone"]');
+    if (phoneBlock) {
+      const match = String(phoneBlock.textContent || '').match(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
+      if (match) return normalizePhone(match[0]);
+    }
+    return findTelPhone(root);
   }
 
   function parseCityState(address) {
@@ -317,17 +398,25 @@
     }) || null;
   }
 
-  function businessFromJsonLd(jsonLd, defaults) {
+  function businessFromJsonLd(jsonLd, defaults, blocklist) {
     if (!jsonLd) return defaults || {};
     const addr = jsonLd.address || {};
     const address = typeof addr === 'string'
       ? addr
       : [addr.streetAddress, addr.addressLocality, addr.addressRegion, addr.postalCode].filter(Boolean).join(', ');
     const geo = parseCityState(address);
+    const sameAsUrl = Array.isArray(jsonLd.sameAs)
+      ? jsonLd.sameAs.find((u) => /^https?:\/\//.test(u))
+      : '';
+    const websiteCandidate =
+      normalizeBusinessWebsite(jsonLd.url || '', blocklist) ||
+      normalizeBusinessWebsite(sameAsUrl || '', blocklist) ||
+      defaults?.website ||
+      '';
     return {
       title: jsonLd.name || defaults?.title || '',
       phone: normalizePhone(jsonLd.telephone || defaults?.phone || ''),
-      website: jsonLd.url || jsonLd.sameAs?.find?.((u) => /^https?:\/\//.test(u)) || defaults?.website || '',
+      website: websiteCandidate,
       address: address || defaults?.address || '',
       city: addr.addressLocality || geo.city || defaults?.city || '',
       state: addr.addressRegion || geo.state || defaults?.state || '',
@@ -339,7 +428,7 @@
 
   function baseBusinessLead({ title, categoryName, url, sourceChannel, blocklist, noteParts }) {
     const jsonLd = findLocalBusinessJsonLd();
-    const fromLd = businessFromJsonLd(jsonLd, {});
+    const fromLd = businessFromJsonLd(jsonLd, {}, blocklist);
     const website = fromLd.website || findExternalWebsite(blocklist) || 'N/A';
     const phone = fromLd.phone || findTelPhone() || 'N/A';
     const address = fromLd.address || '';
@@ -573,6 +662,11 @@
       blocklist,
       noteParts: [category, ratingText, reviewsText],
     });
+
+    const yelpWebsite = findYelpWebsite(blocklist);
+    if (yelpWebsite) lead.website = yelpWebsite;
+    const yelpPhone = findYelpPhone();
+    if (yelpPhone) lead.phone = yelpPhone;
 
     if (address) {
       lead.address = cleanAddress(address);
