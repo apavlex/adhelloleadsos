@@ -2890,15 +2890,36 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const clickedAt = new Date().toISOString();
-      appendRowActivityEntry(row, {
+      const noteEntry = {
         type: 'note',
         value: content,
         timestamp: clickedAt,
         source: 'panel_post',
-      });
+        manual: true,
+      };
+      appendRowActivityEntry(row, noteEntry);
+
+      const logsRaw = row.dataset.logsSnippet;
+      let logs = [];
+      try {
+        logs = JSON.parse(logsRaw || '[]');
+      } catch {
+        logs = [];
+      }
+      if (!Array.isArray(logs)) logs = [];
+      logs.push({ type: 'note', message: content, timestamp: clickedAt });
+      row.dataset.logsSnippet = JSON.stringify(logs.slice(-14));
+      const embedded = findInitialSavedLeadRecord(row);
+      if (embedded) {
+        embedded.logs = logs.slice(-14);
+      }
+
       window.__leadActivityFilter = 'notes';
       syncLeadActivityFilterButtons('notes');
-      refreshLeadActivityTimeline(row);
+      renderLeadActivityTimeline(row, 'notes');
+      if (typeof scrollLeadPanelToSection === 'function') {
+        scrollLeadPanelToSection('leadPanelHistorySection');
+      }
 
       const key = await ensureRowHasLeadKey(row);
       const data = await postLeadPanelActivity(key, { content, type: 'note' });
@@ -2912,7 +2933,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (noteInput) noteInput.value = '';
       window.__leadActivityFilter = 'notes';
       syncLeadActivityFilterButtons('notes');
-      refreshLeadActivityTimeline(row);
+      renderLeadActivityTimeline(row, 'notes');
       if (typeof scrollLeadPanelToSection === 'function') {
         scrollLeadPanelToSection('leadPanelHistorySection');
       }
@@ -2929,7 +2950,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         alert(msg);
       }
-      void refreshLeadActivityFromServer(row);
+      refreshLeadActivityTimeline(row);
       return false;
     } finally {
       leadPanelNoteSubmitInflight = false;
@@ -2997,7 +3018,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function writeRowUpdatesArray(row, updates) {
     if (!row || !row.dataset) return;
-    row.dataset.updates = JSON.stringify(Array.isArray(updates) ? updates : []);
+    const list = Array.isArray(updates) ? updates : [];
+    row.dataset.updates = JSON.stringify(list);
+    const embedded = findInitialSavedLeadRecord(row);
+    if (embedded) embedded.updates = list.slice();
   }
 
   function applyServerUpdatesToRow(row, serverUpdates) {
@@ -3052,9 +3076,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function refreshLeadActivityTimeline(row) {
-    if (!row) return;
+    const target =
+      (row && resolvePipelineTableRowForPanel(row)) ||
+      row ||
+      (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null);
+    if (!target) return;
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
-    renderLeadActivityTimeline(row, window.__leadActivityFilter);
+    renderLeadActivityTimeline(target, window.__leadActivityFilter);
     syncLeadActivityFilterButtons(window.__leadActivityFilter);
   }
 
@@ -3791,6 +3819,13 @@ document.addEventListener('DOMContentLoaded', () => {
     openLeadPanelOutreach();
 
     prepareLeadRowForPanel(tableRow);
+    window.__leadActivityFilter = window.__leadActivityFilter || 'all';
+    try {
+      renderLeadActivityTimeline(tableRow, window.__leadActivityFilter);
+      syncLeadActivityFilterButtons(window.__leadActivityFilter);
+    } catch (earlyActivityErr) {
+      console.warn('[Lead panel] early activity paint failed:', earlyActivityErr);
+    }
 
     if (typeof window.__paintPanelFromLeadRecord === 'function') {
       const emb =
@@ -3820,6 +3855,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
       } catch (retryErr) {
         console.warn('[Lead panel] retry row paint failed:', retryErr);
+      }
+      try {
+        renderLeadActivityTimeline(tableRow, window.__leadActivityFilter || 'all');
+        syncLeadActivityFilterButtons(window.__leadActivityFilter || 'all');
+      } catch (activityErr) {
+        console.warn('[Lead panel] activity paint after populate failure:', activityErr);
       }
     }
 
@@ -3886,7 +3927,9 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       window.__leadActivityFilter = activityFilterBtn.getAttribute('data-activity-filter') || 'all';
       syncLeadActivityFilterButtons(window.__leadActivityFilter);
-      if (currentRow) renderLeadActivityTimeline(currentRow, window.__leadActivityFilter);
+      const activityRow =
+        typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : currentRow;
+      if (activityRow) renderLeadActivityTimeline(activityRow, window.__leadActivityFilter);
       return;
     }
     const chBtn = e.target.closest('#leadPanelWhatToSellCard .lead-outreach-channel');
@@ -5277,6 +5320,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.competitorMetaBenchmark != null) ds.competitorMetaBenchmark = L.competitorMetaBenchmark;
     if (Array.isArray(L.updates)) {
       applyServerUpdatesToRow(row, L.updates);
+      const embedded = findInitialSavedLeadRecord(row);
+      if (embedded) embedded.updates = readRowUpdatesArray(row).slice();
     }
     if (L.cqi !== undefined) ds.cqi = L.cqi == null ? 'null' : JSON.stringify(L.cqi);
     if (L.ownerFirstName != null) ds.ownerFirstName = String(L.ownerFirstName || '');
@@ -5294,7 +5339,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (L.logs != null) {
       try {
-        ds.logsSnippet = JSON.stringify((L.logs || []).slice(-14));
+        const snippet = (L.logs || []).slice(-14);
+        ds.logsSnippet = JSON.stringify(snippet);
+        const embedded = findInitialSavedLeadRecord(row);
+        if (embedded) embedded.logs = snippet.slice();
       } catch {
         ds.logsSnippet = '[]';
       }
@@ -9741,6 +9789,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('[Lead panel] activity timeline failed:', timelineErr);
       }
     };
+    paintActivityTimeline();
 
     try {
       paintLeadPanelFromRow(row);

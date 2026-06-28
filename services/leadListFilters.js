@@ -427,6 +427,8 @@ function mapLeadPipelineBootstrap(l) {
     lastTouchChannel: l.lastTouchChannel,
     latitude: l.latitude,
     longitude: l.longitude,
+    updates: Array.isArray(l.updates) ? l.updates : [],
+    logs: Array.isArray(l.logs) ? l.logs.slice(-14) : [],
   };
 }
 
