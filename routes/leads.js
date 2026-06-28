@@ -68,6 +68,11 @@ const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const { quickLogItemForStatus } = require('../services/quickLogConfig');
+const {
+  findDeletableLeadNote,
+  isDeletableLeadNote,
+  removeLeadNoteFromLead,
+} = require('../services/leadNotes');
 
 const GHL_CONTACT_SYNC_FIELDS = [
   'email',
@@ -1124,6 +1129,48 @@ router.post('/:key/update', async (req, res, next) => {
       });
     }
     res.json({ success: true, lead: updated });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/notes/delete — remove a manual panel note
+router.post('/:key/notes/delete', express.json(), async (req, res, next) => {
+  try {
+    const rawKey = req.params.key;
+    const fullKey =
+      (await dbService.resolveLeadStorageKey(rawKey, req.workspaceId)) ||
+      leadKeyFromParam(rawKey);
+    const timestamp = String((req.body && req.body.timestamp) || '').trim();
+    const value = String((req.body && req.body.value) || '').trim();
+    if (!timestamp) {
+      return res.status(400).json({ success: false, error: 'Note timestamp is required.' });
+    }
+
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+
+    const match = { timestamp, value };
+    const target = findDeletableLeadNote(lead, match);
+    if (!target || !isDeletableLeadNote(target)) {
+      return res.status(404).json({ success: false, error: 'Note not found or cannot be deleted.' });
+    }
+
+    const { updates, logs } = removeLeadNoteFromLead(lead, match);
+    const updated = await dbService.updateLead(
+      fullKey,
+      { updates, logs, logsMode: 'replace' },
+      req.workspaceId,
+    );
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    res.json({ success: true, updates: updated.updates || updates, lead: updated });
   } catch (err) {
     next(err);
   }

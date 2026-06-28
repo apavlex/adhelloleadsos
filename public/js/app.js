@@ -2975,6 +2975,103 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__adhelloSubmitLeadPanelNote = submitLeadPanelNote;
   window.__applyLeadPanelQuickLogTag = applyLeadPanelQuickLogTag;
 
+  function leadPanelNoteMatchEntry(entry, timestamp, value) {
+    if (!entry || String(entry.type) !== 'note') return false;
+    if (entry.source === 'quick_log_pill') return false;
+    if (entry.disposition || entry.statusChange) return false;
+    const ts = String(timestamp || '').trim();
+    const val = String(value || '').trim();
+    if (String(entry.timestamp || entry.ts || '') !== ts) return false;
+    const body = String(entry.value || entry.content || entry.message || '').trim();
+    if (val && body !== val) return false;
+    return true;
+  }
+
+  function removeNoteFromRowLocal(row, timestamp, value) {
+    if (!row) return;
+    const updates = readRowUpdatesArray(row).filter(
+      (u) => !leadPanelNoteMatchEntry(u, timestamp, value),
+    );
+    writeRowUpdatesArray(row, updates);
+    let logs = [];
+    try {
+      logs = JSON.parse(row.dataset.logsSnippet || '[]');
+    } catch {
+      logs = [];
+    }
+    if (!Array.isArray(logs)) logs = [];
+    const ts = String(timestamp || '').trim();
+    const val = String(value || '').trim();
+    logs = logs.filter((log) => {
+      if (String(log.type || '') !== 'note') return true;
+      if (String(log.timestamp || '') !== ts) return true;
+      if (val && String(log.message || '').trim() !== val) return true;
+      return false;
+    });
+    row.dataset.logsSnippet = JSON.stringify(logs);
+    const embedded = findInitialSavedLeadRecord(row);
+    if (embedded) embedded.logs = logs.slice();
+  }
+
+  let leadPanelNoteDeleteInflight = false;
+
+  async function deleteLeadPanelNote(row, timestamp, value) {
+    if (leadPanelNoteDeleteInflight) return false;
+    const ts = String(timestamp || '').trim();
+    const text = String(value || '').trim();
+    if (!ts) return false;
+    if (!row) {
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Select a lead first.', { variant: 'error' });
+      }
+      return false;
+    }
+    if (!window.confirm('Delete this note?')) return false;
+
+    leadPanelNoteDeleteInflight = true;
+    const prevUpdates = readRowUpdatesArray(row).slice();
+    removeNoteFromRowLocal(row, ts, text);
+    refreshLeadActivityTimeline(row);
+
+    try {
+      const key = await ensureRowHasLeadKey(row);
+      const res = await fetch(
+        `/leads/${encodeURIComponent(leadKeyParamForFetch(key))}/notes/delete`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ timestamp: ts, value: text }),
+        },
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Could not delete note');
+      }
+      if (data.lead) {
+        syncPersistedLeadToRowDataset(row, data.lead);
+      } else if (Array.isArray(data.updates)) {
+        applyServerUpdatesToRow(row, data.updates);
+      }
+      refreshLeadActivityTimeline(row);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Note deleted.', { variant: 'success' });
+      }
+      return true;
+    } catch (err) {
+      writeRowUpdatesArray(row, prevUpdates);
+      refreshLeadActivityTimeline(row);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(err.message || 'Failed to delete note.', { variant: 'error' });
+      }
+      return false;
+    } finally {
+      leadPanelNoteDeleteInflight = false;
+    }
+  }
+
+  window.__deleteLeadPanelNote = deleteLeadPanelNote;
+
   async function postLeadPanelNote(key, content) {
     const data = await postLeadPanelActivity(key, { content, type: 'note' });
     if (currentRow && data.updates) {
@@ -3946,6 +4043,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Row clicks: delegated handler only (avoids double-invoke + works for dynamically added rows)
   document.addEventListener('click', (e) => {
+    const deleteNoteBtn = e.target.closest('.lead-activity-note-delete');
+    if (deleteNoteBtn && deleteNoteBtn.closest('#mobilePanel')) {
+      e.preventDefault();
+      e.stopPropagation();
+      const activityRow =
+        typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : currentRow;
+      const ts = deleteNoteBtn.getAttribute('data-note-ts') || '';
+      let val = deleteNoteBtn.getAttribute('data-note-value') || '';
+      try {
+        val = decodeURIComponent(val);
+      } catch {
+        /* keep raw */
+      }
+      if (activityRow) void deleteLeadPanelNote(activityRow, ts, val);
+      return;
+    }
+
     const activityFilterBtn = e.target.closest('.lead-activity-filter');
     if (activityFilterBtn && activityFilterBtn.closest('#mobilePanel')) {
       e.preventDefault();
@@ -7862,10 +7976,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const body = formatActivityEntryText(e)
           .replace(/</g, '&lt;')
           .replace(/>/g, '&gt;');
-        return `<div class="relative pl-10 pb-1">
+        const canDelete = isManualPanelNote(e);
+        const deleteBtn = canDelete
+          ? `<button type="button" class="lead-activity-note-delete shrink-0 opacity-70 hover:opacity-100 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition-opacity px-1.5 py-0.5 rounded-md hover:bg-rose-500/10" data-note-ts="${escapeHtmlAttr(String(e.ts || ''))}" data-note-value="${escapeHtmlAttr(encodeURIComponent(String(e.text || '')))}" aria-label="Delete this note">Delete</button>`
+          : '';
+        return `<div class="relative pl-10 pb-1 group/activity">
           <div class="absolute left-1 top-1 w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-sm ring-2 ring-white dark:ring-slate-900"></div>
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${when} · ${typeLabel}</p>
-          <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${body}</p>
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${when} · ${typeLabel}</p>
+              <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${body}</p>
+            </div>
+            ${deleteBtn}
+          </div>
         </div>`;
       })
       .join('');
