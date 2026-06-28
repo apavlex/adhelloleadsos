@@ -21,6 +21,17 @@ window.__openWarRoomFromSelection = function openWarRoomFromSelectionBridge() {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const raw = localStorage.getItem('adhello_panel_notes_v1');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        window.__leadPanelNotesByKey = { ...parsed, ...(window.__leadPanelNotesByKey || {}) };
+      }
+    }
+  } catch (_) {
+    /* ignore */
+  }
   // Hoisted function — available immediately; bulk bar must not wait for ~13k lines of init.
   window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
@@ -2903,19 +2914,63 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function panelNotesStorageKey(row) {
-    if (!row || !row.dataset) return '';
-    const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
-    if (lk) return lk;
-    const tk = normalizeLeadTitleKey(row.dataset.title || '');
-    return tk ? `title:${tk}` : '';
+    return resolvePanelActivityKey(row);
+  }
+
+  const PANEL_NOTES_LS_KEY = 'adhello_panel_notes_v1';
+
+  function hydratePanelNotesCache() {
+    try {
+      const raw = localStorage.getItem(PANEL_NOTES_LS_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return;
+      window.__leadPanelNotesByKey = { ...(parsed || {}), ...(window.__leadPanelNotesByKey || {}) };
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  hydratePanelNotesCache();
+
+  function persistPanelNotesCache() {
+    try {
+      localStorage.setItem(
+        PANEL_NOTES_LS_KEY,
+        JSON.stringify(window.__leadPanelNotesByKey || {}),
+      );
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function resolvePanelActivityKey(row) {
+    if (row && row.dataset) {
+      const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
+      if (lk) return lk;
+      const tk = normalizeLeadTitleKey(row.dataset.title || '');
+      if (tk) return `title:${tk}`;
+    }
+    const ak = String(window.__leadPanelActiveRowKey || '').trim().replace(/^lead:/i, '');
+    if (ak) return ak;
+    const titleEl = document.getElementById('mobilePanelTitle');
+    const panelTitle = titleEl ? String(titleEl.textContent || '').trim() : '';
+    const tk2 = normalizeLeadTitleKey(panelTitle);
+    if (tk2 && tk2 !== normalizeLeadTitleKey('Company Name')) return `title:${tk2}`;
+    return '';
+  }
+
+  function readCachedPanelNotes(key) {
+    if (!key) return [];
+    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
+    return Array.isArray(window.__leadPanelNotesByKey[key])
+      ? window.__leadPanelNotesByKey[key]
+      : [];
   }
 
   function readMergedRowUpdates(row) {
-    const base = readRowUpdatesArray(row);
-    const key = panelNotesStorageKey(row);
-    if (!key) return base;
-    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
-    const cached = window.__leadPanelNotesByKey[key] || [];
+    const key = resolvePanelActivityKey(row);
+    const base = row && row.dataset ? readRowUpdatesArray(row) : [];
+    const cached = readCachedPanelNotes(key);
     if (!cached.length) return base;
     const merged = base.slice();
     cached.forEach((note) => {
@@ -2934,7 +2989,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function cachePanelNoteEntry(row, entry) {
-    const key = panelNotesStorageKey(row);
+    const key = resolvePanelActivityKey(row);
     if (!key || !entry) return;
     window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
     const list = window.__leadPanelNotesByKey[key] || [];
@@ -2946,16 +3001,18 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     if (!exists) {
       window.__leadPanelNotesByKey[key] = [...list, entry];
+      persistPanelNotesCache();
     }
   }
 
   function syncPanelNotesCacheFromRow(row) {
-    const key = panelNotesStorageKey(row);
+    const key = resolvePanelActivityKey(row);
     if (!key || !row) return;
     const notes = readRowUpdatesArray(row).filter((u) => u && String(u.type) === 'note');
     if (!notes.length) return;
     window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
     window.__leadPanelNotesByKey[key] = notes.slice();
+    persistPanelNotesCache();
   }
 
   function resolveLeadPanelNoteRow() {
@@ -2986,23 +3043,37 @@ document.addEventListener('DOMContentLoaded', () => {
     return null;
   }
 
-  async function persistLeadPanelNoteToServer(row, content) {
-    const key = await withTimeout(
-      ensureRowHasLeadKey(row),
-      20000,
-      'Saving this lead timed out. Your note is still shown here — try Post again in a moment.',
-    );
+  async function persistLeadPanelNoteToServer(rowOrKey, content) {
+    let key = '';
+    let row = null;
+    if (typeof rowOrKey === 'string') {
+      if (String(rowOrKey).startsWith('title:')) {
+        return { success: true, localOnly: true };
+      }
+      key = normalizeLeadKeyForApi(rowOrKey);
+      row = resolveLeadPanelNoteRow();
+    } else {
+      row = rowOrKey;
+      key = await withTimeout(
+        ensureRowHasLeadKey(rowOrKey),
+        20000,
+        'Saving this lead timed out. Your note is still shown here — try Post again in a moment.',
+      );
+    }
     const data = await postLeadPanelActivity(key, {
       content,
       type: 'note',
       deferGhlSync: true,
     });
-    if (data.lead) {
-      syncPersistedLeadToRowDataset(row, data.lead);
-    } else if (Array.isArray(data.updates)) {
-      applyServerUpdatesToRow(row, data.updates);
+    if (row) {
+      if (data.lead) {
+        syncPersistedLeadToRowDataset(row, data.lead);
+      } else if (Array.isArray(data.updates)) {
+        applyServerUpdatesToRow(row, data.updates);
+      }
+      syncPanelNotesCacheFromRow(row);
+      refreshLeadActivityTimeline(row, 'notes');
     }
-    refreshLeadActivityTimeline(row, 'notes');
     return data;
   }
 
@@ -3015,6 +3086,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const row = resolveLeadPanelNoteRow();
+    const activityKey = resolvePanelActivityKey(row);
     if (row && row !== currentRow) currentRow = row;
 
     const noteInput = getLeadPanelEl('noteInput');
@@ -3025,8 +3097,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       return false;
     }
-    if (!row) {
-      const msg = 'Select a lead in the pipeline first, then post your note.';
+    if (!row && !activityKey) {
+      const msg = 'Open a lead from the pipeline first, then post your note.';
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(msg, { variant: 'error' });
       }
@@ -3044,35 +3116,40 @@ document.addEventListener('DOMContentLoaded', () => {
         source: 'panel_post',
         manual: true,
       };
-      appendRowActivityEntry(row, noteEntry);
+      if (row) appendRowActivityEntry(row, noteEntry);
       cachePanelNoteEntry(row, noteEntry);
 
       if (noteInput) noteInput.value = '';
 
       window.__leadActivityFilter = 'notes';
       syncLeadActivityFilterButtons('notes');
-      renderLeadActivityTimeline(row, 'notes');
+      renderLeadActivityTimeline(row || resolveLeadPanelNoteRow(), 'notes');
       if (typeof scrollLeadPanelToSection === 'function') {
         scrollLeadPanelToSection('leadPanelHistorySection');
       }
 
       setLeadPanelNotePostSuccess();
 
-      void persistLeadPanelNoteToServer(row, content)
-        .then(() => {
-          if (typeof window.showAppToast === 'function') {
-            window.showAppToast('Note saved.', { variant: 'success' });
-          }
-        })
-        .catch((err) => {
-          console.error('Note save failed:', err);
-          const msg =
-            (err && err.message) ||
-            'Note is shown here but could not save to the server. Try Post again.';
-          if (typeof window.showAppToast === 'function') {
-            window.showAppToast(msg, { variant: 'error' });
-          }
-        });
+      const persistTarget =
+        row ||
+        (activityKey && !String(activityKey).startsWith('title:') ? activityKey : null);
+      if (persistTarget) {
+        void persistLeadPanelNoteToServer(persistTarget, content)
+          .then(() => {
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast('Note saved.', { variant: 'success' });
+            }
+          })
+          .catch((err) => {
+            console.error('Note save failed:', err);
+            const msg =
+              (err && err.message) ||
+              'Note is shown here but could not save to the server. Try Post again.';
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast(msg, { variant: 'error' });
+            }
+          });
+      }
 
       return true;
     } catch (err) {
@@ -3970,6 +4047,21 @@ document.addEventListener('DOMContentLoaded', () => {
         e.stopPropagation();
         void submitLeadPanelNote();
       });
+    }
+
+    const panelRoot = getLeadDetailPanel();
+    if (panelRoot && !panelRoot.dataset.adhelloNoteDelegationBound) {
+      panelRoot.dataset.adhelloNoteDelegationBound = '1';
+      panelRoot.addEventListener(
+        'click',
+        (e) => {
+          if (!e.target.closest('#addNoteBtn')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          void submitLeadPanelNote();
+        },
+        true,
+      );
     }
 
     const noteInputEl = getLeadPanelEl('noteInput');
@@ -8075,17 +8167,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const host = getLeadActivityLogHost();
     const f = String(filter || window.__leadActivityFilter || 'all');
     if (!host) return;
-    if (!row) {
-      const emptyMsg =
-        f === 'notes'
-          ? 'Select a lead, then post a note below.'
-          : f === 'calls'
-            ? 'Select a lead to see call activity.'
-            : 'Select a lead to load activity.';
-      host.innerHTML = `<div class="pl-10 text-xs text-brand-muted italic leading-relaxed">${emptyMsg}</div>`;
-      return;
-    }
-    const entries = mergeActivityEntries(row);
+
+    const activityRow = row || resolveLeadPanelNoteRow();
+    const entries = mergeActivityEntries(activityRow);
     const filtered = entries.filter((e) => activityEntryMatchesFilter(e, f));
     if (!filtered.length) {
       const emptyMsg =
