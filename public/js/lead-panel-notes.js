@@ -184,6 +184,100 @@
       .replace(/"/g, '&quot;');
   }
 
+  function escapeHtmlAttr(s) {
+    return escapeHtml(s).replace(/'/g, '&#39;');
+  }
+
+  function noteMatches(entry, timestamp, value) {
+    if (!entry) return false;
+    const ts = String(timestamp || '').trim();
+    const val = String(value || '').trim();
+    if (String(entry.timestamp || entry.ts || '') !== ts) return false;
+    if (val && String(entry.value || entry.content || entry.message || '').trim() !== val) {
+      return false;
+    }
+    return true;
+  }
+
+  function removeNoteFromCache(timestamp, value, extraRow) {
+    readCacheMap();
+    let changed = false;
+    collectKeys(extraRow).forEach((key) => {
+      const list = window.__leadPanelNotesByKey[key];
+      if (!Array.isArray(list) || !list.length) return;
+      const next = list.filter((n) => !noteMatches(n, timestamp, value));
+      if (next.length !== list.length) {
+        if (next.length) window.__leadPanelNotesByKey[key] = next;
+        else delete window.__leadPanelNotesByKey[key];
+        changed = true;
+      }
+    });
+    if (changed) persistCache();
+  }
+
+  function removeNoteFromRow(row, timestamp, value) {
+    if (!row || !row.dataset) return;
+    const updates = readRowUpdates(row).filter((u) => !noteMatches(u, timestamp, value));
+    try {
+      row.dataset.updates = JSON.stringify(updates);
+    } catch (_) {
+      /* ignore */
+    }
+  }
+
+  function resolveActivityRow() {
+    return (
+      document.querySelector(
+        '#prospectLeadsTable tbody tr.result-row.selected, tr.result-row.selected:not(.result-row--panel-source)',
+      ) || null
+    );
+  }
+
+  async function deleteNote(timestamp, value) {
+    if (typeof window.__deleteLeadPanelNote === 'function') {
+      const row = resolveActivityRow();
+      if (row) return window.__deleteLeadPanelNote(row, timestamp, value);
+    }
+    const ts = String(timestamp || '').trim();
+    const text = String(value || '').trim();
+    if (!ts) return false;
+    if (!window.confirm('Delete this note?')) return false;
+    const row = resolveActivityRow();
+    removeNoteFromRow(row, ts, text);
+    removeNoteFromCache(ts, text, row);
+    paint(window.__leadActivityFilter || 'notes');
+    const leadKey = resolveLeadKey(row);
+    if (leadKey) {
+      try {
+        const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/notes/delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ timestamp: ts, value: text }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || 'Could not delete note');
+        }
+        if (row && Array.isArray(data.updates)) {
+          try {
+            row.dataset.updates = JSON.stringify(data.updates);
+          } catch (_) {
+            /* ignore */
+          }
+        }
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Note deleted.', { variant: 'success' });
+        }
+      } catch (err) {
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast(err.message || 'Failed to delete note.', { variant: 'error' });
+        }
+      }
+    }
+    return true;
+  }
+
   function paint(filter) {
     const host = activityHost();
     if (!host) return false;
@@ -241,10 +335,19 @@
             })
           : '—';
         const label = String(e.typ || 'note').replace(/_/g, ' ');
-        return `<div class="relative pl-10 pb-1">
+        const canDelete = isManualNote(e.raw);
+        const deleteBtn = canDelete
+          ? `<button type="button" class="lead-activity-note-delete shrink-0 opacity-70 hover:opacity-100 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:text-rose-600 dark:text-rose-400 dark:hover:text-rose-300 transition-opacity px-1.5 py-0.5 rounded-md hover:bg-rose-500/10" data-note-ts="${escapeHtmlAttr(String(e.ts || ''))}" data-note-value="${escapeHtmlAttr(encodeURIComponent(String(e.text || '')))}" aria-label="Delete this note">Delete</button>`
+          : '';
+        return `<div class="relative pl-10 pb-1 group/activity">
           <div class="absolute left-1 top-1 w-2.5 h-2.5 rounded-full bg-brand-yellow shadow-sm ring-2 ring-white dark:ring-slate-900"></div>
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(label)}</p>
-          <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${escapeHtml(e.text)}</p>
+          <div class="flex items-start justify-between gap-2">
+            <div class="min-w-0 flex-1">
+              <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${escapeHtml(when)} · ${escapeHtml(label)}</p>
+              <p class="text-xs font-semibold text-brand-dark dark:text-slate-200 mt-1 leading-relaxed">${escapeHtml(e.text)}</p>
+            </div>
+            ${deleteBtn}
+          </div>
         </div>`;
       })
       .join('');
@@ -389,6 +492,20 @@
         const f = filterBtn.getAttribute('data-activity-filter') || 'all';
         window.__leadActivityFilter = f;
         paint(f);
+        return;
+      }
+      const deleteBtn = e.target.closest('.lead-activity-note-delete');
+      if (deleteBtn && deleteBtn.closest('#mobilePanel')) {
+        e.preventDefault();
+        e.stopPropagation();
+        const ts = deleteBtn.getAttribute('data-note-ts') || '';
+        let val = deleteBtn.getAttribute('data-note-value') || '';
+        try {
+          val = decodeURIComponent(val);
+        } catch {
+          /* keep raw */
+        }
+        void deleteNote(ts, val);
       }
     },
     true,
@@ -412,6 +529,8 @@
     syncFromRow,
     cacheNote,
     readCachedNotes,
+    removeNote: removeNoteFromCache,
+    deleteNote,
   };
   window.__adhelloPaintLeadPanelNotes = paint;
 })();

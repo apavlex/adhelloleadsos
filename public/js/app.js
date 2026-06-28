@@ -3073,6 +3073,35 @@ document.addEventListener('DOMContentLoaded', () => {
     persistPanelNotesCache();
   }
 
+  function removePanelNoteFromCache(row, timestamp, value) {
+    if (window.__adhelloLeadPanelNotes && typeof window.__adhelloLeadPanelNotes.removeNote === 'function') {
+      window.__adhelloLeadPanelNotes.removeNote(timestamp, value, row);
+      return;
+    }
+    const ts = String(timestamp || '').trim();
+    const val = String(value || '').trim();
+    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
+    let changed = false;
+    collectPanelActivityKeys(row).forEach((key) => {
+      const list = window.__leadPanelNotesByKey[key];
+      if (!Array.isArray(list) || !list.length) return;
+      const next = list.filter(
+        (n) =>
+          !(
+            n &&
+            String(n.timestamp || '') === ts &&
+            (!val || String(n.value || '') === val)
+          ),
+      );
+      if (next.length !== list.length) {
+        if (next.length) window.__leadPanelNotesByKey[key] = next;
+        else delete window.__leadPanelNotesByKey[key];
+        changed = true;
+      }
+    });
+    if (changed) persistPanelNotesCache();
+  }
+
   function syncPanelNotesCacheFromRow(row) {
     const key = resolvePanelActivityKey(row);
     if (!key || !row) return;
@@ -3303,6 +3332,7 @@ document.addEventListener('DOMContentLoaded', () => {
     leadPanelNoteDeleteInflight = true;
     const prevUpdates = readRowUpdatesArray(row).slice();
     removeNoteFromRowLocal(row, ts, text);
+    removePanelNoteFromCache(row, ts, text);
     refreshLeadActivityTimeline(row);
 
     try {
