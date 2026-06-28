@@ -1179,6 +1179,93 @@
   }
   window.__runBulkGhlEmailFromBarEarly = runBulkGhlEmailFromBarEarly;
 
+  function collectDirectMailLeadKeysEarly() {
+    const keys = collectSelectedLeadKeysEarly();
+    if (keys.length) return keys;
+    if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
+      return window.__getSelectedLeadKeysForBulk();
+    }
+    if (typeof window.__ensureBulkSelectionKeys === 'function') {
+      return window.__ensureBulkSelectionKeys();
+    }
+    return collectSelectedLeadKeysFromDom();
+  }
+
+  function runBulkDirectMailFromBarEarly() {
+    const mailBtn = document.getElementById('bulkDirectMailBtn');
+    const keys = collectDirectMailLeadKeysEarly();
+    if (!keys.length) {
+      showBulkBarFeedbackEarly('Select at least one saved lead first.', 'error');
+      return;
+    }
+    const n = keys.length;
+    if (typeof window.showBulkActionConfirmation === 'function') {
+      window.showBulkActionConfirmation(
+        `Adding ${n} selected lead${n === 1 ? '' : 's'} to the Direct Mail folder…`,
+        'info',
+      );
+    }
+    if (typeof window.__flashBulkBarBtn === 'function') {
+      window.__flashBulkBarBtn(mailBtn, 'Saving…', 700);
+    }
+    const finish = function (msg, ok) {
+      if (typeof window.showBulkActionConfirmation === 'function') {
+        window.showBulkActionConfirmation(msg, ok ? 'success' : 'error');
+      }
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: ok ? 'success' : 'error' });
+      }
+      if (typeof window.__flashBulkBarBtn === 'function' && mailBtn) {
+        window.__flashBulkBarBtn(mailBtn, ok ? 'Added ✓' : 'Failed', 900);
+      }
+    };
+    if (typeof window.__addLeadsToDirectMailQueue === 'function') {
+      window
+        .__addLeadsToDirectMailQueue(keys)
+        .then(function (data) {
+          const added = data && data.added != null ? data.added : n;
+          finish(
+            `Added ${added} lead${added === 1 ? '' : 's'} to the Direct Mail folder.`,
+            true,
+          );
+          if (typeof window.__persistDirectMailSelectionKeys === 'function') {
+            window.__persistDirectMailSelectionKeys(
+              typeof window.__directMailSessionKeys === 'function'
+                ? window.__directMailSessionKeys()
+                : keys,
+            );
+          }
+          const folderKey = data && data.folderKey ? String(data.folderKey) : '';
+          const folderLink = document.getElementById('bulkOpenGhlContactsLink');
+          if (folderLink && folderKey) {
+            const folderUrl =
+              typeof window.__buildDirectMailFolderUrl === 'function'
+                ? window.__buildDirectMailFolderUrl(folderKey)
+                : `/prospecting?tab=pipeline&folderKey=${encodeURIComponent(folderKey)}`;
+            folderLink.href = folderUrl;
+            folderLink.textContent = 'Open Direct Mail folder →';
+            folderLink.classList.remove('hidden');
+          }
+        })
+        .catch(function (err) {
+          finish((err && err.message) || 'Could not add leads to Direct Mail folder.', false);
+        });
+      return;
+    }
+    if (typeof window.__persistDirectMailSelectionKeys === 'function') {
+      window.__persistDirectMailSelectionKeys(keys);
+    }
+    const href =
+      typeof window.__buildDirectMailSelectionUrl === 'function'
+        ? window.__buildDirectMailSelectionUrl(keys)
+        : `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`;
+    finish('Opening Direct Mail…', true);
+    window.setTimeout(function () {
+      window.location.href = href;
+    }, 120);
+  }
+  window.__runBulkDirectMailFromBarEarly = runBulkDirectMailFromBarEarly;
+
   function handleBulkPrimaryActionClick(e, action) {
     const now = Date.now();
     if (handleBulkPrimaryActionClick.__lastAt && now - handleBulkPrimaryActionClick.__lastAt < 450) return;
@@ -1245,65 +1332,7 @@
         if (e.target.closest('#bulkDirectMailBtn')) {
           e.preventDefault();
           e.stopPropagation();
-          const mailBtn = document.getElementById('bulkDirectMailBtn');
-          const keys = collectSelectedLeadKeysEarly();
-          if (!keys.length) {
-            showBulkBarFeedbackEarly('Select at least one lead.', 'error');
-            return;
-          }
-          const n = keys.length;
-          if (typeof window.showBulkActionConfirmation === 'function') {
-            window.showBulkActionConfirmation(
-              `Queuing ${n} selected lead${n === 1 ? '' : 's'} for direct mail…`,
-              'info',
-            );
-          }
-          if (typeof window.__flashBulkBarBtn === 'function') {
-            window.__flashBulkBarBtn(mailBtn, 'Saving…', 700);
-          }
-          const finish = function (msg, ok) {
-            if (typeof window.showBulkActionConfirmation === 'function') {
-              window.showBulkActionConfirmation(msg, ok ? 'success' : 'error');
-            }
-            if (typeof window.showAppToast === 'function') {
-              window.showAppToast(msg, { variant: ok ? 'success' : 'error' });
-            }
-            if (typeof window.__flashBulkBarBtn === 'function' && mailBtn) {
-              window.__flashBulkBarBtn(mailBtn, ok ? 'Queued ✓' : 'Failed', 900);
-            }
-          };
-          if (typeof window.__addLeadsToDirectMailQueue === 'function') {
-            window
-              .__addLeadsToDirectMailQueue(keys)
-              .then(function (data) {
-                const added = data && data.added != null ? data.added : n;
-                finish(
-                  `Added ${added} lead${added === 1 ? '' : 's'} to Direct Mail folder.`,
-                  true,
-                );
-                if (typeof window.__persistDirectMailSelectionKeys === 'function') {
-                  window.__persistDirectMailSelectionKeys(
-                    typeof window.__directMailSessionKeys === 'function'
-                      ? window.__directMailSessionKeys()
-                      : keys,
-                  );
-                }
-              })
-              .catch(function (err) {
-                finish((err && err.message) || 'Could not queue for direct mail.', false);
-              });
-            return;
-          }
-          if (typeof window.__persistDirectMailSelectionKeys === 'function') {
-            window.__persistDirectMailSelectionKeys(keys);
-          }
-          const href =
-            typeof window.__buildDirectMailSelectionUrl === 'function'
-              ? window.__buildDirectMailSelectionUrl(keys)
-              : `/direct-mail?keys=${encodeURIComponent(keys.join(','))}`;
-          window.setTimeout(function () {
-            window.location.href = href;
-          }, 120);
+          runBulkDirectMailFromBarEarly();
           return;
         }
         if (e.target.closest('#bulkFocusModeBtn')) {
@@ -1358,6 +1387,12 @@
         const bar = document.getElementById('bulkActionBar');
         if (!bar || bar.dataset.visible !== 'true') return;
         if (!e.target || !e.target.closest || !e.target.closest('#bulkActionBar')) return;
+        if (e.target.closest('#bulkDirectMailBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          runBulkDirectMailFromBarEarly();
+          return;
+        }
         if (e.target.closest('#bulkSmsBtn')) {
           handleBulkPrimaryActionClick(e, 'sms');
           return;

@@ -13469,7 +13469,10 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.classList.remove('opacity-40', 'pointer-events-none', 'cursor-not-allowed');
       });
     }
-    if (bulkFocusModeBtn || bulkDirectMailBtn || bulkPushGhlBtn) {
+    const focusBtn = bulkFocusModeBtn || document.getElementById('bulkFocusModeBtn');
+    const directMailBtn = bulkDirectMailBtn || document.getElementById('bulkDirectMailBtn');
+    const pushGhlBtn = bulkPushGhlBtn || document.getElementById('bulkPushGhlBtn');
+    if (focusBtn || directMailBtn || pushGhlBtn) {
       const keys =
         hasSelection && typeof window.__collectFocusSelectionKeys === 'function'
           ? window.__collectFocusSelectionKeys()
@@ -13492,15 +13495,17 @@ document.addEventListener('DOMContentLoaded', () => {
           btn.setAttribute('aria-disabled', !enabled ? 'true' : 'false');
           if (href) btn.setAttribute('href', href);
         } else {
-          btn.disabled = false;
+          btn.disabled = !enabled;
           btn.setAttribute('aria-disabled', !enabled ? 'true' : 'false');
           btn.classList.toggle('opacity-40', !enabled);
           btn.classList.toggle('cursor-not-allowed', !enabled);
+          btn.classList.toggle('pointer-events-none', !enabled);
+          if (enabled) btn.style.removeProperty('pointer-events');
         }
         btn.setAttribute('title', enabled ? titleEnabled : titleDisabled);
       };
       syncPrimaryBtn(
-        bulkFocusModeBtn,
+        focusBtn,
         typeof window.__buildFocusSelectionUrl === 'function'
           ? window.__buildFocusSelectionUrl(keys, 'call')
           : keys.length
@@ -13514,16 +13519,16 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       const outreachCount = keys.length > 0 ? keys.length : count;
       syncPrimaryBtn(
-        bulkDirectMailBtn,
+        directMailBtn,
         null,
         hasSelection,
         outreachCount
-          ? `Tag ${outreachCount} selected lead${outreachCount === 1 ? '' : 's'} for direct mail`
-          : 'Select leads to queue for direct mail',
+          ? `Add ${outreachCount} selected lead${outreachCount === 1 ? '' : 's'} to the Direct Mail folder (address can be enriched later)`
+          : 'Select leads to add to the Direct Mail folder',
         'Select at least one lead',
       );
       syncPrimaryBtn(
-        bulkPushGhlBtn,
+        pushGhlBtn,
         null,
         hasSelection,
         outreachCount
