@@ -188,18 +188,46 @@
     return escapeHtml(s).replace(/'/g, '&#39;');
   }
 
+  function noteTimestampsMatch(stored, requested) {
+    const a = String(stored || '').trim();
+    const b = String(requested || '').trim();
+    if (!a || !b) return false;
+    if (a === b) return true;
+    const ta = Date.parse(a);
+    const tb = Date.parse(b);
+    if (Number.isFinite(ta) && Number.isFinite(tb)) {
+      return Math.floor(ta / 1000) === Math.floor(tb / 1000);
+    }
+    return false;
+  }
+
   function noteMatches(entry, timestamp, value) {
     if (!entry) return false;
-    const ts = String(timestamp || '').trim();
     const val = String(value || '').trim();
-    if (String(entry.timestamp || entry.ts || '') !== ts) return false;
-    if (val && String(entry.value || entry.content || entry.message || '').trim() !== val) {
-      return false;
-    }
+    const body = String(entry.value || entry.content || entry.message || '').trim();
+    if (val && body !== val) return false;
+    if (!noteTimestampsMatch(entry.timestamp || entry.ts || '', timestamp)) return false;
     return true;
   }
 
+  function purgeAllMatchingNotesFromCache(timestamp, value) {
+    readCacheMap();
+    let changed = false;
+    Object.keys(window.__leadPanelNotesByKey || {}).forEach((key) => {
+      const list = window.__leadPanelNotesByKey[key];
+      if (!Array.isArray(list) || !list.length) return;
+      const next = list.filter((n) => !noteMatches(n, timestamp, value));
+      if (next.length !== list.length) {
+        if (next.length) window.__leadPanelNotesByKey[key] = next;
+        else delete window.__leadPanelNotesByKey[key];
+        changed = true;
+      }
+    });
+    if (changed) persistCache();
+  }
+
   function removeNoteFromCache(timestamp, value, extraRow) {
+    purgeAllMatchingNotesFromCache(timestamp, value);
     readCacheMap();
     let changed = false;
     collectKeys(extraRow).forEach((key) => {
@@ -223,6 +251,23 @@
     } catch (_) {
       /* ignore */
     }
+    const val = String(value || '').trim();
+    if (row.dataset.logsSnippet) {
+      try {
+        const logs = JSON.parse(row.dataset.logsSnippet || '[]');
+        if (Array.isArray(logs)) {
+          const nextLogs = logs.filter((log) => {
+            if (String(log.type || '') !== 'note') return true;
+            const msg = String(log.message || '').trim();
+            if (val && msg !== val) return true;
+            return !noteTimestampsMatch(log.timestamp || '', timestamp);
+          });
+          row.dataset.logsSnippet = JSON.stringify(nextLogs);
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    }
   }
 
   function resolveActivityRow() {
@@ -244,7 +289,7 @@
     if (!window.confirm('Delete this note?')) return false;
     const row = resolveActivityRow();
     removeNoteFromRow(row, ts, text);
-    removeNoteFromCache(ts, text, row);
+    purgeAllMatchingNotesFromCache(ts, text);
     paint(window.__leadActivityFilter || 'notes');
     const leadKey = resolveLeadKey(row);
     if (leadKey) {
@@ -529,7 +574,7 @@
     syncFromRow,
     cacheNote,
     readCachedNotes,
-    removeNote: removeNoteFromCache,
+    removeNote: purgeAllMatchingNotesFromCache,
     deleteNote,
   };
   window.__adhelloPaintLeadPanelNotes = paint;

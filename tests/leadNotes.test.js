@@ -27,6 +27,42 @@ test('isDeletableLeadNote allows panel notes only', () => {
   );
 });
 
+test('findDeletableLeadNote matches panel note by value when timestamp differs within a second', () => {
+  const lead = {
+    updates: [
+      {
+        type: 'note',
+        value: 'hello',
+        timestamp: '2026-06-27T22:12:00.456Z',
+        source: 'panel_post',
+      },
+    ],
+    logs: [],
+  };
+  const match = { timestamp: '2026-06-27T22:12:00.123Z', value: 'hello' };
+  assert.ok(findDeletableLeadNote(lead, match));
+  const { updates } = removeLeadNoteFromLead(lead, match);
+  assert.equal(updates.length, 0);
+});
+
+test('findDeletableLeadNote matches unique panel note by value alone', () => {
+  const lead = {
+    updates: [
+      {
+        type: 'note',
+        value: 'only note',
+        timestamp: '2026-06-27T22:12:00.000Z',
+        source: 'panel_post',
+      },
+    ],
+    logs: [],
+  };
+  const match = { timestamp: '2026-06-27T22:12:05.000Z', value: 'only note' };
+  assert.ok(findDeletableLeadNote(lead, match));
+  const { updates } = removeLeadNoteFromLead(lead, match);
+  assert.equal(updates.length, 0);
+});
+
 test('removeLeadNoteFromLead removes matching update and log', () => {
   const lead = {
     updates: [

@@ -2950,14 +2950,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
       if (lk) return lk;
       const tk = normalizeLeadTitleKey(row.dataset.title || '');
-      if (tk) return `title:${tk}`;
+      if (tk) return `title:${tk.toLowerCase()}`;
     }
     const ak = String(window.__leadPanelActiveRowKey || '').trim().replace(/^lead:/i, '');
     if (ak) return ak;
     const titleEl = document.getElementById('mobilePanelTitle');
     const panelTitle = titleEl ? String(titleEl.textContent || '').trim() : '';
     const tk2 = normalizeLeadTitleKey(panelTitle);
-    if (tk2 && tk2 !== normalizeLeadTitleKey('Company Name')) return `title:${tk2}`;
+    if (tk2 && tk2 !== normalizeLeadTitleKey('Company Name')) return `title:${tk2.toLowerCase()}`;
     return '';
   }
 
@@ -2980,14 +2980,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
       add(lk);
       const tk = normalizeLeadTitleKey(row.dataset.title || '');
-      if (tk) add(`title:${tk}`);
+      if (tk) add(`title:${tk.toLowerCase()}`);
     }
     const ak = String(window.__leadPanelActiveRowKey || '').trim().replace(/^lead:/i, '');
     add(ak);
     const titleEl = document.getElementById('mobilePanelTitle');
     const panelTitle = titleEl ? String(titleEl.textContent || '').trim() : '';
     const tk2 = normalizeLeadTitleKey(panelTitle);
-    if (tk2 && tk2 !== normalizeLeadTitleKey('Company Name')) add(`title:${tk2}`);
+    if (tk2 && tk2 !== normalizeLeadTitleKey('Company Name')) add(`title:${tk2.toLowerCase()}`);
     return keys;
   }
 
@@ -3026,7 +3026,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
     const tk = normalizeLeadTitleKey(row.dataset.title || '');
     if (!lk || !tk) return;
-    const titleKey = `title:${tk}`;
+    const titleKey = `title:${tk.toLowerCase()}`;
     const titleNotes = readCachedPanelNotes(titleKey);
     if (!titleNotes.length) return;
     const leadNotes = readCachedPanelNotes(lk);
@@ -3082,14 +3082,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const val = String(value || '').trim();
     window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
     let changed = false;
-    collectPanelActivityKeys(row).forEach((key) => {
+    Object.keys(window.__leadPanelNotesByKey).forEach((key) => {
       const list = window.__leadPanelNotesByKey[key];
       if (!Array.isArray(list) || !list.length) return;
       const next = list.filter(
         (n) =>
           !(
             n &&
-            String(n.timestamp || '') === ts &&
+            panelNoteTimestampsMatch(n.timestamp || '', ts) &&
             (!val || String(n.value || '') === val)
           ),
       );
@@ -3276,13 +3276,26 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__adhelloSubmitLeadPanelNoteImpl = submitLeadPanelNote;
   window.__applyLeadPanelQuickLogTag = applyLeadPanelQuickLogTag;
 
+  function panelNoteTimestampsMatch(stored, requested) {
+    const a = String(stored || '').trim();
+    const b = String(requested || '').trim();
+    if (!a || !b) return false;
+    if (a === b) return true;
+    const ta = Date.parse(a);
+    const tb = Date.parse(b);
+    if (Number.isFinite(ta) && Number.isFinite(tb)) {
+      return Math.floor(ta / 1000) === Math.floor(tb / 1000);
+    }
+    return false;
+  }
+
   function leadPanelNoteMatchEntry(entry, timestamp, value) {
     if (!entry || String(entry.type) !== 'note') return false;
     if (entry.source === 'quick_log_pill') return false;
     if (entry.disposition || entry.statusChange) return false;
     const ts = String(timestamp || '').trim();
     const val = String(value || '').trim();
-    if (String(entry.timestamp || entry.ts || '') !== ts) return false;
+    if (!panelNoteTimestampsMatch(entry.timestamp || entry.ts || '', ts)) return false;
     const body = String(entry.value || entry.content || entry.message || '').trim();
     if (val && body !== val) return false;
     return true;
@@ -3305,7 +3318,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const val = String(value || '').trim();
     logs = logs.filter((log) => {
       if (String(log.type || '') !== 'note') return true;
-      if (String(log.timestamp || '') !== ts) return true;
+      if (!panelNoteTimestampsMatch(log.timestamp || '', ts)) return true;
       if (val && String(log.message || '').trim() !== val) return true;
       return false;
     });
@@ -3348,21 +3361,39 @@ document.addEventListener('DOMContentLoaded', () => {
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success) {
-        throw new Error((data && data.error) || 'Could not delete note');
+        const errMsg = (data && data.error) || 'Could not delete note';
+        const notFound = res.status === 404 || /not found/i.test(String(errMsg));
+        if (notFound) {
+          removePanelNoteFromCache(row, ts, text);
+          refreshLeadActivityTimeline(row, 'notes');
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Note removed.', { variant: 'success' });
+          }
+          return true;
+        }
+        throw new Error(errMsg);
       }
-      if (data.lead) {
-        syncPersistedLeadToRowDataset(row, data.lead);
-      } else if (Array.isArray(data.updates)) {
-        applyServerUpdatesToRow(row, data.updates);
+      if (Array.isArray(data.updates)) {
+        writeRowUpdatesArray(row, data.updates);
+      } else if (data.lead && Array.isArray(data.lead.updates)) {
+        writeRowUpdatesArray(row, data.lead.updates);
       }
-      refreshLeadActivityTimeline(row);
+      if (data.lead && Array.isArray(data.lead.logs)) {
+        try {
+          row.dataset.logsSnippet = JSON.stringify(data.lead.logs.slice(-14));
+        } catch (_) {
+          /* ignore */
+        }
+      }
+      removePanelNoteFromCache(row, ts, text);
+      refreshLeadActivityTimeline(row, 'notes');
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Note deleted.', { variant: 'success' });
       }
       return true;
     } catch (err) {
       writeRowUpdatesArray(row, prevUpdates);
-      refreshLeadActivityTimeline(row);
+      refreshLeadActivityTimeline(row, 'notes');
       if (typeof window.showAppToast === 'function') {
         window.showAppToast(err.message || 'Failed to delete note.', { variant: 'error' });
       }

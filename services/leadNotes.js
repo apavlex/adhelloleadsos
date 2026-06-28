@@ -13,12 +13,25 @@ function isDeletableLeadNote(entry) {
   return noteEntryBody(entry).length > 0;
 }
 
+function noteTimestampsMatch(stored, requested) {
+  const a = String(stored || '').trim();
+  const b = String(requested || '').trim();
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  if (Number.isFinite(ta) && Number.isFinite(tb)) {
+    return Math.floor(ta / 1000) === Math.floor(tb / 1000);
+  }
+  return false;
+}
+
 function leadNoteMatches(entry, match) {
   if (!isDeletableLeadNote(entry)) return false;
   const ts = String((match && match.timestamp) || '').trim();
   const val = String((match && match.value) || '').trim();
   if (!ts) return false;
-  if (String(entry.timestamp || entry.ts || '') !== ts) return false;
+  if (!noteTimestampsMatch(entry.timestamp || entry.ts || '', ts)) return false;
   if (val && noteEntryBody(entry) !== val) return false;
   return true;
 }
@@ -29,30 +42,45 @@ function leadNoteLogMatches(log, match) {
   const ts = String((match && match.timestamp) || '').trim();
   const val = String((match && match.value) || '').trim();
   if (!ts) return false;
-  if (String(log.timestamp || '') !== ts) return false;
+  if (!noteTimestampsMatch(log.timestamp || '', ts)) return false;
   if (val && String(log.message || '').trim() !== val) return false;
   return true;
 }
 
 function removeLeadNoteFromLead(lead, match) {
+  const target = findDeletableLeadNote(lead, match);
+  const resolvedMatch = target
+    ? {
+        timestamp: String(target.timestamp || target.ts || match.timestamp || ''),
+        value: noteEntryBody(target) || String((match && match.value) || ''),
+      }
+    : match;
   const updates = (Array.isArray(lead && lead.updates) ? lead.updates : []).filter(
-    (u) => !leadNoteMatches(u, match),
+    (u) => !leadNoteMatches(u, resolvedMatch),
   );
   const logs = (Array.isArray(lead && lead.logs) ? lead.logs : []).filter(
-    (log) => !leadNoteLogMatches(log, match),
+    (log) => !leadNoteLogMatches(log, resolvedMatch),
   );
   return { updates, logs };
 }
 
 function findDeletableLeadNote(lead, match) {
-  return (Array.isArray(lead && lead.updates) ? lead.updates : []).find((u) =>
-    leadNoteMatches(u, match),
+  const updates = Array.isArray(lead && lead.updates) ? lead.updates : [];
+  const direct = updates.find((u) => leadNoteMatches(u, match));
+  if (direct) return direct;
+  const val = String((match && match.value) || '').trim();
+  if (!val) return null;
+  const candidates = updates.filter(
+    (u) => isDeletableLeadNote(u) && noteEntryBody(u) === val,
   );
+  if (candidates.length === 1) return candidates[0];
+  return null;
 }
 
 module.exports = {
   noteEntryBody,
   isDeletableLeadNote,
+  noteTimestampsMatch,
   leadNoteMatches,
   leadNoteLogMatches,
   removeLeadNoteFromLead,
