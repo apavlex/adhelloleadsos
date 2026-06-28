@@ -52,6 +52,41 @@ async function patchLeadDispositionForGhlPush(opts) {
   return { ok: true, lead: updated, code, key: storageKey };
 }
 
+function appendLeadPanelUpdate(existing, entry) {
+  const updates = Array.isArray(existing && existing.updates) ? [...existing.updates] : [];
+  updates.push({
+    timestamp: new Date().toISOString(),
+    ...entry,
+  });
+  return updates;
+}
+
+/**
+ * Save an unposted panel note on the lead before GHL push (included in note sync).
+ * @param {{ leadKey: string, content: string, workspaceId: string }} opts
+ */
+async function appendPanelNoteBeforeGhlPush(opts) {
+  const content = String(opts.content || '').trim();
+  const workspaceId = opts.workspaceId || 'default';
+  if (!opts.leadKey || !content) return { skipped: true, reason: 'missing_fields' };
+
+  const storageKey =
+    (await dbService.resolveLeadStorageKey(opts.leadKey, workspaceId)) ||
+    normalizeLeadStorageKey(opts.leadKey);
+  if (!storageKey) return { skipped: true, reason: 'lead_not_found' };
+
+  const existing = await dbService.getLead(storageKey);
+  if (!existing) return { skipped: true, reason: 'lead_not_found' };
+
+  const updates = appendLeadPanelUpdate(existing, {
+    type: 'note',
+    value: content,
+    source: 'panel_post',
+  });
+  const updated = await dbService.updateLead(storageKey, { updates }, workspaceId);
+  return { ok: true, lead: updated, key: storageKey };
+}
+
 /**
  * Map GHL tag names to workspace tag keys (by catalog name). Keeps existing keys and
  * non-catalog strings that are already on the lead.
@@ -181,6 +216,7 @@ function triggerGhlProspectSync(leadKey, workspaceId, extra = {}) {
 module.exports = {
   normalizeLeadStorageKey,
   patchLeadDispositionForGhlPush,
+  appendPanelNoteBeforeGhlPush,
   resolveGhlTagNamesToLeadKeys,
   resolveLeadTagNamesForGhl,
   prepareLeadForGhlPush,

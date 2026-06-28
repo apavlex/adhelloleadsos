@@ -2161,7 +2161,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
     pointer-events: none;
 }
 #leadPanelComposerDrawer.lead-panel-composer-drawer.lead-panel-composer-drawer--open {
-    max-height: 380px;
+    max-height: 9rem;
     opacity: 1;
     pointer-events: auto;
 }

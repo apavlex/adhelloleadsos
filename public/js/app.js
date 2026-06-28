@@ -2773,7 +2773,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let leadPanelNoteSubmitInflight = false;
 
   function setLeadPanelNotePostLoading(loading) {
-    const addNoteBtn = document.getElementById('addNoteBtn');
+    const addNoteBtn = getLeadPanelEl('addNoteBtn');
     if (!addNoteBtn) return;
     if (loading) {
       if (!addNoteBtn.getAttribute('data-default-label')) {
@@ -2810,8 +2810,8 @@ document.addEventListener('DOMContentLoaded', () => {
   async function submitLeadPanelNote() {
     if (leadPanelNoteSubmitInflight) return false;
 
-    const row = currentRow;
-    const noteInput = document.getElementById('noteInput');
+    const row = typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : currentRow;
+    const noteInput = getLeadPanelEl('noteInput');
     const content = noteInput ? String(noteInput.value || '').trim() : '';
     if (!content) {
       if (typeof window.showAppToast === 'function') {
@@ -2852,7 +2852,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (noteInput) noteInput.value = '';
+      window.__leadActivityFilter = 'notes';
+      syncLeadActivityFilterButtons('notes');
       refreshLeadActivityTimeline(row);
+      if (typeof scrollLeadPanelToSection === 'function') {
+        scrollLeadPanelToSection('leadPanelHistorySection');
+      }
 
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Note saved.', { variant: 'success' });
@@ -3393,6 +3398,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (selection && selection.disposition) {
       payload.disposition = selection.disposition;
       if (notes) payload.dispositionNotes = notes;
+    } else if (notes) {
+      payload.pendingNote = notes;
     }
     return payload;
   }
@@ -3437,7 +3444,21 @@ document.addEventListener('DOMContentLoaded', () => {
       let msg = 'GHL sync complete';
       if (tagLabel) msg += ` · AO: ${tagLabel}`;
       if (payload.tagNoWebsite) msg += ' · no website';
+      if (payload.pendingNote || payload.dispositionNotes) msg += ' · notes synced';
       notifyLeadPanelDial(msg, 'success');
+      if (payload.pendingNote || payload.dispositionNotes) {
+        const noteInput = document.getElementById('noteInput');
+        if (noteInput) noteInput.value = '';
+        if (payload.pendingNote) {
+          appendRowActivityEntry(row, {
+            type: 'note',
+            value: payload.pendingNote,
+            timestamp: new Date().toISOString(),
+            source: 'panel_post',
+          });
+          refreshLeadActivityTimeline(row);
+        }
+      }
       confirmOutreachBtnSuccess(btn, '✓ Synced');
     } catch (err) {
       notifyLeadPanelDial(err.message || 'GHL sync failed.', 'error');
@@ -3598,6 +3619,13 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         await pushLeadPanelToGhl();
+        return;
+      }
+
+      if (e.target.closest('#addNoteBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await submitLeadPanelNote();
         return;
       }
 
@@ -7645,7 +7673,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filtered.length) {
       const emptyMsg =
         f === 'notes'
-          ? 'No notes yet. Post one in Quick log below, or switch to All to see calls and pipeline activity.'
+          ? 'No notes yet. Post one above Outreach intelligence, or switch to All to see calls and pipeline activity.'
           : f === 'calls'
             ? 'No call activity logged yet. Use Call, Quick log tags, or switch to All.'
             : 'No activity yet. Post a note, log a call, or update pipeline status.';
@@ -9620,7 +9648,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Populate panel from row data ---
   function populatePanel(row) {
     if (!row) return;
-    closeLeadPanelComposer();
+    openLeadPanelComposer();
     setLeadPanelOutreachFeedback('');
     prepareLeadRowForPanel(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
@@ -10947,7 +10975,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Generate Mailto Email Draft ---
   const leadPanelOutreachEmailBtn = document.getElementById('leadPanelOutreachEmailBtn');
-  const leadPanelScriptsBtn = document.getElementById('leadPanelScriptsBtn');
   const sidebarReportEmailBtn = document.getElementById('sidebarReportEmailBtn');
   const sidebarIncludeCoupon = document.getElementById('sidebarIncludeCoupon');
   const sidebarCouponWarning = document.getElementById('sidebarCouponWarning');
@@ -10993,15 +11020,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
-  if (leadPanelScriptsBtn) {
-    leadPanelScriptsBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (!currentRow) return;
-      if (typeof openLeadPanelComposer === 'function') openLeadPanelComposer();
-      if (typeof openEmailIntelModal === 'function') openEmailIntelModal(currentRow);
-    });
-  }
+  /* Outreach buttons: bindLeadPanelBottomActions delegation */
 
   async function handleSidebarReportEmailClick() {
     if (!currentRow) {

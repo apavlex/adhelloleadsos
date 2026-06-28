@@ -1132,8 +1132,10 @@ router.post('/:key/update', async (req, res, next) => {
 // POST /leads/:key/notes — add a note to a lead
 router.post('/:key/notes', express.json(), async (req, res, next) => {
   try {
-    const key = req.params.key;
-    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const rawKey = req.params.key;
+    const fullKey =
+      (await dbService.resolveLeadStorageKey(rawKey, req.workspaceId)) ||
+      leadKeyFromParam(rawKey);
     const content = String((req.body && req.body.content) || '').trim();
     if (!content) {
       return res.status(400).json({ success: false, error: 'Note text is required.' });
@@ -1149,9 +1151,11 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
 
     const rawType = String((req.body && req.body.type) || 'note').trim().toLowerCase();
     const entryType = rawType === 'quick_log' ? 'quick_log' : 'note';
+    const ts = new Date().toISOString();
     const entry = {
       type: entryType,
       value: content,
+      timestamp: ts,
       source: entryType === 'quick_log' ? 'quick_log_pill' : 'panel_post',
     };
     if (req.body && req.body.disposition) {
@@ -1161,12 +1165,31 @@ router.post('/:key/notes', express.json(), async (req, res, next) => {
       entry.statusChange = String(req.body.statusChange).trim();
     }
     const updates = appendLeadUpdate(lead, entry);
+    const deferGhlSync = !!(req.body && req.body.deferGhlSync);
 
-    const updated = await dbService.updateLead(fullKey, { updates }, req.workspaceId);
-    triggerGhlProspectSync(fullKey, req.workspaceId, {
-      trigger: entryType === 'quick_log' ? 'quick_log' : 'note_added',
-      note: content,
-    });
+    const updated = await dbService.updateLead(
+      fullKey,
+      {
+        updates,
+        logs: [
+          {
+            type: entryType === 'quick_log' ? 'quick_log' : 'note',
+            message: content,
+            timestamp: ts,
+          },
+        ],
+      },
+      req.workspaceId,
+    );
+    if (!updated) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (!deferGhlSync) {
+      triggerGhlProspectSync(fullKey, req.workspaceId, {
+        trigger: entryType === 'quick_log' ? 'quick_log' : 'note_added',
+        note: content,
+      });
+    }
     res.json({ success: true, updates: updated.updates || updates, lead: updated });
   } catch (err) {
     next(err);

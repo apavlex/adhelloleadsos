@@ -76,7 +76,21 @@ function findLocalLeadMatch(leads, contact) {
 async function pushNotesToGhl(lead, contactId, integrationEnv) {
   const syncState = normalizeGhlLogSync(lead);
   const logs = Array.isArray(lead.logs) ? lead.logs : [];
-  const pending = logs.filter((log) => shouldPushLog(log, syncState));
+  const updates = Array.isArray(lead.updates) ? lead.updates : [];
+  const fromUpdates = updates
+    .filter((entry) => {
+      const type = String((entry && entry.type) || '').trim();
+      return type === 'note' || type === 'quick_log';
+    })
+    .map((entry) => ({
+      type: entry.type,
+      message: entry.value || entry.message,
+      value: entry.value,
+      timestamp: entry.timestamp,
+      source: entry.source,
+    }));
+  const combined = [...logs, ...fromUpdates];
+  const pending = combined.filter((log) => shouldPushLog(log, syncState));
   if (!pending.length) {
     return { pushed: 0, syncState };
   }
