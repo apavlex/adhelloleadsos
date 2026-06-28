@@ -266,6 +266,25 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  /** Review count for pipeline sort — prefers row data-*; falls back to visible (N) in the cell. */
+  const prospectReviewCountFromRow = (row) => {
+    if (!row || !row.dataset) return 0;
+    let count = parseInt(String(row.dataset.reviews || '').replace(/,/g, ''), 10) || 0;
+    if (typeof row.querySelector === 'function') {
+      const line = row.querySelector('.lead-reviews-line');
+      const txt = line ? String(line.textContent || '') : '';
+      const m = txt.match(/\(\s*([\d,]+)\s*\)/);
+      if (m) {
+        const domCount = parseInt(m[1].replace(/,/g, ''), 10) || 0;
+        if (domCount > count) count = domCount;
+      }
+    }
+    if (count > 0 && String(row.dataset.reviews || '') !== String(count)) {
+      row.dataset.reviews = String(count);
+    }
+    return count;
+  };
+
   const sortProspectTableBy = (columnKey, descending) => {
     const tableBody = getProspectTableBody();
     if (!tableBody) return;
@@ -319,14 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
           break;
         }
         case 'reviews': {
-          const nca = parseInt(a.reviews || 0, 10) || 0;
-          const ncb = parseInt(b.reviews || 0, 10) || 0;
+          const nca = prospectReviewCountFromRow(ra);
+          const ncb = prospectReviewCountFromRow(rb);
           c = nca - ncb;
-          if (c === 0) {
-            const raa = parseFloat(a.rating || 0) || 0;
-            const rbb = parseFloat(b.rating || 0) || 0;
-            c = raa - rbb;
-          }
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         }
@@ -457,7 +471,24 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
-  const PIPELINE_LEADS_PAGE_SIZE = 54;
+  const PIPELINE_PAGE_SIZE_KEY = 'pipelineTablePageSize';
+  const PIPELINE_PAGE_SIZE_OPTIONS = window.__PIPELINE_TABLE_PAGE_SIZE_OPTIONS || [25, 50, 100, 200];
+
+  function readPipelinePageSize() {
+    if (typeof window.__readPipelineTablePageSize === 'function') {
+      return window.__readPipelineTablePageSize();
+    }
+    const n = parseInt(localStorage.getItem(PIPELINE_PAGE_SIZE_KEY) || '25', 10);
+    return PIPELINE_PAGE_SIZE_OPTIONS.includes(n) ? n : 25;
+  }
+
+  function savePipelinePageSize(size) {
+    try {
+      localStorage.setItem(PIPELINE_PAGE_SIZE_KEY, String(size));
+    } catch (_) {
+      /* ignore */
+    }
+  }
 
   const prospectTable = document.getElementById('prospectLeadsTable');
   if (prospectTable) {
@@ -471,10 +502,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const tbody = table.querySelector('tbody');
       const statusEl = document.getElementById('pipelineTablePageStatus');
       const loadMoreBtn = document.getElementById('pipelineTableLoadMore');
+      const pageSizeSelect = document.getElementById('pipelineTablePageSizeSelect');
       const pagingWrap = document.getElementById('pipelineTablePaging');
       if (!tbody || !statusEl || !loadMoreBtn || !pagingWrap) return;
 
-      let visibleLimit = PIPELINE_LEADS_PAGE_SIZE;
+      let pageSize = readPipelinePageSize();
+      let visibleLimit = pageSize;
+      if (pageSizeSelect) {
+        pageSizeSelect.value = String(pageSize);
+        pageSizeSelect.addEventListener('change', () => {
+          const next = parseInt(pageSizeSelect.value, 10);
+          pageSize = PIPELINE_PAGE_SIZE_OPTIONS.includes(next) ? next : 25;
+          savePipelinePageSize(pageSize);
+          visibleLimit = pageSize;
+          applyPipelinePaging();
+          const scrollHost = document.getElementById('prospectPipelineTableScroll');
+          if (scrollHost) scrollHost.scrollTop = 0;
+        });
+      }
       const rowsAlreadyPaged = tbody.querySelector('tr.result-row.pipeline-row-page-hidden');
 
       function pipelineRows() {
@@ -490,13 +535,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const shown = Math.min(visibleLimit, total);
         statusEl.textContent =
           total > 0
-            ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${PIPELINE_LEADS_PAGE_SIZE} per page`
+            ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${pageSize} per page`
             : '';
         const hasMore = total > visibleLimit;
         loadMoreBtn.classList.toggle('hidden', !hasMore);
         pagingWrap.classList.toggle('hidden', total === 0);
         if (hasMore) {
-          const nextBatch = Math.min(PIPELINE_LEADS_PAGE_SIZE, total - visibleLimit);
+          const nextBatch = Math.min(pageSize, total - visibleLimit);
           loadMoreBtn.textContent = `Load more (${nextBatch} more)`;
           loadMoreBtn.disabled = false;
         }
@@ -514,13 +559,15 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       loadMoreBtn.addEventListener('click', () => {
-        visibleLimit += PIPELINE_LEADS_PAGE_SIZE;
+        visibleLimit += pageSize;
         applyPipelinePaging();
       });
 
       window.__pipelineTablePagingApply = applyPipelinePaging;
       window.__pipelineTablePagingResetToFirst = function pipelineTablePagingResetToFirst() {
-        visibleLimit = PIPELINE_LEADS_PAGE_SIZE;
+        pageSize = readPipelinePageSize();
+        visibleLimit = pageSize;
+        if (pageSizeSelect) pageSizeSelect.value = String(pageSize);
         applyPipelinePaging();
         const scrollHost = document.getElementById('prospectPipelineTableScroll');
         if (scrollHost) scrollHost.scrollLeft = 0;
@@ -533,13 +580,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const shown = Math.min(visibleLimit, total);
         statusEl.textContent =
           total > 0
-            ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${PIPELINE_LEADS_PAGE_SIZE} per page`
+            ? `Showing ${shown} of ${total} lead${total === 1 ? '' : 's'} · ${pageSize} per page`
             : '';
         const hasMore = total > visibleLimit;
         loadMoreBtn.classList.toggle('hidden', !hasMore);
         pagingWrap.classList.toggle('hidden', total === 0);
         if (hasMore) {
-          const nextBatch = Math.min(PIPELINE_LEADS_PAGE_SIZE, total - visibleLimit);
+          const nextBatch = Math.min(pageSize, total - visibleLimit);
           loadMoreBtn.textContent = `Load more (${nextBatch} more)`;
           loadMoreBtn.disabled = false;
         }

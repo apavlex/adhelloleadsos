@@ -9,7 +9,17 @@
   var WIDTH_KEY = 'pipelineTableColWidths';
   var DENSITY_KEY = 'prospectLeadTableDensity';
   var VIEW_KEY = 'adhello_pipeline_view';
-  var PAGE_SIZE = 54;
+  var PAGE_SIZE_KEY = 'pipelineTablePageSize';
+  var PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+
+  function readPageSize() {
+    try {
+      var n = parseInt(localStorage.getItem(PAGE_SIZE_KEY) || '25', 10);
+      return PAGE_SIZE_OPTIONS.indexOf(n) >= 0 ? n : 25;
+    } catch (_) {
+      return 25;
+    }
+  }
 
   var PLC_META = [
     { id: 'company' },
@@ -224,7 +234,7 @@
 
       css.push(
         '#prospectLeadsTable:not([data-pipeline-paging-primed="1"]) tbody tr.result-row:nth-child(n+' +
-          (PAGE_SIZE + 1) +
+          (readPageSize() + 1) +
           '){display:none!important}',
       );
 
@@ -271,7 +281,7 @@
       if (tbody) {
         var rows = tbody.querySelectorAll('tr.result-row');
         rows.forEach(function (row, index) {
-          if (index >= PAGE_SIZE) row.classList.add('pipeline-row-page-hidden');
+          if (index >= readPageSize()) row.classList.add('pipeline-row-page-hidden');
         });
       }
       table.dataset.pipelinePrefsPrimed = '1';
@@ -291,6 +301,8 @@
   window.__primePipelinePrefsHead = primeHead;
   window.__primePipelinePrefsDom = primeDom;
   window.__PIPELINE_COL_META = PLC_META;
+  window.__PIPELINE_TABLE_PAGE_SIZE_OPTIONS = PAGE_SIZE_OPTIONS;
+  window.__readPipelineTablePageSize = readPageSize;
 
   primeHead();
 

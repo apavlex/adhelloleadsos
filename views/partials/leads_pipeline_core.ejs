@@ -189,7 +189,7 @@
               <span class="plc-col-resize" data-plc-resize="category" title="Resize column" aria-hidden="true"></span>
             </th>
             <th data-plc="reviews" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle whitespace-nowrap" scope="col">
-              <button type="button" class="prospect-sort-btn" data-prospect-sort="reviews" title="Sort by review count (then rating)">Reviews <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
+              <button type="button" class="prospect-sort-btn" data-prospect-sort="reviews" title="Sort by number of reviews">Reviews <span class="prospect-sort-indicator" aria-hidden="true"></span></button>
               <span class="plc-col-resize" data-plc-resize="reviews" title="Resize column" aria-hidden="true"></span>
             </th>
             <th data-plc="reviewSnippet" class="plc-th-wrap px-2 py-3.5 text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400 align-middle min-w-[8rem] max-w-[14rem]" scope="col">
@@ -680,7 +680,19 @@
     </div>
     <div id="pipelineTablePaging" class="hidden flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-t border-brand-border/20 dark:border-white/10 bg-white/50 dark:bg-slate-900/50">
       <p id="pipelineTablePageStatus" class="text-[11px] font-semibold text-brand-muted dark:text-slate-400"></p>
-      <button type="button" id="pipelineTableLoadMore" class="hidden btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 hover:border-brand-yellow/50 transition-colors">Load more</button>
+      <div class="flex flex-wrap items-center gap-3">
+        <label for="pipelineTablePageSizeSelect" class="flex items-center gap-2 text-[11px] font-semibold text-brand-muted dark:text-slate-400">
+          <span>Show</span>
+          <select id="pipelineTablePageSizeSelect" class="rounded-lg border border-brand-border/35 dark:border-white/15 bg-white dark:bg-slate-900 text-brand-dark dark:text-white text-[11px] font-bold px-2 py-1.5 focus:ring-2 focus:ring-brand-yellow/40 focus:outline-none" aria-label="Rows per page">
+            <option value="25">25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+          <span>per page</span>
+        </label>
+        <button type="button" id="pipelineTableLoadMore" class="hidden btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2 hover:border-brand-yellow/50 transition-colors">Load more</button>
+      </div>
     </div>
   </div>
   <script src="/js/pipeline-view-toggle.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>

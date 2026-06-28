@@ -19,6 +19,7 @@ const {
 const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require('./ghlActionTags');
 const ghlProspectSync = require('./ghlProspectSync');
 const { pushLastProspectedField } = require('./ghlLastProspectedField');
+const { pushReviewFields } = require('./ghlReviewFields');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
 const GHL_TAG_PROSPECTED = 'AO: Prospected';
@@ -250,6 +251,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
   });
   const syncActivityNote = await pushSyncActivityNote(lead, contactId, integrationEnv);
   const lastProspected = await pushLastProspectedField(contactId, integrationEnv);
+  const reviewFields = await pushReviewFields(contactId, lead, integrationEnv);
   const notePush = await pushNotesToGhl(lead, contactId, integrationEnv);
   const notePull = await pullNotesFromGhl(lead, contactId, integrationEnv);
   const followUpTask = await syncFollowUpTaskToGhl(lead, contactId, integrationEnv);
@@ -288,6 +290,7 @@ async function pushLeadToGhlInner(lead, integrationEnv) {
     followUpTask,
     syncActivityNote,
     lastProspected,
+    reviewFields,
   };
 }
 

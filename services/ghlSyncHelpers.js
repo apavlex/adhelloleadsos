@@ -2,6 +2,8 @@
  * Shared helpers for GHL sync — tag union merge and note ↔ log mapping.
  */
 
+const { formatReviewSummaryForNote } = require('./ghlReviewFieldValues');
+
 const AGENCY_OS_NOTE_PREFIX = '[Agency OS]';
 
 const SKIP_LOG_TYPES = new Set(['merge', 'ghl_note']);
@@ -133,6 +135,8 @@ function buildGhlSyncActivityNote(lead, opts = {}) {
     `Prospected in AdHello · ${when}`,
     `Next action: ${actionLabel}`,
   ];
+  const reviewLine = formatReviewSummaryForNote(lead);
+  if (reviewLine) lines.push(reviewLine);
   const notes = String((lead && lead.lastDispositionNotes) || '').trim();
   if (notes) lines.push(notes);
   return lines.join('\n');
