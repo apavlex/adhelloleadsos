@@ -2836,6 +2836,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let leadPanelNoteSubmitInflight = false;
   let leadPanelNotePostSuccessTimer = null;
+  let leadPanelNoteLastPostAt = 0;
+  let leadPanelNoteLastPostBody = '';
 
   function setLeadPanelNotePostLoading(loading) {
     const addNoteBtn = getLeadPanelEl('addNoteBtn');
@@ -2967,10 +2969,85 @@ document.addEventListener('DOMContentLoaded', () => {
       : [];
   }
 
+  function collectPanelActivityKeys(row) {
+    const keys = [];
+    const add = (k) => {
+      const v = String(k || '').trim();
+      if (v && !keys.includes(v)) keys.push(v);
+    };
+    add(resolvePanelActivityKey(row));
+    if (row && row.dataset) {
+      const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
+      add(lk);
+      const tk = normalizeLeadTitleKey(row.dataset.title || '');
+      if (tk) add(`title:${tk}`);
+    }
+    const ak = String(window.__leadPanelActiveRowKey || '').trim().replace(/^lead:/i, '');
+    add(ak);
+    const titleEl = document.getElementById('mobilePanelTitle');
+    const panelTitle = titleEl ? String(titleEl.textContent || '').trim() : '';
+    const tk2 = normalizeLeadTitleKey(panelTitle);
+    if (tk2 && tk2 !== normalizeLeadTitleKey('Company Name')) add(`title:${tk2}`);
+    return keys;
+  }
+
+  function readCachedPanelNotesForRow(row) {
+    const out = [];
+    const seen = new Set();
+    collectPanelActivityKeys(row).forEach((key) => {
+      readCachedPanelNotes(key).forEach((note) => {
+        if (!note) return;
+        const id = `${String(note.timestamp || '')}|${String(note.value || '')}`;
+        if (seen.has(id)) return;
+        seen.add(id);
+        out.push(note);
+      });
+    });
+    return out;
+  }
+
+  function cachePanelNoteEntryUnderKey(key, entry) {
+    if (!key || !entry) return;
+    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
+    const list = window.__leadPanelNotesByKey[key] || [];
+    const exists = list.some(
+      (n) =>
+        n &&
+        String(n.timestamp || '') === String(entry.timestamp || '') &&
+        String(n.value || '') === String(entry.value || ''),
+    );
+    if (!exists) {
+      window.__leadPanelNotesByKey[key] = [...list, entry];
+    }
+  }
+
+  function migratePanelNotesCacheOnSelect(row) {
+    if (!row || !row.dataset) return;
+    const lk = String(row.dataset.leadKey || '').trim().replace(/^lead:/i, '');
+    const tk = normalizeLeadTitleKey(row.dataset.title || '');
+    if (!lk || !tk) return;
+    const titleKey = `title:${tk}`;
+    const titleNotes = readCachedPanelNotes(titleKey);
+    if (!titleNotes.length) return;
+    const leadNotes = readCachedPanelNotes(lk);
+    const seen = new Set(
+      leadNotes.map((n) => `${String(n.timestamp || '')}|${String(n.value || '')}`),
+    );
+    titleNotes.forEach((note) => {
+      const id = `${String(note.timestamp || '')}|${String(note.value || '')}`;
+      if (seen.has(id)) return;
+      seen.add(id);
+      cachePanelNoteEntryUnderKey(lk, note);
+    });
+    if (window.__leadPanelNotesByKey && window.__leadPanelNotesByKey[titleKey]) {
+      delete window.__leadPanelNotesByKey[titleKey];
+      persistPanelNotesCache();
+    }
+  }
+
   function readMergedRowUpdates(row) {
-    const key = resolvePanelActivityKey(row);
     const base = row && row.dataset ? readRowUpdatesArray(row) : [];
-    const cached = readCachedPanelNotes(key);
+    const cached = readCachedPanelNotesForRow(row);
     if (!cached.length) return base;
     const merged = base.slice();
     cached.forEach((note) => {
@@ -2989,20 +3066,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function cachePanelNoteEntry(row, entry) {
-    const key = resolvePanelActivityKey(row);
-    if (!key || !entry) return;
-    window.__leadPanelNotesByKey = window.__leadPanelNotesByKey || {};
-    const list = window.__leadPanelNotesByKey[key] || [];
-    const exists = list.some(
-      (n) =>
-        n &&
-        String(n.timestamp || '') === String(entry.timestamp || '') &&
-        String(n.value || '') === String(entry.value || ''),
-    );
-    if (!exists) {
-      window.__leadPanelNotesByKey[key] = [...list, entry];
-      persistPanelNotesCache();
-    }
+    if (!entry) return;
+    const keys = collectPanelActivityKeys(row);
+    if (!keys.length) return;
+    keys.forEach((key) => cachePanelNoteEntryUnderKey(key, entry));
+    persistPanelNotesCache();
   }
 
   function syncPanelNotesCacheFromRow(row) {
@@ -3079,9 +3147,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function submitLeadPanelNote() {
     if (leadPanelNoteSubmitInflight) {
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Posting note…', { variant: 'info' });
-      }
       return false;
     }
 
@@ -3092,9 +3157,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const noteInput = getLeadPanelEl('noteInput');
     const content = noteInput ? String(noteInput.value || '').trim() : '';
     if (!content) {
-      if (typeof window.showAppToast === 'function') {
+      if (!leadPanelNoteSubmitInflight && typeof window.showAppToast === 'function') {
         window.showAppToast('Type a note first.', { variant: 'error' });
       }
+      return false;
+    }
+    const now = Date.now();
+    if (content === leadPanelNoteLastPostBody && now - leadPanelNoteLastPostAt < 800) {
       return false;
     }
     if (!row && !activityKey) {
@@ -3106,6 +3175,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     leadPanelNoteSubmitInflight = true;
+    leadPanelNoteLastPostBody = content;
+    leadPanelNoteLastPostAt = now;
 
     try {
       const clickedAt = new Date().toISOString();
@@ -3385,16 +3456,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function refreshLeadActivityTimeline(row, filter) {
-    const target =
-      (row && resolvePipelineTableRowForPanel(row)) ||
-      row ||
-      resolveLeadPanelNoteRow() ||
-      (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null);
-    if (!target) return;
     if (filter) {
       window.__leadActivityFilter = filter;
     }
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
+    const target =
+      (row && resolvePipelineTableRowForPanel(row)) ||
+      row ||
+      resolveLeadPanelNoteRow() ||
+      (typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : null) ||
+      null;
     renderLeadActivityTimeline(target, window.__leadActivityFilter);
     syncLeadActivityFilterButtons(window.__leadActivityFilter);
   }
@@ -4039,16 +4110,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     });
 
-    const addNoteBtn = getLeadPanelEl('addNoteBtn');
-    if (addNoteBtn && !addNoteBtn.dataset.adhelloNoteBound) {
-      addNoteBtn.dataset.adhelloNoteBound = '1';
-      addNoteBtn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        void submitLeadPanelNote();
-      });
-    }
-
     const panelRoot = getLeadDetailPanel();
     if (panelRoot && !panelRoot.dataset.adhelloNoteDelegationBound) {
       panelRoot.dataset.adhelloNoteDelegationBound = '1';
@@ -4057,7 +4118,7 @@ document.addEventListener('DOMContentLoaded', () => {
         (e) => {
           if (!e.target.closest('#addNoteBtn')) return;
           e.preventDefault();
-          e.stopPropagation();
+          e.stopImmediatePropagation();
           void submitLeadPanelNote();
         },
         true,
@@ -4112,6 +4173,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     currentRow = tableRow;
     window.__leadPanelActiveRowKey = String(tableRow.dataset.leadKey || '').trim();
+    migratePanelNotesCacheOnSelect(tableRow);
     const nav = navigableRows();
     currentIndex = nav.indexOf(tableRow);
 
@@ -8072,10 +8134,12 @@ document.addEventListener('DOMContentLoaded', () => {
       pushUnique({ ts, typ, text: val, raw: u });
     });
     let logs = [];
-    try {
-      logs = JSON.parse(row.dataset.logsSnippet || '[]');
-    } catch {
-      logs = [];
+    if (row && row.dataset) {
+      try {
+        logs = JSON.parse(row.dataset.logsSnippet || '[]');
+      } catch {
+        logs = [];
+      }
     }
     (Array.isArray(logs) ? logs : []).forEach((e) => {
       const ts = e.timestamp || '';
