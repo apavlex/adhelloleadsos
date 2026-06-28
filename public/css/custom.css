@@ -3485,3 +3485,208 @@ html.dark .tag-filter-combobox-menu {
 .dm-saved-card:focus-within .dm-saved-card-actions {
   opacity: 1;
 }
+
+/* App-wide navbar lead search */
+.nav-lead-search {
+  position: relative;
+  min-width: 0;
+}
+
+.nav-lead-search-form {
+  position: relative;
+}
+
+.nav-lead-search-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nav-lead-search-icon {
+  position: absolute;
+  left: 0.85rem;
+  width: 1rem;
+  height: 1rem;
+  color: rgb(100 116 139);
+  pointer-events: none;
+}
+
+.dark .nav-lead-search-icon {
+  color: rgb(148 163 184);
+}
+
+.nav-lead-search-input {
+  width: 100%;
+  min-width: 0;
+  border-radius: 9999px;
+  border: 1px solid rgb(226 232 240 / 0.9);
+  background: rgb(255 255 255 / 0.75);
+  padding: 0.55rem 2.25rem 0.55rem 2.35rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: rgb(15 23 42);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.dark .nav-lead-search-input {
+  border-color: rgb(255 255 255 / 0.12);
+  background: rgb(30 41 59 / 0.85);
+  color: rgb(248 250 252);
+}
+
+.nav-lead-search-input::placeholder {
+  color: rgb(100 116 139 / 0.85);
+  font-weight: 500;
+}
+
+.dark .nav-lead-search-input::placeholder {
+  color: rgb(148 163 184 / 0.85);
+}
+
+.nav-lead-search-input:focus {
+  outline: none;
+  border-color: rgb(202 138 4 / 0.55);
+  box-shadow: 0 0 0 3px rgb(250 204 21 / 0.18);
+  background: rgb(255 255 255);
+}
+
+.dark .nav-lead-search-input:focus {
+  border-color: rgb(250 204 21 / 0.45);
+  box-shadow: 0 0 0 3px rgb(250 204 21 / 0.12);
+  background: rgb(15 23 42 / 0.95);
+}
+
+.nav-lead-search-clear {
+  position: absolute;
+  right: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  border-radius: 9999px;
+  color: rgb(100 116 139);
+}
+
+.nav-lead-search-clear:hover {
+  background: rgb(241 245 249);
+  color: rgb(51 65 85);
+}
+
+.dark .nav-lead-search-clear:hover {
+  background: rgb(51 65 85);
+  color: rgb(226 232 240);
+}
+
+.nav-lead-search-dropdown {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  z-index: 130;
+  overflow: hidden;
+  border-radius: 1rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(255 255 255);
+  box-shadow: 0 18px 40px rgb(15 23 42 / 0.14);
+  max-height: min(22rem, calc(100vh - 7rem));
+  overflow-y: auto;
+}
+
+.dark .nav-lead-search-dropdown {
+  border-color: rgb(255 255 255 / 0.1);
+  background: rgb(15 23 42);
+  box-shadow: 0 18px 40px rgb(0 0 0 / 0.45);
+}
+
+.nav-lead-search--mobile .nav-lead-search-dropdown {
+  position: relative;
+  top: 0.35rem;
+  max-height: min(18rem, calc(100vh - 9rem));
+}
+
+.nav-lead-search-item,
+.nav-lead-search-footer,
+.nav-lead-search-empty,
+.nav-lead-search-loading {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+.nav-lead-search-item {
+  padding: 0.65rem 0.9rem;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.nav-lead-search-item:hover,
+.nav-lead-search-item--active {
+  background: rgb(254 249 195 / 0.55);
+}
+
+.dark .nav-lead-search-item:hover,
+.dark .nav-lead-search-item--active {
+  background: rgb(250 204 21 / 0.08);
+}
+
+.nav-lead-search-item-title {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: rgb(15 23 42);
+  line-height: 1.25;
+}
+
+.dark .nav-lead-search-item-title {
+  color: rgb(248 250 252);
+}
+
+.nav-lead-search-item-meta {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgb(100 116 139);
+  line-height: 1.35;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dark .nav-lead-search-item-meta {
+  color: rgb(148 163 184);
+}
+
+.nav-lead-search-footer {
+  padding: 0.65rem 0.9rem;
+  border: 0;
+  border-top: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(161 98 7);
+  cursor: pointer;
+}
+
+.dark .nav-lead-search-footer {
+  border-top-color: rgb(255 255 255 / 0.08);
+  background: rgb(30 41 59 / 0.65);
+  color: rgb(250 204 21);
+}
+
+.nav-lead-search-empty,
+.nav-lead-search-loading {
+  padding: 0.85rem 0.9rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: rgb(100 116 139);
+}
+
+.dark .nav-lead-search-empty,
+.dark .nav-lead-search-loading {
+  color: rgb(148 163 184);
+}

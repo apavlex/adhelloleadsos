@@ -45,6 +45,8 @@ const {
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
   excludeOutreachFolderLeads,
+  leadMatchesSearchQuery,
+  scoreLeadSearchMatch,
 } = require('../services/leadListFilters');
 const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
@@ -281,6 +283,57 @@ router.get('/list.json', async (req, res, next) => {
     res.json({
       success: true,
       leads: out.map(mapLeadListJson),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// GET /leads/search.json — app-wide lead lookup (all folders)
+router.get('/search.json', async (req, res, next) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    const limit = Math.min(25, Math.max(1, parseInt(req.query.limit, 10) || 10));
+    if (q.length < 2) {
+      return res.json({ success: true, q, leads: [], total: 0 });
+    }
+
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const folders = await dbService.listFolders(req.workspaceId);
+    const folderByKey = new Map(
+      (folders || []).filter((f) => f && f.key).map((f) => [String(f.key), String(f.name || 'Folder')]),
+    );
+
+    const matched = visible.filter((l) => leadMatchesSearchQuery(l, q));
+    matched.sort((a, b) => {
+      const sa = scoreLeadSearchMatch(a, q);
+      const sb = scoreLeadSearchMatch(b, q);
+      if (sa !== sb) return sa - sb;
+      return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
+    });
+
+    const leads = matched.slice(0, limit).map((l) => {
+      const folderKey = String(l.folderKey || '').trim();
+      return {
+        key: l.key,
+        title: l.title || 'Lead',
+        phone: l.phone || '',
+        email: l.email || '',
+        website: l.website || '',
+        city: l.city || '',
+        state: l.state || '',
+        folderKey,
+        folderName: folderKey ? folderByKey.get(folderKey) || '' : '',
+        sourceChannel: l.sourceChannel || '',
+      };
+    });
+
+    res.json({
+      success: true,
+      q,
+      total: matched.length,
+      leads,
     });
   } catch (err) {
     next(err);

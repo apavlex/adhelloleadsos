@@ -61,10 +61,12 @@ router.get('/', async (req, res, next) => {
     }
 
     const leadListFilters = normalizeLeadListFilters(req.query);
+    const hasGlobalSearch = !!String(leadListFilters.q || '').trim();
     if (
       safeTab === 'pipeline' &&
       !String(leadListFilters.folderKey || '').trim() &&
       !String(leadListFilters.origin || '').trim() &&
+      !hasGlobalSearch &&
       req.query.includeFoldered !== '1' &&
       req.query.includeFoldered !== 'true'
     ) {
@@ -81,6 +83,7 @@ router.get('/', async (req, res, next) => {
     const includeFoldered =
       req.query.includeFoldered === '1' ||
       req.query.includeFoldered === 'true' ||
+      hasGlobalSearch ||
       String(leadListFilters.origin || '').trim().toLowerCase() === 'csv';
     const activeFolderKey = String(leadListFilters.folderKey || '').trim();
     const folderKeys = activeFolderKey

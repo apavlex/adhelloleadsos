@@ -237,14 +237,50 @@ function excludeOutreachFolderLeads(leads) {
   return leads.filter((l) => !isInOutreachFolder(l));
 }
 
+function buildLeadSearchHaystack(l) {
+  if (!l || typeof l !== 'object') return '';
+  return [
+    l.title,
+    l.email,
+    l.phone,
+    l.website,
+    l.address,
+    l.city,
+    l.state,
+    l.categoryName,
+    l.sourceChannel,
+    l.companyDomain,
+    l.url,
+  ]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .toLowerCase();
+}
+
+function leadMatchesSearchQuery(l, q) {
+  const needle = String(q || '').trim().toLowerCase();
+  if (!needle) return true;
+  return buildLeadSearchHaystack(l).includes(needle);
+}
+
+function scoreLeadSearchMatch(l, q) {
+  const needle = String(q || '').trim().toLowerCase();
+  if (!needle) return 99;
+  const title = String((l && l.title) || '').trim().toLowerCase();
+  if (title.startsWith(needle)) return 0;
+  if (title.includes(needle)) return 1;
+  const phone = String((l && l.phone) || '').replace(/\D/g, '');
+  const needleDigits = needle.replace(/\D/g, '');
+  if (needleDigits.length >= 7 && phone.includes(needleDigits)) return 2;
+  return 3;
+}
+
 function applyLeadListFilters(leads, filters) {
   let out = leads;
-  const q = String(filters.q || '').trim().toLowerCase();
+  const q = String(filters.q || '').trim();
   if (q) {
-    out = out.filter((l) => {
-      const blob = `${l.title || ''} ${l.email || ''} ${l.phone || ''} ${l.website || ''} ${l.city || ''} ${l.state || ''}`.toLowerCase();
-      return blob.includes(q);
-    });
+    out = out.filter((l) => leadMatchesSearchQuery(l, q));
   }
   const stage = String(filters.stage || '').trim();
   if (stage) {
@@ -451,4 +487,7 @@ module.exports = {
   LEAD_LIST_FILTER_KEYS,
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
+  buildLeadSearchHaystack,
+  leadMatchesSearchQuery,
+  scoreLeadSearchMatch,
 };
