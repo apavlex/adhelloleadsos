@@ -4,6 +4,22 @@ const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 
+async function tagsWithLeadCounts(req) {
+  const tags = await dbService.listTags(req.workspaceId);
+  const all = await dbService.getAllLeads(req.workspaceId);
+  const visible = filterLeadsForRequest(req, all);
+  const counts = new Map();
+  visible.forEach((lead) => {
+    dbService.normalizeTagKeys(lead && lead.tags).forEach((key) => {
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+  });
+  return tags.map((tag) => ({
+    ...tag,
+    leadCount: counts.get(tag.key) || 0,
+  }));
+}
+
 function resolveVisibleLeadKey(visible, rawKey) {
   const k = String(rawKey || '').trim();
   if (!k) return null;
@@ -19,9 +35,22 @@ function resolveVisibleLeadKey(visible, rawKey) {
   return null;
 }
 
+router.get('/manage', async (req, res, next) => {
+  try {
+    const tags = await tagsWithLeadCounts(req);
+    res.render('tags-manage', {
+      title: 'Tags · Agency OS',
+      activePage: 'tags',
+      tags,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.get('/', async (req, res, next) => {
   try {
-    const tags = await dbService.listTags(req.workspaceId);
+    const tags = await tagsWithLeadCounts(req);
     res.json({ success: true, tags });
   } catch (e) {
     next(e);

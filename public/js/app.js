@@ -1671,6 +1671,25 @@ document.addEventListener('DOMContentLoaded', () => {
         /* ignore */
       }
     }
+    if (Array.isArray(lead.updates) && lead.updates.length) {
+      try {
+        const raw = ds.updates;
+        if (!raw || raw === 'undefined' || raw === '[]') {
+          ds.updates = JSON.stringify(lead.updates);
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (Array.isArray(lead.logs) && lead.logs.length) {
+      try {
+        if (!ds.logsSnippet || ds.logsSnippet === '[]') {
+          ds.logsSnippet = JSON.stringify(lead.logs.slice(-14));
+        }
+      } catch (_) {
+        /* ignore */
+      }
+    }
     return true;
   }
 
@@ -2504,6 +2523,40 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function openLeadPanelQuickLog() {
+    const d = document.getElementById('leadPanelQuickLogDrawer');
+    const btn = document.getElementById('leadPanelQuickLogToggle');
+    const ch = document.getElementById('leadPanelQuickLogChevron');
+    if (d) d.classList.add('lead-panel-quicklog-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+    if (ch) {
+      ch.classList.remove('rotate-180');
+      ch.style.transform = '';
+    }
+  }
+
+  function closeLeadPanelQuickLog() {
+    const d = document.getElementById('leadPanelQuickLogDrawer');
+    const btn = document.getElementById('leadPanelQuickLogToggle');
+    const ch = document.getElementById('leadPanelQuickLogChevron');
+    if (d) d.classList.remove('lead-panel-quicklog-drawer--open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    if (ch) {
+      ch.classList.add('rotate-180');
+      ch.style.transform = '';
+    }
+  }
+
+  function toggleLeadPanelQuickLog() {
+    const drawer = document.getElementById('leadPanelQuickLogDrawer');
+    if (!drawer) return;
+    if (drawer.classList.contains('lead-panel-quicklog-drawer--open')) {
+      closeLeadPanelQuickLog();
+    } else {
+      openLeadPanelQuickLog();
+    }
+  }
+
   function openLeadPanelOutreach() {
     const d = document.getElementById('leadPanelOutreachDrawer');
     const btn = document.getElementById('leadPanelOutreachToggle');
@@ -2810,7 +2863,12 @@ document.addEventListener('DOMContentLoaded', () => {
   async function submitLeadPanelNote() {
     if (leadPanelNoteSubmitInflight) return false;
 
-    const row = typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : currentRow;
+    const actionRow =
+      typeof resolvePanelActionRow === 'function' ? resolvePanelActionRow() : currentRow;
+    const row =
+      (actionRow && resolvePipelineTableRowForPanel(actionRow)) || actionRow || currentRow;
+    if (row && row !== currentRow) currentRow = row;
+
     const noteInput = getLeadPanelEl('noteInput');
     const content = noteInput ? String(noteInput.value || '').trim() : '';
     if (!content) {
@@ -2946,6 +3004,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!row) return;
     const existing = readRowUpdatesArray(row);
     const localQuick = existing.filter((u) => u && String(u.type) === 'quick_log');
+    const localNotes = existing.filter(
+      (u) =>
+        u &&
+        String(u.type) === 'note' &&
+        (u.source === 'panel_post' || u.manual === true),
+    );
     const server = Array.isArray(serverUpdates) ? serverUpdates : [];
     const merged = server.slice();
     localQuick.forEach((ql) => {
@@ -2954,9 +3018,19 @@ document.addEventListener('DOMContentLoaded', () => {
           u &&
           String(u.type) === 'quick_log' &&
           String(u.timestamp || '') === String(ql.timestamp || '') &&
-          String(u.value || '') === String(ql.value || '')
+          String(u.value || '') === String(ql.value || ''),
       );
       if (!exists) merged.push(ql);
+    });
+    localNotes.forEach((note) => {
+      const exists = merged.some(
+        (u) =>
+          u &&
+          String(u.type) === 'note' &&
+          String(u.timestamp || '') === String(note.timestamp || '') &&
+          String(u.value || '') === String(note.value || ''),
+      );
+      if (!exists) merged.push(note);
     });
     merged.sort((a, b) => (Date.parse(b.timestamp) || 0) - (Date.parse(a.timestamp) || 0));
     writeRowUpdatesArray(row, merged);
@@ -3603,6 +3677,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     document.addEventListener('click', async (e) => {
+      if (e.target.closest('#addNoteBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await submitLeadPanelNote();
+        return;
+      }
+
       if (!isLeadDetailPanelOpen()) return;
       const inBottom =
         e.target.closest('#leadPanelNotepad') || e.target.closest('#leadPanelOutreachDrawer');
@@ -3619,13 +3700,6 @@ document.addEventListener('DOMContentLoaded', () => {
         e.preventDefault();
         e.stopPropagation();
         await pushLeadPanelToGhl();
-        return;
-      }
-
-      if (e.target.closest('#addNoteBtn')) {
-        e.preventDefault();
-        e.stopPropagation();
-        await submitLeadPanelNote();
         return;
       }
 
@@ -4464,6 +4538,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#leadPanelComposerToggle')) {
       e.preventDefault();
       toggleLeadPanelComposer();
+      return;
+    }
+
+    if (e.target.closest('#leadPanelQuickLogToggle')) {
+      e.preventDefault();
+      toggleLeadPanelQuickLog();
       return;
     }
 
@@ -7673,7 +7753,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filtered.length) {
       const emptyMsg =
         f === 'notes'
-          ? 'No notes yet. Post one above Outreach intelligence, or switch to All to see calls and pipeline activity.'
+          ? 'No notes yet. Post one in Note · Post below, or switch to All to see calls and pipeline activity.'
           : f === 'calls'
             ? 'No call activity logged yet. Use Call, Quick log tags, or switch to All.'
             : 'No activity yet. Post a note, log a call, or update pipeline status.';
@@ -9648,6 +9728,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Populate panel from row data ---
   function populatePanel(row) {
     if (!row) return;
+    openLeadPanelQuickLog();
     openLeadPanelComposer();
     setLeadPanelOutreachFeedback('');
     prepareLeadRowForPanel(row);

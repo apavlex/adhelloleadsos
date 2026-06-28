@@ -77,6 +77,14 @@ app.locals.normalizeJobType = scrapeJobDisplay.normalizeJobType;
 app.locals.scheduleFrequencyLabel = scheduleDisplay.scheduleFrequencyLabel;
 const { safeJsonForScript } = require('./services/safeJson');
 app.locals.safeJsonForScript = safeJsonForScript;
+const {
+  formatLeadSourceLabel,
+  formatSourceChannelLabel,
+  resolveLeadSourceChannel,
+} = require('./services/sourceChannelLabels');
+app.locals.formatLeadSourceLabel = formatLeadSourceLabel;
+app.locals.formatSourceChannelLabel = formatSourceChannelLabel;
+app.locals.resolveLeadSourceChannel = resolveLeadSourceChannel;
 /** Outreach playbooks for lead sidebar + sequences page (id, steps, hints). */
 app.locals.sequenceTemplates = DEFAULT_SEQUENCE_TEMPLATES.map((t) => ({
   id: t.id,

@@ -271,6 +271,7 @@
       html += `<div class="flex flex-wrap gap-2 items-center mb-3 pb-3 border-b border-brand-border/20 dark:border-white/10">
       <input type="text" id="${escapeHtml(inputId)}" placeholder="New tag name…" class="min-w-[6rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" />
       <button type="button" id="${escapeHtml(createBtnId)}" class="btn-pill bg-brand-yellow text-brand-dark px-3 py-1.5 text-[9px] font-black uppercase tracking-widest shrink-0">Create</button>
+      <a href="/tags/manage" class="text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0 ml-auto">Manage all tags →</a>
     </div>`;
     }
 

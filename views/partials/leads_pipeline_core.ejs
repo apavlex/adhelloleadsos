@@ -43,10 +43,14 @@
         .replace(/</g, '&lt;');
     }
     function formatListingSourceLabel(raw) {
+      if (typeof formatSourceChannelLabel === 'function') {
+        return formatSourceChannelLabel(raw);
+      }
       var s = String(raw || '').trim();
       if (!s) return '';
       if (s === 'facebook_marketplace') return 'Facebook Marketplace';
-      if (s === 'csv_import' || s === 'google_drive') return '';
+      if (s === 'google_maps' || s === 'chrome_extension_maps_bulk') return 'Google Maps';
+      if (s === 'csv_import' || s === 'google_drive' || s === 'chrome_extension') return '';
       return s.replace(/_/g, ' ').replace(/\b\w/g, function (c) { return c.toUpperCase(); });
     }
   %>
@@ -322,11 +326,15 @@
               var _listBaths = _listing.baths != null && _listing.baths !== '' ? Number(_listing.baths) : null;
               var _listCity = String(lead.city || '').trim();
               var _listState = String(lead.state || '').trim();
-              var _listSourceRaw = String(lead.sourceChannel || '').trim();
+              var _listSourceRaw = typeof resolveLeadSourceChannel === 'function'
+                ? resolveLeadSourceChannel(lead)
+                : String(lead.sourceChannel || '').trim();
               if (!_listSourceRaw && lead.importFields && lead.importFields.source) {
                 _listSourceRaw = String(lead.importFields.source);
               }
-              var _listSource = formatListingSourceLabel(_listSourceRaw);
+              var _listSource = typeof formatLeadSourceLabel === 'function'
+                ? formatLeadSourceLabel(lead)
+                : formatListingSourceLabel(_listSourceRaw);
               var _priceDisp = Number.isFinite(_listPrice) && _listPrice > 0
                 ? ('$' + _listPrice.toLocaleString('en-US'))
                 : '—';

@@ -197,6 +197,7 @@
           <a href="/prospecting?tab=queue" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'queue') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Queue</span></a>
           <a href="/pipeline" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'pipeline') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Pipeline</span></a>
           <a href="/prospecting?tab=folders" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'folders') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Folders</span></a>
+          <a href="/tags/manage" class="flex items-center p-3 rounded-xl <%= np === 'tags' ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Tags</span></a>
           <a href="/history" class="flex items-center p-3 rounded-xl <%= (typeof navLeadsTab !== 'undefined' && navLeadsTab === 'history') ? 'bg-brand-yellow/15 text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-semibold text-sm">Search history</span></a>
         </div>
         <a href="/tasks" class="flex items-center p-4 rounded-2xl border border-brand-border/50 dark:border-white/10 <%= np === 'tasks' ? 'bg-brand-yellow/10 border-brand-yellow text-brand-dark dark:text-white' : 'text-brand-muted' %>"><span class="font-display font-bold text-lg">Tasks</span></a>
@@ -223,6 +224,7 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3">Settings</p>
       <nav class="flex flex-col gap-2 mb-8">
         <a href="/scripts" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Script library</a>
+        <a href="/tags/manage" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white<%= np === 'tags' ? ' border-brand-yellow bg-brand-yellow/10' : '' %>">Tags</a>
         <a href="/workspace/voicemail" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Voicemail</a>
         <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
         <a href="/workspace/phones" class="px-4 py-3 rounded-xl border border-brand-border/40 text-sm font-semibold text-brand-dark dark:text-white">Phone forwarding</a>

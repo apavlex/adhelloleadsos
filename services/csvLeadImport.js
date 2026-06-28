@@ -389,7 +389,7 @@ function pickListingUrl(r) {
 
 function applyRealEstateListingFields(lead, r, options = {}) {
   const listingUrl = pickListingUrl(r);
-  const importSourceRaw = firstNonEmpty(r, ['source', 'source_channel']);
+  const importSourceRaw = firstNonEmpty(r, ['source_channel', 'sourcechannel', 'source']);
   const sourceChannel = mapImportSourceChannel(importSourceRaw);
   const noteText = firstNonEmpty(r, ['note', 'notes', 'why_prospect', 'why']);
   const noteParsed = parseListingNote(noteText);
