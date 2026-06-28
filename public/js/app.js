@@ -7098,6 +7098,15 @@ document.addEventListener('DOMContentLoaded', () => {
     return { rating, reviews };
   }
 
+  /** Hoisted so syncRowReviewsDisplay and GHL sync paths never hit TDZ on panel star helpers. */
+  const renderStarsInElement =
+    typeof window.__renderStarsInElement === 'function'
+      ? window.__renderStarsInElement
+      : function renderStarsInElementFallback(element, rating, starSizeClass = 'w-3 h-3') {
+          if (!element) return;
+          element.textContent = rating > 0 ? `${Number(rating).toFixed(1)} ★` : '—';
+        };
+
   function syncRowReviewsDisplay(row) {
     if (!row || !row.dataset) return;
     const rating = parseFloat(row.dataset.rating) || 0;
@@ -9338,15 +9347,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     mobileAvatar.classList.remove('hidden');
   }
-
-  /** Hoisted above populatePanel so early callers (e.g. focusLead query sync IIFE) never hit TDZ on panel helpers. */
-  const renderStarsInElement =
-    typeof window.__renderStarsInElement === 'function'
-      ? window.__renderStarsInElement
-      : function renderStarsInElementFallback(element, rating, starSizeClass = 'w-3 h-3') {
-          if (!element) return;
-          element.textContent = rating > 0 ? `${Number(rating).toFixed(1)} ★` : '—';
-        };
 
   function renderStars(
     rating,

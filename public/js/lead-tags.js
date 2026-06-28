@@ -98,6 +98,30 @@
     return data.lead;
   }
 
+  async function pushLeadTagsToGhl(leadKey) {
+    const key = String(leadKey || '').trim();
+    if (!key) return { ok: false, skipped: true };
+    try {
+      await apiJson('/ghl/push', {
+        method: 'POST',
+        body: JSON.stringify({ leadKeys: [key] }),
+      });
+      return { ok: true };
+    } catch (err) {
+      const msg = String(err.message || '');
+      if (/not configured|ghl not|422/i.test(msg)) return { ok: false, skipped: true };
+      throw err;
+    }
+  }
+
+  function tagSyncToast(message, variant) {
+    if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(message);
+    } else if (typeof window.showAppToast === 'function') {
+      window.showAppToast(message, { variant: variant || 'success' });
+    }
+  }
+
   async function bulkAssignTags(leadKeys, tagKeys, mode) {
     return apiJson('/tags/assign-bulk', {
       method: 'POST',
@@ -297,10 +321,14 @@
       const lead = await saveLeadTags(leadKey, [...set]);
       if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
       renderLeadTagsPanel(row);
-      if (typeof window.showProspectToast === 'function') {
-        window.showProspectToast('Tags updated · syncing to GHL');
-      } else if (typeof window.showAppToast === 'function') {
-        window.showAppToast('Tags updated · syncing to GHL', { variant: 'success' });
+      try {
+        const ghl = await pushLeadTagsToGhl(leadKey);
+        tagSyncToast(
+          ghl.ok ? 'Tags updated · synced to GHL' : 'Tags updated · tap Sync GHL to push tags',
+          ghl.ok ? 'success' : 'info',
+        );
+      } catch (err) {
+        tagSyncToast(err.message || 'Tags saved but GHL sync failed', 'error');
       }
     }
 
