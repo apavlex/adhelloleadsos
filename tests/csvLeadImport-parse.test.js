@@ -77,4 +77,16 @@ describe('csvLeadImport parse', () => {
     assert.deepEqual(leads[1].reviewSnippets, ['Great service and fair prices']);
     assert.equal(leads[1].sponsored, false);
   });
+
+  it('maps source_channel from extension bulk scrape CSV', () => {
+    const csv = [
+      'company_name,phone_number,source,source_channel',
+      'Acme Floors,(503) 555-0100,chrome_extension_maps_bulk,google_maps',
+    ].join('\n');
+    const { leads } = parseImportFile(Buffer.from(csv, 'utf8'), 'bulk.csv', {
+      leadSource: 'chrome_extension',
+    });
+    assert.equal(leads.length, 1);
+    assert.equal(leads[0].sourceChannel, 'google_maps');
+  });
 });

@@ -15,7 +15,7 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.6.4';
+const EXT_VERSION = '1.6.6';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
@@ -246,9 +246,40 @@ function cleanAddress(raw) {
     .trim();
 }
 
+function formatSourceChannelLabel(sourceChannel) {
+  const key = String(sourceChannel || '').trim().toLowerCase();
+  if (!key) return '';
+  const labels = {
+    yelp: 'Yelp',
+    google_maps: 'Google Maps',
+    chrome_extension_maps_bulk: 'Google Maps',
+    yellowpages: 'Yellow Pages',
+    bbb: 'BBB',
+    tripadvisor: 'TripAdvisor',
+    angi: 'Angi',
+    homeadvisor: 'HomeAdvisor',
+    thumbtack: 'Thumbtack',
+    linkedin_company: 'LinkedIn Company',
+    linkedin_profile: 'LinkedIn Profile',
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    groupon: 'Groupon',
+    craigslist: 'Craigslist',
+    nextdoor: 'Nextdoor',
+    houzz: 'Houzz',
+  };
+  if (labels[key]) return labels[key];
+  return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 function fillForm(lead, defaultFolderName) {
   if (!lead) return;
   form.title.value = lead.title || '';
+  const sourceKey = String(lead.sourceChannel || '').trim();
+  if (form.sourceChannel) form.sourceChannel.value = sourceKey;
+  if (form.sourceChannelDisplay) {
+    form.sourceChannelDisplay.value = formatSourceChannelLabel(sourceKey) || '';
+  }
   form.price.value =
     lead.listingPrice != null
       ? `$${Number(lead.listingPrice).toLocaleString()}`
@@ -318,7 +349,7 @@ async function init() {
 
     const platform = lead?.sourceChannel || 'current page';
     platformLabel.textContent = lead
-      ? `From ${platform.replace(/_/g, ' ')} · ${new URL(tab.url).hostname}`
+      ? `From ${formatSourceChannelLabel(platform) || platform.replace(/_/g, ' ')} · ${new URL(tab.url).hostname}`
       : 'Open a supported listing, profile, or business page to auto-fill.';
     fillForm(lead, defaultFolderName);
   } catch (err) {
@@ -365,6 +396,7 @@ form.addEventListener('submit', async (e) => {
       reviewSnippets: base?.reviewSnippets || undefined,
       sponsored: typeof base?.sponsored === 'boolean' ? base.sponsored : undefined,
       source: 'chrome_extension',
+      sourceChannel: String(form.sourceChannel?.value || base?.sourceChannel || '').trim(),
     };
     const folderName = form.folderName.value.trim();
     if (folderName) payload.folderName = folderName;

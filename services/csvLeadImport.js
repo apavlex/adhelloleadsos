@@ -340,6 +340,19 @@ function mapImportSourceChannel(raw) {
   if (s.includes('redfin')) return 'redfin';
   if (s.includes('offerup')) return 'offerup';
   if (s.includes('ebay')) return 'ebay';
+  if (s.includes('google_maps') || s.includes('chrome_extension_maps')) return 'google_maps';
+  if (s.includes('yelp')) return 'yelp';
+  if (s.includes('yellowpages') || s.includes('yellow pages')) return 'yellowpages';
+  if (s.includes('tripadvisor')) return 'tripadvisor';
+  if (s.includes('homeadvisor')) return 'homeadvisor';
+  if (s.includes('thumbtack')) return 'thumbtack';
+  if (s.includes('linkedin')) return s.includes('company') ? 'linkedin_company' : 'linkedin_profile';
+  if (s.includes('instagram')) return 'instagram';
+  if (s.includes('nextdoor')) return 'nextdoor';
+  if (s.includes('houzz')) return 'houzz';
+  if (s.includes('groupon')) return 'groupon';
+  if (s.includes('bbb')) return 'bbb';
+  if (s.includes('angi')) return 'angi';
   return s.replace(/\s+/g, '_').slice(0, 48);
 }
 
@@ -540,6 +553,8 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
 
   const reviewSnippets = parseReviewSnippet(r);
   const sponsored = parseSponsored(r);
+  const importSourceRaw = firstNonEmpty(r, ['source_channel', 'sourcechannel', 'source']);
+  const sourceChannel = mapImportSourceChannel(importSourceRaw);
 
   const lead = {
     title,
@@ -586,6 +601,8 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
     websiteStatusLabel: importedWebsiteStatus || undefined,
     distanceKm: distanceKm || undefined,
   };
+
+  if (sourceChannel) lead.sourceChannel = sourceChannel;
 
   if (whyProspect) {
     lead.updates = [

@@ -56,6 +56,11 @@
         <div class="adhello-panel__body">
           <p id="adhello-save-type" class="adhello-save-type"></p>
           <label class="adhello-field">
+            <span>Source</span>
+            <input type="text" name="sourceChannelDisplay" readonly tabindex="-1" placeholder="Detected from page" />
+            <input type="hidden" name="sourceChannel" />
+          </label>
+          <label class="adhello-field">
             <span>Name / title</span>
             <input type="text" name="title" required />
           </label>
@@ -125,6 +130,8 @@
 
     const fields = {
       title: root.querySelector('[name="title"]'),
+      sourceChannel: root.querySelector('[name="sourceChannel"]'),
+      sourceChannelDisplay: root.querySelector('[name="sourceChannelDisplay"]'),
       price: root.querySelector('[name="price"]'),
       beds: root.querySelector('[name="beds"]'),
       baths: root.querySelector('[name="baths"]'),
@@ -140,6 +147,15 @@
 
     function fill(data) {
       fields.title.value = data.title || '';
+      const sourceKey = String(data.sourceChannel || '').trim();
+      if (fields.sourceChannel) fields.sourceChannel.value = sourceKey;
+      if (fields.sourceChannelDisplay) {
+        const fmt =
+          typeof window.AdHelloExtractors?.formatSourceChannelLabel === 'function'
+            ? window.AdHelloExtractors.formatSourceChannelLabel(sourceKey)
+            : sourceKey.replace(/_/g, ' ');
+        fields.sourceChannelDisplay.value = fmt || '';
+      }
       fields.price.value =
         data.listingPrice != null
           ? `$${Number(data.listingPrice).toLocaleString()}`
@@ -252,6 +268,7 @@
         email: fields.email.value.trim() || 'N/A',
         phone: fields.phone.value.trim() || 'N/A',
         source: 'chrome_extension',
+        sourceChannel: String(fields.sourceChannel?.value || base.sourceChannel || '').trim(),
       };
       if (defaultFolderName) lead.folderName = defaultFolderName;
 

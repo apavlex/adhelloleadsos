@@ -1034,10 +1034,23 @@
     return false;
   }
 
+  function formatSourceChannelLabel(sourceChannel) {
+    const key = String(sourceChannel || '').trim().toLowerCase();
+    if (!key) return '';
+    const platform = PLATFORMS[key];
+    if (platform && platform.label) return platform.label;
+    if (key === 'linkedin_company') return 'LinkedIn Company';
+    if (key === 'linkedin_profile') return 'LinkedIn Profile';
+    if (key === 'google_maps' || key === 'chrome_extension_maps_bulk') return 'Google Maps';
+    if (key === 'chrome_extension') return 'Chrome Extension';
+    return key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
   window.AdHelloExtractors = {
     detectPlatform,
     extractLeadFromPage,
     isSupportedPage,
+    formatSourceChannelLabel,
     PLATFORMS,
   };
 })();

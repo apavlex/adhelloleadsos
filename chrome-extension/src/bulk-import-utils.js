@@ -37,6 +37,7 @@
       google_maps_url: company['Google Maps URL'] || '',
       booking_url: company['Booking URL'] || '',
       source: 'chrome_extension_maps_bulk',
+      source_channel: 'google_maps',
     };
   }
 
@@ -62,6 +63,7 @@
       'google_maps_url',
       'booking_url',
       'source',
+      'source_channel',
     ];
     const esc = (val) => {
       const s = val == null ? '' : String(val);
