@@ -2276,7 +2276,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
     max-height: min(24rem, 75vh);
     opacity: 1;
     padding-top: 0 !important;
-    padding-bottom: 1.25rem !important;
+    padding-bottom: 0 !important;
     pointer-events: auto;
     overflow: visible;
 }
@@ -2319,6 +2319,29 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
     pointer-events: auto;
 }
 
+/* Lead panel scroll body: uniform vertical rhythm */
+#leadPanelTabScroll {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+#leadPanelTabScroll > #leadPanelCallerShell,
+#leadPanelTabScroll > #leadPanelSectionNav,
+#leadPanelTabScroll > section,
+#leadPanelTabScroll > .lead-tab-panel {
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
+}
+
+#leadPanelTabScroll .lead-panel-tab-stack > section {
+    margin-bottom: 0 !important;
+}
+
+#leadPanelSectionNav {
+    margin-bottom: 0 !important;
+}
+
 /* Lead panel history tab: consistent widget spacing */
 .lead-panel-tab-stack {
     display: flex;
@@ -2341,6 +2364,18 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
     border-color: rgba(56, 189, 248, 0.22);
 }
 
+.lead-panel-widget--ai-tools {
+    border: 1px solid rgba(249, 115, 22, 0.28);
+    background: rgba(249, 115, 22, 0.06);
+    padding: 0;
+    overflow: hidden;
+}
+
+.dark .lead-panel-widget--ai-tools {
+    background: rgba(67, 20, 7, 0.42);
+    border-color: rgba(251, 146, 60, 0.24);
+}
+
 .lead-panel-widget--cadence {
     border: 1px solid rgba(139, 92, 246, 0.32);
     background: rgba(139, 92, 246, 0.06);
@@ -2354,7 +2389,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 }
 
 .lead-panel-widget--plain {
-    padding: 0.25rem 0.15rem 0;
+    padding: 1.15rem 1.25rem 1.25rem;
 }
 
 .lead-panel-widget__block {
@@ -2401,6 +2436,14 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
     color: rgb(186, 230, 253);
 }
 
+.lead-panel-widget__title--orange {
+    color: rgb(194, 65, 12);
+}
+
+.dark .lead-panel-widget__title--orange {
+    color: rgb(253, 186, 116);
+}
+
 .lead-panel-widget__title--violet {
     color: rgb(91, 33, 182);
 }
@@ -2418,7 +2461,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 }
 
 .lead-panel-widget__lede {
-    margin: 0 0 1rem;
+    margin: 0 0 0.85rem;
     font-size: 11px;
     line-height: 1.55;
     color: var(--brand-muted, #64748b);

@@ -1,31 +1,15 @@
 const dbService = require('./database');
+const {
+  buildLeadSearchHaystack,
+  normalizeSearchTokens,
+} = require('./leadListFilters');
 
 function tokenizeQuery(q) {
-  return String(q || '')
-    .toLowerCase()
-    .replace(/[^\w\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length > 1)
-    .slice(0, 12);
+  return normalizeSearchTokens(q).slice(0, 12);
 }
 
 function leadHaystack(lead) {
-  return [
-    lead.title,
-    lead.city,
-    lead.state,
-    lead.website,
-    lead.email,
-    lead.phone,
-    lead.category,
-    lead.industry,
-    lead.source,
-    String(lead.pipelineStage ?? ''),
-    lead.status,
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .toLowerCase();
+  return buildLeadSearchHaystack(lead);
 }
 
 function scoreHaystack(haystack, words) {

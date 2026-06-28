@@ -47,6 +47,7 @@ const {
   excludeOutreachFolderLeads,
   leadMatchesSearchQuery,
   scoreLeadSearchMatch,
+  buildLeadSearchContext,
 } = require('../services/leadListFilters');
 const activationService = require('../services/activationService');
 const sequenceEngine = require('../services/sequenceEngine');
@@ -283,6 +284,14 @@ router.get('/list.json', async (req, res, next) => {
         req.query.excludeFolderAssigned === '1' || req.query.excludeFolderAssigned === 'true',
       ...normalizeLeadListFilters(req.query),
     };
+    const q = String(filters.q || '').trim();
+    if (q) {
+      const [tags, folders] = await Promise.all([
+        dbService.listTags(req.workspaceId),
+        dbService.listFolders(req.workspaceId),
+      ]);
+      filters.searchContext = buildLeadSearchContext(tags, folders);
+    }
     const out = applyLeadListFilters(visible, filters);
 
     res.json({
@@ -305,15 +314,19 @@ router.get('/search.json', async (req, res, next) => {
 
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
-    const folders = await dbService.listFolders(req.workspaceId);
+    const [folders, tags] = await Promise.all([
+      dbService.listFolders(req.workspaceId),
+      dbService.listTags(req.workspaceId),
+    ]);
+    const searchContext = buildLeadSearchContext(tags, folders);
     const folderByKey = new Map(
       (folders || []).filter((f) => f && f.key).map((f) => [String(f.key), String(f.name || 'Folder')]),
     );
 
-    const matched = visible.filter((l) => leadMatchesSearchQuery(l, q));
+    const matched = visible.filter((l) => leadMatchesSearchQuery(l, q, searchContext));
     matched.sort((a, b) => {
-      const sa = scoreLeadSearchMatch(a, q);
-      const sb = scoreLeadSearchMatch(b, q);
+      const sa = scoreLeadSearchMatch(a, q, searchContext);
+      const sb = scoreLeadSearchMatch(b, q, searchContext);
       if (sa !== sb) return sa - sb;
       return String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' });
     });

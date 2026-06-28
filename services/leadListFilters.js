@@ -2,6 +2,8 @@
  * Shared filtering for outreach queue / folders fetch and pipeline GET filters.
  */
 
+const { noteEntryBody } = require('./leadNotes');
+
 function displayStatus(s) {
   const raw = s || 'Not Contacted';
   return raw === 'Needs Video' ? 'Not Contacted' : raw;
@@ -237,9 +239,96 @@ function excludeOutreachFolderLeads(leads) {
   return leads.filter((l) => !isInOutreachFolder(l));
 }
 
-function buildLeadSearchHaystack(l) {
+function appendSearchText(parts, value) {
+  if (value == null) return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => appendSearchText(parts, item));
+    return;
+  }
+  if (typeof value === 'object') {
+    Object.values(value).forEach((item) => appendSearchText(parts, item));
+    return;
+  }
+  const text = String(value).trim();
+  if (text) parts.push(text);
+}
+
+function leadActivitySearchParts(lead) {
+  const parts = [];
+  const updates = Array.isArray(lead && lead.updates) ? lead.updates : [];
+  updates.forEach((entry) => {
+    appendSearchText(parts, noteEntryBody(entry));
+    appendSearchText(parts, entry && entry.message);
+    appendSearchText(parts, entry && entry.disposition);
+    appendSearchText(parts, entry && entry.channel);
+    appendSearchText(parts, entry && entry.statusChange);
+    appendSearchText(parts, entry && entry.type);
+  });
+  const logs = Array.isArray(lead && lead.logs) ? lead.logs : [];
+  logs.forEach((entry) => {
+    appendSearchText(parts, entry && entry.message);
+    appendSearchText(parts, entry && entry.disposition);
+    appendSearchText(parts, entry && entry.channel);
+    appendSearchText(parts, entry && entry.type);
+    appendSearchText(parts, entry && entry.note);
+  });
+  return parts;
+}
+
+function leadContactSearchParts(lead) {
+  const parts = [];
+  const contacts = Array.isArray(lead && lead.contacts) ? lead.contacts : [];
+  contacts.forEach((contact) => {
+    if (!contact || typeof contact !== 'object') return;
+    appendSearchText(parts, contact.name);
+    appendSearchText(parts, contact.email);
+    appendSearchText(parts, contact.phone);
+    appendSearchText(parts, contact.title);
+    appendSearchText(parts, contact.role);
+  });
+  return parts;
+}
+
+function leadTagSearchParts(lead, ctx) {
+  const parts = [];
+  const tags = Array.isArray(lead && lead.tags) ? lead.tags : [];
+  const tagNameByKey =
+    ctx && ctx.tagNameByKey instanceof Map ? ctx.tagNameByKey : null;
+  tags.forEach((tagKey) => {
+    const key = String(tagKey || '').trim();
+    if (!key) return;
+    parts.push(key);
+    if (tagNameByKey && tagNameByKey.has(key)) {
+      parts.push(tagNameByKey.get(key));
+    }
+  });
+  appendSearchText(parts, lead && lead.ghlTagNamesForPush);
+  appendSearchText(parts, lead && lead.ghlActionTags);
+  return parts;
+}
+
+/** Build tag/folder lookup maps once per search request. */
+function buildLeadSearchContext(tags, folders) {
+  const tagNameByKey = new Map();
+  (tags || []).forEach((tag) => {
+    if (!tag || !tag.key) return;
+    tagNameByKey.set(String(tag.key), String(tag.name || tag.key));
+  });
+  const folderNameByKey = new Map();
+  (folders || []).forEach((folder) => {
+    if (!folder || !folder.key) return;
+    folderNameByKey.set(String(folder.key), String(folder.name || folder.key));
+  });
+  return { tagNameByKey, folderNameByKey };
+}
+
+function buildLeadSearchHaystack(l, ctx) {
   if (!l || typeof l !== 'object') return '';
-  return [
+  const folderKey = String(l.folderKey || '').trim();
+  const folderNameByKey =
+    ctx && ctx.folderNameByKey instanceof Map ? ctx.folderNameByKey : null;
+  const parts = [
+    l.key,
     l.title,
     l.email,
     l.phone,
@@ -247,25 +336,66 @@ function buildLeadSearchHaystack(l) {
     l.address,
     l.city,
     l.state,
+    l.zip,
+    l.postalCode,
     l.categoryName,
+    l.category,
+    l.industry,
     l.sourceChannel,
+    l.source,
     l.companyDomain,
     l.url,
-  ]
+    l.status,
+    displayStatus(l.status),
+    l.assignedTo,
+    l.pipelineStage,
+    l.stageId,
+    l.ghlContactId,
+    l.importFilename,
+    l.auditSummary,
+    l.reviewIntel,
+    l.facebook,
+    l.instagram,
+    l.linkedin,
+    l.twitter,
+    l.yelp,
+    l.tiktok,
+    folderKey,
+    folderNameByKey && folderKey ? folderNameByKey.get(folderKey) : '',
+    ...leadTagSearchParts(l, ctx),
+    ...leadContactSearchParts(l),
+    ...leadActivitySearchParts(l),
+  ];
+  appendSearchText(parts, l.importFields);
+  appendSearchText(parts, l.cqi);
+  appendSearchText(parts, l.buyingSignals);
+  appendSearchText(parts, l.reviewSnippets);
+  appendSearchText(parts, l.chatHistory);
+  return parts
     .map((v) => String(v || '').trim())
     .filter(Boolean)
     .join(' ')
     .toLowerCase();
 }
 
-function leadMatchesSearchQuery(l, q) {
-  const needle = String(q || '').trim().toLowerCase();
-  if (!needle) return true;
-  return buildLeadSearchHaystack(l).includes(needle);
+function normalizeSearchTokens(q) {
+  return String(q || '')
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
-function scoreLeadSearchMatch(l, q) {
-  const needle = String(q || '').trim().toLowerCase();
+function leadMatchesSearchQuery(l, q, ctx) {
+  const tokens = normalizeSearchTokens(q);
+  if (!tokens.length) return true;
+  const haystack = buildLeadSearchHaystack(l, ctx);
+  return tokens.every((token) => haystack.includes(token));
+}
+
+function scoreLeadSearchMatch(l, q, ctx) {
+  const tokens = normalizeSearchTokens(q);
+  const needle = tokens.join(' ').trim();
   if (!needle) return 99;
   const title = String((l && l.title) || '').trim().toLowerCase();
   if (title.startsWith(needle)) return 0;
@@ -273,14 +403,23 @@ function scoreLeadSearchMatch(l, q) {
   const phone = String((l && l.phone) || '').replace(/\D/g, '');
   const needleDigits = needle.replace(/\D/g, '');
   if (needleDigits.length >= 7 && phone.includes(needleDigits)) return 2;
-  return 3;
+  const tagHay = leadTagSearchParts(l, ctx)
+    .map((v) => String(v || '').trim().toLowerCase())
+    .join(' ');
+  if (tagHay && tokens.every((token) => tagHay.includes(token))) return 3;
+  const noteHay = leadActivitySearchParts(l)
+    .map((v) => String(v || '').trim().toLowerCase())
+    .join(' ');
+  if (noteHay && tokens.every((token) => noteHay.includes(token))) return 4;
+  return 5;
 }
 
 function applyLeadListFilters(leads, filters) {
   let out = leads;
   const q = String(filters.q || '').trim();
+  const searchContext = filters.searchContext || null;
   if (q) {
-    out = out.filter((l) => leadMatchesSearchQuery(l, q));
+    out = out.filter((l) => leadMatchesSearchQuery(l, q, searchContext));
   }
   const stage = String(filters.stage || '').trim();
   if (stage) {
@@ -490,6 +629,8 @@ module.exports = {
   normalizeLeadListFilters,
   leadListFilterQuerySuffix,
   buildLeadSearchHaystack,
+  buildLeadSearchContext,
   leadMatchesSearchQuery,
   scoreLeadSearchMatch,
+  normalizeSearchTokens,
 };

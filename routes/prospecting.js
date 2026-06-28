@@ -15,6 +15,7 @@ const {
   excludeOutreachFolderLeads,
   isCsvImported,
   hasUsableWebsite,
+  buildLeadSearchContext,
 } = require('../services/leadListFilters');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
@@ -90,6 +91,9 @@ router.get('/', async (req, res, next) => {
       ? folderKeysIncludingDescendants(folderTree, activeFolderKey)
       : null;
     if (folderKeys) leadListFilters.folderKeys = folderKeys;
+    if (hasGlobalSearch) {
+      leadListFilters.searchContext = buildLeadSearchContext(tags, folders);
+    }
     const folderMembers = folderKeys
       ? visible.filter((l) => folderKeys.has(String(l.folderKey || '').trim()))
       : null;
