@@ -308,13 +308,13 @@ document.addEventListener('DOMContentLoaded', () => {
           break;
         }
         case 'reviews': {
-          const raa = parseFloat(a.rating || 0) || 0;
-          const rbb = parseFloat(b.rating || 0) || 0;
-          c = raa - rbb;
+          const nca = parseInt(a.reviews || 0, 10) || 0;
+          const ncb = parseInt(b.reviews || 0, 10) || 0;
+          c = nca - ncb;
           if (c === 0) {
-            const nca = parseInt(a.reviews || 0, 10) || 0;
-            const ncb = parseInt(b.reviews || 0, 10) || 0;
-            c = nca - ncb;
+            const raa = parseFloat(a.rating || 0) || 0;
+            const rbb = parseFloat(b.rating || 0) || 0;
+            c = raa - rbb;
           }
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
