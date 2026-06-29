@@ -14242,6 +14242,20 @@ document.addEventListener('DOMContentLoaded', () => {
         hasSelection ? `Enrich ${count} selected lead${count === 1 ? '' : 's'} (Firecrawl)` : 'Enrich selected leads (Firecrawl)',
       );
     });
+    const mergeBtn = document.getElementById('bulkMergeBtn');
+    if (mergeBtn) {
+      const canMerge = count >= 2;
+      mergeBtn.disabled = !canMerge;
+      mergeBtn.classList.toggle('ring-2', canMerge);
+      mergeBtn.classList.toggle('ring-violet-400/60', canMerge);
+      mergeBtn.classList.toggle('bg-violet-500/15', canMerge);
+      mergeBtn.setAttribute(
+        'title',
+        canMerge
+          ? `Merge ${count} selected leads into one record (first selected = primary)`
+          : 'Select at least two leads to merge',
+      );
+    }
     document.querySelectorAll('.js-bulk-ai-analysis').forEach((btn) => {
       btn.classList.toggle('ring-2', hasSelection);
       btn.classList.toggle('ring-sky-400/60', hasSelection);
@@ -14927,18 +14941,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (row.querySelector('.pipeline-stage-cell')) {
       const reviewsInner = row.querySelector('.lead-reviews-inner');
       if (!reviewsInner) return null;
-      const phone = row.querySelector('.lead-contact-phone-slot');
-      const email = row.querySelector('.lead-contact-email-slot');
-      const website = row.querySelector('.lead-contact-web-slot');
-      const socials = row.querySelector('.lead-cell-socials-content');
-      if (!phone || !email || !website) return null;
       return {
         kind: 'leads',
         addressEl: row.querySelector('.lead-row-address'),
-        phone,
-        email,
-        website,
-        socials,
+        phone: row.querySelector('.lead-contact-phone-slot'),
+        email: row.querySelector('.lead-contact-email-slot'),
+        website: row.querySelector('.lead-contact-web-slot'),
+        socials: row.querySelector('.lead-cell-socials-content'),
         reviews: reviewsInner,
       };
     }
@@ -15082,6 +15091,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function syncPipelineRowWebsiteCell(row) {
+    if (!row || typeof row.querySelector !== 'function') return;
+    const cell = row.querySelector('[data-plc="website"]');
+    if (!cell) return;
+    const ws = row.dataset.website && row.dataset.website !== 'N/A' ? String(row.dataset.website).trim() : '';
+    if (ws) {
+      cell.innerHTML = `<span class="inline-flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400" title="${escapeHtmlAttr(ws)}"><svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>Yes</span>`;
+    } else {
+      cell.innerHTML =
+        '<span class="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400"><svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>No</span>';
+    }
+  }
+
   function renderLeadEmailSlotInner(email) {
     const e = email && email !== 'N/A' ? String(email).trim() : '';
     if (!e) {
@@ -15187,14 +15209,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (layout.addressEl) {
           layout.addressEl.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
         }
-        setLeadPhoneSlot(layout.phone, row.dataset.phone);
-        layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
-        layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
+        if (layout.phone) setLeadPhoneSlot(layout.phone, row.dataset.phone);
+        if (layout.email) layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);
+        if (layout.website) layout.website.innerHTML = renderLeadWebSlotInner(row.dataset.website);
         syncRowSocialsUnderPhone(row);
-        layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
-        const starElLead = layout.reviews.querySelector('.row-stars');
-        if (starElLead) renderStarsInElement(starElLead, parseFloat(row.dataset.rating) || 0);
+        if (layout.reviews) {
+          layout.reviews.innerHTML = renderLeadsReviewsInnerHtml(row.dataset.rating, row.dataset.reviews);
+          const starElLead = layout.reviews.querySelector('.row-stars');
+          if (starElLead) renderStarsInElement(starElLead, parseFloat(row.dataset.rating) || 0);
+        }
         syncPipelineRowCallButton(row, row.dataset.phone);
+        syncPipelineRowWebsiteCell(row);
       } else {
         if (row.dataset.email && row.dataset.email !== 'N/A') {
           layout.email.innerHTML = `<a href="mailto:${row.dataset.email}" class="font-bold text-brand-dark hover:text-brand-yellow transition-colors truncate max-w-[120px] inline-block" title="${row.dataset.email}">${row.dataset.email}</a>`;
@@ -15242,11 +15267,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (layout.addressEl && cellOriginals.address !== undefined) {
           layout.addressEl.innerHTML = cellOriginals.address;
         }
-        layout.phone.innerHTML = cellOriginals.phone;
-        layout.email.innerHTML = cellOriginals.email;
-        layout.website.innerHTML = cellOriginals.website;
-        if (cellOriginals.socials !== undefined) layout.socials.innerHTML = cellOriginals.socials;
-        layout.reviews.innerHTML = cellOriginals.reviews;
+        if (layout.phone && cellOriginals.phone !== undefined) layout.phone.innerHTML = cellOriginals.phone;
+        if (layout.email && cellOriginals.email !== undefined) layout.email.innerHTML = cellOriginals.email;
+        if (layout.website && cellOriginals.website !== undefined) layout.website.innerHTML = cellOriginals.website;
+        if (layout.socials && cellOriginals.socials !== undefined) layout.socials.innerHTML = cellOriginals.socials;
+        if (layout.reviews && cellOriginals.reviews !== undefined) layout.reviews.innerHTML = cellOriginals.reviews;
       } else {
         layout.email.innerHTML = cellOriginals.email;
         layout.social.innerHTML = cellOriginals.social;
@@ -15254,15 +15279,199 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function captureBulkEnhanceRowSnapshot(row, layout, spinner) {
+    if (!layout) return;
+    const cellOriginals = {};
+    if (layout.kind === 'leads') {
+      if (layout.addressEl) cellOriginals.address = layout.addressEl.innerHTML;
+      if (layout.phone) cellOriginals.phone = layout.phone.innerHTML;
+      if (layout.email) cellOriginals.email = layout.email.innerHTML;
+      if (layout.website) cellOriginals.website = layout.website.innerHTML;
+      if (layout.socials) cellOriginals.socials = layout.socials.innerHTML;
+      if (layout.reviews) cellOriginals.reviews = layout.reviews.innerHTML;
+      if (layout.addressEl) layout.addressEl.innerHTML = spinner;
+      if (layout.phone) layout.phone.innerHTML = spinner;
+      if (layout.email) layout.email.innerHTML = spinner;
+      if (layout.website) layout.website.innerHTML = spinner;
+      if (layout.socials) layout.socials.innerHTML = spinner;
+    } else {
+      if (layout.email) cellOriginals.email = layout.email.innerHTML;
+      if (layout.social) cellOriginals.social = layout.social.innerHTML;
+      if (layout.social) {
+        layout.social.innerHTML = `<div class="flex items-center gap-2 text-brand-muted">${spinner}</div>`;
+      }
+      if (layout.email && (!row.dataset.email || row.dataset.email === 'N/A')) layout.email.innerHTML = spinner;
+    }
+    bulkEnhanceDomSnapshots.set(row, cellOriginals);
+  }
+
+  function notifyBulkEnhanceIdle(msg, variant) {
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast(msg, { variant: variant || 'info', duration: 10000 });
+    } else if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(msg);
+    } else {
+      window.alert(msg);
+    }
+  }
+
+  async function runBulkEnhanceSelectedLeads() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+      notifyBulkEnhanceIdle('Select one or more leads (checkboxes) to enhance.');
+      return;
+    }
+
+    const selectedRows = Array.from(checkedBoxes).map((cb) => cb.closest('.result-row')).filter(Boolean);
+    const leadsToProcess = selectedRows.slice(0, 20);
+    if (selectedRows.length > 20) console.warn('Bulk audit limited to first 20 selected leads.');
+
+    const keyedRows = leadsToProcess.filter((r) => r.dataset.leadKey);
+    const canUseEnhanceQueue =
+      keyedRows.length > 0 &&
+      keyedRows.length === leadsToProcess.length &&
+      window.agencyOsBulkEnhance &&
+      typeof window.agencyOsBulkEnhance.start === 'function';
+
+    const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
+    const enhanceBtnOriginalHtml = Array.from(enhanceBtns).map((b) => b.innerHTML);
+    bulkEnhanceBtnSnapshotHtml = enhanceBtnOriginalHtml;
+    enhanceBtns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading', 'animate-magic');
+      b.innerHTML = enhanceLoadingHtml;
+    });
+
+    const spinner =
+      '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
+
+    if (canUseEnhanceQueue) {
+      for (const row of leadsToProcess) {
+        captureBulkEnhanceRowSnapshot(row, getBulkEnhanceLayout(row), spinner);
+      }
+      window.agencyOsBulkEnhance.start(leadsToProcess.map((r) => r.dataset.leadKey));
+      return;
+    }
+
+    let successCount = 0;
+    let attemptedCount = 0;
+    let lastError = '';
+    try {
+      try {
+        sessionStorage.setItem('agency_os_sync_enhance', '1');
+      } catch (_) {}
+      updateProcessingStatus(true);
+      const bellBadge = document.getElementById('bulkEnhanceBellBadge');
+      const pingDot = document.getElementById('notificationPing');
+      if (bellBadge) {
+        bellBadge.textContent = 'ENR';
+        bellBadge.classList.remove('hidden');
+        bellBadge.setAttribute('title', 'Enriching selected leads');
+      }
+      if (pingDot) {
+        pingDot.classList.remove('hidden');
+        pingDot.classList.add('animate-ping');
+      }
+
+      for (const row of leadsToProcess) {
+        const layout = getBulkEnhanceLayout(row);
+        const key = row.dataset.leadKey;
+        let url = row.dataset.website;
+        const title = row.dataset.title;
+        const city = row.dataset.city;
+        const state = row.dataset.state;
+
+        if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
+
+        attemptedCount += 1;
+        const cellOriginals = {};
+        if (layout) captureBulkEnhanceRowSnapshot(row, layout, spinner);
+
+        try {
+          let res;
+          if (key) {
+            res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
+          } else {
+            res = await fetch('/enrich', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url, title, city, state }),
+            });
+          }
+
+          const result = await res.json().catch(() => ({}));
+          if (result.error) lastError = String(result.error);
+          const d = result.lead || result.data;
+          const ok = res.ok && result.success && d;
+          if (ok) successCount += 1;
+          if (layout) applyBulkEnhanceDomAfterFetch(row, layout, bulkEnhanceDomSnapshots.get(row) || cellOriginals, ok, result);
+          else if (ok) applyEnrichDataToRowDataset(row, d, result);
+        } catch (err) {
+          console.error('Enrichment error:', err);
+          if (layout) applyBulkEnhanceDomAfterFetch(row, layout, bulkEnhanceDomSnapshots.get(row) || {}, false, {});
+        }
+      }
+    } finally {
+      try {
+        sessionStorage.removeItem('agency_os_sync_enhance');
+      } catch (_) {}
+      updateProcessingStatus(false);
+      const pingAfterSync = document.getElementById('notificationPing');
+      if (pingAfterSync) {
+        pingAfterSync.classList.remove('animate-ping');
+        pingAfterSync.classList.add('hidden');
+      }
+    }
+
+    const summaryLabel =
+      successCount > 0
+        ? `✨ Updated ${successCount} lead${successCount !== 1 ? 's' : ''}`
+        : attemptedCount > 0
+          ? 'No new data (check API / console)'
+          : '✨ Done';
+    enhanceBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+    if (attemptedCount === 0) {
+      notifyBulkEnhanceIdle(
+        'Could not enhance the selected leads. Save them to your pipeline first, then try again.',
+        'warning',
+      );
+    } else if (successCount === 0) {
+      const enhanceFailMsg = lastError
+        ? `Enhance finished but no rows were updated.\n\n${lastError}`
+        : 'Enhance could not add new fields (Firecrawl or network). Open Workspace → API integrations and confirm your Firecrawl key, then try again. Check server logs if it keeps failing.';
+      notifyBulkEnhanceIdle(enhanceFailMsg, 'error');
+    }
+    updateOpportunityBadges();
+    sortLeadsByOpportunity(false);
+    applyTableStars();
+
+    setTimeout(() => {
+      const snap = bulkEnhanceBtnSnapshotHtml;
+      bulkEnhanceBtnSnapshotHtml = null;
+      enhanceBtns.forEach((b, i) => {
+        b.classList.remove('loading', 'animate-magic');
+        b.disabled = false;
+        b.innerHTML = (snap && snap[i]) || b.innerHTML;
+      });
+    }, 2800);
+  }
+  window.__runBulkEnhanceSelectedLeads = runBulkEnhanceSelectedLeads;
+
   document.addEventListener('agency-os-bulk-enhance-item-complete', (ev) => {
     const { key, success, result } = ev.detail || {};
     if (!key) return;
     const row = findResultRowByLeadKey(key);
     if (!row) return;
     const layout = getBulkEnhanceLayout(row);
-    const snap = bulkEnhanceDomSnapshots.get(row);
-    if (!layout || !snap) return;
-    applyBulkEnhanceDomAfterFetch(row, layout, snap, success, result);
+    const snap = bulkEnhanceDomSnapshots.get(row) || {};
+    if (layout) {
+      applyBulkEnhanceDomAfterFetch(row, layout, snap, success, result);
+    } else if (success && (result.lead || result.data)) {
+      applyEnrichDataToRowDataset(row, result.lead || result.data, result);
+      syncPipelineRowWebsiteCell(row);
+    }
   });
 
   document.addEventListener('agency-os-bulk-enhance-finished', (ev) => {
@@ -15277,15 +15486,16 @@ document.addEventListener('DOMContentLoaded', () => {
     enhanceBtns.forEach((b) => {
       b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
     });
-    if (d.attempted > 0 && d.successCount === 0) {
+    if (d.attempted === 0) {
+      notifyBulkEnhanceIdle(
+        'Could not enhance the selected leads. Save them to your pipeline first, then try again.',
+        'warning',
+      );
+    } else if (d.attempted > 0 && d.successCount === 0) {
       const enhanceFailMsg = d.lastError
         ? `Enhance finished but no rows were updated.\n\n${d.lastError}`
         : 'Enhance could not add new fields (Firecrawl or network). Open Workspace → API integrations and confirm your Firecrawl key, then try again. Check server logs if it keeps failing.';
-      if (typeof window.showAppToast === 'function') {
-        window.showAppToast(enhanceFailMsg, { variant: 'error', duration: 12000 });
-      } else {
-        window.alert(enhanceFailMsg);
-      }
+      notifyBulkEnhanceIdle(enhanceFailMsg, 'error');
     }
     updateOpportunityBadges();
     sortLeadsByOpportunity(false);
@@ -15301,200 +15511,17 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 2200);
   });
 
-  // Bulk Enhance (Firecrawl) — `.js-bulk-enhance` on /leads attaches to both header + floating bar (no duplicate ids)
-  document.querySelectorAll('.js-bulk-enhance').forEach((bulkEnhanceBtn) => {
-    bulkEnhanceBtn.addEventListener('click', async () => {
-      const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
-      if (checkedBoxes.length === 0) {
-        const msg = 'Select one or more leads (checkboxes) to enhance.';
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(msg, { variant: 'info' });
-        } else {
-          window.alert(msg);
-        }
-        return;
-      }
-
-      const selectedRows = Array.from(checkedBoxes).map((cb) => cb.closest('.result-row')).filter(Boolean);
-
-      const leadsToProcess = selectedRows.slice(0, 20);
-      if (selectedRows.length > 20) console.warn('Bulk audit limited to first 20 selected leads.');
-
-      const allKeyedPipeline =
-        leadsToProcess.length > 0 &&
-        leadsToProcess.every((r) => r.dataset.leadKey) &&
-        leadsToProcess.every((r) => !!getBulkEnhanceLayout(r)) &&
-        window.agencyOsBulkEnhance &&
-        typeof window.agencyOsBulkEnhance.start === 'function';
-
-      if (allKeyedPipeline) {
-        const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
-        const enhanceBtnOriginalHtml = Array.from(enhanceBtns).map((b) => b.innerHTML);
-        bulkEnhanceBtnSnapshotHtml = enhanceBtnOriginalHtml;
-        enhanceBtns.forEach((b) => {
-          b.disabled = true;
-          b.classList.add('loading', 'animate-magic');
-          b.innerHTML = enhanceLoadingHtml;
-        });
-        const spinner =
-          '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
-        for (const row of leadsToProcess) {
-          const layout = getBulkEnhanceLayout(row);
-          const cellOriginals = {};
-          if (layout.kind === 'leads') {
-            if (layout.addressEl) cellOriginals.address = layout.addressEl.innerHTML;
-            cellOriginals.phone = layout.phone.innerHTML;
-            cellOriginals.email = layout.email.innerHTML;
-            cellOriginals.website = layout.website.innerHTML;
-            if (layout.socials) cellOriginals.socials = layout.socials.innerHTML;
-            cellOriginals.reviews = layout.reviews.innerHTML;
-            if (layout.addressEl) layout.addressEl.innerHTML = spinner;
-            layout.phone.innerHTML = spinner;
-            layout.email.innerHTML = spinner;
-            layout.website.innerHTML = spinner;
-            if (layout.socials) layout.socials.innerHTML = spinner;
-          } else {
-            cellOriginals.email = layout.email.innerHTML;
-            cellOriginals.social = layout.social.innerHTML;
-            layout.social.innerHTML = `<div class="flex items-center gap-2 text-brand-muted">${spinner}</div>`;
-            if (!row.dataset.email || row.dataset.email === 'N/A') layout.email.innerHTML = spinner;
-          }
-          bulkEnhanceDomSnapshots.set(row, cellOriginals);
-        }
-        window.agencyOsBulkEnhance.start(leadsToProcess.map((r) => r.dataset.leadKey));
-        return;
-      }
-
-      const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
-      const enhanceBtnOriginalHtml = Array.from(enhanceBtns).map((b) => b.innerHTML);
-      let successCount = 0;
-      let attemptedCount = 0;
-      let lastError = '';
-      try {
-        try {
-          sessionStorage.setItem('agency_os_sync_enhance', '1');
-        } catch (_) {}
-        updateProcessingStatus(true);
-        const bellBadge = document.getElementById('bulkEnhanceBellBadge');
-        const pingDot = document.getElementById('notificationPing');
-        if (bellBadge) {
-          bellBadge.textContent = 'ENR';
-          bellBadge.classList.remove('hidden');
-          bellBadge.setAttribute('title', 'Enriching selected leads');
-        }
-        if (pingDot) {
-          pingDot.classList.remove('hidden');
-          pingDot.classList.add('animate-ping');
-        }
-        enhanceBtns.forEach((b) => {
-          b.disabled = true;
-          b.classList.add('loading', 'animate-magic');
-          b.innerHTML = enhanceLoadingHtml;
-        });
-
-        const spinner =
-          '<span class="text-[9px] font-bold text-brand-yellow uppercase tracking-widest animate-pulse">Scanning…</span>';
-
-        for (const row of leadsToProcess) {
-          const layout = getBulkEnhanceLayout(row);
-          if (!layout) continue;
-
-          const key = row.dataset.leadKey;
-          let url = row.dataset.website;
-          const title = row.dataset.title;
-          const city = row.dataset.city;
-          const state = row.dataset.state;
-
-          if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
-
-          attemptedCount += 1;
-          const cellOriginals = {};
-          if (layout.kind === 'leads') {
-            if (layout.addressEl) cellOriginals.address = layout.addressEl.innerHTML;
-            cellOriginals.phone = layout.phone.innerHTML;
-            cellOriginals.email = layout.email.innerHTML;
-            cellOriginals.website = layout.website.innerHTML;
-            if (layout.socials) cellOriginals.socials = layout.socials.innerHTML;
-            cellOriginals.reviews = layout.reviews.innerHTML;
-            if (layout.addressEl) layout.addressEl.innerHTML = spinner;
-            layout.phone.innerHTML = spinner;
-            layout.email.innerHTML = spinner;
-            layout.website.innerHTML = spinner;
-            if (layout.socials) layout.socials.innerHTML = spinner;
-          } else {
-            cellOriginals.email = layout.email.innerHTML;
-            cellOriginals.social = layout.social.innerHTML;
-            layout.social.innerHTML = `<div class="flex items-center gap-2 text-brand-muted">${spinner}</div>`;
-            if (!row.dataset.email || row.dataset.email === 'N/A') layout.email.innerHTML = spinner;
-          }
-
-          try {
-            let res;
-            if (key) {
-              res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
-            } else {
-              res = await fetch('/enrich', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url, title, city, state }),
-              });
-            }
-
-            const result = await res.json().catch(() => ({}));
-            if (result.error) lastError = String(result.error);
-            const d = result.lead || result.data;
-            const ok = res.ok && result.success && d;
-            if (ok) successCount += 1;
-            applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, ok, result);
-          } catch (err) {
-            console.error('Enrichment error:', err);
-            applyBulkEnhanceDomAfterFetch(row, layout, cellOriginals, false, {});
-          }
-        }
-      } finally {
-        try {
-          sessionStorage.removeItem('agency_os_sync_enhance');
-        } catch (_) {}
-        updateProcessingStatus(false);
-        const pingAfterSync = document.getElementById('notificationPing');
-        if (pingAfterSync) {
-          pingAfterSync.classList.remove('animate-ping');
-          pingAfterSync.classList.add('hidden');
-        }
-      }
-
-      const summaryLabel =
-        successCount > 0
-          ? `✨ Updated ${successCount} lead${successCount !== 1 ? 's' : ''}`
-          : attemptedCount > 0
-            ? 'No new data (check API / console)'
-            : '✨ Done';
-      enhanceBtns.forEach((b) => {
-        b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
-      });
-      if (attemptedCount > 0 && successCount === 0) {
-        const enhanceFailMsg = lastError
-          ? `Enhance finished but no rows were updated.\n\n${lastError}`
-          : 'Enhance could not add new fields (Firecrawl or network). Open Workspace → API integrations and confirm your Firecrawl key, then try again. Check server logs if it keeps failing.';
-        if (typeof window.showAppToast === 'function') {
-          window.showAppToast(enhanceFailMsg, { variant: 'error', duration: 12000 });
-        } else {
-          window.alert(enhanceFailMsg);
-        }
-      }
-      updateOpportunityBadges();
-      sortLeadsByOpportunity(false);
-      applyTableStars();
-
-      setTimeout(() => {
-        enhanceBtns.forEach((b, i) => {
-          b.classList.remove('loading', 'animate-magic');
-          b.disabled = false;
-          b.innerHTML = enhanceBtnOriginalHtml[i] || b.innerHTML;
-        });
-      }, 2800);
-    });
-  });
+  document.addEventListener(
+    'click',
+    (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('.js-bulk-enhance') : null;
+      if (!btn || btn.disabled || btn.classList.contains('loading')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void runBulkEnhanceSelectedLeads();
+    },
+    true,
+  );
 
   // Backfill missing phone/email (and website hints) for all leads in workspace.
   document.querySelectorAll('.js-bulk-ai-analysis').forEach((btn) => {

@@ -1488,6 +1488,14 @@
           bulkMergeSelectedLeads();
           return;
         }
+        if (e.target.closest('.js-bulk-enhance')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__runBulkEnhanceSelectedLeads === 'function') {
+            void window.__runBulkEnhanceSelectedLeads();
+          }
+          return;
+        }
       },
       true,
     );

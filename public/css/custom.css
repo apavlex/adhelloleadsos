@@ -1275,6 +1275,19 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   flex: 0 1 auto;
 }
 
+#bulkActionBar .bulk-bar-tools-row {
+  flex-shrink: 0;
+  padding-top: 0.35rem;
+  margin-top: 0.1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+#bulkActionBar .bulk-bar-tools-row::-webkit-scrollbar {
+  display: none;
+}
+
 #bulkActionBar .bulk-bar-primary-row {
   display: flex;
   align-items: stretch;
