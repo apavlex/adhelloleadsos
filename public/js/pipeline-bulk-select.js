@@ -985,17 +985,18 @@
         errorMsg = (data && data.error) || 'Merge failed (' + res.status + ').';
       } else {
         mergedCount = Number(data.mergedCount) || 0;
-        const awayNorm = new Set(
-          (Array.isArray(data.mergedAwayKeys) ? data.mergedAwayKeys : []).map(leadKeyNorm),
-        );
-        targets.forEach(function (target) {
-          if (!target.row || !target.row.isConnected) return;
-          const tk = leadKeyNorm(target.key);
-          if (tk === primaryKeyNorm) return;
-          if (awayNorm.size > 0 && !awayNorm.has(tk)) return;
-          if (target.row.classList.contains('selected') && closePanel) closePanel.click();
-          target.row.remove();
-        });
+        const awayCount = Array.isArray(data.mergedAwayKeys) ? data.mergedAwayKeys.length : 0;
+        if (mergedCount <= 0 && awayCount > 0) mergedCount = awayCount;
+        if (mergedCount > 0 || awayCount > 0) {
+          targets.forEach(function (target) {
+            if (!target.row || !target.row.isConnected) return;
+            if (leadKeyNorm(target.key) === primaryKeyNorm) return;
+            if (target.row.classList.contains('selected') && closePanel) closePanel.click();
+            target.row.remove();
+          });
+        } else {
+          errorMsg = 'Merge completed but no leads were combined. Try refreshing and selecting again.';
+        }
       }
     } catch (err) {
       console.error('[pipeline-bulk-select] bulk merge failed', err);
@@ -1014,17 +1015,24 @@
       selectAllHeader.indeterminate = false;
     }
     if (typeof window.__resetBulkSelectAnchor === 'function') window.__resetBulkSelectAnchor();
-    showBulkActionBar(0);
-    if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
     if (typeof window.__pipelineTablePagingApply === 'function') window.__pipelineTablePagingApply();
-    if (mergedCount) {
+
+    if (mergedCount > 0) {
       notifyMergeResult(
-        'Merged ' + mergedCount + ' lead' + (mergedCount === 1 ? '' : 's') + ' into ' + primaryTitle + '.',
+        'Merged ' + mergedCount + ' lead' + (mergedCount === 1 ? '' : 's') + ' into ' + primaryTitle + '. Refreshing…',
         'success',
       );
-    } else {
-      notifyMergeResult(errorMsg || 'Merge failed.', 'error');
+      window.setTimeout(function () {
+        window.location.reload();
+      }, 700);
+      return;
     }
+
+    showBulkActionBar(0);
+    if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+    const failMsg = errorMsg || 'Merge failed.';
+    notifyMergeResult(failMsg, 'error');
+    window.alert(failMsg);
   }
 
   window.__bulkMergeSelectedLeads = bulkMergeSelectedLeads;

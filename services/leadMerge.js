@@ -244,9 +244,11 @@ async function mergeLeadsByKeys({ dbService, workspaceId, keys, primaryKey }) {
   }
 
   const wantPrimary = String(primaryKey || normKeys[0] || '').trim();
+  const wantPrimaryNorm = wantPrimary.replace(/^lead:/i, '');
   const primaryEntry =
     resolved.find((r) => r.storageKey === wantPrimary || r.lead.key === wantPrimary) ||
-    resolved.find((r) => String(r.lead.key || '').replace(/^lead:/i, '') === wantPrimary.replace(/^lead:/i, '')) ||
+    resolved.find((r) => String(r.lead.key || '').replace(/^lead:/i, '') === wantPrimaryNorm) ||
+    resolved.find((r) => String(r.storageKey || '').replace(/^lead:/i, '') === wantPrimaryNorm) ||
     resolved[0];
   const secondaryEntries = resolved.filter((r) => r.storageKey !== primaryEntry.storageKey);
 

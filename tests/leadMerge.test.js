@@ -4,7 +4,9 @@ const {
   mergeSecondaryIntoPrimary,
   snapshotLocation,
   mergeLocationLists,
+  mergeLeadsByKeys,
 } = require('../services/leadMerge');
+const db = require('../services/database');
 
 describe('leadMerge', () => {
   it('keeps primary title and stores secondary as a location', () => {
@@ -61,5 +63,23 @@ describe('leadMerge', () => {
     );
     const merged = mergeLocationLists([], [], [a, b]);
     assert.equal(merged.length, 1);
+  });
+
+  it('mergeLeadsByKeys combines leads and deletes secondaries', async () => {
+    const ws = 'merge-test-ws';
+    const ka = await db.saveLead({ title: 'Primary Co', workspaceId: ws, city: 'Austin', state: 'TX' });
+    const kb = await db.saveLead({ title: 'Secondary Co', workspaceId: ws, city: 'Dallas', state: 'TX' });
+    const result = await mergeLeadsByKeys({
+      dbService: db,
+      workspaceId: ws,
+      keys: [ka, kb],
+      primaryKey: ka.replace(/^lead:/i, ''),
+    });
+    assert.equal(result.success, true);
+    assert.equal(result.mergedCount, 1);
+    const remaining = await db.getAllLeads(ws);
+    assert.equal(remaining.length, 1);
+    assert.equal(remaining[0].title, 'Primary Co');
+    assert.ok(Array.isArray(remaining[0].leadLocations));
   });
 });
