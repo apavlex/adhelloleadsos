@@ -618,9 +618,36 @@
         <p class="lead-panel-widget__lede">Creates a dated task on <a href="/tasks" class="text-brand-yellow font-bold hover:underline">Tasks</a> so warm callbacks do not get lost in sequence-only flows.</p>
         <div class="space-y-3">
           <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label for="leadCallbackDate" class="lead-panel-field-label">Date</label>
-              <input type="date" id="leadCallbackDate" class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" />
+            <div class="adhello-date-field relative">
+              <label for="leadCallbackDateTrigger" class="lead-panel-field-label">Date</label>
+              <input type="hidden" id="leadCallbackDate" value="" />
+              <button
+                type="button"
+                id="leadCallbackDateTrigger"
+                class="adhello-date-trigger w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white flex items-center justify-between gap-2 text-left transition-colors hover:border-sky-400/50 dark:hover:border-sky-500/40 focus:outline-none focus:ring-2 focus:ring-sky-500/35"
+                aria-expanded="false"
+                aria-haspopup="dialog"
+                aria-controls="leadCallbackDatePopover"
+              >
+                <span data-date-label class="adhello-date-trigger__label adhello-date-trigger__label--empty truncate">Select date</span>
+                <svg class="w-4 h-4 shrink-0 text-sky-600 dark:text-sky-400 opacity-80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+              </button>
+              <div id="leadCallbackDatePopover" class="adhello-mini-calendar hidden" role="dialog" aria-label="Choose callback date" aria-modal="true">
+                <div class="adhello-mini-calendar__head">
+                  <button type="button" class="adhello-mini-calendar__nav" data-cal-prev aria-label="Previous month">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <p class="adhello-mini-calendar__month" data-cal-month>June 2026</p>
+                  <button type="button" class="adhello-mini-calendar__nav" data-cal-next aria-label="Next month">
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+                <div class="adhello-mini-calendar__grid" data-cal-grid role="grid" aria-label="Calendar days"></div>
+                <div class="adhello-mini-calendar__foot">
+                  <button type="button" class="adhello-mini-calendar__link" data-cal-clear>Clear</button>
+                  <button type="button" class="adhello-mini-calendar__link adhello-mini-calendar__link--accent" data-cal-today>Today</button>
+                </div>
+              </div>
             </div>
             <div>
               <label for="leadCallbackTime" class="lead-panel-field-label">Time</label>
@@ -750,6 +777,8 @@
       </div><!-- /leadPanelMiddle -->
     </div><!-- /leadPanelSheet -->
   </div><!-- /mobilePanel -->
+
+  <script src="/js/lead-callback-datepicker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 
   <!-- Website Preview Tooltip -->
     <div id="websitePreview" class="fixed hidden z-[200] w-[400px] h-[300px] bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 rounded-xl shadow-2xl overflow-hidden pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-15px] transition-opacity duration-200 opacity-0">

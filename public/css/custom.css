@@ -2489,6 +2489,233 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
     color: rgb(196, 181, 253);
 }
 
+/* Schedule callback — compact branded date picker */
+.adhello-date-trigger__label--empty {
+    color: var(--brand-muted, #64748b);
+    font-weight: 600;
+}
+
+.dark .adhello-date-trigger__label--empty {
+    color: rgb(148, 163, 184);
+}
+
+.adhello-mini-calendar {
+    border-radius: 1rem;
+    border: 1px solid rgba(14, 165, 233, 0.28);
+    background: #fff;
+    box-shadow:
+        0 16px 40px -16px rgba(15, 23, 42, 0.28),
+        0 0 0 1px rgba(15, 23, 42, 0.04);
+    padding: 0.65rem 0.7rem 0.55rem;
+    user-select: none;
+}
+
+.dark .adhello-mini-calendar {
+    background: rgb(15, 23, 42);
+    border-color: rgba(56, 189, 248, 0.24);
+    box-shadow:
+        0 18px 44px -14px rgba(0, 0, 0, 0.55),
+        0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.adhello-mini-calendar__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    margin-bottom: 0.45rem;
+}
+
+.adhello-mini-calendar__month {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: rgb(7, 89, 133);
+    text-align: center;
+    flex: 1;
+}
+
+.dark .adhello-mini-calendar__month {
+    color: rgb(186, 230, 253);
+}
+
+.adhello-mini-calendar__nav {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    border-radius: 0.55rem;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    background: rgba(250, 247, 237, 0.65);
+    color: rgb(51, 65, 85);
+    transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+
+.adhello-mini-calendar__nav:hover {
+    border-color: rgba(14, 165, 233, 0.45);
+    background: rgba(14, 165, 233, 0.08);
+    color: rgb(7, 89, 133);
+}
+
+.dark .adhello-mini-calendar__nav {
+    border-color: rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgb(203, 213, 225);
+}
+
+.dark .adhello-mini-calendar__nav:hover {
+    border-color: rgba(56, 189, 248, 0.35);
+    background: rgba(14, 165, 233, 0.12);
+    color: rgb(186, 230, 253);
+}
+
+.adhello-mini-calendar__grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 0.15rem;
+}
+
+.adhello-mini-calendar__dow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 1.35rem;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgba(100, 116, 139, 0.85);
+}
+
+.dark .adhello-mini-calendar__dow {
+    color: rgba(148, 163, 184, 0.85);
+}
+
+.adhello-mini-calendar__pad {
+    display: block;
+    height: 1.75rem;
+}
+
+.adhello-mini-calendar__day {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 1.75rem;
+    border: none;
+    border-radius: 0.55rem;
+    background: transparent;
+    font-size: 11px;
+    font-weight: 700;
+    color: rgb(30, 41, 59);
+    cursor: pointer;
+    transition: background 0.12s ease, color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.adhello-mini-calendar__day:hover {
+    background: rgba(14, 165, 233, 0.1);
+    color: rgb(7, 89, 133);
+}
+
+.adhello-mini-calendar__day.is-today:not(.is-selected) {
+    box-shadow: inset 0 0 0 1.5px rgba(255, 214, 68, 0.85);
+    color: rgb(7, 89, 133);
+}
+
+.adhello-mini-calendar__day.is-selected {
+    background: rgb(14, 165, 233);
+    color: #fff;
+    box-shadow: 0 4px 12px -4px rgba(14, 165, 233, 0.65);
+}
+
+.adhello-mini-calendar__day.is-selected:hover {
+    background: rgb(2, 132, 199);
+    color: #fff;
+}
+
+.dark .adhello-mini-calendar__day {
+    color: rgb(226, 232, 240);
+}
+
+.dark .adhello-mini-calendar__day:hover {
+    background: rgba(14, 165, 233, 0.18);
+    color: rgb(186, 230, 253);
+}
+
+.dark .adhello-mini-calendar__day.is-today:not(.is-selected) {
+    color: rgb(186, 230, 253);
+}
+
+.adhello-mini-calendar__foot {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.dark .adhello-mini-calendar__foot {
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+.adhello-mini-calendar__link {
+    border: none;
+    background: transparent;
+    padding: 0.15rem 0.25rem;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: rgb(100, 116, 139);
+    cursor: pointer;
+}
+
+.adhello-mini-calendar__link:hover {
+    color: rgb(7, 89, 133);
+}
+
+.adhello-mini-calendar__link--accent {
+    color: rgb(14, 165, 233);
+}
+
+.adhello-mini-calendar__link--accent:hover {
+    color: rgb(2, 132, 199);
+}
+
+.dark .adhello-mini-calendar__link {
+    color: rgb(148, 163, 184);
+}
+
+.dark .adhello-mini-calendar__link:hover {
+    color: rgb(186, 230, 253);
+}
+
+.dark .adhello-mini-calendar__link--accent {
+    color: rgb(56, 189, 248);
+}
+
+#leadCallbackTime {
+    color-scheme: light;
+}
+
+.dark #leadCallbackTime {
+    color-scheme: dark;
+}
+
+#leadCallbackTime::-webkit-calendar-picker-indicator {
+    opacity: 0.55;
+    cursor: pointer;
+    filter: none;
+}
+
+.dark #leadCallbackTime::-webkit-calendar-picker-indicator {
+    filter: invert(0.85);
+}
+
 /* Focus mode — collapsible call outcome panel */
 #focus-outcome-panel[data-collapsed="true"] {
     padding-top: 0.65rem;
