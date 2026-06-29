@@ -890,41 +890,78 @@
 
   let bulkMergeInFlight = false;
 
+  function leadKeyNorm(key) {
+    return String(key || '')
+      .trim()
+      .replace(/^lead:/i, '');
+  }
+
   function leadTitleFromRow(row) {
     if (!row) return 'Lead';
-    const titleCell = row.querySelector('[data-plc="company"] .font-bold, [data-plc="company"]');
-    const txt = titleCell ? String(titleCell.textContent || '').trim() : '';
-    if (txt) return txt;
-    return String(row.getAttribute('data-title') || row.dataset.title || 'Lead').trim() || 'Lead';
+    const fromData = String(row.getAttribute('data-title') || row.dataset.title || '').trim();
+    if (fromData) return fromData;
+    const titleEl = row.querySelector('[data-plc="company"] .company-title-text');
+    if (titleEl) {
+      const txt = String(titleEl.textContent || '').trim();
+      if (txt) return txt;
+    }
+    return 'Lead';
+  }
+
+  function notifyMergeResult(message, variant) {
+    const msg = String(message || '').trim();
+    if (!msg) return;
+    if (typeof window.showBulkActionConfirmation === 'function') {
+      window.showBulkActionConfirmation(msg, variant || 'info');
+    }
+    if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(msg);
+    } else if (typeof window.showAppToast === 'function') {
+      window.showAppToast(msg, { variant: variant === 'error' ? 'error' : variant === 'success' ? 'success' : 'info' });
+    } else if (variant === 'error') {
+      window.alert(msg);
+    }
   }
 
   async function bulkMergeSelectedLeads() {
     if (bulkMergeInFlight) return;
     const targets = collectBulkDeleteTargets();
     if (targets.length < 2) {
-      if (typeof window.showProspectToast === 'function') {
-        window.showProspectToast('Select at least two leads to merge.', { variant: 'error' });
-      }
+      notifyMergeResult('Select at least two leads to merge.', 'error');
       return;
     }
     const primary = targets[0];
     const primaryTitle = leadTitleFromRow(primary.row);
     const n = targets.length;
+    const otherLines = targets
+      .slice(1)
+      .map(function (t) {
+        return '- ' + leadTitleFromRow(t.row);
+      })
+      .join('\n');
     const msg =
       'Merge ' +
       n +
-      ' leads into “' +
+      ' leads into:\n' +
       primaryTitle +
-      '”?\n\nThe first selected row stays as the main record. Other rows will be combined (locations, phones, notes, tags) and removed.';
+      '\n\nAlso combining:\n' +
+      otherLines +
+      '\n\nThe first selected row stays as the main record. Other rows will be removed. Continue?';
     if (!window.confirm(msg)) return;
 
     bulkMergeInFlight = true;
     const mergeBtn = document.getElementById('bulkMergeBtn');
-    if (mergeBtn) mergeBtn.disabled = true;
+    const mergeBtnHtml = mergeBtn ? mergeBtn.innerHTML : '';
+    if (mergeBtn) {
+      mergeBtn.disabled = true;
+      mergeBtn.innerHTML = '<span class="text-[10px] font-black uppercase tracking-widest">Merging…</span>';
+    }
+    showBulkBarFeedbackEarly('Merging selected leads…', 'loading');
 
     let errorMsg = '';
     let mergedCount = 0;
     const closePanel = document.getElementById('closeMobilePanel');
+    const primaryKeyNorm = leadKeyNorm(primary.key);
 
     try {
       const res = await fetch('/leads/bulk-merge', {
@@ -948,19 +985,16 @@
         errorMsg = (data && data.error) || 'Merge failed (' + res.status + ').';
       } else {
         mergedCount = Number(data.mergedCount) || 0;
-        const away = new Set(
-          (Array.isArray(data.mergedAwayKeys) ? data.mergedAwayKeys : []).map(function (k) {
-            return String(k || '').trim();
-          }),
+        const awayNorm = new Set(
+          (Array.isArray(data.mergedAwayKeys) ? data.mergedAwayKeys : []).map(leadKeyNorm),
         );
         targets.forEach(function (target) {
           if (!target.row || !target.row.isConnected) return;
-          if (target.key === primary.key) return;
-          if (!away.has(target.key) && away.size > 0) return;
-          if (target.key !== primary.key) {
-            if (target.row.classList.contains('selected') && closePanel) closePanel.click();
-            target.row.remove();
-          }
+          const tk = leadKeyNorm(target.key);
+          if (tk === primaryKeyNorm) return;
+          if (awayNorm.size > 0 && !awayNorm.has(tk)) return;
+          if (target.row.classList.contains('selected') && closePanel) closePanel.click();
+          target.row.remove();
         });
       }
     } catch (err) {
@@ -968,7 +1002,10 @@
       errorMsg = (err && err.message) || 'Merge failed.';
     } finally {
       bulkMergeInFlight = false;
-      if (mergeBtn) mergeBtn.disabled = false;
+      if (mergeBtn) {
+        mergeBtn.disabled = false;
+        mergeBtn.innerHTML = mergeBtnHtml || mergeBtn.innerHTML;
+      }
     }
 
     const selectAllHeader = document.querySelector('#prospectLeadsTable thead input[data-select-all-leads]');
@@ -980,13 +1017,13 @@
     showBulkActionBar(0);
     if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
     if (typeof window.__pipelineTablePagingApply === 'function') window.__pipelineTablePagingApply();
-    if (typeof window.showProspectToast === 'function') {
-      window.showProspectToast(
-        mergedCount
-          ? 'Merged ' + mergedCount + ' lead' + (mergedCount === 1 ? '' : 's') + ' into “' + primaryTitle + '”.'
-          : errorMsg || 'Merge failed.',
-        { variant: mergedCount ? 'success' : 'error' },
+    if (mergedCount) {
+      notifyMergeResult(
+        'Merged ' + mergedCount + ' lead' + (mergedCount === 1 ? '' : 's') + ' into ' + primaryTitle + '.',
+        'success',
       );
+    } else {
+      notifyMergeResult(errorMsg || 'Merge failed.', 'error');
     }
   }
 
