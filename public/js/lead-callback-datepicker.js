@@ -114,6 +114,34 @@
       gridEl.innerHTML = html;
     }
 
+    function calendarPopoverSolidBg() {
+      return document.documentElement.classList.contains('dark') ? '#0f172a' : '#ffffff';
+    }
+
+    function applyCalendarPopoverSurface() {
+      if (!popover) return;
+      var bg = calendarPopoverSolidBg();
+      var shadow =
+        '0 20px 40px -12px rgba(17, 24, 39, 0.18), 0 8px 16px -8px rgba(17, 24, 39, 0.1)';
+      popover.style.setProperty('background-color', bg, 'important');
+      popover.style.setProperty('background-image', 'none', 'important');
+      popover.style.setProperty('background', bg, 'important');
+      popover.style.setProperty('backdrop-filter', 'none', 'important');
+      popover.style.setProperty('-webkit-backdrop-filter', 'none', 'important');
+      popover.style.setProperty('opacity', '1', 'important');
+      popover.style.setProperty('isolation', 'isolate', 'important');
+      popover.style.setProperty('box-shadow', shadow, 'important');
+      popover.style.setProperty('z-index', '10050', 'important');
+      if (typeof window.applyPortaledPopoverSurface === 'function') {
+        window.applyPortaledPopoverSurface(popover);
+      }
+      popover.querySelectorAll('.adhello-mini-calendar__surface').forEach(function (inner) {
+        inner.style.setProperty('background-color', bg, 'important');
+        inner.style.setProperty('background-image', 'none', 'important');
+        inner.style.setProperty('background', bg, 'important');
+      });
+    }
+
     function positionPopover() {
       var rect = trigger.getBoundingClientRect();
       var width = Math.max(252, Math.min(280, rect.width));
@@ -131,7 +159,7 @@
       popover.style.top = top + 'px';
       popover.style.left = left + 'px';
       popover.style.width = width + 'px';
-      popover.style.zIndex = '6000';
+      applyCalendarPopoverSurface();
     }
 
     function openPicker() {
@@ -143,9 +171,7 @@
         anchor.parentNode.insertBefore(placeholder, anchor.nextSibling);
       }
       document.body.appendChild(popover);
-      if (typeof window.applyPortaledPopoverSurface === 'function') {
-        window.applyPortaledPopoverSurface(popover);
-      }
+      applyCalendarPopoverSurface();
       popover.classList.remove('hidden');
       trigger.setAttribute('aria-expanded', 'true');
       positionPopover();

@@ -23,6 +23,11 @@
       inner.style.setProperty('background-image', 'none', 'important');
       inner.style.setProperty('background', bg, 'important');
     });
+    el.querySelectorAll('.adhello-mini-calendar__surface').forEach(function (inner) {
+      inner.style.setProperty('background-color', bg, 'important');
+      inner.style.setProperty('background-image', 'none', 'important');
+      inner.style.setProperty('background', bg, 'important');
+    });
   }
 
   global.portaledPopoverSolidBg = portaledPopoverSolidBg;
