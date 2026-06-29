@@ -67,7 +67,7 @@ const ghlMessaging = require('../services/ghlMessaging');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
-const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
+const { mergeLeadsByKeys } = require('../services/leadMerge');
 const { quickLogItemForStatus } = require('../services/quickLogConfig');
 const {
   findDeletableLeadNote,
@@ -2718,6 +2718,26 @@ router.post('/telephony/voicemail/upload', (req, res, next) => {
       activeVoicemailId: entry.id,
       voicemailLibrary: nextLibrary,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/bulk-merge — combine multi-location / name-variant leads into one primary
+router.post('/bulk-merge', express.json(), async (req, res, next) => {
+  try {
+    const keys = Array.isArray(req.body && req.body.keys) ? req.body.keys : [];
+    const primaryKey = String((req.body && req.body.primaryKey) || '').trim();
+    const result = await mergeLeadsByKeys({
+      dbService,
+      workspaceId: req.workspaceId,
+      keys,
+      primaryKey: primaryKey || undefined,
+    });
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    return res.json(result);
   } catch (err) {
     next(err);
   }

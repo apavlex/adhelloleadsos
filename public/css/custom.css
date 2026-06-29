@@ -1127,8 +1127,15 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   background: rgba(56, 189, 248, 0.1);
 }
 
+#bulkActionBar .bulk-bar-btn--ghost.text-violet-300 {
+  color: #c4b5fd !important;
+  border-color: rgba(196, 181, 253, 0.35);
+  background: rgba(139, 92, 246, 0.12);
+}
+
 #bulkActionBar .bulk-bar-btn--ghost.text-brand-yellow:hover:not(:disabled),
-#bulkActionBar .bulk-bar-btn--ghost.text-sky-300:hover:not(:disabled) {
+#bulkActionBar .bulk-bar-btn--ghost.text-sky-300:hover:not(:disabled),
+#bulkActionBar .bulk-bar-btn--ghost.text-violet-300:hover:not(:disabled) {
   filter: brightness(1.08);
 }
 

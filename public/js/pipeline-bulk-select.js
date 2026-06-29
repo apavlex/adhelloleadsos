@@ -888,6 +888,110 @@
   }
   window.__bulkDeleteSelectedLeads = bulkDeleteSelectedLeads;
 
+  let bulkMergeInFlight = false;
+
+  function leadTitleFromRow(row) {
+    if (!row) return 'Lead';
+    const titleCell = row.querySelector('[data-plc="company"] .font-bold, [data-plc="company"]');
+    const txt = titleCell ? String(titleCell.textContent || '').trim() : '';
+    if (txt) return txt;
+    return String(row.getAttribute('data-title') || row.dataset.title || 'Lead').trim() || 'Lead';
+  }
+
+  async function bulkMergeSelectedLeads() {
+    if (bulkMergeInFlight) return;
+    const targets = collectBulkDeleteTargets();
+    if (targets.length < 2) {
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast('Select at least two leads to merge.', { variant: 'error' });
+      }
+      return;
+    }
+    const primary = targets[0];
+    const primaryTitle = leadTitleFromRow(primary.row);
+    const n = targets.length;
+    const msg =
+      'Merge ' +
+      n +
+      ' leads into “' +
+      primaryTitle +
+      '”?\n\nThe first selected row stays as the main record. Other rows will be combined (locations, phones, notes, tags) and removed.';
+    if (!window.confirm(msg)) return;
+
+    bulkMergeInFlight = true;
+    const mergeBtn = document.getElementById('bulkMergeBtn');
+    if (mergeBtn) mergeBtn.disabled = true;
+
+    let errorMsg = '';
+    let mergedCount = 0;
+    const closePanel = document.getElementById('closeMobilePanel');
+
+    try {
+      const res = await fetch('/leads/bulk-merge', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          keys: targets.map(function (t) {
+            return t.key;
+          }),
+          primaryKey: primary.key,
+        }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        errorMsg = (data && data.error) || 'Merge failed (' + res.status + ').';
+      } else {
+        mergedCount = Number(data.mergedCount) || 0;
+        const away = new Set(
+          (Array.isArray(data.mergedAwayKeys) ? data.mergedAwayKeys : []).map(function (k) {
+            return String(k || '').trim();
+          }),
+        );
+        targets.forEach(function (target) {
+          if (!target.row || !target.row.isConnected) return;
+          if (target.key === primary.key) return;
+          if (!away.has(target.key) && away.size > 0) return;
+          if (target.key !== primary.key) {
+            if (target.row.classList.contains('selected') && closePanel) closePanel.click();
+            target.row.remove();
+          }
+        });
+      }
+    } catch (err) {
+      console.error('[pipeline-bulk-select] bulk merge failed', err);
+      errorMsg = (err && err.message) || 'Merge failed.';
+    } finally {
+      bulkMergeInFlight = false;
+      if (mergeBtn) mergeBtn.disabled = false;
+    }
+
+    const selectAllHeader = document.querySelector('#prospectLeadsTable thead input[data-select-all-leads]');
+    if (selectAllHeader) {
+      selectAllHeader.checked = false;
+      selectAllHeader.indeterminate = false;
+    }
+    if (typeof window.__resetBulkSelectAnchor === 'function') window.__resetBulkSelectAnchor();
+    showBulkActionBar(0);
+    if (typeof window.__updateBulkActionBar === 'function') window.__updateBulkActionBar();
+    if (typeof window.__pipelineTablePagingApply === 'function') window.__pipelineTablePagingApply();
+    if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(
+        mergedCount
+          ? 'Merged ' + mergedCount + ' lead' + (mergedCount === 1 ? '' : 's') + ' into “' + primaryTitle + '”.'
+          : errorMsg || 'Merge failed.',
+        { variant: mergedCount ? 'success' : 'error' },
+      );
+    }
+  }
+
+  window.__bulkMergeSelectedLeads = bulkMergeSelectedLeads;
+
   function mountSmsModalToBodyEarly() {
     const modal = document.getElementById('smsScriptModal');
     if (modal && modal.parentElement !== document.body) {
@@ -1376,6 +1480,12 @@
           e.preventDefault();
           e.stopPropagation();
           bulkDeleteSelectedLeads();
+          return;
+        }
+        if (e.target.closest('#bulkMergeBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          bulkMergeSelectedLeads();
           return;
         }
       },

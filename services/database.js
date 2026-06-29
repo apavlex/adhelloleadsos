@@ -659,13 +659,16 @@ module.exports = {
       }
     }
 
-    const chatHistory = [...(existing.chatHistory || []), ...(updateData.chatHistory || [])];
+    const chatHistory =
+      updateData.chatHistoryMode === 'replace' && Array.isArray(updateData.chatHistory)
+        ? updateData.chatHistory
+        : [...(existing.chatHistory || []), ...(updateData.chatHistory || [])];
     const logs =
       updateData.logsMode === 'replace' && Array.isArray(updateData.logs)
         ? updateData.logs
         : [...(existing.logs || []), ...(updateData.logs || [])];
 
-    const { logsMode, ...leadPatch } = updateData;
+    const { logsMode, chatHistoryMode, ...leadPatch } = updateData;
 
     const updated = {
       ...existing,
