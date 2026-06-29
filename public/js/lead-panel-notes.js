@@ -328,6 +328,29 @@
     if (!host) return false;
     const f = String(filter || window.__leadActivityFilter || 'all');
     window.__leadActivityFilter = f;
+    const row =
+      document.querySelector(
+        '#prospectLeadsTable tbody tr.result-row.selected, tr.result-row.selected:not(.result-row--panel-source)',
+      ) || null;
+    if (f === 'merges') {
+      document.querySelectorAll('#mobilePanel .lead-activity-filter').forEach((btn) => {
+        const on = (btn.getAttribute('data-activity-filter') || 'all') === f;
+        btn.classList.toggle('bg-white', on);
+        btn.classList.toggle('dark:bg-slate-900', on);
+        btn.classList.toggle('text-brand-dark', on);
+        btn.classList.toggle('dark:text-white', on);
+        btn.classList.toggle('shadow-sm', on);
+        btn.classList.toggle('text-brand-muted', !on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+      if (typeof window.__adhelloPaintLeadPanelMerges === 'function') {
+        window.__adhelloPaintLeadPanelMerges(row, host);
+      } else {
+        host.innerHTML =
+          '<div class="pl-2 text-xs text-brand-muted italic leading-relaxed">Merges view is loading…</div>';
+      }
+      return true;
+    }
     const entries = mergeEntries();
     const filtered =
       f === 'notes'

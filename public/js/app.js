@@ -1748,6 +1748,20 @@ document.addEventListener('DOMContentLoaded', () => {
         /* ignore */
       }
     }
+    if (Array.isArray(lead.leadLocations)) {
+      try {
+        ds.leadLocations = JSON.stringify(lead.leadLocations);
+      } catch (_) {
+        ds.leadLocations = '[]';
+      }
+    }
+    if (Array.isArray(lead.alternateTitles)) {
+      try {
+        ds.alternateTitles = JSON.stringify(lead.alternateTitles);
+      } catch (_) {
+        ds.alternateTitles = '[]';
+      }
+    }
     return true;
   }
 
@@ -5877,6 +5891,26 @@ document.addEventListener('DOMContentLoaded', () => {
         ds.logsSnippet = '[]';
       }
     }
+    if (L.leadLocations != null) {
+      try {
+        const locs = Array.isArray(L.leadLocations) ? L.leadLocations : [];
+        ds.leadLocations = JSON.stringify(locs);
+        const embedded = findInitialSavedLeadRecord(row);
+        if (embedded) embedded.leadLocations = locs.slice();
+      } catch {
+        ds.leadLocations = '[]';
+      }
+    }
+    if (L.alternateTitles != null) {
+      try {
+        const alts = Array.isArray(L.alternateTitles) ? L.alternateTitles : [];
+        ds.alternateTitles = JSON.stringify(alts);
+        const embedded = findInitialSavedLeadRecord(row);
+        if (embedded) embedded.alternateTitles = alts.slice();
+      } catch {
+        ds.alternateTitles = '[]';
+      }
+    }
     if (L.sequenceState !== undefined) {
       try {
         ds.sequenceState =
@@ -8318,6 +8352,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (f === 'notes') {
       return isManualPanelNote(entry);
     }
+    if (f === 'merges') {
+      return false;
+    }
     return true;
   }
 
@@ -8336,6 +8373,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function renderLeadActivityTimeline(row, filter) {
+    const f = String(filter || window.__leadActivityFilter || 'all');
+    if (f === 'merges') {
+      syncLeadActivityFilterButtons(f);
+      const activityRow = row || resolveLeadPanelNoteRow();
+      if (typeof window.__adhelloPaintLeadPanelMerges === 'function') {
+        const host = getLeadActivityLogHost();
+        window.__adhelloPaintLeadPanelMerges(activityRow, host);
+      }
+      return;
+    }
     if (typeof window.__adhelloPaintLeadPanelNotes === 'function') {
       if (row && window.__adhelloLeadPanelNotes && typeof window.__adhelloLeadPanelNotes.syncFromRow === 'function') {
         window.__adhelloLeadPanelNotes.syncFromRow(row, filter);
@@ -8345,7 +8392,6 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     const host = getLeadActivityLogHost();
-    const f = String(filter || window.__leadActivityFilter || 'all');
     if (!host) return;
 
     const activityRow = row || resolveLeadPanelNoteRow();
@@ -16977,6 +17023,16 @@ document.addEventListener('DOMContentLoaded', () => {
       ds.logsSnippet = JSON.stringify((lead.logs || []).slice(-14));
     } catch (_) {
       ds.logsSnippet = '[]';
+    }
+    try {
+      ds.leadLocations = JSON.stringify(Array.isArray(lead.leadLocations) ? lead.leadLocations : []);
+    } catch (_) {
+      ds.leadLocations = '[]';
+    }
+    try {
+      ds.alternateTitles = JSON.stringify(Array.isArray(lead.alternateTitles) ? lead.alternateTitles : []);
+    } catch (_) {
+      ds.alternateTitles = '[]';
     }
     try {
       ds.updates = JSON.stringify(lead.updates || []);

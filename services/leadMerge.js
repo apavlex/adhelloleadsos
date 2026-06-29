@@ -56,9 +56,24 @@ function snapshotLocation(lead, sourceLeadKey) {
     email: String(lead.email || '').trim(),
     website: String(lead.website || '').trim(),
     url: String(lead.url || '').trim(),
+    categoryName: String(lead.categoryName || lead.category || '').trim(),
+    totalScore:
+      lead.totalScore != null && lead.totalScore !== ''
+        ? parseFloat(String(lead.totalScore))
+        : lead.rating != null && lead.rating !== ''
+          ? parseFloat(String(lead.rating))
+          : null,
+    reviewsCount:
+      lead.reviewsCount != null && lead.reviewsCount !== ''
+        ? parseInt(String(lead.reviewsCount), 10)
+        : lead.reviews != null && lead.reviews !== ''
+          ? parseInt(String(lead.reviews), 10)
+          : null,
     sourceLeadKey: String(sourceLeadKey || lead.key || '').trim(),
     mergedAt: new Date().toISOString(),
   };
+  if (snap.totalScore != null && !Number.isFinite(snap.totalScore)) snap.totalScore = null;
+  if (snap.reviewsCount != null && !Number.isFinite(snap.reviewsCount)) snap.reviewsCount = null;
   if (
     !snap.title &&
     !snap.address &&

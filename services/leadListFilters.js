@@ -568,6 +568,8 @@ function mapLeadPipelineBootstrap(l) {
     longitude: l.longitude,
     updates: Array.isArray(l.updates) ? l.updates : [],
     logs: Array.isArray(l.logs) ? l.logs.slice(-14) : [],
+    leadLocations: Array.isArray(l.leadLocations) ? l.leadLocations : [],
+    alternateTitles: Array.isArray(l.alternateTitles) ? l.alternateTitles : [],
   };
 }
 

@@ -52,6 +52,22 @@ describe('leadMerge', () => {
     assert.equal(merged.website, 'https://acme.com');
   });
 
+  it('stores rating and reviews on location snapshots', () => {
+    const snap = snapshotLocation(
+      {
+        title: 'DiamondShineBee cleaning',
+        phone: '(512) 555-0199',
+        totalScore: 3.8,
+        reviewsCount: 12,
+        categoryName: 'Cleaners',
+      },
+      'lead:2',
+    );
+    assert.equal(snap.totalScore, 3.8);
+    assert.equal(snap.reviewsCount, 12);
+    assert.equal(snap.categoryName, 'Cleaners');
+  });
+
   it('dedupes locations by address and phone', () => {
     const a = snapshotLocation(
       { title: 'A', address: '1 St', city: 'X', state: 'TX', phone: '5125550100' },
