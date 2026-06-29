@@ -143,6 +143,9 @@
         anchor.parentNode.insertBefore(placeholder, anchor.nextSibling);
       }
       document.body.appendChild(popover);
+      if (typeof window.applyPortaledPopoverSurface === 'function') {
+        window.applyPortaledPopoverSurface(popover);
+      }
       popover.classList.remove('hidden');
       trigger.setAttribute('aria-expanded', 'true');
       positionPopover();

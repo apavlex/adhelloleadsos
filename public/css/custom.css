@@ -2522,7 +2522,10 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 .adhello-mini-calendar {
     border-radius: 1rem;
     border: 1px solid rgba(14, 165, 233, 0.28);
+    background-color: #fff;
     background: #fff;
+    opacity: 1;
+    isolation: isolate;
     box-shadow:
         0 16px 40px -16px rgba(15, 23, 42, 0.28),
         0 0 0 1px rgba(15, 23, 42, 0.04);
@@ -2531,6 +2534,7 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
 }
 
 .dark .adhello-mini-calendar {
+    background-color: rgb(15, 23, 42);
     background: rgb(15, 23, 42);
     border-color: rgba(56, 189, 248, 0.24);
     box-shadow:
