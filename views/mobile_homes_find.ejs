@@ -9,10 +9,17 @@
   <main class="max-wide px-4 sm:px-6 pt-8 pb-20 md:pt-10 md:pb-24">
     <header class="max-w-3xl mx-auto mb-8">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Multi-source listings</p>
-      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Mobile homes for sale</h1>
-      <p class="text-sm md:text-base text-brand-muted mt-2 max-w-2xl leading-relaxed">
-        Search Craigslist, Facebook, OfferUp, MHVillage, Zillow, Realtor.com, Redfin, eBay, Google web results, and Oxylabs in one run. Each source merges into one deduped list — schedule nightly to watch the whole market.
-      </p>
+      <div class="page-heading-with-tip">
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Mobile homes for sale</h1>
+        <%- include('/partials/app_info_tip', {
+          tipId: 'mobile-homes-find-help',
+          tipKey: 'mobile-homes-find',
+          label: 'Multi-source mobile home search',
+          size: 'lg',
+          wide: true,
+          content: 'Search Craigslist, Facebook, OfferUp, MHVillage, Zillow, Realtor.com, Redfin, eBay, Google web results, and Oxylabs in one run. Each source merges into one deduped list — schedule nightly to watch the whole market.'
+        }) %>
+      </div>
       <div class="flex flex-wrap gap-3 mt-4 text-[11px] font-bold uppercase tracking-wider">
         <a href="/leads/find" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Business (Maps)</a>
         <a href="/leads/find/real-estate" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">Zillow only</a>

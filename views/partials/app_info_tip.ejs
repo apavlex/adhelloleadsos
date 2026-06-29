@@ -1,0 +1,17 @@
+<% const _tipId = typeof tipId !== 'undefined' && tipId ? String(tipId) : ('app-info-' + String(typeof tipKey !== 'undefined' ? tipKey : 'tip').replace(/[^a-z0-9_-]/gi, '-')); %>
+<% const _label = typeof label !== 'undefined' && label ? String(label) : 'More information'; %>
+<% const _size = typeof size !== 'undefined' && size === 'lg' ? 'lg' : (typeof size !== 'undefined' && size === 'sm' ? 'sm' : 'md'); %>
+<% const _align = typeof align !== 'undefined' && align === 'end' ? 'end' : (typeof align !== 'undefined' && align === 'center' ? 'center' : 'start'); %>
+<% const _placement = typeof placement !== 'undefined' && placement === 'top' ? 'top' : 'bottom'; %>
+<% const _wide = typeof wide !== 'undefined' && wide; %>
+<span class="app-info-tip app-info-tip--<%= _size %> app-info-tip--align-<%= _align %> app-info-tip--<%= _placement %><%= _wide ? ' app-info-tip--wide' : '' %><%= typeof className !== 'undefined' && className ? ' ' + className : '' %>">
+  <button type="button" class="app-info-tip__btn" aria-label="<%= _label %>" aria-describedby="<%= _tipId %>" aria-expanded="false">
+    <svg class="app-info-tip__icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+      <circle cx="12" cy="12" r="9" />
+      <path stroke-linecap="round" d="M12 10v6M12 7h.01" />
+    </svg>
+  </button>
+  <span id="<%= _tipId %>" class="app-info-tip__panel" role="tooltip">
+    <span class="app-info-tip__panel-inner text-sm leading-relaxed"><%- typeof content !== 'undefined' ? content : '' %></span>
+  </span>
+</span>

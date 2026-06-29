@@ -4003,5 +4003,201 @@ html.dark .tag-filter-combobox-menu {
 
 .dark .nav-lead-search-empty,
 .dark .nav-lead-search-loading {
-  color: rgb(148 163 184);
+    color: rgb(148 163 184);
+}
+
+/* ========= App info tip (i) hover tooltips ========= */
+.app-info-tip {
+    position: relative;
+    display: inline-flex;
+    vertical-align: middle;
+    flex-shrink: 0;
+}
+
+.app-info-tip__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.35rem;
+    height: 1.35rem;
+    padding: 0;
+    border: 1px solid rgb(203 213 225 / 0.85);
+    border-radius: 9999px;
+    background: rgb(255 255 255 / 0.92);
+    color: rgb(100 116 139);
+    cursor: help;
+    transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dark .app-info-tip__btn {
+    border-color: rgb(255 255 255 / 0.14);
+    background: rgb(30 41 59 / 0.85);
+    color: rgb(148 163 184);
+}
+
+.app-info-tip__btn:hover,
+.app-info-tip__btn:focus-visible {
+    color: rgb(234 179 8);
+    border-color: rgb(234 179 8 / 0.55);
+    background: rgb(254 252 232 / 0.95);
+    box-shadow: 0 0 0 2px rgb(234 179 8 / 0.18);
+    outline: none;
+}
+
+.dark .app-info-tip__btn:hover,
+.dark .app-info-tip__btn:focus-visible {
+    background: rgb(51 65 85 / 0.95);
+    color: rgb(250 204 21);
+}
+
+.app-info-tip--sm .app-info-tip__btn {
+    width: 1.15rem;
+    height: 1.15rem;
+}
+
+.app-info-tip--lg .app-info-tip__btn {
+    width: 1.5rem;
+    height: 1.5rem;
+}
+
+.app-info-tip__icon {
+    width: 0.72rem;
+    height: 0.72rem;
+}
+
+.app-info-tip--sm .app-info-tip__icon {
+    width: 0.62rem;
+    height: 0.62rem;
+}
+
+.app-info-tip--lg .app-info-tip__icon {
+    width: 0.82rem;
+    height: 0.82rem;
+}
+
+.app-info-tip__panel {
+    position: absolute;
+    z-index: 60;
+    margin-top: 0.4rem;
+    padding: 0.65rem 0.85rem;
+    max-width: min(calc(100vw - 2rem), 26rem);
+    width: max-content;
+    border-radius: 0.85rem;
+    border: 1px solid var(--brand-border);
+    background: var(--brand-card-bg);
+    box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.14), 0 6px 14px -6px rgba(0, 0, 0, 0.08);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(4px);
+    transition: opacity 0.18s ease, visibility 0.18s ease, transform 0.18s ease;
+    pointer-events: none;
+}
+
+.dark .app-info-tip__panel {
+    box-shadow: 0 14px 32px -10px rgba(0, 0, 0, 0.5), 0 6px 14px -6px rgba(0, 0, 0, 0.28);
+}
+
+.app-info-tip--wide .app-info-tip__panel {
+    max-width: min(calc(100vw - 2rem), 34rem);
+}
+
+.app-info-tip--bottom .app-info-tip__panel {
+    top: 100%;
+    bottom: auto;
+}
+
+.app-info-tip--top .app-info-tip__panel {
+    bottom: 100%;
+    top: auto;
+    margin-top: 0;
+    margin-bottom: 0.4rem;
+    transform: translateY(-4px);
+}
+
+.app-info-tip--align-start .app-info-tip__panel {
+    left: 0;
+    right: auto;
+}
+
+.app-info-tip--align-center .app-info-tip__panel {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%) translateY(4px);
+}
+
+.app-info-tip--align-end .app-info-tip__panel {
+    left: auto;
+    right: 0;
+}
+
+.app-info-tip--top.app-info-tip--align-center .app-info-tip__panel {
+    transform: translateX(-50%) translateY(-4px);
+}
+
+.app-info-tip:hover .app-info-tip__panel,
+.app-info-tip:focus-within .app-info-tip__panel {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.app-info-tip--align-start:hover .app-info-tip__panel,
+.app-info-tip--align-start:focus-within .app-info-tip__panel {
+    transform: translateY(0);
+}
+
+.app-info-tip--align-end:hover .app-info-tip__panel,
+.app-info-tip--align-end:focus-within .app-info-tip__panel {
+    transform: translateY(0);
+}
+
+.app-info-tip--top.app-info-tip--align-start:hover .app-info-tip__panel,
+.app-info-tip--top.app-info-tip--align-start:focus-within .app-info-tip__panel {
+    transform: translateY(0);
+}
+
+.app-info-tip--top.app-info-tip--align-end:hover .app-info-tip__panel,
+.app-info-tip--top.app-info-tip--align-end:focus-within .app-info-tip__panel {
+    transform: translateY(0);
+}
+
+.app-info-tip--align-center:hover .app-info-tip__panel,
+.app-info-tip--align-center:focus-within .app-info-tip__panel {
+    transform: translateX(-50%) translateY(0);
+}
+
+.app-info-tip--top.app-info-tip--align-center:hover .app-info-tip__panel,
+.app-info-tip--top.app-info-tip--align-center:focus-within .app-info-tip__panel {
+    transform: translateX(-50%) translateY(0);
+}
+
+.app-info-tip__panel-inner {
+    display: block;
+    color: rgb(71 85 105);
+    font-weight: 500;
+}
+
+.dark .app-info-tip__panel-inner {
+    color: rgb(203 213 225);
+}
+
+.app-info-tip__panel-inner code {
+    font-size: 0.68rem;
+}
+
+.app-info-tip__panel-inner ul {
+    margin: 0.5rem 0 0;
+    padding-left: 1.1rem;
+    list-style: disc;
+}
+
+.app-info-tip__panel-inner li + li {
+    margin-top: 0.25rem;
+}
+
+.page-heading-with-tip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.45rem;
 }

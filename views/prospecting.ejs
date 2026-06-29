@@ -36,8 +36,10 @@
               <span class="w-2 h-2 rounded-full bg-brand-yellow"></span>
               <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Outreach folders</span>
             </div>
-            <h2 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h2>
-            <p class="text-sm text-brand-muted mt-2 max-w-2xl">System folders group your search types — click a folder’s <strong class="text-brand-dark dark:text-white">▶</strong> to expand subfolders. <strong class="text-brand-dark dark:text-white">Businesses</strong> includes <%= typeof tradeFolderCount !== 'undefined' ? tradeFolderCount : 28 %> home-service trade subfolders (from <a href="https://www.servicetitan.com/industries" class="text-brand-yellow hover:underline" target="_blank" rel="noopener">ServiceTitan industries</a>). Use <strong class="text-brand-dark dark:text-white">Search setup</strong> on system folders, then <strong class="text-brand-dark dark:text-white">Run search</strong> on any folder.</p>
+            <div class="page-heading-with-tip">
+              <h2 class="font-display font-black text-3xl md:text-4xl text-brand-dark dark:text-white tracking-tight">Folder manager</h2>
+              <%- include('partials/help/folder_manager_info') %>
+            </div>
           </div>
           <button type="button" id="folderCreateOpen" class="btn-pill btn-primary px-6 md:px-8 py-3.5 text-[10px] font-black uppercase tracking-widest shrink-0 inline-flex items-center justify-center gap-2">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>

@@ -9,11 +9,16 @@
   <main class="max-wide px-4 sm:px-6 pt-8 pb-20 md:pt-10 md:pb-24">
     <header class="max-w-3xl mx-auto mb-8">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Prospecting · Real estate</p>
-      <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Find property deals</h1>
-      <p class="text-sm md:text-base text-brand-muted mt-2 max-w-xl leading-relaxed">
-        Zillow-only search. For Craigslist + Facebook + Zillow together, use
-        <a href="/leads/find/mobile-homes" class="text-brand-yellow hover:underline">Mobile homes (multi-source)</a>.
-      </p>
+      <div class="page-heading-with-tip">
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Find property deals</h1>
+        <%- include('/partials/app_info_tip', {
+          tipId: 'real-estate-find-help',
+          tipKey: 'real-estate-find',
+          label: 'Real estate search sources',
+          size: 'md',
+          content: 'Zillow-only search. For Craigslist + Facebook + Zillow together, use <a href="/leads/find/mobile-homes" class="text-brand-yellow hover:underline">Mobile homes (multi-source)</a>.'
+        }) %>
+      </div>
       <div class="flex flex-wrap gap-3 mt-4 text-[11px] font-bold uppercase tracking-wider">
         <a href="/leads/find" class="text-brand-muted hover:text-brand-dark dark:hover:text-white">← Business (Maps)</a>
         <a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">Scheduled jobs</a>

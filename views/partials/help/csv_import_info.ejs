@@ -1,0 +1,7 @@
+<%- include('/partials/app_info_tip', {
+  tipId: typeof tipId !== 'undefined' ? tipId : 'csv-import-help',
+  tipKey: 'csv-import',
+  label: 'CSV and XLSX import column mapping',
+  size: typeof size !== 'undefined' ? size : 'lg',
+  content: 'CSV / XLSX import maps common export columns into saved leads — e.g. <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">business</code> / <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">company_name</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">phone</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">website_url</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">area</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">social_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">source_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">why_prospect</code>, plus Agency-style GBP fields. Rows with the same email in this workspace merge into one lead; re-import to backfill fields that were missing before.'
+}) %>

@@ -10,8 +10,19 @@
     <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Outreach</p>
-        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Direct Mail<% } %></h1>
-        <p class="text-sm text-brand-muted mt-2 max-w-2xl"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>From your pipeline selection — design a postcard, pick mailable leads below, then send via Lob.<% if (typeof dmSkippedCount === 'number' && dmSkippedCount > 0) { %> <span class="text-amber-700 dark:text-amber-300 font-semibold"><%= dmSkippedCount %> lead<%= dmSkippedCount === 1 ? '' : 's' %> skipped (incomplete address).</span><% } %><% } else { %>Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.<% } %></p>
+        <div class="page-heading-with-tip">
+          <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Direct Mail<% } %></h1>
+          <%- include('/partials/app_info_tip', {
+            tipId: 'direct-mail-help',
+            tipKey: 'direct-mail',
+            label: 'Direct mail overview',
+            size: 'lg',
+            wide: true,
+            content: (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession)
+              ? ('From your pipeline selection — design a postcard, pick mailable leads below, then send via Lob.' + ((typeof dmSkippedCount === 'number' && dmSkippedCount > 0) ? ' <span class="text-amber-700 dark:text-amber-300 font-semibold">' + dmSkippedCount + ' lead' + (dmSkippedCount === 1 ? '' : 's') + ' skipped (incomplete address).</span>' : ''))
+              : 'Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.'
+          }) %>
+        </div>
       </div>
       <div class="flex flex-wrap gap-2 shrink-0">
         <a href="/workspace/integrations/lob-setup" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 hover:border-brand-yellow/50 transition-colors">Design guide</a>

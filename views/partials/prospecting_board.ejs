@@ -142,23 +142,13 @@
       <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-3">
         <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Pipeline</span>
       </div>
-      <h2 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">
-        <span class="text-brand-muted dark:text-slate-500">Board</span> &amp; stages
-      </h2>
       <% const _wsAll = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts.all : leads.length; %>
-      <p class="text-sm text-brand-muted dark:text-slate-300 font-medium mt-3 max-w-2xl leading-relaxed">
-        <% if (_activeFolder) { %>
-        Viewing folder <strong class="text-brand-dark dark:text-white"><%= _activeFolder.name %></strong>
-        (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> lead<%= _wsAll === 1 ? '' : 's' %> here<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this source filter<% } %>).
-        <% } else if (typeof includeFoldered !== 'undefined' && includeFoldered) { %>
-        Showing <strong class="text-brand-dark dark:text-white">all leads</strong> in this workspace, including foldered imports
-        (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> total<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
-        <% } else { %>
-        One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong>
-        (<strong class="text-brand-dark dark:text-white"><%= _wsAll %></strong> unfiled in this workspace<% if (typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') { %> — <strong class="text-brand-dark dark:text-white"><%= leads.length %></strong> with this filter<% } %>).
-        <% } %>
-        Use the <strong class="text-brand-dark dark:text-white">Folder</strong> filter to open a pipeline by system folder or trade subfolder — <strong>Businesses</strong>, <strong>Real estate</strong>, <strong>Home owners</strong>, and more. Filed leads stay out of the main table until you pick their folder.
-      </p>
+      <div class="page-heading-with-tip mt-1">
+        <h2 class="font-display font-extrabold text-2xl md:text-3xl tracking-tight text-brand-dark dark:text-white">
+          <span class="text-brand-muted dark:text-slate-500">Board</span> &amp; stages
+        </h2>
+        <%- include('/partials/help/pipeline_board_info') %>
+      </div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 mt-4 flex flex-wrap gap-x-4 gap-y-2">
         <a href="/sequences" class="font-bold text-brand-yellow hover:underline">Cadences</a>
         <a href="/prospecting?tab=queue" class="text-brand-yellow hover:underline">Working queue</a>
@@ -198,6 +188,7 @@
   <div class="px-5 py-3 md:px-6 md:py-4 border-b border-brand-border/30 dark:border-white/10 flex flex-wrap items-center justify-between gap-2">
     <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
       <span class="text-[11px] font-black uppercase tracking-widest text-brand-dark dark:text-white">Search &amp; refine</span>
+      <%- include('/partials/help/csv_import_info', { tipId: 'pipeline-csv-import-help', size: 'sm' }) %>
       <% if (_hasActiveFilters) { %>
       <span class="rounded-full bg-brand-yellow/25 dark:bg-brand-yellow/20 px-2.5 py-0.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow border border-brand-yellow/40">Filtered</span>
       <% } %>
@@ -357,9 +348,5 @@
   <a href="/prospecting?tab=pipeline&amp;source=<%= _src %>" class="text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline ml-1">Clear all</a>
 </div>
 <% } %>
-
-<p class="text-[11px] font-medium text-brand-muted dark:text-slate-400 mb-10 max-w-2xl leading-relaxed">
-  CSV / XLSX import maps common export columns into saved leads — e.g. <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">business</code> / <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">company_name</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">phone</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">website_url</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">area</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">social_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">source_urls</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">why_prospect</code>, plus Agency-style GBP fields. Rows with the same email in this workspace merge into one lead; re-import to backfill fields that were missing before.
-</p>
 
 <%- include('/partials/leads_pipeline_core') %>

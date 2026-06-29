@@ -1,0 +1,8 @@
+<%- include('/partials/app_info_tip', {
+  tipId: 'sequences-templates-help',
+  tipKey: 'sequences-templates',
+  label: 'How cadence templates work',
+  size: 'lg',
+  wide: true,
+  content: 'Each card is a <strong class="text-brand-dark dark:text-white">named outreach playbook</strong> (persona + step sequence). They are not toggles on this screen — you <strong class="text-brand-dark dark:text-white">activate</strong> a template on a specific lead: from Pipeline row actions, Today’s queue, voicemail disposition, or <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">POST /leads/:key/sequence/start</code> with the template <code class="text-xs font-mono">id</code>. Pick the playbook that matches speed (e.g. hot 5-day vs cold 14-day). Steps schedule relative to the anchor day; merge tokens fill from the lead’s audit.'
+}) %>

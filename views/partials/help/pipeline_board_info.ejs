@@ -1,0 +1,16 @@
+<% let _pipelineBoardTipHtml = '';
+if (typeof _activeFolder !== 'undefined' && _activeFolder) { %>
+<% _pipelineBoardTipHtml = 'Viewing folder <strong class="text-brand-dark dark:text-white">' + (_activeFolder.name || 'Folder') + '</strong> (<strong class="text-brand-dark dark:text-white">' + (typeof _wsAll !== 'undefined' ? _wsAll : 0) + '</strong> lead' + ((typeof _wsAll !== 'undefined' && _wsAll === 1) ? '' : 's') + ' here' + ((typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') ? ' — <strong class="text-brand-dark dark:text-white">' + (typeof leads !== 'undefined' ? leads.length : 0) + '</strong> with this source filter' : '') + '). '; %>
+<% } else if (typeof includeFoldered !== 'undefined' && includeFoldered) { %>
+<% _pipelineBoardTipHtml = 'Showing <strong class="text-brand-dark dark:text-white">all leads</strong> in this workspace, including foldered imports (<strong class="text-brand-dark dark:text-white">' + (typeof _wsAll !== 'undefined' ? _wsAll : 0) + '</strong> total' + ((typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') ? ' — <strong class="text-brand-dark dark:text-white">' + (typeof leads !== 'undefined' ? leads.length : 0) + '</strong> with this filter' : '') + '). '; %>
+<% } else { %>
+<% _pipelineBoardTipHtml = 'One board for <strong class="text-brand-dark dark:text-white">cold + warm</strong> (<strong class="text-brand-dark dark:text-white">' + (typeof _wsAll !== 'undefined' ? _wsAll : 0) + '</strong> unfiled in this workspace' + ((typeof sourceFilter !== 'undefined' && sourceFilter !== 'all') ? ' — <strong class="text-brand-dark dark:text-white">' + (typeof leads !== 'undefined' ? leads.length : 0) + '</strong> with this filter' : '') + '). '; %>
+<% } %>
+<% _pipelineBoardTipHtml += 'Use the <strong class="text-brand-dark dark:text-white">Folder</strong> filter to open a pipeline by system folder or trade subfolder — <strong class="text-brand-dark dark:text-white">Businesses</strong>, <strong class="text-brand-dark dark:text-white">Real estate</strong>, <strong class="text-brand-dark dark:text-white">Home owners</strong>, and more. Filed leads stay out of the main table until you pick their folder.'; %>
+<%- include('/partials/app_info_tip', {
+  tipId: 'pipeline-board-help',
+  tipKey: 'pipeline-board',
+  label: 'About this pipeline view',
+  size: 'lg',
+  content: _pipelineBoardTipHtml
+}) %>

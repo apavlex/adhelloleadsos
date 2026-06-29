@@ -137,8 +137,16 @@
       </div>
 
       <div class="mb-4 rounded-2xl border-2 border-brand-yellow/35 dark:border-brand-yellow/35 bg-brand-yellow/10 dark:bg-brand-yellow/10 px-4 py-3 shadow-sm">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Outreach</p>
-        <p class="text-xs text-brand-muted dark:text-slate-400 leading-snug">Use <strong>Call</strong> for live dials in AdHello. <strong>Sync GHL</strong> saves your disposition and notes, then pushes the contact to Go High Level for SMS, email, and voicemail.</p>
+        <div class="flex items-center gap-2 mb-1">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Outreach</p>
+          <%- include('/partials/app_info_tip', {
+            tipId: 'focus-outreach-help',
+            tipKey: 'focus-outreach',
+            label: 'Call and Sync GHL in Focus mode',
+            size: 'sm',
+            content: 'Use <strong>Call</strong> for live dials in AdHello. <strong>Sync GHL</strong> saves your disposition and notes, then pushes the contact to Go High Level for SMS, email, and voicemail.'
+          }) %>
+        </div>
         <p id="focus-channel-hint" class="text-[11px] text-brand-muted dark:text-slate-400 mt-2 min-h-[1.25rem] leading-snug" aria-live="polite">Rehearse the call script below, then Call or Sync GHL.</p>
       </div>
 

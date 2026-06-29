@@ -8,13 +8,10 @@
   <main class="max-w-5xl mx-auto px-6 pt-12 pb-24">
     <div class="mb-10 rounded-[2rem] border-2 border-brand-yellow/40 bg-brand-yellow/10 dark:bg-brand-yellow/5 dark:border-brand-yellow/30 p-8 md:p-10">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Default for cold local SMBs</p>
-      <h1 class="font-display font-extrabold text-4xl md:text-5xl text-brand-dark dark:text-white leading-tight">Cadences</h1>
-      <p class="text-brand-muted mt-3 max-w-2xl text-base leading-relaxed">The <strong class="text-brand-dark dark:text-white">14-day · 8-touch audit cadence</strong> is tuned for contractors who check texts before email: Day 1 call + hosted link, Day 2 PDF email, Day 4 LinkedIn or second call, bump, value-only email, voicemail, breakup, final text. <strong class="text-brand-dark dark:text-white">Hot</strong> and <strong class="text-brand-dark dark:text-white">re-engagement</strong> variants ship too. Scheduler logs due steps every 15 minutes; pair with your dialer / inbox.</p>
-      <ul class="mt-4 text-sm text-brand-dark dark:text-slate-200 space-y-1 list-disc pl-5 max-w-2xl">
-        <li>Auto-pause when status hits engagement (meeting booked, discovery done, connected, callback requested, won) or disposition <strong>connected</strong> / <strong>callback</strong>.</li>
-        <li>Tokens merge from AI audit: <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{top_finding}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{score}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{tier}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{competitor_with_meta_desc}}</code> <code class="text-xs bg-white/70 dark:bg-slate-800 px-1 rounded">{{report_link}}</code></li>
-        <li>Snooze from the lead panel (90d default) → quarterly re-engagement; re-run audit before calling again.</li>
-      </ul>
+      <div class="page-heading-with-tip">
+        <h1 class="font-display font-extrabold text-4xl md:text-5xl text-brand-dark dark:text-white leading-tight">Cadences</h1>
+        <%- include('partials/help/sequences_hero_info') %>
+      </div>
       <a href="/today" class="inline-flex mt-5 btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Open Today’s cadence queue</a>
     </div>
 
@@ -44,8 +41,10 @@
     </div>
 
     <div class="mb-4 max-w-3xl">
-      <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white mb-2">Templates (persona)</h2>
-      <p class="text-sm text-brand-muted leading-relaxed">Each card is a <strong class="text-brand-dark dark:text-white">named outreach playbook</strong> (persona + step sequence). They are not toggles on this screen — you <strong class="text-brand-dark dark:text-white">activate</strong> a template on a specific lead: from Pipeline row actions, Today’s queue, voicemail disposition, or <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">POST /leads/:key/sequence/start</code> with the template <code class="text-xs font-mono">id</code>. Pick the playbook that matches speed (e.g. hot 5-day vs cold 14-day). Steps schedule relative to the anchor day; merge tokens fill from the lead’s audit.</p>
+      <div class="page-heading-with-tip mb-2">
+        <h2 class="font-display font-bold text-2xl text-brand-dark dark:text-white">Templates (persona)</h2>
+        <%- include('partials/help/sequences_templates_info') %>
+      </div>
     </div>
     <div class="grid md:grid-cols-3 gap-6">
       <% (templates || []).forEach((t) => { %>

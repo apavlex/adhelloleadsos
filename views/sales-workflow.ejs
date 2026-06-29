@@ -210,8 +210,16 @@
       <summary class="px-6 py-4 cursor-pointer list-none flex flex-wrap items-center justify-between gap-3 border-b border-brand-border dark:border-white/10 bg-gray-50/50 dark:bg-white/5 [&::-webkit-details-marker]:hidden">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Reference only</p>
-          <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-0.5">10-stage methodology</h2>
-          <p class="text-xs text-brand-muted dark:text-slate-400 mt-1 max-w-2xl">Definitions for each stage — informational. Use the table above to change stages.</p>
+          <div class="page-heading-with-tip mt-0.5">
+            <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">10-stage methodology</h2>
+            <%- include('/partials/app_info_tip', {
+              tipId: 'sales-workflow-stages-help',
+              tipKey: 'sales-workflow-stages',
+              label: 'Sales workflow stage definitions',
+              size: 'sm',
+              content: 'Definitions for each stage — informational. Use the table above to change stages.'
+            }) %>
+          </div>
         </div>
         <span class="text-brand-muted dark:text-slate-400 text-lg shrink-0 group-open/blueprint:rotate-180 transition-transform" aria-hidden="true">▼</span>
       </summary>

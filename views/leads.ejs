@@ -45,9 +45,12 @@
         <div class="inline-flex items-center gap-2 bg-white dark:bg-slate-900 px-3 py-1 rounded-full border border-brand-border dark:border-white/10 shadow-sm mb-4">
           <span class="text-[10px] font-bold uppercase tracking-widest text-brand-muted dark:text-slate-400">Lead Management</span>
         </div>
-        <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
-          <span class="text-brand-muted dark:text-slate-500">Leads</span> pipeline
-        </h1>
+        <div class="page-heading-with-tip">
+          <h1 class="font-display font-extrabold text-4xl md:text-5xl tracking-tight text-brand-dark dark:text-white">
+            <span class="text-brand-muted dark:text-slate-500">Leads</span> pipeline
+          </h1>
+          <%- include('partials/help/csv_import_info_leads', { size: 'sm' }) %>
+        </div>
         <% const _wsAll = typeof leadSourceCounts !== 'undefined' && leadSourceCounts ? leadSourceCounts.all : leads.length; %>
         <p class="text-sm font-bold text-brand-muted dark:text-slate-400 mt-2 tabular-nums">
           In view · <%= leads.length %> · Workspace · <%= _wsAll %>
@@ -190,10 +193,6 @@
       </div>
     </form>
     </details>
-
-    <p class="text-[11px] font-medium text-brand-muted/80 dark:text-slate-400 -mt-4 mb-10 max-w-2xl leading-relaxed">
-      CSV import maps Agency-style exports (e.g. <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">company_name</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">company_location</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">phone_number</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-700 dark:text-slate-200 px-1 rounded">company_website</code>, emails) into saved leads. Rows with the same email in this workspace merge into one lead.
-    </p>
 
     <%- include('partials/leads_pipeline_core') %>
   </main>

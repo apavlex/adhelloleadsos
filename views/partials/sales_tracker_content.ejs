@@ -1,7 +1,15 @@
 <% if (typeof hideSalesTrackerHeading === 'undefined' || !hideSalesTrackerHeading) { %>
 <div class="mb-10 max-w-3xl">
-  <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Daily Action <span class="text-brand-muted">Tracker</span></h1>
-  <p class="text-brand-muted font-medium mt-2">Review totals for each day — numbers can combine what you save here with <strong class="text-brand-dark dark:text-white">calls and cadence steps</strong> we detect from lead activity. Adjust anything that looks off and save.</p>
+  <div class="page-heading-with-tip">
+    <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Daily Action <span class="text-brand-muted">Tracker</span></h1>
+    <%- include('/partials/app_info_tip', {
+      tipId: 'sales-tracker-help',
+      tipKey: 'sales-tracker',
+      label: 'Daily action tracker',
+      size: 'lg',
+      content: 'Review totals for each day — numbers can combine what you save here with <strong class="text-brand-dark dark:text-white">calls and cadence steps</strong> we detect from lead activity. Adjust anything that looks off and save.'
+    }) %>
+  </div>
 </div>
 <% } %>
 
@@ -56,8 +64,16 @@
 <section class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10" id="outreach-checklist" aria-label="Past outreach checklist">
   <div class="px-6 py-5 border-b border-brand-border dark:border-white/10 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
     <div>
-      <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Past outreach checklist</h2>
-      <p class="text-xs text-brand-muted dark:text-slate-400 mt-1 max-w-xl">Days with no touches are hidden by default on long ranges so the list stays scannable. Expand a row for notes.</p>
+      <div class="page-heading-with-tip">
+        <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Past outreach checklist</h2>
+        <%- include('/partials/app_info_tip', {
+          tipId: 'sales-tracker-checklist-help',
+          tipKey: 'sales-tracker-checklist',
+          label: 'Past outreach checklist',
+          size: 'sm',
+          content: 'Days with no touches are hidden by default on long ranges so the list stays scannable. Expand a row for notes.'
+        }) %>
+      </div>
     </div>
     <div class="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 shrink-0">
       <button type="button" id="chkToggleEmptyDays" class="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 text-brand-muted dark:text-slate-300 hover:border-brand-yellow/50 hover:text-brand-dark dark:hover:text-white transition-colors" aria-pressed="false" data-showing-empty="false">Show empty days</button>

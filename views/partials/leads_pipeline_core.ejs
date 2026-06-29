@@ -699,7 +699,9 @@
 
   <!-- Pipeline board: workspace stages (drag cards to update stage) -->
   <div id="kanbanView" class="hidden w-full overflow-x-auto pb-12 custom-scrollbar" data-kanban-mode="pipeline">
-          <p class="text-xs text-brand-muted mb-4 max-w-3xl">Drag a card to another column to update its <strong class="text-brand-dark dark:text-white">pipeline stage</strong>. Delivery status (Not Contacted, Video Recorded, etc.) stays in table view — use your CRM column for fulfillment.</p>
+          <div class="mb-4">
+            <%- include('/partials/help/kanban_drag_info') %>
+          </div>
       <div class="flex gap-4 min-w-max pb-2">
           <% if (typeof pipelineStages !== 'undefined' && pipelineStages) { pipelineStages.forEach((col) => { %>
           <div class="kanban-column w-[min(100vw-2rem,17rem)] shrink-0 flex flex-col gap-3" data-pipeline-stage="<%= col.id %>">

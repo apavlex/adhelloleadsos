@@ -32,8 +32,16 @@
       <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-6">
         <div class="min-w-0 flex-1">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Pipeline</p>
-          <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white tracking-tight">Working leads</h2>
-          <p class="text-brand-muted text-sm mt-2 max-w-xl">Same table and board as the full leads page — inline stage updates, email intel, and detail panel.</p>
+          <div class="page-heading-with-tip">
+            <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white tracking-tight">Working leads</h2>
+            <%- include('/partials/app_info_tip', {
+              tipId: 'outreach-pipeline-help',
+              tipKey: 'outreach-pipeline',
+              label: 'Outreach pipeline view',
+              size: 'md',
+              content: 'Same table and board as the full leads page — inline stage updates, email intel, and detail panel.'
+            }) %>
+          </div>
           <div class="flex flex-wrap gap-2 mt-4" role="tablist" aria-label="Filter by lead source">
             <a href="/outreach?tab=pipeline&amp;source=all<%- _pfSuffix.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= _pipeSrc === 'all' ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">All (<%= _pipeCounts.all %>)</a>
             <a href="/outreach?tab=pipeline&amp;source=cold<%- _pfSuffix.replace(/&/g, '&amp;') %>" class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border transition-colors <%= _pipeSrc === 'cold' ? 'bg-brand-dark text-white border-brand-dark dark:bg-white dark:text-slate-900' : 'bg-white dark:bg-slate-900 border-brand-border text-brand-muted dark:text-slate-300 hover:text-brand-dark dark:hover:text-white' %>">Cold (<%= _pipeCounts.cold %>)</a>

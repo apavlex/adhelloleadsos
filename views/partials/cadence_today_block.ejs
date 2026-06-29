@@ -3,8 +3,17 @@
   <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-6">
     <div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Cadence command center</p>
-      <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight">Today’s touches from active cadences</h2>
-      <p class="text-sm text-brand-muted mt-2 max-w-2xl">Bucketed for speed: <strong class="text-brand-dark dark:text-white">Calls</strong>, <strong class="text-brand-dark dark:text-white">Emails</strong>, <strong class="text-brand-dark dark:text-white">Texts</strong>, <strong class="text-brand-dark dark:text-white">Social DM’s</strong>. Copy uses audit tokens when AI analysis exists (<code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{score}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{top_finding}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{report_link}}</code>, …). <strong>Default: 14 days · 8 touches</strong> for cold local services.</p>
+      <div class="page-heading-with-tip">
+        <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight">Today’s touches from active cadences</h2>
+        <%- include('/partials/app_info_tip', {
+          tipId: 'cadence-today-help',
+          tipKey: 'cadence-today',
+          label: 'How today’s cadence queue works',
+          size: 'lg',
+          wide: true,
+          content: 'Bucketed for speed: <strong class="text-brand-dark dark:text-white">Calls</strong>, <strong class="text-brand-dark dark:text-white">Emails</strong>, <strong class="text-brand-dark dark:text-white">Texts</strong>, <strong class="text-brand-dark dark:text-white">Social DM’s</strong>. Copy uses audit tokens when AI analysis exists (<code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{score}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{top_finding}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{report_link}}</code>, …). <strong>Default: 14 days · 8 touches</strong> for cold local services.'
+        }) %>
+      </div>
       <% if (_cq.overdueCount > 0) { %>
       <p class="text-xs font-bold text-amber-800 dark:text-amber-200 mt-2"><%= _cq.overdueCount %> overdue — clear these first.</p>
       <% } %>
