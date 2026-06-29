@@ -4,6 +4,53 @@
     : (typeof locals !== 'undefined' && Array.isArray(locals.sequenceTemplates) ? locals.sequenceTemplates : []); %>
   <!-- Mobile Detail Panel / Desktop Sidebar -->
   <!-- Layout flex-* lives in custom.css for #mobilePanel.open only — avoids Tailwind `hidden` vs `flex` both setting display -->
+  <style id="leadCallbackCalendarSurface">
+    #leadCallbackDatePopover,
+    #leadCallbackDatePopover .adhello-mini-calendar__surface,
+    #leadCallbackDatePopover .adhello-mini-calendar__head,
+    #leadCallbackDatePopover .adhello-mini-calendar__grid,
+    #leadCallbackDatePopover .adhello-mini-calendar__foot {
+      background-color: #ffffff !important;
+      background-image: none !important;
+      background: #ffffff !important;
+      opacity: 1 !important;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
+    }
+    html.dark #leadCallbackDatePopover,
+    html.dark #leadCallbackDatePopover .adhello-mini-calendar__surface,
+    html.dark #leadCallbackDatePopover .adhello-mini-calendar__head,
+    html.dark #leadCallbackDatePopover .adhello-mini-calendar__grid,
+    html.dark #leadCallbackDatePopover .adhello-mini-calendar__foot {
+      background-color: #0f172a !important;
+      background: #0f172a !important;
+      color: #f8fafc;
+    }
+    #leadCallbackDatePopover.adhello-mini-calendar {
+      position: fixed;
+      z-index: 10050 !important;
+      isolation: isolate;
+      box-shadow:
+        0 20px 40px -12px rgba(17, 24, 39, 0.22),
+        0 8px 16px -8px rgba(17, 24, 39, 0.12);
+    }
+    #leadCallbackDatePopover.adhello-mini-calendar::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background: #ffffff;
+      z-index: 0;
+      pointer-events: none;
+    }
+    html.dark #leadCallbackDatePopover.adhello-mini-calendar::before {
+      background: #0f172a;
+    }
+    #leadCallbackDatePopover .adhello-mini-calendar__surface {
+      position: relative;
+      z-index: 1;
+    }
+  </style>
   <div id="mobilePanel" class="fixed inset-0 z-[400] bg-brand-dark/60 backdrop-blur-md hidden opacity-0 transition-opacity duration-300 pointer-events-none">
     <div id="leadPanelSheet" class="bg-white dark:bg-slate-900 w-full max-w-full h-full lg:h-screen lg:w-[640px] rounded-none p-8 lg:p-10 animate-slide-up lg:animate-slide-in-right pointer-events-auto flex flex-col min-h-0 shadow-2xl relative border-l border-brand-border/20 dark:border-white/5">
       

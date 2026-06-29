@@ -2584,6 +2584,13 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     justify-content: space-between;
     gap: 0.35rem;
     margin-bottom: 0.45rem;
+    background-color: #fff !important;
+    background: #fff !important;
+}
+
+.dark .adhello-mini-calendar__head {
+    background-color: rgb(15, 23, 42) !important;
+    background: rgb(15, 23, 42) !important;
 }
 
 .adhello-mini-calendar__month {
@@ -2635,6 +2642,13 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
     gap: 0.15rem;
+    background-color: #fff !important;
+    background: #fff !important;
+}
+
+.dark .adhello-mini-calendar__grid {
+    background-color: rgb(15, 23, 42) !important;
+    background: rgb(15, 23, 42) !important;
 }
 
 .adhello-mini-calendar__dow {
@@ -2716,10 +2730,14 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     margin-top: 0.45rem;
     padding-top: 0.45rem;
     border-top: 1px solid rgba(148, 163, 184, 0.22);
+    background-color: #fff !important;
+    background: #fff !important;
 }
 
 .dark .adhello-mini-calendar__foot {
     border-top-color: rgba(255, 255, 255, 0.08);
+    background-color: rgb(15, 23, 42) !important;
+    background: rgb(15, 23, 42) !important;
 }
 
 .adhello-mini-calendar__link {

@@ -53,6 +53,10 @@
     var monthLabel = popover.querySelector('[data-cal-month]');
     var gridEl = popover.querySelector('[data-cal-grid]');
     var anchor = trigger.closest('.adhello-date-field') || trigger.parentElement;
+    var portalHost =
+      document.getElementById('leadPanelSheet') ||
+      document.getElementById('mobilePanel') ||
+      document.body;
 
     var viewDate = new Date();
     viewDate.setHours(0, 0, 0, 0);
@@ -140,6 +144,14 @@
         inner.style.setProperty('background-image', 'none', 'important');
         inner.style.setProperty('background', bg, 'important');
       });
+      ['.adhello-mini-calendar__head', '.adhello-mini-calendar__grid', '.adhello-mini-calendar__foot'].forEach(
+        function (sel) {
+          popover.querySelectorAll(sel).forEach(function (node) {
+            node.style.setProperty('background-color', bg, 'important');
+            node.style.setProperty('background', bg, 'important');
+          });
+        },
+      );
     }
 
     function positionPopover() {
@@ -170,7 +182,9 @@
       if (anchor && anchor.parentNode) {
         anchor.parentNode.insertBefore(placeholder, anchor.nextSibling);
       }
-      document.body.appendChild(popover);
+      if (popover.parentElement !== portalHost) {
+        portalHost.appendChild(popover);
+      }
       applyCalendarPopoverSurface();
       popover.classList.remove('hidden');
       trigger.setAttribute('aria-expanded', 'true');
