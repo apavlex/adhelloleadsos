@@ -8512,6 +8512,49 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let leadDetailChromeDidInit = false;
+  let leadCallbackPicker = null;
+
+  function setLeadCallbackTaskHint(message, variant) {
+    const hint = document.getElementById('leadCallbackTaskHint');
+    if (!hint) return;
+    const text = String(message || '').trim();
+    if (!text) {
+      hint.textContent = '';
+      hint.classList.add('hidden');
+      hint.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-red-600', 'dark:text-red-400');
+      return;
+    }
+    hint.textContent = text;
+    hint.classList.remove('hidden');
+    hint.classList.toggle('text-emerald-700', variant !== 'error');
+    hint.classList.toggle('dark:text-emerald-300', variant !== 'error');
+    hint.classList.toggle('text-red-600', variant === 'error');
+    hint.classList.toggle('dark:text-red-400', variant === 'error');
+  }
+
+  function resetLeadCallbackScheduler() {
+    setLeadCallbackTaskHint('');
+    const reason = document.getElementById('leadCallbackReason');
+    if (reason && !String(reason.value || '').trim()) {
+      reason.value = 'Call back';
+    }
+    const remind = document.getElementById('leadCallbackRemind15');
+    if (remind) remind.checked = true;
+    if (leadCallbackPicker && typeof leadCallbackPicker.setDefaultInDays === 'function') {
+      leadCallbackPicker.setDefaultInDays(1, 8, 0);
+    } else {
+      const at = document.getElementById('leadCallbackAt');
+      if (at && !String(at.value || '').trim()) {
+        const d = new Date();
+        d.setDate(d.getDate() + 1);
+        d.setHours(8, 0, 0, 0);
+        const pad = (n) => String(n).padStart(2, '0');
+        at.value =
+          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      }
+    }
+  }
+
   function initLeadDetailPanelChrome() {
     if (leadDetailChromeDidInit) return;
     leadDetailChromeDidInit = true;
@@ -8617,27 +8660,53 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    const cbAt = document.getElementById('leadCallbackAt');
+    if (cbAt && typeof window.initGcalDatetimePicker === 'function' && !leadCallbackPicker) {
+      leadCallbackPicker = window.initGcalDatetimePicker(cbAt, {
+        label: 'Schedule callback date and time',
+        triggerId: 'leadCallbackAt-trigger',
+        fixedPopover: true,
+      });
+      resetLeadCallbackScheduler();
+    }
+
     const cbBtn = document.getElementById('leadCallbackSaveBtn');
-    if (cbBtn) {
+    if (cbBtn && !cbBtn.dataset.adhelloBound) {
+      cbBtn.dataset.adhelloBound = '1';
       cbBtn.addEventListener('click', async () => {
-        if (!currentRow || !currentRow.dataset.leadKey) {
+        if (cbBtn.disabled) return;
+        const leadKey = currentRow && currentRow.dataset ? String(currentRow.dataset.leadKey || '').trim() : '';
+        if (!currentRow || !leadKey) {
+          setLeadCallbackTaskHint('Save the lead first.', 'error');
           if (typeof window.showAppToast === 'function') window.showAppToast('Save the lead first.', { variant: 'error' });
           return;
         }
-        const d = document.getElementById('leadCallbackDate');
-        const t = document.getElementById('leadCallbackTime');
+        const at = document.getElementById('leadCallbackAt');
         const r = document.getElementById('leadCallbackReason');
         const rem = document.getElementById('leadCallbackRemind15');
-        const dateStr = d && d.value ? d.value : '';
-        const timeStr = t && t.value ? t.value : '';
-        if (!dateStr || !timeStr) {
+        const when = at && at.value ? String(at.value).trim() : '';
+        if (!when) {
+          setLeadCallbackTaskHint('Pick a date and time.', 'error');
           if (typeof window.showAppToast === 'function') window.showAppToast('Pick a date and time.', { variant: 'error' });
           return;
         }
-        const iso = new Date(`${dateStr}T${timeStr}:00`).toISOString();
+        const parsed = new Date(when);
+        if (Number.isNaN(parsed.getTime())) {
+          setLeadCallbackTaskHint('Invalid date or time.', 'error');
+          if (typeof window.showAppToast === 'function') window.showAppToast('Invalid date or time.', { variant: 'error' });
+          return;
+        }
+        const iso = parsed.toISOString();
         const titleBits = [`Callback: ${currentRow.dataset.title || 'Lead'}`];
         if (rem && rem.checked) titleBits.push('(remind T-15)');
         if (r && r.value.trim()) titleBits.push(`— ${r.value.trim()}`);
+
+        const labelDefault = cbBtn.textContent;
+        cbBtn.disabled = true;
+        cbBtn.setAttribute('aria-busy', 'true');
+        cbBtn.textContent = 'Creating…';
+        setLeadCallbackTaskHint('Creating callback task…');
+
         try {
           const res = await fetch('/tasks/api', {
             method: 'POST',
@@ -8646,20 +8715,31 @@ document.addEventListener('DOMContentLoaded', () => {
             body: JSON.stringify({
               title: titleBits.join(' '),
               scheduledAt: iso,
-              leadKey: currentRow.dataset.leadKey,
+              leadKey,
               column: 'todo',
             }),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.success) throw new Error((data && data.error) || 'Task create failed');
-          const hint = document.getElementById('leadCallbackTaskHint');
-          if (hint) {
-            hint.textContent = 'Task created — open Tasks to see it on your day.';
-            hint.classList.remove('hidden');
+          const whenLabel = parsed.toLocaleString(undefined, {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+          });
+          setLeadCallbackTaskHint(`Callback task created for ${whenLabel}. Open Tasks to see it on your day.`);
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Callback scheduled', { variant: 'success' });
           }
-          if (typeof window.showAppToast === 'function') window.showAppToast('Callback scheduled', { variant: 'success' });
         } catch (e) {
-          if (typeof window.showAppToast === 'function') window.showAppToast(e.message || 'Failed', { variant: 'error' });
+          const msg = e && e.message ? e.message : 'Failed';
+          setLeadCallbackTaskHint(msg, 'error');
+          if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
+        } finally {
+          cbBtn.disabled = false;
+          cbBtn.removeAttribute('aria-busy');
+          cbBtn.textContent = labelDefault;
         }
       });
     }
@@ -10393,6 +10473,7 @@ document.addEventListener('DOMContentLoaded', () => {
     openLeadPanelQuickLog();
     openLeadPanelComposer();
     setLeadPanelOutreachFeedback('');
+    resetLeadCallbackScheduler();
     prepareLeadRowForPanel(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     const paintActivityTimeline = () => {
@@ -17143,7 +17224,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.52-fix-render-stars-tdz';
+  window.__ADHELLO_BUILD = '1.0.53-fix-callback-scheduler';
   window.__postLeadJsonUpdate = postLeadJsonUpdate;
   window.__syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
   window.__populateLeadPanel = populatePanel;

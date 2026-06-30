@@ -2776,22 +2776,32 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     color: rgb(56, 189, 248);
 }
 
-#leadCallbackTime {
-    color-scheme: light;
+#leadPanelCallbackSection .gcal-datetime {
+    width: 100%;
 }
 
-.dark #leadCallbackTime {
-    color-scheme: dark;
+#leadPanelCallbackSection .gcal-datetime-trigger {
+    width: 100%;
+    border-radius: 0.75rem;
+    border-color: color-mix(in srgb, var(--brand-border, #d6d3d1) 50%, transparent);
+    background: #fff;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 600;
 }
 
-#leadCallbackTime::-webkit-calendar-picker-indicator {
-    opacity: 0.55;
-    cursor: pointer;
-    filter: none;
+.dark #leadPanelCallbackSection .gcal-datetime-trigger {
+    background: rgb(15 23 42);
+    border-color: rgba(255, 255, 255, 0.1);
 }
 
-.dark #leadCallbackTime::-webkit-calendar-picker-indicator {
-    filter: invert(0.85);
+#leadPanelCallbackSection .gcal-datetime-trigger:hover,
+#leadPanelCallbackSection .gcal-datetime-trigger:focus-visible {
+    border-color: color-mix(in srgb, rgb(14 165 233) 50%, transparent);
+}
+
+#leadPanelCallbackSection .gcal-datetime-popover.gcal-datetime-popover {
+    width: 13.25rem;
 }
 
 /* Focus mode — collapsible call outcome panel */

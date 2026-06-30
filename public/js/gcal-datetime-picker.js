@@ -130,6 +130,55 @@
     root.appendChild(trigger);
     root.appendChild(pop);
 
+    var portalHost =
+      opts.portalHost ||
+      document.getElementById('leadPanelSheet') ||
+      document.getElementById('mobilePanel') ||
+      document.body;
+    var useFixedPopover = !!opts.fixedPopover;
+    var popAnchor = document.createComment('gcal-pop-anchor');
+
+    function positionFixedPopover() {
+      if (!useFixedPopover) return;
+      var rect = trigger.getBoundingClientRect();
+      var width = Math.max(212, Math.min(280, rect.width || 252));
+      var left = rect.left;
+      if (left + width > window.innerWidth - 12) left = window.innerWidth - width - 12;
+      if (left < 12) left = 12;
+
+      var top = rect.bottom + 6;
+      var popH = pop.offsetHeight || 320;
+      if (top + popH > window.innerHeight - 12) {
+        top = Math.max(12, rect.top - popH - 6);
+      }
+
+      pop.style.position = 'fixed';
+      pop.style.top = top + 'px';
+      pop.style.left = left + 'px';
+      pop.style.width = width + 'px';
+      pop.style.zIndex = '10050';
+    }
+
+    function restorePopoverDom() {
+      if (!useFixedPopover || pop.parentElement === root) return;
+      root.appendChild(pop);
+      pop.style.position = '';
+      pop.style.top = '';
+      pop.style.left = '';
+      pop.style.width = '';
+      pop.style.zIndex = '';
+      if (popAnchor.parentNode) popAnchor.remove();
+    }
+
+    function mountFixedPopover() {
+      if (!useFixedPopover) return;
+      if (pop.parentElement === root) {
+        root.parentNode.insertBefore(popAnchor, root.nextSibling);
+        portalHost.appendChild(pop);
+      }
+      positionFixedPopover();
+    }
+
     var displayEl = trigger.querySelector('.gcal-datetime-display');
     var monthEl = pop.querySelector('.gcal-datetime-month');
     var gridEl = pop.querySelector('.gcal-datetime-grid');
@@ -225,8 +274,12 @@
       pop.classList.toggle('hidden', !open);
       trigger.setAttribute('aria-expanded', open ? 'true' : 'false');
       if (open) {
+        mountFixedPopover();
         fillTimeSelects(selected);
         renderCalendar();
+        if (useFixedPopover) positionFixedPopover();
+      } else {
+        restorePopoverDom();
       }
     }
 
@@ -318,7 +371,7 @@
 
     document.addEventListener('click', function (e) {
       if (!open) return;
-      if (root.contains(e.target)) return;
+      if (root.contains(e.target) || pop.contains(e.target)) return;
       setOpen(false);
     });
 
@@ -329,6 +382,26 @@
         setOpen(false);
       }
     });
+
+    if (useFixedPopover) {
+      window.addEventListener(
+        'resize',
+        function () {
+          if (open) positionFixedPopover();
+        },
+        { passive: true },
+      );
+      var scrollHost = document.getElementById('leadPanelTabScroll');
+      if (scrollHost) {
+        scrollHost.addEventListener(
+          'scroll',
+          function () {
+            if (open) positionFixedPopover();
+          },
+          { passive: true },
+        );
+      }
+    }
 
     syncInput();
     return api;
