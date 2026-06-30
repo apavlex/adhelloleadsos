@@ -42,6 +42,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const updateProcessingStatus =
     typeof window.updateProcessingStatus === 'function' ? window.updateProcessingStatus : () => {};
 
+  /** Must init before panel paint (paintPanelHeaderContactStrip, syncRowReviewsDisplay, etc.). */
+  const renderStarsInElement =
+    typeof window.__renderStarsInElement === 'function'
+      ? window.__renderStarsInElement
+      : function renderStarsInElementFallback(element, rating, starSizeClass = 'w-3 h-3') {
+          if (!element) return;
+          element.textContent = rating > 0 ? `${Number(rating).toFixed(1)} ★` : '—';
+        };
+
   const calculateOpportunityScore = (lead) => {
     let score = 0;
     const website = lead.website && lead.website !== 'N/A';
@@ -4377,8 +4386,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       populatePanel(tableRow);
+      setLeadPanelOutreachFeedback('');
     } catch (err) {
       console.error('[Lead detail panel] populatePanel failed:', err);
+      setLeadPanelOutreachFeedback(
+        (err && err.message) || 'Could not load outreach panel for this lead.',
+        'error',
+      );
       try {
         if (typeof paintLeadPanelFromRow === 'function') paintLeadPanelFromRow(tableRow);
       } catch (retryErr) {
@@ -7819,14 +7833,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /** Hoisted so syncRowReviewsDisplay and GHL sync paths never hit TDZ on panel star helpers. */
-  const renderStarsInElement =
-    typeof window.__renderStarsInElement === 'function'
-      ? window.__renderStarsInElement
-      : function renderStarsInElementFallback(element, rating, starSizeClass = 'w-3 h-3') {
-          if (!element) return;
-          element.textContent = rating > 0 ? `${Number(rating).toFixed(1)} ★` : '—';
-        };
-
   function syncRowReviewsDisplay(row) {
     if (!row || !row.dataset) return;
     const rating = parseFloat(row.dataset.rating) || 0;
@@ -7835,8 +7841,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (reviewsInner && typeof renderLeadsReviewsInnerHtml === 'function') {
       reviewsInner.innerHTML = renderLeadsReviewsInnerHtml(rating, reviews);
       const starEl = reviewsInner.querySelector('.row-stars');
-      if (starEl && typeof renderStarsInElement === 'function') {
-        renderStarsInElement(starEl, rating);
+      if (starEl && typeof window.__renderStarsInElement === 'function') {
+        window.__renderStarsInElement(starEl, rating);
       }
       return;
     }
@@ -7846,8 +7852,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (cell) {
         cell.innerHTML = renderReviewsCellInner(rating, reviews);
         const starEl = cell.querySelector('.row-stars');
-        if (starEl && typeof renderStarsInElement === 'function') {
-          renderStarsInElement(starEl, rating);
+        if (starEl && typeof window.__renderStarsInElement === 'function') {
+          window.__renderStarsInElement(starEl, rating);
         }
       }
     }
@@ -17137,7 +17143,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.51-panel-scoped-hunt-audit';
+  window.__ADHELLO_BUILD = '1.0.52-fix-render-stars-tdz';
   window.__postLeadJsonUpdate = postLeadJsonUpdate;
   window.__syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
   window.__populateLeadPanel = populatePanel;
