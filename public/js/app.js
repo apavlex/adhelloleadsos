@@ -8458,6 +8458,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
   }
+  window.renderLeadActivityTimeline = renderLeadActivityTimeline;
 
   function syncLeadPanelTouchSummary(row) {
     const el = document.getElementById('leadPanelTouchSummary');
@@ -8511,72 +8512,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   let leadDetailChromeDidInit = false;
-  let leadCallbackPicker = null;
-
-  function setLeadCallbackTaskHint(message, variant) {
-    const hint = document.getElementById('leadCallbackTaskHint');
-    if (!hint) return;
-    const text = String(message || '').trim();
-    if (!text) {
-      hint.textContent = '';
-      hint.classList.add('hidden');
-      hint.classList.remove(
-        'lead-callback-hint--success',
-        'lead-callback-hint--error',
-        'lead-callback-hint--pending',
-      );
-      return;
-    }
-    hint.textContent = text;
-    hint.classList.remove('hidden');
-    hint.classList.toggle('lead-callback-hint--success', variant === 'success');
-    hint.classList.toggle('lead-callback-hint--error', variant === 'error');
-    hint.classList.toggle('lead-callback-hint--pending', variant === 'pending');
-    try {
-      hint.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    } catch (_) {}
-  }
-
-  function ensureLeadCallbackPicker() {
-    if (leadCallbackPicker) return leadCallbackPicker;
-    const cbAt = document.getElementById('leadCallbackAt');
-    if (!cbAt) return null;
-    if (cbAt.__gcalPicker) {
-      leadCallbackPicker = cbAt.__gcalPicker;
-      return leadCallbackPicker;
-    }
-    if (typeof window.initGcalDatetimePicker !== 'function') return null;
-    leadCallbackPicker = window.initGcalDatetimePicker(cbAt, {
-      label: 'Schedule callback date and time',
-      triggerId: 'leadCallbackAt-trigger',
-      fixedPopover: true,
-    });
-    return leadCallbackPicker;
-  }
-
-  function resetLeadCallbackScheduler() {
-    setLeadCallbackTaskHint('');
-    ensureLeadCallbackPicker();
-    const reason = document.getElementById('leadCallbackReason');
-    if (reason && !String(reason.value || '').trim()) {
-      reason.value = 'Call back';
-    }
-    const remind = document.getElementById('leadCallbackRemind15');
-    if (remind) remind.checked = true;
-    if (leadCallbackPicker && typeof leadCallbackPicker.setDefaultInDays === 'function') {
-      leadCallbackPicker.setDefaultInDays(1, 8, 0);
-      return;
-    }
-    const at = document.getElementById('leadCallbackAt');
-    if (at && !String(at.value || '').trim()) {
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      d.setHours(8, 0, 0, 0);
-      const pad = (n) => String(n).padStart(2, '0');
-      at.value =
-        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-    }
-  }
 
   function initLeadDetailPanelChrome() {
     if (leadDetailChromeDidInit) return;
@@ -8679,96 +8614,6 @@ document.addEventListener('DOMContentLoaded', () => {
       leadRec.addEventListener('click', () => {
         if (typeof window.__adhelloToggleCloudRecording === 'function') {
           window.__adhelloToggleCloudRecording();
-        }
-      });
-    }
-
-    ensureLeadCallbackPicker();
-    resetLeadCallbackScheduler();
-
-    const cbBtn = document.getElementById('leadCallbackSaveBtn');
-    if (cbBtn && !cbBtn.dataset.adhelloBound) {
-      cbBtn.dataset.adhelloBound = '1';
-      cbBtn.addEventListener('click', async () => {
-        if (cbBtn.disabled) return;
-        const leadKey = currentRow && currentRow.dataset ? String(currentRow.dataset.leadKey || '').trim() : '';
-        if (!currentRow || !leadKey) {
-          setLeadCallbackTaskHint('Save the lead first.', 'error');
-          if (typeof window.showAppToast === 'function') window.showAppToast('Save the lead first.', { variant: 'error' });
-          return;
-        }
-        const at = document.getElementById('leadCallbackAt');
-        const r = document.getElementById('leadCallbackReason');
-        const rem = document.getElementById('leadCallbackRemind15');
-        const when = at && at.value ? String(at.value).trim() : '';
-        if (!when) {
-          setLeadCallbackTaskHint('Pick a date and time.', 'error');
-          if (typeof window.showAppToast === 'function') window.showAppToast('Pick a date and time.', { variant: 'error' });
-          return;
-        }
-        const parsed = new Date(when);
-        if (Number.isNaN(parsed.getTime())) {
-          setLeadCallbackTaskHint('Invalid date or time.', 'error');
-          if (typeof window.showAppToast === 'function') window.showAppToast('Invalid date or time.', { variant: 'error' });
-          return;
-        }
-        const iso = parsed.toISOString();
-        const titleBits = [`Callback: ${currentRow.dataset.title || 'Lead'}`];
-        if (rem && rem.checked) titleBits.push('(remind T-15)');
-        if (r && r.value.trim()) titleBits.push(`— ${r.value.trim()}`);
-
-        ensureLeadCallbackPicker();
-        const labelDefault = cbBtn.textContent || 'Create callback task';
-        cbBtn.disabled = true;
-        cbBtn.setAttribute('aria-busy', 'true');
-        cbBtn.textContent = 'Creating…';
-        cbBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
-        cbBtn.classList.add('bg-sky-600', 'hover:bg-sky-700');
-        setLeadCallbackTaskHint('Creating callback task…', 'pending');
-
-        try {
-          const res = await fetch('/tasks/api', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            credentials: 'same-origin',
-            body: JSON.stringify({
-              title: titleBits.join(' '),
-              scheduledAt: iso,
-              leadKey,
-              column: 'todo',
-            }),
-          });
-          const data = await res.json().catch(() => ({}));
-          if (!res.ok || !data.success) throw new Error((data && data.error) || 'Task create failed');
-          const whenLabel = parsed.toLocaleString(undefined, {
-            weekday: 'short',
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          });
-          const successMsg = `Callback task created for ${whenLabel}. Open Tasks to see it on your day.`;
-          setLeadCallbackTaskHint(successMsg, 'success');
-          cbBtn.textContent = '✓ Task created';
-          cbBtn.classList.remove('bg-sky-600', 'hover:bg-sky-700');
-          cbBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
-          if (typeof window.showAppToast === 'function') {
-            window.showAppToast('Callback scheduled', { variant: 'success' });
-          }
-          window.setTimeout(() => {
-            if (cbBtn.getAttribute('aria-busy') === 'true') return;
-            cbBtn.textContent = labelDefault;
-            cbBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
-            cbBtn.classList.add('bg-sky-600', 'hover:bg-sky-700');
-          }, 3200);
-        } catch (e) {
-          const msg = e && e.message ? e.message : 'Failed';
-          setLeadCallbackTaskHint(msg, 'error');
-          if (typeof window.showAppToast === 'function') window.showAppToast(msg, { variant: 'error' });
-        } finally {
-          cbBtn.disabled = false;
-          cbBtn.removeAttribute('aria-busy');
-          if (cbBtn.textContent === 'Creating…') cbBtn.textContent = labelDefault;
         }
       });
     }
@@ -10506,7 +10351,9 @@ document.addEventListener('DOMContentLoaded', () => {
     openLeadPanelQuickLog();
     openLeadPanelComposer();
     setLeadPanelOutreachFeedback('');
-    resetLeadCallbackScheduler();
+    if (typeof window.__adhelloResetLeadCallbackScheduler === 'function') {
+      window.__adhelloResetLeadCallbackScheduler();
+    }
     prepareLeadRowForPanel(row);
     window.__leadActivityFilter = window.__leadActivityFilter || 'all';
     const paintActivityTimeline = () => {
@@ -17257,7 +17104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.54-fix-callback-init-order';
+  window.__ADHELLO_BUILD = '1.0.55-lead-callback-task-module';
   window.__postLeadJsonUpdate = postLeadJsonUpdate;
   window.__syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
   window.__populateLeadPanel = populatePanel;
