@@ -629,7 +629,7 @@
             <input type="checkbox" id="leadCallbackRemind15" class="rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
             Remind me 15 minutes before (note in task title)
           </label>
-          <p id="leadCallbackTaskHint" class="min-h-[1rem] text-[10px] font-semibold hidden" role="status" aria-live="polite"></p>
+          <p id="leadCallbackTaskHint" class="lead-callback-hint hidden" role="status" aria-live="polite"></p>
           <button type="button" id="leadCallbackSaveBtn" class="btn-pill w-full sm:w-auto bg-sky-600 text-white px-5 py-2.5 text-[10px] font-black uppercase tracking-widest hover:bg-sky-700">Create callback task</button>
         </div>
       </section>
@@ -745,8 +745,6 @@
       </div><!-- /leadPanelMiddle -->
     </div><!-- /leadPanelSheet -->
   </div><!-- /mobilePanel -->
-
-  <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 
   <!-- Website Preview Tooltip -->
     <div id="websitePreview" class="fixed hidden z-[200] w-[400px] h-[300px] bg-white dark:bg-slate-900 border border-brand-border dark:border-white/10 rounded-xl shadow-2xl overflow-hidden pointer-events-none transform -translate-x-1/2 -translate-y-full mt-[-15px] transition-opacity duration-200 opacity-0">

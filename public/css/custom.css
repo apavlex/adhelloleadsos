@@ -2804,6 +2804,51 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     width: 13.25rem;
 }
 
+.lead-callback-hint {
+    min-height: 1rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 0.75rem;
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1.45;
+}
+
+.lead-callback-hint--success {
+    color: rgb(4 120 87);
+    background: rgb(209 250 229 / 0.65);
+    border: 1px solid rgb(52 211 153 / 0.45);
+}
+
+.dark .lead-callback-hint--success {
+    color: rgb(167 243 208);
+    background: rgb(6 78 59 / 0.35);
+    border-color: rgb(16 185 129 / 0.35);
+}
+
+.lead-callback-hint--error {
+    color: rgb(185 28 28);
+    background: rgb(254 226 226 / 0.75);
+    border: 1px solid rgb(248 113 113 / 0.45);
+}
+
+.dark .lead-callback-hint--error {
+    color: rgb(252 165 165);
+    background: rgb(127 29 29 / 0.35);
+    border-color: rgb(239 68 68 / 0.35);
+}
+
+.lead-callback-hint--pending {
+    color: rgb(3 105 161);
+    background: rgb(224 242 254 / 0.75);
+    border: 1px solid rgb(56 189 248 / 0.45);
+}
+
+.dark .lead-callback-hint--pending {
+    color: rgb(125 211 252);
+    background: rgb(12 74 110 / 0.35);
+    border-color: rgb(14 165 233 / 0.35);
+}
+
 /* Focus mode — collapsible call outcome panel */
 #focus-outcome-panel[data-collapsed="true"] {
     padding-top: 0.65rem;

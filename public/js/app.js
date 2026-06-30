@@ -5357,7 +5357,6 @@ document.addEventListener('DOMContentLoaded', () => {
   if (document.getElementById('leadPanelTabScroll')) {
     bindLeadPanelBottomActions();
     bindLeadPanelSectionNav();
-    initLeadDetailPanelChrome();
   }
 
   let kieInsightRequestId = 0;
@@ -8521,19 +8520,43 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!text) {
       hint.textContent = '';
       hint.classList.add('hidden');
-      hint.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-red-600', 'dark:text-red-400');
+      hint.classList.remove(
+        'lead-callback-hint--success',
+        'lead-callback-hint--error',
+        'lead-callback-hint--pending',
+      );
       return;
     }
     hint.textContent = text;
     hint.classList.remove('hidden');
-    hint.classList.toggle('text-emerald-700', variant !== 'error');
-    hint.classList.toggle('dark:text-emerald-300', variant !== 'error');
-    hint.classList.toggle('text-red-600', variant === 'error');
-    hint.classList.toggle('dark:text-red-400', variant === 'error');
+    hint.classList.toggle('lead-callback-hint--success', variant === 'success');
+    hint.classList.toggle('lead-callback-hint--error', variant === 'error');
+    hint.classList.toggle('lead-callback-hint--pending', variant === 'pending');
+    try {
+      hint.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    } catch (_) {}
+  }
+
+  function ensureLeadCallbackPicker() {
+    if (leadCallbackPicker) return leadCallbackPicker;
+    const cbAt = document.getElementById('leadCallbackAt');
+    if (!cbAt) return null;
+    if (cbAt.__gcalPicker) {
+      leadCallbackPicker = cbAt.__gcalPicker;
+      return leadCallbackPicker;
+    }
+    if (typeof window.initGcalDatetimePicker !== 'function') return null;
+    leadCallbackPicker = window.initGcalDatetimePicker(cbAt, {
+      label: 'Schedule callback date and time',
+      triggerId: 'leadCallbackAt-trigger',
+      fixedPopover: true,
+    });
+    return leadCallbackPicker;
   }
 
   function resetLeadCallbackScheduler() {
     setLeadCallbackTaskHint('');
+    ensureLeadCallbackPicker();
     const reason = document.getElementById('leadCallbackReason');
     if (reason && !String(reason.value || '').trim()) {
       reason.value = 'Call back';
@@ -8542,16 +8565,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (remind) remind.checked = true;
     if (leadCallbackPicker && typeof leadCallbackPicker.setDefaultInDays === 'function') {
       leadCallbackPicker.setDefaultInDays(1, 8, 0);
-    } else {
-      const at = document.getElementById('leadCallbackAt');
-      if (at && !String(at.value || '').trim()) {
-        const d = new Date();
-        d.setDate(d.getDate() + 1);
-        d.setHours(8, 0, 0, 0);
-        const pad = (n) => String(n).padStart(2, '0');
-        at.value =
-          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-      }
+      return;
+    }
+    const at = document.getElementById('leadCallbackAt');
+    if (at && !String(at.value || '').trim()) {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setHours(8, 0, 0, 0);
+      const pad = (n) => String(n).padStart(2, '0');
+      at.value =
+        `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
   }
 
@@ -8660,15 +8683,8 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    const cbAt = document.getElementById('leadCallbackAt');
-    if (cbAt && typeof window.initGcalDatetimePicker === 'function' && !leadCallbackPicker) {
-      leadCallbackPicker = window.initGcalDatetimePicker(cbAt, {
-        label: 'Schedule callback date and time',
-        triggerId: 'leadCallbackAt-trigger',
-        fixedPopover: true,
-      });
-      resetLeadCallbackScheduler();
-    }
+    ensureLeadCallbackPicker();
+    resetLeadCallbackScheduler();
 
     const cbBtn = document.getElementById('leadCallbackSaveBtn');
     if (cbBtn && !cbBtn.dataset.adhelloBound) {
@@ -8701,11 +8717,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rem && rem.checked) titleBits.push('(remind T-15)');
         if (r && r.value.trim()) titleBits.push(`— ${r.value.trim()}`);
 
-        const labelDefault = cbBtn.textContent;
+        ensureLeadCallbackPicker();
+        const labelDefault = cbBtn.textContent || 'Create callback task';
         cbBtn.disabled = true;
         cbBtn.setAttribute('aria-busy', 'true');
         cbBtn.textContent = 'Creating…';
-        setLeadCallbackTaskHint('Creating callback task…');
+        cbBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+        cbBtn.classList.add('bg-sky-600', 'hover:bg-sky-700');
+        setLeadCallbackTaskHint('Creating callback task…', 'pending');
 
         try {
           const res = await fetch('/tasks/api', {
@@ -8728,10 +8747,20 @@ document.addEventListener('DOMContentLoaded', () => {
             hour: 'numeric',
             minute: '2-digit',
           });
-          setLeadCallbackTaskHint(`Callback task created for ${whenLabel}. Open Tasks to see it on your day.`);
+          const successMsg = `Callback task created for ${whenLabel}. Open Tasks to see it on your day.`;
+          setLeadCallbackTaskHint(successMsg, 'success');
+          cbBtn.textContent = '✓ Task created';
+          cbBtn.classList.remove('bg-sky-600', 'hover:bg-sky-700');
+          cbBtn.classList.add('bg-emerald-600', 'hover:bg-emerald-700');
           if (typeof window.showAppToast === 'function') {
             window.showAppToast('Callback scheduled', { variant: 'success' });
           }
+          window.setTimeout(() => {
+            if (cbBtn.getAttribute('aria-busy') === 'true') return;
+            cbBtn.textContent = labelDefault;
+            cbBtn.classList.remove('bg-emerald-600', 'hover:bg-emerald-700');
+            cbBtn.classList.add('bg-sky-600', 'hover:bg-sky-700');
+          }, 3200);
         } catch (e) {
           const msg = e && e.message ? e.message : 'Failed';
           setLeadCallbackTaskHint(msg, 'error');
@@ -8739,7 +8768,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
           cbBtn.disabled = false;
           cbBtn.removeAttribute('aria-busy');
-          cbBtn.textContent = labelDefault;
+          if (cbBtn.textContent === 'Creating…') cbBtn.textContent = labelDefault;
         }
       });
     }
@@ -8830,6 +8859,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
+  }
+
+  if (document.getElementById('leadPanelTabScroll')) {
+    initLeadDetailPanelChrome();
   }
 
   /** Maps listing URL if stored; otherwise a Google Maps search URL from address/title (matches detail panel socials). */
@@ -17224,7 +17257,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })();
 
   ensureLeadDetailPanelNotBlockingPage();
-  window.__ADHELLO_BUILD = '1.0.53-fix-callback-scheduler';
+  window.__ADHELLO_BUILD = '1.0.54-fix-callback-init-order';
   window.__postLeadJsonUpdate = postLeadJsonUpdate;
   window.__syncPersistedLeadToRowDataset = syncPersistedLeadToRowDataset;
   window.__populateLeadPanel = populatePanel;
