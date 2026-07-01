@@ -146,6 +146,18 @@ router.post('/assign-bulk', async (req, res, next) => {
   }
 });
 
+router.post('/:tagKey/active', async (req, res, next) => {
+  try {
+    const tagKey = req.params.tagKey;
+    const isActive = !(req.body && req.body.isActive === false);
+    const tag = await dbService.setTagActive(req.workspaceId, tagKey, isActive);
+    if (!tag) return res.status(404).json({ success: false, error: 'Tag not found.' });
+    res.json({ success: true, tag });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/:tagKey/rename', async (req, res, next) => {
   try {
     const tagKey = req.params.tagKey;

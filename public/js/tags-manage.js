@@ -60,15 +60,20 @@
     const color = tag.color || '#94a3b8';
     const name = String(tag.name || 'Tag');
     const count = typeof tag.leadCount === 'number' ? tag.leadCount : 0;
+    const isActive = tag.isActive !== false;
     const tr = document.createElement('tr');
     tr.className = 'border-b border-brand-border/15 dark:border-white/[0.07] tags-manage-row';
     tr.setAttribute('data-tag-key', tag.key);
+    tr.setAttribute('data-tag-active', isActive ? '1' : '0');
     tr.innerHTML = `
       <td class="px-4 py-3 align-middle">
         <span class="inline-block w-4 h-4 rounded-full border border-black/10 dark:border-white/15" style="background:${escapeHtml(color)}" aria-hidden="true"></span>
       </td>
       <td class="px-4 py-3 align-middle">
         <input type="text" class="tags-manage-name w-full max-w-md rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" value="${escapeHtml(name)}" maxlength="80" data-original-name="${escapeHtml(name)}" />
+      </td>
+      <td class="px-4 py-3 align-middle">
+        <button type="button" class="tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${isActive ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 text-brand-muted'}" aria-pressed="${isActive ? 'true' : 'false'}" title="${isActive ? 'Shown as quick-add button on leads' : 'Hidden in More tags dropdown on leads'}">${isActive ? 'Active' : 'Inactive'}</button>
       </td>
       <td class="px-4 py-3 align-middle">
         ${
@@ -113,12 +118,30 @@
     return data.tags || [];
   }
 
+  function setRowActiveUi(row, isActive) {
+    if (!row) return;
+    row.setAttribute('data-tag-active', isActive ? '1' : '0');
+    const toggle = row.querySelector('.tags-manage-active-toggle');
+    if (!toggle) return;
+    toggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    toggle.textContent = isActive ? 'Active' : 'Inactive';
+    toggle.title = isActive
+      ? 'Shown as quick-add button on leads'
+      : 'Hidden in More tags dropdown on leads';
+    toggle.className =
+      'tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ' +
+      (isActive
+        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+        : 'border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 text-brand-muted');
+  }
+
   function bindRow(row) {
     if (!row) return;
     const key = row.getAttribute('data-tag-key');
     const nameEl = row.querySelector('.tags-manage-name');
     const saveBtn = row.querySelector('.tags-manage-save');
     const deleteBtn = row.querySelector('.tags-manage-delete');
+    const activeToggle = row.querySelector('.tags-manage-active-toggle');
 
     function syncSaveState() {
       if (!nameEl || !saveBtn) return;
@@ -158,6 +181,32 @@
       });
     }
 
+    if (activeToggle) {
+      activeToggle.addEventListener('click', async () => {
+        const nextActive = row.getAttribute('data-tag-active') !== '1';
+        activeToggle.disabled = true;
+        try {
+          const data = await apiJson(`/tags/${encodeTagKey(key)}/active`, {
+            method: 'POST',
+            body: JSON.stringify({ isActive: nextActive }),
+          });
+          const active = data.tag && data.tag.isActive !== false;
+          setRowActiveUi(row, active);
+          upsertWorkspaceTag(data.tag);
+          showMsg(
+            active
+              ? `“${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'Tag')}” will show as a quick-add button.`
+              : `“${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'Tag')}” moved to the More tags dropdown.`,
+            true,
+          );
+        } catch (err) {
+          showMsg(err.message || 'Could not update tag visibility.', false);
+        } finally {
+          activeToggle.disabled = false;
+        }
+      });
+    }
+
     if (deleteBtn) {
       deleteBtn.addEventListener('click', async () => {
         const label = String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'this tag');
@@ -178,7 +227,7 @@
             const tr = document.createElement('tr');
             tr.id = 'tagsManageEmptyRow';
             tr.innerHTML =
-              '<td colspan="4" class="px-6 py-12 text-center text-sm text-brand-muted dark:text-slate-400">No tags yet. Create one above or from a lead panel.</td>';
+              '<td colspan="5" class="px-6 py-12 text-center text-sm text-brand-muted dark:text-slate-400">No tags yet. Create one above or from a lead panel.</td>';
             tbody.appendChild(tr);
           }
           showMsg(`Deleted “${label}”.`, true);

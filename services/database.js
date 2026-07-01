@@ -905,10 +905,27 @@ module.exports = {
       name: label,
       color: palette[Math.floor(Math.random() * palette.length)],
       workspaceId: wid,
+      isActive: true,
       createdAt: new Date().toISOString(),
     };
     kvSet(key, JSON.stringify(tag));
     return { key, ...tag };
+  },
+
+  async setTagActive(workspaceId, tagKey, isActive) {
+    const wid = workspaceId || 'default';
+    const fullKey = tagKey.startsWith('tag:') ? tagKey : `tag:${wid}:${tagKey}`;
+    const raw = kvGet(fullKey);
+    if (!raw) return null;
+    const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if ((existing.workspaceId || 'default') !== wid) return null;
+    const updated = {
+      ...existing,
+      isActive: isActive !== false,
+      updatedAt: new Date().toISOString(),
+    };
+    kvSet(fullKey, JSON.stringify(updated));
+    return { key: fullKey, ...updated };
   },
 
   async renameTag(workspaceId, tagKey, name) {

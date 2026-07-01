@@ -23,6 +23,10 @@
     return (t && t.color) || '#94a3b8';
   }
 
+  function tagIsActive(tag) {
+    return !!(tag && tag.isActive !== false);
+  }
+
   function escapeHtml(s) {
     return String(s || '')
       .replace(/&/g, '&amp;')
@@ -277,6 +281,8 @@
 
     const applied = tags.filter((t) => t && t.key && active.has(t.key));
     const available = tags.filter((t) => t && t.key && !active.has(t.key));
+    const availableActive = available.filter(tagIsActive);
+    const availableInactive = available.filter((t) => !tagIsActive(t));
 
     html += `<div class="flex flex-wrap gap-1.5 ${compact ? '' : 'mb-2'}" data-tag-pills-host="${escapeHtml(hostId)}">`;
     if (!tags.length) {
@@ -296,18 +302,37 @@
     }
     html += '</div>';
 
-    if (!compact && available.length) {
+    if (!compact && (availableActive.length || availableInactive.length)) {
       html += `<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1.5 mt-1">Add tag</p>`;
-      html += `<div class="flex flex-wrap gap-1.5" data-tag-add-host="${escapeHtml(hostId)}">`;
-      available.forEach((t) => {
-        const color = t.color || '#94a3b8';
-        html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
-      });
-      html += '</div>';
+      if (availableActive.length) {
+        html += `<div class="flex flex-wrap gap-1.5" data-tag-add-host="${escapeHtml(hostId)}">`;
+        availableActive.forEach((t) => {
+          const color = t.color || '#94a3b8';
+          html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
+        });
+        html += '</div>';
+      }
+      if (availableInactive.length) {
+        const inactiveSelectId = `leadPanelInactiveTagSelect-${hostId}`;
+        const inactiveAddId = `leadPanelInactiveTagAdd-${hostId}`;
+        html += `<div class="flex flex-wrap items-center gap-2 ${availableActive.length ? 'mt-2' : ''}" data-tag-inactive-host="${escapeHtml(hostId)}">`;
+        html += `<select id="${escapeHtml(inactiveSelectId)}" class="lead-panel-tag-inactive-select min-w-[8rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" aria-label="More tags">`;
+        html += '<option value="">More tags…</option>';
+        availableInactive
+          .slice()
+          .sort((a, b) =>
+            String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
+          )
+          .forEach((t) => {
+            html += `<option value="${escapeHtml(t.key)}">${escapeHtml(t.name)}</option>`;
+          });
+        html += '</select>';
+        html += `<button type="button" id="${escapeHtml(inactiveAddId)}" class="lead-panel-tag-inactive-add btn-pill border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white shrink-0">Add</button>`;
+        html += '</div>';
+      }
     } else if (compact) {
       html += `<div class="flex flex-wrap gap-1.5 mt-1" data-tag-add-host="${escapeHtml(hostId)}">`;
-      tags.forEach((t) => {
-        if (!t || !t.key || active.has(t.key)) return;
+      availableActive.forEach((t) => {
         const color = t.color || '#94a3b8';
         html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
       });
@@ -346,6 +371,34 @@
         }
       });
     });
+
+    const inactiveSelect = host.querySelector('.lead-panel-tag-inactive-select');
+    const inactiveAddBtn = host.querySelector('.lead-panel-tag-inactive-add');
+    async function addInactiveSelectedTag() {
+      if (!inactiveSelect || !leadKey) return;
+      const tk = String(inactiveSelect.value || '').trim();
+      if (!tk) return;
+      if (inactiveAddBtn) inactiveAddBtn.disabled = true;
+      if (inactiveSelect) inactiveSelect.disabled = true;
+      try {
+        await mutateTags((set) => set.add(tk));
+      } catch (err) {
+        window.alert(err.message || 'Could not update tags.');
+        if (inactiveAddBtn) inactiveAddBtn.disabled = false;
+        if (inactiveSelect) inactiveSelect.disabled = false;
+      }
+    }
+    if (inactiveAddBtn) {
+      inactiveAddBtn.addEventListener('click', addInactiveSelectedTag);
+    }
+    if (inactiveSelect) {
+      inactiveSelect.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          addInactiveSelectedTag();
+        }
+      });
+    }
 
     host.querySelectorAll('.lead-panel-tag-remove').forEach((btn) => {
       btn.addEventListener('click', async (e) => {
@@ -625,6 +678,7 @@
                   key: String(t.key),
                   name: String(t.name || '').trim() || 'Tag',
                   color: t.color || '#94a3b8',
+                  isActive: t.isActive !== false,
                 }));
             } else if (!Array.isArray(window.WORKSPACE_TAGS)) {
               window.WORKSPACE_TAGS = [];

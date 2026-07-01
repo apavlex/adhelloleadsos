@@ -40,6 +40,7 @@
             <tr class="border-b border-brand-border/25 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/40">
               <th class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted w-12">Color</th>
               <th class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted">Name</th>
+              <th class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted w-28">Quick add</th>
               <th class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted w-28">Leads</th>
               <th class="px-4 py-3 text-[10px] font-black uppercase tracking-widest text-brand-muted w-40 text-right">Actions</th>
             </tr>
@@ -48,7 +49,7 @@
             <% const _tags = (typeof tags !== 'undefined' && Array.isArray(tags)) ? tags : []; %>
             <% if (!_tags.length) { %>
             <tr id="tagsManageEmptyRow">
-              <td colspan="4" class="px-6 py-12 text-center text-sm text-brand-muted dark:text-slate-400">No tags yet. Create one above or from a lead panel.</td>
+              <td colspan="5" class="px-6 py-12 text-center text-sm text-brand-muted dark:text-slate-400">No tags yet. Create one above or from a lead panel.</td>
             </tr>
             <% } else { %>
             <% _tags.forEach(function (tag) {
@@ -56,13 +57,17 @@
               const color = tag.color || '#94a3b8';
               const name = String(tag.name || 'Tag');
               const count = typeof tag.leadCount === 'number' ? tag.leadCount : 0;
+              const isActive = tag.isActive !== false;
             %>
-            <tr class="border-b border-brand-border/15 dark:border-white/[0.07] tags-manage-row" data-tag-key="<%= tag.key.replace(/"/g, '&quot;') %>">
+            <tr class="border-b border-brand-border/15 dark:border-white/[0.07] tags-manage-row" data-tag-key="<%= tag.key.replace(/"/g, '&quot;') %>" data-tag-active="<%= isActive ? '1' : '0' %>">
               <td class="px-4 py-3 align-middle">
                 <span class="inline-block w-4 h-4 rounded-full border border-black/10 dark:border-white/15" style="background:<%= color %>" aria-hidden="true"></span>
               </td>
               <td class="px-4 py-3 align-middle">
                 <input type="text" class="tags-manage-name w-full max-w-md rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" value="<%= name.replace(/"/g, '&quot;') %>" maxlength="80" data-original-name="<%= name.replace(/"/g, '&quot;') %>" />
+              </td>
+              <td class="px-4 py-3 align-middle">
+                <button type="button" class="tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors <%= isActive ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 text-brand-muted' %>" aria-pressed="<%= isActive ? 'true' : 'false' %>" title="<%= isActive ? 'Shown as quick-add button on leads' : 'Hidden in More tags dropdown on leads' %>"><%= isActive ? 'Active' : 'Inactive' %></button>
               </td>
               <td class="px-4 py-3 align-middle">
                 <% if (count > 0) { %>
