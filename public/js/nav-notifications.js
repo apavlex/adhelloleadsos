@@ -1231,21 +1231,129 @@
 
     const desktopRow = document.getElementById('notificationDesktopRow');
     const navNotifyEnable = document.getElementById('navNotifyEnable');
-    function updateDesktopHint() {
-      if (!desktopRow) return;
-      if ('Notification' in window && Notification.permission === 'default') {
-        desktopRow.classList.remove('hidden');
-      } else {
+    const navNotifyStatus = document.getElementById('navNotifyStatus');
+
+    function syncDesktopAlertsUi() {
+      if (!desktopRow || !navNotifyEnable) return;
+      if (!('Notification' in window)) {
         desktopRow.classList.add('hidden');
+        return;
+      }
+      desktopRow.classList.remove('hidden');
+      navNotifyEnable.disabled = false;
+      navNotifyEnable.classList.remove(
+        'opacity-60',
+        'cursor-not-allowed',
+        'border-emerald-500/45',
+        'dark:border-emerald-400/40',
+        'border-amber-500/45',
+        'dark:border-amber-400/40',
+      );
+      navNotifyEnable.classList.add('border-sky-500/45', 'dark:border-sky-400/40');
+
+      const perm = Notification.permission;
+      if (perm === 'granted') {
+        const paused =
+          window.AgencyTaskReminders &&
+          typeof window.AgencyTaskReminders.isPaused === 'function' &&
+          window.AgencyTaskReminders.isPaused();
+        navNotifyEnable.classList.remove('border-sky-500/45', 'dark:border-sky-400/40');
+        navNotifyEnable.classList.add(
+          paused ? 'border-amber-500/45' : 'border-emerald-500/45',
+          paused ? 'dark:border-amber-400/40' : 'dark:border-emerald-400/40',
+        );
+        navNotifyEnable.textContent = paused
+          ? 'Resume desktop alerts'
+          : 'Desktop alerts on';
+        if (navNotifyStatus) {
+          navNotifyStatus.textContent = paused
+            ? 'Task reminders are paused on this device.'
+            : 'You will get browser alerts for lead runs and task reminders.';
+          navNotifyStatus.classList.remove('hidden');
+        }
+        return;
+      }
+
+      if (perm === 'denied') {
+        navNotifyEnable.textContent = 'Notifications blocked in browser';
+        navNotifyEnable.classList.remove('border-sky-500/45', 'dark:border-sky-400/40');
+        navNotifyEnable.classList.add('border-rose-500/40', 'dark:border-rose-400/35');
+        if (navNotifyStatus) {
+          navNotifyStatus.textContent =
+            'Allow notifications in your browser site settings to get runs and reminders.';
+          navNotifyStatus.classList.remove('hidden');
+        }
+        return;
+      }
+
+      navNotifyEnable.textContent = 'Enable desktop alerts (runs & reminders)';
+      if (navNotifyStatus) {
+        navNotifyStatus.textContent = 'Get notified when hunts finish and callbacks are due.';
+        navNotifyStatus.classList.remove('hidden');
       }
     }
-    updateDesktopHint();
+
+    syncDesktopAlertsUi();
+
     if (navNotifyEnable) {
       navNotifyEnable.addEventListener('click', async function (e) {
         e.stopPropagation();
         if (!('Notification' in window)) return;
-        await Notification.requestPermission();
-        updateDesktopHint();
+
+        if (Notification.permission === 'denied') {
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast(
+              'Notifications are blocked. Open browser site settings for this page and allow notifications.',
+              { variant: 'error' },
+            );
+          }
+          return;
+        }
+
+        if (Notification.permission === 'granted') {
+          if (
+            window.AgencyTaskReminders &&
+            typeof window.AgencyTaskReminders.isPaused === 'function' &&
+            window.AgencyTaskReminders.isPaused() &&
+            typeof window.AgencyTaskReminders.setPaused === 'function'
+          ) {
+            window.AgencyTaskReminders.setPaused(false);
+            if (typeof window.AgencyTaskReminders.refresh === 'function') {
+              await window.AgencyTaskReminders.refresh();
+            }
+            if (typeof window.AgencyTaskReminders.tick === 'function') {
+              window.AgencyTaskReminders.tick();
+            }
+            if (typeof window.showAppToast === 'function') {
+              window.showAppToast('Desktop alerts resumed.', { variant: 'success' });
+            }
+          }
+          syncDesktopAlertsUi();
+          return;
+        }
+
+        const perm = await Notification.requestPermission();
+        if (perm === 'granted') {
+          if (window.AgencyTaskReminders) {
+            if (typeof window.AgencyTaskReminders.setPaused === 'function') {
+              window.AgencyTaskReminders.setPaused(false);
+            }
+            if (typeof window.AgencyTaskReminders.refresh === 'function') {
+              await window.AgencyTaskReminders.refresh();
+            }
+            if (typeof window.AgencyTaskReminders.tick === 'function') {
+              window.AgencyTaskReminders.tick();
+            }
+          }
+          if (typeof window.showAppToast === 'function') {
+            window.showAppToast('Desktop alerts enabled for runs and reminders.', {
+              variant: 'success',
+            });
+          }
+        } else if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Desktop alerts were not enabled.', { variant: 'error' });
+        }
+        syncDesktopAlertsUi();
       });
     }
 
@@ -1255,6 +1363,7 @@
       const isHidden = notificationDropdown.classList.contains('hidden');
       if (isHidden) {
         notificationDropdown.classList.remove('hidden');
+        syncDesktopAlertsUi();
         if (isGhlSyncJobRunning() && notificationList) {
           notificationList.innerHTML = buildGhlSyncProgressBellHtml(readGhlSyncJob());
         }
