@@ -35,7 +35,7 @@
     ]; %>
     <% _cols.forEach(function (col) { %>
     <% const items = _cadenceBlockQ[col.key] || []; %>
-    <details class="cadence-channel-details rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white/90 dark:bg-slate-900/80 min-h-[200px] flex flex-col group/channel" <%= items.length ? 'open' : '' %>>
+    <details class="cadence-channel-details rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/85 min-h-[200px] flex flex-col group/channel" <%= items.length ? 'open' : '' %>>
       <summary class="flex items-center gap-2 p-4 pb-0 [&::-webkit-details-marker]:hidden">
         <span class="w-8 h-8 rounded-xl bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow flex items-center justify-center shrink-0">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="<%= col.icon %>"/></svg>
@@ -69,7 +69,7 @@
     <% }); %>
   </div>
   <% if ((_cadenceBlockQ.other || []).length) { %>
-  <details class="cadence-channel-details mt-4 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white/70 dark:bg-slate-900/60 group/channel" open>
+  <details class="cadence-channel-details mt-4 rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/85 group/channel" open>
     <summary class="flex items-center justify-between gap-2 p-4 [&::-webkit-details-marker]:hidden">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Other tasks today</p>
       <span class="flex items-center gap-2 shrink-0">

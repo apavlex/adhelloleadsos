@@ -3,7 +3,7 @@
 <% if (_planView) { %>
 <% const _planViewTag = _planEmbed ? 'div' : 'section'; %>
 <% const _planViewClass = _planEmbed
-  ? 'text-brand-dark dark:text-white overflow-hidden'
+  ? 'rounded-2xl border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/85 text-brand-dark dark:text-white overflow-hidden'
   : 'mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 text-brand-dark dark:text-white shadow-sm overflow-hidden'; %>
 <<%= _planViewTag %> class="<%= _planViewClass %>" id="action-plan-tracker" aria-label="Daily action plan tracker" data-year="<%= _planView.year %>" data-month="<%= _planView.month %>">
   <div class="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 <%= _planEmbed ? 'pt-4' : 'border-b border-brand-border/50 dark:border-white/10' %>">

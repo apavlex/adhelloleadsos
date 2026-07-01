@@ -9,10 +9,10 @@
 
 <section
   id="today-touches-hub"
-  class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-gradient-to-br from-brand-yellow/12 via-white to-white dark:from-brand-yellow/10 dark:via-slate-900 dark:to-slate-900 shadow-lg shadow-brand-yellow/10 overflow-hidden"
+  class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-white dark:bg-slate-900/90 shadow-lg shadow-brand-yellow/10 overflow-hidden"
   aria-label="Today's touches from active cadences"
 >
-  <div class="px-5 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-4 md:pb-5 border-b border-brand-border/40 dark:border-white/10">
+  <div class="px-5 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-4 md:pb-5 border-b border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900/90">
     <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Today&apos;s work</p>
@@ -36,28 +36,28 @@
       <a href="/sequences" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0 self-start">Cadences &amp; playbooks</a>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
-      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-3 py-2.5">
         <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Due today</p>
         <p class="font-display font-black text-lg text-brand-dark dark:text-white tabular-nums"><%= _cadenceQ.totalDue || 0 %></p>
       </div>
-      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-3 py-2.5">
         <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Touches today</p>
         <p class="font-display font-black text-lg text-brand-dark dark:text-white tabular-nums"><%= _touchesToday %>/<%= _touchGoal %></p>
       </div>
-      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-3 py-2.5">
         <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Replies waiting</p>
         <p class="font-display font-black text-lg text-brand-dark dark:text-white tabular-nums"><%= typeof repliesWaiting !== 'undefined' ? repliesWaiting : 0 %></p>
       </div>
-      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-3 py-2.5">
         <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Streak</p>
         <p class="font-display font-black text-lg text-emerald-600 dark:text-emerald-400 tabular-nums"><%= typeof streak !== 'undefined' ? streak : 0 %>d</p>
       </div>
     </div>
   </div>
 
-  <div class="divide-y divide-brand-border/40 dark:divide-white/10">
-    <details id="today-hub-cadence" class="today-hub-panel group" open>
-      <summary class="today-hub-panel-summary">
+  <div class="divide-y divide-brand-border/40 dark:divide-white/10 bg-white dark:bg-slate-900/90">
+    <details id="today-hub-cadence" class="today-hub-panel group bg-white dark:bg-slate-900/90" open>
+      <summary class="today-hub-panel-summary bg-white dark:bg-slate-900/90">
         <span class="min-w-0">
           <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Cadence command center</span>
           <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">Calls, emails, texts &amp; social DMs</span>
@@ -68,13 +68,15 @@
         </span>
       </summary>
       <div class="today-hub-panel-body">
+        <div class="today-hub-panel-inner">
         <%- include('/partials/cadence_today_block', { hubEmbed: true }) %>
+        </div>
       </div>
     </details>
 
     <% if (_contactQ.length) { %>
-    <details id="today-hub-queue" class="today-hub-panel group" open>
-      <summary class="today-hub-panel-summary">
+    <details id="today-hub-queue" class="today-hub-panel group bg-white dark:bg-slate-900/90" open>
+      <summary class="today-hub-panel-summary bg-white dark:bg-slate-900/90">
         <span class="min-w-0">
           <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Today&apos;s queue</span>
           <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">Highest-ROI leads to contact</span>
@@ -85,14 +87,16 @@
         </span>
       </summary>
       <div class="today-hub-panel-body">
+        <div class="today-hub-panel-inner">
         <%- include('/partials/today_contact_queue', { hubEmbed: true }) %>
+        </div>
       </div>
     </details>
     <% } %>
 
     <% if (_oc) { %>
-    <details id="today-hub-coach" class="today-hub-panel group" open>
-      <summary class="today-hub-panel-summary">
+    <details id="today-hub-coach" class="today-hub-panel group bg-white dark:bg-slate-900/90" open>
+      <summary class="today-hub-panel-summary bg-white dark:bg-slate-900/90">
         <span class="min-w-0">
           <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Outreach coach</span>
           <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">What to do next</span>
@@ -103,14 +107,16 @@
         </span>
       </summary>
       <div class="today-hub-panel-body">
+        <div class="today-hub-panel-inner">
         <%- include('/partials/prospecting_coach_card', { hubEmbed: true, coachCardClass: '' }) %>
+        </div>
       </div>
     </details>
     <% } %>
 
     <% if (_ap) { %>
-    <details id="today-hub-action-plan" class="today-hub-panel group">
-      <summary class="today-hub-panel-summary">
+    <details id="today-hub-action-plan" class="today-hub-panel group bg-white dark:bg-slate-900/90">
+      <summary class="today-hub-panel-summary bg-white dark:bg-slate-900/90">
         <span class="min-w-0">
           <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Daily action plan tracker</span>
           <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5"><%= _ap.monthLabel %></span>
@@ -121,7 +127,9 @@
         </span>
       </summary>
       <div class="today-hub-panel-body today-hub-panel-body--flush">
+        <div class="today-hub-panel-inner today-hub-panel-inner--flush">
         <%- include('/partials/action_plan_tracker', { hubEmbed: true }) %>
+        </div>
       </div>
     </details>
     <% } %>
@@ -152,6 +160,27 @@
     padding-left: 0;
     padding-right: 0;
     padding-bottom: 0;
+  }
+  .today-hub-panel-inner {
+    border-radius: 1rem;
+    border: 1px solid rgb(229 229 229 / 0.55);
+    background: #fff;
+    padding: 1rem 1.25rem;
+    box-shadow: 0 1px 2px rgb(15 23 42 / 0.04);
+  }
+  .dark .today-hub-panel-inner {
+    border-color: rgb(255 255 255 / 0.1);
+    background: rgb(15 23 42 / 0.72);
+  }
+  .today-hub-panel-inner--flush {
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    background: transparent;
+  }
+  .dark .today-hub-panel-inner--flush {
+    background: transparent;
   }
   .today-hub-chevron {
     display: inline-block;
