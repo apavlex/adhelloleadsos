@@ -63,7 +63,7 @@
         key: data.tag.key,
         name: data.tag.name || name,
         color: data.tag.color || '#94a3b8',
-        isActive: data.tag.isActive !== false,
+        isActive: data.tag.isActive === true,
       });
       return data.tag.key;
     }

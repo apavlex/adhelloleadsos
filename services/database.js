@@ -890,7 +890,11 @@ module.exports = {
       const raw = kvGet(key);
       if (!raw) continue;
       const t = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      out.push({ key, ...t });
+      out.push({
+        key,
+        ...t,
+        isActive: t.isActive === false ? false : true,
+      });
     }
     return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
   },
@@ -921,7 +925,7 @@ module.exports = {
     if ((existing.workspaceId || 'default') !== wid) return null;
     const updated = {
       ...existing,
-      isActive: isActive !== false,
+      isActive: isActive === true,
       updatedAt: new Date().toISOString(),
     };
     kvSet(fullKey, JSON.stringify(updated));

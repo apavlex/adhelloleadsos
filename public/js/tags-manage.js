@@ -60,7 +60,7 @@
     const color = tag.color || '#94a3b8';
     const name = String(tag.name || 'Tag');
     const count = typeof tag.leadCount === 'number' ? tag.leadCount : 0;
-    const isActive = tag.isActive !== false;
+    const isActive = tag.isActive === true;
     const tr = document.createElement('tr');
     tr.className = 'border-b border-brand-border/15 dark:border-white/[0.07] tags-manage-row';
     tr.setAttribute('data-tag-key', tag.key);

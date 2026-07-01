@@ -24,7 +24,7 @@
   }
 
   function tagIsActive(tag) {
-    return !!(tag && tag.isActive !== false);
+    return !!(tag && tag.isActive === true);
   }
 
   function normalizeWorkspaceTag(tag) {
@@ -33,8 +33,34 @@
       key: String(tag.key),
       name: String(tag.name || '').trim() || 'Tag',
       color: tag.color || '#94a3b8',
-      isActive: tag.isActive !== false,
+      isActive: tag.isActive === true,
     };
+  }
+
+  let workspaceTagsRefreshPromise = null;
+
+  async function refreshWorkspaceTagsFromServer() {
+    if (!workspaceTagsRefreshPromise) {
+      workspaceTagsRefreshPromise = fetch('/tags', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then((res) => res.json().catch(() => ({})))
+        .then((data) => {
+          if (data && data.success && Array.isArray(data.tags)) {
+            window.WORKSPACE_TAGS = data.tags.map(normalizeWorkspaceTag).filter(Boolean);
+          } else if (!Array.isArray(window.WORKSPACE_TAGS)) {
+            window.WORKSPACE_TAGS = [];
+          }
+        })
+        .catch(() => {
+          if (!Array.isArray(window.WORKSPACE_TAGS)) window.WORKSPACE_TAGS = [];
+        })
+        .finally(() => {
+          workspaceTagsRefreshPromise = null;
+        });
+    }
+    await workspaceTagsRefreshPromise;
   }
 
   let tagsPanelMutating = false;
@@ -212,7 +238,7 @@
           key: data.tag.key,
           name: data.tag.name || name,
           color: data.tag.color || '#94a3b8',
-          isActive: data.tag.isActive !== false,
+          isActive: data.tag.isActive === true,
         },
       ];
     }
@@ -522,6 +548,18 @@
           )
         : null);
     renderLeadTagsEditor(document.getElementById('leadPanelCompanyTagsHost'), target, { primary: true });
+    refreshWorkspaceTagsFromServer()
+      .then(() => {
+        if (tagsPanelRenderSkip) return;
+        const freshTarget =
+          resolveTagsPanelRow(row) ||
+          resolveActiveTagsPanelRow() ||
+          target;
+        renderLeadTagsEditor(document.getElementById('leadPanelCompanyTagsHost'), freshTarget, {
+          primary: true,
+        });
+      })
+      .catch(() => {});
   }
 
   function bindBulkTags() {
@@ -923,6 +961,11 @@
     bindBulkTags();
     bindLeadPanelTagsInteraction();
     initPipelineTagFilter();
+    refreshWorkspaceTagsFromServer().then(() => {
+      rebuildBulkTagSelect();
+      const row = resolveActiveTagsPanelRow();
+      if (row) renderLeadTagsPanel(row);
+    });
   }
 
   window.__renderLeadTagsPanel = renderLeadTagsPanel;
