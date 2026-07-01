@@ -64,6 +64,7 @@ const signalwire = require('../services/signalwire');
 const { shortLeadKey } = require('../services/focusQueue');
 const ghlClient = require('../services/ghlClient');
 const ghlMessaging = require('../services/ghlMessaging');
+const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
