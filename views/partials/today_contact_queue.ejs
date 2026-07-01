@@ -1,5 +1,7 @@
 <% const _cq = typeof contactQueue !== 'undefined' && contactQueue ? contactQueue : []; %>
+<% const _hubEmbed = typeof hubEmbed !== 'undefined' && hubEmbed; %>
 <% if (_cq.length) { %>
+<% if (!_hubEmbed) { %>
 <section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/35 bg-white dark:bg-slate-900/85 px-6 py-6 md:px-8 md:py-7 shadow-md shadow-brand-yellow/10" aria-label="Highest ROI contacts">
   <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
     <div>
@@ -9,6 +11,12 @@
     </div>
     <a href="/focus" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0 self-start text-center">Focus mode</a>
   </div>
+<% } else { %>
+  <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+    <p class="text-sm text-brand-muted dark:text-slate-400">Sorted by overdue cadence, aging pipeline, gap score, and Local Prospector tiers. Next channel follows your sequence template.</p>
+    <a href="/focus" class="btn-pill btn-primary px-5 py-2.5 text-[10px] font-black uppercase tracking-widest whitespace-nowrap shrink-0 self-start text-center">Focus mode</a>
+  </div>
+<% } %>
   <ul class="divide-y divide-brand-border/40 dark:divide-white/10 space-y-0">
     <% _cq.forEach(function (row, idx) { %>
     <% const ch = row.cadence && row.cadence.channelLabel ? row.cadence.channelLabel : '—'; %>
@@ -16,50 +24,62 @@
     <% const pt = row.prospectTier || 'Low'; %>
     <% const tierCls = tier === 'high' ? 'bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 border-emerald-500/25' : tier === 'medium' ? 'bg-amber-500/12 text-amber-900 dark:text-amber-100 border-amber-500/25' : 'bg-slate-500/10 text-slate-700 dark:text-slate-300 border-slate-500/20'; %>
     <% const ptCls = pt === 'Hot' ? 'bg-rose-500/12 text-rose-900 dark:text-rose-100 border-rose-400/30' : pt === 'Warm' ? 'bg-orange-500/12 text-orange-900 dark:text-orange-100 border-orange-400/25' : pt === 'Skip' ? 'bg-neutral-500/10 text-neutral-600 dark:text-neutral-400 border-neutral-400/20' : 'bg-sky-500/10 text-sky-900 dark:text-sky-100 border-sky-400/20'; %>
-    <li class="py-4 first:pt-0">
-      <div class="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-6">
-        <div class="flex items-start gap-3 min-w-0 flex-1">
+    <li class="py-0 first:pt-0">
+      <details class="today-queue-lead group/lead border-b border-brand-border/30 dark:border-white/5 last:border-b-0" <%= idx < 3 ? 'open' : '' %>>
+        <summary class="cursor-pointer list-none py-4 flex items-start gap-3 [&::-webkit-details-marker]:hidden">
           <span class="tabular-nums text-[11px] font-black text-brand-muted w-6 shrink-0 pt-1"><%= idx + 1 %></span>
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 mb-1">
-              <a href="/focus?lead=<%= encodeURIComponent(row.focusParam) %>" class="text-base font-bold text-brand-dark dark:text-white hover:text-brand-yellow truncate"><%= row.title %></a>
+              <span class="text-base font-bold text-brand-dark dark:text-white truncate"><%= row.title %></span>
               <% if (row.city || row.state) { %>
               <span class="text-[11px] text-brand-muted truncate"><%= row.city %><% if (row.city && row.state) { %>, <% } %><%= row.state %></span>
               <% } %>
             </div>
-            <div class="flex flex-wrap items-center gap-2 mb-2">
+            <div class="flex flex-wrap items-center gap-2">
               <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border <%= tierCls %>"><%= tier %> opp · <%= Number(row.opportunityScore || 0).toFixed(1) %>/10</span>
               <span class="inline-flex items-center px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-wider border <%= ptCls %>"><%= pt %> · <%= row.websiteStatusLabel || '—' %></span>
-              <% if (row.prospectConfidence) { %>
-              <span class="text-[9px] font-bold uppercase tracking-wider text-brand-muted"><%= row.prospectConfidence %> confidence</span>
-              <% } %>
               <% if (row.cadence && row.cadence.overdue) { %>
               <span class="text-[9px] font-black uppercase tracking-widest text-rose-600 dark:text-rose-400">Due now</span>
-              <% } else if (row.cadence && row.cadence.dueAt) { %>
-              <span class="text-[10px] text-brand-muted">Next step · <%= new Date(row.cadence.dueAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) %></span>
               <% } %>
             </div>
-            <% if (row.prospectWhy) { %>
-            <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-1 italic line-clamp-2"><%= row.prospectWhy %></p>
-            <% } %>
-            <p class="text-xs font-bold text-brand-dark dark:text-white mt-2"><span class="text-brand-yellow"><%= ch %>:</span> <%= row.cadence ? row.cadence.stepTitle : '' %></p>
-            <% if (row.cadence && row.cadence.stepHint) { %>
-            <p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 line-clamp-3 leading-relaxed"><%= row.cadence.stepHint %></p>
-            <% } %>
-            <% if (row.phone || row.email) { %>
-            <p class="text-[10px] text-brand-muted mt-2 font-mono tabular-nums">
-              <% if (row.phone) { %><span class="mr-3"><%= row.phone %></span><% } %>
-              <% if (row.email) { %><span class="break-all"><%= row.email %></span><% } %>
-            </p>
-            <% } %>
+          </div>
+          <span class="text-brand-muted text-sm shrink-0 pt-1 transition-transform group-open/lead:rotate-180" aria-hidden="true">▼</span>
+        </summary>
+        <div class="pb-4 pl-9 pr-2">
+          <div class="flex flex-col lg:flex-row lg:items-start gap-3 lg:gap-6">
+            <div class="min-w-0 flex-1">
+              <div class="flex flex-wrap items-center gap-2 mb-2">
+                <% if (row.prospectConfidence) { %>
+                <span class="text-[9px] font-bold uppercase tracking-wider text-brand-muted"><%= row.prospectConfidence %> confidence</span>
+                <% } %>
+                <% if (row.cadence && row.cadence.dueAt && !(row.cadence && row.cadence.overdue)) { %>
+                <span class="text-[10px] text-brand-muted">Next step · <%= new Date(row.cadence.dueAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) %></span>
+                <% } %>
+              </div>
+              <% if (row.prospectWhy) { %>
+              <p class="text-[10px] text-brand-muted dark:text-slate-500 mt-1 italic line-clamp-2"><%= row.prospectWhy %></p>
+              <% } %>
+              <p class="text-xs font-bold text-brand-dark dark:text-white mt-2"><span class="text-brand-yellow"><%= ch %>:</span> <%= row.cadence ? row.cadence.stepTitle : '' %></p>
+              <% if (row.cadence && row.cadence.stepHint) { %>
+              <p class="text-[11px] text-brand-muted dark:text-slate-400 mt-1 line-clamp-3 leading-relaxed"><%= row.cadence.stepHint %></p>
+              <% } %>
+              <% if (row.phone || row.email) { %>
+              <p class="text-[10px] text-brand-muted mt-2 font-mono tabular-nums">
+                <% if (row.phone) { %><span class="mr-3"><%= row.phone %></span><% } %>
+                <% if (row.email) { %><span class="break-all"><%= row.email %></span><% } %>
+              </p>
+              <% } %>
+            </div>
+            <div class="flex flex-row lg:flex-col gap-2 shrink-0 lg:items-end">
+              <a href="/focus?lead=<%= encodeURIComponent(row.focusParam) %>" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open</a>
+            </div>
           </div>
         </div>
-        <div class="flex flex-row lg:flex-col gap-2 shrink-0 lg:items-end">
-          <a href="/focus?lead=<%= encodeURIComponent(row.focusParam) %>" class="btn-pill border border-brand-border dark:border-white/20 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open</a>
-        </div>
-      </div>
+      </details>
     </li>
     <% }); %>
   </ul>
+<% if (!_hubEmbed) { %>
 </section>
+<% } %>
 <% } %>

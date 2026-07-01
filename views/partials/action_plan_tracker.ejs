@@ -1,8 +1,13 @@
 <% const _ap = typeof actionPlan !== 'undefined' && actionPlan ? actionPlan : null; %>
+<% const _hubEmbed = typeof hubEmbed !== 'undefined' && hubEmbed; %>
 <% if (_ap) { %>
-<section class="mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 text-brand-dark dark:text-white shadow-sm overflow-hidden" id="action-plan-tracker" aria-label="Daily action plan tracker" data-year="<%= _ap.year %>" data-month="<%= _ap.month %>">
-  <div class="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-brand-border/50 dark:border-white/10">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-5">
+<% const _apTag = _hubEmbed ? 'div' : 'section'; %>
+<% const _apClass = _hubEmbed
+  ? 'text-brand-dark dark:text-white overflow-hidden'
+  : 'mb-8 md:mb-10 rounded-[2rem] border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900/80 text-brand-dark dark:text-white shadow-sm overflow-hidden'; %>
+<<%= _apTag %> class="<%= _apClass %>" id="action-plan-tracker" aria-label="Daily action plan tracker" data-year="<%= _ap.year %>" data-month="<%= _ap.month %>">
+  <div class="px-5 sm:px-6 pt-5 sm:pt-6 pb-4 <%= _hubEmbed ? 'pt-4' : 'border-b border-brand-border/50 dark:border-white/10' %>">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 <%= _hubEmbed ? 'mb-4' : 'mb-5' %>">
       <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 px-4 py-3">
         <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted"><%= _ap.year %> Client Goal</p>
         <p class="font-display font-black text-3xl text-brand-dark dark:text-white tabular-nums mt-1" id="actionPlanClientGoal"><%= _ap.clientGoal %></p>
@@ -13,12 +18,18 @@
       </div>
     </div>
     <div class="flex flex-wrap items-center justify-between gap-3">
+      <% if (!_hubEmbed) { %>
       <div>
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Daily Action Plan Tracker</p>
         <h2 class="font-display font-extrabold text-lg sm:text-xl text-brand-dark dark:text-white"><%= _ap.monthLabel %></h2>
       </div>
-      <div class="flex flex-wrap items-center gap-2 sm:gap-3">
+      <% } else { %>
+      <p class="text-xs text-brand-muted hidden sm:block">Click a cell when you complete an activity for that day.</p>
+      <% } %>
+      <div class="flex flex-wrap items-center gap-2 sm:gap-3 <%= _hubEmbed ? 'ml-auto' : '' %>">
+        <% if (!_hubEmbed) { %>
         <p class="text-xs text-brand-muted hidden sm:block">Click a cell when you complete an activity for that day.</p>
+        <% } %>
         <button
           type="button"
           id="actionPlanCustomizeBtn"
@@ -42,11 +53,18 @@
           <% }); %>
         </tr>
       </thead>
-      <tbody>
-        <% _ap.categories.forEach(function (cat) { %>
-        <tr class="action-plan-cat-row">
-          <td colspan="<%= _ap.days.length + 1 %>" class="px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-brand-yellow dark:text-brand-yellow/90 bg-brand-cream/50 dark:bg-slate-800/60 border-y border-brand-border/30 dark:border-white/5"><%= cat.label %></td>
-        </tr>
+    </table>
+    <% _ap.categories.forEach(function (cat, catIdx) { %>
+    <details class="action-plan-cat-details border-b border-brand-border/30 dark:border-white/5" <%= catIdx === 0 ? 'open' : '' %>>
+      <summary class="flex items-center justify-between gap-3 px-4 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-brand-yellow dark:text-brand-yellow/90 bg-brand-cream/50 dark:bg-slate-800/60 [&::-webkit-details-marker]:hidden">
+        <span><%= cat.label %></span>
+        <span class="flex items-center gap-2 text-brand-muted normal-case tracking-normal font-bold text-[10px]">
+          <span><%= cat.activities.length %> activities</span>
+          <span class="action-plan-cat-chevron transition-transform inline-block" aria-hidden="true">▼</span>
+        </span>
+      </summary>
+      <table class="action-plan-grid w-full min-w-[52rem] border-collapse text-left">
+        <tbody>
         <% cat.activities.forEach(function (act) { %>
         <tr class="border-b border-brand-border/30 dark:border-white/5 hover:bg-brand-cream/20 dark:hover:bg-white/[0.02]">
           <td class="action-plan-sticky-col px-4 py-2.5 text-xs font-semibold text-brand-dark dark:text-slate-200 border-r border-brand-border/30 dark:border-white/5">
@@ -78,7 +96,12 @@
           <% }); %>
         </tr>
         <% }); %>
-        <% }); %>
+        </tbody>
+      </table>
+    </details>
+    <% }); %>
+    <table class="action-plan-grid w-full min-w-[52rem] border-collapse text-left">
+      <tbody>
         <tr class="bg-brand-cream/40 dark:bg-slate-800/50 border-t border-brand-border/50 dark:border-white/10">
           <td class="action-plan-sticky-col action-plan-sticky-col--total px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300/90">Daily Total</td>
           <% _ap.days.forEach(function (day) { %>
@@ -106,14 +129,14 @@
       <% const _months = typeof actionPlanMonthNav !== 'undefined' ? actionPlanMonthNav : []; %>
       <% _months.forEach(function (m) { %>
       <a
-        href="/today?actionPlanYear=<%= m.year %>&amp;actionPlanMonth=<%= m.month %>#action-plan-tracker"
+        href="/today?actionPlanYear=<%= m.year %>&amp;actionPlanMonth=<%= m.month %>#today-hub-action-plan"
         class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest transition-colors <%= m.active ? 'bg-brand-yellow text-brand-dark shadow-sm' : 'text-brand-muted hover:bg-brand-cream/60 dark:hover:bg-white/10 hover:text-brand-dark dark:hover:text-white' %>"
         <%= m.active ? 'aria-current="page"' : '' %>
       ><%= m.short %></a>
       <% }); %>
     </nav>
   </div>
-</section>
+</<%= _apTag %>>
 
 <div
   id="actionPlanEditorModal"
@@ -186,6 +209,9 @@
   }
   .dark .action-plan-today-col {
     background: rgb(255 214 68 / 0.08);
+  }
+  .action-plan-cat-details[open] .action-plan-cat-chevron {
+    transform: rotate(180deg);
   }
 </style>
 <script src="/js/action-plan-tracker.js" defer></script>

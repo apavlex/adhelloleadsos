@@ -47,35 +47,11 @@
       }
     })();
     </script>
-    <%- include('partials/action_plan_tracker') %>
-    <% const _csHeader = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
-    <% const _pvHeader = typeof _csHeader.pipelineValueCreated7d === 'number' ? _csHeader.pipelineValueCreated7d : 0; %>
-    <% const _touchesToday = typeof touchesToday !== 'undefined' ? touchesToday : 0; %>
-    <% const _touchGoal = typeof touchGoal !== 'undefined' ? touchGoal : 54; %>
-    <header class="mb-8 md:mb-10 flex flex-col gap-4">
-      <% if (typeof outreachCoach !== 'undefined' && outreachCoach) { %>
-      <%- include('partials/prospecting_coach_card', { coachCardClass: 'mb-6 md:mb-8 ring-2 ring-brand-yellow/20 shadow-lg shadow-brand-yellow/10' }) %>
-      <% } %>
-      <%- include('partials/today_contact_queue') %>
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Replies received</p>
-          <p class="font-display font-black text-xl text-brand-dark dark:text-white tabular-nums"><%= typeof repliesWaiting !== 'undefined' ? repliesWaiting : 0 %></p>
-        </div>
-        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Pipeline value (7d)</p>
-          <p class="font-display font-black text-xl text-brand-dark dark:text-white tabular-nums">$<%= Math.round(_pvHeader).toLocaleString() %></p>
-        </div>
-        <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-3">
-          <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Streak</p>
-          <p class="font-display font-black text-xl text-emerald-600 dark:text-emerald-400 tabular-nums"><%= typeof streak !== 'undefined' ? streak : 0 %>d</p>
-        </div>
-      </div>
-    </header>
+    <%- include('partials/today_touches_hub') %>
 
     <%- include('partials/review_today_widget', {
-      touchesToday: _touchesToday,
-      touchGoal: _touchGoal,
+      touchesToday: typeof touchesToday !== 'undefined' ? touchesToday : 0,
+      touchGoal: typeof touchGoal !== 'undefined' ? touchGoal : 54,
       streak: typeof streak !== 'undefined' ? streak : 0,
     }) %>
 
@@ -368,7 +344,6 @@
     </div>
     <% } %>
 
-    <%- include('partials/cadence_today_block') %>
   </main>
 
   <% const _eq = typeof outreachCoach !== 'undefined' && outreachCoach && outreachCoach.entrepreneurQuote ? outreachCoach.entrepreneurQuote : null; %>

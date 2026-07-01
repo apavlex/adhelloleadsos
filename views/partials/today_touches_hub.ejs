@@ -1,0 +1,200 @@
+<% const _cadenceQ = typeof cadenceQueue !== 'undefined' && cadenceQueue ? cadenceQueue : { calls: [], emails: [], texts: [], linkedin: [], other: [], overdueCount: 0, totalDue: 0 }; %>
+<% const _contactQ = typeof contactQueue !== 'undefined' && contactQueue ? contactQueue : []; %>
+<% const _oc = typeof outreachCoach !== 'undefined' && outreachCoach ? outreachCoach : null; %>
+<% const _ap = typeof actionPlan !== 'undefined' && actionPlan ? actionPlan : null; %>
+<% const _csHeader = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
+<% const _pvHeader = typeof _csHeader.pipelineValueCreated7d === 'number' ? _csHeader.pipelineValueCreated7d : 0; %>
+<% const _touchesToday = typeof touchesToday !== 'undefined' ? touchesToday : 0; %>
+<% const _touchGoal = typeof touchGoal !== 'undefined' ? touchGoal : 54; %>
+
+<section
+  id="today-touches-hub"
+  class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/50 dark:border-brand-yellow/35 bg-gradient-to-br from-brand-yellow/12 via-white to-white dark:from-brand-yellow/10 dark:via-slate-900 dark:to-slate-900 shadow-lg shadow-brand-yellow/10 overflow-hidden"
+  aria-label="Today's touches from active cadences"
+>
+  <div class="px-5 sm:px-6 md:px-8 pt-5 sm:pt-6 pb-4 md:pb-5 border-b border-brand-border/40 dark:border-white/10">
+    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4 mb-4">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Today&apos;s work</p>
+        <div class="page-heading-with-tip">
+          <h2 class="font-display font-extrabold text-2xl md:text-3xl text-brand-dark dark:text-white leading-tight">Today&apos;s touches from active cadences</h2>
+          <%- include('/partials/app_info_tip', {
+            tipId: 'cadence-today-help',
+            tipKey: 'cadence-today',
+            label: 'How today’s cadence queue works',
+            size: 'lg',
+            wide: true,
+            content: 'Bucketed for speed: <strong class="text-brand-dark dark:text-white">Calls</strong>, <strong class="text-brand-dark dark:text-white">Emails</strong>, <strong class="text-brand-dark dark:text-white">Texts</strong>, <strong class="text-brand-dark dark:text-white">Social DM’s</strong>. Copy uses audit tokens when AI analysis exists (<code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{score}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{top_finding}}</code>, <code class="text-[10px] bg-brand-cream/80 dark:bg-slate-800 px-1 rounded">{{report_link}}</code>, …). <strong>Default: 14 days · 8 touches</strong> for cold local services.'
+          }) %>
+        </div>
+        <% if (_cadenceQ.overdueCount > 0) { %>
+        <p class="text-xs font-bold text-amber-800 dark:text-amber-200 mt-2"><%= _cadenceQ.overdueCount %> overdue cadence step<%= _cadenceQ.overdueCount === 1 ? '' : 's' %> — clear these first.</p>
+        <% } else if (!_cadenceQ.totalDue) { %>
+        <p class="text-xs font-semibold text-brand-dark dark:text-slate-300 mt-2">No cadence steps due before end of today. Start one from a lead row or open <a href="/sequences" class="text-brand-yellow font-bold hover:underline">Cadences</a>.</p>
+        <% } %>
+      </div>
+      <a href="/sequences" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest shrink-0 self-start">Cadences &amp; playbooks</a>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 md:gap-3">
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Due today</p>
+        <p class="font-display font-black text-lg text-brand-dark dark:text-white tabular-nums"><%= _cadenceQ.totalDue || 0 %></p>
+      </div>
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Touches today</p>
+        <p class="font-display font-black text-lg text-brand-dark dark:text-white tabular-nums"><%= _touchesToday %>/<%= _touchGoal %></p>
+      </div>
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Replies waiting</p>
+        <p class="font-display font-black text-lg text-brand-dark dark:text-white tabular-nums"><%= typeof repliesWaiting !== 'undefined' ? repliesWaiting : 0 %></p>
+      </div>
+      <div class="rounded-xl border border-brand-border/60 dark:border-white/10 bg-white/75 dark:bg-slate-900/65 px-3 py-2.5">
+        <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Streak</p>
+        <p class="font-display font-black text-lg text-emerald-600 dark:text-emerald-400 tabular-nums"><%= typeof streak !== 'undefined' ? streak : 0 %>d</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divide-y divide-brand-border/40 dark:divide-white/10">
+    <details id="today-hub-cadence" class="today-hub-panel group" open>
+      <summary class="today-hub-panel-summary">
+        <span class="min-w-0">
+          <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Cadence command center</span>
+          <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">Calls, emails, texts &amp; social DMs</span>
+        </span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-[10px] font-black uppercase tracking-wider text-brand-muted tabular-nums"><%= _cadenceQ.totalDue || 0 %> due</span>
+          <span class="today-hub-chevron text-brand-muted" aria-hidden="true">▼</span>
+        </span>
+      </summary>
+      <div class="today-hub-panel-body">
+        <%- include('partials/cadence_today_block', { hubEmbed: true }) %>
+      </div>
+    </details>
+
+    <% if (_contactQ.length) { %>
+    <details id="today-hub-queue" class="today-hub-panel group" open>
+      <summary class="today-hub-panel-summary">
+        <span class="min-w-0">
+          <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Today&apos;s queue</span>
+          <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">Highest-ROI leads to contact</span>
+        </span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-[10px] font-black uppercase tracking-wider text-brand-muted tabular-nums"><%= _contactQ.length %> leads</span>
+          <span class="today-hub-chevron text-brand-muted" aria-hidden="true">▼</span>
+        </span>
+      </summary>
+      <div class="today-hub-panel-body">
+        <%- include('partials/today_contact_queue', { hubEmbed: true }) %>
+      </div>
+    </details>
+    <% } %>
+
+    <% if (_oc) { %>
+    <details id="today-hub-coach" class="today-hub-panel group" open>
+      <summary class="today-hub-panel-summary">
+        <span class="min-w-0">
+          <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Outreach coach</span>
+          <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5">What to do next</span>
+        </span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-[10px] font-black uppercase tracking-wider text-brand-muted tabular-nums"><%= _oc.touchesToday %>/<%= _oc.touchGoal %> today</span>
+          <span class="today-hub-chevron text-brand-muted" aria-hidden="true">▼</span>
+        </span>
+      </summary>
+      <div class="today-hub-panel-body">
+        <%- include('partials/prospecting_coach_card', { hubEmbed: true, coachCardClass: '' }) %>
+      </div>
+    </details>
+    <% } %>
+
+    <% if (_ap) { %>
+    <details id="today-hub-action-plan" class="today-hub-panel group">
+      <summary class="today-hub-panel-summary">
+        <span class="min-w-0">
+          <span class="block text-[10px] font-black uppercase tracking-widest text-brand-yellow">Daily action plan tracker</span>
+          <span class="block font-display font-bold text-base text-brand-dark dark:text-white mt-0.5"><%= _ap.monthLabel %></span>
+        </span>
+        <span class="flex items-center gap-2 shrink-0">
+          <span class="text-[10px] font-black uppercase tracking-wider text-brand-muted tabular-nums"><%= _ap.monthlyTotal %> this month</span>
+          <span class="today-hub-chevron text-brand-muted" aria-hidden="true">▼</span>
+        </span>
+      </summary>
+      <div class="today-hub-panel-body today-hub-panel-body--flush">
+        <%- include('partials/action_plan_tracker', { hubEmbed: true }) %>
+      </div>
+    </details>
+    <% } %>
+  </div>
+</section>
+
+<style>
+  .today-hub-panel-summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+  }
+  @media (min-width: 768px) {
+    .today-hub-panel-summary { padding: 1.125rem 1.5rem; }
+  }
+  .today-hub-panel-summary::-webkit-details-marker { display: none; }
+  .today-hub-panel-body {
+    padding: 0 1.25rem 1.25rem;
+  }
+  @media (min-width: 768px) {
+    .today-hub-panel-body { padding: 0 1.5rem 1.5rem; }
+  }
+  .today-hub-panel-body--flush {
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
+  }
+  .today-hub-chevron {
+    display: inline-block;
+    transition: transform 0.2s ease;
+    font-size: 0.85rem;
+  }
+  .today-hub-panel[open] > .today-hub-panel-summary .today-hub-chevron {
+    transform: rotate(180deg);
+  }
+  .action-plan-cat-details > summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  .action-plan-cat-details > summary::-webkit-details-marker { display: none; }
+  .cadence-channel-details > summary {
+    cursor: pointer;
+    list-style: none;
+  }
+  .cadence-channel-details > summary::-webkit-details-marker { display: none; }
+  .cadence-channel-details[open] .cadence-channel-chevron { transform: rotate(180deg); }
+  .cadence-channel-chevron { transition: transform 0.2s ease; display: inline-block; }
+</style>
+
+<script>
+(function () {
+  var KEY = 'todayTouchesHubPanels';
+  var ids = ['today-hub-cadence', 'today-hub-queue', 'today-hub-coach', 'today-hub-action-plan'];
+  var saved = {};
+  try {
+    saved = JSON.parse(localStorage.getItem(KEY) || '{}') || {};
+  } catch (e) {}
+  ids.forEach(function (id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    if (Object.prototype.hasOwnProperty.call(saved, id)) {
+      el.open = !!saved[id];
+    }
+    el.addEventListener('toggle', function () {
+      try {
+        saved[id] = el.open;
+        localStorage.setItem(KEY, JSON.stringify(saved));
+      } catch (e) {}
+    });
+  });
+})();
+</script>
