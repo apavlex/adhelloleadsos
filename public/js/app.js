@@ -7251,6 +7251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (row.dataset && (row.dataset.leadKey || row.dataset.title)) return row;
     return row.tagName === 'TR' ? row : null;
   }
+  window.__resolvePipelineTableRowForPanel = resolvePipelineTableRowForPanel;
 
   function panelSnapFromLeadRecord(lead) {
     if (!lead || typeof lead !== 'object') return {};

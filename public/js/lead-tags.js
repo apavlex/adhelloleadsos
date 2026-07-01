@@ -27,6 +27,72 @@
     return !!(tag && tag.isActive !== false);
   }
 
+  function normalizeWorkspaceTag(tag) {
+    if (!tag || !tag.key) return null;
+    return {
+      key: String(tag.key),
+      name: String(tag.name || '').trim() || 'Tag',
+      color: tag.color || '#94a3b8',
+      isActive: tag.isActive !== false,
+    };
+  }
+
+  let tagsPanelMutating = false;
+  let tagsPanelRenderSkip = false;
+
+  function resolveActiveTagsPanelRow() {
+    const key = String(window.__leadPanelActiveRowKey || '').trim();
+    if (key) {
+      const norm = key.replace(/^lead:/i, '');
+      const byKey = document.querySelector(
+        `#prospectLeadsTable tbody tr.result-row[data-lead-key="${CSS.escape(norm)}"], #prospectLeadsTable tbody tr.result-row[data-lead-key="lead:${CSS.escape(norm)}"]`,
+      );
+      if (byKey) return resolveTagsPanelRow(byKey);
+    }
+    if (typeof window.__resolvePipelineTableRowForPanel === 'function') {
+      const fromPanel = window.__resolvePipelineTableRowForPanel(null);
+      if (fromPanel) return resolveTagsPanelRow(fromPanel);
+    }
+    return null;
+  }
+
+  function syncEmbeddedLeadTags(leadKey, tagKeys) {
+    const list = window.INITIAL_SAVED_LEADS;
+    if (!Array.isArray(list)) return;
+    const norm = String(leadKey || '').trim().replace(/^lead:/i, '');
+    if (!norm) return;
+    const rec = list.find((l) => l && (String(l.key) === norm || String(l.key) === `lead:${norm}`));
+    if (rec) rec.tags = [...tagKeys];
+  }
+
+  function resolveTagsPanelRow(row) {
+    if (typeof window.__resolvePipelineTableRowForPanel === 'function') {
+      return window.__resolvePipelineTableRowForPanel(row) || row;
+    }
+    if (!row || !row.dataset) return row;
+    const key = String(row.dataset.leadKey || row.getAttribute('data-lead-key') || '').trim();
+    if (key) {
+      const norm = key.replace(/^lead:/i, '');
+      const byKey = document.querySelector(
+        `#prospectLeadsTable tbody tr.result-row[data-lead-key="${CSS.escape(norm)}"], #prospectLeadsTable tbody tr.result-row[data-lead-key="lead:${CSS.escape(norm)}"]`,
+      );
+      if (byKey) return byKey;
+    }
+    return row;
+  }
+
+  function resolveLeadKeyForTags(row) {
+    const r = resolveTagsPanelRow(row);
+    if (!r) return '';
+    let key = String(r.dataset.leadKey || r.getAttribute('data-lead-key') || '').trim();
+    if (key) return key;
+    const panel = document.getElementById('mobilePanel');
+    if (panel && panel.dataset && panel.dataset.adhelloLeadKey) {
+      return String(panel.dataset.adhelloLeadKey).trim();
+    }
+    return '';
+  }
+
   function escapeHtml(s) {
     return String(s || '')
       .replace(/&/g, '&amp;')
@@ -50,6 +116,7 @@
     if (!row || !row.dataset) return;
     const keys = [...new Set((tagKeys || []).map((k) => String(k).trim()).filter(Boolean))];
     row.dataset.tags = JSON.stringify(keys);
+    syncEmbeddedLeadTags(resolveLeadKeyForTags(row), keys);
     renderRowTagChips(row);
   }
 
@@ -139,7 +206,15 @@
       body: JSON.stringify({ name: String(name || '').trim() }),
     });
     if (data.tag && !getWorkspaceTags().some((t) => t && t.key === data.tag.key)) {
-      window.WORKSPACE_TAGS = [...getWorkspaceTags(), data.tag];
+      window.WORKSPACE_TAGS = [
+        ...getWorkspaceTags(),
+        {
+          key: data.tag.key,
+          name: data.tag.name || name,
+          color: data.tag.color || '#94a3b8',
+          isActive: data.tag.isActive !== false,
+        },
+      ];
     }
     rebuildBulkTagSelect();
     return data.tag;
@@ -258,15 +333,17 @@
     const primary = !!(opts && opts.primary);
     const compact = !!(opts && opts.compact) && !primary;
     const hostId = host.id || 'leadPanelCompanyTagsHost';
+    row = resolveTagsPanelRow(row);
     if (!row || !row.dataset) {
       host.innerHTML =
         '<p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Select a lead to manage tags.</p>';
       return;
     }
 
-    const leadKey = row.dataset.leadKey || '';
+    const leadKey = resolveLeadKeyForTags(row);
     const active = new Set(parseRowTags(row));
-    const tags = getWorkspaceTags();
+    const allTags = getWorkspaceTags().map(normalizeWorkspaceTag).filter(Boolean);
+    const tags = allTags.filter(tagIsActive);
     const inputId = `leadPanelNewTagName-${hostId}`;
     const createBtnId = `leadPanelCreateTagBtn-${hostId}`;
 
@@ -274,18 +351,16 @@
     if (!compact) {
       html += `<div class="flex flex-wrap gap-2 items-center mb-3 pb-3 border-b border-brand-border/20 dark:border-white/10">
       <input type="text" id="${escapeHtml(inputId)}" placeholder="New tag name…" class="min-w-[6rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" />
-      <button type="button" id="${escapeHtml(createBtnId)}" class="btn-pill bg-brand-yellow text-brand-dark px-3 py-1.5 text-[9px] font-black uppercase tracking-widest shrink-0">Create</button>
+      <button type="button" id="${escapeHtml(createBtnId)}" class="lead-panel-tag-create btn-pill bg-brand-yellow text-brand-dark px-3 py-1.5 text-[9px] font-black uppercase tracking-widest shrink-0">Create</button>
       <a href="/tags/manage" class="text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0 ml-auto">Manage all tags →</a>
     </div>`;
     }
 
-    const applied = tags.filter((t) => t && t.key && active.has(t.key));
-    const available = tags.filter((t) => t && t.key && !active.has(t.key));
-    const availableActive = available.filter(tagIsActive);
-    const availableInactive = available.filter((t) => !tagIsActive(t));
+    const applied = allTags.filter((t) => t && t.key && active.has(t.key));
+    const availableActive = tags.filter((t) => t && t.key && !active.has(t.key));
 
     html += `<div class="flex flex-wrap gap-1.5 ${compact ? '' : 'mb-2'}" data-tag-pills-host="${escapeHtml(hostId)}">`;
-    if (!tags.length) {
+    if (!allTags.length) {
       html += compact
         ? '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No tags yet — create one below.</p>'
         : '<p class="text-[10px] text-brand-muted dark:text-slate-400 w-full">No workspace tags yet — create one above.</p>';
@@ -302,34 +377,17 @@
     }
     html += '</div>';
 
-    if (!compact && (availableActive.length || availableInactive.length)) {
+    if (!compact && availableActive.length) {
       html += `<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1.5 mt-1">Add tag</p>`;
-      if (availableActive.length) {
-        html += `<div class="flex flex-wrap gap-1.5" data-tag-add-host="${escapeHtml(hostId)}">`;
-        availableActive.forEach((t) => {
-          const color = t.color || '#94a3b8';
-          html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
-        });
-        html += '</div>';
-      }
-      if (availableInactive.length) {
-        const inactiveSelectId = `leadPanelInactiveTagSelect-${hostId}`;
-        const inactiveAddId = `leadPanelInactiveTagAdd-${hostId}`;
-        html += `<div class="flex flex-wrap items-center gap-2 ${availableActive.length ? 'mt-2' : ''}" data-tag-inactive-host="${escapeHtml(hostId)}">`;
-        html += `<select id="${escapeHtml(inactiveSelectId)}" class="lead-panel-tag-inactive-select min-w-[8rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" aria-label="More tags">`;
-        html += '<option value="">More tags…</option>';
-        availableInactive
-          .slice()
-          .sort((a, b) =>
-            String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
-          )
-          .forEach((t) => {
-            html += `<option value="${escapeHtml(t.key)}">${escapeHtml(t.name)}</option>`;
-          });
-        html += '</select>';
-        html += `<button type="button" id="${escapeHtml(inactiveAddId)}" class="lead-panel-tag-inactive-add btn-pill border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white shrink-0">Add</button>`;
-        html += '</div>';
-      }
+      html += `<div class="flex flex-wrap gap-1.5" data-tag-add-host="${escapeHtml(hostId)}">`;
+      availableActive.forEach((t) => {
+        const color = t.color || '#94a3b8';
+        html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
+      });
+      html += '</div>';
+    } else if (!compact && allTags.length && !availableActive.length && !applied.length) {
+      html +=
+        '<p class="text-[10px] text-brand-muted dark:text-slate-400 mt-1">No active tags to add — turn tags on under <a href="/tags/manage" class="text-brand-yellow hover:underline">Manage all tags</a>.</p>';
     } else if (compact) {
       html += `<div class="flex flex-wrap gap-1.5 mt-1" data-tag-add-host="${escapeHtml(hostId)}">`;
       availableActive.forEach((t) => {
@@ -340,15 +398,31 @@
     }
 
     host.innerHTML = html;
+  }
 
-    async function mutateTags(mutator) {
+  async function mutateLeadTags(mutator) {
+    if (tagsPanelMutating) return;
+    const row = resolveActiveTagsPanelRow();
+    if (!row) {
+      tagSyncToast('Select a lead to manage tags.', 'error');
+      throw new Error('Lead row missing');
+    }
+    const key = resolveLeadKeyForTags(row);
+    if (!key) {
+      tagSyncToast('Save this lead before adding tags.', 'error');
+      throw new Error('Lead key missing');
+    }
+    tagsPanelMutating = true;
+    tagsPanelRenderSkip = true;
+    try {
       const set = new Set(parseRowTags(row));
       mutator(set);
-      const lead = await saveLeadTags(leadKey, [...set]);
+      const lead = await saveLeadTags(key, [...set]);
       if (lead && Array.isArray(lead.tags)) setRowTags(row, lead.tags);
+      tagsPanelRenderSkip = false;
       renderLeadTagsPanel(row);
       try {
-        const ghl = await pushLeadTagsToGhl(leadKey);
+        const ghl = await pushLeadTagsToGhl(key);
         tagSyncToast(
           ghl.ok ? 'Tags updated · synced to GHL' : 'Tags updated · tap Sync GHL to push tags',
           ghl.ok ? 'success' : 'info',
@@ -356,101 +430,98 @@
       } catch (err) {
         tagSyncToast(err.message || 'Tags saved but GHL sync failed', 'error');
       }
-    }
-
-    host.querySelectorAll('.lead-panel-tag-toggle').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const tk = btn.getAttribute('data-tag-key');
-        if (!tk || !leadKey) return;
-        btn.disabled = true;
-        try {
-          await mutateTags((set) => set.add(tk));
-        } catch (err) {
-          window.alert(err.message || 'Could not update tags.');
-          btn.disabled = false;
-        }
-      });
-    });
-
-    const inactiveSelect = host.querySelector('.lead-panel-tag-inactive-select');
-    const inactiveAddBtn = host.querySelector('.lead-panel-tag-inactive-add');
-    async function addInactiveSelectedTag() {
-      if (!inactiveSelect || !leadKey) return;
-      const tk = String(inactiveSelect.value || '').trim();
-      if (!tk) return;
-      if (inactiveAddBtn) inactiveAddBtn.disabled = true;
-      if (inactiveSelect) inactiveSelect.disabled = true;
-      try {
-        await mutateTags((set) => set.add(tk));
-      } catch (err) {
-        window.alert(err.message || 'Could not update tags.');
-        if (inactiveAddBtn) inactiveAddBtn.disabled = false;
-        if (inactiveSelect) inactiveSelect.disabled = false;
-      }
-    }
-    if (inactiveAddBtn) {
-      inactiveAddBtn.addEventListener('click', addInactiveSelectedTag);
-    }
-    if (inactiveSelect) {
-      inactiveSelect.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          addInactiveSelectedTag();
-        }
-      });
-    }
-
-    host.querySelectorAll('.lead-panel-tag-remove').forEach((btn) => {
-      btn.addEventListener('click', async (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const tk = btn.getAttribute('data-tag-key');
-        if (!tk || !leadKey) return;
-        btn.disabled = true;
-        try {
-          await mutateTags((set) => set.delete(tk));
-        } catch (err) {
-          window.alert(err.message || 'Could not remove tag.');
-          btn.disabled = false;
-        }
-      });
-    });
-
-    if (!compact) {
-      const createBtn = document.getElementById(createBtnId);
-      const nameInput = document.getElementById(inputId);
-      if (createBtn && nameInput) {
-        const doCreate = async () => {
-          const name = String(nameInput.value || '').trim();
-          if (!name) return;
-          createBtn.disabled = true;
-          try {
-            const tag = await createWorkspaceTag(name);
-            if (tag && tag.key && leadKey) {
-              await mutateTags((set) => set.add(tag.key));
-            } else {
-              renderLeadTagsPanel(row);
-            }
-            nameInput.value = '';
-          } catch (err) {
-            window.alert(err.message || 'Could not create tag.');
-          } finally {
-            createBtn.disabled = false;
-          }
-        };
-        createBtn.addEventListener('click', doCreate);
-        nameInput.addEventListener('keydown', (e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            doCreate();
-          }
-        });
-      }
+    } finally {
+      tagsPanelMutating = false;
+      tagsPanelRenderSkip = false;
     }
   }
 
+  function bindLeadPanelTagsInteraction() {
+    const section = document.getElementById('leadPanelCompanyTagsSection');
+    if (!section || section.dataset.tagPanelBound === '1') return;
+    section.dataset.tagPanelBound = '1';
+
+    section.addEventListener('click', async (e) => {
+      const toggle = e.target.closest('.lead-panel-tag-toggle');
+      const remove = e.target.closest('.lead-panel-tag-remove');
+      const createBtn = e.target.closest('.lead-panel-tag-create');
+      if (!toggle && !remove && !createBtn) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (toggle) {
+        const tk = toggle.getAttribute('data-tag-key');
+        if (!tk || toggle.disabled) return;
+        toggle.disabled = true;
+        try {
+          await mutateLeadTags((set) => set.add(tk));
+        } catch (err) {
+          if (err && err.message !== 'Lead key missing' && err.message !== 'Lead row missing') {
+            window.alert(err.message || 'Could not update tags.');
+          }
+          toggle.disabled = false;
+        }
+        return;
+      }
+
+      if (remove) {
+        const tk = remove.getAttribute('data-tag-key');
+        if (!tk || remove.disabled) return;
+        remove.disabled = true;
+        try {
+          await mutateLeadTags((set) => set.delete(tk));
+        } catch (err) {
+          if (err && err.message !== 'Lead key missing' && err.message !== 'Lead row missing') {
+            window.alert(err.message || 'Could not remove tag.');
+          }
+          remove.disabled = false;
+        }
+        return;
+      }
+
+      if (createBtn) {
+        const host = document.getElementById('leadPanelCompanyTagsHost');
+        const nameInput = host && host.querySelector('input[type="text"]');
+        const name = nameInput ? String(nameInput.value || '').trim() : '';
+        if (!name) return;
+        createBtn.disabled = true;
+        try {
+          const tag = await createWorkspaceTag(name);
+          if (tag && tag.key) {
+            await mutateLeadTags((set) => set.add(tag.key));
+          } else {
+            renderLeadTagsPanel(resolveActiveTagsPanelRow());
+          }
+          if (nameInput) nameInput.value = '';
+        } catch (err) {
+          window.alert(err.message || 'Could not create tag.');
+        } finally {
+          createBtn.disabled = false;
+        }
+      }
+    });
+
+    section.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const nameInput = e.target.closest('#leadPanelCompanyTagsHost input[type="text"]');
+      if (!nameInput) return;
+      e.preventDefault();
+      const createBtn = document.getElementById('leadPanelCompanyTagsHost')?.querySelector('.lead-panel-tag-create');
+      if (createBtn && !createBtn.disabled) createBtn.click();
+    });
+  }
+
   function renderLeadTagsPanel(row) {
-    renderLeadTagsEditor(document.getElementById('leadPanelCompanyTagsHost'), row, { primary: true });
+    if (tagsPanelRenderSkip) return;
+    const target =
+      resolveTagsPanelRow(row) ||
+      resolveActiveTagsPanelRow() ||
+      (typeof window.__leadPanelActiveRowKey === 'string' && window.__leadPanelActiveRowKey
+        ? document.querySelector(
+            `#prospectLeadsTable tbody tr.result-row[data-lead-key="${CSS.escape(window.__leadPanelActiveRowKey)}"]`,
+          )
+        : null);
+    renderLeadTagsEditor(document.getElementById('leadPanelCompanyTagsHost'), target, { primary: true });
   }
 
   function bindBulkTags() {
@@ -708,12 +779,8 @@
             if (data && data.success && Array.isArray(data.tags)) {
               window.WORKSPACE_TAGS = data.tags
                 .filter((t) => t && t.key)
-                .map((t) => ({
-                  key: String(t.key),
-                  name: String(t.name || '').trim() || 'Tag',
-                  color: t.color || '#94a3b8',
-                  isActive: t.isActive !== false,
-                }));
+                .map((t) => normalizeWorkspaceTag(t))
+                .filter(Boolean);
             } else if (!Array.isArray(window.WORKSPACE_TAGS)) {
               window.WORKSPACE_TAGS = [];
             }
@@ -854,6 +921,7 @@
     rebuildBulkTagSelect();
     initRowTags();
     bindBulkTags();
+    bindLeadPanelTagsInteraction();
     initPipelineTagFilter();
   }
 

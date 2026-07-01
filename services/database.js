@@ -1416,6 +1416,11 @@ module.exports = {
       const lk = String(task.leadKey).trim();
       if (lk.startsWith('lead:')) leadKey = lk.slice(0, 200);
     }
+    let remindMinutesBefore = null;
+    if (task.remindMinutesBefore != null && task.remindMinutesBefore !== '') {
+      const n = parseInt(task.remindMinutesBefore, 10);
+      if (Number.isFinite(n) && n > 0) remindMinutesBefore = Math.min(n, 24 * 60);
+    }
     const payload = {
       id,
       title: String(task.title || '').trim() || 'Untitled',
@@ -1425,6 +1430,7 @@ module.exports = {
       updatedAt: now,
       scheduledAt,
       leadKey,
+      remindMinutesBefore,
     };
     const key = this._userTaskKey(workspaceId, email, id);
     kvSet(key, JSON.stringify(payload));

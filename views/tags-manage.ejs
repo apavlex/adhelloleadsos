@@ -67,7 +67,7 @@
                 <input type="text" class="tags-manage-name w-full max-w-md rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" value="<%= name.replace(/"/g, '&quot;') %>" maxlength="80" data-original-name="<%= name.replace(/"/g, '&quot;') %>" />
               </td>
               <td class="px-4 py-3 align-middle">
-                <button type="button" class="tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors <%= isActive ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 text-brand-muted' %>" aria-pressed="<%= isActive ? 'true' : 'false' %>" title="<%= isActive ? 'Shown as quick-add button on leads' : 'Hidden in More tags dropdown on leads' %>"><%= isActive ? 'Active' : 'Inactive' %></button>
+                <button type="button" class="tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors <%= isActive ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 text-brand-muted' %>" aria-pressed="<%= isActive ? 'true' : 'false' %>" title="<%= isActive ? 'Shown as quick-add on lead panel' : 'Hidden from lead panel add list' %>"><%= isActive ? 'Active' : 'Inactive' %></button>
               </td>
               <td class="px-4 py-3 align-middle">
                 <% if (count > 0) { %>

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail, filterLeadsForRequest } = require('../services/workspaceService');
+const { dedupeOpenLeadTasks, upsertOpenTaskForLead } = require('../services/userTasks');
 
 const COLUMNS = [
   { id: 'backlog', label: 'Backlog' },
@@ -25,8 +26,10 @@ function normScheduledAt(v) {
   return new Date(ts).toISOString();
 }
 
-function newTaskId() {
-  return `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+async function listTasksForRequest(req) {
+  const email = userEmail(req);
+  await dedupeOpenLeadTasks(req.workspaceId, email);
+  return dbService.listUserTasks(req.workspaceId, email);
 }
 
 function sanitizeLeadKey(raw, allowedSet) {
@@ -54,7 +57,7 @@ function enrichTasksWithLeads(tasks, leads) {
 router.get('/', async (req, res, next) => {
   try {
     const email = userEmail(req);
-    const rawTasks = await dbService.listUserTasks(req.workspaceId, email);
+    const rawTasks = await listTasksForRequest(req);
     const allLeads = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, allLeads);
     const allowedLeadKeys = new Set(leads.map((l) => l.key));
@@ -86,7 +89,7 @@ router.get('/', async (req, res, next) => {
 router.get('/api', async (req, res, next) => {
   try {
     const email = userEmail(req);
-    const rawTasks = await dbService.listUserTasks(req.workspaceId, email);
+    const rawTasks = await listTasksForRequest(req);
     const allLeads = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, allLeads);
     const tasks = enrichTasksWithLeads(rawTasks, leads);
@@ -106,16 +109,17 @@ router.post('/api', express.json(), async (req, res, next) => {
     const allowedLeadKeys = new Set(leads.map((l) => l.key));
     const leadKey = sanitizeLeadKey(req.body.leadKey, allowedLeadKeys);
     const scheduledAt = normScheduledAt(req.body.scheduledAt);
-    const task = {
-      id: newTaskId(),
+    const remindMinutesBefore =
+      req.body.remindMinutesBefore != null && req.body.remindMinutesBefore !== ''
+        ? parseInt(req.body.remindMinutesBefore, 10)
+        : null;
+    const saved = await upsertOpenTaskForLead(req.workspaceId, email, {
       title,
       column: normColumn(req.body.column),
-      sort: Date.now(),
-      createdAt: new Date().toISOString(),
       scheduledAt,
       leadKey,
-    };
-    const saved = await dbService.saveUserTask(req.workspaceId, email, task);
+      remindMinutesBefore,
+    });
     const [enriched] = enrichTasksWithLeads([saved], leads);
     res.json({ success: true, task: enriched });
   } catch (e) {
@@ -131,7 +135,7 @@ router.patch('/api/:taskId', express.json(), async (req, res, next) => {
     const allLeads = await dbService.getAllLeads(req.workspaceId);
     const leads = filterLeadsForRequest(req, allLeads);
     const allowedLeadKeys = new Set(leads.map((l) => l.key));
-    const existing = await dbService.listUserTasks(req.workspaceId, email);
+    const existing = await listTasksForRequest(req);
     const cur = existing.find((t) => t.id === taskId);
     if (!cur) return res.status(404).json({ success: false, error: 'Task not found.' });
     const nextLeadKey =
@@ -158,7 +162,7 @@ router.delete('/api/:taskId', async (req, res, next) => {
     const taskId = String(req.params.taskId || '').trim();
     if (!taskId) return res.status(400).json({ success: false, error: 'Invalid task.' });
     const email = userEmail(req);
-    const existing = await dbService.listUserTasks(req.workspaceId, email);
+    const existing = await listTasksForRequest(req);
     if (!existing.some((t) => t.id === taskId)) {
       return res.status(404).json({ success: false, error: 'Task not found.' });
     }

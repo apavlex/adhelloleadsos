@@ -38,6 +38,7 @@ const pipelineStagesService = require('../services/pipelineStagesService');
 const { scoreLeadRecord } = require('../services/opportunityScore');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
 const { filterLeadsForRequest, userEmail } = require('../services/workspaceService');
+const { upsertOpenTaskForLead } = require('../services/userTasks');
 const {
   displayStatus,
   applyLeadListFilters,
@@ -921,20 +922,17 @@ router.post('/:key/disposition', async (req, res, next) => {
     } else if (code === 'callback') {
       status = 'Callback Requested';
       const when = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-      const taskId = `${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-      await dbService.saveUserTask(req.workspaceId, userEmail(req), {
-        id: taskId,
+      const savedTask = await upsertOpenTaskForLead(req.workspaceId, userEmail(req), {
         title: `Callback requested — ${lead.title || 'Lead'}`,
         column: 'todo',
-        sort: Date.now(),
-        createdAt: new Date().toISOString(),
         scheduledAt: when.toISOString(),
         leadKey: fullKey,
+        preferredTaskId: lead.callbackTaskId || null,
       });
       patch.nextActionAt = when.toISOString();
       patch.redialBlockedUntil = when.toISOString();
-      patch.callbackTaskId = taskId;
-      automation = 'Callback task created and redial paused until follow-up window.';
+      patch.callbackTaskId = savedTask.id;
+      automation = 'Callback task updated and redial paused until follow-up window.';
       nextStep = 'Confirm callback window and prepare notes.';
     } else if (code === 'gatekeeper') {
       status = 'Gatekeeper';

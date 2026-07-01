@@ -18,6 +18,7 @@ const { getWorkspaceIcp } = require('../services/workspaceIcp');
 const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue } = require('../services/todayContactQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
+const { dedupeOpenLeadTasks } = require('../services/userTasks');
 const { loadSalesTrackerReviewCore } = require('../services/salesTrackerLocals');
 const actionPlanTracker = require('../services/actionPlanTracker');
 function firstNameFromUser(user) {
@@ -131,6 +132,8 @@ router.get('/', async (req, res, next) => {
       activation.progress >= 5;
     const showActivationRibbon = !activationComplete && !activationAutoHide;
 
+    const email = userEmail(req);
+    await dedupeOpenLeadTasks(req.workspaceId, email);
     const rawTasks = await dbService.listUserTasks(req.workspaceId, email);
     const followUpTasksToday = followUpTasksNeedingAttention(
       enrichTasksWithLeadsForToday(rawTasks, workspaceLeads),

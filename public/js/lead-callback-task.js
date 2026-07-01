@@ -262,6 +262,7 @@
           scheduledAt: iso,
           leadKey: leadKey || null,
           column: 'todo',
+          remindMinutesBefore: rem && rem.checked ? 15 : null,
         }),
       });
       var data = await res.json().catch(function () {
@@ -275,6 +276,13 @@
       setHint(successLine, 'success');
       appendCallbackActivity(row, successLine);
       toast('Callback task saved to Tasks.', 'success');
+      if (window.AgencyTaskReminders && window.AgencyTaskReminders.ensurePermissionForScheduledTask) {
+        window.AgencyTaskReminders.ensurePermissionForScheduledTask().then(function () {
+          if (window.AgencyTaskReminders.refresh) return window.AgencyTaskReminders.refresh();
+        }).then(function () {
+          if (window.AgencyTaskReminders.tick) window.AgencyTaskReminders.tick();
+        });
+      }
       return true;
     } catch (err) {
       var msg = err && err.message ? err.message : 'Could not book callback.';

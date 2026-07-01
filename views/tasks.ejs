@@ -137,11 +137,29 @@
   window.__TASKS__ = <%- JSON.stringify(tasks || []) %>;
   window.__TASK_COLUMNS__ = <%- JSON.stringify(taskColumns || []) %>;
   </script>
-  <script src="/js/task-reminders.js"></script>
   <script>
   (function () {
     var tasks = Array.isArray(window.__TASKS__) ? window.__TASKS__.slice() : [];
     var cols = window.__TASK_COLUMNS__ || [];
+
+    function syncReminderTasks() {
+      if (window.AgencyTaskReminders && window.AgencyTaskReminders.setTasks) {
+        window.AgencyTaskReminders.setTasks(tasks);
+      }
+    }
+
+    function mergeTaskFromApi(task) {
+      if (!task || !task.id) return;
+      if (task.leadKey) {
+        tasks = tasks.filter(function (x) {
+          return !(x.leadKey === task.leadKey && x.column !== 'done' && x.id !== task.id);
+        });
+      }
+      var ix = tasks.findIndex(function (t) { return t.id === task.id; });
+      if (ix >= 0) tasks[ix] = task;
+      else tasks.push(task);
+      syncReminderTasks();
+    }
 
     var checklistEl = document.getElementById('taskChecklistRoot');
     var boardSection = document.getElementById('taskSectionBoard');
@@ -563,8 +581,9 @@
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (!data.success) throw new Error(data.error || 'Failed');
-          var ix = tasks.findIndex(function (t) { return t.id === id });
+          var ix = tasks.findIndex(function (t) { return t.id === id; });
           if (ix >= 0) tasks[ix] = data.task;
+          syncReminderTasks();
           if (boardSection.classList.contains('hidden')) renderChecklist();
           else { renderBoard(); initSortable(); }
           return data.task;
@@ -582,6 +601,7 @@
         .then(function (data) {
           if (!data.success) throw new Error();
           tasks = tasks.filter(function (t) { return t.id !== id });
+          syncReminderTasks();
           if (boardSection.classList.contains('hidden')) renderChecklist();
           else { renderBoard(); initSortable(); }
         })
@@ -605,7 +625,7 @@
             .then(function (r) { return r.json(); })
             .then(function (data) {
               if (!data.success) throw new Error(data.error || 'Failed');
-              tasks.push(data.task);
+              mergeTaskFromApi(data.task);
               if (input) input.value = '';
               if (scheduledInput) scheduledInput.value = '';
               if (leadInput) leadInput.value = '';
@@ -721,8 +741,9 @@
     window.__agencyTasksGetter = function () {
       return tasks;
     };
-    if (window.AgencyTaskReminders && window.AgencyTaskReminders.start) {
-      window.AgencyTaskReminders.start();
+    syncReminderTasks();
+    if (window.AgencyTaskReminders && window.AgencyTaskReminders.tick) {
+      window.AgencyTaskReminders.tick();
     }
 
     renderChecklist();

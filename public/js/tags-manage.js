@@ -73,7 +73,7 @@
         <input type="text" class="tags-manage-name w-full max-w-md rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" value="${escapeHtml(name)}" maxlength="80" data-original-name="${escapeHtml(name)}" />
       </td>
       <td class="px-4 py-3 align-middle">
-        <button type="button" class="tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${isActive ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 text-brand-muted'}" aria-pressed="${isActive ? 'true' : 'false'}" title="${isActive ? 'Shown as quick-add button on leads' : 'Hidden in More tags dropdown on leads'}">${isActive ? 'Active' : 'Inactive'}</button>
+        <button type="button" class="tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ${isActive ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300' : 'border-brand-border/50 dark:border-white/15 bg-brand-cream/40 dark:bg-slate-800/60 text-brand-muted'}" aria-pressed="${isActive ? 'true' : 'false'}" title="${isActive ? 'Shown as quick-add on lead panel' : 'Hidden from lead panel add list'}">${isActive ? 'Active' : 'Inactive'}</button>
       </td>
       <td class="px-4 py-3 align-middle">
         ${
@@ -126,8 +126,8 @@
     toggle.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     toggle.textContent = isActive ? 'Active' : 'Inactive';
     toggle.title = isActive
-      ? 'Shown as quick-add button on leads'
-      : 'Hidden in More tags dropdown on leads';
+      ? 'Shown as quick-add on lead panel'
+      : 'Hidden from lead panel add list';
     toggle.className =
       'tags-manage-active-toggle inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-colors ' +
       (isActive
@@ -190,13 +190,13 @@
             method: 'POST',
             body: JSON.stringify({ isActive: nextActive }),
           });
-          const active = data.tag && data.tag.isActive !== false;
+          const active = data.tag && data.tag.isActive === true;
           setRowActiveUi(row, active);
           upsertWorkspaceTag(data.tag);
           showMsg(
             active
-              ? `“${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'Tag')}” will show as a quick-add button.`
-              : `“${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'Tag')}” moved to the More tags dropdown.`,
+              ? `“${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'Tag')}” will show in the lead panel add list.`
+              : `“${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'Tag')}” hidden from the lead panel add list.`,
             true,
           );
         } catch (err) {
