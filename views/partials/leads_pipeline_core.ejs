@@ -385,6 +385,7 @@
                 data-instagram="<%= plcEscAttr(lead.instagram || 'N/A') %>"
                 data-twitter="<%= plcEscAttr(lead.twitter || 'N/A') %>"
                 data-status="<%= plcEscAttr(deliveryStatusDisplay) %>"
+                data-last-disposition="<%= plcEscAttr(String(lead.lastDisposition || '').trim().toLowerCase()) %>"
                 data-loom-url="<%= plcEscAttr(lead.loomUrl || '') %>"
                 data-outreach-prompt="<%= plcEscAttr(lead.outreachPrompt || '') %>"
                 data-has-schema-markup="<%= lead.hasSchemaMarkup %>"
@@ -438,11 +439,29 @@
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-2 overflow-hidden flex-wrap sm:flex-nowrap">
                       <span class="company-title-text font-bold text-brand-dark dark:text-white group-hover/row:text-brand-dark dark:group-hover/row:text-brand-yellow transition-colors text-sm truncate shrink-0 max-w-[10rem] sm:max-w-[14rem]" title="<%= lead.title %>"><%= lead.title %></span>
-                      <% if (lead.source && lead.source.startsWith('adhello_')) { %>
-                        <span class="text-[8px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 shrink-0 px-1.5 py-0.5 rounded-full bg-amber-100/80 dark:bg-amber-950/50 border border-amber-200/60 dark:border-amber-800/40">Warm</span>
-                      <% } else { %>
-                        <span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 shrink-0 px-1.5 py-0.5 rounded-full bg-brand-cream/80 dark:bg-slate-800 border border-brand-border/40 dark:border-white/10">Cold</span>
-                      <% } %>
+                      <% 
+                        var _touchPillText = 'Cold';
+                        var _touchPillVariant = 'cold';
+                        if (lead.source && lead.source.startsWith('adhello_')) {
+                          _touchPillText = 'Warm';
+                          _touchPillVariant = 'warm';
+                        } else if (typeof resolveActiveQuickLogFromLead === 'function') {
+                          var _qlTouch = resolveActiveQuickLogFromLead(lead);
+                          if (_qlTouch) {
+                            _touchPillText = _qlTouch;
+                            _touchPillVariant = 'quick_log';
+                          }
+                        }
+                        var _touchPillClass = 'lead-row-touch-pill shrink-0 px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest ';
+                        if (_touchPillVariant === 'warm') {
+                          _touchPillClass += 'text-amber-700 dark:text-amber-400 bg-amber-100/80 dark:bg-amber-950/50 border-amber-200/60 dark:border-amber-800/40';
+                        } else if (_touchPillVariant === 'quick_log') {
+                          _touchPillClass += 'text-brand-dark dark:text-brand-yellow bg-brand-yellow/15 dark:bg-brand-yellow/20 border-brand-yellow/50 dark:border-brand-yellow/40';
+                        } else {
+                          _touchPillClass += 'text-brand-muted dark:text-slate-400 bg-brand-cream/80 dark:bg-slate-800 border-brand-border/40 dark:border-white/10';
+                        }
+                      %>
+                      <span class="<%= _touchPillClass %>" data-touch-variant="<%= _touchPillVariant %>" title="<%= _touchPillVariant === 'quick_log' ? ('Last touch: ' + _touchPillText) : _touchPillText %>"><%= String(_touchPillText).toUpperCase() %></span>
                     </div>
                     <div class="mt-1">
                       <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>

@@ -2874,6 +2874,63 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   }
 
+  function resolveLeadTouchPill(row) {
+    if (!row || !row.dataset) {
+      return { text: 'Cold', variant: 'cold', title: 'Cold lead' };
+    }
+    const src = String(row.dataset.source || '').trim();
+    if (src.startsWith('adhello_')) {
+      return { text: 'Warm', variant: 'warm', title: 'Warm inbound lead' };
+    }
+    const qlLabel = resolveActiveQuickLogLabel(row);
+    if (qlLabel) {
+      return { text: qlLabel, variant: 'quick_log', title: `Last touch: ${qlLabel}` };
+    }
+    if (src.includes('csv') || src === 'import' || src === 'manual') {
+      return { text: 'Imported', variant: 'imported', title: 'Imported lead' };
+    }
+    return { text: 'Cold', variant: 'cold', title: 'Not contacted yet' };
+  }
+
+  function touchPillClassName(variant, scope) {
+    const panel = scope === 'panel';
+    const base = panel
+      ? 'shrink-0 whitespace-nowrap px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-widest'
+      : 'lead-row-touch-pill shrink-0 whitespace-nowrap px-1.5 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-widest sm:px-2 sm:text-[9px]';
+    if (variant === 'warm') {
+      return `${base} bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30`;
+    }
+    if (variant === 'imported') {
+      return `${base} bg-brand-yellow/15 text-brand-yellow border-brand-yellow/30`;
+    }
+    if (variant === 'quick_log') {
+      return `${base} bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow border-brand-yellow/50 dark:border-brand-yellow/40`;
+    }
+    return `${base} bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-brand-border/30 dark:border-white/10`;
+  }
+
+  function syncLeadTouchPill(row) {
+    if (!row) return;
+    const pill = resolveLeadTouchPill(row);
+    const display = String(pill.text || '').toUpperCase();
+    const rowPill = row.querySelector('.lead-row-touch-pill');
+    if (rowPill) {
+      rowPill.textContent = display;
+      rowPill.className = touchPillClassName(pill.variant, 'row');
+      rowPill.setAttribute('data-touch-variant', pill.variant);
+      rowPill.title = pill.title || display;
+    }
+    if (currentRow === row) {
+      const sourcePill = document.getElementById('mobilePanelSourcePill');
+      if (sourcePill) {
+        sourcePill.classList.remove('hidden');
+        sourcePill.textContent = display;
+        sourcePill.className = touchPillClassName(pill.variant, 'panel');
+        sourcePill.title = pill.title || display;
+      }
+    }
+  }
+
   function syncLeadPanelQuickLogPills(row) {
     const host = document.getElementById('leadNotepadTagRow');
     if (!host) return;
@@ -2884,6 +2941,7 @@ document.addEventListener('DOMContentLoaded', () => {
       b.setAttribute('data-active', on ? 'true' : 'false');
       b.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
+    syncLeadTouchPill(row);
   }
 
   function isLeadDetailPanelOpen() {
@@ -3727,6 +3785,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (cfg.disposition) currentRow.dataset.lastDisposition = cfg.disposition;
     if (cfg.status) currentRow.dataset.status = cfg.status;
+    syncLeadTouchPill(currentRow);
 
     appendRowActivityEntry(currentRow, {
       type: 'quick_log',
@@ -5862,6 +5921,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.status != null) ds.status = L.status;
     if (L.lastDisposition != null) ds.lastDisposition = String(L.lastDisposition || '').trim().toLowerCase();
     if (L.lastDispositionNotes != null) ds.lastDispositionNotes = String(L.lastDispositionNotes || '');
+    if (L.lastDisposition != null || L.status != null) syncLeadTouchPill(row);
     if (L.hasSchemaMarkup !== undefined && L.hasSchemaMarkup !== null) ds.hasSchemaMarkup = L.hasSchemaMarkup;
     if (L.hasChatbot !== undefined && L.hasChatbot !== null) ds.hasChatbot = L.hasChatbot;
     if (L.hasClickToCall !== undefined && L.hasClickToCall !== null) ds.hasClickToCall = L.hasClickToCall;
@@ -10415,24 +10475,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const panelCategory = document.getElementById('mobilePanelCategory');
     if (panelCategory) panelCategory.textContent = category;
 
-    const sourcePill = document.getElementById('mobilePanelSourcePill');
-    if (sourcePill) {
-      const src = row.dataset.source || '';
-      sourcePill.classList.remove('hidden');
-      if (src.startsWith('adhello_')) {
-        sourcePill.textContent = 'Warm';
-        sourcePill.className =
-          'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30';
-      } else if (src.includes('csv') || src === 'import' || src === 'manual') {
-        sourcePill.textContent = 'Imported';
-        sourcePill.className =
-          'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-yellow border-brand-yellow/30';
-      } else {
-        sourcePill.textContent = 'Cold';
-        sourcePill.className =
-          'shrink-0 whitespace-nowrap px-3 py-1 rounded-full border text-[10px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300 border-brand-border/30 dark:border-white/10';
-      }
-    }
+    syncLeadTouchPill(row);
 
     syncLeadCallAiAnalyzeCta(row);
 

@@ -138,8 +138,9 @@ app.use(passport.session());
 
 app.locals.renderSocialBrandLinks = (links) => socialBrandIcons.renderLinks(links);
 
-const { getQuickLogClientPayload } = require('./services/quickLogConfig');
+const { getQuickLogClientPayload, resolveActiveQuickLogFromLead } = require('./services/quickLogConfig');
 const quickLogClientPayload = getQuickLogClientPayload();
+app.locals.resolveActiveQuickLogFromLead = resolveActiveQuickLogFromLead;
 
 // Global middleware for templates
 app.use((req, res, next) => {
