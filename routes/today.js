@@ -19,7 +19,6 @@ const { buildCadenceQueue } = require('../services/cadenceQueue');
 const { buildTodayContactQueue } = require('../services/todayContactQueue');
 const { filterBusinessPipelineLeads } = require('../services/leadListFilters');
 const { dedupeOpenLeadTasks } = require('../services/userTasks');
-const { loadSalesTrackerReviewCore } = require('../services/salesTrackerLocals');
 const actionPlanTracker = require('../services/actionPlanTracker');
 function firstNameFromUser(user) {
   const raw =
@@ -50,16 +49,6 @@ function countReplySignals(leads) {
   }).length;
 }
 
-function countOverdueSequences(leads) {
-  const now = Date.now();
-  return leads.filter((l) => {
-    const st = l.sequenceState;
-    if (!st || st.status !== 'active' || !st.nextDueAt) return false;
-    return Date.parse(st.nextDueAt) < now;
-  }).length;
-}
-
-/** Leads that likely need outreach / stage movement (early pipeline). */
 function countQueueNeedingAction(leads) {
   return leads.filter((l) => {
     const ps = parseInt(l.pipelineStage, 10);
@@ -104,7 +93,6 @@ router.get('/', async (req, res, next) => {
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(workspaceLeads, today);
     const touchGoal = await loadDailyTouchGoal(req);
     const repliesWaiting = countReplySignals(businessLeads);
-    const overdueFollowUps = countOverdueSequences(businessLeads);
     const queueNeedingAction = countQueueNeedingAction(businessLeads);
 
     const activation = await activationService.getState(email);
@@ -166,8 +154,6 @@ router.get('/', async (req, res, next) => {
       };
     });
 
-    const trackerReview = await loadSalesTrackerReviewCore(req, today);
-
     const apYear = parseInt(req.query.actionPlanYear, 10) || new Date().getFullYear();
     const apMonth = parseInt(req.query.actionPlanMonth, 10) || new Date().getMonth() + 1;
     const actionPlan = await actionPlanTracker.loadMonthView({
@@ -200,7 +186,6 @@ router.get('/', async (req, res, next) => {
       touchGoal,
       streak,
       repliesWaiting,
-      overdueFollowUps,
       queueNeedingAction,
       totalLeads: businessLeads.length,
       outreachCoach,
@@ -215,16 +200,10 @@ router.get('/', async (req, res, next) => {
       seededNotice,
       searchInProgressNotice,
       scheduleSavedNotice,
-      trackerSavedNotice: req.query.trackerSaved === '1',
       followUpTasksToday,
       cadenceQueue,
       contactQueue,
       reportsOpened24h,
-      today: trackerReview.today,
-      todayRow: trackerReview.todayRow,
-      trackerInferred: trackerReview.trackerInferred,
-      trackerDisplayToday: trackerReview.trackerDisplayToday,
-      trackerReturnTo: '/today',
       actionPlan,
       actionPlanMonthNav,
     });

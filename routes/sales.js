@@ -256,16 +256,27 @@ router.post('/tracker', express.urlencoded({ extended: true }), async (req, res,
     }
     const returnTo = (req.body.returnTo || '').toString().trim();
     const dest = (() => {
-      if (['/sales/tracker', '/reports', '/analytics', '/today', '/outreach?tab=touches', '/prospecting?tab=queue'].includes(returnTo)) {
-        return returnTo === '/today' ? '/today?trackerSaved=1' : returnTo;
+      function withTrackerSaved(url) {
+        if (!url || url.includes('trackerSaved=')) return url;
+        return url + (url.includes('?') ? '&' : '?') + 'trackerSaved=1';
+      }
+      if (returnTo === '/today') {
+        return '/reports?tab=tracker&trackerSaved=1';
+      }
+      if (returnTo === '/reports' || returnTo === '/analytics') {
+        return withTrackerSaved('/reports?tab=tracker');
       }
       if (returnTo.startsWith('/reports?') || returnTo.startsWith('/analytics?')) {
         try {
-          const u = new URL(returnTo, 'http://localhost');
-          if (u.pathname === '/reports' || u.pathname === '/analytics') return returnTo.replace(/^\/analytics/, '/reports');
+          const normalized = returnTo.replace(/^\/analytics/, '/reports');
+          const u = new URL(normalized, 'http://localhost');
+          if (u.pathname === '/reports') return withTrackerSaved(normalized);
         } catch {
           /* fall through */
         }
+      }
+      if (['/sales/tracker', '/reports', '/analytics', '/outreach?tab=touches', '/prospecting?tab=queue'].includes(returnTo)) {
+        return returnTo;
       }
       return '/sales/tracker';
     })();

@@ -16,6 +16,17 @@ const {
   computeOutreachStreakWithLeads,
 } = require('./trackerAutoFill');
 const { buildOutreachCoachSnapshot } = require('./outreachCoachSnapshot');
+const { buildConversionSnapshot } = require('./conversionMetrics');
+const { filterBusinessPipelineLeads } = require('./leadListFilters');
+
+function countOverdueSequences(leads) {
+  const now = Date.now();
+  return leads.filter((l) => {
+    const st = l.sequenceState;
+    if (!st || st.status !== 'active' || !st.nextDueAt) return false;
+    return Date.parse(st.nextDueAt) < now;
+  }).length;
+}
 
 function emptyTodayRow() {
   return {
@@ -65,6 +76,10 @@ async function loadSalesTrackerLocals(req) {
   const outreachCoach = await buildOutreachCoachSnapshot(req);
   const touchesToday = countUniqueLeadsTouchedOnUtcDate(leadsScoped, today);
   const touchGoal = await loadDailyTouchGoal(req);
+  const workspaceDoc = await dbService.getWorkspace(wid);
+  const conversionSnapshot = buildConversionSnapshot(leadsScoped, workspaceDoc);
+  const businessLeads = filterBusinessPipelineLeads(leadsScoped);
+  const overdueFollowUps = countOverdueSequences(businessLeads);
   return {
     today,
     todayRow,
@@ -77,6 +92,8 @@ async function loadSalesTrackerLocals(req) {
     trackerDisplayToday,
     touchesToday,
     touchGoal,
+    conversionSnapshot,
+    overdueFollowUps,
     trackerReturnTo: `/reports?tab=tracker&scope=${String(req.query.scope || 'workspace')}`,
   };
 }

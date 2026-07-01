@@ -13,6 +13,12 @@
 </div>
 <% } %>
 
+<% if (typeof trackerSavedNotice !== 'undefined' && trackerSavedNotice) { %>
+<div class="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-50/90 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-950 dark:text-emerald-100">
+  Daily tracker saved.
+</div>
+<% } %>
+
 <% const streakVal = typeof streak !== 'undefined' ? streak : 0; %>
 <% const cs = typeof chartSeries !== 'undefined' && chartSeries ? chartSeries : []; %>
 <% const chartSum = cs.reduce(function (s, x) { return s + (x.total || 0); }, 0); %>
@@ -52,6 +58,7 @@
   touchGoal: typeof touchGoal !== 'undefined' ? touchGoal : 54,
 }) %>
 
+<%- include('/partials/day_at_a_glance') %>
 
 <% const cw = typeof checklistWeek !== 'undefined' && checklistWeek ? checklistWeek : { days: [], sumTotal: 0, daysWithActivity: 0 }; %>
 <% const cm = typeof checklistMonth !== 'undefined' && checklistMonth ? checklistMonth : { days: [], sumTotal: 0, daysWithActivity: 0 }; %>

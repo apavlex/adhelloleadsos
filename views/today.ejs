@@ -12,11 +12,6 @@
       Sample leads were added to your Pipeline. You can edit or delete them anytime.
     </div>
     <% } %>
-    <% if (typeof trackerSavedNotice !== 'undefined' && trackerSavedNotice) { %>
-    <div class="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-50/90 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-950 dark:text-emerald-100">
-      Daily tracker saved. The same numbers appear on Reports → Daily action tracker.
-    </div>
-    <% } %>
     <% if (typeof scheduleSavedNotice !== 'undefined' && scheduleSavedNotice) { %>
     <div class="mb-6 rounded-2xl border border-emerald-400/40 bg-emerald-50/90 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-950 dark:text-emerald-100">
       Schedule saved. Your lead run will start at the scheduled time.
@@ -48,12 +43,6 @@
     })();
     </script>
     <%- include('/partials/today_touches_hub') %>
-
-    <%- include('partials/review_today_widget', {
-      touchesToday: typeof touchesToday !== 'undefined' ? touchesToday : 0,
-      touchGoal: typeof touchGoal !== 'undefined' ? touchGoal : 54,
-      streak: typeof streak !== 'undefined' ? streak : 0,
-    }) %>
 
     <% const _fuTasks = typeof followUpTasksToday !== 'undefined' && followUpTasksToday ? followUpTasksToday : []; %>
     <% if (_fuTasks.length) { %>
@@ -208,42 +197,6 @@
       <div class="flex flex-col sm:flex-row gap-3">
         <a href="/focus" class="btn-pill btn-primary px-8 py-3 text-xs font-black uppercase tracking-widest text-center">Start session</a>
         <a href="/pipeline" class="btn-pill border border-brand-border dark:border-white/20 px-8 py-3 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white text-center">Open pipeline queue</a>
-      </div>
-    </section>
-
-    <section aria-labelledby="glance-heading" class="mb-10 md:mb-12">
-      <h2 id="glance-heading" class="sr-only">Day at a glance</h2>
-      <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/80 dark:bg-slate-900/70 p-6 md:p-8 shadow-sm">
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-6">Day at a glance</p>
-        <% const _cs = typeof conversionSnapshot !== 'undefined' && conversionSnapshot ? conversionSnapshot : {}; %>
-        <% const _pv = typeof _cs.pipelineValueCreated7d === 'number' ? _cs.pipelineValueCreated7d : 0; %>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
-          <a href="/reports?tab=tracker&amp;metric=reply_rate&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-violet-500/40 transition-colors text-left">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Reply rate (7d)</p>
-            <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-violet-300"><%= _cs.replyRate7dDisplay || '0%' %></p>
-            <p class="text-[11px] text-brand-muted mt-2">Replies / touches · rolling week</p>
-          </a>
-          <a href="/reports?tab=tracker&amp;metric=meetings_booked&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-emerald-500/40 transition-colors text-left">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Meetings booked (7d)</p>
-            <p class="text-2xl md:text-3xl font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof _cs.meetingsBooked7d !== 'undefined' ? _cs.meetingsBooked7d : 0 %></p>
-            <p class="text-[11px] text-brand-muted mt-2">From notes &amp; activity keywords</p>
-          </a>
-          <a href="/reports?tab=tracker&amp;metric=pipeline_created&amp;range=7d" class="group rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800/50 p-4 md:p-5 hover:border-brand-yellow/60 transition-colors text-left">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Pipeline created (7d)</p>
-            <p class="text-2xl md:text-3xl font-display font-black text-brand-dark dark:text-white">$<%= Math.round(_pv).toLocaleString() %></p>
-            <p class="text-[11px] text-brand-muted mt-2">Stage 3+ moves · est. value</p>
-          </a>
-        </div>
-        <div class="grid grid-cols-2 gap-4 md:gap-6 mt-4 md:mt-6 pt-4 md:pt-6 border-t border-brand-border/30 dark:border-white/10">
-          <a href="/reports?tab=tracker&amp;metric=outreach_streak&amp;range=30d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-emerald-500/30 transition-colors text-left">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Outreach streak</p>
-            <p class="text-lg font-display font-black text-emerald-600 dark:text-emerald-400"><%= typeof streak !== 'undefined' ? streak : 0 %>d</p>
-          </a>
-          <a href="/reports?tab=tracker&amp;metric=overdue_followups&amp;range=1d" class="group rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/15 dark:bg-slate-800/30 p-3 md:p-4 hover:border-rose-500/30 transition-colors text-left">
-            <p class="text-[9px] font-black uppercase tracking-widest text-brand-muted mb-0.5">Overdue follow-ups</p>
-            <p class="text-lg font-display font-black text-rose-600 dark:text-rose-400"><%= typeof overdueFollowUps !== 'undefined' ? overdueFollowUps : 0 %></p>
-          </a>
-        </div>
       </div>
     </section>
 

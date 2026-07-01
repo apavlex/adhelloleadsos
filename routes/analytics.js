@@ -165,6 +165,7 @@ router.get('/', async (req, res) => {
         ...d,
         ...trackerLocals,
         ...siteAuditLocals,
+        trackerSavedNotice: req.query.trackerSaved === '1',
       });
     }
 
@@ -245,6 +246,7 @@ router.get('/', async (req, res) => {
       isDemo: false,
       ...trackerLocals,
       ...siteAuditLocals,
+      trackerSavedNotice: req.query.trackerSaved === '1',
     });
   } catch (err) {
     res.status(500).send(err.message);
