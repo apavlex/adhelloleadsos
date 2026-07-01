@@ -149,13 +149,24 @@
   function syncBulkBarFromDom() {
     const count = countCheckedGlobally();
     showBulkActionBar(count);
+    if (typeof window.__syncBulkSelectionFromDom === 'function') {
+      window.__syncBulkSelectionFromDom();
+      return;
+    }
     if (typeof window.__updateBulkActionBar === 'function') {
       window.__updateBulkActionBar();
-    } else if (typeof window.__syncBulkSelectionFromDom === 'function') {
-      window.__syncBulkSelectionFromDom();
     }
   }
   window.__syncBulkBarFromDom = syncBulkBarFromDom;
+
+  let syncBulkBarRaf = 0;
+  function scheduleSyncBulkBarFromDom() {
+    if (syncBulkBarRaf) return;
+    syncBulkBarRaf = requestAnimationFrame(function () {
+      syncBulkBarRaf = 0;
+      syncBulkBarFromDom();
+    });
+  }
 
   function normalizeFocusLeadKey(key) {
     return String(key || '').trim().replace(/^lead:/i, '');
@@ -168,6 +179,31 @@
       key = row ? String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim() : '';
     }
     return key;
+  }
+
+  /** Resolve row checkbox from direct input, label, check cell, or row click target. */
+  function resolveBulkCheckboxFromTarget(target) {
+    if (!target || !target.closest) return null;
+    const direct = target.closest('input.lead-checkbox, input.row-checkbox');
+    if (direct) return direct;
+    const label = target.closest('label');
+    if (label) {
+      const labelFor = label.getAttribute('for');
+      if (labelFor) {
+        const byId = document.getElementById(labelFor);
+        if (byId && byId.matches('input.lead-checkbox, input.row-checkbox')) return byId;
+      }
+      const nested = label.querySelector('input.lead-checkbox, input.row-checkbox');
+      if (nested) return nested;
+    }
+    const checkCell = target.closest('td[data-plc="check"]');
+    if (checkCell) {
+      const cellCb = checkCell.querySelector('input.lead-checkbox, input.row-checkbox');
+      if (cellCb) return cellCb;
+    }
+    const row = target.closest('tr.result-row:not(.pipeline-row-page-hidden)');
+    if (row) return row.querySelector('input.lead-checkbox, input.row-checkbox');
+    return null;
   }
 
   function collectSelectedLeadKeysFromDom() {
@@ -348,6 +384,58 @@
   }
   window.__resetBulkSelectAnchor = resetBulkSelectAnchor;
 
+  function bulkAnchorFromTarget(table, checkboxOrRow) {
+    if (!table) return null;
+    const idx = getCheckboxIndex(table, checkboxOrRow);
+    if (idx < 0) return null;
+    let cb = null;
+    if (
+      checkboxOrRow &&
+      checkboxOrRow.matches &&
+      checkboxOrRow.matches('input.lead-checkbox, input.row-checkbox')
+    ) {
+      cb = checkboxOrRow;
+    } else if (checkboxOrRow && checkboxOrRow.querySelector) {
+      cb = checkboxOrRow.querySelector('input.lead-checkbox, input.row-checkbox');
+    }
+    return {
+      table: table,
+      tableId: String(table.id || ''),
+      index: idx,
+      key: cb ? leadKeyFromCheckboxOrRow(cb) : '',
+    };
+  }
+
+  function setBulkSelectAnchor(table, checkboxOrRow) {
+    const next = bulkAnchorFromTarget(table, checkboxOrRow);
+    if (next) lastBulkSelectAnchor = next;
+  }
+
+  function resolveBulkSelectAnchor(table) {
+    if (!lastBulkSelectAnchor || !table) return null;
+    if (lastBulkSelectAnchor.table === table) return lastBulkSelectAnchor;
+    if (
+      lastBulkSelectAnchor.tableId &&
+      String(table.id || '') === lastBulkSelectAnchor.tableId
+    ) {
+      return lastBulkSelectAnchor;
+    }
+    return null;
+  }
+
+  function anchorIndexForTable(table, anchor) {
+    if (!anchor || !table) return -1;
+    const key = String(anchor.key || '').trim();
+    if (key) {
+      const boxes = getPageCheckboxes(table);
+      for (let i = 0; i < boxes.length; i += 1) {
+        if (leadKeyFromCheckboxOrRow(boxes[i]) === key) return i;
+      }
+    }
+    if (anchor.index >= 0) return anchor.index;
+    return -1;
+  }
+
   function isBulkSelectRowTarget(target) {
     if (!target || !target.closest) return false;
     if (target.closest('input, button, a, select, textarea, label, form')) return false;
@@ -430,38 +518,28 @@
       const boxes = getPageCheckboxes(table);
       const start = Math.min(fromIndex, toIndex);
       const end = Math.max(fromIndex, toIndex);
-      let lastChanged = null;
       for (let i = start; i <= end; i += 1) {
-        if (boxes[i]) {
-          setCheckboxChecked(boxes[i], checked);
-          lastChanged = boxes[i];
-        }
+        if (boxes[i]) setCheckboxChecked(boxes[i], checked);
       }
       syncTableRowHighlights(table);
       syncSelectAllHeaderForTable(table);
-      if (lastChanged) notifyCheckboxChanged(lastChanged);
       syncBulkBarFromDom();
     } finally {
       window.__bulkSelectRangeSync = false;
     }
   }
 
-  function handleShiftBulkSelect(table, targetIndex) {
+  function handleShiftBulkSelect(table, targetIndex, targetEl) {
     if (targetIndex < 0) return;
-    if (
-      lastBulkSelectAnchor &&
-      lastBulkSelectAnchor.table === table &&
-      lastBulkSelectAnchor.index >= 0
-    ) {
-      applyBulkRangeSelection(table, lastBulkSelectAnchor.index, targetIndex, true);
+    const anchor = resolveBulkSelectAnchor(table);
+    const anchorIndex = anchorIndexForTable(table, anchor);
+    if (anchor && anchorIndex >= 0) {
+      applyBulkRangeSelection(table, anchorIndex, targetIndex, true);
     } else {
       window.__bulkSelectRangeSync = true;
       try {
         const boxes = getPageCheckboxes(table);
-        if (boxes[targetIndex]) {
-          setCheckboxChecked(boxes[targetIndex], true);
-          notifyCheckboxChanged(boxes[targetIndex]);
-        }
+        if (boxes[targetIndex]) setCheckboxChecked(boxes[targetIndex], true);
         syncTableRowHighlights(table);
         syncSelectAllHeaderForTable(table);
         syncBulkBarFromDom();
@@ -469,7 +547,11 @@
         window.__bulkSelectRangeSync = false;
       }
     }
-    lastBulkSelectAnchor = { table: table, index: targetIndex };
+    if (targetEl) setBulkSelectAnchor(table, targetEl);
+    else {
+      const boxes = getPageCheckboxes(table);
+      if (boxes[targetIndex]) setBulkSelectAnchor(table, boxes[targetIndex]);
+    }
   }
 
   function bindShiftClickRangeSelection() {
@@ -479,29 +561,41 @@
     document.addEventListener(
       'mousedown',
       (e) => {
-        if (!e.shiftKey) return;
-        const cb =
-          e.target && e.target.closest
-            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
+        const cb = resolveBulkCheckboxFromTarget(e.target);
+        const row =
+          !cb && e.target && e.target.closest
+            ? e.target.closest('tr.result-row:not(.pipeline-row-page-hidden)')
+            : cb
+              ? cb.closest('tr.result-row:not(.pipeline-row-page-hidden)')
+              : null;
+        const table = cb
+          ? cb.closest('table')
+          : row
+            ? row.closest('table')
             : null;
-        if (cb) {
-          const table = cb.closest('table');
-          if (!table) return;
+        if (!table) return;
+
+        if (e.shiftKey) {
+          if (cb) {
+            e.preventDefault();
+            e.stopPropagation();
+            handleShiftBulkSelect(table, getCheckboxIndex(table, cb), cb);
+            return;
+          }
+          if (!row || !isBulkSelectRowTarget(e.target)) return;
           e.preventDefault();
           e.stopPropagation();
-          handleShiftBulkSelect(table, getCheckboxIndex(table, cb));
+          handleShiftBulkSelect(table, getCheckboxIndex(table, row), row);
           return;
         }
-        const row =
-          e.target && e.target.closest
-            ? e.target.closest('tr.result-row:not(.pipeline-row-page-hidden)')
-            : null;
-        if (!row || !isBulkSelectRowTarget(e.target)) return;
-        const table = row.closest('table');
-        if (!table) return;
-        e.preventDefault();
-        e.stopPropagation();
-        handleShiftBulkSelect(table, getCheckboxIndex(table, row));
+
+        if (cb) {
+          setBulkSelectAnchor(table, cb);
+          return;
+        }
+        if (row && isBulkSelectRowTarget(e.target)) {
+          setBulkSelectAnchor(table, row);
+        }
       },
       true,
     );
@@ -511,10 +605,7 @@
       'click',
       (e) => {
         if (!e.shiftKey) return;
-        const cb =
-          e.target && e.target.closest
-            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
-            : null;
+        const cb = resolveBulkCheckboxFromTarget(e.target);
         if (cb) {
           e.preventDefault();
           e.stopPropagation();
@@ -534,18 +625,20 @@
     );
 
     document.addEventListener(
-      'click',
+      'change',
       (e) => {
+        if (window.__bulkSelectRangeSync) return;
         if (e.shiftKey) return;
         const cb =
-          e.target && e.target.closest
-            ? e.target.closest('input.lead-checkbox, input.row-checkbox')
+          e.target && e.target.matches
+            ? e.target.matches('input.lead-checkbox, input.row-checkbox')
+              ? e.target
+              : null
             : null;
         if (!cb) return;
         const table = cb.closest('table');
         if (!table) return;
-        const idx = getCheckboxIndex(table, cb);
-        if (idx >= 0) lastBulkSelectAnchor = { table: table, index: idx };
+        setBulkSelectAnchor(table, cb);
       },
       true,
     );
@@ -598,7 +691,8 @@
       const t = e.target;
       if (!t || t.tagName !== 'INPUT') return;
       if (!t.classList.contains('lead-checkbox') && !t.classList.contains('row-checkbox')) return;
-      syncBulkBarFromDom();
+      if (!window.__bulkSelectRangeSync) setBulkSelectAnchor(table, t);
+      scheduleSyncBulkBarFromDom();
     }
 
     table.addEventListener('change', onRowCheckboxChange);
@@ -660,7 +754,8 @@
         const t = e.target;
         if (!t || !t.matches) return;
         if (!t.matches('input.lead-checkbox, input.row-checkbox')) return;
-        syncBulkBarFromDom();
+        if (window.__bulkSelectRangeSync) return;
+        scheduleSyncBulkBarFromDom();
       },
       true,
     );
@@ -672,8 +767,8 @@
           e.target && e.target.closest
             ? e.target.closest('input.lead-checkbox, input.row-checkbox')
             : null;
-        if (!cb) return;
-        requestAnimationFrame(syncBulkBarFromDom);
+        if (!cb || window.__bulkSelectRangeSync) return;
+        scheduleSyncBulkBarFromDom();
       },
       true,
     );
@@ -1589,7 +1684,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '9';
+  window.__PIPELINE_BULK_SELECT_V2 = '11';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 
