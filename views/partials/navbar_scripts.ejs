@@ -1860,7 +1860,9 @@
         softphoneSetStatus(msg);
         if (spPushGhl) spPushGhl.textContent = '✓ Synced';
         if (spNextStep) {
-          spNextStep.textContent = softphoneWrapNextStepHint(selection.disposition || selection.label);
+          spNextStep.textContent = softphoneWrapNextStepHint(
+            selection.label || softphoneOutcomeLabel(selection.disposition || selection.value),
+          );
           spNextStep.classList.remove('hidden');
         }
         softphoneUnlockAfterWrap();
@@ -4220,7 +4222,9 @@
     var key = softphoneLeadStorageKey();
     var finalize = function () {
       if (spNextStep) {
-        spNextStep.textContent = softphoneWrapNextStepHint(disp);
+        spNextStep.textContent = softphoneWrapNextStepHint(
+          selection ? selection.label || softphoneOutcomeLabel(selection.disposition || disp) : softphoneOutcomeLabel(disp),
+        );
         spNextStep.classList.remove('hidden');
       }
       softphoneUnlockAfterWrap();

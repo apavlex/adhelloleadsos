@@ -70,7 +70,7 @@ const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const contactHuntJobs = require('../services/contactHuntJobs');
 const { mergeLeadsByKeys } = require('../services/leadMerge');
-const { quickLogItemForStatus } = require('../services/quickLogConfig');
+const { quickLogItemForStatus, quickLogLabelForDisposition } = require('../services/quickLogConfig');
 const {
   findDeletableLeadNote,
   isDeletableLeadNote,
@@ -718,6 +718,21 @@ function resolveWorkspaceCallMode(ws) {
   return 'cloud_dial';
 }
 
+function formatCallModeLabel(mode) {
+  const m = String(mode || '').trim().toLowerCase();
+  if (m === 'agent_first') return 'Agent first';
+  if (m === 'browser_device') return 'My device dialer';
+  return 'Cloud dial (browser mic)';
+}
+
+function humanizeDisposition(code) {
+  const label = quickLogLabelForDisposition(code);
+  if (label) return label;
+  return String(code || '')
+    .trim()
+    .replace(/_/g, ' ');
+}
+
 function resolveAgentFirstNumber(ws) {
   if (!ws || typeof ws !== 'object') return '';
   const telephony = ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
@@ -970,7 +985,7 @@ router.post('/:key/disposition', async (req, res, next) => {
     }
     const updates = appendLeadUpdate(lead, {
       type: 'call_disposition',
-      value: `Disposition: ${code}${notes ? ` — ${notes}` : ''}`,
+      value: `Disposition: ${humanizeDisposition(code)}${notes ? ` — ${notes}` : ''}`,
       code,
       notes,
       automation,
@@ -979,7 +994,7 @@ router.post('/:key/disposition', async (req, res, next) => {
     patch.logs = [
       {
         type: 'call_disposition',
-        message: `Disposition set to ${code}${automation ? ` · ${automation}` : ''}`,
+        message: `Disposition set to ${humanizeDisposition(code)}${automation ? ` · ${automation}` : ''}`,
         timestamp: new Date().toISOString(),
       },
     ];
@@ -995,7 +1010,7 @@ router.post('/:key/disposition', async (req, res, next) => {
     if (!deferGhlSync) {
       triggerGhlProspectSync(fullKey, req.workspaceId, {
         trigger: `disposition:${code}`,
-        note: notes ? `Disposition: ${code}\n${notes}` : '',
+        note: notes ? `Disposition: ${humanizeDisposition(code)}\n${notes}` : '',
       });
     }
     return res.json({ success: true, lead: updated, status, nextStep, automation });
@@ -1509,7 +1524,9 @@ router.get('/telephony/webrtc-diagnostics', async (req, res, next) => {
         key: 'call_mode',
         label: 'Call routing mode',
         ok: modeOk,
-        detail: modeOk ? 'Cloud dial (browser mic)' : `Current mode: ${callMode}`,
+        detail: modeOk
+          ? 'Cloud dial (browser mic)'
+          : `Current mode: ${formatCallModeLabel(callMode)} — switch to Cloud dial in Workspace → Phone bank`,
       },
       {
         key: 'jwt_mint',
@@ -1808,7 +1825,7 @@ router.post('/telephony/ai-summary', async (req, res, next) => {
         'summary: 1-2 short sentences.',
         'nextStep: one concrete action.',
         'followupSms: under 240 chars, plain text, optional but provide if useful.',
-        `Disposition: ${disposition}`,
+        `Disposition: ${humanizeDisposition(disposition)}`,
         `Called number: ${number || 'unknown'}`,
         `Rep notes:\n${notes}`,
       ].join('\n');
