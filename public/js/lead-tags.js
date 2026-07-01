@@ -127,6 +127,9 @@
       .replace(/"/g, '&quot;');
   }
 
+  const addTagButtonClass =
+    'lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 text-brand-dark dark:text-white transition-all opacity-90 hover:opacity-100 hover:border-brand-yellow/50';
+
   function parseRowTags(row) {
     if (!row || !row.dataset) return [];
     const raw = row.dataset.tags || '[]';
@@ -407,8 +410,7 @@
       html += `<p class="text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 mb-1.5 mt-1">Add tag</p>`;
       html += `<div class="flex flex-wrap gap-1.5" data-tag-add-host="${escapeHtml(hostId)}">`;
       availableActive.forEach((t) => {
-        const color = t.color || '#94a3b8';
-        html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
+        html += `<button type="button" class="${addTagButtonClass}" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
       });
       html += '</div>';
     } else if (!compact && allTags.length && !availableActive.length && !applied.length) {
@@ -417,8 +419,7 @@
     } else if (compact) {
       html += `<div class="flex flex-wrap gap-1.5 mt-1" data-tag-add-host="${escapeHtml(hostId)}">`;
       availableActive.forEach((t) => {
-        const color = t.color || '#94a3b8';
-        html += `<button type="button" class="lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border transition-all opacity-75 hover:opacity-100" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" style="background:${color}18;border-color:${color}66;color:${color}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
+        html += `<button type="button" class="${addTagButtonClass}" data-tag-key="${escapeHtml(t.key)}" data-tags-host="${escapeHtml(hostId)}" aria-pressed="false">+ ${escapeHtml(t.name)}</button>`;
       });
       html += '</div>';
     }
