@@ -327,19 +327,26 @@
       if (el && 'Notification' in window && Notification.permission === 'granted') el.classList.add('hidden');
     }
 
+    function focusLeadHref(leadKey) {
+      if (!leadKey) return '';
+      var key = String(leadKey).trim().replace(/^lead:/i, '');
+      if (!key) return '';
+      return '/focus?lead=' + encodeURIComponent(key);
+    }
+
     function leadCellHtml(t) {
       if (!t.leadKey) return '<p class="text-[10px] text-brand-muted mt-1">No lead linked</p>';
       var label = escapeHtml(t.leadTitle || 'Lead');
-      var href = '/leads?focusLead=' + encodeURIComponent(t.leadKey);
+      var href = focusLeadHref(t.leadKey);
       return (
         '<p class="text-[10px] mt-1"><span class="text-brand-muted font-bold uppercase tracking-wider mr-1">Lead</span>' +
-        '<a class="font-bold text-brand-yellow hover:underline" href="' + href + '">' + label + '</a></p>'
+        '<a class="font-bold text-brand-yellow hover:underline" href="' + href + '" title="Open in Focus mode">' + label + '</a></p>'
       );
     }
 
     function leadHrefForTask(t) {
       if (!t || !t.leadKey) return '';
-      return '/leads?focusLead=' + encodeURIComponent(t.leadKey);
+      return focusLeadHref(t.leadKey);
     }
 
     function columnLabel(columnId) {
