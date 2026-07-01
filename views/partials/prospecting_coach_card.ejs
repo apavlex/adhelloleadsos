@@ -1,15 +1,15 @@
 <% const oc = typeof outreachCoach !== 'undefined' && outreachCoach ? outreachCoach : null; %>
-<% const _hubEmbed = typeof hubEmbed !== 'undefined' && hubEmbed; %>
+<% const _coachEmbed = typeof hubEmbed !== 'undefined' && hubEmbed; %>
 <% if (oc) { %>
-<div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden <%= _hubEmbed ? 'border-0 shadow-none bg-transparent dark:bg-transparent' : (typeof coachCardClass !== 'undefined' ? coachCardClass : 'mb-10') %>" id="outreach-coach-card">
-  <div class="px-6 py-5 <%= _hubEmbed ? 'px-0 pt-0 pb-4' : 'border-b border-brand-border dark:border-white/10' %> flex flex-wrap items-center justify-between gap-3">
-    <% if (!_hubEmbed) { %>
+<div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden <%= _coachEmbed ? 'border-0 shadow-none bg-transparent dark:bg-transparent' : (typeof coachCardClass !== 'undefined' ? coachCardClass : 'mb-10') %>" id="outreach-coach-card">
+  <div class="px-6 py-5 <%= _coachEmbed ? 'px-0 pt-0 pb-4' : 'border-b border-brand-border dark:border-white/10' %> flex flex-wrap items-center justify-between gap-3">
+    <% if (!_coachEmbed) { %>
     <div>
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Outreach coach</p>
       <h2 class="font-display font-extrabold text-lg text-brand-dark dark:text-white mt-1">What to do next</h2>
     </div>
     <% } %>
-    <div class="flex flex-wrap items-center justify-end gap-2 <%= _hubEmbed ? 'w-full' : '' %>">
+    <div class="flex flex-wrap items-center justify-end gap-2 <%= _coachEmbed ? 'w-full' : '' %>">
       <a href="/leads/find" class="btn-pill border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 text-brand-dark dark:text-white hover:border-brand-yellow/50 shrink-0">Find leads</a>
       <a href="/pipeline" class="btn-pill bg-brand-dark text-white dark:bg-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 shrink-0">Open pipeline</a>
       <a href="/focus" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5 shadow-md shrink-0 inline-flex items-center gap-1">Start session <span aria-hidden="true">→</span></a>
@@ -17,7 +17,7 @@
       <button type="button" id="outreachCoachRefresh" class="btn-pill bg-brand-cream dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest px-4 py-2.5 text-brand-dark dark:text-white shrink-0">Refresh AI</button>
     </div>
   </div>
-  <div class="p-6 space-y-4 <%= _hubEmbed ? 'px-0 pb-0 pt-0' : '' %>">
+  <div class="p-6 space-y-4 <%= _coachEmbed ? 'px-0 pb-0 pt-0' : '' %>">
     <div class="flex flex-wrap gap-2">
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200" title="Workspace leads"><%= oc.totalLeads %> leads</span>
       <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-brand-cream/50 dark:bg-white/5 border border-brand-border/40 dark:border-white/10 text-brand-dark dark:text-slate-200">New + contacted: <%= oc.inNewOrContacted %></span>

@@ -1,7 +1,7 @@
-<% const _cq = typeof contactQueue !== 'undefined' && contactQueue ? contactQueue : []; %>
-<% const _hubEmbed = typeof hubEmbed !== 'undefined' && hubEmbed; %>
-<% if (_cq.length) { %>
-<% if (!_hubEmbed) { %>
+<% const _queueRows = typeof contactQueue !== 'undefined' && contactQueue ? contactQueue : []; %>
+<% const _queueEmbed = typeof hubEmbed !== 'undefined' && hubEmbed; %>
+<% if (_queueRows.length) { %>
+<% if (!_queueEmbed) { %>
 <section class="mb-8 md:mb-10 rounded-[2rem] border-2 border-brand-yellow/35 bg-white dark:bg-slate-900/85 px-6 py-6 md:px-8 md:py-7 shadow-md shadow-brand-yellow/10" aria-label="Highest ROI contacts">
   <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-5">
     <div>
@@ -18,7 +18,7 @@
   </div>
 <% } %>
   <ul class="divide-y divide-brand-border/40 dark:divide-white/10 space-y-0">
-    <% _cq.forEach(function (row, idx) { %>
+    <% _queueRows.forEach(function (row, idx) { %>
     <% const ch = row.cadence && row.cadence.channelLabel ? row.cadence.channelLabel : '—'; %>
     <% const tier = row.opportunityTier || 'low'; %>
     <% const pt = row.prospectTier || 'Low'; %>
@@ -79,7 +79,7 @@
     </li>
     <% }); %>
   </ul>
-<% if (!_hubEmbed) { %>
+<% if (!_queueEmbed) { %>
 </section>
 <% } %>
 <% } %>
