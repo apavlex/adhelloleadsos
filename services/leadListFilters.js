@@ -3,6 +3,12 @@
  */
 
 const { noteEntryBody } = require('./leadNotes');
+const {
+  quickLogLabelForDisposition,
+  quickLogItemForStatus,
+  isQuickLogFilterTagKey,
+  leadMatchesQuickLogFilter,
+} = require('./quickLogConfig');
 
 function displayStatus(s) {
   const raw = s || 'Not Contacted';
@@ -347,6 +353,12 @@ function buildLeadSearchHaystack(l, ctx) {
     l.url,
     l.status,
     displayStatus(l.status),
+    l.lastDisposition,
+    quickLogLabelForDisposition(l.lastDisposition),
+    (() => {
+      const statusItem = quickLogItemForStatus(l.status);
+      return statusItem ? statusItem.label : '';
+    })(),
     l.assignedTo,
     l.pipelineStage,
     l.stageId,
@@ -438,10 +450,14 @@ function applyLeadListFilters(leads, filters) {
   }
   const tagKey = String(filters.tagKey || '').trim();
   if (tagKey) {
-    out = out.filter((l) => {
-      const tags = Array.isArray(l.tags) ? l.tags : [];
-      return tags.some((t) => String(t) === tagKey);
-    });
+    if (isQuickLogFilterTagKey(tagKey)) {
+      out = out.filter((l) => leadMatchesQuickLogFilter(l, tagKey));
+    } else {
+      out = out.filter((l) => {
+        const tags = Array.isArray(l.tags) ? l.tags : [];
+        return tags.some((t) => String(t) === tagKey);
+      });
+    }
   } else if (filters.excludeFolderAssigned) {
     out = excludeOutreachFolderLeads(out);
   }
@@ -532,7 +548,7 @@ function mapLeadListJson(l) {
   };
 }
 
-/** Slim client bootstrap — omits heavy audit/chat blobs (loaded via panel-data on demand). */
+/** Slim client bootstrap — omits heavy audit/chat blobs and activity arrays (loaded via panel-data on demand). */
 function mapLeadPipelineBootstrap(l) {
   return {
     key: l.key,
@@ -566,8 +582,6 @@ function mapLeadPipelineBootstrap(l) {
     lastTouchChannel: l.lastTouchChannel,
     latitude: l.latitude,
     longitude: l.longitude,
-    updates: Array.isArray(l.updates) ? l.updates : [],
-    logs: Array.isArray(l.logs) ? l.logs.slice(-14) : [],
     leadLocations: Array.isArray(l.leadLocations) ? l.leadLocations : [],
     alternateTitles: Array.isArray(l.alternateTitles) ? l.alternateTitles : [],
   };

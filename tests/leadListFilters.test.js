@@ -1,12 +1,14 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const {
+  applyLeadListFilters,
   buildLeadSearchHaystack,
   buildLeadSearchContext,
   leadMatchesSearchQuery,
   scoreLeadSearchMatch,
   normalizeSearchTokens,
 } = require('../services/leadListFilters');
+const { leadMatchesQuickLogFilter, quickLogFilterTagKey } = require('../services/quickLogConfig');
 
 describe('leadListFilters search', () => {
   const ctx = buildLeadSearchContext(
@@ -75,5 +77,25 @@ describe('leadListFilters search', () => {
     );
     assert.match(hay, /callback scheduled/);
     assert.match(hay, /voicemail about pricing/);
+  });
+
+  it('matches quick log labels in free-text search', () => {
+    const lead = { title: 'Acme', lastDisposition: 'voicemail' };
+    assert.equal(leadMatchesSearchQuery(lead, 'left vm', ctx), true);
+    assert.equal(leadMatchesSearchQuery(lead, 'no pickup', ctx), false);
+  });
+
+  it('filters by quick log tag keys', () => {
+    const leads = [
+      { title: 'A', lastDisposition: 'no_answer' },
+      { title: 'B', lastDisposition: 'voicemail' },
+      { title: 'C', lastDisposition: 'connected' },
+    ];
+    const filtered = applyLeadListFilters(leads, {
+      tagKey: quickLogFilterTagKey('voicemail'),
+    });
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].title, 'B');
+    assert.equal(leadMatchesQuickLogFilter({ lastDisposition: 'no_answer' }, quickLogFilterTagKey('no_answer')), true);
   });
 });

@@ -638,6 +638,16 @@
       menu.style.bottom = 'auto';
     }
 
+    function getQuickLogFilterItems() {
+      const items = (window.__QUICK_LOG && window.__QUICK_LOG.items) || [];
+      return items.filter((item) => item && item.disposition);
+    }
+
+    function quickLogFilterTagKey(disposition) {
+      const code = String(disposition || '').trim().toLowerCase();
+      return code ? `ql:${code}` : '';
+    }
+
     function renderTagFilterList() {
       if (!list) return;
       const selected = hidden ? String(hidden.value || '') : '';
@@ -661,6 +671,30 @@
         li.appendChild(btn);
         list.appendChild(li);
       });
+      const qlItems = getQuickLogFilterItems();
+      if (qlItems.length) {
+        const headerLi = document.createElement('li');
+        headerLi.className = 'px-3 pt-2 pb-1 pointer-events-none';
+        headerLi.setAttribute('data-tag-filter-group-header', 'quick-log');
+        headerLi.innerHTML =
+          '<span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">Quick log</span>';
+        list.appendChild(headerLi);
+        qlItems.forEach((item) => {
+          const key = quickLogFilterTagKey(item.disposition);
+          if (!key) return;
+          const li = document.createElement('li');
+          li.setAttribute('data-tag-filter-group', 'quick-log');
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className =
+            'tag-filter-combobox-option w-full text-left px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-yellow/10 dark:hover:bg-brand-yellow/15' +
+            (selected === key ? ' is-selected' : '');
+          btn.setAttribute('data-value', key);
+          btn.textContent = item.label || item.disposition;
+          li.appendChild(btn);
+          list.appendChild(li);
+        });
+      }
     }
 
     async function refreshTagFilterOptions() {
@@ -727,13 +761,22 @@
         if (!q) {
           match = true;
         } else if (isAny) {
-          match = 'any tag'.includes(q);
+          match = 'any tag'.includes(q) || 'quick log'.includes(q);
         } else {
           match = text.includes(q);
         }
         li.classList.toggle('hidden', !match);
         if (match) visible += 1;
       });
+      const qlHeader = list ? list.querySelector('[data-tag-filter-group-header="quick-log"]') : null;
+      if (qlHeader) {
+        const qlVisible = list
+          ? [...list.querySelectorAll('[data-tag-filter-group="quick-log"]')].some(
+              (li) => !li.classList.contains('hidden'),
+            )
+          : false;
+        qlHeader.classList.toggle('hidden', !qlVisible);
+      }
       if (empty) empty.classList.toggle('hidden', visible > 0);
     }
 

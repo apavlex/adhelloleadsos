@@ -132,8 +132,50 @@ function focusValueFromLead(lead) {
   return '';
 }
 
+/** Prefix for quick-log entries in the pipeline tag filter (`ql:voicemail`, etc.). */
+const QUICK_LOG_TAG_PREFIX = 'ql:';
+
+function quickLogFilterTagKey(disposition) {
+  const code = String(disposition || '').trim().toLowerCase();
+  return code ? `${QUICK_LOG_TAG_PREFIX}${code}` : '';
+}
+
+function isQuickLogFilterTagKey(tagKey) {
+  return String(tagKey || '').trim().startsWith(QUICK_LOG_TAG_PREFIX);
+}
+
+function dispositionFromQuickLogFilterTagKey(tagKey) {
+  return String(tagKey || '')
+    .trim()
+    .slice(QUICK_LOG_TAG_PREFIX.length)
+    .toLowerCase();
+}
+
+function quickLogLabelForFilterTagKey(tagKey) {
+  if (!isQuickLogFilterTagKey(tagKey)) return '';
+  const item = quickLogItemForDisposition(dispositionFromQuickLogFilterTagKey(tagKey));
+  return item ? item.label : '';
+}
+
+/** Match a lead against a quick-log tag filter (same rules as the touch pill). */
+function leadMatchesQuickLogFilter(lead, tagKey) {
+  const code = isQuickLogFilterTagKey(tagKey)
+    ? dispositionFromQuickLogFilterTagKey(tagKey)
+    : String(tagKey || '').trim().toLowerCase();
+  if (!code || !lead || typeof lead !== 'object') return false;
+  const item = quickLogItemForDisposition(code);
+  if (!item) return false;
+  const disp = String(lead.lastDisposition || '').trim().toLowerCase();
+  if (disp === code) return true;
+  if (item.status) {
+    return String(lead.status || '').trim() === item.status;
+  }
+  return false;
+}
+
 module.exports = {
   QUICK_LOG_ITEMS,
+  QUICK_LOG_TAG_PREFIX,
   getQuickLogTagConfigMap,
   getQuickLogClientPayload,
   quickLogLabelForDisposition,
@@ -143,4 +185,9 @@ module.exports = {
   resolveActiveQuickLogFromLead,
   focusValueForItem,
   focusValueFromLead,
+  quickLogFilterTagKey,
+  isQuickLogFilterTagKey,
+  dispositionFromQuickLogFilterTagKey,
+  quickLogLabelForFilterTagKey,
+  leadMatchesQuickLogFilter,
 };

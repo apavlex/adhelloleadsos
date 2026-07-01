@@ -2539,7 +2539,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (showLoading) scriptEl.textContent = 'Loading script…';
 
-    if (aiMode && normalizeLeadKeyForScriptsFetch(row.dataset ? row.dataset.leadKey : '')) {
+    if (
+      opts &&
+      opts.fetchAiRecommend &&
+      aiMode &&
+      normalizeLeadKeyForScriptsFetch(row.dataset ? row.dataset.leadKey : '')
+    ) {
       await fetchKieInsightForLead(row);
     }
 
@@ -4471,10 +4476,6 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('[Lead panel] panel-data hydrate failed:', hydrateErr);
     }
 
-    if (currentRow === tableRow && typeof paintLeadPanelFromRow === 'function') {
-      paintLeadPanelFromRow(tableRow);
-    }
-
     // Update panel save button state (results page)
     if (isResultsPage) {
       const mobileSaveBtn = document.getElementById('mobilePanelSaveBtn');
@@ -5634,6 +5635,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function scheduleReviewIntelligence(row, opts) {
     const refresh = !!(opts && opts.refresh);
+    const shouldFetch = refresh;
     const section = document.getElementById('reviewReputationSection');
     if (!section || !row) return;
 
@@ -5646,6 +5648,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const snippetsUl = document.getElementById('reviewSnippetsList');
     const refreshBtn = document.getElementById('reviewIntelRefreshBtn');
     const snippets = readReviewSnippetsFromRow(row);
+
+    function syncReviewIntelActionBtn(hasAiSummary) {
+      if (!refreshBtn) return;
+      const hasKey = !!String(row.dataset.leadKey || '').trim();
+      refreshBtn.classList.toggle('hidden', !hasKey);
+      refreshBtn.textContent = hasAiSummary ? 'Refresh analysis' : 'Run analysis';
+      refreshBtn.classList.remove('opacity-50', 'pointer-events-none');
+    }
 
     function applyIntel(data, heuristicFallback) {
       if (loading) {
@@ -5700,15 +5710,12 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
 
-    if (refreshBtn) {
-      refreshBtn.classList.toggle('hidden', !row.dataset.leadKey);
-    }
-
     const key = row.dataset.leadKey;
     const heuristic = reviewHeuristicsFromRowDataset(row.dataset);
 
     if (!key) {
       applyIntel(null, heuristic);
+      syncReviewIntelActionBtn(false);
       return;
     }
 
@@ -5722,8 +5729,9 @@ document.addEventListener('DOMContentLoaded', () => {
       persistedIntel = null;
     }
 
+    let cachedSummary = '';
     if (persistedIntel && typeof persistedIntel === 'object') {
-      const cachedSummary = readReviewSummaryFromIntel(persistedIntel);
+      cachedSummary = readReviewSummaryFromIntel(persistedIntel);
       applyIntel(
         {
           summary: cachedSummary,
@@ -5732,10 +5740,27 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         null
       );
-      if (!refresh && (cachedSummary || snippets.length)) return;
     } else if (snippets.length) {
       applyIntel(null, null);
+    } else {
+      applyIntel(null, heuristic);
     }
+
+    if (!shouldFetch) {
+      if (errEl) {
+        errEl.classList.add('hidden');
+        errEl.textContent = '';
+      }
+      if (loading) {
+        loading.classList.add('hidden');
+        loading.setAttribute('aria-busy', 'false');
+      }
+      if (grid) grid.classList.remove('hidden', 'review-intel-loading');
+      syncReviewIntelActionBtn(!!cachedSummary);
+      return;
+    }
+
+    syncReviewIntelActionBtn(!!cachedSummary);
 
     try {
       section.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -5777,6 +5802,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (reqId !== reviewIntelRequestId) return;
         if (data.success) {
           applyIntel(data, null);
+          syncReviewIntelActionBtn(true);
           try {
             row.dataset.reviewIntel = JSON.stringify({
               summary: data.summary || '',
@@ -10717,9 +10743,6 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (finalPaintErr) {
       console.warn('[Lead panel] final row paint failed:', finalPaintErr);
     }
-    if (row.dataset.leadKey) {
-      void refreshLeadActivityFromServer(row);
-    }
   }
 
   const applyTableStars = () => {
@@ -12903,15 +12926,6 @@ document.addEventListener('DOMContentLoaded', () => {
     updateRowContactCells(row);
     syncRowReviewsDisplay(row);
 
-    const keyAfter = row.dataset.leadKey;
-    if (keyAfter) {
-      fetch(`/leads/${encodeURIComponent(keyAfter)}/insights`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ refresh: true }),
-      }).catch(() => {});
-    }
-
     if (huntKey) {
       const huntNorm = huntKey.replace(/^lead:/i, '');
       window.__contactHuntInFlight.delete(huntNorm);
@@ -12936,7 +12950,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
       paintPanelHeaderContactStrip(row);
-      scheduleReviewIntelligence(row, { refresh: true });
+      scheduleReviewIntelligence(row);
 
       const rh = data.reviewHunt;
       const meta = document.getElementById('huntLastRunMeta');
