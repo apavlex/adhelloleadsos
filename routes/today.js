@@ -132,7 +132,6 @@ router.get('/', async (req, res, next) => {
       activation.progress >= 5;
     const showActivationRibbon = !activationComplete && !activationAutoHide;
 
-    const email = userEmail(req);
     await dedupeOpenLeadTasks(req.workspaceId, email);
     const rawTasks = await dbService.listUserTasks(req.workspaceId, email);
     const followUpTasksToday = followUpTasksNeedingAttention(
