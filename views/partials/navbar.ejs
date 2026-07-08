@@ -376,14 +376,18 @@
 
       <div class="softphone-body flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f7f7f8] dark:bg-slate-900">
         <div id="softphoneTabKeypad" class="softphone-tab-panel flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 pt-3 pb-4" data-tab="keypad">
-          <div class="softphone-calling-from mb-3 rounded-2xl border-2 border-brand-yellow/55 dark:border-brand-yellow/40 bg-brand-yellow/12 dark:bg-brand-yellow/10 px-4 py-3.5 shadow-sm">
-            <p class="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 mb-1.5">Your caller ID</p>
-            <p id="softphoneCallingFromNumber" class="softphone-caller-id-number text-[2rem] sm:text-[2.35rem] font-display font-black tabular-nums tracking-wide text-brand-dark dark:text-white leading-none break-all" aria-live="polite">—</p>
-            <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400 leading-snug flex flex-wrap items-center gap-x-1 gap-y-0.5">
-              <span id="softphoneCallingFromLine">Default workspace number</span>
-              <span aria-hidden="true">·</span>
-              <button type="button" id="softphoneChangeFromBtn" class="font-semibold text-brand-yellow hover:underline">Change</button>
-            </p>
+          <div class="softphone-calling-from mb-3 rounded-xl border border-brand-border/50 dark:border-white/10 bg-white/80 dark:bg-slate-800/60 px-3 py-2.5">
+            <label for="softphoneCallerIdSelect" class="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 block mb-1.5">Your caller ID</label>
+            <select id="softphoneCallerIdSelect" class="softphone-caller-id-select w-full min-w-0 bg-transparent border-0 p-0 text-[1.35rem] font-semibold tabular-nums text-slate-800 dark:text-white focus:outline-none focus:ring-0 appearance-none cursor-pointer" aria-label="Caller ID shown to leads">
+              <option value="">—</option>
+            </select>
+            <p class="mt-1.5 text-[10px] text-slate-500 dark:text-slate-400 leading-snug" id="softphoneCallingFromLine">Outbound line for this call</p>
+            <div id="softphoneCallerIdMobileWrap" class="hidden mt-2 space-y-2">
+              <label for="softphoneCallerIdMobile" class="text-[10px] font-bold uppercase tracking-wide text-slate-500">Your mobile number</label>
+              <input type="tel" id="softphoneCallerIdMobile" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-slate-800 dark:text-white" placeholder="+15551234567" autocomplete="tel" />
+              <button type="button" id="softphoneCallerIdMobileSave" class="w-full rounded-xl border border-brand-yellow/60 bg-brand-yellow/15 px-3 py-2 text-[10px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Use my mobile as caller ID</button>
+              <p id="softphoneCallerIdMobileHint" class="text-[10px] text-slate-500 dark:text-slate-400 leading-snug"></p>
+            </div>
             <p id="softphoneOutboundMeta" class="hidden sr-only">Current outbound: —</p>
             <a href="https://id.signalwire.com/" target="_blank" rel="noopener noreferrer" class="sr-only">Buy number</a>
           </div>

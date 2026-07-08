@@ -739,6 +739,26 @@ function resolveAgentFirstNumber(ws) {
   return signalwire.normalizePhone(telephony.agentPhone || '');
 }
 
+function resolveLeadCallerId(ws) {
+  if (!ws || typeof ws !== 'object') return '';
+  const telephony = ws.telephony && typeof ws.telephony === 'object' ? ws.telephony : {};
+  const bank = workspaceCallerNumbers(ws);
+  const agent = resolveAgentFirstNumber(ws);
+  const preferred = signalwire.normalizePhone(telephony.leadCallerId || '');
+  if (preferred && (bank.includes(preferred) || (agent && preferred === agent))) {
+    return preferred;
+  }
+  return resolveWorkspaceCallerNumber(ws);
+}
+
+function resolveRequestedLeadCallerId(ws, requested) {
+  const bank = workspaceCallerNumbers(ws);
+  const agent = resolveAgentFirstNumber(ws);
+  const picked = signalwire.normalizePhone(requested || '');
+  if (picked && (bank.includes(picked) || (agent && picked === agent))) return picked;
+  return resolveLeadCallerId(ws);
+}
+
 async function buildContactedStagePatch(lead, workspaceId) {
   if (!lead || !workspaceId) return {};
   const status = String(lead.status || '').toLowerCase();
@@ -1372,12 +1392,17 @@ router.post('/:key/call', async (req, res, next) => {
     if (!fromPick.allowed) {
       return res.status(429).json({ success: false, error: fromPick.reason || 'Dial pacing blocked this call.' });
     }
+    const leadCallerId = resolveRequestedLeadCallerId(
+      ws,
+      req.body && (req.body.leadCallerId || req.body.callerId),
+    );
     const call = await signalwire.createLeadCall({
       to: normalizedTo,
       leadKey: fullKey,
       workspaceId: req.workspaceId,
       action: 'call',
       from: fromPick.from,
+      leadCallerId,
       agentFirst: callMode === 'agent_first',
       agentTo: callMode === 'agent_first' ? resolveAgentFirstNumber(ws) : undefined,
       session: callMode === 'agent_first',  // enable continuous session for agent-first mode
@@ -1423,7 +1448,7 @@ router.post('/:key/call', async (req, res, next) => {
     res.json({
       success: true,
       callSid: call.sid || null,
-      callerId: fromPick.from,
+      callerId: leadCallerId || fromPick.from,
       lead: updatedLead,
       sessionActive: callMode === 'agent_first',
     });
@@ -1451,6 +1476,7 @@ router.get('/telephony/call-options', async (req, res, next) => {
       success: true,
       options: numbers,
       activeFromNumber: resolveWorkspaceCallerNumber(ws),
+      leadCallerId: resolveLeadCallerId(ws),
       callMode,
       agentPhone: resolveAgentFirstNumber(ws) || null,
       relayWebrtcAvailable:
@@ -1755,6 +1781,10 @@ router.post('/telephony/dial', async (req, res, next) => {
     if (!fromPick.allowed) {
       return res.status(429).json({ success: false, error: fromPick.reason || 'Dial pacing blocked this call.' });
     }
+    const leadCallerId = resolveRequestedLeadCallerId(
+      ws,
+      req.body && (req.body.leadCallerId || req.body.callerId),
+    );
     const call = await signalwire.createLeadCall({
       to,
       leadKey: fullLeadKey,
@@ -1762,6 +1792,7 @@ router.post('/telephony/dial', async (req, res, next) => {
       action,
       voicemailAudioUrl: action === 'voicemail_drop' ? voicemailAudioUrl : '',
       from: fromPick.from,
+      leadCallerId,
       agentFirst: useAgent,
       agentTo: useAgent ? resolveAgentFirstNumber(ws) : undefined,
     });
@@ -1786,7 +1817,7 @@ router.post('/telephony/dial', async (req, res, next) => {
       dialMode: useAgent ? 'agent_first' : 'cloud_dial',
       callSid: call.sid || null,
       action,
-      callerId: fromPick.from,
+      callerId: leadCallerId || fromPick.from,
       lead: updatedLead && action === 'call' ? updatedLead : undefined,
     });
   } catch (err) {

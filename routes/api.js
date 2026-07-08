@@ -688,7 +688,10 @@ router.all('/telephony/voice/twiml', async (req, res) => {
             '<?xml version="1.0" encoding="UTF-8"?><Response><Say>Missing destination number.</Say><Hangup/></Response>',
           );
       }
-      const callerId = bridgeFrom || String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim();
+      const callerId =
+        signalwire.normalizePhone(q.leadCallerId || '') ||
+        bridgeFrom ||
+        String(process.env.SIGNALWIRE_FROM_NUMBER || '').trim();
       const workspaceId = String(q.workspaceId || '').trim();
       const isSession = String(q.session || '').trim() === '1';
 

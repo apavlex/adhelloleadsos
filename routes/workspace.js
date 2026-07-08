@@ -894,6 +894,7 @@ router.post('/settings', express.json(), async (req, res) => {
         Object.prototype.hasOwnProperty.call(req.body, 'phoneBankEntries') ||
         Object.prototype.hasOwnProperty.call(req.body, 'callMode') ||
         Object.prototype.hasOwnProperty.call(req.body, 'agentPhone') ||
+        Object.prototype.hasOwnProperty.call(req.body, 'leadCallerId') ||
         Object.prototype.hasOwnProperty.call(req.body, 'perNumberHourCap') ||
         Object.prototype.hasOwnProperty.call(req.body, 'quietHoursStart') ||
         Object.prototype.hasOwnProperty.call(req.body, 'quietHoursEnd'))
@@ -938,6 +939,33 @@ router.post('/settings', express.json(), async (req, res) => {
               .json({ success: false, error: 'Agent phone must be a valid E.164 number (e.g. +15551234567).' });
           }
           telephony.agentPhone = n;
+        }
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body, 'leadCallerId')) {
+        const raw = String(req.body.leadCallerId || '').trim();
+        if (!raw) {
+          telephony.leadCallerId = '';
+        } else {
+          const n = signalwire.normalizePhone(req.body.leadCallerId);
+          if (!n) {
+            return res
+              .status(400)
+              .json({ success: false, error: 'Caller ID must be a valid E.164 number (e.g. +15551234567).' });
+          }
+          const bank = numberListFromEntries(
+            Array.isArray(telephony.numberBankEntries) ? telephony.numberBankEntries : [],
+          );
+          const agent = signalwire.normalizePhone(telephony.agentPhone || '');
+          if (!bank.includes(n) && (!agent || n !== agent)) {
+            return res.status(400).json({
+              success: false,
+              error: 'Caller ID must be your mobile (agent phone) or a number in the workspace phone bank.',
+            });
+          }
+          telephony.leadCallerId = n;
+          if (bank.includes(n)) {
+            telephony.activeFromNumber = n;
+          }
         }
       }
       if (Object.prototype.hasOwnProperty.call(req.body, 'perNumberHourCap')) {

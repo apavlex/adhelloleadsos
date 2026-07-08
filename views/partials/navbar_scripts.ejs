@@ -199,6 +199,13 @@
   var spWorkspaceCallMode = 'cloud_dial';
   var spDefaultFrom = '';
   var spActiveFrom = '';
+  var spLeadCallerId = '';
+  var spAgentPhoneCached = '';
+  var spCallerIdSelect = document.getElementById('softphoneCallerIdSelect');
+  var spCallerIdMobileWrap = document.getElementById('softphoneCallerIdMobileWrap');
+  var spCallerIdMobile = document.getElementById('softphoneCallerIdMobile');
+  var spCallerIdMobileSave = document.getElementById('softphoneCallerIdMobileSave');
+  var spCallerIdMobileHint = document.getElementById('softphoneCallerIdMobileHint');
   var softphoneSession = {
     state: 'idle',
     muted: false,
@@ -2102,20 +2109,115 @@
       });
     });
   }
+  function softphoneTrunkFromNumber() {
+    var picked = spFrom && spFrom.value ? String(spFrom.value).trim() : '';
+    return picked || spActiveFrom || spDefaultFrom || '';
+  }
+
+  function renderSoftphoneCallerIdSelect(agentPhone, bankNumbers, selectedLeadCallerId) {
+    if (!spCallerIdSelect) return;
+    var agent = normalizeDial(agentPhone || spAgentPhoneCached || '');
+    var bank = Array.isArray(bankNumbers) ? bankNumbers : [];
+    var seen = {};
+    var selected = normalizeDial(selectedLeadCallerId || spLeadCallerId || spActiveFrom || spDefaultFrom || '');
+    spCallerIdSelect.innerHTML = '';
+    if (agent) {
+      var optMobile = document.createElement('option');
+      optMobile.value = agent;
+      optMobile.textContent = 'My mobile · ' + formatCallerIdDisplay(agent);
+      spCallerIdSelect.appendChild(optMobile);
+      seen[agent] = true;
+    }
+    bank.forEach(function (n) {
+      var v = normalizeDial(n);
+      if (!v || seen[v]) return;
+      seen[v] = true;
+      var opt = document.createElement('option');
+      opt.value = v;
+      opt.textContent = formatCallerIdDisplay(v);
+      spCallerIdSelect.appendChild(opt);
+    });
+    var optCustom = document.createElement('option');
+    optCustom.value = '__set_mobile__';
+    optCustom.textContent = agent ? 'Change my mobile…' : 'Use my mobile…';
+    spCallerIdSelect.appendChild(optCustom);
+    if (selected && seen[selected]) {
+      spCallerIdSelect.value = selected;
+      spLeadCallerId = selected;
+    } else if (agent) {
+      spCallerIdSelect.value = agent;
+      spLeadCallerId = agent;
+    } else if (bank.length) {
+      var first = normalizeDial(bank[0]);
+      spCallerIdSelect.value = first;
+      spLeadCallerId = first;
+    } else {
+      spCallerIdSelect.value = '';
+      spLeadCallerId = '';
+    }
+    if (spCallerIdMobileWrap) {
+      spCallerIdMobileWrap.classList.toggle('hidden', spCallerIdSelect.value !== '__set_mobile__');
+    }
+  }
+
+  function saveSoftphoneLeadCallerId(nextId, opts) {
+    opts = opts || {};
+    var normalized = normalizeDial(nextId);
+    if (!normalized) return Promise.resolve();
+    var trunk = softphoneTrunkFromNumber();
+    var body = { leadCallerId: normalized };
+    if (opts.alsoAgentPhone) body.agentPhone = normalized;
+    return fetch('/workspace/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.j || !res.j.success) {
+          throw new Error((res.j && res.j.error) || 'Could not save caller ID.');
+        }
+        spLeadCallerId = normalized;
+        if (opts.alsoAgentPhone) {
+          spAgentPhoneCached = normalized;
+          if (spAgentPhone) spAgentPhone.value = normalized;
+        }
+        if (spFrom && Array.isArray(spSignalwireNumbers) && spSignalwireNumbers.includes(normalized)) {
+          spFrom.value = normalized;
+          spActiveFrom = normalized;
+        }
+        updateSoftphoneOutboundMeta();
+        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Saved.';
+      });
+  }
+
   function updateSoftphoneOutboundMeta() {
     if (!spOutboundMeta) return;
-    var picked = spFrom && spFrom.value ? String(spFrom.value).trim() : '';
-    var current = picked || spActiveFrom || spDefaultFrom || '';
-    spOutboundMeta.textContent = 'Current outbound: ' + (current || '—');
+    var trunk = softphoneTrunkFromNumber();
+    var display = spLeadCallerId || trunk || '';
+    spOutboundMeta.textContent = 'Current outbound: ' + (display || '—');
     var line = document.getElementById('softphoneCallingFromLine');
     if (line) {
-      line.textContent = current
-        ? 'Outbound line for this call'
-        : 'Set a default in Workspace → Phone bank';
+      if (display && trunk && display !== trunk) {
+        line.textContent =
+          'Leads see ' +
+          formatCallerIdDisplay(display) +
+          ' · outbound via ' +
+          formatCallerIdDisplay(trunk);
+      } else if (trunk) {
+        line.textContent = 'Outbound line for this call';
+      } else {
+        line.textContent = 'Set a default in Workspace → Phone bank';
+      }
     }
-    var numEl = document.getElementById('softphoneCallingFromNumber');
-    if (numEl) {
-      numEl.textContent = current ? formatCallerIdDisplay(current) : '—';
+    if (spCallerIdSelect && spCallerIdSelect.value !== '__set_mobile__') {
+      var current = normalizeDial(spLeadCallerId || trunk);
+      if (current) {
+        var hasOpt = Array.prototype.some.call(spCallerIdSelect.options, function (o) {
+          return o.value === current;
+        });
+        if (hasOpt) spCallerIdSelect.value = current;
+      }
     }
   }
   function softphoneModeDescription(mode, hasRelayWebrtc) {
@@ -2839,6 +2941,8 @@
           : [];
         spDefaultFrom = String(res.j.defaultFromNumber || '').trim();
         spActiveFrom = String(res.j.activeFromNumber || '').trim();
+        spLeadCallerId = String(res.j.leadCallerId || res.j.activeFromNumber || '').trim();
+        spAgentPhoneCached = res.j.agentPhone != null ? String(res.j.agentPhone || '').trim() : '';
         if (res.j && res.j.callMode) spWorkspaceCallMode = String(res.j.callMode).trim() || 'cloud_dial';
         window.__adhelloTelephonySnapshot = {
           ts: Date.now(),
@@ -2846,6 +2950,7 @@
           agentPhone: res.j.agentPhone != null ? String(res.j.agentPhone).trim() : '',
           options: Array.isArray(res.j.options) ? res.j.options : [],
           activeFromNumber: String(res.j.activeFromNumber || '').trim(),
+          leadCallerId: String(res.j.leadCallerId || '').trim(),
           defaultFromNumber: String(res.j.defaultFromNumber || '').trim(),
           relayWebrtcAvailable: !!res.j.relayWebrtcAvailable,
         };
@@ -2853,8 +2958,10 @@
         if (spAgentPhone && res.j.agentPhone != null) {
           spAgentPhone.value = String(res.j.agentPhone || '').trim();
         }
+        var bankOptions = Array.isArray(res.j.options) ? res.j.options : [];
+        renderSoftphoneCallerIdSelect(spAgentPhoneCached, bankOptions, spLeadCallerId);
         if (!spFrom) return;
-        var options = Array.isArray(res.j.options) ? res.j.options : [];
+        var options = bankOptions;
         var active = String(res.j.activeFromNumber || '').trim();
         spFrom.innerHTML = '';
         var d = document.createElement('option');
@@ -3052,6 +3159,7 @@
     var body = { to: to, action: action };
     if (opts && opts.forceCloudVoicemail) body.forceCloudVoicemail = true;
     if (softphoneSession.leadKey) body.leadKey = softphoneSession.leadKey;
+    if (spLeadCallerId) body.leadCallerId = spLeadCallerId;
     if (spFrom && spFrom.value) body.fromNumber = spFrom.value;
     softphoneSession.isCloudPstn = false;
     return fetch('/leads/telephony/dial', {
@@ -3349,7 +3457,6 @@
   var spBackspace = document.getElementById('softphoneBackspaceBtn');
   var spPin = document.getElementById('softphonePinBtn');
   var spExpand = document.getElementById('softphoneExpandBtn');
-  var spChangeFrom = document.getElementById('softphoneChangeFromBtn');
   var spOpenAddLead = document.getElementById('softphoneOpenAddLead');
   var spQueueList = document.getElementById('softphoneQueueList');
   var spQueueMeta = document.getElementById('softphoneQueueMeta');
@@ -3804,9 +3911,46 @@
     });
   }
 
-  if (spChangeFrom) {
-    spChangeFrom.addEventListener('click', openSoftphoneSettingsTab);
+  if (spCallerIdSelect) {
+    spCallerIdSelect.addEventListener('change', function () {
+      var val = String(spCallerIdSelect.value || '').trim();
+      if (val === '__set_mobile__') {
+        if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.remove('hidden');
+        if (spCallerIdMobile) {
+          spCallerIdMobile.value = spAgentPhoneCached || '';
+          spCallerIdMobile.focus();
+        }
+        if (spCallerIdMobileHint) {
+          spCallerIdMobileHint.textContent = 'Enter your cell — leads see this on agent-first calls.';
+        }
+        return;
+      }
+      if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
+      if (!val) return;
+      saveSoftphoneLeadCallerId(val).catch(function (err) {
+        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = (err && err.message) || 'Could not save caller ID.';
+      });
+    });
   }
+  if (spCallerIdMobileSave && spCallerIdMobile) {
+    spCallerIdMobileSave.addEventListener('click', function () {
+      var mobile = normalizeDial(spCallerIdMobile.value || '');
+      if (!mobile) {
+        if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Enter a valid mobile number (e.g. +15551234567).';
+        return;
+      }
+      if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = 'Saving…';
+      saveSoftphoneLeadCallerId(mobile, { alsoAgentPhone: true })
+        .then(function () {
+          renderSoftphoneCallerIdSelect(mobile, spSignalwireNumbers, mobile);
+          if (spCallerIdMobileWrap) spCallerIdMobileWrap.classList.add('hidden');
+        })
+        .catch(function (err) {
+          if (spCallerIdMobileHint) spCallerIdMobileHint.textContent = (err && err.message) || 'Could not save mobile.';
+        });
+    });
+  }
+
   var spModeSettingsLink = document.getElementById('softphoneModeSettingsLink');
   if (spModeSettingsLink) {
     spModeSettingsLink.addEventListener('click', openSoftphoneSettingsTab);
@@ -3969,6 +4113,8 @@
           if (!res.ok || !res.j || !res.j.success) {
             throw new Error((res.j && res.j.error) || 'Could not save agent phone.');
           }
+          spAgentPhoneCached = normalizeDial(spAgentPhone.value || '');
+          renderSoftphoneCallerIdSelect(spAgentPhoneCached, spSignalwireNumbers, spLeadCallerId);
           if (hint) {
             hint.textContent = 'Your phone rings first; when you answer, the lead is connected.';
           }

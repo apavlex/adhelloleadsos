@@ -460,6 +460,7 @@ async function createLeadCall(opts) {
         agentFirst: '1',
         dialTo: leadTo,
         bridgeFrom: from,
+        leadCallerId: normalizePhone(opts && opts.leadCallerId) || from,
         session: (opts && opts.session) ? '1' : undefined,
       })
     : buildAppUrl('/api/telephony/voice/twiml', {
