@@ -19,7 +19,7 @@ const {
 } = require('../services/leadListFilters');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
-const { buildFolderTree, buildFolderPickerTree, folderKeysIncludingDescendants } = require('../services/folderTree');
+const { buildFolderTree, buildFolderPickerTree, folderKeysIncludingDescendants, buildFolderAggregateCounts } = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
@@ -202,6 +202,17 @@ router.get('/', async (req, res, next) => {
     const folderListLeads = safeTab === 'folders' ? visible.map(mapLeadListJson) : [];
     const leadBootstrapLeads = safeTab === 'pipeline' ? leads.map(mapLeadPipelineBootstrap) : [];
 
+    const directFolderCounts = {};
+    if (safeTab === 'folders') {
+      for (const lead of visible) {
+        const fk = String(lead.folderKey || '').trim();
+        if (!fk) continue;
+        directFolderCounts[fk] = (directFolderCounts[fk] || 0) + 1;
+      }
+    }
+    const folderAggregateCounts =
+      safeTab === 'folders' ? buildFolderAggregateCounts(folderTree, directFolderCounts) : {};
+
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const scriptLibraryOfferPicklist = SCRIPT_LIBRARY_KEYS.map((k) => ({
@@ -232,6 +243,7 @@ router.get('/', async (req, res, next) => {
       isBusinessesView,
       folders,
       folderTree,
+      folderAggregateCounts,
       folderPickerTree,
       tradeFolderCount: TRADE_FOLDERS.length,
       tags,

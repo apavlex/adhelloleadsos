@@ -363,6 +363,33 @@ function groupLeadTotal(children, countsByKey, rootKey) {
   return total;
 }
 
+/**
+ * Lead counts per folder key, including all nested subfolders.
+ * @param {ReturnType<typeof buildFolderTree>} folderTree
+ * @param {Record<string, number>} countsByKey — direct leads per folder key
+ */
+function buildFolderAggregateCounts(folderTree, countsByKey) {
+  const out = {};
+  function record(folder, children) {
+    if (!folder || !folder.key) return;
+    const key = String(folder.key);
+    out[key] = groupLeadTotal(children || [], countsByKey, key);
+    for (const child of children || []) {
+      record(child, child.children || []);
+    }
+  }
+  for (const group of folderTree?.groups || []) {
+    if (group.folder) {
+      record(group.folder, group.children || []);
+      continue;
+    }
+    for (const child of group.children || []) {
+      record(child, child.children || []);
+    }
+  }
+  return out;
+}
+
 module.exports = {
   SYSTEM_JOB_ORDER,
   OTHER_GROUP_KEY,
@@ -376,4 +403,5 @@ module.exports = {
   groupLeadTotal,
   flattenFolderRows,
   sumNestedLeadCounts,
+  buildFolderAggregateCounts,
 };

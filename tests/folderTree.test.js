@@ -80,6 +80,22 @@ test('buildFolderPickerTree nests children for collapsible picker', () => {
   assert.equal(biz.children[0].children[0].name, 'Electricians PDX');
 });
 
+test('buildFolderAggregateCounts includes nested subfolder leads', () => {
+  const { buildFolderAggregateCounts } = require('../services/folderTree');
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'sub:land', name: 'Landscaping', parentFolderKey: 'root:biz', isTradeFolder: true, tradeSlug: 'landscaping' },
+    { key: 'custom:1', name: 'Landscaper', parentFolderKey: 'sub:land', jobType: 'maps_business' },
+    { key: 'custom:2', name: 'Landscaping Vancouver', parentFolderKey: 'sub:land', jobType: 'maps_business' },
+  ]);
+  const direct = { 'custom:1': 11, 'custom:2': 119 };
+  const agg = buildFolderAggregateCounts(tree, direct);
+  assert.equal(agg['sub:land'], 130);
+  assert.equal(agg['custom:1'], 11);
+  assert.equal(agg['custom:2'], 119);
+  assert.equal(agg['root:biz'], 130);
+});
+
 test('folderKeysIncludingDescendants includes nested subfolders', () => {
   const { folderKeysIncludingDescendants } = require('../services/folderTree');
   const tree = buildFolderTree([
