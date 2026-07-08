@@ -53,7 +53,7 @@
         <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
           <div>
             <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">Design studio</h2>
-            <p class="text-xs text-brand-muted max-w-xl">Chat to shape your postcard art, then generate with <a href="https://kie.ai/gpt-image-2" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">KIE GPT Image 2</a>. 4×6 postcards use a 2:3 aspect ratio.</p>
+            <p class="text-xs text-brand-muted max-w-xl">Create ad images for Instagram, Facebook, LinkedIn, Google Display, YouTube, or 4×6 postcards. Chat to shape your creative, then generate with <a href="https://kie.ai/gpt-image-2" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">KIE GPT Image 2</a>.</p>
           </div>
           <% if (!kieImageReady) { %>
           <span class="inline-flex rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest">KIE key not set</span>
@@ -62,27 +62,105 @@
           <% } %>
         </div>
 
+        <details id="dmBrandKitPanel" class="mb-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-950/30" open>
+          <summary class="cursor-pointer select-none px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Business info for ads</summary>
+          <div class="px-3 pb-3 pt-1 space-y-3 border-t border-brand-border/20 dark:border-white/10">
+            <p class="text-[11px] text-brand-muted leading-snug">Saved for this workspace — included in AI prompts and on generated ads (phone, website, hours, logo, etc.).</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandName">Business name</label>
+                <input id="dmBrandName" type="text" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Acme Plumbing LLC" value="<%= (brandKit && brandKit.businessName) || '' %>" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandPhone">Phone</label>
+                <input id="dmBrandPhone" type="tel" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="(555) 123-4567" value="<%= (brandKit && brandKit.phone) || '' %>" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandEmail">Email</label>
+                <input id="dmBrandEmail" type="email" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="hello@business.com" value="<%= (brandKit && brandKit.email) || '' %>" />
+              </div>
+              <div>
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandWebsite">Website</label>
+                <input id="dmBrandWebsite" type="url" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="https://business.com" value="<%= (brandKit && brandKit.website) || '' %>" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandAddress">Address</label>
+                <input id="dmBrandAddress" type="text" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="123 Main St, Portland, OR 97201" value="<%= (brandKit && brandKit.address) || '' %>" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandHours">Business hours</label>
+                <input id="dmBrandHours" type="text" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Mon–Fri 8am–6pm, Sat 9am–2pm" value="<%= (brandKit && brandKit.hours) || '' %>" />
+              </div>
+            </div>
+            <div class="flex flex-wrap items-start gap-3">
+              <div class="shrink-0">
+                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Logo</p>
+                <div id="dmBrandLogoPreview" class="w-16 h-16 rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-900 flex items-center justify-center overflow-hidden">
+                  <% if (brandKit && brandKit.logoUrl) { %>
+                  <img src="<%= brandKit.logoUrl %>" alt="Business logo" class="max-w-full max-h-full object-contain" />
+                  <% } else { %>
+                  <span class="text-[9px] text-brand-muted px-1 text-center">No logo</span>
+                  <% } %>
+                </div>
+              </div>
+              <div class="flex-1 min-w-[12rem] space-y-2">
+                <label class="inline-flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
+                  <input type="checkbox" id="dmBrandUseLogo" class="rounded border-brand-border" <%= (!brandKit || brandKit.useLogoInDesign !== false) ? 'checked' : '' %> />
+                  Use logo in AI designs (image-to-image reference)
+                </label>
+                <div class="flex flex-wrap items-center gap-2">
+                  <label class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2 cursor-pointer hover:border-brand-yellow/50 transition-colors">
+                    Upload logo
+                    <input type="file" id="dmBrandLogoInput" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml" class="hidden" />
+                  </label>
+                  <button type="button" id="dmBrandSaveBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2">Save info</button>
+                </div>
+                <p id="dmBrandSaveStatus" class="text-[10px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
+              </div>
+            </div>
+          </div>
+        </details>
+
         <div id="dmChatLog" class="flex-1 min-h-[14rem] max-h-[22rem] overflow-y-auto custom-scrollbar space-y-3 rounded-xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-950/40 p-3 mb-3" aria-live="polite">
           <div class="text-sm text-brand-muted leading-relaxed">
-            Describe the look you want — brand colors, photo vs illustration, headline placement. Ask for a prompt, then hit <strong class="text-brand-dark dark:text-white">Generate</strong>.
+            Pick a platform and ratio, add business info above, then describe the look you want. Ask for a prompt, then hit <strong class="text-brand-dark dark:text-white">Generate</strong>.
           </div>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 mb-3">
-          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted" for="dmDesignSlot">Side</label>
-          <select id="dmDesignSlot" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold">
-            <option value="front">Front (main creative)</option>
-            <option value="back">Back (minimal / return)</option>
+          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted" for="dmPlatform">Platform</label>
+          <select id="dmPlatform" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold max-w-[11rem]">
+            <option value="postcard" selected>4×6 Postcard</option>
+            <option value="instagram_feed">Instagram Feed</option>
+            <option value="instagram_story">Instagram Story / Reels</option>
+            <option value="instagram_portrait">Instagram Portrait</option>
+            <option value="facebook_feed">Facebook Feed</option>
+            <option value="facebook_cover">Facebook Cover</option>
+            <option value="facebook_story">Facebook Story</option>
+            <option value="linkedin_post">LinkedIn Post</option>
+            <option value="linkedin_banner">LinkedIn Banner</option>
+            <option value="google_display">Google Display</option>
+            <option value="youtube_thumb">YouTube Thumbnail</option>
+            <option value="custom">Custom ratio</option>
           </select>
-          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-2" for="dmAspectRatio">Ratio</label>
+          <span id="dmSideWrap" class="inline-flex items-center gap-2">
+            <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-1" for="dmDesignSlot">Side</label>
+            <select id="dmDesignSlot" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold">
+              <option value="front">Front (main creative)</option>
+              <option value="back">Back (minimal / return)</option>
+            </select>
+          </span>
+          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-1" for="dmAspectRatio">Ratio</label>
           <select id="dmAspectRatio" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold">
             <option value="2:3" selected>2:3 (4×6 postcard)</option>
-            <option value="3:2">3:2</option>
-            <option value="1:1">1:1</option>
-            <option value="16:9">16:9</option>
+            <option value="3:2">3:2 (landscape)</option>
+            <option value="1:1">1:1 (square)</option>
+            <option value="4:5">4:5 (portrait)</option>
+            <option value="9:16">9:16 (story / reels)</option>
+            <option value="16:9">16:9 (wide)</option>
             <option value="auto">Auto</option>
           </select>
-          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-2" for="dmResolution">Quality</label>
+          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-1" for="dmResolution">Quality</label>
           <select id="dmResolution" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold">
             <option value="1K">1K</option>
             <option value="2K" selected>2K</option>
@@ -102,11 +180,11 @@
 
       <div class="brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10 flex flex-col">
         <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">Preview</h2>
-        <p class="text-xs text-brand-muted mb-3">Generated art for this session. Check a side to include when sending.</p>
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div>
+        <p id="dmPreviewHint" class="text-xs text-brand-muted mb-3">Generated art for this session. Check a side to include when sending postcards.</p>
+        <div id="dmPreviewGrid" class="grid grid-cols-2 gap-3 mb-4">
+          <div id="dmPreviewFrontCol">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Front</p>
-            <button type="button" id="dmPreviewFrontBtn" class="dm-preview-btn group w-full aspect-[2/3] rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" data-slot="front" aria-label="View front design">
+            <button type="button" id="dmPreviewFrontBtn" class="dm-preview-btn group w-full rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" style="aspect-ratio:2/3" data-slot="front" aria-label="View front design">
               <div id="dmPreviewFront" class="absolute inset-0 flex items-center justify-center">
                 <span class="text-[10px] text-brand-muted px-2 text-center">No front yet</span>
               </div>
@@ -120,9 +198,9 @@
               <button type="button" id="dmSaveFront" class="hidden text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-slot="front">Save</button>
             </div>
           </div>
-          <div>
+          <div id="dmPreviewBackCol">
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Back</p>
-            <button type="button" id="dmPreviewBackBtn" class="dm-preview-btn group w-full aspect-[2/3] rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" data-slot="back" aria-label="View back design">
+            <button type="button" id="dmPreviewBackBtn" class="dm-preview-btn group w-full rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" style="aspect-ratio:2/3" data-slot="back" aria-label="View back design">
               <div id="dmPreviewBack" class="absolute inset-0 flex items-center justify-center">
                 <span class="text-[10px] text-brand-muted px-2 text-center">No back yet</span>
               </div>
@@ -267,6 +345,7 @@
     </div>
   </div>
 
+  <script type="application/json" id="dm-brand-kit-json"><%- typeof brandKitJson !== 'undefined' ? brandKitJson : '{}' %></script>
   <script src="/js/direct-mail.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 </body>
 </html>

@@ -11,6 +11,222 @@
   var lightboxSlot = 'front';
   var DM_SAVED_KEY = 'adhello_dm_saved_designs';
   var DM_SAVED_MAX = 24;
+  var brandKit = {
+    businessName: '',
+    address: '',
+    phone: '',
+    hours: '',
+    website: '',
+    email: '',
+    logoUrl: '',
+    useLogoInDesign: true,
+  };
+  var brandKitSaveTimer = null;
+
+  var DM_PLATFORMS = {
+    postcard: { label: '4×6 Postcard', aspectRatio: '2:3', dualSided: true },
+    instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false },
+    instagram_story: { label: 'Instagram Story / Reels', aspectRatio: '9:16', dualSided: false },
+    instagram_portrait: { label: 'Instagram Portrait', aspectRatio: '4:5', dualSided: false },
+    facebook_feed: { label: 'Facebook Feed', aspectRatio: '1:1', dualSided: false },
+    facebook_cover: { label: 'Facebook Cover', aspectRatio: '16:9', dualSided: false },
+    facebook_story: { label: 'Facebook Story', aspectRatio: '9:16', dualSided: false },
+    linkedin_post: { label: 'LinkedIn Post', aspectRatio: '1:1', dualSided: false },
+    linkedin_banner: { label: 'LinkedIn Banner', aspectRatio: '16:9', dualSided: false },
+    google_display: { label: 'Google Display', aspectRatio: '16:9', dualSided: false },
+    youtube_thumb: { label: 'YouTube Thumbnail', aspectRatio: '16:9', dualSided: false },
+    custom: { label: 'Custom ratio', aspectRatio: null, dualSided: false },
+  };
+
+  try {
+    var brandKitEl = document.getElementById('dm-brand-kit-json');
+    if (brandKitEl) {
+      var parsedKit = JSON.parse(brandKitEl.textContent || '{}');
+      brandKit = Object.assign(brandKit, parsedKit || {});
+    }
+  } catch (_) {}
+
+  function aspectRatioToCss(ratio) {
+    var r = String(ratio || '2:3').trim();
+    if (r === '1:1') return '1 / 1';
+    if (r === '16:9') return '16 / 9';
+    if (r === '9:16') return '9 / 16';
+    if (r === '4:5') return '4 / 5';
+    if (r === '3:2') return '3 / 2';
+    if (r === 'auto') return '2 / 3';
+    return '2 / 3';
+  }
+
+  function currentPlatformKey() {
+    var el = document.getElementById('dmPlatform');
+    var key = el && el.value ? String(el.value).trim() : 'postcard';
+    return DM_PLATFORMS[key] ? key : 'custom';
+  }
+
+  function currentAspectRatio() {
+    var ratioEl = document.getElementById('dmAspectRatio');
+    return (ratioEl && ratioEl.value) || '2:3';
+  }
+
+  function applyPlatformPreset(platformKey) {
+    var preset = DM_PLATFORMS[platformKey] || DM_PLATFORMS.custom;
+    var ratioEl = document.getElementById('dmAspectRatio');
+    var sideWrap = document.getElementById('dmSideWrap');
+    var backCol = document.getElementById('dmPreviewBackCol');
+    var previewGrid = document.getElementById('dmPreviewGrid');
+    var previewHint = document.getElementById('dmPreviewHint');
+    var ratio = preset.aspectRatio;
+
+    if (ratio && ratioEl) {
+      ratioEl.value = ratio;
+      var hasOpt = Array.prototype.some.call(ratioEl.options, function (o) {
+        return o.value === ratio;
+      });
+      if (!hasOpt) ratioEl.value = 'auto';
+    }
+
+    if (sideWrap) sideWrap.classList.toggle('hidden', !preset.dualSided);
+    if (backCol) backCol.classList.toggle('hidden', !preset.dualSided);
+    if (previewGrid) {
+      previewGrid.classList.toggle('grid-cols-1', !preset.dualSided);
+      previewGrid.classList.toggle('grid-cols-2', !!preset.dualSided);
+    }
+    if (previewHint) {
+      previewHint.textContent = preset.dualSided
+        ? 'Generated art for this session. Check a side to include when sending postcards.'
+        : 'Generated ' + preset.label + ' creative. Download from preview or save to library.';
+    }
+
+    updatePreviewAspectRatio();
+  }
+
+  function updatePreviewAspectRatio() {
+    var css = aspectRatioToCss(currentAspectRatio());
+    ['dmPreviewFrontBtn', 'dmPreviewBackBtn'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn) btn.style.aspectRatio = css;
+    });
+  }
+
+  function readBrandKitFromForm() {
+    return {
+      businessName: String((document.getElementById('dmBrandName') || {}).value || '').trim(),
+      phone: String((document.getElementById('dmBrandPhone') || {}).value || '').trim(),
+      email: String((document.getElementById('dmBrandEmail') || {}).value || '').trim(),
+      website: String((document.getElementById('dmBrandWebsite') || {}).value || '').trim(),
+      address: String((document.getElementById('dmBrandAddress') || {}).value || '').trim(),
+      hours: String((document.getElementById('dmBrandHours') || {}).value || '').trim(),
+      logoUrl: String(brandKit.logoUrl || '').trim(),
+      useLogoInDesign: !((document.getElementById('dmBrandUseLogo') || {}).checked === false),
+    };
+  }
+
+  function setBrandSaveStatus(text, ok) {
+    var el = document.getElementById('dmBrandSaveStatus');
+    if (!el) return;
+    el.textContent = String(text || '');
+    el.classList.toggle('text-emerald-700', !!ok);
+    el.classList.toggle('dark:text-emerald-300', !!ok);
+    el.classList.toggle('text-rose-700', ok === false);
+    el.classList.toggle('dark:text-rose-300', ok === false);
+  }
+
+  function renderBrandLogoPreview(url) {
+    var box = document.getElementById('dmBrandLogoPreview');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!url) {
+      var span = document.createElement('span');
+      span.className = 'text-[9px] text-brand-muted px-1 text-center';
+      span.textContent = 'No logo';
+      box.appendChild(span);
+      return;
+    }
+    var img = document.createElement('img');
+    img.src = url;
+    img.alt = 'Business logo';
+    img.className = 'max-w-full max-h-full object-contain';
+    box.appendChild(img);
+  }
+
+  function scheduleBrandKitSave() {
+    clearTimeout(brandKitSaveTimer);
+    brandKitSaveTimer = setTimeout(saveBrandKitFields, 1200);
+  }
+
+  async function saveBrandKitFields() {
+    var payload = readBrandKitFromForm();
+    setBrandSaveStatus('Saving…', true);
+    try {
+      var res = await fetch('/direct-mail/api/brand-kit', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not save business info.');
+      brandKit = Object.assign(brandKit, data.brandKit || payload);
+      setBrandSaveStatus('Saved', true);
+    } catch (e) {
+      setBrandSaveStatus((e && e.message) || 'Save failed', false);
+    }
+  }
+
+  async function uploadBrandLogo(file) {
+    if (!file) return;
+    setBrandSaveStatus('Uploading logo…', true);
+    var fd = new FormData();
+    fd.append('logo', file);
+    try {
+      var res = await fetch('/direct-mail/api/brand-kit/logo', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: fd,
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Logo upload failed.');
+      brandKit = Object.assign(brandKit, data.brandKit || {});
+      renderBrandLogoPreview(brandKit.logoUrl);
+      setBrandSaveStatus('Logo uploaded', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Logo uploaded', { variant: 'success' });
+      }
+    } catch (e) {
+      setBrandSaveStatus((e && e.message) || 'Logo upload failed', false);
+    }
+  }
+
+  function bindBrandKitUi() {
+    document.querySelectorAll('.dm-brand-field').forEach(function (field) {
+      field.addEventListener('input', scheduleBrandKitSave);
+    });
+    var saveBtn = document.getElementById('dmBrandSaveBtn');
+    if (saveBtn) saveBtn.addEventListener('click', saveBrandKitFields);
+    var logoInput = document.getElementById('dmBrandLogoInput');
+    if (logoInput) {
+      logoInput.addEventListener('change', function () {
+        if (logoInput.files && logoInput.files[0]) uploadBrandLogo(logoInput.files[0]);
+        logoInput.value = '';
+      });
+    }
+    var useLogo = document.getElementById('dmBrandUseLogo');
+    if (useLogo) useLogo.addEventListener('change', scheduleBrandKitSave);
+    renderBrandLogoPreview(brandKit.logoUrl);
+  }
+
+  function designRequestContext() {
+    var ctx = copyContext();
+    return Object.assign(ctx, {
+      platform: currentPlatformKey(),
+      aspectRatio: currentAspectRatio(),
+      brandKit: readBrandKitFromForm(),
+    });
+  }
 
   function selectedKeys() {
     return getDmCheckboxes()
@@ -214,8 +430,9 @@
       slot: slot === 'back' ? 'back' : 'front',
       imageUrl: imageUrl,
       prompt: String(opts.prompt || designMeta[slot].prompt || lastImagePrompt || '').trim(),
-      aspectRatio: String(opts.aspectRatio || designMeta[slot].aspectRatio || '2:3'),
+      aspectRatio: String(opts.aspectRatio || designMeta[slot].aspectRatio || currentAspectRatio()),
       resolution: String(opts.resolution || designMeta[slot].resolution || '2K'),
+      platform: String(opts.platform || currentPlatformKey()),
       savedAt: new Date().toISOString(),
     };
     var list = getSavedDesigns().filter(function (x) {
@@ -243,9 +460,21 @@
     var slot = item.slot === 'back' ? 'back' : 'front';
     var slotEl = document.getElementById('dmDesignSlot');
     if (slotEl) slotEl.value = slot;
+    if (item.platform) {
+      var platformEl = document.getElementById('dmPlatform');
+      if (platformEl && DM_PLATFORMS[item.platform]) {
+        platformEl.value = item.platform;
+        applyPlatformPreset(item.platform);
+      }
+    }
+    if (item.aspectRatio) {
+      var ratioEl = document.getElementById('dmAspectRatio');
+      if (ratioEl) ratioEl.value = item.aspectRatio;
+      updatePreviewAspectRatio();
+    }
     designMeta[slot] = {
       prompt: String(item.prompt || '').trim(),
-      aspectRatio: String(item.aspectRatio || '2:3'),
+      aspectRatio: String(item.aspectRatio || currentAspectRatio()),
       resolution: String(item.resolution || '2K'),
     };
     lastImagePrompt = designMeta[slot].prompt;
@@ -324,7 +553,11 @@
     if (!url) return;
     lightboxSlot = slot === 'back' ? 'back' : 'front';
     img.src = url;
-    if (title) title.textContent = (lightboxSlot === 'back' ? 'Back' : 'Front') + ' postcard preview';
+    if (title) {
+      var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+      title.textContent =
+        (lightboxSlot === 'back' ? 'Back' : plat.dualSided ? 'Front' : plat.label) + ' preview';
+    }
     var p = String(prompt || designMeta[lightboxSlot].prompt || lastImagePrompt || '').trim();
     if (meta) {
       meta.textContent = p ? p.slice(0, 140) + (p.length > 140 ? '…' : '') : 'Generated postcard art';
@@ -423,7 +656,7 @@
     setDesignStatus('Thinking…', true);
 
     try {
-      var ctx = copyContext();
+      var ctx = designRequestContext();
       var data = await postJson('/direct-mail/api/design-chat', {
         message: text,
         history: chatHistory.slice(0, -1),
@@ -431,6 +664,9 @@
         bodyText: ctx.bodyText,
         ctaUrl: ctx.ctaUrl,
         slot: ctx.slot,
+        platform: ctx.platform,
+        aspectRatio: ctx.aspectRatio,
+        brandKit: ctx.brandKit,
       });
       var reply = String(data.reply || '').trim();
       if (reply) {
@@ -481,9 +717,10 @@
     }
 
     var slot = slotEl && slotEl.value === 'back' ? 'back' : 'front';
-    var aspectRatio = (document.getElementById('dmAspectRatio') || {}).value || '2:3';
+    var aspectRatio = currentAspectRatio();
     var resolution = (document.getElementById('dmResolution') || {}).value || '2K';
     var referenceUrl = designs[slot === 'back' ? 'front' : 'back'] || '';
+    var ctx = designRequestContext();
 
     btn.disabled = true;
     setDesignStatus('Generating with GPT Image 2… this can take up to 2 minutes.', true);
@@ -494,6 +731,8 @@
         slot: slot,
         aspectRatio: aspectRatio,
         resolution: resolution,
+        platform: ctx.platform,
+        brandKit: ctx.brandKit,
       };
       if (referenceUrl) body.referenceUrl = referenceUrl;
 
@@ -507,7 +746,10 @@
         showPromptEditor(slot, prompt);
         setDesignStatus('Generated ' + slot + ' side — click preview to zoom.', true);
         if (typeof window.showAppToast === 'function') {
-          window.showAppToast('Postcard ' + slot + ' generated', { variant: 'success' });
+          var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+          window.showAppToast((plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated', {
+            variant: 'success',
+          });
         }
       } else {
         throw new Error('No image URL returned.');
@@ -770,6 +1012,19 @@
       }
     });
   }
+
+  var platformEl = document.getElementById('dmPlatform');
+  if (platformEl) {
+    platformEl.addEventListener('change', function () {
+      applyPlatformPreset(currentPlatformKey());
+    });
+    applyPlatformPreset(currentPlatformKey());
+  }
+
+  var ratioEl = document.getElementById('dmAspectRatio');
+  if (ratioEl) ratioEl.addEventListener('change', updatePreviewAspectRatio);
+
+  bindBrandKitUi();
 
   var lbClose = document.getElementById('dmLightboxClose');
   var lbBackdrop = document.getElementById('dmLightboxBackdrop');

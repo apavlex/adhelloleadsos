@@ -1,5 +1,8 @@
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
+const fs = require('fs').promises;
+const path = require('path');
 
 const dbService = require('../services/database');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
@@ -11,6 +14,133 @@ const lobDirectMail = require('../services/lobDirectMail');
 const directMailQueue = require('../services/directMailQueue');
 const kieImageClient = require('../services/kieImageClient');
 const { chatCompletion, parseLlmJson } = require('../services/llmClient');
+
+const logoUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = /^image\/(jpeg|jpg|png|gif|webp|svg\+xml)$/i.test(String(file.mimetype || ''));
+    cb(ok ? null : new Error('Logo must be a JPEG, PNG, GIF, WebP, or SVG image.'), ok);
+  },
+});
+
+const DM_PLATFORMS = {
+  postcard: { label: '4×6 Postcard', aspectRatio: '2:3', dualSided: true },
+  instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false },
+  instagram_story: { label: 'Instagram Story / Reels', aspectRatio: '9:16', dualSided: false },
+  instagram_portrait: { label: 'Instagram Portrait', aspectRatio: '4:5', dualSided: false },
+  facebook_feed: { label: 'Facebook Feed', aspectRatio: '1:1', dualSided: false },
+  facebook_cover: { label: 'Facebook Cover', aspectRatio: '16:9', dualSided: false },
+  facebook_story: { label: 'Facebook Story', aspectRatio: '9:16', dualSided: false },
+  linkedin_post: { label: 'LinkedIn Post', aspectRatio: '1:1', dualSided: false },
+  linkedin_banner: { label: 'LinkedIn Banner', aspectRatio: '16:9', dualSided: false },
+  google_display: { label: 'Google Display', aspectRatio: '16:9', dualSided: false },
+  youtube_thumb: { label: 'YouTube Thumbnail', aspectRatio: '16:9', dualSided: false },
+  custom: { label: 'Custom ratio', aspectRatio: null, dualSided: false },
+};
+
+function publicBaseUrl(req) {
+  const env = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  if (env) return env;
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+function toAbsoluteAssetUrl(req, relativePath) {
+  const rel = String(relativePath || '').trim();
+  if (!rel) return '';
+  if (/^https?:\/\//i.test(rel)) return rel;
+  const base = publicBaseUrl(req);
+  return rel.startsWith('/') ? `${base}${rel}` : `${base}/${rel}`;
+}
+
+function normalizeBrandKit(raw) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  return {
+    businessName: String(src.businessName || '').trim().slice(0, 120),
+    address: String(src.address || '').trim().slice(0, 240),
+    phone: String(src.phone || '').trim().slice(0, 40),
+    hours: String(src.hours || '').trim().slice(0, 240),
+    website: String(src.website || '').trim().slice(0, 240),
+    email: String(src.email || '').trim().slice(0, 120),
+    logoUrl: String(src.logoUrl || '').trim().slice(0, 500),
+    useLogoInDesign: src.useLogoInDesign !== false,
+    updatedAt: String(src.updatedAt || '').trim(),
+  };
+}
+
+function brandKitSummary(kit) {
+  const k = normalizeBrandKit(kit);
+  const lines = [];
+  if (k.businessName) lines.push(`Business name: ${k.businessName}`);
+  if (k.phone) lines.push(`Phone: ${k.phone}`);
+  if (k.email) lines.push(`Email: ${k.email}`);
+  if (k.website) lines.push(`Website: ${k.website}`);
+  if (k.address) lines.push(`Address: ${k.address}`);
+  if (k.hours) lines.push(`Hours: ${k.hours}`);
+  if (k.logoUrl) lines.push('Logo: uploaded (use as brand reference in layout)');
+  return lines.length ? lines.join('\n') : '(no business info set yet)';
+}
+
+function platformLabel(key) {
+  const row = DM_PLATFORMS[String(key || '').trim()] || DM_PLATFORMS.custom;
+  return row.label || 'Custom';
+}
+
+function buildDesignCoachSystemPrompt({
+  slot,
+  platform,
+  aspectRatio,
+  headline,
+  bodyText,
+  ctaUrl,
+  brandKit,
+}) {
+  const plat = platformLabel(platform);
+  const isPostcard = platform === 'postcard';
+  const ratio = aspectRatio || '2:3';
+  return `You are an ad creative design coach for a local marketing agency. The user is designing a ${plat} creative (${ratio} aspect ratio${isPostcard ? `, ${slot} side` : ''}).
+
+Business info (include in layout when relevant — phone, website, hours, address, logo placement):
+${brandKitSummary(brandKit)}
+
+Ad copy context:
+- Headline: ${headline || '(not set yet)'}
+- Body: ${bodyText || '(not set yet)'}
+- CTA URL: ${ctaUrl || '(none)'}
+
+Merge tokens for per-recipient personalization (postcard sends only): {business}, {city}, {state}, {audit_url}. For bulk postcard mail, do not bake one specific business name into artwork — leave space for overlays.
+
+Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2 (text-to-image or image-to-image; logo can be supplied as a reference image).
+
+Respond with JSON only, no markdown:
+{"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. Include business contact details in the design when the user wants them on the ad. Null if still exploring."}
+
+Rules:
+- imagePrompt must be null until the user wants to generate or asks for a final prompt.
+- If the user asks you to generate, create, or make the design, set imagePrompt from the conversation.
+- Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
+- ${isPostcard && slot === 'back' ? 'For postcard back: minimal copy and return-address / compliance space.' : 'Single-sided social/display ad — one strong focal creative.'}
+- Escape double quotes inside strings as \\".`;
+}
+
+function augmentImagePromptWithBrand(prompt, brandKit, platform) {
+  const base = String(prompt || '').trim();
+  if (!base) return base;
+  const k = normalizeBrandKit(brandKit);
+  const extras = [];
+  if (k.businessName) extras.push(`Business: ${k.businessName}`);
+  if (k.phone) extras.push(`Phone: ${k.phone}`);
+  if (k.email) extras.push(`Email: ${k.email}`);
+  if (k.website) extras.push(`Website: ${k.website}`);
+  if (k.address) extras.push(`Address: ${k.address}`);
+  if (k.hours) extras.push(`Hours: ${k.hours}`);
+  if (k.logoUrl && k.useLogoInDesign) extras.push('Incorporate the uploaded brand logo tastefully in the layout.');
+  const plat = platformLabel(platform);
+  const suffix = extras.length
+    ? `\n\nPlatform: ${plat}. Include on the ad where appropriate: ${extras.join('; ')}.`
+    : `\n\nPlatform: ${plat}.`;
+  return base + suffix;
+}
 
 function appendLeadUpdate(lead, entry) {
   const updates = Array.isArray(lead && lead.updates) ? [...lead.updates] : [];
@@ -97,6 +227,9 @@ router.get('/', async (req, res, next) => {
     const mailableCount = mailableLeads.filter((l) => l.mailable).length;
     const skippedCount = selectedOnly ? mailableLeads.length - mailableCount : 0;
 
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const brandKit = normalizeBrandKit(ws.brandKit);
+
     res.render('direct-mail', {
       activePage: 'direct-mail',
       lobReady: ready,
@@ -110,6 +243,8 @@ router.get('/', async (req, res, next) => {
       dmSkippedCount: skippedCount,
       recentSends: collectRecentSends(visible),
       canManageWorkspace: !!req.canManageWorkspace,
+      brandKit,
+      brandKitJson: JSON.stringify(brandKit),
     });
   } catch (err) {
     next(err);
@@ -120,7 +255,99 @@ router.get('/api/status', async (req, res, next) => {
   try {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const ready = lobDirectMail.directMailReady(integrationEnv);
-    res.json({ success: true, ...ready, kieImageReady: kieImageClient.isConfigured() });
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    res.json({
+      success: true,
+      ...ready,
+      kieImageReady: kieImageClient.isConfigured(),
+      brandKit: normalizeBrandKit(ws.brandKit),
+      platforms: DM_PLATFORMS,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/api/brand-kit', async (req, res, next) => {
+  try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    res.json({ success: true, brandKit: normalizeBrandKit(ws.brandKit) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/api/brand-kit', express.json({ limit: '64kb' }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const prev = normalizeBrandKit(ws.brandKit);
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const nextKit = normalizeBrandKit({
+      ...prev,
+      businessName: Object.prototype.hasOwnProperty.call(body, 'businessName') ? body.businessName : prev.businessName,
+      address: Object.prototype.hasOwnProperty.call(body, 'address') ? body.address : prev.address,
+      phone: Object.prototype.hasOwnProperty.call(body, 'phone') ? body.phone : prev.phone,
+      hours: Object.prototype.hasOwnProperty.call(body, 'hours') ? body.hours : prev.hours,
+      website: Object.prototype.hasOwnProperty.call(body, 'website') ? body.website : prev.website,
+      email: Object.prototype.hasOwnProperty.call(body, 'email') ? body.email : prev.email,
+      useLogoInDesign: Object.prototype.hasOwnProperty.call(body, 'useLogoInDesign')
+        ? body.useLogoInDesign !== false
+        : prev.useLogoInDesign,
+      logoUrl: prev.logoUrl,
+    });
+    nextKit.updatedAt = new Date().toISOString();
+    ws.brandKit = nextKit;
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, brandKit: nextKit });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/api/brand-kit/logo', (req, res, next) => {
+  logoUpload.single('logo')(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, error: err.message || 'Upload failed' });
+    next();
+  });
+}, async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, error: 'Logo image is required.' });
+    }
+    const wid = String(req.workspaceId || 'default')
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const extFromName = path.extname(String(req.file.originalname || '')).toLowerCase();
+    const ext =
+      extFromName && ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(extFromName)
+        ? extFromName
+        : '.png';
+    const relDir = path.join('public', 'uploads', 'brand-kit');
+    const absDir = path.join(process.cwd(), relDir);
+    await fs.mkdir(absDir, { recursive: true });
+    const stamp = Date.now();
+    const filename = `${wid}_logo_${stamp}${ext}`;
+    const absPath = path.join(absDir, filename);
+    await fs.writeFile(absPath, req.file.buffer);
+    const publicUrl = `/uploads/brand-kit/${filename}`;
+
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
+    const prev = normalizeBrandKit(ws.brandKit);
+    const nextKit = {
+      ...prev,
+      logoUrl: publicUrl,
+      updatedAt: new Date().toISOString(),
+    };
+    ws.brandKit = nextKit;
+    await dbService.saveWorkspace(req.workspaceId, ws);
+
+    res.json({
+      success: true,
+      logoUrl: publicUrl,
+      logoAbsoluteUrl: toAbsoluteAssetUrl(req, publicUrl),
+      brandKit: nextKit,
+    });
   } catch (err) {
     next(err);
   }
@@ -143,30 +370,22 @@ router.post('/api/design-chat', async (req, res, next) => {
     const headline = String(body.headline || '').trim();
     const bodyText = String(body.bodyText || '').trim();
     const ctaUrl = String(body.ctaUrl || '').trim();
+    const platform = String(body.platform || 'postcard').trim() || 'postcard';
+    const aspectRatio = String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '2:3').trim() || '2:3';
+    const brandKit = normalizeBrandKit(body.brandKit);
 
     const messages = [
       {
         role: 'system',
-        content: `You are a direct-mail postcard design coach for a local marketing agency. The user is designing a 4×6 postcard (${slot} side) to mail to local business owners.
-
-Postcard copy context:
-- Headline: ${headline || '(not set yet)'}
-- Body: ${bodyText || '(not set yet)'}
-- CTA URL: ${ctaUrl || '(none)'}
-
-Merge tokens for per-recipient personalization (substituted at send time): {business}, {city}, {state}, {audit_url}. Use these in copy fields. For AI image prompts when mailing many leads, do not bake one specific business name into the artwork — leave the lower third clear for a text overlay with {business} and copy.
-
-Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images will be generated via KIE GPT Image 2 (text-to-image or image-to-image).
-
-Respond with JSON only, no markdown:
-{"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — photorealistic or polished graphic design, specify layout, typography zones (leave space for headline if front), colors, mood, 4×6 postcard composition. Null if the user is still exploring ideas."}
-
-Rules:
-- imagePrompt must be null until the user wants to generate or asks for a final prompt.
-- If the user asks you to generate, create, or make the design (e.g. "make it for me", "generate it", "go ahead"), set imagePrompt from the conversation so far — do not leave it null.
-- When writing imagePrompt, optimize for print: high contrast, readable at postcard size, professional local-business marketing aesthetic.
-- For the back side, assume minimal copy and return-address / compliance space unless the user says otherwise.
-- Escape double quotes inside strings as \\".`,
+        content: buildDesignCoachSystemPrompt({
+          slot,
+          platform,
+          aspectRatio,
+          headline,
+          bodyText,
+          ctaUrl,
+          brandKit,
+        }),
       },
       ...history,
       { role: 'user', content: userMessage.slice(0, 4000) },
@@ -202,10 +421,15 @@ router.post('/api/generate-image', async (req, res, next) => {
     }
 
     const body = req.body || {};
-    const prompt = String(body.prompt || '').trim();
+    let prompt = String(body.prompt || '').trim();
     if (!prompt) {
       return res.status(400).json({ success: false, error: 'Image prompt is required.' });
     }
+
+    const platform = String(body.platform || 'postcard').trim() || 'postcard';
+    const brandKit = normalizeBrandKit(body.brandKit);
+    prompt = augmentImagePromptWithBrand(prompt, brandKit, platform);
+
     if (kieImageClient.isVagueImagePrompt(prompt)) {
       return res.status(400).json({
         success: false,
@@ -221,6 +445,11 @@ router.post('/api/generate-image', async (req, res, next) => {
       : body.referenceUrl
         ? [String(body.referenceUrl).trim()].filter(Boolean)
         : [];
+
+    if (brandKit.logoUrl && brandKit.useLogoInDesign) {
+      const logoAbs = toAbsoluteAssetUrl(req, brandKit.logoUrl);
+      if (logoAbs && !inputUrls.includes(logoAbs)) inputUrls.unshift(logoAbs);
+    }
 
     const result = await kieImageClient.generate({
       prompt,
