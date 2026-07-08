@@ -156,7 +156,6 @@
   var spHold = document.getElementById('softphoneHoldBtn');
   var spHangup = document.getElementById('softphoneHangupBtn');
   var spRedial = document.getElementById('softphoneRedialBtn');
-  var spRedialWrap = document.getElementById('softphoneRedialWrapBtn');
   var spKeypad = document.getElementById('softphoneKeypadBtn');
   var spTransfer = document.getElementById('softphoneTransferBtn');
   var spRecord = document.getElementById('softphoneRecordBtn');
@@ -1139,6 +1138,19 @@
     return n;
   }
 
+  function formatCallerIdCompact(raw) {
+    var n = normalizeDial(raw);
+    if (!n) return '—';
+    var d = n.replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '1') {
+      return '+' + d.charAt(0) + ' ' + d.slice(1, 4) + '-' + d.slice(4, 7) + '-' + d.slice(7);
+    }
+    if (d.length === 10) {
+      return '+1 ' + d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    }
+    return n;
+  }
+
   function softphoneRedialTargetNumber() {
     return normalizeDial(softphoneSession.activeNumber || (spTo ? spTo.value : ''));
   }
@@ -1152,11 +1164,10 @@
 
   function updateSoftphoneRedialUi() {
     var show = softphoneCanRedialNow();
-    [spRedial, spRedialWrap].forEach(function (btn) {
-      if (!btn) return;
-      btn.classList.toggle('hidden', !show);
-      btn.disabled = !softphoneRedialTargetNumber();
-    });
+    if (spRedial) {
+      spRedial.classList.toggle('hidden', !show);
+      spRedial.disabled = !softphoneRedialTargetNumber();
+    }
   }
 
   function softphonePrepareForRedial() {
@@ -2124,7 +2135,7 @@
     if (agent) {
       var optMobile = document.createElement('option');
       optMobile.value = agent;
-      optMobile.textContent = 'My mobile · ' + formatCallerIdDisplay(agent);
+      optMobile.textContent = formatCallerIdCompact(agent);
       spCallerIdSelect.appendChild(optMobile);
       seen[agent] = true;
     }
@@ -2134,7 +2145,7 @@
       seen[v] = true;
       var opt = document.createElement('option');
       opt.value = v;
-      opt.textContent = formatCallerIdDisplay(v);
+      opt.textContent = formatCallerIdCompact(v);
       spCallerIdSelect.appendChild(opt);
     });
     var optCustom = document.createElement('option');
@@ -4410,12 +4421,11 @@
         });
     });
   }
-  [spRedial, spRedialWrap].forEach(function (btn) {
-    if (!btn) return;
-    btn.addEventListener('click', function () {
+  if (spRedial) {
+    spRedial.addEventListener('click', function () {
       softphoneRedialSameNumber();
     });
-  });
+  }
   if (spVmNow) {
     spVmNow.addEventListener('click', function () {
       var to = normalizeDial(softphoneSession.activeNumber || (spTo ? spTo.value : ''));

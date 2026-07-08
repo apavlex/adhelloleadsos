@@ -208,7 +208,20 @@
         <input id="focus-subject" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm text-brand-dark dark:text-white" autocomplete="off" />
       </div>
       <div class="mb-6">
-        <label for="focus-body" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-muted block mb-2">Outreach draft</label>
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <label for="focus-body" id="focus-body-label" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Outreach draft</label>
+          <div class="flex items-center gap-2 shrink-0">
+            <span id="focus-script-save-status" class="text-[10px] text-brand-muted dark:text-slate-400 tabular-nums" aria-live="polite"></span>
+            <button
+              type="button"
+              id="focus-save-script"
+              class="btn-pill border border-brand-border dark:border-white/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 disabled:opacity-40 disabled:pointer-events-none"
+              title="Save script to workspace library for this product"
+            >
+              Save script
+            </button>
+          </div>
+        </div>
         <textarea id="focus-body" rows="10" class="w-full rounded-2xl border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-3 text-sm text-brand-dark dark:text-white font-medium leading-relaxed resize-y min-h-[200px]" placeholder="Choose a product above — the call script loads here instantly."></textarea>
       </div>
       <div id="focus-outcome-panel" class="mb-6 md:mb-4 md:sticky md:bottom-4 z-30 rounded-[1.35rem] border border-brand-border/60 dark:border-white/15 bg-brand-cream/25 dark:bg-slate-900/70 md:bg-white/70 md:dark:bg-slate-900/65 md:backdrop-blur-xl shadow-sm md:shadow-xl p-4 space-y-3">
@@ -402,6 +415,10 @@
     var elTone = document.getElementById('focus-tone');
     var btnOpenDialer = document.getElementById('focus-btn-open-dialer');
     var elBodyLabel = document.getElementById('focus-body-label');
+    var btnSaveScript = document.getElementById('focus-save-script');
+    var elScriptSaveStatus = document.getElementById('focus-script-save-status');
+    var focusScriptDirty = false;
+    var focusScriptSaving = false;
     var elMobileFabWrap = document.getElementById('focus-mobile-fab-wrap');
     var elMobileFabActions = document.getElementById('focus-mobile-fab-actions');
     var btnMobileFabToggle = document.getElementById('focus-mobile-fab-toggle');
@@ -704,6 +721,95 @@
       return { subject: '', body: body };
     }
 
+    function setFocusScriptSaveStatus(text, isError) {
+      if (!elScriptSaveStatus) return;
+      elScriptSaveStatus.textContent = String(text || '');
+      elScriptSaveStatus.classList.toggle('text-red-600', !!isError);
+      elScriptSaveStatus.classList.toggle('dark:text-red-400', !!isError);
+      elScriptSaveStatus.classList.toggle('text-brand-muted', !isError);
+      elScriptSaveStatus.classList.toggle('dark:text-slate-400', !isError);
+    }
+
+    function updateFocusScriptSaveUi() {
+      if (!btnSaveScript) return;
+      var hasProduct = !!(elServiceSelect && elServiceSelect.value);
+      var hasBody = !!(elBody && String(elBody.value || '').trim());
+      btnSaveScript.disabled = focusScriptSaving || !hasProduct || !hasBody;
+      if (focusScriptDirty && !focusScriptSaving && elScriptSaveStatus && !elScriptSaveStatus.textContent) {
+        setFocusScriptSaveStatus('Unsaved edits');
+      }
+    }
+
+    function markFocusScriptDirty() {
+      focusScriptDirty = true;
+      updateFocusScriptSaveUi();
+    }
+
+    function markFocusScriptClean(savedLabel) {
+      focusScriptDirty = false;
+      setFocusScriptSaveStatus(savedLabel || '');
+      updateFocusScriptSaveUi();
+    }
+
+    function currentFocusProductKey() {
+      return elServiceSelect && elServiceSelect.value ? String(elServiceSelect.value).trim() : getDefaultProductKey();
+    }
+
+    function saveFocusScriptToLibrary() {
+      if (focusScriptSaving) return Promise.resolve();
+      var serviceKey = currentFocusProductKey();
+      var body = elBody ? String(elBody.value || '').trim() : '';
+      if (!serviceKey || !body) {
+        setFocusScriptSaveStatus('Nothing to save', true);
+        return Promise.resolve();
+      }
+      focusScriptSaving = true;
+      setFocusScriptSaveStatus('Saving…');
+      updateFocusScriptSaveUi();
+      return fetch('/workspace/scripts/blocks', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          blocks: (function () {
+            var blocks = {};
+            blocks[serviceKey] = {
+              opening: body,
+              discovery: '',
+              valueProp: '',
+              objectionHandling: '',
+              close: '',
+            };
+            return blocks;
+          })(),
+        }),
+      })
+        .then(function (r) {
+          return r.json().then(function (j) {
+            return { ok: r.ok, j: j };
+          });
+        })
+        .then(function (res) {
+          if (!res.ok || !res.j || !res.j.success) {
+            throw new Error((res.j && res.j.error) || 'Could not save script.');
+          }
+          if (!focusScriptLibrary[serviceKey]) focusScriptLibrary[serviceKey] = {};
+          focusScriptLibrary[serviceKey].opening = body;
+          focusScriptLibrary[serviceKey].discovery = '';
+          focusScriptLibrary[serviceKey].valueProp = '';
+          focusScriptLibrary[serviceKey].objectionHandling = '';
+          focusScriptLibrary[serviceKey].close = '';
+          markFocusScriptClean('Saved');
+        })
+        .catch(function (err) {
+          setFocusScriptSaveStatus((err && err.message) || 'Save failed', true);
+        })
+        .finally(function () {
+          focusScriptSaving = false;
+          updateFocusScriptSaveUi();
+        });
+    }
+
     function updateDraftFromSelection() {
       var lead = currentLead();
       if (!lead) return;
@@ -713,6 +819,7 @@
       var draft = buildLocalFocusDraft(lead);
       if (elSubject) elSubject.value = draft.subject || '';
       if (elBody) elBody.value = draft.body || '';
+      markFocusScriptClean('');
     }
 
     function hrefUrl(u) {
@@ -2175,6 +2282,16 @@
         refreshFocusScriptLibrary().finally(function () {
           updateDraftFromSelection();
         });
+      });
+    }
+    if (elBody) {
+      elBody.addEventListener('input', function () {
+        markFocusScriptDirty();
+      });
+    }
+    if (btnSaveScript) {
+      btnSaveScript.addEventListener('click', function () {
+        saveFocusScriptToLibrary();
       });
     }
     if (btnOutcomeCollapse) {

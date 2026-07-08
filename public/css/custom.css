@@ -3214,12 +3214,16 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
 }
 
 .softphone-caller-id-select {
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 0 center;
   background-size: 1rem;
   padding-right: 1.35rem !important;
+  text-overflow: clip;
+  overflow: visible;
+  white-space: nowrap;
 }
 
 .softphone-redial-btn:not(:disabled):hover {
