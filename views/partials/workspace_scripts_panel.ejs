@@ -1,7 +1,14 @@
 <section id="workspace-sales-scripts" class="scroll-mt-28 mb-16" aria-label="Sales scripts workspace">
 
-  <% const SCRIPT_SECTION_ORDER = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close']; %>
-  <% const SECTION_HEADINGS = { opening: 'Opening', discovery: 'Discovery', valueProp: 'Value proposition', objectionHandling: 'Objection handling', close: 'Close' }; %>
+  <% function composeBlockScript(block) {
+    const sections = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];
+    const parts = [];
+    for (const sec of sections) {
+      const t = (block && block[sec] ? String(block[sec]) : '').trim();
+      if (t) parts.push(t);
+    }
+    return parts.join('\n\n');
+  } %>
 
   <div class="grid xl:grid-cols-[minmax(0,1fr)_min(22rem,100%)] gap-8 items-start">
     <div class="flex flex-col gap-6 min-w-0">
@@ -20,27 +27,21 @@
         <% const block = SCRIPT_LIBRARY[pk]; %>
         <div class="pitch-panel <%= idx === 0 ? '' : 'hidden' %>" data-panel="<%= pk %>" role="tabpanel">
           <p class="text-sm font-bold text-brand-muted px-4 sm:px-6 pt-6 pb-2"><%= block.label %></p>
-          <div class="px-2 sm:px-4 pb-4">
-            <% SCRIPT_SECTION_ORDER.forEach((section, secIdx) => { %>
-              <% const onlyFirstOpen = idx === 0 && section === 'opening'; %>
-              <details class="script-section-details group border border-brand-border/40 dark:border-white/10 rounded-2xl mb-2 last:mb-0 bg-brand-cream/20 dark:bg-black/10 open:shadow-sm" <%= onlyFirstOpen ? 'open' : '' %> data-service="<%= pk %>" data-section="<%= section %>">
-                <summary class="cursor-pointer list-none flex flex-wrap items-center justify-between gap-2 py-3 px-4 rounded-2xl marker:hidden [&::-webkit-details-marker]:hidden">
-                  <span class="flex items-center gap-2 min-w-0">
-                    <span class="text-brand-muted text-xs font-black shrink-0 transition-transform group-open:rotate-90" aria-hidden="true">›</span>
-                    <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow"><%= SECTION_HEADINGS[section] %></span>
-                  </span>
-                  <span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-<%= pk %>-<%= section %>">Saved</span>
-                </summary>
-                <div class="script-block border-t border-brand-border/40 dark:border-white/10 px-4 pb-4 pt-3" data-service="<%= pk %>" data-section="<%= section %>">
-                  <div class="flex flex-wrap gap-2 justify-end mb-3">
-                    <button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="<%= pk %>" data-section="<%= section %>">Coach</button>
-                    <button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-<%= pk %>-<%= section %>">Save</button>
-                    <button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="snippet-<%= pk %>-<%= section %>">Copy</button>
-                  </div>
-                  <textarea id="snippet-<%= pk %>-<%= section %>" rows="5" class="script-snippet w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[6rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"><%= block[section] %></textarea>
+          <div class="px-4 sm:px-6 pb-6">
+            <div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="<%= pk %>" data-section="opening">
+              <div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10">
+                <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</span>
+                <span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-<%= pk %>-opening">Saved</span>
+              </div>
+              <div class="px-4 pb-4 pt-3">
+                <div class="flex flex-wrap gap-2 justify-end mb-3">
+                  <button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="<%= pk %>" data-section="opening">Coach</button>
+                  <button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-<%= pk %>-opening">Save</button>
+                  <button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="snippet-<%= pk %>-opening">Copy</button>
                 </div>
-              </details>
-            <% }) %>
+                <textarea id="snippet-<%= pk %>-opening" rows="14" class="script-snippet w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"><%= composeBlockScript(block) %></textarea>
+              </div>
+            </div>
           </div>
         </div>
         <% }) %>
@@ -49,8 +50,8 @@
       <div id="sales-scripts-coach" class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden flex flex-col min-w-0 min-h-0">
         <div class="px-4 py-3 border-b border-brand-border dark:border-white/10 shrink-0">
           <h3 class="font-display font-extrabold text-base text-brand-dark dark:text-white">AI script coach</h3>
-          <p class="text-[10px] text-brand-muted mt-1 leading-relaxed">Scoped to the section you open with <strong class="text-brand-dark dark:text-white">Coach</strong> on the left.</p>
-          <p id="coachContextLabel" class="text-[10px] font-bold text-brand-yellow mt-2 uppercase tracking-wide">Reputation · Opening</p>
+          <p class="text-[10px] text-brand-muted mt-1 leading-relaxed">Scoped to the offer script you open with <strong class="text-brand-dark dark:text-white">Coach</strong> on the left.</p>
+          <p id="coachContextLabel" class="text-[10px] font-bold text-brand-yellow mt-2 uppercase tracking-wide">Reputation · Script</p>
           <button type="button" id="coachResetBtn" class="mt-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:underline">New conversation</button>
         </div>
         <div id="coachMessages" class="flex-1 overflow-y-auto px-4 py-3 space-y-3 text-sm min-h-[10rem] max-h-[min(40vh,18rem)] custom-scrollbar"></div>
@@ -73,7 +74,7 @@
           <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">Saved snippets</h3>
           <p class="text-[10px] font-bold text-brand-muted uppercase tracking-widest">Workspace library (DB)</p>
         </div>
-        <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Expand a section above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
+        <div id="scriptLibraryEmpty" class="px-6 py-10 text-center text-sm text-brand-muted">No saved scripts yet. Edit an offer script above and click <strong class="text-brand-dark dark:text-white">Save</strong>.</div>
         <ul id="scriptLibraryList" class="divide-y divide-brand-border/50 dark:divide-white/10 hidden"></ul>
       </div>
     </div>
@@ -136,7 +137,7 @@
   (function () {
     var LIB_KEY_LEGACY = 'adhello_persona_script_library_v1';
     var sectionLabels = {
-      opening: 'Opening',
+      opening: 'Script',
       discovery: 'Discovery',
       valueProp: 'Value proposition',
       objectionHandling: 'Objection handling',
@@ -276,11 +277,10 @@
       var ta = document.getElementById(lastFocusedSnippetId);
       if (!ta) ta = snippetEl();
       if (ctx && ta && ta.id) {
-        var m = /^snippet-(.+)-(opening|discovery|valueProp|objectionHandling|close)$/.exec(ta.id);
+        var m = /^snippet-(.+)-opening$/.exec(ta.id);
         if (m) {
           var sLab = serviceLabels[m[1]] || m[1];
-          var pLab = sectionLabels[m[2]] || m[2];
-          ctx.textContent = '— ' + sLab + ' · ' + pLab;
+          ctx.textContent = '— ' + sLab;
         }
       }
       if (!out) return;
@@ -300,14 +300,29 @@
       textarea.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
+    function composeOfferScriptFromSections(sections) {
+      if (!sections || typeof sections !== 'object') return '';
+      var parts = [];
+      ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'].forEach(function (section) {
+        var t = String(sections[section] || '').trim();
+        if (t) parts.push(t);
+      });
+      return parts.join('\n\n');
+    }
+
     function collectBlocksPayload() {
       var blocks = {};
       document.querySelectorAll('.script-snippet').forEach(function (ta) {
         var id = ta.id || '';
-        var m = /^snippet-(.+)-(opening|discovery|valueProp|objectionHandling|close)$/.exec(id);
+        var m = /^snippet-(.+)-opening$/.exec(id);
         if (!m) return;
-        if (!blocks[m[1]]) blocks[m[1]] = {};
-        blocks[m[1]][m[2]] = ta.value;
+        blocks[m[1]] = {
+          opening: ta.value,
+          discovery: '',
+          valueProp: '',
+          objectionHandling: '',
+          close: '',
+        };
       });
       return blocks;
     }
@@ -344,12 +359,9 @@
       Object.keys(blockOverrides).forEach(function (serviceKey) {
         var sections = blockOverrides[serviceKey];
         if (!sections || typeof sections !== 'object') return;
-        ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'].forEach(function (section) {
-          if (!Object.prototype.hasOwnProperty.call(sections, section)) return;
-          var ta = document.getElementById('snippet-' + serviceKey + '-' + section);
-          if (!ta) return;
-          ta.value = String(sections[section] || '');
-        });
+        var ta = document.getElementById('snippet-' + serviceKey + '-opening');
+        if (!ta) return;
+        ta.value = composeOfferScriptFromSections(sections);
       });
     }
 
@@ -476,21 +488,6 @@
       });
     }
 
-    function accordionOnlyOneOpen(panelEl, openDetails) {
-      if (!panelEl || !openDetails) return;
-      panelEl.querySelectorAll('.script-section-details').forEach(function (d) {
-        if (d !== openDetails) d.open = false;
-      });
-    }
-
-    document.querySelectorAll('.pitch-panel').forEach(function (panel) {
-      panel.querySelectorAll('.script-section-details').forEach(function (d) {
-        d.addEventListener('toggle', function () {
-          if (d.open) accordionOnlyOneOpen(panel, d);
-        });
-      });
-    });
-
     document.querySelectorAll('.pitch-tab').forEach(function (tab) {
       tab.addEventListener('click', function () {
         var pitch = tab.getAttribute('data-pitch');
@@ -498,32 +495,27 @@
         coachFocus.pitch = pitch;
         updateCoachLabel();
         hideRefined();
-        lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-' + coachFocus.section;
+        lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-opening';
         updateMergePreview();
       });
     });
 
     function openCoachForBlock(pitch, section) {
       coachFocus.pitch = pitch;
-      coachFocus.section = section;
-      lastFocusedSnippetId = 'snippet-' + pitch + '-' + section;
+      coachFocus.section = section || 'opening';
+      lastFocusedSnippetId = 'snippet-' + pitch + '-opening';
       activatePitchTab(pitch);
-      var panel = document.querySelector('.pitch-panel[data-panel="' + pitch + '"]');
-      var det = panel ? panel.querySelector('.script-section-details[data-section="' + section + '"]') : null;
-      if (det) {
-        accordionOnlyOneOpen(panel, det);
-        det.open = true;
-      }
       updateCoachLabel();
       coachHistories[coachKey()] = [];
       clearCoachMessagesUi();
-      var ta = document.getElementById('snippet-' + pitch + '-' + section);
+      var ta = document.getElementById('snippet-' + pitch + '-opening');
       appendCoachScriptPreview(ta ? ta.value : '');
       hideRefined();
       var errEl = document.getElementById('coachError');
       if (errEl) errEl.classList.add('hidden');
       var coachCard = document.getElementById('sales-scripts-coach');
       if (coachCard) coachCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (ta) ta.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       var input = document.getElementById('coachInput');
       if (input) setTimeout(function () { input.focus(); }, 250);
       updateMergePreview();
@@ -559,7 +551,7 @@
         var sec = block ? block.getAttribute('data-section') : '';
         var text = (ta.value || '').trim();
         if (!text) return alert('Nothing to save.');
-        var title = (serviceLabels[sk] || sk) + ' · ' + (sectionLabels[sec] || sec);
+        var title = (serviceLabels[sk] || sk) + ' · Script';
         var orig = btn.textContent;
         btn.disabled = true;
         fetch('/workspace/scripts/library', {

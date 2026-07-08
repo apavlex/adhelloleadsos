@@ -6,6 +6,8 @@ const {
   sanitizeBlockOverrides,
   buildMergedScriptLibrary,
   normalizeLibraryItem,
+  composeOfferScriptText,
+  splitOfferScriptForSave,
 } = require('../services/salesScriptsStorage');
 
 describe('salesScriptsStorage', () => {
@@ -40,5 +42,23 @@ describe('salesScriptsStorage', () => {
     const one = normalizeLibraryItem({ text: 'Hi', serviceKey: 'reputation', section: 'opening' }, SCRIPT_LIBRARY_KEYS);
     assert.ok(one && one.id);
     assert.equal(one.text, 'Hi');
+  });
+
+  it('composeOfferScriptText joins non-empty sections', () => {
+    const text = composeOfferScriptText({
+      opening: 'Hi there',
+      discovery: 'What is your process?',
+      valueProp: '',
+      objectionHandling: 'Fair point.',
+      close: 'Sound good?',
+    });
+    assert.equal(text, 'Hi there\n\nWhat is your process?\n\nFair point.\n\nSound good?');
+  });
+
+  it('splitOfferScriptForSave stores full script in opening only', () => {
+    const split = splitOfferScriptForSave('Full script body');
+    assert.equal(split.opening, 'Full script body');
+    assert.equal(split.discovery, '');
+    assert.equal(split.close, '');
   });
 });

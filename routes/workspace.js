@@ -25,6 +25,7 @@ const {
   sanitizeBlockOverrides,
   sanitizeLibraryItems,
   normalizeLibraryItem,
+  buildMergedScriptLibrary,
 } = salesScriptsStorage;
 
 function normalizeCnamStatus(raw) {
@@ -1082,6 +1083,17 @@ router.post('/phone-analytics-share', express.json(), async (req, res) => {
     });
   } catch (e) {
     res.status(500).json({ success: false, error: e.message || 'Server error' });
+  }
+});
+
+/** GET JSON: merged script library (defaults + workspace overrides). */
+router.get('/scripts/merged.json', async (req, res, next) => {
+  try {
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const library = buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    res.json({ success: true, library });
+  } catch (e) {
+    next(e);
   }
 });
 

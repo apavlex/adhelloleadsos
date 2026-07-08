@@ -607,6 +607,33 @@
       }
     }
 
+    function composeOfferScriptFromBlock(serviceBlock) {
+      if (!serviceBlock) return '';
+      var sections = ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'];
+      var parts = [];
+      sections.forEach(function (sec) {
+        var t = String(serviceBlock[sec] || '').trim();
+        if (t) parts.push(t);
+      });
+      return parts.join('\n\n');
+    }
+
+    function refreshFocusScriptLibrary() {
+      return fetch('/workspace/scripts/merged.json', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function (data) {
+          if (data && data.success && data.library) {
+            focusScriptLibrary = data.library;
+          }
+        })
+        .catch(function () {});
+    }
+
     function applyScriptPlaceholders(text, contact, company, cityState) {
       return String(text || '')
         .replace(/\{\{name\}\}/gi, contact)
@@ -628,10 +655,14 @@
       var cityState = [lead.city, lead.state].filter(Boolean).join(', ');
       var loc = cityState ? ' in ' + cityState : '';
       var svcLabel = (serviceBlock && serviceBlock.label) || serviceKey;
-      var libOpen =
-        serviceBlock && serviceBlock.opening
-          ? applyScriptPlaceholders(serviceBlock.opening, contact, company, cityState)
-          : '';
+      var libFull = serviceBlock
+        ? applyScriptPlaceholders(
+            composeOfferScriptFromBlock(serviceBlock),
+            contact,
+            company,
+            cityState
+          )
+        : '';
       var v = scriptVariant;
       var body = '';
       if (v === 'followup') {
@@ -656,15 +687,8 @@
           ' for shops in ' +
           (cityState || 'this market') +
           '.\n\n[Ask] Who would I talk to about growth or marketing ?';
-      } else if (libOpen) {
-        body =
-          'Product: ' +
-          svcLabel +
-          '\n\n[Opener] ' +
-          libOpen +
-          '\n\n[Bridge] I work with local businesses on filling the calendar and noticed you online' +
-          loc +
-          '.\n\n[Ask] Did I catch you at an okay time, or is there a better 5-minute block later?';
+      } else if (libFull) {
+        body = libFull;
       } else {
         body =
           '[Opener] Hi, this is ___ calling for ' +
@@ -2148,7 +2172,9 @@
     }
     if (elServiceSelect) {
       elServiceSelect.addEventListener('change', function () {
-        updateDraftFromSelection();
+        refreshFocusScriptLibrary().finally(function () {
+          updateDraftFromSelection();
+        });
       });
     }
     if (btnOutcomeCollapse) {
@@ -2418,6 +2444,11 @@
     });
     window.addEventListener('resize', updateDialerCta);
     window.addEventListener('adhello-softphone-state', updateDialerCta);
+    document.addEventListener('visibilitychange', function () {
+      if (!document.hidden) {
+        refreshFocusScriptLibrary().then(updateDraftFromSelection);
+      }
+    });
 
     if (elServiceSelect) {
       elServiceSelect.value = getDefaultProductKey();

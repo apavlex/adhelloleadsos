@@ -796,15 +796,18 @@ function buildFocusOutreachDraft({
       body = `Hi ${contact}, this is ___ — I'm reaching out to ${company}${loc} about one practical way to capture more of the people already looking for you online. I’ll send a short follow-up, but a live conversation works best. My number is [your #]. Thank you!`;
     }
   } else {
-    const libOpen = serviceBlock && serviceBlock.opening
-      ? applyScriptPlaceholders(serviceBlock.opening, { contact, company, cityState })
+    const composedScript = serviceBlock
+      ? salesScriptsStorage.composeOfferScriptText(serviceBlock)
+      : '';
+    const libFull = composedScript
+      ? applyScriptPlaceholders(composedScript, { contact, company, cityState })
       : '';
     if (v === 'followup') {
       body = `[Opener] Hi, this is ___ for ${contact} at ${company}. I tried you briefly — is now any better for a 30-second reason I called${loc}?\n\n[Bridge] Quick context: I help local service businesses with ${svcLabel}.\n\n[Ask] If you're the right person, is there a better time today I could try you back?`;
     } else if (v === 'reengage' || v === 'short') {
       body = `[Opener] Hi, calling ${contact} at ${company} — I’m ___. Two sentences: I help with ${svcLabel} for shops in ${cityState || 'this market'}.\n\n[Ask] Who would I talk to about growth or marketing ?`;
-    } else if (libOpen) {
-      body = `Recommended angle: ${svcLabel}\n\n[Opener] ${libOpen}\n\n[Bridge] I work with local businesses on filling the calendar and noticed you online${loc}.\n\n[Ask] Did I catch you at an okay time, or is there a better 5-minute block later?`;
+    } else if (libFull) {
+      body = libFull;
     } else {
       body = `[Opener] Hi, this is ___ calling for ${contact} at ${company}. Did I catch you at an okay time?\n\n[Bridge] I work with local businesses on filling the calendar — noticed you online${loc} (focus: ${svcLabel}).\n\n[Ask] If it makes sense, who handles marketing day-to-day?`;
     }

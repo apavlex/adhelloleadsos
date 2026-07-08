@@ -88,6 +88,27 @@ function getInitialLibraryItemsFromWorkspace(ws) {
   return Array.isArray(ws && ws.salesScriptLibraryItems) ? ws.salesScriptLibraryItems : [];
 }
 
+/** Join saved sections into one script (legacy multi-section data still composes). */
+function composeOfferScriptText(block) {
+  if (!block || typeof block !== 'object') return '';
+  const parts = [];
+  for (const sec of SCRIPT_SECTIONS) {
+    const t = String(block[sec] || '').trim();
+    if (t) parts.push(t);
+  }
+  return parts.join('\n\n');
+}
+
+/** Single-window editor: store full script in opening, clear other sections. */
+function splitOfferScriptForSave(fullText) {
+  const text = fullText == null ? '' : String(fullText);
+  const out = {};
+  for (const sec of SCRIPT_SECTIONS) {
+    out[sec] = sec === 'opening' ? text : '';
+  }
+  return out;
+}
+
 module.exports = {
   SCRIPT_SECTIONS,
   mergeScriptLibrary,
@@ -96,4 +117,6 @@ module.exports = {
   normalizeLibraryItem,
   buildMergedScriptLibrary,
   getInitialLibraryItemsFromWorkspace,
+  composeOfferScriptText,
+  splitOfferScriptForSave,
 };
