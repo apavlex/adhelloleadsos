@@ -376,14 +376,15 @@
 
       <div class="softphone-body flex-1 min-h-0 overflow-hidden flex flex-col bg-[#f7f7f8] dark:bg-slate-900">
         <div id="softphoneTabKeypad" class="softphone-tab-panel flex-1 min-h-0 overflow-y-auto custom-scrollbar px-4 pt-3 pb-4" data-tab="keypad">
-          <div class="softphone-calling-from mb-3">
-            <p class="text-[15px] font-bold text-slate-800 dark:text-white leading-tight">Calling From</p>
-            <p class="mt-0.5 text-[11px] text-slate-500 dark:text-slate-400 leading-snug">
+          <div class="softphone-calling-from mb-3 rounded-2xl border-2 border-brand-yellow/55 dark:border-brand-yellow/40 bg-brand-yellow/12 dark:bg-brand-yellow/10 px-4 py-3.5 shadow-sm">
+            <p class="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 mb-1.5">Your caller ID</p>
+            <p id="softphoneCallingFromNumber" class="softphone-caller-id-number text-[2rem] sm:text-[2.35rem] font-display font-black tabular-nums tracking-wide text-brand-dark dark:text-white leading-none break-all" aria-live="polite">—</p>
+            <p class="mt-2 text-[10px] text-slate-500 dark:text-slate-400 leading-snug flex flex-wrap items-center gap-x-1 gap-y-0.5">
               <span id="softphoneCallingFromLine">Default workspace number</span>
-              <span aria-hidden="true"> · </span>
-              <button type="button" id="softphoneChangeFromBtn" class="font-semibold text-slate-700 dark:text-slate-200 hover:underline">Settings</button>
+              <span aria-hidden="true">·</span>
+              <button type="button" id="softphoneChangeFromBtn" class="font-semibold text-brand-yellow hover:underline">Change</button>
             </p>
-            <p id="softphoneOutboundMeta" class="hidden">Current outbound: —</p>
+            <p id="softphoneOutboundMeta" class="hidden sr-only">Current outbound: —</p>
             <a href="https://id.signalwire.com/" target="_blank" rel="noopener noreferrer" class="sr-only">Buy number</a>
           </div>
 
@@ -453,6 +454,7 @@
               <button type="button" id="softphoneRecordBtn" class="softphone-ctrl-btn opacity-40 pointer-events-none" aria-pressed="false">Rec</button>
               <button type="button" id="softphoneSpeakerBtn" class="softphone-ctrl-btn" title="Speaker">Speaker</button>
             </div>
+            <button type="button" id="softphoneRedialBtn" class="hidden w-full mt-2 rounded-xl border-2 border-brand-yellow/70 bg-brand-yellow/20 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/30 transition-colors" title="Call the same number again without completing wrap-up">Redial same number</button>
           </div>
 
           <div id="softphoneWrapPanel" class="softphone-wrap-panel mt-3 rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-2.5">
@@ -486,6 +488,7 @@
             <textarea id="softphoneNotes" rows="2" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-[11px] text-slate-800 dark:text-white placeholder:text-slate-400 resize-y min-h-[3rem]" placeholder="Owner response, objection, next step…"></textarea>
             <p id="softphoneWrapFeedback" class="min-h-[1rem] text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug" role="status" aria-live="polite"></p>
             <p id="softphoneNextStep" class="hidden text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug"></p>
+            <button type="button" id="softphoneRedialWrapBtn" class="hidden w-full mt-2 rounded-xl border-2 border-brand-yellow/70 bg-brand-yellow/15 px-3 py-2.5 text-[11px] font-black uppercase tracking-wide text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/25 transition-colors">Redial same number</button>
             <div class="grid grid-cols-2 gap-1.5 mt-2">
               <button type="button" id="softphonePushGhlBtn" class="softphone-ctrl-btn softphone-ctrl-btn--ghl col-span-2" title="Save quick log and notes, then sync to Go High Level">Sync GHL</button>
               <button type="button" id="softphoneAiSummaryBtn" class="softphone-ctrl-btn">AI summary</button>

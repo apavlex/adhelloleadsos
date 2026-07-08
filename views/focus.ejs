@@ -504,8 +504,13 @@
       if (typeof window.__adhelloSoftphoneGetSession === 'function') {
         var sess = window.__adhelloSoftphoneGetSession();
         if (sess.wrapRequired && sess.leadKey && String(sess.leadKey) === String(lead.key || '')) {
-          setCopyFeedback('Complete wrap-up in the dialer (quick log + Done) before calling this lead again.', true);
           if (typeof window.__adhelloFocusSoftphone === 'function') window.__adhelloFocusSoftphone();
+          if (typeof window.__adhelloSoftphoneRedial === 'function') {
+            window.__adhelloSoftphoneRedial();
+            setCopyFeedback('Redialing same number…');
+            return;
+          }
+          setCopyFeedback('Complete wrap-up in the dialer (quick log + Done), or tap Redial same number.', true);
           return;
         }
       }
