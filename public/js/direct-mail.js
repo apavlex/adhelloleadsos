@@ -252,19 +252,62 @@
     el.classList.add(ok ? 'text-emerald-700' : 'text-rose-700', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
   }
 
+  function formatApiError(data, fallback) {
+    var err = data && data.error;
+    if (typeof err === 'string' && err.trim()) return err.trim();
+    if (err && typeof err === 'object' && err.message) return String(err.message);
+    return fallback || 'Request failed';
+  }
+
   function setDesignStatus(text, ok) {
     var el = document.getElementById('dmDesignStatus');
     if (!el) return;
-    if (!text) {
+    var msg = text == null ? '' : String(text);
+    if (!msg || msg === 'true' || msg === 'false') {
       el.classList.add('hidden');
       el.textContent = '';
       el.classList.remove('text-rose-700', 'dark:text-rose-300', 'text-emerald-700', 'dark:text-emerald-300');
       el.classList.add('text-brand-muted');
       return;
     }
-    el.textContent = text;
+    el.textContent = msg;
     el.classList.remove('hidden', 'text-emerald-700', 'text-rose-700', 'dark:text-emerald-300', 'dark:text-rose-300', 'text-brand-muted');
     el.classList.add(ok ? 'text-emerald-700' : 'text-rose-700', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
+  }
+
+  function userWantsAdGeneration(text) {
+    return /make\s+(an?\s+)?(ad|add)|create\s+(an?\s+)?(ad|add)|design\s+(an?\s+)?(ad|add)|generate|go ahead|make it|build it|design it/i.test(
+      String(text || ''),
+    );
+  }
+
+  function buildQuickImagePrompt(userText, ctx) {
+    ctx = ctx || designRequestContext();
+    var kit = ctx.brandKit || {};
+    var plat = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
+    var parts = [
+      'Professional ' + plat.label + ' ad creative, ' + ctx.aspectRatio + ' aspect ratio.',
+      'Polished local-business marketing design with strong headline area and clear contact block.',
+    ];
+    if (kit.businessName) parts.push('Business name: ' + kit.businessName + '.');
+    if (userText) parts.push('Creative brief: ' + userText + '.');
+    if (kit.phone) parts.push('Display phone ' + kit.phone + ' prominently.');
+    if (kit.website) parts.push('Include website ' + kit.website + '.');
+    if (kit.email) parts.push('Include email ' + kit.email + '.');
+    if (kit.address) parts.push('Include address ' + kit.address + '.');
+    if (kit.hours) parts.push('Include business hours: ' + kit.hours + '.');
+    if (kit.logoUrl && kit.useLogoInDesign) parts.push('Incorporate the brand logo tastefully.');
+    parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
+    return parts.join(' ');
+  }
+
+  function latestUserChatText() {
+    for (var i = chatHistory.length - 1; i >= 0; i -= 1) {
+      if (chatHistory[i] && chatHistory[i].role === 'user' && chatHistory[i].content) {
+        return String(chatHistory[i].content).trim();
+      }
+    }
+    return '';
   }
 
   function escapeHtml(s) {
@@ -637,7 +680,7 @@
       data = {};
     }
     if (!res.ok || data.success === false) {
-      throw new Error((data && data.error) || 'Request failed');
+      throw new Error(formatApiError(data, 'Request failed'));
     }
     return data;
   }
@@ -679,9 +722,9 @@
         designMeta[slot].prompt = lastImagePrompt;
         showPromptEditor(slot, lastImagePrompt);
         setDesignStatus('Prompt ready — edit below or click Generate.', true);
-      } else if (/make it|generate|go ahead|create it|design it|build it/i.test(text)) {
+      } else if (userWantsAdGeneration(text)) {
         setDesignStatus(
-          'Ask in Chat for a “final image prompt,” or say “write the full GPT Image 2 prompt” — then click Generate when you see Prompt ready.',
+          'Chat could not build a prompt — click Generate and we will compose one from your brief and business info.',
           false,
         );
       } else {
@@ -703,24 +746,31 @@
     var prompt =
       readPromptEditor() ||
       lastImagePrompt ||
-      String((document.getElementById('dmChatInput') || {}).value || '').trim();
+      String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
+      latestUserChatText();
+    var ctx = designRequestContext();
     if (!prompt) {
       setDesignStatus('Describe the design in Chat first, or paste a detailed image prompt here.', false);
       return;
     }
     if (!lastImagePrompt && prompt.length < 48) {
-      setDesignStatus(
-        'Use Chat to build a full image prompt first (e.g. describe the postcard, then ask for a “final image prompt”). Click Generate only after “Prompt ready.”',
-        false,
-      );
-      return;
+      if (userWantsAdGeneration(prompt) || userWantsAdGeneration(latestUserChatText())) {
+        prompt = buildQuickImagePrompt(prompt || latestUserChatText(), ctx);
+        lastImagePrompt = prompt;
+        showPromptEditor(currentDesignSlot(), prompt);
+      } else {
+        setDesignStatus(
+          'Use Chat to build a full image prompt first, or ask to “make an ad” — then click Generate.',
+          false,
+        );
+        return;
+      }
     }
 
     var slot = slotEl && slotEl.value === 'back' ? 'back' : 'front';
     var aspectRatio = currentAspectRatio();
     var resolution = (document.getElementById('dmResolution') || {}).value || '2K';
     var referenceUrl = designs[slot === 'back' ? 'front' : 'back'] || '';
-    var ctx = designRequestContext();
 
     btn.disabled = true;
     setDesignStatus('Generating with GPT Image 2… this can take up to 2 minutes.', true);

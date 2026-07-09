@@ -117,7 +117,8 @@ Respond with JSON only, no markdown:
 
 Rules:
 - imagePrompt must be null until the user wants to generate or asks for a final prompt.
-- If the user asks you to generate, create, or make the design, set imagePrompt from the conversation.
+- If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post"), set imagePrompt from the conversation and business info — do not leave it null.
+- When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
 - ${isPostcard && slot === 'back' ? 'For postcard back: minimal copy and return-address / compliance space.' : 'Single-sided social/display ad — one strong focal creative.'}
 - Escape double quotes inside strings as \\".`;
@@ -140,6 +141,34 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform) {
     ? `\n\nPlatform: ${plat}. Include on the ad where appropriate: ${extras.join('; ')}.`
     : `\n\nPlatform: ${plat}.`;
   return base + suffix;
+}
+
+function formatDesignCoachError(ai) {
+  if (ai && typeof ai.error === 'string' && ai.error.trim()) return ai.error.trim();
+  const provider = ai && ai.provider ? String(ai.provider) : '';
+  if (provider && provider !== 'none') {
+    return `Design coach is unavailable (${provider}). Check AI provider keys on the server and try again.`;
+  }
+  return 'Design coach is unavailable. Set OPENROUTER_API_KEY, or KIE/Gemini/OpenAI keys on the server.';
+}
+
+async function runDesignCoachChat(messages) {
+  let ai = await chatCompletion({
+    messages,
+    jsonObject: true,
+    max_tokens: 900,
+    temperature: 0.65,
+    providerChain: 'openrouter',
+  });
+  if (ai.content) return ai;
+  ai = await chatCompletion({
+    messages,
+    jsonObject: true,
+    max_tokens: 900,
+    temperature: 0.65,
+    providerChain: 'legacy',
+  });
+  return ai;
 }
 
 function appendLeadUpdate(lead, entry) {
@@ -391,11 +420,11 @@ router.post('/api/design-chat', async (req, res, next) => {
       { role: 'user', content: userMessage.slice(0, 4000) },
     ];
 
-    const ai = await chatCompletion({ messages, jsonObject: true, max_tokens: 900, temperature: 0.65 });
+    const ai = await runDesignCoachChat(messages);
     if (!ai.content) {
       return res.status(502).json({
         success: false,
-        error: ai.error || 'Design coach is unavailable. Check AI provider keys on the server.',
+        error: formatDesignCoachError(ai),
       });
     }
 
