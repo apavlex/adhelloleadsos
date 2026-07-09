@@ -403,6 +403,36 @@ async function sendConversationMessage(payload, integrationEnv) {
   });
 }
 
+/** Search conversations for a contact (SMS thread lookup). */
+async function searchConversations({ contactId, limit = 5 } = {}, integrationEnv) {
+  const { locationId } = resolveConfig(integrationEnv);
+  const cid = String(contactId || '').trim();
+  if (!cid) throw new Error('contactId is required to search conversations.');
+  return ghlRequest('GET', '/conversations/search', {
+    integrationEnv,
+    query: { locationId, contactId: cid, limit: Math.min(Math.max(limit, 1), 20) },
+    apiVersion: GHL_CONVERSATIONS_API_VERSION,
+  });
+}
+
+/** Fetch messages for a conversation (paginated by lastMessageId). */
+async function getConversationMessages(
+  conversationId,
+  { limit = 50, lastMessageId, type = 'TYPE_SMS' } = {},
+  integrationEnv,
+) {
+  const cid = String(conversationId || '').trim();
+  if (!cid) throw new Error('conversationId is required.');
+  const query = { limit: Math.min(Math.max(limit, 1), 100) };
+  if (lastMessageId) query.lastMessageId = String(lastMessageId);
+  if (type) query.type = String(type);
+  return ghlRequest('GET', `/conversations/${encodeURIComponent(cid)}/messages`, {
+    integrationEnv,
+    query,
+    apiVersion: GHL_CONVERSATIONS_API_VERSION,
+  });
+}
+
 module.exports = {
   resolveConfig,
   isConfigured,
@@ -428,5 +458,7 @@ module.exports = {
   updateContactTask,
   normalizePhoneE164,
   sendConversationMessage,
+  searchConversations,
+  getConversationMessages,
   GHL_CONVERSATIONS_API_VERSION,
 };

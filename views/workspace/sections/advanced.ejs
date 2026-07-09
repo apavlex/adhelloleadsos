@@ -1,16 +1,22 @@
 <div class="rounded-[2rem] border border-brand-border dark:border-white/10 bg-white/90 dark:bg-slate-900/80 p-8">
-  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Advanced</h2>
-  <p class="text-sm text-brand-muted mb-4">Power-user options for this workspace.</p>
+  <h2 class="font-bold text-lg text-brand-dark dark:text-white mb-2">Workspaces</h2>
+  <p class="text-sm text-brand-muted mb-4">Switch between businesses from the workspace menu in the top-left sidebar (next to the logo). Each workspace keeps its own leads, pipeline, tasks, reports, and integrations.</p>
+  <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 p-5 max-w-xl space-y-3">
+    <p class="text-sm text-brand-dark dark:text-white font-semibold">How to add a second workspace (e.g. Flooring)</p>
+    <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
+      <li>Click your workspace name in the top-left corner of the sidebar.</li>
+      <li>Choose <strong class="text-brand-dark dark:text-white">+ Create workspace</strong>.</li>
+      <li>Name it (e.g. <em>Portland Flooring</em>), pick an accent color, and finish setup.</li>
+      <li>Use the same menu anytime to switch back to your agency workspace.</li>
+    </ol>
+    <a href="/workspaces/new" class="inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-brand-yellow hover:underline">Create workspace →</a>
+  </div>
   <% if (typeof showWorkspaceSwitchForm !== 'undefined' && showWorkspaceSwitchForm) { %>
-  <form method="post" action="/workspace/switch" class="rounded-xl border border-dashed border-brand-border dark:border-white/10 p-6 max-w-xl">
-    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Switch session workspace</label>
+  <form method="post" action="/workspace/switch" class="rounded-xl border border-dashed border-brand-border dark:border-white/10 p-6 max-w-xl mt-6">
+    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Switch session workspace (admin)</label>
     <input type="text" name="workspaceId" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm mb-3" placeholder="Workspace ID" />
     <button type="submit" class="text-xs font-black uppercase tracking-widest text-brand-yellow hover:underline">Switch workspace</button>
     <p class="text-[10px] text-brand-muted mt-2">New leads and filters use the workspace you select.</p>
   </form>
-  <% } else { %>
-  <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-800/40 p-5 max-w-xl">
-    <p class="text-sm text-brand-muted">Multi-workspace switching from the browser is not available yet. Use the workspace menu in the header, or ask your operator if you need a different default workspace on login.</p>
-  </div>
   <% } %>
 </div>

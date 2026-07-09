@@ -303,7 +303,7 @@ router.post('/webhooks/form', validateApiKey, async (req, res, next) => {
 
 /**
  * POST /api/webhooks/ghl
- * Go High Level ContactCreate / ContactUpdate — real-time inbound sync.
+ * Go High Level ContactCreate / ContactUpdate + InboundMessage / OutboundMessage SMS.
  * Auth: ?token=GHL_WEBHOOK_SECRET or x-ghl-webhook-token (or x-api-key / workspace ghlWebhookSecret).
  * Workspace is resolved from payload locationId when x-workspace-id is not set.
  */
@@ -315,7 +315,12 @@ router.post('/webhooks/ghl', express.json(), async (req, res, next) => {
     const headerWid = req.headers['x-workspace-id'];
     const workspaceId =
       typeof headerWid === 'string' && headerWid.trim() ? headerWid.trim() : undefined;
-    const result = await ghlSync.processWebhook(req.body || {}, { workspaceId });
+    const body = req.body || {};
+    const msgResult = await ghlSync.processMessageWebhook(body, { workspaceId });
+    if (!msgResult.ignored || msgResult.reason !== 'not_sms_message') {
+      return res.json({ success: true, ...msgResult });
+    }
+    const result = await ghlSync.processWebhook(body, { workspaceId });
     return res.json({ success: true, ...result });
   } catch (err) {
     next(err);

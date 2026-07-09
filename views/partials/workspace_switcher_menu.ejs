@@ -1,0 +1,27 @@
+<% const _menuWs = typeof workspace !== 'undefined' && workspace ? workspace : null; %>
+<% const _menuList = typeof workspaceSwitcherList !== 'undefined' && workspaceSwitcherList ? workspaceSwitcherList : []; %>
+<% const _menuCurrentId = _menuWs && _menuWs.id ? String(_menuWs.id) : ''; %>
+<% const _menuReturn = typeof workspaceReturnPath !== 'undefined' && workspaceReturnPath ? String(workspaceReturnPath) : ''; %>
+<% const _menuCount = _menuList.length; %>
+<p class="px-4 py-2 text-[9px] font-black uppercase tracking-widest text-brand-muted">Your workspaces</p>
+<% if (!_menuCount) { %>
+<p class="px-4 py-2 text-xs text-brand-muted">No workspaces found.</p>
+<% } %>
+<% _menuList.forEach(function (w) { %>
+<% const isActive = _menuCurrentId && String(w.id) === _menuCurrentId; %>
+<form method="post" action="/workspaces/switch" class="block">
+  <input type="hidden" name="workspaceId" value="<%= w.id %>" />
+  <% if (_menuReturn) { %><input type="hidden" name="returnTo" value="<%= _menuReturn.replace(/"/g, '&quot;') %>" /><% } %>
+  <button type="submit" class="w-full text-left px-4 py-2.5 text-sm flex items-center gap-2.5 transition-colors <%= isActive ? 'bg-brand-yellow/15 text-brand-dark dark:text-white font-bold' : 'text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10' %>" role="menuitem"<%= isActive ? ' aria-current="true"' : '' %>>
+    <span class="w-2.5 h-2.5 rounded-full shrink-0 ring-2 ring-white dark:ring-slate-900" style="background-color: <%= w.accentColor || '#CA8A04' %>" aria-hidden="true"></span>
+    <span class="truncate flex-1 min-w-0"><%= w.name %></span>
+    <% if (isActive) { %>
+    <svg class="w-4 h-4 shrink-0 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+    <% } %>
+  </button>
+</form>
+<% }) %>
+<div class="border-t border-brand-border dark:border-white/10 mt-1 pt-1 px-1">
+  <a href="/workspaces/new" class="block px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white hover:bg-brand-cream/60 dark:hover:bg-white/10 rounded-xl">+ Create workspace</a>
+</div>
+<p class="px-4 pt-2 pb-1 text-[10px] text-brand-muted leading-relaxed">Each workspace keeps its own leads, tasks, reports, and settings.</p>

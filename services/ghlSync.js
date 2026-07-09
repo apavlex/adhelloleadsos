@@ -510,6 +510,115 @@ function parseGhlWebhookPayload(body) {
   return { type, locationId, contact, contactId: String(contact.id || contactId || '').trim() };
 }
 
+function parseGhlMessageWebhook(body) {
+  if (!body || typeof body !== 'object') return null;
+  const type = String(body.type || body.event || '').trim();
+  if (!/^(InboundMessage|OutboundMessage)$/i.test(type)) return null;
+
+  const messageType = String(body.messageType || '').toUpperCase();
+  if (messageType && messageType !== 'SMS') return null;
+
+  const locationId = String(body.locationId || body.location_id || '').trim();
+  const contactId = String(body.contactId || (body.contact && body.contact.id) || '').trim();
+  const text = String(body.body || body.message || '').trim();
+  const messageId = String(body.messageId || body.id || '').trim();
+  if (!contactId || !text) return null;
+
+  let direction = String(body.direction || '').trim().toLowerCase();
+  if (!direction) direction = /inbound/i.test(type) ? 'inbound' : 'outbound';
+
+  return {
+    type,
+    locationId,
+    contactId,
+    body: text,
+    messageId,
+    direction,
+    conversationId: String(body.conversationId || '').trim(),
+    dateAdded: body.dateAdded || body.timestamp || '',
+    status: String(body.status || '').trim(),
+  };
+}
+
+/**
+ * Handle inbound/outbound GHL SMS webhooks (InboundMessage / OutboundMessage).
+ * @param {object} payload
+ * @param {{ workspaceId?: string }} [opts]
+ */
+async function processMessageWebhook(payload, opts = {}) {
+  const parsed = parseGhlMessageWebhook(payload);
+  if (!parsed) return { ok: true, ignored: true, reason: 'not_sms_message' };
+
+  let wid = String(opts.workspaceId || '').trim();
+  if (parsed.locationId) {
+    const match = await workspaceIntegrations.findWorkspaceIdByGhlLocationId(parsed.locationId);
+    if (match) wid = match;
+  }
+  if (!wid) wid = 'default';
+
+  const localLeads = await dbService.getAllLeads(wid);
+  const lead = findLocalLeadMatch(localLeads, { id: parsed.contactId });
+  if (!lead || !lead.key) {
+    return { ok: true, workspaceId: wid, ignored: true, reason: 'lead_not_found' };
+  }
+
+  const updates = Array.isArray(lead.updates) ? lead.updates : [];
+  if (
+    parsed.messageId &&
+    updates.some(
+      (u) =>
+        String((u && (u.messageSid || u.ghlMessageId)) || '').trim() === parsed.messageId,
+    )
+  ) {
+    return { ok: true, workspaceId: wid, key: lead.key, ignored: true, reason: 'duplicate' };
+  }
+
+  const entryType = parsed.direction === 'inbound' ? 'sms_inbound' : 'sms_outbound';
+  const newUpdates = [
+    ...updates,
+    {
+      timestamp: parsed.dateAdded || new Date().toISOString(),
+      type: entryType,
+      value: parsed.body,
+      messageSid: parsed.messageId,
+      ghlMessageId: parsed.messageId,
+      provider: 'ghl',
+      ghlContactId: parsed.contactId,
+      conversationId: parsed.conversationId,
+      status: parsed.status || '',
+    },
+  ];
+
+  const patch = {
+    updates: newUpdates,
+    ghlContactId: lead.ghlContactId || parsed.contactId,
+    logs: [
+      {
+        type: entryType,
+        message:
+          parsed.direction === 'inbound'
+            ? `Inbound SMS: ${parsed.body.slice(0, 180)}`
+            : `Outbound SMS: ${parsed.body.slice(0, 180)}`,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  };
+  if (parsed.direction === 'inbound') {
+    patch.status = 'Follow-up';
+    patch.lastTouchChannel = 'sms';
+  }
+
+  await dbService.updateLead(lead.key, patch);
+
+  return {
+    ok: true,
+    workspaceId: wid,
+    key: lead.key,
+    action: entryType,
+    messageId: parsed.messageId || null,
+  };
+}
+
 /**
  * Handle inbound GHL contact webhook (ContactCreate / ContactUpdate).
  * @param {object} payload
@@ -553,7 +662,9 @@ module.exports = {
   statusFromEnv,
   findLocalLeadMatch,
   processWebhook,
+  processMessageWebhook,
   parseGhlWebhookPayload,
+  parseGhlMessageWebhook,
   pushNotesToGhl,
   pullNotesFromGhl,
 };

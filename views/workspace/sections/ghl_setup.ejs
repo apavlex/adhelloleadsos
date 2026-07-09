@@ -69,7 +69,7 @@
           <ol class="text-sm text-brand-muted space-y-2 list-decimal list-inside leading-relaxed">
             <li>On the GHL integrations card, set a <strong>webhook token</strong> (or ask your operator to set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GHL_WEBHOOK_SECRET</code> on the server).</li>
             <li>Copy the webhook URL shown on that card.</li>
-            <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>ContactCreate</strong> and <strong>ContactUpdate</strong>.</li>
+            <li>In GHL, go to <strong>Settings → Webhooks</strong> (or your marketplace app) and subscribe to <strong>ContactCreate</strong>, <strong>ContactUpdate</strong>, <strong>InboundMessage</strong>, and <strong>OutboundMessage</strong>.</li>
             <li>Paste the Agency OS webhook URL. The <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">locationId</code> in each event must match the Location ID you saved.</li>
           </ol>
           <% if (_hookReady && _base) { %>
@@ -87,7 +87,9 @@
             <li>In <strong>Workspace → Integrations</strong>, set <strong>Outbound email from</strong> to a verified GHL sender address.</li>
             <li>Optional: set <strong>SMS from number</strong> (E.164) or use your GHL location default.</li>
             <li>Send from the lead panel, Focus mode, or bulk SMS — messages go through GHL Conversations and appear on the contact timeline.</li>
-            <li>Your private integration token needs <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code>.</li>
+            <li>In the lead panel, switch outreach to <strong>Text</strong> to view the two-way SMS thread, compose replies, and sync history from GHL.</li>
+            <li>Subscribe to <strong>InboundMessage</strong> and <strong>OutboundMessage</strong> webhooks (step 4) so replies appear in Agency OS in real time.</li>
+            <li>Your private integration token needs <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.write</code> and <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">conversations/message.readonly</code>.</li>
           </ul>
         </div>
       </li>

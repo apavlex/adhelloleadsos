@@ -2215,6 +2215,83 @@ router.get('/:key/call-events', async (req, res, next) => {
   }
 });
 
+// GET /leads/:key/sms-thread — two-way SMS thread (local + optional GHL sync)
+router.get('/:key/sms-thread', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const sync = ['1', 'true', 'yes'].includes(String(req.query.sync || '').toLowerCase());
+    const ghlConfigured = ghlClient.isConfigured(integrationEnv);
+
+    let messages;
+    let synced = 0;
+    let updatedLead = lead;
+
+    if (sync && ghlConfigured) {
+      const syncResult = await ghlMessaging.syncGhlSmsToLead({ lead, integrationEnv });
+      messages = syncResult.messages || [];
+      synced = syncResult.added || 0;
+      if (syncResult.patch && synced > 0) {
+        updatedLead = await dbService.updateLead(fullKey, syncResult.patch);
+      } else {
+        updatedLead = syncResult.lead || lead;
+      }
+    } else {
+      messages = await ghlMessaging.buildSmsThreadForLead({
+        lead,
+        integrationEnv,
+        syncFromGhl: sync && ghlConfigured,
+      });
+    }
+
+    return res.json({
+      success: true,
+      messages,
+      synced,
+      ghlConfigured,
+      provider: ghlConfigured ? 'ghl' : null,
+      lead: updatedLead,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/sms-thread/sync — pull GHL SMS history into lead updates
+router.post('/:key/sms-thread/sync', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!ghlClient.isConfigured(integrationEnv)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Go High Level is not configured for this workspace.',
+      });
+    }
+
+    const syncResult = await ghlMessaging.syncGhlSmsToLead({ lead, integrationEnv });
+    let updatedLead = lead;
+    if (syncResult.patch && syncResult.added > 0) {
+      updatedLead = await dbService.updateLead(fullKey, syncResult.patch);
+    }
+
+    return res.json({
+      success: true,
+      added: syncResult.added || 0,
+      messages: syncResult.messages || [],
+      lead: updatedLead,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/:key/sms — send outbound SMS (GHL when configured, else SignalWire)
 router.post('/:key/sms', async (req, res, next) => {
   try {

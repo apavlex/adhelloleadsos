@@ -527,7 +527,28 @@ router.post('/switch', express.urlencoded({ extended: true }), async (req, res, 
       req.session.workspaceId = raw;
     }
 
-    res.redirect('/today');
+    const fallback = '/today';
+    const returnRaw = String(req.body.returnTo || req.get('Referer') || '').trim();
+    let redirectTo = fallback;
+    if (returnRaw) {
+      try {
+        if (returnRaw.startsWith('/')) {
+          if (!returnRaw.startsWith('/auth') && !returnRaw.startsWith('/logout')) {
+            redirectTo = returnRaw;
+          }
+        } else {
+          const u = new URL(returnRaw);
+          const host = req.get('host') || '';
+          if (u.host === host && u.pathname && !u.pathname.startsWith('/auth')) {
+            redirectTo = u.pathname + (u.search || '');
+          }
+        }
+      } catch (_) {
+        redirectTo = fallback;
+      }
+    }
+
+    res.redirect(redirectTo);
   } catch (e) {
     next(e);
   }

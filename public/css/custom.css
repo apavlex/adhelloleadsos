@@ -243,6 +243,7 @@ h1, h2, h3, h4, .font-display {
 
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-text,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-ws-sub,
+    body.app-with-sidebar.sidebar-collapsed #appSidebar .ws-switcher-chevron,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-nav-link > span,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-label,
     body.app-with-sidebar.sidebar-collapsed #appSidebar .sidebar-settings-chevron,

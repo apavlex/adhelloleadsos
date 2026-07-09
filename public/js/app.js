@@ -2264,6 +2264,159 @@ document.addEventListener('DOMContentLoaded', () => {
     const ch = String(channel || 'call').toLowerCase();
     window.__leadOutreachChannel = ['call', 'text', 'voicemail', 'email'].includes(ch) ? ch : 'call';
     syncLeadOutreachChannelButtons();
+    syncLeadSmsThreadSectionVisibility();
+  }
+
+  let leadSmsThreadPollTimer = null;
+
+  function escapeSmsHtml(text) {
+    return String(text || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function formatSmsThreadTime(ts) {
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }
+
+  function syncLeadSmsThreadSectionVisibility() {
+    const section = document.getElementById('leadSmsThreadSection');
+    if (!section) return;
+    const channel = window.__leadOutreachChannel || 'call';
+    const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+    const phone = row && row.dataset ? readPipelineRowDisplayPhone(row) : '';
+    const show = channel === 'text' && !!String(phone || '').trim() && String(phone).trim() !== '—';
+    section.classList.toggle('hidden', !show);
+    if (show && row) {
+      loadLeadSmsThread(row, { sync: true }).catch(() => {});
+      startLeadSmsThreadPolling(row);
+    } else {
+      stopLeadSmsThreadPolling();
+    }
+  }
+
+  function stopLeadSmsThreadPolling() {
+    if (leadSmsThreadPollTimer) {
+      clearInterval(leadSmsThreadPollTimer);
+      leadSmsThreadPollTimer = null;
+    }
+  }
+
+  function startLeadSmsThreadPolling(row) {
+    stopLeadSmsThreadPolling();
+    if (!row) return;
+    leadSmsThreadPollTimer = setInterval(() => {
+      if ((window.__leadOutreachChannel || 'call') !== 'text') return;
+      const active = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+      if (!active || active !== row) return;
+      loadLeadSmsThread(row, { sync: true, quiet: true }).catch(() => {});
+    }, 45000);
+  }
+
+  function renderLeadSmsThread(messages) {
+    const list = document.getElementById('leadSmsThreadList');
+    if (!list) return;
+    const items = Array.isArray(messages) ? messages : [];
+    if (!items.length) {
+      list.innerHTML = '<p class="text-[11px] text-brand-muted italic m-0">No messages yet.</p>';
+      return;
+    }
+    list.innerHTML = items
+      .map((msg) => {
+        const inbound = String(msg.direction || '').toLowerCase() === 'inbound';
+        const time = formatSmsThreadTime(msg.timestamp);
+        const body = escapeSmsHtml(msg.body || '');
+        if (inbound) {
+          return `<div class="flex flex-col items-start max-w-[92%]"><div class="rounded-2xl rounded-tl-sm bg-brand-cream/80 dark:bg-slate-800 border border-brand-border/20 dark:border-white/10 px-3 py-2 text-[11px] font-semibold text-brand-dark dark:text-slate-200 leading-relaxed">${body}</div><span class="text-[8px] font-bold uppercase tracking-widest text-brand-muted mt-1">${time ? time + ' · ' : ''}Lead</span></div>`;
+        }
+        return `<div class="flex flex-col items-end ml-auto max-w-[92%]"><div class="rounded-2xl rounded-tr-sm bg-brand-yellow/90 text-brand-dark px-3 py-2 text-[11px] font-semibold leading-relaxed shadow-sm">${body}</div><span class="text-[8px] font-bold uppercase tracking-widest text-brand-muted mt-1">${time ? time + ' · ' : ''}You</span></div>`;
+      })
+      .join('');
+    list.scrollTop = list.scrollHeight;
+  }
+
+  function setLeadSmsThreadStatus(text, isError) {
+    const el = document.getElementById('leadSmsThreadStatus');
+    if (!el) return;
+    el.textContent = String(text || '');
+    el.classList.toggle('text-rose-600', !!isError);
+    el.classList.toggle('dark:text-rose-400', !!isError);
+    el.classList.toggle('text-brand-muted', !isError);
+  }
+
+  async function loadLeadSmsThread(row, opts) {
+    const options = opts || {};
+    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    if (!key) return;
+    if (!options.quiet) setLeadSmsThreadStatus('Loading messages…');
+    const syncQ = options.sync ? '?sync=1' : '';
+    const res = await fetch(`/leads/${encodeURIComponent(key)}/sms-thread${syncQ}`, {
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || `HTTP ${res.status}`);
+    }
+    renderLeadSmsThread(data.messages || []);
+    if (data.lead && row) {
+      syncPersistedLeadToRowDataset(row, data.lead);
+      if (typeof refreshLeadActivityTimeline === 'function') {
+        refreshLeadActivityTimeline(row);
+      }
+    }
+    if (!options.quiet) {
+      const n = Array.isArray(data.messages) ? data.messages.length : 0;
+      const synced = data.synced || 0;
+      setLeadSmsThreadStatus(
+        synced > 0 ? `${n} messages · ${synced} new from GHL` : n ? `${n} messages` : 'Ready',
+      );
+    }
+    return data;
+  }
+
+  async function sendLeadSmsCompose() {
+    const input = document.getElementById('leadSmsComposeInput');
+    const btn = document.getElementById('leadSmsComposeSendBtn');
+    const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    const body = String((input && input.value) || '').trim();
+    if (!key || !body) return;
+    if (btn) btn.disabled = true;
+    setLeadSmsThreadStatus('Sending…');
+    try {
+      await sendSmsToLeadKey(key, body);
+      if (input) input.value = '';
+      const countEl = document.getElementById('leadSmsComposeCount');
+      if (countEl) countEl.textContent = '0';
+      await loadLeadSmsThread(row, { sync: true });
+      setLeadSmsThreadStatus('Sent');
+    } catch (err) {
+      setLeadSmsThreadStatus((err && err.message) || 'Send failed', true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  window.__loadLeadSmsThread = loadLeadSmsThread;
+  window.__syncLeadSmsThreadSectionVisibility = syncLeadSmsThreadSectionVisibility;
+
+  const leadSmsComposeInput = document.getElementById('leadSmsComposeInput');
+  const leadSmsComposeCount = document.getElementById('leadSmsComposeCount');
+  if (leadSmsComposeInput && leadSmsComposeCount) {
+    const syncComposeCount = () => {
+      leadSmsComposeCount.textContent = String((leadSmsComposeInput.value || '').length);
+    };
+    leadSmsComposeInput.addEventListener('input', syncComposeCount);
+    leadSmsComposeInput.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+        e.preventDefault();
+        void sendLeadSmsCompose();
+      }
+    });
   }
 
   function outreachLibraryHasScripts(library) {
@@ -4556,6 +4709,21 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       setLeadOutreachChannel(chBtn.getAttribute('data-outreach-channel') || 'call');
       onLeadPanelOutreachScriptInputsChanged(currentRow);
+      return;
+    }
+    if (e.target.closest('#leadSmsThreadSyncBtn')) {
+      e.preventDefault();
+      const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+      if (row) {
+        loadLeadSmsThread(row, { sync: true }).catch((err) => {
+          setLeadSmsThreadStatus((err && err.message) || 'Sync failed', true);
+        });
+      }
+      return;
+    }
+    if (e.target.closest('#leadSmsComposeSendBtn')) {
+      e.preventDefault();
+      void sendLeadSmsCompose();
       return;
     }
     const row = e.target.closest('.result-row');
@@ -10744,6 +10912,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (finalPaintErr) {
       console.warn('[Lead panel] final row paint failed:', finalPaintErr);
     }
+    syncLeadSmsThreadSectionVisibility();
   }
 
   const applyTableStars = () => {

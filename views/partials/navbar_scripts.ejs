@@ -57,12 +57,17 @@
       if (!wsm || !wsb) return;
       wsm.classList.add('hidden');
       wsb.setAttribute('aria-expanded', 'false');
+      var chev = wsb.querySelector('.ws-switcher-chevron');
+      if (chev) chev.classList.remove('rotate-180');
     }
     if (!wsb || !wsm || !wsw) return;
     wsb.addEventListener('click', function (e) {
       e.stopPropagation();
+      var open = wsm.classList.contains('hidden');
       wsm.classList.toggle('hidden');
-      wsb.setAttribute('aria-expanded', (!wsm.classList.contains('hidden')).toString());
+      wsb.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var chev = wsb.querySelector('.ws-switcher-chevron');
+      if (chev) chev.classList.toggle('rotate-180', open);
     });
     document.addEventListener('click', closeWsMenu);
     wsw.addEventListener('click', function (e) { e.stopPropagation(); });
