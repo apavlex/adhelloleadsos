@@ -453,6 +453,12 @@
     }) || null;
   }
 
+  function normalizeCategoryName(raw) {
+    if (raw == null || raw === '') return '';
+    if (Array.isArray(raw)) return raw.filter(Boolean).map(String).join(', ').trim();
+    return String(raw).trim();
+  }
+
   function businessFromJsonLd(jsonLd, defaults, blocklist) {
     if (!jsonLd) return defaults || {};
     const addr = jsonLd.address || {};
@@ -475,7 +481,7 @@
       address: address || defaults?.address || '',
       city: addr.addressLocality || geo.city || defaults?.city || '',
       state: addr.addressRegion || geo.state || defaults?.state || '',
-      categoryName: jsonLd['@type'] || jsonLd.category || defaults?.categoryName || '',
+      categoryName: normalizeCategoryName(jsonLd['@type'] || jsonLd.category || defaults?.categoryName || ''),
       totalScore: parseRating(jsonLd.aggregateRating?.ratingValue || defaults?.totalScore || 0),
       reviewsCount: parseInt(jsonLd.aggregateRating?.reviewCount || defaults?.reviewsCount || 0, 10) || 0,
     };

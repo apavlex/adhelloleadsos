@@ -10,6 +10,17 @@
 
 const express = require('express');
 const router = express.Router();
+
+function normalizeLeadCategoryName(raw, fallback = 'N/A') {
+  if (raw == null || raw === '') return fallback;
+  if (Array.isArray(raw)) {
+    const joined = raw.filter(Boolean).map(String).join(', ').trim();
+    return joined || fallback;
+  }
+  const s = String(raw).trim();
+  return s || fallback;
+}
+
 const dbService = require('../services/database');
 const { folderKeyForJobType, leadMetadataForJobType } = require('../services/pipelineFolders');
 const { normalizeJobType } = require('../services/scrapeJobTypes');
@@ -317,7 +328,7 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       phone: req.body.phone || 'N/A',
       website: req.body.website || 'N/A',
       email: req.body.email || 'N/A',
-      categoryName: req.body.categoryName || req.body.category || 'N/A',
+      categoryName: normalizeLeadCategoryName(req.body.categoryName || req.body.category),
       address: req.body.address || 'N/A',
       city: req.body.city || '',
       state: req.body.state || '',

@@ -102,6 +102,16 @@ function leadContactFieldsChanged(body, existing) {
   });
 }
 
+function normalizeLeadCategoryName(raw, fallback = 'N/A') {
+  if (raw == null || raw === '') return fallback;
+  if (Array.isArray(raw)) {
+    const joined = raw.filter(Boolean).map(String).join(', ').trim();
+    return joined || fallback;
+  }
+  const s = String(raw).trim();
+  return s || fallback;
+}
+
 async function importLeadRecordsFromBuffer(buffer, originalFilename, req, importOptions = {}) {
   const parseOpts =
     typeof importOptions.leadSource === 'string' && importOptions.leadSource.trim()
@@ -400,12 +410,10 @@ router.post('/save', async (req, res, next) => {
       phone: phone || 'N/A',
       website: website || 'N/A',
       email: email || 'N/A',
-      categoryName:
-        categoryName && String(categoryName).trim()
-          ? categoryName
-          : isManual
-            ? 'Offline / word of mouth'
-            : 'N/A',
+      categoryName: normalizeLeadCategoryName(
+        categoryName,
+        isManual ? 'Offline / word of mouth' : 'N/A',
+      ),
       address: address || 'N/A',
       city: city || '',
       state: state || '',

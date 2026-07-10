@@ -36,6 +36,15 @@
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;');
     }
+    function plcCategoryInputValue(v) {
+      if (v == null || v === 'N/A') return '';
+      if (Array.isArray(v)) v = v.filter(Boolean).map(String).join(', ');
+      else if (typeof v === 'object') v = JSON.stringify(v);
+      else v = String(v);
+      v = String(v).trim();
+      if (!v || v === 'N/A') return '';
+      return plcEscAttr(v);
+    }
     function plcEscJson(obj) {
       return JSON.stringify(obj === undefined ? null : obj)
         .replace(/&/g, '&amp;')
@@ -508,7 +517,7 @@
               </td>
               <td data-plc="category" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[5.5rem] max-w-[10rem]" onclick="event.stopPropagation()">
                 <label class="sr-only">Category for <%= lead.title %></label>
-                <input type="text" class="lead-category-input w-full max-w-[9.5rem] text-[10px] font-semibold text-brand-dark dark:text-white rounded-lg border border-brand-border/35 dark:border-white/10 bg-transparent dark:bg-white/5 px-2 py-1 placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" list="lead-category-pipeline-options" value="<%= lead.categoryName && lead.categoryName !== 'N/A' ? lead.categoryName.replace(/"/g, '&quot;') : '' %>" placeholder="Category" title="Category — type or pick" data-lead-key="<%= lead.key %>" autocomplete="off" />
+                <input type="text" class="lead-category-input w-full max-w-[9.5rem] text-[10px] font-semibold text-brand-dark dark:text-white rounded-lg border border-brand-border/35 dark:border-white/10 bg-transparent dark:bg-white/5 px-2 py-1 placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" list="lead-category-pipeline-options" value="<%= plcCategoryInputValue(lead.categoryName) %>" placeholder="Category" title="Category — type or pick" data-lead-key="<%= lead.key %>" autocomplete="off" />
               </td>
               <td data-plc="reviews" class="lead-cell-reviews px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <div class="lead-reviews-inner py-0.5 flex flex-col items-start gap-1">
