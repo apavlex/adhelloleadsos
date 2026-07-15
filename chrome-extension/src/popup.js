@@ -468,6 +468,8 @@ form.addEventListener('submit', async (e) => {
     btn.textContent = 'Saving…';
   });
 
+  let saveSucceeded = false;
+
   try {
     const { lead: base } = await getActiveTabLead();
     const reviews = parseReviewsField(form.reviews.value);
@@ -510,12 +512,21 @@ form.addEventListener('submit', async (e) => {
           : '';
     const mergeNote = res.data?.merged ? ' · Updated existing lead' : '';
     setStatus(`Saved (${res.data?.key || 'ok'})${mergeNote}${folderNote}`, 'success');
+    saveSucceeded = true;
+    saveButtons.forEach((btn) => {
+      btn.textContent = 'Saved';
+    });
+    setTimeout(() => {
+      saveButtons.forEach((btn) => {
+        btn.textContent = 'Save';
+      });
+    }, 2500);
   } catch (err) {
     setStatus(err.message || 'Save failed', 'error');
   } finally {
     saveButtons.forEach((btn) => {
       btn.disabled = false;
-      btn.textContent = 'Save to AdHello';
+      if (!saveSucceeded) btn.textContent = 'Save';
     });
   }
 });
