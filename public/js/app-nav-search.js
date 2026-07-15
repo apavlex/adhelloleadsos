@@ -32,7 +32,6 @@
     if (!short) return '/focus?channel=call';
     var params = new URLSearchParams();
     params.set('lead', short);
-    params.set('keys', short);
     params.set('channel', 'call');
     return '/focus?' + params.toString();
   }

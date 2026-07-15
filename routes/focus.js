@@ -208,6 +208,52 @@ router.post('/touch-goal', async (req, res, next) => {
 
 const { parseBulkSelectionKeys, orderLeadsByKeys, resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 
+function promoteFocusLead(queue, payload) {
+  if (!payload || !payload.key) return;
+  const idx = queue.findIndex((q) => q && q.key === payload.key);
+  if (idx === 0) return;
+  if (idx > 0) {
+    const [item] = queue.splice(idx, 1);
+    queue.unshift(item);
+    return;
+  }
+  queue.unshift(payload);
+}
+
+async function ensureExplicitFocusLead({
+  queue,
+  explicitOpenKey,
+  visible,
+  sortedStages,
+  scriptLibrary,
+  allowedKeys,
+  dbService,
+  workspaceId,
+}) {
+  const key = String(explicitOpenKey || '').trim().replace(/^lead:/i, '');
+  if (!key) return;
+
+  const inQueue = queue.find((q) => q && q.key === key);
+  if (inQueue) {
+    promoteFocusLead(queue, inQueue);
+    return;
+  }
+
+  const rows = await resolveLeadsBySelectedKeys({
+    dbService,
+    workspaceId,
+    visibleLeads: visible,
+    keyOrder: [key],
+  });
+  const leadRow = rows[0];
+  if (!leadRow) return;
+
+  promoteFocusLead(
+    queue,
+    leadToFocusPayload(leadRow, sortedStages, scriptLibrary, allowedKeys),
+  );
+}
+
 router.get('/', async (req, res, next) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
@@ -224,42 +270,39 @@ router.get('/', async (req, res, next) => {
     const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const selectedKeyOrder = parseBulkSelectionKeys(req.query.keys);
-    const selectedOnly = selectedKeyOrder.length > 0;
+    const preferShortKey = String(req.query.lead || req.query.leadId || '')
+      .trim()
+      .replace(/^lead:/i, '');
+    const explicitOpenKey =
+      preferShortKey || (selectedKeyOrder.length === 1 ? selectedKeyOrder[0] : '');
+    const bulkSelection = selectedKeyOrder.length > 1;
     let ordered;
-    if (selectedOnly) {
-      // Use full visible set so foldered pipeline picks are not dropped (excludeOutreachFolderLeads
-      // only applies to the default auto queue, not explicit bulk selection).
-      ordered = filterBusinessPipelineLeads(
-        await resolveLeadsBySelectedKeys({
-          dbService,
-          workspaceId: req.workspaceId,
-          visibleLeads: visible,
-          keyOrder: selectedKeyOrder,
-        }),
-      );
+    if (selectedKeyOrder.length > 0) {
+      const resolved = await resolveLeadsBySelectedKeys({
+        dbService,
+        workspaceId: req.workspaceId,
+        visibleLeads: visible,
+        keyOrder: selectedKeyOrder,
+      });
+      // Single-lead opens (navbar search) skip business-only filter so foldered picks still load.
+      ordered = bulkSelection ? filterBusinessPipelineLeads(resolved) : resolved;
     } else {
       ordered = buildFocusQueue(pipelineLeads);
     }
     const queue = ordered.map((l) =>
       leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys),
     );
-    const prefer = String(req.query.lead || req.query.leadId || '')
-      .trim()
-      .replace(/^lead:/i, '');
-    if (prefer) {
-      const idx = queue.findIndex((q) => q.key === prefer);
-      if (idx > 0) {
-        const [item] = queue.splice(idx, 1);
-        queue.unshift(item);
-      } else if (idx < 0) {
-        const leadRow =
-          pipelineLeads.find((l) => shortLeadKey(l) === prefer) ||
-          visible.find((l) => shortLeadKey(l) === prefer);
-        if (leadRow && filterBusinessPipelineLeads([leadRow]).length) {
-          queue.unshift(leadToFocusPayload(leadRow, sortedStages, offerBundle.library, offerBundle.keys));
-        }
-      }
-    }
+
+    await ensureExplicitFocusLead({
+      queue,
+      explicitOpenKey,
+      visible,
+      sortedStages,
+      scriptLibrary: offerBundle.library,
+      allowedKeys: offerBundle.keys,
+      dbService,
+      workspaceId: req.workspaceId,
+    });
 
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(visible, today);
     const touchGoal = await loadDailyTouchGoal(req);
@@ -279,8 +322,8 @@ router.get('/', async (req, res, next) => {
       focusQueueJson: JSON.stringify(queue),
       focusProductOptions,
       focusScriptLibraryJson: JSON.stringify(focusScriptLibrary),
-      focusSelectionCount: selectedOnly ? queue.length : null,
-      focusIsSelectionSession: selectedOnly,
+      focusSelectionCount: bulkSelection ? queue.length : null,
+      focusIsSelectionSession: bulkSelection,
       workspaceTags,
     });
   } catch (e) {
