@@ -323,6 +323,10 @@
   }
 
   function getSelectedLeadKeysForBulk() {
+    if (typeof window.__getSelectedLeadKeysForBulk === 'function') {
+      const keys = window.__getSelectedLeadKeysForBulk();
+      if (keys.length) return keys;
+    }
     if (typeof window.__ensureBulkSelectionKeys === 'function') {
       const keys = window.__ensureBulkSelectionKeys();
       if (keys.length) return keys;
@@ -631,6 +635,8 @@
         throw new Error('No leads were updated. Refresh the page and try again.');
       }
       applyTagsToRowsFromBulkResult(data.leads);
+      await refreshWorkspaceTagsFromServer();
+      initRowTags();
       const msg =
         mode === 'remove'
           ? `Removed tag from ${updatedCount} lead${updatedCount === 1 ? '' : 's'}`
@@ -671,6 +677,9 @@
         throw new Error('Tag was created but no leads were tagged. Refresh and try Add again.');
       }
       applyTagsToRowsFromBulkResult(data.leads);
+      await refreshWorkspaceTagsFromServer();
+      rebuildBulkTagSelect();
+      initRowTags();
       if (newName) newName.value = '';
       if (select) select.value = tag.key;
       syncBulkTagColorInput();

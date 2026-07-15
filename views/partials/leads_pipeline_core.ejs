@@ -51,6 +51,21 @@
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;');
     }
+    var _plcWorkspaceTags = typeof tags !== 'undefined' && tags ? tags : [];
+    var _plcTagByKey = {};
+    _plcWorkspaceTags.forEach(function (tg) {
+      if (tg && tg.key) _plcTagByKey[String(tg.key)] = tg;
+    });
+    function plcTagLabel(tagKey) {
+      var tg = _plcTagByKey[String(tagKey || '').trim()];
+      if (tg && tg.name) return tg.name;
+      return String(tagKey || '').replace(/^tag:[^:]+:/, '') || 'Tag';
+    }
+    function plcTagColor(tagKey) {
+      var tg = _plcTagByKey[String(tagKey || '').trim()];
+      var c = tg && tg.color ? String(tg.color) : '#94a3b8';
+      return /^#[0-9A-Fa-f]{6}$/.test(c) ? c.toUpperCase() : '#94A3B8';
+    }
     function formatListingSourceLabel(raw) {
       if (typeof formatSourceChannelLabel === 'function') {
         return formatSourceChannelLabel(raw);
@@ -479,7 +494,19 @@
                     </div>
                     <div class="mt-1">
                       <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
-                      <div class="lead-row-tags flex flex-wrap gap-1 mt-1<%= (Array.isArray(lead.tags) && lead.tags.length) ? '' : ' hidden' %>" aria-label="Lead tags"></div>
+                      <div class="lead-row-tags flex flex-wrap gap-1 mt-1<%= (Array.isArray(lead.tags) && lead.tags.length) ? '' : ' hidden' %>" aria-label="Lead tags"><%
+                        var _rowTagKeys = Array.isArray(lead.tags) ? lead.tags : [];
+                        _rowTagKeys.slice(0, 4).forEach(function (tk) {
+                          var _tk = String(tk || '').trim();
+                          if (!_tk) return;
+                          var _tColor = plcTagColor(_tk);
+                          var _tLabel = plcTagLabel(_tk);
+                      %><span class="lead-tag-chip inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:<%= _tColor %>22;color:<%= _tColor %>" title="<%= plcEscAttr(_tLabel) %>"><%= _tLabel %></span><%
+                        });
+                        if (_rowTagKeys.length > 4) {
+                      %><span class="text-[8px] font-bold text-brand-muted dark:text-slate-400">+<%= _rowTagKeys.length - 4 %></span><%
+                        }
+                      %></div>
                     </div>
                   </div>
                 </div>

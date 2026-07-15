@@ -3,6 +3,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { filterLeadsForRequest } = require('../services/workspaceService');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
+const { resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 
 async function tagsWithLeadCounts(req) {
   const tags = await dbService.listTags(req.workspaceId);
@@ -20,19 +21,27 @@ async function tagsWithLeadCounts(req) {
   }));
 }
 
-function resolveVisibleLeadKey(visible, rawKey) {
-  const k = String(rawKey || '').trim();
-  if (!k) return null;
-  const visibleKeys = new Set(visible.map((l) => l.key));
-  const candidates = [
-    k,
-    k.startsWith('lead:') ? k : `lead:${k}`,
-    k.startsWith('lead:') ? k.slice(5) : null,
-  ].filter(Boolean);
-  for (const c of candidates) {
-    if (visibleKeys.has(c)) return c;
-  }
-  return null;
+async function resolveLeadsForTagAssign(req, leadKeysRaw) {
+  const leadKeys = (Array.isArray(leadKeysRaw) ? leadKeysRaw : [])
+    .map((k) => String(k || '').trim())
+    .filter(Boolean);
+  if (!leadKeys.length) return { leadKeys, matched: [] };
+
+  const all = await dbService.getAllLeads(req.workspaceId);
+  const visible = filterLeadsForRequest(req, all);
+  const matched = await resolveLeadsBySelectedKeys({
+    dbService,
+    workspaceId: req.workspaceId,
+    visibleLeads: visible,
+    keyOrder: leadKeys,
+  });
+  return { leadKeys, matched };
+}
+
+async function storageKeyForLead(lead, workspaceId) {
+  const raw = String((lead && lead.key) || '').trim();
+  if (!raw) return '';
+  return (await dbService.resolveLeadStorageKey(raw, workspaceId)) || raw;
 }
 
 router.get('/manage', async (req, res, next) => {
@@ -78,13 +87,15 @@ router.post('/assign', async (req, res, next) => {
     );
     if (!leadKey) return res.status(400).json({ success: false, error: 'leadKey is required.' });
 
-    const all = await dbService.getAllLeads(req.workspaceId);
-    const visible = filterLeadsForRequest(req, all);
-    const fullKey = resolveVisibleLeadKey(visible, leadKey);
-    if (!fullKey) return res.status(404).json({ success: false, error: 'Lead not found.' });
+    const { matched } = await resolveLeadsForTagAssign(req, [leadKey]);
+    const target = matched[0];
+    if (!target) return res.status(404).json({ success: false, error: 'Lead not found.' });
 
-    const existing = await dbService.getLead(fullKey);
-    const prev = dbService.normalizeTagKeys(existing && existing.tags);
+    const fullKey = await storageKeyForLead(target, req.workspaceId);
+    const existing = await dbService.getLead(fullKey, req.workspaceId);
+    if (!existing) return res.status(404).json({ success: false, error: 'Lead not found.' });
+
+    const prev = dbService.normalizeTagKeys(existing.tags);
     let nextTags = prev;
     if (mode === 'add') {
       nextTags = dbService.normalizeTagKeys([...prev, ...tagKeys]);
@@ -95,7 +106,8 @@ router.post('/assign', async (req, res, next) => {
       nextTags = tagKeys;
     }
 
-    const lead = await dbService.setLeadTags(fullKey, nextTags);
+    const lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
+    if (!lead) return res.status(404).json({ success: false, error: 'Could not save tags on lead.' });
     triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'tag_assign' });
     res.json({ success: true, lead });
   } catch (e) {
@@ -125,7 +137,8 @@ router.post('/assign-bulk', async (req, res, next) => {
       Array.isArray(req.body?.tagKeys) ? req.body.tagKeys : [],
     );
     const leadKeysRaw = Array.isArray(req.body?.leadKeys) ? req.body.leadKeys : [];
-    const leadKeys = leadKeysRaw.map((k) => String(k || '').trim()).filter(Boolean);
+    const { leadKeys, matched } = await resolveLeadsForTagAssign(req, leadKeysRaw);
+
     if (!leadKeys.length) {
       return res.status(400).json({ success: false, error: 'leadKeys is required.' });
     }
@@ -133,15 +146,30 @@ router.post('/assign-bulk', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'tagKeys is required.' });
     }
 
-    const all = await dbService.getAllLeads(req.workspaceId);
-    const visible = filterLeadsForRequest(req, all);
     const updated = [];
+    const missedKeys = [];
 
     for (const rawKey of leadKeys) {
-      const fullKey = resolveVisibleLeadKey(visible, rawKey);
-      if (!fullKey) continue;
-      const existing = await dbService.getLead(fullKey);
-      const prev = dbService.normalizeTagKeys(existing && existing.tags);
+      const target =
+        matched.find((l) => {
+          const k = String(l.key || '').trim();
+          const norm = k.replace(/^lead:/i, '');
+          const rawNorm = rawKey.replace(/^lead:/i, '');
+          return k === rawKey || norm === rawNorm || `lead:${norm}` === rawKey || k === `lead:${rawNorm}`;
+        }) || null;
+      if (!target) {
+        missedKeys.push(rawKey);
+        continue;
+      }
+
+      const fullKey = await storageKeyForLead(target, req.workspaceId);
+      const existing = await dbService.getLead(fullKey, req.workspaceId);
+      if (!existing) {
+        missedKeys.push(rawKey);
+        continue;
+      }
+
+      const prev = dbService.normalizeTagKeys(existing.tags);
       let nextTags = prev;
       if (mode === 'add') {
         nextTags = dbService.normalizeTagKeys([...prev, ...tagKeys]);
@@ -151,9 +179,11 @@ router.post('/assign-bulk', async (req, res, next) => {
       } else {
         nextTags = tagKeys;
       }
+
       // eslint-disable-next-line no-await-in-loop
-      const lead = await dbService.setLeadTags(fullKey, nextTags);
+      const lead = await dbService.setLeadTags(fullKey, nextTags, req.workspaceId);
       if (lead) updated.push(lead);
+      else missedKeys.push(rawKey);
     }
 
     if (!updated.length) {
@@ -161,10 +191,16 @@ router.post('/assign-bulk', async (req, res, next) => {
         success: false,
         error: 'No matching leads were updated. Refresh the page and try again.',
         attempted: leadKeys.length,
+        missedKeys,
       });
     }
 
-    res.json({ success: true, updatedKeys: updated.map((l) => l.key), leads: updated });
+    res.json({
+      success: true,
+      updatedKeys: updated.map((l) => l.key),
+      leads: updated,
+      missedKeys,
+    });
   } catch (e) {
     next(e);
   }

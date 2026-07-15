@@ -463,8 +463,9 @@ module.exports = {
     );
   },
 
-  async getLead(key) {
-    const storageKey = String(key || '').trim();
+  async getLead(key, workspaceId) {
+    const storageKey =
+      (await this.resolveLeadStorageKey(key, workspaceId)) || String(key || '').trim();
     if (!storageKey) return null;
     const raw = kvGet(storageKey);
     if (!raw) return null;
@@ -1001,9 +1002,12 @@ module.exports = {
     }
   },
 
-  async setLeadTags(leadKey, tagKeys) {
+  async setLeadTags(leadKey, tagKeys, workspaceId) {
+    const storageKey =
+      (await this.resolveLeadStorageKey(leadKey, workspaceId)) || String(leadKey || '').trim();
+    if (!storageKey) return null;
     const tags = this.normalizeTagKeys(tagKeys);
-    return this.updateLead(leadKey, { tags });
+    return this.updateLead(storageKey, { tags }, workspaceId);
   },
 
   // --- Schedules ---

@@ -1823,7 +1823,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '11';
+  window.__PIPELINE_BULK_SELECT_V2 = '12';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 
