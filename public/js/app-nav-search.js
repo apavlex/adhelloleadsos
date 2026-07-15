@@ -15,13 +15,26 @@
       .replace(/"/g, '&quot;');
   }
 
-  function buildResultsUrl(q, focusLead) {
+  function normalizeLeadKey(key) {
+    return String(key || '').trim().replace(/^lead:/i, '');
+  }
+
+  function buildResultsUrl(q) {
     var params = new URLSearchParams();
     params.set('tab', 'pipeline');
     params.set('includeFoldered', '1');
     params.set('q', q);
-    if (focusLead) params.set('focusLead', focusLead);
     return '/prospecting?' + params.toString();
+  }
+
+  function buildFocusUrl(leadKey) {
+    var short = normalizeLeadKey(leadKey);
+    if (!short) return '/focus?channel=call';
+    var params = new URLSearchParams();
+    params.set('lead', short);
+    params.set('keys', short);
+    params.set('channel', 'call');
+    return '/focus?' + params.toString();
   }
 
   function readInitialQuery() {
@@ -186,8 +199,12 @@
       }, DEBOUNCE_MS);
     }
 
-    function navigateToResults(q, focusLead) {
-      window.location.href = buildResultsUrl(q, focusLead);
+    function navigateToResults(q) {
+      window.location.href = buildResultsUrl(q);
+    }
+
+    function navigateToFocus(leadKey) {
+      window.location.href = buildFocusUrl(leadKey);
     }
 
     function onSubmit(e) {
@@ -195,7 +212,7 @@
       var q = String(input.value || '').trim();
       if (!q) return;
       if (activeIdx >= 0 && lastResults[activeIdx] && lastResults[activeIdx].key) {
-        navigateToResults(q, lastResults[activeIdx].key);
+        navigateToFocus(lastResults[activeIdx].key);
         return;
       }
       navigateToResults(q);
@@ -230,7 +247,7 @@
       if (e.key === 'Enter') {
         if (activeIdx >= 0 && lastResults[activeIdx]) {
           e.preventDefault();
-          navigateToResults(String(input.value || '').trim(), lastResults[activeIdx].key);
+          navigateToFocus(lastResults[activeIdx].key);
         }
       }
     });
@@ -248,7 +265,7 @@
       var item = e.target.closest('[data-nav-search-item]');
       if (!item) return;
       var key = item.getAttribute('data-lead-key') || '';
-      navigateToResults(String(input.value || '').trim(), key || undefined);
+      if (key) navigateToFocus(key);
     });
 
     form.addEventListener('submit', onSubmit);
