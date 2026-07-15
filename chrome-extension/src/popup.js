@@ -15,12 +15,15 @@ const openOptions = document.getElementById('openOptions');
 const panelSave = document.getElementById('panelSave');
 const panelImport = document.getElementById('panelImport');
 const panelBulk = document.getElementById('panelBulk');
-const EXT_VERSION = '1.6.6';
+const workspaceSelect = document.getElementById('workspaceSelect');
+const workspaceThemeRow = document.getElementById('workspaceThemeRow');
+const EXT_VERSION = '1.6.8';
 const PARALLEL_LABEL = '5 at a time';
 
 let bulkRunning = false;
 let bulkStopRequested = false;
 let reEnrichRunning = false;
+let cachedSettings = null;
 
 document.getElementById('extVersion').textContent = `v${EXT_VERSION}`;
 
@@ -128,6 +131,25 @@ function parseReviewsField(raw) {
     totalScore: Number.isFinite(totalScore) ? totalScore : 0,
     reviewsCount: Number.isFinite(reviewsCount) ? reviewsCount : 0,
   };
+}
+
+function enrichPayloadGeo(payload) {
+  if (window.AdHelloListingHelpers?.enrichLeadGeo) {
+    return window.AdHelloListingHelpers.enrichLeadGeo({ ...payload });
+  }
+  if (window.AdHelloAddressUtils?.parseCityState) {
+    const raw = payload.address && payload.address !== 'N/A' ? payload.address : payload.title || '';
+    const parsed = window.AdHelloAddressUtils.parseCityState(raw);
+    if (!payload.city && parsed.city) payload.city = parsed.city;
+    if (!payload.state && parsed.state) payload.state = parsed.state;
+    if ((!payload.address || payload.address === 'N/A') && parsed.street) payload.address = parsed.street;
+    const zipMatch = String(raw).match(/\b(\d{5})(?:-\d{4})?\b/);
+    if (zipMatch && !payload.zip && !payload.postalCode) {
+      payload.zip = zipMatch[1];
+      payload.postalCode = zipMatch[1];
+    }
+  }
+  return payload;
 }
 
 function buildListingPayload(base, formEl) {
@@ -295,6 +317,7 @@ function fillForm(lead, defaultFolderName) {
     lead.address && lead.address !== 'N/A' ? cleanAddress(lead.address) : '';
   form.city.value = lead.city || '';
   form.state.value = lead.state || '';
+  if (form.zip) form.zip.value = lead.zip || lead.postalCode || '';
   form.website.value = lead.website && lead.website !== 'N/A' ? lead.website : '';
   form.email.value = lead.email && lead.email !== 'N/A' ? lead.email : '';
   form.phone.value = lead.phone && lead.phone !== 'N/A' ? lead.phone : '';
@@ -315,10 +338,78 @@ function fillForm(lead, defaultFolderName) {
   }
 }
 
+function getSelectedWorkspaceId() {
+  return workspaceSelect?.value || cachedSettings?.workspaceId || 'default';
+}
+
+async function persistWorkspaceSelection(workspaceId) {
+  const wid = String(workspaceId || '').trim();
+  if (!wid) return;
+  await chrome.storage.sync.set({ workspaceId: wid });
+  if (cachedSettings) cachedSettings.workspaceId = wid;
+}
+
+async function loadWorkspacePicker(settings) {
+  if (!workspaceSelect || !window.AdHelloTheme) return settings;
+  cachedSettings = { ...settings };
+
+  try {
+    const data = await window.AdHelloTheme.fetchWorkspaces(settings);
+    const activeId = data.activeWorkspaceId || settings.workspaceId || 'default';
+    window.AdHelloTheme.renderWorkspaceSelect(workspaceSelect, data.workspaces, activeId);
+    workspaceThemeRow?.classList.remove('hidden');
+
+    const active =
+      data.workspaces.find((w) => w.id === activeId) ||
+      data.workspaces[0] ||
+      null;
+    if (active) {
+      window.AdHelloTheme.applyWorkspaceTheme(active);
+    } else {
+      await window.AdHelloTheme.fetchAndApplyTheme({ ...settings, workspaceId: activeId });
+    }
+
+    if (data.requiresEmail && data.workspaces.length <= 1) {
+      setupNotice.classList.remove('hidden');
+      setupNotice.innerHTML =
+        'Add your <strong>AdHello login email</strong> in <a href="#" id="openOptionsEmail">Settings</a> to switch workspaces (e.g. Flooring).';
+      document.getElementById('openOptionsEmail')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        chrome.runtime.openOptionsPage();
+      });
+    }
+
+    if (activeId !== settings.workspaceId) {
+      await persistWorkspaceSelection(activeId);
+    }
+    return { ...settings, workspaceId: activeId };
+  } catch (_) {
+    window.AdHelloTheme.renderWorkspaceSelect(
+      workspaceSelect,
+      [{ id: settings.workspaceId, name: settings.workspaceId }],
+      settings.workspaceId,
+    );
+    workspaceThemeRow?.classList.remove('hidden');
+    await window.AdHelloTheme.fetchAndApplyTheme(settings);
+    return settings;
+  }
+}
+
+workspaceSelect?.addEventListener('change', async () => {
+  const wid = getSelectedWorkspaceId();
+  await persistWorkspaceSelection(wid);
+  const nextSettings = { ...(cachedSettings || {}), workspaceId: wid };
+  cachedSettings = nextSettings;
+  const ws = await window.AdHelloTheme.fetchAndApplyTheme(nextSettings);
+  const swatch = document.getElementById('workspaceThemeSwatch');
+  if (swatch && ws?.accentColor) swatch.style.backgroundColor = ws.accentColor;
+});
+
 async function init() {
   const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
-  const hasKey = !!settingsRes?.settings?.apiKey;
-  const defaultFolderName = settingsRes?.settings?.defaultFolderName || '';
+  let settings = settingsRes?.settings || {};
+  const hasKey = !!settings.apiKey;
+  const defaultFolderName = settings.defaultFolderName || '';
   setupNotice.classList.toggle('hidden', hasKey);
   if (defaultFolderName) {
     form.folderName.value = defaultFolderName;
@@ -326,8 +417,10 @@ async function init() {
     if (bulkForm) bulkForm.bulkFolderName.value = defaultFolderName;
   }
 
-  if (window.AdHelloTheme && settingsRes?.settings) {
-    await window.AdHelloTheme.fetchAndApplyTheme(settingsRes.settings);
+  if (window.AdHelloTheme && hasKey) {
+    settings = await loadWorkspacePicker(settings);
+  } else if (window.AdHelloTheme && settings) {
+    await window.AdHelloTheme.fetchAndApplyTheme(settings);
   }
 
   refreshBulkMapsHint();
@@ -378,7 +471,7 @@ form.addEventListener('submit', async (e) => {
   try {
     const { lead: base } = await getActiveTabLead();
     const reviews = parseReviewsField(form.reviews.value);
-    const payload = {
+    const payload = enrichPayloadGeo({
       ...(base || {}),
       ...buildListingPayload(base, form),
       title,
@@ -386,6 +479,8 @@ form.addEventListener('submit', async (e) => {
       address: form.address.value.trim() || 'N/A',
       city: form.city.value.trim(),
       state: form.state.value.trim(),
+      zip: form.zip?.value?.trim() || base?.zip || base?.postalCode || '',
+      postalCode: form.zip?.value?.trim() || base?.postalCode || base?.zip || '',
       website: form.website.value.trim() || 'N/A',
       email: form.email.value.trim() || 'N/A',
       phone: form.phone.value.trim() || 'N/A',
@@ -397,11 +492,15 @@ form.addEventListener('submit', async (e) => {
       sponsored: typeof base?.sponsored === 'boolean' ? base.sponsored : undefined,
       source: 'chrome_extension',
       sourceChannel: String(form.sourceChannel?.value || base?.sourceChannel || '').trim(),
-    };
+    });
     const folderName = form.folderName.value.trim();
     if (folderName) payload.folderName = folderName;
 
-    const res = await chrome.runtime.sendMessage({ type: 'SAVE_LEAD', lead: payload });
+    const res = await chrome.runtime.sendMessage({
+      type: 'SAVE_LEAD',
+      lead: payload,
+      workspaceId: getSelectedWorkspaceId(),
+    });
     if (!res?.ok) throw new Error(res?.error || 'Save failed');
     const folderNote =
       res.data?.folderName && res.data?.folderUrl
@@ -466,6 +565,7 @@ async function runBulkScrapeSubmit(e) {
       folderName,
       scrollAll,
       enrichDetails,
+      workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Bulk scrape failed');
 
@@ -523,6 +623,7 @@ async function runReEnrichFolder() {
       type: 'PARALLEL_REENRICH_FOLDER',
       folderName,
       limit: 150,
+      workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Re-enrich failed');
 
@@ -595,6 +696,7 @@ importForm?.addEventListener('submit', async (e) => {
       csvContent,
       fileName: file.name || 'import.csv',
       folderName,
+      workspaceId: getSelectedWorkspaceId(),
     });
     if (!res?.ok) throw new Error(res?.error || 'Import failed');
     const data = res.data || {};

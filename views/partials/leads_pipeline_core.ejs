@@ -333,8 +333,10 @@
               var _listPrice = _listing.price != null && _listing.price !== '' ? Number(_listing.price) : null;
               var _listBeds = _listing.beds != null && _listing.beds !== '' ? Number(_listing.beds) : null;
               var _listBaths = _listing.baths != null && _listing.baths !== '' ? Number(_listing.baths) : null;
+              var _listSqft = _listing.sqft != null && _listing.sqft !== '' ? Number(_listing.sqft) : null;
               var _listCity = String(lead.city || '').trim();
               var _listState = String(lead.state || '').trim();
+              var _listZip = String(lead.zip || lead.postalCode || '').trim();
               var _listSourceRaw = typeof resolveLeadSourceChannel === 'function'
                 ? resolveLeadSourceChannel(lead)
                 : String(lead.sourceChannel || '').trim();
@@ -349,6 +351,7 @@
                 : '—';
               var _bedsDisp = Number.isFinite(_listBeds) ? String(_listBeds) : '—';
               var _bathsDisp = Number.isFinite(_listBaths) ? String(_listBaths) : '—';
+              var _sqftDisp = Number.isFinite(_listSqft) ? _listSqft.toLocaleString('en-US') : '—';
               var _reviewSnippets = Array.isArray(lead.reviewSnippets) ? lead.reviewSnippets : [];
               var _reviewSnippetText = _reviewSnippets.length ? String(_reviewSnippets[0] || '').trim() : '';
               if (!_reviewSnippetText && lead.importFields && lead.importFields.review_snippet) {
@@ -381,6 +384,7 @@
                 data-address="<%= plcEscAttr(lead.address || 'N/A') %>"
                 data-city="<%= plcEscAttr(lead.city || '') %>"
                 data-state="<%= plcEscAttr(lead.state || '') %>"
+                data-zip="<%= plcEscAttr(_listZip) %>"
                 data-rating="<%= lead.totalScore || 0 %>"
                 data-reviews="<%= lead.reviewsCount || 0 %>"
                 data-review-snippets="<%= plcEscJson(_reviewSnippetsForRow) %>"
@@ -429,6 +433,7 @@
                 data-listing-price="<%= Number.isFinite(_listPrice) ? _listPrice : '' %>"
                 data-listing-beds="<%= Number.isFinite(_listBeds) ? _listBeds : '' %>"
                 data-listing-baths="<%= Number.isFinite(_listBaths) ? _listBaths : '' %>"
+                data-listing-sqft="<%= Number.isFinite(_listSqft) ? _listSqft : '' %>"
                 data-listing-source="<%= plcEscAttr(_listSource || _listSourceRaw || '') %>"
                 data-contacts="<%= plcEscJson(lead.contacts || []) %>"
                 data-last-contact-hunt-at="<%= plcEscAttr(lead.lastContactHuntAt || '') %>"

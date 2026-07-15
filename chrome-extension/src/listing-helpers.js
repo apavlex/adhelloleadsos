@@ -56,6 +56,73 @@
     );
   }
 
+  function parseUsAddress(raw) {
+    const text = String(raw || '')
+      .trim()
+      .replace(/\s*[-–|]\s*\$\s?[\d,]+.*$/i, '')
+      .replace(/\s*\|\s*Zillow.*$/i, '');
+    if (!text || text === 'N/A') {
+      return { street: '', city: '', state: '', postalCode: '' };
+    }
+    const postalCode = (text.match(/\b(\d{5})(?:-\d{4})?\b/) || [])[1] || '';
+    const utils = window.AdHelloAddressUtils;
+    const parsed = utils?.parseCityState ? utils.parseCityState(text) : { street: text, city: '', state: '' };
+    let street = String(parsed.street || '').trim();
+    let city = String(parsed.city || '').trim();
+    let state = String(parsed.state || '').trim();
+
+    if ((!city || !state) && text.includes(',')) {
+      const parts = text.split(',').map((s) => s.trim()).filter(Boolean);
+      if (parts.length >= 3) {
+        street = parts.slice(0, -2).join(', ');
+        city = city || parts[parts.length - 2];
+        const tail = parts[parts.length - 1];
+        const st = tail.match(/\b([A-Z]{2})\b/);
+        state = state || (st ? st[1] : tail.replace(/\d{5}(-\d{4})?.*$/i, '').trim());
+      } else if (parts.length === 2) {
+        street = parts[0];
+        const st = parts[1].match(/\b([A-Z]{2})\b/);
+        state = state || (st ? st[1] : parts[1].replace(/\d{5}(-\d{4})?.*$/i, '').trim());
+      }
+    }
+
+    return { street, city, state, postalCode };
+  }
+
+  function enrichLeadGeo(lead) {
+    if (!lead || typeof lead !== 'object') return lead;
+    const sources = [lead.address, lead.title].filter((v) => v && v !== 'N/A');
+    for (const raw of sources) {
+      const geo = parseUsAddress(raw);
+      if (!lead.city && geo.city) lead.city = geo.city;
+      if (!lead.state && geo.state) lead.state = geo.state;
+      if (!lead.postalCode && !lead.zip && geo.postalCode) {
+        lead.postalCode = geo.postalCode;
+        lead.zip = geo.postalCode;
+      }
+      if ((!lead.address || lead.address === 'N/A') && geo.street) {
+        lead.address = geo.street;
+      } else if (geo.street && geo.city && String(lead.address || '').includes(geo.city)) {
+        lead.address = geo.street;
+      }
+      if (lead.city && lead.state) break;
+    }
+    return lead;
+  }
+
+  function normalizeSchemaPropertyType(raw, fallback = 'listing') {
+    if (!raw) return fallback;
+    const list = Array.isArray(raw) ? raw : [raw];
+    const pick =
+      list.find((t) => /real\s*estate|residence|house|apartment|singlefamily/i.test(String(t))) ||
+      list.find((t) => String(t).toLowerCase() !== 'product') ||
+      list[0];
+    const s = String(pick || '').trim();
+    if (!s || s === 'Product') return fallback;
+    if (/^real/i.test(s)) return fallback;
+    return s;
+  }
+
   const JOB_META = {
     real_estate: { source: 'real_estate_search', sourceType: 'real_estate', label: 'Real estate' },
     products: { source: 'products_search', sourceType: 'product_listing', label: 'Product' },
@@ -99,12 +166,18 @@
       beds: beds != null ? parseNumber(beds) : null,
       baths: baths != null ? parseNumber(baths) : null,
       sqft: sqft != null ? parseNumber(sqft) : null,
-      propertyType: propertyType || (jt === 'real_estate' ? 'listing' : 'product'),
+      propertyType: normalizeSchemaPropertyType(propertyType, jt === 'real_estate' ? 'listing' : 'product'),
       description: String(description || '').slice(0, 4000),
       sellerName: sellerName || '',
       postedAt: '',
       imageUrl: imageUrl || meta('og:image') || '',
     };
+
+    const geo = parseUsAddress(address || title);
+    const resolvedCity = city || geo.city || '';
+    const resolvedState = state || geo.state || '';
+    const resolvedZip = postalCode || geo.postalCode || '';
+    const resolvedAddress = address && address !== 'N/A' ? address : geo.street || address || '';
 
     const note = [
       metaRow.label,
@@ -118,16 +191,17 @@
       .filter(Boolean)
       .join(' · ');
 
-    return {
+    return enrichLeadGeo({
       title: displayTitle,
       phone: phone || 'N/A',
       website: url || 'N/A',
       email: email || 'N/A',
-      categoryName: propertyType || metaRow.label,
-      address: address || 'N/A',
-      city,
-      state,
-      postalCode,
+      categoryName: metaRow.label,
+      address: resolvedAddress || 'N/A',
+      city: resolvedCity,
+      state: resolvedState,
+      postalCode: resolvedZip,
+      zip: resolvedZip,
       url: url || '',
       note,
       source: 'chrome_extension',
@@ -140,7 +214,7 @@
       listingBeds: listing.beds,
       listingBaths: listing.baths,
       listingSqft: listing.sqft,
-    };
+    });
   }
 
   function priceFromPage(selectors) {
@@ -174,5 +248,7 @@
     priceFromPage,
     specsFromText,
     meta,
+    parseUsAddress,
+    enrichLeadGeo,
   };
 })();

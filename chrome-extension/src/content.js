@@ -25,6 +25,13 @@
     return chrome.runtime.sendMessage({ type: 'SAVE_LEAD', lead });
   }
 
+  function enrichPayloadGeo(payload) {
+    if (window.AdHelloListingHelpers?.enrichLeadGeo) {
+      return window.AdHelloListingHelpers.enrichLeadGeo({ ...payload });
+    }
+    return payload;
+  }
+
   async function applyContentTheme(root) {
     if (!root || !window.AdHelloTheme) return;
     try {
@@ -251,7 +258,7 @@
       const base = extractLeadFromPage();
       const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
       const defaultFolderName = String(settingsRes?.settings?.defaultFolderName || '').trim();
-      const lead = {
+      const lead = enrichPayloadGeo({
         ...base,
         ...buildListingPayload(base, {
           price: fields.price.value,
@@ -264,12 +271,15 @@
         address: fields.address.value.trim() || 'N/A',
         city: fields.city.value.trim(),
         state: fields.state.value.trim(),
+        zip: base?.zip || base?.postalCode || '',
+        postalCode: base?.postalCode || base?.zip || '',
         website: fields.website.value.trim() || 'N/A',
         email: fields.email.value.trim() || 'N/A',
         phone: fields.phone.value.trim() || 'N/A',
+        url: base?.url || '',
         source: 'chrome_extension',
         sourceChannel: String(fields.sourceChannel?.value || base.sourceChannel || '').trim(),
-      };
+      });
       if (defaultFolderName) lead.folderName = defaultFolderName;
 
       setSaving(true);

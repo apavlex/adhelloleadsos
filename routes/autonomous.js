@@ -45,6 +45,7 @@ const { ensureChromeExtensionFolder, ensureFolderByName, chromeExtensionFolderUr
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const { scoreLocalProspect } = require('../services/localProspectScore');
 const { normalizeDomain } = require('../services/leadDedupe');
+const workspaceBootstrap = require('../services/workspaceBootstrap');
 
 function isMissingWebsiteValue(website) {
   const w = String(website || '').trim();
@@ -332,6 +333,8 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
       address: req.body.address || 'N/A',
       city: req.body.city || '',
       state: req.body.state || '',
+      zip: String(req.body.zip || req.body.postalCode || '').trim(),
+      postalCode: String(req.body.postalCode || req.body.zip || '').trim(),
       totalScore: parseFloat(req.body.totalScore) || 0,
       reviewsCount: parseInt(req.body.reviewsCount, 10) || 0,
       url: req.body.url || '',
@@ -633,7 +636,32 @@ router.post('/export-drive', apiKeyAuth, express.json(), async (req, res, next) 
     }
 
     // Build CSV
-    const headers = ['title', 'phone', 'website', 'email', 'categoryName', 'address', 'city', 'state', 'totalScore', 'reviewsCount', 'url', 'facebook', 'instagram', 'twitter', 'status', 'pipelineStage', 'source', 'savedAt'];
+    const headers = [
+      'title',
+      'phone',
+      'website',
+      'email',
+      'categoryName',
+      'address',
+      'city',
+      'state',
+      'zip',
+      'listingPrice',
+      'listingBeds',
+      'listingBaths',
+      'listingSqft',
+      'sourceChannel',
+      'url',
+      'totalScore',
+      'reviewsCount',
+      'facebook',
+      'instagram',
+      'twitter',
+      'status',
+      'pipelineStage',
+      'source',
+      'savedAt',
+    ];
     const escape = (v) => {
       const s = String(v == null ? '' : v);
       if (s.includes(',') || s.includes('"') || s.includes('\n')) {
@@ -643,7 +671,34 @@ router.post('/export-drive', apiKeyAuth, express.json(), async (req, res, next) 
     };
     const csvRows = [headers.join(',')];
     for (const l of leads) {
-      csvRows.push(headers.map(h => escape(l[h])).join(','));
+      const listing = l.listing && typeof l.listing === 'object' ? l.listing : {};
+      const row = {
+        title: l.title,
+        phone: l.phone,
+        website: l.website,
+        email: l.email,
+        categoryName: l.categoryName,
+        address: l.address,
+        city: l.city,
+        state: l.state,
+        zip: l.zip || l.postalCode,
+        listingPrice: listing.price != null ? listing.price : '',
+        listingBeds: listing.beds != null ? listing.beds : '',
+        listingBaths: listing.baths != null ? listing.baths : '',
+        listingSqft: listing.sqft != null ? listing.sqft : '',
+        sourceChannel: l.sourceChannel,
+        url: l.url,
+        totalScore: l.totalScore,
+        reviewsCount: l.reviewsCount,
+        facebook: l.facebook,
+        instagram: l.instagram,
+        twitter: l.twitter,
+        status: l.status,
+        pipelineStage: l.pipelineStage,
+        source: l.source,
+        savedAt: l.savedAt,
+      };
+      csvRows.push(headers.map((h) => escape(row[h])).join(','));
     }
     const csv = csvRows.join('\n');
 
@@ -735,6 +790,66 @@ router.post('/import-csv', apiKeyAuth, express.json({ limit: '15mb' }), async (r
 });
 
 // ── 8. STATUS / HEALTH ────────────────────────────────────────────────────────
+
+/**
+ * GET /autonomous/workspaces
+ * List workspaces the extension user can save into (requires x-user-email when multi-workspace).
+ */
+router.get('/workspaces', apiKeyAuth, async (req, res, next) => {
+  try {
+    const email = String(req.headers['x-user-email'] || req.query.email || '').trim().toLowerCase();
+    const fallbackWid = workspaceId(req);
+
+    async function workspaceSummary(id) {
+      const ws = await dbService.getWorkspace(id).catch(() => null);
+      return {
+        id,
+        name: (ws && ws.name) || id,
+        slug: (ws && ws.slug) || '',
+        accentColor: normalizeWorkspaceAccentHex(ws && ws.accentColor) || '#CA8A04',
+      };
+    }
+
+    if (!email) {
+      return res.json({
+        success: true,
+        workspaces: [await workspaceSummary(fallbackWid)],
+        activeWorkspaceId: fallbackWid,
+        requiresEmail: true,
+      });
+    }
+
+    await workspaceBootstrap.ensureUserHasWorkspaces(email);
+    const ids = await dbService.getUserWorkspaceIds(email);
+    const workspaces = [];
+    for (const id of ids) {
+      const ws = await dbService.getWorkspace(id);
+      if (!ws || !workspaceBootstrap.userCanAccessWorkspace(ws, email)) continue;
+      workspaces.push({
+        id: ws.id,
+        name: ws.name || ws.id,
+        slug: ws.slug || '',
+        accentColor: normalizeWorkspaceAccentHex(ws.accentColor) || '#CA8A04',
+      });
+    }
+
+    if (!workspaces.length) {
+      workspaces.push(await workspaceSummary(fallbackWid));
+    }
+
+    const active =
+      workspaces.some((w) => w.id === fallbackWid) ? fallbackWid : workspaces[0].id;
+
+    res.json({
+      success: true,
+      workspaces,
+      activeWorkspaceId: active,
+      requiresEmail: false,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 /**
  * GET /autonomous/status

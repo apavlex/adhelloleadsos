@@ -50,6 +50,33 @@ h1 {
   height: 10px;
   border-radius: 999px;
   border: 1px solid rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.workspace-select {
+  appearance: none;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ws-accent-text);
+  cursor: pointer;
+  padding: 0 16px 0 0;
+  min-width: 140px;
+  max-width: 280px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 20 20' fill='%2392400e'%3E%3Cpath d='M5.5 7.5L10 12l4.5-4.5' stroke='%2392400e' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right center;
+}
+
+.field-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: #6b7280;
+  line-height: 1.4;
 }
 
 label {

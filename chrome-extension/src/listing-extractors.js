@@ -17,13 +17,22 @@
   function extractFromJsonLd(source, jobType, url, fallbackTitle) {
     const json = H().findListingJsonLd ? H().findListingJsonLd() : null;
     if (!json) return null;
-    const addr = json.address || {};
-    const address =
-      typeof addr === 'string'
-        ? addr
+    const addrRaw = json.address || {};
+    const addr = typeof addrRaw === 'string' ? { streetAddress: addrRaw } : addrRaw;
+    let address =
+      typeof addrRaw === 'string'
+        ? addrRaw
         : [addr.streetAddress, addr.addressLocality, addr.addressRegion, addr.postalCode].filter(Boolean).join(', ');
     const offer = json.offers || {};
     const price = json.price ?? offer.price ?? offer.lowPrice ?? json.lowPrice;
+    const geo = H().parseUsAddress ? H().parseUsAddress(address || fallbackTitle) : { street: '', city: '', state: '', postalCode: '' };
+    const street = addr.streetAddress || geo.street || '';
+    const city = addr.addressLocality || geo.city || '';
+    const state = addr.addressRegion || geo.state || '';
+    const postalCode = addr.postalCode || geo.postalCode || '';
+    if (street || city || state || postalCode) {
+      address = [street, city, state, postalCode].filter(Boolean).join(', ');
+    }
     return H().buildListingLead({
       source,
       jobType,
@@ -31,10 +40,10 @@
       price,
       url,
       description: json.description || lhMeta('og:description'),
-      city: addr.addressLocality || '',
-      state: addr.addressRegion || '',
-      address,
-      postalCode: addr.postalCode || '',
+      city,
+      state,
+      address: address || street,
+      postalCode,
       phone: json.telephone || '',
       beds: json.numberOfBedrooms ?? json.bedrooms,
       baths: json.numberOfBathroomsTotal ?? json.bathrooms,
@@ -42,6 +51,20 @@
       propertyType: json['@type'] || '',
       sourceId: String(json.sku || json.productID || json.identifier || '').trim(),
     });
+  }
+
+  function zillowHomeSpecs() {
+    const chunks = [];
+    document
+      .querySelectorAll(
+        '[data-testid="bed-bath-sqft-fact"], [data-testid="bed-bath-sqft-fact-container"], [data-testid="property-facts"], [data-testid="home-facts"]',
+      )
+      .forEach((el) => {
+        chunks.push(el.textContent || '');
+      });
+    const fromFacts = H().specsFromText ? H().specsFromText(chunks.join(' ')) : {};
+    if (fromFacts.beds || fromFacts.baths || fromFacts.sqft) return fromFacts;
+    return H().specsFromText ? H().specsFromText(document.body?.innerText?.slice(0, 14000) || '') : {};
   }
 
   function extractZillow() {
@@ -61,13 +84,22 @@
       : null;
     const address =
       document.querySelector('[data-testid="bdp-address"]')?.textContent?.trim() ||
+      document.querySelector('[data-testid="home-info"] h1')?.textContent?.trim() ||
       document.querySelector('h1')?.textContent?.trim() ||
       lhMeta('og:description') ||
       '';
-    const specs = H().specsFromText ? H().specsFromText(document.body?.innerText || '') : {};
+    const specs = zillowHomeSpecs();
     const fromLd = extractFromJsonLd('zillow', 'real_estate', url, title);
-    if (fromLd) return fromLd;
-    const geo = address.includes(',') ? address.split(',').map((s) => s.trim()) : [];
+    if (fromLd) {
+      if (!fromLd.listing?.beds && specs.beds) fromLd.listing.beds = specs.beds;
+      if (!fromLd.listing?.baths && specs.baths) fromLd.listing.baths = specs.baths;
+      if (!fromLd.listing?.sqft && specs.sqft) fromLd.listing.sqft = specs.sqft;
+      fromLd.listingBeds = fromLd.listing?.beds ?? null;
+      fromLd.listingBaths = fromLd.listing?.baths ?? null;
+      fromLd.listingSqft = fromLd.listing?.sqft ?? null;
+      return H().enrichLeadGeo ? H().enrichLeadGeo(fromLd) : fromLd;
+    }
+    const geo = H().parseUsAddress ? H().parseUsAddress(address || title) : { street: address, city: '', state: '', postalCode: '' };
     return H().buildListingLead({
       source: 'zillow',
       jobType: 'real_estate',
@@ -75,9 +107,10 @@
       price,
       url,
       description: lhMeta('og:description'),
-      address,
-      city: geo.length >= 2 ? geo[geo.length - 2] : '',
-      state: geo.length >= 1 ? geo[geo.length - 1].replace(/\d{5}.*$/, '').trim() : '',
+      address: geo.street || address,
+      city: geo.city,
+      state: geo.state,
+      postalCode: geo.postalCode,
       beds: specs.beds,
       baths: specs.baths,
       sqft: specs.sqft,

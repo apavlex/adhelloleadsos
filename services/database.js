@@ -106,6 +106,7 @@ function mergePreferExisting(existing, incoming) {
     if (k === 'key' || k === 'workspaceId' || k === 'createdAt') continue;
     if (k === 'logs' || k === 'chatHistory') continue;
     if (k === 'updates') continue;
+    if (k === 'listing') continue;
     if (k === 'importFields' && incoming.importFields && typeof incoming.importFields === 'object') {
       out.importFields = { ...(existing.importFields || {}), ...incoming.importFields };
       continue;
@@ -188,11 +189,22 @@ function mergePreferExisting(existing, incoming) {
   }
 
   if (shouldResyncIngestSource(incoming?.source)) {
-    for (const field of ['address', 'city', 'state', 'website', 'url', 'phone', 'email']) {
+    for (const field of ['address', 'city', 'state', 'zip', 'postalCode', 'website', 'url', 'phone', 'email']) {
       if (!isBlankValue(incoming[field])) out[field] = incoming[field];
     }
     const mapsKey = leadMapsPlaceKey(incoming);
     if (mapsKey) out.mapsPlaceKey = mapsKey;
+  }
+
+  if (incoming?.listing && typeof incoming.listing === 'object') {
+    const curListing =
+      existing?.listing && typeof existing.listing === 'object' ? { ...existing.listing } : {};
+    for (const [lk, lv] of Object.entries(incoming.listing)) {
+      if (isBlankValue(lv)) continue;
+      if (isBlankValue(curListing[lk])) curListing[lk] = lv;
+      else if (shouldResyncIngestSource(incoming?.source)) curListing[lk] = lv;
+    }
+    out.listing = curListing;
   }
 
   return out;

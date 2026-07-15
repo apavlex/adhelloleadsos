@@ -2,62 +2,108 @@ const form = document.getElementById('settingsForm');
 const statusEl = document.getElementById('status');
 const importForm = document.getElementById('importForm');
 const importStatusEl = document.getElementById('importStatus');
+const optionsWorkspaceSelect = document.getElementById('optionsWorkspaceSelect');
+const headerWorkspaceSelect = document.getElementById('workspaceSelect');
+const workspaceThemeRow = document.getElementById('workspaceThemeRow');
 
 const DEFAULTS = {
   apiBaseUrl: 'https://adhelloleadsos.onrender.com',
   apiKey: '',
+  accountEmail: '',
   workspaceId: 'default',
   defaultFolderName: '',
 };
 
-async function refreshThemeFromForm() {
-  if (!window.AdHelloTheme || typeof window.AdHelloTheme.fetchAndApplyTheme !== 'function') return null;
-  return window.AdHelloTheme.fetchAndApplyTheme({
+function readFormSettings() {
+  return {
     apiBaseUrl: form.apiBaseUrl.value.trim().replace(/\/+$/, ''),
     apiKey: form.apiKey.value.trim(),
+    accountEmail: form.accountEmail.value.trim().toLowerCase(),
     workspaceId: form.workspaceId.value.trim() || 'default',
-  });
+    defaultFolderName: form.defaultFolderName.value.trim(),
+  };
+}
+
+async function refreshWorkspaceLists(settings) {
+  if (!window.AdHelloTheme) return;
+  const cfg = settings || readFormSettings();
+  if (!cfg.apiKey) return;
+
+  try {
+    const data = await window.AdHelloTheme.fetchWorkspaces(cfg);
+    const activeId = cfg.workspaceId || data.activeWorkspaceId || 'default';
+    window.AdHelloTheme.renderWorkspaceSelect(optionsWorkspaceSelect, data.workspaces, activeId);
+    if (headerWorkspaceSelect) {
+      window.AdHelloTheme.renderWorkspaceSelect(headerWorkspaceSelect, data.workspaces, activeId);
+      workspaceThemeRow?.classList.remove('hidden');
+    }
+    const active =
+      data.workspaces.find((w) => w.id === activeId) ||
+      data.workspaces[0] ||
+      null;
+    if (active) {
+      await window.AdHelloTheme.applyWorkspaceTheme(active);
+    } else {
+      await window.AdHelloTheme.fetchAndApplyTheme(cfg);
+    }
+  } catch (_) {
+    const fallback = cfg.workspaceId || 'default';
+    window.AdHelloTheme.renderWorkspaceSelect(
+      optionsWorkspaceSelect,
+      [{ id: fallback, name: fallback }],
+      fallback,
+    );
+  }
+}
+
+async function refreshThemeFromForm() {
+  if (!window.AdHelloTheme || typeof window.AdHelloTheme.fetchAndApplyTheme !== 'function') return null;
+  return window.AdHelloTheme.fetchAndApplyTheme(readFormSettings());
 }
 
 async function load() {
   const stored = await chrome.storage.sync.get(DEFAULTS);
   form.apiBaseUrl.value = stored.apiBaseUrl || DEFAULTS.apiBaseUrl;
   form.apiKey.value = stored.apiKey || '';
+  form.accountEmail.value = stored.accountEmail || '';
   form.workspaceId.value = stored.workspaceId || DEFAULTS.workspaceId;
   form.defaultFolderName.value = stored.defaultFolderName || '';
   if (importForm) {
     importForm.importFolderName.value = stored.defaultFolderName || '';
   }
-  await refreshThemeFromForm();
+  await refreshWorkspaceLists({
+    apiBaseUrl: form.apiBaseUrl.value.trim().replace(/\/+$/, ''),
+    apiKey: form.apiKey.value.trim(),
+    accountEmail: form.accountEmail.value.trim().toLowerCase(),
+    workspaceId: form.workspaceId.value.trim() || 'default',
+  });
 }
 
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
-  await chrome.storage.sync.set({
-    apiBaseUrl: form.apiBaseUrl.value.trim().replace(/\/+$/, ''),
-    apiKey: form.apiKey.value.trim(),
-    workspaceId: form.workspaceId.value.trim() || 'default',
-    defaultFolderName: form.defaultFolderName.value.trim(),
-  });
+  const next = readFormSettings();
+  await chrome.storage.sync.set(next);
   statusEl.textContent = 'Settings saved.';
-  await refreshThemeFromForm();
+  await refreshWorkspaceLists(next);
   setTimeout(() => { statusEl.textContent = ''; }, 2500);
 });
 
 document.getElementById('testConnectionBtn')?.addEventListener('click', async () => {
   statusEl.textContent = 'Testing connection…';
   statusEl.className = '';
-  const apiBaseUrl = form.apiBaseUrl.value.trim().replace(/\/+$/, '');
-  const apiKey = form.apiKey.value.trim();
-  const workspaceId = form.workspaceId.value.trim() || 'default';
-  if (!apiKey) {
+  const cfg = readFormSettings();
+  if (!cfg.apiKey) {
     statusEl.textContent = 'Enter your API key first.';
     statusEl.className = 'status status--error';
     return;
   }
   try {
-    const res = await fetch(`${apiBaseUrl}/autonomous/ghl/status`, {
-      headers: { 'x-api-key': apiKey, 'x-workspace-id': workspaceId },
+    const res = await fetch(`${cfg.apiBaseUrl}/autonomous/status`, {
+      headers: {
+        'x-api-key': cfg.apiKey,
+        'x-workspace-id': cfg.workspaceId,
+        ...(cfg.accountEmail ? { 'x-user-email': cfg.accountEmail } : {}),
+      },
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -67,19 +113,27 @@ document.getElementById('testConnectionBtn')?.addEventListener('click', async ()
           : data.error || `HTTP ${res.status}`,
       );
     }
-    statusEl.textContent = `Connected · workspace ${data.workspaceId || workspaceId}`;
+    const wsName = data.workspace?.name || data.workspaceId || cfg.workspaceId;
+    statusEl.textContent = `Connected · ${wsName}`;
     statusEl.className = 'status status--ok';
-    await refreshThemeFromForm();
+    await refreshWorkspaceLists(cfg);
   } catch (err) {
     statusEl.textContent = err.message || 'Connection failed';
     statusEl.className = 'status status--error';
   }
 });
 
+form.accountEmail?.addEventListener('blur', () => {
+  refreshWorkspaceLists().catch(() => {});
+});
+form.apiKey?.addEventListener('blur', () => {
+  refreshWorkspaceLists().catch(() => {});
+});
 form.workspaceId?.addEventListener('change', () => {
   refreshThemeFromForm().catch(() => {});
 });
-form.workspaceId?.addEventListener('blur', () => {
+headerWorkspaceSelect?.addEventListener('change', () => {
+  form.workspaceId.value = headerWorkspaceSelect.value;
   refreshThemeFromForm().catch(() => {});
 });
 
@@ -122,11 +176,13 @@ importForm?.addEventListener('submit', async (e) => {
     }
     csvContent = await readFileAsText(file);
 
+    const stored = await chrome.storage.sync.get(DEFAULTS);
     const res = await chrome.runtime.sendMessage({
       type: 'IMPORT_CSV',
       csvContent,
       fileName: file.name || 'import.csv',
       folderName,
+      workspaceId: stored.workspaceId || DEFAULTS.workspaceId,
     });
     if (!res?.ok) throw new Error(res?.error || 'Import failed');
 

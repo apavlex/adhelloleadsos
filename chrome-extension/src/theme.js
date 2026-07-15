@@ -53,20 +53,75 @@
     if (el === document.documentElement) {
       const nameEl = document.getElementById('workspaceThemeName');
       const rowEl = document.getElementById('workspaceThemeRow');
+      const selectEl = document.getElementById('workspaceSelect');
       if (nameEl) {
         const name = theme && theme.name ? String(theme.name).trim() : '';
         if (name) {
           nameEl.textContent = name;
-          if (rowEl) rowEl.classList.remove('hidden');
+          if (rowEl && !selectEl) rowEl.classList.remove('hidden');
         } else {
           nameEl.textContent = '';
-          if (rowEl) rowEl.classList.add('hidden');
+          if (rowEl && !selectEl) rowEl.classList.add('hidden');
         }
       }
 
       const swatch = document.getElementById('workspaceThemeSwatch');
       if (swatch) swatch.style.backgroundColor = accent;
     }
+  }
+
+  function renderWorkspaceSelect(selectEl, workspaces, selectedId) {
+    if (!selectEl) return;
+    const list = Array.isArray(workspaces) ? workspaces : [];
+    const selected = String(selectedId || '').trim();
+    selectEl.innerHTML = '';
+    if (!list.length) {
+      const opt = document.createElement('option');
+      opt.value = selected || 'default';
+      opt.textContent = selected || 'Default workspace';
+      selectEl.appendChild(opt);
+      return;
+    }
+    for (const ws of list) {
+      const opt = document.createElement('option');
+      opt.value = ws.id;
+      opt.textContent = ws.name || ws.id;
+      if (ws.id === selected) opt.selected = true;
+      selectEl.appendChild(opt);
+    }
+    if (selected && !list.some((w) => w.id === selected)) {
+      const opt = document.createElement('option');
+      opt.value = selected;
+      opt.textContent = selected;
+      opt.selected = true;
+      selectEl.insertBefore(opt, selectEl.firstChild);
+    }
+  }
+
+  async function fetchWorkspaces(settings) {
+    const apiBaseUrl = String(settings?.apiBaseUrl || '').replace(/\/+$/, '');
+    const apiKey = String(settings?.apiKey || '').trim();
+    const workspaceId = String(settings?.workspaceId || 'default').trim() || 'default';
+    const accountEmail = String(settings?.accountEmail || '').trim().toLowerCase();
+    if (!apiBaseUrl || !apiKey) {
+      return { workspaces: [], activeWorkspaceId: workspaceId, requiresEmail: true };
+    }
+    const headers = {
+      'x-api-key': apiKey,
+      'x-workspace-id': workspaceId,
+      Accept: 'application/json',
+    };
+    if (accountEmail) headers['x-user-email'] = accountEmail;
+    const res = await fetch(`${apiBaseUrl}/autonomous/workspaces`, { headers });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || `Could not load workspaces (${res.status})`);
+    }
+    return {
+      workspaces: Array.isArray(data.workspaces) ? data.workspaces : [],
+      activeWorkspaceId: data.activeWorkspaceId || workspaceId,
+      requiresEmail: !!data.requiresEmail,
+    };
   }
 
   async function fetchWorkspaceTheme(settings) {
@@ -113,5 +168,7 @@
     applyWorkspaceThemeToElement,
     fetchWorkspaceTheme,
     fetchAndApplyTheme,
+    fetchWorkspaces,
+    renderWorkspaceSelect,
   };
 })();

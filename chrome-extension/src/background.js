@@ -3,22 +3,28 @@ importScripts('bulk-import-utils.js');
 const DEFAULTS = {
   apiBaseUrl: 'https://adhelloleadsos.onrender.com',
   apiKey: '',
+  accountEmail: '',
   workspaceId: 'default',
   defaultFolderName: '',
 };
 
-async function getSettings() {
+async function getSettings(overrides = {}) {
   const stored = await chrome.storage.sync.get(DEFAULTS);
+  const workspaceOverride = overrides.workspaceId != null ? String(overrides.workspaceId).trim() : '';
   return {
     apiBaseUrl: String(stored.apiBaseUrl || DEFAULTS.apiBaseUrl).replace(/\/+$/, ''),
     apiKey: String(stored.apiKey || '').trim(),
-    workspaceId: String(stored.workspaceId || DEFAULTS.workspaceId).trim() || 'default',
+    accountEmail: String(stored.accountEmail || '').trim().toLowerCase(),
+    workspaceId:
+      workspaceOverride ||
+      String(stored.workspaceId || DEFAULTS.workspaceId).trim() ||
+      'default',
     defaultFolderName: String(stored.defaultFolderName || '').trim(),
   };
 }
 
-async function saveLeadToAdHello(lead) {
-  const settings = await getSettings();
+async function saveLeadToAdHello(lead, opts = {}) {
+  const settings = await getSettings({ workspaceId: opts.workspaceId });
   if (!settings.apiKey) {
     throw new Error('Add your API key in extension settings.');
   }
@@ -50,8 +56,8 @@ async function saveLeadToAdHello(lead) {
   return data;
 }
 
-async function importCsvToAdHello({ csvContent, fileName, folderName }) {
-  const settings = await getSettings();
+async function importCsvToAdHello({ csvContent, fileName, folderName, workspaceId }) {
+  const settings = await getSettings({ workspaceId });
   if (!settings.apiKey) {
     throw new Error('Add your API key in extension settings.');
   }
@@ -89,8 +95,8 @@ async function importCsvToAdHello({ csvContent, fileName, folderName }) {
   return data;
 }
 
-async function apiFetch(path, options = {}) {
-  const settings = await getSettings();
+async function apiFetch(path, options = {}, workspaceOverride) {
+  const settings = await getSettings({ workspaceId: workspaceOverride });
   if (!settings.apiKey) {
     throw new Error('Add your API key in extension settings.');
   }
@@ -113,20 +119,24 @@ async function apiFetch(path, options = {}) {
   return data;
 }
 
-async function getReEnrichQueue({ folderName, limit = 150 }) {
+async function getReEnrichQueue({ folderName, limit = 150, workspaceId }) {
   const name = String(folderName || '').trim();
   if (!name) throw new Error('Enter a folder name to re-enrich.');
   const params = new URLSearchParams({ folderName: name, limit: String(limit) });
-  return apiFetch(`/autonomous/re-enrich-queue?${params.toString()}`);
+  return apiFetch(`/autonomous/re-enrich-queue?${params.toString()}`, {}, workspaceId);
 }
 
-async function patchLeadContact({ leadKey, patch }) {
+async function patchLeadContact({ leadKey, patch, workspaceId }) {
   const key = encodeURIComponent(String(leadKey || '').replace(/^lead:/, ''));
   if (!key) throw new Error('Lead key is required.');
-  return apiFetch(`/autonomous/leads/${key}`, {
-    method: 'PATCH',
-    body: JSON.stringify(patch || {}),
-  });
+  return apiFetch(
+    `/autonomous/leads/${key}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(patch || {}),
+    },
+    workspaceId,
+  );
 }
 
 const PARALLEL_ENRICH_CONCURRENCY = 5;
@@ -314,8 +324,13 @@ async function parallelEnrichCompanies(companies, concurrency = PARALLEL_ENRICH_
   return { companies: updated, enrichedCount };
 }
 
-async function parallelReEnrichFolder({ folderName, limit = 150, concurrency = PARALLEL_ENRICH_CONCURRENCY }) {
-  const queue = await getReEnrichQueue({ folderName, limit });
+async function parallelReEnrichFolder({
+  folderName,
+  limit = 150,
+  concurrency = PARALLEL_ENRICH_CONCURRENCY,
+  workspaceId,
+}) {
+  const queue = await getReEnrichQueue({ folderName, limit, workspaceId });
   const leads = queue.leads || [];
   if (!leads.length) {
     return {
@@ -336,7 +351,7 @@ async function parallelReEnrichFolder({ folderName, limit = 150, concurrency = P
         const detail = await scrapeMapsPlaceUrl(lead.mapsUrl);
         const patch = buildReEnrichPatchFromDetail(detail, lead);
         if (Object.keys(patch).length) {
-          const res = await patchLeadContact({ leadKey: lead.key, patch });
+          const res = await patchLeadContact({ leadKey: lead.key, patch, workspaceId });
           if (res?.updated) updated += 1;
         }
       } catch (_) {
@@ -399,7 +414,7 @@ function sendTabMessage(tabId, message) {
   });
 }
 
-async function importCompaniesInBatches(companies, folderName, fileSlug, onProgress) {
+async function importCompaniesInBatches(companies, folderName, fileSlug, onProgress, workspaceId) {
   let created = 0;
   let updated = 0;
   let failed = 0;
@@ -422,6 +437,7 @@ async function importCompaniesInBatches(companies, folderName, fileSlug, onProgr
       csvContent: AdHelloBulkImport.companiesToCsv(chunk),
       fileName: `${fileSlug || 'maps-scrape'}-batch-${batchNum}.csv`,
       folderName,
+      workspaceId,
     });
 
     created += data.created || 0;
@@ -443,7 +459,7 @@ function slugFromSearchQuery(searchQuery) {
     .slice(0, 40);
 }
 
-async function runBulkScrapeJob({ tabId, folderName, scrollAll, enrichDetails }) {
+async function runBulkScrapeJob({ tabId, folderName, scrollAll, enrichDetails, workspaceId }) {
   if (bulkScrapeJobRunning) {
     throw new Error('A bulk scrape is already running. Wait for it to finish or reload the extension.');
   }
@@ -486,9 +502,15 @@ async function runBulkScrapeJob({ tabId, folderName, scrollAll, enrichDetails })
     }
 
     const searchSlug = slugFromSearchQuery(extract?.searchQuery);
-    const importData = await importCompaniesInBatches(companies, folderName, searchSlug, (msg) => {
-      emitBulkJobProgress({ phase: 'import', message: msg });
-    });
+    const importData = await importCompaniesInBatches(
+      companies,
+      folderName,
+      searchSlug,
+      (msg) => {
+        emitBulkJobProgress({ phase: 'import', message: msg });
+      },
+      workspaceId,
+    );
 
     emitBulkJobProgress({
       phase: 'import-done',
@@ -508,6 +530,7 @@ async function runBulkScrapeJob({ tabId, folderName, scrollAll, enrichDetails })
       enrichData = await parallelReEnrichFolder({
         folderName: targetFolder,
         limit: Math.max(companies.length, 150),
+        workspaceId,
       });
     }
 
@@ -529,7 +552,7 @@ async function runBulkScrapeJob({ tabId, folderName, scrollAll, enrichDetails })
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'SAVE_LEAD') {
-    saveLeadToAdHello(message.lead)
+    saveLeadToAdHello(message.lead, { workspaceId: message.workspaceId })
       .then((data) => sendResponse({ ok: true, data }))
       .catch((err) => sendResponse({ ok: false, error: err.message || String(err) }));
     return true;

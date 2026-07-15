@@ -1196,6 +1196,15 @@ document.addEventListener('DOMContentLoaded', () => {
       'Website',
       'Email',
       'Address',
+      'City',
+      'State',
+      'Zip',
+      'Price',
+      'Beds',
+      'Baths',
+      'Sqft',
+      'Source',
+      'Listing URL',
       'Rating',
       'Reviews',
       'Claim status',
@@ -1206,23 +1215,39 @@ document.addEventListener('DOMContentLoaded', () => {
       'Twitter',
       'Opportunity (unified /10)',
     ];
-    const rows = leadsToExport.map((l) => [
-      `"${l.title}"`,
-      `"${l.category}"`,
-      `"${l.phone}"`,
-      `"${l.website}"`,
-      `"${l.email}"`,
-      `"${l.address}"`,
-      l.rating,
-      l.reviews,
-      `"${String(l.gbpClaimStatus || '').replace(/"/g, '""')}"`,
-      `"${String(l.gbpOptimizationScore || '').replace(/"/g, '""')}"`,
-      `"${(l.ownerSignal || '').replace(/"/g, '""')}"`,
-      `"${l.facebook}"`,
-      `"${l.instagram}"`,
-      `"${l.twitter}"`,
-      getUnifiedClientScore(l),
-    ]);
+    const esc = (v) => `"${String(v == null ? '' : v).replace(/"/g, '""')}"`;
+    const rows = leadsToExport.map((l) => {
+      const priceRaw = l.listingPrice || l.listingprice || '';
+      const priceNum = parseFloat(String(priceRaw).replace(/[^\d.]/g, ''));
+      const price =
+        Number.isFinite(priceNum) && priceNum > 0 ? `$${Math.round(priceNum).toLocaleString('en-US')}` : priceRaw;
+      return [
+        esc(l.title),
+        esc(l.category),
+        esc(l.phone),
+        esc(l.website),
+        esc(l.email),
+        esc(l.address),
+        esc(l.city),
+        esc(l.state),
+        esc(l.zip),
+        esc(price),
+        esc(l.listingBeds || l.listingbeds || ''),
+        esc(l.listingBaths || l.listingbaths || ''),
+        esc(l.listingSqft || l.listingsqft || ''),
+        esc(l.listingSource || l.listingsource || l.source || ''),
+        esc(l.url),
+        l.rating,
+        l.reviews,
+        esc(String(l.gbpClaimStatus || '').replace(/"/g, '""')),
+        esc(String(l.gbpOptimizationScore || '').replace(/"/g, '""')),
+        esc(String(l.ownerSignal || '').replace(/"/g, '""')),
+        esc(l.facebook),
+        esc(l.instagram),
+        esc(l.twitter),
+        getUnifiedClientScore(l),
+      ];
+    });
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   }
 

@@ -940,6 +940,9 @@
   function sanitizeLeadAddress(lead) {
     if (!lead || typeof lead !== 'object') return lead;
     if (lead.address) lead.address = cleanAddress(lead.address);
+    if (window.AdHelloListingHelpers?.enrichLeadGeo) {
+      return window.AdHelloListingHelpers.enrichLeadGeo(lead);
+    }
     return lead;
   }
 

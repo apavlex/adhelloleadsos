@@ -12,7 +12,7 @@
       <h1>AdHello Leads <span id="extVersion" class="ext-version"></span></h1>
       <p id="workspaceThemeRow" class="workspace-theme-row hidden">
         <span id="workspaceThemeSwatch" class="workspace-theme-swatch" aria-hidden="true"></span>
-        <span id="workspaceThemeName" class="workspace-theme-name"></span>
+        <select id="workspaceSelect" class="workspace-select" aria-label="Save to workspace"></select>
       </p>
       <p id="platformLabel">Detecting page…</p>
       <p id="saveTypeLabel" class="save-type hidden"></p>
@@ -64,6 +64,10 @@
             <input type="text" name="state" />
           </label>
         </div>
+        <label>
+          <span>Zip code</span>
+          <input type="text" name="zip" inputmode="numeric" placeholder="98686" />
+        </label>
         <label>
           <span>Website</span>
           <input type="url" name="website" placeholder="https://" />
