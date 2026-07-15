@@ -13829,6 +13829,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const cancelSelectionBtn = document.getElementById('cancelSelectionBtn');
   const bulkFolderSelect = document.getElementById('bulkFolderSelect');
   const bulkMoveFolderBtn = document.getElementById('bulkMoveFolderBtn');
+  const bulkPipelineStageSelect = document.getElementById('bulkPipelineStageSelect');
+  const bulkAddToBoardBtn = document.getElementById('bulkAddToBoardBtn');
   const bulkFolderNewToggle = document.getElementById('bulkFolderNewToggle');
   const bulkFolderNewRow = document.getElementById('bulkFolderNewRow');
   const bulkFolderNewName = document.getElementById('bulkFolderNewName');
@@ -14425,6 +14427,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (bulkMoveFolderBtn) {
       bulkMoveFolderBtn.disabled = count === 0;
     }
+    if (bulkAddToBoardBtn) {
+      bulkAddToBoardBtn.disabled = count === 0;
+    }
     const saveBtn = bulkSaveBtn || document.getElementById('bulkSaveBtn');
     if (saveBtn && saveBtn.getAttribute('aria-busy') !== 'true') {
       saveBtn.disabled = count === 0;
@@ -14953,6 +14958,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (bulkMoveFolderBtn && bulkFolderSelect) {
     bulkMoveFolderBtn.addEventListener('click', () => bulkMoveFolderFromBar());
+  }
+
+  function applyPipelineStageToRow(row, stageId, pipelineStage) {
+    if (!row || !stageId) return;
+    const sid = String(stageId).trim();
+    row.dataset.stageId = sid;
+    if (pipelineStage != null) row.dataset.pipelineStage = String(pipelineStage);
+    const labels = window.PIPELINE_STAGE_LABELS || {};
+    const fullName = labels[sid] || '';
+    const short =
+      (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
+    row.dataset.pipelineLabel = short;
+    const pipeSel = row.querySelector('.pipeline-inline-select');
+    if (pipeSel) pipeSel.value = sid;
+    const cell = row.querySelector('.pipeline-stage-label');
+    if (cell) cell.textContent = short || 'Stage';
+    const wrap = row.querySelector('.pipeline-stage-pill-wrap');
+    if (wrap) {
+      const dot =
+        (window.PIPELINE_STAGE_COLORS && window.PIPELINE_STAGE_COLORS[sid]) || '#94a3b8';
+      wrap.style.boxShadow = `inset 3px 0 0 ${dot}`;
+    }
+  }
+
+  async function bulkAddToBoardFromBar() {
+    const keys = getSelectedLeadKeysForBulk();
+    if (!keys.length) {
+      window.alert('Select at least one lead.');
+      return;
+    }
+    const stageEl = document.getElementById('bulkPipelineStageSelect') || bulkPipelineStageSelect;
+    const stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
+    if (!stageId) {
+      window.alert('Choose a pipeline stage first.');
+      return;
+    }
+    const folderEl = document.getElementById('bulkFolderSelect') || bulkFolderSelect;
+    const folderKey = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    const viewingFolder =
+      typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
+        ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+        : '';
+    const btn = document.getElementById('bulkAddToBoardBtn') || bulkAddToBoardBtn;
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+    }
+    try {
+      const res = await fetch('/leads/bulk-stage-assign', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          leadKeys: keys.map(normalizeLeadKeyForApi).filter(Boolean),
+          stageId,
+          ...(folderKey ? { folderKey } : {}),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      }
+      const updated = Array.isArray(data.leads) ? data.leads : [];
+      const updatedKeys = Array.isArray(data.updatedKeys) ? data.updatedKeys : [];
+      if (!updatedKeys.length) {
+        throw new Error('No leads were updated. Refresh the page and try again.');
+      }
+
+      updated.forEach((item) => {
+        if (!item || !item.key) return;
+        const row = findLeadRowForBulkKey(item.key);
+        if (!row) return;
+        applyPipelineStageToRow(row, item.stageId || stageId, item.pipelineStage);
+        if (folderKey && viewingFolder && folderKey !== viewingFolder) {
+          row.remove();
+        }
+      });
+
+      const stageName = (window.PIPELINE_STAGE_LABELS && window.PIPELINE_STAGE_LABELS[stageId]) || 'board';
+      const msg = `Added ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'} to ${stageName}`;
+      showBulkSaveFeedback(msg, 'ok');
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+
+      if (folderKey && folderKey !== viewingFolder) {
+        try {
+          sessionStorage.setItem('adhello_pipeline_view', 'kanban');
+        } catch (_) {}
+        window.location.href = `/prospecting?tab=pipeline&folderKey=${encodeURIComponent(folderKey)}`;
+        return;
+      }
+
+      selectedKeys.clear();
+      document.querySelectorAll('.lead-checkbox, .row-checkbox').forEach((cb) => {
+        cb.checked = false;
+      });
+      const selectAllHeader = getSelectAllHeader();
+      if (selectAllHeader) selectAllHeader.checked = false;
+      updateBulkActionBar();
+
+      if (typeof window.__adhelloSetPipelineView === 'function') {
+        window.__adhelloSetPipelineView('kanban');
+      } else if (typeof window.__adhelloInitKanban === 'function') {
+        window.__adhelloInitKanban();
+      }
+      const kanbanEl = document.getElementById('kanbanView');
+      if (kanbanEl && typeof kanbanEl.scrollIntoView === 'function') {
+        kanbanEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch (e) {
+      console.error('Bulk add to pipeline board failed:', e);
+      window.alert(
+        e && e.message ? e.message : 'Could not add selected leads to the pipeline board.',
+      );
+    } finally {
+      if (btn) {
+        btn.removeAttribute('aria-busy');
+        btn.disabled = getBulkSelectionCount() === 0;
+      }
+    }
+  }
+  window.__bulkAddToBoardFromBar = bulkAddToBoardFromBar;
+
+  if (bulkAddToBoardBtn) {
+    bulkAddToBoardBtn.addEventListener('click', () => bulkAddToBoardFromBar());
   }
 
   async function bulkMoveFolderFromBar() {
@@ -16163,10 +16292,38 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   window.__adhelloInitKanban = initKanban;
-  const kanbanViewOnLoad = document.getElementById('kanbanView');
-  if (kanbanViewOnLoad && !kanbanViewOnLoad.classList.contains('hidden')) {
-    initKanban();
+
+  function pipelineKanbanPreferredOnLoad() {
+    if (document.documentElement.classList.contains('adhello-pipeline-view-kanban')) return true;
+    try {
+      return sessionStorage.getItem('adhello_pipeline_view') === 'kanban';
+    } catch (_) {
+      return false;
+    }
   }
+
+  function bootPipelineKanbanOnLoad() {
+    const kanbanViewEl = document.getElementById('kanbanView');
+    if (!kanbanViewEl) return;
+    const wantKanban =
+      pipelineKanbanPreferredOnLoad() || !kanbanViewEl.classList.contains('hidden');
+    if (!wantKanban) return;
+    if (typeof window.__adhelloSetPipelineView === 'function') {
+      window.__adhelloSetPipelineView('kanban');
+    } else {
+      kanbanViewEl.classList.remove('hidden');
+      const tableViewEl = document.getElementById('tableView');
+      if (tableViewEl) tableViewEl.classList.add('hidden');
+      initKanban();
+    }
+  }
+
+  bootPipelineKanbanOnLoad();
+  document.addEventListener('adhello-pipeline-prefs-ready', () => {
+    const kanbanViewEl = document.getElementById('kanbanView');
+    if (!kanbanViewEl || kanbanViewEl.classList.contains('hidden')) return;
+    initKanban();
+  });
 
   function createKanbanCard(row) {
     const card = document.createElement('div');

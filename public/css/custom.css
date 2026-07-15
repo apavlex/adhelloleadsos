@@ -1192,6 +1192,16 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   border-color: rgba(234, 179, 8, 0.5);
 }
 
+#bulkActionBar .bulk-bar-btn--board {
+  background: rgba(16, 185, 129, 0.88);
+  color: #fff;
+  border-color: rgba(52, 211, 153, 0.55);
+}
+
+#bulkActionBar .bulk-bar-btn--board:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
 #bulkActionBar .bulk-bar-btn--save {
   background: #059669;
   color: #fff;

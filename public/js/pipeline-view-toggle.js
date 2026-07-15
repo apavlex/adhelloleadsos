@@ -70,21 +70,10 @@
 
   function restoreSavedView() {
     try {
-      if (document.documentElement.classList.contains('adhello-pipeline-view-kanban')) {
-        syncToggleButtons(true);
-        if (typeof window.__adhelloInitKanban === 'function') {
-          var bootKanban = function () {
-            window.__adhelloInitKanban();
-          };
-          if (typeof window.__ensureSortableJs === 'function') {
-            window.__ensureSortableJs().then(bootKanban).catch(function () {});
-          } else {
-            bootKanban();
-          }
-        }
-        return;
-      }
-      if (sessionStorage.getItem('adhello_pipeline_view') === 'kanban') {
+      if (
+        document.documentElement.classList.contains('adhello-pipeline-view-kanban') ||
+        sessionStorage.getItem('adhello_pipeline_view') === 'kanban'
+      ) {
         setPipelineView('kanban');
       }
     } catch (_) {}

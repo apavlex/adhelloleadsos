@@ -2858,6 +2858,72 @@ router.post('/telephony/voicemail/upload', (req, res, next) => {
   }
 });
 
+// POST /leads/bulk-stage-assign — assign pipeline stage (and optional folder) to multiple leads
+router.post('/bulk-stage-assign', express.json(), async (req, res, next) => {
+  try {
+    const stageId = String(req.body?.stageId || '').trim();
+    const folderKey =
+      req.body?.folderKey != null ? String(req.body.folderKey).trim() : undefined;
+    const leadKeysRaw = Array.isArray(req.body?.leadKeys) ? req.body.leadKeys : [];
+    const leadKeys = leadKeysRaw.map((k) => String(k || '').trim()).filter(Boolean);
+
+    if (!leadKeys.length) {
+      return res.status(400).json({ success: false, error: 'leadKeys is required.' });
+    }
+
+    const stageRows = await pipelineStagesService.ensureWorkspaceStagesSeeded(req.workspaceId);
+    if (!stageId || !stageRows.some((s) => s.id === stageId)) {
+      return res.status(400).json({ success: false, error: 'Valid stageId is required.' });
+    }
+
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const visibleKeys = new Set(visible.map((l) => l.key));
+
+    const resolveVisibleLeadKey = (rawKey) => {
+      const k = String(rawKey || '').trim();
+      if (!k) return null;
+      const candidates = [
+        k,
+        k.startsWith('lead:') ? k : `lead:${k}`,
+        k.startsWith('lead:') ? k.slice(5) : null,
+      ].filter(Boolean);
+      for (const c of candidates) {
+        if (visibleKeys.has(c)) return c;
+      }
+      return null;
+    };
+
+    const updatedKeys = [];
+    const updatedLeads = [];
+    for (const key of leadKeys) {
+      const fullKey = resolveVisibleLeadKey(key);
+      if (!fullKey) continue;
+      const existing = await dbService.getLead(fullKey);
+      if (!existing) continue;
+      const patch = {
+        ...pipelineStagesService.patchLeadStageFields(existing, stageRows, stageId),
+        pipelineStageUpdatedAt: new Date().toISOString(),
+      };
+      if (folderKey !== undefined) patch.folderKey = folderKey;
+      const lead = await dbService.updateLead(fullKey, patch, req.workspaceId);
+      if (lead) {
+        updatedKeys.push(lead.key);
+        updatedLeads.push({
+          key: lead.key,
+          stageId,
+          pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, stageId),
+          folderKey: lead.folderKey || '',
+        });
+      }
+    }
+
+    res.json({ success: updatedKeys.length > 0, updatedKeys, stageId, leads: updatedLeads });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /leads/bulk-merge — combine multi-location / name-variant leads into one primary
 router.post('/bulk-merge', express.json(), async (req, res, next) => {
   try {

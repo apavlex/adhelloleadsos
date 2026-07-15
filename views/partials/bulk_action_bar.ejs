@@ -53,6 +53,16 @@
       </select>
       <% if (_bulkMode === 'pipeline') { %>
       <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled>Move</button>
+      <% const _boardStages = typeof pipelineStages !== 'undefined' && Array.isArray(pipelineStages) ? pipelineStages : []; %>
+      <% if (_boardStages.length) { %>
+      <label for="bulkPipelineStageSelect" class="sr-only">Pipeline stage</label>
+      <select id="bulkPipelineStageSelect" class="bulk-bar-select min-w-[6.5rem] max-w-[10rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50 cursor-pointer" title="Stage for pipeline board">
+        <% _boardStages.forEach(function (st, idx) { if (!st || !st.id) return; %>
+        <option value="<%= st.id %>"<%= idx === 0 ? ' selected' : '' %>><%= st.name %></option>
+        <% }); %>
+      </select>
+      <button type="button" id="bulkAddToBoardBtn" class="bulk-bar-btn bulk-bar-btn--board" disabled title="Assign stage and open pipeline board">Board</button>
+      <% } %>
       <% } %>
       <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled data-default-label="<%= _bulkMode === 'search' ? 'Save' : 'Save' %>">
         <%= _bulkMode === 'search' ? 'Save' : 'Save' %>
