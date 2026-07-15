@@ -23,6 +23,10 @@
           <label for="tagsManageNewName" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Tag name</label>
           <input type="text" id="tagsManageNewName" name="name" maxlength="80" required placeholder="e.g. Direct Mail List" autocomplete="off" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white/70 dark:bg-slate-800/70 px-4 py-3 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" />
         </div>
+        <div class="shrink-0">
+          <label for="tagsManageNewColor" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Color</label>
+          <input type="color" id="tagsManageNewColor" name="color" value="#EAB308" class="tags-manage-color w-12 h-12 rounded-xl border border-brand-border/40 dark:border-white/10 bg-transparent cursor-pointer" aria-label="Tag color" />
+        </div>
         <button type="submit" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest">Create tag</button>
       </form>
     </div>
@@ -61,7 +65,7 @@
             %>
             <tr class="border-b border-brand-border/15 dark:border-white/[0.07] tags-manage-row" data-tag-key="<%= tag.key.replace(/"/g, '&quot;') %>" data-tag-active="<%= isActive ? '1' : '0' %>">
               <td class="px-4 py-3 align-middle">
-                <span class="inline-block w-4 h-4 rounded-full border border-black/10 dark:border-white/15" style="background:<%= color %>" aria-hidden="true"></span>
+                <input type="color" class="tags-manage-color w-10 h-10 rounded-lg border border-brand-border/40 dark:border-white/10 bg-transparent cursor-pointer" value="<%= color %>" data-original-color="<%= color %>" aria-label="Tag color for <%= name.replace(/"/g, '&quot;') %>" />
               </td>
               <td class="px-4 py-3 align-middle">
                 <input type="text" class="tags-manage-name w-full max-w-md rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" value="<%= name.replace(/"/g, '&quot;') %>" maxlength="80" data-original-name="<%= name.replace(/"/g, '&quot;') %>" />

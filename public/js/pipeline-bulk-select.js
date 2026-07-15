@@ -789,6 +789,23 @@
   }
 
   /** Create folder from bulk bar — available before app.js finishes loading. */
+  function buildBulkFolderCreatePayload(name) {
+    var payload = { name: String(name || '').trim() };
+    var activeKey = String(window.PROSPECTING_ACTIVE_FOLDER_KEY || '').trim();
+    if (!activeKey) return payload;
+    payload.parentFolderKey = activeKey;
+    var folders = Array.isArray(window.WORKSPACE_FOLDERS) ? window.WORKSPACE_FOLDERS : [];
+    var activeFolder = folders.find(function (f) {
+      return f && String(f.key) === activeKey;
+    });
+    if (activeFolder && activeFolder.jobType) {
+      payload.jobType = String(activeFolder.jobType);
+    } else if (window.PROSPECTING_BUSINESSES_VIEW) {
+      payload.jobType = 'maps_business';
+    }
+    return payload;
+  }
+
   async function bulkFolderSaveFromBar() {
     const nameInput = document.getElementById('bulkFolderNewName');
     const saveBtn = document.getElementById('bulkFolderNewSave');
@@ -803,7 +820,7 @@
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ name: name }),
+        body: JSON.stringify(buildBulkFolderCreatePayload(name)),
       });
       const data = await res.json().catch(function () {
         return {};
@@ -818,10 +835,18 @@
       const existing = window.WORKSPACE_FOLDERS.find(function (f) {
         return f && f.key === key;
       });
+      const nextFolder = {
+        key: key,
+        name: folderName,
+        jobType: folder.jobType || '',
+        parentFolderKey: folder.parentFolderKey || '',
+        isPipelineDefault: !!folder.isPipelineDefault,
+        isTradeFolder: !!folder.isTradeFolder,
+      };
       if (existing) {
-        existing.name = folderName;
+        Object.assign(existing, nextFolder);
       } else {
-        window.WORKSPACE_FOLDERS.push({ key: key, name: folderName });
+        window.WORKSPACE_FOLDERS.push(nextFolder);
       }
       rebuildBulkFolderSelectEarly(key);
       appendFolderToPageSelects({ key: key, name: folderName });

@@ -277,6 +277,9 @@ async function autoParentTradeLikeFolders(workspaceId, folders) {
   for (const folder of list) {
     if (!folder || folder.isPipelineDefault || folder.isTradeFolder) continue;
 
+    // Folders the user placed under a parent stay where they are (orphans only are auto-parented).
+    if (String(folder.parentFolderKey || '').trim()) continue;
+
     const jt = String(folder.jobType || '').trim();
     if (jt && jt !== JOB_TYPES.MAPS_BUSINESS) continue;
 

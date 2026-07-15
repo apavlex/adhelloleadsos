@@ -14623,6 +14623,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const isSearchResultsBulkPage = !!document.getElementById('searchResultsLeadsTable');
 
+  function buildBulkFolderCreatePayload(name) {
+    const payload = { name: String(name || '').trim() };
+    const activeKey = String(window.PROSPECTING_ACTIVE_FOLDER_KEY || '').trim();
+    if (!activeKey) return payload;
+    payload.parentFolderKey = activeKey;
+    const folders = Array.isArray(window.WORKSPACE_FOLDERS) ? window.WORKSPACE_FOLDERS : [];
+    const activeFolder = folders.find((f) => f && String(f.key) === activeKey);
+    if (activeFolder && activeFolder.jobType) {
+      payload.jobType = String(activeFolder.jobType);
+    } else if (window.PROSPECTING_BUSINESSES_VIEW) {
+      payload.jobType = 'maps_business';
+    }
+    return payload;
+  }
+
   async function bulkFolderSaveFromBar() {
     const nameInput = document.getElementById('bulkFolderNewName');
     const saveBtn = document.getElementById('bulkFolderNewSave');
@@ -14637,17 +14652,25 @@ document.addEventListener('DOMContentLoaded', () => {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify(buildBulkFolderCreatePayload(name)),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.success || !data.folder || !data.folder.key) {
         throw new Error((data && data.error) || `HTTP ${res.status}`);
       }
-      const { key, name: folderName } = data.folder;
+      const { key, name: folderName, jobType, parentFolderKey, isPipelineDefault, isTradeFolder } = data.folder;
       if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
-      if (!window.WORKSPACE_FOLDERS.some((f) => f && f.key === key)) {
-        window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
-      }
+      const existing = window.WORKSPACE_FOLDERS.find((f) => f && f.key === key);
+      const nextFolder = {
+        key,
+        name: folderName || name,
+        jobType: jobType || '',
+        parentFolderKey: parentFolderKey || '',
+        isPipelineDefault: !!isPipelineDefault,
+        isTradeFolder: !!isTradeFolder,
+      };
+      if (existing) Object.assign(existing, nextFolder);
+      else window.WORKSPACE_FOLDERS.push(nextFolder);
       rebuildBulkFolderSelect(key);
       setBulkFolderNewRowVisible(false);
       if (typeof window.showProspectToast === 'function') {

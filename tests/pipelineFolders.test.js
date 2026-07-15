@@ -224,3 +224,34 @@ test('autoParentTradeLikeFolders parents custom folders under trade subfolders',
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];
 });
+
+test('autoParentTradeLikeFolders skips folders that already have a parent', async () => {
+  const folders = [
+    { key: 'folder:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'folder:elec', name: 'Electrical', parentFolderKey: 'folder:biz', isTradeFolder: true, tradeSlug: 'electrical' },
+    {
+      key: 'folder:custom',
+      name: 'Electricians PDX',
+      parentFolderKey: 'folder:biz',
+      jobType: 'maps_business',
+    },
+  ];
+  const mockDb = {
+    updateFolder: async () => {
+      throw new Error('should not reparent user-placed folder');
+    },
+    listFolders: async () => folders,
+  };
+
+  const orig = require('../services/database');
+  require.cache[require.resolve('../services/database')].exports = mockDb;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+  const { autoParentTradeLikeFolders: autoParent } = require('../services/pipelineFolders');
+
+  const result = await autoParent('ws1', folders);
+  assert.equal(result.stats.parented, 0);
+  assert.equal(result.stats.merged, 0);
+
+  require.cache[require.resolve('../services/database')].exports = orig;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+});

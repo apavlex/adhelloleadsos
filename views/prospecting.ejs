@@ -945,7 +945,10 @@
                 throw new Error((pack.data && pack.data.error) || 'Could not create folder.');
               }
               closeM();
-              window.location.reload();
+              var createdKey = pack.data.folder && pack.data.folder.key ? String(pack.data.folder.key) : '';
+              var nextUrl = '/prospecting?tab=folders';
+              if (createdKey) nextUrl += '&folderCreated=' + encodeURIComponent(createdKey);
+              window.location.href = nextUrl;
             })
             .catch(function (e) {
               if (err) { err.textContent = e && e.message ? e.message : 'Could not create folder.'; err.classList.remove('hidden'); }
@@ -973,6 +976,63 @@
       });
     }
 
+    function revealFolderTreeAncestors(node) {
+      while (node) {
+        node.classList.remove('hidden');
+        var parentList = node.parentElement;
+        if (!parentList || !parentList.hasAttribute('data-folder-tree-children')) break;
+        parentList.classList.remove('hidden');
+        var parentNode = parentList.closest('[data-folder-tree-node]');
+        if (parentNode) {
+          var btn = parentNode.querySelector(':scope > div > .folder-tree-expand');
+          if (btn) {
+            btn.textContent = '\u25BC';
+            btn.setAttribute('aria-expanded', 'true');
+          }
+          node = parentNode;
+        } else {
+          break;
+        }
+      }
+    }
+
+    function highlightCreatedFolder() {
+      var params = new URLSearchParams(window.location.search);
+      var key = String(params.get('folderCreated') || '').trim();
+      if (!key) return;
+      var row = document.querySelector('[data-folder-row="' + (window.CSS && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"')) + '"]');
+      if (!row) return;
+      var group = row.closest('.folder-group');
+      if (group) group.open = true;
+      revealFolderTreeAncestors(row.closest('[data-folder-tree-node]'));
+      row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      row.classList.add('ring-2', 'ring-brand-yellow/70', 'rounded-xl');
+      setTimeout(function () {
+        row.classList.remove('ring-2', 'ring-brand-yellow/70', 'rounded-xl');
+      }, 3200);
+      params.delete('folderCreated');
+      var qs = params.toString();
+      history.replaceState(null, '', window.location.pathname + (qs ? '?' + qs : ''));
+    }
+
+    function expandGroupsWithCustomSubfolders() {
+      document.querySelectorAll('.folder-group').forEach(function (group) {
+        var hasCustom = !!group.querySelector('.folder-row[data-folder-is-default="0"][data-folder-is-trade="0"]');
+        if (hasCustom) group.open = true;
+      });
+      document.querySelectorAll('[data-folder-tree-node]').forEach(function (node) {
+        var hasCustom = !!node.querySelector(':scope > [data-folder-tree-children] .folder-row[data-folder-is-trade="0"][data-folder-is-default="0"]');
+        if (!hasCustom) return;
+        var children = node.querySelector(':scope > [data-folder-tree-children]');
+        var btn = node.querySelector(':scope > div > .folder-tree-expand');
+        if (children) children.classList.remove('hidden');
+        if (btn) {
+          btn.textContent = '\u25BC';
+          btn.setAttribute('aria-expanded', 'true');
+        }
+      });
+    }
+
     function bindFolderSearchFilter() {
       var input = $('folderSearchFilter');
       var empty = $('folderSearchEmpty');
@@ -986,26 +1046,6 @@
           btn.textContent = '\u25B6';
           btn.setAttribute('aria-expanded', 'false');
         });
-      }
-
-      function revealFolderTreeAncestors(node) {
-        while (node) {
-          node.classList.remove('hidden');
-          var parentList = node.parentElement;
-          if (!parentList || !parentList.hasAttribute('data-folder-tree-children')) break;
-          parentList.classList.remove('hidden');
-          var parentNode = parentList.closest('[data-folder-tree-node]');
-          if (parentNode) {
-            var btn = parentNode.querySelector(':scope > div > .folder-tree-expand');
-            if (btn) {
-              btn.textContent = '\u25BC';
-              btn.setAttribute('aria-expanded', 'true');
-            }
-            node = parentNode;
-          } else {
-            break;
-          }
-        }
       }
 
       function applyFilter() {
@@ -1055,6 +1095,8 @@
       bindFolderMoveModal();
       bindFolderSearchSetupModal();
       bindFolderSearchFilter();
+      expandGroupsWithCustomSubfolders();
+      highlightCreatedFolder();
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();

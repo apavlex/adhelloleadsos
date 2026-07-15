@@ -31,8 +31,10 @@
     <button type="button" class="folder-search-setup px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Search setup</button>
     <% } %>
     <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
-    <% if (!_f.isPipelineDefault && !_f.isTradeFolder) { %>
+    <% if (!_f.isPipelineDefault) { %>
+    <% if (!_f.isTradeFolder) { %>
     <button type="button" class="folder-move px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Move</button>
+    <% } %>
     <button type="button" class="folder-rename px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Rename</button>
     <button type="button" class="folder-delete px-3 py-2 rounded-xl bg-white dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/50 text-[10px] font-black uppercase tracking-widest text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/50 transition-colors" data-folder-key="<%= _f.key %>">Remove</button>
     <% } else { %>

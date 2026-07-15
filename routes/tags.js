@@ -61,7 +61,8 @@ router.post('/', async (req, res, next) => {
   try {
     const name = String(req.body?.name || '').trim();
     if (!name) return res.status(400).json({ success: false, error: 'Tag name is required.' });
-    const tag = await dbService.createTag(req.workspaceId, name);
+    const color = req.body?.color;
+    const tag = await dbService.createTag(req.workspaceId, name, color);
     res.json({ success: true, tag });
   } catch (e) {
     next(e);
@@ -152,6 +153,19 @@ router.post('/:tagKey/active', async (req, res, next) => {
     const raw = req.body && req.body.isActive;
     const isActive = raw === true || raw === 'true' || raw === 1 || raw === '1';
     const tag = await dbService.setTagActive(req.workspaceId, tagKey, isActive);
+    if (!tag) return res.status(404).json({ success: false, error: 'Tag not found.' });
+    res.json({ success: true, tag });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.post('/:tagKey/color', async (req, res, next) => {
+  try {
+    const tagKey = req.params.tagKey;
+    const color = String(req.body?.color || '').trim();
+    if (!color) return res.status(400).json({ success: false, error: 'Tag color is required.' });
+    const tag = await dbService.setTagColor(req.workspaceId, tagKey, color);
     if (!tag) return res.status(404).json({ success: false, error: 'Tag not found.' });
     res.json({ success: true, tag });
   } catch (e) {

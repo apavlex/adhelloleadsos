@@ -29,7 +29,7 @@
   window.PIPELINE_STAGE_LABELS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
   window.PIPELINE_STAGE_COLORS = <%- safeJsonForScript((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
 </script>
-<script type="application/json" id="workspace-folders-json"><%- safeJsonForScript(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name })) : []) %></script>
+<script type="application/json" id="workspace-folders-json"><%- safeJsonForScript(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name, jobType: f.jobType || '', parentFolderKey: f.parentFolderKey || '', isPipelineDefault: !!f.isPipelineDefault, isTradeFolder: !!f.isTradeFolder })) : []) %></script>
 <script type="application/json" id="workspace-tags-json"><%- safeJsonForScript(typeof tags !== 'undefined' && tags ? tags.map((t) => ({ key: t.key, name: t.name, color: t.color || '#94a3b8', isActive: t.isActive === true })) : []) %></script>
 <script>
   try {

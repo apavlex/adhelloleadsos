@@ -6,6 +6,7 @@
   const tbody = document.getElementById('tagsManageBody');
   const createForm = document.getElementById('tagsManageCreateForm');
   const nameInput = document.getElementById('tagsManageNewName');
+  const colorInput = document.getElementById('tagsManageNewColor');
 
   function showMsg(text, ok) {
     if (!msgEl) return;
@@ -67,7 +68,7 @@
     tr.setAttribute('data-tag-active', isActive ? '1' : '0');
     tr.innerHTML = `
       <td class="px-4 py-3 align-middle">
-        <span class="inline-block w-4 h-4 rounded-full border border-black/10 dark:border-white/15" style="background:${escapeHtml(color)}" aria-hidden="true"></span>
+        <input type="color" class="tags-manage-color w-10 h-10 rounded-lg border border-brand-border/40 dark:border-white/10 bg-transparent cursor-pointer" value="${escapeHtml(color)}" data-original-color="${escapeHtml(color)}" aria-label="Tag color for ${escapeHtml(name)}" />
       </td>
       <td class="px-4 py-3 align-middle">
         <input type="text" class="tags-manage-name w-full max-w-md rounded-lg border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white" value="${escapeHtml(name)}" maxlength="80" data-original-name="${escapeHtml(name)}" />
@@ -139,6 +140,7 @@
     if (!row) return;
     const key = row.getAttribute('data-tag-key');
     const nameEl = row.querySelector('.tags-manage-name');
+    const colorEl = row.querySelector('.tags-manage-color');
     const saveBtn = row.querySelector('.tags-manage-save');
     const deleteBtn = row.querySelector('.tags-manage-delete');
     const activeToggle = row.querySelector('.tags-manage-active-toggle');
@@ -148,6 +150,33 @@
       const orig = String(nameEl.getAttribute('data-original-name') || '').trim();
       const val = String(nameEl.value || '').trim();
       saveBtn.disabled = !val || val === orig;
+    }
+
+    if (colorEl) {
+      colorEl.addEventListener('input', () => {
+        colorEl.dataset.pendingColor = colorEl.value;
+      });
+      colorEl.addEventListener('change', async () => {
+        const color = String(colorEl.value || '').trim();
+        const orig = String(colorEl.getAttribute('data-original-color') || '').trim();
+        if (!color || !key || color.toUpperCase() === orig.toUpperCase()) return;
+        colorEl.disabled = true;
+        try {
+          const data = await apiJson(`/tags/${encodeTagKey(key)}/color`, {
+            method: 'POST',
+            body: JSON.stringify({ color }),
+          });
+          colorEl.setAttribute('data-original-color', data.tag.color || color);
+          colorEl.value = data.tag.color || color;
+          upsertWorkspaceTag(data.tag);
+          showMsg(`Updated color for “${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'tag')}”.`, true);
+        } catch (err) {
+          colorEl.value = orig || colorEl.getAttribute('data-original-color') || '#94a3b8';
+          showMsg(err.message || 'Could not update tag color.', false);
+        } finally {
+          colorEl.disabled = false;
+        }
+      });
     }
 
     if (nameEl) {
@@ -210,7 +239,7 @@
     if (deleteBtn) {
       deleteBtn.addEventListener('click', async () => {
         const label = String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'this tag');
-        const leadLink = row.querySelector('td:nth-child(3) a');
+        const leadLink = row.querySelector('td:nth-child(4) a');
         const leadCount = leadLink ? parseInt(leadLink.textContent, 10) || 0 : 0;
         let confirmMsg = `Delete “${label}”?`;
         if (leadCount > 0) {
@@ -251,9 +280,10 @@
       const submitBtn = createForm.querySelector('[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
       try {
+        const color = colorInput ? String(colorInput.value || '').trim() : '';
         const data = await apiJson('/tags', {
           method: 'POST',
-          body: JSON.stringify({ name }),
+          body: JSON.stringify({ name, color: color || undefined }),
         });
         appendTagRow({ ...data.tag, leadCount: 0 });
         upsertWorkspaceTag(data.tag);

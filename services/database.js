@@ -16,6 +16,13 @@ const {
   shouldApplyIncomingFolderKey,
 } = require('./leadDedupe');
 const { normalizeLeadForPanel } = require('./leadPanelNormalize');
+const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
+
+const TAG_COLOR_PALETTE = ['#EAB308', '#3B82F6', '#10B981', '#F43F5E', '#8B5CF6', '#F97316', '#06B6D4', '#EC4899'];
+
+function normalizeTagColor(raw, fallback) {
+  return normalizeWorkspaceAccentHex(raw) || (fallback ? normalizeWorkspaceAccentHex(fallback) : null) || '#94A3B8';
+}
 
 // ── SQLite setup ──────────────────────────────────────────────────────────────
 function resolveDbDir() {
@@ -911,15 +918,14 @@ module.exports = {
     return out.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
   },
 
-  async createTag(workspaceId, name) {
+  async createTag(workspaceId, name, color) {
     const wid = workspaceId || 'default';
     const label = String(name || '').trim();
     if (!label) throw new Error('Tag name is required.');
-    const palette = ['#eab308', '#3b82f6', '#10b981', '#f43f5e', '#8b5cf6', '#f97316', '#06b6d4', '#ec4899'];
     const key = `tag:${wid}:${Date.now()}`;
     const tag = {
       name: label,
-      color: palette[Math.floor(Math.random() * palette.length)],
+      color: normalizeTagColor(color, TAG_COLOR_PALETTE[Math.floor(Math.random() * TAG_COLOR_PALETTE.length)]),
       workspaceId: wid,
       isActive: true,
       createdAt: new Date().toISOString(),
@@ -954,6 +960,22 @@ module.exports = {
     const updated = {
       ...existing,
       name: String(name || '').trim(),
+      updatedAt: new Date().toISOString(),
+    };
+    kvSet(fullKey, JSON.stringify(updated));
+    return { key: fullKey, ...updated };
+  },
+
+  async setTagColor(workspaceId, tagKey, color) {
+    const wid = workspaceId || 'default';
+    const fullKey = tagKey.startsWith('tag:') ? tagKey : `tag:${wid}:${tagKey}`;
+    const raw = kvGet(fullKey);
+    if (!raw) return null;
+    const existing = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if ((existing.workspaceId || 'default') !== wid) return null;
+    const updated = {
+      ...existing,
+      color: normalizeTagColor(color, existing.color),
       updatedAt: new Date().toISOString(),
     };
     kvSet(fullKey, JSON.stringify(updated));
