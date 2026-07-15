@@ -3,6 +3,10 @@
 <% const _repoUrl = typeof chromeExtensionRepoUrl !== 'undefined' && chromeExtensionRepoUrl
   ? chromeExtensionRepoUrl
   : 'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension'; %>
+<% const _downloadUrl = typeof chromeExtensionDownloadUrl !== 'undefined' && chromeExtensionDownloadUrl
+  ? chromeExtensionDownloadUrl
+  : '/workspace/integrations/chrome-extension/download'; %>
+<% const _downloadReady = typeof chromeExtensionDownloadReady !== 'undefined' ? chromeExtensionDownloadReady : true; %>
 <% const _ingestReady = typeof apiIngestKeyConfigured !== 'undefined' && apiIngestKeyConfigured; %>
 <% const _ingestMask = typeof apiIngestKeyMask !== 'undefined' ? apiIngestKeyMask : ''; %>
 <% const _ingestPlain = typeof apiIngestKeyPlain !== 'undefined' ? apiIngestKeyPlain : ''; %>
@@ -20,10 +24,17 @@
           with the correct folder (Real estate or Products).
         </p>
       </div>
-      <a href="<%= _repoUrl %>" target="_blank" rel="noopener noreferrer" class="shrink-0 inline-flex items-center justify-center rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">
-        Download from GitHub
-        <span class="ml-1.5" aria-hidden="true">↗</span>
-      </a>
+      <div class="flex flex-col sm:flex-row gap-2 shrink-0">
+        <% if (_downloadReady) { %>
+        <a href="<%= _downloadUrl %>" class="inline-flex items-center justify-center rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity">
+          Download ZIP
+        </a>
+        <% } %>
+        <a href="<%= _repoUrl %>" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center rounded-xl border border-brand-border/70 dark:border-white/15 bg-white/80 dark:bg-slate-900/60 text-brand-dark dark:text-white px-5 py-3 text-[10px] font-black uppercase tracking-widest hover:border-brand-yellow/50 transition-colors">
+          View on GitHub
+          <span class="ml-1.5" aria-hidden="true">↗</span>
+        </a>
+      </div>
     </div>
 
     <% if (!_ingestReady) { %>
@@ -37,12 +48,13 @@
       <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/40 p-5">
         <h3 class="font-display font-bold text-sm text-brand-dark dark:text-white mb-3">Install (one time)</h3>
         <ol class="text-sm text-brand-muted space-y-2.5 list-decimal list-inside leading-relaxed">
+          <li>Click <strong>Download ZIP</strong> above and unzip the file on your computer</li>
           <li>Open Chrome → <strong>Extensions</strong> (<code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">chrome://extensions/</code>)</li>
           <li>Enable <strong>Developer mode</strong> (top right)</li>
-          <li>Click <strong>Load unpacked</strong> and select the <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">chrome-extension</code> folder from the repo</li>
+          <li>Click <strong>Load unpacked</strong> and select the unzipped <code class="text-[11px] px-1 rounded bg-white/60 dark:bg-slate-900/60">adhello-leads-chrome-extension</code> folder</li>
           <li>Pin <strong>AdHello Leads</strong> in your toolbar</li>
         </ol>
-        <p class="text-xs text-brand-muted mt-4 leading-relaxed">Not in the Chrome Web Store yet — install from the GitHub folder above. Reload the extension after each update.</p>
+        <p class="text-xs text-brand-muted mt-4 leading-relaxed">Not in the Chrome Web Store yet — install from the ZIP above (or clone from GitHub). Reload the extension after each update.</p>
       </div>
 
       <div class="rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/40 p-5">
@@ -117,6 +129,9 @@
     </div>
 
     <div class="flex flex-wrap items-center gap-3">
+      <% if (_downloadReady) { %>
+      <a href="<%= _downloadUrl %>" class="rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow px-5 py-2.5 text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Download ZIP</a>
+      <% } %>
       <a href="/prospecting?tab=pipeline" class="rounded-xl border border-brand-border/70 dark:border-white/15 px-5 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open pipeline</a>
       <a href="<%= _repoUrl %>" target="_blank" rel="noopener noreferrer" class="text-xs font-semibold text-brand-yellow hover:underline">Full install guide in repo README</a>
     </div>

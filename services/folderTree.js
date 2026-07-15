@@ -390,6 +390,63 @@ function buildFolderAggregateCounts(folderTree, countsByKey) {
   return out;
 }
 
+/** @param {Record<string, Set<string>>} tagsByKey */
+function tagSetForFolder(folderKey, tagsByKey) {
+  const set = tagsByKey[folderKey];
+  return set ? new Set(set) : new Set();
+}
+
+/** @param {Array<{ key: string, children?: unknown[] }>} children @param {Record<string, Set<string>>} tagsByKey */
+function sumNestedTagKeys(children, tagsByKey) {
+  const out = new Set();
+  for (const child of children || []) {
+    if (!child || !child.key) continue;
+    const ck = String(child.key);
+    for (const tk of tagSetForFolder(ck, tagsByKey)) out.add(tk);
+    for (const tk of sumNestedTagKeys(child.children || [], tagsByKey)) out.add(tk);
+  }
+  return out;
+}
+
+/** @param {Record<string, Set<string>>} tagsByKey */
+function groupFolderTagKeys(folderKey, children, tagsByKey) {
+  const out = tagSetForFolder(folderKey, tagsByKey);
+  for (const tk of sumNestedTagKeys(children || [], tagsByKey)) out.add(tk);
+  return out;
+}
+
+/**
+ * Active workspace tags used by leads in each folder (includes nested subfolders).
+ * @param {ReturnType<typeof buildFolderTree>} folderTree
+ * @param {Record<string, Set<string>>} tagsByKey — direct tag keys per folder key
+ * @param {Record<string, { key: string, name: string, color?: string }>} tagCatalogByKey
+ */
+function buildFolderAggregateTags(folderTree, tagsByKey, tagCatalogByKey) {
+  const out = {};
+  function record(folder, children) {
+    if (!folder || !folder.key) return;
+    const key = String(folder.key);
+    const keySet = groupFolderTagKeys(key, children || [], tagsByKey);
+    out[key] = [...keySet]
+      .map((tk) => tagCatalogByKey[tk])
+      .filter(Boolean)
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+    for (const child of children || []) {
+      record(child, child.children || []);
+    }
+  }
+  for (const group of folderTree?.groups || []) {
+    if (group.folder) {
+      record(group.folder, group.children || []);
+      continue;
+    }
+    for (const child of group.children || []) {
+      record(child, child.children || []);
+    }
+  }
+  return out;
+}
+
 module.exports = {
   SYSTEM_JOB_ORDER,
   OTHER_GROUP_KEY,
@@ -404,4 +461,6 @@ module.exports = {
   flattenFolderRows,
   sumNestedLeadCounts,
   buildFolderAggregateCounts,
+  buildFolderAggregateTags,
+  groupFolderTagKeys,
 };

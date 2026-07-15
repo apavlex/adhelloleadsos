@@ -19,7 +19,13 @@ const {
 } = require('../services/leadListFilters');
 const { ensurePipelineFolders, migrateLegacyFolders } = require('../services/pipelineFolders');
 const { TRADE_FOLDERS } = require('../services/tradeFoldersCatalog');
-const { buildFolderTree, buildFolderPickerTree, folderKeysIncludingDescendants, buildFolderAggregateCounts } = require('../services/folderTree');
+const {
+  buildFolderTree,
+  buildFolderPickerTree,
+  folderKeysIncludingDescendants,
+  buildFolderAggregateCounts,
+  buildFolderAggregateTags,
+} = require('../services/folderTree');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const { buildOutreachLibrary } = require('../services/outreachChannelScripts');
@@ -213,6 +219,31 @@ router.get('/', async (req, res, next) => {
     const folderAggregateCounts =
       safeTab === 'folders' ? buildFolderAggregateCounts(folderTree, directFolderCounts) : {};
 
+    const activeTagCatalog = tags.filter((t) => t && t.isActive !== false);
+    const activeTagKeySet = new Set(activeTagCatalog.map((t) => String(t.key)));
+    const tagCatalogByKey = Object.fromEntries(
+      activeTagCatalog.map((t) => [
+        t.key,
+        { key: t.key, name: t.name, color: t.color || '#94a3b8' },
+      ])
+    );
+    const directFolderTagKeys = {};
+    if (safeTab === 'folders') {
+      for (const lead of visible) {
+        const fk = String(lead.folderKey || '').trim();
+        if (!fk) continue;
+        for (const tk of dbService.normalizeTagKeys(lead.tags)) {
+          if (!activeTagKeySet.has(tk)) continue;
+          if (!directFolderTagKeys[fk]) directFolderTagKeys[fk] = new Set();
+          directFolderTagKeys[fk].add(tk);
+        }
+      }
+    }
+    const folderAggregateTags =
+      safeTab === 'folders'
+        ? buildFolderAggregateTags(folderTree, directFolderTagKeys, tagCatalogByKey)
+        : {};
+
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
     const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
@@ -245,6 +276,7 @@ router.get('/', async (req, res, next) => {
       folders,
       folderTree,
       folderAggregateCounts,
+      folderAggregateTags,
       folderPickerTree,
       tradeFolderCount: TRADE_FOLDERS.length,
       tags,

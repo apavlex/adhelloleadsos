@@ -22,7 +22,9 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
 const {
-  ARMS_REACH_FACEBOOK_SEEDS,
+  isChromeExtensionAvailable,
+  streamChromeExtensionZip,
+} = require('../services/chromeExtensionPack');
   ARMS_REACH_REFERRAL_SEED,
   ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
   ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
@@ -283,6 +285,8 @@ async function loadWorkspacePageLocals(req) {
     process.env.CHROME_EXTENSION_REPO_URL ||
       'https://github.com/apavlex/adhelloleadsos/tree/main/chrome-extension',
   ).trim();
+  const chromeExtensionDownloadUrl = '/workspace/integrations/chrome-extension/download';
+  const chromeExtensionDownloadReady = isChromeExtensionAvailable();
   const ghlWebhookTokenHint = String(process.env.GHL_WEBHOOK_SECRET || process.env.API_INGEST_KEY || '').trim()
     ? 'configured-on-server'
     : '';
@@ -297,6 +301,8 @@ async function loadWorkspacePageLocals(req) {
     apiIngestKeyMask,
     apiIngestKeyPlain,
     chromeExtensionRepoUrl,
+    chromeExtensionDownloadUrl,
+    chromeExtensionDownloadReady,
     ghlWebhookTokenHint,
     ghlStatus,
     ghlSyncDirection,
@@ -327,6 +333,17 @@ router.get('/scripts', (req, res) => res.redirect(302, '/scripts'));
 /** Legacy slug: scrape stack now lives on the Integrations page. */
 router.get('/scrape', (req, res) => {
   res.redirect(302, '/workspace/integrations#workspace-scrape-cost');
+});
+
+router.get('/integrations/chrome-extension/download', async (req, res, next) => {
+  try {
+    await streamChromeExtensionZip(res);
+  } catch (e) {
+    if (String(e && e.message || '').includes('not available')) {
+      return res.status(404).send('Chrome extension files are not available on this server.');
+    }
+    next(e);
+  }
 });
 
 /** Step-by-step GHL connection guide (linked from Integrations CRM card). */

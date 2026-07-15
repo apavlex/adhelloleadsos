@@ -33,9 +33,11 @@ Listings save with `jobType`, `sourceType`, and a `listing` object (price, beds,
 
 ## Install (developer mode)
 
-1. Chrome → **Extensions** → enable **Developer mode**
-2. **Load unpacked** → select `chrome-extension/`
-3. Open extension **Settings**:
+1. Download **adhello-leads-chrome-extension.zip** from **Workspace → Integrations** in AdHello (or clone this repo).
+2. Unzip the file on your computer.
+3. Chrome → **Extensions** → enable **Developer mode**
+4. **Load unpacked** → select the unzipped `adhello-leads-chrome-extension/` folder (must contain `manifest.json` at the top level).
+5. Open extension **Settings**:
    - **API base URL** — e.g. `https://adhelloleadsos.onrender.com`
    - **API key** — your `API_INGEST_KEY`
    - **Workspace ID** — usually `default`

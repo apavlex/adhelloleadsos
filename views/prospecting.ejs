@@ -23,6 +23,7 @@
     <% } else { %>
       <% 
         var _folderCounts = typeof folderAggregateCounts !== 'undefined' && folderAggregateCounts ? folderAggregateCounts : {};
+        var _folderTags = typeof folderAggregateTags !== 'undefined' && folderAggregateTags ? folderAggregateTags : {};
       %>
       <section class="space-y-8" aria-label="Folder manager">
         <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
@@ -87,7 +88,8 @@
                     fc: _folderCounts[rootFolder.key] || 0,
                     depth: 0,
                     children: group.children || [],
-                    folderCounts: _folderCounts
+                    folderCounts: _folderCounts,
+                    folderAggregateTags: _folderTags
                   }) %>
                 <% } else { %>
                   <% (group.children || []).forEach(function (child) { %>
@@ -96,7 +98,8 @@
                       fc: _folderCounts[child.key] || 0,
                       depth: 0,
                       children: child.children || [],
-                      folderCounts: _folderCounts
+                      folderCounts: _folderCounts,
+                      folderAggregateTags: _folderTags
                     }) %>
                   <% }); %>
                 <% } %>

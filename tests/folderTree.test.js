@@ -96,6 +96,36 @@ test('buildFolderAggregateCounts includes nested subfolder leads', () => {
   assert.equal(agg['root:biz'], 130);
 });
 
+test('buildFolderAggregateTags unions active tags from nested subfolders', () => {
+  const { buildFolderTree, buildFolderAggregateTags } = require('../services/folderTree');
+  const tree = buildFolderTree([
+    { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },
+    { key: 'sub:land', name: 'Landscaping', parentFolderKey: 'root:biz', isTradeFolder: true, tradeSlug: 'landscaping' },
+    { key: 'custom:1', name: 'Landscaper', parentFolderKey: 'sub:land', jobType: 'maps_business' },
+    { key: 'custom:2', name: 'Landscaping Vancouver', parentFolderKey: 'sub:land', jobType: 'maps_business' },
+  ]);
+  const tagA = 'tag:ws:1';
+  const tagB = 'tag:ws:2';
+  const catalog = {
+    [tagA]: { key: tagA, name: 'Hot', color: '#ef4444' },
+    [tagB]: { key: tagB, name: 'Warm', color: '#f59e0b' },
+  };
+  const direct = {
+    'custom:1': new Set([tagA]),
+    'custom:2': new Set([tagB, tagA]),
+  };
+  const agg = buildFolderAggregateTags(tree, direct, catalog);
+  assert.equal(agg['custom:1'].length, 1);
+  assert.equal(agg['custom:1'][0].name, 'Hot');
+  assert.equal(agg['custom:2'].length, 2);
+  assert.equal(agg['sub:land'].length, 2);
+  assert.deepEqual(
+    agg['sub:land'].map((t) => t.name),
+    ['Hot', 'Warm']
+  );
+  assert.equal(agg['root:biz'].length, 2);
+});
+
 test('folderKeysIncludingDescendants includes nested subfolders', () => {
   const { folderKeysIncludingDescendants } = require('../services/folderTree');
   const tree = buildFolderTree([

@@ -7,6 +7,7 @@
 <% const _compact = typeof compact !== 'undefined' && compact; %>
 <% const _padClass = _depth <= 0 ? '' : (_depth === 1 ? 'pl-2 sm:pl-3' : (_depth === 2 ? 'pl-2 sm:pl-4' : 'pl-2 sm:pl-5')); %>
 <% const _inTree = typeof inTree !== 'undefined' && inTree; %>
+<% const _folderTags = Array.isArray(typeof folderTags !== 'undefined' ? folderTags : null) ? folderTags : []; %>
 <div class="folder-row flex flex-wrap items-center gap-4 px-4 sm:px-6 py-4 <%= _depth > 0 && !_inTree ? _padClass + ' bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
   data-folder-row="<%= _f.key %>"
   data-folder-name="<%= _f.name %>"
@@ -18,10 +19,13 @@
   <div class="min-w-0 flex-1">
     <p class="font-display font-bold <%= _compact ? 'text-base' : 'text-lg' %> text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
       <% if (_depth > 0 && !_inTree) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
-      <%= _f.name %>
+      <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(_f.key) %>" class="folder-open-link rounded-sm hover:text-brand-yellow dark:hover:text-brand-yellow transition-colors hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/50" title="Open leads in <%= _f.name.replace(/"/g, '&quot;') %>"><%= _f.name %></a>
       <% if (_f.isPipelineDefault) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
-      <% if (_f.isTradeFolder) { %><span class="text-[9px] font-black uppercase tracking-widest text-sky-700 dark:text-sky-300 bg-sky-100/80 dark:bg-sky-950/40 rounded-full px-2 py-0.5">Trade</span><% } %>
-      <% if (_f.searchPreset) { %><span class="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/40 rounded-full px-2 py-0.5">Search saved</span><% } %>
+      <% _folderTags.forEach(function (tag) {
+        var _tColor = (tag && tag.color) ? String(tag.color) : '#94a3b8';
+        var _tLabel = (tag && tag.name) ? String(tag.name) : '';
+        if (!_tLabel) return;
+      %><span class="lead-tag-chip inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:<%= _tColor %>22;color:<%= _tColor %>" title="<%= _tLabel.replace(/"/g, '&quot;') %>"><%= _tLabel %></span><% }); %>
     </p>
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder</p>
   </div>
