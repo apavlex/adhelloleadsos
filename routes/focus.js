@@ -269,6 +269,7 @@ router.get('/', async (req, res, next) => {
       key: k,
       label: (offerBundle.library[k] && offerBundle.library[k].label) || k,
     }));
+    const workspaceTags = await dbService.listTags(req.workspaceId);
 
     res.render('focus', {
       title: 'Focus Mode | Agency OS',
