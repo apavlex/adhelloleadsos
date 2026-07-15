@@ -22,13 +22,15 @@ const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConsta
 const salesScriptsStorage = require('../services/salesScriptsStorage');
 const workspaceSalesScripts = require('../services/workspaceSalesScripts');
 const {
-  isChromeExtensionAvailable,
-  streamChromeExtensionZip,
-} = require('../services/chromeExtensionPack');
+  ARMS_REACH_FACEBOOK_SEEDS,
   ARMS_REACH_REFERRAL_SEED,
   ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
   ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
 } = require('../config/armsReachScripts');
+const {
+  isChromeExtensionAvailable,
+  streamChromeExtensionZip,
+} = require('../services/chromeExtensionPack');
 const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
 const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
 const signalwire = require('../services/signalwire');

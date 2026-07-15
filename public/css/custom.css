@@ -3991,6 +3991,21 @@ html.dark .tag-filter-combobox-menu {
 .nav-lead-search {
   position: relative;
   min-width: 0;
+  width: 100%;
+  max-width: none;
+}
+
+@media (min-width: 768px) {
+  #appTopbar .app-topbar-inner {
+    width: 100%;
+    max-width: none;
+  }
+
+  #appTopbar .nav-lead-search {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: none;
+  }
 }
 
 .nav-lead-search-form {

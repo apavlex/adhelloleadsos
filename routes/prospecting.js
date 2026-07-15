@@ -220,22 +220,29 @@ router.get('/', async (req, res, next) => {
       safeTab === 'folders' ? buildFolderAggregateCounts(folderTree, directFolderCounts) : {};
 
     const activeTagCatalog = tags.filter((t) => t && t.isActive !== false);
-    const activeTagKeySet = new Set(activeTagCatalog.map((t) => String(t.key)));
     const tagCatalogByKey = Object.fromEntries(
       activeTagCatalog.map((t) => [
         t.key,
         { key: t.key, name: t.name, color: t.color || '#94a3b8' },
       ])
     );
+    const tagLookup = { ...tagCatalogByKey };
+    for (const t of activeTagCatalog) {
+      const suffix = String(t.key || '').replace(/^tag:[^:]+:/, '');
+      if (suffix && !tagLookup[suffix]) {
+        tagLookup[suffix] = tagCatalogByKey[t.key];
+      }
+    }
     const directFolderTagKeys = {};
     if (safeTab === 'folders') {
       for (const lead of visible) {
         const fk = String(lead.folderKey || '').trim();
         if (!fk) continue;
         for (const tk of dbService.normalizeTagKeys(lead.tags)) {
-          if (!activeTagKeySet.has(tk)) continue;
+          const hit = tagLookup[tk] || tagLookup[String(tk).replace(/^tag:[^:]+:/, '')];
+          if (!hit) continue;
           if (!directFolderTagKeys[fk]) directFolderTagKeys[fk] = new Set();
-          directFolderTagKeys[fk].add(tk);
+          directFolderTagKeys[fk].add(hit.key);
         }
       }
     }

@@ -8,6 +8,7 @@
 <% const _padClass = _depth <= 0 ? '' : (_depth === 1 ? 'pl-2 sm:pl-3' : (_depth === 2 ? 'pl-2 sm:pl-4' : 'pl-2 sm:pl-5')); %>
 <% const _inTree = typeof inTree !== 'undefined' && inTree; %>
 <% const _folderTags = Array.isArray(typeof folderTags !== 'undefined' ? folderTags : null) ? folderTags : []; %>
+<% const _openHref = '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(_f.key || ''); %>
 <div class="folder-row flex flex-wrap items-center gap-4 px-4 sm:px-6 py-4 <%= _depth > 0 && !_inTree ? _padClass + ' bg-brand-cream/10 dark:bg-slate-950/20' : '' %>"
   data-folder-row="<%= _f.key %>"
   data-folder-name="<%= _f.name %>"
@@ -16,10 +17,10 @@
   data-folder-is-trade="<%= _f.isTradeFolder ? '1' : '0' %>"
   data-folder-parent-key="<%= _f.parentFolderKey || '' %>"
   data-folder-search="<%= (_f.name + ' ' + (_f.jobType || '') + ' ' + (_f.tradeSlug || '')).toLowerCase() %>">
-  <div class="min-w-0 flex-1">
-    <p class="font-display font-bold <%= _compact ? 'text-base' : 'text-lg' %> text-brand-dark dark:text-white flex flex-wrap items-center gap-2">
+  <a href="<%= _openHref %>" class="folder-open-link min-w-0 flex-1 rounded-lg -mx-1 px-1 py-0.5 hover:bg-brand-cream/40 dark:hover:bg-white/5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/50" title="Open leads in <%= _f.name.replace(/"/g, '&quot;') %>">
+    <p class="font-display font-bold <%= _compact ? 'text-base' : 'text-lg' %> text-brand-dark dark:text-white flex flex-wrap items-center gap-2 group-hover:text-brand-yellow">
       <% if (_depth > 0 && !_inTree) { %><span class="text-brand-muted/60" aria-hidden="true">↳</span><% } %>
-      <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(_f.key) %>" class="folder-open-link rounded-sm hover:text-brand-yellow dark:hover:text-brand-yellow transition-colors hover:underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-yellow/50" title="Open leads in <%= _f.name.replace(/"/g, '&quot;') %>"><%= _f.name %></a>
+      <span class="hover:text-brand-yellow dark:hover:text-brand-yellow hover:underline underline-offset-2"><%= _f.name %></span>
       <% if (_f.isPipelineDefault) { %><span class="text-[9px] font-black uppercase tracking-widest text-brand-muted border border-brand-border/50 rounded-full px-2 py-0.5">System</span><% } %>
       <% _folderTags.forEach(function (tag) {
         var _tColor = (tag && tag.color) ? String(tag.color) : '#94a3b8';
@@ -28,13 +29,13 @@
       %><span class="lead-tag-chip inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:<%= _tColor %>22;color:<%= _tColor %>" title="<%= _tLabel.replace(/"/g, '&quot;') %>"><%= _tLabel %></span><% }); %>
     </p>
     <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mt-1"><%= _fc %> lead<%= _fc === 1 ? '' : 's' %> in this folder</p>
-  </div>
+  </a>
   <div class="flex flex-wrap items-center gap-2 shrink-0">
     <a href="/leads/find?folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark border border-brand-dark dark:border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-colors shadow-sm">Run search</a>
     <% if (_f.isPipelineDefault) { %>
     <button type="button" class="folder-search-setup px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Search setup</button>
     <% } %>
-    <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(_f.key) %>" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
+    <a href="<%= _openHref %>" class="px-3 py-2 rounded-xl bg-brand-yellow text-brand-dark border border-brand-yellow text-[10px] font-black uppercase tracking-widest hover:brightness-105 transition-colors shadow-sm">Open leads</a>
     <% if (!_f.isPipelineDefault) { %>
     <% if (!_f.isTradeFolder) { %>
     <button type="button" class="folder-move px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors" data-folder-key="<%= _f.key %>">Move</button>

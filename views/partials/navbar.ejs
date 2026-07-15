@@ -24,7 +24,7 @@
 <div class="app-shell-top w-full min-w-0">
 <header id="appTopbar" class="sticky top-0 z-50 w-full px-3 sm:px-6 py-3 sm:py-4 border-t-[3px] md:border-t-0 [padding-top:max(0.75rem,env(safe-area-inset-top))]" style="border-top-color: <%= _wsAccent %>">
   <span id="adhelloAppMeta" class="sr-only" data-can-manage-workspace="<%= (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) ? '1' : '0' %>" aria-hidden="true"></span>
-  <div class="max-w-7xl mx-auto flex items-center justify-between bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl sm:rounded-full border border-brand-border dark:border-white/10 shadow-sm">
+  <div class="app-topbar-inner w-full mx-auto flex items-center gap-2 sm:gap-3 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md px-3 sm:px-6 py-2.5 sm:py-3 rounded-2xl sm:rounded-full border border-brand-border dark:border-white/10 shadow-sm">
     <div class="flex items-center gap-2 min-w-0 md:hidden">
       <button id="mobileMenuBtn" type="button" class="w-10 h-10 flex items-center justify-center text-brand-dark hover:bg-brand-cream rounded-full transition-colors border border-brand-border shrink-0" aria-label="Open menu">
         <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -48,9 +48,9 @@
       </div>
     </div>
     </div>
-    <div class="hidden md:flex items-center min-w-0 flex-1 pr-2 sm:pr-3">
+    <div class="hidden md:flex items-center min-w-0 flex-1 basis-0">
       <% if (user) { %>
-      <div class="nav-lead-search flex-1 min-w-0 w-full" id="navLeadSearchWrap">
+      <div class="nav-lead-search w-full min-w-0" id="navLeadSearchWrap">
         <form id="navLeadSearchForm" class="nav-lead-search-form" role="search" action="/prospecting" method="get" autocomplete="off">
           <input type="hidden" name="tab" value="pipeline" />
           <input type="hidden" name="includeFoldered" value="1" />
