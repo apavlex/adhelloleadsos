@@ -22,6 +22,7 @@ const {
 const { generateOutreachCoachPayload } = require('../services/outreachCoachAi');
 const { workspaceTodayYmd } = require('../services/workspaceTimezone');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const workspaceSalesScripts = require('../services/workspaceSalesScripts');
 const {
   getCoachBriefForToday,
   persistCoachBrief,
@@ -49,25 +50,39 @@ const { generateCarsReachScript } = require('../services/carsReachScriptAi');
 
 async function buildPersonasViewData(req) {
   const ws = await dbService.getWorkspace(req.workspaceId);
+  const offerBundle = workspaceSalesScripts.buildWorkspaceOfferLibrary(ws, SCRIPT_LIBRARY);
   const scriptServiceLabels = Object.fromEntries(
-    SCRIPT_LIBRARY_KEYS.map((k) => [k, SCRIPT_LIBRARY[k].label]),
+    offerBundle.catalog.map((c) => [c.key, c.label]),
   );
-  const SCRIPT_LIBRARY_MERGED = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
   const initialScriptLibraryItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
   const upworkSavedProposals = getUpworkProposalsFromWorkspace(ws);
+  const armsReachDefaults = {
+    facebookPosts: ARMS_REACH_FACEBOOK_SEEDS,
+    referralSeed: ARMS_REACH_REFERRAL_SEED,
+    defaultOwner: ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
+    defaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
+  };
+  const armsReach = workspaceSalesScripts.resolveArmsReachScripts(ws, armsReachDefaults);
   return {
-    SCRIPT_LIBRARY: SCRIPT_LIBRARY_MERGED,
-    SCRIPT_LIBRARY_KEYS,
+    SCRIPT_LIBRARY: offerBundle.library,
+    SCRIPT_LIBRARY_KEYS: offerBundle.keys,
+    offerCatalog: offerBundle.catalog,
+    usesCustomOfferCatalog:
+      Array.isArray(ws.salesScriptOfferCatalog) && ws.salesScriptOfferCatalog.length > 0,
     scriptServiceLabels,
     initialScriptLibraryItems,
     PERSONAS,
-    armsReachFacebookSeeds: ARMS_REACH_FACEBOOK_SEEDS,
-    armsReachReferralSeed: ARMS_REACH_REFERRAL_SEED,
-    armsReachDefaultOwner: ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
-    armsReachDefaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
-    upworkProposalServices: UPWORK_PROPOSAL_SERVICES,
+    armsReachFacebookSeeds: armsReach.facebookPosts,
+    armsReachReferralSeed: armsReach.referralSeed,
+    armsReachDefaultOwner: armsReach.defaultOwner,
+    armsReachDefaultReferrer: armsReach.defaultReferrer,
+    armsReachReferralMessage: armsReach.referralMessage,
+    upworkProposalServices: workspaceSalesScripts.resolveUpworkServices(ws, UPWORK_PROPOSAL_SERVICES),
     upworkSavedProposals,
-    carsReachSpecialties: CARS_REACH_SPECIALTIES,
+    carsReachSpecialties: workspaceSalesScripts.resolveCarsReachSpecialties(ws, {
+      specialties: CARS_REACH_SPECIALTIES,
+    }),
+    carsReachSaved: workspaceSalesScripts.resolveCarsReachSaved(ws),
   };
 }
 
@@ -347,9 +362,6 @@ router.post('/scripts/refine', async (req, res, next) => {
     const userMessage = typeof body.userMessage === 'string' ? body.userMessage.trim() : '';
     const history = Array.isArray(body.chatHistory) ? body.chatHistory : [];
 
-    if (!SCRIPT_LIBRARY_KEYS.includes(serviceKey)) {
-      return res.status(400).json({ success: false, error: 'Invalid serviceKey' });
-    }
     if (!SCRIPT_SECTIONS.includes(section)) {
       return res.status(400).json({ success: false, error: 'Invalid section' });
     }
@@ -357,7 +369,14 @@ router.post('/scripts/refine', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'userMessage is required' });
     }
 
-    const meta = SCRIPT_LIBRARY[serviceKey];
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
+    if (!offerKeys.includes(serviceKey)) {
+      return res.status(400).json({ success: false, error: 'Invalid serviceKey' });
+    }
+
+    const meta = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey];
     const sectionLabel = SECTION_LABELS[section];
 
     const trimmedHistory = history
@@ -462,10 +481,19 @@ router.post('/arms-reach/regenerate-referral', express.json({ limit: '64kb' }), 
 router.post('/computers-reach/upwork/generate', express.json({ limit: '128kb' }), async (req, res, next) => {
   try {
     const body = req.body || {};
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const services = workspaceSalesScripts.resolveUpworkServices(ws, UPWORK_PROPOSAL_SERVICES);
+    const serviceKey = String(body.serviceKey || 'general').trim();
+    const serviceLabel =
+      services.find((s) => s.key === serviceKey)?.label ||
+      UPWORK_PROPOSAL_SERVICES.find((s) => s.key === serviceKey)?.label ||
+      'General Digital Marketing';
     const result = await generateUpworkProposal({
       jobTitle: body.jobTitle,
       jobDescription: body.jobDescription,
-      serviceKey: body.serviceKey,
+      serviceKey,
+      serviceLabel,
       experience: body.experience,
       regenerate: !!body.regenerate,
       currentProposal: body.currentProposal,
@@ -517,10 +545,21 @@ router.delete('/computers-reach/upwork/saved/:id', async (req, res, next) => {
 router.post('/cars-reach/generate', express.json({ limit: '64kb' }), async (req, res, next) => {
   try {
     const body = req.body || {};
+    const wid = req.workspaceId;
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const specialties = workspaceSalesScripts.resolveCarsReachSpecialties(ws, {
+      specialties: CARS_REACH_SPECIALTIES,
+    });
+    const specialtyKey = String(body.specialtyKey || 'general').trim();
+    const specialtyLabel =
+      specialties.find((s) => s.key === specialtyKey)?.label ||
+      CARS_REACH_SPECIALTIES.find((s) => s.key === specialtyKey)?.label ||
+      'General Digital Marketing';
     const result = await generateCarsReachScript({
       scriptType: body.scriptType,
       yourName: body.yourName,
-      specialtyKey: body.specialtyKey,
+      specialtyKey,
+      specialtyLabel,
       theirName: body.theirName,
       theirBusinessType: body.theirBusinessType,
       whereMet: body.whereMet,
@@ -862,12 +901,13 @@ router.post('/draft-outreach', async (req, res, next) => {
     const cityState = city;
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
     const leadServiceKey = String(lead.primaryServiceKey || '').trim();
-    const fallbackServiceKey = SCRIPT_LIBRARY_KEYS[0];
-    const recommendedKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey) ? leadServiceKey : fallbackServiceKey;
+    const fallbackServiceKey = offerKeys[0] || '';
+    const recommendedKey = offerKeys.includes(leadServiceKey) ? leadServiceKey : fallbackServiceKey;
     const requestedRaw = String((req.body && req.body.serviceKey) || '').trim();
     const requestedLower = requestedRaw.toLowerCase();
-    const normalizedRequested = SCRIPT_LIBRARY_KEYS.find(
+    const normalizedRequested = offerKeys.find(
       (k) => k.toLowerCase() === requestedLower,
     );
     const useAuto =
@@ -885,7 +925,7 @@ router.post('/draft-outreach', async (req, res, next) => {
       label: (recommendedBlock && recommendedBlock.label) || recommendedKey,
       tabLabel: (recommendedBlock && recommendedBlock.tabLabel) || recommendedKey,
     };
-    const productOptions = SCRIPT_LIBRARY_KEYS.map((k) => {
+    const productOptions = offerKeys.map((k) => {
       const row = mergedLibrary && mergedLibrary[k] ? mergedLibrary[k] : null;
       return {
         key: k,

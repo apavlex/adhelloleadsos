@@ -35,25 +35,33 @@ function formatLastTouchDisplay(l) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-function pickHeuristicServiceKey(lead) {
+function pickHeuristicServiceKey(lead, allowedKeys) {
+  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
   const existing =
     (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) ||
     lead.primaryServiceKey ||
     '';
-  if (SCRIPT_LIBRARY_KEYS.includes(existing)) return existing;
+  if (keys.includes(existing)) return existing;
 
   const website = !!(lead.website && lead.website !== 'N/A');
   const reviews = parseInt(lead.reviewsCount, 10) || 0;
   const rating = parseFloat(lead.totalScore) || 0;
 
-  if (!website || lead.isOutdated === true || lead.isMobileFriendly === false) return 'aiWebsites';
-  if (reviews < 25 || (rating > 0 && rating < 4.3)) return 'reputation';
-  if (lead.hasChatbot === false || lead.hasClickToCall === false) return 'speedToLeadAgent';
-  if (lead.aeoScore != null && parseInt(lead.aeoScore, 10) < 55) return 'reputation';
-  return 'aiWebsites';
+  const candidates = [];
+  if (!website || lead.isOutdated === true || lead.isMobileFriendly === false) candidates.push('aiWebsites');
+  if (reviews < 25 || (rating > 0 && rating < 4.3)) candidates.push('reputation');
+  if (lead.hasChatbot === false || lead.hasClickToCall === false) candidates.push('speedToLeadAgent');
+  if (lead.aeoScore != null && parseInt(lead.aeoScore, 10) < 55) candidates.push('reputation');
+  candidates.push('aiWebsites');
+  for (const candidate of candidates) {
+    if (keys.includes(candidate)) return candidate;
+  }
+  return keys[0] || 'aiWebsites';
 }
 
-function buildBusinessNeedsPayload(l) {
+function buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys) {
+  const library = scriptLibrary && typeof scriptLibrary === 'object' ? scriptLibrary : SCRIPT_LIBRARY;
+  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
   const insight = l.kieServiceInsight && typeof l.kieServiceInsight === 'object' ? l.kieServiceInsight : null;
   const analysis = l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object' ? l.aiWebsiteAnalysis : null;
 
@@ -71,8 +79,8 @@ function buildBusinessNeedsPayload(l) {
   const serviceKey =
     String(l.primaryServiceKey || '').trim() ||
     (insight && insight.primaryServiceKey) ||
-    pickHeuristicServiceKey(l);
-  const serviceDef = SCRIPT_LIBRARY[serviceKey] || null;
+    pickHeuristicServiceKey(l, keys);
+  const serviceDef = library[serviceKey] || null;
 
   const primaryServiceLabel =
     (insight && insight.primaryServiceLabel) || (serviceDef && serviceDef.label) || '';
@@ -91,7 +99,7 @@ function buildBusinessNeedsPayload(l) {
   };
 }
 
-function leadToFocusPayload(l, sortedStages) {
+function leadToFocusPayload(l, sortedStages, scriptLibrary, allowedKeys) {
   const ps = parseInt(l.pipelineStage, 10);
   const stage = !Number.isNaN(ps) && ps >= 1 && ps <= 24 ? ps : 1;
   const email = String(l.email || '').trim();
@@ -137,7 +145,7 @@ function leadToFocusPayload(l, sortedStages) {
     reviewsCount: Number.isFinite(parseInt(l.reviewsCount, 10)) ? parseInt(l.reviewsCount, 10) : 0,
     totalScore: Number.isFinite(parseFloat(l.totalScore)) ? parseFloat(l.totalScore) : 0,
     ownerSignal: String(l.ownerSignal || '').trim(),
-    businessNeeds: buildBusinessNeedsPayload(l),
+    businessNeeds: buildBusinessNeedsPayload(l, scriptLibrary, allowedKeys),
     hasAiWebsiteAnalysis: !!(l.aiWebsiteAnalysis && typeof l.aiWebsiteAnalysis === 'object'),
     hasAiToolsAssessment: !!(l.aiToolsAssessment && typeof l.aiToolsAssessment === 'object'),
     defaultChannel,
@@ -162,6 +170,11 @@ router.get('/metrics.json', async (req, res, next) => {
 /** Callable focus queue for softphone Contacts tab and dialer integrations. */
 router.get('/queue.json', async (req, res, next) => {
   try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const offerBundle = require('../services/workspaceSalesScripts').buildWorkspaceOfferLibrary(
+      ws,
+      SCRIPT_LIBRARY,
+    );
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     const pipelineLeads = filterBusinessPipelineLeads(visible);
@@ -169,7 +182,7 @@ router.get('/queue.json', async (req, res, next) => {
     const sortedStages = [...stageRows].sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
     const ordered = buildFocusQueue(pipelineLeads);
     const queue = ordered
-      .map((l) => leadToFocusPayload(l, sortedStages))
+      .map((l) => leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys))
       .filter((item) => {
         const phone = String(item.phone || '').trim();
         return phone && phone !== 'N/A' && phone !== '—';
@@ -198,6 +211,11 @@ const { parseBulkSelectionKeys, orderLeadsByKeys, resolveLeadsBySelectedKeys } =
 router.get('/', async (req, res, next) => {
   try {
     const today = new Date().toISOString().slice(0, 10);
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const offerBundle = require('../services/workspaceSalesScripts').buildWorkspaceOfferLibrary(
+      ws,
+      SCRIPT_LIBRARY,
+    );
     const all = await dbService.getAllLeads(req.workspaceId);
     const visible = filterLeadsForRequest(req, all);
     // Include pipeline-folder businesses (maps saves file into Businesses folder).
@@ -222,7 +240,9 @@ router.get('/', async (req, res, next) => {
     } else {
       ordered = buildFocusQueue(pipelineLeads);
     }
-    const queue = ordered.map((l) => leadToFocusPayload(l, sortedStages));
+    const queue = ordered.map((l) =>
+      leadToFocusPayload(l, sortedStages, offerBundle.library, offerBundle.keys),
+    );
     const prefer = String(req.query.lead || req.query.leadId || '')
       .trim()
       .replace(/^lead:/i, '');
@@ -236,7 +256,7 @@ router.get('/', async (req, res, next) => {
           pipelineLeads.find((l) => shortLeadKey(l) === prefer) ||
           visible.find((l) => shortLeadKey(l) === prefer);
         if (leadRow && filterBusinessPipelineLeads([leadRow]).length) {
-          queue.unshift(leadToFocusPayload(leadRow, sortedStages));
+          queue.unshift(leadToFocusPayload(leadRow, sortedStages, offerBundle.library, offerBundle.keys));
         }
       }
     }
@@ -244,13 +264,11 @@ router.get('/', async (req, res, next) => {
     const touchesToday = countUniqueLeadsTouchedOnUtcDate(visible, today);
     const touchGoal = await loadDailyTouchGoal(req);
 
-    const focusProductOptions = SCRIPT_LIBRARY_KEYS.map((k) => ({
+    const focusScriptLibrary = offerBundle.library;
+    const focusProductOptions = offerBundle.keys.map((k) => ({
       key: k,
-      label: (SCRIPT_LIBRARY[k] && SCRIPT_LIBRARY[k].label) || k,
+      label: (offerBundle.library[k] && offerBundle.library[k].label) || k,
     }));
-
-    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    const focusScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
 
     res.render('focus', {
       title: 'Focus Mode | Agency OS',

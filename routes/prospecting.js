@@ -215,11 +215,12 @@ router.get('/', async (req, res, next) => {
 
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedScriptLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
-    const scriptLibraryOfferPicklist = SCRIPT_LIBRARY_KEYS.map((k) => ({
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
+    const scriptLibraryOfferPicklist = offerKeys.map((k) => ({
       key: k,
       label: (mergedScriptLibrary[k] && mergedScriptLibrary[k].label) || k,
     }));
-    const outreachChannelLibrary = buildOutreachLibrary(mergedScriptLibrary, SCRIPT_LIBRARY_KEYS);
+    const outreachChannelLibrary = buildOutreachLibrary(mergedScriptLibrary, offerKeys);
 
     const email = userEmail(req);
     const driveImport = await buildDriveImportBundle(req, email);

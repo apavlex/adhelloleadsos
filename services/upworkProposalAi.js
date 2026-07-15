@@ -41,7 +41,10 @@ async function generateUpworkProposal(input) {
   const jobDescription = String(input.jobDescription || '').trim();
   const experience = String(input.experience || '').trim();
   const serviceKey = String(input.serviceKey || 'general').trim();
-  const serviceLabel = UPWORK_SERVICE_LABEL_BY_KEY[serviceKey] || 'General Digital Marketing';
+  const serviceLabel =
+    String(input.serviceLabel || '').trim() ||
+    UPWORK_SERVICE_LABEL_BY_KEY[serviceKey] ||
+    'General Digital Marketing';
   const currentProposal = String(input.currentProposal || '').trim();
   const isRegenerate = !!input.regenerate;
 

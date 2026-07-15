@@ -77,11 +77,13 @@ function sanitizeLibraryItems(arr, allowedServiceKeys) {
 }
 
 function buildMergedScriptLibrary(ws, baseLib) {
-  const overrides =
-    ws && ws.salesScriptBlockOverrides && typeof ws.salesScriptBlockOverrides === 'object'
-      ? ws.salesScriptBlockOverrides
-      : {};
-  return mergeScriptLibrary(baseLib, overrides);
+  const { buildWorkspaceOfferLibrary } = require('./workspaceSalesScripts');
+  return buildWorkspaceOfferLibrary(ws, baseLib).library;
+}
+
+function getWorkspaceScriptKeys(ws, baseLib) {
+  const { buildWorkspaceOfferLibrary } = require('./workspaceSalesScripts');
+  return buildWorkspaceOfferLibrary(ws, baseLib).keys;
 }
 
 function getInitialLibraryItemsFromWorkspace(ws) {
@@ -116,6 +118,7 @@ module.exports = {
   sanitizeLibraryItems,
   normalizeLibraryItem,
   buildMergedScriptLibrary,
+  getWorkspaceScriptKeys,
   getInitialLibraryItemsFromWorkspace,
   composeOfferScriptText,
   splitOfferScriptForSave,

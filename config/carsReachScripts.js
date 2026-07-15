@@ -48,9 +48,9 @@ function fillTemplate(tpl, vars) {
   return s;
 }
 
-function defaultElevatorScript(name, specialtyKey) {
+function defaultElevatorScript(name, specialtyKey, specialtyLabel) {
   const n = String(name || 'there').trim() || 'there';
-  const label = CARS_REACH_SPECIALTY_LABEL[specialtyKey] || 'digital marketing';
+  const label = specialtyLabel || CARS_REACH_SPECIALTY_LABEL[specialtyKey] || 'digital marketing';
   let out = fillTemplate(CARS_REACH_ELEVATOR_SEED, { name: n, specialty: label });
   if (specialtyKey === 'website_design') return out;
   return fillTemplate(

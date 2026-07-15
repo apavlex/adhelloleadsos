@@ -2449,17 +2449,19 @@ router.post('/:key/email', async (req, res, next) => {
 
 function buildWorkspaceOutreachScriptsPayload(ws) {
   const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
-  const services = SCRIPT_LIBRARY_KEYS.map((k) => ({
+  const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
+  const services = offerKeys.map((k) => ({
     key: k,
     label: (mergedLibrary[k] && mergedLibrary[k].label) || k,
   }));
-  const library = buildOutreachLibrary(mergedLibrary, SCRIPT_LIBRARY_KEYS);
+  const library = buildOutreachLibrary(mergedLibrary, offerKeys);
   return {
     success: true,
     channels: OUTREACH_CHANNELS,
     services,
     library,
-    defaultServiceKey: SCRIPT_LIBRARY_KEYS[0] || '',
+    offerKeys,
+    defaultServiceKey: offerKeys[0] || '',
   };
 }
 
@@ -2485,7 +2487,7 @@ router.get('/:key/outreach-scripts', async (req, res, next) => {
     const payload = buildWorkspaceOutreachScriptsPayload(ws);
     const leadServiceKey =
       (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
-    payload.defaultServiceKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey)
+    payload.defaultServiceKey = payload.offerKeys.includes(leadServiceKey)
       ? leadServiceKey
       : payload.defaultServiceKey;
 
@@ -2505,13 +2507,14 @@ router.get('/:key/sms-script-options', async (req, res, next) => {
 
     const ws = await dbService.getWorkspace(req.workspaceId);
     const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
     const savedItems = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
 
     const leadServiceKey =
       (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) || lead.primaryServiceKey || '';
-    const serviceKey = SCRIPT_LIBRARY_KEYS.includes(leadServiceKey)
+    const serviceKey = offerKeys.includes(leadServiceKey)
       ? leadServiceKey
-      : SCRIPT_LIBRARY_KEYS[0];
+      : offerKeys[0];
     const serviceDef = mergedLibrary[serviceKey] || SCRIPT_LIBRARY[serviceKey] || {};
     const serviceLabel = serviceDef.label || 'Primary offer';
 
@@ -2951,27 +2954,35 @@ router.post('/:key/delete', async (req, res, next) => {
   }
 });
 
-function pickHeuristicServiceKey(lead) {
+function pickHeuristicServiceKey(lead, allowedKeys) {
+  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
   const existing =
     (lead.kieServiceInsight && lead.kieServiceInsight.primaryServiceKey) ||
     lead.primaryServiceKey ||
     '';
-  if (SCRIPT_LIBRARY_KEYS.includes(existing)) return existing;
+  if (keys.includes(existing)) return existing;
 
   const website = !!(lead.website && lead.website !== 'N/A');
   const reviews = parseInt(lead.reviewsCount, 10) || 0;
   const rating = parseFloat(lead.totalScore) || 0;
 
-  if (!website || lead.isOutdated === true || lead.isMobileFriendly === false) return 'aiWebsites';
-  if (reviews < 25 || (rating > 0 && rating < 4.3)) return 'reputation';
-  if (lead.hasChatbot === false || lead.hasClickToCall === false) return 'speedToLeadAgent';
-  if (lead.aeoScore != null && parseInt(lead.aeoScore, 10) < 55) return 'reputation';
-  return 'aiWebsites';
+  const candidates = [];
+  if (!website || lead.isOutdated === true || lead.isMobileFriendly === false) candidates.push('aiWebsites');
+  if (reviews < 25 || (rating > 0 && rating < 4.3)) candidates.push('reputation');
+  if (lead.hasChatbot === false || lead.hasClickToCall === false) candidates.push('speedToLeadAgent');
+  if (lead.aeoScore != null && parseInt(lead.aeoScore, 10) < 55) candidates.push('reputation');
+  candidates.push('aiWebsites');
+  for (const candidate of candidates) {
+    if (keys.includes(candidate)) return candidate;
+  }
+  return keys[0] || 'aiWebsites';
 }
 
-function buildHeuristicLeadInsight(lead) {
-  const serviceKey = pickHeuristicServiceKey(lead);
-  const def = SCRIPT_LIBRARY[serviceKey] || SCRIPT_LIBRARY.aiWebsites || {};
+function buildHeuristicLeadInsight(lead, scriptLibrary, allowedKeys) {
+  const keys = Array.isArray(allowedKeys) && allowedKeys.length ? allowedKeys : SCRIPT_LIBRARY_KEYS;
+  const library = scriptLibrary && typeof scriptLibrary === 'object' ? scriptLibrary : SCRIPT_LIBRARY;
+  const serviceKey = pickHeuristicServiceKey(lead, keys);
+  const def = library[serviceKey] || SCRIPT_LIBRARY[serviceKey] || library[keys[0]] || {};
   const company = String(lead.title || 'this business').trim() || 'this business';
   const city = [lead.city, lead.state].filter(Boolean).join(', ') || 'your area';
   const category = String(lead.categoryName || 'local business').trim();
@@ -3103,10 +3114,17 @@ router.post('/:key/insights', async (req, res, next) => {
       }
     }
 
-    const offeringCatalog = Object.entries(SCRIPT_LIBRARY)
-      .map(([id, s]) => `- ${id}: ${s.label} — ${s.valueProp}`)
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const mergedLibrary = salesScriptsStorage.buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const offerKeys = salesScriptsStorage.getWorkspaceScriptKeys(ws, SCRIPT_LIBRARY);
+
+    const offeringCatalog = offerKeys
+      .map((id) => {
+        const s = mergedLibrary[id] || SCRIPT_LIBRARY[id] || {};
+        return `- ${id}: ${s.label || id} — ${s.valueProp || ''}`;
+      })
       .join('\n');
-    const serviceKeyList = SCRIPT_LIBRARY_KEYS.join(', ');
+    const serviceKeyList = offerKeys.join(', ');
 
     const snapshot = {
       company: lead.title,
@@ -3157,20 +3175,24 @@ Respond with JSON only, no markdown:
     });
 
     if (!ai.content || ai.error) {
-      const heuristic = buildHeuristicLeadInsight(lead);
+      const heuristic = buildHeuristicLeadInsight(lead, mergedLibrary, offerKeys);
       return res.json({ success: true, cached: false, ...heuristic });
     }
 
     const parsed = parseLlmJson(ai.content);
     if (!parsed) {
-      const heuristic = buildHeuristicLeadInsight(lead);
+      const heuristic = buildHeuristicLeadInsight(lead, mergedLibrary, offerKeys);
       return res.json({ success: true, cached: false, ...heuristic });
     }
 
-    const keyOk = SCRIPT_LIBRARY_KEYS.includes(parsed.primaryServiceKey);
+    const fallbackKey = offerKeys[0] || 'aiWebsites';
+    const keyOk = offerKeys.includes(parsed.primaryServiceKey);
     const insight = {
-      primaryServiceKey: keyOk ? parsed.primaryServiceKey : 'aiWebsites',
-      primaryServiceLabel: parsed.primaryServiceLabel || SCRIPT_LIBRARY.aiWebsites.label,
+      primaryServiceKey: keyOk ? parsed.primaryServiceKey : fallbackKey,
+      primaryServiceLabel:
+        parsed.primaryServiceLabel ||
+        (mergedLibrary[fallbackKey] && mergedLibrary[fallbackKey].label) ||
+        fallbackKey,
       rationale: parsed.rationale || '',
       talkTrack: parsed.talkTrack || '',
       warRoomOpener: typeof parsed.warRoomOpener === 'string' ? parsed.warRoomOpener.trim() : '',

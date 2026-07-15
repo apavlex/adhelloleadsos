@@ -19,6 +19,15 @@ const workspaceBootstrap = require('../services/workspaceBootstrap');
 const { normalizeWorkspaceAccentHex, WORKSPACE_UI_ACCENTS } = require('../lib/workspaceAccent');
 const { SCRIPT_LIBRARY, SCRIPT_LIBRARY_KEYS } = require('../services/salesConstants');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
+const workspaceSalesScripts = require('../services/workspaceSalesScripts');
+const {
+  ARMS_REACH_FACEBOOK_SEEDS,
+  ARMS_REACH_REFERRAL_SEED,
+  ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
+  ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
+} = require('../config/armsReachScripts');
+const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
+const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
 const signalwire = require('../services/signalwire');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const {
@@ -1114,11 +1123,15 @@ router.post('/phone-analytics-share', express.json(), async (req, res) => {
   }
 });
 
+function workspaceOfferBundle(ws) {
+  return workspaceSalesScripts.buildWorkspaceOfferLibrary(ws, SCRIPT_LIBRARY);
+}
+
 /** GET JSON: merged script library (defaults + workspace overrides). */
 router.get('/scripts/merged.json', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId);
-    const library = buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    const { library } = workspaceOfferBundle(ws);
     res.json({ success: true, library });
   } catch (e) {
     next(e);
@@ -1129,12 +1142,185 @@ router.get('/scripts/merged.json', async (req, res, next) => {
 router.get('/scripts.json', async (req, res, next) => {
   try {
     const ws = await dbService.getWorkspace(req.workspaceId);
+    const { catalog, keys } = workspaceOfferBundle(ws);
     const items = salesScriptsStorage.getInitialLibraryItemsFromWorkspace(ws);
     const overrides =
       ws && ws.salesScriptBlockOverrides && typeof ws.salesScriptBlockOverrides === 'object'
         ? ws.salesScriptBlockOverrides
         : {};
-    res.json({ success: true, libraryItems: items, blockOverrides: overrides });
+    res.json({
+      success: true,
+      libraryItems: items,
+      blockOverrides: overrides,
+      offerCatalog: catalog,
+      offerKeys: keys,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET JSON: workspace offer catalog + merged blocks. */
+router.get('/scripts/offers.json', async (req, res, next) => {
+  try {
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    const bundle = workspaceOfferBundle(ws);
+    res.json({
+      success: true,
+      catalog: bundle.catalog,
+      keys: bundle.keys,
+      library: bundle.library,
+      blockOverrides: ws.salesScriptBlockOverrides || {},
+      usesCustomCatalog: Array.isArray(ws.salesScriptOfferCatalog) && ws.salesScriptOfferCatalog.length > 0,
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** POST JSON: add a workspace offer script. */
+router.post('/scripts/offers', express.json({ limit: '256kb' }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const label = String(req.body?.label || '').trim();
+    if (!label) return res.status(400).json({ success: false, error: 'Offer label is required.' });
+    const bundle = workspaceOfferBundle(ws);
+    const keys = new Set(bundle.catalog.map((c) => c.key));
+    const entry = workspaceSalesScripts.normalizeOfferCatalogEntry(
+      {
+        label,
+        tabLabel: req.body?.tabLabel,
+        key: req.body?.key,
+      },
+      keys,
+    );
+    if (!entry) return res.status(400).json({ success: false, error: 'Could not create offer.' });
+    const catalog = [...bundle.catalog, entry];
+    ws.salesScriptOfferCatalog = catalog;
+    const text = String(req.body?.text || '').trim();
+    if (text) {
+      const prev =
+        ws.salesScriptBlockOverrides && typeof ws.salesScriptBlockOverrides === 'object'
+          ? ws.salesScriptBlockOverrides
+          : {};
+      ws.salesScriptBlockOverrides = {
+        ...prev,
+        [entry.key]: salesScriptsStorage.splitOfferScriptForSave(text),
+      };
+    }
+    ws.salesScriptsUpdatedAt = new Date().toISOString();
+    await dbService.saveWorkspace(wid, ws);
+    const nextBundle = workspaceOfferBundle(ws);
+    res.json({ success: true, entry, catalog: nextBundle.catalog, library: nextBundle.library });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** PATCH JSON: replace offer catalog order/labels or rename one offer. */
+router.patch('/scripts/offers', express.json({ limit: '128kb' }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    if (Array.isArray(req.body?.catalog)) {
+      ws.salesScriptOfferCatalog = workspaceSalesScripts.sanitizeOfferCatalogInput(req.body.catalog);
+    } else if (req.body?.key && req.body?.label) {
+      const bundle = workspaceOfferBundle(ws);
+      const key = String(req.body.key).trim();
+      ws.salesScriptOfferCatalog = bundle.catalog.map((row) =>
+        row.key === key
+          ? {
+              ...row,
+              label: String(req.body.label).trim().slice(0, 120) || row.label,
+              tabLabel: String(req.body.tabLabel || req.body.label || row.tabLabel).trim().slice(0, 120),
+            }
+          : row,
+      );
+    } else {
+      return res.status(400).json({ success: false, error: 'catalog array or key+label required.' });
+    }
+    ws.salesScriptsUpdatedAt = new Date().toISOString();
+    await dbService.saveWorkspace(wid, ws);
+    const nextBundle = workspaceOfferBundle(ws);
+    res.json({ success: true, catalog: nextBundle.catalog, library: nextBundle.library });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** DELETE: remove an offer from this workspace catalog. */
+router.delete('/scripts/offers/:key', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const key = String(req.params.key || '').trim();
+    const bundle = workspaceOfferBundle(ws);
+    const nextCatalog = bundle.catalog.filter((row) => row.key !== key);
+    if (nextCatalog.length === bundle.catalog.length) {
+      return res.status(404).json({ success: false, error: 'Offer not found.' });
+    }
+    ws.salesScriptOfferCatalog = nextCatalog;
+    if (ws.salesScriptBlockOverrides && ws.salesScriptBlockOverrides[key]) {
+      const overrides = { ...ws.salesScriptBlockOverrides };
+      delete overrides[key];
+      ws.salesScriptBlockOverrides = overrides;
+    }
+    ws.salesScriptsUpdatedAt = new Date().toISOString();
+    await dbService.saveWorkspace(wid, ws);
+    const nextBundle = workspaceOfferBundle(ws);
+    res.json({ success: true, catalog: nextBundle.catalog, library: nextBundle.library });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** GET JSON: reach scripts (arm's / car's / computer's). */
+router.get('/scripts/reach.json', async (req, res, next) => {
+  try {
+    const ws = await dbService.getWorkspace(req.workspaceId);
+    res.json({
+      success: true,
+      armsReach: workspaceSalesScripts.resolveArmsReachScripts(ws, {
+        facebookPosts: ARMS_REACH_FACEBOOK_SEEDS,
+        referralSeed: ARMS_REACH_REFERRAL_SEED,
+        defaultOwner: ARMS_REACH_DEFAULT_OWNER_PLACEHOLDER,
+        defaultReferrer: ARMS_REACH_DEFAULT_REFERRER_PLACEHOLDER,
+      }),
+      carsReach: {
+        specialties: workspaceSalesScripts.resolveCarsReachSpecialties(ws, {
+          specialties: CARS_REACH_SPECIALTIES,
+        }),
+        saved: workspaceSalesScripts.resolveCarsReachSaved(ws),
+      },
+      computersReach: {
+        services: workspaceSalesScripts.resolveUpworkServices(ws, UPWORK_PROPOSAL_SERVICES),
+      },
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** PATCH JSON: persist reach script section for this workspace. */
+router.patch('/scripts/reach', express.json({ limit: '512kb' }), async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    const section = String(req.body?.section || '').trim();
+    const data = req.body?.data;
+    if (!section || !data || typeof data !== 'object') {
+      return res.status(400).json({ success: false, error: 'section and data are required.' });
+    }
+    let patch = {};
+    if (section === 'armsReach') patch = workspaceSalesScripts.sanitizeArmsReachPatch(data);
+    else if (section === 'carsReach') patch = workspaceSalesScripts.sanitizeCarsReachPatch(data);
+    else if (section === 'computersReach') patch = workspaceSalesScripts.sanitizeComputersReachPatch(data);
+    else return res.status(400).json({ success: false, error: 'Unknown section.' });
+    ws.reachScripts = workspaceSalesScripts.mergeReachScripts(ws, section, patch);
+    ws.salesScriptsUpdatedAt = new Date().toISOString();
+    await dbService.saveWorkspace(wid, ws);
+    res.json({ success: true, reachScripts: ws.reachScripts });
   } catch (e) {
     next(e);
   }
@@ -1146,7 +1332,8 @@ router.patch('/scripts/blocks', express.json({ limit: '500kb' }), async (req, re
     const wid = req.workspaceId;
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
     const blocks = req.body && req.body.blocks;
-    const patch = sanitizeBlockOverrides(blocks, SCRIPT_LIBRARY_KEYS);
+    const { keys } = workspaceOfferBundle(ws);
+    const patch = workspaceSalesScripts.sanitizeBlockOverridesForCatalog(blocks, keys);
     const prev =
       ws.salesScriptBlockOverrides && typeof ws.salesScriptBlockOverrides === 'object'
         ? ws.salesScriptBlockOverrides
@@ -1169,7 +1356,8 @@ router.post('/scripts/library', express.json({ limit: '256kb' }), async (req, re
   try {
     const wid = req.workspaceId;
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
-    const item = normalizeLibraryItem(req.body || {}, SCRIPT_LIBRARY_KEYS);
+    const { keys } = workspaceOfferBundle(ws);
+    const item = normalizeLibraryItem(req.body || {}, keys.length ? keys : SCRIPT_LIBRARY_KEYS);
     if (!item) return res.status(400).json({ success: false, error: 'Text required.' });
     const cur = Array.isArray(ws.salesScriptLibraryItems) ? [...ws.salesScriptLibraryItems] : [];
     cur.push(item);
@@ -1208,7 +1396,8 @@ router.post('/scripts/library/import', express.json({ limit: '512kb' }), async (
     const wid = req.workspaceId;
     let ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
     const incoming = req.body && req.body.items;
-    const cleaned = sanitizeLibraryItems(incoming, SCRIPT_LIBRARY_KEYS);
+    const { keys } = workspaceOfferBundle(ws);
+    const cleaned = sanitizeLibraryItems(incoming, keys.length ? keys : SCRIPT_LIBRARY_KEYS);
     const cur = Array.isArray(ws.salesScriptLibraryItems) ? [...ws.salesScriptLibraryItems] : [];
     const existingIds = new Set(cur.map((x) => x && x.id).filter(Boolean));
     let n = 0;

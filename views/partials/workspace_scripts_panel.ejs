@@ -14,37 +14,17 @@
     <div class="flex flex-col gap-6 min-w-0">
       <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden min-w-0">
       <div class="px-4 sm:px-6 py-4 border-b border-brand-border dark:border-white/10 flex flex-col sm:flex-row sm:flex-wrap gap-3 sm:items-center sm:justify-between">
-        <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white shrink-0">By offer</h3>
-        <div class="flex flex-wrap gap-2" id="pitchTabs" role="tablist" aria-label="Offer">
-          <% SCRIPT_LIBRARY_KEYS.forEach((pk, idx) => { %>
-            <% const tab = SCRIPT_LIBRARY[pk]; %>
-            <button type="button" role="tab" aria-selected="<%= idx === 0 ? 'true' : 'false' %>" data-pitch="<%= pk %>" class="pitch-tab px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest <%= idx === 0 ? 'bg-brand-yellow text-brand-dark shadow-sm' : 'bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-brand-muted' %>"><%= tab.tabLabel || tab.label %></button>
-          <% }) %>
+        <div class="flex flex-wrap items-center gap-2 shrink-0">
+          <h3 class="font-display font-extrabold text-lg text-brand-dark dark:text-white">By offer</h3>
+          <span id="offerCatalogBadge" class="hidden text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-lg bg-brand-yellow/20 text-brand-dark dark:text-brand-yellow border border-brand-yellow/40">Custom catalog</span>
+        </div>
+        <div class="flex flex-wrap gap-2 items-center">
+          <button type="button" id="offerAddBtn" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-brand-dark text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-opacity">+ Add offer</button>
+          <div class="flex flex-wrap gap-2" id="pitchTabs" role="tablist" aria-label="Offer"></div>
         </div>
       </div>
 
-        <% SCRIPT_LIBRARY_KEYS.forEach((pk, idx) => { %>
-        <% const block = SCRIPT_LIBRARY[pk]; %>
-        <div class="pitch-panel <%= idx === 0 ? '' : 'hidden' %>" data-panel="<%= pk %>" role="tabpanel">
-          <p class="text-sm font-bold text-brand-muted px-4 sm:px-6 pt-6 pb-2"><%= block.label %></p>
-          <div class="px-4 sm:px-6 pb-6">
-            <div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="<%= pk %>" data-section="opening">
-              <div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10">
-                <span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</span>
-                <span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-<%= pk %>-opening">Saved</span>
-              </div>
-              <div class="px-4 pb-4 pt-3">
-                <div class="flex flex-wrap gap-2 justify-end mb-3">
-                  <button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="<%= pk %>" data-section="opening">Coach</button>
-                  <button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-<%= pk %>-opening">Save</button>
-                  <button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="snippet-<%= pk %>-opening">Copy</button>
-                </div>
-                <textarea id="snippet-<%= pk %>-opening" rows="14" class="script-snippet w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none"><%= composeBlockScript(block) %></textarea>
-              </div>
-            </div>
-          </div>
-        </div>
-        <% }) %>
+      <div id="pitchPanelsHost"></div>
       </div>
 
       <div id="sales-scripts-coach" class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden flex flex-col min-w-0 min-h-0">
@@ -129,7 +109,7 @@
   </div>
 
   <p class="mt-8 text-center text-[11px] text-brand-muted max-w-2xl mx-auto">
-    Script coach uses your configured AI provider (same as lead insights). Edited blocks and saved library entries persist on the server for this workspace.
+    Scripts are saved per workspace — Flooring and Agency each get their own offers and reach scripts. Edited blocks persist on the server for all members of this workspace.
   </p>
 </section>
 
@@ -145,8 +125,230 @@
     };
     var serviceLabels = <%- JSON.stringify(typeof scriptServiceLabels !== 'undefined' ? scriptServiceLabels : {}) %>;
     var libraryItems = <%- JSON.stringify(typeof initialScriptLibraryItems !== 'undefined' && initialScriptLibraryItems ? initialScriptLibraryItems : []) %>;
+    var offerCatalog = <%- JSON.stringify(typeof offerCatalog !== 'undefined' && offerCatalog ? offerCatalog : []) %>;
+    var offerLibrary = <%- JSON.stringify(typeof SCRIPT_LIBRARY !== 'undefined' ? SCRIPT_LIBRARY : {}) %>;
+    var usesCustomOfferCatalog = <%= typeof usesCustomOfferCatalog !== 'undefined' && usesCustomOfferCatalog ? 'true' : 'false' %>;
 
-    var coachFocus = { pitch: '<%= SCRIPT_LIBRARY_KEYS[0] %>', section: 'opening' };
+    function escapeHtml(s) {
+      return String(s || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function composeBlockScriptFromObj(block) {
+      if (!block || typeof block !== 'object') return '';
+      var parts = [];
+      ['opening', 'discovery', 'valueProp', 'objectionHandling', 'close'].forEach(function (section) {
+        var t = String(block[section] || '').trim();
+        if (t) parts.push(t);
+      });
+      return parts.join('\n\n');
+    }
+
+    function renderOfferPanels(activeKey) {
+      var host = document.getElementById('pitchPanelsHost');
+      var tabs = document.getElementById('pitchTabs');
+      if (!host || !tabs) return;
+      if (!offerCatalog.length) {
+        host.innerHTML = '<div class="px-6 py-12 text-center text-sm text-brand-muted">No offers yet. Click <strong class="text-brand-dark dark:text-white">+ Add offer</strong> to create your first script for this workspace.</div>';
+        tabs.innerHTML = '';
+        return;
+      }
+      var firstKey = activeKey || offerCatalog[0].key;
+      tabs.innerHTML = offerCatalog
+        .map(function (entry) {
+          var active = entry.key === firstKey;
+          return (
+            '<button type="button" role="tab" aria-selected="' +
+            (active ? 'true' : 'false') +
+            '" data-pitch="' +
+            escapeHtml(entry.key) +
+            '" class="pitch-tab group inline-flex items-center gap-1 px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ' +
+            (active
+              ? 'bg-brand-yellow text-brand-dark shadow-sm'
+              : 'bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 text-brand-muted') +
+            '"><span>' +
+            escapeHtml(entry.tabLabel || entry.label) +
+            '</span><span class="offer-tab-remove hidden group-hover:inline text-rose-500 ml-1" data-remove-offer="' +
+            escapeHtml(entry.key) +
+            '" title="Remove offer" aria-label="Remove offer">×</span></button>'
+          );
+        })
+        .join('');
+      host.innerHTML = offerCatalog
+        .map(function (entry) {
+          var block = offerLibrary[entry.key] || {};
+          var text = composeBlockScriptFromObj(block);
+          var hidden = entry.key !== firstKey ? ' hidden' : '';
+          return (
+            '<div class="pitch-panel' +
+            hidden +
+            '" data-panel="' +
+            escapeHtml(entry.key) +
+            '" role="tabpanel"><div class="flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 pt-6 pb-2"><p class="text-sm font-bold text-brand-muted">' +
+            escapeHtml(entry.label) +
+            '</p><button type="button" class="offer-rename-btn text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-offer-key="' +
+            escapeHtml(entry.key) +
+            '">Rename</button></div><div class="px-4 sm:px-6 pb-6"><div class="script-block rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-black/10" data-service="' +
+            escapeHtml(entry.key) +
+            '" data-section="opening"><div class="flex flex-wrap items-center justify-between gap-2 py-3 px-4 border-b border-brand-border/40 dark:border-white/10"><span class="text-[10px] font-black uppercase tracking-widest text-brand-yellow">Call script</span><span class="script-autosave-status text-[10px] font-bold text-brand-muted tabular-nums shrink-0" data-snippet-id="snippet-' +
+            escapeHtml(entry.key) +
+            '-opening">Saved</span></div><div class="px-4 pb-4 pt-3"><div class="flex flex-wrap gap-2 justify-end mb-3"><button type="button" class="use-in-coach px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 border border-transparent hover:opacity-90 transition-opacity" data-pitch="' +
+            escapeHtml(entry.key) +
+            '" data-section="opening">Coach</button><button type="button" class="save-to-library px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-snippet="snippet-' +
+            escapeHtml(entry.key) +
+            '-opening">Save</button><button type="button" class="copy-snippet px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider text-brand-muted hover:text-brand-dark dark:hover:text-white border border-brand-border/60 dark:border-white/10 hover:border-brand-yellow/50 transition-colors" data-copy-target="snippet-' +
+            escapeHtml(entry.key) +
+            '-opening">Copy</button></div><textarea id="snippet-' +
+            escapeHtml(entry.key) +
+            '-opening" rows="14" class="script-snippet w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-white dark:bg-slate-800/80 rounded-2xl p-4 border border-brand-border/50 dark:border-white/10 font-sans resize-y min-h-[12rem] focus:ring-2 focus:ring-brand-yellow focus:border-transparent outline-none">' +
+            escapeHtml(text) +
+            '</textarea></div></div></div></div>'
+          );
+        })
+        .join('');
+      offerCatalog.forEach(function (entry) {
+        serviceLabels[entry.key] = entry.label;
+      });
+      coachFocus.pitch = firstKey;
+      lastFocusedSnippetId = 'snippet-' + firstKey + '-opening';
+      updateCoachLabel();
+    }
+
+    function initOfferPanelDelegation() {
+      var tabs = document.getElementById('pitchTabs');
+      var host = document.getElementById('pitchPanelsHost');
+      if (tabs && !tabs.dataset.delegationBound) {
+        tabs.dataset.delegationBound = '1';
+        tabs.addEventListener('click', function (e) {
+          var removeBtn = e.target.closest('[data-remove-offer]');
+          if (removeBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            var key = removeBtn.getAttribute('data-remove-offer');
+            if (!key) return;
+            if (!window.confirm('Remove this offer and its script from this workspace?')) return;
+            fetch('/workspace/scripts/offers/' + encodeURIComponent(key), { method: 'DELETE' })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (!data || !data.success) throw new Error((data && data.error) || 'Delete failed');
+                offerCatalog = data.catalog || [];
+                offerLibrary = data.library || {};
+                renderOfferPanels(coachFocus.pitch);
+                syncScriptsFromServer();
+              })
+              .catch(function (err) { window.alert(err.message || 'Could not remove offer'); });
+            return;
+          }
+          var tab = e.target.closest('.pitch-tab');
+          if (!tab) return;
+          var pitch = tab.getAttribute('data-pitch');
+          if (!pitch) return;
+          activatePitchTab(pitch);
+          coachFocus.pitch = pitch;
+          updateCoachLabel();
+          hideRefined();
+          lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-opening';
+          updateMergePreview();
+        });
+      }
+      if (host && !host.dataset.delegationBound) {
+        host.dataset.delegationBound = '1';
+        host.addEventListener('click', function (e) {
+          var renameBtn = e.target.closest('.offer-rename-btn');
+          if (renameBtn) {
+            var rKey = renameBtn.getAttribute('data-offer-key');
+            var entry = offerCatalog.find(function (c) { return c.key === rKey; });
+            var next = window.prompt('Offer name', entry ? entry.label : '');
+            if (!next || !String(next).trim()) return;
+            fetch('/workspace/scripts/offers', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ key: rKey, label: String(next).trim() }),
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (!data || !data.success) throw new Error((data && data.error) || 'Rename failed');
+                offerCatalog = data.catalog || offerCatalog;
+                offerLibrary = data.library || offerLibrary;
+                renderOfferPanels(rKey);
+              })
+              .catch(function (err) { window.alert(err.message || 'Could not rename offer'); });
+            return;
+          }
+          var coachBtn = e.target.closest('.use-in-coach');
+          if (coachBtn) {
+            openCoachForBlock(coachBtn.getAttribute('data-pitch'), coachBtn.getAttribute('data-section'));
+            return;
+          }
+          var copyBtn = e.target.closest('.copy-snippet');
+          if (copyBtn) {
+            var copyId = copyBtn.getAttribute('data-copy-target');
+            var copyEl = copyId && document.getElementById(copyId);
+            if (!copyEl) return;
+            var copyText = copyEl.value != null ? copyEl.value : copyEl.textContent;
+            navigator.clipboard.writeText(copyText || '').then(function () {
+              var t = copyBtn.textContent;
+              copyBtn.textContent = 'Copied';
+              setTimeout(function () { copyBtn.textContent = t; }, 1500);
+            });
+            return;
+          }
+          var saveBtn = e.target.closest('.save-to-library');
+          if (saveBtn) {
+            var sid = saveBtn.getAttribute('data-snippet');
+            var ta = sid && document.getElementById(sid);
+            if (!ta) return;
+            var block = ta.closest('.script-block');
+            var sk = block ? block.getAttribute('data-service') : '';
+            var sec = block ? block.getAttribute('data-section') : '';
+            var text = (ta.value || '').trim();
+            if (!text) return alert('Nothing to save.');
+            var title = (serviceLabels[sk] || sk) + ' · Script';
+            var orig = saveBtn.textContent;
+            saveBtn.disabled = true;
+            fetch('/workspace/scripts/library', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: text, title: title, serviceKey: sk, section: sec }),
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                saveBtn.disabled = false;
+                if (!data || !data.success) {
+                  alert((data && data.error) || 'Save failed');
+                  return;
+                }
+                libraryItems = data.libraryItems || libraryItems;
+                renderLibrary();
+                saveBtn.textContent = 'Saved';
+                setTimeout(function () { saveBtn.textContent = orig; }, 1500);
+              })
+              .catch(function () {
+                saveBtn.disabled = false;
+                alert('Save failed');
+              });
+          }
+        });
+        host.addEventListener('input', function (e) {
+          if (!e.target.classList.contains('script-snippet')) return;
+          lastFocusedSnippetId = e.target.id;
+          var st = statusElForSnippetId(e.target.id);
+          if (st) st.textContent = 'Unsaved';
+          scheduleBlocksPersist();
+          updateMergePreview();
+        });
+        host.addEventListener('focusin', function (e) {
+          if (!e.target.classList.contains('script-snippet')) return;
+          lastFocusedSnippetId = e.target.id;
+          updateMergePreview();
+        });
+      }
+    }
+
+    var coachFocus = { pitch: offerCatalog.length ? offerCatalog[0].key : '<%= SCRIPT_LIBRARY_KEYS[0] || "" %>', section: 'opening' };
     var coachHistories = {};
     var pendingRefined = null;
     var blockSaveTimer = null;
@@ -366,11 +568,22 @@
     }
 
     function syncScriptsFromServer() {
-      return fetch('/workspace/scripts.json', { headers: { Accept: 'application/json' } })
+      return fetch('/workspace/scripts/offers.json', { headers: { Accept: 'application/json' } })
         .then(function (r) { return r.json(); })
         .then(function (data) {
           if (!data || !data.success) return;
+          if (Array.isArray(data.catalog)) offerCatalog = data.catalog;
+          if (data.library) offerLibrary = data.library;
+          usesCustomOfferCatalog = !!data.usesCustomCatalog;
+          var badge = document.getElementById('offerCatalogBadge');
+          if (badge) badge.classList.toggle('hidden', !usesCustomOfferCatalog);
+          renderOfferPanels(coachFocus.pitch);
           applyBlockOverridesToEditors(data.blockOverrides || {});
+          return fetch('/workspace/scripts.json', { headers: { Accept: 'application/json' } });
+        })
+        .then(function (r) { return r && r.json ? r.json() : null; })
+        .then(function (data) {
+          if (!data || !data.success) return;
           if (Array.isArray(data.libraryItems)) {
             libraryItems = data.libraryItems;
             renderLibrary();
@@ -488,18 +701,6 @@
       });
     }
 
-    document.querySelectorAll('.pitch-tab').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        var pitch = tab.getAttribute('data-pitch');
-        activatePitchTab(pitch);
-        coachFocus.pitch = pitch;
-        updateCoachLabel();
-        hideRefined();
-        lastFocusedSnippetId = 'snippet-' + coachFocus.pitch + '-opening';
-        updateMergePreview();
-      });
-    });
-
     function openCoachForBlock(pitch, section) {
       coachFocus.pitch = pitch;
       coachFocus.section = section || 'opening';
@@ -520,63 +721,6 @@
       if (input) setTimeout(function () { input.focus(); }, 250);
       updateMergePreview();
     }
-
-    document.querySelectorAll('.use-in-coach').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        openCoachForBlock(btn.getAttribute('data-pitch'), btn.getAttribute('data-section'));
-      });
-    });
-
-    document.querySelectorAll('.copy-snippet').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.getAttribute('data-copy-target');
-        var el = document.getElementById(id);
-        if (!el) return;
-        var text = el.value != null ? el.value : el.textContent;
-        navigator.clipboard.writeText(text || '').then(function () {
-          var t = btn.textContent;
-          btn.textContent = 'Copied';
-          setTimeout(function () { btn.textContent = t; }, 1500);
-        });
-      });
-    });
-
-    document.querySelectorAll('.save-to-library').forEach(function (btn) {
-      btn.addEventListener('click', function () {
-        var id = btn.getAttribute('data-snippet');
-        var ta = document.getElementById(id);
-        if (!ta) return;
-        var block = ta.closest('.script-block');
-        var sk = block ? block.getAttribute('data-service') : '';
-        var sec = block ? block.getAttribute('data-section') : '';
-        var text = (ta.value || '').trim();
-        if (!text) return alert('Nothing to save.');
-        var title = (serviceLabels[sk] || sk) + ' · Script';
-        var orig = btn.textContent;
-        btn.disabled = true;
-        fetch('/workspace/scripts/library', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text: text, title: title, serviceKey: sk, section: sec }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            btn.disabled = false;
-            if (!data || !data.success) {
-              alert((data && data.error) || 'Save failed');
-              return;
-            }
-            libraryItems = data.libraryItems || libraryItems;
-            renderLibrary();
-            btn.textContent = 'Saved';
-            setTimeout(function () { btn.textContent = orig; }, 1500);
-          })
-          .catch(function () {
-            btn.disabled = false;
-            alert('Save failed');
-          });
-      });
-    });
 
     function getCoachHistoryArray() {
       var k = coachKey();
@@ -655,19 +799,29 @@
       }
     });
 
-    document.querySelectorAll('.script-snippet').forEach(function (ta) {
-      ta.addEventListener('input', function () {
-        lastFocusedSnippetId = ta.id;
-        var st = statusElForSnippetId(ta.id);
-        if (st) st.textContent = 'Unsaved';
-        scheduleBlocksPersist();
-        updateMergePreview();
+    var offerAddBtn = document.getElementById('offerAddBtn');
+    if (offerAddBtn) {
+      offerAddBtn.addEventListener('click', function () {
+        var label = window.prompt('New offer name (e.g. Flooring installation, GHL setup)');
+        if (!label || !String(label).trim()) return;
+        fetch('/workspace/scripts/offers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label: String(label).trim() }),
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (!data || !data.success) throw new Error((data && data.error) || 'Could not add offer');
+            offerCatalog = data.catalog || offerCatalog;
+            offerLibrary = data.library || offerLibrary;
+            usesCustomOfferCatalog = true;
+            var badge = document.getElementById('offerCatalogBadge');
+            if (badge) badge.classList.remove('hidden');
+            renderOfferPanels(data.entry && data.entry.key ? data.entry.key : coachFocus.pitch);
+          })
+          .catch(function (err) { window.alert(err.message || 'Could not add offer'); });
       });
-      ta.addEventListener('focus', function () {
-        lastFocusedSnippetId = ta.id;
-        updateMergePreview();
-      });
-    });
+    }
 
     ['mergePreviewName', 'mergePreviewCompany', 'mergePreviewCity'].forEach(function (id) {
       var el = document.getElementById(id);
@@ -684,6 +838,12 @@
     });
 
     migrateLegacyLocalLibrary();
+    initOfferPanelDelegation();
+    if (usesCustomOfferCatalog) {
+      var badgeInit = document.getElementById('offerCatalogBadge');
+      if (badgeInit) badgeInit.classList.remove('hidden');
+    }
+    renderOfferPanels();
     updateCoachLabel();
     updateMergePreview();
     renderLibrary();

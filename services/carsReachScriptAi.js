@@ -84,14 +84,17 @@ async function generateCarsReachScript(input) {
   if (scriptType === 'elevator') {
     const yourName = String(input.yourName || '').trim();
     const specialtyKey = String(input.specialtyKey || 'general').trim();
-    const specialtyLabel = CARS_REACH_SPECIALTY_LABEL[specialtyKey] || 'General Digital Marketing';
+    const specialtyLabel =
+      String(input.specialtyLabel || '').trim() ||
+      CARS_REACH_SPECIALTY_LABEL[specialtyKey] ||
+      'General Digital Marketing';
     if (!yourName) {
       return { success: false, error: 'Enter your name first.' };
     }
     if (!regenerate && !currentScript) {
       return {
         success: true,
-        script: defaultElevatorScript(yourName, specialtyKey),
+        script: defaultElevatorScript(yourName, specialtyKey, specialtyLabel),
         provider: 'default',
       };
     }

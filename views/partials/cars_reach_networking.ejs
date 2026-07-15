@@ -1,4 +1,5 @@
 <% const _carSpecs = typeof carsReachSpecialties !== 'undefined' && carsReachSpecialties ? carsReachSpecialties : []; %>
+<% const _carsSaved = typeof carsReachSaved !== 'undefined' && carsReachSaved ? carsReachSaved : {}; %>
 
 <section id="cars-reach" class="scroll-mt-28 mb-10" aria-label="Car's Reach networking scripts">
   <div class="brand-card dark:bg-slate-900 dark:border-white/10 overflow-hidden">
@@ -28,15 +29,29 @@
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
           <label class="block">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your name</span>
-            <input type="text" id="carsElevatorName" autocomplete="off" placeholder="e.g. Alex" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+            <input type="text" id="carsElevatorName" autocomplete="off" placeholder="e.g. Alex" value="<%= _carsSaved.elevatorName || '' %>" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
           </label>
           <label class="block">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your specialty</span>
             <select id="carsElevatorSpecialty" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-bold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none cursor-pointer">
               <% _carSpecs.forEach(function (s) { %>
-              <option value="<%= s.key %>"<%= s.key === 'website_design' ? ' selected' : '' %>><%= s.label %></option>
+              <option value="<%= s.key %>"<%= (_carsSaved.elevatorSpecialty ? _carsSaved.elevatorSpecialty === s.key : s.key === 'website_design') ? ' selected' : '' %>><%= s.label %></option>
               <% }); %>
             </select>
+            <div class="mt-2 flex flex-wrap items-center gap-1.5">
+              <button type="button" id="carsAddSpecialtyBtn" class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">+ Add specialty</button>
+              <span class="text-[10px] text-brand-muted dark:text-slate-500">Workspace-specific — Flooring vs Agency can differ</span>
+            </div>
+            <ul id="carsSpecialtyList" class="mt-2 flex flex-wrap gap-1.5">
+              <% _carSpecs.forEach(function (s) { %>
+              <li class="inline-flex items-center gap-1 rounded-lg border border-brand-border/50 dark:border-white/10 bg-white/60 dark:bg-slate-800/60 px-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200" data-spec-key="<%= s.key %>">
+                <span><%= s.label %></span>
+                <% if (_carSpecs.length > 1) { %>
+                <button type="button" class="js-cars-remove-specialty text-rose-500 hover:text-rose-600 dark:text-rose-300" data-key="<%= s.key %>" title="Remove specialty" aria-label="Remove <%= s.label %>">×</button>
+                <% } %>
+              </li>
+              <% }); %>
+            </ul>
           </label>
         </div>
         <div class="flex flex-wrap gap-2 mb-3">
@@ -51,7 +66,7 @@
             <span class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Your script</span>
             <button type="button" class="js-cars-copy text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border border-brand-border/50 text-brand-muted hover:text-brand-dark dark:hover:text-white" data-target="carsElevatorOutput">Copy</button>
           </div>
-          <textarea id="carsElevatorOutput" rows="5" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[5.5rem] border-0 outline-none" placeholder="Generate to see your elevator speech…" aria-label="Elevator speech"></textarea>
+          <textarea id="carsElevatorOutput" rows="5" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[5.5rem] border-0 outline-none" placeholder="Generate to see your elevator speech…" aria-label="Elevator speech"><%= _carsSaved.elevator || '' %></textarea>
         </div>
       </article>
 
@@ -69,15 +84,15 @@
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
           <label class="block">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Their name</span>
-            <input type="text" id="carsFollowTheirName" autocomplete="off" placeholder="e.g. Bobby" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+            <input type="text" id="carsFollowTheirName" autocomplete="off" placeholder="e.g. Bobby" value="<%= _carsSaved.followTheirName || '' %>" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
           </label>
           <label class="block">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Their business type</span>
-            <input type="text" id="carsFollowBusiness" autocomplete="off" placeholder="e.g. Therapist" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+            <input type="text" id="carsFollowBusiness" autocomplete="off" placeholder="e.g. Therapist" value="<%= _carsSaved.followBusiness || '' %>" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
           </label>
           <label class="block">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Where you met</span>
-            <input type="text" id="carsFollowWhere" autocomplete="off" placeholder="e.g. Thursday BNI" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+            <input type="text" id="carsFollowWhere" autocomplete="off" placeholder="e.g. Thursday BNI" value="<%= _carsSaved.followWhere || '' %>" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
           </label>
         </div>
         <div class="flex flex-wrap gap-2 mb-3">
@@ -92,7 +107,7 @@
             <span class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Your script</span>
             <button type="button" class="js-cars-copy text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border border-brand-border/50 text-brand-muted hover:text-brand-dark dark:hover:text-white" data-target="carsFollowOutput">Copy</button>
           </div>
-          <textarea id="carsFollowOutput" rows="4" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[4.5rem] border-0 outline-none" placeholder="Generate your follow-up message…" aria-label="Follow-up message"></textarea>
+          <textarea id="carsFollowOutput" rows="4" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[4.5rem] border-0 outline-none" placeholder="Generate your follow-up message…" aria-label="Follow-up message"><%= _carsSaved.followup || '' %></textarea>
         </div>
       </article>
 
@@ -109,7 +124,7 @@
         </div>
         <label class="block max-w-md mb-4">
           <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Suggested time (optional)</span>
-          <input type="text" id="carsApptTime" autocomplete="off" placeholder="e.g. Friday 5pm" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
+          <input type="text" id="carsApptTime" autocomplete="off" placeholder="e.g. Friday 5pm" value="<%= _carsSaved.apptTime || '' %>" class="mt-1.5 w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-800/80 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:ring-2 focus:ring-brand-yellow outline-none" />
         </label>
         <div class="flex flex-wrap gap-2 mb-3">
           <button type="button" class="js-cars-generate btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2" data-type="appointment" data-regen="0">Generate</button>
@@ -123,7 +138,7 @@
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Your script</span>
             <button type="button" class="js-cars-copy text-[10px] font-black uppercase tracking-wider px-2 py-1 rounded-lg border border-brand-border/50 text-brand-muted hover:text-brand-dark dark:hover:text-white" data-target="carsApptOutput">Copy</button>
           </div>
-          <textarea id="carsApptOutput" rows="4" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[4.5rem] border-0 outline-none" placeholder="Generate your transition script…" aria-label="Appointment transition script"></textarea>
+          <textarea id="carsApptOutput" rows="4" class="w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-3 py-2.5 font-sans resize-y min-h-[4.5rem] border-0 outline-none" placeholder="Generate your transition script…" aria-label="Appointment transition script"><%= _carsSaved.appointment || '' %></textarea>
         </div>
       </article>
 
@@ -132,12 +147,27 @@
   </div>
 </section>
 
+<script type="application/json" id="carsReachSpecialtiesData"><%- JSON.stringify(_carSpecs) %></script>
 <script>
 (function () {
   'use strict';
-  var LS_PREFIX = 'adhello_cars_reach_';
 
   function $(id) { return document.getElementById(id); }
+
+  var carSpecialties = [];
+  try {
+    var specEl = $('carsReachSpecialtiesData');
+    carSpecialties = specEl ? JSON.parse(specEl.textContent || '[]') : [];
+  } catch (_) { carSpecialties = []; }
+
+  function patchReach(data) {
+    return fetch('/workspace/scripts/reach', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ section: 'carsReach', data: data }),
+    }).then(function (r) { return r.json(); });
+  }
 
   var outputByType = {
     elevator: 'carsElevatorOutput',
@@ -156,45 +186,29 @@
     status._t = setTimeout(function () { status('', true); }, 3200);
   }
 
-  function persist() {
-    try {
-      var fields = {
-        elevatorName: $('carsElevatorName'),
-        elevatorSpecialty: $('carsElevatorSpecialty'),
-        followTheirName: $('carsFollowTheirName'),
-        followBusiness: $('carsFollowBusiness'),
-        followWhere: $('carsFollowWhere'),
-        apptTime: $('carsApptTime'),
-        elevatorOut: $('carsElevatorOutput'),
-        followOut: $('carsFollowOutput'),
-        apptOut: $('carsApptOutput'),
-      };
-      Object.keys(fields).forEach(function (k) {
-        var el = fields[k];
-        if (el) localStorage.setItem(LS_PREFIX + k, el.value);
-      });
-    } catch (_) {}
-  }
+  var carsTimer = null;
 
-  function loadSaved() {
-    try {
-      ['elevatorName', 'elevatorSpecialty', 'followTheirName', 'followBusiness', 'followWhere', 'apptTime', 'elevatorOut', 'followOut', 'apptOut'].forEach(function (k) {
-        var map = {
-          elevatorName: 'carsElevatorName',
-          elevatorSpecialty: 'carsElevatorSpecialty',
-          followTheirName: 'carsFollowTheirName',
-          followBusiness: 'carsFollowBusiness',
-          followWhere: 'carsFollowWhere',
-          apptTime: 'carsApptTime',
-          elevatorOut: 'carsElevatorOutput',
-          followOut: 'carsFollowOutput',
-          apptOut: 'carsApptOutput',
-        };
-        var v = localStorage.getItem(LS_PREFIX + k);
-        var el = $(map[k]);
-        if (v != null && el) el.value = v;
-      });
-    } catch (_) {}
+  function persist() {
+    clearTimeout(carsTimer);
+    carsTimer = setTimeout(function () {
+      var saved = {
+        elevator: ($('carsElevatorOutput') && $('carsElevatorOutput').value) || '',
+        followup: ($('carsFollowOutput') && $('carsFollowOutput').value) || '',
+        appointment: ($('carsApptOutput') && $('carsApptOutput').value) || '',
+        elevatorName: ($('carsElevatorName') && $('carsElevatorName').value) || '',
+        followTheirName: ($('carsFollowTheirName') && $('carsFollowTheirName').value) || '',
+        followBusiness: ($('carsFollowBusiness') && $('carsFollowBusiness').value) || '',
+        followWhere: ($('carsFollowWhere') && $('carsFollowWhere').value) || '',
+        apptTime: ($('carsApptTime') && $('carsApptTime').value) || '',
+        elevatorSpecialty: ($('carsElevatorSpecialty') && $('carsElevatorSpecialty').value) || '',
+      };
+      fetch('/workspace/scripts/reach', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ section: 'carsReach', data: { saved: saved } }),
+      }).catch(function () {});
+    }, 1200);
   }
 
   function payload(type) {
@@ -280,6 +294,49 @@
     if (el.tagName === 'SELECT') el.addEventListener('change', persist);
   });
 
-  loadSaved();
+  var addSpecBtn = $('carsAddSpecialtyBtn');
+  if (addSpecBtn) {
+    addSpecBtn.addEventListener('click', function () {
+      var label = window.prompt('Specialty name (e.g. Flooring Installation)');
+      if (!label || !String(label).trim()) return;
+      var next = carSpecialties.slice();
+      next.push({ label: String(label).trim() });
+      addSpecBtn.disabled = true;
+      patchReach({ specialties: next })
+        .then(function (data) {
+          if (!data || !data.success) throw new Error((data && data.error) || 'Could not add specialty');
+          window.location.reload();
+        })
+        .catch(function (err) {
+          status(err.message || 'Could not add specialty', false);
+          addSpecBtn.disabled = false;
+        });
+    });
+  }
+
+  document.querySelectorAll('.js-cars-remove-specialty').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var key = btn.getAttribute('data-key');
+      if (!key) return;
+      if (carSpecialties.length <= 1) {
+        status('Keep at least one specialty', false);
+        return;
+      }
+      if (!window.confirm('Remove this specialty from this workspace?')) return;
+      btn.disabled = true;
+      var next = carSpecialties.filter(function (s) { return s && s.key !== key; });
+      patchReach({ specialties: next })
+        .then(function (data) {
+          if (!data || !data.success) throw new Error((data && data.error) || 'Could not remove specialty');
+          window.location.reload();
+        })
+        .catch(function (err) {
+          status(err.message || 'Could not remove specialty', false);
+          btn.disabled = false;
+        });
+    });
+  });
 })();
 </script>

@@ -22,7 +22,8 @@
     <div class="p-4 md:p-6 space-y-8">
       <!-- Facebook posts -->
       <div>
-        <div class="flex items-start gap-3 mb-4">
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div class="flex items-start gap-3">
           <span class="arms-reach-icon arms-reach-icon--cold shrink-0 mt-0.5" aria-hidden="true">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
           </span>
@@ -30,17 +31,19 @@
             <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Arm's Reach Facebook post</h3>
             <p class="text-xs text-brand-muted dark:text-slate-400 mt-1">Tap your network for referrals. Hit <strong class="text-brand-dark dark:text-white">Regenerate</strong> for a fresh AI variation in the same voice.</p>
           </div>
+          </div>
+          <button type="button" id="armsReachAddPostBtn" class="px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-brand-dark text-white dark:bg-white dark:text-slate-900">+ Add post</button>
         </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <% [0, 1].forEach(function (vi) {
-            var seed = _fbSeeds[vi] || '';
+        <div id="armsReachPostsHost" class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <% _fbSeeds.forEach(function (seed, vi) {
             var versionNum = vi + 1;
           %>
           <article class="arms-reach-version rounded-2xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/40 overflow-hidden" data-fb-version="<%= versionNum %>">
             <div class="flex items-center justify-between gap-2 px-4 py-2.5 border-b border-brand-border/40 dark:border-white/10 bg-white/50 dark:bg-slate-900/50">
               <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Version <%= versionNum %></span>
               <div class="flex items-center gap-1.5">
+                <button type="button" class="js-arms-fb-remove inline-flex items-center rounded-lg px-2 py-1.5 text-[10px] font-black uppercase tracking-wider border border-rose-300/60 text-rose-600 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-950/30" data-version="<%= versionNum %>" title="Remove this post">Remove</button>
                 <button type="button" class="js-arms-fb-regen inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider bg-brand-dark text-white dark:bg-white dark:text-slate-900 hover:opacity-90 transition-opacity" data-version="<%= versionNum %>">
                   <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                   Regenerate
@@ -94,7 +97,7 @@
             <span class="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Your message</span>
             <button type="button" id="armsReachReferralCopy" class="inline-flex items-center rounded-lg px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">Copy</button>
           </div>
-          <textarea id="armsReachReferralMessage" rows="3" class="arms-reach-script-input w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans resize-y min-h-[4.5rem] border-0 focus:ring-0 outline-none" aria-label="Referral follow-up message"><%= _refDemo %></textarea>
+          <textarea id="armsReachReferralMessage" rows="3" class="arms-reach-script-input w-full text-sm leading-relaxed text-brand-dark dark:text-slate-200 bg-transparent px-4 py-3 font-sans resize-y min-h-[4.5rem] border-0 focus:ring-0 outline-none" aria-label="Referral follow-up message"><%= typeof armsReachReferralMessage !== 'undefined' && armsReachReferralMessage ? armsReachReferralMessage : _refDemo %></textarea>
         </div>
       </div>
 
@@ -106,42 +109,46 @@
 <script>
 (function () {
   'use strict';
-  var LS = {
-    fb1: 'adhello_arms_reach_fb1',
-    fb2: 'adhello_arms_reach_fb2',
-    owner: 'adhello_arms_reach_owner',
-    referrer: 'adhello_arms_reach_referrer',
-    referral: 'adhello_arms_reach_referral',
-  };
+  var reachTimer = null;
 
   function $(id) { return document.getElementById(id); }
   function fbEl(v) { return $('armsReachFb' + v); }
 
-  function loadSaved() {
-    try {
-      [1, 2].forEach(function (v) {
-        var key = v === 1 ? LS.fb1 : LS.fb2;
-        var saved = localStorage.getItem(key);
-        var el = fbEl(v);
-        if (saved && el) el.value = saved;
-      });
-      var owner = localStorage.getItem(LS.owner);
-      var referrer = localStorage.getItem(LS.referrer);
-      var referral = localStorage.getItem(LS.referral);
-      if (owner && $('armsReachOwnerName')) $('armsReachOwnerName').value = owner;
-      if (referrer && $('armsReachReferrerName')) $('armsReachReferrerName').value = referrer;
-      if (referral && $('armsReachReferralMessage')) $('armsReachReferralMessage').value = referral;
-    } catch (_) {}
+  function collectFacebookPosts() {
+    var posts = [];
+    var idx = 1;
+    while (fbEl(idx)) {
+      posts.push(String(fbEl(idx).value || ''));
+      idx += 1;
+    }
+    return posts;
+  }
+
+  function persistToServer() {
+    var payload = {
+      section: 'armsReach',
+      data: {
+        facebookPosts: collectFacebookPosts(),
+        defaultOwner: $('armsReachOwnerName') ? $('armsReachOwnerName').value : '',
+        defaultReferrer: $('armsReachReferrerName') ? $('armsReachReferrerName').value : '',
+        referralMessage: $('armsReachReferralMessage') ? $('armsReachReferralMessage').value : '',
+      },
+    };
+    return fetch('/workspace/scripts/reach', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(payload),
+    }).catch(function () {});
+  }
+
+  function schedulePersist() {
+    clearTimeout(reachTimer);
+    reachTimer = setTimeout(persistToServer, 1200);
   }
 
   function persist() {
-    try {
-      if (fbEl(1)) localStorage.setItem(LS.fb1, fbEl(1).value);
-      if (fbEl(2)) localStorage.setItem(LS.fb2, fbEl(2).value);
-      if ($('armsReachOwnerName')) localStorage.setItem(LS.owner, $('armsReachOwnerName').value);
-      if ($('armsReachReferrerName')) localStorage.setItem(LS.referrer, $('armsReachReferrerName').value);
-      if ($('armsReachReferralMessage')) localStorage.setItem(LS.referral, $('armsReachReferralMessage').value);
-    } catch (_) {}
+    schedulePersist();
   }
 
   function status(msg, ok) {
@@ -257,15 +264,51 @@
     });
   }
 
-  [1, 2].forEach(function (v) {
+  var addPostBtn = $('armsReachAddPostBtn');
+  if (addPostBtn) {
+    addPostBtn.addEventListener('click', function () {
+      var posts = collectFacebookPosts();
+      posts.push('');
+      fetch('/workspace/scripts/reach', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ section: 'armsReach', data: { facebookPosts: posts } }),
+      })
+        .then(function () { window.location.reload(); })
+        .catch(function () { status('Could not add post', false); });
+    });
+  }
+
+  document.querySelectorAll('.js-arms-fb-remove').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var v = parseInt(btn.getAttribute('data-version') || '0', 10);
+      if (!v) return;
+      var posts = collectFacebookPosts();
+      if (posts.length <= 1) {
+        status('Keep at least one post', false);
+        return;
+      }
+      posts.splice(v - 1, 1);
+      fetch('/workspace/scripts/reach', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ section: 'armsReach', data: { facebookPosts: posts } }),
+      })
+        .then(function () { window.location.reload(); })
+        .catch(function () { status('Could not remove post', false); });
+    });
+  });
+
+  var postCount = collectFacebookPosts().length;
+  for (var v = 1; v <= postCount; v += 1) {
     var el = fbEl(v);
     if (el) el.addEventListener('input', persist);
-  });
+  }
   ['armsReachOwnerName', 'armsReachReferrerName', 'armsReachReferralMessage'].forEach(function (id) {
     var el = $(id);
     if (el) el.addEventListener('input', persist);
   });
-
-  loadSaved();
 })();
 </script>

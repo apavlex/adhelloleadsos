@@ -37,6 +37,15 @@ describe('salesScriptsStorage', () => {
     assert.equal(m.reputation.close, 'Bye');
   });
 
+  it('buildMergedScriptLibrary respects custom workspace catalog keys', () => {
+    const ws = {
+      salesScriptOfferCatalog: [{ key: 'flooring', label: 'Flooring' }],
+    };
+    const m = buildMergedScriptLibrary(ws, SCRIPT_LIBRARY);
+    assert.ok(m.flooring);
+    assert.ok(!m.reputation);
+  });
+
   it('normalizeLibraryItem requires text', () => {
     assert.equal(normalizeLibraryItem({ text: '   ' }, SCRIPT_LIBRARY_KEYS), null);
     const one = normalizeLibraryItem({ text: 'Hi', serviceKey: 'reputation', section: 'opening' }, SCRIPT_LIBRARY_KEYS);

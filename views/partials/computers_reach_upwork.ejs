@@ -47,6 +47,19 @@
               <option value="<%= s.key %>"><%= s.label %></option>
               <% }); %>
             </select>
+            <div class="mt-2 flex flex-wrap items-center gap-1.5">
+              <button type="button" id="upworkAddServiceBtn" class="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border border-brand-border/60 dark:border-white/15 text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">+ Add service</button>
+            </div>
+            <ul id="upworkServiceList" class="mt-2 flex flex-wrap gap-1.5">
+              <% _upworkServices.forEach(function (s) { %>
+              <li class="inline-flex items-center gap-1 rounded-lg border border-brand-border/50 dark:border-white/10 bg-white/60 dark:bg-slate-800/60 px-2 py-1 text-[10px] font-bold text-brand-dark dark:text-slate-200" data-svc-key="<%= s.key %>">
+                <span><%= s.label %></span>
+                <% if (_upworkServices.length > 1) { %>
+                <button type="button" class="js-upwork-remove-service text-rose-500 hover:text-rose-600 dark:text-rose-300" data-key="<%= s.key %>" title="Remove service" aria-label="Remove <%= s.label %>">×</button>
+                <% } %>
+              </li>
+              <% }); %>
+            </ul>
           </label>
           <label class="block">
             <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Relevant experience (optional)</span>
@@ -118,9 +131,28 @@
 </section>
 
 <script type="application/json" id="upworkSavedData"><%- JSON.stringify(_savedUpwork) %></script>
+<script type="application/json" id="upworkServicesData"><%- JSON.stringify(_upworkServices) %></script>
 <script>
 (function () {
   'use strict';
+
+  function $(id) { return document.getElementById(id); }
+
+  var upworkServices = [];
+  try {
+    var svcEl = $('upworkServicesData');
+    upworkServices = svcEl ? JSON.parse(svcEl.textContent || '[]') : [];
+  } catch (_) { upworkServices = []; }
+
+  function patchReachServices(list) {
+    return fetch('/workspace/scripts/reach', {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ section: 'computersReach', data: { services: list } }),
+    }).then(function (r) { return r.json(); });
+  }
+
   var LS = {
     title: 'adhello_upwork_job_title',
     desc: 'adhello_upwork_job_desc',
@@ -129,7 +161,6 @@
     draft: 'adhello_upwork_draft',
   };
 
-  function $(id) { return document.getElementById(id); }
   var savedItems = [];
   try {
     var el = $('upworkSavedData');
@@ -361,6 +392,51 @@
     var el = $(id);
     if (el) el.addEventListener('input', persistForm);
     if (el && el.tagName === 'SELECT') el.addEventListener('change', persistForm);
+  });
+
+  var addSvcBtn = $('upworkAddServiceBtn');
+  if (addSvcBtn) {
+    addSvcBtn.addEventListener('click', function () {
+      var label = window.prompt('Service name (e.g. Hardwood Refinishing)');
+      if (!label || !String(label).trim()) return;
+      var next = upworkServices.slice();
+      next.push({ label: String(label).trim() });
+      addSvcBtn.disabled = true;
+      patchReachServices(next)
+        .then(function (data) {
+          if (!data || !data.success) throw new Error((data && data.error) || 'Could not add service');
+          window.location.reload();
+        })
+        .catch(function (err) {
+          status(err.message || 'Could not add service', false);
+          addSvcBtn.disabled = false;
+        });
+    });
+  }
+
+  document.querySelectorAll('.js-upwork-remove-service').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var key = btn.getAttribute('data-key');
+      if (!key) return;
+      if (upworkServices.length <= 1) {
+        status('Keep at least one service', false);
+        return;
+      }
+      if (!window.confirm('Remove this service from this workspace?')) return;
+      btn.disabled = true;
+      var next = upworkServices.filter(function (s) { return s && s.key !== key; });
+      patchReachServices(next)
+        .then(function (data) {
+          if (!data || !data.success) throw new Error((data && data.error) || 'Could not remove service');
+          window.location.reload();
+        })
+        .catch(function (err) {
+          status(err.message || 'Could not remove service', false);
+          btn.disabled = false;
+        });
+    });
   });
 
   loadForm();
