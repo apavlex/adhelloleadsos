@@ -5,6 +5,7 @@
 const dbService = require('./database');
 const ghlClient = require('./ghlClient');
 const ghlSync = require('./ghlSync');
+const { allowsGhlPush, getWorkspaceGhlSyncDirection } = require('./ghlSyncDirection');
 const workspaceIntegrations = require('./workspaceIntegrations');
 const { mergeTagLists } = require('./ghlSyncHelpers');
 const {
@@ -161,6 +162,12 @@ async function syncLeadProspectActionToGhl(opts) {
   const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(workspaceId);
   if (!ghlClient.isConfigured(integrationEnv)) {
     return { skipped: true, reason: 'ghl_not_configured' };
+  }
+
+  const ws = await dbService.getWorkspace(workspaceId);
+  const syncDirection = getWorkspaceGhlSyncDirection(ws);
+  if (!allowsGhlPush(syncDirection)) {
+    return { skipped: true, reason: 'ghl_sync_direction_pull_only', syncDirection };
   }
 
   const fullKey = leadKey.startsWith('lead:') ? leadKey : `lead:${leadKey}`;

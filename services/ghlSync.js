@@ -20,6 +20,7 @@ const { isActionTag, computeActionTagsFromLead, formatNextActionNote } = require
 const ghlProspectSync = require('./ghlProspectSync');
 const { pushLastProspectedField } = require('./ghlLastProspectedField');
 const { pushReviewFields } = require('./ghlReviewFields');
+const { normalizeGhlSyncDirection } = require('./ghlSyncDirection');
 
 const GHL_TAG_NO_WEBSITE = 'no website';
 const GHL_TAG_PROSPECTED = 'AO: Prospected';
@@ -472,6 +473,21 @@ async function syncBoth(opts) {
   return { pull: pullResult, push: pushResult };
 }
 
+/** Run pull, push, or both based on workspace sync direction. */
+async function runDirectionalSync(opts) {
+  const direction = normalizeGhlSyncDirection(opts && opts.direction);
+  if (direction === 'push') {
+    const push = await pushLeads(opts);
+    return { direction, push };
+  }
+  if (direction === 'pull') {
+    const pull = await pullContacts(opts);
+    return { direction, pull };
+  }
+  const result = await syncBoth(opts);
+  return { direction, ...result };
+}
+
 function statusFromEnv(integrationEnv) {
   const { apiKey, locationId, emailFrom, smsFromNumber } = ghlClient.resolveConfig(integrationEnv);
   const configured = ghlClient.isConfigured(integrationEnv);
@@ -659,6 +675,7 @@ module.exports = {
   pushLeads,
   pullContacts,
   syncBoth,
+  runDirectionalSync,
   statusFromEnv,
   findLocalLeadMatch,
   processWebhook,

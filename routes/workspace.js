@@ -12,6 +12,7 @@ const outscraperClient = require('../services/outscraperClient');
 const integrationProviderTests = require('../services/integrationProviderTests');
 const ghlClient = require('../services/ghlClient');
 const ghlSync = require('../services/ghlSync');
+const { getWorkspaceGhlSyncDirection, normalizeGhlSyncDirection } = require('../services/ghlSyncDirection');
 const lobClient = require('../services/lobClient');
 const multer = require('multer');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
@@ -286,6 +287,7 @@ async function loadWorkspacePageLocals(req) {
     ? 'configured-on-server'
     : '';
   const ghlStatus = ghlSync.statusFromEnv(resolvedEnv);
+  const ghlSyncDirection = getWorkspaceGhlSyncDirection(ws);
   return {
     title: 'Workspace & team',
     activePage: 'workspace',
@@ -297,6 +299,7 @@ async function loadWorkspacePageLocals(req) {
     chromeExtensionRepoUrl,
     ghlWebhookTokenHint,
     ghlStatus,
+    ghlSyncDirection,
     telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     assignPool: pool,
     envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
@@ -490,12 +493,40 @@ router.post('/integrations', async (req, res, next) => {
     plain = workspaceIntegrations.applyClears(plain, req.body);
     plain = workspaceIntegrations.mergeIntegrationUpdates(plain, req.body);
     await workspaceIntegrations.saveWorkspaceIntegrations(wid, plain);
+    if (req.body && req.body.ghlSyncDirection != null && String(req.body.ghlSyncDirection).trim()) {
+      const wsAfter = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+      await dbService.saveWorkspace(wid, {
+        ...wsAfter,
+        ghlSyncDirection: normalizeGhlSyncDirection(req.body.ghlSyncDirection),
+        ghlSyncDirectionUpdatedAt: new Date().toISOString(),
+      });
+    }
     try {
       dataPersistence.backupSqliteSnapshot();
     } catch (e) {
       console.warn('[persist] Post-save backup skipped:', e && e.message ? e.message : e);
     }
     res.redirect('/workspace/integrations?integrations=saved');
+  } catch (e) {
+    next(e);
+  }
+});
+
+/** PATCH JSON: save workspace default GHL sync direction (pull | push | both). */
+router.patch('/integrations/ghl-sync-direction', express.json(), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Only workspace admins can change GHL sync settings.' });
+    }
+    const wid = req.workspaceId;
+    const direction = normalizeGhlSyncDirection(req.body && req.body.direction);
+    const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+    await dbService.saveWorkspace(wid, {
+      ...ws,
+      ghlSyncDirection: direction,
+      ghlSyncDirectionUpdatedAt: new Date().toISOString(),
+    });
+    res.json({ success: true, syncDirection: direction });
   } catch (e) {
     next(e);
   }

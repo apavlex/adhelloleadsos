@@ -346,11 +346,23 @@
             <% if (masks.ghlWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="ghlWebhookSecret_clear" value="1" /> Remove</label><% } %>
           </div>
         </div>
-        <div class="flex flex-wrap gap-2 pt-2 border-t border-brand-border/30 dark:border-white/10">
-          <button type="button" class="js-ghl-sync rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50" data-direction="pull">Pull from GHL</button>
-          <button type="button" class="js-ghl-sync rounded-xl border border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors disabled:opacity-50" data-direction="push">Sync to GHL</button>
-          <button type="button" class="js-ghl-sync rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors disabled:opacity-50" data-direction="both">Sync both ways</button>
-          <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1 basis-full sm:basis-auto sm:ml-2" aria-live="polite"></p>
+        <div class="pt-2 border-t border-brand-border/30 dark:border-white/10 space-y-3">
+          <div>
+            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Default sync direction</p>
+            <p class="text-xs text-brand-muted leading-relaxed mb-2">Saved for this workspace. Manual <strong class="text-brand-dark dark:text-white">Sync GHL</strong> on a lead still pushes when you click it; this controls bulk sync and automatic tag/SMS/email sync.</p>
+            <input type="hidden" name="ghlSyncDirection" id="ghlSyncDirectionInput" value="<%= typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both' %>" />
+            <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="GHL sync direction" id="ghlSyncDirectionGroup">
+              <% const _ghlDir = typeof ghlSyncDirection !== 'undefined' ? ghlSyncDirection : 'both'; %>
+              <button type="button" class="js-ghl-direction rounded-xl border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'pull' ? 'border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="pull" aria-pressed="<%= _ghlDir === 'pull' ? 'true' : 'false' %>">Pull from GHL</button>
+              <button type="button" class="js-ghl-direction rounded-xl border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'push' ? 'border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="push" aria-pressed="<%= _ghlDir === 'push' ? 'true' : 'false' %>">Sync to GHL</button>
+              <button type="button" class="js-ghl-direction rounded-xl border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors disabled:opacity-50 <%= _ghlDir === 'both' ? 'border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow' : 'border-brand-border/70 dark:border-white/15 bg-brand-cream/50 dark:bg-slate-800 text-brand-dark dark:text-white hover:border-brand-yellow/50' %>" data-direction="both" aria-pressed="<%= _ghlDir === 'both' ? 'true' : 'false' %>">Sync both ways</button>
+            </div>
+            <p id="ghlDirectionSaveMsg" class="text-[11px] text-brand-muted mt-2 min-h-[1rem]" aria-live="polite"></p>
+          </div>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" id="ghlSyncNowBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">Sync now</button>
+            <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1" aria-live="polite"></p>
+          </div>
         </div>
       </section>
 
@@ -607,6 +619,115 @@
   });
 
   var ghlMsg = document.getElementById('ghlSyncMsg');
+  var ghlDirMsg = document.getElementById('ghlDirectionSaveMsg');
+  var ghlDirInput = document.getElementById('ghlSyncDirectionInput');
+  var ghlSyncNowBtn = document.getElementById('ghlSyncNowBtn');
+
+  function activeGhlDirection() {
+    return (ghlDirInput && ghlDirInput.value) || 'both';
+  }
+
+  function paintGhlDirectionButtons(direction) {
+    document.querySelectorAll('.js-ghl-direction').forEach(function (btn) {
+      var on = btn.getAttribute('data-direction') === direction;
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.classList.toggle('border-brand-yellow/50', on);
+      btn.classList.toggle('bg-brand-yellow/10', on);
+      btn.classList.toggle('text-brand-dark', on);
+      btn.classList.toggle('dark:text-brand-yellow', on);
+      btn.classList.toggle('border-brand-border/70', !on);
+      btn.classList.toggle('dark:border-white/15', !on);
+      btn.classList.toggle('bg-brand-cream/50', !on);
+      btn.classList.toggle('dark:bg-slate-800', !on);
+      btn.classList.toggle('dark:text-white', !on);
+    });
+  }
+
+  async function saveGhlDirection(direction) {
+    var dir = direction || activeGhlDirection();
+    if (ghlDirInput) ghlDirInput.value = dir;
+    paintGhlDirectionButtons(dir);
+    if (ghlDirMsg) {
+      ghlDirMsg.textContent = 'Saving…';
+      ghlDirMsg.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-red-700', 'dark:text-red-300');
+    }
+    try {
+      var res = await fetch('/workspace/integrations/ghl-sync-direction', {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ direction: dir }),
+      });
+      var data = await res.json().catch(function () { return {}; });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not save');
+      if (ghlDirMsg) {
+        ghlDirMsg.textContent = 'Saved — future syncs use this direction for this workspace.';
+        ghlDirMsg.classList.add('text-emerald-700', 'dark:text-emerald-300');
+      }
+    } catch (e) {
+      if (ghlDirMsg) {
+        ghlDirMsg.textContent = '❌ ' + (e && e.message ? e.message : 'Could not save direction');
+        ghlDirMsg.classList.add('text-red-700', 'dark:text-red-300');
+      }
+    }
+  }
+
+  document.querySelectorAll('.js-ghl-direction').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var direction = btn.getAttribute('data-direction') || 'both';
+      saveGhlDirection(direction);
+    });
+  });
+
+  async function runGhlSyncNow() {
+    var direction = activeGhlDirection();
+    if (ghlSyncNowBtn) ghlSyncNowBtn.disabled = true;
+    if (ghlMsg) {
+      ghlMsg.textContent = 'Syncing…';
+      ghlMsg.classList.remove('text-emerald-700', 'dark:text-emerald-300', 'text-red-700', 'dark:text-red-300');
+    }
+    try {
+      var res = await fetch('/ghl/sync', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ direction: direction, maxPages: 3, pushLimit: 200 }),
+      });
+      var data = await res.json();
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Sync failed');
+      var parts = [];
+      if (data.pull) {
+        var pullNote = data.pull.notesPulled ? ', ' + data.pull.notesPulled + ' notes' : '';
+        parts.push('Pull: ' + (data.pull.pulled || 0) + ' (' + (data.pull.created || 0) + ' new, ' + (data.pull.updated || 0) + ' updated' + pullNote + ')');
+      }
+      if (data.push) {
+        var pushNote = '';
+        if (data.push.results && data.push.results.length) {
+          var np = 0;
+          var npl = 0;
+          data.push.results.forEach(function (r) { np += r.notesPushed || 0; npl += r.notesPulled || 0; });
+          if (np || npl) pushNote = ', notes ' + np + '↑ ' + npl + '↓';
+        }
+        parts.push('Sync: ' + (data.push.pushed || 0) + '/' + (data.push.total || 0) + pushNote);
+      }
+      if (ghlMsg) {
+        ghlMsg.textContent = '✅ ' + (parts.length ? parts.join(' · ') : 'Done');
+        ghlMsg.classList.add('text-emerald-700', 'dark:text-emerald-300');
+      }
+    } catch (e) {
+      if (ghlMsg) {
+        ghlMsg.textContent = '❌ ' + (e && e.message ? e.message : 'Sync failed');
+        ghlMsg.classList.add('text-red-700', 'dark:text-red-300');
+      }
+    } finally {
+      if (ghlSyncNowBtn) ghlSyncNowBtn.disabled = false;
+    }
+  }
+
+  if (ghlSyncNowBtn) {
+    ghlSyncNowBtn.addEventListener('click', runGhlSyncNow);
+  }
+
   var copyGhlBtn = document.getElementById('copyGhlWebhookUrl');
   if (copyGhlBtn) {
     copyGhlBtn.addEventListener('click', function () {
@@ -621,52 +742,6 @@
       }
     });
   }
-  document.querySelectorAll('.js-ghl-sync').forEach(function (btn) {
-    btn.addEventListener('click', async function () {
-      var direction = btn.getAttribute('data-direction') || 'both';
-      var prev = btn.textContent;
-      btn.disabled = true;
-      if (ghlMsg) ghlMsg.textContent = 'Syncing…';
-      try {
-        var res = await fetch('/ghl/sync', {
-          method: 'POST',
-          headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
-          body: JSON.stringify({ direction: direction, maxPages: 3, pushLimit: 200 }),
-        });
-        var data = await res.json();
-        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Sync failed');
-        var parts = [];
-        if (data.pull) {
-          var pullNote = data.pull.notesPulled ? ', ' + data.pull.notesPulled + ' notes' : '';
-          parts.push('Pull: ' + (data.pull.pulled || 0) + ' (' + (data.pull.created || 0) + ' new, ' + (data.pull.updated || 0) + ' updated' + pullNote + ')');
-        }
-        if (data.push) {
-          var pushNote = '';
-          if (data.push.results && data.push.results.length) {
-            var np = 0;
-            var npl = 0;
-            data.push.results.forEach(function (r) { np += r.notesPushed || 0; npl += r.notesPulled || 0; });
-            if (np || npl) pushNote = ', notes ' + np + '↑ ' + npl + '↓';
-          }
-          parts.push('Sync: ' + (data.push.pushed || 0) + '/' + (data.push.total || 0) + pushNote);
-        }
-        if (ghlMsg) {
-          ghlMsg.textContent = '✅ ' + (parts.length ? parts.join(' · ') : 'Done');
-          ghlMsg.classList.remove('text-red-700', 'dark:text-red-300');
-          ghlMsg.classList.add('text-emerald-700', 'dark:text-emerald-300');
-        }
-      } catch (e) {
-        if (ghlMsg) {
-          ghlMsg.textContent = '❌ ' + (e && e.message ? e.message : 'Sync failed');
-          ghlMsg.classList.remove('text-emerald-700', 'dark:text-emerald-300');
-          ghlMsg.classList.add('text-red-700', 'dark:text-red-300');
-        }
-      } finally {
-        btn.disabled = false;
-        btn.textContent = prev;
-      }
-    });
-  });
 
   document.querySelectorAll('.js-lob-design-file').forEach(function (input) {
     input.addEventListener('change', async function () {

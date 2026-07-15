@@ -4,16 +4,35 @@
 
 const express = require('express');
 const router = express.Router();
+const dbService = require('../services/database');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
+const {
+  getWorkspaceGhlSyncDirection,
+  normalizeGhlSyncDirection,
+} = require('../services/ghlSyncDirection');
 const { patchLeadDispositionForGhlPush, appendPanelNoteBeforeGhlPush } = require('../services/ghlProspectSync');
+
+async function saveWorkspaceGhlSyncDirection(workspaceId, direction) {
+  const wid = workspaceId || 'default';
+  const ws = (await dbService.getWorkspace(wid)) || { id: wid, members: {} };
+  const next = normalizeGhlSyncDirection(direction);
+  await dbService.saveWorkspace(wid, {
+    ...ws,
+    ghlSyncDirection: next,
+    ghlSyncDirectionUpdatedAt: new Date().toISOString(),
+  });
+  return next;
+}
 
 router.get('/status', async (req, res) => {
   try {
     const wid = req.workspaceId || 'default';
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
+    const ws = await dbService.getWorkspace(wid);
     const status = ghlSync.statusFromEnv(integrationEnv);
+    status.syncDirection = getWorkspaceGhlSyncDirection(ws);
     const verify = String(req.query.verify || '').trim() === '1';
     if (verify && status.configured) {
       try {
@@ -115,26 +134,28 @@ router.post('/sync', express.json(), async (req, res, next) => {
     const wid = req.workspaceId || 'default';
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const direction = String(body.direction || 'both').toLowerCase();
+    const ws = await dbService.getWorkspace(wid);
+    let direction = String(body.direction || '').trim().toLowerCase();
+    if (!direction || direction === 'default') {
+      direction = getWorkspaceGhlSyncDirection(ws);
+    } else {
+      direction = normalizeGhlSyncDirection(direction);
+    }
+    if (body.saveDirection === true || body.saveDirection === '1') {
+      await saveWorkspaceGhlSyncDirection(wid, direction);
+    }
     const opts = {
       workspaceId: wid,
       integrationEnv,
+      direction,
       leadKeys: body.leadKeys,
       limit: body.limit,
       maxPages: body.maxPages,
       pushLimit: body.pushLimit,
       pullMaxPages: body.pullMaxPages,
     };
-    if (direction === 'push') {
-      const push = await ghlSync.pushLeads(opts);
-      return res.json({ success: true, push });
-    }
-    if (direction === 'pull') {
-      const pull = await ghlSync.pullContacts(opts);
-      return res.json({ success: true, pull });
-    }
-    const result = await ghlSync.syncBoth(opts);
-    return res.json({ success: true, ...result });
+    const result = await ghlSync.runDirectionalSync(opts);
+    return res.json({ success: true, syncDirection: direction, ...result });
   } catch (e) {
     next(e);
   }

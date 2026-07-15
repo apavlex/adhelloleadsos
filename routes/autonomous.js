@@ -41,6 +41,7 @@ const pageSpeedInsights = require('../services/pageSpeedInsights');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const ghlSync = require('../services/ghlSync');
 const ghlClient = require('../services/ghlClient');
+const { getWorkspaceGhlSyncDirection, normalizeGhlSyncDirection } = require('../services/ghlSyncDirection');
 const { ensureChromeExtensionFolder, ensureFolderByName, chromeExtensionFolderUrl } = require('../services/chromeExtensionInbox');
 const { normalizeWorkspaceAccentHex } = require('../lib/workspaceAccent');
 const { scoreLocalProspect } = require('../services/localProspectScore');
@@ -1330,26 +1331,25 @@ router.post('/ghl/sync', apiKeyAuth, express.json(), async (req, res, next) => {
       });
     }
     const body = req.body && typeof req.body === 'object' ? req.body : {};
-    const direction = String(body.direction || 'both').toLowerCase();
+    const ws = await dbService.getWorkspace(wid);
+    let direction = String(body.direction || '').trim().toLowerCase();
+    if (!direction || direction === 'default') {
+      direction = getWorkspaceGhlSyncDirection(ws);
+    } else {
+      direction = normalizeGhlSyncDirection(direction);
+    }
     const opts = {
       workspaceId: wid,
       integrationEnv,
+      direction,
       leadKeys: body.leadKeys,
       limit: body.limit,
       maxPages: body.maxPages,
       pushLimit: body.pushLimit,
       pullMaxPages: body.pullMaxPages,
     };
-    if (direction === 'push') {
-      const push = await ghlSync.pushLeads(opts);
-      return res.json({ success: true, workspaceId: wid, push });
-    }
-    if (direction === 'pull') {
-      const pull = await ghlSync.pullContacts(opts);
-      return res.json({ success: true, workspaceId: wid, pull });
-    }
-    const result = await ghlSync.syncBoth(opts);
-    return res.json({ success: true, workspaceId: wid, ...result });
+    const result = await ghlSync.runDirectionalSync(opts);
+    return res.json({ success: true, workspaceId: wid, syncDirection: direction, ...result });
   } catch (e) {
     next(e);
   }
