@@ -14942,53 +14942,80 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (bulkMoveFolderBtn && bulkFolderSelect) {
-    bulkMoveFolderBtn.addEventListener('click', async () => {
-      const keys = ensureBulkSelectionKeys();
-      if (keys.length === 0) return;
-      const folderKey = bulkFolderSelect.value || '';
-      bulkMoveFolderBtn.disabled = true;
-      try {
-        const res = await fetch('/folders/assign-bulk', {
-          method: 'POST',
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ leadKeys: keys, folderKey }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || `HTTP ${res.status}`);
-        }
-
-        const viewingFolder =
-          typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
-            ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
-            : '';
-        const targetFolder = folderKey || '';
-        keys.forEach((leadKey) => {
-          const cb = Array.from(document.querySelectorAll('.lead-checkbox')).find((c) => c.dataset.key === leadKey);
-          const row = cb && cb.closest('.result-row');
-          if (!row) return;
-          let remove = false;
-          if (!viewingFolder) {
-            if (targetFolder) remove = true;
-          } else if (targetFolder !== viewingFolder) {
-            remove = true;
-          }
-          if (remove) row.remove();
-        });
-        selectedKeys.clear();
-        document.querySelectorAll('.lead-checkbox').forEach((cb) => { cb.checked = false; });
-        const selectAllHeader = getSelectAllHeader();
-        if (selectAllHeader) selectAllHeader.checked = false;
-        updateBulkActionBar();
-      } catch (e) {
-        console.error('Bulk move to folder failed:', e);
-        window.alert('Could not move selected leads to that folder. Please try again.');
-      } finally {
-        bulkMoveFolderBtn.disabled = selectedKeys.size === 0;
-      }
-    });
+    bulkMoveFolderBtn.addEventListener('click', () => bulkMoveFolderFromBar());
   }
+
+  async function bulkMoveFolderFromBar() {
+    const keys = getSelectedLeadKeysForBulk();
+    if (!keys.length) {
+      window.alert('Select at least one lead.');
+      return;
+    }
+    const folderEl = document.getElementById('bulkFolderSelect') || bulkFolderSelect;
+    const folderKey = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    if (!folderKey) {
+      window.alert('Select a folder from the dropdown first.');
+      return;
+    }
+    const folderName =
+      Array.isArray(window.WORKSPACE_FOLDERS)
+        ? (window.WORKSPACE_FOLDERS.find((f) => f && f.key === folderKey) || {}).name
+        : '';
+    const btn = document.getElementById('bulkMoveFolderBtn') || bulkMoveFolderBtn;
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/folders/assign-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          leadKeys: keys.map(normalizeLeadKeyForApi).filter(Boolean),
+          folderKey,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      }
+      const updatedKeys = Array.isArray(data.updatedKeys) ? data.updatedKeys : [];
+      if (!updatedKeys.length) {
+        throw new Error('No leads were moved. Refresh the page and try again.');
+      }
+
+      const viewingFolder =
+        typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
+          ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+          : '';
+      const targetFolder = folderKey || '';
+      updatedKeys.forEach((leadKey) => {
+        const row = findLeadRowForBulkKey(leadKey);
+        if (!row) return;
+        let remove = false;
+        if (!viewingFolder) {
+          if (targetFolder) remove = true;
+        } else if (targetFolder !== viewingFolder) {
+          remove = true;
+        }
+        if (remove) row.remove();
+      });
+      selectedKeys.clear();
+      document.querySelectorAll('.lead-checkbox, .row-checkbox').forEach((cb) => {
+        cb.checked = false;
+      });
+      const selectAllHeader = getSelectAllHeader();
+      if (selectAllHeader) selectAllHeader.checked = false;
+      const msg = `Moved ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'}${folderName ? ` to ${folderName}` : ''}`;
+      showBulkSaveFeedback(msg, 'ok');
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      updateBulkActionBar();
+    } catch (e) {
+      console.error('Bulk move to folder failed:', e);
+      window.alert(e && e.message ? e.message : 'Could not move selected leads to that folder. Please try again.');
+    } finally {
+      if (btn) btn.disabled = getBulkSelectionCount() === 0;
+    }
+  }
+  window.__bulkMoveFolderFromBar = bulkMoveFolderFromBar;
 
   const BULK_SAVE_LOADING_HTML =
     '<span class="inline-flex items-center justify-center gap-2">' +
@@ -15123,7 +15150,71 @@ document.addEventListener('DOMContentLoaded', () => {
       .filter(Boolean);
 
     const isSearchBulk = !!document.getElementById('searchResultsLeadsTable');
+    const isProspectPipeline = !!document.getElementById('prospectLeadsTable') && !isSearchBulk;
     const folderKey = getBulkSaveFolderKey();
+
+    if ((isSearchBulk || isProspectPipeline) && !folderKey && !window.SEARCH_TARGET_FOLDER_KEY) {
+      window.alert('Select a folder from the dropdown first.');
+      return;
+    }
+
+    if (isProspectPipeline && folderKey) {
+      const leadKeys = getSelectedLeadKeysForBulk().map(normalizeLeadKeyForApi).filter(Boolean);
+      if (!leadKeys.length) return;
+      const buttons = [triggerBtn, bulkSaveBtn, document.getElementById('headerBulkSaveBtn')].filter(Boolean);
+      const originalHtml = buttons.map((b) => b.innerHTML);
+      const folderName =
+        Array.isArray(window.WORKSPACE_FOLDERS)
+          ? (window.WORKSPACE_FOLDERS.find((f) => f && f.key === folderKey) || {}).name
+          : '';
+      showBulkSaveFeedback(
+        `Saving ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'}${folderName ? ` to ${folderName}` : ''}…`,
+        'loading',
+      );
+      setBulkSaveButtonsState(buttons, BULK_SAVE_LOADING_HTML, true, false);
+      try {
+        const res = await fetch('/folders/assign-bulk', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify({ leadKeys, folderKey }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.success) {
+          throw new Error((data && data.error) || `Could not assign folder (HTTP ${res.status})`);
+        }
+        const assignCount = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : 0;
+        if (!assignCount) {
+          throw new Error('No leads were saved to that folder. Refresh the page and try again.');
+        }
+        const viewingFolder =
+          typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
+            ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+            : '';
+        (data.updatedKeys || []).forEach((leadKey) => {
+          const row = findLeadRowForBulkKey(leadKey);
+          if (!row) return;
+          if (viewingFolder && folderKey !== viewingFolder) row.remove();
+          else if (!viewingFolder && folderKey) row.remove();
+        });
+        selectedKeys.clear();
+        document.querySelectorAll('.lead-checkbox, .row-checkbox').forEach((cb) => {
+          cb.checked = false;
+        });
+        const successMsg = folderName
+          ? `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'} to ${folderName}`
+          : `Saved ${assignCount} lead${assignCount === 1 ? '' : 's'}`;
+        setBulkSaveButtonsState(buttons, BULK_SAVE_DONE_HTML, true, true);
+        showBulkSaveFeedback(successMsg, 'ok');
+        updateBulkActionBar();
+        setTimeout(() => resetBulkSaveButtons(buttons, originalHtml, false), 3500);
+      } catch (err) {
+        console.error('Bulk save to folder failed:', err);
+        showBulkSaveFeedback(err && err.message ? err.message : 'Could not save leads to folder.', 'error');
+        resetBulkSaveButtons(buttons, originalHtml, false);
+      }
+      return;
+    }
 
     if (isSearchBulk && !folderKey && !window.SEARCH_TARGET_FOLDER_KEY) {
       window.alert('Select a folder (or create one) before saving leads.');

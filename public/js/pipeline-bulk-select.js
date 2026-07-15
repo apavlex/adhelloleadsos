@@ -1550,6 +1550,58 @@
     }
   }
 
+  /** Fallback when app.js bulk folder handlers are not ready yet. */
+  async function runBulkMoveFolderFromBarEarly() {
+    const keys = collectSelectedLeadKeysEarly();
+    if (!keys.length) {
+      window.alert('Select at least one lead.');
+      return;
+    }
+    const select = document.getElementById('bulkFolderSelect');
+    const folderKey = select && select.value ? String(select.value).trim() : '';
+    if (!folderKey) {
+      window.alert('Select a folder from the dropdown first.');
+      return;
+    }
+    const btn = document.getElementById('bulkMoveFolderBtn');
+    if (btn) btn.disabled = true;
+    try {
+      const res = await fetch('/folders/assign-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: keys, folderKey }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'HTTP ' + res.status);
+      }
+      const updated = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : 0;
+      if (!updated) {
+        throw new Error('No leads were moved. Refresh the page and try again.');
+      }
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast('Moved ' + updated + ' lead(s) to folder');
+      }
+      if (typeof window.__syncBulkBarFromDom === 'function') {
+        window.__syncBulkBarFromDom();
+      }
+    } catch (err) {
+      window.alert((err && err.message) || 'Could not move leads to folder.');
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  async function runBulkSaveFolderFromBarEarly(triggerBtn) {
+    if (typeof window.__bulkSaveSelectedLeads === 'function') {
+      return window.__bulkSaveSelectedLeads(triggerBtn);
+    }
+    return runBulkMoveFolderFromBarEarly();
+  }
+
   /**
    * Capture-phase clicks on the bulk bar — fixes Folder actions when bubble handlers
    * or pointer-events on the portaled bar block individual button listeners.
@@ -1585,6 +1637,27 @@
           e.preventDefault();
           e.stopPropagation();
           bulkFolderSaveFromBar();
+          return;
+        }
+        if (e.target.closest('#bulkMoveFolderBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__bulkMoveFolderFromBar === 'function') {
+            void window.__bulkMoveFolderFromBar();
+          } else {
+            void runBulkMoveFolderFromBarEarly();
+          }
+          return;
+        }
+        if (e.target.closest('#bulkSaveBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          const btn = e.target.closest('#bulkSaveBtn');
+          if (typeof window.__bulkSaveSelectedLeads === 'function') {
+            void window.__bulkSaveSelectedLeads(btn);
+          } else {
+            void runBulkSaveFolderFromBarEarly(btn);
+          }
           return;
         }
         if (e.target.closest('#bulkTagsToggle')) {
