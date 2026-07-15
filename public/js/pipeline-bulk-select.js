@@ -1649,6 +1649,14 @@
           }
           return;
         }
+        if (e.target.closest('#bulkAddToBoardBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__bulkAddToBoardFromBar === 'function') {
+            void window.__bulkAddToBoardFromBar();
+          }
+          return;
+        }
         if (e.target.closest('#bulkSaveBtn')) {
           e.preventDefault();
           e.stopPropagation();

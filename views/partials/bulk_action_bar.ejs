@@ -61,7 +61,7 @@
         <option value="<%= st.id %>"<%= idx === 0 ? ' selected' : '' %>><%= st.name %></option>
         <% }); %>
       </select>
-      <button type="button" id="bulkAddToBoardBtn" class="bulk-bar-btn bulk-bar-btn--board" disabled title="Assign stage and open pipeline board">Board</button>
+      <button type="button" id="bulkAddToBoardBtn" class="bulk-bar-btn bulk-bar-btn--board" disabled title="Save selected leads to this stage and show on the pipeline board">Board</button>
       <% } %>
       <% } %>
       <button type="button" id="bulkSaveBtn" class="bulk-bar-btn bulk-bar-btn--save bulk-save-btn" disabled data-default-label="<%= _bulkMode === 'search' ? 'Save' : 'Save' %>">

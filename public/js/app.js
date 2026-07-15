@@ -14985,15 +14985,17 @@ document.addEventListener('DOMContentLoaded', () => {
   async function bulkAddToBoardFromBar() {
     const keys = getSelectedLeadKeysForBulk();
     if (!keys.length) {
-      window.alert('Select at least one lead.');
+      showBulkSaveFeedback('Select at least one lead.', 'error');
       return;
     }
     const stageEl = document.getElementById('bulkPipelineStageSelect') || bulkPipelineStageSelect;
     const stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
     if (!stageId) {
-      window.alert('Choose a pipeline stage first.');
+      showBulkSaveFeedback('Choose a pipeline stage first.', 'error');
       return;
     }
+    const stageName =
+      (window.PIPELINE_STAGE_LABELS && window.PIPELINE_STAGE_LABELS[stageId]) || 'pipeline board';
     const folderEl = document.getElementById('bulkFolderSelect') || bulkFolderSelect;
     const folderKey = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
     const viewingFolder =
@@ -15001,10 +15003,18 @@ document.addEventListener('DOMContentLoaded', () => {
         ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
         : '';
     const btn = document.getElementById('bulkAddToBoardBtn') || bulkAddToBoardBtn;
+    const n = keys.length;
     if (btn) {
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
     }
+    if (typeof window.__flashBulkBarBtn === 'function' && btn) {
+      window.__flashBulkBarBtn(btn, 'Saving…', 12000);
+    }
+    showBulkSaveFeedback(
+      `Adding ${n} lead${n === 1 ? '' : 's'} to ${stageName}…`,
+      'loading',
+    );
     try {
       const res = await fetch('/leads/bulk-stage-assign', {
         method: 'POST',
@@ -15036,10 +15046,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      const stageName = (window.PIPELINE_STAGE_LABELS && window.PIPELINE_STAGE_LABELS[stageId]) || 'board';
-      const msg = `Added ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'} to ${stageName}`;
-      showBulkSaveFeedback(msg, 'ok');
+      const msg = `Saved ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'} to ${stageName}`;
+      showBulkSaveFeedback(msg, 'success');
       if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      if (typeof window.__flashBulkBarBtn === 'function' && btn) {
+        window.__flashBulkBarBtn(btn, 'Saved ✓', 2200);
+      }
 
       if (folderKey && folderKey !== viewingFolder) {
         try {
@@ -15049,6 +15061,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      if (typeof window.__adhelloSetPipelineView === 'function') {
+        window.__adhelloSetPipelineView('kanban');
+      }
+      if (typeof window.__adhelloInitKanban === 'function') {
+        window.__adhelloInitKanban();
+      }
+      if (typeof window.refreshPipelineKanbanIfNeeded === 'function') {
+        window.refreshPipelineKanbanIfNeeded();
+      }
+      const kanbanEl = document.getElementById('kanbanView');
+      if (kanbanEl && typeof kanbanEl.scrollIntoView === 'function') {
+        kanbanEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
       selectedKeys.clear();
       document.querySelectorAll('.lead-checkbox, .row-checkbox').forEach((cb) => {
         cb.checked = false;
@@ -15056,21 +15082,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const selectAllHeader = getSelectAllHeader();
       if (selectAllHeader) selectAllHeader.checked = false;
       updateBulkActionBar();
-
-      if (typeof window.__adhelloSetPipelineView === 'function') {
-        window.__adhelloSetPipelineView('kanban');
-      } else if (typeof window.__adhelloInitKanban === 'function') {
-        window.__adhelloInitKanban();
-      }
-      const kanbanEl = document.getElementById('kanbanView');
-      if (kanbanEl && typeof kanbanEl.scrollIntoView === 'function') {
-        kanbanEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
     } catch (e) {
       console.error('Bulk add to pipeline board failed:', e);
-      window.alert(
-        e && e.message ? e.message : 'Could not add selected leads to the pipeline board.',
-      );
+      const errMsg =
+        e && e.message ? e.message : 'Could not add selected leads to the pipeline board.';
+      showBulkSaveFeedback(errMsg, 'error');
+      if (typeof window.__flashBulkBarBtn === 'function' && btn) {
+        window.__flashBulkBarBtn(btn, 'Failed', 1600);
+      }
     } finally {
       if (btn) {
         btn.removeAttribute('aria-busy');
@@ -16302,28 +16321,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function kanbanBoardCardTotal() {
+    let total = 0;
+    document.querySelectorAll('.kanban-column .column-count').forEach((el) => {
+      total += parseInt(String(el.textContent || '0'), 10) || 0;
+    });
+    return total;
+  }
+
+  function refreshPipelineKanbanIfNeeded() {
+    const kanbanViewEl = document.getElementById('kanbanView');
+    if (!kanbanViewEl || kanbanViewEl.classList.contains('hidden')) return;
+    if (typeof window.__adhelloInitKanban !== 'function') return;
+    window.__adhelloInitKanban();
+    const table = document.getElementById('prospectLeadsTable');
+    const rowCount = table ? table.querySelectorAll('tbody tr.result-row').length : 0;
+    if (rowCount > 0 && kanbanBoardCardTotal() === 0) {
+      requestAnimationFrame(() => {
+        if (typeof window.__adhelloInitKanban === 'function') window.__adhelloInitKanban();
+      });
+    }
+  }
+
   function bootPipelineKanbanOnLoad() {
     const kanbanViewEl = document.getElementById('kanbanView');
     if (!kanbanViewEl) return;
     const wantKanban =
       pipelineKanbanPreferredOnLoad() || !kanbanViewEl.classList.contains('hidden');
     if (!wantKanban) return;
-    if (typeof window.__adhelloSetPipelineView === 'function') {
-      window.__adhelloSetPipelineView('kanban');
-    } else {
-      kanbanViewEl.classList.remove('hidden');
-      const tableViewEl = document.getElementById('tableView');
-      if (tableViewEl) tableViewEl.classList.add('hidden');
-      initKanban();
-    }
+    const boot = () => {
+      if (typeof window.__adhelloSetPipelineView === 'function') {
+        window.__adhelloSetPipelineView('kanban');
+      } else {
+        kanbanViewEl.classList.remove('hidden');
+        const tableViewEl = document.getElementById('tableView');
+        if (tableViewEl) tableViewEl.classList.add('hidden');
+        initKanban();
+      }
+      refreshPipelineKanbanIfNeeded();
+    };
+    requestAnimationFrame(() => requestAnimationFrame(boot));
   }
 
   bootPipelineKanbanOnLoad();
-  document.addEventListener('adhello-pipeline-prefs-ready', () => {
-    const kanbanViewEl = document.getElementById('kanbanView');
-    if (!kanbanViewEl || kanbanViewEl.classList.contains('hidden')) return;
-    initKanban();
-  });
+  window.refreshPipelineKanbanIfNeeded = refreshPipelineKanbanIfNeeded;
+  document.addEventListener('adhello-pipeline-prefs-ready', refreshPipelineKanbanIfNeeded);
 
   function createKanbanCard(row) {
     const card = document.createElement('div');
