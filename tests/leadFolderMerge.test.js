@@ -12,13 +12,24 @@ describe('shouldApplyIncomingFolderKey', () => {
     );
   });
 
-  it('preserves folder on single chrome extension re-save', () => {
+  it('preserves folder on single chrome extension re-save without explicit folder', () => {
     assert.equal(
       shouldApplyIncomingFolderKey(existing, {
         folderKey: 'folder:chrome',
         source: 'chrome_extension',
       }),
       false,
+    );
+  });
+
+  it('moves folder when chrome extension save sets forceFolderKey', () => {
+    assert.equal(
+      shouldApplyIncomingFolderKey(existing, {
+        folderKey: 'folder:chrome',
+        source: 'chrome_extension',
+        forceFolderKey: true,
+      }),
+      true,
     );
   });
 

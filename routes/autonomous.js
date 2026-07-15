@@ -386,20 +386,31 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
         leadData.folderKey = folder.key;
         leadData.sourceType = leadData.sourceType || 'chrome_extension';
         resolvedFolderName = String(folder.name || requestedFolderName || 'Chrome Extension').trim();
+        if (requestedFolderName) {
+          leadData.forceFolderKey = true;
+        }
       }
     }
 
     const result = await dbService.saveLeadWithMeta(leadData);
     try { await autoAttachCadenceIfNeeded({ leadKey: result.key, workspaceId: wid }); } catch (_) { /* non-fatal */ }
 
-    const folderKey = leadData.folderKey || '';
+    const savedLead = result.lead || {};
+    const folderKey = String(savedLead.folderKey || '').trim();
+    let actualFolderName = resolvedFolderName;
+    if (folderKey) {
+      const folder = await dbService.getFolder(wid, folderKey);
+      if (folder?.name) actualFolderName = String(folder.name).trim();
+    }
+    const folderApplied = folderKey === String(leadData.folderKey || '').trim();
     res.json({
       success: true,
       key: result.key,
       merged: !!result.merged,
+      folderApplied,
       title,
       folderKey,
-      folderName: resolvedFolderName || (isChromeExtension ? 'Chrome Extension' : ''),
+      folderName: actualFolderName || (isChromeExtension ? 'Chrome Extension' : ''),
       folderUrl: folderKey ? chromeExtensionFolderUrl(folderKey) : '',
     });
   } catch (err) {

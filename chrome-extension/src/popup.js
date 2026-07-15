@@ -510,7 +510,12 @@ form.addEventListener('submit', async (e) => {
         : res.data?.folderName
           ? ` · ${res.data.folderName} folder`
           : '';
-    const mergeNote = res.data?.merged ? ' · Updated existing lead' : '';
+    const mergeNote =
+      res.data?.merged && res.data?.folderApplied === false
+        ? ' · Updated existing lead (kept in current folder)'
+        : res.data?.merged
+          ? ' · Updated existing lead'
+          : '';
     setStatus(`Saved (${res.data?.key || 'ok'})${mergeNote}${folderNote}`, 'success');
     saveSucceeded = true;
     saveButtons.forEach((btn) => {

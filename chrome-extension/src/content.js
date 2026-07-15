@@ -22,7 +22,13 @@
   }
 
   async function saveLead(lead) {
-    return chrome.runtime.sendMessage({ type: 'SAVE_LEAD', lead });
+    const settingsRes = await chrome.runtime.sendMessage({ type: 'GET_SETTINGS' });
+    const workspaceId = String(settingsRes?.settings?.workspaceId || '').trim();
+    return chrome.runtime.sendMessage({
+      type: 'SAVE_LEAD',
+      lead,
+      workspaceId: workspaceId || undefined,
+    });
   }
 
   function enrichPayloadGeo(payload) {
@@ -287,7 +293,13 @@
       try {
         const res = await saveLead(lead);
         if (!res?.ok) throw new Error(res?.error || 'Save failed');
-        toast(res.data?.merged ? 'Lead updated (kept in same folder)' : 'Lead saved to AdHello', 'success');
+        const mergeMsg =
+          res.data?.merged && res.data?.folderApplied === false
+            ? 'Lead updated (kept in current folder)'
+            : res.data?.merged
+              ? 'Lead updated'
+              : 'Lead saved to AdHello';
+        toast(mergeMsg, 'success');
         closePanel();
       } catch (err) {
         toast(err.message || 'Save failed', 'error');
