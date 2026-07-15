@@ -126,6 +126,7 @@ function leadToFocusPayload(l, sortedStages) {
     instagram: l.instagram && l.instagram !== 'N/A' ? l.instagram : '',
     twitter: l.twitter && l.twitter !== 'N/A' ? l.twitter : '',
     linkedin: l.linkedin && l.linkedin !== 'N/A' ? l.linkedin : '',
+    tags: dbService.normalizeTagKeys(l.tags),
     city: l.city || '',
     state: l.state || '',
     address: l.address && l.address !== 'N/A' ? l.address : '',
@@ -261,6 +262,7 @@ router.get('/', async (req, res, next) => {
       focusScriptLibraryJson: JSON.stringify(focusScriptLibrary),
       focusSelectionCount: selectedOnly ? queue.length : null,
       focusIsSelectionSession: selectedOnly,
+      workspaceTags,
     });
   } catch (e) {
     next(e);

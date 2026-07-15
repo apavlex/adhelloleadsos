@@ -476,10 +476,14 @@
 
     let html = '';
     if (!compact) {
+      const colorField = opts.focusMode
+        ? `<input type="color" id="focusNewTagColor" value="#EAB308" class="focus-tag-color-input shrink-0" title="Tag color" aria-label="Tag color" />`
+        : '';
       html += `<div class="flex flex-wrap gap-2 items-center mb-3 pb-3 border-b border-brand-border/20 dark:border-white/10">
       <input type="text" id="${escapeHtml(inputId)}" placeholder="New tag name…" class="min-w-[6rem] flex-1 rounded-lg border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 px-2.5 py-1.5 text-[11px] font-semibold text-brand-dark dark:text-white" />
+      ${colorField}
       <button type="button" id="${escapeHtml(createBtnId)}" class="lead-panel-tag-create btn-pill bg-brand-yellow text-brand-dark px-3 py-1.5 text-[9px] font-black uppercase tracking-widest shrink-0">Create</button>
-      <a href="/tags/manage" class="text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0 ml-auto">Manage all tags →</a>
+      ${opts.focusMode ? '' : '<a href="/tags/manage" class="text-[10px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0 ml-auto">Manage all tags →</a>'}
     </div>`;
     }
 
@@ -1113,12 +1117,148 @@
     renderTagFilterList();
   }
 
+  let focusTagsContext = null;
+  let focusTagsMutating = false;
+
+  function makeVirtualTagsRow(leadKey, tagKeys) {
+    const raw = String(leadKey || '').trim();
+    const short = raw.replace(/^lead:/i, '');
+    const fullKey = raw.startsWith('lead:') ? raw : `lead:${short}`;
+    const keys = (tagKeys || []).map(String).filter(Boolean);
+    return {
+      dataset: { leadKey: fullKey, tags: JSON.stringify(keys) },
+      getAttribute(attr) {
+        if (attr === 'data-lead-key') return fullKey;
+        if (attr === 'data-tags') return JSON.stringify(keys);
+        return null;
+      },
+      querySelector: () => null,
+    };
+  }
+
+  function renderFocusLeadTags(host, leadKey, tagKeys) {
+    if (!host) return;
+    const short = String(leadKey || '').trim().replace(/^lead:/i, '');
+    focusTagsContext = {
+      leadKey: short,
+      tagKeys: (tagKeys || []).map(String).filter(Boolean),
+      host,
+    };
+    renderLeadTagsEditor(host, makeVirtualTagsRow(short, tagKeys), { primary: true, focusMode: true });
+  }
+
+  async function mutateFocusLeadTags(mutator) {
+    if (focusTagsMutating || !focusTagsContext) return;
+    const { leadKey, host } = focusTagsContext;
+    const storageKey = leadKey.startsWith('lead:') ? leadKey : `lead:${leadKey.replace(/^lead:/i, '')}`;
+    focusTagsMutating = true;
+    try {
+      const set = new Set(focusTagsContext.tagKeys.map(String));
+      mutator(set);
+      const lead = await saveLeadTags(storageKey, [...set]);
+      const newTags =
+        lead && Array.isArray(lead.tags) ? lead.tags.map(String).filter(Boolean) : [...set];
+      focusTagsContext.tagKeys = newTags;
+      renderFocusLeadTags(host, leadKey, newTags);
+      if (typeof window.__onFocusLeadTagsUpdated === 'function') {
+        window.__onFocusLeadTagsUpdated(leadKey, newTags);
+      }
+      try {
+        const ghl = await pushLeadTagsToGhl(storageKey);
+        tagSyncToast(
+          ghl.ok ? 'Tags updated · synced to GHL' : 'Tags updated · tap Sync GHL to push tags',
+          ghl.ok ? 'success' : 'info',
+        );
+      } catch (err) {
+        tagSyncToast(err.message || 'Tags saved but GHL sync failed', 'error');
+      }
+    } finally {
+      focusTagsMutating = false;
+    }
+  }
+
+  function bindFocusLeadTagsSection() {
+    const section = document.getElementById('focusLeadTagsSection');
+    if (!section || section.dataset.tagPanelBound === '1') return;
+    section.dataset.tagPanelBound = '1';
+
+    section.addEventListener('click', async (e) => {
+      const toggle = e.target.closest('.lead-panel-tag-toggle');
+      const remove = e.target.closest('.lead-panel-tag-remove');
+      const createBtn = e.target.closest('.lead-panel-tag-create');
+      if (!toggle && !remove && !createBtn) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (toggle) {
+        const tk = toggle.getAttribute('data-tag-key');
+        if (!tk || toggle.disabled) return;
+        toggle.disabled = true;
+        try {
+          await mutateFocusLeadTags((set) => set.add(tk));
+        } catch (err) {
+          window.alert(err.message || 'Could not update tags.');
+        } finally {
+          toggle.disabled = false;
+        }
+        return;
+      }
+
+      if (remove) {
+        const tk = remove.getAttribute('data-tag-key');
+        if (!tk || remove.disabled) return;
+        remove.disabled = true;
+        try {
+          await mutateFocusLeadTags((set) => set.delete(tk));
+        } catch (err) {
+          window.alert(err.message || 'Could not remove tag.');
+        } finally {
+          remove.disabled = false;
+        }
+        return;
+      }
+
+      if (createBtn) {
+        const host = document.getElementById('focusLeadTagsHost');
+        const nameInput = host && host.querySelector('input[type="text"]');
+        const name = nameInput ? String(nameInput.value || '').trim() : '';
+        if (!name) return;
+        createBtn.disabled = true;
+        try {
+          const colorEl = document.getElementById('focusNewTagColor');
+          const color = colorEl ? normalizeHexColor(colorEl.value || '') : '';
+          const tag = await createWorkspaceTag(name, color);
+          if (tag && tag.key) {
+            await mutateFocusLeadTags((set) => set.add(tag.key));
+          } else if (focusTagsContext) {
+            renderFocusLeadTags(focusTagsContext.host, focusTagsContext.leadKey, focusTagsContext.tagKeys);
+          }
+          if (nameInput) nameInput.value = '';
+        } catch (err) {
+          window.alert(err.message || 'Could not create tag.');
+        } finally {
+          createBtn.disabled = false;
+        }
+      }
+    });
+
+    section.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const nameInput = e.target.closest('#focusLeadTagsHost input[type="text"]');
+      if (!nameInput) return;
+      e.preventDefault();
+      const createBtn = document.getElementById('focusLeadTagsHost')?.querySelector('.lead-panel-tag-create');
+      if (createBtn && !createBtn.disabled) createBtn.click();
+    });
+  }
+
   function init() {
     rebuildBulkTagSelect();
     syncBulkTagColorInput();
     initRowTags();
     bindBulkTags();
     bindLeadPanelTagsInteraction();
+    bindFocusLeadTagsSection();
     initPipelineTagFilter();
     refreshWorkspaceTagsFromServer().then(() => {
       rebuildBulkTagSelect();
@@ -1126,6 +1266,9 @@
       initRowTags();
       const row = resolveActiveTagsPanelRow();
       if (row) renderLeadTagsPanel(row);
+      if (focusTagsContext && focusTagsContext.host) {
+        renderFocusLeadTags(focusTagsContext.host, focusTagsContext.leadKey, focusTagsContext.tagKeys);
+      }
     });
   }
 
@@ -1134,6 +1277,7 @@
   window.__initLeadRowTags = initRowTags;
   window.__rebuildBulkTagSelect = rebuildBulkTagSelect;
   window.__setRowLeadTags = setRowTags;
+  window.__renderFocusLeadTags = renderFocusLeadTags;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

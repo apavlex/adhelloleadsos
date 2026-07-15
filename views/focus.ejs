@@ -63,6 +63,16 @@
       </div>
       <p class="text-[11px] font-bold uppercase tracking-wider text-brand-muted mb-4">Last touch <span id="focus-last-touch" class="text-brand-dark dark:text-white normal-case">—</span></p>
 
+      <div id="focusLeadTagsSection" class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-4 py-3">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Tags</p>
+          <a href="/tags/manage" class="text-[9px] font-bold uppercase tracking-wide text-brand-yellow hover:underline shrink-0">Manage all tags →</a>
+        </div>
+        <div id="focusLeadTagsHost" class="rounded-xl border border-brand-border/20 dark:border-white/10 bg-white/60 dark:bg-slate-900/40 p-3">
+          <p class="text-[11px] text-brand-muted dark:text-slate-400 italic">Loading tags…</p>
+        </div>
+      </div>
+
       <div id="focus-links" class="flex flex-wrap gap-2 mb-6" aria-label="Contact and social links"></div>
       <div class="mb-6 rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/35 dark:bg-slate-800/60 px-4 py-3">
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Business info</p>
@@ -333,7 +343,16 @@
 
   <script type="application/json" id="focus-queue-json"><%- typeof focusQueueJson !== 'undefined' ? focusQueueJson : '[]' %></script>
   <script type="application/json" id="focus-script-library-json"><%- typeof focusScriptLibraryJson !== 'undefined' ? focusScriptLibraryJson : '{}' %></script>
+  <script type="application/json" id="workspace-tags-json"><%- JSON.stringify(typeof workspaceTags !== 'undefined' ? workspaceTags : []) %></script>
   <script src="/js/gcal-datetime-picker.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script>
+    try {
+      window.WORKSPACE_TAGS = JSON.parse(document.getElementById('workspace-tags-json').textContent || '[]');
+    } catch (e) {
+      window.WORKSPACE_TAGS = [];
+    }
+  </script>
+  <script src="/js/lead-tags.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <script>
   (function () {
     var FOCUS_PRODUCT_STORAGE_KEY = 'focusProductKey';
@@ -2024,6 +2043,15 @@
       };
     };
 
+    window.__onFocusLeadTagsUpdated = function (leadKey, tagKeys) {
+      var short = String(leadKey || '').trim().replace(/^lead:/i, '');
+      var next = Array.isArray(tagKeys) ? tagKeys.map(String).filter(Boolean) : [];
+      queue.forEach(function (item) {
+        if (!item || !item.key) return;
+        if (String(item.key).replace(/^lead:/i, '') === short) item.tags = next.slice();
+      });
+    };
+
     function renderCard() {
       var lead = currentLead();
       if (!lead) {
@@ -2052,6 +2080,13 @@
       elContact.textContent = lead.contactName || '—';
       elStage.textContent = lead.pipelineLabel || ('Stage ' + lead.pipelineStage);
       elLast.textContent = lead.lastTouchLabel || '—';
+      if (typeof window.__renderFocusLeadTags === 'function') {
+        window.__renderFocusLeadTags(
+          document.getElementById('focusLeadTagsHost'),
+          lead.key,
+          Array.isArray(lead.tags) ? lead.tags : [],
+        );
+      }
       renderLinks(lead);
       renderBusinessInfo(lead);
       if (elServiceSelect) {

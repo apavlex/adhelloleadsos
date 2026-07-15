@@ -1077,6 +1077,24 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   cursor: not-allowed;
 }
 
+#focusLeadTagsSection input.focus-tag-color-input,
+#focusLeadTagsSection input[type="color"].focus-tag-color-input {
+  width: 2rem;
+  height: 2rem;
+  padding: 0.125rem;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.dark #focusLeadTagsSection input.focus-tag-color-input,
+.dark #focusLeadTagsSection input[type="color"].focus-tag-color-input {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(15, 23, 42, 0.85);
+}
+
 .tags-manage-color {
   padding: 0.125rem;
   cursor: pointer;
