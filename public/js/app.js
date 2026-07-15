@@ -565,6 +565,9 @@ document.addEventListener('DOMContentLoaded', () => {
             tbody.querySelectorAll('tr.result-row:not(.pipeline-row-page-hidden)'),
           );
         }
+        if (typeof window.__initLeadRowTags === 'function') {
+          window.__initLeadRowTags();
+        }
       }
 
       loadMoreBtn.addEventListener('click', () => {
@@ -1794,6 +1797,13 @@ document.addEventListener('DOMContentLoaded', () => {
         ds.alternateTitles = JSON.stringify(lead.alternateTitles);
       } catch (_) {
         ds.alternateTitles = '[]';
+      }
+    }
+    if (Array.isArray(lead.tags)) {
+      try {
+        ds.tags = JSON.stringify(lead.tags);
+      } catch (_) {
+        ds.tags = '[]';
       }
     }
     return true;

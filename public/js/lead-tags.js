@@ -181,34 +181,83 @@
   const addTagButtonClass =
     'lead-panel-tag-toggle px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wide border border-brand-border/50 dark:border-white/15 bg-white/80 dark:bg-slate-800/80 text-brand-dark dark:text-white transition-all opacity-90 hover:opacity-100 hover:border-brand-yellow/50';
 
-  function parseRowTags(row) {
-    if (!row || !row.dataset) return [];
-    const raw = row.dataset.tags || '[]';
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
-    } catch (_) {
-      return [];
-    }
+  function decodeHtmlEntities(raw) {
+    const s = String(raw || '');
+    if (!s || (!s.includes('&') && !s.includes('&#'))) return s;
+    const el = document.createElement('textarea');
+    el.innerHTML = s;
+    return el.value;
   }
 
-  function setRowTags(row, tagKeys) {
+  function readTagsFromEmbeddedLead(row) {
+    if (!row || !Array.isArray(window.INITIAL_SAVED_LEADS)) return [];
+    const key = String(row.dataset?.leadKey || row.getAttribute('data-lead-key') || '').trim();
+    if (!key) return [];
+    const norm = key.replace(/^lead:/i, '');
+    const rec = window.INITIAL_SAVED_LEADS.find((l) => {
+      if (!l || l.key == null) return false;
+      const lk = String(l.key).trim();
+      return lk === key || lk.replace(/^lead:/i, '') === norm || lk === `lead:${norm}`;
+    });
+    return Array.isArray(rec?.tags) ? rec.tags.map(String).filter(Boolean) : [];
+  }
+
+  function parseJsonTagList(raw) {
+    const text = String(raw || '').trim();
+    if (!text || text === '[]') return [];
+    const attempts = [text, decodeHtmlEntities(text)];
+    for (let i = 0; i < attempts.length; i += 1) {
+      try {
+        const parsed = JSON.parse(attempts[i]);
+        if (Array.isArray(parsed)) return parsed.map(String).filter(Boolean);
+      } catch (_) {
+        /* try next decode strategy */
+      }
+    }
+    return [];
+  }
+
+  function parseRowTags(row) {
+    if (!row) return [];
+    const fromDataset = row.dataset && row.dataset.tags ? String(row.dataset.tags) : '';
+    const fromAttr = row.getAttribute ? row.getAttribute('data-tags') || '' : '';
+    let keys = parseJsonTagList(fromDataset);
+    if (!keys.length && fromAttr) keys = parseJsonTagList(fromAttr);
+    if (!keys.length) keys = readTagsFromEmbeddedLead(row);
+    return keys;
+  }
+
+  function syncRowTagsDataset(row, tagKeys) {
     if (!row || !row.dataset) return;
     const keys = [...new Set((tagKeys || []).map((k) => String(k).trim()).filter(Boolean))];
     row.dataset.tags = JSON.stringify(keys);
     syncEmbeddedLeadTags(resolveLeadKeyForTags(row), keys);
-    renderRowTagChips(row);
+    return keys;
   }
 
-  function renderRowTagChips(row) {
+  function setRowTags(row, tagKeys) {
+    if (!row || !row.dataset) return;
+    const keys = syncRowTagsDataset(row, tagKeys);
+    renderRowTagChips(row, keys);
+  }
+
+  function renderRowTagChips(row, tagKeys) {
     const slot = row && row.querySelector('.lead-row-tags');
     if (!slot) return;
-    const keys = parseRowTags(row);
+    const keys =
+      Array.isArray(tagKeys) && tagKeys.length
+        ? tagKeys.map(String).filter(Boolean)
+        : parseRowTags(row);
     if (!keys.length) {
+      if (slot.querySelector('.lead-tag-chip')) {
+        slot.classList.remove('hidden');
+        return;
+      }
       slot.innerHTML = '';
       slot.classList.add('hidden');
       return;
     }
+    syncRowTagsDataset(row, keys);
     slot.classList.remove('hidden');
     let html = keys
       .slice(0, 4)

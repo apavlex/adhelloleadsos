@@ -452,7 +452,7 @@
                 data-listing-source="<%= plcEscAttr(_listSource || _listSourceRaw || '') %>"
                 data-contacts="<%= plcEscJson(lead.contacts || []) %>"
                 data-last-contact-hunt-at="<%= plcEscAttr(lead.lastContactHuntAt || '') %>"
-                data-tags="<%= plcEscJson(Array.isArray(lead.tags) ? lead.tags : []) %>"
+                data-tags='<%= JSON.stringify(Array.isArray(lead.tags) ? lead.tags : []) %>'
                 data-updates="<%= plcEscJson(Array.isArray(lead.updates) ? lead.updates : []) %>"
                 data-logs-snippet="<%= plcEscJson(Array.isArray(lead.logs) ? lead.logs.slice(-14) : []) %>">
               <td data-plc="check" class="lead-sticky-check pl-5 pr-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07]">
