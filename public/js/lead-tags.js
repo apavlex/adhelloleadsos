@@ -608,6 +608,85 @@
       .catch(() => {});
   }
 
+  async function runBulkTagFromBar(mode) {
+    const select = document.getElementById('bulkTagSelect');
+    const addBtn = document.getElementById('bulkTagAddBtn');
+    const removeBtn = document.getElementById('bulkTagRemoveBtn');
+    const keys = getSelectedLeadKeysForBulk();
+    const tagKey = select && select.value ? String(select.value).trim() : '';
+    if (!keys.length) {
+      window.alert('Select at least one lead.');
+      return;
+    }
+    if (!tagKey) {
+      window.alert('Choose a tag first.');
+      return;
+    }
+    if (addBtn) addBtn.disabled = true;
+    if (removeBtn) removeBtn.disabled = true;
+    try {
+      const data = await bulkAssignTags(keys, [tagKey], mode);
+      const updatedCount = Array.isArray(data.leads) ? data.leads.length : (data.updatedKeys || []).length;
+      if (!updatedCount) {
+        throw new Error('No leads were updated. Refresh the page and try again.');
+      }
+      applyTagsToRowsFromBulkResult(data.leads);
+      const msg =
+        mode === 'remove'
+          ? `Removed tag from ${updatedCount} lead${updatedCount === 1 ? '' : 's'}`
+          : `Tagged ${updatedCount} lead${updatedCount === 1 ? '' : 's'}`;
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
+    } catch (err) {
+      window.alert(err.message || 'Bulk tag update failed.');
+    } finally {
+      if (addBtn) addBtn.disabled = false;
+      if (removeBtn) removeBtn.disabled = false;
+    }
+  }
+
+  async function bulkTagCreateAndAddFromBar() {
+    const select = document.getElementById('bulkTagSelect');
+    const newName = document.getElementById('bulkTagNewName');
+    const newColor = document.getElementById('bulkTagNewColor');
+    const createBtn = document.getElementById('bulkTagNewSave');
+    const name = newName ? String(newName.value || '').trim() : '';
+    const keys = getSelectedLeadKeysForBulk();
+    if (!name) {
+      window.alert('Enter a tag name.');
+      return;
+    }
+    if (!keys.length) {
+      window.alert('Select at least one lead.');
+      return;
+    }
+    if (createBtn) createBtn.disabled = true;
+    try {
+      const newTagColor = newColor ? normalizeHexColor(newColor.value || '') : '';
+      const tag = await createWorkspaceTag(name, newTagColor);
+      if (!tag || !tag.key) throw new Error('Could not create tag.');
+      const data = await bulkAssignTags(keys, [tag.key], 'add');
+      const updatedCount = Array.isArray(data.leads) ? data.leads.length : (data.updatedKeys || []).length;
+      if (!updatedCount) {
+        throw new Error('Tag was created but no leads were tagged. Refresh and try Add again.');
+      }
+      applyTagsToRowsFromBulkResult(data.leads);
+      if (newName) newName.value = '';
+      if (select) select.value = tag.key;
+      syncBulkTagColorInput();
+      const msg = `Created “${tag.name}” and tagged ${updatedCount} lead${updatedCount === 1 ? '' : 's'}`;
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      else window.alert(msg);
+    } catch (err) {
+      window.alert(err.message || 'Could not create and apply tag.');
+    } finally {
+      if (createBtn) createBtn.disabled = false;
+    }
+  }
+
+  window.__runBulkTagFromBar = runBulkTagFromBar;
+  window.__bulkTagCreateAndAddFromBar = bulkTagCreateAndAddFromBar;
+
   function bindBulkTags() {
     const bar = document.getElementById('bulkActionBar');
     const toggle = document.getElementById('bulkTagsToggle');
@@ -662,36 +741,6 @@
     if (!bar || bar.dataset.bulkTagsActionsBound === '1') return;
     bar.dataset.bulkTagsActionsBound = '1';
 
-    async function runBulkTag(mode) {
-      const keys = getSelectedLeadKeysForBulk();
-      const tagKey = select && select.value ? String(select.value).trim() : '';
-      if (!keys.length) {
-        window.alert('Select at least one lead.');
-        return;
-      }
-      if (!tagKey) {
-        window.alert('Choose a tag first.');
-        return;
-      }
-      if (addBtn) addBtn.disabled = true;
-      if (removeBtn) removeBtn.disabled = true;
-      try {
-        const data = await bulkAssignTags(keys, [tagKey], mode);
-        applyTagsToRowsFromBulkResult(data.leads);
-        const msg =
-          mode === 'remove'
-            ? `Removed tag from ${(data.updatedKeys || []).length} lead(s) · tap Sync GHL to push`
-            : `Tagged ${(data.updatedKeys || []).length} lead(s) · tap Sync GHL to push tags`;
-        if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
-        else window.alert(msg);
-      } catch (err) {
-        window.alert(err.message || 'Bulk tag update failed.');
-      } finally {
-        if (addBtn) addBtn.disabled = false;
-        if (removeBtn) removeBtn.disabled = false;
-      }
-    }
-
     bar.addEventListener('click', async (e) => {
       if (e.target.closest('#bulkTagsCancel')) {
         e.preventDefault();
@@ -702,46 +751,19 @@
       if (e.target.closest('#bulkTagAddBtn')) {
         e.preventDefault();
         e.stopPropagation();
-        await runBulkTag('add');
+        await runBulkTagFromBar('add');
         return;
       }
       if (e.target.closest('#bulkTagRemoveBtn')) {
         e.preventDefault();
         e.stopPropagation();
-        await runBulkTag('remove');
+        await runBulkTagFromBar('remove');
         return;
       }
       if (e.target.closest('#bulkTagNewSave')) {
         e.preventDefault();
         e.stopPropagation();
-        const name = newName ? String(newName.value || '').trim() : '';
-        const keys = getSelectedLeadKeysForBulk();
-        if (!name) {
-          window.alert('Enter a tag name.');
-          return;
-        }
-        if (!keys.length) {
-          window.alert('Select at least one lead.');
-          return;
-        }
-        if (createBtn) createBtn.disabled = true;
-        try {
-          const newTagColor = newColor ? normalizeHexColor(newColor.value || '') : '';
-          const tag = await createWorkspaceTag(name, newTagColor);
-          if (!tag || !tag.key) throw new Error('Could not create tag.');
-          const data = await bulkAssignTags(keys, [tag.key], 'add');
-          applyTagsToRowsFromBulkResult(data.leads);
-          if (newName) newName.value = '';
-          if (select) select.value = tag.key;
-          syncBulkTagColorInput();
-          const msg = `Created “${tag.name}” and tagged ${(data.updatedKeys || []).length} lead(s) · tap Sync GHL to push`;
-          if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
-          else window.alert(msg);
-        } catch (err) {
-          window.alert(err.message || 'Could not create and apply tag.');
-        } finally {
-          if (createBtn) createBtn.disabled = false;
-        }
+        await bulkTagCreateAndAddFromBar();
       }
     });
 
@@ -749,8 +771,7 @@
       if (e.target.id !== 'bulkTagNewName') return;
       if (e.key === 'Enter') {
         e.preventDefault();
-        const save = document.getElementById('bulkTagNewSave');
-        if (save && !save.disabled) save.click();
+        bulkTagCreateAndAddFromBar();
       }
     });
   }
@@ -1043,6 +1064,8 @@
     initPipelineTagFilter();
     refreshWorkspaceTagsFromServer().then(() => {
       rebuildBulkTagSelect();
+      syncBulkTagColorInput();
+      initRowTags();
       const row = resolveActiveTagsPanelRow();
       if (row) renderLeadTagsPanel(row);
     });

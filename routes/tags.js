@@ -156,6 +156,14 @@ router.post('/assign-bulk', async (req, res, next) => {
       if (lead) updated.push(lead);
     }
 
+    if (!updated.length) {
+      return res.status(404).json({
+        success: false,
+        error: 'No matching leads were updated. Refresh the page and try again.',
+        attempted: leadKeys.length,
+      });
+    }
+
     res.json({ success: true, updatedKeys: updated.map((l) => l.key), leads: updated });
   } catch (e) {
     next(e);

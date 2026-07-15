@@ -1671,6 +1671,38 @@
           }
           return;
         }
+        if (e.target.closest('#bulkTagsCancel')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__setBulkTagsRowVisible === 'function') {
+            window.__setBulkTagsRowVisible(false);
+          }
+          return;
+        }
+        if (e.target.closest('#bulkTagAddBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__runBulkTagFromBar === 'function') {
+            void window.__runBulkTagFromBar('add');
+          }
+          return;
+        }
+        if (e.target.closest('#bulkTagRemoveBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__runBulkTagFromBar === 'function') {
+            void window.__runBulkTagFromBar('remove');
+          }
+          return;
+        }
+        if (e.target.closest('#bulkTagNewSave')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__bulkTagCreateAndAddFromBar === 'function') {
+            void window.__bulkTagCreateAndAddFromBar();
+          }
+          return;
+        }
         if (e.target.closest('#bulkDirectMailBtn')) {
           e.preventDefault();
           e.stopPropagation();
@@ -1762,6 +1794,15 @@
     document.addEventListener(
       'keydown',
       function (e) {
+        if (e.target && e.target.id === 'bulkTagNewName') {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (typeof window.__bulkTagCreateAndAddFromBar === 'function') {
+              void window.__bulkTagCreateAndAddFromBar();
+            }
+          }
+          return;
+        }
         if (e.target && e.target.id === 'bulkFolderNewName') {
           if (e.key === 'Escape') {
             e.preventDefault();
