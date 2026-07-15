@@ -22,12 +22,16 @@
       <select id="bulkTagSelect" class="bulk-bar-select min-w-[7.5rem] max-w-[11rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-sky-400/50 cursor-pointer">
         <option value="">Select tag…</option>
       </select>
+      <label for="bulkTagColor" class="sr-only">Tag color</label>
+      <input type="color" id="bulkTagColor" value="#94a3b8" class="bulk-tag-color-input shrink-0" title="Change selected tag color" aria-label="Selected tag color" disabled />
       <button type="button" id="bulkTagAddBtn" class="bulk-bar-btn bulk-bar-btn--accent">Add</button>
       <button type="button" id="bulkTagRemoveBtn" class="bulk-bar-btn bulk-bar-btn--ghost">Remove</button>
       <button type="button" id="bulkTagsCancel" class="bulk-bar-btn bulk-bar-btn--ghost">Close</button>
     </div>
     <div class="flex flex-wrap items-center justify-center gap-1.5 w-full">
       <input type="text" id="bulkTagNewName" autocomplete="off" placeholder="New tag name…" class="min-w-[8rem] flex-1 rounded-md bg-white/10 border border-white/15 px-2 py-1 text-[11px] font-semibold text-white placeholder:text-white/45 focus:outline-none focus:ring-1 focus:ring-sky-400/50" />
+      <label for="bulkTagNewColor" class="sr-only">New tag color</label>
+      <input type="color" id="bulkTagNewColor" value="#EAB308" class="bulk-tag-color-input shrink-0" title="New tag color" aria-label="New tag color" />
       <button type="button" id="bulkTagNewSave" class="bulk-bar-btn bulk-bar-btn--accent">Create &amp; add</button>
     </div>
   </div>

@@ -103,6 +103,21 @@ router.post('/assign', async (req, res, next) => {
   }
 });
 
+/** Body-based color update — tag keys contain colons (tag:uuid:ts). */
+router.post('/set-color', async (req, res, next) => {
+  try {
+    const tagKey = String(req.body?.tagKey || '').trim();
+    const color = String(req.body?.color || '').trim();
+    if (!tagKey) return res.status(400).json({ success: false, error: 'tagKey is required.' });
+    if (!color) return res.status(400).json({ success: false, error: 'Tag color is required.' });
+    const tag = await dbService.setTagColor(req.workspaceId, tagKey, color);
+    if (!tag) return res.status(404).json({ success: false, error: 'Tag not found.' });
+    res.json({ success: true, tag });
+  } catch (e) {
+    next(e);
+  }
+});
+
 router.post('/assign-bulk', async (req, res, next) => {
   try {
     const mode = String(req.body?.mode || 'add').toLowerCase();

@@ -20,7 +20,58 @@
 
   function tagColorForKey(key) {
     const t = tagByKey(key);
-    return (t && t.color) || '#94a3b8';
+    return normalizeHexColor((t && t.color) || '#94a3b8');
+  }
+
+  function normalizeHexColor(raw) {
+    const s = String(raw || '').trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(s)) return s.toUpperCase();
+    return '#94A3B8';
+  }
+
+  function upsertWorkspaceTag(tag) {
+    const normalized = normalizeWorkspaceTag(tag);
+    if (!normalized) return;
+    const list = Array.isArray(window.WORKSPACE_TAGS) ? window.WORKSPACE_TAGS.slice() : [];
+    const idx = list.findIndex((t) => t && t.key === normalized.key);
+    if (idx >= 0) list[idx] = { ...list[idx], ...normalized };
+    else list.push(normalized);
+    list.sort((a, b) =>
+      String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }),
+    );
+    window.WORKSPACE_TAGS = list;
+  }
+
+  async function saveTagColor(tagKey, color) {
+    const data = await apiJson('/tags/set-color', {
+      method: 'POST',
+      body: JSON.stringify({ tagKey: String(tagKey || '').trim(), color: normalizeHexColor(color) }),
+    });
+    if (data.tag) upsertWorkspaceTag(data.tag);
+    return data.tag;
+  }
+
+  function repaintAllRowTagChips() {
+    document.querySelectorAll('#prospectLeadsTable tbody tr.result-row, #searchResultsLeadsTable tbody tr.result-row').forEach((row) => {
+      if (row.querySelector('.lead-row-tags')) renderRowTagChips(row);
+    });
+  }
+
+  function syncBulkTagColorInput() {
+    const select = document.getElementById('bulkTagSelect');
+    const colorInput = document.getElementById('bulkTagColor');
+    if (!colorInput) return;
+    const tagKey = select && select.value ? String(select.value).trim() : '';
+    if (!tagKey) {
+      colorInput.disabled = true;
+      colorInput.value = '#94A3B8';
+      colorInput.dataset.tagKey = '';
+      return;
+    }
+    colorInput.disabled = false;
+    colorInput.dataset.tagKey = tagKey;
+    colorInput.value = tagColorForKey(tagKey);
+    colorInput.dataset.originalColor = colorInput.value;
   }
 
   function tagIsActive(tag) {
@@ -32,7 +83,7 @@
     return {
       key: String(tag.key),
       name: String(tag.name || '').trim() || 'Tag',
-      color: tag.color || '#94a3b8',
+      color: normalizeHexColor(tag.color || '#94a3b8'),
       isActive: tag.isActive === true,
     };
   }
@@ -229,22 +280,14 @@
     });
   }
 
-  async function createWorkspaceTag(name) {
+  async function createWorkspaceTag(name, color) {
+    const payload = { name: String(name || '').trim() };
+    if (color) payload.color = normalizeHexColor(color);
     const data = await apiJson('/tags', {
       method: 'POST',
-      body: JSON.stringify({ name: String(name || '').trim() }),
+      body: JSON.stringify(payload),
     });
-    if (data.tag && !getWorkspaceTags().some((t) => t && t.key === data.tag.key)) {
-      window.WORKSPACE_TAGS = [
-        ...getWorkspaceTags(),
-        {
-          key: data.tag.key,
-          name: data.tag.name || name,
-          color: data.tag.color || '#94a3b8',
-          isActive: data.tag.isActive === true,
-        },
-      ];
-    }
+    if (data.tag) upsertWorkspaceTag(data.tag);
     rebuildBulkTagSelect();
     return data.tag;
   }
@@ -267,6 +310,7 @@
     if (prev && Array.from(select.options).some((o) => o.value === prev)) {
       select.value = prev;
     }
+    syncBulkTagColorInput();
   }
 
   function leadKeyFromCheckbox(cb) {
@@ -343,6 +387,7 @@
         }
       }
       rebuildBulkTagSelect();
+      syncBulkTagColorInput();
     } else {
       row.classList.add('hidden');
       row.classList.remove('flex');
@@ -567,10 +612,41 @@
     const bar = document.getElementById('bulkActionBar');
     const toggle = document.getElementById('bulkTagsToggle');
     const select = document.getElementById('bulkTagSelect');
+    const colorInput = document.getElementById('bulkTagColor');
     const newName = document.getElementById('bulkTagNewName');
+    const newColor = document.getElementById('bulkTagNewColor');
     const addBtn = document.getElementById('bulkTagAddBtn');
     const removeBtn = document.getElementById('bulkTagRemoveBtn');
     const createBtn = document.getElementById('bulkTagNewSave');
+
+    if (select && select.dataset.colorSyncBound !== '1') {
+      select.dataset.colorSyncBound = '1';
+      select.addEventListener('change', () => syncBulkTagColorInput());
+    }
+
+    if (colorInput && colorInput.dataset.bound !== '1') {
+      colorInput.dataset.bound = '1';
+      colorInput.addEventListener('change', async () => {
+        const tagKey = String(colorInput.dataset.tagKey || (select && select.value) || '').trim();
+        const color = normalizeHexColor(colorInput.value || '');
+        const orig = normalizeHexColor(colorInput.dataset.originalColor || '');
+        if (!tagKey || !color || color === orig) return;
+        colorInput.disabled = true;
+        try {
+          await saveTagColor(tagKey, color);
+          colorInput.dataset.originalColor = color;
+          repaintAllRowTagChips();
+          if (typeof window.showProspectToast === 'function') {
+            window.showProspectToast('Tag color updated');
+          }
+        } catch (err) {
+          colorInput.value = orig;
+          window.alert(err.message || 'Could not update tag color.');
+        } finally {
+          colorInput.disabled = !tagKey;
+        }
+      });
+    }
 
     if (toggle && toggle.dataset.bound !== '1') {
       toggle.dataset.bound = '1';
@@ -650,12 +726,14 @@
         }
         if (createBtn) createBtn.disabled = true;
         try {
-          const tag = await createWorkspaceTag(name);
+          const newTagColor = newColor ? normalizeHexColor(newColor.value || '') : '';
+          const tag = await createWorkspaceTag(name, newTagColor);
           if (!tag || !tag.key) throw new Error('Could not create tag.');
           const data = await bulkAssignTags(keys, [tag.key], 'add');
           applyTagsToRowsFromBulkResult(data.leads);
           if (newName) newName.value = '';
           if (select) select.value = tag.key;
+          syncBulkTagColorInput();
           const msg = `Created “${tag.name}” and tagged ${(data.updatedKeys || []).length} lead(s) · tap Sync GHL to push`;
           if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
           else window.alert(msg);
@@ -958,6 +1036,7 @@
 
   function init() {
     rebuildBulkTagSelect();
+    syncBulkTagColorInput();
     initRowTags();
     bindBulkTags();
     bindLeadPanelTagsInteraction();

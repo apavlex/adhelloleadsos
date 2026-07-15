@@ -1060,6 +1060,29 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   display: flex !important;
 }
 
+#bulkActionBar input.bulk-tag-color-input,
+#bulkActionBar input[type="color"].bulk-tag-color-input {
+  width: 2rem;
+  height: 2rem;
+  padding: 0.125rem;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 0.375rem;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+#bulkActionBar input.bulk-tag-color-input:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.tags-manage-color {
+  padding: 0.125rem;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 #bulkActionBar .bulk-bar-expand-row:not(.hidden) {
   animation: bulk-bar-expand-in 0.18s ease-out;
 }

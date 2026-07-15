@@ -40,6 +40,12 @@
       .replace(/"/g, '&quot;');
   }
 
+  function normalizeHexColor(raw) {
+    const s = String(raw || '').trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(s)) return s.toUpperCase();
+    return '#94A3B8';
+  }
+
   function encodeTagKey(key) {
     return encodeURIComponent(String(key || '').trim());
   }
@@ -58,7 +64,7 @@
   function appendTagRow(tag) {
     if (!tbody || !tag || !tag.key) return;
     removeEmptyRow();
-    const color = tag.color || '#94a3b8';
+    const color = normalizeHexColor(tag.color || '#94a3b8');
     const name = String(tag.name || 'Tag');
     const count = typeof tag.leadCount === 'number' ? tag.leadCount : 0;
     const isActive = tag.isActive === true;
@@ -153,25 +159,28 @@
     }
 
     if (colorEl) {
+      colorEl.value = normalizeHexColor(colorEl.value || colorEl.getAttribute('data-original-color') || '#94A3B8');
+      colorEl.setAttribute('data-original-color', colorEl.value);
       colorEl.addEventListener('input', () => {
         colorEl.dataset.pendingColor = colorEl.value;
       });
       colorEl.addEventListener('change', async () => {
-        const color = String(colorEl.value || '').trim();
-        const orig = String(colorEl.getAttribute('data-original-color') || '').trim();
-        if (!color || !key || color.toUpperCase() === orig.toUpperCase()) return;
+        const color = normalizeHexColor(colorEl.value || '');
+        const orig = normalizeHexColor(colorEl.getAttribute('data-original-color') || '');
+        if (!color || !key || color === orig) return;
         colorEl.disabled = true;
         try {
-          const data = await apiJson(`/tags/${encodeTagKey(key)}/color`, {
+          const data = await apiJson('/tags/set-color', {
             method: 'POST',
-            body: JSON.stringify({ color }),
+            body: JSON.stringify({ tagKey: key, color }),
           });
-          colorEl.setAttribute('data-original-color', data.tag.color || color);
-          colorEl.value = data.tag.color || color;
+          const saved = normalizeHexColor(data.tag.color || color);
+          colorEl.setAttribute('data-original-color', saved);
+          colorEl.value = saved;
           upsertWorkspaceTag(data.tag);
           showMsg(`Updated color for “${String(nameEl?.value || nameEl?.getAttribute('data-original-name') || 'tag')}”.`, true);
         } catch (err) {
-          colorEl.value = orig || colorEl.getAttribute('data-original-color') || '#94a3b8';
+          colorEl.value = orig;
           showMsg(err.message || 'Could not update tag color.', false);
         } finally {
           colorEl.disabled = false;
@@ -280,7 +289,7 @@
       const submitBtn = createForm.querySelector('[type="submit"]');
       if (submitBtn) submitBtn.disabled = true;
       try {
-        const color = colorInput ? String(colorInput.value || '').trim() : '';
+        const color = colorInput ? normalizeHexColor(colorInput.value || '') : '';
         const data = await apiJson('/tags', {
           method: 'POST',
           body: JSON.stringify({ name, color: color || undefined }),
