@@ -49,13 +49,22 @@
     return String(raw || '').trim();
   }
 
+  function findProfileContentRoot() {
+    return (
+      document.querySelector('main [data-testid="profile"]')?.closest('main') ||
+      document.querySelector('main') ||
+      document.querySelector('[role="main"]') ||
+      document.querySelector('#__next main') ||
+      document.body
+    );
+  }
+
   function findTelPhone(scope) {
-    const root = scope || document;
+    const root = scope || findProfileContentRoot();
     const tel = root.querySelector('a[href^="tel:"]');
     if (tel) return normalizePhone(tel.href.replace(/^tel:/i, '') || tel.textContent);
-    const phoneMatch = root.body
-      ? root.body.innerText?.match(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/)
-      : root.innerText?.match?.(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
+    const textHost = root.body || root;
+    const phoneMatch = textHost.innerText?.match(/\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/);
     return phoneMatch ? normalizePhone(phoneMatch[0]) : '';
   }
 
@@ -488,10 +497,11 @@
   }
 
   function baseBusinessLead({ title, categoryName, url, sourceChannel, blocklist, noteParts }) {
+    const profileRoot = findProfileContentRoot();
     const jsonLd = findLocalBusinessJsonLd();
     const fromLd = businessFromJsonLd(jsonLd, {}, blocklist);
-    const website = fromLd.website || findExternalWebsite(blocklist) || 'N/A';
-    const phone = fromLd.phone || findTelPhone() || 'N/A';
+    const website = fromLd.website || findExternalWebsite(blocklist, profileRoot) || 'N/A';
+    const phone = fromLd.phone || findTelPhone(profileRoot) || 'N/A';
     const address = fromLd.address || '';
     const geo = parseCityState(address);
 

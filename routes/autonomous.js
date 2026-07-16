@@ -387,7 +387,7 @@ router.post('/leads', apiKeyAuth, express.json(), async (req, res, next) => {
         leadData.folderKey = folder.key;
         leadData.sourceType = leadData.sourceType || 'chrome_extension';
         resolvedFolderName = String(folder.name || requestedFolderName || 'Chrome Extension').trim();
-        if (requestedFolderName) {
+        if (req.body.forceFolderKey === true) {
           leadData.forceFolderKey = true;
         }
       }

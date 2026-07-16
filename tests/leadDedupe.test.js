@@ -80,4 +80,52 @@ describe('leadDedupe', () => {
     });
     assert.equal(key, leadMapsPlaceKey({ url: mapsUrlA }));
   });
+
+  it('creates separate leads for directory pages that share a platform phone', () => {
+    const existing = [
+      {
+        key: 'lead:1',
+        workspaceId: 'default',
+        title: 'Pro A Flooring',
+        phone: '(415) 555-0100',
+        url: 'https://www.thumbtack.com/ca/san-francisco/flooring/pro-a/service/123',
+        source: 'chrome_extension',
+        dedupeKey: 'phone:4155550100',
+      },
+    ];
+    const incoming = {
+      workspaceId: 'default',
+      title: 'Pro B Tile',
+      phone: '(415) 555-0100',
+      url: 'https://www.thumbtack.com/ca/san-francisco/tile/pro-b/service/456',
+      source: 'chrome_extension',
+    };
+    const match = findExistingLead(existing, incoming, 'default');
+    assert.equal(match, null);
+    assert.match(computeDedupeKey(incoming), /^url:thumbtack\.com\//);
+  });
+
+  it('still merges the same directory profile on re-save', () => {
+    const url = 'https://www.thumbtack.com/ca/portland/flooring/acme-floors/service/999';
+    const existing = [
+      {
+        key: 'lead:9',
+        workspaceId: 'default',
+        title: 'Acme Floors',
+        phone: '(503) 555-0100',
+        url,
+        source: 'chrome_extension',
+      },
+    ];
+    const incoming = {
+      workspaceId: 'default',
+      title: 'Acme Floors LLC',
+      phone: '(503) 555-0100',
+      url: `${url}?ref=share`,
+      source: 'chrome_extension',
+    };
+    const match = findExistingLead(existing, incoming, 'default');
+    assert.ok(match);
+    assert.equal(match.key, 'lead:9');
+  });
 });

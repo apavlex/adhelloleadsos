@@ -95,9 +95,34 @@ function leadMapsPlaceKey(lead) {
   return normalizeGoogleMapsPlaceKey(importUrl);
 }
 
+/** Canonical listing/profile page URL (Thumbtack pro, Yelp biz, etc.) — not bare domain roots. */
+function normalizeListingPageUrl(rawUrl) {
+  const s = String(rawUrl || '').trim();
+  if (!s || s === 'N/A') return '';
+  try {
+    const u = new URL(s.includes('://') ? s : `https://${s}`);
+    const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+    let path = decodeURIComponent(u.pathname || '').replace(/\/+$/, '').toLowerCase();
+    if (!path || path === '/') return '';
+    return `${host}${path}`;
+  } catch {
+    return '';
+  }
+}
+
+function listingPageUrlsDiffer(existing, incoming) {
+  const a = normalizeListingPageUrl(existing?.url);
+  const b = normalizeListingPageUrl(incoming?.url);
+  if (!a || !b) return false;
+  return a !== b;
+}
+
 function computeDedupeKey(lead) {
   const maps = leadMapsPlaceKey(lead);
   if (maps) return maps;
+
+  const pageUrl = normalizeListingPageUrl(lead?.url);
+  if (pageUrl) return `url:${pageUrl}`;
 
   const em = normalizeEmail(lead?.email);
   if (em) return `email:${em}`;
@@ -146,38 +171,44 @@ function findExistingLead(leads, incoming, workspaceId) {
     if (byMaps) return byMaps;
   }
 
+  const incomingPageUrl = normalizeListingPageUrl(incoming?.url);
+  if (incomingPageUrl) {
+    const byPageUrl = findBy((l) => normalizeListingPageUrl(l.url) === incomingPageUrl);
+    if (byPageUrl) return byPageUrl;
+  }
+
   if (emailNorm) {
     const byEmail = findBy((l) => normalizeEmail(l.email) === emailNorm);
-    if (byEmail) return byEmail;
+    if (byEmail && !listingPageUrlsDiffer(byEmail, incoming)) return byEmail;
   }
 
   if (domainNorm) {
     const byDomain = findBy((l) => normalizeDomain(l.website) === domainNorm);
-    if (byDomain) return byDomain;
+    if (byDomain && !listingPageUrlsDiffer(byDomain, incoming)) return byDomain;
   }
 
   if (phoneNorm) {
     const byPhone = findBy((l) => normalizePhone(l.phone) === phoneNorm);
-    if (byPhone) return byPhone;
+    if (byPhone && !listingPageUrlsDiffer(byPhone, incoming)) return byPhone;
   }
 
   if (dedupeKey) {
     const byKey = findBy((l) => String(l.dedupeKey || '') === dedupeKey);
-    if (byKey) return byKey;
+    if (byKey && !listingPageUrlsDiffer(byKey, incoming)) return byKey;
   }
 
   if (nameNorm && geoNorm) {
     const byNameGeo = findBy(
       (l) => normalizeName(l.title) === nameNorm && normalizeGeo(l.city, l.state) === geoNorm
     );
-    if (byNameGeo) return byNameGeo;
+    if (byNameGeo && !listingPageUrlsDiffer(byNameGeo, incoming)) return byNameGeo;
   }
 
   if (nameNorm && phoneNorm) {
     const byNamePhone = findBy(
       (l) => normalizeName(l.title) === nameNorm && normalizePhone(l.phone) === phoneNorm
     );
-    if (byNamePhone) return byNamePhone;
+    if (byNamePhone && !listingPageUrlsDiffer(byNamePhone, incoming)) return byNamePhone;
   }
 
   if (incoming.ip) {
@@ -233,6 +264,7 @@ module.exports = {
   normalizeName,
   normalizeGeo,
   normalizeGoogleMapsPlaceKey,
+  normalizeListingPageUrl,
   leadMapsPlaceKey,
   computeDedupeKey,
   findExistingLead,
