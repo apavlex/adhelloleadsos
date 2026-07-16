@@ -120,6 +120,10 @@
           el.disabled = false;
         }
       });
+      ['bulkMoveFolderBtn', 'bulkAddToBoardBtn', 'bulkSaveBtn'].forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+      });
       if (bar.dataset.bulkMode !== 'search') {
         ['bulkFocusModeBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn'].forEach((id) => {
           const el = document.getElementById(id);
@@ -740,6 +744,7 @@
       });
     }
     bindBulkBarCaptureActions();
+    bindBulkBoardButtonDirect();
     bindShiftClickRangeSelection();
     document.querySelectorAll('table').forEach((table) => {
       if (table.querySelector('thead input[data-select-all-leads]')) {
@@ -1174,7 +1179,8 @@
     const el = document.getElementById('bulkSaveFeedback');
     if (!el) return;
     el.textContent = msg;
-    el.classList.remove('hidden', 'text-emerald-300', 'text-rose-300', 'text-white/80', 'text-sky-200');
+    el.classList.remove('hidden');
+    el.classList.remove('text-emerald-300', 'text-rose-300', 'text-white/80', 'text-sky-200');
     if (variant === 'error') el.classList.add('text-rose-300');
     else if (variant === 'success') el.classList.add('text-emerald-300');
     else if (variant === 'loading') el.classList.add('text-white/80');
@@ -1551,6 +1557,186 @@
   }
 
   /** Fallback when app.js bulk folder handlers are not ready yet. */
+  function normalizeLeadKeyForBoardApi(key) {
+    const k = String(key || '').trim();
+    if (!k) return '';
+    return k.startsWith('lead:') ? k : 'lead:' + k;
+  }
+
+  function applyPipelineStageToRowEarly(row, stageId, pipelineStage) {
+    if (!row || !stageId) return;
+    const sid = String(stageId).trim();
+    row.dataset.stageId = sid;
+    if (pipelineStage != null) row.dataset.pipelineStage = String(pipelineStage);
+    const labels = window.PIPELINE_STAGE_LABELS || {};
+    const fullName = labels[sid] || '';
+    const short =
+      (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
+    row.dataset.pipelineLabel = short;
+    const pipeSel = row.querySelector('.pipeline-inline-select');
+    if (pipeSel) pipeSel.value = sid;
+    const cell = row.querySelector('.pipeline-stage-label');
+    if (cell) cell.textContent = short || 'Stage';
+    const wrap = row.querySelector('.pipeline-stage-pill-wrap');
+    if (wrap) {
+      const dot =
+        (window.PIPELINE_STAGE_COLORS && window.PIPELINE_STAGE_COLORS[sid]) || '#94a3b8';
+      wrap.style.boxShadow = 'inset 3px 0 0 ' + dot;
+    }
+  }
+
+  function findLeadRowForBoardKey(key) {
+    const k = String(key || '').trim();
+    if (!k) return null;
+    const variants = [k, k.replace(/^lead:/i, ''), 'lead:' + k.replace(/^lead:/i, '')];
+    for (let i = 0; i < variants.length; i += 1) {
+      const v = variants[i];
+      const row = document.querySelector(
+        '#prospectLeadsTable tr.result-row[data-lead-key="' +
+          CSS.escape(v) +
+          '"], tr.result-row[data-lead-key="' +
+          CSS.escape(v) +
+          '"]',
+      );
+      if (row) return row;
+    }
+    return null;
+  }
+
+  async function runBulkAddToBoardFromBarEarly() {
+    if (typeof window.__bulkAddToBoardFromBar === 'function') {
+      return window.__bulkAddToBoardFromBar();
+    }
+
+    const keys = collectSelectedLeadKeysEarly();
+    if (!keys.length) {
+      showBulkBarFeedbackEarly('Select at least one lead.', 'error');
+      return;
+    }
+    const stageEl = document.getElementById('bulkPipelineStageSelect');
+    const stageId = stageEl && stageEl.value ? String(stageEl.value).trim() : '';
+    if (!stageId) {
+      showBulkBarFeedbackEarly('Choose a pipeline stage first.', 'error');
+      return;
+    }
+    const stageName =
+      (stageEl &&
+        stageEl.options &&
+        stageEl.options[stageEl.selectedIndex] &&
+        stageEl.options[stageEl.selectedIndex].textContent &&
+        String(stageEl.options[stageEl.selectedIndex].textContent).trim()) ||
+      (window.PIPELINE_STAGE_LABELS && window.PIPELINE_STAGE_LABELS[stageId]) ||
+      'pipeline board';
+    const folderEl = document.getElementById('bulkFolderSelect');
+    const folderKey = folderEl && folderEl.value ? String(folderEl.value).trim() : '';
+    const viewingFolder =
+      typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string'
+        ? window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()
+        : '';
+    const btn = document.getElementById('bulkAddToBoardBtn');
+    const n = keys.length;
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+    }
+    if (typeof window.__flashBulkBarBtn === 'function' && btn) {
+      window.__flashBulkBarBtn(btn, 'Saving…', 12000);
+    }
+    showBulkBarFeedbackEarly(
+      'Adding ' + n + ' lead' + (n === 1 ? '' : 's') + ' to ' + stageName + '…',
+      'loading',
+    );
+    try {
+      const res = await fetch('/leads/bulk-stage-assign', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          leadKeys: keys.map(normalizeLeadKeyForBoardApi).filter(Boolean),
+          stageId: stageId,
+          ...(folderKey ? { folderKey: folderKey } : {}),
+        }),
+      });
+      const data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'HTTP ' + res.status);
+      }
+      const updated = Array.isArray(data.leads) ? data.leads : [];
+      const updatedKeys = Array.isArray(data.updatedKeys) ? data.updatedKeys : [];
+      if (!updatedKeys.length) {
+        throw new Error('No leads were updated. Refresh the page and try again.');
+      }
+
+      updated.forEach(function (item) {
+        if (!item || !item.key) return;
+        const row = findLeadRowForBoardKey(item.key);
+        if (!row) return;
+        applyPipelineStageToRowEarly(row, item.stageId || stageId, item.pipelineStage);
+        if (folderKey && viewingFolder && folderKey !== viewingFolder) {
+          row.remove();
+        }
+      });
+
+      const msg =
+        'Saved ' + updatedKeys.length + ' lead' + (updatedKeys.length === 1 ? '' : 's') + ' to ' + stageName;
+      showBulkBarFeedbackEarly(msg, 'success');
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      if (typeof window.__flashBulkBarBtn === 'function' && btn) {
+        window.__flashBulkBarBtn(btn, 'Saved ✓', 2200);
+      }
+
+      if (folderKey && folderKey !== viewingFolder) {
+        try {
+          sessionStorage.setItem('adhello_pipeline_view', 'kanban');
+        } catch (_) {}
+        window.location.href =
+          '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(folderKey);
+        return;
+      }
+
+      if (typeof window.__adhelloSetPipelineView === 'function') {
+        window.__adhelloSetPipelineView('kanban');
+      } else if (typeof window.__adhelloInitKanban === 'function') {
+        window.__adhelloInitKanban();
+      }
+      if (typeof window.refreshPipelineKanbanIfNeeded === 'function') {
+        window.refreshPipelineKanbanIfNeeded();
+      }
+      const kanbanEl = document.getElementById('kanbanView');
+      if (kanbanEl && typeof kanbanEl.scrollIntoView === 'function') {
+        kanbanEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
+      document
+        .querySelectorAll('.lead-checkbox:checked, .row-checkbox:checked')
+        .forEach(function (cb) {
+          cb.checked = false;
+        });
+      if (typeof window.__syncBulkBarFromDom === 'function') {
+        window.__syncBulkBarFromDom();
+      } else if (typeof window.__updateBulkActionBar === 'function') {
+        window.__updateBulkActionBar();
+      }
+    } catch (err) {
+      console.error('[pipeline-bulk-select] bulk board failed:', err);
+      showBulkBarFeedbackEarly(
+        (err && err.message) || 'Could not add selected leads to the pipeline board.',
+        'error',
+      );
+      if (typeof window.__flashBulkBarBtn === 'function' && btn) {
+        window.__flashBulkBarBtn(btn, 'Failed', 1600);
+      }
+    } finally {
+      if (btn) {
+        btn.removeAttribute('aria-busy');
+        btn.disabled = collectSelectedLeadKeysEarly().length === 0;
+      }
+    }
+  }
+  window.__runBulkAddToBoardFromBarEarly = runBulkAddToBoardFromBarEarly;
+
   async function runBulkMoveFolderFromBarEarly() {
     const keys = collectSelectedLeadKeysEarly();
     if (!keys.length) {
@@ -1600,6 +1786,17 @@
       return window.__bulkSaveSelectedLeads(triggerBtn);
     }
     return runBulkMoveFolderFromBarEarly();
+  }
+
+  function bindBulkBoardButtonDirect() {
+    const btn = document.getElementById('bulkAddToBoardBtn');
+    if (!btn || btn.dataset.plcBoardBound === '1') return;
+    btn.dataset.plcBoardBound = '1';
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      void runBulkAddToBoardFromBarEarly();
+    });
   }
 
   /**
@@ -1652,9 +1849,7 @@
         if (e.target.closest('#bulkAddToBoardBtn')) {
           e.preventDefault();
           e.stopPropagation();
-          if (typeof window.__bulkAddToBoardFromBar === 'function') {
-            void window.__bulkAddToBoardFromBar();
-          }
+          void runBulkAddToBoardFromBarEarly();
           return;
         }
         if (e.target.closest('#bulkSaveBtn')) {
@@ -1783,6 +1978,12 @@
         const bar = document.getElementById('bulkActionBar');
         if (!bar || bar.dataset.visible !== 'true') return;
         if (!e.target || !e.target.closest || !e.target.closest('#bulkActionBar')) return;
+        if (e.target.closest('#bulkAddToBoardBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          void runBulkAddToBoardFromBarEarly();
+          return;
+        }
         if (e.target.closest('#bulkDirectMailBtn')) {
           e.preventDefault();
           e.stopPropagation();
@@ -1831,7 +2032,7 @@
     );
   }
 
-  window.__PIPELINE_BULK_SELECT_V2 = '12';
+  window.__PIPELINE_BULK_SELECT_V2 = '13';
   window.__pipelineBulkSelectApply = applySelectAll;
   window.__applySelectAllLeads = applySelectAll;
 
