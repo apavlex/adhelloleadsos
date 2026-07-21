@@ -16,7 +16,8 @@ const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
  * @param {string} opts.message
  * @param {Array<{role:string,content:string}>} [opts.history]
  * @param {string} [opts.conversationId]
- * @param {'automate'|'assistant'} [opts.platform]
+ * @param {'automate'|'assistant'|'global'} [opts.platform]
+ * @param {string} [opts.page]
  * @param {boolean} [opts.persistHistory]
  */
 async function runPavlexChat(req, opts) {
@@ -25,8 +26,12 @@ async function runPavlexChat(req, opts) {
   const message = String(opts.message || '').trim();
   const history = Array.isArray(opts.history) ? opts.history : [];
   const conversationId = String(opts.conversationId || '').trim() || null;
-  const platform = opts.platform === 'assistant' ? 'assistant' : 'automate';
-  const persistHistory = opts.persistHistory !== false && platform === 'automate';
+  const platformRaw = String(opts.platform || 'global').toLowerCase();
+  const platform =
+    platformRaw === 'assistant' ? 'assistant' : platformRaw === 'automate' ? 'automate' : 'global';
+  const page = String(opts.page || '').trim().slice(0, 500);
+  const persistHistory =
+    opts.persistHistory !== false && (platform === 'automate' || platform === 'global');
 
   if (!message) {
     const err = new Error('Message is required.');
@@ -34,7 +39,11 @@ async function runPavlexChat(req, opts) {
     throw err;
   }
 
-  const { instructions, mcpConfig } = await buildPavlexContext(req, auth, { platform, message });
+  const { instructions, mcpConfig } = await buildPavlexContext(req, auth, {
+    platform,
+    message,
+    page,
+  });
 
   const connection = await connectMCP({
     serverUrl: mcpConfig.serverUrl,

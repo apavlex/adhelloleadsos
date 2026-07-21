@@ -21,16 +21,22 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) =>
       }));
 
     const conversationId = String(req.body.conversationId || '').trim() || undefined;
-    const platform = String(req.body.platform || 'automate').toLowerCase() === 'assistant'
-      ? 'assistant'
-      : 'automate';
+    const platformRaw = String(req.body.platform || 'global').toLowerCase();
+    const platform =
+      platformRaw === 'assistant'
+        ? 'assistant'
+        : platformRaw === 'automate'
+          ? 'automate'
+          : 'global';
+    const page = String(req.body.page || '').trim().slice(0, 500) || undefined;
 
     const result = await runPavlexChat(req, {
       message,
       history,
       conversationId,
       platform,
-      persistHistory: platform === 'automate',
+      page,
+      persistHistory: platform === 'automate' || platform === 'global',
     });
 
     res.json({

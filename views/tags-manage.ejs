@@ -97,5 +97,6 @@
     window.WORKSPACE_TAGS = <%- JSON.stringify(typeof tags !== 'undefined' ? tags : []) %>;
   </script>
   <script src="/js/tags-manage.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <%- include('/partials/app_shell_close') %>
 </body>
 </html>

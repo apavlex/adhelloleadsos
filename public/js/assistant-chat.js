@@ -379,7 +379,13 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ message: text, history: prior, platform: 'assistant' }),
+          body: JSON.stringify({
+            message: text,
+            history: prior,
+            platform: 'assistant',
+            page: (window.location.pathname || '') + (window.location.search || ''),
+            pageTitle: document.title || '',
+          }),
         });
         let data = {};
         let bodyWasJson = false;

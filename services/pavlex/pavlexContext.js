@@ -23,13 +23,13 @@ function readMemoryFile(filePath) {
  * @param {object} auth — from resolvePavlexAuth
  * @param {object} opts
  */
-async function buildPavlexContext(req, auth, { platform = 'automate', message = '' } = {}) {
+async function buildPavlexContext(req, auth, { platform = 'global', message = '', page = '' } = {}) {
   const mcpConfig = await loadWorkspaceMcpConfig(req);
   const memoryCtx = readMemoryFile(MEMORY_FILE);
   const userCtx = readMemoryFile(USER_FILE);
 
   let workspaceBlock = '';
-  if (platform === 'assistant' && auth.workspaceId && auth.email) {
+  if (auth.workspaceId && auth.email) {
     const { contextText } = await buildAssistantContext({
       workspaceId: auth.workspaceId,
       email: auth.email,
@@ -38,10 +38,13 @@ async function buildPavlexContext(req, auth, { platform = 'automate', message = 
     workspaceBlock = `\nWORKSPACE DATA (leads, pipeline, resources):\n${contextText}\n`;
   }
 
-  const platformLabel =
-    platform === 'assistant'
-      ? 'Agency OS floating chat'
-      : 'Automate Command Center (CEO dashboard)';
+  const platformLabels = {
+    assistant: 'Agency OS floating chat',
+    automate: 'Automate Command Center (CEO dashboard)',
+    global: 'Agency OS (site-wide Pavlex chat)',
+  };
+  const platformLabel = platformLabels[platform] || platformLabels.global;
+  const pagePath = String(page || '').trim();
 
   const toolsList = (mcpConfig.availableTools || []).join(', ');
 
@@ -59,6 +62,7 @@ ${memoryCtx}
 ${workspaceBlock}
 SESSION:
 - Platform: ${platformLabel}
+- Current page: ${pagePath || 'unknown'}
 - User: ${auth.email}
 - Workspace: ${auth.workspaceId}
 - MCP server: ${mcpConfig.serverUrl || 'inline CRM execution'}
@@ -71,7 +75,7 @@ RULES:
 - Immediate action over analysis.
 - Keep responses under 300 words unless asked for detail.
 - Direct, pragmatic tone.
-${platform === 'assistant' ? '- Plain text only. No markdown asterisks or backticks.' : ''}`;
+${platform === 'assistant' || platform === 'global' ? '- Plain text only. No markdown asterisks or backticks.' : ''}`;
 
   return {
     instructions,

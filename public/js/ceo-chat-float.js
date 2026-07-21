@@ -1,5 +1,5 @@
 /**
- * Global Pavlex chat (Automate /ceo bubble) — POST /api/pavlex/chat, history from /ceo/chat/history.
+ * Global Pavlex chat — POST /api/pavlex/chat on any authenticated app page.
  */
 (function () {
   var PAVLEX_AVATAR =
@@ -26,6 +26,16 @@
     s = s.replace(/\n\n/g, '</p><p class="mt-2">');
     s = s.replace(/\n/g, '<br>');
     return '<p>' + s + '</p>';
+  }
+
+  function detectPavlexPlatform() {
+    var path = window.location.pathname || '';
+    if (path === '/ceo' || path.indexOf('/ceo/') === 0) return 'automate';
+    return 'global';
+  }
+
+  function currentPageContext() {
+    return (window.location.pathname || '') + (window.location.search || '');
   }
 
   function initCeoChatFloat() {
@@ -118,7 +128,13 @@
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ message: msg, history: chatHistory.slice(-10), platform: 'automate' }),
+        body: JSON.stringify({
+          message: msg,
+          history: chatHistory.slice(-10),
+          platform: detectPavlexPlatform(),
+          page: currentPageContext(),
+          pageTitle: document.title || '',
+        }),
       })
         .then(function (r) {
           return r.json();
