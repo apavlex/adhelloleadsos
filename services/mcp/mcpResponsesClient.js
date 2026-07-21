@@ -2,6 +2,7 @@
  * OpenAI Responses API + hosted remote MCP tool (CEO Chief of Staff CRM access).
  */
 const { CRM_MCP_TOOL_NAMES, isResponsesMcpReady } = require('./mcpConnection');
+const mcpLogger = require('./mcpLogger');
 
 const RESPONSES_URL = 'https://api.openai.com/v1/responses';
 
@@ -33,6 +34,25 @@ function extractResponsesOutputText(data) {
   return joined || null;
 }
 
+function extractMcpActivityFromResponse(data) {
+  const activity = { toolsListed: [], toolCalls: [] };
+  const output = Array.isArray(data && data.output) ? data.output : [];
+  for (const item of output) {
+    if (!item || typeof item !== 'object') continue;
+    if (item.type === 'mcp_list_tools' && Array.isArray(item.tools)) {
+      activity.toolsListed = item.tools.map((t) => t.name || t).filter(Boolean);
+    }
+    if (item.type === 'mcp_call') {
+      activity.toolCalls.push({
+        name: item.name || item.tool_name || 'unknown',
+        status: item.status || null,
+        output: item.output != null ? String(item.output).slice(0, 500) : null,
+      });
+    }
+  }
+  return activity;
+}
+
 function buildResponsesInput({ message, history = [] }) {
   const input = [];
   for (const m of history || []) {
@@ -53,7 +73,9 @@ function buildResponsesInput({ message, history = [] }) {
  * @param {string} opts.serverUrl — public MCP endpoint (Streamable HTTP)
  * @param {string} opts.bearerToken — MCP access token for Authorization header
  * @param {string} [opts.model]
- * @returns {Promise<{ content: string|null, provider: string, error?: boolean, detail?: string }>}
+ * @param {string} [opts.workspaceId]
+ * @param {string} [opts.userEmail]
+ * @returns {Promise<{ content: string|null, provider: string, error?: boolean, detail?: string, toolActivity?: object }>}
  */
 async function chiefOfStaffResponsesWithMcp({
   instructions,
@@ -62,6 +84,8 @@ async function chiefOfStaffResponsesWithMcp({
   serverUrl,
   bearerToken,
   model,
+  workspaceId,
+  userEmail,
 }) {
   const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
   const resolvedModel = model || defaultResponsesModel();
@@ -74,6 +98,14 @@ async function chiefOfStaffResponsesWithMcp({
       detail: 'Responses MCP not configured (OPENAI_API_KEY, BASE_URL, bearer token required).',
     };
   }
+
+  mcpLogger.connectionStatus({
+    layer: 'responses_api',
+    serverUrl,
+    workspaceId,
+    userEmail,
+    tools: CRM_MCP_TOOL_NAMES,
+  });
 
   const body = {
     model: resolvedModel,
@@ -109,8 +141,19 @@ async function chiefOfStaffResponsesWithMcp({
         (data && data.error && data.error.message) ||
         (data && data.message) ||
         `OpenAI Responses API HTTP ${res.status}`;
-      console.warn('[mcpResponsesClient]', msg);
+      mcpLogger.transportError({ layer: 'responses_api', error: msg, status: res.status });
       return { content: null, provider: 'openai-responses-mcp', error: true, detail: msg };
+    }
+
+    const toolActivity = extractMcpActivityFromResponse(data);
+    if (toolActivity.toolsListed.length) {
+      mcpLogger.toolsDiscovered({ source: 'responses_api', tools: toolActivity.toolsListed });
+    }
+    for (const call of toolActivity.toolCalls) {
+      mcpLogger.toolInvoke({ source: 'responses_api', tool: call.name, status: call.status });
+      if (call.output) {
+        mcpLogger.toolResponse({ source: 'responses_api', tool: call.name, summary: call.output.slice(0, 200) });
+      }
     }
 
     const content = extractResponsesOutputText(data);
@@ -120,12 +163,19 @@ async function chiefOfStaffResponsesWithMcp({
         provider: 'openai-responses-mcp',
         error: true,
         detail: 'Empty response from OpenAI Responses API.',
+        toolActivity,
       };
     }
 
-    return { content, provider: 'openai-responses-mcp', error: false, model: resolvedModel };
+    return {
+      content,
+      provider: 'openai-responses-mcp',
+      error: false,
+      model: resolvedModel,
+      toolActivity,
+    };
   } catch (err) {
-    console.warn('[mcpResponsesClient] request failed:', err.message);
+    mcpLogger.transportError({ layer: 'responses_api', error: err.message });
     return {
       content: null,
       provider: 'openai-responses-mcp',
@@ -138,5 +188,6 @@ async function chiefOfStaffResponsesWithMcp({
 module.exports = {
   chiefOfStaffResponsesWithMcp,
   extractResponsesOutputText,
+  extractMcpActivityFromResponse,
   defaultResponsesModel,
 };

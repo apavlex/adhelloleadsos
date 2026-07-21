@@ -428,8 +428,19 @@
 
         <div class="text-xs text-brand-muted leading-relaxed space-y-2">
           <p class="font-semibold text-brand-dark dark:text-white">Available tools</p>
-          <p><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_folder</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">update_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">bulk_update_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">search_leads</code></p>
-          <p>In ChatGPT: <strong>Settings → Connectors → Add MCP server</strong> — use the MCP endpoint URL and Bearer token above. While signed in to Agency OS in the same browser, the endpoint also accepts your session cookie.</p>
+          <p><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_folder</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">count_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">update_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">bulk_update_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">search_leads</code></p>
+          <p>Pavlex chat automatically registers this MCP server on every message using your logged-in session — no manual token required for in-app chat.</p>
+          <p>In ChatGPT: <strong>Settings → Connectors → Add MCP server</strong> — use the MCP endpoint URL and Bearer token above.</p>
+        </div>
+
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Pavlex MCP diagnostics</p>
+          <p class="text-xs text-brand-muted leading-relaxed">Verify Pavlex can reach the CRM MCP server, authenticate as you, and call <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>.</p>
+          <div class="flex flex-wrap gap-2 items-center">
+            <button type="button" id="mcpRunDiagnosticsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-colors">Run diagnostics</button>
+            <a href="/ceo/mcp-diagnostics" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open JSON</a>
+          </div>
+          <pre id="mcpDiagnosticsOutput" class="hidden text-[11px] whitespace-pre-wrap break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 max-h-64 overflow-auto"></pre>
         </div>
       </section>
 
@@ -934,6 +945,31 @@
         }
       } finally {
         if (mcpRevokeBtn) mcpRevokeBtn.disabled = false;
+      }
+    });
+  }
+
+  var mcpDiagBtn = document.getElementById('mcpRunDiagnosticsBtn');
+  var mcpDiagOut = document.getElementById('mcpDiagnosticsOutput');
+  if (mcpDiagBtn) {
+    mcpDiagBtn.addEventListener('click', async function () {
+      if (mcpDiagOut) {
+        mcpDiagOut.classList.remove('hidden');
+        mcpDiagOut.textContent = 'Running diagnostics…';
+      }
+      mcpDiagBtn.disabled = true;
+      try {
+        var res = await fetch('/ceo/mcp-diagnostics', { credentials: 'same-origin' });
+        var data = await res.json().catch(function () { return {}; });
+        if (mcpDiagOut) {
+          mcpDiagOut.textContent = JSON.stringify(data, null, 2);
+        }
+      } catch (e) {
+        if (mcpDiagOut) {
+          mcpDiagOut.textContent = 'Diagnostics failed: ' + (e && e.message ? e.message : 'unknown error');
+        }
+      } finally {
+        mcpDiagBtn.disabled = false;
       }
     });
   }

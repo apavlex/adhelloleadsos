@@ -70,6 +70,33 @@ function normalizeFolderName(value) {
     .toLowerCase();
 }
 
+async function resolveFolderRef(workspaceId, ref = {}) {
+  const folderId = String(ref.folder_id || ref.folder_key || '').trim();
+  const folderName = String(ref.folder_name || '').trim();
+  if (!folderId && !folderName) {
+    const err = new Error('folder_id or folder_name is required.');
+    err.code = 'INVALID_ARGUMENT';
+    throw err;
+  }
+
+  const folders = await dbService.listFolders(workspaceId);
+
+  if (folderId) {
+    const exact =
+      folders.find((f) => f && String(f.key || '').trim() === folderId) ||
+      folders.find((f) => f && String(f.key || '').toLowerCase() === folderId.toLowerCase());
+    if (exact) return exact;
+  }
+
+  if (folderName) {
+    return resolveFolder(workspaceId, folderName);
+  }
+
+  const err = new Error(`Folder not found: ${folderId || folderName}`);
+  err.code = 'NOT_FOUND';
+  throw err;
+}
+
 async function resolveFolder(workspaceId, folderName) {
   const raw = String(folderName || '').trim();
   if (!raw) {
@@ -185,20 +212,31 @@ async function listFolders(ctx) {
   return { folders: summaries, total: summaries.length };
 }
 
-async function getFolder(ctx, { folder_name: folderName }) {
+async function getFolder(ctx, ref) {
   const { workspaceId, userEmail } = ctx;
-  const folder = await resolveFolder(workspaceId, folderName);
+  const folder = await resolveFolderRef(workspaceId, ref);
   const reqLike = buildReqLike(workspaceId, userEmail);
   const leadCount = await countLeadsInFolder(workspaceId, folder.key, reqLike);
   return { folder: mapFolderSummary(folder, leadCount) };
 }
 
-async function listLeads(ctx, { folder_name: folderName, limit, offset }) {
+async function countLeads(ctx, ref) {
   const { workspaceId, userEmail } = ctx;
-  const folder = await resolveFolder(workspaceId, folderName);
+  const folder = await resolveFolderRef(workspaceId, ref);
   const reqLike = buildReqLike(workspaceId, userEmail);
-  const lim = clampLimit(limit);
-  const off = clampOffset(offset);
+  const count = await countLeadsInFolder(workspaceId, folder.key, reqLike);
+  return {
+    folder: { key: folder.key, name: folder.name, folder_id: folder.key },
+    count,
+  };
+}
+
+async function listLeads(ctx, ref) {
+  const { workspaceId, userEmail } = ctx;
+  const folder = await resolveFolderRef(workspaceId, ref);
+  const reqLike = buildReqLike(workspaceId, userEmail);
+  const lim = clampLimit(ref.limit);
+  const off = clampOffset(ref.offset);
 
   const all = await dbService.getAllLeads(workspaceId);
   const visible = filterLeadsForRequest(reqLike, all);
@@ -327,6 +365,7 @@ module.exports = {
   MCP_UPDATABLE_LEAD_FIELDS,
   listFolders,
   getFolder,
+  countLeads,
   listLeads,
   getLead,
   updateLead,

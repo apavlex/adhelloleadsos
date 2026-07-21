@@ -2,17 +2,12 @@
  * Resolve public MCP server URL and bearer token for OpenAI Responses API callbacks.
  */
 const dbService = require('../database');
+const { userEmail } = require('../workspaceService');
 const { generateWorkspaceMcpToken, getWorkspaceMcpTokenStatus } = require('./mcpAuth');
+const { createMcpSessionToken } = require('./mcpSessionToken');
+const { TOOL_NAMES } = require('./mcpToolExecutor');
 
-const CRM_MCP_TOOL_NAMES = [
-  'list_folders',
-  'get_folder',
-  'list_leads',
-  'get_lead',
-  'update_lead',
-  'bulk_update_leads',
-  'search_leads',
-];
+const CRM_MCP_TOOL_NAMES = TOOL_NAMES;
 
 function getMcpServerUrl(req) {
   const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
@@ -29,6 +24,19 @@ function envMcpBearerToken(workspaceId) {
   const scopedWid = String(process.env.MCP_WORKSPACE_ID || '').trim();
   if (scopedWid && scopedWid !== String(workspaceId || '').trim()) return null;
   return token;
+}
+
+/**
+ * Session-scoped bearer token for Pavlex chat → OpenAI → MCP callback chain.
+ */
+function resolveMcpBearerTokenForChat(req) {
+  const workspaceId = req && req.workspaceId;
+  const email = userEmail(req);
+  const token = createMcpSessionToken({ workspaceId, userEmail: email });
+  if (token) {
+    return { token, authMethod: 'session_token', autoProvisioned: false };
+  }
+  return { token: null, authMethod: null, autoProvisioned: false };
 }
 
 /**
@@ -84,5 +92,6 @@ module.exports = {
   getMcpServerUrl,
   envMcpBearerToken,
   resolveMcpBearerToken,
+  resolveMcpBearerTokenForChat,
   isResponsesMcpReady,
 };

@@ -51,6 +51,7 @@ describe('mcpConnection', () => {
 
   it('exports CRM tool names', () => {
     assert.ok(CRM_MCP_TOOL_NAMES.includes('list_folders'));
+    assert.ok(CRM_MCP_TOOL_NAMES.includes('count_leads'));
     assert.ok(CRM_MCP_TOOL_NAMES.includes('search_leads'));
   });
 });

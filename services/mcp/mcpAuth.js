@@ -5,6 +5,8 @@ const crypto = require('crypto');
 const dbService = require('../database');
 const attachWorkspace = require('../../middleware/withWorkspace');
 const { userEmail } = require('../workspaceService');
+const { verifyMcpSessionToken } = require('./mcpSessionToken');
+const mcpLogger = require('./mcpLogger');
 
 function sha256(value) {
   return crypto.createHash('sha256').update(String(value)).digest('hex');
@@ -27,6 +29,17 @@ function readBearerToken(req) {
 async function validateMcpBearerToken(token) {
   const raw = String(token || '').trim();
   if (!raw) return null;
+
+  const sessionAuth = verifyMcpSessionToken(raw);
+  if (sessionAuth) {
+    const ws = await dbService.getWorkspace(sessionAuth.workspaceId);
+    return {
+      workspaceId: sessionAuth.workspaceId,
+      workspace: ws || { id: sessionAuth.workspaceId, name: 'Workspace' },
+      authMethod: sessionAuth.authMethod,
+      userEmail: sessionAuth.userEmail,
+    };
+  }
 
   const envToken = String(process.env.MCP_ACCESS_TOKEN || '').trim();
   if (envToken && raw === envToken) {
@@ -107,6 +120,12 @@ async function mcpAuthContext(req, res, next) {
       return attachWorkspace(req, res, () => {
         req.mcpAuthMethod = 'session';
         req.mcpUserEmail = userEmail(req);
+        mcpLogger.connectionStatus({
+          authMethod: 'session',
+          workspaceId: req.workspaceId,
+          userEmail: req.mcpUserEmail,
+          path: req.path,
+        });
         next();
       });
     }
@@ -121,11 +140,19 @@ async function mcpAuthContext(req, res, next) {
 
     const auth = await validateMcpBearerToken(bearer);
     if (!auth) {
+      mcpLogger.authError({ reason: 'invalid_bearer', path: req.path });
       return res.status(401).json({
         jsonrpc: '2.0',
         error: { code: -32001, message: 'Invalid MCP access token.' },
       });
     }
+
+    mcpLogger.connectionStatus({
+      authMethod: auth.authMethod,
+      workspaceId: auth.workspaceId,
+      userEmail: auth.userEmail,
+      path: req.path,
+    });
 
     req.workspaceId = auth.workspaceId;
     req.workspace = auth.workspace;

@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const workspaceService = require('../services/workspaceService');
-const { chatCompletion } = require('../services/llmClient');
+const { pavlexChatWithCrmTools } = require('../services/mcp/mcpChatRuntime');
+const { runMcpDiagnostics } = require('../services/mcp/mcpDiagnostics');
 const { buildAssistantContext } = require('../services/assistantSearch');
 const fs = require('fs');
 
@@ -73,6 +74,7 @@ RULES:
 - Be extremely concise. One-word directions from Alex are normal.
 - Immediate action over analysis. Strategy → execute.
 - You can see the user's leads, pipeline, and resources above. Reference them naturally.
+- You have live CRM MCP tools for folders, lead counts, listing leads, search, read, and update. Use them when Alex asks about pipeline data.
 - If Alex asks you to do something (create task, research, write content), DO it — don't suggest.
 - Keep responses under 300 words unless asked for detail.
 - Same tone as Telegram: direct, pragmatic, no hand-holding.
@@ -84,16 +86,19 @@ RULES:
     }
     messages.push({ role: 'user', content: lastMsg.slice(0, 8000) });
 
-    const llm = await chatCompletion({
-      messages,
-      max_tokens: 1000,
+    const chatOut = await pavlexChatWithCrmTools({
+      req,
+      instructions: systemContent,
+      message: lastMsg.slice(0, 8000),
+      history,
+      legacyMessages: messages,
+      maxTokens: 1000,
       temperature: 0.52,
-      providerChain: 'legacy',
     });
 
     let reply = '';
-    if (llm.content && !llm.error) {
-      reply = String(llm.content).replace(/\0/g, '').trim();
+    if (chatOut.content && !chatOut.error) {
+      reply = String(chatOut.content).replace(/\0/g, '').trim();
     }
     if (!reply) {
       reply = "I'm here. What do you want to work on?";
@@ -104,12 +109,23 @@ RULES:
     res.json({
       reply: reply,
       citations: citationsOut,
-      provider: llm.provider || 'none',
-      llmDegraded: !llm.content || llm.error,
+      provider: chatOut.provider || 'none',
+      mcpEnabled: !!chatOut.mcpEnabled,
+      mcpMode: chatOut.mcpMode || null,
+      llmDegraded: !chatOut.content || chatOut.error,
     });
   } catch (e) {
     console.warn('[assistant/chat]', e.message);
     res.status(500).json({ error: e.message || 'Server error' });
+  }
+});
+
+router.get('/mcp-diagnostics', async (req, res, next) => {
+  try {
+    const report = await runMcpDiagnostics(req);
+    res.json({ success: true, ...report });
+  } catch (err) {
+    next(err);
   }
 });
 

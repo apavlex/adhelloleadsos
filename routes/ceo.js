@@ -2,9 +2,8 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail } = require('../services/workspaceService');
-const { chatCompletion } = require('../services/llmClient');
-const { getMcpServerUrl, resolveMcpBearerToken } = require('../services/mcp/mcpConnection');
-const { chiefOfStaffResponsesWithMcp } = require('../services/mcp/mcpResponsesClient');
+const { pavlexChatWithCrmTools } = require('../services/mcp/mcpChatRuntime');
+const { runMcpDiagnostics } = require('../services/mcp/mcpDiagnostics');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlClient = require('../services/ghlClient');
 
@@ -263,45 +262,22 @@ RULES:
     
     messages.push({ role: 'user', content: String(message).trim() });
 
-    let content = null;
-    let aiProvider = 'legacy';
+    const chatOut = await pavlexChatWithCrmTools({
+      req,
+      instructions: systemPrompt,
+      message: String(message).trim(),
+      history: (history || []).slice(-10),
+      legacyMessages: messages,
+      maxTokens: 1200,
+      temperature: 0.7,
+    });
 
-    const openaiKey = String(process.env.OPENAI_API_KEY || '').trim();
-    const mcpServerUrl = getMcpServerUrl(req);
-    if (openaiKey && mcpServerUrl) {
-      const bearer = await resolveMcpBearerToken(req.workspaceId, {
-        autoProvision: !!req.canManageWorkspace,
-        createdByEmail: userEmail(req),
-      });
-      if (bearer.token) {
-        const mcpOut = await chiefOfStaffResponsesWithMcp({
-          instructions: systemPrompt,
-          message: String(message).trim(),
-          history: (history || []).slice(-10),
-          serverUrl: mcpServerUrl,
-          bearerToken: bearer.token,
-        });
-        if (mcpOut.content && !mcpOut.error) {
-          content = mcpOut.content;
-          aiProvider = mcpOut.provider || 'openai-responses-mcp';
-        } else if (mcpOut.detail) {
-          console.warn('[CEO CHAT] Responses MCP fallback:', mcpOut.detail);
-        }
-      }
+    if (!chatOut.content || chatOut.error) {
+      return res.status(502).json({ error: 'AI unavailable. Try again in a moment.' });
     }
 
-    if (!content) {
-      const { content: legacyContent, error } = await chatCompletion({
-        messages,
-        max_tokens: 1200,
-        temperature: 0.7,
-        providerChain: 'legacy',
-      });
-      if (error || !legacyContent) {
-        return res.status(502).json({ error: 'AI unavailable. Try again in a moment.' });
-      }
-      content = legacyContent;
-    }
+    const content = chatOut.content;
+    const aiProvider = chatOut.provider || 'legacy';
 
     // ── Persist both user message and AI reply ──
     dbService.saveChatMessage('ceo', 'user', String(message).trim(), 'web');
@@ -325,10 +301,26 @@ RULES:
       }
     } catch(e) { /* silent fail */ }
 
-    res.json({ success: true, reply: content, provider: aiProvider });
+    res.json({
+      success: true,
+      reply: content,
+      provider: aiProvider,
+      mcpEnabled: !!chatOut.mcpEnabled,
+      mcpMode: chatOut.mcpMode || null,
+    });
   } catch (err) {
     console.error('[CEO CHAT] Error:', err.message);
     res.status(500).json({ error: 'Chat failed.' });
+  }
+});
+
+// GET /ceo/mcp-diagnostics — MCP connection + list_folders probe for Pavlex chat
+router.get('/mcp-diagnostics', async (req, res, next) => {
+  try {
+    const report = await runMcpDiagnostics(req);
+    res.json({ success: true, ...report });
+  } catch (err) {
+    next(err);
   }
 });
 

@@ -3,7 +3,8 @@
  */
 const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js');
 const { z } = require('zod');
-const crm = require('./mcpCrmService');
+const { executeCrmTool } = require('./mcpToolExecutor');
+const mcpLogger = require('./mcpLogger');
 
 function jsonToolResult(payload) {
   return {
@@ -28,14 +29,22 @@ function jsonToolError(err) {
   };
 }
 
-async function runTool(ctx, fn) {
-  try {
-    const data = await fn();
-    return jsonToolResult({ success: true, ...data });
-  } catch (err) {
-    return jsonToolError(err);
+async function runTool(ctx, toolName, args) {
+  const payload = await executeCrmTool(ctx, toolName, args);
+  if (!payload.success) {
+    return jsonToolError({ message: payload.error, code: payload.code });
   }
+  return jsonToolResult(payload);
 }
+
+const folderRefSchema = z
+  .object({
+    folder_id: z.string().min(1).optional().describe('Folder key/id.'),
+    folder_name: z.string().min(1).optional().describe('Folder display name.'),
+  })
+  .refine((v) => Boolean(v.folder_id || v.folder_name), {
+    message: 'folder_id or folder_name is required.',
+  });
 
 /**
  * @param {{ workspaceId: string, userEmail?: string }} ctx
@@ -43,8 +52,20 @@ async function runTool(ctx, fn) {
 function createCrmMcpServer(ctx) {
   const server = new McpServer({
     name: 'adhello-ceo-crm',
-    version: '1.0.0',
+    version: '1.1.0',
   });
+
+  const toolNames = [
+    'list_folders',
+    'get_folder',
+    'count_leads',
+    'list_leads',
+    'get_lead',
+    'update_lead',
+    'bulk_update_leads',
+    'search_leads',
+  ];
+  mcpLogger.toolsDiscovered({ workspaceId: ctx.workspaceId, tools: toolNames, source: 'mcp_server' });
 
   server.registerTool(
     'list_folders',
@@ -52,32 +73,37 @@ function createCrmMcpServer(ctx) {
       description: 'List all lead folders in the active workspace with lead counts.',
       inputSchema: z.object({}),
     },
-    async () => runTool(ctx, () => crm.listFolders(ctx)),
+    async () => runTool(ctx, 'list_folders', {}),
   );
 
   server.registerTool(
     'get_folder',
     {
-      description: 'Get folder metadata and lead count by folder name or key.',
-      inputSchema: z.object({
-        folder_name: z.string().min(1).describe('Folder display name or folder key.'),
-      }),
+      description: 'Get folder metadata and lead count by folder_id or folder name.',
+      inputSchema: folderRefSchema,
     },
-    async ({ folder_name }) => runTool(ctx, () => crm.getFolder(ctx, { folder_name })),
+    async (args) => runTool(ctx, 'get_folder', args),
+  );
+
+  server.registerTool(
+    'count_leads',
+    {
+      description: 'Count leads in a folder by folder_id or folder name.',
+      inputSchema: folderRefSchema,
+    },
+    async (args) => runTool(ctx, 'count_leads', args),
   );
 
   server.registerTool(
     'list_leads',
     {
       description: 'List leads in a folder with pagination.',
-      inputSchema: z.object({
-        folder_name: z.string().min(1).describe('Folder display name or folder key.'),
+      inputSchema: folderRefSchema.extend({
         limit: z.number().int().min(1).max(100).optional().describe('Page size (default 25, max 100).'),
         offset: z.number().int().min(0).optional().describe('Pagination offset (default 0).'),
       }),
     },
-    async ({ folder_name, limit, offset }) =>
-      runTool(ctx, () => crm.listLeads(ctx, { folder_name, limit, offset })),
+    async (args) => runTool(ctx, 'list_leads', args),
   );
 
   server.registerTool(
@@ -88,7 +114,7 @@ function createCrmMcpServer(ctx) {
         lead_id: z.string().min(1).describe('Lead key, with or without the lead: prefix.'),
       }),
     },
-    async ({ lead_id }) => runTool(ctx, () => crm.getLead(ctx, { lead_id })),
+    async ({ lead_id }) => runTool(ctx, 'get_lead', { lead_id }),
   );
 
   server.registerTool(
@@ -103,7 +129,7 @@ function createCrmMcpServer(ctx) {
           .describe('Object of fields to update. Only whitelisted enrichment/CRM fields are applied.'),
       }),
     },
-    async ({ lead_id, fields }) => runTool(ctx, () => crm.updateLead(ctx, { lead_id, fields })),
+    async ({ lead_id, fields }) => runTool(ctx, 'update_lead', { lead_id, fields }),
   );
 
   server.registerTool(
@@ -122,7 +148,7 @@ function createCrmMcpServer(ctx) {
           .max(50),
       }),
     },
-    async ({ updates }) => runTool(ctx, () => crm.bulkUpdateLeads(ctx, { updates })),
+    async ({ updates }) => runTool(ctx, 'bulk_update_leads', { updates }),
   );
 
   server.registerTool(
@@ -135,7 +161,7 @@ function createCrmMcpServer(ctx) {
         offset: z.number().int().min(0).optional(),
       }),
     },
-    async ({ query, limit, offset }) => runTool(ctx, () => crm.searchLeads(ctx, { query, limit, offset })),
+    async ({ query, limit, offset }) => runTool(ctx, 'search_leads', { query, limit, offset }),
   );
 
   return server;
@@ -143,15 +169,20 @@ function createCrmMcpServer(ctx) {
 
 /** OpenAI / ChatGPT connector manifest (tool JSON schemas). */
 function getOpenAiToolManifest() {
+  const folderRefProps = {
+    folder_id: { type: 'string', description: 'Folder key/id' },
+    folder_name: { type: 'string', description: 'Folder display name' },
+  };
+
   return {
     name: 'adhello-ceo-crm',
-    version: '1.0.0',
+    version: '1.1.0',
     description: 'AdHello CEO Command Center CRM — folders, leads, search, and enrichment updates.',
     authentication: {
       type: 'bearer',
       header: 'Authorization',
       description:
-        'Use Authorization: Bearer <token>. Generate a token from CEO → MCP while signed in, or set MCP_ACCESS_TOKEN on the server.',
+        'Use Authorization: Bearer <token>. Chat sessions use short-lived session tokens; long-lived tokens can be generated in Workspace → Integrations.',
     },
     tools: [
       {
@@ -164,10 +195,16 @@ function getOpenAiToolManifest() {
         description: 'Get folder metadata and lead count.',
         input_schema: {
           type: 'object',
-          properties: {
-            folder_name: { type: 'string', description: 'Folder name or key' },
-          },
-          required: ['folder_name'],
+          properties: folderRefProps,
+          additionalProperties: false,
+        },
+      },
+      {
+        name: 'count_leads',
+        description: 'Count leads in a folder.',
+        input_schema: {
+          type: 'object',
+          properties: folderRefProps,
           additionalProperties: false,
         },
       },
@@ -177,11 +214,10 @@ function getOpenAiToolManifest() {
         input_schema: {
           type: 'object',
           properties: {
-            folder_name: { type: 'string' },
+            ...folderRefProps,
             limit: { type: 'integer', minimum: 1, maximum: 100 },
             offset: { type: 'integer', minimum: 0 },
           },
-          required: ['folder_name'],
           additionalProperties: false,
         },
       },
