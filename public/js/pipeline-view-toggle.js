@@ -43,7 +43,7 @@
         window.__adhelloInitKanban();
       };
       if (typeof window.__ensureSortableJs === 'function') {
-        window.__ensureSortableJs().then(bootKanban).catch(function () {});
+        window.__ensureSortableJs().then(bootKanban).catch(bootKanban);
       } else {
         bootKanban();
       }

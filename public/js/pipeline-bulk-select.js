@@ -1704,6 +1704,9 @@
       if (typeof window.refreshPipelineKanbanIfNeeded === 'function') {
         window.refreshPipelineKanbanIfNeeded();
       }
+      requestAnimationFrame(function () {
+        if (typeof window.__adhelloInitKanban === 'function') window.__adhelloInitKanban();
+      });
       const kanbanEl = document.getElementById('kanbanView');
       if (kanbanEl && typeof kanbanEl.scrollIntoView === 'function') {
         kanbanEl.scrollIntoView({ behavior: 'smooth', block: 'start' });

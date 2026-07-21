@@ -15070,6 +15070,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof window.refreshPipelineKanbanIfNeeded === 'function') {
         window.refreshPipelineKanbanIfNeeded();
       }
+      requestAnimationFrame(() => {
+        if (typeof window.__adhelloInitKanban === 'function') window.__adhelloInitKanban();
+      });
       const kanbanEl = document.getElementById('kanbanView');
       if (kanbanEl && typeof kanbanEl.scrollIntoView === 'function') {
         kanbanEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -16156,152 +16159,245 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // --- Kanban View & Batch Outreach Logic ---
-  
+
+  function getPipelineKanbanStageIds() {
+    if (Array.isArray(window.PIPELINE_STAGES) && window.PIPELINE_STAGES.length) {
+      return window.PIPELINE_STAGES.map((s) => String(s && s.id ? s.id : '').trim()).filter(Boolean);
+    }
+    const ids = [];
+    document
+      .querySelectorAll('#kanbanView[data-kanban-mode="pipeline"] .kanban-column[data-pipeline-stage]')
+      .forEach((colEl) => {
+        const id = String(colEl.dataset.pipelineStage || '').trim();
+        if (id) ids.push(id);
+      });
+    return ids;
+  }
+
+  function resolveRowKanbanColumnIndex(row, stageIds) {
+    if (!stageIds.length) return -1;
+    const sid = String(
+      row.dataset.stageId || row.getAttribute('data-stage-id') || '',
+    ).trim();
+    if (sid) {
+      const exact = stageIds.indexOf(sid);
+      if (exact >= 0) return exact;
+    }
+    let ps = parseInt(row.dataset.pipelineStage || row.getAttribute('data-pipeline-stage'), 10);
+    if (Number.isNaN(ps) || ps < 1) ps = 1;
+    if (ps > stageIds.length) ps = stageIds.length;
+    return ps - 1;
+  }
+
+  function isPipelineKanbanVisible() {
+    const kanbanViewEl = document.getElementById('kanbanView');
+    if (!kanbanViewEl) return false;
+    if (document.documentElement.classList.contains('adhello-pipeline-view-kanban')) return true;
+    return !kanbanViewEl.classList.contains('hidden');
+  }
+
+  function bindKanbanSortable(col, columnWrap, pipelineMode) {
+    if (typeof Sortable === 'undefined') return;
+    Sortable.create(col, {
+      group: 'leads',
+      animation: 150,
+      ghostClass: 'opacity-50',
+      onEnd: async (evt) => {
+        const item = evt.item;
+        const toCol =
+          (evt.to && evt.to.closest && evt.to.closest('.kanban-column')) ||
+          (evt.to && evt.to.parentElement) ||
+          null;
+        const leadKey = item.dataset.leadKey;
+        if (!leadKey || !toCol) return;
+
+        if (pipelineMode) {
+          const newStageId = String(toCol.dataset.pipelineStage || '').trim();
+          if (!newStageId) return;
+          try {
+            const res = await fetch(`/leads/${leadKey}/update`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({
+                stageId: newStageId,
+                pipelineStageUpdatedAt: new Date().toISOString(),
+              }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
+              if (originalRow) {
+                const lead = data.lead || {};
+                originalRow.dataset.stageId = newStageId;
+                if (lead.pipelineStage != null) {
+                  originalRow.dataset.pipelineStage = String(lead.pipelineStage);
+                }
+                const labels = window.PIPELINE_STAGE_LABELS || {};
+                const fullName = labels[newStageId] || '';
+                const short =
+                  fullName.split('(')[0].trim().slice(0, 22) + (fullName.length > 22 ? '…' : '');
+                originalRow.dataset.pipelineLabel = short;
+                const pipeSel = originalRow.querySelector('.pipeline-inline-select');
+                if (pipeSel) pipeSel.value = newStageId;
+                const cell = originalRow.querySelector('.pipeline-stage-label');
+                if (cell) cell.textContent = short || 'Stage';
+                const wrap = originalRow.querySelector('.pipeline-stage-pill-wrap');
+                if (wrap) {
+                  const dot =
+                    (window.PIPELINE_STAGE_COLORS && window.PIPELINE_STAGE_COLORS[newStageId]) ||
+                    '#94a3b8';
+                  wrap.style.boxShadow = `inset 3px 0 0 ${dot}`;
+                }
+              }
+              updateColumnCounts();
+              if (typeof window.showProspectToast === 'function') {
+                window.showProspectToast('Stage updated');
+              }
+            }
+          } catch (err) {
+            console.error('Failed to update pipeline:', err);
+          }
+          return;
+        }
+
+        const targetColStatus = toCol.dataset.status;
+        let newStatus = targetColStatus;
+        if (targetColStatus === 'Action Ongoing') newStatus = 'Follow-up';
+        if (targetColStatus === 'Finished') newStatus = 'Closed - Won';
+
+        try {
+          const res = await fetch(`/leads/${leadKey}/update`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus }),
+          });
+          const data = await res.json();
+          if (data.success) {
+            const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
+            if (originalRow) {
+              originalRow.dataset.status = newStatus;
+              const statusBadge = originalRow.querySelector('td:nth-last-child(2) span');
+              if (statusBadge) statusBadge.textContent = newStatus;
+            }
+            updateColumnCounts();
+          }
+        } catch (err) {
+          console.error('Failed to update status:', err);
+        }
+      },
+    });
+  }
+
+  function populateKanbanColumn(col, columnWrap, rows, pipelineMode) {
+    if (typeof Sortable !== 'undefined' && typeof Sortable.get === 'function') {
+      const existing = Sortable.get(col);
+      if (existing && typeof existing.destroy === 'function') existing.destroy();
+    }
+    col.innerHTML = '';
+    rows.forEach((row) => {
+      col.appendChild(createKanbanCard(row));
+    });
+    const countBadge = columnWrap.querySelector('.column-count');
+    if (countBadge) countBadge.textContent = rows.length;
+    bindKanbanSortable(col, columnWrap, pipelineMode);
+  }
+
   // View toggle + kanban init hook (pipeline-view-toggle.js handles Table/Pipeline clicks)
   function initKanban() {
     const run = () => {
-    const columns = document.querySelectorAll('.kanban-list');
-    const table = document.getElementById('prospectLeadsTable');
-    const allRows = table
-      ? table.querySelectorAll('tbody tr.result-row')
-      : document.querySelectorAll('.result-row');
-    const kanbanViewEl = document.getElementById('kanbanView');
-    const pipelineMode =
-      kanbanViewEl && kanbanViewEl.dataset && kanbanViewEl.dataset.kanbanMode === 'pipeline';
-    const columnIds = [];
-    if (pipelineMode) {
-      document.querySelectorAll('.kanban-column[data-pipeline-stage]').forEach((colEl) => {
-        columnIds.push(String(colEl.dataset.pipelineStage || '').trim());
-      });
-    }
+      const table = document.getElementById('prospectLeadsTable');
+      const allRows = table
+        ? Array.from(table.querySelectorAll('tbody tr.result-row'))
+        : Array.from(
+            document.querySelectorAll(
+              '#prospectLeadsTable tbody tr.result-row, .result-row:not(.result-row--panel-source)',
+            ),
+          );
+      const kanbanViewEl = document.getElementById('kanbanView');
+      const pipelineMode =
+        kanbanViewEl && kanbanViewEl.dataset && kanbanViewEl.dataset.kanbanMode === 'pipeline';
 
-    columns.forEach((col) => {
+      if (pipelineMode) {
+        const kanbanRoot = document.querySelector('#kanbanView[data-kanban-mode="pipeline"]');
+        if (!kanbanRoot) return;
+
+        const stageIds = getPipelineKanbanStageIds();
+        const columnEls = Array.from(
+          kanbanRoot.querySelectorAll('.kanban-column[data-pipeline-stage]'),
+        ).filter((el) => String(el.dataset.pipelineStage || '').trim());
+
+        const effectiveStageIds = stageIds.length
+          ? stageIds
+          : columnEls.map((el) => String(el.dataset.pipelineStage || '').trim()).filter(Boolean);
+
+        const buckets = effectiveStageIds.map(() => []);
+        allRows.forEach((row) => {
+          let idx = resolveRowKanbanColumnIndex(row, effectiveStageIds);
+          if (idx < 0) idx = 0;
+          if (idx >= 0 && idx < buckets.length) buckets[idx].push(row);
+        });
+        if (allRows.length > 0 && buckets.every((bucket) => bucket.length === 0) && buckets.length) {
+          buckets[0] = allRows.slice();
+        }
+
+        const columnByStage = new Map();
+        columnEls.forEach((el) => {
+          columnByStage.set(String(el.dataset.pipelineStage || '').trim(), el);
+        });
+
+        effectiveStageIds.forEach((stageId, idx) => {
+          const columnWrap = columnByStage.get(stageId);
+          if (!columnWrap) return;
+          const col = columnWrap.querySelector('.kanban-list');
+          if (!col) return;
+          populateKanbanColumn(col, columnWrap, buckets[idx] || [], true);
+        });
+        return;
+      }
+
+      document.querySelectorAll('.kanban-list').forEach((col) => {
+        const columnWrap = col.closest('.kanban-column') || col.parentElement;
+        if (!columnWrap) return;
+
         if (typeof Sortable !== 'undefined' && typeof Sortable.get === 'function') {
           const existing = Sortable.get(col);
           if (existing && typeof existing.destroy === 'function') existing.destroy();
         }
         col.innerHTML = '';
-        const columnWrap = col.parentElement;
         const targetStatus = columnWrap.dataset.status;
-        const targetPipelineId = pipelineMode ? String(columnWrap.dataset.pipelineStage || '').trim() : '';
-        const targetColumnIndex = pipelineMode ? columnIds.indexOf(targetPipelineId) : -1;
         let count = 0;
 
         allRows.forEach((row) => {
-            let shouldInclude = false;
-            if (pipelineMode && targetPipelineId) {
-              const sid = String(row.dataset.stageId || '').trim();
-              if (sid && sid === targetPipelineId) {
-                shouldInclude = true;
-              } else if (!sid || columnIds.indexOf(sid) === -1) {
-                let ps = parseInt(row.dataset.pipelineStage, 10);
-                if (Number.isNaN(ps) || ps < 1) ps = 1;
-                if (targetColumnIndex >= 0 && ps === targetColumnIndex + 1) {
-                  shouldInclude = true;
-                }
-              }
-            } else {
-              const leadStatus = row.dataset.status || 'Not Contacted';
-              if (targetStatus === 'Not Contacted' && (leadStatus === 'Not Contacted' || leadStatus === 'Needs Video')) shouldInclude = true;
-              if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
-              if (targetStatus === 'Lead Captured' && leadStatus === 'Lead Captured') shouldInclude = true;
-              if (targetStatus === 'Blueprint Purchased' && leadStatus === 'Blueprint Purchased') shouldInclude = true;
-              if (targetStatus === 'Action Ongoing' && ['Video Recorded', 'Called Lead', 'Email Sent', 'Follow-up'].includes(leadStatus)) shouldInclude = true;
-              if (targetStatus === 'Finished' && ['Closed - Won', 'Closed - Lost'].includes(leadStatus)) shouldInclude = true;
-            }
+          let shouldInclude = false;
+          const leadStatus = row.dataset.status || 'Not Contacted';
+          if (targetStatus === 'Not Contacted' && (leadStatus === 'Not Contacted' || leadStatus === 'Needs Video')) {
+            shouldInclude = true;
+          }
+          if (targetStatus === 'Enriched' && leadStatus === 'Enriched') shouldInclude = true;
+          if (targetStatus === 'Lead Captured' && leadStatus === 'Lead Captured') shouldInclude = true;
+          if (targetStatus === 'Blueprint Purchased' && leadStatus === 'Blueprint Purchased') {
+            shouldInclude = true;
+          }
+          if (
+            targetStatus === 'Action Ongoing' &&
+            ['Video Recorded', 'Called Lead', 'Email Sent', 'Follow-up'].includes(leadStatus)
+          ) {
+            shouldInclude = true;
+          }
+          if (targetStatus === 'Finished' && ['Closed - Won', 'Closed - Lost'].includes(leadStatus)) {
+            shouldInclude = true;
+          }
 
-            if (shouldInclude) {
-                const card = createKanbanCard(row);
-                col.appendChild(card);
-                count += 1;
-            }
+          if (shouldInclude) {
+            col.appendChild(createKanbanCard(row));
+            count += 1;
+          }
         });
+
         const countBadge = columnWrap.querySelector('.column-count');
         if (countBadge) countBadge.textContent = count;
-
-        if (typeof Sortable !== 'undefined') {
-            Sortable.create(col, {
-                group: 'leads',
-                animation: 150,
-                ghostClass: 'opacity-50',
-                onEnd: async (evt) => {
-                    const item = evt.item;
-                    const toCol = evt.to.parentElement;
-                    const leadKey = item.dataset.leadKey;
-                    if (!leadKey) return;
-
-                    if (pipelineMode) {
-                        const newStageId = String(toCol.dataset.pipelineStage || '').trim();
-                        if (!newStageId) return;
-                        try {
-                            const res = await fetch(`/leads/${leadKey}/update`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-                                body: JSON.stringify({
-                                  stageId: newStageId,
-                                  pipelineStageUpdatedAt: new Date().toISOString(),
-                                }),
-                            });
-                            const data = await res.json();
-                            if (data.success) {
-                                const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
-                                if (originalRow) {
-                                    const lead = data.lead || {};
-                                    originalRow.dataset.stageId = newStageId;
-                                    if (lead.pipelineStage != null) {
-                                      originalRow.dataset.pipelineStage = String(lead.pipelineStage);
-                                    }
-                                    const labels = window.PIPELINE_STAGE_LABELS || {};
-                                    const fullName = labels[newStageId] || '';
-                                    const short = (fullName.split('(')[0].trim().slice(0, 22)) + (fullName.length > 22 ? '…' : '');
-                                    originalRow.dataset.pipelineLabel = short;
-                                    const pipeSel = originalRow.querySelector('.pipeline-inline-select');
-                                    if (pipeSel) pipeSel.value = newStageId;
-                                    const cell = originalRow.querySelector('.pipeline-stage-label');
-                                    if (cell) cell.textContent = short || 'Stage';
-                                    const wrap = originalRow.querySelector('.pipeline-stage-pill-wrap');
-                                    if (wrap) {
-                                      const dot =
-                                        (window.PIPELINE_STAGE_COLORS && window.PIPELINE_STAGE_COLORS[newStageId]) ||
-                                        '#94a3b8';
-                                      wrap.style.boxShadow = `inset 3px 0 0 ${dot}`;
-                                    }
-                                }
-                                updateColumnCounts();
-                                if (typeof window.showProspectToast === 'function') {
-                                  window.showProspectToast('Stage updated');
-                                }
-                            }
-                        } catch (err) { console.error('Failed to update pipeline:', err); }
-                        return;
-                    }
-
-                    const targetColStatus = toCol.dataset.status;
-                    let newStatus = targetColStatus;
-                    if (targetColStatus === 'Action Ongoing') newStatus = 'Follow-up';
-                    if (targetColStatus === 'Finished') newStatus = 'Closed - Won';
-
-                    try {
-                        const res = await fetch(`/leads/${leadKey}/update`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ status: newStatus }),
-                        });
-                        const data = await res.json();
-                        if (data.success) {
-                            const originalRow = document.querySelector(`.result-row[data-lead-key="${leadKey}"]`);
-                            if (originalRow) {
-                                originalRow.dataset.status = newStatus;
-                                const statusBadge = originalRow.querySelector('td:nth-last-child(2) span');
-                                if (statusBadge) statusBadge.textContent = newStatus;
-                            }
-                            updateColumnCounts();
-                        }
-                    } catch (err) { console.error('Failed to update status:', err); }
-                },
-            });
-        }
-    });
+        bindKanbanSortable(col, columnWrap, false);
+      });
     };
     if (typeof window.__ensureSortableJs === 'function') {
       window.__ensureSortableJs().then(run).catch(run);
@@ -16323,15 +16419,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function kanbanBoardCardTotal() {
     let total = 0;
-    document.querySelectorAll('.kanban-column .column-count').forEach((el) => {
-      total += parseInt(String(el.textContent || '0'), 10) || 0;
-    });
+    document
+      .querySelectorAll('#kanbanView[data-kanban-mode="pipeline"] .kanban-column .column-count')
+      .forEach((el) => {
+        total += parseInt(String(el.textContent || '0'), 10) || 0;
+      });
     return total;
   }
 
   function refreshPipelineKanbanIfNeeded() {
-    const kanbanViewEl = document.getElementById('kanbanView');
-    if (!kanbanViewEl || kanbanViewEl.classList.contains('hidden')) return;
+    if (!isPipelineKanbanVisible()) return;
     if (typeof window.__adhelloInitKanban !== 'function') return;
     window.__adhelloInitKanban();
     const table = document.getElementById('prospectLeadsTable');
