@@ -363,4 +363,61 @@ router.get('/tasks', async (req, res) => {
   }
 });
 
+// ── MCP access token (for ChatGPT / OpenAI Responses API connectors) ─────────
+
+const {
+  generateWorkspaceMcpToken,
+  revokeWorkspaceMcpToken,
+  getWorkspaceMcpTokenStatus,
+} = require('../services/mcp/mcpAuth');
+
+router.get('/mcp/token/status', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    }
+    res.json({
+      success: true,
+      token: getWorkspaceMcpTokenStatus(req.workspace),
+      endpoint: `${req.protocol}://${req.get('host')}/ceo/mcp`,
+      manifest: `${req.protocol}://${req.get('host')}/ceo/mcp/manifest.json`,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/mcp/token', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    }
+    const email = userEmail(req);
+    const issued = await generateWorkspaceMcpToken(req.workspaceId, email);
+    res.json({
+      success: true,
+      token: issued.token,
+      hint: issued.hint,
+      createdAt: issued.createdAt,
+      endpoint: `${req.protocol}://${req.get('host')}/ceo/mcp`,
+      manifest: `${req.protocol}://${req.get('host')}/ceo/mcp/manifest.json`,
+      note: 'Copy this token now — it will not be shown again. Use Authorization: Bearer <token> in ChatGPT MCP settings.',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/mcp/token', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    }
+    const result = await revokeWorkspaceMcpToken(req.workspaceId);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;
