@@ -27,6 +27,10 @@ describe('pavlexCrmDirect', () => {
     assert.match(m.args.folder_name, /landscaping/i);
   });
 
+  it('matches show me my pipeline', () => {
+    assert.equal(matchDirectCrmQuery('Show me my pipeline').tool, 'list_folders');
+  });
+
   it('matches search', () => {
     const m = matchDirectCrmQuery('Find Acme Roofing');
     assert.equal(m.tool, 'search_leads');

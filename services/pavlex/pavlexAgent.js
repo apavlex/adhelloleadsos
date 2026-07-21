@@ -181,6 +181,7 @@ async function runPavlexMcpDebug(req) {
     },
     permissions: auth.permissions,
     openaiConfigured: mcpConfig.openaiConfigured,
+    toolLlmConfigured: mcpConfig.toolLlmConfigured,
     runtimeReady: mcpConfig.runtimeReady,
   };
 }

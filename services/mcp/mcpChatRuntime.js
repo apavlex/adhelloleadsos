@@ -1,6 +1,5 @@
 /**
- * Unified Pavlex chat runtime: OpenAI Responses API + remote MCP, with inline CRM tool fallback.
- * Never falls back to legacy LLM without tools for CRM questions.
+ * Unified Pavlex chat runtime: direct CRM → Responses MCP → inline tools → general chat.
  */
 const { userEmail } = require('../workspaceService');
 const {
@@ -12,6 +11,8 @@ const { chiefOfStaffResponsesWithMcp } = require('./mcpResponsesClient');
 const { inlineCrmToolChat } = require('./mcpInlineTools');
 const { isCrmIntent, crmUnavailableMessage } = require('../pavlex/pavlexCrmIntent');
 const { tryDirectCrmChat } = require('../pavlex/pavlexCrmDirect');
+const { hasPavlexToolLlm, resolveOpenAiDirectKey } = require('../pavlex/pavlexLlmConfig');
+const { pavlexGeneralChat } = require('../pavlex/pavlexGeneralChat');
 const mcpLogger = require('./mcpLogger');
 
 function responsesUsedTools(toolActivity) {
@@ -19,15 +20,20 @@ function responsesUsedTools(toolActivity) {
   return Array.isArray(toolActivity.toolCalls) && toolActivity.toolCalls.length > 0;
 }
 
-/**
- * @param {object} opts
- * @param {import('express').Request} opts.req
- * @param {string} opts.instructions
- * @param {string} opts.message
- * @param {Array<{role:string,content:string}>} [opts.history]
- * @param {number} [opts.maxTokens]
- * @param {number} [opts.temperature]
- */
+function setupUnavailableMessage(detail) {
+  const d = String(detail || '').toLowerCase();
+  if (!hasPavlexToolLlm()) {
+    return (
+      'Pavlex needs an AI key on the server. Add OPENAI_API_KEY or OPENROUTER_API_KEY in Render → Environment, ' +
+      'then redeploy. CRM shortcuts work now: "List my folders", "How many leads do I have?", "Find Acme Roofing".'
+    );
+  }
+  if (d.includes('openai')) {
+    return crmUnavailableMessage(detail);
+  }
+  return crmUnavailableMessage(detail);
+}
+
 async function pavlexChatWithCrmTools({
   req,
   instructions,
@@ -55,7 +61,8 @@ async function pavlexChatWithCrmTools({
     }
   }
 
-  const openaiKey = String(process.env.OPENAI_API_KEY || '').trim();
+  const openaiKey = resolveOpenAiDirectKey();
+  const toolLlmReady = hasPavlexToolLlm();
   const crmRequired = isCrmIntent(message);
   const failures = [];
 
@@ -66,20 +73,21 @@ async function pavlexChatWithCrmTools({
     serverUrl,
     hasSessionToken: Boolean(sessionBearer.token),
     hasOpenAiKey: Boolean(openaiKey),
+    hasToolLlm: toolLlmReady,
     configLoaded: Boolean(mcpConfig),
     crmRequired,
   });
 
-  if (!openaiKey) {
-    failures.push('OPENAI_API_KEY not configured');
+  if (!toolLlmReady) {
+    failures.push('No LLM key (OPENAI_API_KEY or OPENROUTER_API_KEY)');
   }
 
   if (!ctx.workspaceId || !ctx.userEmail) {
     failures.push('missing workspace or user context');
   }
 
-  // Tier 0: Direct CRM tools (no OpenAI — list/count/search/read patterns)
-  if (ctx.workspaceId && ctx.userEmail && crmRequired) {
+  // Tier 0: Direct CRM tools (no LLM)
+  if (ctx.workspaceId && ctx.userEmail) {
     mcpLogger.chatRuntime({ phase: 'direct_tools', workspaceId: ctx.workspaceId });
     const directOut = await tryDirectCrmChat(ctx, message);
     if (directOut && directOut.content && !directOut.error) {
@@ -94,7 +102,7 @@ async function pavlexChatWithCrmTools({
     }
   }
 
-  // Tier 1: OpenAI Responses API + remote MCP (when publicly reachable)
+  // Tier 1: OpenAI Responses API + remote MCP
   if (
     openaiKey &&
     sessionBearer.token &&
@@ -114,11 +122,6 @@ async function pavlexChatWithCrmTools({
     if (mcpOut.content && !mcpOut.error) {
       const toolsUsed = responsesUsedTools(mcpOut.toolActivity);
       if (!crmRequired || toolsUsed) {
-        mcpLogger.chatRuntime({
-          phase: 'responses_api_ok',
-          provider: mcpOut.provider,
-          toolActivity: mcpOut.toolActivity || null,
-        });
         return {
           content: mcpOut.content,
           provider: mcpOut.provider,
@@ -128,28 +131,13 @@ async function pavlexChatWithCrmTools({
         };
       }
       failures.push('Responses API answered without calling CRM tools');
-      mcpLogger.chatRuntime({
-        phase: 'responses_api_no_tools',
-        crmRequired,
-        toolActivity: mcpOut.toolActivity || null,
-      });
     } else {
       failures.push(mcpOut.detail || 'Responses API failed');
-      mcpLogger.chatRuntime({
-        phase: 'responses_api_failed',
-        detail: mcpOut.detail || 'unknown',
-      });
     }
-  } else if (openaiKey) {
-    mcpLogger.chatRuntime({
-      phase: 'responses_api_skipped',
-      reason: 'missing_server_url_or_session_token',
-      serverUrl,
-    });
   }
 
-  // Tier 2: Inline OpenAI function tools (always preferred fallback — executes CRM in-process)
-  if (openaiKey && ctx.workspaceId && ctx.userEmail) {
+  // Tier 2: Inline function tools (OpenAI or OpenRouter)
+  if (toolLlmReady && ctx.workspaceId && ctx.userEmail) {
     mcpLogger.chatRuntime({ phase: 'inline_tools', workspaceId: ctx.workspaceId, crmRequired });
     const inlineOut = await inlineCrmToolChat({
       instructions,
@@ -160,11 +148,6 @@ async function pavlexChatWithCrmTools({
     });
 
     if (inlineOut.content && !inlineOut.error) {
-      mcpLogger.chatRuntime({
-        phase: 'inline_tools_ok',
-        provider: inlineOut.provider,
-        toolsUsed: inlineOut.toolsUsed || [],
-      });
       return {
         content: inlineOut.content,
         provider: inlineOut.provider,
@@ -175,35 +158,30 @@ async function pavlexChatWithCrmTools({
     }
 
     failures.push(inlineOut.detail || 'Inline CRM tools failed');
-    mcpLogger.chatRuntime({
-      phase: 'inline_tools_failed',
-      detail: inlineOut.detail || 'unknown',
-    });
   }
 
-  const detail = failures.filter(Boolean).join('; ') || 'CRM tools unavailable';
-  mcpLogger.chatRuntime({ phase: 'crm_unavailable', workspaceId: ctx.workspaceId, detail, crmRequired });
+  const detail = failures.filter(Boolean).join('; ') || 'unavailable';
 
-  if (crmRequired) {
-    return {
-      content: null,
-      provider: 'none',
-      mcpEnabled: false,
-      mcpMode: 'crm_tools_required',
-      error: true,
-      detail,
-      userMessage: crmUnavailableMessage(detail),
-    };
+  // Tier 3: General chat (non-CRM) via OpenRouter / KIE / Gemini
+  if (!crmRequired) {
+    mcpLogger.chatRuntime({ phase: 'general_chat', workspaceId: ctx.workspaceId });
+    const generalOut = await pavlexGeneralChat({ instructions, message, history });
+    if (generalOut.content && !generalOut.error) {
+      return generalOut;
+    }
+    failures.push(generalOut.detail || 'General chat failed');
   }
+
+  mcpLogger.chatRuntime({ phase: 'failed', workspaceId: ctx.workspaceId, detail, crmRequired });
 
   return {
     content: null,
     provider: 'none',
     mcpEnabled: false,
-    mcpMode: 'unavailable',
+    mcpMode: crmRequired ? 'crm_tools_required' : 'unavailable',
     error: true,
     detail,
-    userMessage: 'AI unavailable. Configure OPENAI_API_KEY on the server.',
+    userMessage: setupUnavailableMessage(detail),
   };
 }
 

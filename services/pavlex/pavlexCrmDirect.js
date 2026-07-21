@@ -61,15 +61,21 @@ function matchDirectCrmQuery(message) {
   if (
     /^(list|show)\s+(my\s+)?folders?\??$/i.test(raw) ||
     /^(list|show)\s+(my\s+)?pipeline\??$/i.test(raw) ||
-    /^what folders? do i have\??$/i.test(raw)
+    /^(list|show)\s+(me\s+)?(my\s+)?pipeline\??$/i.test(raw) ||
+    /^(list|show)\s+(me\s+)?(my\s+)?folders?\??$/i.test(raw) ||
+    /^what folders? do i have\??$/i.test(raw) ||
+    /^show me my pipeline\??$/i.test(raw) ||
+    /^show my pipeline\??$/i.test(raw)
   ) {
     return { tool: 'list_folders', args: {}, formatter: formatListFolders };
   }
 
   if (
     /how many leads? do i have\??/i.test(raw) ||
+    /how many leads?\??$/i.test(raw) ||
     /^total leads?\??$/i.test(raw) ||
-    /^count (all )?leads?\??$/i.test(raw)
+    /^count (all )?leads?\??$/i.test(raw) ||
+    /^how many leads? are there\??$/i.test(raw)
   ) {
     return { tool: 'count_leads', args: {}, formatter: formatCountLeads };
   }

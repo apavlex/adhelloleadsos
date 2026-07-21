@@ -1,7 +1,8 @@
 /**
- * In-process OpenAI function-calling — primary CRM tool path when remote MCP is unavailable.
+ * In-process OpenAI-compatible function-calling for CRM tools.
  */
 const { executeCrmTool, getOpenAiFunctionTools } = require('./mcpToolExecutor');
+const { resolvePavlexToolLlm } = require('../pavlex/pavlexLlmConfig');
 const mcpLogger = require('./mcpLogger');
 const { defaultResponsesModel } = require('./mcpResponsesClient');
 
@@ -23,27 +24,27 @@ function parseToolArguments(raw) {
  * @param {string} opts.message
  * @param {Array<{role:string,content:string}>} [opts.history]
  * @param {{ workspaceId: string, userEmail?: string }} opts.ctx
- * @param {boolean} [opts.requireTools] — reject answers that skip CRM tool calls
+ * @param {boolean} [opts.requireTools]
  */
 async function inlineCrmToolChat({ instructions, message, history = [], ctx, requireTools = false }) {
-  const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
-  if (!apiKey) {
+  const llm = resolvePavlexToolLlm();
+  if (!llm) {
     return {
       content: null,
-      provider: 'openai-inline-tools',
+      provider: 'inline-tools',
       error: true,
-      detail: 'OPENAI_API_KEY not configured for inline CRM tools.',
+      detail: 'No LLM configured (set OPENAI_API_KEY or OPENROUTER_API_KEY).',
     };
   }
 
-  const model = defaultResponsesModel();
+  const model = llm.model || defaultResponsesModel();
   const tools = getOpenAiFunctionTools();
   const toolsUsed = [];
 
   mcpLogger.toolsDiscovered({
     workspaceId: ctx.workspaceId,
     tools: tools.map((t) => t.function.name),
-    source: 'inline_openai',
+    source: `inline_${llm.provider}`,
   });
 
   const messages = [{ role: 'system', content: String(instructions || '').trim() }];
@@ -59,11 +60,12 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx, req
       const toolChoice =
         requireTools && toolsUsed.length === 0 && round === 0 ? 'required' : 'auto';
 
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res = await fetch(llm.url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${apiKey}`,
+          Authorization: `Bearer ${llm.apiKey}`,
+          ...(llm.extraHeaders || {}),
         },
         body: JSON.stringify({
           model,
@@ -79,9 +81,9 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx, req
       if (!res.ok) {
         const msg =
           (data && data.error && data.error.message) ||
-          `OpenAI chat HTTP ${res.status}`;
-        mcpLogger.transportError({ layer: 'inline_openai', error: msg });
-        return { content: null, provider: 'openai-inline-tools', error: true, detail: msg };
+          `LLM chat HTTP ${res.status}`;
+        mcpLogger.transportError({ layer: `inline_${llm.provider}`, error: msg });
+        return { content: null, provider: `inline-${llm.provider}`, error: true, detail: msg };
       }
 
       const choice = data.choices && data.choices[0];
@@ -89,7 +91,7 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx, req
       if (!assistantMsg) {
         return {
           content: null,
-          provider: 'openai-inline-tools',
+          provider: `inline-${llm.provider}`,
           error: true,
           detail: 'Empty inline tool response.',
         };
@@ -103,7 +105,7 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx, req
         if (requireTools && toolsUsed.length === 0) {
           return {
             content: null,
-            provider: 'openai-inline-tools',
+            provider: `inline-${llm.provider}`,
             error: true,
             detail: 'Model answered without calling CRM tools.',
             toolsUsed,
@@ -112,14 +114,14 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx, req
         if (!text) {
           return {
             content: null,
-            provider: 'openai-inline-tools',
+            provider: `inline-${llm.provider}`,
             error: true,
             detail: 'Model returned no text.',
           };
         }
         return {
           content: text,
-          provider: 'openai-inline-tools',
+          provider: `inline-${llm.provider}`,
           error: false,
           model,
           toolRounds: round,
@@ -143,16 +145,16 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx, req
 
     return {
       content: null,
-      provider: 'openai-inline-tools',
+      provider: `inline-${llm.provider}`,
       error: true,
       detail: 'Exceeded maximum CRM tool rounds.',
       toolsUsed,
     };
   } catch (err) {
-    mcpLogger.transportError({ layer: 'inline_openai', error: err.message });
+    mcpLogger.transportError({ layer: 'inline_tools', error: err.message });
     return {
       content: null,
-      provider: 'openai-inline-tools',
+      provider: 'inline-tools',
       error: true,
       detail: err.message || 'Inline tool chat failed',
       toolsUsed,

@@ -10,6 +10,7 @@ const {
   CRM_MCP_TOOL_NAMES,
 } = require('../mcp/connection');
 const { listToolDefinitions } = require('../mcp/tools');
+const { resolveOpenAiDirectKey, hasPavlexToolLlm } = require('./pavlexLlmConfig');
 
 /**
  * Integration record stored on workspace (Integrations page).
@@ -42,7 +43,8 @@ async function loadWorkspaceMcpConfig(req) {
   const integration = await loadMcpIntegrationRecord(req);
   const session = resolveMcpBearerTokenForChat(req);
   const tools = listToolDefinitions();
-  const openaiConfigured = Boolean(String(process.env.OPENAI_API_KEY || '').trim());
+  const openaiConfigured = Boolean(resolveOpenAiDirectKey());
+  const toolLlmConfigured = hasPavlexToolLlm();
   const baseUrlConfigured = Boolean(String(process.env.BASE_URL || '').trim());
   const serverUrl = integration.mcp_url;
   const manifestUrl = serverUrl ? `${serverUrl.replace(/\/$/, '')}/manifest.json` : '';
@@ -61,8 +63,9 @@ async function loadWorkspaceMcpConfig(req) {
     availableTools: tools.map((t) => t.name),
     toolNames: CRM_MCP_TOOL_NAMES,
     openaiConfigured,
+    toolLlmConfigured,
     baseUrlConfigured,
-    runtimeReady: Boolean(session.token && openaiConfigured),
+    runtimeReady: Boolean(session.token && toolLlmConfigured),
     responsesMcpReady: Boolean(session.token && openaiConfigured && serverUrl),
   };
 }
