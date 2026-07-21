@@ -31,6 +31,11 @@ const {
   isChromeExtensionAvailable,
   streamChromeExtensionZip,
 } = require('../services/chromeExtensionPack');
+const {
+  generateWorkspaceMcpToken,
+  revokeWorkspaceMcpToken,
+  getWorkspaceMcpTokenStatus,
+} = require('../services/mcp/mcpAuth');
 const { CARS_REACH_SPECIALTIES } = require('../config/carsReachScripts');
 const { UPWORK_PROPOSAL_SERVICES } = require('../config/upworkProposalServices');
 const signalwire = require('../services/signalwire');
@@ -294,6 +299,9 @@ async function loadWorkspacePageLocals(req) {
     : '';
   const ghlStatus = ghlSync.statusFromEnv(resolvedEnv);
   const ghlSyncDirection = getWorkspaceGhlSyncDirection(ws);
+  const mcpTokenStatus = getWorkspaceMcpTokenStatus(ws);
+  const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
+  const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
   return {
     title: 'Workspace & team',
     activePage: 'workspace',
@@ -308,6 +316,9 @@ async function loadWorkspacePageLocals(req) {
     ghlWebhookTokenHint,
     ghlStatus,
     ghlSyncDirection,
+    mcpTokenStatus,
+    mcpEndpoint,
+    mcpManifestUrl,
     telephonyWebhookTokenConfigured: !!String(process.env.TELEPHONY_WEBHOOK_TOKEN || '').trim(),
     assignPool: pool,
     envHintSdr: !!process.env.WORKSPACE_SDR_EMAILS,
@@ -532,6 +543,63 @@ router.post('/integrations', async (req, res, next) => {
 });
 
 /** PATCH JSON: save workspace default GHL sync direction (pull | push | both). */
+function mcpConnectionUrls(req) {
+  const base = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  const host = `${req.protocol}://${req.get('host')}`;
+  const endpoint = base ? `${base}/ceo/mcp` : `${host}/ceo/mcp`;
+  const manifest = base ? `${base}/ceo/mcp/manifest.json` : `${host}/ceo/mcp/manifest.json`;
+  return { endpoint, manifest };
+}
+
+router.get('/integrations/mcp/status', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    }
+    const urls = mcpConnectionUrls(req);
+    res.json({
+      success: true,
+      token: getWorkspaceMcpTokenStatus(req.workspace),
+      ...urls,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/integrations/mcp/token', express.json(), async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    }
+    const email = workspaceService.userEmail(req);
+    const issued = await generateWorkspaceMcpToken(req.workspaceId, email);
+    const urls = mcpConnectionUrls(req);
+    res.json({
+      success: true,
+      token: issued.token,
+      hint: issued.hint,
+      createdAt: issued.createdAt,
+      ...urls,
+      note: 'Copy this token now — it will not be shown again. Use Authorization: Bearer <token> in your MCP client.',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/integrations/mcp/token', async (req, res, next) => {
+  try {
+    if (!req.canManageWorkspace) {
+      return res.status(403).json({ success: false, error: 'Workspace admin required.' });
+    }
+    const result = await revokeWorkspaceMcpToken(req.workspaceId);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.patch('/integrations/ghl-sync-direction', express.json(), async (req, res, next) => {
   try {
     if (!req.canManageWorkspace) {
