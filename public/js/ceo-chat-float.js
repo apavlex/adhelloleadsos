@@ -1,5 +1,5 @@
 /**
- * Global Pavlex chat (Automate /ceo bubble) — POST /ceo/chat, history from /ceo/chat/history.
+ * Global Pavlex chat (Automate /ceo bubble) — POST /api/pavlex/chat, history from /ceo/chat/history.
  */
 (function () {
   var PAVLEX_AVATAR =
@@ -114,11 +114,11 @@
         }
       }, 30000);
 
-      fetch('/ceo/chat', {
+      fetch('/api/pavlex/chat', {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-        body: JSON.stringify({ message: msg, history: chatHistory.slice(-10) }),
+        body: JSON.stringify({ message: msg, history: chatHistory.slice(-10), platform: 'automate' }),
       })
         .then(function (r) {
           return r.json();
@@ -132,7 +132,7 @@
             chatHistory.push({ role: 'assistant', content: d.reply });
             if (!chatOpen && chatBubbleDot) chatBubbleDot.classList.remove('hidden');
           } else if (chatMessagesFloat) {
-            renderMsgTo(chatMessagesFloat, 'assistant', d.error || 'Something went wrong. Try again.');
+            renderMsgTo(chatMessagesFloat, 'assistant', d.error || d.reply || 'Something went wrong. Try again.');
           }
           chatBusy = false;
           if (chatInputFloat) {

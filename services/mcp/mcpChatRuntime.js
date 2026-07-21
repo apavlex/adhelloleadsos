@@ -28,6 +28,7 @@ async function pavlexChatWithCrmTools({
   message,
   history = [],
   legacyMessages = null,
+  mcpConfig = null,
   maxTokens = 1200,
   temperature = 0.7,
 }) {
@@ -35,8 +36,20 @@ async function pavlexChatWithCrmTools({
     workspaceId: req.workspaceId,
     userEmail: userEmail(req),
   };
-  const serverUrl = getMcpServerUrl(req);
-  const sessionBearer = resolveMcpBearerTokenForChat(req);
+
+  let serverUrl = getMcpServerUrl(req);
+  let sessionBearer = resolveMcpBearerTokenForChat(req);
+
+  if (mcpConfig) {
+    if (mcpConfig.serverUrl) serverUrl = mcpConfig.serverUrl;
+    if (mcpConfig.sessionToken) {
+      sessionBearer = {
+        token: mcpConfig.sessionToken,
+        authMethod: mcpConfig.authMethod || 'session_token',
+      };
+    }
+  }
+
   const openaiKey = String(process.env.OPENAI_API_KEY || '').trim();
 
   mcpLogger.chatRuntime({
@@ -46,6 +59,7 @@ async function pavlexChatWithCrmTools({
     serverUrl,
     hasSessionToken: Boolean(sessionBearer.token),
     hasOpenAiKey: Boolean(openaiKey),
+    configLoaded: Boolean(mcpConfig),
   });
 
   if (openaiKey && sessionBearer.token) {

@@ -1,5 +1,5 @@
 /**
- * Floating workspace assistant: POST /api/assistant/chat (session + workspace scoped).
+ * Floating workspace assistant: POST /api/pavlex/chat (session + workspace scoped).
  * Optional: Web Speech API dictation (mic) + speechSynthesis “Listen” on coach replies.
  */
 (function () {
@@ -375,11 +375,11 @@
       }
 
       try {
-        const res = await fetch('/api/assistant/chat', {
+        const res = await fetch('/api/pavlex/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
           credentials: 'same-origin',
-          body: JSON.stringify({ message: text, history: prior }),
+          body: JSON.stringify({ message: text, history: prior, platform: 'assistant' }),
         });
         let data = {};
         let bodyWasJson = false;
@@ -404,7 +404,7 @@
           messagesEl.appendChild(
             bubble(
               'assistant',
-              'The coach could not read a response from the server. If you are using a static preview, sign in to the app or open the app URL the API is deployed on. If this persists, the server may not be able to run /api/assistant/chat.'
+              'The coach could not read a response from the server. If you are using a static preview, sign in to the app or open the app URL the API is deployed on. If this persists, the server may not be able to run /api/pavlex/chat.'
             )
           );
         } else {

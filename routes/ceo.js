@@ -2,8 +2,7 @@ const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail } = require('../services/workspaceService');
-const { pavlexChatWithCrmTools } = require('../services/mcp/mcpChatRuntime');
-const { runMcpDiagnostics } = require('../services/mcp/mcpDiagnostics');
+const { runPavlexChat, runPavlexMcpDebug } = require('../services/pavlex/pavlexAgent');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlClient = require('../services/ghlClient');
 
@@ -189,106 +188,28 @@ router.get('/', async (req, res) => {
 });
 
 /**
- * POST /ceo/chat — AI chat endpoint for the CEO dashboard widget.
- *
- * Uses the SAME memory files and LLM provider as the Hermes agent
- * so context is shared across Telegram, CEO dashboard, and any
- * other channel. Reads /opt/data/memories/MEMORY.md and USER.md
- * on every turn so the AI always has current context.
+ * POST /ceo/chat — legacy alias for Automate Pavlex chat (delegates to Pavlex agent).
  */
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
-
-const MEMORY_FILE = '/opt/data/memories/MEMORY.md';
-const USER_FILE = '/opt/data/memories/USER.md';
-
-function readMemoryFile(filePath) {
+router.post('/chat', express.json(), async (req, res, next) => {
   try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    // Split on § delimiter used by Hermes memory format
-    return raw.split('§').map(s => s.trim()).filter(Boolean).join('\n');
-  } catch {
-    return '';
-  }
-}
-
-router.post('/chat', express.json(), async (req, res) => {
-  try {
-    const { message, history = [] } = req.body;
-    if (!message || !String(message).trim()) {
+    const message = String(req.body.message || '').trim();
+    const history = Array.isArray(req.body.history) ? req.body.history : [];
+    if (!message) {
       return res.status(400).json({ error: 'Message is required.' });
     }
 
-    // ── Build system prompt from live memory files ──
-    const memoryCtx = readMemoryFile(MEMORY_FILE);
-    const userCtx = readMemoryFile(USER_FILE);
-
-    const systemPrompt = `You are Pavlex, the AI Chief of Staff for Alex Pavlenko. You operate across all his ventures: AdHello.ai agency, personal brand, futures trading coach, coffee shop, and client consulting.
-
-You have the SAME memory and context as the Hermes agent on Telegram. When Alex talks to you here, it should feel identical to talking to you on Telegram — same knowledge, same tasks, same personality.
-
-USER PROFILE:
-${userCtx}
-
-MEMORY / CONTEXT:
-${memoryCtx}
-
-CURRENT SESSION:
-- Platform: CEO Command Center (web dashboard)
-- User: Alex Pavlenko (logged in)
-- Time: ${new Date().toISOString()}
-
-RULES:
-- Be extremely concise. One-word directions from Alex are normal.
-- Immediate action over analysis. Strategy → execute.
-- You have live CRM tools: list folders, list/search leads, read lead details, and update enrichment fields. Use them when Alex asks about pipeline data or wants lead changes.
-- If Alex asks you to do something (create task, research, write content), DO it — don't just suggest.
-- Keep responses under 300 words unless asked for detail.
-- Same tone as Telegram: direct, pragmatic, no hand-holding.`;
-
-    const messages = [{ role: 'system', content: systemPrompt }];
-    
-    // ── Load persisted chat history from DB ──
-    const persistedHistory = dbService.getRecentChatContext('ceo', 10);
-    persistedHistory.forEach(m => {
-      if (m.role && m.content) messages.push({ role: m.role, content: m.content });
-    });
-    
-    // Also include any history sent from the browser (for current session continuity)
-    (history || []).slice(-10).forEach(m => {
-      if (m.role && m.content) messages.push({ role: m.role, content: m.content });
-    });
-    
-    messages.push({ role: 'user', content: String(message).trim() });
-
-    const chatOut = await pavlexChatWithCrmTools({
-      req,
-      instructions: systemPrompt,
-      message: String(message).trim(),
-      history: (history || []).slice(-10),
-      legacyMessages: messages,
-      maxTokens: 1200,
-      temperature: 0.7,
+    const result = await runPavlexChat(req, {
+      message,
+      history,
+      platform: 'automate',
+      persistHistory: true,
     });
 
-    if (!chatOut.content || chatOut.error) {
-      return res.status(502).json({ error: 'AI unavailable. Try again in a moment.' });
-    }
-
-    const content = chatOut.content;
-    const aiProvider = chatOut.provider || 'legacy';
-
-    // ── Persist both user message and AI reply ──
-    dbService.saveChatMessage('ceo', 'user', String(message).trim(), 'web');
-    dbService.saveChatMessage('ceo', 'assistant', content, 'web');
-
-    // ── Forward to Telegram for cross-platform sync ──
     try {
       const telegramToken = process.env.TELEGRAM_BOT_TOKEN;
       const telegramChatId = process.env.TELEGRAM_CHAT_ID || '7325499142';
       if (telegramToken) {
-        const telegramMsg = `💬 *AdHello CEO Chat*\n\n👤 You: ${String(message).trim().substring(0, 200)}\n\n😊 Pavlex: ${content.substring(0, 300)}${content.length > 300 ? '...' : ''}`;
+        const telegramMsg = `💬 *AdHello CEO Chat*\n\n👤 You: ${message.substring(0, 200)}\n\n😊 Pavlex: ${result.reply.substring(0, 300)}${result.reply.length > 300 ? '...' : ''}`;
         fetch(`https://api.telegram.org/bot${telegramToken}/sendMessage`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -297,27 +218,32 @@ RULES:
             text: telegramMsg,
             parse_mode: 'Markdown',
           }),
-        }).catch(function() { /* silent fail */ });
+        }).catch(function () {});
       }
-    } catch(e) { /* silent fail */ }
+    } catch (e) {
+      /* silent */
+    }
 
     res.json({
       success: true,
-      reply: content,
-      provider: aiProvider,
-      mcpEnabled: !!chatOut.mcpEnabled,
-      mcpMode: chatOut.mcpMode || null,
+      reply: result.reply,
+      provider: result.provider,
+      mcpEnabled: result.mcpEnabled,
+      mcpMode: result.mcpMode,
     });
   } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
     console.error('[CEO CHAT] Error:', err.message);
-    res.status(500).json({ error: 'Chat failed.' });
+    next(err);
   }
 });
 
 // GET /ceo/mcp-diagnostics — MCP connection + list_folders probe for Pavlex chat
 router.get('/mcp-diagnostics', async (req, res, next) => {
   try {
-    const report = await runMcpDiagnostics(req);
+    const report = await runPavlexMcpDebug(req);
     res.json({ success: true, ...report });
   } catch (err) {
     next(err);
