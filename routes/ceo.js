@@ -3,6 +3,8 @@ const router = express.Router();
 const dbService = require('../services/database');
 const { userEmail } = require('../services/workspaceService');
 const { chatCompletion } = require('../services/llmClient');
+const { getMcpServerUrl, resolveMcpBearerToken } = require('../services/mcp/mcpConnection');
+const { chiefOfStaffResponsesWithMcp } = require('../services/mcp/mcpResponsesClient');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const ghlClient = require('../services/ghlClient');
 
@@ -241,7 +243,7 @@ CURRENT SESSION:
 RULES:
 - Be extremely concise. One-word directions from Alex are normal.
 - Immediate action over analysis. Strategy → execute.
-- You can reference leads, tasks, pipeline data visible on the dashboard.
+- You have live CRM tools: list folders, list/search leads, read lead details, and update enrichment fields. Use them when Alex asks about pipeline data or wants lead changes.
 - If Alex asks you to do something (create task, research, write content), DO it — don't just suggest.
 - Keep responses under 300 words unless asked for detail.
 - Same tone as Telegram: direct, pragmatic, no hand-holding.`;
@@ -261,15 +263,44 @@ RULES:
     
     messages.push({ role: 'user', content: String(message).trim() });
 
-    const { content, error } = await chatCompletion({
-      messages,
-      max_tokens: 1200,
-      temperature: 0.7,
-      providerChain: 'legacy',
-    });
+    let content = null;
+    let aiProvider = 'legacy';
 
-    if (error || !content) {
-      return res.status(502).json({ error: 'AI unavailable. Try again in a moment.' });
+    const openaiKey = String(process.env.OPENAI_API_KEY || '').trim();
+    const mcpServerUrl = getMcpServerUrl(req);
+    if (openaiKey && mcpServerUrl) {
+      const bearer = await resolveMcpBearerToken(req.workspaceId, {
+        autoProvision: !!req.canManageWorkspace,
+        createdByEmail: userEmail(req),
+      });
+      if (bearer.token) {
+        const mcpOut = await chiefOfStaffResponsesWithMcp({
+          instructions: systemPrompt,
+          message: String(message).trim(),
+          history: (history || []).slice(-10),
+          serverUrl: mcpServerUrl,
+          bearerToken: bearer.token,
+        });
+        if (mcpOut.content && !mcpOut.error) {
+          content = mcpOut.content;
+          aiProvider = mcpOut.provider || 'openai-responses-mcp';
+        } else if (mcpOut.detail) {
+          console.warn('[CEO CHAT] Responses MCP fallback:', mcpOut.detail);
+        }
+      }
+    }
+
+    if (!content) {
+      const { content: legacyContent, error } = await chatCompletion({
+        messages,
+        max_tokens: 1200,
+        temperature: 0.7,
+        providerChain: 'legacy',
+      });
+      if (error || !legacyContent) {
+        return res.status(502).json({ error: 'AI unavailable. Try again in a moment.' });
+      }
+      content = legacyContent;
     }
 
     // ── Persist both user message and AI reply ──
@@ -294,7 +325,7 @@ RULES:
       }
     } catch(e) { /* silent fail */ }
 
-    res.json({ success: true, reply: content });
+    res.json({ success: true, reply: content, provider: aiProvider });
   } catch (err) {
     console.error('[CEO CHAT] Error:', err.message);
     res.status(500).json({ error: 'Chat failed.' });

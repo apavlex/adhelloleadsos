@@ -18,7 +18,10 @@ function tokenHint(token) {
 function readBearerToken(req) {
   const auth = String(req.headers.authorization || '').trim();
   const match = auth.match(/^Bearer\s+(.+)$/i);
-  return match ? match[1].trim() : '';
+  if (match) return match[1].trim();
+  // OpenAI Responses API forwards the MCP tool `authorization` field as-is (often without Bearer).
+  if (auth) return auth;
+  return '';
 }
 
 async function validateMcpBearerToken(token) {

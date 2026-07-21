@@ -499,6 +499,9 @@ app.post('/api/leads/import-real-estate', express.json({ limit: '5mb' }), async 
   }
 });
 
+// MCP server — authenticated via session or Bearer token (must be reachable by OpenAI)
+app.use('/ceo/mcp', mcpRoutes);
+
 // Protected routes (IA Phase 1: iaNav + canonical redirects + /today)
 app.use(ensureAuthenticated);
 app.use(attachWorkspace);
@@ -531,7 +534,6 @@ app.use('/activation', activationRoutes);
 app.use('/tasks', tasksRoutes);
 app.use('/resources', resourcesRoutes);
 app.use('/api/assistant', assistantRoutes);
-app.use('/ceo/mcp', mcpRoutes);
 app.use('/ceo', ceoRoutes);
 app.use('/newsletter', newsletterRoutes);
 app.use('/social-posts', socialPostsRoutes);
