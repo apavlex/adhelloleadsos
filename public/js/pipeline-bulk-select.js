@@ -1679,6 +1679,8 @@
         }
       });
 
+      window.__pipelineKanbanFocusKeys = updatedKeys.slice();
+
       const msg =
         'Saved ' + updatedKeys.length + ' lead' + (updatedKeys.length === 1 ? '' : 's') + ' to ' + stageName;
       showBulkBarFeedbackEarly(msg, 'success');

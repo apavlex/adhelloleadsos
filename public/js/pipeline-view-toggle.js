@@ -35,6 +35,13 @@
     tableView.classList.toggle('hidden', showKanban);
     kanbanView.classList.toggle('hidden', !showKanban);
     syncToggleButtons(showKanban);
+    if (!showKanban) {
+      try {
+        delete window.__pipelineKanbanFocusKeys;
+      } catch (_) {
+        window.__pipelineKanbanFocusKeys = null;
+      }
+    }
     try {
       sessionStorage.setItem('adhello_pipeline_view', showKanban ? 'kanban' : 'table');
     } catch (_) {}

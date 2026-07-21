@@ -15046,6 +15046,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
+      window.__pipelineKanbanFocusKeys = updatedKeys.slice();
+
       const msg = `Saved ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'} to ${stageName}`;
       showBulkSaveFeedback(msg, 'success');
       if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
@@ -16288,7 +16290,76 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function populateKanbanColumn(col, columnWrap, rows, pipelineMode) {
+  function readKanbanColumnStageId(columnEl, index) {
+    if (!columnEl) return '';
+    const fromAttr = String(columnEl.getAttribute('data-pipeline-stage') || '').trim();
+    if (fromAttr) return fromAttr;
+    const fromDataset = String(columnEl.dataset.pipelineStage || '').trim();
+    if (fromDataset) return fromDataset;
+    const fromWindow =
+      Array.isArray(window.PIPELINE_STAGES) && window.PIPELINE_STAGES[index]
+        ? window.PIPELINE_STAGES[index]
+        : null;
+    return fromWindow && fromWindow.id ? String(fromWindow.id).trim() : '';
+  }
+
+  function getKanbanRowSources() {
+    const table = document.getElementById('prospectLeadsTable');
+    const rows = table
+      ? Array.from(table.querySelectorAll('tbody tr.result-row'))
+      : Array.from(
+          document.querySelectorAll(
+            '#prospectLeadsTable tbody tr.result-row, .result-row:not(.result-row--panel-source)',
+          ),
+        );
+    if (rows.length) return rows;
+
+    const focusKeys = window.__pipelineKanbanFocusKeys;
+    if (Array.isArray(focusKeys) && focusKeys.length && Array.isArray(window.INITIAL_SAVED_LEADS)) {
+      const keySet = new Set(focusKeys.map((k) => String(k || '').trim()).filter(Boolean));
+      return window.INITIAL_SAVED_LEADS.filter((lead) => lead && keySet.has(String(lead.key || '').trim()))
+        .map((lead) => leadRecordToKanbanRowShape(lead))
+        .filter(Boolean);
+    }
+
+    if (Array.isArray(window.INITIAL_SAVED_LEADS) && window.INITIAL_SAVED_LEADS.length) {
+      return window.INITIAL_SAVED_LEADS.map((lead) => leadRecordToKanbanRowShape(lead)).filter(Boolean);
+    }
+    return [];
+  }
+
+  function leadRecordToKanbanRowShape(lead) {
+    if (!lead || !lead.key) return null;
+    const key = String(lead.key).trim();
+    const existing = document.querySelector(
+      `#prospectLeadsTable tbody tr.result-row[data-lead-key="${CSS.escape(key)}"], tr.result-row[data-lead-key="${CSS.escape(key)}"]`,
+    );
+    if (existing) return existing;
+
+    const row = document.createElement('tr');
+    row.className = 'result-row result-row--kanban-bootstrap';
+    row.dataset.leadKey = key;
+    row.dataset.stageId = lead.stageId ? String(lead.stageId) : '';
+    row.dataset.pipelineStage = String(lead.pipelineStage || 1);
+    row.dataset.title = lead.title || '';
+    row.dataset.rating = String(lead.totalScore || 0);
+    row.dataset.website = lead.website || 'N/A';
+    row.dataset.category = lead.categoryName || 'N/A';
+    row.dataset.status = lead.status || 'Not Contacted';
+    return row;
+  }
+
+  function bindPipelineKanbanSortables() {
+    document
+      .querySelectorAll('#kanbanView[data-kanban-mode="pipeline"] .kanban-column')
+      .forEach((columnWrap) => {
+        const col = columnWrap.querySelector('.kanban-list');
+        if (!col) return;
+        bindKanbanSortable(col, columnWrap, true);
+      });
+  }
+
+  function populateKanbanColumn(col, columnWrap, rows, pipelineMode, bindSortableNow) {
     if (typeof Sortable !== 'undefined' && typeof Sortable.get === 'function') {
       const existing = Sortable.get(col);
       if (existing && typeof existing.destroy === 'function') existing.destroy();
@@ -16299,62 +16370,72 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const countBadge = columnWrap.querySelector('.column-count');
     if (countBadge) countBadge.textContent = rows.length;
-    bindKanbanSortable(col, columnWrap, pipelineMode);
+    if (bindSortableNow !== false && typeof Sortable !== 'undefined') {
+      bindKanbanSortable(col, columnWrap, pipelineMode);
+    }
+  }
+
+  function buildPipelineKanbanBoard() {
+    const kanbanRoot = document.querySelector('#kanbanView[data-kanban-mode="pipeline"]');
+    if (!kanbanRoot) return false;
+
+    const columnEls = Array.from(kanbanRoot.querySelectorAll('.kanban-column'));
+    if (!columnEls.length) return false;
+
+    const stageIds = columnEls.map((el, idx) => readKanbanColumnStageId(el, idx));
+    const allRows = getKanbanRowSources();
+    const focusKeys = window.__pipelineKanbanFocusKeys;
+    const rowsForBoard =
+      Array.isArray(focusKeys) && focusKeys.length
+        ? allRows.filter((row) => {
+            const key = String(row.dataset.leadKey || '').trim();
+            return focusKeys.some((fk) => {
+              const norm = String(fk || '').trim();
+              return norm && (key === norm || key === `lead:${norm}` || norm === key.replace(/^lead:/i, ''));
+            });
+          })
+        : allRows;
+
+    const buckets = columnEls.map(() => []);
+    rowsForBoard.forEach((row) => {
+      let idx = -1;
+      const sid = String(row.dataset.stageId || row.getAttribute('data-stage-id') || '').trim();
+      if (sid) idx = stageIds.indexOf(sid);
+      if (idx < 0 && stageIds.length) {
+        let ps = parseInt(row.dataset.pipelineStage || row.getAttribute('data-pipeline-stage'), 10);
+        if (Number.isNaN(ps) || ps < 1) ps = 1;
+        if (ps > stageIds.length) ps = stageIds.length;
+        idx = ps - 1;
+      }
+      if (idx < 0) idx = 0;
+      if (idx >= buckets.length) idx = buckets.length - 1;
+      buckets[idx].push(row);
+    });
+    if (rowsForBoard.length > 0 && buckets.every((bucket) => bucket.length === 0)) {
+      buckets[0] = rowsForBoard.slice();
+    }
+
+    columnEls.forEach((columnWrap, idx) => {
+      const col = columnWrap.querySelector('.kanban-list');
+      if (!col) return;
+      populateKanbanColumn(col, columnWrap, buckets[idx] || [], true, false);
+    });
+    return true;
   }
 
   // View toggle + kanban init hook (pipeline-view-toggle.js handles Table/Pipeline clicks)
   function initKanban() {
     const run = () => {
-      const table = document.getElementById('prospectLeadsTable');
-      const allRows = table
-        ? Array.from(table.querySelectorAll('tbody tr.result-row'))
-        : Array.from(
-            document.querySelectorAll(
-              '#prospectLeadsTable tbody tr.result-row, .result-row:not(.result-row--panel-source)',
-            ),
-          );
       const kanbanViewEl = document.getElementById('kanbanView');
       const pipelineMode =
         kanbanViewEl && kanbanViewEl.dataset && kanbanViewEl.dataset.kanbanMode === 'pipeline';
 
       if (pipelineMode) {
-        const kanbanRoot = document.querySelector('#kanbanView[data-kanban-mode="pipeline"]');
-        if (!kanbanRoot) return;
-
-        const stageIds = getPipelineKanbanStageIds();
-        const columnEls = Array.from(
-          kanbanRoot.querySelectorAll('.kanban-column[data-pipeline-stage]'),
-        ).filter((el) => String(el.dataset.pipelineStage || '').trim());
-
-        const effectiveStageIds = stageIds.length
-          ? stageIds
-          : columnEls.map((el) => String(el.dataset.pipelineStage || '').trim()).filter(Boolean);
-
-        const buckets = effectiveStageIds.map(() => []);
-        allRows.forEach((row) => {
-          let idx = resolveRowKanbanColumnIndex(row, effectiveStageIds);
-          if (idx < 0) idx = 0;
-          if (idx >= 0 && idx < buckets.length) buckets[idx].push(row);
-        });
-        if (allRows.length > 0 && buckets.every((bucket) => bucket.length === 0) && buckets.length) {
-          buckets[0] = allRows.slice();
-        }
-
-        const columnByStage = new Map();
-        columnEls.forEach((el) => {
-          columnByStage.set(String(el.dataset.pipelineStage || '').trim(), el);
-        });
-
-        effectiveStageIds.forEach((stageId, idx) => {
-          const columnWrap = columnByStage.get(stageId);
-          if (!columnWrap) return;
-          const col = columnWrap.querySelector('.kanban-list');
-          if (!col) return;
-          populateKanbanColumn(col, columnWrap, buckets[idx] || [], true);
-        });
+        buildPipelineKanbanBoard();
         return;
       }
 
+      const allRows = getKanbanRowSources();
       document.querySelectorAll('.kanban-list').forEach((col) => {
         const columnWrap = col.closest('.kanban-column') || col.parentElement;
         if (!columnWrap) return;
@@ -16399,10 +16480,25 @@ document.addEventListener('DOMContentLoaded', () => {
         bindKanbanSortable(col, columnWrap, false);
       });
     };
-    if (typeof window.__ensureSortableJs === 'function') {
-      window.__ensureSortableJs().then(run).catch(run);
-    } else {
-      run();
+    run();
+    if (typeof Sortable !== 'undefined') {
+      bindPipelineKanbanSortables();
+      document.querySelectorAll('.kanban-list').forEach((col) => {
+        const columnWrap = col.closest('.kanban-column') || col.parentElement;
+        if (!columnWrap || columnWrap.closest('#kanbanView[data-kanban-mode="pipeline"]')) return;
+        bindKanbanSortable(col, columnWrap, false);
+      });
+    } else if (typeof window.__ensureSortableJs === 'function') {
+      window.__ensureSortableJs()
+        .then(() => {
+          bindPipelineKanbanSortables();
+          document.querySelectorAll('.kanban-list').forEach((col) => {
+            const columnWrap = col.closest('.kanban-column') || col.parentElement;
+            if (!columnWrap || columnWrap.closest('#kanbanView[data-kanban-mode="pipeline"]')) return;
+            bindKanbanSortable(col, columnWrap, false);
+          });
+        })
+        .catch(() => {});
     }
   }
 
