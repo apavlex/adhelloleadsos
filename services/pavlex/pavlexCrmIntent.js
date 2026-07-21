@@ -28,6 +28,14 @@ function isCrmIntent(message) {
 }
 
 function crmUnavailableMessage(detail) {
+  const d = String(detail || '').toLowerCase();
+  if (d.includes('openai_api_key')) {
+    return (
+      'CRM AI runtime is not configured. Add OPENAI_API_KEY in Render → Environment ' +
+      '(or your host env vars), then redeploy. ' +
+      'You can still ask: "List my folders" or "How many leads do I have?" — those use direct CRM tools.'
+    );
+  }
   const base = 'CRM connection unavailable. MCP connection failed.';
   if (detail) return `${base} (${detail})`;
   return base;

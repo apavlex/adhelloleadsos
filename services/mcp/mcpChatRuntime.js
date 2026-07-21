@@ -11,6 +11,7 @@ const {
 const { chiefOfStaffResponsesWithMcp } = require('./mcpResponsesClient');
 const { inlineCrmToolChat } = require('./mcpInlineTools');
 const { isCrmIntent, crmUnavailableMessage } = require('../pavlex/pavlexCrmIntent');
+const { tryDirectCrmChat } = require('../pavlex/pavlexCrmDirect');
 const mcpLogger = require('./mcpLogger');
 
 function responsesUsedTools(toolActivity) {
@@ -75,6 +76,22 @@ async function pavlexChatWithCrmTools({
 
   if (!ctx.workspaceId || !ctx.userEmail) {
     failures.push('missing workspace or user context');
+  }
+
+  // Tier 0: Direct CRM tools (no OpenAI — list/count/search/read patterns)
+  if (ctx.workspaceId && ctx.userEmail && crmRequired) {
+    mcpLogger.chatRuntime({ phase: 'direct_tools', workspaceId: ctx.workspaceId });
+    const directOut = await tryDirectCrmChat(ctx, message);
+    if (directOut && directOut.content && !directOut.error) {
+      mcpLogger.chatRuntime({
+        phase: 'direct_tools_ok',
+        toolsUsed: directOut.toolsUsed || [],
+      });
+      return directOut;
+    }
+    if (directOut && directOut.error && directOut.detail) {
+      failures.push(directOut.detail);
+    }
   }
 
   // Tier 1: OpenAI Responses API + remote MCP (when publicly reachable)

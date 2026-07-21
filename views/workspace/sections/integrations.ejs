@@ -430,6 +430,13 @@
           <p class="font-semibold text-brand-dark dark:text-white">Available tools</p>
           <p><code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_folder</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">count_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">get_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">update_lead</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">bulk_update_leads</code>, <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">search_leads</code></p>
           <p>Pavlex chat automatically registers this MCP server on every message using your logged-in session — no manual token required for in-app chat.</p>
+          <% if (!process.env.OPENAI_API_KEY) { %>
+          <div class="rounded-lg border border-amber-400/50 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 text-xs text-amber-950 dark:text-amber-100 leading-relaxed">
+            <strong class="font-bold">OPENAI_API_KEY not set on this server.</strong>
+            Add it in Render → Environment (or your host env vars) and redeploy for full natural-language CRM chat.
+            Direct queries still work: “List my folders”, “How many leads do I have?”, “Find Acme Roofing”.
+          </div>
+          <% } %>
           <p>In ChatGPT: <strong>Settings → Connectors → Add MCP server</strong> — use the MCP endpoint URL and Bearer token above.</p>
         </div>
 

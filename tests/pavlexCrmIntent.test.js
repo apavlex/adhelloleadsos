@@ -20,6 +20,7 @@ describe('pavlexCrmIntent', () => {
   });
 
   it('formats CRM unavailable message', () => {
-    assert.match(crmUnavailableMessage('OPENAI_API_KEY missing'), /CRM connection unavailable/);
+    assert.match(crmUnavailableMessage('OPENAI_API_KEY missing'), /OPENAI_API_KEY/);
+    assert.match(crmUnavailableMessage('other error'), /CRM connection unavailable/);
   });
 });
