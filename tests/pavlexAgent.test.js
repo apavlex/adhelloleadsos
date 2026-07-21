@@ -1,6 +1,6 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { CRM_COMMAND_HINTS } = require('../services/pavlex/pavlexAgent');
+const { CRM_COMMAND_HINTS } = require('../services/pavlex/pavlexConstants');
 
 describe('pavlexAgent', () => {
   it('documents supported CRM command patterns', () => {

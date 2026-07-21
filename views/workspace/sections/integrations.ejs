@@ -438,7 +438,7 @@
           <p class="text-xs text-brand-muted leading-relaxed">Verify Pavlex can reach the CRM MCP server, authenticate as you, and call <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">list_folders</code>.</p>
           <div class="flex flex-wrap gap-2 items-center">
             <button type="button" id="mcpRunDiagnosticsBtn" class="rounded-xl border border-brand-yellow/50 bg-brand-yellow/10 text-brand-dark dark:text-brand-yellow px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:bg-brand-yellow/20 transition-colors">Run diagnostics</button>
-            <a href="/api/debug/pavlex-mcp" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open JSON</a>
+            <a href="/api/debug/mcp" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Open JSON</a>
           </div>
           <pre id="mcpDiagnosticsOutput" class="hidden text-[11px] whitespace-pre-wrap break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 max-h-64 overflow-auto"></pre>
         </div>
@@ -959,7 +959,7 @@
       }
       mcpDiagBtn.disabled = true;
       try {
-        var res = await fetch('/api/debug/pavlex-mcp', { credentials: 'same-origin' });
+        var res = await fetch('/api/debug/mcp', { credentials: 'same-origin' });
         var data = await res.json().catch(function () { return {}; });
         if (mcpDiagOut) {
           mcpDiagOut.textContent = JSON.stringify(data, null, 2);

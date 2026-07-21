@@ -1,5 +1,5 @@
 /**
- * Load MCP configuration for the logged-in user's workspace (Integrations settings).
+ * Load MCP configuration from workspace Integrations (database-backed).
  */
 const dbService = require('../database');
 const { userEmail } = require('../workspaceService');
@@ -8,36 +8,57 @@ const {
   getMcpServerUrl,
   resolveMcpBearerTokenForChat,
   CRM_MCP_TOOL_NAMES,
-} = require('../mcp/mcpConnection');
-const { getOpenAiToolManifest } = require('../mcp/mcpServerFactory');
+} = require('../mcp/connection');
+const { listToolDefinitions } = require('../mcp/tools');
 
 /**
+ * Integration record stored on workspace (Integrations page).
  * @param {import('express').Request} req
- * @returns {Promise<object>}
  */
-async function loadWorkspaceMcpConfig(req) {
+async function loadMcpIntegrationRecord(req) {
   const workspaceId = req.workspaceId;
   const email = userEmail(req);
   const ws = workspaceId ? await dbService.getWorkspace(workspaceId) : null;
   const tokenStatus = getWorkspaceMcpTokenStatus(ws);
-  const serverUrl = getMcpServerUrl(req);
-  const manifestUrl = serverUrl ? `${serverUrl.replace(/\/$/, '')}/manifest.json` : '';
-  const session = resolveMcpBearerTokenForChat(req);
-  const manifest = getOpenAiToolManifest();
-  const openaiConfigured = Boolean(String(process.env.OPENAI_API_KEY || '').trim());
-  const baseUrlConfigured = Boolean(String(process.env.BASE_URL || '').trim());
 
   return {
-    workspaceId: workspaceId || null,
-    userEmail: email || null,
-    serverUrl: serverUrl || null,
-    manifestUrl: manifestUrl || null,
+    id: workspaceId ? `mcp:${workspaceId}` : null,
+    user_id: email || null,
+    workspace_id: workspaceId || null,
+    provider: 'mcp',
+    mcp_url: getMcpServerUrl(req) || null,
+    encrypted_token: tokenStatus.configured ? 'stored' : null,
+    token_hint: tokenStatus.hint || null,
+    status: tokenStatus.configured ? 'active' : 'session_auto',
+    created_at: tokenStatus.createdAt || null,
+    created_by: tokenStatus.createdBy || null,
+  };
+}
+
+/**
+ * @param {import('express').Request} req
+ */
+async function loadWorkspaceMcpConfig(req) {
+  const integration = await loadMcpIntegrationRecord(req);
+  const session = resolveMcpBearerTokenForChat(req);
+  const tools = listToolDefinitions();
+  const openaiConfigured = Boolean(String(process.env.OPENAI_API_KEY || '').trim());
+  const baseUrlConfigured = Boolean(String(process.env.BASE_URL || '').trim());
+  const serverUrl = integration.mcp_url;
+  const manifestUrl = serverUrl ? `${serverUrl.replace(/\/$/, '')}/manifest.json` : '';
+
+  return {
+    workspaceId: integration.workspace_id,
+    userEmail: integration.user_id,
+    serverUrl,
+    manifestUrl,
     sessionToken: session.token || null,
     authMethod: session.authMethod || 'session_token',
-    integrationsTokenConfigured: tokenStatus.configured,
-    integrationsTokenHint: tokenStatus.hint || null,
-    integrationsTokenCreatedAt: tokenStatus.createdAt || null,
-    availableTools: manifest.tools.map((t) => t.name),
+    integrationsTokenConfigured: Boolean(integration.encrypted_token),
+    integrationsTokenHint: integration.token_hint,
+    integrationsTokenCreatedAt: integration.created_at,
+    integration,
+    availableTools: tools.map((t) => t.name),
     toolNames: CRM_MCP_TOOL_NAMES,
     openaiConfigured,
     baseUrlConfigured,
@@ -48,4 +69,5 @@ async function loadWorkspaceMcpConfig(req) {
 
 module.exports = {
   loadWorkspaceMcpConfig,
+  loadMcpIntegrationRecord,
 };

@@ -1,101 +1,32 @@
 /**
- * Pavlex agent execution engine — OpenAI Responses API + MCP CRM tools.
+ * Pavlex agent execution engine — central AI gateway with MCP CRM tools.
  */
-const fs = require('fs');
 const dbService = require('../database');
-const { userEmail } = require('../workspaceService');
-const { buildAssistantContext } = require('../assistantSearch');
+const { connectMCP, invokeMcpTool } = require('../mcp/client');
 const { pavlexChatWithCrmTools } = require('../mcp/mcpChatRuntime');
-const { runMcpDiagnostics } = require('../mcp/mcpDiagnostics');
-const { loadWorkspaceMcpConfig } = require('./pavlexMcpConfig');
-const mcpLogger = require('../mcp/mcpLogger');
-
-const MEMORY_FILE = '/opt/data/memories/MEMORY.md';
-const USER_FILE = '/opt/data/memories/USER.md';
-
-function readMemoryFile(filePath) {
-  try {
-    const raw = fs.readFileSync(filePath, 'utf8');
-    return raw.split('§').map((s) => s.trim()).filter(Boolean).join('\n');
-  } catch {
-    return '';
-  }
-}
-
-const CRM_COMMAND_HINTS = `
-CRM MCP TOOLS — use these automatically when the user asks about leads or folders:
-- "List my folders" / "list folders" → call list_folders
-- "How many leads in [folder]?" → call count_leads with folder_name or folder_id
-- "Show leads in [folder]" / "first N leads" → call list_leads with folder_name or folder_id and limit
-- "Update this lead" / change phone, email, status, tags → call update_lead with lead_id and fields
-- Search across CRM → search_leads
-Always use tools for CRM questions instead of guessing.`;
-
-async function buildPavlexInstructions(req, { platform = 'automate', message = '' } = {}) {
-  const memoryCtx = readMemoryFile(MEMORY_FILE);
-  const userCtx = readMemoryFile(USER_FILE);
-  const email = userEmail(req);
-  const mcpConfig = await loadWorkspaceMcpConfig(req);
-
-  let workspaceBlock = '';
-  if (platform === 'assistant' && req.workspaceId && email) {
-    const { contextText } = await buildAssistantContext({
-      workspaceId: req.workspaceId,
-      email,
-      query: String(message || '').trim(),
-    });
-    workspaceBlock = `\nWORKSPACE DATA (leads, pipeline, resources):\n${contextText}\n`;
-  }
-
-  const platformLabel =
-    platform === 'assistant'
-      ? 'Agency OS floating chat (sales coach widget)'
-      : 'Automate Command Center (CEO dashboard)';
-
-  return `You are Pavlex, the AI Chief of Staff for Alex Pavlenko. You operate across all his ventures: AdHello.ai agency, personal brand, futures trading coach, coffee shop, and client consulting.
-
-You have the SAME memory and context as the Hermes agent on Telegram. When Alex talks to you here, it should feel identical — same knowledge, same tasks, same personality.
-
-USER PROFILE:
-${userCtx}
-
-MEMORY / CONTEXT:
-${memoryCtx}
-${workspaceBlock}
-CURRENT SESSION:
-- Platform: ${platformLabel}
-- User: ${email || 'Alex Pavlenko'} (logged in)
-- Workspace: ${req.workspaceId || 'default'}
-- MCP server: ${mcpConfig.serverUrl || 'inline execution'}
-- Time: ${new Date().toISOString()}
-
-${CRM_COMMAND_HINTS}
-
-RULES:
-- Be extremely concise. One-word directions from Alex are normal.
-- Immediate action over analysis. Strategy → execute.
-- Use CRM MCP tools for folder/lead questions — never invent counts or lead data.
-- If Alex asks you to do something (create task, research, write content), DO it — don't just suggest.
-- Keep responses under 300 words unless asked for detail.
-- Same tone as Telegram: direct, pragmatic, no hand-holding.
-${platform === 'assistant' ? '- Plain text only. No markdown asterisks or backticks.' : ''}`;
-}
+const { assertPavlexAuth, resolvePavlexAuth } = require('./pavlexAuth');
+const { buildPavlexContext } = require('./pavlexContext');
+const { loadWorkspaceMcpConfig, loadMcpIntegrationRecord } = require('./pavlexMcpConfig');
+const pavlexLogger = require('./pavlexLogger');
+const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
 
 /**
  * @param {import('express').Request} req
  * @param {object} opts
  * @param {string} opts.message
  * @param {Array<{role:string,content:string}>} [opts.history]
+ * @param {string} [opts.conversationId]
  * @param {'automate'|'assistant'} [opts.platform]
  * @param {boolean} [opts.persistHistory]
- * @param {string} [opts.historyChannel]
  */
 async function runPavlexChat(req, opts) {
+  const started = Date.now();
+  const auth = assertPavlexAuth(req);
   const message = String(opts.message || '').trim();
   const history = Array.isArray(opts.history) ? opts.history : [];
+  const conversationId = String(opts.conversationId || '').trim() || null;
   const platform = opts.platform === 'assistant' ? 'assistant' : 'automate';
-  const persistHistory = opts.persistHistory !== false;
-  const historyChannel = opts.historyChannel || (platform === 'assistant' ? 'assistant' : 'ceo');
+  const persistHistory = opts.persistHistory !== false && platform === 'automate';
 
   if (!message) {
     const err = new Error('Message is required.');
@@ -103,26 +34,32 @@ async function runPavlexChat(req, opts) {
     throw err;
   }
 
-  const mcpConfig = await loadWorkspaceMcpConfig(req);
-  mcpLogger.chatRuntime({
-    phase: 'pavlex_agent_start',
-    platform,
-    workspaceId: mcpConfig.workspaceId,
-    userEmail: mcpConfig.userEmail,
-    runtimeReady: mcpConfig.runtimeReady,
-    responsesMcpReady: mcpConfig.responsesMcpReady,
+  const { instructions, mcpConfig } = await buildPavlexContext(req, auth, { platform, message });
+
+  const connection = await connectMCP({
+    serverUrl: mcpConfig.serverUrl,
+    token: mcpConfig.sessionToken,
+    userId: auth.userId,
+    workspaceId: auth.workspaceId,
+    userEmail: auth.email,
   });
 
-  const instructions = await buildPavlexInstructions(req, { platform, message });
-  const legacyMessages = [{ role: 'system', content: instructions }];
+  pavlexLogger.chatRequest({
+    user: auth.email,
+    workspaceId: auth.workspaceId,
+    conversationId,
+    question: message,
+    mcpConnected: connection.connected,
+    mcpMode: mcpConfig.responsesMcpReady ? 'responses_remote' : 'inline',
+  });
 
-  if (platform === 'automate' && persistHistory) {
-    const persisted = dbService.getRecentChatContext('ceo', 10);
-    persisted.forEach((m) => {
+  const legacyMessages = [{ role: 'system', content: instructions }];
+  if (persistHistory) {
+    const channel = conversationId || 'ceo';
+    dbService.getRecentChatContext(channel, 10).forEach((m) => {
       if (m.role && m.content) legacyMessages.push({ role: m.role, content: m.content });
     });
   }
-
   history.slice(-10).forEach((m) => {
     if (m && m.role && m.content) {
       legacyMessages.push({ role: m.role, content: String(m.content) });
@@ -142,66 +79,111 @@ async function runPavlexChat(req, opts) {
   });
 
   if (!chatOut.content || chatOut.error) {
+    pavlexLogger.error({
+      user: auth.email,
+      question: message,
+      detail: chatOut.mcpMode || 'unavailable',
+    });
     const err = new Error('AI unavailable. Configure OPENAI_API_KEY on the server.');
     err.status = 502;
     err.detail = chatOut.mcpMode || 'unavailable';
     throw err;
   }
 
-  if (persistHistory && platform === 'automate') {
-    dbService.saveChatMessage('ceo', 'user', message, 'web');
-    dbService.saveChatMessage('ceo', 'assistant', chatOut.content, 'web');
+  if (persistHistory) {
+    const channel = conversationId || 'ceo';
+    dbService.saveChatMessage(channel, 'user', message, 'web');
+    dbService.saveChatMessage(channel, 'assistant', chatOut.content, 'web');
   }
+
+  const latencyMs = Date.now() - started;
+  pavlexLogger.chatResponse({
+    user: auth.email,
+    question: message,
+    mcpEnabled: !!chatOut.mcpEnabled,
+    provider: chatOut.provider,
+    latencyMs,
+  });
 
   return {
     reply: chatOut.content,
     provider: chatOut.provider || 'none',
     mcpEnabled: !!chatOut.mcpEnabled,
     mcpMode: chatOut.mcpMode || null,
+    conversationId,
+    user: {
+      email: auth.email,
+      workspaceId: auth.workspaceId,
+      permissions: auth.permissions,
+    },
     mcpConfig: {
       serverUrl: mcpConfig.serverUrl,
       authMethod: mcpConfig.authMethod,
       availableTools: mcpConfig.availableTools,
+      connected: connection.connected,
     },
+    latencyMs,
   };
 }
 
 /**
- * Debug probe for Pavlex MCP runtime.
+ * Spec-aligned MCP debug report with live tool probes.
  * @param {import('express').Request} req
  */
 async function runPavlexMcpDebug(req) {
+  const auth = resolvePavlexAuth(req);
+  if (!auth.authenticated) {
+    const err = new Error('Sign in required.');
+    err.status = 401;
+    throw err;
+  }
+
   const mcpConfig = await loadWorkspaceMcpConfig(req);
-  const diagnostics = await runMcpDiagnostics(req);
+  const integration = await loadMcpIntegrationRecord(req);
+
+  const connection = await connectMCP({
+    serverUrl: mcpConfig.serverUrl,
+    token: mcpConfig.sessionToken,
+    userId: auth.userId,
+    workspaceId: auth.workspaceId,
+    userEmail: auth.email,
+  });
+
+  const ctx = connection.ctx;
+  const test = {};
+
+  const listProbe = await invokeMcpTool(ctx, 'list_folders', {});
+  test.list_folders = listProbe.ok ? 'success' : 'failed';
+
+  const countProbe = await invokeMcpTool(ctx, 'count_leads', { folder_name: 'Landscaping' });
+  test.count_landscaping =
+    countProbe.ok ? 'success' : countProbe.result && countProbe.result.code === 'NOT_FOUND' ? 'folder_not_found' : 'failed';
+
+  const searchProbe = await invokeMcpTool(ctx, 'search_leads', { query: 'test', limit: 1 });
+  test.search_leads = searchProbe.ok || (searchProbe.result && searchProbe.result.success) ? 'success' : 'failed';
 
   return {
-    mcpConnectionStatus: diagnostics.mcpConnected ? 'connected' : 'disconnected',
-    mcpConnected: diagnostics.mcpConnected,
-    serverReachable: diagnostics.serverReachable,
-    authenticatedUser: diagnostics.authenticatedUser,
-    workspaceId: diagnostics.workspaceId,
-    availableTools: diagnostics.availableTools,
-    discoveredTools: diagnostics.discoveredTools,
-    listFolders: diagnostics.listFolders,
-    listFoldersError: diagnostics.listFoldersError,
-    integrations: {
-      serverUrl: mcpConfig.serverUrl,
-      manifestUrl: mcpConfig.manifestUrl,
-      sessionAuth: mcpConfig.authMethod,
-      longLivedTokenConfigured: mcpConfig.integrationsTokenConfigured,
-      longLivedTokenHint: mcpConfig.integrationsTokenHint,
-      runtimeReady: mcpConfig.runtimeReady,
-      responsesMcpReady: mcpConfig.responsesMcpReady,
-      openaiConfigured: mcpConfig.openaiConfigured,
-      baseUrlConfigured: mcpConfig.baseUrlConfigured,
+    connected: connection.connected,
+    user: auth.email,
+    workspace: auth.workspaceId,
+    server: mcpConfig.serverUrl,
+    tools: connection.tools,
+    transport: connection.transport,
+    integration,
+    test,
+    probes: {
+      list_folders: listProbe.result,
+      count_landscaping: countProbe.result,
+      search_leads: searchProbe.result,
     },
-    remoteProbeError: diagnostics.remoteProbeError || null,
+    permissions: auth.permissions,
+    openaiConfigured: mcpConfig.openaiConfigured,
+    runtimeReady: mcpConfig.runtimeReady,
   };
 }
 
 module.exports = {
   runPavlexChat,
   runPavlexMcpDebug,
-  buildPavlexInstructions,
   CRM_COMMAND_HINTS,
 };

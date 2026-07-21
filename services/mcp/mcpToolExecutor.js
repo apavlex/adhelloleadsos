@@ -3,6 +3,7 @@
  */
 const crm = require('./mcpCrmService');
 const mcpLogger = require('./mcpLogger');
+const pavlexLogger = require('../pavlex/pavlexLogger');
 
 const TOOL_NAMES = [
   'list_folders',
@@ -67,6 +68,13 @@ async function executeCrmTool(ctx, toolName, args) {
       ok: true,
       summary: summarizeToolResult(name, payload),
     });
+    pavlexLogger.toolExecution({
+      user: ctx && ctx.userEmail,
+      tool: name,
+      args: input,
+      response: payload,
+      mcpConnected: true,
+    });
     return payload;
   } catch (err) {
     const payload = {
@@ -80,6 +88,13 @@ async function executeCrmTool(ctx, toolName, args) {
       ok: false,
       error: payload.error,
       code: payload.code,
+    });
+    pavlexLogger.toolExecution({
+      user: ctx && ctx.userEmail,
+      tool: name,
+      args: input,
+      response: payload,
+      mcpConnected: true,
     });
     return payload;
   }

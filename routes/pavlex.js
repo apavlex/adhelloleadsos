@@ -1,20 +1,14 @@
 /**
- * Pavlex agent API — canonical chat runtime for Automate + assistant surfaces.
+ * Pavlex agent API — central AI gateway for all website chat surfaces.
  */
 const express = require('express');
 const router = express.Router();
-const { userEmail } = require('../services/workspaceService');
 const { runPavlexChat } = require('../services/pavlex/pavlexAgent');
+const { assertPavlexAuth } = require('../services/pavlex/pavlexAuth');
 
 router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) => {
   try {
-    const email = userEmail(req);
-    if (!email) {
-      return res.status(401).json({ success: false, error: 'Sign in required.' });
-    }
-    if (!req.workspaceId) {
-      return res.status(400).json({ success: false, error: 'No active workspace.' });
-    }
+    assertPavlexAuth(req);
 
     const message = String(req.body.message || '').trim();
     let history = Array.isArray(req.body.history) ? req.body.history : [];
@@ -26,6 +20,7 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) =>
         content: String(m.content).slice(0, 6000),
       }));
 
+    const conversationId = String(req.body.conversationId || '').trim() || undefined;
     const platform = String(req.body.platform || 'automate').toLowerCase() === 'assistant'
       ? 'assistant'
       : 'automate';
@@ -33,6 +28,7 @@ router.post('/chat', express.json({ limit: '120kb' }), async (req, res, next) =>
     const result = await runPavlexChat(req, {
       message,
       history,
+      conversationId,
       platform,
       persistHistory: platform === 'automate',
     });
