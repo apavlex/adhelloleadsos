@@ -1,8 +1,8 @@
 /**
- * Shared Pavlex system context — identity, workspace, MCP tools, memory.
+ * Shared Pavlex system context — identity, MCP tools, memory.
+ * CRM data comes from MCP tools only (not injected snippets that enable guessing).
  */
 const fs = require('fs');
-const { buildAssistantContext } = require('../assistantSearch');
 const { loadWorkspaceMcpConfig } = require('./pavlexMcpConfig');
 const { CRM_COMMAND_HINTS } = require('./pavlexConstants');
 
@@ -28,16 +28,6 @@ async function buildPavlexContext(req, auth, { platform = 'global', message = ''
   const memoryCtx = readMemoryFile(MEMORY_FILE);
   const userCtx = readMemoryFile(USER_FILE);
 
-  let workspaceBlock = '';
-  if (auth.workspaceId && auth.email) {
-    const { contextText } = await buildAssistantContext({
-      workspaceId: auth.workspaceId,
-      email: auth.email,
-      query: String(message || '').trim(),
-    });
-    workspaceBlock = `\nWORKSPACE DATA (leads, pipeline, resources):\n${contextText}\n`;
-  }
-
   const platformLabels = {
     assistant: 'Agency OS floating chat',
     automate: 'Automate Command Center (CEO dashboard)',
@@ -59,7 +49,7 @@ ${userCtx}
 
 MEMORY / CONTEXT:
 ${memoryCtx}
-${workspaceBlock}
+
 SESSION:
 - Platform: ${platformLabel}
 - Current page: ${pagePath || 'unknown'}

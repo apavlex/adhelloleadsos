@@ -1,5 +1,5 @@
 /**
- * In-process OpenAI function-calling fallback when Responses API remote MCP is unavailable.
+ * In-process OpenAI function-calling — primary CRM tool path when remote MCP is unavailable.
  */
 const { executeCrmTool, getOpenAiFunctionTools } = require('./mcpToolExecutor');
 const mcpLogger = require('./mcpLogger');
@@ -23,8 +23,9 @@ function parseToolArguments(raw) {
  * @param {string} opts.message
  * @param {Array<{role:string,content:string}>} [opts.history]
  * @param {{ workspaceId: string, userEmail?: string }} opts.ctx
+ * @param {boolean} [opts.requireTools] — reject answers that skip CRM tool calls
  */
-async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
+async function inlineCrmToolChat({ instructions, message, history = [], ctx, requireTools = false }) {
   const apiKey = String(process.env.OPENAI_API_KEY || '').trim();
   if (!apiKey) {
     return {
@@ -37,6 +38,8 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
 
   const model = defaultResponsesModel();
   const tools = getOpenAiFunctionTools();
+  const toolsUsed = [];
+
   mcpLogger.toolsDiscovered({
     workspaceId: ctx.workspaceId,
     tools: tools.map((t) => t.function.name),
@@ -53,6 +56,9 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
 
   try {
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const toolChoice =
+        requireTools && toolsUsed.length === 0 && round === 0 ? 'required' : 'auto';
+
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -63,8 +69,8 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
           model,
           messages,
           tools,
-          tool_choice: 'auto',
-          temperature: 0.5,
+          tool_choice: toolChoice,
+          temperature: 0.4,
           max_tokens: 1200,
         }),
       });
@@ -94,6 +100,15 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
       const toolCalls = Array.isArray(assistantMsg.tool_calls) ? assistantMsg.tool_calls : [];
       if (!toolCalls.length) {
         const text = String(assistantMsg.content || '').trim();
+        if (requireTools && toolsUsed.length === 0) {
+          return {
+            content: null,
+            provider: 'openai-inline-tools',
+            error: true,
+            detail: 'Model answered without calling CRM tools.',
+            toolsUsed,
+          };
+        }
         if (!text) {
           return {
             content: null,
@@ -108,6 +123,7 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
           error: false,
           model,
           toolRounds: round,
+          toolsUsed,
         };
       }
 
@@ -115,6 +131,7 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
         const fn = call.function || {};
         const toolName = fn.name;
         const args = parseToolArguments(fn.arguments);
+        toolsUsed.push(toolName);
         const result = await executeCrmTool(ctx, toolName, args);
         messages.push({
           role: 'tool',
@@ -129,6 +146,7 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
       provider: 'openai-inline-tools',
       error: true,
       detail: 'Exceeded maximum CRM tool rounds.',
+      toolsUsed,
     };
   } catch (err) {
     mcpLogger.transportError({ layer: 'inline_openai', error: err.message });
@@ -137,6 +155,7 @@ async function inlineCrmToolChat({ instructions, message, history = [], ctx }) {
       provider: 'openai-inline-tools',
       error: true,
       detail: err.message || 'Inline tool chat failed',
+      toolsUsed,
     };
   }
 }

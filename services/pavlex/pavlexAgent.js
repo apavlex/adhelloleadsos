@@ -59,29 +59,14 @@ async function runPavlexChat(req, opts) {
     conversationId,
     question: message,
     mcpConnected: connection.connected,
-    mcpMode: mcpConfig.responsesMcpReady ? 'responses_remote' : 'inline',
+    mcpMode: mcpConfig.responsesMcpReady ? 'responses_remote' : 'inline_tools',
   });
-
-  const legacyMessages = [{ role: 'system', content: instructions }];
-  if (persistHistory) {
-    const channel = conversationId || 'ceo';
-    dbService.getRecentChatContext(channel, 10).forEach((m) => {
-      if (m.role && m.content) legacyMessages.push({ role: m.role, content: m.content });
-    });
-  }
-  history.slice(-10).forEach((m) => {
-    if (m && m.role && m.content) {
-      legacyMessages.push({ role: m.role, content: String(m.content) });
-    }
-  });
-  legacyMessages.push({ role: 'user', content: message });
 
   const chatOut = await pavlexChatWithCrmTools({
     req,
     instructions,
     message,
     history: history.slice(-10),
-    legacyMessages,
     mcpConfig,
     maxTokens: platform === 'assistant' ? 1000 : 1200,
     temperature: platform === 'assistant' ? 0.52 : 0.7,
@@ -91,11 +76,14 @@ async function runPavlexChat(req, opts) {
     pavlexLogger.error({
       user: auth.email,
       question: message,
-      detail: chatOut.mcpMode || 'unavailable',
+      detail: chatOut.detail || chatOut.mcpMode || 'unavailable',
     });
-    const err = new Error('AI unavailable. Configure OPENAI_API_KEY on the server.');
+    const err = new Error(
+      chatOut.userMessage ||
+        'CRM connection unavailable. MCP connection failed.',
+    );
     err.status = 502;
-    err.detail = chatOut.mcpMode || 'unavailable';
+    err.detail = chatOut.detail || chatOut.mcpMode || 'unavailable';
     throw err;
   }
 
@@ -111,6 +99,7 @@ async function runPavlexChat(req, opts) {
     question: message,
     mcpEnabled: !!chatOut.mcpEnabled,
     provider: chatOut.provider,
+    toolsUsed: chatOut.toolsUsed || [],
     latencyMs,
   });
 
@@ -119,6 +108,7 @@ async function runPavlexChat(req, opts) {
     provider: chatOut.provider || 'none',
     mcpEnabled: !!chatOut.mcpEnabled,
     mcpMode: chatOut.mcpMode || null,
+    toolsUsed: chatOut.toolsUsed || [],
     conversationId,
     user: {
       email: auth.email,
@@ -164,6 +154,9 @@ async function runPavlexMcpDebug(req) {
   const listProbe = await invokeMcpTool(ctx, 'list_folders', {});
   test.list_folders = listProbe.ok ? 'success' : 'failed';
 
+  const countAllProbe = await invokeMcpTool(ctx, 'count_leads', {});
+  test.count_leads = countAllProbe.ok ? 'success' : 'failed';
+
   const countProbe = await invokeMcpTool(ctx, 'count_leads', { folder_name: 'Landscaping' });
   test.count_landscaping =
     countProbe.ok ? 'success' : countProbe.result && countProbe.result.code === 'NOT_FOUND' ? 'folder_not_found' : 'failed';
@@ -182,6 +175,7 @@ async function runPavlexMcpDebug(req) {
     test,
     probes: {
       list_folders: listProbe.result,
+      count_leads: countAllProbe.result,
       count_landscaping: countProbe.result,
       search_leads: searchProbe.result,
     },

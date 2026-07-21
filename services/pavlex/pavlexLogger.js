@@ -35,6 +35,7 @@ function chatResponse(meta) {
     `User: ${meta.user || 'unknown'}`,
     `Question: ${truncate(meta.question || '', 200)}`,
     `MCP: ${meta.mcpEnabled ? 'Connected' : 'Disconnected'}`,
+    meta.toolsUsed && meta.toolsUsed.length ? `Tools: ${meta.toolsUsed.join(', ')}` : '',
     `Provider: ${meta.provider || '—'}`,
     `Latency: ${meta.latencyMs != null ? `${meta.latencyMs}ms` : '—'}`,
   ]);

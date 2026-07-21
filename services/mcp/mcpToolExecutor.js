@@ -146,12 +146,13 @@ function getOpenAiFunctionTools() {
       type: 'function',
       function: {
         name: 'count_leads',
-        description: 'Count leads in a folder by folder_id or folder name.',
+        description:
+          'Count leads in the workspace (all folders) or in a specific folder by folder_id or folder_name.',
         parameters: {
           type: 'object',
           properties: {
-            folder_id: { type: 'string' },
-            folder_name: { type: 'string' },
+            folder_id: { type: 'string', description: 'Optional folder key/id' },
+            folder_name: { type: 'string', description: 'Optional folder display name' },
           },
           additionalProperties: false,
         },

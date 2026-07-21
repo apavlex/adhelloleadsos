@@ -201,7 +201,7 @@ function getOpenAiToolManifest() {
       },
       {
         name: 'count_leads',
-        description: 'Count leads in a folder.',
+        description: 'Count leads in the workspace (all folders) or in a specific folder.',
         input_schema: {
           type: 'object',
           properties: folderRefProps,

@@ -220,12 +220,25 @@ async function getFolder(ctx, ref) {
   return { folder: mapFolderSummary(folder, leadCount) };
 }
 
-async function countLeads(ctx, ref) {
+async function countLeads(ctx, ref = {}) {
   const { workspaceId, userEmail } = ctx;
-  const folder = await resolveFolderRef(workspaceId, ref);
+  const folderId = String(ref.folder_id || ref.folder_key || '').trim();
+  const folderName = String(ref.folder_name || '').trim();
   const reqLike = buildReqLike(workspaceId, userEmail);
+
+  if (!folderId && !folderName) {
+    const all = await dbService.getAllLeads(workspaceId);
+    const visible = filterLeadsForRequest(reqLike, all);
+    return {
+      scope: 'workspace',
+      count: visible.length,
+    };
+  }
+
+  const folder = await resolveFolderRef(workspaceId, ref);
   const count = await countLeadsInFolder(workspaceId, folder.key, reqLike);
   return {
+    scope: 'folder',
     folder: { key: folder.key, name: folder.name, folder_id: folder.key },
     count,
   };

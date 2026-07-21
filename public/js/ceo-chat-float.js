@@ -148,7 +148,14 @@
             chatHistory.push({ role: 'assistant', content: d.reply });
             if (!chatOpen && chatBubbleDot) chatBubbleDot.classList.remove('hidden');
           } else if (chatMessagesFloat) {
-            renderMsgTo(chatMessagesFloat, 'assistant', d.error || d.reply || 'Something went wrong. Try again.');
+            var errMsg =
+              d.error ||
+              (d.detail && String(d.detail).indexOf('crm') >= 0
+                ? 'CRM connection unavailable. MCP connection failed.'
+                : null) ||
+              d.reply ||
+              'Something went wrong. Try again.';
+            renderMsgTo(chatMessagesFloat, 'assistant', errMsg);
           }
           chatBusy = false;
           if (chatInputFloat) {
