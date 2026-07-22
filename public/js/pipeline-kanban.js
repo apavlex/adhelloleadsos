@@ -28,6 +28,58 @@
     return fromWindow && fromWindow.id ? String(fromWindow.id).trim() : '';
   }
 
+  function isRowOnPipelineBoard(row) {
+    if (!row) return false;
+    const ds = row.dataset || {};
+    if (ds.onPipelineBoard === '1' || ds.onPipelineBoard === 'true') return true;
+    const key = String(ds.leadKey || '').trim();
+    if (key && window.__pipelineBoardKeys && window.__pipelineBoardKeys.has(key)) return true;
+    return false;
+  }
+
+  function markRowOnPipelineBoard(row) {
+    if (!row) return;
+    row.dataset.onPipelineBoard = '1';
+    const key = String(row.dataset.leadKey || '').trim();
+    if (!key) return;
+    if (!window.__pipelineBoardKeys) window.__pipelineBoardKeys = new Set();
+    window.__pipelineBoardKeys.add(key);
+  }
+
+  function markLeadsOnPipelineBoard(keys) {
+    if (!Array.isArray(keys)) return;
+    keys.forEach(function (key) {
+      const k = String(key || '').trim();
+      if (!k) return;
+      const bare = k.replace(/^lead:/i, '');
+      const variants = [k, bare, 'lead:' + bare];
+      let row = null;
+      for (let i = 0; i < variants.length; i += 1) {
+        row = document.querySelector(
+          '.result-row[data-lead-key="' + CSS.escape(variants[i]) + '"]',
+        );
+        if (row) break;
+      }
+      if (row) {
+        markRowOnPipelineBoard(row);
+      } else {
+        if (!window.__pipelineBoardKeys) window.__pipelineBoardKeys = new Set();
+        window.__pipelineBoardKeys.add(k);
+      }
+    });
+  }
+
+  function hydratePipelineBoardKeysFromDom() {
+    if (!window.__pipelineBoardKeys) window.__pipelineBoardKeys = new Set();
+    document.querySelectorAll('.result-row[data-on-pipeline-board="1"]').forEach(function (row) {
+      const key = String(row.dataset.leadKey || '').trim();
+      if (key) window.__pipelineBoardKeys.add(key);
+    });
+  }
+
+  window.__markRowOnPipelineBoard = markRowOnPipelineBoard;
+  window.__markLeadsOnPipelineBoard = markLeadsOnPipelineBoard;
+
   function leadRecordToRowShape(lead) {
     if (!lead || !lead.key) return null;
     const key = String(lead.key).trim();
@@ -58,20 +110,26 @@
     row.dataset.facebook = lead.facebook || 'N/A';
     row.dataset.instagram = lead.instagram || 'N/A';
     row.dataset.twitter = lead.twitter || 'N/A';
+    if (lead.onPipelineBoard) row.dataset.onPipelineBoard = '1';
     return row;
   }
 
   function getKanbanRowSources() {
+    hydratePipelineBoardKeysFromDom();
     const table = document.getElementById('prospectLeadsTable');
     if (table) {
       const rows = Array.from(
         table.querySelectorAll('tbody tr.result-row:not(.result-row--panel-source)'),
-      );
+      ).filter(isRowOnPipelineBoard);
       if (rows.length) return rows;
     }
 
     if (Array.isArray(window.INITIAL_SAVED_LEADS) && window.INITIAL_SAVED_LEADS.length) {
-      return window.INITIAL_SAVED_LEADS.map(leadRecordToRowShape).filter(Boolean);
+      return window.INITIAL_SAVED_LEADS.filter(function (lead) {
+        return lead && lead.onPipelineBoard;
+      })
+        .map(leadRecordToRowShape)
+        .filter(Boolean);
     }
     return [];
   }
@@ -210,11 +268,7 @@
       emailInner +
       '</div></div>' +
       (socialsHtml
-        ? '<div class="flex items-start gap-2 min-w-0">' +
-          '<span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 w-10 shrink-0 pt-1">Social</span>' +
-          '<div class="min-w-0 flex-1">' +
-          socialsHtml +
-          '</div></div>'
+        ? '<div class="flex items-center gap-1.5 min-w-0 pt-0.5">' + socialsHtml + '</div>'
         : '') +
       '</div>'
     );
@@ -312,6 +366,7 @@
           body: JSON.stringify({
             stageId: newStageId,
             pipelineStageUpdatedAt: new Date().toISOString(),
+            onPipelineBoard: true,
           }),
         })
           .then(function (res) {
@@ -325,6 +380,7 @@
             if (data.lead && data.lead.pipelineStage != null) {
               originalRow.dataset.pipelineStage = String(data.lead.pipelineStage);
             }
+            markRowOnPipelineBoard(originalRow);
           })
           .catch(function () {});
       },
@@ -362,12 +418,6 @@
       if (idx >= buckets.length) idx = buckets.length - 1;
       buckets[idx].push(row);
     });
-
-    if (rows.length > 0 && buckets.every(function (bucket) {
-      return bucket.length === 0;
-    })) {
-      buckets[0] = rows.slice();
-    }
 
     columnEls.forEach(function (columnWrap, idx) {
       const col = columnWrap.querySelector('.kanban-list');
@@ -426,12 +476,7 @@
 
   function bootWhenTableReady(attempt) {
     var n = typeof attempt === 'number' ? attempt : 0;
-    var table = document.getElementById('prospectLeadsTable');
-    var rowCount = table
-      ? table.querySelectorAll('tbody tr.result-row:not(.result-row--panel-source)').length
-      : 0;
-    var bootstrapCount = Array.isArray(window.INITIAL_SAVED_LEADS) ? window.INITIAL_SAVED_LEADS.length : 0;
-    if (isKanbanVisible() && (rowCount > 0 || bootstrapCount > 0)) {
+    if (isKanbanVisible()) {
       initKanban();
       return;
     }

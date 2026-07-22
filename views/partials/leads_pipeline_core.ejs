@@ -390,6 +390,7 @@
                 data-lead-key="<%= lead.key %>"
                 data-stage-id="<%= plcEscAttr(activeStageId || '') %>"
                 data-pipeline-stage="<%= psRow %>"
+                <% if (lead.onPipelineBoard) { %>data-on-pipeline-board="1"<% } %>
                 data-pipeline-label="<%= plcEscAttr(pipeShort) %>"
                 data-title="<%= plcEscAttr(lead.title) %>"
                 data-phone="<%= plcEscAttr(lead.phone || 'N/A') %>"

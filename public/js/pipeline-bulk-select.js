@@ -1692,6 +1692,11 @@
         const row = findLeadRowForBoardKey(item.key);
         if (!row) return;
         applyPipelineStageToRowEarly(row, item.stageId || stageId, item.pipelineStage);
+        if (typeof window.__markRowOnPipelineBoard === 'function') {
+          window.__markRowOnPipelineBoard(row);
+        } else {
+          row.dataset.onPipelineBoard = '1';
+        }
         if (folderKey && viewingFolder && folderKey !== viewingFolder) {
           row.remove();
         }

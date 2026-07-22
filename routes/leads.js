@@ -1109,6 +1109,16 @@ router.post('/:key/update', async (req, res, next) => {
     const existing = await dbService.getLead(fullKey);
     const wid = req.workspaceId;
 
+    if (
+      req.body &&
+      (req.body.onPipelineBoard === true ||
+        req.body.onPipelineBoard === 'true' ||
+        req.body.onPipelineBoard === 1 ||
+        req.body.onPipelineBoard === '1')
+    ) {
+      updateData.onPipelineBoard = true;
+    }
+
     const stages = await pipelineStagesService.listStages(wid);
     if (updateData.stageId != null && String(updateData.stageId).trim() !== '') {
       const sid = String(updateData.stageId).trim();
@@ -2934,6 +2944,7 @@ router.post('/bulk-stage-assign', express.json(), async (req, res, next) => {
       const patch = {
         ...pipelineStagesService.patchLeadStageFields(existing, stageRows, stageId),
         pipelineStageUpdatedAt: new Date().toISOString(),
+        onPipelineBoard: true,
       };
       if (folderKey !== undefined) patch.folderKey = folderKey;
       const lead = await dbService.updateLead(fullKey, patch, req.workspaceId);
@@ -2944,6 +2955,7 @@ router.post('/bulk-stage-assign', express.json(), async (req, res, next) => {
           stageId,
           pipelineStage: pipelineStagesService.stageIndex1Based(stageRows, stageId),
           folderKey: lead.folderKey || '',
+          onPipelineBoard: true,
         });
       }
     }

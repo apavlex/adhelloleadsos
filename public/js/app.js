@@ -6284,6 +6284,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (L.primaryServiceKey != null) {
       ds.primaryServiceKey = L.primaryServiceKey ? String(L.primaryServiceKey).trim() : '';
     }
+    if (L.onPipelineBoard !== undefined) {
+      ds.onPipelineBoard = L.onPipelineBoard ? '1' : '';
+    }
     coalesceRowDatasetFromContacts(row);
     hydrateRowDatasetFromTableDom(row);
   }
@@ -15281,6 +15284,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = findLeadRowForBulkKey(item.key);
         if (!row) return;
         applyPipelineStageToRow(row, item.stageId || stageId, item.pipelineStage);
+        if (typeof window.__markRowOnPipelineBoard === 'function') {
+          window.__markRowOnPipelineBoard(row);
+        } else {
+          row.dataset.onPipelineBoard = '1';
+        }
         if (folderKey && viewingFolder && folderKey !== viewingFolder) {
           row.remove();
         }
@@ -16465,6 +16473,7 @@ document.addEventListener('DOMContentLoaded', () => {
               body: JSON.stringify({
                 stageId: newStageId,
                 pipelineStageUpdatedAt: new Date().toISOString(),
+                onPipelineBoard: true,
               }),
             });
             const data = await res.json();
@@ -16475,6 +16484,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 originalRow.dataset.stageId = newStageId;
                 if (lead.pipelineStage != null) {
                   originalRow.dataset.pipelineStage = String(lead.pipelineStage);
+                }
+                if (typeof window.__markRowOnPipelineBoard === 'function') {
+                  window.__markRowOnPipelineBoard(originalRow);
+                } else {
+                  originalRow.dataset.onPipelineBoard = '1';
                 }
                 const labels = window.PIPELINE_STAGE_LABELS || {};
                 const fullName = labels[newStageId] || '';
@@ -16576,17 +16590,33 @@ document.addEventListener('DOMContentLoaded', () => {
     return filtered.length ? filtered : allRows;
   }
 
+  function isRowOnPipelineBoard(row) {
+    if (!row) return false;
+    const ds = row.dataset || {};
+    if (ds.onPipelineBoard === '1' || ds.onPipelineBoard === 'true') return true;
+    const key = String(ds.leadKey || '').trim();
+    if (key && window.__pipelineBoardKeys && window.__pipelineBoardKeys.has(key)) return true;
+    return false;
+  }
+
   function getKanbanRowSources() {
+    if (typeof window.__markLeadsOnPipelineBoard !== 'function' && !window.__pipelineBoardKeys) {
+      window.__pipelineBoardKeys = new Set();
+      document.querySelectorAll('.result-row[data-on-pipeline-board="1"]').forEach((row) => {
+        const key = String(row.dataset.leadKey || '').trim();
+        if (key) window.__pipelineBoardKeys.add(key);
+      });
+    }
     const table = document.getElementById('prospectLeadsTable');
     const rows = table
       ? Array.from(
           table.querySelectorAll('tbody tr.result-row:not(.result-row--panel-source)'),
-        )
+        ).filter(isRowOnPipelineBoard)
       : Array.from(
           document.querySelectorAll(
             '#prospectLeadsTable tbody tr.result-row:not(.result-row--panel-source), .result-row:not(.result-row--panel-source)',
           ),
-        );
+        ).filter(isRowOnPipelineBoard);
     if (rows.length) return rows;
 
     const sessionFocus = readKanbanFocusKeysFromSession();
@@ -16597,14 +16627,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (Array.isArray(focusKeys) && focusKeys.length && Array.isArray(window.INITIAL_SAVED_LEADS)) {
       const keySet = new Set(focusKeys.map((k) => String(k || '').trim()).filter(Boolean));
-      const fromBootstrap = window.INITIAL_SAVED_LEADS.filter((lead) => lead && keySet.has(String(lead.key || '').trim()))
+      const fromBootstrap = window.INITIAL_SAVED_LEADS.filter(
+        (lead) => lead && (lead.onPipelineBoard || keySet.has(String(lead.key || '').trim())),
+      )
         .map((lead) => leadRecordToKanbanRowShape(lead))
         .filter(Boolean);
       if (fromBootstrap.length) return fromBootstrap;
     }
 
     if (Array.isArray(window.INITIAL_SAVED_LEADS) && window.INITIAL_SAVED_LEADS.length) {
-      return window.INITIAL_SAVED_LEADS.map((lead) => leadRecordToKanbanRowShape(lead)).filter(Boolean);
+      return window.INITIAL_SAVED_LEADS.filter((lead) => lead && lead.onPipelineBoard)
+        .map((lead) => leadRecordToKanbanRowShape(lead))
+        .filter(Boolean);
     }
     return [];
   }
@@ -16627,6 +16661,7 @@ document.addEventListener('DOMContentLoaded', () => {
     row.dataset.website = lead.website || 'N/A';
     row.dataset.category = lead.categoryName || 'N/A';
     row.dataset.status = lead.status || 'Not Contacted';
+    if (lead.onPipelineBoard) row.dataset.onPipelineBoard = '1';
     return row;
   }
 
@@ -16678,9 +16713,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (idx >= buckets.length) idx = buckets.length - 1;
       buckets[idx].push(row);
     });
-    if (rowsForBoard.length > 0 && buckets.every((bucket) => bucket.length === 0)) {
-      buckets[0] = rowsForBoard.slice();
-    }
 
     columnEls.forEach((columnWrap, idx) => {
       const col = columnWrap.querySelector('.kanban-list');
@@ -18096,6 +18128,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ds.pipelineStage = lead.pipelineStage != null ? String(lead.pipelineStage) : '';
     ds.stageId = str(lead.stageId);
     ds.pipelineLabel = str(lead.pipelineLabel);
+    ds.onPipelineBoard = lead.onPipelineBoard ? '1' : '';
     try {
       ds.tags = JSON.stringify(Array.isArray(lead.tags) ? lead.tags : []);
     } catch (_) {

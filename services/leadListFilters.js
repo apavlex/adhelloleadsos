@@ -566,6 +566,7 @@ function mapLeadPipelineBootstrap(l) {
     twitter: l.twitter,
     pipelineStage: l.pipelineStage,
     stageId: l.stageId,
+    onPipelineBoard: !!l.onPipelineBoard,
     status: l.status,
     folderKey: l.folderKey || '',
     tags: Array.isArray(l.tags) ? l.tags : [],
