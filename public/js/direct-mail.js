@@ -86,26 +86,135 @@
     }
 
     if (sideWrap) sideWrap.classList.toggle('hidden', !preset.dualSided);
-    if (backCol) backCol.classList.toggle('hidden', !preset.dualSided);
+    if (backCol) backCol.hidden = !preset.dualSided;
     if (previewGrid) {
       previewGrid.classList.toggle('grid-cols-1', !preset.dualSided);
       previewGrid.classList.toggle('grid-cols-2', !!preset.dualSided);
     }
     if (previewHint) {
       previewHint.textContent = preset.dualSided
-        ? 'Generated art for this session. Check a side to include when sending postcards.'
-        : 'Generated ' + preset.label + ' creative. Download from preview or save to library.';
+        ? 'Switch Front / Back tabs above the canvas. Check sides to include when sending.'
+        : 'Generated ' + preset.label + ' creative — zoom, save, or send when ready.';
     }
 
+    syncStudioFormatPill(platformKey);
+    syncStudioPageView();
     updatePreviewAspectRatio();
   }
 
   function updatePreviewAspectRatio() {
     var css = aspectRatioToCss(currentAspectRatio());
-    ['dmPreviewFrontBtn', 'dmPreviewBackBtn'].forEach(function (id) {
-      var btn = document.getElementById(id);
+    document.querySelectorAll('.dm-artboard, .dm-preview-btn').forEach(function (btn) {
       if (btn) btn.style.aspectRatio = css;
     });
+  }
+
+  var studioZoom = 1;
+
+  function setStudioZoom(value) {
+    studioZoom = Math.min(1.5, Math.max(0.5, value));
+    var scaler = document.getElementById('dmCanvasScaler');
+    var label = document.getElementById('dmZoomLabel');
+    if (scaler) scaler.style.setProperty('--dm-zoom', String(studioZoom));
+    if (label) label.textContent = Math.round(studioZoom * 100) + '%';
+  }
+
+  function syncStudioFormatPill(platformKey) {
+    var pill = document.getElementById('dmStudioFormatPill');
+    var preset = DM_PLATFORMS[platformKey] || DM_PLATFORMS.custom;
+    if (pill) pill.textContent = preset.label || 'Custom';
+    document.querySelectorAll('.dm-format-card').forEach(function (card) {
+      var key = card.getAttribute('data-dm-platform') || '';
+      card.classList.toggle('is-selected', key === platformKey);
+    });
+  }
+
+  function syncStudioPageView() {
+    var slot = currentDesignSlot();
+    var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    var pageTabs = document.getElementById('dmPageTabs');
+    var frontBtn = document.getElementById('dmPreviewFrontBtn');
+    var backBtn = document.getElementById('dmPreviewBackBtn');
+    var frontActions = document.getElementById('dmPreviewFrontCol');
+    var backActions = document.getElementById('dmPreviewBackCol');
+
+    if (pageTabs) pageTabs.classList.toggle('hidden', !preset.dualSided);
+    if (frontActions) frontActions.hidden = !preset.dualSided && slot !== 'front';
+    if (backActions) backActions.hidden = !preset.dualSided;
+
+    if (!preset.dualSided) {
+      if (frontBtn) {
+        frontBtn.hidden = false;
+        frontBtn.classList.add('is-active-page');
+      }
+      if (backBtn) backBtn.hidden = true;
+      return;
+    }
+
+    if (frontBtn) {
+      frontBtn.hidden = slot !== 'front';
+      frontBtn.classList.toggle('is-active-page', slot === 'front');
+    }
+    if (backBtn) {
+      backBtn.hidden = slot !== 'back';
+      backBtn.classList.toggle('is-active-page', slot === 'back');
+    }
+    document.querySelectorAll('.dm-page-tab').forEach(function (tab) {
+      var page = tab.getAttribute('data-dm-page') || 'front';
+      var active = page === slot;
+      tab.classList.toggle('is-active', active);
+      tab.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+    if (frontActions) frontActions.hidden = slot !== 'front';
+    if (backActions) backActions.hidden = slot !== 'back';
+  }
+
+  function bindStudioUi() {
+    document.querySelectorAll('.dm-rail-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var tab = btn.getAttribute('data-dm-tab');
+        if (!tab) return;
+        document.querySelectorAll('.dm-rail-btn').forEach(function (b) {
+          b.classList.toggle('is-active', b === btn);
+        });
+        document.querySelectorAll('.dm-drawer-panel').forEach(function (panel) {
+          var match = panel.getAttribute('data-dm-panel') === tab;
+          panel.classList.toggle('is-active', match);
+          panel.hidden = !match;
+        });
+      });
+    });
+
+    document.querySelectorAll('.dm-format-card').forEach(function (card) {
+      card.addEventListener('click', function () {
+        var key = card.getAttribute('data-dm-platform') || 'postcard';
+        var platformEl = document.getElementById('dmPlatform');
+        if (platformEl) {
+          platformEl.value = key;
+          platformEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      });
+    });
+
+    document.querySelectorAll('.dm-page-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        var page = tab.getAttribute('data-dm-page') || 'front';
+        var slotEl = document.getElementById('dmDesignSlot');
+        if (slotEl) {
+          slotEl.value = page;
+          slotEl.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        syncStudioPageView();
+      });
+    });
+
+    var zoomIn = document.getElementById('dmZoomIn');
+    var zoomOut = document.getElementById('dmZoomOut');
+    var zoomFit = document.getElementById('dmZoomFit');
+    if (zoomIn) zoomIn.addEventListener('click', function () { setStudioZoom(studioZoom + 0.1); });
+    if (zoomOut) zoomOut.addEventListener('click', function () { setStudioZoom(studioZoom - 0.1); });
+    if (zoomFit) zoomFit.addEventListener('click', function () { setStudioZoom(1); });
+    setStudioZoom(1);
   }
 
   function readBrandKitFromForm() {
@@ -388,7 +497,7 @@
   function appendChatBubble(role, text) {
     var log = document.getElementById('dmChatLog');
     if (!log || !text) return;
-    var intro = log.querySelector('.text-brand-muted.leading-relaxed');
+    var intro = log.querySelector('.dm-chat-welcome') || log.querySelector('.text-brand-muted.leading-relaxed');
     if (intro && !intro.dataset.dmIntro) {
       intro.dataset.dmIntro = '1';
       intro.remove();
@@ -418,6 +527,10 @@
     if (!wrap || !editor) return;
     var text = String(prompt || '').trim();
     if (!text) {
+      if (wrap.classList.contains('dm-prompt-editor-wrap')) {
+        editor.value = '';
+        return;
+      }
       wrap.classList.add('hidden');
       return;
     }
@@ -634,8 +747,9 @@
     el.innerHTML = '';
     if (!imageUrl) {
       var span = document.createElement('span');
-      span.className = 'text-[10px] text-brand-muted px-2 text-center';
-      span.textContent = 'No ' + slot + ' yet';
+      span.className = 'dm-artboard-empty';
+      span.textContent =
+        slot === 'back' ? 'No back yet — generate or switch to Front' : 'No front yet — describe your design and generate';
       el.appendChild(span);
       if (useCb) {
         useCb.checked = false;
@@ -1055,10 +1169,11 @@
   if (slotEl) {
     slotEl.addEventListener('change', function () {
       var slot = currentDesignSlot();
+      syncStudioPageView();
       if (designMeta[slot].prompt) showPromptEditor(slot, designMeta[slot].prompt);
       else {
-        var wrap = document.getElementById('dmPromptEditorWrap');
-        if (wrap) wrap.classList.add('hidden');
+        var editor = document.getElementById('dmPromptEditor');
+        if (editor) editor.value = '';
       }
     });
   }
@@ -1075,6 +1190,7 @@
   if (ratioEl) ratioEl.addEventListener('change', updatePreviewAspectRatio);
 
   bindBrandKitUi();
+  bindStudioUi();
 
   var lbClose = document.getElementById('dmLightboxClose');
   var lbBackdrop = document.getElementById('dmLightboxBackdrop');

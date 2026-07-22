@@ -3,74 +3,104 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden dm-studio-page">
   <%- include('partials/navbar') %>
 
-  <main class="max-wide px-4 sm:px-6 py-8 md:py-10">
-    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-4 mb-8">
-      <div>
-        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Outreach</p>
-        <div class="page-heading-with-tip">
-          <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Direct Mail<% } %></h1>
-          <%- include('/partials/app_info_tip', {
-            tipId: 'direct-mail-help',
-            tipKey: 'direct-mail',
-            label: 'Direct mail overview',
-            size: 'lg',
-            wide: true,
-            content: (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession)
-              ? ('From your pipeline selection — design a postcard, pick mailable leads below, then send via Lob.' + ((typeof dmSkippedCount === 'number' && dmSkippedCount > 0) ? ' <span class="text-amber-700 dark:text-amber-300 font-semibold">' + dmSkippedCount + ' lead' + (dmSkippedCount === 1 ? '' : 's') + ' skipped (incomplete address).</span>' : ''))
-              : 'Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.'
-          }) %>
+  <main class="dm-studio-root">
+    <!-- Studio top bar -->
+    <header class="dm-studio-topbar">
+      <div class="dm-studio-topbar-start">
+        <div>
+          <p class="dm-studio-eyebrow">Outreach · Creative studio</p>
+          <div class="page-heading-with-tip flex items-center gap-2 flex-wrap">
+            <h1 class="dm-studio-title"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Direct Mail Studio<% } %></h1>
+            <%- include('/partials/app_info_tip', {
+              tipId: 'direct-mail-help',
+              tipKey: 'direct-mail',
+              label: 'Direct mail overview',
+              size: 'md',
+              wide: true,
+              content: (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession)
+                ? ('From your pipeline selection — design a postcard, pick mailable leads below, then send via Lob.' + ((typeof dmSkippedCount === 'number' && dmSkippedCount > 0) ? ' <span class="text-amber-700 dark:text-amber-300 font-semibold">' + dmSkippedCount + ' lead' + (dmSkippedCount === 1 ? '' : 's') + ' skipped (incomplete address).</span>' : ''))
+                : 'Send 4×6 postcards to leads with a mailable address via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Upload custom PDF designs in <a href="/workspace/integrations/lob-setup" class="text-brand-yellow hover:underline">Workspace → Lob design guide</a>. Test keys print in Lob’s test mode — no postage charged.'
+            }) %>
+          </div>
         </div>
+        <span id="dmStudioFormatPill" class="dm-studio-format-pill">4×6 Postcard</span>
       </div>
-      <div class="flex flex-wrap gap-2 shrink-0">
-        <a href="/workspace/integrations/lob-setup" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 hover:border-brand-yellow/50 transition-colors">Design guide</a>
-        <a href="/prospecting?tab=pipeline&amp;reach=direct_mail#tableView" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-brand-dark dark:text-white text-[10px] font-black uppercase tracking-widest px-4 py-2.5 hover:border-brand-yellow/50 transition-colors">Pipeline filter</a>
+      <div class="dm-studio-topbar-end">
+        <% if (!kieImageReady) { %>
+        <span class="dm-studio-badge dm-studio-badge--warn">KIE key not set</span>
+        <% } else { %>
+        <span class="dm-studio-badge dm-studio-badge--ok">GPT Image 2 ready</span>
+        <% } %>
+        <a href="/workspace/integrations/lob-setup" class="dm-studio-topbtn">Design guide</a>
+        <a href="/prospecting?tab=pipeline&amp;reach=direct_mail#tableView" class="dm-studio-topbtn">Pipeline</a>
         <% if (typeof canManageWorkspace !== 'undefined' && canManageWorkspace) { %>
-        <a href="/workspace/integrations#lob-integration" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5">Lob settings</a>
+        <a href="/workspace/integrations#lob-integration" class="dm-studio-topbtn dm-studio-topbtn--primary">Lob settings</a>
         <% } %>
       </div>
-    </div>
+    </header>
 
-    <div id="lobStatusBanner" class="brand-card p-4 md:p-5 mb-6 dark:bg-slate-900 dark:border-white/10 <%= lobReady.configured ? 'border-emerald-300/60 dark:border-emerald-800/50' : 'border-amber-300/60 dark:border-amber-800/50' %>">
+    <div id="lobStatusBanner" class="dm-lob-banner <%= lobReady.configured ? 'dm-lob-banner--ok' : 'dm-lob-banner--warn' %>">
       <% if (lobReady.configured) { %>
-      <div class="flex flex-wrap items-center gap-3">
-        <span class="inline-flex items-center gap-2 rounded-full bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-200 px-3 py-1 text-[10px] font-black uppercase tracking-widest">
-          <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
-          Lob connected<%= lobReady.testMode ? ' · test mode' : ' · live' %>
-        </span>
-        <p class="text-sm text-brand-muted"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %><%= typeof dmMailableCount === 'number' ? dmMailableCount : mailableLeads.length %> of <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected lead<%= (typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length) === 1 ? '' : 's' %> ready to mail.<% } else { %><%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length %> lead<%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length === 1 ? '' : 's' %> ready to mail in this workspace.<% } %><% if (lobReady.hasCustomPostcard) { %> Using your uploaded postcard PDFs.<% } else { %> Using built-in HTML template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %></p>
-      </div>
+      <span class="dm-lob-dot"></span>
+      <p class="dm-lob-text">Lob connected<%= lobReady.testMode ? ' · test mode' : ' · live' %> — <% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %><%= typeof dmMailableCount === 'number' ? dmMailableCount : mailableLeads.length %> of <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected lead<%= (typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length) === 1 ? '' : 's' %> ready.<% } else { %><%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length %> mailable lead<%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length === 1 ? '' : 's' %>.<% } %><% if (lobReady.hasCustomPostcard) { %> Using your uploaded PDFs.<% } else { %> Built-in template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %></p>
       <% } else { %>
-      <p class="text-sm font-semibold text-amber-900 dark:text-amber-100">Lob is not configured yet</p>
-      <p class="text-sm text-brand-muted mt-1">Add your Lob API key and return address under <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">Workspace → Integrations</a>.</p>
+      <p class="dm-lob-text"><strong>Lob not configured</strong> — Add API key under <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">Integrations</a>.</p>
       <% } %>
     </div>
 
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-      <div class="xl:col-span-2 brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10 flex flex-col min-h-[28rem]">
-        <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
-          <div>
-            <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">Design studio</h2>
-            <p class="text-xs text-brand-muted max-w-xl">Create ad images for Instagram, Facebook, LinkedIn, Google Display, YouTube, or 4×6 postcards. Chat to shape your creative, then generate with <a href="https://kie.ai/gpt-image-2" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">KIE GPT Image 2</a>.</p>
-          </div>
-          <% if (!kieImageReady) { %>
-          <span class="inline-flex rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-900 dark:text-amber-100 px-3 py-1 text-[10px] font-black uppercase tracking-widest">KIE key not set</span>
-          <% } else { %>
-          <span class="inline-flex rounded-full bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-200 px-3 py-1 text-[10px] font-black uppercase tracking-widest">GPT Image 2 ready</span>
-          <% } %>
-        </div>
+    <!-- Canva-style workspace -->
+    <section class="dm-studio" id="dmStudio" aria-label="Design studio">
+      <nav class="dm-studio-rail" aria-label="Studio tools">
+        <button type="button" class="dm-rail-btn is-active" data-dm-tab="formats" title="Formats">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>Formats</span>
+        </button>
+        <button type="button" class="dm-rail-btn" data-dm-tab="brand" title="Brand kit">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg>
+          <span>Brand</span>
+        </button>
+        <button type="button" class="dm-rail-btn" data-dm-tab="copy" title="Postcard copy">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
+          <span>Copy</span>
+        </button>
+        <button type="button" class="dm-rail-btn" data-dm-tab="library" title="Saved designs">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+          <span>Saved</span>
+        </button>
+      </nav>
 
-        <div id="dmChatLog" class="flex-1 min-h-[14rem] max-h-[22rem] overflow-y-auto custom-scrollbar space-y-3 rounded-xl border border-brand-border/30 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-950/40 p-3 mb-3" aria-live="polite">
-          <div class="text-sm text-brand-muted leading-relaxed">
-            Pick a platform and ratio, describe the look you want, then hit <strong class="text-brand-dark dark:text-white">Generate</strong>. Add business info below to include contact details and your logo.
+      <aside class="dm-studio-drawer">
+        <!-- Formats panel -->
+        <div class="dm-drawer-panel is-active" data-dm-panel="formats">
+          <h2 class="dm-drawer-title">Choose a format</h2>
+          <p class="dm-drawer-desc">Pick a canvas size for ads, social, or direct mail.</p>
+          <div class="dm-format-grid" role="listbox" aria-label="Platform format">
+            <% var dmFormats = [
+              { id: 'postcard', label: 'Postcard', sub: '4×6 · 2:3', icon: '✉️' },
+              { id: 'instagram_feed', label: 'Instagram', sub: 'Feed · 1:1', icon: '📷' },
+              { id: 'instagram_story', label: 'Story', sub: '9:16 vertical', icon: '📱' },
+              { id: 'instagram_portrait', label: 'IG Portrait', sub: '4:5', icon: '🖼️' },
+              { id: 'facebook_feed', label: 'Facebook', sub: 'Feed · 1:1', icon: '👍' },
+              { id: 'facebook_cover', label: 'FB Cover', sub: '16:9 wide', icon: '🌐' },
+              { id: 'facebook_story', label: 'FB Story', sub: '9:16', icon: '📲' },
+              { id: 'linkedin_post', label: 'LinkedIn', sub: 'Post · 1:1', icon: '💼' },
+              { id: 'linkedin_banner', label: 'LI Banner', sub: '16:9', icon: '📊' },
+              { id: 'google_display', label: 'Display', sub: 'Google · 16:9', icon: '🎯' },
+              { id: 'youtube_thumb', label: 'YouTube', sub: 'Thumbnail', icon: '▶️' },
+              { id: 'custom', label: 'Custom', sub: 'Any ratio', icon: '⚙️' }
+            ]; %>
+            <% dmFormats.forEach(function (f) { %>
+            <button type="button" class="dm-format-card<%= f.id === 'postcard' ? ' is-selected' : '' %>" data-dm-platform="<%= f.id %>" role="option">
+              <span class="dm-format-icon" aria-hidden="true"><%= f.icon %></span>
+              <span class="dm-format-label"><%= f.label %></span>
+              <span class="dm-format-sub"><%= f.sub %></span>
+            </button>
+            <% }) %>
           </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2 mb-3">
-          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted" for="dmPlatform">Platform</label>
-          <select id="dmPlatform" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold max-w-[11rem]">
+          <select id="dmPlatform" class="sr-only" aria-hidden="true" tabindex="-1">
             <option value="postcard" selected>4×6 Postcard</option>
             <option value="instagram_feed">Instagram Feed</option>
             <option value="instagram_story">Instagram Story / Reels</option>
@@ -84,245 +114,275 @@
             <option value="youtube_thumb">YouTube Thumbnail</option>
             <option value="custom">Custom ratio</option>
           </select>
-          <span id="dmSideWrap" class="inline-flex items-center gap-2">
-            <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-1" for="dmDesignSlot">Side</label>
-            <select id="dmDesignSlot" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold">
-              <option value="front">Front (main creative)</option>
-              <option value="back">Back (minimal / return)</option>
+          <div class="dm-drawer-settings">
+            <label class="dm-field-label" for="dmAspectRatio">Aspect ratio</label>
+            <select id="dmAspectRatio" class="dm-select">
+              <option value="2:3" selected>2:3 (4×6 postcard)</option>
+              <option value="3:2">3:2 (landscape)</option>
+              <option value="1:1">1:1 (square)</option>
+              <option value="4:5">4:5 (portrait)</option>
+              <option value="9:16">9:16 (story / reels)</option>
+              <option value="16:9">16:9 (wide)</option>
+              <option value="auto">Auto</option>
             </select>
-          </span>
-          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-1" for="dmAspectRatio">Ratio</label>
-          <select id="dmAspectRatio" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold">
-            <option value="2:3" selected>2:3 (4×6 postcard)</option>
-            <option value="3:2">3:2 (landscape)</option>
-            <option value="1:1">1:1 (square)</option>
-            <option value="4:5">4:5 (portrait)</option>
-            <option value="9:16">9:16 (story / reels)</option>
-            <option value="16:9">16:9 (wide)</option>
-            <option value="auto">Auto</option>
-          </select>
-          <label class="text-[10px] font-black uppercase tracking-widest text-brand-muted ml-1" for="dmResolution">Quality</label>
-          <select id="dmResolution" class="rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold">
-            <option value="1K">1K</option>
-            <option value="2K" selected>2K</option>
-            <option value="4K">4K</option>
-          </select>
-        </div>
-
-        <div class="flex gap-2">
-          <textarea id="dmChatInput" rows="2" class="flex-1 rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm resize-y min-h-[2.75rem]" placeholder="e.g. Warm local bakery postcard — golden hour photo, bold headline area at top, navy + cream brand colors…" <%= kieImageReady ? '' : 'disabled' %>></textarea>
-          <div class="flex flex-col gap-2 shrink-0">
-            <button type="button" id="dmChatSend" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2.5 hover:border-brand-yellow/50 transition-colors" <%= kieImageReady ? '' : 'disabled' %>>Chat</button>
-            <button type="button" id="dmGenerateBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2.5 disabled:opacity-50" <%= kieImageReady ? '' : 'disabled' %>>Generate</button>
+            <label class="dm-field-label" for="dmResolution">Export quality</label>
+            <select id="dmResolution" class="dm-select">
+              <option value="1K">1K</option>
+              <option value="2K" selected>2K</option>
+              <option value="4K">4K</option>
+            </select>
+            <span id="dmSideWrap" class="dm-side-wrap">
+              <label class="dm-field-label" for="dmDesignSlot">Active page</label>
+              <select id="dmDesignSlot" class="dm-select">
+                <option value="front">Front (main creative)</option>
+                <option value="back">Back (minimal / return)</option>
+              </select>
+            </span>
           </div>
         </div>
 
-        <details id="dmBrandKitPanel" class="mt-3 rounded-xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-950/30" open>
-          <summary class="cursor-pointer select-none px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white">Business info for ads</summary>
-          <div class="px-3 pb-3 pt-1 space-y-3 border-t border-brand-border/20 dark:border-white/10">
-            <p class="text-[11px] text-brand-muted leading-snug">Saved for this workspace — included in AI prompts and on generated ads (phone, website, hours, logo, etc.).</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandName">Business name</label>
-                <input id="dmBrandName" type="text" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Acme Plumbing LLC" value="<%= (brandKit && brandKit.businessName) || '' %>" />
+        <!-- Brand panel -->
+        <div class="dm-drawer-panel" data-dm-panel="brand" hidden>
+          <h2 class="dm-drawer-title">Brand kit</h2>
+          <p class="dm-drawer-desc">Business details included in AI prompts and on generated ads.</p>
+          <div class="dm-brand-form">
+            <label class="dm-field-label" for="dmBrandName">Business name</label>
+            <input id="dmBrandName" type="text" class="dm-brand-field dm-input" placeholder="Acme Plumbing LLC" value="<%= (brandKit && brandKit.businessName) || '' %>" />
+            <label class="dm-field-label" for="dmBrandPhone">Phone</label>
+            <input id="dmBrandPhone" type="tel" class="dm-brand-field dm-input" placeholder="(555) 123-4567" value="<%= (brandKit && brandKit.phone) || '' %>" />
+            <label class="dm-field-label" for="dmBrandEmail">Email</label>
+            <input id="dmBrandEmail" type="email" class="dm-brand-field dm-input" placeholder="hello@business.com" value="<%= (brandKit && brandKit.email) || '' %>" />
+            <label class="dm-field-label" for="dmBrandWebsite">Website</label>
+            <input id="dmBrandWebsite" type="url" class="dm-brand-field dm-input" placeholder="https://business.com" value="<%= (brandKit && brandKit.website) || '' %>" />
+            <label class="dm-field-label" for="dmBrandAddress">Address</label>
+            <input id="dmBrandAddress" type="text" class="dm-brand-field dm-input" placeholder="123 Main St, Portland, OR" value="<%= (brandKit && brandKit.address) || '' %>" />
+            <label class="dm-field-label" for="dmBrandHours">Business hours</label>
+            <input id="dmBrandHours" type="text" class="dm-brand-field dm-input" placeholder="Mon–Fri 8am–6pm" value="<%= (brandKit && brandKit.hours) || '' %>" />
+            <div class="dm-brand-logo-row">
+              <div id="dmBrandLogoPreview" class="dm-brand-logo-preview">
+                <% if (brandKit && brandKit.logoUrl) { %>
+                <img src="<%= brandKit.logoUrl %>" alt="Business logo" />
+                <% } else { %>
+                <span>No logo</span>
+                <% } %>
               </div>
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandPhone">Phone</label>
-                <input id="dmBrandPhone" type="tel" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="(555) 123-4567" value="<%= (brandKit && brandKit.phone) || '' %>" />
-              </div>
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandEmail">Email</label>
-                <input id="dmBrandEmail" type="email" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="hello@business.com" value="<%= (brandKit && brandKit.email) || '' %>" />
-              </div>
-              <div>
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandWebsite">Website</label>
-                <input id="dmBrandWebsite" type="url" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="https://business.com" value="<%= (brandKit && brandKit.website) || '' %>" />
-              </div>
-              <div class="sm:col-span-2">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandAddress">Address</label>
-                <input id="dmBrandAddress" type="text" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="123 Main St, Portland, OR 97201" value="<%= (brandKit && brandKit.address) || '' %>" />
-              </div>
-              <div class="sm:col-span-2">
-                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1" for="dmBrandHours">Business hours</label>
-                <input id="dmBrandHours" type="text" class="dm-brand-field w-full rounded-lg border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-sm" placeholder="Mon–Fri 8am–6pm, Sat 9am–2pm" value="<%= (brandKit && brandKit.hours) || '' %>" />
-              </div>
-            </div>
-            <div class="flex flex-wrap items-start gap-3">
-              <div class="shrink-0">
-                <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Logo</p>
-                <div id="dmBrandLogoPreview" class="w-16 h-16 rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/30 dark:bg-slate-900 flex items-center justify-center overflow-hidden">
-                  <% if (brandKit && brandKit.logoUrl) { %>
-                  <img src="<%= brandKit.logoUrl %>" alt="Business logo" class="max-w-full max-h-full object-contain" />
-                  <% } else { %>
-                  <span class="text-[9px] text-brand-muted px-1 text-center">No logo</span>
-                  <% } %>
-                </div>
-              </div>
-              <div class="flex-1 min-w-[12rem] space-y-2">
-                <label class="inline-flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
-                  <input type="checkbox" id="dmBrandUseLogo" class="rounded border-brand-border" <%= (!brandKit || brandKit.useLogoInDesign !== false) ? 'checked' : '' %> />
-                  Use logo in AI designs (image-to-image reference)
+              <div class="dm-brand-logo-actions">
+                <label class="dm-studio-topbtn cursor-pointer">
+                  Upload logo
+                  <input type="file" id="dmBrandLogoInput" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml" class="hidden" />
                 </label>
-                <div class="flex flex-wrap items-center gap-2">
-                  <label class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2 cursor-pointer hover:border-brand-yellow/50 transition-colors">
-                    Upload logo
-                    <input type="file" id="dmBrandLogoInput" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml" class="hidden" />
-                  </label>
-                  <button type="button" id="dmBrandSaveBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2">Save info</button>
-                </div>
-                <p id="dmBrandSaveStatus" class="text-[10px] text-brand-muted min-h-[1rem]" aria-live="polite"></p>
+                <label class="dm-check-row">
+                  <input type="checkbox" id="dmBrandUseLogo" <%= (!brandKit || brandKit.useLogoInDesign !== false) ? 'checked' : '' %> />
+                  Use logo in AI designs
+                </label>
+                <button type="button" id="dmBrandSaveBtn" class="dm-studio-topbtn dm-studio-topbtn--primary w-full justify-center">Save brand kit</button>
+                <p id="dmBrandSaveStatus" class="dm-brand-save-status" aria-live="polite"></p>
               </div>
-            </div>
-          </div>
-        </details>
-
-        <p id="dmDesignStatus" class="hidden mt-2 text-xs font-semibold leading-relaxed text-left" aria-live="polite"></p>
-      </div>
-
-      <div class="brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10 flex flex-col">
-        <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">Preview</h2>
-        <p id="dmPreviewHint" class="text-xs text-brand-muted mb-3">Generated art for this session. Check a side to include when sending postcards.</p>
-        <div id="dmPreviewGrid" class="grid grid-cols-2 gap-3 mb-4">
-          <div id="dmPreviewFrontCol">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Front</p>
-            <button type="button" id="dmPreviewFrontBtn" class="dm-preview-btn group w-full rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" style="aspect-ratio:2/3" data-slot="front" aria-label="View front design">
-              <div id="dmPreviewFront" class="absolute inset-0 flex items-center justify-center">
-                <span class="text-[10px] text-brand-muted px-2 text-center">No front yet</span>
-              </div>
-              <span class="dm-preview-zoom-badge pointer-events-none absolute bottom-2 right-2 rounded-lg bg-brand-dark/75 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">Zoom</span>
-            </button>
-            <div class="mt-2 flex flex-wrap items-center gap-2">
-              <label class="flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
-                <input type="checkbox" id="dmUseFront" class="rounded border-brand-border" disabled />
-                Use on send
-              </label>
-              <button type="button" id="dmSaveFront" class="hidden text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-slot="front">Save</button>
-            </div>
-          </div>
-          <div id="dmPreviewBackCol">
-            <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Back</p>
-            <button type="button" id="dmPreviewBackBtn" class="dm-preview-btn group w-full rounded-lg border border-dashed border-brand-border/50 dark:border-white/15 bg-brand-cream/20 dark:bg-slate-950/50 flex items-center justify-center overflow-hidden relative cursor-pointer hover:border-brand-yellow/50 transition-colors" style="aspect-ratio:2/3" data-slot="back" aria-label="View back design">
-              <div id="dmPreviewBack" class="absolute inset-0 flex items-center justify-center">
-                <span class="text-[10px] text-brand-muted px-2 text-center">No back yet</span>
-              </div>
-              <span class="dm-preview-zoom-badge pointer-events-none absolute bottom-2 right-2 rounded-lg bg-brand-dark/75 text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 opacity-0 group-hover:opacity-100 transition-opacity">Zoom</span>
-            </button>
-            <div class="mt-2 flex flex-wrap items-center gap-2">
-              <label class="flex items-center gap-2 text-xs font-semibold text-brand-dark dark:text-slate-200 cursor-pointer">
-                <input type="checkbox" id="dmUseBack" class="rounded border-brand-border" disabled />
-                Use on send
-              </label>
-              <button type="button" id="dmSaveBack" class="hidden text-[10px] font-black uppercase tracking-widest text-brand-yellow hover:underline" data-slot="back">Save</button>
             </div>
           </div>
         </div>
 
-        <div id="dmPromptEditorWrap" class="hidden border-t border-brand-border/20 dark:border-white/10 pt-3 mb-4">
-          <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
-            <label for="dmPromptEditor" class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Image prompt</label>
-            <span id="dmPromptEditorSlot" class="text-[10px] font-bold uppercase tracking-widest text-brand-dark dark:text-white">Front</span>
-          </div>
-          <textarea id="dmPromptEditor" rows="5" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-xs leading-relaxed resize-y min-h-[6rem]" placeholder="Edit the GPT Image 2 prompt here, then Regenerate…"></textarea>
-          <div class="flex flex-wrap gap-2 mt-2">
-            <button type="button" id="dmPromptApply" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2 hover:border-brand-yellow/50 transition-colors">Use prompt</button>
-            <button type="button" id="dmPromptRegenerate" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2">Regenerate</button>
-          </div>
-        </div>
-
-        <div class="border-t border-brand-border/20 dark:border-white/10 pt-3 mt-auto">
-          <div class="flex items-center justify-between gap-2 mb-2">
-            <h3 class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Saved designs</h3>
-            <span id="dmSavedCount" class="text-[10px] text-brand-muted">0 saved</span>
-          </div>
-          <div id="dmSavedLibrary" class="grid grid-cols-3 gap-2 max-h-40 overflow-y-auto custom-scrollbar">
-            <p class="col-span-3 text-[11px] text-brand-muted">Save a generated front or back to reuse later.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-8">
-      <div class="xl:col-span-2 brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10">
-        <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-1">Postcard copy</h2>
-        <p class="text-xs text-brand-muted mb-2">Personalize each send with merge tokens: <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{business}</code> <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{city}</code> <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{state}</code> <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">{audit_url}</code> (Stitch preview or website).</p>
-        <p id="dmMergePreview" class="text-[11px] text-brand-muted mb-4 min-h-[1rem]" aria-live="polite"></p>
-        <div class="space-y-3">
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmHeadline">Headline</label>
-            <input id="dmHeadline" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm dm-merge-field" placeholder="Your new website is ready, {business}" />
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmBody">Body</label>
-            <textarea id="dmBody" rows="3" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm resize-y dm-merge-field" placeholder="We built a custom preview for {business} in {city}. Visit the link below to view your site."></textarea>
-          </div>
-          <div>
-            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5" for="dmCtaUrl">Audit / landing URL</label>
-            <input id="dmCtaUrl" type="text" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2.5 text-sm dm-merge-field" placeholder="{audit_url}" />
-          </div>
-          <label class="inline-flex items-start gap-2 text-xs text-brand-muted cursor-pointer">
-            <input type="checkbox" id="dmPersonalizeOverlay" class="rounded border-brand-border mt-0.5" checked />
-            <span><strong class="text-brand-dark dark:text-white">Personalize AI art at send time</strong> — overlay headline, business name, and copy on generated front images (one design, unique text per lead).</span>
+        <!-- Copy panel -->
+        <div class="dm-drawer-panel" data-dm-panel="copy" hidden>
+          <h2 class="dm-drawer-title">Postcard copy</h2>
+          <p class="dm-drawer-desc">Merge tokens: <code>{business}</code> <code>{city}</code> <code>{state}</code> <code>{audit_url}</code></p>
+          <p id="dmMergePreview" class="dm-merge-preview" aria-live="polite"></p>
+          <label class="dm-field-label" for="dmHeadline">Headline</label>
+          <input id="dmHeadline" type="text" class="dm-input dm-merge-field" placeholder="Your new website is ready, {business}" />
+          <label class="dm-field-label" for="dmBody">Body</label>
+          <textarea id="dmBody" rows="4" class="dm-input dm-merge-field resize-y" placeholder="We built a custom preview for {business} in {city}."></textarea>
+          <label class="dm-field-label" for="dmCtaUrl">Audit / landing URL</label>
+          <input id="dmCtaUrl" type="text" class="dm-input dm-merge-field" placeholder="{audit_url}" />
+          <label class="dm-check-row mt-2">
+            <input type="checkbox" id="dmPersonalizeOverlay" checked />
+            <span><strong>Personalize at send</strong> — overlay headline and copy on generated art per lead.</span>
           </label>
         </div>
+
+        <!-- Library panel -->
+        <div class="dm-drawer-panel" data-dm-panel="library" hidden>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="dm-drawer-title mb-0">Saved designs</h2>
+            <span id="dmSavedCount" class="text-[11px] text-brand-muted">0 saved</span>
+          </div>
+          <p class="dm-drawer-desc">Reuse generated front or back art across campaigns.</p>
+          <div id="dmSavedLibrary" class="dm-saved-library">
+            <p class="text-[11px] text-brand-muted col-span-full">Save a generated design from the canvas toolbar.</p>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Center canvas -->
+      <div class="dm-studio-stage">
+        <div class="dm-stage-toolbar">
+          <div class="dm-page-tabs" id="dmPageTabs" role="tablist">
+            <button type="button" class="dm-page-tab is-active" data-dm-page="front" role="tab" aria-selected="true">Front</button>
+            <button type="button" class="dm-page-tab" data-dm-page="back" role="tab" aria-selected="false">Back</button>
+          </div>
+          <div class="dm-stage-toolbar-center">
+            <span id="dmPreviewHint" class="dm-stage-hint">Design your creative — describe it below and hit Generate.</span>
+          </div>
+          <div class="dm-stage-toolbar-end">
+            <div class="dm-zoom-controls" aria-label="Canvas zoom">
+              <button type="button" class="dm-zoom-btn" id="dmZoomOut" title="Zoom out">−</button>
+              <span id="dmZoomLabel" class="dm-zoom-label">100%</span>
+              <button type="button" class="dm-zoom-btn" id="dmZoomIn" title="Zoom in">+</button>
+              <button type="button" class="dm-zoom-btn" id="dmZoomFit" title="Fit to view">Fit</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-canvas-viewport" id="dmCanvasViewport">
+          <div class="dm-canvas-scaler" id="dmCanvasScaler" style="--dm-zoom: 1">
+            <div class="dm-artboard-wrap">
+              <button type="button" id="dmPreviewFrontBtn" class="dm-artboard dm-preview-btn is-active-page" style="aspect-ratio:2/3" data-slot="front" aria-label="Front design">
+                <div id="dmPreviewFront" class="dm-artboard-inner">
+                  <span class="dm-artboard-empty">No front yet — describe your design and generate</span>
+                </div>
+                <span class="dm-artboard-badge">Front</span>
+                <span class="dm-preview-zoom-badge">Click to zoom</span>
+              </button>
+              <button type="button" id="dmPreviewBackBtn" class="dm-artboard dm-preview-btn dm-artboard--back" style="aspect-ratio:2/3" data-slot="back" aria-label="Back design" hidden>
+                <div id="dmPreviewBack" class="dm-artboard-inner">
+                  <span class="dm-artboard-empty">No back yet</span>
+                </div>
+                <span class="dm-artboard-badge">Back</span>
+                <span class="dm-preview-zoom-badge">Click to zoom</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="dm-artboard-actions">
+          <div id="dmPreviewFrontCol" class="dm-page-actions">
+            <label class="dm-check-row">
+              <input type="checkbox" id="dmUseFront" disabled />
+              Use front on send
+            </label>
+            <button type="button" id="dmSaveFront" class="dm-text-btn hidden" data-slot="front">Save to library</button>
+          </div>
+          <div id="dmPreviewBackCol" class="dm-page-actions" hidden>
+            <label class="dm-check-row">
+              <input type="checkbox" id="dmUseBack" disabled />
+              Use back on send
+            </label>
+            <button type="button" id="dmSaveBack" class="dm-text-btn hidden" data-slot="back">Save to library</button>
+          </div>
+        </div>
+
+        <!-- Magic Design prompt bar -->
+        <div class="dm-prompt-dock">
+          <div id="dmChatLog" class="dm-chat-log custom-scrollbar" aria-live="polite">
+            <div class="dm-chat-welcome">
+              <strong>AI design assistant</strong> — Pick a format, describe the look you want, then Generate. Chat refines the prompt before image creation.
+            </div>
+          </div>
+          <div class="dm-prompt-row">
+            <textarea id="dmChatInput" rows="1" class="dm-prompt-input" placeholder="Describe your ad… e.g. Warm bakery postcard, golden hour photo, bold headline, navy + cream brand colors" <%= kieImageReady ? '' : 'disabled' %>></textarea>
+            <button type="button" id="dmChatSend" class="dm-prompt-btn" <%= kieImageReady ? '' : 'disabled' %>>Chat</button>
+            <button type="button" id="dmGenerateBtn" class="dm-prompt-btn dm-prompt-btn--primary" <%= kieImageReady ? '' : 'disabled' %>>
+              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+              Generate
+            </button>
+          </div>
+          <p id="dmDesignStatus" class="dm-design-status hidden" aria-live="polite"></p>
+        </div>
       </div>
-      <div class="brand-card p-5 md:p-6 dark:bg-slate-900 dark:border-white/10">
-        <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white mb-3">Recent sends</h2>
-        <% if (!recentSends.length) { %>
-        <p class="text-sm text-brand-muted">No postcards sent yet.</p>
+
+      <!-- Right inspector: prompt editor -->
+      <aside class="dm-studio-inspector">
+        <h2 class="dm-drawer-title">Prompt &amp; refine</h2>
+        <p class="dm-drawer-desc">Edit the GPT Image 2 prompt, then regenerate.</p>
+        <div id="dmPromptEditorWrap" class="dm-prompt-editor-wrap">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <label for="dmPromptEditor" class="dm-field-label mb-0">Image prompt</label>
+            <span id="dmPromptEditorSlot" class="dm-slot-badge">Front</span>
+          </div>
+          <textarea id="dmPromptEditor" rows="8" class="dm-input dm-prompt-editor" placeholder="The full image generation prompt appears here after Chat or Generate…"></textarea>
+          <div class="flex flex-wrap gap-2 mt-2">
+            <button type="button" id="dmPromptApply" class="dm-studio-topbtn">Use prompt</button>
+            <button type="button" id="dmPromptRegenerate" class="dm-studio-topbtn dm-studio-topbtn--primary">Regenerate</button>
+          </div>
+        </div>
+        <div class="dm-inspector-tips">
+          <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-2">Tips</p>
+          <ul class="text-[11px] text-brand-muted space-y-1.5 leading-relaxed">
+            <li>Fill in <strong>Brand</strong> for phone, logo, and hours on ads.</li>
+            <li>Use <strong>Chat</strong> to iterate; <strong>Generate</strong> creates the image.</li>
+            <li>Postcard mode supports front + back pages.</li>
+          </ul>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Hidden grid compat for JS -->
+    <div id="dmPreviewGrid" class="hidden" aria-hidden="true"></div>
+
+    <!-- Send workflow (below studio) -->
+    <section class="dm-workflow-section">
+      <details class="dm-workflow-details" open>
+        <summary class="dm-workflow-summary">
+          <span>Recent sends</span>
+          <span class="text-brand-muted font-normal normal-case tracking-normal text-xs"><%= recentSends.length ? recentSends.length + ' campaign' + (recentSends.length === 1 ? '' : 's') : 'None yet' %></span>
+        </summary>
+        <div class="brand-card p-5 dark:bg-slate-900 dark:border-white/10 mt-2">
+          <% if (!recentSends.length) { %>
+          <p class="text-sm text-brand-muted">No postcards sent yet.</p>
+          <% } else { %>
+          <ul class="space-y-3 max-h-48 overflow-y-auto custom-scrollbar">
+            <% recentSends.forEach(function (s) { %>
+            <li class="text-sm border-b border-brand-border/20 dark:border-white/10 pb-2">
+              <p class="font-semibold text-brand-dark dark:text-white truncate"><%= s.title %></p>
+              <p class="text-[11px] text-brand-muted mt-0.5"><%= s.message %></p>
+            </li>
+            <% }) %>
+          </ul>
+          <% } %>
+        </div>
+      </details>
+
+      <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10 mt-6">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
+          <div>
+            <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Direct Mail queue<% } else { %>Mailable leads<% } %></h2>
+            <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Leads you tagged for direct mail — mailable rows can be selected to send.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
+            <button type="button" id="dmSendBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5 disabled:opacity-50" <%= lobReady.configured ? '' : 'disabled' %>>Send postcards</button>
+          </div>
+        </div>
+        <p id="dmStatus" class="hidden px-5 py-2 text-xs font-semibold" aria-live="polite"></p>
+        <% if (!mailableLeads.length) { %>
+        <div class="p-10 text-center text-brand-muted text-sm"><% if (typeof dmQueueEmpty !== 'undefined' && dmQueueEmpty) { %>No leads in your Direct Mail queue yet. In Focus or the dialer <strong>Mail</strong> tab, tap <strong>+ Add current lead</strong>, or tag leads with <em>Direct Mail List</em> in the pipeline.<% } else { %>No leads with a complete mailable address. Enrich leads or import addresses from search results.<% } %></div>
         <% } else { %>
-        <ul class="space-y-3 max-h-64 overflow-y-auto custom-scrollbar">
-          <% recentSends.forEach(function (s) { %>
-          <li class="text-sm border-b border-brand-border/20 dark:border-white/10 pb-2">
-            <p class="font-semibold text-brand-dark dark:text-white truncate"><%= s.title %></p>
-            <p class="text-[11px] text-brand-muted mt-0.5"><%= s.message %></p>
-          </li>
-          <% }) %>
-        </ul>
+        <div class="overflow-x-auto">
+          <table id="dmLeadsTable" class="w-full text-left text-sm">
+            <thead>
+              <tr class="border-b border-brand-border/30 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
+                <th class="pl-5 pr-2 py-3 w-12"><input type="checkbox" id="dmCheckAll" class="rounded border-brand-border" aria-label="Select all" /></th>
+                <th class="px-2 py-3">Company</th>
+                <th class="px-2 py-3">Address</th>
+                <th class="px-2 py-3">City</th>
+                <th class="px-2 py-3">State</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
+              <% mailableLeads.forEach(function (l) { %>
+              <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= (l.stitchDesignUrl || l.stitchScreenshotUrl || (l.website && l.website !== 'N/A' ? l.website : '') || '').replace(/"/g, '&quot;') %>">
+                <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.mailable === false) { %> disabled<% } else if (l.preselected) { %> checked<% } %> /></td>
+                <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %><% if (l.mailable === false) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">No address</span><% } %></td>
+                <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>
+                <td class="px-2 py-3 text-brand-muted"><%= l.city || '—' %></td>
+                <td class="px-2 py-3 text-brand-muted"><%= l.state || '—' %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
         <% } %>
       </div>
-    </div>
-
-    <div class="brand-card overflow-hidden dark:bg-slate-900 dark:border-white/10">
-      <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
-        <div>
-          <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Direct Mail queue<% } else { %>Mailable leads<% } %></h2>
-          <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Leads you tagged for direct mail — mailable rows can be selected to send.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
-          <button type="button" id="dmSendBtn" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-4 py-2.5 disabled:opacity-50" <%= lobReady.configured ? '' : 'disabled' %>>Send postcards</button>
-        </div>
-      </div>
-      <p id="dmStatus" class="hidden px-5 py-2 text-xs font-semibold" aria-live="polite"></p>
-      <% if (!mailableLeads.length) { %>
-      <div class="p-10 text-center text-brand-muted text-sm"><% if (typeof dmQueueEmpty !== 'undefined' && dmQueueEmpty) { %>No leads in your Direct Mail queue yet. In Focus or the dialer <strong>Mail</strong> tab, tap <strong>+ Add current lead</strong>, or tag leads with <em>Direct Mail List</em> in the pipeline.<% } else { %>No leads with a complete mailable address. Enrich leads or import addresses from search results.<% } %></div>
-      <% } else { %>
-      <div class="overflow-x-auto">
-        <table id="dmLeadsTable" class="w-full text-left text-sm">
-          <thead>
-            <tr class="border-b border-brand-border/30 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
-              <th class="pl-5 pr-2 py-3 w-12"><input type="checkbox" id="dmCheckAll" class="rounded border-brand-border" aria-label="Select all" /></th>
-              <th class="px-2 py-3">Company</th>
-              <th class="px-2 py-3">Address</th>
-              <th class="px-2 py-3">City</th>
-              <th class="px-2 py-3">State</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
-            <% mailableLeads.forEach(function (l) { %>
-            <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= (l.stitchDesignUrl || l.stitchScreenshotUrl || (l.website && l.website !== 'N/A' ? l.website : '') || '').replace(/"/g, '&quot;') %>">
-              <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.mailable === false) { %> disabled<% } else if (l.preselected) { %> checked<% } %> /></td>
-              <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %><% if (l.mailable === false) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">No address</span><% } %></td>
-              <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>
-              <td class="px-2 py-3 text-brand-muted"><%= l.city || '—' %></td>
-              <td class="px-2 py-3 text-brand-muted"><%= l.state || '—' %></td>
-            </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-      <% } %>
-    </div>
+    </section>
   </main>
 
   <div id="dmImageLightbox" class="dm-lightbox hidden fixed inset-0 z-[500] flex items-center justify-center p-4 md:p-8" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Postcard preview">
