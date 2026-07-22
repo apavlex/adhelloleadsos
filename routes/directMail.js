@@ -13,7 +13,7 @@ const lobClient = require('../services/lobClient');
 const lobDirectMail = require('../services/lobDirectMail');
 const directMailQueue = require('../services/directMailQueue');
 const kieImageClient = require('../services/kieImageClient');
-const { chatCompletion, parseLlmJson } = require('../services/llmClient');
+const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
 
 const logoUpload = multer({
   storage: multer.memoryStorage(),
@@ -285,10 +285,13 @@ router.get('/api/status', async (req, res, next) => {
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const ready = lobDirectMail.directMailReady(integrationEnv);
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    const chatReady =
+      providersForChain('openrouter').length > 0 || providersForChain('legacy').length > 0;
     res.json({
       success: true,
       ...ready,
       kieImageReady: kieImageClient.isConfigured(),
+      chatReady,
       brandKit: normalizeBrandKit(ws.brandKit),
       platforms: DM_PLATFORMS,
     });
@@ -480,14 +483,30 @@ router.post('/api/generate-image', async (req, res, next) => {
       if (logoAbs && !inputUrls.includes(logoAbs)) inputUrls.unshift(logoAbs);
     }
 
-    const result = await kieImageClient.generate({
-      prompt,
-      inputUrls,
-      aspectRatio,
-      resolution,
-      maxWaitMs: 120000,
-      intervalMs: 4000,
-    });
+    let result;
+    try {
+      result = await kieImageClient.generate({
+        prompt,
+        inputUrls,
+        aspectRatio,
+        resolution,
+        maxWaitMs: 120000,
+        intervalMs: 4000,
+      });
+    } catch (firstErr) {
+      if (inputUrls.length) {
+        result = await kieImageClient.generate({
+          prompt,
+          inputUrls: [],
+          aspectRatio,
+          resolution,
+          maxWaitMs: 120000,
+          intervalMs: 4000,
+        });
+      } else {
+        throw firstErr;
+      }
+    }
 
     res.json({
       success: true,
@@ -505,7 +524,10 @@ router.post('/api/generate-image', async (req, res, next) => {
         });
       return res.status(err.status === 400 ? 400 : 502).json({ success: false, error: friendly });
     }
-    next(err);
+    return res.status(502).json({
+      success: false,
+      error: 'Image generation failed. Check KIE_AI_API_KEY on the server and try again.',
+    });
   }
 });
 

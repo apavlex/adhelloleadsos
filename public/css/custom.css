@@ -3971,6 +3971,7 @@ html.dark .tag-filter-combobox-menu {
 
 .dm-lightbox:not(.hidden) {
   display: flex;
+  z-index: 9999;
 }
 
 .dm-saved-card {
@@ -4706,6 +4707,7 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
   transform: scale(var(--dm-zoom, 1));
   transform-origin: center center;
   transition: transform 0.15s ease;
+  will-change: transform;
 }
 
 .dm-artboard-wrap {
@@ -4727,6 +4729,17 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
     0 24px 48px -20px rgba(17, 24, 39, 0.35);
   cursor: zoom-in;
   overflow: hidden;
+  transition: box-shadow 0.15s ease;
+}
+
+.dm-artboard.has-image {
+  cursor: zoom-in;
+}
+
+.dm-artboard.has-image:hover {
+  box-shadow:
+    0 0 0 2px rgba(250, 204, 21, 0.55),
+    0 24px 48px -20px rgba(17, 24, 39, 0.35);
 }
 
 .dm-artboard-inner {
@@ -4813,7 +4826,54 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
   cursor: pointer;
 }
 
+.dm-prompt-resizer {
+  flex-shrink: 0;
+  height: 0.45rem;
+  margin: 0 0.75rem;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.08);
+  cursor: row-resize;
+  position: relative;
+  transition: background 0.15s ease;
+}
+
+.dm-prompt-resizer:hover,
+.dm-prompt-resizer.is-dragging {
+  background: rgba(250, 204, 21, 0.45);
+}
+
+.dm-prompt-resizer::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 2.5rem;
+  height: 0.2rem;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.2);
+}
+
+.dark .dm-prompt-resizer {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dark .dm-prompt-resizer::after {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+body.dm-prompt-resize-active {
+  cursor: row-resize !important;
+  user-select: none !important;
+}
+
 .dm-prompt-dock {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 7.5rem;
+  max-height: min(52vh, 28rem);
+  height: var(--dm-prompt-h, 11.5rem);
   padding: 0.65rem 0.75rem 0.75rem;
   background: rgba(255, 255, 255, 0.92);
   border-top: 1px solid rgba(17, 24, 39, 0.08);
@@ -4826,7 +4886,9 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
 }
 
 .dm-chat-log {
-  max-height: 5.5rem;
+  flex: 1;
+  min-height: 3rem;
+  max-height: none;
   overflow-y: auto;
   margin-bottom: 0.5rem;
   padding: 0.35rem;

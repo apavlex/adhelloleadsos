@@ -217,6 +217,110 @@
     setStudioZoom(1);
 
     bindStudioFullscreen();
+    bindPromptPanelResizer();
+    bindPreviewZoomHandlers();
+    refreshStudioAiStatus();
+  }
+
+  function bindPreviewZoomHandlers() {
+    document.querySelectorAll('.dm-preview-btn').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.preventDefault();
+        handlePreviewZoomClick(btn);
+      });
+    });
+    var viewport = document.getElementById('dmCanvasViewport');
+    if (viewport) {
+      viewport.addEventListener('click', function (e) {
+        var btn = e.target && e.target.closest ? e.target.closest('.dm-preview-btn') : null;
+        if (!btn) return;
+        e.preventDefault();
+        handlePreviewZoomClick(btn);
+      });
+    }
+  }
+
+  function bindPromptPanelResizer() {
+    var resizer = document.getElementById('dmPromptResizer');
+    var dock = document.getElementById('dmPromptDock');
+    if (!resizer || !dock) return;
+
+    var stored = 0;
+    try {
+      stored = parseInt(localStorage.getItem('adhello_dm_prompt_h') || '0', 10);
+    } catch (_) {}
+    if (stored >= 120 && stored <= 520) {
+      dock.style.setProperty('--dm-prompt-h', stored + 'px');
+    }
+
+    var dragging = false;
+    var startY = 0;
+    var startH = 0;
+
+    function onMove(e) {
+      if (!dragging) return;
+      var clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      var delta = startY - clientY;
+      var next = Math.min(520, Math.max(120, startH + delta));
+      dock.style.setProperty('--dm-prompt-h', next + 'px');
+    }
+
+    function onUp() {
+      if (!dragging) return;
+      dragging = false;
+      resizer.classList.remove('is-dragging');
+      document.body.classList.remove('dm-prompt-resize-active');
+      var h = parseInt(getComputedStyle(dock).height, 10);
+      if (h >= 120) {
+        try {
+          localStorage.setItem('adhello_dm_prompt_h', String(h));
+        } catch (_) {}
+      }
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('touchmove', onMove);
+      window.removeEventListener('touchend', onUp);
+    }
+
+    function onDown(e) {
+      dragging = true;
+      startY = e.touches ? e.touches[0].clientY : e.clientY;
+      startH = dock.getBoundingClientRect().height;
+      resizer.classList.add('is-dragging');
+      document.body.classList.add('dm-prompt-resize-active');
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+      window.addEventListener('touchmove', onMove, { passive: false });
+      window.addEventListener('touchend', onUp);
+      e.preventDefault();
+    }
+
+    resizer.addEventListener('mousedown', onDown);
+    resizer.addEventListener('touchstart', onDown, { passive: false });
+  }
+
+  async function refreshStudioAiStatus() {
+    try {
+      var res = await fetch('/direct-mail/api/status', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!data || !data.success) return;
+      if (!data.kieImageReady) {
+        setDesignStatus(
+          'KIE image key missing on server — set KIE_AI_API_KEY in Render env for Generate to work.',
+          false,
+        );
+      } else if (!data.chatReady) {
+        setDesignStatus(
+          'Chat AI not configured — set OPENROUTER_API_KEY (or KIE/Gemini/OpenAI) on the server.',
+          false,
+        );
+      }
+    } catch (_) {}
   }
 
   function syncFullscreenUi(isOn) {
@@ -403,10 +507,21 @@
     el.classList.add(ok ? 'text-emerald-700' : 'text-rose-700', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
   }
 
-  function formatApiError(data, fallback) {
+  function formatApiError(data, fallback, res) {
     var err = data && data.error;
     if (typeof err === 'string' && err.trim()) return err.trim();
     if (err && typeof err === 'object' && err.message) return String(err.message);
+    if (data && typeof data.msg === 'string' && data.msg.trim()) return data.msg.trim();
+    if (data && typeof data.message === 'string' && data.message.trim()) return data.message.trim();
+    if (res && !res.ok) {
+      if (res.status === 502) {
+        return 'Image service unavailable. Verify KIE_AI_API_KEY is set on the server and try again.';
+      }
+      if (res.status === 401 || res.status === 403) {
+        return 'Not authorized — refresh the page and sign in again.';
+      }
+      return 'Request failed (HTTP ' + res.status + ').';
+    }
     return fallback || 'Request failed';
   }
 
@@ -798,6 +913,8 @@
         useCb.disabled = true;
       }
       if (saveBtn) saveBtn.classList.add('hidden');
+      var emptyBoard = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
+      if (emptyBoard) emptyBoard.classList.remove('has-image');
       return;
     }
     var img = document.createElement('img');
@@ -805,6 +922,8 @@
     img.alt = slot + ' postcard design';
     img.className = 'w-full h-full object-cover';
     el.appendChild(img);
+    var artboardBtn = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
+    if (artboardBtn) artboardBtn.classList.add('has-image');
     if (useCb) {
       useCb.disabled = false;
       useCb.checked = true;
@@ -836,9 +955,29 @@
       data = {};
     }
     if (!res.ok || data.success === false) {
-      throw new Error(formatApiError(data, 'Request failed'));
+      throw new Error(formatApiError(data, 'Request failed', res));
     }
     return data;
+  }
+
+  function previewUrlForSlot(slot, btn) {
+    var key = slot === 'back' ? 'back' : 'front';
+    if (designs[key]) return designs[key];
+    var host = btn || document.getElementById(key === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
+    if (!host) return '';
+    var img = host.querySelector('img');
+    return img && img.src ? img.src : '';
+  }
+
+  function handlePreviewZoomClick(btn) {
+    if (!btn) return;
+    var slot = btn.getAttribute('data-slot') || 'front';
+    var url = previewUrlForSlot(slot, btn);
+    if (!url || /^data:/.test(url)) {
+      setDesignStatus('Generate a design first, then click the preview to zoom.', false);
+      return;
+    }
+    openLightbox(slot, url, designMeta[slot] && designMeta[slot].prompt);
   }
 
   async function sendChatMessage() {
@@ -902,6 +1041,7 @@
     var prompt =
       readPromptEditor() ||
       lastImagePrompt ||
+      (designMeta[currentDesignSlot()] && designMeta[currentDesignSlot()].prompt) ||
       String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
       latestUserChatText();
     var ctx = designRequestContext();
@@ -1176,14 +1316,6 @@
 
   var genBtn = document.getElementById('dmGenerateBtn');
   if (genBtn) genBtn.addEventListener('click', generateImage);
-
-  document.querySelectorAll('.dm-preview-btn').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var slot = btn.getAttribute('data-slot') || 'front';
-      if (!designs[slot]) return;
-      openLightbox(slot);
-    });
-  });
 
   ['dmSaveFront', 'dmSaveBack'].forEach(function (id) {
     var btn = document.getElementById(id);

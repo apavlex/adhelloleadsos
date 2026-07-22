@@ -118,6 +118,21 @@ async function kieRequest(method, path, { body } = {}) {
     throw err;
   }
 
+  const bizCode = data && data.code != null ? Number(data.code) : null;
+  if (bizCode != null && bizCode !== 200 && bizCode !== 0) {
+    const msg =
+      (data && data.msg) ||
+      (data && data.message) ||
+      (data && data.error) ||
+      `KIE API error (code ${bizCode})`;
+    const raw = typeof msg === 'string' ? msg : JSON.stringify(msg);
+    const err = new Error(friendlyKieImageError(raw, { prompt: body && body.input && body.input.prompt }));
+    err.status = bizCode >= 400 && bizCode < 600 ? bizCode : 502;
+    err.body = data;
+    err.kieFriendly = true;
+    throw err;
+  }
+
   return data;
 }
 
