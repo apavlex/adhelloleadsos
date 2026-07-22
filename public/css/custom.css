@@ -4330,8 +4330,126 @@ html.dark .tag-filter-combobox-menu {
 }
 
 .dm-format-icon {
-  font-size: 1.1rem;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  margin-bottom: 0.15rem;
+  color: var(--brand-muted, #6b7280);
+}
+
+.dm-format-card.is-selected .dm-format-icon,
+.dm-format-card:hover .dm-format-icon {
+  color: var(--brand-dark, #111827);
+}
+
+.dark .dm-format-card.is-selected .dm-format-icon,
+.dark .dm-format-card:hover .dm-format-icon {
+  color: #fde68a;
+}
+
+.dm-format-icon-svg {
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.dm-rail-btn svg {
+  width: 1.25rem;
+  height: 1.25rem;
+  opacity: 0.72;
+}
+
+.dm-rail-btn.is-active svg,
+.dm-rail-btn:hover svg {
+  opacity: 1;
+}
+
+.dm-fullscreen-btn {
+  gap: 0.35rem;
+}
+
+.dm-fullscreen-label {
+  font-size: 0.625rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.dm-fullscreen-btn-canvas {
+  width: auto;
+  min-width: 1.85rem;
+  padding: 0 0.35rem;
+  margin-right: 0.25rem;
+}
+
+.dm-fullscreen-btn .hidden,
+.dm-fullscreen-btn-canvas .hidden {
+  display: none;
+}
+
+/* Full-screen studio mode */
+body.dm-studio-fullscreen-active {
+  overflow: hidden;
+}
+
+body.dm-studio-fullscreen-active #appSidebar,
+body.dm-studio-fullscreen-active #appTopbar {
+  display: none !important;
+}
+
+body.dm-studio-fullscreen-active.app-with-sidebar {
+  grid-template-columns: 1fr !important;
+}
+
+body.dm-studio-fullscreen-active .app-shell-content {
+  grid-column: 1 / -1;
+  min-height: 100vh;
+}
+
+body.dm-studio-fullscreen-active .dm-studio-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 280;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--brand-bg, #faf7ed);
+  padding: 0;
+}
+
+.dark body.dm-studio-fullscreen-active .dm-studio-shell {
+  background: #0f172a;
+}
+
+body.dm-studio-fullscreen-active .dm-studio-topbar {
+  position: relative;
+  top: auto;
+  flex-shrink: 0;
+}
+
+body.dm-studio-fullscreen-active .dm-lob-banner {
+  flex-shrink: 0;
+  margin: 0 0.75rem 0.35rem;
+}
+
+body.dm-studio-fullscreen-active .dm-studio {
+  flex: 1;
+  min-height: 0;
+  margin: 0 0.75rem 0.75rem;
+  max-height: none;
+}
+
+body.dm-studio-fullscreen-active .dm-studio-stage {
+  min-height: 0;
+}
+
+body.dm-studio-fullscreen-active .dm-canvas-viewport {
+  min-height: 0;
+}
+
+body.dm-studio-fullscreen-active .dm-workflow-section {
+  display: none;
 }
 
 .dm-format-label {

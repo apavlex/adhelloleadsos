@@ -215,6 +215,48 @@
     if (zoomOut) zoomOut.addEventListener('click', function () { setStudioZoom(studioZoom - 0.1); });
     if (zoomFit) zoomFit.addEventListener('click', function () { setStudioZoom(1); });
     setStudioZoom(1);
+
+    bindStudioFullscreen();
+  }
+
+  function syncFullscreenUi(isOn) {
+    document.querySelectorAll('.dm-fullscreen-btn, .dm-fullscreen-btn-canvas').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+      btn.title = isOn ? 'Exit full screen' : 'Full screen studio';
+      var expand = btn.querySelector('.dm-fs-icon-expand');
+      var compress = btn.querySelector('.dm-fs-icon-compress');
+      if (expand) expand.classList.toggle('hidden', isOn);
+      if (compress) compress.classList.toggle('hidden', !isOn);
+    });
+    var label = document.querySelector('.dm-fullscreen-label');
+    if (label) label.textContent = isOn ? 'Exit' : 'Full screen';
+  }
+
+  function setStudioFullscreen(on) {
+    var shell = document.getElementById('dmStudioShell');
+    if (!shell) return;
+    var enable = !!on;
+    shell.classList.toggle('dm-studio-shell--fullscreen', enable);
+    document.body.classList.toggle('dm-studio-fullscreen-active', enable);
+    syncFullscreenUi(enable);
+  }
+
+  function toggleStudioFullscreen() {
+    var shell = document.getElementById('dmStudioShell');
+    if (!shell) return;
+    setStudioFullscreen(!document.body.classList.contains('dm-studio-fullscreen-active'));
+  }
+
+  function bindStudioFullscreen() {
+    var topBtn = document.getElementById('dmFullscreenBtn');
+    var canvasBtn = document.getElementById('dmFullscreenBtnCanvas');
+    if (topBtn) topBtn.addEventListener('click', toggleStudioFullscreen);
+    if (canvasBtn) canvasBtn.addEventListener('click', toggleStudioFullscreen);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && document.body.classList.contains('dm-studio-fullscreen-active')) {
+        setStudioFullscreen(false);
+      }
+    });
   }
 
   function readBrandKitFromForm() {

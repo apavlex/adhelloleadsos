@@ -7,13 +7,14 @@
   <%- include('partials/navbar') %>
 
   <main class="dm-studio-root">
+    <div id="dmStudioShell" class="dm-studio-shell">
     <!-- Studio top bar -->
     <header class="dm-studio-topbar">
       <div class="dm-studio-topbar-start">
         <div>
           <p class="dm-studio-eyebrow">Outreach · Creative studio</p>
           <div class="page-heading-with-tip flex items-center gap-2 flex-wrap">
-            <h1 class="dm-studio-title"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Direct Mail Studio<% } %></h1>
+            <h1 class="dm-studio-title"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mail <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected<% } else { %>Marketing Studio<% } %></h1>
             <%- include('/partials/app_info_tip', {
               tipId: 'direct-mail-help',
               tipKey: 'direct-mail',
@@ -29,6 +30,11 @@
         <span id="dmStudioFormatPill" class="dm-studio-format-pill">4×6 Postcard</span>
       </div>
       <div class="dm-studio-topbar-end">
+        <button type="button" id="dmFullscreenBtn" class="dm-studio-topbtn dm-fullscreen-btn" aria-pressed="false" title="Full screen studio">
+          <svg class="dm-fs-icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+          <svg class="dm-fs-icon-compress hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" /></svg>
+          <span class="dm-fullscreen-label">Full screen</span>
+        </button>
         <% if (!kieImageReady) { %>
         <span class="dm-studio-badge dm-studio-badge--warn">KIE key not set</span>
         <% } else { %>
@@ -79,22 +85,22 @@
           <p class="dm-drawer-desc">Pick a canvas size for ads, social, or direct mail.</p>
           <div class="dm-format-grid" role="listbox" aria-label="Platform format">
             <% var dmFormats = [
-              { id: 'postcard', label: 'Postcard', sub: '4×6 · 2:3', icon: '✉️' },
-              { id: 'instagram_feed', label: 'Instagram', sub: 'Feed · 1:1', icon: '📷' },
-              { id: 'instagram_story', label: 'Story', sub: '9:16 vertical', icon: '📱' },
-              { id: 'instagram_portrait', label: 'IG Portrait', sub: '4:5', icon: '🖼️' },
-              { id: 'facebook_feed', label: 'Facebook', sub: 'Feed · 1:1', icon: '👍' },
-              { id: 'facebook_cover', label: 'FB Cover', sub: '16:9 wide', icon: '🌐' },
-              { id: 'facebook_story', label: 'FB Story', sub: '9:16', icon: '📲' },
-              { id: 'linkedin_post', label: 'LinkedIn', sub: 'Post · 1:1', icon: '💼' },
-              { id: 'linkedin_banner', label: 'LI Banner', sub: '16:9', icon: '📊' },
-              { id: 'google_display', label: 'Display', sub: 'Google · 16:9', icon: '🎯' },
-              { id: 'youtube_thumb', label: 'YouTube', sub: 'Thumbnail', icon: '▶️' },
-              { id: 'custom', label: 'Custom', sub: 'Any ratio', icon: '⚙️' }
+              { id: 'postcard', label: 'Postcard', sub: '4×6 · 2:3', icon: 'mail' },
+              { id: 'instagram_feed', label: 'Instagram', sub: 'Feed · 1:1', icon: 'ig' },
+              { id: 'instagram_story', label: 'Story', sub: '9:16 vertical', icon: 'story' },
+              { id: 'instagram_portrait', label: 'IG Portrait', sub: '4:5', icon: 'portrait' },
+              { id: 'facebook_feed', label: 'Facebook', sub: 'Feed · 1:1', icon: 'fb' },
+              { id: 'facebook_cover', label: 'FB Cover', sub: '16:9 wide', icon: 'cover' },
+              { id: 'facebook_story', label: 'FB Story', sub: '9:16', icon: 'story' },
+              { id: 'linkedin_post', label: 'LinkedIn', sub: 'Post · 1:1', icon: 'linkedin' },
+              { id: 'linkedin_banner', label: 'LI Banner', sub: '16:9', icon: 'banner' },
+              { id: 'google_display', label: 'Display', sub: 'Google · 16:9', icon: 'display' },
+              { id: 'youtube_thumb', label: 'YouTube', sub: 'Thumbnail', icon: 'youtube' },
+              { id: 'custom', label: 'Custom', sub: 'Any ratio', icon: 'custom' }
             ]; %>
             <% dmFormats.forEach(function (f) { %>
             <button type="button" class="dm-format-card<%= f.id === 'postcard' ? ' is-selected' : '' %>" data-dm-platform="<%= f.id %>" role="option">
-              <span class="dm-format-icon" aria-hidden="true"><%= f.icon %></span>
+              <span class="dm-format-icon" aria-hidden="true"><%- include('/partials/dm_format_icon', { icon: f.icon }) %></span>
               <span class="dm-format-label"><%= f.label %></span>
               <span class="dm-format-sub"><%= f.sub %></span>
             </button>
@@ -223,6 +229,10 @@
             <span id="dmPreviewHint" class="dm-stage-hint">Design your creative — describe it below and hit Generate.</span>
           </div>
           <div class="dm-stage-toolbar-end">
+            <button type="button" id="dmFullscreenBtnCanvas" class="dm-zoom-btn dm-fullscreen-btn-canvas" title="Full screen studio" aria-label="Full screen studio">
+              <svg class="dm-fs-icon-expand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" /></svg>
+              <svg class="dm-fs-icon-compress hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" /></svg>
+            </button>
             <div class="dm-zoom-controls" aria-label="Canvas zoom">
               <button type="button" class="dm-zoom-btn" id="dmZoomOut" title="Zoom out">−</button>
               <span id="dmZoomLabel" class="dm-zoom-label">100%</span>
@@ -281,7 +291,7 @@
             <textarea id="dmChatInput" rows="1" class="dm-prompt-input" placeholder="Describe your ad… e.g. Warm bakery postcard, golden hour photo, bold headline, navy + cream brand colors" <%= kieImageReady ? '' : 'disabled' %>></textarea>
             <button type="button" id="dmChatSend" class="dm-prompt-btn" <%= kieImageReady ? '' : 'disabled' %>>Chat</button>
             <button type="button" id="dmGenerateBtn" class="dm-prompt-btn dm-prompt-btn--primary" <%= kieImageReady ? '' : 'disabled' %>>
-              <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16" aria-hidden="true"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 17l-6.2 4.3 2.4-7.4L2 9.4h7.6z"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.455 2.456L21.75 6l-1.036.259a3.375 3.375 0 00-2.455 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" /></svg>
               Generate
             </button>
           </div>
@@ -314,6 +324,7 @@
         </div>
       </aside>
     </section>
+    </div><!-- /dmStudioShell -->
 
     <!-- Hidden grid compat for JS -->
     <div id="dmPreviewGrid" class="hidden" aria-hidden="true"></div>
