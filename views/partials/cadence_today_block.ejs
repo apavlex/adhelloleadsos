@@ -60,6 +60,14 @@
             <p class="text-[9px] mt-1 <%= it.overdue ? 'text-amber-700 dark:text-amber-300 font-bold' : 'text-brand-muted' %>">
               <%= it.overdue ? 'Overdue · ' : '' %>Due <%= it.nextDueAt ? new Date(it.nextDueAt).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' }) : '' %>
             </p>
+            <% if (it.phone && (it.channel === 'sms' || it.channel === 'text') && it.stepHint) { %>
+            <button
+              type="button"
+              class="js-cadence-send-text mt-2 w-full rounded-lg border border-brand-yellow/50 bg-brand-yellow/10 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors"
+              data-lead-key="<%= it.leadKey %>"
+              data-body="<%= encodeURIComponent(it.stepHint) %>"
+            >AI write &amp; send</button>
+            <% } %>
           </li>
           <% }); %>
         </ul>

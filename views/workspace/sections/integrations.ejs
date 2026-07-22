@@ -281,8 +281,16 @@
     </div>
 
     <div>
-      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">CRM</p>
-      <section id="ghl-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">
+      <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-3">CRM &amp; messaging</p>
+      <p class="text-xs text-brand-muted mb-4 leading-relaxed">
+        Jump to:
+        <a href="#ghl-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Go High Level</a>
+        ·
+        <a href="#comms-integration" class="js-integration-connect underline hover:text-brand-yellow font-semibold">Comms (iMessage / SMS)</a>
+        ·
+        <a href="#mcp-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">ChatGPT / MCP</a>
+      </p>
+      <section id="ghl-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
         <%- include('../../partials/ghl_connection_banner', { ghlStatus: typeof ghlStatus !== 'undefined' ? ghlStatus : {} }) %>
         <header class="flex flex-wrap items-start justify-between gap-3">
           <div class="min-w-0">
@@ -362,6 +370,75 @@
           <div class="flex flex-wrap gap-2 items-center">
             <button type="button" id="ghlSyncNowBtn" class="rounded-xl bg-brand-dark dark:bg-brand-yellow text-white dark:text-brand-dark px-4 py-2 text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-opacity disabled:opacity-50">Sync now</button>
             <p id="ghlSyncMsg" class="text-xs text-brand-muted min-h-[1.25rem] flex-1" aria-live="polite"></p>
+          </div>
+        </div>
+      </section>
+
+      <section id="comms-integration" class="rounded-2xl border-2 border-brand-yellow/30 dark:border-brand-yellow/25 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+        <header class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Comms by Osis</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+              Send and receive <strong>iMessage</strong> and <strong>SMS</strong> through your dedicated line via
+              <a href="https://comms.osis.co/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Comms</a>.
+              Create a Messages API key at
+              <a href="https://comms.osis.co/dashboard/settings/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">comms.osis.co → Settings → API keys</a>
+              with <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">comms_send</code> and
+              <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">comms_read</code> scopes.
+            </p>
+          </div>
+          <a href="https://docs.osis.co/messages-api/overview" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
+            API docs →
+          </a>
+        </header>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Messages API key</label>
+            <% if (masks.commsApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.commsApiKey %></p><% } %>
+            <input type="password" name="commsApiKey" autocomplete="off" placeholder="osis_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.commsApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="commsApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Default channel</label>
+            <% const _commsChannel = (typeof commsDefaultChannel !== 'undefined' && commsDefaultChannel) ? commsDefaultChannel : ''; %>
+            <select name="commsDefaultChannel" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+              <option value="" <%= !_commsChannel ? 'selected' : '' %>>Auto (Comms picks best channel)</option>
+              <option value="imessage" <%= _commsChannel === 'imessage' ? 'selected' : '' %>>iMessage</option>
+              <option value="sms" <%= _commsChannel === 'sms' ? 'selected' : '' %>>SMS</option>
+            </select>
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Used when sending without an explicit channel. iMessage is tried first when the recipient supports it.</p>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS send preference</label>
+            <% const _smsPrimary = (typeof smsPrimary !== 'undefined' && smsPrimary) ? smsPrimary : 'auto'; %>
+            <select name="smsPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
+              <option value="auto" <%= _smsPrimary === 'auto' || !_smsPrimary ? 'selected' : '' %>>Auto — GHL → Comms → SignalWire</option>
+              <option value="comms" <%= _smsPrimary === 'comms' ? 'selected' : '' %>>Prefer Comms (iMessage / SMS)</option>
+              <option value="ghl" <%= _smsPrimary === 'ghl' ? 'selected' : '' %>>Prefer Go High Level</option>
+            </select>
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Controls outreach, cadence text sends, Focus mode, and bulk SMS from the lead panel.</p>
+          </div>
+        </div>
+        <%- include('../../partials/integration_test_row', { provider: 'comms' }) %>
+        <div class="rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3 space-y-2">
+          <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Inbound webhook (Comms → Agency OS)</p>
+          <p class="text-xs text-brand-muted leading-relaxed">In Comms, add a webhook for <strong>message.received</strong> and point it at the URL below. Use the same token here and in Comms webhook settings.</p>
+          <% const _commsHookBase = (typeof publicAppBaseUrl !== 'undefined' && publicAppBaseUrl) ? publicAppBaseUrl : ''; %>
+          <% const _commsHasSavedToken = !!masks.commsWebhookSecret; %>
+          <% const _commsHasServerToken = (typeof commsWebhookTokenHint !== 'undefined' && commsWebhookTokenHint); %>
+          <div class="flex flex-wrap items-center gap-2">
+            <% if (_commsHasSavedToken || _commsHasServerToken) { %>
+            <code id="commsWebhookUrl" class="text-[11px] break-all rounded-lg bg-white/80 dark:bg-slate-900 px-3 py-2 flex-1 min-w-[12rem]"><%= _commsHookBase %>/api/webhooks/comms?token=<% if (_commsHasSavedToken) { %>••••••••<% } else { %>configured-on-server<% } %></code>
+            <button type="button" id="copyCommsWebhookUrl" class="shrink-0 rounded-xl border border-brand-border/70 dark:border-white/15 bg-white dark:bg-slate-800 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Copy URL</button>
+            <% } else { %>
+            <p class="text-xs text-brand-muted">Save a webhook token below (or set <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">COMMS_WEBHOOK_SECRET</code> on the server) to reveal the full URL.</p>
+            <% } %>
+          </div>
+          <div class="pt-1">
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Webhook token (optional per-workspace)</label>
+            <% if (masks.commsWebhookSecret) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.commsWebhookSecret %></p><% } %>
+            <input type="password" name="commsWebhookSecret" autocomplete="off" placeholder="Leave blank to use server COMMS_WEBHOOK_SECRET" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.commsWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="commsWebhookSecret_clear" value="1" /> Remove</label><% } %>
           </div>
         </div>
       </section>
@@ -824,6 +901,21 @@
         navigator.clipboard.writeText(text).then(function () {
           copyGhlBtn.textContent = 'Copied';
           setTimeout(function () { copyGhlBtn.textContent = 'Copy URL'; }, 2000);
+        });
+      }
+    });
+  }
+
+  var copyCommsBtn = document.getElementById('copyCommsWebhookUrl');
+  if (copyCommsBtn) {
+    copyCommsBtn.addEventListener('click', function () {
+      var el = document.getElementById('commsWebhookUrl');
+      var text = el ? el.textContent : '';
+      if (!text) return;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function () {
+          copyCommsBtn.textContent = 'Copied';
+          setTimeout(function () { copyCommsBtn.textContent = 'Copy URL'; }, 2000);
         });
       }
     });

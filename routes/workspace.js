@@ -297,8 +297,21 @@ async function loadWorkspacePageLocals(req) {
   const ghlWebhookTokenHint = String(process.env.GHL_WEBHOOK_SECRET || process.env.API_INGEST_KEY || '').trim()
     ? 'configured-on-server'
     : '';
+  const commsWebhookTokenHint = String(process.env.COMMS_WEBHOOK_SECRET || process.env.API_INGEST_KEY || '').trim()
+    ? 'configured-on-server'
+    : '';
   const ghlStatus = ghlSync.statusFromEnv(resolvedEnv);
   const ghlSyncDirection = getWorkspaceGhlSyncDirection(ws);
+  const commsDefaultChannel = String(
+    (resolvedEnv && resolvedEnv.COMMS_DEFAULT_CHANNEL) || process.env.COMMS_DEFAULT_CHANNEL || '',
+  )
+    .trim()
+    .toLowerCase();
+  const smsPrimary = String(
+    (resolvedEnv && resolvedEnv.SMS_PRIMARY) || process.env.SMS_PRIMARY || 'auto',
+  )
+    .trim()
+    .toLowerCase();
   const mcpTokenStatus = getWorkspaceMcpTokenStatus(ws);
   const mcpEndpoint = base ? `${base}/ceo/mcp` : '';
   const mcpManifestUrl = base ? `${base}/ceo/mcp/manifest.json` : '';
@@ -314,6 +327,9 @@ async function loadWorkspacePageLocals(req) {
     chromeExtensionDownloadUrl,
     chromeExtensionDownloadReady,
     ghlWebhookTokenHint,
+    commsWebhookTokenHint,
+    commsDefaultChannel,
+    smsPrimary,
     ghlStatus,
     ghlSyncDirection,
     mcpTokenStatus,

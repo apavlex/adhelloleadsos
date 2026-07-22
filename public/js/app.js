@@ -4218,7 +4218,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await loadSmsScriptOptions(row.dataset.leadKey);
       const bodyInput = document.getElementById('smsBodyInput');
       if (bodyInput) bodyInput.focus();
-      notifyLeadPanelDial('Personalize your SMS, then send via Go High Level.', 'success');
+      notifyLeadPanelDial('Pick a script — AI will write a personalized SMS when you send.', 'success');
       confirmOutreachBtnSuccess(btn, '✓ Opened');
     } catch (err) {
       notifyLeadPanelDial(err.message || 'Could not load SMS scripts.', 'error');
@@ -4759,6 +4759,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.closest('#leadSmsComposeSendBtn')) {
       e.preventDefault();
       void sendLeadSmsCompose();
+      return;
+    }
+    if (e.target.closest('#leadSmsAiWriteSendBtn')) {
+      e.preventDefault();
+      void leadPanelAiWriteAndSendSms();
       return;
     }
     const row = e.target.closest('.result-row');
@@ -11301,7 +11306,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (data && data.dialMode === 'browser_device' && data.phone) {
       openSoftphoneOrTel(data.phone);
     }
-    notifyLeadPanelDial(loadingLabel || 'Action completed.', 'success');
+    notifyLeadPanelDial(
+      (data && data.providerLabel) ? smsSentSuccessMessage(data) : (loadingLabel || 'Action completed.'),
+      'success',
+    );
     populatePanel(row);
     return data;
   }
@@ -11485,7 +11493,7 @@ document.addEventListener('DOMContentLoaded', () => {
       smsPersonalizeBtn.disabled = false;
     }
     if (smsScriptSendBtn) {
-      smsScriptSendBtn.textContent = 'Send SMS';
+      smsScriptSendBtn.textContent = 'AI write & send';
     }
   }
 
@@ -11497,13 +11505,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (smsScriptBulkLabel) {
       smsScriptBulkLabel.textContent =
         n > 0
-          ? `Each lead gets an AI-personalized message via GHL (company, city, category, reviews).`
+          ? `Each lead gets an AI-personalized message (company, city, category, reviews).`
           : '';
       smsScriptBulkLabel.classList.toggle('hidden', n === 0);
     }
     if (smsScriptHelpText) {
       smsScriptHelpText.textContent =
-        'Choose a base script below. On send, AdHello personalizes it for each business, then sends through GHL.';
+        'Choose a base script below. On send, AdHello personalizes it for each business, then sends through your configured SMS provider.';
     }
     if (smsPersonalizeBtn) {
       smsPersonalizeBtn.classList.add('hidden');
@@ -11584,17 +11592,97 @@ document.addEventListener('DOMContentLoaded', () => {
     return fromTextarea;
   }
 
-  async function personalizeSmsForLead(leadKey, scriptText) {
+  async function personalizeSmsForLead(leadKey, scriptText, context) {
     const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-personalize`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-      body: JSON.stringify({ scriptText }),
+      body: JSON.stringify({
+        scriptText,
+        context: context || 'outreach',
+      }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.success) {
       throw new Error((data && data.error) || 'Could not personalize SMS.');
     }
     return String(data.personalized || scriptText).trim();
+  }
+
+  async function aiWriteAndSendSmsToLead(leadKey, scriptText, opts) {
+    const options = opts || {};
+    const base = String(scriptText || '').trim();
+    if (!base) throw new Error('No script to personalize.');
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-ai-send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({
+        scriptText: base,
+        context: options.context || 'outreach',
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.success) {
+      throw new Error((data && data.error) || 'Could not send AI SMS.');
+    }
+    if (typeof options.onPreview === 'function' && data.personalized) {
+      options.onPreview(data.personalized);
+    }
+    return data;
+  }
+
+  async function resolveProspectSmsScript(leadKey, row) {
+    const scriptEl = document.getElementById('leadPanelSellingScript');
+    const fromPanel = scriptEl ? String(scriptEl.textContent || '').trim() : '';
+    if (fromPanel && fromPanel !== '—' && fromPanel.length > 12) return fromPanel;
+    const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-script-options`, {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.success && Array.isArray(data.options) && data.options[0]) {
+      return String(data.options[0].text || '').trim();
+    }
+    const title = String((row && row.dataset && row.dataset.title) || 'your business').trim();
+    return `Hi ${title} team — this is [your name] from [your company]. We had a quick idea to help you capture more local leads. Open to a short call this week?`;
+  }
+
+  async function leadPanelAiWriteAndSendSms() {
+    const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
+    const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    if (!key) {
+      setLeadSmsThreadStatus('Select a lead first.', true);
+      return;
+    }
+    if (!rowDatasetHasUsablePhone(row)) {
+      setLeadSmsThreadStatus('Add a phone number first.', true);
+      return;
+    }
+    const btn = document.getElementById('leadSmsAiWriteSendBtn');
+    const input = document.getElementById('leadSmsComposeInput');
+    if (btn) btn.disabled = true;
+    setLeadSmsThreadStatus('AI writing…');
+    try {
+      const scriptText = await resolveProspectSmsScript(key, row);
+      const data = await aiWriteAndSendSmsToLead(key, scriptText, {
+        context: 'outreach',
+        onPreview: (msg) => {
+          if (input) {
+            input.value = msg;
+            const countEl = document.getElementById('leadSmsComposeCount');
+            if (countEl) countEl.textContent = String(msg.length);
+          }
+        },
+      });
+      await loadLeadSmsThread(row, { sync: true, quiet: true });
+      setLeadSmsThreadStatus(smsSentSuccessMessage(data));
+      if (typeof notifyLeadPanelDial === 'function') {
+        notifyLeadPanelDial(smsSentSuccessMessage(data), 'success');
+      }
+    } catch (err) {
+      setLeadSmsThreadStatus((err && err.message) || 'AI send failed', true);
+    } finally {
+      if (btn) btn.disabled = false;
+    }
   }
 
   async function sendSmsToLeadKey(leadKey, body) {
@@ -11609,6 +11697,50 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return data;
   }
+
+  function smsProviderLabelFromResponse(data) {
+    if (data && data.providerLabel) return String(data.providerLabel);
+    if (data && data.provider === 'comms') return 'Comms';
+    if (data && data.provider === 'ghl') return 'Go High Level';
+    if (data && data.provider === 'signalwire') return 'SignalWire';
+    return 'SMS';
+  }
+
+  function smsSentSuccessMessage(data) {
+    const label = smsProviderLabelFromResponse(data);
+    const kind = data && data.channel === 'imessage' ? 'iMessage' : 'SMS';
+    return `${kind} sent via ${label}`;
+  }
+
+  document.addEventListener('click', async (e) => {
+    const btn = e.target && e.target.closest ? e.target.closest('.js-cadence-send-text') : null;
+    if (!btn) return;
+    e.preventDefault();
+    const leadKey = String(btn.getAttribute('data-lead-key') || '').trim();
+    const body = decodeURIComponent(String(btn.getAttribute('data-body') || '')).trim();
+    if (!leadKey || !body) return;
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Writing…';
+    try {
+      btn.textContent = 'Sending…';
+      const data = await aiWriteAndSendSmsToLead(leadKey, body, { context: 'cadence' });
+      btn.textContent = '✓ Sent';
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(smsSentSuccessMessage(data), { variant: 'success' });
+      }
+    } catch (err) {
+      btn.textContent = 'Failed';
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast((err && err.message) || 'Could not send text.', { variant: 'error' });
+      }
+    } finally {
+      window.setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = original || 'AI write & send';
+      }, 2500);
+    }
+  });
 
   async function sendBulkPersonalizedSms(phoneKeys, scriptText, onProgress) {
     let ok = 0;
@@ -11736,7 +11868,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const n = bulkSmsLeadKeys.length;
         if (
           !window.confirm(
-            `Personalize and send this script via GHL to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
+            `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
           )
         ) {
           return;
@@ -11747,9 +11879,9 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
           const result = await sendBulkPersonalizedSms(bulkSmsLeadKeys, scriptText, (done, total) => {
             smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
-            showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total} via GHL…`, 'loading');
+            showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
           });
-          const msg = `SMS: ${result.ok} sent via GHL${result.failed ? ` · ${result.failed} failed` : ''}`;
+          const msg = `SMS: ${result.ok} sent${result.failed ? ` · ${result.failed} failed` : ''}`;
           showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
           if (typeof window.__flashBulkBarBtn === 'function') {
             window.__flashBulkBarBtn(document.getElementById('bulkSmsBtn'), result.failed === 0 ? '✓ Sent' : 'Failed');
@@ -11767,20 +11899,35 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
-      const smsBody = String(smsBodyInput.value || '').trim();
-      if (!smsBody) return;
+      const leadKey = getCurrentLeadKey();
+      if (!leadKey) {
+        notifyLeadPanelDial('Select a lead first.', 'error');
+        return;
+      }
       const original = smsScriptSendBtn.textContent;
       smsScriptSendBtn.disabled = true;
-      smsScriptSendBtn.textContent = 'Sending...';
+      smsPersonalizeBtn && (smsPersonalizeBtn.disabled = true);
+      smsScriptSendBtn.textContent = 'Writing…';
       try {
-        await runLeadTelephonyAction('/sms', { body: smsBody }, 'SMS sent via Go High Level');
+        smsScriptSendBtn.textContent = 'Sending…';
+        const data = await aiWriteAndSendSmsToLead(leadKey, scriptText, {
+          context: 'outreach',
+          onPreview: (msg) => {
+            if (smsBodyInput) {
+              smsBodyInput.value = msg;
+              setSmsCharCount();
+            }
+          },
+        });
         confirmOutreachBtnSuccess(document.getElementById('sendSmsBtn'), '✓ Sent');
         closeSmsModal();
+        notifyLeadPanelDial(smsSentSuccessMessage(data), 'success');
       } catch (err) {
         notifyLeadPanelDial(err.message || 'Failed to send SMS.', 'error');
       } finally {
         smsScriptSendBtn.disabled = false;
         smsScriptSendBtn.textContent = original;
+        if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
       }
     });
   }

@@ -15,6 +15,7 @@ const { resolvePageSpeedApiKey, PAGESPEED_ENDPOINT } = require('./pageSpeedInsig
 const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
 const ghlClient = require('./ghlClient');
 const lobClient = require('./lobClient');
+const commsClient = require('./commsClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -48,6 +49,10 @@ const PROVIDERS = {
   lob: {
     label: 'Lob Direct Mail',
     fields: ['lobApiKey', 'lobFromAddressLine1', 'lobFromCity', 'lobFromState', 'lobFromZip'],
+  },
+  comms: {
+    label: 'Comms by Osis (iMessage / SMS)',
+    fields: ['commsApiKey'],
   },
 };
 
@@ -254,6 +259,14 @@ async function testLob(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+async function testComms(integrationEnv) {
+  if (!commsClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing Comms API key — paste your Messages API key from comms.osis.co and save.');
+  }
+  const result = await commsClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   searchapi: () => testSearchapi,
@@ -267,6 +280,7 @@ const RUNNERS = {
   pagespeed: () => testPageSpeed,
   ghl: () => testGhl,
   lob: () => testLob,
+  comms: () => testComms,
 };
 
 /**

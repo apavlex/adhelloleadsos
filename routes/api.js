@@ -18,6 +18,8 @@ const { autoAttachCadenceIfNeeded } = require('../services/leadCadence');
 const dialerPacing = require('../services/dialerPacing');
 const inboundForwardStats = require('../services/inboundForwardStats');
 const ghlSync = require('../services/ghlSync');
+const commsClient = require('../services/commsClient');
+const commsSync = require('../services/commsSync');
 
 // Middleware to check API Key
 const validateApiKey = (req, res, next) => {
@@ -69,6 +71,27 @@ async function ghlWebhookAuthorized(req) {
   const ws = await dbService.getWorkspace(wid);
   const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
   const wsSecret = String(plain.ghlWebhookSecret || '').trim();
+  return !!(wsSecret && token === wsSecret);
+}
+
+async function commsWebhookAuthorized(req) {
+  const token = String(
+    (req.query && req.query.token) ||
+      req.headers['x-comms-webhook-token'] ||
+      req.headers['x-api-key'] ||
+      '',
+  ).trim();
+  if (!token) return false;
+
+  const globalSecret = String(process.env.COMMS_WEBHOOK_SECRET || '').trim();
+  const ingestKey = String(process.env.API_INGEST_KEY || 'adhello_secret_123').trim();
+  if (globalSecret && token === globalSecret) return true;
+  if (token === ingestKey) return true;
+
+  const wid = workspaceIdFromReq(req);
+  const ws = await dbService.getWorkspace(wid);
+  const plain = workspaceIntegrations.decryptedFromWorkspace(ws);
+  const wsSecret = String(plain.commsWebhookSecret || '').trim();
   return !!(wsSecret && token === wsSecret);
 }
 
@@ -321,6 +344,25 @@ router.post('/webhooks/ghl', express.json(), async (req, res, next) => {
       return res.json({ success: true, ...msgResult });
     }
     const result = await ghlSync.processWebhook(body, { workspaceId });
+    return res.json({ success: true, ...result });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * POST /api/webhooks/comms
+ * Comms by Osis inbound message events (message.received, delivery status, etc.).
+ * Auth: ?token=COMMS_WEBHOOK_SECRET or x-comms-webhook-token (or workspace commsWebhookSecret).
+ */
+router.post('/webhooks/comms', express.json(), async (req, res, next) => {
+  try {
+    if (!(await commsWebhookAuthorized(req))) {
+      return res.status(401).json({ error: 'Unauthorized: invalid webhook token' });
+    }
+    const workspaceId = workspaceIdFromReq(req);
+    const body = req.body || {};
+    const result = await commsSync.processWebhook(body, { workspaceId });
     return res.json({ success: true, ...result });
   } catch (err) {
     next(err);

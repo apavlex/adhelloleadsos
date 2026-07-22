@@ -65,6 +65,8 @@ const signalwire = require('../services/signalwire');
 const { shortLeadKey } = require('../services/focusQueue');
 const ghlClient = require('../services/ghlClient');
 const ghlMessaging = require('../services/ghlMessaging');
+const smsOutbound = require('../services/smsOutbound');
+const smsPersonalize = require('../services/smsPersonalize');
 const { triggerGhlProspectSync } = require('../services/ghlProspectSync');
 const agentSessionStore = require('../services/agentSessionStore');
 const salesScriptsStorage = require('../services/salesScriptsStorage');
@@ -2232,7 +2234,8 @@ router.get('/:key/sms-thread', async (req, res, next) => {
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const sync = ['1', 'true', 'yes'].includes(String(req.query.sync || '').toLowerCase());
-    const ghlConfigured = ghlClient.isConfigured(integrationEnv);
+    const smsStatus = smsOutbound.messagingStatus(integrationEnv);
+    const ghlConfigured = smsStatus.ghlConfigured;
 
     let messages;
     let synced = 0;
@@ -2260,7 +2263,9 @@ router.get('/:key/sms-thread', async (req, res, next) => {
       messages,
       synced,
       ghlConfigured,
-      provider: ghlConfigured ? 'ghl' : null,
+      commsConfigured: smsStatus.commsConfigured,
+      provider: smsStatus.provider,
+      providerLabel: smsStatus.providerLabel,
       lead: updatedLead,
     });
   } catch (err) {
@@ -2300,7 +2305,7 @@ router.post('/:key/sms-thread/sync', async (req, res, next) => {
   }
 });
 
-// POST /leads/:key/sms — send outbound SMS (GHL when configured, else SignalWire)
+// POST /leads/:key/sms — send outbound SMS/iMessage (Comms, GHL, or SignalWire)
 router.post('/:key/sms', async (req, res, next) => {
   try {
     const fullKey = leadKeyFromParam(req.params.key);
@@ -2311,73 +2316,71 @@ router.post('/:key/sms', async (req, res, next) => {
 
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+    const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
 
-    if (ghlClient.isConfigured(integrationEnv)) {
-      const sent = await ghlMessaging.sendSmsToLead({ lead, message: body, integrationEnv });
-      const updates = appendLeadUpdate(lead, {
-        type: 'sms_outbound',
-        value: body,
-        messageSid: sent.messageId || '',
-        provider: 'ghl',
-        ghlContactId: sent.contactId || lead.ghlContactId || '',
-      });
-      const updatedLead = await dbService.updateLead(fullKey, {
-        ...contactedPatch,
-        ghlContactId: sent.contactId || lead.ghlContactId,
-        status: 'Follow-up',
-        lastTouchChannel: 'sms',
-        updates,
-        logs: [
-          {
-            type: 'sms_outbound',
-            message: `GHL SMS sent${sent.messageId ? ` (${sent.messageId})` : ''}`,
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      });
-      triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'sms_sent' });
-      return res.json({
-        success: true,
-        provider: 'ghl',
-        messageId: sent.messageId || null,
-        ghlContactId: sent.contactId || null,
-        lead: updatedLead,
-      });
-    }
-
-    if (!signalwire.configured()) {
-      return res.status(400).json({
-        success: false,
-        error:
-          'Outbound SMS is not configured. Connect Go High Level in Workspace → Integrations, or set SignalWire env vars.',
-      });
-    }
-    const sms = await signalwire.sendSms({
-      to: lead.phone,
-      body,
-      leadKey: fullKey,
+    const sent = await smsOutbound.sendSmsToLead({
+      lead,
+      message: body,
+      integrationEnv,
       workspaceId: req.workspaceId,
-      from: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
+      fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
+      provider: preferredProvider || undefined,
     });
-    const updates = appendLeadUpdate(lead, {
+
+    const providerLabel = smsOutbound.providerDisplayName(sent.provider);
+    const channelNote =
+      sent.provider === 'comms' && sent.channel === 'imessage'
+        ? 'iMessage'
+        : sent.provider === 'comms' && sent.channel === 'sms'
+          ? 'SMS'
+          : 'SMS';
+
+    const updateEntry = {
       type: 'sms_outbound',
       value: body,
-      messageSid: sms.sid || '',
-      provider: 'signalwire',
-    });
-    const updatedLead = await dbService.updateLead(fullKey, {
+      messageSid: sent.messageId || '',
+      provider: sent.provider,
+    };
+    if (sent.provider === 'ghl') {
+      updateEntry.ghlContactId = sent.contactId || lead.ghlContactId || '';
+      updateEntry.ghlMessageId = sent.messageId || '';
+    }
+    if (sent.provider === 'comms') {
+      updateEntry.commsMessageId = sent.messageId || '';
+      updateEntry.channel = sent.channel || '';
+    }
+
+    const updates = appendLeadUpdate(lead, updateEntry);
+    const patch = {
       ...contactedPatch,
       status: 'Follow-up',
+      lastTouchChannel: 'sms',
       updates,
       logs: [
         {
           type: 'sms_outbound',
-          message: `SignalWire SMS queued (${sms.sid || 'no sid'})`,
+          message: `${providerLabel} ${channelNote} sent${sent.messageId ? ` (${sent.messageId})` : ''}`,
           timestamp: new Date().toISOString(),
         },
       ],
+    };
+    if (sent.provider === 'ghl' && sent.contactId) {
+      patch.ghlContactId = sent.contactId || lead.ghlContactId;
+    }
+
+    const updatedLead = await dbService.updateLead(fullKey, patch);
+    triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'sms_sent' });
+
+    return res.json({
+      success: true,
+      provider: sent.provider,
+      providerLabel,
+      channel: sent.channel || 'sms',
+      messageId: sent.messageId || null,
+      messageSid: sent.provider === 'signalwire' ? sent.messageId || null : undefined,
+      ghlContactId: sent.contactId || null,
+      lead: updatedLead,
     });
-    res.json({ success: true, provider: 'signalwire', messageSid: sms.sid || null, lead: updatedLead });
   } catch (err) {
     next(err);
   }
@@ -2584,79 +2587,106 @@ router.post('/:key/sms-personalize', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'scriptText is required.' });
     }
 
-    const company = String(lead.title || 'your business').trim() || 'your business';
-    const contact =
-      String(lead.contactName || '').trim() ||
-      (lead.email && lead.email !== 'N/A' ? String(lead.email).split('@')[0].replace(/[._]+/g, ' ') : '') ||
-      'there';
-    const cityState = [lead.city, lead.state].filter(Boolean).join(', ');
-    const insight = lead.kieServiceInsight && typeof lead.kieServiceInsight === 'object'
-      ? lead.kieServiceInsight
-      : {};
-    const snapshot = {
-      company,
-      contact,
-      cityState,
-      category: lead.categoryName || '',
-      rating: lead.totalScore || 0,
-      reviewCount: lead.reviewsCount || 0,
-      website: lead.website || '',
-      primaryServiceLabel: insight.primaryServiceLabel || '',
-      rationale: insight.rationale || '',
-      talkTrack: insight.talkTrack || '',
-      auditSummary: lead.auditSummary || '',
-      buyingSignals: Array.isArray(lead.buyingSignals) ? lead.buyingSignals : [],
-    };
-
-    const ai = await chatCompletion({
-      messages: [
-        {
-          role: 'system',
-          content: `You personalize outbound SMS for local-business sales.
-
-Rules:
-- Return JSON only: {"message":"..."}
-- Keep message concise: target 280 chars, hard max 480 chars.
-- Keep tone human, respectful, and non-spammy.
-- Use specific lead context when relevant (city/category/reviews/offer fit).
-- Include one clear CTA.
-- Do not use markdown, bullet points, or emojis unless already present.
-- Preserve placeholders if they exist: [your name], [your company].`,
-        },
-        {
-          role: 'user',
-          content: `Lead context:\n${JSON.stringify(snapshot)}\n\nBase script:\n${scriptText}`,
-        },
-      ],
-      jsonObject: true,
-      max_tokens: 300,
-      temperature: 0.45,
+    const context = String((req.body && req.body.context) || '').trim().toLowerCase();
+    const result = await smsPersonalize.personalizeSmsForLead(lead, scriptText, {
+      context: context === 'cadence' ? 'cadence' : 'outreach',
     });
-
-    if (!ai.content || ai.error) {
-      const fallback = scriptText
-        .replace(/\{\{name\}\}/gi, contact)
-        .replace(/\{\{company\}\}/gi, company)
-        .replace(/\{\{city\}\}/gi, cityState || 'your area');
-      return res.json({
-        success: true,
-        personalized: fallback,
-        provider: 'fallback',
-      });
-    }
-
-    const parsed = parseLlmJson(ai.content);
-    if (!parsed) {
-      return res.status(500).json({ success: false, error: 'Invalid AI response' });
-    }
-    const personalized = String((parsed && parsed.message) || '').trim();
-    if (!personalized) {
-      return res.status(500).json({ success: false, error: 'AI did not return a message.' });
-    }
     return res.json({
       success: true,
-      personalized: personalized.slice(0, 480),
-      provider: ai.provider || 'unknown',
+      personalized: result.message,
+      provider: result.provider,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/sms-ai-send — AI write personalized SMS and send in one step
+router.post('/:key/sms-ai-send', async (req, res, next) => {
+  try {
+    const fullKey = leadKeyFromParam(req.params.key);
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) return res.status(404).json({ success: false, error: 'Lead not found' });
+
+    const scriptText = String(
+      (req.body && (req.body.scriptText || req.body.cadenceHint)) || '',
+    ).trim();
+    if (!scriptText) {
+      return res.status(400).json({ success: false, error: 'scriptText is required.' });
+    }
+
+    const context = String((req.body && req.body.context) || '').trim().toLowerCase();
+    const aiResult = await smsPersonalize.personalizeSmsForLead(lead, scriptText, {
+      context: context === 'cadence' ? 'cadence' : 'outreach',
+    });
+    const message = String(aiResult.message || '').trim();
+    if (!message) {
+      return res.status(500).json({ success: false, error: 'AI did not return a message.' });
+    }
+
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
+    const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
+
+    const sent = await smsOutbound.sendSmsToLead({
+      lead,
+      message,
+      integrationEnv,
+      workspaceId: req.workspaceId,
+      fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
+      provider: preferredProvider || undefined,
+    });
+
+    const providerLabel = smsOutbound.providerDisplayName(sent.provider);
+    const channelNote =
+      sent.provider === 'comms' && sent.channel === 'imessage' ? 'iMessage' : 'SMS';
+
+    const updateEntry = {
+      type: 'sms_outbound',
+      value: message,
+      messageSid: sent.messageId || '',
+      provider: sent.provider,
+      aiProvider: aiResult.provider || '',
+    };
+    if (sent.provider === 'ghl') {
+      updateEntry.ghlContactId = sent.contactId || lead.ghlContactId || '';
+      updateEntry.ghlMessageId = sent.messageId || '';
+    }
+    if (sent.provider === 'comms') {
+      updateEntry.commsMessageId = sent.messageId || '';
+      updateEntry.channel = sent.channel || '';
+    }
+
+    const updates = appendLeadUpdate(lead, updateEntry);
+    const patch = {
+      ...contactedPatch,
+      status: 'Follow-up',
+      lastTouchChannel: 'sms',
+      updates,
+      logs: [
+        {
+          type: 'sms_outbound',
+          message: `AI ${channelNote} → ${providerLabel}${sent.messageId ? ` (${sent.messageId})` : ''}`,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+    if (sent.provider === 'ghl' && sent.contactId) {
+      patch.ghlContactId = sent.contactId || lead.ghlContactId;
+    }
+
+    const updatedLead = await dbService.updateLead(fullKey, patch);
+    triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'sms_sent' });
+
+    return res.json({
+      success: true,
+      personalized: message,
+      aiProvider: aiResult.provider,
+      provider: sent.provider,
+      providerLabel,
+      channel: sent.channel || 'sms',
+      messageId: sent.messageId || null,
+      lead: updatedLead,
     });
   } catch (err) {
     next(err);

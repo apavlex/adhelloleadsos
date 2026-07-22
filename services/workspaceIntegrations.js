@@ -41,6 +41,10 @@ const INTEGRATION_FIELDS = [
   'lobPostcardFrontUrl',
   'lobPostcardBackUrl',
   'lobLetterPdfUrl',
+  'commsApiKey',
+  'commsWebhookSecret',
+  'commsDefaultChannel',
+  'smsPrimary',
 ];
 
 /** Map stored field → process.env name used by provider clients */
@@ -78,6 +82,10 @@ const FIELD_TO_ENV = {
   lobPostcardFrontUrl: 'LOB_POSTCARD_FRONT_URL',
   lobPostcardBackUrl: 'LOB_POSTCARD_BACK_URL',
   lobLetterPdfUrl: 'LOB_LETTER_PDF_URL',
+  commsApiKey: 'COMMS_API_KEY',
+  commsWebhookSecret: 'COMMS_WEBHOOK_SECRET',
+  commsDefaultChannel: 'COMMS_DEFAULT_CHANNEL',
+  smsPrimary: 'SMS_PRIMARY',
 };
 
 /**
@@ -181,6 +189,8 @@ function integrationMasks(workspace) {
     'ghlApiKey',
     'ghlWebhookSecret',
     'lobApiKey',
+    'commsApiKey',
+    'commsWebhookSecret',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];
