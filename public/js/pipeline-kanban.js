@@ -50,6 +50,14 @@
     row.dataset.website = lead.website || 'N/A';
     row.dataset.category = lead.categoryName || 'N/A';
     row.dataset.status = lead.status || 'Not Contacted';
+    row.dataset.phone = lead.phone || 'N/A';
+    row.dataset.email = lead.email || 'N/A';
+    row.dataset.url = lead.url || '';
+    row.dataset.address = lead.address || 'N/A';
+    row.dataset.city = lead.city || '';
+    row.dataset.facebook = lead.facebook || 'N/A';
+    row.dataset.instagram = lead.instagram || 'N/A';
+    row.dataset.twitter = lead.twitter || 'N/A';
     return row;
   }
 
@@ -91,6 +99,151 @@
     }
   }
 
+  function isBlankContact(value) {
+    const s = String(value || '').trim();
+    return !s || s === 'N/A' || s === '—' || s === 'undefined';
+  }
+
+  function googleMapsHrefFromDataset(ds) {
+    const raw = String((ds && ds.url) || '').trim();
+    function isGmListing(absUrl) {
+      try {
+        const u = new URL(absUrl);
+        const h = u.hostname.replace(/^www\./i, '').toLowerCase();
+        if (h === 'maps.app.goo.gl') return true;
+        if (h === 'goo.gl' && u.pathname.includes('maps')) return true;
+        if (h.endsWith('google.com') || h.endsWith('google.co.uk')) {
+          if (u.pathname.includes('/maps/')) return true;
+          if (u.search.includes('cid=') || u.search.includes('q=place_id:')) return true;
+        }
+        return false;
+      } catch (_) {
+        return false;
+      }
+    }
+    if (raw && /^https?:\/\//i.test(raw) && isGmListing(raw)) return raw;
+    const title = String((ds && ds.title) || '').trim();
+    const address = String((ds && ds.address) || '').trim();
+    const city = String((ds && ds.city) || '').trim();
+    if (address && address !== 'N/A') {
+      return (
+        'https://www.google.com/maps/search/?api=1&query=' +
+        encodeURIComponent((address + ' ' + title).trim())
+      );
+    }
+    if (title && city) {
+      return (
+        'https://www.google.com/maps/search/?api=1&query=' +
+        encodeURIComponent((title + ' ' + city).trim())
+      );
+    }
+    if (title) {
+      return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(title);
+    }
+    return '';
+  }
+
+  function buildKanbanSocialsHtml(row, leadKey) {
+    const slot = row.querySelector('.lead-cell-socials-content');
+    if (slot && slot.children.length) {
+      return (
+        '<div class="kanban-card-socials flex flex-wrap items-center gap-1.5">' + slot.innerHTML + '</div>'
+      );
+    }
+    const ds = row.dataset || {};
+    if (window.AdhelloSocialBrand && typeof window.AdhelloSocialBrand.renderLinks === 'function') {
+      const html = window.AdhelloSocialBrand.renderLinks({
+        gm: googleMapsHrefFromDataset(ds),
+        fb: ds.facebook,
+        ig: ds.instagram,
+        tw: ds.twitter,
+        gradSuffix: String(leadKey || '').replace(/[^a-z0-9]+/gi, '-'),
+        emptyDash: false,
+        size: 'table',
+      });
+      if (html) {
+        return '<div class="kanban-card-socials flex flex-wrap items-center gap-1.5">' + html + '</div>';
+      }
+    }
+    return '';
+  }
+
+  function buildKanbanContactHtml(row, leadKey) {
+    const ds = row.dataset || {};
+    const phone = String(ds.phone || '').trim();
+    const email = String(ds.email || '').trim();
+
+    const phoneInner = isBlankContact(phone)
+      ? '<span class="text-[10px] font-semibold text-brand-muted/60 dark:text-slate-500">—</span>'
+      : '<button type="button" class="kanban-card-phone flex items-center gap-1.5 min-w-0 max-w-full text-left text-[10px] font-semibold text-brand-dark dark:text-slate-200 hover:text-brand-yellow transition-colors rounded-md focus:outline-none focus:ring-2 focus:ring-brand-yellow/40" data-phone="' +
+        escapeHtml(phone) +
+        '" data-lead-key="' +
+        escapeHtml(leadKey) +
+        '" aria-label="Call ' +
+        escapeHtml(phone) +
+        '"><svg class="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg><span class="truncate tabular-nums">' +
+        escapeHtml(phone) +
+        '</span></button>';
+
+    const emailInner = isBlankContact(email)
+      ? '<span class="text-[10px] font-semibold text-brand-muted/60 dark:text-slate-500">—</span>'
+      : '<a href="mailto:' +
+        escapeHtml(email) +
+        '" class="text-[10px] font-bold text-brand-yellow hover:underline truncate block min-w-0" title="' +
+        escapeHtml(email) +
+        '">' +
+        escapeHtml(email) +
+        '</a>';
+
+    const socialsHtml = buildKanbanSocialsHtml(row, leadKey);
+
+    return (
+      '<div class="kanban-card-contact mt-3 pt-3 border-t border-brand-border/15 dark:border-white/10 space-y-2">' +
+      '<div class="flex items-start gap-2 min-w-0">' +
+      '<span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 w-10 shrink-0 pt-0.5">Phone</span>' +
+      '<div class="min-w-0 flex-1">' +
+      phoneInner +
+      '</div></div>' +
+      '<div class="flex items-start gap-2 min-w-0">' +
+      '<span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 w-10 shrink-0 pt-0.5">Email</span>' +
+      '<div class="min-w-0 flex-1">' +
+      emailInner +
+      '</div></div>' +
+      (socialsHtml
+        ? '<div class="flex items-start gap-2 min-w-0">' +
+          '<span class="text-[8px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-500 w-10 shrink-0 pt-1">Social</span>' +
+          '<div class="min-w-0 flex-1">' +
+          socialsHtml +
+          '</div></div>'
+        : '') +
+      '</div>'
+    );
+  }
+
+  window.__adhelloBuildKanbanContactHtml = buildKanbanContactHtml;
+
+  function wireKanbanCardInteractions(card, row) {
+    if (!card) return;
+    card.querySelectorAll('.kanban-card-phone').forEach(function (btn) {
+      btn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (typeof window.__adhelloPipelinePhoneClick === 'function') {
+          window.__adhelloPipelinePhoneClick(btn, e);
+        }
+      });
+    });
+    card.querySelectorAll('a, button').forEach(function (el) {
+      if (el.classList.contains('kanban-card-phone')) return;
+      el.addEventListener('click', function (e) {
+        e.stopPropagation();
+      });
+    });
+    card.addEventListener('click', function (e) {
+      if (e.target.closest('a, button')) return;
+      activateKanbanRow(row);
+    });
+  }
+
   function createKanbanCard(row) {
     const card = document.createElement('div');
     card.className =
@@ -99,8 +252,24 @@
     card.dataset.leadKey = leadKey;
 
     const title = escapeHtml((row && row.dataset && row.dataset.title) || 'Untitled');
-    const website = escapeHtml((row && row.dataset && row.dataset.website) || '—');
+    const websiteRaw = String((row && row.dataset && row.dataset.website) || '').trim();
     const category = escapeHtml((row && row.dataset && row.dataset.category) || '');
+
+    let websiteHtml = '';
+    if (!isBlankContact(websiteRaw)) {
+      const href = /^https?:\/\//i.test(websiteRaw)
+        ? websiteRaw
+        : 'https://' + websiteRaw.replace(/^\/+/, '');
+      const label = escapeHtml(
+        websiteRaw.replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, ''),
+      );
+      websiteHtml =
+        '<a href="' +
+        escapeHtml(href) +
+        '" target="_blank" rel="noopener noreferrer" class="text-[10px] text-brand-muted font-bold truncate block mb-2 hover:text-brand-yellow">' +
+        label +
+        '</a>';
+    }
 
     card.innerHTML =
       '<div class="flex items-center justify-between mb-3">' +
@@ -110,13 +279,10 @@
       '<h4 class="text-sm font-black text-brand-dark dark:text-white mb-1 truncate">' +
       title +
       '</h4>' +
-      '<div class="text-[10px] text-brand-muted font-bold truncate mb-3">' +
-      website +
-      '</div>';
+      websiteHtml +
+      buildKanbanContactHtml(row, leadKey);
 
-    card.addEventListener('click', function () {
-      activateKanbanRow(row);
-    });
+    wireKanbanCardInteractions(card, row);
     return card;
   }
 

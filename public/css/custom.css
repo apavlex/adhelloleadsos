@@ -1488,6 +1488,16 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   box-shadow: 0 14px 28px -10px rgba(0, 0, 0, 0.2);
 }
 
+.kanban-card-contact .kanban-card-socials .inline-flex.w-8 {
+  width: 1.65rem;
+  height: 1.65rem;
+}
+
+.kanban-card-contact .kanban-card-socials svg {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
 .dark .kanban-card--lift:hover {
   box-shadow: 0 14px 32px -8px rgba(0, 0, 0, 0.55);
 }

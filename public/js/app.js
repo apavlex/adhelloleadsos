@@ -16885,6 +16885,65 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   function createKanbanCard(row) {
+    if (typeof window.__adhelloBuildKanbanContactHtml === 'function') {
+      const card = document.createElement('div');
+      card.className =
+        'kanban-card kanban-card--lift p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-brand-border/10 cursor-grab active:cursor-grabbing hover:border-brand-yellow/50 transition-all duration-150 group';
+      card.dataset.leadKey = row.dataset.leadKey;
+
+      const title = escapeHtmlText(row.dataset.title || 'Untitled');
+      const websiteRaw = String(row.dataset.website || '').trim();
+      const category = escapeHtmlText(row.dataset.category || '');
+
+      let websiteHtml = '';
+      if (websiteRaw && websiteRaw !== 'N/A' && websiteRaw !== '—') {
+        const href = /^https?:\/\//i.test(websiteRaw)
+          ? websiteRaw
+          : `https://${websiteRaw.replace(/^\/+/, '')}`;
+        const label = escapeHtmlText(
+          websiteRaw.replace(/^https?:\/\//i, '').split('?')[0].replace(/\/$/, ''),
+        );
+        websiteHtml = `<a href="${escapeHtmlAttr(href)}" target="_blank" rel="noopener noreferrer" class="text-[10px] text-brand-muted font-bold truncate block mb-2 hover:text-brand-yellow">${label}</a>`;
+      }
+
+      card.innerHTML = `
+        <div class="flex items-center justify-between mb-3">
+            <span class="text-[9px] font-black uppercase tracking-widest text-brand-muted">${category}</span>
+            <div class="flex items-center gap-1 kanban-stars-${row.dataset.leadKey}"></div>
+        </div>
+        <h4 class="text-sm font-black text-brand-dark dark:text-white mb-1 truncate">${title}</h4>
+        ${websiteHtml}
+        ${window.__adhelloBuildKanbanContactHtml(row, row.dataset.leadKey)}
+        <div class="row-opportunity-label-${row.dataset.leadKey}"></div>
+    `;
+
+      card.querySelectorAll('.kanban-card-phone').forEach((btn) => {
+        btn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (typeof window.__adhelloPipelinePhoneClick === 'function') {
+            window.__adhelloPipelinePhoneClick(btn, e);
+          }
+        });
+      });
+      card.querySelectorAll('a, button').forEach((el) => {
+        if (el.classList.contains('kanban-card-phone')) return;
+        el.addEventListener('click', (e) => e.stopPropagation());
+      });
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('a, button')) return;
+        selectRow(row);
+      });
+
+      setTimeout(() => {
+        const starContainer = card.querySelector(`.kanban-stars-${row.dataset.leadKey}`);
+        const oppContainer = card.querySelector(`.row-opportunity-label-${row.dataset.leadKey}`);
+        if (starContainer) renderStarsInElement(starContainer, parseFloat(row.dataset.rating) || 0);
+        if (oppContainer) oppContainer.innerHTML = renderOpportunityBadges(row);
+      }, 0);
+
+      return card;
+    }
+
     const card = document.createElement('div');
     card.className =
       'kanban-card kanban-card--lift p-4 bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-brand-border/10 cursor-grab active:cursor-grabbing hover:border-brand-yellow/50 transition-all duration-150 group';
