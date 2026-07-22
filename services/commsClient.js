@@ -95,17 +95,19 @@ function webhookAuthorized(req, integrationEnv) {
 }
 
 async function testConnection(integrationEnv) {
-  const data = await commsRequest('GET', '/api/v1/comms/messages', {
+  // List messages requires conversation_id or since — use conversations to verify auth + comms_read.
+  const data = await commsRequest('GET', '/api/v1/comms/conversations', {
     integrationEnv,
     query: { limit: 1 },
   });
-  const count = Array.isArray(data.messages) ? data.messages.length : 0;
+  const conversations = Array.isArray(data.conversations) ? data.conversations : [];
+  const count = conversations.length;
   return {
     ok: true,
     message:
       count > 0
-        ? `Connected — Messages API read OK (${count} recent message on line).`
-        : 'Connected — Messages API authenticated (no messages yet on this line).',
+        ? `Connected — Comms API OK (${count} conversation on your line).`
+        : 'Connected — Comms API authenticated (no conversations yet on this line).',
   };
 }
 
