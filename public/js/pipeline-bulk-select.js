@@ -1690,11 +1690,10 @@
       }
 
       if (folderKey && folderKey !== viewingFolder) {
-        try {
-          sessionStorage.setItem('adhello_pipeline_view', 'kanban');
-        } catch (_) {}
         window.location.href =
-          '/prospecting?tab=pipeline&folderKey=' + encodeURIComponent(folderKey);
+          '/prospecting?tab=pipeline&folderKey=' +
+          encodeURIComponent(folderKey) +
+          '&view=kanban';
         return;
       }
 

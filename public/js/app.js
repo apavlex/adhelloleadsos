@@ -15222,10 +15222,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (folderKey && folderKey !== viewingFolder) {
-        try {
-          sessionStorage.setItem('adhello_pipeline_view', 'kanban');
-        } catch (_) {}
-        window.location.href = `/prospecting?tab=pipeline&folderKey=${encodeURIComponent(folderKey)}`;
+        window.location.href = `/prospecting?tab=pipeline&folderKey=${encodeURIComponent(folderKey)}&view=kanban`;
         return;
       }
 
@@ -16671,6 +16668,12 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__adhelloInitKanban = initKanban;
 
   function pipelineKanbanPreferredOnLoad() {
+    try {
+      const params = new URLSearchParams(window.location.search || '');
+      if (params.get('folderKey') && params.get('view') !== 'kanban') return false;
+    } catch (_) {
+      /* ignore */
+    }
     if (document.documentElement.classList.contains('adhello-pipeline-view-kanban')) return true;
     try {
       return sessionStorage.getItem('adhello_pipeline_view') === 'kanban';

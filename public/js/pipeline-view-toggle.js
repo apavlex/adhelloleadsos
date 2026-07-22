@@ -10,6 +10,19 @@
   var SEG_ACTIVE = ['bg-brand-yellow', 'text-brand-dark', 'shadow-sm'];
   var SEG_INACTIVE = ['text-brand-muted', 'dark:text-slate-400'];
 
+  function resolveInitialPipelineView() {
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      var explicit = params.get('view');
+      if (explicit === 'kanban') return 'kanban';
+      if (explicit === 'table') return 'table';
+      if (params.get('folderKey')) return 'table';
+      return sessionStorage.getItem('adhello_pipeline_view');
+    } catch (_) {
+      return null;
+    }
+  }
+
   function syncToggleButtons(showKanban) {
     var showTableBtn = document.getElementById('showTableView');
     var showKanbanBtn = document.getElementById('showKanbanView');
@@ -77,9 +90,14 @@
 
   function restoreSavedView() {
     try {
+      var preferred = resolveInitialPipelineView();
+      if (preferred === 'table') {
+        setPipelineView('table');
+        return;
+      }
       if (
-        document.documentElement.classList.contains('adhello-pipeline-view-kanban') ||
-        sessionStorage.getItem('adhello_pipeline_view') === 'kanban'
+        preferred === 'kanban' ||
+        document.documentElement.classList.contains('adhello-pipeline-view-kanban')
       ) {
         setPipelineView('kanban');
       }

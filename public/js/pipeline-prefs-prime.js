@@ -12,6 +12,23 @@
   var PAGE_SIZE_KEY = 'pipelineTablePageSize';
   var PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
 
+  function resolveInitialPipelineView() {
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      var explicit = params.get('view');
+      if (explicit === 'kanban') return 'kanban';
+      if (explicit === 'table') return 'table';
+      if (params.get('folderKey')) return 'table';
+      return sessionStorage.getItem(VIEW_KEY);
+    } catch (_) {
+      try {
+        return sessionStorage.getItem(VIEW_KEY);
+      } catch (err) {
+        return null;
+      }
+    }
+  }
+
   function readPageSize() {
     try {
       var n = parseInt(localStorage.getItem(PAGE_SIZE_KEY) || '25', 10);
@@ -225,7 +242,7 @@
 
       document.documentElement.setAttribute('data-prospect-density', density);
 
-      var view = sessionStorage.getItem(VIEW_KEY);
+      var view = resolveInitialPipelineView();
       if (view === 'kanban') {
         document.documentElement.classList.add('adhello-pipeline-view-kanban');
         css.push('html.adhello-pipeline-view-kanban #tableView{display:none!important}');
