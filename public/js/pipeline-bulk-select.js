@@ -1690,15 +1690,18 @@
       }
 
       if (folderKey && folderKey !== viewingFolder) {
+        try {
+          sessionStorage.setItem('adhello_kanban_focus_keys', JSON.stringify(updatedKeys));
+        } catch (_) {}
         window.location.href =
           '/prospecting?tab=pipeline&folderKey=' +
           encodeURIComponent(folderKey) +
-          '&view=kanban';
+          '&view=kanban&boardFocus=1';
         return;
       }
 
       if (typeof window.__adhelloSetPipelineView === 'function') {
-        window.__adhelloSetPipelineView('kanban');
+        window.__adhelloSetPipelineView('kanban', { keepFocusKeys: true });
       } else if (typeof window.__adhelloInitKanban === 'function') {
         window.__adhelloInitKanban();
       }

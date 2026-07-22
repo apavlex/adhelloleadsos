@@ -38,7 +38,25 @@
     });
   }
 
-  function setPipelineView(mode) {
+  function bootKanbanWhenReady() {
+    var attempts = 0;
+    function tryBoot() {
+      if (typeof window.__adhelloInitKanban === 'function') {
+        window.__adhelloInitKanban();
+        if (typeof window.__ensureSortableJs === 'function') {
+          window.__ensureSortableJs().catch(function () {});
+        }
+        return;
+      }
+      if (++attempts < 120) {
+        window.setTimeout(tryBoot, 50);
+      }
+    }
+    tryBoot();
+  }
+
+  function setPipelineView(mode, opts) {
+    var options = opts || {};
     var tableView = document.getElementById('tableView');
     var kanbanView = document.getElementById('kanbanView');
     if (!tableView || !kanbanView) {
@@ -54,20 +72,24 @@
       } catch (_) {
         window.__pipelineKanbanFocusKeys = null;
       }
+    } else if (!options.keepFocusKeys) {
+      try {
+        delete window.__pipelineKanbanFocusKeys;
+      } catch (_) {
+        window.__pipelineKanbanFocusKeys = null;
+      }
     }
     try {
       sessionStorage.setItem('adhello_pipeline_view', showKanban ? 'kanban' : 'table');
     } catch (_) {}
-    if (showKanban && typeof window.__adhelloInitKanban === 'function') {
-      var bootKanban = function () {
-        window.__adhelloInitKanban();
-      };
-      if (typeof window.__ensureSortableJs === 'function') {
-        window.__ensureSortableJs().then(bootKanban).catch(bootKanban);
-      } else {
-        bootKanban();
-      }
+    if (showKanban) {
+      bootKanbanWhenReady();
     }
+    try {
+      document.dispatchEvent(
+        new CustomEvent('adhello-pipeline-view-change', { detail: { mode: showKanban ? 'kanban' : 'table' } }),
+      );
+    } catch (_) {}
     return true;
   }
 
