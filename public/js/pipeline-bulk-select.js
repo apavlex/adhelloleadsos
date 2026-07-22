@@ -1223,6 +1223,19 @@
     return count;
   }
 
+  async function waitForSmsModalElement(maxMs) {
+    const limit = typeof maxMs === 'number' ? maxMs : 8000;
+    const step = 50;
+    for (let elapsed = 0; elapsed < limit; elapsed += step) {
+      if (document.getElementById('smsScriptModal')) return true;
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise(function (resolve) {
+        window.setTimeout(resolve, step);
+      });
+    }
+    return false;
+  }
+
   async function waitForBulkSmsHandler(maxMs) {
     const limit = typeof maxMs === 'number' ? maxMs : 8000;
     const step = 100;
@@ -1251,6 +1264,11 @@
     );
     if (typeof window.__flashBulkBarBtn === 'function') {
       window.__flashBulkBarBtn(btn, 'Opening…', 900);
+    }
+    const modalReady = await waitForSmsModalElement(8000);
+    if (!modalReady) {
+      showBulkBarFeedbackEarly('SMS composer failed to load. Hard-refresh the page and try again.', 'error');
+      return;
     }
     if (typeof window.__openBulkSmsFromBar === 'function') {
       await window.__openBulkSmsFromBar();
@@ -1679,7 +1697,7 @@
         }
       });
 
-      window.__pipelineKanbanFocusKeys = updatedKeys.slice();
+      window.__pipelineKanbanFocusKeys = null;
 
       const msg =
         'Saved ' + updatedKeys.length + ' lead' + (updatedKeys.length === 1 ? '' : 's') + ' to ' + stageName;
@@ -1701,7 +1719,7 @@
       }
 
       if (typeof window.__adhelloSetPipelineView === 'function') {
-        window.__adhelloSetPipelineView('kanban', { keepFocusKeys: true });
+        window.__adhelloSetPipelineView('kanban');
       } else if (typeof window.__adhelloInitKanban === 'function') {
         window.__adhelloInitKanban();
       }

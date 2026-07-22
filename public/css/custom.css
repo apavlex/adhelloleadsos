@@ -1914,6 +1914,10 @@ html[data-prospect-density="comfortable"] #prospectLeadsTable .lead-contact-phon
   max-width: 15rem;
 }
 
+.opportunity-cell .lead-owner-signal {
+  display: none !important;
+}
+
 .prospect-leads-table--compact .lead-actions-cell {
   padding-right: 0.65rem;
 }

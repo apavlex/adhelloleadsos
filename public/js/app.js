@@ -36,6 +36,26 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
+  window.__openBulkSmsModal = async function openBulkSmsModalBridge(phoneKeys) {
+    if (typeof window.__openBulkSmsModalImpl === 'function') {
+      return window.__openBulkSmsModalImpl(phoneKeys);
+    }
+    for (let i = 0; i < 160; i += 1) {
+      const modal = document.getElementById('smsScriptModal');
+      if (modal) {
+        if (typeof window.__openBulkSmsModalImpl === 'function') {
+          return window.__openBulkSmsModalImpl(phoneKeys);
+        }
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+      if (typeof window.__openBulkSmsModalImpl === 'function') {
+        return window.__openBulkSmsModalImpl(phoneKeys);
+      }
+    }
+    return { ok: false, error: 'no_modal', message: 'SMS composer failed to load. Refresh the page.' };
+  };
+
   // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
 
   // Bell + processing ring + /api/status: public/js/nav-notifications.js (navbar)
@@ -134,10 +154,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (badgeContainer) {
           badgeContainer.innerHTML = renderOpportunityBadges(row);
           badgeContainer.dataset.score = getUnifiedClientScore(row.dataset);
-        }
-        const sigEl = row.querySelector('.lead-owner-signal');
-        if (sigEl) {
-          sigEl.textContent = String(row.dataset.ownerSignal || '').trim();
         }
       } catch (err) {
         console.error('Error rendering opportunity badge for row:', err);
@@ -11466,25 +11482,46 @@ document.addEventListener('DOMContentLoaded', () => {
   const voicemailDropBtn = document.getElementById('voicemailDropBtn');
 
   const sendSmsBtn = document.getElementById('sendSmsBtn');
-  const smsScriptModal = document.getElementById('smsScriptModal');
+  function getSmsScriptModalEl() {
+    return document.getElementById('smsScriptModal');
+  }
   function mountSmsModalToBody() {
-    if (smsScriptModal && smsScriptModal.parentElement !== document.body) {
-      document.body.appendChild(smsScriptModal);
+    const modal = getSmsScriptModalEl();
+    if (modal && modal.parentElement !== document.body) {
+      document.body.appendChild(modal);
     }
   }
   mountSmsModalToBody();
   window.__mountSmsModalToBody = mountSmsModalToBody;
-  const smsScriptSelect = document.getElementById('smsScriptSelect');
-  const smsBodyInput = document.getElementById('smsBodyInput');
-  const smsBodyCount = document.getElementById('smsBodyCount');
-  const smsScriptWorkspaceLabel = document.getElementById('smsScriptWorkspaceLabel');
-  const smsPersonalizeBtn = document.getElementById('smsPersonalizeBtn');
-  const smsScriptSendBtn = document.getElementById('smsScriptSendBtn');
+  function getSmsScriptSelectEl() {
+    return document.getElementById('smsScriptSelect');
+  }
+  function getSmsBodyInputEl() {
+    return document.getElementById('smsBodyInput');
+  }
+  function getSmsBodyCountEl() {
+    return document.getElementById('smsBodyCount');
+  }
+  function getSmsScriptWorkspaceLabelEl() {
+    return document.getElementById('smsScriptWorkspaceLabel');
+  }
+  function getSmsPersonalizeBtnEl() {
+    return document.getElementById('smsPersonalizeBtn');
+  }
+  function getSmsScriptSendBtnEl() {
+    return document.getElementById('smsScriptSendBtn');
+  }
+  function getSmsScriptModalTitleEl() {
+    return document.getElementById('smsScriptModalTitle');
+  }
+  function getSmsScriptBulkLabelEl() {
+    return document.getElementById('smsScriptBulkLabel');
+  }
+  function getSmsScriptHelpTextEl() {
+    return document.getElementById('smsScriptHelpText');
+  }
   const smsScriptModalClose = document.getElementById('smsScriptModalClose');
   const smsScriptCancelBtn = document.getElementById('smsScriptCancelBtn');
-  const smsScriptModalTitle = document.getElementById('smsScriptModalTitle');
-  const smsScriptBulkLabel = document.getElementById('smsScriptBulkLabel');
-  const smsScriptHelpText = document.getElementById('smsScriptHelpText');
   let smsScriptOptions = [];
   let bulkSmsLeadKeys = [];
   let smsModalMode = 'single';
@@ -11492,6 +11529,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function resetSmsModalMode() {
     smsModalMode = 'single';
     bulkSmsLeadKeys = [];
+    const smsScriptModalTitle = getSmsScriptModalTitleEl();
+    const smsScriptBulkLabel = getSmsScriptBulkLabelEl();
+    const smsScriptHelpText = getSmsScriptHelpTextEl();
+    const smsPersonalizeBtn = getSmsPersonalizeBtnEl();
+    const smsScriptSendBtn = getSmsScriptSendBtnEl();
     if (smsScriptModalTitle) {
       smsScriptModalTitle.textContent = 'Script + AI Personalization';
     }
@@ -11513,6 +11555,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function updateSmsModalBulkUi() {
     const n = bulkSmsLeadKeys.length;
+    const smsScriptModalTitle = getSmsScriptModalTitleEl();
+    const smsScriptBulkLabel = getSmsScriptBulkLabelEl();
+    const smsScriptHelpText = getSmsScriptHelpTextEl();
+    const smsPersonalizeBtn = getSmsPersonalizeBtnEl();
+    const smsScriptSendBtn = getSmsScriptSendBtnEl();
     if (smsScriptModalTitle) {
       smsScriptModalTitle.textContent = n > 1 ? `Bulk SMS — ${n} leads` : 'Bulk SMS';
     }
@@ -11536,6 +11583,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeSmsModal() {
+    const smsScriptModal = getSmsScriptModalEl();
     if (!smsScriptModal) return;
     smsScriptModal.classList.add('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'true');
@@ -11545,9 +11593,11 @@ document.addEventListener('DOMContentLoaded', () => {
   function openSmsModal() {
     resetSmsModalMode();
     mountSmsModalToBody();
+    const smsScriptModal = getSmsScriptModalEl();
     if (!smsScriptModal) return false;
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
+    const smsScriptWorkspaceLabel = getSmsScriptWorkspaceLabelEl();
     if (smsScriptWorkspaceLabel) {
       const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
       const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
@@ -11564,6 +11614,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!keys.length) {
       return { ok: false, error: 'no_phone', message: 'Selected leads have no phone numbers for SMS.' };
     }
+    const smsScriptModal = getSmsScriptModalEl();
     if (!smsScriptModal) {
       return { ok: false, error: 'no_modal', message: 'SMS composer failed to load. Refresh the page.' };
     }
@@ -11572,6 +11623,7 @@ document.addEventListener('DOMContentLoaded', () => {
     smsScriptModal.classList.remove('hidden');
     smsScriptModal.setAttribute('aria-hidden', 'false');
     updateSmsModalBulkUi();
+    const smsScriptWorkspaceLabel = getSmsScriptWorkspaceLabelEl();
     if (smsScriptWorkspaceLabel) {
       const wsNameEl = document.querySelector('#wsSwitcherBtn .font-display');
       const wsName = wsNameEl ? String(wsNameEl.textContent || '').trim() : '';
@@ -11579,6 +11631,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     try {
       await loadSmsScriptOptions(keys[0]);
+      const smsBodyInput = getSmsBodyInputEl();
       if (smsBodyInput) smsBodyInput.focus();
       return { ok: true, count: keys.length };
     } catch (err) {
@@ -11589,14 +11642,19 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
   }
+  window.__openBulkSmsModalImpl = openBulkSmsModal;
   window.__openBulkSmsModal = openBulkSmsModal;
 
   function setSmsCharCount() {
+    const smsBodyInput = getSmsBodyInputEl();
+    const smsBodyCount = getSmsBodyCountEl();
     if (!smsBodyInput || !smsBodyCount) return;
     smsBodyCount.textContent = String((smsBodyInput.value || '').length);
   }
 
   function getSelectedSmsScriptText() {
+    const smsBodyInput = getSmsBodyInputEl();
+    const smsScriptSelect = getSmsScriptSelectEl();
     const fromTextarea = String((smsBodyInput && smsBodyInput.value) || '').trim();
     if (smsModalMode === 'bulk') return fromTextarea;
     if (!smsScriptSelect) return fromTextarea;
@@ -11791,6 +11849,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function loadSmsScriptOptions(forLeadKey) {
     const leadKey = String(forLeadKey || getCurrentLeadKey() || '').trim();
+    const smsScriptSelect = getSmsScriptSelectEl();
+    const smsBodyInput = getSmsBodyInputEl();
     if (!leadKey || !smsScriptSelect || !smsBodyInput) return;
     smsScriptSelect.disabled = true;
     smsScriptSelect.innerHTML = '<option value="">Loading scripts...</option>';
@@ -11839,67 +11899,77 @@ document.addEventListener('DOMContentLoaded', () => {
     /* Click handled via bindLeadPanelBottomActions delegation */
   }
 
-  if (smsScriptSelect && smsBodyInput) {
-    smsScriptSelect.addEventListener('change', () => {
-      const idx = parseInt(smsScriptSelect.value, 10);
-      const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
-      smsBodyInput.value = selected && selected.text ? selected.text : '';
-      setSmsCharCount();
-    });
-  }
-  if (smsBodyInput) {
-    smsBodyInput.addEventListener('input', setSmsCharCount);
-  }
-  if (smsPersonalizeBtn) {
-    smsPersonalizeBtn.addEventListener('click', async () => {
-      const leadKey = getCurrentLeadKey();
-      if (!leadKey || !smsBodyInput) return;
-      const scriptText = String(smsBodyInput.value || '').trim();
-      if (!scriptText) return;
-      const original = smsPersonalizeBtn.textContent;
-      smsPersonalizeBtn.disabled = true;
-      smsPersonalizeBtn.textContent = 'Personalizing...';
-      try {
-        const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-personalize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-          body: JSON.stringify({ scriptText }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not personalize SMS.');
-        smsBodyInput.value = data.personalized || scriptText;
+  {
+    const smsScriptSelect = getSmsScriptSelectEl();
+    const smsBodyInput = getSmsBodyInputEl();
+    if (smsScriptSelect && smsBodyInput) {
+      smsScriptSelect.addEventListener('change', () => {
+        const idx = parseInt(smsScriptSelect.value, 10);
+        const selected = Number.isFinite(idx) ? smsScriptOptions[idx] : null;
+        smsBodyInput.value = selected && selected.text ? selected.text : '';
         setSmsCharCount();
-      } catch (err) {
-        alert(err.message || 'Failed to personalize SMS.');
-      } finally {
-        smsPersonalizeBtn.disabled = false;
-        smsPersonalizeBtn.textContent = original;
-      }
-    });
+      });
+      smsBodyInput.addEventListener('input', setSmsCharCount);
+    }
   }
-  if (smsScriptSendBtn) {
-    smsScriptSendBtn.addEventListener('click', async () => {
-      if (!smsBodyInput) return;
-      const scriptText = getSelectedSmsScriptText();
-      if (!scriptText) return;
-
-      if (smsModalMode === 'bulk' && bulkSmsLeadKeys.length) {
-        const n = bulkSmsLeadKeys.length;
-        if (
-          !window.confirm(
-            `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
-          )
-        ) {
-          return;
-        }
-        const original = smsScriptSendBtn.textContent;
-        smsScriptSendBtn.disabled = true;
-        smsPersonalizeBtn && (smsPersonalizeBtn.disabled = true);
+  {
+    const smsPersonalizeBtn = getSmsPersonalizeBtnEl();
+    const smsBodyInput = getSmsBodyInputEl();
+    if (smsPersonalizeBtn) {
+      smsPersonalizeBtn.addEventListener('click', async () => {
+        const leadKey = getCurrentLeadKey();
+        if (!leadKey || !smsBodyInput) return;
+        const scriptText = String(smsBodyInput.value || '').trim();
+        if (!scriptText) return;
+        const original = smsPersonalizeBtn.textContent;
+        smsPersonalizeBtn.disabled = true;
+        smsPersonalizeBtn.textContent = 'Personalizing...';
         try {
-          const result = await sendBulkPersonalizedSms(bulkSmsLeadKeys, scriptText, (done, total) => {
-            smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
-            showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
+          const res = await fetch(`/leads/${encodeURIComponent(leadKey)}/sms-personalize`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ scriptText }),
           });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not personalize SMS.');
+          smsBodyInput.value = data.personalized || scriptText;
+          setSmsCharCount();
+        } catch (err) {
+          alert(err.message || 'Failed to personalize SMS.');
+        } finally {
+          smsPersonalizeBtn.disabled = false;
+          smsPersonalizeBtn.textContent = original;
+        }
+      });
+    }
+  }
+  {
+    const smsScriptSendBtn = getSmsScriptSendBtnEl();
+    const smsBodyInput = getSmsBodyInputEl();
+    const smsPersonalizeBtn = getSmsPersonalizeBtnEl();
+    if (smsScriptSendBtn) {
+      smsScriptSendBtn.addEventListener('click', async () => {
+        if (!smsBodyInput) return;
+        const scriptText = getSelectedSmsScriptText();
+        if (!scriptText) return;
+
+        if (smsModalMode === 'bulk' && bulkSmsLeadKeys.length) {
+          const n = bulkSmsLeadKeys.length;
+          if (
+            !window.confirm(
+              `Personalize and send this script to ${n} lead${n === 1 ? '' : 's'}? Each message will be unique.`,
+            )
+          ) {
+            return;
+          }
+          const original = smsScriptSendBtn.textContent;
+          smsScriptSendBtn.disabled = true;
+          if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = true;
+          try {
+            const result = await sendBulkPersonalizedSms(bulkSmsLeadKeys, scriptText, (done, total) => {
+              smsScriptSendBtn.textContent = `Sending ${done}/${total}…`;
+              showBulkSaveFeedback(`Personalizing & sending SMS ${done}/${total}…`, 'loading');
+            });
           const msg = `SMS: ${result.ok} sent${result.failed ? ` · ${result.failed} failed` : ''}`;
           showBulkSaveFeedback(msg, result.failed === 0 ? 'success' : 'error');
           if (typeof window.__flashBulkBarBtn === 'function') {
@@ -11949,15 +12019,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (smsPersonalizeBtn) smsPersonalizeBtn.disabled = false;
       }
     });
+    }
   }
-  [smsScriptModalClose, smsScriptCancelBtn].forEach((btnEl) => {
+  [document.getElementById('smsScriptModalClose'), document.getElementById('smsScriptCancelBtn')].forEach((btnEl) => {
     if (!btnEl) return;
     btnEl.addEventListener('click', closeSmsModal);
   });
-  if (smsScriptModal) {
-    smsScriptModal.addEventListener('click', (e) => {
-      if (e.target && e.target.hasAttribute('data-sms-modal-close')) closeSmsModal();
-    });
+  {
+    const smsScriptModal = getSmsScriptModalEl();
+    if (smsScriptModal) {
+      smsScriptModal.addEventListener('click', (e) => {
+        if (e.target && e.target.hasAttribute('data-sms-modal-close')) closeSmsModal();
+      });
+    }
   }
 
   const vmAudioStatus = document.getElementById('vmAudioStatus');
@@ -15212,7 +15286,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-      window.__pipelineKanbanFocusKeys = updatedKeys.slice();
+      window.__pipelineKanbanFocusKeys = null;
 
       const msg = `Saved ${updatedKeys.length} lead${updatedKeys.length === 1 ? '' : 's'} to ${stageName}`;
       showBulkSaveFeedback(msg, 'success');
@@ -15232,7 +15306,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       if (typeof window.__adhelloSetPipelineView === 'function') {
-        window.__adhelloSetPipelineView('kanban', { keepFocusKeys: true });
+        window.__adhelloSetPipelineView('kanban');
       }
       if (typeof window.__adhelloInitKanban === 'function') {
         window.__adhelloInitKanban();
@@ -16590,19 +16664,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!columnEls.length) return false;
 
     const stageIds = columnEls.map((el, idx) => readKanbanColumnStageId(el, idx));
-    const allRows = getKanbanRowSources();
-    const sessionFocus = readKanbanFocusKeysFromSession();
-    const focusKeys =
-      (Array.isArray(window.__pipelineKanbanFocusKeys) && window.__pipelineKanbanFocusKeys.length
-        ? window.__pipelineKanbanFocusKeys
-        : null) || sessionFocus;
-    const rowsForBoard = filterRowsForKanbanFocus(allRows, focusKeys);
-    if (Array.isArray(window.__pipelineKanbanFocusKeys) && window.__pipelineKanbanFocusKeys.length) {
-      try {
-        delete window.__pipelineKanbanFocusKeys;
-      } catch (_) {
-        window.__pipelineKanbanFocusKeys = null;
-      }
+    const rowsForBoard = getKanbanRowSources();
+    try {
+      delete window.__pipelineKanbanFocusKeys;
+    } catch (_) {
+      window.__pipelineKanbanFocusKeys = null;
     }
 
     const buckets = columnEls.map(() => []);
@@ -16621,6 +16687,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!col) return;
       populateKanbanColumn(col, columnWrap, buckets[idx] || [], true, false);
     });
+    bindPipelineKanbanSortables();
     return true;
   }
 
