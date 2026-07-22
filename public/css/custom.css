@@ -4703,11 +4703,22 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
   padding: 1.5rem 1rem;
 }
 
+.dm-canvas-viewport.is-canvas-zoomed {
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 2rem;
+}
+
 .dm-canvas-scaler {
-  transform: scale(var(--dm-zoom, 1));
   transform-origin: center center;
-  transition: transform 0.15s ease;
-  will-change: transform;
+  transition: zoom 0.15s ease, transform 0.15s ease;
+  will-change: zoom, transform;
+}
+
+@supports not (zoom: 1) {
+  .dm-canvas-scaler {
+    transform: scale(var(--dm-zoom, 1));
+  }
 }
 
 .dm-artboard-wrap {

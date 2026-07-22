@@ -110,13 +110,50 @@
   }
 
   var studioZoom = 1;
+  var studioZoomFocusBtn = null;
 
-  function setStudioZoom(value) {
-    studioZoom = Math.min(1.5, Math.max(0.5, value));
+  function setStudioZoom(value, focusBtn) {
+    studioZoom = Math.min(2.5, Math.max(0.5, value));
     var scaler = document.getElementById('dmCanvasScaler');
+    var viewport = document.getElementById('dmCanvasViewport');
     var label = document.getElementById('dmZoomLabel');
-    if (scaler) scaler.style.setProperty('--dm-zoom', String(studioZoom));
+    if (scaler) {
+      scaler.style.zoom = studioZoom === 1 ? '' : String(studioZoom);
+      scaler.style.setProperty('--dm-zoom', String(studioZoom));
+    }
+    if (viewport) {
+      viewport.classList.toggle('is-canvas-zoomed', studioZoom > 1.02);
+    }
     if (label) label.textContent = Math.round(studioZoom * 100) + '%';
+    if (focusBtn) studioZoomFocusBtn = focusBtn;
+    if (studioZoom > 1.02 && (focusBtn || studioZoomFocusBtn)) {
+      centerCanvasOnArtboard(focusBtn || studioZoomFocusBtn);
+    }
+    syncPreviewZoomBadges();
+  }
+
+  function centerCanvasOnArtboard(btn) {
+    var viewport = document.getElementById('dmCanvasViewport');
+    if (!viewport || !btn) return;
+    window.requestAnimationFrame(function () {
+      var vRect = viewport.getBoundingClientRect();
+      var bRect = btn.getBoundingClientRect();
+      var nextLeft =
+        viewport.scrollLeft + (bRect.left + bRect.width / 2) - (vRect.left + vRect.width / 2);
+      var nextTop =
+        viewport.scrollTop + (bRect.top + bRect.height / 2) - (vRect.top + vRect.height / 2);
+      viewport.scrollTo({
+        left: Math.max(0, nextLeft),
+        top: Math.max(0, nextTop),
+        behavior: 'smooth',
+      });
+    });
+  }
+
+  function syncPreviewZoomBadges() {
+    document.querySelectorAll('.dm-preview-zoom-badge').forEach(function (badge) {
+      badge.textContent = studioZoom > 1.02 ? 'Click to reset zoom' : 'Click to zoom in';
+    });
   }
 
   function syncStudioFormatPill(platformKey) {
@@ -213,7 +250,12 @@
     var zoomFit = document.getElementById('dmZoomFit');
     if (zoomIn) zoomIn.addEventListener('click', function () { setStudioZoom(studioZoom + 0.1); });
     if (zoomOut) zoomOut.addEventListener('click', function () { setStudioZoom(studioZoom - 0.1); });
-    if (zoomFit) zoomFit.addEventListener('click', function () { setStudioZoom(1); });
+    if (zoomFit) {
+      zoomFit.addEventListener('click', function () {
+        studioZoomFocusBtn = null;
+        setStudioZoom(1);
+      });
+    }
     setStudioZoom(1);
 
     bindStudioFullscreen();
@@ -223,21 +265,16 @@
   }
 
   function bindPreviewZoomHandlers() {
-    document.querySelectorAll('.dm-preview-btn').forEach(function (btn) {
-      btn.addEventListener('click', function (e) {
-        e.preventDefault();
-        handlePreviewZoomClick(btn);
-      });
-    });
     var viewport = document.getElementById('dmCanvasViewport');
-    if (viewport) {
-      viewport.addEventListener('click', function (e) {
-        var btn = e.target && e.target.closest ? e.target.closest('.dm-preview-btn') : null;
-        if (!btn) return;
-        e.preventDefault();
-        handlePreviewZoomClick(btn);
-      });
-    }
+    if (!viewport || viewport.dataset.dmZoomBound === '1') return;
+    viewport.dataset.dmZoomBound = '1';
+    viewport.addEventListener('click', function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest('.dm-preview-btn') : null;
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      handlePreviewZoomClick(btn);
+    });
   }
 
   function bindPromptPanelResizer() {
@@ -830,10 +867,15 @@
       zoomBtn.type = 'button';
       zoomBtn.className =
         'w-full rounded-md bg-white/90 text-brand-dark text-[9px] font-black uppercase tracking-widest py-1';
-      zoomBtn.textContent = 'Zoom';
+      zoomBtn.textContent = 'Zoom in';
       zoomBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        openLightbox(item.slot || 'front', item.imageUrl, item.prompt);
+        loadSavedDesign(item);
+        window.requestAnimationFrame(function () {
+          var slot = item.slot === 'back' ? 'back' : 'front';
+          var btn = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
+          if (btn) setStudioZoom(1.85, btn);
+        });
       });
       var delBtn = document.createElement('button');
       delBtn.type = 'button';
@@ -974,10 +1016,17 @@
     var slot = btn.getAttribute('data-slot') || 'front';
     var url = previewUrlForSlot(slot, btn);
     if (!url || /^data:/.test(url)) {
-      setDesignStatus('Generate a design first, then click the preview to zoom.', false);
+      setDesignStatus('Generate a design first, then click the preview to zoom in on the canvas.', false);
       return;
     }
-    openLightbox(slot, url, designMeta[slot] && designMeta[slot].prompt);
+    if (studioZoom > 1.02) {
+      studioZoomFocusBtn = null;
+      setStudioZoom(1);
+      setDesignStatus('Canvas zoom reset to 100%.', true);
+      return;
+    }
+    setStudioZoom(1.85, btn);
+    setDesignStatus('Zoomed in on canvas — use Fit or click the preview again to reset.', true);
   }
 
   async function sendChatMessage() {
@@ -1090,7 +1139,7 @@
         setPreview(slot, data.imageUrl);
         lastImagePrompt = prompt;
         showPromptEditor(slot, prompt);
-        setDesignStatus('Generated ' + slot + ' side — click preview to zoom.', true);
+        setDesignStatus('Generated ' + slot + ' side — click the preview to zoom in on the canvas.', true);
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
           window.showAppToast((plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated', {
