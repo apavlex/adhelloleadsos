@@ -41,14 +41,18 @@
   function bootKanbanWhenReady() {
     var attempts = 0;
     function tryBoot() {
-      if (typeof window.__adhelloInitKanban === 'function') {
+      if (typeof window.__adhelloBuildPipelineKanbanBoard === 'function') {
+        window.__adhelloBuildPipelineKanbanBoard();
+      } else if (typeof window.__adhelloInitKanban === 'function') {
         window.__adhelloInitKanban();
-        if (typeof window.__ensureSortableJs === 'function') {
-          window.__ensureSortableJs().catch(function () {});
-        }
+      }
+      if (typeof window.__ensureSortableJs === 'function') {
+        window.__ensureSortableJs().catch(function () {});
+      }
+      if (typeof window.__adhelloBuildPipelineKanbanBoard === 'function' || typeof window.__adhelloInitKanban === 'function') {
         return;
       }
-      if (++attempts < 120) {
+      if (++attempts < 240) {
         window.setTimeout(tryBoot, 50);
       }
     }

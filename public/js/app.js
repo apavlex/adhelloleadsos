@@ -16692,14 +16692,48 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // View toggle + kanban init hook (pipeline-view-toggle.js handles Table/Pipeline clicks)
+  function enhanceKanbanCardsFromApp() {
+    document
+      .querySelectorAll('#kanbanView[data-kanban-mode="pipeline"] .kanban-card[data-lead-key]')
+      .forEach((card) => {
+        const leadKey = String(card.dataset.leadKey || '').trim();
+        if (!leadKey) return;
+        const row = document.querySelector(
+          `#prospectLeadsTable tbody tr.result-row[data-lead-key="${CSS.escape(leadKey)}"], tr.result-row[data-lead-key="${CSS.escape(leadKey)}"]`,
+        );
+        if (!row) return;
+        const starHost = card.querySelector('[class*="kanban-stars-"]');
+        const oppHost = card.querySelector('[class*="row-opportunity-label-"]');
+        if (starHost && typeof renderStarsInElement === 'function') {
+          renderStarsInElement(starHost, parseFloat(row.dataset.rating) || 0);
+        }
+        if (oppHost && typeof renderOpportunityBadges === 'function') {
+          oppHost.innerHTML = renderOpportunityBadges(row);
+        }
+      });
+  }
+  window.__adhelloEnhanceKanbanCards = enhanceKanbanCardsFromApp;
+
   function initKanban() {
     const run = () => {
+      const pipelineRoot = document.querySelector('#kanbanView[data-kanban-mode="pipeline"]');
+      if (pipelineRoot) {
+        if (typeof window.__adhelloBuildPipelineKanbanBoard === 'function') {
+          window.__adhelloBuildPipelineKanbanBoard();
+        } else {
+          buildPipelineKanbanBoard();
+        }
+        enhanceKanbanCardsFromApp();
+        return;
+      }
+
       const kanbanViewEl = document.getElementById('kanbanView');
       const pipelineMode =
         kanbanViewEl && kanbanViewEl.dataset && kanbanViewEl.dataset.kanbanMode === 'pipeline';
 
       if (pipelineMode) {
         buildPipelineKanbanBoard();
+        enhanceKanbanCardsFromApp();
         return;
       }
 
