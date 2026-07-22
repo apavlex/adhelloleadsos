@@ -4496,6 +4496,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
 
+      if (e.target.closest('#leadPanelAiSmsBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await leadPanelAiWriteAndSendSms({ btn: document.getElementById('leadPanelAiSmsBtn'), feedback: 'outreach' });
+        return;
+      }
+
     });
 
     const noteInputEl = getLeadPanelEl('noteInput');
@@ -6687,6 +6694,7 @@ document.addEventListener('DOMContentLoaded', () => {
   function syncLeadPanelOutreachIntelButtons(row) {
     const phone = rowDatasetHasUsablePhone(row);
     const callBtn = document.getElementById('clickToCallBtn');
+    const smsBtn = document.getElementById('leadPanelAiSmsBtn');
     const ghlBtn = document.getElementById('leadPanelPushGhlBtn');
     const setBtn = (btn, enabled, titleOn, titleOff) => {
       if (!btn) return;
@@ -6697,6 +6705,12 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.setAttribute('title', enabled ? titleOn : titleOff);
     };
     setBtn(callBtn, phone, 'Call this lead', 'Add a phone number first');
+    setBtn(
+      smsBtn,
+      phone,
+      'AI writes a personalized SMS or iMessage and sends via Comms or GHL',
+      'Add a phone number first',
+    );
     setBtn(ghlBtn, !!row, 'Sync to Go High Level for SMS, email, and voicemail', 'Select a lead first');
   }
   window.__syncLeadPanelOutreachIntelButtons = syncLeadPanelOutreachIntelButtons;
@@ -11646,21 +11660,27 @@ document.addEventListener('DOMContentLoaded', () => {
     return `Hi ${title} team — this is [your name] from [your company]. We had a quick idea to help you capture more local leads. Open to a short call this week?`;
   }
 
-  async function leadPanelAiWriteAndSendSms() {
+  async function leadPanelAiWriteAndSendSms(options) {
+    const opts = options || {};
     const row = resolvePanelActionRow ? resolvePanelActionRow() : currentRow;
     const key = normalizeLeadKeyForApi(row && row.dataset ? row.dataset.leadKey : '');
+    const useOutreach = opts.feedback === 'outreach';
+    const setStatus = (msg, isError) => {
+      if (useOutreach) notifyLeadPanelDial(msg, isError ? 'error' : 'info');
+      else setLeadSmsThreadStatus(msg, isError);
+    };
     if (!key) {
-      setLeadSmsThreadStatus('Select a lead first.', true);
+      setStatus('Select a lead first.', true);
       return;
     }
     if (!rowDatasetHasUsablePhone(row)) {
-      setLeadSmsThreadStatus('Add a phone number first.', true);
+      setStatus('Add a phone number first.', true);
       return;
     }
-    const btn = document.getElementById('leadSmsAiWriteSendBtn');
+    const btn = opts.btn || document.getElementById('leadSmsAiWriteSendBtn');
     const input = document.getElementById('leadSmsComposeInput');
     if (btn) btn.disabled = true;
-    setLeadSmsThreadStatus('AI writing…');
+    setStatus('AI writing…');
     try {
       const scriptText = await resolveProspectSmsScript(key, row);
       const data = await aiWriteAndSendSmsToLead(key, scriptText, {
@@ -11674,12 +11694,11 @@ document.addEventListener('DOMContentLoaded', () => {
         },
       });
       await loadLeadSmsThread(row, { sync: true, quiet: true });
-      setLeadSmsThreadStatus(smsSentSuccessMessage(data));
-      if (typeof notifyLeadPanelDial === 'function') {
-        notifyLeadPanelDial(smsSentSuccessMessage(data), 'success');
-      }
+      const successMsg = smsSentSuccessMessage(data);
+      if (useOutreach) notifyLeadPanelDial(successMsg, 'success');
+      else setLeadSmsThreadStatus(successMsg);
     } catch (err) {
-      setLeadSmsThreadStatus((err && err.message) || 'AI send failed', true);
+      setStatus((err && err.message) || 'AI send failed', true);
     } finally {
       if (btn) btn.disabled = false;
     }

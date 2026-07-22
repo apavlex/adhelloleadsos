@@ -125,7 +125,7 @@
         if (el) el.disabled = false;
       });
       if (bar.dataset.bulkMode !== 'search') {
-        ['bulkFocusModeBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn'].forEach((id) => {
+        ['bulkFocusModeBtn', 'bulkSmsBtn', 'bulkDirectMailBtn', 'bulkPushGhlBtn'].forEach((id) => {
           const el = document.getElementById(id);
           if (!el) return;
           el.classList.remove('hidden', 'opacity-40', 'cursor-not-allowed');

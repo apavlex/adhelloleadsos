@@ -1,0 +1,39 @@
+<!-- SMS / iMessage composer (single + bulk) -->
+<div id="smsScriptModal" class="email-intel-modal fixed inset-0 hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="smsScriptModalTitle">
+  <div class="absolute inset-0 bg-brand-dark/75 backdrop-blur-sm" data-sms-modal-close aria-hidden="true"></div>
+  <div class="absolute inset-0 flex items-start justify-center p-4 pt-16 md:pt-24 pointer-events-none">
+    <div class="pointer-events-auto w-full max-w-lg bg-white dark:bg-slate-900 rounded-[2rem] border border-brand-border/30 dark:border-white/10 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div class="p-6 border-b border-brand-border/20 dark:border-white/10 flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p id="smsScriptWorkspaceLabel" class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-400">Workspace: Current workspace</p>
+          <h3 id="smsScriptModalTitle" class="font-display font-black text-xl text-brand-dark dark:text-white mt-1 leading-tight">Script + AI Personalization</h3>
+          <p id="smsScriptBulkLabel" class="hidden text-xs font-semibold text-brand-muted dark:text-slate-400 mt-1"></p>
+        </div>
+        <button type="button" id="smsScriptModalClose" class="w-10 h-10 rounded-xl bg-brand-cream dark:bg-slate-800 text-brand-muted hover:text-brand-dark dark:hover:text-white flex items-center justify-center shrink-0" aria-label="Close">
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-4">
+        <p id="smsScriptHelpText" class="text-xs text-brand-muted dark:text-slate-400 leading-relaxed">Pick a script, personalize with AI, edit, then send.</p>
+        <label class="block" for="smsScriptSelect">
+          <span class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500 mb-2 block">Base script</span>
+          <select id="smsScriptSelect" class="w-full rounded-xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-3 py-2.5 text-sm text-brand-dark dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-brand-yellow/40">
+            <option value="">Loading scripts…</option>
+          </select>
+        </label>
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-muted dark:text-slate-500">Message</span>
+            <span id="smsBodyCount" class="text-[10px] font-semibold text-brand-muted tabular-nums">0</span>
+          </div>
+          <textarea id="smsBodyInput" rows="6" maxlength="1600" placeholder="Script text — AI will personalize before send…" class="w-full rounded-2xl border border-brand-border/25 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-4 py-3 text-sm text-brand-dark dark:text-slate-100 leading-relaxed resize-y min-h-[9rem] focus:outline-none focus:ring-2 focus:ring-brand-yellow/40"></textarea>
+        </div>
+      </div>
+      <div class="p-6 pt-0 flex flex-col sm:flex-row gap-2">
+        <button type="button" id="smsPersonalizeBtn" class="flex-1 btn-pill border border-brand-border dark:border-white/15 bg-brand-cream dark:bg-slate-800 py-3.5 text-xs font-black uppercase tracking-widest text-brand-dark dark:text-white hover:bg-brand-cream/80 dark:hover:bg-slate-700 transition-colors">Personalize with AI</button>
+        <button type="button" id="smsScriptSendBtn" class="flex-1 btn-pill bg-emerald-500 text-white py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-600 transition-colors">AI write &amp; send</button>
+        <button type="button" id="smsScriptCancelBtn" class="sm:hidden btn-pill border border-brand-border dark:border-white/15 py-3.5 text-xs font-black uppercase tracking-widest text-brand-muted">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
