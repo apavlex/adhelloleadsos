@@ -2,6 +2,8 @@
   const cfg = window.__ACTIVITY_PAGE || {};
   let offset = Number(cfg.offset) || 0;
   let total = Number(cfg.total) || 0;
+  let totalEvents = Number(cfg.totalEvents) || 0;
+  let shownEvents = Number(cfg.shownEvents) || 0;
   const filter = String(cfg.filter || 'all');
   const feedEl = document.getElementById('activityFeed');
   const countEl = document.getElementById('activityCountLabel');
@@ -23,9 +25,11 @@
     else statusEl.classList.add('text-brand-muted');
   }
 
-  function updateCount(shown, tot) {
+  function updateCount(shownLeads, totLeads, eventsOnPage, totEv) {
     if (!countEl) return;
-    countEl.textContent = `Showing ${shown} of ${tot} entries`;
+    var extra = totEv > eventsOnPage ? ' (' + totEv + ' total)' : '';
+    countEl.textContent =
+      'Showing ' + shownLeads + ' of ' + totLeads + ' leads · ' + eventsOnPage + ' events' + extra;
   }
 
   function escapeHtml(s) {
@@ -38,7 +42,7 @@
 
   function leadFocusHref(leadKey) {
     const short = String(leadKey || '').replace(/^lead:/i, '');
-    return `/prospecting?tab=pipeline&focusLead=${encodeURIComponent(short)}`;
+    return '/prospecting?tab=pipeline&focusLead=' + encodeURIComponent(short);
   }
 
   function formatWhen(iso) {
@@ -56,43 +60,92 @@
   }
 
   function folderOptionsHtml(folders, selectedKey) {
-    let html = '<option value="">Move to folder…</option>';
-    html += `<option value=""${!selectedKey ? ' selected disabled' : ''}>${
-      selectedKey ? 'Clear folder assignment' : 'No folder'
-    }</option>`;
+    var html = '<option value="">' + (selectedKey ? 'Change folder…' : 'Move to folder…') + '</option>';
+    if (!selectedKey) {
+      html += '<option value="" selected disabled>No folder</option>';
+    }
     (folders || []).forEach(function (fd) {
       if (!fd || !fd.key) return;
-      const sel = fd.key === selectedKey ? ' selected' : '';
-      html += `<option value="${escapeHtml(fd.key)}"${sel}>${escapeHtml(fd.name || 'Folder')}</option>`;
+      var sel = fd.key === selectedKey ? ' selected' : '';
+      html += '<option value="' + escapeHtml(fd.key) + '"' + sel + '>' + escapeHtml(fd.name || 'Folder') + '</option>';
     });
     return html;
   }
 
-  function renderRow(item, folders) {
-    const idSafe = String(item.leadKey || '').replace(/[^a-zA-Z0-9_-]/g, '_');
-    const meta = [];
-    if (item.city) meta.push(escapeHtml(item.city));
-    if (item.status) meta.push(escapeHtml(item.status));
-    if (item.folderName) meta.push(`Folder: ${escapeHtml(item.folderName)}`);
-    const metaLine = meta.length ? `<p class="text-[10px] font-semibold text-brand-muted mt-0.5">${meta.join(' · ')}</p>` : '';
-    return `<article class="activity-row brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col md:flex-row md:items-start gap-4" data-lead-key="${escapeHtml(item.leadKey)}" data-lead-title="${escapeHtml(item.leadTitle)}">
-      <div class="min-w-0 flex-1">
-        <div class="flex flex-wrap items-center gap-2 mb-1.5">
-          <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10">${escapeHtml(item.typeLabel)}</span>
-          <time class="text-[10px] font-bold text-brand-muted tabular-nums" datetime="${escapeHtml(item.ts)}">${formatWhen(item.ts)}</time>
-        </div>
-        <h2 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug">
-          <a href="${leadFocusHref(item.leadKey)}" class="hover:text-brand-yellow transition-colors">${escapeHtml(item.leadTitle)}</a>
-        </h2>
-        ${metaLine}
-        <p class="text-sm text-brand-dark/90 dark:text-slate-300 mt-2 leading-relaxed line-clamp-3">${escapeHtml(item.text)}</p>
-      </div>
-      <div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44">
-        <a href="${leadFocusHref(item.leadKey)}" class="activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center">Open lead</a>
-        <select class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white" data-lead-key="${escapeHtml(item.leadKey)}" aria-label="Move ${escapeHtml(item.leadTitle)} to folder">${folderOptionsHtml(folders, item.folderKey)}</select>
-        <button type="button" class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2" data-lead-key="${escapeHtml(item.leadKey)}" data-lead-title="${escapeHtml(item.leadTitle)}" data-activity-text="${encodeURIComponent(String(item.text || '').slice(0, 300))}">Add to tasks</button>
-      </div>
-    </article>`;
+  function renderEventRow(ev) {
+    return (
+      '<li class="relative">' +
+      '<span class="absolute -left-[1.35rem] top-1.5 w-2 h-2 rounded-full bg-brand-yellow ring-2 ring-white dark:ring-slate-900" aria-hidden="true"></span>' +
+      '<div class="flex flex-wrap items-center gap-2 mb-0.5">' +
+      '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10">' +
+      escapeHtml(ev.typeLabel) +
+      '</span>' +
+      '<time class="text-[10px] font-bold text-brand-muted tabular-nums" datetime="' +
+      escapeHtml(ev.ts) +
+      '">' +
+      formatWhen(ev.ts) +
+      '</time></div>' +
+      '<p class="text-sm text-brand-dark/90 dark:text-slate-300 leading-relaxed">' +
+      escapeHtml(ev.text) +
+      '</p></li>'
+    );
+  }
+
+  function renderGroup(group, folders) {
+    var events = Array.isArray(group.events) ? group.events : [];
+    var eventCount = group.eventCount || events.length;
+    var latestText = events.length ? events[0].text : '';
+    var meta = [];
+    if (group.city) meta.push(escapeHtml(group.city));
+    if (group.status) meta.push(escapeHtml(group.status));
+    if (group.folderName) meta.push('Folder: ' + escapeHtml(group.folderName));
+    var metaLine = meta.length
+      ? '<p class="text-[10px] font-semibold text-brand-muted mb-3">' + meta.join(' · ') + '</p>'
+      : '';
+    var timeline = events.map(renderEventRow).join('');
+    return (
+      '<article class="activity-group brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10" data-lead-key="' +
+      escapeHtml(group.leadKey) +
+      '" data-lead-title="' +
+      escapeHtml(group.leadTitle) +
+      '">' +
+      '<div class="flex flex-col md:flex-row md:items-start gap-4">' +
+      '<div class="min-w-0 flex-1">' +
+      '<div class="flex flex-wrap items-center gap-2 mb-1">' +
+      '<h2 class="font-display font-bold text-lg text-brand-dark dark:text-white leading-snug">' +
+      '<a href="' +
+      leadFocusHref(group.leadKey) +
+      '" class="hover:text-brand-yellow transition-colors">' +
+      escapeHtml(group.leadTitle) +
+      '</a></h2>' +
+      '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30">' +
+      eventCount +
+      ' ' +
+      (eventCount === 1 ? 'event' : 'events') +
+      '</span></div>' +
+      metaLine +
+      '<ul class="activity-timeline space-y-3 border-l-2 border-brand-border/40 dark:border-white/10 ml-1 pl-4">' +
+      timeline +
+      '</ul></div>' +
+      '<div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1">' +
+      '<a href="' +
+      leadFocusHref(group.leadKey) +
+      '" class="activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center">Open lead</a>' +
+      '<select class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white" data-lead-key="' +
+      escapeHtml(group.leadKey) +
+      '" aria-label="Move ' +
+      escapeHtml(group.leadTitle) +
+      ' to folder">' +
+      folderOptionsHtml(folders, group.folderKey) +
+      '</select>' +
+      '<button type="button" class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2" data-lead-key="' +
+      escapeHtml(group.leadKey) +
+      '" data-lead-title="' +
+      escapeHtml(group.leadTitle) +
+      '" data-activity-text="' +
+      encodeURIComponent(String(latestText || '').slice(0, 300)) +
+      '">Add to tasks</button></div></div></article>'
+    );
   }
 
   async function assignFolder(leadKey, folderKey) {
@@ -114,8 +167,8 @@
   async function addTask(leadKey, leadTitle, activityText) {
     const snippet = String(activityText || '').trim().slice(0, 80);
     const title = snippet
-      ? `Follow up: ${leadTitle} — ${snippet}${snippet.length >= 80 ? '…' : ''}`
-      : `Follow up: ${leadTitle}`;
+      ? 'Follow up: ' + leadTitle + ' — ' + snippet + (snippet.length >= 80 ? '…' : '')
+      : 'Follow up: ' + leadTitle;
     const res = await fetch('/tasks/api', {
       method: 'POST',
       credentials: 'same-origin',
@@ -141,7 +194,10 @@
     setStatus('Loading…');
     try {
       const res = await fetch(
-        `/activity/api?filter=${encodeURIComponent(filter)}&limit=50&offset=${encodeURIComponent(String(offset))}`,
+        '/activity/api?filter=' +
+          encodeURIComponent(filter) +
+          '&limit=50&offset=' +
+          encodeURIComponent(String(offset)),
         { credentials: 'same-origin', headers: { Accept: 'application/json' } },
       );
       const data = await res.json().catch(function () {
@@ -150,16 +206,21 @@
       if (!res.ok || !data.success) {
         throw new Error((data && data.error) || 'Could not load activity.');
       }
-      const items = Array.isArray(data.items) ? data.items : [];
+      const groups = Array.isArray(data.groups) ? data.groups : [];
       total = Number(data.total) || total;
-      if (items.length && feedEl) {
+      totalEvents = Number(data.totalEvents) || totalEvents;
+      if (groups.length && feedEl) {
         const empty = feedEl.querySelector('.brand-card.p-12');
         if (empty) empty.remove();
-        items.forEach(function (item) {
-          feedEl.insertAdjacentHTML('beforeend', renderRow(item, data.folders));
+        groups.forEach(function (group) {
+          feedEl.insertAdjacentHTML('beforeend', renderGroup(group, data.folders));
+          shownEvents += group.eventCount || (group.events && group.events.length) || 0;
         });
-        offset += items.length;
-        updateCount(offset, total);
+        offset += groups.length;
+        updateCount(offset, total, shownEvents, totalEvents);
+        document.querySelectorAll('.activity-folder-select').forEach(function (sel) {
+          if (!sel.dataset.prevValue) sel.dataset.prevValue = String(sel.value || '');
+        });
       }
       if (offset >= total && loadMoreBtn) {
         loadMoreBtn.classList.add('hidden');

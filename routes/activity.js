@@ -31,17 +31,22 @@ router.get('/', async (req, res, next) => {
       limit: 50,
       offset: 0,
     });
-    const items = feed.items.map((item) => ({
-      ...item,
-      folderName: item.folderKey ? folderMap[item.folderKey] || '' : '',
+    const groups = feed.groups.map((group) => ({
+      ...group,
+      folderName: group.folderKey ? folderMap[group.folderKey] || '' : '',
     }));
+    const shownEvents = groups.reduce(function (sum, g) {
+      return sum + (g.eventCount || (g.events && g.events.length) || 0);
+    }, 0);
     res.render('activity', {
       title: 'Recent Activity | Agency OS',
       activePage: 'activity',
       activityFilters: FILTERS,
       activeFilter: safeFilter,
-      activityItems: items,
+      activityGroups: groups,
       activityTotal: feed.total,
+      activityTotalEvents: feed.totalEvents,
+      activityShownEvents: shownEvents,
       activitySinceDays: feed.sinceDays,
       folders,
     });
@@ -64,11 +69,12 @@ router.get('/api', async (req, res, next) => {
     });
     res.json({
       success: true,
-      items: feed.items.map((item) => ({
-        ...item,
-        folderName: item.folderKey ? folderMap[item.folderKey] || '' : '',
+      groups: feed.groups.map((group) => ({
+        ...group,
+        folderName: group.folderKey ? folderMap[group.folderKey] || '' : '',
       })),
       total: feed.total,
+      totalEvents: feed.totalEvents,
       filter: safeFilter,
       limit: feed.limit,
       offset: feed.offset,

@@ -164,20 +164,17 @@ function buildWorkspaceActivityFeed(leads, options) {
       ? opts.sinceMs
       : Date.now() - sinceDays * 86400000;
 
-  const all = [];
+  const groups = [];
+  let totalEvents = 0;
+
   for (const lead of leads || []) {
     if (!lead || !lead.key) continue;
-    const entries = mergeLeadActivityEntries(lead);
-    for (const e of entries) {
+    const events = [];
+    for (const e of mergeLeadActivityEntries(lead)) {
       if (!activityEntryMatchesFilter(e, filter)) continue;
       const tsMs = Date.parse(e.ts) || 0;
       if (sinceMs && tsMs && tsMs < sinceMs) continue;
-      all.push({
-        leadKey: lead.key,
-        leadTitle: String(lead.title || lead.company || lead.email || 'Lead').slice(0, 120),
-        folderKey: String(lead.folderKey || '').trim(),
-        status: String(lead.status || '').trim(),
-        city: String(lead.city || '').trim(),
+      events.push({
         ts: e.ts || '',
         tsMs,
         type: e.typ,
@@ -185,12 +182,27 @@ function buildWorkspaceActivityFeed(leads, options) {
         text: formatActivityEntryText(e).slice(0, 500),
       });
     }
+    if (!events.length) continue;
+    events.sort((a, b) => b.tsMs - a.tsMs);
+    totalEvents += events.length;
+    groups.push({
+      leadKey: lead.key,
+      leadTitle: String(lead.title || lead.company || lead.email || 'Lead').slice(0, 120),
+      folderKey: String(lead.folderKey || '').trim(),
+      status: String(lead.status || '').trim(),
+      city: String(lead.city || '').trim(),
+      latestTs: events[0].ts,
+      latestTsMs: events[0].tsMs,
+      eventCount: events.length,
+      events,
+    });
   }
 
-  all.sort((a, b) => b.tsMs - a.tsMs);
+  groups.sort((a, b) => b.latestTsMs - a.latestTsMs);
   return {
-    items: all.slice(offset, offset + limit),
-    total: all.length,
+    groups: groups.slice(offset, offset + limit),
+    total: groups.length,
+    totalEvents,
     filter,
     limit,
     offset,

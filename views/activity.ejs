@@ -12,7 +12,7 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Recent Activity</h1>
         <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-xl leading-relaxed">
-          Notes, calls, SMS, and pipeline updates across your leads — last <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %> days.
+          Notes, calls, SMS, and pipeline updates grouped by lead — last <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %> days.
           Move leads to folders or add follow-ups to your task list.
         </p>
       </div>
@@ -33,73 +33,87 @@
     <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
       <p id="activityCountLabel" class="text-[11px] font-bold text-brand-muted tabular-nums">
         <% const _total = typeof activityTotal === 'number' ? activityTotal : 0; %>
-        <% const _shown = typeof activityItems !== 'undefined' && activityItems ? activityItems.length : 0; %>
-        Showing <%= _shown %> of <%= _total %> entries
+        <% const _shown = typeof activityGroups !== 'undefined' && activityGroups ? activityGroups.length : 0; %>
+        <% const _shownEvents = typeof activityShownEvents === 'number' ? activityShownEvents : 0; %>
+        <% const _totalEvents = typeof activityTotalEvents === 'number' ? activityTotalEvents : 0; %>
+        Showing <%= _shown %> of <%= _total %> leads · <%= _shownEvents %> events<% if (_totalEvents > _shownEvents) { %> (<%= _totalEvents %> total)<% } %>
       </p>
       <p id="activityStatus" class="text-[11px] font-semibold text-brand-muted hidden" role="status" aria-live="polite"></p>
     </div>
 
-    <div id="activityFeed" class="space-y-3">
-      <% const _items = typeof activityItems !== 'undefined' && activityItems ? activityItems : []; %>
-      <% if (!_items.length) { %>
+    <div id="activityFeed" class="space-y-4">
+      <% const _groups = typeof activityGroups !== 'undefined' && activityGroups ? activityGroups : []; %>
+      <% if (!_groups.length) { %>
       <div class="brand-card p-12 text-center dark:bg-slate-900 dark:border-white/10">
         <p class="text-brand-muted dark:text-slate-400 font-medium">No activity in this filter yet.</p>
         <p class="text-xs text-brand-muted mt-2">Post notes, log calls, or update pipeline status from the lead panel.</p>
       </div>
       <% } else { %>
-      <% _items.forEach(function (item) { %>
+      <% _groups.forEach(function (group) { %>
+      <% const _events = Array.isArray(group.events) ? group.events : []; %>
+      <% const _latestText = _events.length ? _events[0].text : ''; %>
       <article
-        class="activity-row brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col md:flex-row md:items-start gap-4"
-        data-lead-key="<%= item.leadKey %>"
-        data-lead-title="<%= item.leadTitle %>"
+        class="activity-group brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10"
+        data-lead-key="<%= group.leadKey %>"
+        data-lead-title="<%= group.leadTitle %>"
       >
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center gap-2 mb-1.5">
-            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10"><%= item.typeLabel %></span>
-            <time class="text-[10px] font-bold text-brand-muted tabular-nums" datetime="<%= item.ts %>"><%= item.ts ? new Date(item.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' %></time>
-          </div>
-          <h2 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug">
-            <a href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(item.leadKey || '').replace(/^lead:/i, '')) %>" class="hover:text-brand-yellow transition-colors"><%= item.leadTitle %></a>
-          </h2>
-          <% if (item.city || item.status || item.folderName) { %>
-          <p class="text-[10px] font-semibold text-brand-muted mt-0.5">
-            <% const bits = []; %>
-            <% if (item.city) bits.push(item.city); %>
-            <% if (item.status) bits.push(item.status); %>
-            <% if (item.folderName) bits.push('Folder: ' + item.folderName); %>
-            <%= bits.join(' · ') %>
-          </p>
-          <% } %>
-          <p class="text-sm text-brand-dark/90 dark:text-slate-300 mt-2 leading-relaxed line-clamp-3"><%= item.text %></p>
-        </div>
-        <div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44">
-          <a
-            href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(item.leadKey || '').replace(/^lead:/i, '')) %>"
-            class="activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center"
-          >Open lead</a>
-          <label class="sr-only" for="activityFolder-<%= item.leadKey.replace(/[^a-zA-Z0-9_-]/g, '_') %>">Move to folder</label>
-          <select
-            id="activityFolder-<%= item.leadKey.replace(/[^a-zA-Z0-9_-]/g, '_') %>"
-            class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white"
-            data-lead-key="<%= item.leadKey %>"
-            aria-label="Move <%= item.leadTitle %> to folder"
-          >
-            <option value=""><%= item.folderKey ? 'Change folder…' : 'Move to folder…' %></option>
-            <% if (!item.folderKey) { %>
-            <option value="" selected disabled>No folder</option>
+        <div class="flex flex-col md:flex-row md:items-start gap-4">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2 mb-1">
+              <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white leading-snug">
+                <a href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(group.leadKey || '').replace(/^lead:/i, '')) %>" class="hover:text-brand-yellow transition-colors"><%= group.leadTitle %></a>
+              </h2>
+              <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30"><%= group.eventCount || _events.length %> <%= (group.eventCount || _events.length) === 1 ? 'event' : 'events' %></span>
+            </div>
+            <% if (group.city || group.status || group.folderName) { %>
+            <p class="text-[10px] font-semibold text-brand-muted mb-3">
+              <% const bits = []; %>
+              <% if (group.city) bits.push(group.city); %>
+              <% if (group.status) bits.push(group.status); %>
+              <% if (group.folderName) bits.push('Folder: ' + group.folderName); %>
+              <%= bits.join(' · ') %>
+            </p>
             <% } %>
-            <% const _folders = typeof folders !== 'undefined' && folders ? folders : []; %>
-            <% _folders.forEach(function (fd) { if (!fd || !fd.key) return; %>
-            <option value="<%= fd.key %>" <%= item.folderKey === fd.key ? 'selected' : '' %>><%= fd.name || 'Folder' %></option>
-            <% }); %>
-          </select>
-          <button
-            type="button"
-            class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2"
-            data-lead-key="<%= item.leadKey %>"
-            data-lead-title="<%= item.leadTitle %>"
-            data-activity-text="<%= encodeURIComponent(String(item.text || '').slice(0, 300)) %>"
-          >Add to tasks</button>
+            <ul class="activity-timeline space-y-3 border-l-2 border-brand-border/40 dark:border-white/10 ml-1 pl-4">
+              <% _events.forEach(function (ev) { %>
+              <li class="relative">
+                <span class="absolute -left-[1.35rem] top-1.5 w-2 h-2 rounded-full bg-brand-yellow ring-2 ring-white dark:ring-slate-900" aria-hidden="true"></span>
+                <div class="flex flex-wrap items-center gap-2 mb-0.5">
+                  <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10"><%= ev.typeLabel %></span>
+                  <time class="text-[10px] font-bold text-brand-muted tabular-nums" datetime="<%= ev.ts %>"><%= ev.ts ? new Date(ev.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' %></time>
+                </div>
+                <p class="text-sm text-brand-dark/90 dark:text-slate-300 leading-relaxed"><%= ev.text %></p>
+              </li>
+              <% }); %>
+            </ul>
+          </div>
+          <div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1">
+            <a
+              href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(group.leadKey || '').replace(/^lead:/i, '')) %>"
+              class="activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center"
+            >Open lead</a>
+            <select
+              class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white"
+              data-lead-key="<%= group.leadKey %>"
+              aria-label="Move <%= group.leadTitle %> to folder"
+            >
+              <option value=""><%= group.folderKey ? 'Change folder…' : 'Move to folder…' %></option>
+              <% if (!group.folderKey) { %>
+              <option value="" selected disabled>No folder</option>
+              <% } %>
+              <% const _folders = typeof folders !== 'undefined' && folders ? folders : []; %>
+              <% _folders.forEach(function (fd) { if (!fd || !fd.key) return; %>
+              <option value="<%= fd.key %>" <%= group.folderKey === fd.key ? 'selected' : '' %>><%= fd.name || 'Folder' %></option>
+              <% }); %>
+            </select>
+            <button
+              type="button"
+              class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2"
+              data-lead-key="<%= group.leadKey %>"
+              data-lead-title="<%= group.leadTitle %>"
+              data-activity-text="<%= encodeURIComponent(String(_latestText || '').slice(0, 300)) %>"
+            >Add to tasks</button>
+          </div>
         </div>
       </article>
       <% }); %>
@@ -109,7 +123,7 @@
     <% if (_total > _shown) { %>
     <div class="mt-6 text-center">
       <button type="button" id="activityLoadMore" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">
-        Load more
+        Load more leads
       </button>
     </div>
     <% } %>
@@ -122,6 +136,8 @@
       filter: <%= JSON.stringify(_active) %>,
       offset: <%= _shown %>,
       total: <%= _total %>,
+      totalEvents: <%= _totalEvents %>,
+      shownEvents: <%= _shownEvents %>,
       sinceDays: <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %>,
     };
   </script>

@@ -37,7 +37,7 @@ test('activity filters notes vs calls', () => {
   assert.equal(activityEntryMatchesFilter(call, 'calls'), true);
 });
 
-test('buildWorkspaceActivityFeed sorts globally and paginates', () => {
+test('buildWorkspaceActivityFeed groups by lead and paginates', () => {
   const leads = [
     {
       key: 'lead:a',
@@ -47,16 +47,41 @@ test('buildWorkspaceActivityFeed sorts globally and paginates', () => {
     {
       key: 'lead:b',
       title: 'Beta',
-      updates: [{ type: 'note', value: 'New', timestamp: '2026-07-22T10:00:00.000Z', source: 'panel_post' }],
+      updates: [
+        { type: 'note', value: 'New', timestamp: '2026-07-22T10:00:00.000Z', source: 'panel_post' },
+        { type: 'call_outbound', value: 'Dialed', timestamp: '2026-07-22T09:00:00.000Z' },
+      ],
     },
   ];
   const feed = buildWorkspaceActivityFeed(leads, {
-    filter: 'notes',
+    filter: 'all',
     limit: 1,
     offset: 0,
     sinceMs: Date.parse('2026-06-01T00:00:00.000Z'),
   });
   assert.equal(feed.total, 2);
-  assert.equal(feed.items.length, 1);
-  assert.equal(feed.items[0].leadTitle, 'Beta');
+  assert.equal(feed.groups.length, 1);
+  assert.equal(feed.groups[0].leadTitle, 'Beta');
+  assert.equal(feed.groups[0].events.length, 2);
+});
+
+test('buildWorkspaceActivityFeed consolidates multiple events under one lead', () => {
+  const leads = [
+    {
+      key: 'lead:x',
+      title: 'All In One Floors',
+      updates: [
+        { type: 'call_disposition', value: 'Send info', timestamp: '2026-07-23T21:28:00.000Z' },
+        { type: 'status_change', value: 'Called Lead', timestamp: '2026-07-23T21:28:00.000Z' },
+        { type: 'call_outbound', value: 'Outbound call', timestamp: '2026-07-23T21:24:00.000Z' },
+      ],
+    },
+  ];
+  const feed = buildWorkspaceActivityFeed(leads, {
+    filter: 'all',
+    sinceMs: Date.parse('2026-06-01T00:00:00.000Z'),
+  });
+  assert.equal(feed.total, 1);
+  assert.equal(feed.groups.length, 1);
+  assert.equal(feed.groups[0].events.length, 3);
 });
