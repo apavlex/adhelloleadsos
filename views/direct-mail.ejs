@@ -197,8 +197,9 @@
           <input id="dmHeadline" type="text" class="dm-input dm-merge-field" placeholder="Your new website is ready, {business}" />
           <label class="dm-field-label" for="dmBody">Body</label>
           <textarea id="dmBody" rows="4" class="dm-input dm-merge-field resize-y" placeholder="We built a custom preview for {business} in {city}."></textarea>
-          <label class="dm-field-label" for="dmCtaUrl">Audit / landing URL</label>
-          <input id="dmCtaUrl" type="text" class="dm-input dm-merge-field" placeholder="{audit_url}" />
+          <label class="dm-field-label" for="dmCtaUrl">Audit / landing URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
+          <input id="dmCtaUrl" type="text" class="dm-input dm-merge-field" placeholder="Leave blank or use {audit_url} per lead" autocomplete="off" />
+          <p class="text-[11px] text-brand-muted mt-1 leading-relaxed">Omit for brand-only postcards, or use <code>{audit_url}</code> to pull each lead&apos;s audit link at send time.</p>
           <label class="dm-check-row mt-2">
             <input type="checkbox" id="dmPersonalizeOverlay" checked />
             <span><strong>Personalize at send</strong> — overlay headline and copy on generated art per lead.</span>

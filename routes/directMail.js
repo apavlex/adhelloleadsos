@@ -106,7 +106,7 @@ ${brandKitSummary(brandKit)}
 Ad copy context:
 - Headline: ${headline || '(not set yet)'}
 - Body: ${bodyText || '(not set yet)'}
-- CTA URL: ${ctaUrl || '(none)'}
+- CTA URL (optional): ${ctaUrl || '(none — omit URL on postcard)'}
 
 Merge tokens for per-recipient personalization (postcard sends only): {business}, {city}, {state}, {audit_url}. For bulk postcard mail, do not bake one specific business name into artwork — leave space for overlays.
 
