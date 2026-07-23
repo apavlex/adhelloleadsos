@@ -40,9 +40,55 @@
       .replace(/"/g, '&quot;');
   }
 
-  function leadFocusHref(leadKey) {
-    const short = String(leadKey || '').replace(/^lead:/i, '');
-    return '/prospecting?tab=pipeline&focusLead=' + encodeURIComponent(short);
+  function tagLookupMap() {
+    const map = Object.create(null);
+    (Array.isArray(window.WORKSPACE_TAGS) ? window.WORKSPACE_TAGS : []).forEach(function (t) {
+      if (t && t.key) map[String(t.key).trim()] = t;
+    });
+    return map;
+  }
+
+  function renderTagChipsHtml(group) {
+    const keys = Array.isArray(group.tags)
+      ? group.tags.map(String).filter(Boolean)
+      : Array.isArray(group.tagChips)
+        ? group.tagChips.map(function (c) {
+            return c && c.key;
+          })
+        : [];
+    if (!keys.length) return '';
+    const map = tagLookupMap();
+    let html =
+      '<div class="activity-lead-tags flex flex-wrap gap-1 mb-2" aria-label="Lead tags">';
+    keys.slice(0, 4).forEach(function (key) {
+      const t = map[String(key).trim()] || {};
+      const name = t.name || key;
+      const color = t.color || '#94a3b8';
+      html +=
+        '<span class="lead-tag-chip inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:' +
+        escapeHtml(color) +
+        '22;color:' +
+        escapeHtml(color) +
+        '" title="' +
+        escapeHtml(name) +
+        '">' +
+        escapeHtml(name) +
+        '</span>';
+    });
+    if (keys.length > 4) {
+      html +=
+        '<span class="text-[8px] font-bold text-brand-muted dark:text-slate-400">+' +
+        (keys.length - 4) +
+        '</span>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function openActivityLead(leadKey) {
+    const k = String(leadKey || '').replace(/^lead:/i, '').trim();
+    if (!k || typeof window.openLeadDetailFromKey !== 'function') return;
+    window.openLeadDetailFromKey(k);
   }
 
   function formatWhen(iso) {
@@ -104,33 +150,31 @@
       : '';
     var timeline = events.map(renderEventRow).join('');
     return (
-      '<article class="activity-group brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10" data-lead-key="' +
+      '<article class="activity-group activity-group--openable brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 cursor-pointer transition-colors hover:border-brand-yellow/40" data-lead-key="' +
       escapeHtml(group.leadKey) +
       '" data-lead-title="' +
       escapeHtml(group.leadTitle) +
-      '">' +
+      '" title="Click to open lead details">' +
       '<div class="flex flex-col md:flex-row md:items-start gap-4">' +
       '<div class="min-w-0 flex-1">' +
       '<div class="flex flex-wrap items-center gap-2 mb-1">' +
       '<h2 class="font-display font-bold text-lg text-brand-dark dark:text-white leading-snug">' +
-      '<a href="' +
-      leadFocusHref(group.leadKey) +
-      '" class="hover:text-brand-yellow transition-colors">' +
       escapeHtml(group.leadTitle) +
-      '</a></h2>' +
+      '</h2>' +
       '<span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30">' +
       eventCount +
       ' ' +
       (eventCount === 1 ? 'event' : 'events') +
       '</span></div>' +
+      renderTagChipsHtml(group) +
       metaLine +
       '<ul class="activity-timeline space-y-3 border-l-2 border-brand-border/40 dark:border-white/10 ml-1 pl-4">' +
       timeline +
       '</ul></div>' +
-      '<div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1">' +
-      '<a href="' +
-      leadFocusHref(group.leadKey) +
-      '" class="activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center">Open lead</a>' +
+      '<div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1" onclick="event.stopPropagation()">' +
+      '<button type="button" class="activity-open-lead-btn activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center" data-lead-key="' +
+      escapeHtml(group.leadKey) +
+      '">Open lead</button>' +
       '<select class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white" data-lead-key="' +
       escapeHtml(group.leadKey) +
       '" aria-label="Move ' +
@@ -257,6 +301,28 @@
       .finally(function () {
         sel.disabled = false;
       });
+  });
+
+  document.addEventListener('click', function (e) {
+    const openBtn = e.target && e.target.closest ? e.target.closest('.activity-open-lead-btn') : null;
+    if (openBtn) {
+      e.preventDefault();
+      e.stopPropagation();
+      openActivityLead(openBtn.getAttribute('data-lead-key'));
+      return;
+    }
+
+    const card = e.target && e.target.closest ? e.target.closest('.activity-group--openable') : null;
+    if (!card) return;
+    if (
+      e.target.closest('.activity-folder-select') ||
+      e.target.closest('.activity-add-task-btn') ||
+      e.target.closest('select') ||
+      e.target.closest('button')
+    ) {
+      return;
+    }
+    openActivityLead(card.getAttribute('data-lead-key'));
   });
 
   document.addEventListener('click', function (e) {

@@ -12,8 +12,8 @@
         <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
         <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Recent Activity</h1>
         <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-xl leading-relaxed">
-          Notes, calls, SMS, and pipeline updates grouped by lead — last <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %> days.
-          Move leads to folders or add follow-ups to your task list.
+          Notes, calls, SMS, and emails grouped by lead — last <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %> days.
+          Pipeline status changes and system logs are hidden so each touch shows once.
         </p>
       </div>
       <div class="flex flex-wrap items-center gap-2" role="tablist" aria-label="Activity filters">
@@ -53,18 +53,27 @@
       <% const _events = Array.isArray(group.events) ? group.events : []; %>
       <% const _latestText = _events.length ? _events[0].text : ''; %>
       <article
-        class="activity-group brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10"
+        class="activity-group activity-group--openable brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 cursor-pointer transition-colors hover:border-brand-yellow/40"
         data-lead-key="<%= group.leadKey %>"
         data-lead-title="<%= group.leadTitle %>"
+        title="Click to open lead details"
       >
         <div class="flex flex-col md:flex-row md:items-start gap-4">
           <div class="min-w-0 flex-1">
             <div class="flex flex-wrap items-center gap-2 mb-1">
-              <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white leading-snug">
-                <a href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(group.leadKey || '').replace(/^lead:/i, '')) %>" class="hover:text-brand-yellow transition-colors"><%= group.leadTitle %></a>
-              </h2>
+              <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white leading-snug group-hover:text-brand-yellow transition-colors"><%= group.leadTitle %></h2>
               <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow border border-brand-yellow/30"><%= group.eventCount || _events.length %> <%= (group.eventCount || _events.length) === 1 ? 'event' : 'events' %></span>
             </div>
+            <% if (Array.isArray(group.tagChips) && group.tagChips.length) { %>
+            <div class="activity-lead-tags flex flex-wrap gap-1 mb-2" aria-label="Lead tags">
+              <% group.tagChips.forEach(function (chip) { %>
+              <span class="lead-tag-chip inline-flex items-center px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wide border border-black/5 dark:border-white/10" style="background:<%= chip.color %>22;color:<%= chip.color %>" title="<%= chip.name %>"><%= chip.name %></span>
+              <% }); %>
+              <% if (group.tagOverflow) { %>
+              <span class="text-[8px] font-bold text-brand-muted dark:text-slate-400">+<%= group.tagOverflow %></span>
+              <% } %>
+            </div>
+            <% } %>
             <% if (group.city || group.status || group.folderName) { %>
             <p class="text-[10px] font-semibold text-brand-muted mb-3">
               <% const bits = []; %>
@@ -87,11 +96,12 @@
               <% }); %>
             </ul>
           </div>
-          <div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1">
-            <a
-              href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(group.leadKey || '').replace(/^lead:/i, '')) %>"
-              class="activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center"
-            >Open lead</a>
+          <div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44 md:pt-1" onclick="event.stopPropagation()">
+            <button
+              type="button"
+              class="activity-open-lead-btn activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center"
+              data-lead-key="<%= group.leadKey %>"
+            >Open lead</button>
             <select
               class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white"
               data-lead-key="<%= group.leadKey %>"
@@ -129,7 +139,26 @@
     <% } %>
   </main>
 
-  <%- include('partials/footer') %>
+  <%- include('partials/lead_detail_panel') %>
+  <div id="leadPanelDatasetHost" class="result-row result-row--panel-source fixed left-[-9999px] top-0 w-px h-px overflow-hidden opacity-0 pointer-events-none" aria-hidden="true" tabindex="-1"></div>
+
+  <script>
+    window.PIPELINE_STAGE_LABELS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.name; return m; }, {})) %>;
+    window.PIPELINE_STAGE_COLORS = <%- JSON.stringify((typeof pipelineStages !== 'undefined' && pipelineStages ? pipelineStages : []).reduce((m, s) => { m[s.id] = s.color || '#94a3b8'; return m; }, {})) %>;
+    window.INITIAL_SAVED_LEADS = [];
+  </script>
+  <script type="application/json" id="workspace-tags-json"><%- JSON.stringify((typeof tags !== 'undefined' && tags ? tags : []).map((t) => ({ key: t.key, name: t.name, color: t.color || '#94a3b8', isActive: t.isActive === true }))) %></script>
+  <script>
+    try {
+      window.WORKSPACE_TAGS = JSON.parse(document.getElementById('workspace-tags-json')?.textContent || '[]');
+    } catch (e) {
+      window.WORKSPACE_TAGS = [];
+    }
+  </script>
+  <script src="/js/lead-panel-merges.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/lead-panel-notes.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/lead-panel-paint.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <script src="/js/app.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
 
   <script>
     window.__ACTIVITY_PAGE = {
@@ -142,5 +171,6 @@
     };
   </script>
   <script src="/js/activity-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+  <%- include('partials/footer') %>
 </body>
 </html>

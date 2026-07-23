@@ -65,6 +65,24 @@ test('buildWorkspaceActivityFeed groups by lead and paginates', () => {
   assert.equal(feed.groups[0].events.length, 2);
 });
 
+test('buildWorkspaceActivityFeed includes lead tags on groups', () => {
+  const leads = [
+    {
+      key: 'lead:t',
+      title: 'Tagged Co',
+      tags: ['hot', 'referral'],
+      updates: [
+        { type: 'note', value: 'Tagged note', timestamp: '2026-07-22T10:00:00.000Z', source: 'panel_post' },
+      ],
+    },
+  ];
+  const feed = buildWorkspaceActivityFeed(leads, {
+    filter: 'all',
+    sinceMs: Date.parse('2026-06-01T00:00:00.000Z'),
+  });
+  assert.deepEqual(feed.groups[0].tags, ['hot', 'referral']);
+});
+
 test('buildWorkspaceActivityFeed consolidates multiple events under one lead', () => {
   const leads = [
     {
@@ -83,5 +101,57 @@ test('buildWorkspaceActivityFeed consolidates multiple events under one lead', (
   });
   assert.equal(feed.total, 1);
   assert.equal(feed.groups.length, 1);
-  assert.equal(feed.groups[0].events.length, 3);
+  assert.equal(feed.groups[0].events.length, 1);
+  assert.equal(feed.groups[0].events[0].type, 'call_disposition');
+});
+
+test('buildWorkspaceActivityFeed collapses one call session into a single primary event', () => {
+  const leads = [
+    {
+      key: 'lead:x',
+      title: 'All In One Floors',
+      updates: [
+        {
+          type: 'call_disposition',
+          value: 'Disposition: Send info — Send email to John',
+          timestamp: '2026-07-23T21:29:00.000Z',
+        },
+        { type: 'status_change', value: 'Called Lead', timestamp: '2026-07-23T21:29:00.000Z' },
+        {
+          type: 'call_disposition',
+          value: 'Disposition: Send info — Send email to John',
+          timestamp: '2026-07-23T21:28:00.000Z',
+        },
+        { type: 'status_change', value: 'Called Lead', timestamp: '2026-07-23T21:28:00.000Z' },
+        {
+          type: 'call_outbound',
+          value: 'Outbound call initiated (+13608525976).',
+          timestamp: '2026-07-23T21:24:00.000Z',
+        },
+      ],
+      logs: [
+        {
+          type: 'call_disposition',
+          message: 'Disposition set to Send info · Send-info action tagged for GHL follow-up.',
+          timestamp: '2026-07-23T21:29:00.000Z',
+        },
+        {
+          type: 'call_disposition',
+          message: 'Disposition set to Send info · Send-info action tagged for GHL follow-up.',
+          timestamp: '2026-07-23T21:28:00.000Z',
+        },
+        {
+          type: 'call_outbound',
+          message: 'SignalWire call initiated (4e50576d-2fd7-4c38-a5c7-8731026e73f2)',
+          timestamp: '2026-07-23T21:24:00.000Z',
+        },
+      ],
+    },
+  ];
+  const feed = buildWorkspaceActivityFeed(leads, {
+    filter: 'all',
+    sinceMs: Date.parse('2026-06-01T00:00:00.000Z'),
+  });
+  assert.equal(feed.groups[0].events.length, 1);
+  assert.match(feed.groups[0].events[0].text, /Send info/i);
 });

@@ -4,7 +4,99 @@ const QUICK_LOG_PILL_LABELS =
   'Gatekeeper|No pickup|Left VM|Not interested|Callback requested|DM connected|Send info|Site audit';
 
 const NOISE_LOG_TYPES = new Set(['sequence_step']);
-const NOISE_UPDATE_TYPES = new Set(['sms_status', 'call_status', 'voicemail_amd']);
+const NOISE_UPDATE_TYPES = new Set(['sms_status', 'call_status', 'voicemail_amd', 'voicemail_status']);
+
+const SECONDARY_ACTIVITY_TYPES = new Set([
+  'status_change',
+  'assignment',
+  'call_queued',
+  'direct_mail_queued',
+]);
+
+const PRIMARY_TOUCH_TYPES = new Set([
+  'note',
+  'user_note',
+  'post',
+  'comment',
+  'manual_note',
+  'quick_log',
+  'call_disposition',
+  'call_outbound',
+  'call_browser_handoff',
+  'sms_outbound',
+  'sms_inbound',
+  'email_outbound',
+  'direct_mail_outbound',
+  'voicemail_drop',
+]);
+
+function isSecondaryActivityText(text, typ) {
+  const t = String(text || '').trim();
+  if (!t) return true;
+  const tl = t.toLowerCase();
+  const type = String(typ || '').toLowerCase();
+  if (/^signalwire call initiated\b/i.test(t)) return true;
+  if (/^disposition set to\b/i.test(t)) return true;
+  if (/^(ghl |signalwire |comms )?(sms|imessage) sent\b/i.test(t) && /\([^\)]+\)\s*$/.test(t)) return true;
+  if (/^ghl email sent\b/i.test(t) || (/^email sent\b/i.test(t) && /\([^\)]+\)\s*$/.test(t))) return true;
+  if (type === 'call_outbound' && /^outbound call initiated\b/i.test(t) && tl.includes('signalwire')) return true;
+  return false;
+}
+
+function isSecondaryActivityEntry(entry) {
+  const typ = String(entry.typ || '').toLowerCase();
+  if (SECONDARY_ACTIVITY_TYPES.has(typ)) return true;
+  if (isSecondaryActivityText(entry.text, typ)) return true;
+  return false;
+}
+
+function isPrimaryActivityEntry(entry) {
+  if (isNoiseEntry(entry)) return false;
+  if (isSecondaryActivityEntry(entry)) return false;
+
+  const typ = String(entry.typ || '').toLowerCase();
+  if (isManualPanelNote(entry)) return true;
+  if (PRIMARY_TOUCH_TYPES.has(typ)) return true;
+  return false;
+}
+
+function collapsePrimaryActivities(entries) {
+  const primary = (entries || []).filter(isPrimaryActivityEntry);
+  primary.sort((a, b) => (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0));
+
+  const out = [];
+  const CALL_WINDOW_MS = 20 * 60 * 1000;
+
+  for (const entry of primary) {
+    const typ = String(entry.typ || '').toLowerCase();
+    const tsMs = Date.parse(entry.ts) || 0;
+    const textNorm = String(entry.text || '').trim().toLowerCase().slice(0, 96);
+
+    if (typ === 'call_disposition' || typ === 'quick_log') {
+      const dup = out.find((e) => {
+        const et = String(e.typ || '').toLowerCase();
+        if (et !== typ) return false;
+        const dt = Math.abs((Date.parse(e.ts) || 0) - tsMs);
+        if (dt > 120000) return false;
+        return String(e.text || '').trim().toLowerCase().slice(0, 96) === textNorm;
+      });
+      if (dup) continue;
+    }
+
+    if (typ === 'call_outbound') {
+      const hasNearbyOutcome = primary.some((e) => {
+        const et = String(e.typ || '').toLowerCase();
+        if (et !== 'call_disposition' && et !== 'quick_log') return false;
+        return Math.abs((Date.parse(e.ts) || 0) - tsMs) <= CALL_WINDOW_MS;
+      });
+      if (hasNearbyOutcome) continue;
+    }
+
+    out.push(entry);
+  }
+
+  return out;
+}
 
 function activityEntryTextFromRaw(u) {
   if (!u || typeof u !== 'object') return '';
@@ -25,6 +117,13 @@ function formatActivityEntryText(entry) {
     if (u.statusChange) bits.push(`Status → ${u.statusChange}`);
     return bits.filter(Boolean).join(' · ');
   }
+  if (typ === 'call_outbound') {
+    const rawText = String(entry.text || '').trim();
+    const phoneMatch = rawText.match(/\(([^)]+)\)/);
+    if (/^outbound call initiated\b/i.test(rawText)) {
+      return phoneMatch ? `Call made (${phoneMatch[1]})` : 'Call made';
+    }
+  }
   return String(entry.text || '').trim();
 }
 
@@ -36,7 +135,7 @@ function formatActivityTypeLabel(typ, raw) {
     call_disposition: 'Call',
     status_change: 'Pipeline',
     call_browser_handoff: 'Call',
-    call_outbound: 'Call',
+    call_outbound: 'Call made',
     sms_outbound: 'SMS',
     sms_inbound: 'SMS',
     email_outbound: 'Email',
@@ -92,8 +191,7 @@ function activityEntryMatchesFilter(entry, filter) {
   }
   if (f === 'status') {
     return (
-      typ === 'status_change' ||
-      typ === 'call_disposition' ||
+      (typ === 'call_disposition' && !isSecondaryActivityText(entry.text, typ)) ||
       (typ === 'quick_log' && !!(entry.raw && (entry.raw.disposition || entry.raw.statusChange)))
     );
   }
@@ -169,9 +267,14 @@ function buildWorkspaceActivityFeed(leads, options) {
 
   for (const lead of leads || []) {
     if (!lead || !lead.key) continue;
+    const merged = mergeLeadActivityEntries(lead);
+    const filtered = merged.filter((e) => activityEntryMatchesFilter(e, filter));
+    const primary =
+      filter === 'notes'
+        ? filtered
+        : collapsePrimaryActivities(filtered);
     const events = [];
-    for (const e of mergeLeadActivityEntries(lead)) {
-      if (!activityEntryMatchesFilter(e, filter)) continue;
+    for (const e of primary) {
       const tsMs = Date.parse(e.ts) || 0;
       if (sinceMs && tsMs && tsMs < sinceMs) continue;
       events.push({
@@ -191,6 +294,7 @@ function buildWorkspaceActivityFeed(leads, options) {
       folderKey: String(lead.folderKey || '').trim(),
       status: String(lead.status || '').trim(),
       city: String(lead.city || '').trim(),
+      tags: Array.isArray(lead.tags) ? lead.tags.map(String).filter(Boolean) : [],
       latestTs: events[0].ts,
       latestTsMs: events[0].tsMs,
       eventCount: events.length,
@@ -215,6 +319,9 @@ module.exports = {
   formatActivityEntryText,
   formatActivityTypeLabel,
   isManualPanelNote,
+  isPrimaryActivityEntry,
+  isSecondaryActivityEntry,
+  collapsePrimaryActivities,
   activityEntryMatchesFilter,
   mergeLeadActivityEntries,
   buildWorkspaceActivityFeed,
