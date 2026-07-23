@@ -40,20 +40,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typeof window.__openBulkSmsModalImpl === 'function') {
       return window.__openBulkSmsModalImpl(phoneKeys);
     }
-    for (let i = 0; i < 160; i += 1) {
-      const modal = document.getElementById('smsScriptModal');
-      if (modal) {
-        if (typeof window.__openBulkSmsModalImpl === 'function') {
-          return window.__openBulkSmsModalImpl(phoneKeys);
-        }
-      }
-      // eslint-disable-next-line no-await-in-loop
-      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    const modal = document.getElementById('smsScriptModal');
+    if (!modal) {
+      return { ok: false, error: 'no_modal', message: 'SMS composer failed to load. Refresh the page.' };
+    }
+    for (let i = 0; i < 240; i += 1) {
       if (typeof window.__openBulkSmsModalImpl === 'function') {
         return window.__openBulkSmsModalImpl(phoneKeys);
       }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
     }
-    return { ok: false, error: 'no_modal', message: 'SMS composer failed to load. Refresh the page.' };
+    return {
+      ok: false,
+      error: 'not_ready',
+      message: 'SMS composer is still loading. Wait a moment and try again.',
+    };
   };
 
   // --- Lead Gen Productivity Features (CSV, Scoring, Outreach) ---
@@ -11645,8 +11647,6 @@ document.addEventListener('DOMContentLoaded', () => {
       };
     }
   }
-  window.__openBulkSmsModalImpl = openBulkSmsModal;
-  window.__openBulkSmsModal = openBulkSmsModal;
 
   function setSmsCharCount() {
     const smsBodyInput = getSmsBodyInputEl();
@@ -11897,6 +11897,28 @@ document.addEventListener('DOMContentLoaded', () => {
       smsScriptSelect.disabled = false;
     }
   }
+  window.__openBulkSmsModalImpl = openBulkSmsModal;
+  window.__openBulkSmsModal = openBulkSmsModal;
+  window.__openBulkSmsFromBar = async function openBulkSmsFromBar() {
+    const keys = [];
+    const seen = new Set();
+    document
+      .querySelectorAll(
+        'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
+      )
+      .forEach(function (cb) {
+        const row = cb.closest('tr.result-row, tr[data-lead-key]');
+        if (!row) return;
+        const phone = String(row.getAttribute('data-phone') || row.dataset.phone || '').trim();
+        if (!phone || phone === 'N/A' || !/\d/.test(phone)) return;
+        let key = String(row.getAttribute('data-lead-key') || row.dataset.leadKey || '').trim();
+        if (!key) key = String(cb.getAttribute('data-key') || cb.dataset.key || '').trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        keys.push(key);
+      });
+    return openBulkSmsModal(keys);
+  };
 
   if (sendSmsBtn) {
     /* Click handled via bindLeadPanelBottomActions delegation */

@@ -1,4 +1,6 @@
 <!-- SMS / iMessage composer (single + bulk) -->
+<% if (!(typeof locals !== 'undefined' && locals._smsScriptModalRendered)) { %>
+<% if (typeof locals !== 'undefined') locals._smsScriptModalRendered = true; %>
 <div id="smsScriptModal" class="email-intel-modal fixed inset-0 hidden" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="smsScriptModalTitle">
   <div class="absolute inset-0 bg-brand-dark/75 backdrop-blur-sm" data-sms-modal-close aria-hidden="true"></div>
   <div class="absolute inset-0 flex items-start justify-center p-4 pt-16 md:pt-24 pointer-events-none">
@@ -37,3 +39,4 @@
     </div>
   </div>
 </div>
+<% } %>

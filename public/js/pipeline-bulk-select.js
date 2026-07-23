@@ -1163,6 +1163,10 @@
   window.__bulkMergeSelectedLeads = bulkMergeSelectedLeads;
 
   function mountSmsModalToBodyEarly() {
+    if (typeof window.__mountSmsModalToBody === 'function') {
+      window.__mountSmsModalToBody();
+      return;
+    }
     const modal = document.getElementById('smsScriptModal');
     if (modal && modal.parentElement !== document.body) {
       document.body.appendChild(modal);
@@ -1224,7 +1228,8 @@
   }
 
   async function waitForSmsModalElement(maxMs) {
-    const limit = typeof maxMs === 'number' ? maxMs : 8000;
+    mountSmsModalToBodyEarly();
+    const limit = typeof maxMs === 'number' ? maxMs : 12000;
     const step = 50;
     for (let elapsed = 0; elapsed < limit; elapsed += step) {
       if (document.getElementById('smsScriptModal')) return true;
@@ -1237,7 +1242,7 @@
   }
 
   async function waitForBulkSmsHandler(maxMs) {
-    const limit = typeof maxMs === 'number' ? maxMs : 8000;
+    const limit = typeof maxMs === 'number' ? maxMs : 12000;
     const step = 100;
     for (let elapsed = 0; elapsed < limit; elapsed += step) {
       if (typeof window.__openBulkSmsFromBar === 'function') return window.__openBulkSmsFromBar;
@@ -1265,13 +1270,22 @@
     if (typeof window.__flashBulkBarBtn === 'function') {
       window.__flashBulkBarBtn(btn, 'Opening…', 900);
     }
-    const modalReady = await waitForSmsModalElement(8000);
+    const modalReady = await waitForSmsModalElement(12000);
     if (!modalReady) {
       showBulkBarFeedbackEarly('SMS composer failed to load. Hard-refresh the page and try again.', 'error');
       return;
     }
     if (typeof window.__openBulkSmsFromBar === 'function') {
-      await window.__openBulkSmsFromBar();
+      const fromBarResult = await window.__openBulkSmsFromBar();
+      if (fromBarResult && fromBarResult.ok) {
+        showBulkBarFeedbackEarly(
+          `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
+          'success',
+        );
+        if (typeof window.__flashBulkBarBtn === 'function') window.__flashBulkBarBtn(btn, '✓ Opened');
+      } else if (fromBarResult && fromBarResult.message) {
+        showBulkBarFeedbackEarly(fromBarResult.message, 'error');
+      }
       return;
     }
     if (typeof window.__openBulkSmsModal === 'function') {
@@ -1288,10 +1302,19 @@
       return;
     }
     showBulkBarFeedbackEarly('Loading SMS composer…', 'loading');
-    const handler = await waitForBulkSmsHandler(8000);
+    const handler = await waitForBulkSmsHandler(12000);
     if (typeof handler === 'function') {
       if (handler === window.__openBulkSmsFromBar) {
-        await window.__openBulkSmsFromBar();
+        const fromBarResult = await window.__openBulkSmsFromBar();
+        if (fromBarResult && fromBarResult.ok) {
+          showBulkBarFeedbackEarly(
+            `SMS ready — personalize and send via GHL (${phoneKeys.length} lead${phoneKeys.length === 1 ? '' : 's'}).`,
+            'success',
+          );
+          if (typeof window.__flashBulkBarBtn === 'function') window.__flashBulkBarBtn(btn, '✓ Opened');
+        } else if (fromBarResult && fromBarResult.message) {
+          showBulkBarFeedbackEarly(fromBarResult.message, 'error');
+        }
       } else {
         const result = await window.__openBulkSmsModal(phoneKeys);
         if (result && result.ok) {
