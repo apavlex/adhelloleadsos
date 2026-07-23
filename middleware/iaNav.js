@@ -37,6 +37,8 @@ function iaNav(req, res, next) {
     navPrimary = 'reports';
   } else if (p === '/tasks' || p.startsWith('/tasks/')) {
     navPrimary = 'tasks';
+  } else if (p === '/activity' || p.startsWith('/activity/')) {
+    navPrimary = 'activity';
   } else if (p === '/resources' || p.startsWith('/resources/')) {
     navPrimary = 'resources';
   } else if (p === '/ceo' || p.startsWith('/ceo/')) {

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <%- include('partials/head') %>
+</head>
+<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+  <%- include('partials/navbar') %>
+
+  <main class="max-wide px-6 py-10 md:py-12">
+    <div class="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
+      <div>
+        <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">Workspace</p>
+        <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Recent Activity</h1>
+        <p class="text-sm text-brand-muted dark:text-slate-400 mt-2 max-w-xl leading-relaxed">
+          Notes, calls, SMS, and pipeline updates across your leads — last <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %> days.
+          Move leads to folders or add follow-ups to your task list.
+        </p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2" role="tablist" aria-label="Activity filters">
+        <% const _filters = typeof activityFilters !== 'undefined' ? activityFilters : []; %>
+        <% const _active = typeof activeFilter !== 'undefined' ? activeFilter : 'all'; %>
+        <% _filters.forEach(function (f) { %>
+        <a
+          href="/activity?filter=<%= f.id %>"
+          class="activity-filter-btn px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors <%= _active === f.id ? 'bg-brand-yellow text-brand-dark border-brand-yellow shadow-sm' : 'bg-white dark:bg-slate-900 text-brand-muted border-brand-border/50 dark:border-white/10 hover:border-brand-yellow/40' %>"
+          role="tab"
+          aria-selected="<%= _active === f.id ? 'true' : 'false' %>"
+        ><%= f.label %></a>
+        <% }); %>
+      </div>
+    </div>
+
+    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <p id="activityCountLabel" class="text-[11px] font-bold text-brand-muted tabular-nums">
+        <% const _total = typeof activityTotal === 'number' ? activityTotal : 0; %>
+        <% const _shown = typeof activityItems !== 'undefined' && activityItems ? activityItems.length : 0; %>
+        Showing <%= _shown %> of <%= _total %> entries
+      </p>
+      <p id="activityStatus" class="text-[11px] font-semibold text-brand-muted hidden" role="status" aria-live="polite"></p>
+    </div>
+
+    <div id="activityFeed" class="space-y-3">
+      <% const _items = typeof activityItems !== 'undefined' && activityItems ? activityItems : []; %>
+      <% if (!_items.length) { %>
+      <div class="brand-card p-12 text-center dark:bg-slate-900 dark:border-white/10">
+        <p class="text-brand-muted dark:text-slate-400 font-medium">No activity in this filter yet.</p>
+        <p class="text-xs text-brand-muted mt-2">Post notes, log calls, or update pipeline status from the lead panel.</p>
+      </div>
+      <% } else { %>
+      <% _items.forEach(function (item) { %>
+      <article
+        class="activity-row brand-card p-4 md:p-5 dark:bg-slate-900 dark:border-white/10 flex flex-col md:flex-row md:items-start gap-4"
+        data-lead-key="<%= item.leadKey %>"
+        data-lead-title="<%= item.leadTitle %>"
+      >
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2 mb-1.5">
+            <span class="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-brand-cream dark:bg-slate-800 text-brand-dark dark:text-slate-200 border border-brand-border/40 dark:border-white/10"><%= item.typeLabel %></span>
+            <time class="text-[10px] font-bold text-brand-muted tabular-nums" datetime="<%= item.ts %>"><%= item.ts ? new Date(item.ts).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' %></time>
+          </div>
+          <h2 class="font-display font-bold text-base text-brand-dark dark:text-white leading-snug">
+            <a href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(item.leadKey || '').replace(/^lead:/i, '')) %>" class="hover:text-brand-yellow transition-colors"><%= item.leadTitle %></a>
+          </h2>
+          <% if (item.city || item.status || item.folderName) { %>
+          <p class="text-[10px] font-semibold text-brand-muted mt-0.5">
+            <% const bits = []; %>
+            <% if (item.city) bits.push(item.city); %>
+            <% if (item.status) bits.push(item.status); %>
+            <% if (item.folderName) bits.push('Folder: ' + item.folderName); %>
+            <%= bits.join(' · ') %>
+          </p>
+          <% } %>
+          <p class="text-sm text-brand-dark/90 dark:text-slate-300 mt-2 leading-relaxed line-clamp-3"><%= item.text %></p>
+        </div>
+        <div class="flex flex-wrap md:flex-col gap-2 shrink-0 md:w-44">
+          <a
+            href="/prospecting?tab=pipeline&amp;focusLead=<%= encodeURIComponent(String(item.leadKey || '').replace(/^lead:/i, '')) %>"
+            class="activity-action-btn btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest px-3 py-2 text-center"
+          >Open lead</a>
+          <label class="sr-only" for="activityFolder-<%= item.leadKey.replace(/[^a-zA-Z0-9_-]/g, '_') %>">Move to folder</label>
+          <select
+            id="activityFolder-<%= item.leadKey.replace(/[^a-zA-Z0-9_-]/g, '_') %>"
+            class="activity-folder-select rounded-xl border border-brand-border dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/80 px-2 py-2 text-[10px] font-bold text-brand-dark dark:text-white"
+            data-lead-key="<%= item.leadKey %>"
+            aria-label="Move <%= item.leadTitle %> to folder"
+          >
+            <option value=""><%= item.folderKey ? 'Change folder…' : 'Move to folder…' %></option>
+            <% if (!item.folderKey) { %>
+            <option value="" selected disabled>No folder</option>
+            <% } %>
+            <% const _folders = typeof folders !== 'undefined' && folders ? folders : []; %>
+            <% _folders.forEach(function (fd) { if (!fd || !fd.key) return; %>
+            <option value="<%= fd.key %>" <%= item.folderKey === fd.key ? 'selected' : '' %>><%= fd.name || 'Folder' %></option>
+            <% }); %>
+          </select>
+          <button
+            type="button"
+            class="activity-add-task-btn btn-pill bg-emerald-500 hover:bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-2"
+            data-lead-key="<%= item.leadKey %>"
+            data-lead-title="<%= item.leadTitle %>"
+            data-activity-text="<%= encodeURIComponent(String(item.text || '').slice(0, 300)) %>"
+          >Add to tasks</button>
+        </div>
+      </article>
+      <% }); %>
+      <% } %>
+    </div>
+
+    <% if (_total > _shown) { %>
+    <div class="mt-6 text-center">
+      <button type="button" id="activityLoadMore" class="btn-pill border border-brand-border dark:border-white/15 bg-white dark:bg-slate-900 px-6 py-3 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">
+        Load more
+      </button>
+    </div>
+    <% } %>
+  </main>
+
+  <%- include('partials/footer') %>
+
+  <script>
+    window.__ACTIVITY_PAGE = {
+      filter: <%= JSON.stringify(_active) %>,
+      offset: <%= _shown %>,
+      total: <%= _total %>,
+      sinceDays: <%= typeof activitySinceDays === 'number' ? activitySinceDays : 14 %>,
+    };
+  </script>
+  <script src="/js/activity-page.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
+</body>
+</html>
