@@ -242,6 +242,7 @@
           slotEl.dispatchEvent(new Event('change', { bubbles: true }));
         }
         syncStudioPageView();
+        renderSavedLibrary();
       });
     });
 
@@ -799,7 +800,7 @@
     list.unshift(item);
     persistSavedDesigns(list);
     renderSavedLibrary();
-    if (typeof window.showAppToast === 'function') {
+    if (!opts.silent && typeof window.showAppToast === 'function') {
       window.showAppToast('Design saved to library', { variant: 'success' });
     }
     return true;
@@ -817,7 +818,10 @@
     if (!item || !item.imageUrl) return;
     var slot = item.slot === 'back' ? 'back' : 'front';
     var slotEl = document.getElementById('dmDesignSlot');
-    if (slotEl) slotEl.value = slot;
+    if (slotEl) {
+      slotEl.value = slot;
+      slotEl.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     if (item.platform) {
       var platformEl = document.getElementById('dmPlatform');
       if (platformEl && DM_PLATFORMS[item.platform]) {
@@ -838,24 +842,178 @@
     lastImagePrompt = designMeta[slot].prompt;
     setPreview(slot, item.imageUrl);
     showPromptEditor(slot, designMeta[slot].prompt);
-    setDesignStatus('Loaded saved ' + slot + ' design.', true);
+    syncStudioPageView();
+    syncDownloadActions();
+    setDesignStatus('Loaded saved ' + slot + ' design onto the ' + slot + ' canvas.', true);
+  }
+
+  function librarySlotFilter() {
+    var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    if (!preset.dualSided) return null;
+    return currentDesignSlot();
+  }
+
+  function setExportStatus(text, ok) {
+    var el = document.getElementById('dmExportStatus');
+    if (!el) return;
+    var msg = String(text || '').trim();
+    if (!msg) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    el.textContent = msg;
+    el.classList.remove('hidden', 'text-emerald-700', 'text-rose-700', 'dark:text-emerald-300', 'dark:text-rose-300');
+    el.classList.add(ok ? 'text-emerald-700' : 'text-rose-700', ok ? 'dark:text-emerald-300' : 'dark:text-rose-300');
+  }
+
+  function syncDownloadActions() {
+    var slot = currentDesignSlot();
+    var hasImage = !!designs[slot];
+    var wrap = document.getElementById('dmExportActions');
+    if (wrap) wrap.classList.toggle('hidden', !hasImage);
+  }
+
+  async function downloadDesignToComputer(slot, imageUrl) {
+    var side = slot === 'back' ? 'back' : 'front';
+    var url = imageUrl || designs[side];
+    if (!url) {
+      setExportStatus('Generate or load a design first.', false);
+      return;
+    }
+    setExportStatus('Preparing download…', true);
+    try {
+      var res = await fetch('/direct-mail/api/download-image', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/octet-stream' },
+        body: JSON.stringify({
+          imageUrl: url,
+          slot: side,
+          platform: currentPlatformKey(),
+        }),
+      });
+      if (!res.ok) {
+        var errJson = await res.json().catch(function () {
+          return {};
+        });
+        throw new Error((errJson && errJson.error) || 'Download failed.');
+      }
+      var blob = await res.blob();
+      var blobUrl = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = blobUrl;
+      a.download =
+        'AdHello_' +
+        currentPlatformKey() +
+        '_' +
+        side +
+        '_' +
+        new Date().toISOString().slice(0, 10) +
+        '.jpg';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(blobUrl);
+      setExportStatus('Download started.', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Design downloaded', { variant: 'success' });
+      }
+    } catch (e) {
+      setExportStatus((e && e.message) || 'Download failed.', false);
+    }
+  }
+
+  async function saveDesignToGoogleDrive(slot, imageUrl) {
+    var side = slot === 'back' ? 'back' : 'front';
+    var url = imageUrl || designs[side];
+    if (!url) {
+      setExportStatus('Generate or load a design first.', false);
+      return;
+    }
+    setExportStatus('Saving to Google Drive…', true);
+    try {
+      var res = await fetch('/direct-mail/api/save-to-drive', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          imageUrl: url,
+          slot: side,
+          platform: currentPlatformKey(),
+        }),
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        if (data && data.code === 'DRIVE_NOT_CONNECTED') {
+          if (
+            window.confirm(
+              (data.error || 'Connect Google Drive first.') +
+                '\n\nOpen Google Drive connection now?',
+            )
+          ) {
+            window.location.href = '/auth/google/drive-link';
+          }
+          setExportStatus('Google Drive not connected.', false);
+          return;
+        }
+        throw new Error((data && data.error) || 'Could not save to Google Drive.');
+      }
+      setExportStatus('Saved to AdHello Marketing folder.', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Saved to Google Drive', { variant: 'success' });
+      }
+      if (data.webViewLink && window.confirm('Saved "' + (data.name || 'design') + '" to Google Drive.\n\nOpen in Drive?')) {
+        window.open(data.webViewLink, '_blank', 'noopener,noreferrer');
+      }
+    } catch (e) {
+      setExportStatus((e && e.message) || 'Google Drive save failed.', false);
+    }
   }
 
   function renderSavedLibrary() {
     var root = document.getElementById('dmSavedLibrary');
     var countEl = document.getElementById('dmSavedCount');
+    var filterEl = document.getElementById('dmSavedLibraryFilter');
     if (!root) return;
-    var list = getSavedDesigns();
-    if (countEl) countEl.textContent = list.length + ' saved';
+    var all = getSavedDesigns();
+    var slotFilter = librarySlotFilter();
+    var list = slotFilter
+      ? all.filter(function (item) {
+          return item && (item.slot === 'back' ? 'back' : 'front') === slotFilter;
+        })
+      : all;
+    if (countEl) {
+      countEl.textContent =
+        list.length + ' for ' + (slotFilter || 'all') + ' · ' + all.length + ' total';
+    }
+    if (filterEl) {
+      if (slotFilter) {
+        filterEl.classList.remove('hidden');
+        filterEl.textContent = 'Showing: ' + (slotFilter === 'back' ? 'Back' : 'Front') + ' designs';
+      } else {
+        filterEl.classList.add('hidden');
+      }
+    }
     root.innerHTML = '';
     if (!list.length) {
       root.innerHTML =
-        '<p class="col-span-3 text-[11px] text-brand-muted">Save a generated front or back to reuse later.</p>';
+        '<p class="col-span-3 text-[11px] text-brand-muted">' +
+        (slotFilter
+          ? 'No saved ' + slotFilter + ' designs yet — generate one and it will autosave here.'
+          : 'Save a generated front or back to reuse later.') +
+        '</p>';
       return;
     }
     list.forEach(function (item) {
       var card = document.createElement('div');
       card.className = 'dm-saved-card';
+      var badge = document.createElement('span');
+      badge.className = 'dm-saved-slot-badge';
+      badge.textContent = item.slot === 'back' ? 'Back' : 'Front';
+      card.appendChild(badge);
       var img = document.createElement('img');
       img.src = item.imageUrl;
       img.alt = (item.slot || 'front') + ' saved design';
@@ -866,10 +1024,19 @@
       loadBtn.type = 'button';
       loadBtn.className =
         'w-full rounded-md bg-brand-yellow text-brand-dark text-[9px] font-black uppercase tracking-widest py-1';
-      loadBtn.textContent = 'Load';
+      loadBtn.textContent = 'Load to ' + (item.slot === 'back' ? 'back' : 'front');
       loadBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         loadSavedDesign(item);
+      });
+      var dlBtn = document.createElement('button');
+      dlBtn.type = 'button';
+      dlBtn.className =
+        'w-full rounded-md bg-white/90 text-brand-dark text-[9px] font-black uppercase tracking-widest py-1';
+      dlBtn.textContent = 'Download';
+      dlBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        downloadDesignToComputer(item.slot, item.imageUrl);
       });
       var zoomBtn = document.createElement('button');
       zoomBtn.type = 'button';
@@ -895,6 +1062,7 @@
         removeSavedDesign(item.id);
       });
       actions.appendChild(loadBtn);
+      actions.appendChild(dlBtn);
       actions.appendChild(zoomBtn);
       actions.appendChild(delBtn);
       card.appendChild(actions);
@@ -910,7 +1078,6 @@
     var img = document.getElementById('dmLightboxImg');
     var title = document.getElementById('dmLightboxTitle');
     var meta = document.getElementById('dmLightboxMeta');
-    var download = document.getElementById('dmLightboxDownload');
     if (!modal || !img) return;
     var url = imageUrl || designs[slot];
     if (!url) return;
@@ -924,10 +1091,6 @@
     var p = String(prompt || designMeta[lightboxSlot].prompt || lastImagePrompt || '').trim();
     if (meta) {
       meta.textContent = p ? p.slice(0, 140) + (p.length > 140 ? '…' : '') : 'Generated postcard art';
-    }
-    if (download) {
-      download.href = url;
-      download.setAttribute('download', 'postcard-' + lightboxSlot + '.jpg');
     }
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
@@ -980,6 +1143,7 @@
     }
     if (saveBtn) saveBtn.classList.remove('hidden');
     if (designMeta[slot].prompt) showPromptEditor(slot, designMeta[slot].prompt);
+    syncDownloadActions();
   }
 
   function activeDesignUrls() {
@@ -1147,7 +1311,15 @@
         setPreview(slot, data.imageUrl);
         lastImagePrompt = prompt;
         showPromptEditor(slot, prompt);
-        setDesignStatus('Generated ' + slot + ' side — click the preview to zoom in on the canvas.', true);
+        saveDesignToLibrary(slot, {
+          imageUrl: data.imageUrl,
+          prompt: prompt,
+          aspectRatio: aspectRatio,
+          resolution: resolution,
+          platform: ctx.platform,
+          silent: true,
+        });
+        setDesignStatus('Generated ' + slot + ' side — saved to library automatically.', true);
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
           window.showAppToast((plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated', {
@@ -1401,6 +1573,8 @@
     slotEl.addEventListener('change', function () {
       var slot = currentDesignSlot();
       syncStudioPageView();
+      renderSavedLibrary();
+      syncDownloadActions();
       if (designMeta[slot].prompt) showPromptEditor(slot, designMeta[slot].prompt);
       else {
         var editor = document.getElementById('dmPromptEditor');
@@ -1432,6 +1606,34 @@
   if (lbSave) {
     lbSave.addEventListener('click', function () {
       if (saveDesignToLibrary(lightboxSlot)) closeLightbox();
+    });
+  }
+
+  var lbDownload = document.getElementById('dmLightboxDownload');
+  if (lbDownload) {
+    lbDownload.addEventListener('click', function () {
+      downloadDesignToComputer(lightboxSlot);
+    });
+  }
+
+  var lbDrive = document.getElementById('dmLightboxDrive');
+  if (lbDrive) {
+    lbDrive.addEventListener('click', function () {
+      saveDesignToGoogleDrive(lightboxSlot);
+    });
+  }
+
+  var dmDownloadBtn = document.getElementById('dmDownloadBtn');
+  if (dmDownloadBtn) {
+    dmDownloadBtn.addEventListener('click', function () {
+      downloadDesignToComputer(currentDesignSlot());
+    });
+  }
+
+  var dmDriveSaveBtn = document.getElementById('dmDriveSaveBtn');
+  if (dmDriveSaveBtn) {
+    dmDriveSaveBtn.addEventListener('click', function () {
+      saveDesignToGoogleDrive(currentDesignSlot());
     });
   }
 

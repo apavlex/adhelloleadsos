@@ -2,6 +2,7 @@ const { parseDriveApiError } = require('./googleDriveCsv');
 
 const DRIVE_SHARED_PARAMS = 'supportsAllDrives=true&includeItemsFromAllDrives=true';
 const DEFAULT_FOLDER_NAME = 'AdHello Leads';
+const DEFAULT_MARKETING_FOLDER_NAME = 'AdHello Marketing';
 
 function safeDriveFileName(name) {
   const base = String(name || 'AdHello_Leads.csv')
@@ -9,6 +10,14 @@ function safeDriveFileName(name) {
     .trim();
   if (!base) return 'AdHello_Leads.csv';
   return base.toLowerCase().endsWith('.csv') ? base : `${base}.csv`;
+}
+
+function safeImageFileName(name) {
+  const base = String(name || 'AdHello_Design.jpg')
+    .replace(/[/\\?%*:|"<>]/g, '_')
+    .trim();
+  if (!base) return 'AdHello_Design.jpg';
+  return /\.(jpe?g|png|webp)$/i.test(base) ? base : `${base}.jpg`;
 }
 
 /**
@@ -129,9 +138,84 @@ async function uploadCsvToDrive(accessToken, opts) {
   };
 }
 
+/**
+ * @param {string} accessToken
+ * @param {{ name: string, content: Buffer, mimeType?: string, folderId?: string, folderName?: string, useDefaultFolder?: boolean }} opts
+ * @returns {Promise<{ id: string, name: string, webViewLink?: string }>}
+ */
+async function uploadBinaryToDrive(accessToken, opts) {
+  const name = safeImageFileName(opts.name);
+  const content = Buffer.isBuffer(opts.content)
+    ? opts.content
+    : Buffer.from(String(opts.content || ''));
+  if (!content.length) throw new Error('File is empty.');
+
+  const mimeType = String(opts.mimeType || 'application/octet-stream').trim() || 'application/octet-stream';
+
+  let parents;
+  if (opts.folderId) {
+    parents = [String(opts.folderId)];
+  } else if (opts.folderName) {
+    const folderId = await findOrCreateFolder(accessToken, opts.folderName);
+    if (folderId) parents = [folderId];
+  } else if (opts.useDefaultFolder !== false) {
+    const folderId = await findOrCreateFolder(accessToken, DEFAULT_FOLDER_NAME);
+    if (folderId) parents = [folderId];
+  }
+
+  const metadata = { name, mimeType };
+  if (parents && parents.length) metadata.parents = parents;
+
+  const boundary = `adhello_${Date.now().toString(36)}`;
+  const metaPart = [
+    `--${boundary}`,
+    'Content-Type: application/json; charset=UTF-8',
+    '',
+    JSON.stringify(metadata),
+    '',
+  ].join('\r\n');
+  const filePart = [`--${boundary}`, `Content-Type: ${mimeType}`, '', ''].join('\r\n');
+  const close = `\r\n--${boundary}--`;
+
+  const body = Buffer.concat([
+    Buffer.from(metaPart, 'utf8'),
+    Buffer.from(filePart, 'utf8'),
+    content,
+    Buffer.from(close, 'utf8'),
+  ]);
+
+  const url =
+    `https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart` +
+    `&fields=id,name,webViewLink&${DRIVE_SHARED_PARAMS}`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': `multipart/related; boundary=${boundary}`,
+    },
+    body,
+  });
+  const ab = await res.arrayBuffer();
+  const json = JSON.parse(new TextDecoder().decode(ab) || '{}');
+  if (!res.ok) {
+    const msg = parseDriveApiError(json, `Drive upload failed (${res.status})`);
+    const err = new Error(msg);
+    if (res.status === 403) err.code = 'DRIVE_SCOPE';
+    throw err;
+  }
+  return {
+    id: String(json.id || ''),
+    name: String(json.name || name),
+    webViewLink: json.webViewLink ? String(json.webViewLink) : undefined,
+  };
+}
+
 module.exports = {
   uploadCsvToDrive,
+  uploadBinaryToDrive,
   findOrCreateFolder,
   safeDriveFileName,
+  safeImageFileName,
   DEFAULT_FOLDER_NAME,
+  DEFAULT_MARKETING_FOLDER_NAME,
 };

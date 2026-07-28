@@ -14,6 +14,41 @@ const lobDirectMail = require('../services/lobDirectMail');
 const directMailQueue = require('../services/directMailQueue');
 const kieImageClient = require('../services/kieImageClient');
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
+const googleDriveAccess = require('../services/googleDriveAccess');
+const {
+  uploadBinaryToDrive,
+  safeImageFileName,
+  DEFAULT_MARKETING_FOLDER_NAME,
+} = require('../services/googleDriveUpload');
+
+function userEmail(req) {
+  return String((req.user && req.user.email) || '').trim().toLowerCase();
+}
+
+function marketingDesignFileName(platform, slot, ext) {
+  const plat = String(platform || 'postcard').trim() || 'postcard';
+  const side = String(slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
+  const suffix = ext || 'jpg';
+  return safeImageFileName(`AdHello_${plat}_${side}_${Date.now()}.${suffix}`);
+}
+
+async function fetchRemoteImageBuffer(imageUrl) {
+  const url = String(imageUrl || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new Error('A valid image URL is required.');
+  }
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) {
+    throw new Error(`Could not fetch image (${res.status}).`);
+  }
+  const contentType = String(res.headers.get('content-type') || 'image/jpeg').split(';')[0].trim();
+  const ab = await res.arrayBuffer();
+  if (!ab || !ab.byteLength) throw new Error('Image download was empty.');
+  let ext = 'jpg';
+  if (/png/i.test(contentType)) ext = 'png';
+  else if (/webp/i.test(contentType)) ext = 'webp';
+  return { buffer: Buffer.from(ab), contentType, ext };
+}
 
 const logoUpload = multer({
   storage: multer.memoryStorage(),
@@ -655,6 +690,58 @@ router.get('/api/queue', async (req, res, next) => {
     const result = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
     res.json({ success: true, ...result });
   } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/api/download-image', express.json(), async (req, res, next) => {
+  try {
+    const body = req.body || {};
+    const { buffer, contentType, ext } = await fetchRemoteImageBuffer(body.imageUrl);
+    const fileName = marketingDesignFileName(body.platform, body.slot, ext);
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(buffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/api/save-to-drive', express.json(), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    const access = email ? await googleDriveAccess.getValidAccessToken(email) : null;
+    if (!access) {
+      return res.status(401).json({
+        success: false,
+        error: 'Connect Google Drive from Pipeline first (export menu).',
+        code: 'DRIVE_NOT_CONNECTED',
+      });
+    }
+    const body = req.body || {};
+    const { buffer, contentType, ext } = await fetchRemoteImageBuffer(body.imageUrl);
+    const fileName = marketingDesignFileName(body.platform, body.slot, ext);
+    const uploaded = await uploadBinaryToDrive(access, {
+      name: fileName,
+      content: buffer,
+      mimeType: contentType,
+      folderName: DEFAULT_MARKETING_FOLDER_NAME,
+    });
+    res.json({
+      success: true,
+      id: uploaded.id,
+      name: uploaded.name,
+      webViewLink: uploaded.webViewLink || null,
+      folderName: DEFAULT_MARKETING_FOLDER_NAME,
+    });
+  } catch (err) {
+    if (err && err.code === 'DRIVE_SCOPE') {
+      return res.status(403).json({
+        success: false,
+        error: 'Reconnect Google Drive to allow saving files.',
+        code: 'DRIVE_SCOPE',
+      });
+    }
     next(err);
   }
 });

@@ -212,7 +212,8 @@
             <h2 class="dm-drawer-title mb-0">Saved designs</h2>
             <span id="dmSavedCount" class="text-[11px] text-brand-muted">0 saved</span>
           </div>
-          <p class="dm-drawer-desc">Reuse generated front or back art across campaigns.</p>
+          <p class="dm-drawer-desc">Reuse generated front or back art — filtered by the active canvas page.</p>
+          <div id="dmSavedLibraryFilter" class="text-[10px] font-bold uppercase tracking-widest text-brand-muted mb-2 hidden">Showing: Front</div>
           <div id="dmSavedLibrary" class="dm-saved-library">
             <p class="text-[11px] text-brand-muted col-span-full">Save a generated design from the canvas toolbar.</p>
           </div>
@@ -316,6 +317,14 @@
             <button type="button" id="dmPromptRegenerate" class="dm-studio-topbtn dm-studio-topbtn--primary">Regenerate</button>
           </div>
         </div>
+        <div id="dmExportActions" class="dm-export-actions mt-4 hidden">
+          <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-2">Export current side</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="dmDownloadBtn" class="dm-studio-topbtn">Download to computer</button>
+            <button type="button" id="dmDriveSaveBtn" class="dm-studio-topbtn">Save to Google Drive</button>
+          </div>
+          <p id="dmExportStatus" class="text-[11px] text-brand-muted mt-2 hidden" aria-live="polite"></p>
+        </div>
         <div class="dm-inspector-tips">
           <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-2">Tips</p>
           <ul class="text-[11px] text-brand-muted space-y-1.5 leading-relaxed">
@@ -413,7 +422,8 @@
       </div>
       <div class="flex flex-wrap gap-2 px-4 py-3 border-t border-brand-border/20 dark:border-white/10 bg-white/95 dark:bg-slate-900/95">
         <button type="button" id="dmLightboxSave" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Save for later</button>
-        <a id="dmLightboxDownload" href="#" download="postcard-design.jpg" target="_blank" rel="noopener noreferrer" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Open full size</a>
+        <button type="button" id="dmLightboxDownload" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Download</button>
+        <button type="button" id="dmLightboxDrive" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Save to Drive</button>
         <button type="button" id="dmLightboxEditPrompt" class="btn-pill btn-primary text-[10px] font-black uppercase tracking-widest px-3 py-2 ml-auto">Edit prompt</button>
       </div>
     </div>

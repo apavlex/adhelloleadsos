@@ -3994,6 +3994,30 @@ html.dark .tag-filter-combobox-menu {
   object-fit: cover;
 }
 
+.dm-saved-slot-badge {
+  position: absolute;
+  top: 0.35rem;
+  left: 0.35rem;
+  z-index: 2;
+  padding: 0.15rem 0.4rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111827;
+  font-size: 8px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dark .dm-saved-slot-badge {
+  background: rgba(15, 23, 42, 0.88);
+  color: #f8fafc;
+}
+
+.dm-export-actions .dm-studio-topbtn {
+  font-size: 10px;
+}
+
 .dm-saved-card-actions {
   position: absolute;
   inset: 0;
