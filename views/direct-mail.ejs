@@ -367,7 +367,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
           <div>
             <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Direct Mail queue<% } else { %>Mailable leads<% } %></h2>
-            <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Select rows to move to folders, tag, remove from queue, or delete.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
+            <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Lob needs street, city, state, and ZIP on each row. Link is the audit/landing URL merged at send.<% } else { %>Street address, city, state, and ZIP required for Lob.<% } %></p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
@@ -387,16 +387,34 @@
                 <th class="px-2 py-3">Address</th>
                 <th class="px-2 py-3">City</th>
                 <th class="px-2 py-3">State</th>
+                <th class="px-2 py-3">ZIP</th>
+                <th class="px-2 py-3">Link</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
               <% mailableLeads.forEach(function (l) { %>
-              <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-lead-key="<%= l.key %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= (l.stitchDesignUrl || l.stitchScreenshotUrl || (l.website && l.website !== 'N/A' ? l.website : '') || '').replace(/"/g, '&quot;') %>">
+              <% const _audit = l.auditUrl || ''; %>
+              <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-lead-key="<%= l.key %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-zip="<%= (l.zip || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= _audit.replace(/"/g, '&quot;') %>">
                 <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.preselected && l.mailable !== false) { %> checked<% } %> /></td>
-                <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %><% if (l.mailable === false) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">No address</span><% } %></td>
-                <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>
-                <td class="px-2 py-3 text-brand-muted"><%= l.city || '—' %></td>
-                <td class="px-2 py-3 text-brand-muted"><%= l.state || '—' %></td>
+                <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white max-w-[14rem]">
+                  <span class="block truncate" title="<%= l.title %>"><%= l.title %></span>
+                  <% if (l.mailable === false) { %>
+                  <span class="mt-0.5 inline-flex text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300"><%= l.zip ? 'Incomplete address' : 'Missing ZIP' %></span>
+                  <% } else { %>
+                  <span class="mt-0.5 inline-flex text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Lob ready</span>
+                  <% } %>
+                </td>
+                <td class="px-2 py-3 text-brand-muted max-w-[12rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>
+                <td class="px-2 py-3 text-brand-muted whitespace-nowrap"><%= l.city || '—' %></td>
+                <td class="px-2 py-3 text-brand-muted whitespace-nowrap"><%= l.state || '—' %></td>
+                <td class="px-2 py-3 text-brand-muted whitespace-nowrap tabular-nums"><%= l.zip || '—' %></td>
+                <td class="px-2 py-3 text-brand-muted max-w-[10rem]">
+                  <% if (_audit) { %>
+                  <a href="<%= _audit %>" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline truncate block" title="<%= _audit %>">Open link</a>
+                  <% } else { %>
+                  <span class="text-brand-muted/70">—</span>
+                  <% } %>
+                </td>
               </tr>
               <% }) %>
             </tbody>

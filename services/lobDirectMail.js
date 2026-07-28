@@ -74,6 +74,25 @@ function hasMailableAddress(lead) {
   return !!parseMailableAddress(lead);
 }
 
+/** Normalized Lob address fields for UI + send validation. */
+function getLeadLobAddressPreview(lead) {
+  const parsed = parseMailableAddress(lead);
+  const zip =
+    String(lead && (lead.postalCode || lead.zip) || '').trim() ||
+    (parsed && parsed.address_zip) ||
+    extractZip(lead && lead.address) ||
+    '';
+  return {
+    mailable: !!parsed,
+    recipientName: parsed ? parsed.name : String((lead && lead.title) || '').trim() || 'Business',
+    addressLine1: parsed ? parsed.address_line1 : String((lead && lead.address) || '').trim(),
+    city: parsed ? parsed.address_city : String((lead && lead.city) || '').trim(),
+    state: parsed ? parsed.address_state : String((lead && lead.state) || '').trim(),
+    zip,
+    lobTo: parsed,
+  };
+}
+
 function buildPostcardHtml({ lead, headline, bodyText, ctaUrl }) {
   const mergedHeadline = applyMergeFields(headline, lead) || 'Your free local visibility audit';
   const mergedBody =
@@ -256,6 +275,7 @@ async function sendLetterToLead({ lead, integrationEnv }) {
 module.exports = {
   parseMailableAddress,
   hasMailableAddress,
+  getLeadLobAddressPreview,
   buildPostcardHtml,
   wrapImageUrlAsPostcardHtml,
   resolveDesignUrls,

@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseMailableAddress, hasMailableAddress } = require('../services/lobDirectMail');
+const { parseMailableAddress, hasMailableAddress, getLeadLobAddressPreview } = require('../services/lobDirectMail');
 
 test('parseMailableAddress accepts street + city + state + zip in address', () => {
   const lead = {
@@ -30,6 +30,19 @@ test('parseMailableAddress reads city, state, and zip from a single address line
   assert.equal(parsed.address_state, 'WA');
   assert.equal(parsed.address_zip, '98117');
   assert.match(parsed.address_line1, /7323 20th Ave NW/i);
+});
+
+test('getLeadLobAddressPreview exposes zip for Lob table rows', () => {
+  const preview = getLeadLobAddressPreview({
+    title: '26001 NE 60th St, Vancouver, WA 98682 · $757,000',
+    address: '26001 NE 60th St, Vancouver, WA 98682',
+    city: 'Vancouver',
+    state: 'WA',
+  });
+  assert.equal(preview.mailable, true);
+  assert.equal(preview.zip, '98682');
+  assert.equal(preview.city, 'Vancouver');
+  assert.equal(preview.state, 'WA');
 });
 
 test('lobClient isConfigured requires key and return address', () => {

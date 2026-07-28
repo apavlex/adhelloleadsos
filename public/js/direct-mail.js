@@ -1902,9 +1902,27 @@
   if (sendBtn) {
     sendBtn.addEventListener('click', async function () {
       var keys = selectedMailableKeys();
+      var selectedAll = selectedKeys();
       if (!keys.length) {
-        setStatus('Select at least one mailable lead (complete address required).', false);
+        if (selectedAll.length) {
+          setStatus('Selected leads need street, city, state, and ZIP before Lob can send.', false);
+        } else {
+          setStatus('Select at least one mailable lead (complete address required).', false);
+        }
         return;
+      }
+      if (keys.length < selectedAll.length) {
+        if (
+          !window.confirm(
+            'Only ' +
+              keys.length +
+              ' of ' +
+              selectedAll.length +
+              ' selected leads have a complete Lob address (ZIP required). Send to mailable rows only?',
+          )
+        ) {
+          return;
+        }
       }
       if (!window.confirm('Send ' + keys.length + ' postcard(s) via Lob?')) return;
 

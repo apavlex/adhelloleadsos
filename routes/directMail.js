@@ -11,6 +11,7 @@ const { excludeOutreachFolderLeads } = require('../services/leadListFilters');
 const { parseBulkSelectionKeys, orderLeadsByKeys, resolveLeadsBySelectedKeys } = require('../services/bulkSelectionKeys');
 const lobClient = require('../services/lobClient');
 const lobDirectMail = require('../services/lobDirectMail');
+const { resolveAuditUrl } = require('../services/directMailPersonalize');
 const directMailQueue = require('../services/directMailQueue');
 const kieImageClient = require('../services/kieImageClient');
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
@@ -273,20 +274,27 @@ router.get('/', async (req, res, next) => {
       }
     }
 
-    const mailableLeads = tableLeads.map((l) => ({
-      key: l.key,
-      title: l.title || 'Untitled',
-      address: l.address || '',
-      city: l.city || '',
-      state: l.state || '',
-      status: l.status || '',
-      nextChannel: l.next_channel || '',
-      website: l.website || '',
-      stitchDesignUrl: l.stitchDesignUrl || '',
-      stitchScreenshotUrl: l.stitchScreenshotUrl || '',
-      mailable: lobDirectMail.hasMailableAddress(l),
-      preselected: selectedOnly,
-    }));
+    const mailableLeads = tableLeads.map((l) => {
+      const lob = lobDirectMail.getLeadLobAddressPreview(l);
+      const auditUrl = resolveAuditUrl(l);
+      return {
+        key: l.key,
+        title: l.title || 'Untitled',
+        address: lob.addressLine1 || l.address || '',
+        city: lob.city || l.city || '',
+        state: lob.state || l.state || '',
+        zip: lob.zip || '',
+        auditUrl,
+        status: l.status || '',
+        nextChannel: l.next_channel || '',
+        website: l.website || '',
+        stitchDesignUrl: l.stitchDesignUrl || '',
+        stitchScreenshotUrl: l.stitchScreenshotUrl || '',
+        mailable: lob.mailable,
+        lobReady: lob.mailable,
+        preselected: selectedOnly,
+      };
+    });
 
     const mailableCount = mailableLeads.filter((l) => l.mailable).length;
     const skippedCount = selectedOnly ? mailableLeads.length - mailableCount : 0;
