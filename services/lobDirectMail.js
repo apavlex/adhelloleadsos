@@ -37,19 +37,20 @@ function parseMailableAddress(lead) {
 
   if (!city || !state) return null;
 
+  if (!zip && address) {
+    const tailZip = address.match(/,\s*([A-Za-z]{2})\s+(\d{5}(?:-\d{4})?)\s*$/);
+    if (tailZip) zip = tailZip[2].slice(0, 5);
+  }
   if (!zip) zip = extractZip(address);
   if (!zip) return null;
 
-  let line1 = address.replace(/\b\d{5}(?:-\d{4})?\b/g, '').replace(/,\s*$/, '').trim();
-  if (line1.includes(',')) {
-    const parts = line1.split(',').map((p) => p.trim()).filter(Boolean);
+  let line1 = stripAddressTail(address, { city, state, zip });
+  if (!line1 || line1 === address) {
+    const parts = address.split(',').map((p) => p.trim()).filter(Boolean);
     if (parts.length >= 3 && /^[A-Za-z]{2}$/.test(parts[parts.length - 1])) {
       line1 = parts.slice(0, -2).join(', ');
-    } else if (parts.length >= 2 && city && state) {
-      const last = parts[parts.length - 1];
-      if (last.toLowerCase() === city.toLowerCase() || last.toUpperCase() === state) {
-        line1 = parts.slice(0, -1).join(', ');
-      }
+    } else if (parts.length >= 2) {
+      line1 = parts[0];
     }
   }
   if (!line1) line1 = address.split(',')[0].trim() || address;
@@ -63,9 +64,31 @@ function parseMailableAddress(lead) {
   };
 }
 
+function escapeRegExp(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function stripAddressTail(address, { city, state, zip }) {
+  let line = String(address || '').trim();
+  if (!line) return '';
+
+  if (zip) {
+    line = line.replace(new RegExp(`\\b${escapeRegExp(zip)}(?:-\\d{4})?\\s*$`), '').trim();
+  }
+  if (state) {
+    line = line.replace(new RegExp(`,\\s*${escapeRegExp(state)}\\s*$`, 'i'), '').trim();
+  }
+  if (city) {
+    line = line.replace(new RegExp(`,\\s*${escapeRegExp(city)}\\s*$`, 'i'), '').trim();
+  }
+  return line;
+}
+
 function extractZip(raw) {
   const s = String(raw || '').trim();
   if (!s) return '';
+  const tail = s.match(/,\s*[A-Za-z]{2}\s+(\d{5})(?:-\d{4})?\s*$/);
+  if (tail) return tail[1];
   const m = s.match(/\b(\d{5})(?:-\d{4})?\b/);
   return m ? m[1] : '';
 }
@@ -78,8 +101,8 @@ function hasMailableAddress(lead) {
 function getLeadLobAddressPreview(lead) {
   const parsed = parseMailableAddress(lead);
   const zip =
-    String(lead && (lead.postalCode || lead.zip) || '').trim() ||
     (parsed && parsed.address_zip) ||
+    String(lead && (lead.postalCode || lead.zip) || '').trim() ||
     extractZip(lead && lead.address) ||
     '';
   return {

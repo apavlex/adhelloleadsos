@@ -43,6 +43,19 @@ test('getLeadLobAddressPreview exposes zip for Lob table rows', () => {
   assert.equal(preview.zip, '98682');
   assert.equal(preview.city, 'Vancouver');
   assert.equal(preview.state, 'WA');
+  assert.match(preview.addressLine1, /26001 NE 60th St/i);
+});
+
+test('parseMailableAddress keeps street numbers that look like zip codes', () => {
+  const parsed = parseMailableAddress({
+    title: '26001 NE 60th St, Vancouver, WA 98682 · $757,000',
+    address: '26001 NE 60th St, Vancouver, WA 98682',
+    city: 'Vancouver',
+    state: 'WA',
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.address_zip, '98682');
+  assert.equal(parsed.address_line1, '26001 NE 60th St');
 });
 
 test('lobClient isConfigured requires key and return address', () => {
