@@ -1,0 +1,47 @@
+<% const _dmFolders = typeof folders !== 'undefined' && Array.isArray(folders) ? folders : []; %>
+<% const _dmTags = typeof tags !== 'undefined' && Array.isArray(tags) ? tags : []; %>
+<div
+  id="dmBulkActionBar"
+  class="bulk-action-bar app-body-portal fixed bottom-4 left-1/2 -translate-x-1/2 text-white px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl z-[280] flex flex-col items-stretch gap-1.5 w-[min(100vw-1rem,56rem)] opacity-0 translate-y-16 pointer-events-none transition-all duration-300 ease-out border border-white/10"
+  role="toolbar"
+  aria-label="Direct mail lead actions"
+  aria-hidden="true"
+  data-visible="false"
+>
+  <div id="dmBulkTagsRow" class="hidden w-full flex flex-wrap items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-white/5 border border-sky-400/25 bulk-bar-expand-row" role="group" aria-label="Manage tags">
+    <label for="dmBulkTagSelect" class="sr-only">Tag</label>
+    <select id="dmBulkTagSelect" class="bulk-bar-select min-w-[7.5rem] max-w-[11rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-sky-400/50 cursor-pointer">
+      <option value="">Select tag…</option>
+      <% _dmTags.forEach(function (t) { if (!t || !t.key) return; %>
+      <option value="<%= t.key %>"><%= t.name || 'Tag' %></option>
+      <% }); %>
+    </select>
+    <button type="button" id="dmBulkTagAddBtn" class="bulk-bar-btn bulk-bar-btn--accent">Add tag</button>
+    <button type="button" id="dmBulkTagRemoveBtn" class="bulk-bar-btn bulk-bar-btn--ghost">Remove tag</button>
+    <button type="button" id="dmBulkTagsCancel" class="bulk-bar-btn bulk-bar-btn--ghost">Close</button>
+  </div>
+
+  <div class="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 w-full">
+    <div class="flex items-center gap-2 shrink-0 border-r border-white/10 pr-2.5 mr-0.5">
+      <div id="dmSelectedCount" class="w-7 h-7 rounded-full bg-brand-yellow text-brand-dark flex items-center justify-center font-black text-xs shadow-md tabular-nums">0</div>
+      <span class="text-[10px] font-bold text-white/85 uppercase tracking-wide whitespace-nowrap hidden sm:inline">Selected</span>
+    </div>
+
+    <label for="dmBulkFolderSelect" class="sr-only">Folder</label>
+    <select id="dmBulkFolderSelect" class="bulk-bar-select min-w-[7.5rem] max-w-[11rem] rounded-md bg-white/10 border border-white/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white/90 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50 cursor-pointer">
+      <option value="">No folder</option>
+      <% _dmFolders.forEach(function (fd) { if (!fd || !fd.key) return; %>
+      <option value="<%= fd.key %>"><%= fd.name || 'Folder' %></option>
+      <% }); %>
+    </select>
+    <button type="button" id="dmBulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent">Move</button>
+    <button type="button" id="dmBulkTagsToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-sky-300">Tags</button>
+    <% if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>
+    <button type="button" id="dmBulkRemoveQueueBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-amber-300" title="Remove Direct Mail tag and leave queue">Remove from queue</button>
+    <% } %>
+    <button type="button" id="dmBulkDeleteBtn" class="bulk-bar-btn bulk-bar-btn--ghost text-rose-400">Delete</button>
+    <button type="button" id="dmBulkCancelBtn" class="bulk-bar-btn bulk-bar-btn--ghost">Cancel</button>
+  </div>
+
+  <p id="dmBulkFeedback" class="hidden w-full text-center text-[10px] font-semibold leading-tight px-0.5 text-brand-yellow" role="status" aria-live="polite"></p>
+</div>

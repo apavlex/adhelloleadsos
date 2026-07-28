@@ -532,6 +532,235 @@
       .filter(Boolean);
   }
 
+  function selectedMailableKeys() {
+    return getDmCheckboxes()
+      .filter(function (cb) {
+        if (!cb.checked) return false;
+        var row = cb.closest('tr');
+        return row && row.getAttribute('data-mailable') === '1';
+      })
+      .map(function (cb) {
+        return String(cb.value || '').trim();
+      })
+      .filter(Boolean);
+  }
+
+  function setDmBulkFeedback(text) {
+    var el = document.getElementById('dmBulkFeedback');
+    if (!el) return;
+    var msg = String(text || '').trim();
+    if (!msg) {
+      el.classList.add('hidden');
+      el.textContent = '';
+      return;
+    }
+    el.textContent = msg;
+    el.classList.remove('hidden');
+  }
+
+  function syncDmBulkBar() {
+    var bar = document.getElementById('dmBulkActionBar');
+    var countEl = document.getElementById('dmSelectedCount');
+    var keys = selectedKeys();
+    var n = keys.length;
+    if (countEl) countEl.textContent = String(n);
+    if (bar) {
+      var visible = n > 0;
+      bar.classList.toggle('bulk-action-bar--visible', visible);
+      bar.setAttribute('aria-hidden', visible ? 'false' : 'true');
+      bar.dataset.visible = visible ? 'true' : 'false';
+    }
+    var moveBtn = document.getElementById('dmBulkMoveFolderBtn');
+    if (moveBtn) moveBtn.disabled = n === 0;
+  }
+
+  function clearDmSelection() {
+    getDmCheckboxes().forEach(function (cb) {
+      setDmCheckboxChecked(cb, false);
+    });
+    dmSelectAnchor = null;
+    var all = document.getElementById('dmCheckAll');
+    if (all) {
+      all.checked = false;
+      all.indeterminate = false;
+    }
+    syncDmBulkBar();
+    setDmBulkFeedback('');
+    var tagsRow = document.getElementById('dmBulkTagsRow');
+    if (tagsRow) tagsRow.classList.add('hidden');
+  }
+
+  function removeDmRowsByKeys(leadKeys) {
+    var set = new Set(
+      (leadKeys || []).map(function (k) {
+        return String(k || '').trim();
+      }),
+    );
+    getDmCheckboxes().forEach(function (cb) {
+      if (!set.has(String(cb.value || '').trim())) return;
+      var row = cb.closest('tr');
+      if (row) row.remove();
+    });
+    syncCheckAll();
+    syncDmBulkBar();
+  }
+
+  async function dmBulkMoveToFolder() {
+    var keys = selectedKeys();
+    if (!keys.length) return;
+    var folderKey = String((document.getElementById('dmBulkFolderSelect') || {}).value || '').trim();
+    setDmBulkFeedback('Moving to folder…');
+    try {
+      var res = await fetch('/folders/assign-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: keys, folderKey: folderKey }),
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Move failed.');
+      setDmBulkFeedback('Moved ' + (data.updatedKeys ? data.updatedKeys.length : keys.length) + ' lead(s).');
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Leads moved to folder', { variant: 'success' });
+      }
+    } catch (e) {
+      setDmBulkFeedback((e && e.message) || 'Move failed.');
+    }
+  }
+
+  async function dmBulkTagAction(mode) {
+    var keys = selectedKeys();
+    var tagKey = String((document.getElementById('dmBulkTagSelect') || {}).value || '').trim();
+    if (!keys.length) return;
+    if (!tagKey) {
+      setDmBulkFeedback('Select a tag first.');
+      return;
+    }
+    setDmBulkFeedback(mode === 'remove' ? 'Removing tag…' : 'Adding tag…');
+    try {
+      var res = await fetch('/tags/assign-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: keys, tagKeys: [tagKey], mode: mode }),
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Tag update failed.');
+      setDmBulkFeedback(
+        (mode === 'remove' ? 'Removed tag from ' : 'Tagged ') +
+          (data.updated ? data.updated.length : keys.length) +
+          ' lead(s).',
+      );
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(mode === 'remove' ? 'Tag removed' : 'Tags updated', { variant: 'success' });
+      }
+    } catch (e) {
+      setDmBulkFeedback((e && e.message) || 'Tag update failed.');
+    }
+  }
+
+  async function dmBulkRemoveFromQueue() {
+    var keys = selectedKeys();
+    if (!keys.length) return;
+    if (
+      !window.confirm(
+        'Remove ' + keys.length + ' lead(s) from the Direct Mail queue? They will stay in your workspace.',
+      )
+    ) {
+      return;
+    }
+    setDmBulkFeedback('Removing from queue…');
+    try {
+      var res = await fetch('/direct-mail/api/queue/remove', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: keys }),
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Could not remove from queue.');
+      removeDmRowsByKeys(data.leadKeys || keys);
+      setDmBulkFeedback('Removed ' + (data.removed || keys.length) + ' from queue.');
+      clearDmSelection();
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Removed from Direct Mail queue', { variant: 'success' });
+      }
+    } catch (e) {
+      setDmBulkFeedback((e && e.message) || 'Remove failed.');
+    }
+  }
+
+  async function dmBulkDeleteLeads() {
+    var keys = selectedKeys();
+    if (!keys.length) return;
+    if (
+      !window.confirm(
+        'Delete ' + keys.length + ' selected lead(s)? This cannot be undone.',
+      )
+    ) {
+      return;
+    }
+    setDmBulkFeedback('Deleting…');
+    try {
+      var res = await fetch('/leads/bulk-delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ keys: keys }),
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) throw new Error((data && data.error) || 'Delete failed.');
+      removeDmRowsByKeys(data.deletedKeys || keys);
+      clearDmSelection();
+      setDmBulkFeedback('Deleted ' + (data.deleted || keys.length) + ' lead(s).');
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Leads deleted', { variant: 'success' });
+      }
+    } catch (e) {
+      setDmBulkFeedback((e && e.message) || 'Delete failed.');
+    }
+  }
+
+  function bindDmBulkBar() {
+    var moveBtn = document.getElementById('dmBulkMoveFolderBtn');
+    if (moveBtn) moveBtn.addEventListener('click', function () { void dmBulkMoveToFolder(); });
+
+    var tagsToggle = document.getElementById('dmBulkTagsToggle');
+    var tagsRow = document.getElementById('dmBulkTagsRow');
+    if (tagsToggle && tagsRow) {
+      tagsToggle.addEventListener('click', function () {
+        tagsRow.classList.toggle('hidden');
+      });
+    }
+    var tagsCancel = document.getElementById('dmBulkTagsCancel');
+    if (tagsCancel && tagsRow) {
+      tagsCancel.addEventListener('click', function () {
+        tagsRow.classList.add('hidden');
+      });
+    }
+    var tagAdd = document.getElementById('dmBulkTagAddBtn');
+    if (tagAdd) tagAdd.addEventListener('click', function () { void dmBulkTagAction('add'); });
+    var tagRemove = document.getElementById('dmBulkTagRemoveBtn');
+    if (tagRemove) tagRemove.addEventListener('click', function () { void dmBulkTagAction('remove'); });
+
+    var removeQueue = document.getElementById('dmBulkRemoveQueueBtn');
+    if (removeQueue) removeQueue.addEventListener('click', function () { void dmBulkRemoveFromQueue(); });
+
+    var deleteBtn = document.getElementById('dmBulkDeleteBtn');
+    if (deleteBtn) deleteBtn.addEventListener('click', function () { void dmBulkDeleteLeads(); });
+
+    var cancelBtn = document.getElementById('dmBulkCancelBtn');
+    if (cancelBtn) cancelBtn.addEventListener('click', clearDmSelection);
+  }
+
   function setStatus(text, ok) {
     var el = document.getElementById('dmStatus');
     if (!el) return;
@@ -1339,10 +1568,11 @@
   function syncCheckAll() {
     var all = document.getElementById('dmCheckAll');
     if (!all) return;
-    var boxes = getMailableDmCheckboxes();
+    var boxes = getDmCheckboxes();
     if (!boxes.length) {
       all.indeterminate = false;
       all.checked = false;
+      syncDmBulkBar();
       return;
     }
     var checked = boxes.filter(function (b) {
@@ -1350,6 +1580,7 @@
     }).length;
     all.indeterminate = checked > 0 && checked < boxes.length;
     all.checked = checked === boxes.length;
+    syncDmBulkBar();
   }
 
   var dmSelectAnchor = null;
@@ -1503,7 +1734,7 @@
   document.getElementById('dmCheckAll') &&
     document.getElementById('dmCheckAll').addEventListener('change', function () {
       var on = this.checked;
-      getMailableDmCheckboxes().forEach(function (cb) {
+      getDmCheckboxes().forEach(function (cb) {
         setDmCheckboxChecked(cb, on);
       });
       if (!on) dmSelectAnchor = null;
@@ -1523,12 +1754,14 @@
   var selectAllBtn = document.getElementById('dmSelectAll');
   if (selectAllBtn) {
     selectAllBtn.addEventListener('click', function () {
-      getMailableDmCheckboxes().forEach(function (cb) {
+      getDmCheckboxes().forEach(function (cb) {
         setDmCheckboxChecked(cb, true);
       });
       syncCheckAll();
     });
   }
+
+  bindDmBulkBar();
 
   var chatSend = document.getElementById('dmChatSend');
   if (chatSend) chatSend.addEventListener('click', sendChatMessage);
@@ -1668,9 +1901,9 @@
   var sendBtn = document.getElementById('dmSendBtn');
   if (sendBtn) {
     sendBtn.addEventListener('click', async function () {
-      var keys = selectedKeys();
+      var keys = selectedMailableKeys();
       if (!keys.length) {
-        setStatus('Select at least one lead.', false);
+        setStatus('Select at least one mailable lead (complete address required).', false);
         return;
       }
       if (!window.confirm('Send ' + keys.length + ' postcard(s) via Lob?')) return;

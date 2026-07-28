@@ -202,6 +202,81 @@ async function addLeadsToDirectMailQueue(workspaceId, leadKeys, visibleLeads) {
   };
 }
 
+/**
+ * Remove direct mail tag (and clear Direct Mail folder when set) from selected leads.
+ */
+async function removeLeadsFromDirectMailQueue(workspaceId, leadKeys, visibleLeads) {
+  const keysIn = (Array.isArray(leadKeys) ? leadKeys : [])
+    .map((k) => String(k || '').trim())
+    .filter(Boolean);
+  if (!keysIn.length) {
+    return { removed: 0, skipped: 0, folderKey: '', tagKey: '', leadKeys: [] };
+  }
+
+  const folder = await ensureDirectMailFolder(workspaceId);
+  const tag = await ensureDirectMailListTag(workspaceId);
+  const folderKey = String(folder.key || '').trim();
+  const tagKey = String(tag.key || '').trim();
+  const visibleByKey = new Map((visibleLeads || []).map((l) => [l.key, l]));
+
+  const out = [];
+  let removed = 0;
+  let skipped = 0;
+
+  for (const raw of keysIn) {
+    const fullKey = await resolveLeadKeyForQueue(raw, visibleLeads, workspaceId);
+    if (!fullKey) {
+      skipped += 1;
+      continue;
+    }
+    const existing = visibleByKey.get(fullKey);
+    if (!existing) {
+      skipped += 1;
+      continue;
+    }
+
+    const prevTags = dbService.normalizeTagKeys(existing.tags);
+    const nextTags = prevTags.filter((t) => t !== tagKey);
+    const inDmFolder = folderKey && String(existing.folderKey || '') === folderKey;
+    const hadTag = tagKey && prevTags.includes(tagKey);
+    if (!inDmFolder && !hadTag) {
+      skipped += 1;
+      continue;
+    }
+
+    const patch = {
+      tags: nextTags,
+      updates: appendLeadUpdate(existing, {
+        type: 'direct_mail_removed',
+        value: 'Removed from Direct Mail queue',
+      }),
+      logs: [
+        {
+          type: 'direct_mail_removed',
+          message: 'Removed from Direct Mail queue',
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    };
+    if (inDmFolder) patch.folderKey = '';
+
+    // eslint-disable-next-line no-await-in-loop
+    await dbService.updateLead(fullKey, patch, workspaceId);
+    out.push(fullKey);
+    removed += 1;
+  }
+
+  return {
+    removed,
+    skipped,
+    folderKey,
+    tagKey,
+    folderName: folder.name || DIRECT_MAIL_FOLDER_NAME,
+    tagName: tag.name || DIRECT_MAIL_TAG_NAME,
+    leadKeys: out,
+  };
+}
+
 module.exports = {
   DIRECT_MAIL_FOLDER_NAME,
   DIRECT_MAIL_TAG_NAME,
@@ -209,4 +284,5 @@ module.exports = {
   ensureDirectMailListTag,
   listDirectMailQueueLeads,
   addLeadsToDirectMailQueue,
+  removeLeadsFromDirectMailQueue,
 };

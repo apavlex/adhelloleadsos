@@ -293,6 +293,12 @@ router.get('/', async (req, res, next) => {
 
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const brandKit = normalizeBrandKit(ws.brandKit);
+    const folders = await dbService.listFolders(req.workspaceId);
+    const tags = await dbService.listTags(req.workspaceId);
+    let dmQueueMeta = null;
+    if (dmIsQueueSession) {
+      dmQueueMeta = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
+    }
 
     res.render('direct-mail', {
       activePage: 'direct-mail',
@@ -309,6 +315,10 @@ router.get('/', async (req, res, next) => {
       canManageWorkspace: !!req.canManageWorkspace,
       brandKit,
       brandKitJson: JSON.stringify(brandKit),
+      folders: folders || [],
+      tags: tags || [],
+      dmQueueTagKey: dmQueueMeta ? dmQueueMeta.tagKey : '',
+      dmQueueFolderKey: dmQueueMeta ? dmQueueMeta.folderKey : '',
     });
   } catch (err) {
     next(err);
@@ -678,6 +688,26 @@ router.post('/api/queue', express.json(), async (req, res, next) => {
       success: true,
       ...result,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/api/queue/remove', express.json(), async (req, res, next) => {
+  try {
+    const leadKeysRaw = Array.isArray(req.body && req.body.leadKeys) ? req.body.leadKeys : [];
+    const leadKeys = leadKeysRaw.map((k) => String(k || '').trim()).filter(Boolean);
+    if (!leadKeys.length) {
+      return res.status(400).json({ success: false, error: 'leadKeys is required.' });
+    }
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const result = await directMailQueue.removeLeadsFromDirectMailQueue(
+      req.workspaceId,
+      leadKeys,
+      visible,
+    );
+    res.json({ success: result.removed > 0, ...result });
   } catch (err) {
     next(err);
   }

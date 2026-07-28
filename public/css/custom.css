@@ -1042,7 +1042,9 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 
 /* Floating bulk bar — Apple-style frosted glass */
 #bulkActionBar.bulk-action-bar--visible,
-#bulkActionBar[data-visible='true'] {
+#dmBulkActionBar.bulk-action-bar--visible,
+#bulkActionBar[data-visible='true'],
+#dmBulkActionBar[data-visible='true'] {
   opacity: 1 !important;
   visibility: visible !important;
   transform: translateX(-50%) translateY(0) !important;
@@ -1051,12 +1053,15 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 
 /* Nested controls (Move, + Folder, Call room) must stay clickable inside portaled bar */
 #bulkActionBar.bulk-action-bar--visible *,
-#bulkActionBar[data-visible='true'] * {
+#bulkActionBar[data-visible='true'] *,
+#dmBulkActionBar.bulk-action-bar--visible *,
+#dmBulkActionBar[data-visible='true'] * {
   pointer-events: auto;
 }
 
 #bulkFolderNewRow:not(.hidden),
-#bulkTagsRow:not(.hidden) {
+#bulkTagsRow:not(.hidden),
+#dmBulkTagsRow:not(.hidden) {
   display: flex !important;
 }
 
@@ -1105,7 +1110,8 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   animation: bulk-bar-expand-in 0.18s ease-out;
 }
 
-#bulkActionBar {
+#bulkActionBar,
+#dmBulkActionBar {
   z-index: 280;
   position: fixed;
   left: 50%;
@@ -1126,7 +1132,8 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 
 /* Compact bulk action bar controls */
-#bulkActionBar .bulk-bar-btn {
+#bulkActionBar .bulk-bar-btn,
+#dmBulkActionBar .bulk-bar-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1314,11 +1321,13 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
 }
 
 /* Native folder/tag pickers on the frosted bar — light popup + dark text (white-on-white was invisible) */
-#bulkActionBar .bulk-bar-select {
+#bulkActionBar .bulk-bar-select,
+#dmBulkActionBar .bulk-bar-select {
   color-scheme: light;
 }
 
-#bulkActionBar .bulk-bar-select option {
+#bulkActionBar .bulk-bar-select option,
+#dmBulkActionBar .bulk-bar-select option {
   background-color: #ffffff;
   color: #0f172a;
 }

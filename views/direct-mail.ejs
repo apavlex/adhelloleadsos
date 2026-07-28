@@ -367,7 +367,7 @@
         <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4 border-b border-brand-border/25 dark:border-white/10">
           <div>
             <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Selected leads<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Direct Mail queue<% } else { %>Mailable leads<% } %></h2>
-            <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Leads you tagged for direct mail — mailable rows can be selected to send.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
+            <p class="text-xs text-brand-muted mt-0.5"><% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %>Mailable rows are pre-selected. Fix or enrich others in pipeline.<% } else if (typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession) { %>Select rows to move to folders, tag, remove from queue, or delete.<% } else { %>Street address, city, state, and ZIP required.<% } %></p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" id="dmSelectAll" class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/15 text-[10px] font-black uppercase tracking-widest px-3 py-2">Select all</button>
@@ -391,8 +391,8 @@
             </thead>
             <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
               <% mailableLeads.forEach(function (l) { %>
-              <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= (l.stitchDesignUrl || l.stitchScreenshotUrl || (l.website && l.website !== 'N/A' ? l.website : '') || '').replace(/"/g, '&quot;') %>">
-                <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.mailable === false) { %> disabled<% } else if (l.preselected) { %> checked<% } %> /></td>
+              <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-lead-key="<%= l.key %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= (l.stitchDesignUrl || l.stitchScreenshotUrl || (l.website && l.website !== 'N/A' ? l.website : '') || '').replace(/"/g, '&quot;') %>">
+                <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.preselected && l.mailable !== false) { %> checked<% } %> /></td>
                 <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white"><%= l.title %><% if (l.mailable === false) { %> <span class="ml-1 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-300">No address</span><% } %></td>
                 <td class="px-2 py-3 text-brand-muted max-w-[14rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>
                 <td class="px-2 py-3 text-brand-muted"><%= l.city || '—' %></td>
@@ -406,6 +406,8 @@
       </div>
     </section>
   </main>
+
+  <%- include('partials/dm_bulk_action_bar') %>
 
   <div id="dmImageLightbox" class="dm-lightbox hidden fixed inset-0 z-[500] flex items-center justify-center p-4 md:p-8" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Postcard preview">
     <button type="button" id="dmLightboxBackdrop" class="absolute inset-0 bg-brand-dark/80 backdrop-blur-sm" aria-label="Close preview"></button>
@@ -430,6 +432,14 @@
   </div>
 
   <script type="application/json" id="dm-brand-kit-json"><%- typeof brandKitJson !== 'undefined' ? brandKitJson : '{}' %></script>
+  <script type="application/json" id="dm-workspace-tags-json"><%- JSON.stringify((typeof tags !== 'undefined' && tags ? tags : []).map(function (t) { return { key: t.key, name: t.name, color: t.color || '#94a3b8' }; })) %></script>
+  <script>
+    window.__DM_QUEUE = {
+      isQueueSession: <%= typeof dmIsQueueSession !== 'undefined' && dmIsQueueSession ? 'true' : 'false' %>,
+      tagKey: <%= JSON.stringify(typeof dmQueueTagKey !== 'undefined' ? dmQueueTagKey : '') %>,
+      folderKey: <%= JSON.stringify(typeof dmQueueFolderKey !== 'undefined' ? dmQueueFolderKey : '') %>,
+    };
+  </script>
   <script src="/js/direct-mail.js?v=<%= typeof assetVersion !== 'undefined' ? assetVersion : '1' %>"></script>
   <%- include('/partials/app_shell_close') %>
 </body>

@@ -6,6 +6,7 @@ const {
   DIRECT_MAIL_TAG_NAME,
   addLeadsToDirectMailQueue,
   listDirectMailQueueLeads,
+  removeLeadsFromDirectMailQueue,
 } = require('../services/directMailQueue');
 
 describe('directMailQueue', () => {
@@ -46,6 +47,16 @@ describe('directMailQueue', () => {
       const visibleAfter = await dbService.getAllLeads('default');
       const listed = await listDirectMailQueueLeads('default', visibleAfter);
       assert.ok(listed.leads.some((l) => l.key === leadKey));
+    });
+
+    it('removes a lead from the Direct Mail queue', async () => {
+      const visible = await dbService.getAllLeads('default');
+      await addLeadsToDirectMailQueue('default', [leadKey], visible);
+      const visibleAfterAdd = await dbService.getAllLeads('default');
+      const removed = await removeLeadsFromDirectMailQueue('default', [leadKey], visibleAfterAdd);
+      assert.equal(removed.removed, 1);
+      const listed = await listDirectMailQueueLeads('default', visibleAfterAdd);
+      assert.equal(listed.leads.some((l) => l.key === leadKey), false);
     });
   });
 });
