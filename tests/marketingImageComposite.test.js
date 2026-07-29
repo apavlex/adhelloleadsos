@@ -8,6 +8,25 @@ const {
   LOB_POSTCARD_HEIGHT_PX,
 } = require('../services/marketingImageComposite');
 
+test('resizeBufferForLobPostcard keeps full artwork inside trim-safe area', async () => {
+  const tall = await sharp({
+    create: {
+      width: 1800,
+      height: 1400,
+      channels: 3,
+      background: { r: 200, g: 80, b: 80 },
+    },
+  })
+    .jpeg()
+    .toBuffer();
+  const out = await resizeBufferForLobPostcard(tall, { side: 'front' });
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.width, LOB_POSTCARD_WIDTH_PX);
+  assert.equal(meta.height, LOB_POSTCARD_HEIGHT_PX);
+  const bottomLeft = await sharp(out).extract({ left: 80, top: 1180, width: 40, height: 40 }).raw().toBuffer();
+  assert.ok(bottomLeft[0] > 240, 'bottom edge should stay inside safe zone (white margin)');
+});
+
 test('resizeBufferForLobPostcard outputs Lob 4x6 bleed dimensions', async () => {
   const portrait = await sharp({
     create: {
@@ -25,6 +44,27 @@ test('resizeBufferForLobPostcard outputs Lob 4x6 bleed dimensions', async () => 
   assert.equal(meta.height, LOB_POSTCARD_HEIGHT_PX);
   assert.equal(LOB_POSTCARD_WIDTH_PX, 1875);
   assert.equal(LOB_POSTCARD_HEIGHT_PX, 1275);
+});
+
+test('resizeBufferForLobPostcard back art stays left of ink-free zone', async () => {
+  const { resizeBufferForLobPostcard, lobInkFreeRectPx } = require('../services/marketingImageComposite');
+  const wide = await sharp({
+    create: {
+      width: 1800,
+      height: 1200,
+      channels: 3,
+      background: { r: 40, g: 120, b: 200 },
+    },
+  })
+    .jpeg()
+    .toBuffer();
+  const out = await resizeBufferForLobPostcard(wide, { side: 'back' });
+  const rect = lobInkFreeRectPx();
+  const edgeSample = await sharp(out)
+    .extract({ left: rect.left - 20, top: rect.top + 20, width: 10, height: 10 })
+    .raw()
+    .toBuffer();
+  assert.ok(edgeSample[0] > 240, 'artwork should not bleed into Lob address block');
 });
 
 test('applyLobBackInkFreeMask clears bottom-right address zone', async () => {

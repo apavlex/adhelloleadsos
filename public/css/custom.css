@@ -4817,10 +4817,19 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
 }
 
 .dm-lob-zone--qr {
-  top: 8%;
   right: 5%;
-  width: 14%;
-  height: 20%;
+  bottom: 7%;
+  width: 12%;
+  height: 18%;
+}
+
+.dm-lob-zone--safe {
+  left: 4%;
+  top: 5.9%;
+  width: 92%;
+  height: 88.2%;
+  border-color: rgba(59, 130, 246, 0.75);
+  background: transparent;
 }
 
 body:not(.dm-show-lob-zones) .dm-lob-zone {

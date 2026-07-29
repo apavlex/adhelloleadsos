@@ -15,6 +15,13 @@ const LOB_POSTCARD_HEIGHT_PX = 1275;
 const LOB_POSTCARD_WIDTH_IN = 6.25;
 const LOB_POSTCARD_HEIGHT_IN = 4.25;
 
+/** Trim-safe content area — inset 0.25″ from bleed on all sides (≈0.125″ past trim). */
+const LOB_BLEED_INSET_PX = 75;
+const LOB_SAFE_WIDTH_PX = 1725;
+const LOB_SAFE_HEIGHT_PX = 1125;
+/** Extra lift for footer/contact rows so trim does not clip descenders. */
+const LOB_BOTTOM_CONTENT_INSET_PX = 45;
+
 /** Ink-free address block on 4×6 postcard backs — do not place artwork here. */
 const LOB_BACK_INK_FREE = {
   widthIn: 3.2835,
@@ -66,15 +73,39 @@ async function applyLobBackInkFreeMask(buffer) {
     .toBuffer();
 }
 
+function lobBackArtMaxWidthPx() {
+  const rect = lobInkFreeRectPx();
+  return Math.max(320, rect.left - LOB_BLEED_INSET_PX - 12);
+}
+
 async function resizeBufferForLobPostcard(buffer, { side } = {}) {
-  const out = await sharp(buffer)
-    .resize(LOB_POSTCARD_WIDTH_PX, LOB_POSTCARD_HEIGHT_PX, {
-      fit: 'cover',
-      position: 'centre',
-    })
+  const isBack = side === 'back';
+  const maxW = isBack ? lobBackArtMaxWidthPx() : LOB_SAFE_WIDTH_PX;
+  const maxH = LOB_SAFE_HEIGHT_PX - LOB_BOTTOM_CONTENT_INSET_PX;
+
+  const fitted = await sharp(buffer).resize(maxW, maxH, { fit: 'inside' }).jpeg({ quality: 92 }).toBuffer();
+  const fittedMeta = await sharp(fitted).metadata();
+  const fw = fittedMeta.width || maxW;
+  const fh = fittedMeta.height || maxH;
+
+  const destLeft = LOB_BLEED_INSET_PX;
+  const destTop =
+    LOB_BLEED_INSET_PX +
+    Math.max(0, LOB_SAFE_HEIGHT_PX - LOB_BOTTOM_CONTENT_INSET_PX - fh);
+
+  let out = await sharp({
+    create: {
+      width: LOB_POSTCARD_WIDTH_PX,
+      height: LOB_POSTCARD_HEIGHT_PX,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 },
+    },
+  })
+    .composite([{ input: fitted, left: destLeft, top: destTop }])
     .jpeg({ quality: 92 })
     .toBuffer();
-  if (side === 'back') return applyLobBackInkFreeMask(out);
+
+  if (isBack) out = await applyLobBackInkFreeMask(out);
   return out;
 }
 
@@ -175,6 +206,9 @@ module.exports = {
   DEFAULT_PADDING,
   LOB_POSTCARD_WIDTH_PX,
   LOB_POSTCARD_HEIGHT_PX,
+  LOB_BLEED_INSET_PX,
+  LOB_SAFE_WIDTH_PX,
+  LOB_SAFE_HEIGHT_PX,
   LOB_BACK_INK_FREE,
   lobInkFreeRectPx,
   fetchImageBuffer,

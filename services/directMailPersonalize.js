@@ -49,7 +49,7 @@ function wrapImageUrlAsPostcardHtml(imageUrl) {
   const src = String(imageUrl || '').trim();
   if (!/^https?:\/\//i.test(src)) return '';
   const safe = src.replace(/"/g, '&quot;');
-  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:6.25in;height:4.25in;overflow:hidden;}img{width:6.25in;height:4.25in;object-fit:cover;display:block;}</style></head><body><img src="${safe}" alt="" /></body></html>`;
+  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:6.25in;height:4.25in;overflow:hidden;}img{width:6.25in;height:4.25in;display:block;}</style></head><body><img src="${safe}" alt="" /></body></html>`;
 }
 
 function wrapImageUrlAsLobPostcardHtml(imageUrl) {
@@ -83,7 +83,7 @@ function wrapImageWithPersonalizedOverlay(imageUrl, opts) {
     : '';
 
   return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:6.25in;height:4.25in;overflow:hidden;}</style></head><body style="margin:0;padding:0;position:relative;width:6.25in;height:4.25in;font-family:Georgia,'Times New Roman',serif;">
-<img src="${safeSrc}" alt="" style="width:6.25in;height:4.25in;object-fit:cover;display:block;" />
+<img src="${safeSrc}" alt="" style="width:6.25in;height:4.25in;display:block;" />
 <div style="position:absolute;left:0.2in;top:0.2in;max-width:3.1in;box-sizing:border-box;padding:10px 12px;border-radius:8px;background:rgba(17,24,39,0.88);color:#fff;">
 ${headBlock}${businessBlock}${bodyBlock}${ctaBlock}
 </div>

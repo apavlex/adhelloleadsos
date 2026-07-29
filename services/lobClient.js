@@ -173,8 +173,8 @@ function buildDefaultPostcardQrCode(redirectUrl, pages = 'front') {
   return {
     position: 'relative',
     redirect_url: url,
-    width: '0.85',
-    top: '0.35',
+    width: '1.0',
+    bottom: '0.35',
     right: '0.35',
     pages: pages || 'front',
   };

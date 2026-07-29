@@ -190,4 +190,7 @@ test('lobClient buildDefaultPostcardQrCode returns null without redirect URL', (
   const qr = lobClient.buildDefaultPostcardQrCode('https://example.com/audit');
   assert.equal(qr.redirect_url, 'https://example.com/audit');
   assert.equal(qr.pages, 'front');
+  assert.equal(qr.bottom, '0.35');
+  assert.equal(qr.right, '0.35');
+  assert.equal(qr.width, '1.0');
 });

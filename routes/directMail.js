@@ -217,7 +217,8 @@ function buildDesignCoachSystemPrompt({
   const lobFrontRules =
     isPostcard && slot === 'front'
       ? `For Lob 4×6 postcard FRONT (landscape 3:2):
-- Leave bottom-right ~1″ square clear for Lob QR code overlay.
+- Keep ALL text and contact info at least 0.3″ from the bottom edge (Lob trims bleed — bottom lines get cut off otherwise).
+- Leave bottom-right ~0.75″ square empty for Lob QR code (white placeholder box is OK).
 - Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
       : '';
   return `You are an ad creative design coach for a local marketing agency. The user is designing a ${plat} creative (${ratio} aspect ratio${isPostcard ? `, ${slot} side` : ''}).

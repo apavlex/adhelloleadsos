@@ -915,11 +915,11 @@
     ];
     if (ctx.platform === 'postcard' && slot === 'back') {
       parts.push(
-        'Lob 4×6 postcard BACK: landscape 3:2. Marketing on LEFT 45% only. Bottom-right ink-free zone must be blank background — no postage, barcodes, recipient address, or {business} placeholders (Lob adds address at print).',
+        'Lob 4×6 postcard BACK: landscape 3:2. Marketing on LEFT 45% only. Keep text 0.3″ from bottom. Bottom-right blank for Lob address — no postage or barcodes.',
       );
     } else if (ctx.platform === 'postcard') {
       parts.push(
-        'Lob 4×6 postcard FRONT: landscape 3:2. Leave top-right area clear for QR code. Never render {business} or curly-brace placeholder text in the image.',
+        'Lob 4×6 postcard FRONT: landscape 3:2. Keep footer/contact text at least 0.3″ from bottom edge. Leave bottom-right empty white square for QR code. Never render {business} or curly-brace placeholder text.',
       );
     }
     if (kit.businessName) parts.push('Business name: ' + kit.businessName + '.');
