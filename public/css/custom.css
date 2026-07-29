@@ -2082,6 +2082,120 @@ html[data-pipeline-prefs-ready="1"] #prospectPipelineTableScroll {
   }
 }
 
+/* Find Leads page — full-width, mobile-responsive layout */
+body.find-leads-page {
+  --find-leads-offset: 260px;
+}
+
+body.find-leads-page .app-shell-content > main.find-leads-main {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+body.find-leads-page #searchContainer {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+body.find-leads-page .find-leads-card {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+body.find-leads-page #searchForm {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+body.find-leads-page .find-leads-step-panel:not(.hidden) {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+body.find-leads-page .find-leads-step1-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  body.find-leads-page .find-leads-step1-panel {
+    min-height: calc(100dvh - var(--find-leads-offset));
+  }
+}
+
+body.find-leads-page #findTypeTabs {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  padding-bottom: 2px;
+}
+
+body.find-leads-page #findTypeTabs::-webkit-scrollbar {
+  display: none;
+}
+
+body.find-leads-page #findTypeTabs .find-type-tab {
+  flex-shrink: 0;
+}
+
+@media (max-width: 639px) {
+  body.find-leads-page .find-location-search-row {
+    flex-direction: column;
+    border-radius: 1.25rem;
+  }
+
+  body.find-leads-page .find-location-search-row input {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  body.find-leads-page .find-location-search-row #findLocationResolveBtn {
+    width: 100%;
+    margin: 0;
+    border-radius: 0 0 1.125rem 1.125rem;
+    padding-top: 0.875rem;
+    padding-bottom: 0.875rem;
+  }
+
+  body.find-leads-page .find-leads-header-desc {
+    display: none;
+  }
+
+  body.find-leads-page .find-leads-header h1 {
+    font-size: 1.5rem;
+    line-height: 2rem;
+  }
+
+  body.find-leads-page .find-step-pill {
+    flex: 1 1 0;
+    justify-content: center;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  body.find-leads-page #findAreaMapCol {
+    min-height: min(45vh, 420px);
+  }
+}
+
+@media (min-width: 768px) {
+  body.find-leads-page {
+    --find-leads-offset: 300px;
+  }
+}
+
+@media (min-width: 1024px) {
+  body.find-leads-page {
+    --find-leads-offset: 320px;
+  }
+}
+
 /* Notification Bell & Processing Indicator */
 .processing-ring {
     position: absolute;

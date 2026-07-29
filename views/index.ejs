@@ -3,7 +3,7 @@
 <head>
   <%- include('partials/head') %>
 </head>
-<body class="bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
+<body class="find-leads-page bg-brand-bg min-h-screen text-brand-dark overflow-x-hidden">
   <%- include('partials/navbar') %>
 
   <% const _findType = typeof searchType !== 'undefined' ? searchType : 'maps'; %>
@@ -11,14 +11,14 @@
   <% const _warm = typeof warmInboundCount !== 'undefined' ? warmInboundCount : savedLeadsCount; %>
   <% const _pipe = typeof totalPipelineCount !== 'undefined' ? totalPipelineCount : workspaceLeadsCount; %>
 
-  <main class="max-wide px-4 sm:px-6 pt-8 pb-20 md:pt-10 md:pb-24">
+  <main class="find-leads-main w-full min-w-0 flex flex-col flex-1 px-4 sm:px-6 pt-4 sm:pt-6 md:pt-8 pb-4 sm:pb-6 md:pb-8 [padding-left:max(1rem,env(safe-area-inset-left))] [padding-right:max(1rem,env(safe-area-inset-right))]">
     <!-- Page header -->
-    <header class="max-w-5xl mx-auto mb-6 md:mb-8">
+    <header class="find-leads-header w-full mb-4 md:mb-6 shrink-0">
       <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
         <div>
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-2">Prospecting</p>
           <h1 class="font-display font-extrabold text-3xl md:text-4xl tracking-tight text-brand-dark dark:text-white">Find leads</h1>
-          <p class="text-sm md:text-base text-brand-muted mt-2 max-w-xl leading-relaxed">
+          <p class="find-leads-header-desc text-sm md:text-base text-brand-muted mt-2 max-w-xl leading-relaxed">
             Pick a search type, set your area, and run. Business, real estate, home owners, products, or wholesale — one workflow.
           </p>
         </div>
@@ -32,7 +32,7 @@
     </header>
 
     <% if (typeof activeSearchFolder !== 'undefined' && activeSearchFolder && activeSearchFolder.name) { %>
-      <div class="max-w-5xl mx-auto mb-4 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 sm:px-6 py-4 space-y-3">
+      <div class="find-leads-folder-banner w-full mb-4 shrink-0 rounded-2xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 sm:px-6 py-4 space-y-3">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-1">Folder search</p>
@@ -59,12 +59,12 @@
     <% } %>
 
     <!-- Main wizard card -->
-    <div class="max-w-5xl mx-auto" id="searchContainer">
-      <div class="rounded-[1.75rem] md:rounded-[2rem] border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-xl shadow-brand-dark/5 overflow-hidden">
+    <div class="w-full min-w-0 flex flex-col flex-1 min-h-0" id="searchContainer">
+      <div class="find-leads-card rounded-[1.75rem] md:rounded-[2rem] border border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900/95 shadow-xl shadow-brand-dark/5 overflow-hidden flex flex-col flex-1 min-h-0 w-full">
         <!-- Search type -->
         <div class="px-4 sm:px-6 py-4 border-b border-brand-border/20 dark:border-white/5 bg-brand-cream/15 dark:bg-slate-950/40">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">What are you searching for?</p>
-          <div class="flex flex-wrap gap-2" role="tablist" aria-label="Search type" id="findTypeTabs">
+          <div class="flex flex-nowrap sm:flex-wrap gap-2 overflow-x-auto find-type-tabs-scroll" role="tablist" aria-label="Search type" id="findTypeTabs">
             <% const _searchTypes = typeof searchTypes !== 'undefined' && searchTypes ? searchTypes : [
               { findTab: 'maps', shortLabel: 'Business' },
               { findTab: 'real_estate', shortLabel: 'Real estate' },
@@ -105,7 +105,7 @@
           </ol>
         </div>
 
-        <form action="/search" method="POST" id="searchForm" data-find-type="<%= _findType %>">
+        <form action="/search" method="POST" id="searchForm" class="flex flex-col flex-1 min-h-0" data-find-type="<%= _findType %>">
           <% if (typeof presetFolderKey !== 'undefined' && presetFolderKey) { %>
             <input type="hidden" name="folderKey" value="<%= presetFolderKey %>" />
           <% } %>
@@ -113,9 +113,9 @@
           <% const _prefCity = String(_sp.city || '').trim();
              const _prefState = String(_sp.state || '').trim().toUpperCase();
              const _prefLocationQuery = _prefCity && _prefState ? _prefCity + ', ' + _prefState : (_prefCity || ''); %>
-          <section data-step-panel="1" class="wizard-step-panel">
-            <div id="findLocationSimple" class="p-5 sm:p-8 md:p-10 bg-brand-cream/15 dark:bg-slate-950/20">
-              <div class="max-w-2xl mx-auto space-y-6">
+          <section data-step-panel="1" class="wizard-step-panel find-leads-step-panel flex flex-col flex-1 min-h-0">
+            <div id="findLocationSimple" class="find-leads-step1-panel p-5 sm:p-8 md:p-10 bg-brand-cream/15 dark:bg-slate-950/20 flex flex-col justify-center flex-1 min-h-0">
+              <div class="find-leads-step1-inner max-w-3xl lg:max-w-4xl mx-auto w-full space-y-6">
                 <div class="text-center space-y-2">
                   <div class="flex items-center justify-center gap-2">
                     <h2 class="font-display font-bold text-xl md:text-2xl text-brand-dark dark:text-white">Where should we search?</h2>
@@ -191,7 +191,7 @@
                 </div>
 
                 <div id="findSimpleLocationWrap" class="space-y-4 <%= _findType === 'permits' ? 'hidden' : '' %>">
-                  <div class="flex items-stretch rounded-full border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 shadow-lg shadow-brand-dark/5 overflow-hidden focus-within:border-brand-yellow focus-within:ring-4 focus-within:ring-brand-yellow/20 transition-all">
+                  <div class="find-location-search-row flex items-stretch rounded-full border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 shadow-lg shadow-brand-dark/5 overflow-hidden focus-within:border-brand-yellow focus-within:ring-4 focus-within:ring-brand-yellow/20 transition-all">
                     <label for="findLocationQuery" class="sr-only">Search city, state, or address</label>
                     <span class="hidden sm:flex items-center pl-5 text-brand-muted shrink-0" aria-hidden="true">
                       <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" /></svg>
@@ -481,7 +481,7 @@
       </div>
     </div>
 
-    <div id="loadingIndicator" class="hidden max-w-lg mx-auto mt-8">
+    <div id="loadingIndicator" class="hidden w-full max-w-lg mx-auto mt-8 shrink-0">
       <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-10 text-center">
         <div class="w-14 h-14 mx-auto mb-4 rounded-full bg-brand-yellow/20 flex items-center justify-center">
           <div class="animate-spin h-7 w-7 rounded-full border-4 border-brand-yellow/30 border-t-brand-yellow"></div>
@@ -492,7 +492,7 @@
     </div>
 
     <% if ((typeof totalPipelineCount !== 'undefined' ? totalPipelineCount : 0) === 0) { %>
-    <section class="max-w-5xl mx-auto mt-10 md:mt-14" aria-label="What each lead includes">
+    <section class="find-leads-features w-full mt-6 md:mt-8 shrink-0" aria-label="What each lead includes">
       <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-3 text-center">Each lead can include</p>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white/60 dark:bg-slate-900/60 px-4 py-4 text-center">
