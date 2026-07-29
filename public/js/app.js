@@ -2114,10 +2114,26 @@ document.addEventListener('DOMContentLoaded', () => {
         var kwEl = document.getElementById('searchKeywordField');
         var cityEl = document.getElementById('findManualCity');
         var stateEl = document.getElementById('findManualState');
+        var folderEl = document.getElementById('searchFolderKey');
+        var folderKey =
+          folderEl && folderEl.value && folderEl.value !== '__new__'
+            ? String(folderEl.value).trim()
+            : typeof window.ACTIVE_FOLDER_KEY === 'string'
+              ? window.ACTIVE_FOLDER_KEY.trim()
+              : '';
+        var folderName = '';
+        if (folderKey && Array.isArray(window.WORKSPACE_FOLDERS)) {
+          var match = window.WORKSPACE_FOLDERS.find(function (f) {
+            return f && f.key === folderKey;
+          });
+          folderName = match && match.name ? String(match.name) : '';
+        }
         window.showLeadRunProgressBanner({
           keyword: kwEl && kwEl.value ? kwEl.value.trim() : '',
           city: cityEl && cityEl.value ? cityEl.value.trim() : '',
           state: stateEl && stateEl.value ? stateEl.value.trim() : '',
+          targetFolderKey: folderKey,
+          targetFolderName: folderName,
         });
       }
       if (!isSchedule) {

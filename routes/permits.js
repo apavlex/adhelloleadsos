@@ -82,6 +82,7 @@ router.post('/search', async (req, res, next) => {
     async function startBackgroundPermitRun() {
       await dbService.setActiveJob({
         type: 'permits_search',
+        jobType: JOB_TYPES.PERMITS,
         city: resolvedCity,
         state: resolvedState,
         category: resolvedCategory,
@@ -90,6 +91,8 @@ router.post('/search', async (req, res, next) => {
         zip: resolvedZip,
         filed_after: resolvedFiledAfter,
         maxResults: maxRes,
+        targetFolderKey: folderResolved.targetFolderKey,
+        targetFolderName: folderResolved.targetFolderName,
       });
 
       setImmediate(async () => {

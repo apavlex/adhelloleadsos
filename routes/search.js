@@ -10,7 +10,11 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
-const { resolveTargetFolder, findFolderForJobType } = require('../services/pipelineFolders');
+const {
+  resolveTargetFolder,
+  findFolderForJobType,
+  leadMetadataForJobType,
+} = require('../services/pipelineFolders');
 const { parseAutoTags, resolveAutoTagKeys } = require('../services/folderSearchPreset');
 
 // POST /search — Google Maps list (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto)
@@ -39,13 +43,36 @@ router.post('/', async (req, res, next) => {
       String(directorySupplement || '').toLowerCase() === 'on' ||
       (directorySupplement == null && directoryLeadSearch.directorySupplementEnabled(integrationEnv));
 
+    const folderResolved = await resolveTargetFolder(wid, {
+      folderKey: req.body.folderKey,
+      newFolderName: req.body.newFolderName,
+      jobType: JOB_TYPES.MAPS_BUSINESS,
+    });
+    if (folderResolved.error) {
+      return res.status(400).render('error', {
+        message: folderResolved.error,
+        activePage: 'search',
+      });
+    }
+    const targetFolderKey = folderResolved.targetFolderKey;
+    const targetFolderName = folderResolved.targetFolderName;
+
+    const userPickedFolder = !!(
+      req.body.folderKey &&
+      String(req.body.folderKey).trim() &&
+      String(req.body.folderKey).trim() !== '__new__'
+    );
+
     async function startBackgroundSearchRun() {
       await dbService.setActiveJob({
         type: 'search',
+        jobType: JOB_TYPES.MAPS_BUSINESS,
         keyword,
         city,
         state,
         maxResults: parseInt(maxResults, 10) || 20,
+        targetFolderKey,
+        targetFolderName,
       });
       setImmediate(async () => {
         try {
@@ -119,8 +146,34 @@ router.post('/', async (req, res, next) => {
           };
           const searchKey = await dbService.saveSearch(searchRecord);
           console.log(`[SEARCH-BG] Saved results to DB with key: ${searchKey}`);
+
+          let savedCount = 0;
+          if (userPickedFolder && targetFolderKey && results.length) {
+            const tagKeys = parseAutoTags(autoTags).length
+              ? await resolveAutoTagKeys(activationWorkspaceId, parseAutoTags(autoTags))
+              : [];
+            for (const row of results) {
+              const meta = leadMetadataForJobType(JOB_TYPES.MAPS_BUSINESS, {
+                folderKey: targetFolderKey,
+              });
+              const payload = {
+                ...row,
+                ...meta,
+                workspaceId: activationWorkspaceId,
+                savedAt: new Date().toISOString(),
+              };
+              if (tagKeys.length) payload.tags = tagKeys;
+              // eslint-disable-next-line no-await-in-loop
+              const saved = await dbService.saveLeadWithMeta(payload);
+              if (!saved.merged) savedCount += 1;
+            }
+            console.log(
+              `[SEARCH-BG] Auto-saved ${savedCount} lead(s) into folder ${targetFolderKey}`
+            );
+          }
+
           if (activationUserEmail) await activationService.recordEvent(activationUserEmail, 'search_saved');
-          await dbService.clearActiveJob({ resultCount: results.length, searchKey });
+          await dbService.clearActiveJob({ resultCount: results.length, searchKey, savedCount });
         } catch (err) {
           console.error('[SEARCH-BG] Background search failed:', err);
           const msg = err && err.message ? String(err.message) : 'Search failed';
@@ -128,20 +181,6 @@ router.post('/', async (req, res, next) => {
         }
       });
     }
-
-    const folderResolved = await resolveTargetFolder(wid, {
-      folderKey: req.body.folderKey,
-      newFolderName: req.body.newFolderName,
-      jobType: JOB_TYPES.MAPS_BUSINESS,
-    });
-    if (folderResolved.error) {
-      return res.status(400).render('error', {
-        message: folderResolved.error,
-        activePage: 'search',
-      });
-    }
-    const targetFolderKey = folderResolved.targetFolderKey;
-    const targetFolderName = folderResolved.targetFolderName;
 
     if (mode !== 'schedule' && !mapsSearch.isMapsSearchConfigured(integrationEnv)) {
       return res.status(503).render('error', {

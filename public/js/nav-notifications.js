@@ -131,8 +131,10 @@
   }
 
   const LEAD_RUN_SESSION_KEY = 'agencyOsLeadRunProgress';
+  const LEAD_RUN_FOLDER_RELOAD_KEY = 'agencyOsLeadRunFolderReloadAt';
   let leadRunDisplayPct = 0;
   let leadRunTickerId = null;
+  let leadRunWasProcessing = false;
 
   function readLeadRunSession() {
     try {
@@ -154,6 +156,8 @@
           keyword: job.keyword || '',
           city: job.city || '',
           state: job.state || '',
+          targetFolderKey: job.targetFolderKey || '',
+          targetFolderName: job.targetFolderName || '',
           startedAt: job.startedAt,
         })
       );
@@ -173,6 +177,8 @@
         keyword: opts.keyword || '',
         city: opts.city || '',
         state: opts.state || '',
+        targetFolderKey: opts.targetFolderKey || '',
+        targetFolderName: opts.targetFolderName || '',
         startedAt: new Date().toISOString(),
       };
       writeLeadRunSession(freshJob);
@@ -183,12 +189,14 @@
     var serverJob = data && data.activeJob ? data.activeJob : null;
     var job = serverJob || session || null;
 
-    if (opts && (opts.keyword || opts.city || opts.state)) {
+    if (opts && (opts.keyword || opts.city || opts.state || opts.targetFolderKey)) {
       if (!job) {
         job = {
           keyword: opts.keyword || '',
           city: opts.city || '',
           state: opts.state || '',
+          targetFolderKey: opts.targetFolderKey || '',
+          targetFolderName: opts.targetFolderName || '',
           startedAt: new Date().toISOString(),
         };
       } else {
@@ -196,6 +204,8 @@
           keyword: opts.keyword || job.keyword || '',
           city: opts.city || job.city || '',
           state: opts.state || job.state || '',
+          targetFolderKey: opts.targetFolderKey || job.targetFolderKey || '',
+          targetFolderName: opts.targetFolderName || job.targetFolderName || '',
           startedAt: job.startedAt || (serverJob && serverJob.startedAt) || new Date().toISOString(),
         };
       }
@@ -342,8 +352,78 @@
       keyword: opts && opts.keyword,
       city: opts && opts.city,
       state: opts && opts.state,
+      targetFolderKey: opts && opts.targetFolderKey,
+      targetFolderName: opts && opts.targetFolderName,
     });
   };
+
+  function isPipelineFolderLeadsPage() {
+    var path = String(window.location.pathname || '').replace(/\/$/, '');
+    if (path === '/leads') return true;
+    if (path !== '/prospecting') return false;
+    var params = new URLSearchParams(window.location.search);
+    var tab = String(params.get('tab') || 'pipeline').toLowerCase();
+    return tab === 'pipeline' || tab === 'folders';
+  }
+
+  function getViewingFolderKey() {
+    var params = new URLSearchParams(window.location.search);
+    var fromUrl = params.get('folderKey');
+    if (fromUrl && String(fromUrl).trim()) return String(fromUrl).trim();
+    if (typeof window.PROSPECTING_ACTIVE_FOLDER_KEY === 'string' && window.PROSPECTING_ACTIVE_FOLDER_KEY.trim()) {
+      return window.PROSPECTING_ACTIVE_FOLDER_KEY.trim();
+    }
+    return '';
+  }
+
+  function resolveCompletedSearchTargetFolder(data) {
+    var n = data && data.notification ? data.notification : null;
+    var fromNotif = n && n.targetFolderKey ? String(n.targetFolderKey).trim() : '';
+    if (fromNotif) return fromNotif;
+    var active = data && data.activeJob && data.activeJob.targetFolderKey
+      ? String(data.activeJob.targetFolderKey).trim()
+      : '';
+    if (active) return active;
+    var session = readLeadRunSession();
+    return session && session.targetFolderKey ? String(session.targetFolderKey).trim() : '';
+  }
+
+  function maybeRefreshPipelineFolderForCompletedSearch(data) {
+    if (!data || data.isProcessing) return;
+    if (clientNavbarWorkActive()) return;
+
+    var n = data.notification;
+    if (!n || n.isRead || n.status === 'failed') return;
+    if (typeof n.resultCount === 'number' && n.resultCount <= 0) return;
+    if (!n.finishedAt) return;
+
+    try {
+      if (sessionStorage.getItem(LEAD_RUN_FOLDER_RELOAD_KEY) === String(n.finishedAt)) return;
+    } catch (_) {}
+
+    if (!isPipelineFolderLeadsPage()) return;
+
+    var targetFolder = resolveCompletedSearchTargetFolder(data);
+    if (!targetFolder) return;
+
+    var viewingFolder = getViewingFolderKey();
+    if (!viewingFolder || viewingFolder !== targetFolder) return;
+
+    try {
+      sessionStorage.setItem(LEAD_RUN_FOLDER_RELOAD_KEY, String(n.finishedAt));
+    } catch (_) {}
+
+    if (typeof window.showAppToast === 'function') {
+      window.showAppToast('Lead search complete — refreshing your folder.', {
+        variant: 'success',
+        duration: 2600,
+      });
+    }
+
+    setTimeout(function () {
+      window.location.reload();
+    }, 450);
+  }
 
   window.hideLeadRunProgressBanner = function hideLeadRunProgressBanner() {
     updateLeadRunProgressBanner({ isProcessing: false });
@@ -1116,6 +1196,8 @@
       try {
         const res = await fetch('/api/status');
         const data = await res.json();
+        var wasProcessing =
+          leadRunWasProcessing || localStorage.getItem('is_searching') === 'true';
 
         if (data.isProcessing) {
           processingIndicator.classList.add('processing-active');
@@ -1134,6 +1216,11 @@
               updateLeadRunProgressBanner(data);
             }
           }
+        }
+
+        leadRunWasProcessing = !!data.isProcessing;
+        if (wasProcessing && !data.isProcessing) {
+          maybeRefreshPipelineFolderForCompletedSearch(data);
         }
 
         if (data.notification && !data.notification.isRead) {
@@ -1181,7 +1268,12 @@
                 : 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
                   kw +
                   '"</span> is complete. Link to results is ready.';
-            const notifHref = treatAsFailed ? '/workspace/integrations' : '/history';
+            const notifHref = treatAsFailed
+              ? '/workspace/integrations'
+              : n.targetFolderKey && String(n.targetFolderKey).trim()
+                ? '/prospecting?tab=pipeline&folderKey=' +
+                  encodeURIComponent(String(n.targetFolderKey).trim())
+                : '/history';
             notificationList.innerHTML =
               '<div class="p-4 hover:bg-brand-cream/30 dark:hover:bg-white/5 transition-colors cursor-pointer group/notif" onclick="window.location.href=\'' +
               notifHref +
