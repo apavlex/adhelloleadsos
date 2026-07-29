@@ -7704,7 +7704,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const out = {};
     if (!row || typeof row.querySelector !== 'function') return out;
 
-    const addrEl = row.querySelector('.lead-row-address');
+    const addrEl =
+      row.querySelector('.lead-row-address--detail') || row.querySelector('.lead-row-address');
     if (addrEl) {
       const fromTitle = String(addrEl.getAttribute('title') || '').trim();
       const t = String(addrEl.textContent || '')
@@ -7926,13 +7927,61 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function readPipelineRowDisplayAddress(row) {
     if (!row || !row.dataset) return '';
+    const fromParts = formatPipelineFullAddressLine(row.dataset);
+    if (fromParts) return fromParts;
     let a = String(row.dataset.address || '').trim();
     if ((!a || a === 'N/A') && typeof row.querySelector === 'function') {
-      const el = row.querySelector('.lead-row-address');
+      const el =
+        row.querySelector('.lead-row-address--detail') || row.querySelector('.lead-row-address');
+      const fromTitle = el ? String(el.getAttribute('title') || '').trim() : '';
       const t = el ? String(el.textContent || '').replace(/\s+/g, ' ').trim() : '';
-      if (t && t !== '—' && t !== '-') a = t;
+      const pick = fromTitle && fromTitle !== '—' ? fromTitle : t;
+      if (pick && pick !== '—' && pick !== '-') a = pick;
     }
     return a && a !== 'N/A' ? a : '';
+  }
+
+  function formatPipelineFullAddressLine(src) {
+    if (!src) return '';
+    const streetRaw = src.address != null ? src.address : src.street;
+    let street = String(streetRaw || '').trim();
+    if (!street || street === 'N/A') street = '';
+    const city = String(src.city || '').trim();
+    const state = String(src.state || '').trim();
+    const zip = String(src.zip || src.postalCode || '').trim();
+    const parts = [];
+    if (street) parts.push(street);
+    const locParts = [];
+    if (city) locParts.push(city);
+    if (state) locParts.push(state);
+    let loc = locParts.join(', ');
+    if (zip) loc = loc ? `${loc} ${zip}` : zip;
+    if (loc) parts.push(loc);
+    return parts.join(', ');
+  }
+
+  function syncPipelineRowAddressDisplay(row) {
+    if (!row || typeof row.querySelector !== 'function') return;
+    const wrap = row.querySelector('.lead-row-address-wrap');
+    if (!wrap) return;
+    const compactEl = wrap.querySelector('.lead-row-address--compact');
+    const detailEl = wrap.querySelector('.lead-row-address--detail');
+    const streetRaw = row.dataset.address;
+    let street = streetRaw != null ? String(streetRaw).trim() : '';
+    if (!street || street === 'N/A') street = '';
+    const full = formatPipelineFullAddressLine(row.dataset);
+    const title = full || street || '';
+    const dash = '—';
+    if (compactEl) {
+      compactEl.textContent = street || dash;
+      if (title) compactEl.setAttribute('title', title);
+      else compactEl.removeAttribute('title');
+    }
+    if (detailEl) {
+      detailEl.textContent = full || dash;
+      if (title) detailEl.setAttribute('title', title);
+      else detailEl.removeAttribute('title');
+    }
   }
 
   function readPipelineRowDisplayWebsite(row) {
@@ -15950,7 +15999,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!reviewsInner) return null;
       return {
         kind: 'leads',
-        addressEl: row.querySelector('.lead-row-address'),
+        addressEl: row.querySelector('.lead-row-address-wrap'),
         phone: row.querySelector('.lead-contact-phone-slot'),
         email: row.querySelector('.lead-contact-email-slot'),
         website: row.querySelector('.lead-contact-web-slot'),
@@ -16033,6 +16082,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (d.updates) row.dataset.updates = JSON.stringify(d.updates);
     if (d.address !== undefined && d.address !== null && String(d.address).trim()) {
       row.dataset.address = d.address || 'N/A';
+    }
+    if (d.city !== undefined && d.city !== null && String(d.city).trim()) {
+      row.dataset.city = String(d.city).trim();
+    }
+    if (d.state !== undefined && d.state !== null && String(d.state).trim()) {
+      row.dataset.state = String(d.state).trim();
+    }
+    const zipVal = d.zip ?? d.postalCode ?? d.postal_code;
+    if (zipVal !== undefined && zipVal !== null && String(zipVal).trim()) {
+      row.dataset.zip = String(zipVal).trim();
     }
   }
 
@@ -16216,7 +16275,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applyEnrichDataToRowDataset(row, d, result);
       if (layout.kind === 'leads') {
         if (layout.addressEl) {
-          layout.addressEl.innerHTML = renderLeadsTableAddressCell(row.dataset.address);
+          syncPipelineRowAddressDisplay(row);
         }
         if (layout.phone) setLeadPhoneSlot(layout.phone, row.dataset.phone);
         if (layout.email) layout.email.innerHTML = renderLeadEmailSlotInner(row.dataset.email);

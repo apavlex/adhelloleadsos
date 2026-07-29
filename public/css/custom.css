@@ -1852,6 +1852,26 @@ html[data-prospect-density="comfortable"] #prospectLeadsTable .lead-company-inli
   white-space: normal;
 }
 
+.prospect-leads-table--compact .lead-row-address--detail {
+  display: none;
+}
+
+.prospect-leads-table--comfortable .lead-row-address--compact {
+  display: none;
+}
+
+html[data-prospect-density="comfortable"] #prospectLeadsTable .lead-row-address--compact {
+  display: none;
+}
+
+.prospect-leads-table--comfortable .lead-row-address--detail,
+html[data-prospect-density="comfortable"] #prospectLeadsTable .lead-row-address--detail {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
 .prospect-leads-table--comfortable .lead-col-contact-split {
   display: none;
 }

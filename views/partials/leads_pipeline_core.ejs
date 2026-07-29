@@ -85,6 +85,22 @@
     function plcPermitStatusDate(lead) {
       return String(lead.permitDateIssued || lead.permitDateFiled || '').trim();
     }
+    function plcFormatFullAddressLine(lead) {
+      var street = String(lead.address || '').trim();
+      if (!street || street === 'N/A') street = '';
+      var city = String(lead.city || '').trim();
+      var state = String(lead.state || '').trim();
+      var zip = String(lead.zip || lead.postalCode || '').trim();
+      var parts = [];
+      if (street) parts.push(street);
+      var locParts = [];
+      if (city) locParts.push(city);
+      if (state) locParts.push(state);
+      var loc = locParts.join(', ');
+      if (zip) loc = loc ? loc + ' ' + zip : zip;
+      if (loc) parts.push(loc);
+      return parts.join(', ');
+    }
   %>
   <style>
     .plc-th-wrap {
@@ -145,7 +161,7 @@
       </div>
       <div class="inline-flex rounded-full border border-brand-border/40 dark:border-white/10 p-0.5 bg-brand-cream/30 dark:bg-slate-800/80" role="group" aria-label="Table row density">
         <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="compact">Compact</button>
-        <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="comfortable">Comfortable</button>
+        <button type="button" class="lead-density-btn px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest transition-colors text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white" data-density="comfortable">Detail</button>
       </div>
       <div class="relative shrink-0 js-pipeline-columns-wrap">
         <button type="button" id="pipelineColumnsBtn" class="inline-flex items-center gap-2 rounded-full border border-brand-border/40 dark:border-white/10 px-3 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400 hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/40 transition-colors" aria-expanded="false" aria-haspopup="true" aria-controls="pipelineColumnsPopover">Columns</button>
@@ -382,6 +398,10 @@
               var _listCity = String(lead.city || '').trim();
               var _listState = String(lead.state || '').trim();
               var _listZip = String(lead.zip || lead.postalCode || '').trim();
+              var _listStreet = String(lead.address || '').trim();
+              if (!_listStreet || _listStreet === 'N/A') _listStreet = '';
+              var _listFullAddress = plcFormatFullAddressLine(lead);
+              var _listAddrTitle = _listFullAddress || _listStreet || '';
               var _listSourceRaw = typeof resolveLeadSourceChannel === 'function'
                 ? resolveLeadSourceChannel(lead)
                 : String(lead.sourceChannel || '').trim();
@@ -545,7 +565,10 @@
                       <span class="<%= _touchPillClass %>" data-touch-variant="<%= _touchPillVariant %>" title="<%= _touchPillVariant === 'quick_log' ? ('Last touch: ' + _touchPillText) : _touchPillText %>"><%= String(_touchPillText).toUpperCase() %></span>
                     </div>
                     <div class="mt-1">
-                      <span class="lead-row-address text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= lead.address && lead.address !== 'N/A' ? lead.address : '' %>"><%= lead.address && lead.address !== 'N/A' ? lead.address : '—' %></span>
+                      <div class="lead-row-address-wrap">
+                        <span class="lead-row-address lead-row-address--compact text-[10px] text-brand-muted dark:text-slate-400 leading-snug block break-words" title="<%= plcEscAttr(_listAddrTitle) %>"><%= _listStreet || '—' %></span>
+                        <span class="lead-row-address lead-row-address--detail text-[10px] text-brand-muted dark:text-slate-400 leading-snug block" title="<%= plcEscAttr(_listAddrTitle) %>"><%= _listFullAddress || '—' %></span>
+                      </div>
                       <div class="lead-row-tags flex flex-wrap gap-1 mt-1<%= (Array.isArray(lead.tags) && lead.tags.length) ? '' : ' hidden' %>" aria-label="Lead tags"><%
                         var _rowTagKeys = Array.isArray(lead.tags) ? lead.tags : [];
                         _rowTagKeys.slice(0, 4).forEach(function (tk) {

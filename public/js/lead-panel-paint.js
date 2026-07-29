@@ -215,7 +215,8 @@
     const lead = base && typeof base === 'object' ? { ...base } : {};
     if (!row || typeof row.querySelector !== 'function') return lead;
 
-    const addrEl = row.querySelector('.lead-row-address');
+    const addrEl =
+      row.querySelector('.lead-row-address--detail') || row.querySelector('.lead-row-address');
     if (addrEl) {
       const fromTitle = String(addrEl.getAttribute('title') || '').trim();
       const t = String(addrEl.textContent || '')
