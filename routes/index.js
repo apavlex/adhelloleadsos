@@ -14,6 +14,7 @@ const {
   findTabForJobType,
 } = require('../services/searchTypeConfig');
 const { PERMIT_STACK_CATEGORIES } = require('../services/permitStackCategories');
+const { permitCitiesByState } = require('../services/permitStackCities');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -115,6 +116,7 @@ async function renderFindLeads(req, res, next) {
       searchTypes: SEARCH_TYPES,
       defaultListingSources: DEFAULT_SOURCES,
       permitStackCategories: PERMIT_STACK_CATEGORIES,
+      permitStackCitiesByState: permitCitiesByState(),
     });
   } catch (e) {
     return next(e);

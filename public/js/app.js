@@ -2105,6 +2105,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function hasFindLocation() {
       if (!findTypeRequiresLocation()) return true;
+      const form = document.getElementById('searchForm');
+      const type = form && form.getAttribute('data-find-type');
+      if (type === 'permits') {
+        const sel = document.getElementById('findPermitCity');
+        return Boolean(sel && String(sel.value || '').trim());
+      }
       const city = document.getElementById('findManualCity');
       const state = document.getElementById('findManualState');
       return Boolean(
@@ -2113,14 +2119,22 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showFindLocationRequired() {
+      const form = document.getElementById('searchForm');
+      const type = form && form.getAttribute('data-find-type');
       const summary = document.getElementById('findLocationSummaryText');
       if (summary) {
-        summary.textContent = 'Enter city and state (or use Use map center).';
+        summary.textContent =
+          type === 'permits'
+            ? 'Select a supported Permit Stack city from the dropdown.'
+            : 'Enter city and state (or use Use map center).';
         summary.classList.remove('text-brand-muted');
         summary.classList.add('text-brand-dark', 'dark:text-white');
       }
-      const city = document.getElementById('findManualCity');
-      if (city) city.focus();
+      const focusEl =
+        type === 'permits'
+          ? document.getElementById('findPermitCity')
+          : document.getElementById('findManualCity');
+      if (focusEl) focusEl.focus();
     }
 
     const setStep = (stepNo) => {

@@ -4,6 +4,7 @@ const dbService = require('../services/database');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const permitStackClient = require('../services/permitStackClient');
 const { normalizePermitCategory } = require('../services/permitStackCategories');
+const { normalizePermitStackCity } = require('../services/permitStackCities');
 const { permitsToLeads } = require('../services/permitLeadEnrich');
 const { resolveTargetFolder, leadMetadataForJobType } = require('../services/pipelineFolders');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
@@ -20,6 +21,7 @@ router.post('/search', async (req, res, next) => {
       category,
       keyword,
       permitKeyword,
+      permitCity,
       contractor,
       maxResults,
       zip,
@@ -35,8 +37,19 @@ router.post('/search', async (req, res, next) => {
       });
     }
 
-    const resolvedCity = String(city || '').trim();
-    const resolvedState = String(state || '').trim();
+    let resolvedCity = String(city || permitCity || '').trim();
+    let resolvedState = String(state || '').trim();
+    const knownCity = normalizePermitStackCity(resolvedCity || permitCity);
+    if (knownCity) {
+      resolvedCity = knownCity.city;
+      if (knownCity.state) resolvedState = knownCity.state;
+    } else if (resolvedCity) {
+      return res.status(400).render('error', {
+        message:
+          `"${resolvedCity}" is not a supported Permit Stack city. Go to Find Leads → Permits and choose a city from the dropdown (804 supported jurisdictions).`,
+        activePage: 'find',
+      });
+    }
     const resolvedZip = String(zip || '').trim();
     const resolvedCategory = normalizePermitCategory(category);
     const resolvedKeyword = String(permitKeyword || keyword || '').trim();

@@ -112,7 +112,7 @@
           <!-- STEP 1: Area -->
           <section data-step-panel="1" class="wizard-step-panel">
             <div class="grid grid-cols-1 lg:grid-cols-5 lg:min-h-[min(72vh,720px)]">
-              <div class="lg:col-span-3 relative min-h-[min(58vh,640px)] lg:min-h-0 lg:h-full border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10 overflow-hidden">
+              <div class="lg:col-span-3 relative min-h-[min(58vh,640px)] lg:min-h-0 lg:h-full border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10 overflow-hidden" id="findAreaMapCol">
                 <%- include('partials/find_area_map') %>
               </div>
               <aside class="lg:col-span-2 p-5 sm:p-6 flex flex-col gap-5 bg-brand-cream/20 dark:bg-slate-950/30 lg:overflow-y-auto">
@@ -126,7 +126,32 @@
                     content: 'Use the map, or type city and state directly. Both stay in sync. Map requires <code class="text-[10px] px-1 rounded bg-white dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server. Manual entry always works for Find Leads search.'
                   }) %>
                 </div>
-                <div class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3">
+                <div id="findPermitCityWrap" class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3 <%= _findType !== 'permits' ? 'hidden' : '' %>">
+                  <div>
+                    <label for="findPermitCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Permit Stack city</label>
+                    <select id="findPermitCity" name="permitCity"
+                      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30">
+                      <option value="">Select a supported city…</option>
+                      <% const _permCityGroups = typeof permitStackCitiesByState !== 'undefined' ? permitStackCitiesByState : [];
+                         const _prefCity = String(_sp.city || '').trim();
+                         const _prefState = String(_sp.state || '').trim().toUpperCase(); %>
+                      <% _permCityGroups.forEach(function (group) {
+                           const st = group[0];
+                           const rows = group[1] || [];
+                      %>
+                        <optgroup label="<%= st === '—' ? 'Other' : st %>">
+                          <% rows.forEach(function (row) {
+                               const selected = _prefCity && (row.city === _prefCity || row.label === _prefCity) && (!_prefState || !row.state || row.state === _prefState);
+                          %>
+                            <option value="<%= row.city %>" data-state="<%= row.state || '' %>"<%= selected ? ' selected' : '' %>><%= row.label %><%= row.state ? ' (' + row.state + ')' : '' %></option>
+                          <% }); %>
+                        </optgroup>
+                      <% }); %>
+                    </select>
+                  </div>
+                  <p class="text-xs text-brand-muted leading-relaxed">Permit Stack only includes supported jurisdictions — pick from this list (same cities as <a href="https://permit-stack.com/search.html" class="underline" target="_blank" rel="noopener noreferrer">permit-stack.com/search</a>).</p>
+                </div>
+                <div id="findManualCityWrap" class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3 <%= _findType === 'permits' ? 'hidden' : '' %>">
                   <div>
                     <label for="findManualCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
                     <input type="text" id="findManualCity" name="city" placeholder="e.g. Vancouver" value="<%= _sp.city || '' %>"
@@ -602,19 +627,42 @@
 
     function syncFindLocationMode(type) {
       var needsLoc = findTypeRequiresLocation(type);
+      var isPermits = (type || currentType) === 'permits';
       var stepBar = document.getElementById('findWizardStepBar');
       var backBtn = document.getElementById('findStepBackArea');
       var cityEl = document.getElementById('findManualCity');
       var stateEl = document.getElementById('findManualState');
+      var permitWrap = document.getElementById('findPermitCityWrap');
+      var manualWrap = document.getElementById('findManualCityWrap');
+      var mapCol = document.getElementById('findAreaMapCol');
+      var permitCityEl = document.getElementById('findPermitCity');
+      var step1Title = document.querySelector('#findWizardStepBar + form section[data-step-panel="1"] h2, section[data-step-panel="1"] h2');
       if (stepBar) stepBar.classList.toggle('hidden', !needsLoc);
       if (backBtn) backBtn.classList.toggle('hidden', !needsLoc);
-      if (cityEl) cityEl.required = needsLoc;
-      if (stateEl) stateEl.required = needsLoc;
+      if (permitWrap) permitWrap.classList.toggle('hidden', !isPermits);
+      if (manualWrap) manualWrap.classList.toggle('hidden', isPermits);
+      if (mapCol) mapCol.classList.toggle('hidden', isPermits);
+      if (cityEl) cityEl.required = needsLoc && !isPermits;
+      if (stateEl) stateEl.required = needsLoc && !isPermits;
+      if (permitCityEl) permitCityEl.required = needsLoc && isPermits;
       if (!needsLoc && cityEl) cityEl.value = '';
       if (!needsLoc && stateEl) stateEl.value = '';
+      if (isPermits) syncPermitCityToManual();
       document.dispatchEvent(new CustomEvent('find:locationModeChanged', {
         detail: { requiresLocation: needsLoc, findType: type || currentType },
       }));
+    }
+
+    function syncPermitCityToManual() {
+      var sel = document.getElementById('findPermitCity');
+      var cityEl = document.getElementById('findManualCity');
+      var stateEl = document.getElementById('findManualState');
+      if (!sel || !cityEl || !stateEl) return;
+      var opt = sel.options[sel.selectedIndex];
+      var city = String(sel.value || '').trim();
+      var state = opt && opt.getAttribute ? String(opt.getAttribute('data-state') || '').trim() : '';
+      cityEl.value = city;
+      stateEl.value = state;
     }
 
     function setFindType(type) {
@@ -715,6 +763,16 @@
       }
       var c = city && city.value.trim() ? city.value.trim() : '';
       var s = state && state.value.trim() ? state.value.trim().toUpperCase() : '';
+      if (currentType === 'permits') {
+        var pSel = document.getElementById('findPermitCity');
+        if (pSel && pSel.value) {
+          c = pSel.value;
+          var pOpt = pSel.options[pSel.selectedIndex];
+          if (pOpt && pOpt.getAttribute('data-state')) {
+            s = String(pOpt.getAttribute('data-state')).trim().toUpperCase();
+          }
+        }
+      }
       var nationwide = !findTypeRequiresLocation(currentType);
       var locLabel = nationwide ? 'Nationwide' : (c || s ? (c + (c && s ? ', ' : '') + s) : '—');
       if (line) {
@@ -727,11 +785,13 @@
       if (loc) loc.textContent = locLabel;
       var permitLoc = document.getElementById('findPermitPreviewLoc');
       if (permitLoc) permitLoc.textContent = locLabel;
-      if (hint) hint.textContent = nationwide ? 'No area needed' : (locLabel !== '—' ? locLabel : 'Map or city');
+      if (hint) hint.textContent = nationwide ? 'No area needed' : (currentType === 'permits' ? 'Supported city' : (locLabel !== '—' ? locLabel : 'Map or city'));
       if (summary) {
         summary.textContent = nationwide
           ? 'No location required — set search terms on the next step.'
-          : (locLabel !== '—' ? 'Searching in ' + locLabel : 'Set a city and state to continue.');
+          : currentType === 'permits'
+            ? (locLabel !== '—' ? 'Searching permits in ' + locLabel : 'Select a supported Permit Stack city to continue.')
+            : (locLabel !== '—' ? 'Searching in ' + locLabel : 'Set a city and state to continue.');
         summary.classList.toggle('text-brand-dark', nationwide || locLabel !== '—');
         summary.classList.toggle('dark:text-white', nationwide || locLabel !== '—');
         summary.classList.toggle('text-brand-muted', !nationwide && locLabel === '—');
@@ -779,11 +839,19 @@
       });
     });
 
-    ['searchKeywordField', 'findReQuery', 'findPermitCategory', 'findPermitZip', 'findPermitKeyword', 'findPermitContractor', 'findPermitFiledAfter', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
+    ['searchKeywordField', 'findReQuery', 'findPermitCategory', 'findPermitCity', 'findPermitZip', 'findPermitKeyword', 'findPermitContractor', 'findPermitFiledAfter', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', syncFindPreview);
       if (el && el.tagName === 'SELECT') el.addEventListener('change', syncFindPreview);
     });
+    var permitCitySel = document.getElementById('findPermitCity');
+    if (permitCitySel) {
+      permitCitySel.addEventListener('change', function () {
+        syncPermitCityToManual();
+        syncFindPreview();
+        document.dispatchEvent(new CustomEvent('find:locationUpdated'));
+      });
+    }
     document.querySelectorAll('[data-find-panel] input[name="query"]').forEach(function (el) {
       el.addEventListener('input', syncFindPreview);
     });
@@ -809,6 +877,7 @@
 
     if (form) {
       form.addEventListener('submit', function () {
+        if (currentType === 'permits') syncPermitCityToManual();
         document.querySelectorAll('[data-find-panel].hidden').forEach(function (panel) {
           setPanelInputsEnabled(panel, false);
         });
