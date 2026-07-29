@@ -209,16 +209,18 @@ function buildDesignCoachSystemPrompt({
   const lobBackRules =
     isPostcard && slot === 'back'
       ? `For Lob 4×6 postcard BACK (landscape 3:2, 1875×1275px):
-- Lob automatically prints recipient address + postage in the bottom-right ink-free zone (~53% width × 56% height). NEVER put marketing copy, return address, postage indicia, barcodes, or recipient address in that area — leave it as plain background only.
-- Keep all marketing text, logo, and contact info in the LEFT 45% of the card only.
+- Full-bleed photo background edge to edge — the entire card is one continuous image, not a small inset.
+- Lob prints recipient address + postage in the bottom-right ink-free zone (~53% width × 56% height). Do NOT put text, logos, or contact info in that zone — photo background is fine there.
+- Keep all marketing copy and contact details on the LEFT half, at least 0.3″ from every edge (trim cuts content near edges).
 - Do NOT draw USPS postage, PRSRT, barcodes, or "Current Resident" — Lob adds these at print time.
 - Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
       : '';
   const lobFrontRules =
     isPostcard && slot === 'front'
       ? `For Lob 4×6 postcard FRONT (landscape 3:2):
-- Keep ALL text and contact info at least 0.3″ from the bottom edge (Lob trims bleed — bottom lines get cut off otherwise).
-- Leave bottom-right ~0.75″ square empty for Lob QR code (white placeholder box is OK).
+- Full-bleed photo background edge to edge — no white placeholder boxes.
+- Keep ALL text and contact info at least 0.3″ from every edge (especially bottom — Lob trims bleed).
+- Do not place text in the bottom-right ~1″ where Lob prints the QR code; photo/background may continue there.
 - Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
       : '';
   return `You are an ad creative design coach for a local marketing agency. The user is designing a ${plat} creative (${ratio} aspect ratio${isPostcard ? `, ${slot} side` : ''}).
@@ -246,7 +248,7 @@ Rules:
 - If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post"), set imagePrompt from the conversation and business info — do not leave it null.
 - When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
-- ${isPostcard && slot === 'back' ? 'Postcard back: marketing on left half only; bottom-right must be empty for Lob address block.' : isPostcard ? 'Postcard front: leave bottom-right clear for QR.' : 'Single-sided social/display ad — one strong focal creative.'}
+- ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; text on left half only; no text in bottom-right address zone.' : isPostcard ? 'Postcard front: full-bleed photo; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
 - Escape double quotes inside strings as \\".`;
 }
 
@@ -272,10 +274,10 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot) {
   let lobSpec = '';
   if (isPostcard && side === 'back') {
     lobSpec =
-      ' Lob 4×6 postcard BACK: landscape 3:2. Marketing copy and contact info on LEFT 45% only. Bottom-right ink-free zone must be blank background — no text, no postage, no barcodes, no recipient address (Lob adds these). Never render {business} or placeholder tokens.';
+      ' Lob 4×6 postcard BACK: landscape 3:2 full-bleed. Marketing text on left half only, 0.3″ from edges. No text in bottom-right address zone (photo OK). Never render {business} or placeholder tokens.';
   } else if (isPostcard) {
     lobSpec =
-      ' Lob 4×6 postcard FRONT: landscape 3:2. Leave bottom-right ~1 inch clear for QR code. Never render {business} or placeholder tokens in the artwork.';
+      ' Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. No text within 0.3″ of edges or in bottom-right QR zone (photo OK, no white box). Never render {business} or placeholder tokens.';
   }
   const suffix = extras.length
     ? `\n\nPlatform: ${plat}.${lobSpec} Include on the ad where appropriate: ${extras.join('; ')}.`

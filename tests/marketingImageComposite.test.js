@@ -8,7 +8,7 @@ const {
   LOB_POSTCARD_HEIGHT_PX,
 } = require('../services/marketingImageComposite');
 
-test('resizeBufferForLobPostcard keeps full artwork inside trim-safe area', async () => {
+test('resizeBufferForLobPostcard fills full Lob bleed dimensions', async () => {
   const tall = await sharp({
     create: {
       width: 1800,
@@ -23,8 +23,8 @@ test('resizeBufferForLobPostcard keeps full artwork inside trim-safe area', asyn
   const meta = await sharp(out).metadata();
   assert.equal(meta.width, LOB_POSTCARD_WIDTH_PX);
   assert.equal(meta.height, LOB_POSTCARD_HEIGHT_PX);
-  const bottomLeft = await sharp(out).extract({ left: 80, top: 1180, width: 40, height: 40 }).raw().toBuffer();
-  assert.ok(bottomLeft[0] > 240, 'bottom edge should stay inside safe zone (white margin)');
+  const center = await sharp(out).extract({ left: 900, top: 600, width: 40, height: 40 }).raw().toBuffer();
+  assert.ok(center[0] > 100, 'full-bleed resize should fill the canvas with artwork');
 });
 
 test('resizeBufferForLobPostcard outputs Lob 4x6 bleed dimensions', async () => {
@@ -46,7 +46,7 @@ test('resizeBufferForLobPostcard outputs Lob 4x6 bleed dimensions', async () => 
   assert.equal(LOB_POSTCARD_HEIGHT_PX, 1275);
 });
 
-test('resizeBufferForLobPostcard back art stays left of ink-free zone', async () => {
+test('resizeBufferForLobPostcard back is full bleed with white address mask only', async () => {
   const { resizeBufferForLobPostcard, lobInkFreeRectPx } = require('../services/marketingImageComposite');
   const wide = await sharp({
     create: {
@@ -59,12 +59,17 @@ test('resizeBufferForLobPostcard back art stays left of ink-free zone', async ()
     .jpeg()
     .toBuffer();
   const out = await resizeBufferForLobPostcard(wide, { side: 'back' });
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.width, LOB_POSTCARD_WIDTH_PX);
+  assert.equal(meta.height, LOB_POSTCARD_HEIGHT_PX);
   const rect = lobInkFreeRectPx();
-  const edgeSample = await sharp(out)
-    .extract({ left: rect.left - 20, top: rect.top + 20, width: 10, height: 10 })
+  const leftSample = await sharp(out).extract({ left: 120, top: 600, width: 40, height: 40 }).raw().toBuffer();
+  assert.ok(leftSample[2] > 100, 'left side should remain full-bleed artwork');
+  const addressSample = await sharp(out)
+    .extract({ left: rect.left + 20, top: rect.top + 20, width: 40, height: 40 })
     .raw()
     .toBuffer();
-  assert.ok(edgeSample[0] > 240, 'artwork should not bleed into Lob address block');
+  assert.ok(addressSample[0] > 240, 'address zone is cleared for Lob printing');
 });
 
 test('applyLobBackInkFreeMask clears bottom-right address zone', async () => {
