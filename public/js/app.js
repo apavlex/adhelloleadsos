@@ -11337,6 +11337,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (data.success && row) {
         row.dataset.category = val || 'N/A';
         if (currentRow === row) populatePanel(row);
+        if (typeof window.showProspectToast === 'function') {
+          window.showProspectToast(val ? `Category set to ${val}` : 'Category cleared');
+        }
       }
     } catch (_) {
       /* ignore */
@@ -14634,6 +14637,79 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return null;
   }
+
+  function setBulkCategoryRowVisible(show) {
+    const row = document.getElementById('bulkCategoryRow');
+    if (!row) return;
+    if (show) {
+      row.classList.remove('hidden');
+      row.classList.add('flex');
+      if (typeof window.__setBulkTagsRowVisible === 'function') window.__setBulkTagsRowVisible(false);
+      if (typeof window.__setBulkFolderNewRowVisible === 'function') window.__setBulkFolderNewRowVisible(false);
+      const input = document.getElementById('bulkCategoryInput');
+      if (input) input.focus();
+    } else {
+      row.classList.add('hidden');
+      row.classList.remove('flex');
+    }
+  }
+  window.__setBulkCategoryRowVisible = setBulkCategoryRowVisible;
+  window.__toggleBulkCategoryRow = function toggleBulkCategoryRow() {
+    const row = document.getElementById('bulkCategoryRow');
+    setBulkCategoryRowVisible(!!(row && row.classList.contains('hidden')));
+  };
+
+  async function bulkSetCategoryFromBar() {
+    const keys = getSelectedLeadKeysForBulk();
+    const input = document.getElementById('bulkCategoryInput');
+    const applyBtn = document.getElementById('bulkCategoryApplyBtn');
+    const val = input ? String(input.value || '').trim() : '';
+    if (!keys.length) {
+      showBulkSaveFeedback('Select at least one lead.', 'error');
+      return;
+    }
+    if (!val) {
+      showBulkSaveFeedback('Enter a category first.', 'error');
+      return;
+    }
+    if (applyBtn) applyBtn.disabled = true;
+    showBulkSaveFeedback(`Updating category on ${keys.length} lead${keys.length === 1 ? '' : 's'}…`, 'loading');
+    try {
+      const res = await fetch('/leads/bulk-category', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({
+          leadKeys: keys.map(normalizeLeadKeyForApi).filter(Boolean),
+          categoryName: val,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `HTTP ${res.status}`);
+      }
+      const updated = Array.isArray(data.leads) ? data.leads : [];
+      updated.forEach((item) => {
+        if (!item || !item.key) return;
+        const row = findLeadRowForBulkKey(item.key);
+        if (!row) return;
+        const cat = String(item.categoryName || val || 'N/A').trim() || 'N/A';
+        row.dataset.category = cat;
+        const catInp = row.querySelector('.lead-category-input');
+        if (catInp) catInp.value = cat === 'N/A' ? '' : cat;
+      });
+      const n = (Array.isArray(data.updatedKeys) ? data.updatedKeys : updated.map((l) => l.key)).length;
+      const msg = `Updated category on ${n} lead${n === 1 ? '' : 's'}`;
+      showBulkSaveFeedback(msg, 'success');
+      if (typeof window.showProspectToast === 'function') window.showProspectToast(msg);
+      setBulkCategoryRowVisible(false);
+    } catch (err) {
+      showBulkSaveFeedback(err.message || 'Bulk category update failed.', 'error');
+    } finally {
+      if (applyBtn) applyBtn.disabled = false;
+    }
+  }
+  window.__bulkSetCategoryFromBar = bulkSetCategoryFromBar;
 
   function getSelectedLeadRowsForBulk() {
     const rows = [];

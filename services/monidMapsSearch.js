@@ -4,6 +4,7 @@
  */
 
 const monid = require('./monidClient');
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 const { buildLocationLabel } = require('./geocodeLocation');
 
 const MONID_GMAPS = { provider: 'apify', endpoint: '/damilo/google-maps-scraper' };
@@ -40,10 +41,12 @@ function normalizeItem(item, city, state) {
     phone: String(item.phoneNumber || item.phone || '').trim() || 'N/A',
     website: String(item.website || '').trim() || 'N/A',
     email: String(item.email || item.contactEmail || '').trim() || 'N/A',
-    categoryName:
+    categoryName: sanitizeLeadCategoryName(
       String(item.type || item.categoryName || '').trim() ||
-      (Array.isArray(item.types) && item.types[0] ? String(item.types[0]).trim() : '') ||
+        (Array.isArray(item.types) && item.types[0] ? String(item.types[0]).trim() : ''),
+      title,
       'N/A',
+    ),
     address: String(item.address || '').trim() || 'N/A',
     city: String(city || item.city || '').trim(),
     state: String(state || item.state || '').trim(),

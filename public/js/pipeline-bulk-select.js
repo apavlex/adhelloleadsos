@@ -2305,6 +2305,30 @@
           }
           return;
         }
+        if (e.target.closest('#bulkCategoryToggle')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__toggleBulkCategoryRow === 'function') {
+            window.__toggleBulkCategoryRow();
+          }
+          return;
+        }
+        if (e.target.closest('#bulkCategoryCancel')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__setBulkCategoryRowVisible === 'function') {
+            window.__setBulkCategoryRowVisible(false);
+          }
+          return;
+        }
+        if (e.target.closest('#bulkCategoryApplyBtn')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__bulkSetCategoryFromBar === 'function') {
+            void window.__bulkSetCategoryFromBar();
+          }
+          return;
+        }
         if (e.target.closest('#bulkTagsCancel')) {
           e.preventDefault();
           e.stopPropagation();

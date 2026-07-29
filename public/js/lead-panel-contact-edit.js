@@ -292,6 +292,77 @@
     }
   }
 
+  function bindCategoryEdit() {
+    const pill = document.getElementById('mobilePanelCategory');
+    const input = document.getElementById('mobilePanelCategoryInput');
+    const editBtn = document.getElementById('mobilePanelEditCategoryBtn');
+    if (!pill || !input || !editBtn) return;
+    if (editBtn.dataset.contactEditBound === '1') return;
+    editBtn.dataset.contactEditBound = '1';
+
+    const hide = () => {
+      input.classList.add('hidden');
+      pill.classList.remove('hidden');
+    };
+    const show = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      const row = getCurrentRow();
+      if (!row || !row.dataset.leadKey) {
+        toast('Save this lead before editing.', 'error');
+        return;
+      }
+      const cat = String(row.dataset.category || '').trim();
+      input.value = cat && cat !== 'N/A' ? cat : '';
+      pill.classList.add('hidden');
+      input.classList.remove('hidden');
+      input.focus();
+      input.select();
+    };
+
+    const commit = async () => {
+      const row = getCurrentRow();
+      if (!row) return;
+      const val = String(input.value || '').trim();
+      const patch = { categoryName: val || 'N/A' };
+      try {
+        editBtn.disabled = true;
+        await savePatch(patch);
+        row.dataset.category = val || 'N/A';
+        const tableInput = row.querySelector('.lead-category-input');
+        if (tableInput) tableInput.value = val;
+        refreshPanel(row);
+        toast('Category saved');
+        hide();
+      } catch (e) {
+        toast(e.message || 'Save failed', 'error');
+      } finally {
+        editBtn.disabled = false;
+      }
+    };
+
+    editBtn.addEventListener('click', show);
+    pill.addEventListener('click', show);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        commit();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        hide();
+      }
+    });
+    input.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (input.classList.contains('hidden')) return;
+        if (document.activeElement === input || document.activeElement === editBtn) return;
+        commit();
+      }, 160);
+    });
+  }
+
   function bindCompanyTagsJump() {
     const btn = document.getElementById('leadPanelCompanyTagsMoreBtn');
     if (!btn || btn.dataset.contactEditBound === '1') return;
@@ -311,7 +382,7 @@
     root.dataset.contactEditGuards = '1';
     root.addEventListener('mousedown', (e) => {
       suppressBlurCommit = !!e.target.closest(
-        '#headerAddressRow, #headerPhoneRow, #mobilePanelReviewsEditRow, #mobilePanelEditAddressBtn, #mobilePanelEditPhoneBtn, #mobilePanelEditReviewsBtn'
+        '#headerAddressRow, #headerPhoneRow, #mobilePanelReviewsEditRow, #mobilePanelCategoryWrap, #mobilePanelEditAddressBtn, #mobilePanelEditPhoneBtn, #mobilePanelEditReviewsBtn, #mobilePanelEditCategoryBtn'
       );
     });
   }
@@ -321,6 +392,7 @@
     bindTextFieldEdit('address');
     bindTextFieldEdit('phone');
     bindReviewsEdit();
+    bindCategoryEdit();
     bindCompanyTagsJump();
   }
 

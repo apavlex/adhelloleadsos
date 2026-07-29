@@ -10,6 +10,10 @@ const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
 const { sanitizeExtractSocials } = require('../services/socialUrlNormalize');
+const {
+  normalizeLeadCategoryName,
+  sanitizeLeadCategoryName,
+} = require('../services/leadCategory');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const reviewHunt = require('../services/reviewHunt');
 const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
@@ -105,16 +109,6 @@ function leadContactFieldsChanged(body, existing) {
     }
     return String(prev || '').trim() !== String(next || '').trim();
   });
-}
-
-function normalizeLeadCategoryName(raw, fallback = 'N/A') {
-  if (raw == null || raw === '') return fallback;
-  if (Array.isArray(raw)) {
-    const joined = raw.filter(Boolean).map(String).join(', ').trim();
-    return joined || fallback;
-  }
-  const s = String(raw).trim();
-  return s || fallback;
 }
 
 async function importLeadRecordsFromBuffer(buffer, originalFilename, req, importOptions = {}) {
@@ -1111,6 +1105,14 @@ router.post('/:key/update', async (req, res, next) => {
     const updateData = { ...req.body };
     const existing = await dbService.getLead(fullKey);
     const wid = req.workspaceId;
+
+    if (updateData.categoryName !== undefined && existing) {
+      updateData.categoryName = sanitizeLeadCategoryName(
+        updateData.categoryName,
+        existing.title,
+        normalizeLeadCategoryName(updateData.categoryName, 'N/A'),
+      );
+    }
 
     if (
       req.body &&
@@ -2964,6 +2966,55 @@ router.post('/bulk-stage-assign', express.json(), async (req, res, next) => {
     }
 
     res.json({ success: updatedKeys.length > 0, updatedKeys, stageId, leads: updatedLeads });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/bulk-category — set categoryName on multiple leads
+router.post('/bulk-category', express.json(), async (req, res, next) => {
+  try {
+    const categoryRaw = req.body?.categoryName != null ? req.body.categoryName : req.body?.category;
+    const categoryName = normalizeLeadCategoryName(categoryRaw, 'N/A');
+    const leadKeysRaw = Array.isArray(req.body?.leadKeys) ? req.body.leadKeys : [];
+    const leadKeys = leadKeysRaw.map((k) => String(k || '').trim()).filter(Boolean);
+
+    if (!leadKeys.length) {
+      return res.status(400).json({ success: false, error: 'leadKeys is required.' });
+    }
+
+    const all = await dbService.getAllLeads(req.workspaceId);
+    const visible = filterLeadsForRequest(req, all);
+    const visibleKeys = new Set(visible.map((l) => l.key));
+
+    const resolveVisibleLeadKey = (rawKey) => {
+      const k = String(rawKey || '').trim();
+      if (!k) return null;
+      const candidates = [k, k.startsWith('lead:') ? k : `lead:${k}`, k.startsWith('lead:') ? k.slice(5) : null].filter(
+        Boolean,
+      );
+      for (const c of candidates) {
+        if (visibleKeys.has(c)) return c;
+      }
+      return null;
+    };
+
+    const updatedKeys = [];
+    const updatedLeads = [];
+    for (const key of leadKeys) {
+      const fullKey = resolveVisibleLeadKey(key);
+      if (!fullKey) continue;
+      const existing = await dbService.getLead(fullKey);
+      if (!existing) continue;
+      const nextCategory = sanitizeLeadCategoryName(categoryName, existing.title, categoryName);
+      const lead = await dbService.updateLead(fullKey, { categoryName: nextCategory }, req.workspaceId);
+      if (lead) {
+        updatedKeys.push(lead.key);
+        updatedLeads.push({ key: lead.key, categoryName: lead.categoryName || nextCategory });
+      }
+    }
+
+    res.json({ success: updatedKeys.length > 0, updatedKeys, categoryName, leads: updatedLeads });
   } catch (err) {
     next(err);
   }

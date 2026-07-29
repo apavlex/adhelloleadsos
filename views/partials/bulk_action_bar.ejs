@@ -16,6 +16,13 @@
     <button type="button" id="bulkFolderNewCancel" class="bulk-bar-btn bulk-bar-btn--ghost">Cancel</button>
   </div>
 
+  <div id="bulkCategoryRow" class="hidden w-full flex flex-wrap items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-white/5 border border-brand-yellow/25 bulk-bar-expand-row" role="group" aria-label="Set category">
+    <label for="bulkCategoryInput" class="sr-only">Category</label>
+    <input type="text" id="bulkCategoryInput" list="lead-category-pipeline-options" autocomplete="off" placeholder="Set category for selected…" class="min-w-[10rem] flex-1 rounded-md bg-white/10 border border-white/15 px-2 py-1 text-[11px] font-semibold text-white placeholder:text-white/45 focus:outline-none focus:ring-1 focus:ring-brand-yellow/50" />
+    <button type="button" id="bulkCategoryApplyBtn" class="bulk-bar-btn bulk-bar-btn--accent">Apply</button>
+    <button type="button" id="bulkCategoryCancel" class="bulk-bar-btn bulk-bar-btn--ghost">Close</button>
+  </div>
+
   <div id="bulkTagsRow" class="hidden w-full flex flex-col items-center gap-2 py-1.5 px-2 rounded-lg bg-white/5 border border-sky-400/25 bulk-bar-expand-row" role="group" aria-label="Manage tags">
     <div class="flex flex-wrap items-center justify-center gap-1.5 w-full">
       <label for="bulkTagSelect" class="sr-only">Tag</label>
@@ -68,6 +75,7 @@
         <%= _bulkMode === 'search' ? 'Save' : 'Save' %>
       </button>
       <button type="button" id="bulkFolderNewToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Create a new folder" aria-expanded="false" aria-controls="bulkFolderNewRow">+ Folder</button>
+      <button type="button" id="bulkCategoryToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-brand-yellow" title="Set category on selected leads">Category</button>
       <button type="button" id="bulkTagsToggle" class="bulk-bar-btn bulk-bar-btn--ghost text-sky-300" title="Add or remove tags">Tags</button>
       </div>
     </div>

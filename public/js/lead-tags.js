@@ -439,6 +439,9 @@
           folderRow.classList.remove('flex');
         }
       }
+      if (typeof window.__setBulkCategoryRowVisible === 'function') {
+        window.__setBulkCategoryRowVisible(false);
+      }
       rebuildBulkTagSelect();
       syncBulkTagColorInput();
     } else {

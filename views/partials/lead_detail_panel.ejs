@@ -91,7 +91,13 @@
                   </div>
                   <div id="mobilePanelTagRow" class="flex items-center gap-1.5 min-w-0 flex-1 overflow-x-auto [&::-webkit-scrollbar]:h-0">
                     <span id="mobilePanelSourcePill" class="hidden shrink-0 whitespace-nowrap px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-widest"></span>
-                    <span id="mobilePanelCategory" class="shrink min-w-0 truncate max-w-[10rem] px-2.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest shadow-sm bg-brand-yellow/10 text-brand-yellow border-brand-yellow/25">Category</span>
+                    <div id="mobilePanelCategoryWrap" class="inline-flex items-center gap-1 shrink min-w-0 max-w-full pointer-events-auto">
+                      <span id="mobilePanelCategory" class="shrink min-w-0 truncate max-w-[10rem] px-2.5 py-0.5 rounded-full border text-[9px] font-bold uppercase tracking-widest shadow-sm bg-brand-yellow/10 text-brand-yellow border-brand-yellow/25 cursor-pointer" title="Click to edit category">Category</span>
+                      <input id="mobilePanelCategoryInput" type="text" list="lead-category-pipeline-options" class="hidden min-w-[8rem] max-w-[12rem] rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2 py-1 text-[9px] font-bold uppercase tracking-widest text-brand-dark dark:text-white" placeholder="Category" autocomplete="off" aria-label="Category" />
+                      <button type="button" id="mobilePanelEditCategoryBtn" class="w-5 h-5 rounded-full border border-brand-border/30 dark:border-white/10 bg-white/80 dark:bg-slate-800/80 text-brand-muted hover:text-brand-yellow hover:border-brand-yellow/40 transition-colors flex items-center justify-center shrink-0" aria-label="Edit category" title="Edit category">
+                        <svg class="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                      </button>
+                    </div>
                     <span id="mobilePanelCqiPill" class="shrink-0 whitespace-nowrap px-2.5 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-widest bg-slate-100 text-slate-600 border-brand-border/30 dark:bg-slate-800 dark:text-slate-400 dark:border-white/10">CQI</span>
                   </div>
                 </div>

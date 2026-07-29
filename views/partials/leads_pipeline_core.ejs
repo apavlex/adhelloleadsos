@@ -191,14 +191,22 @@
     </div>
     <div id="prospectPipelineTableScroll" class="overflow-x-auto" style="--plc-check-sticky-w: 3rem;">
       <datalist id="lead-category-pipeline-options">
-        <option value="Painters"></option>
-        <option value="Imported"></option>
-        <option value="Roofing"></option>
-        <option value="HVAC"></option>
-        <option value="Plumbing"></option>
-        <option value="Landscaping"></option>
         <option value="General contractor"></option>
+        <option value="Contractor"></option>
+        <option value="Home builder"></option>
+        <option value="Kitchen remodeler"></option>
+        <option value="Bathroom remodeler"></option>
+        <option value="Cabinet maker"></option>
+        <option value="Flooring contractor"></option>
+        <option value="Roofing contractor"></option>
+        <option value="Siding contractor"></option>
+        <option value="Painter"></option>
+        <option value="Plumber"></option>
+        <option value="Electrician"></option>
+        <option value="HVAC contractor"></option>
+        <option value="Landscaper"></option>
         <option value="Home services"></option>
+        <option value="Imported"></option>
       </datalist>
       <table id="prospectLeadsTable" class="w-full text-left border-separate prospect-leads-table prospect-leads-table--compact">
         <thead>
@@ -656,7 +664,7 @@
               </td>
               <td data-plc="category" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[5.5rem] max-w-[10rem]" onclick="event.stopPropagation()">
                 <label class="sr-only">Category for <%= lead.title %></label>
-                <input type="text" class="lead-category-input w-full max-w-[9.5rem] text-[10px] font-semibold text-brand-dark dark:text-white rounded-lg border border-brand-border/35 dark:border-white/10 bg-transparent dark:bg-white/5 px-2 py-1 placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" list="lead-category-pipeline-options" value="<%= plcCategoryInputValue(lead.categoryName) %>" placeholder="Category" title="Category — type or pick" data-lead-key="<%= lead.key %>" autocomplete="off" />
+                <input type="text" class="lead-category-input w-full max-w-[9.5rem] text-[10px] font-semibold text-brand-dark dark:text-white rounded-lg border border-brand-border/35 dark:border-white/10 bg-transparent dark:bg-white/5 px-2 py-1 placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" list="lead-category-pipeline-options" value="<%= plcCategoryInputValue(lead.categoryName) %>" placeholder="Category" title="Click to edit category — type or pick from list" data-lead-key="<%= lead.key %>" autocomplete="off" />
               </td>
               <td data-plc="reviews" class="lead-cell-reviews px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <div class="lead-reviews-inner py-0.5 flex flex-col items-start gap-1">
