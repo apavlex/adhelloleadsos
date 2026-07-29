@@ -65,7 +65,6 @@ async function applyLogoOverlaySafe(req, imageUrl, logoBuffer) {
 async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   let finalImageUrl = imageUrl;
   let logoOverlayApplied = false;
-  const k = normalizeBrandKit(brandKit);
   if (!finalImageUrl) return { finalImageUrl, logoOverlayApplied };
 
   let logoData = null;
@@ -78,39 +77,30 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   const hasLogo = Boolean(logoData && logoData.buffer && logoData.buffer.length);
   if (!hasLogo) return { finalImageUrl, logoOverlayApplied };
 
-  const wantsOverlay = k.useLogoInDesign !== false;
-  if (wantsOverlay) {
+  // Always composite the real uploaded logo from workspace storage — never rely on the
+  // image model to reproduce it (reference URLs are session-auth and unreachable by KIE).
+  try {
+    const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData.buffer);
+    finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
+    logoOverlayApplied = true;
+  } catch (overlayErr) {
+    console.warn(
+      '[direct-mail] logo overlay failed:',
+      overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
+    );
     try {
-      finalImageUrl = await applyLogoOverlaySafe(req, finalImageUrl, logoData.buffer);
+      const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData.buffer);
+      finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
       logoOverlayApplied = true;
-    } catch (overlayErr) {
+    } catch (retryErr) {
       console.warn(
-        '[direct-mail] logo overlay failed:',
-        overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
+        '[direct-mail] logo overlay retry failed:',
+        retryErr && retryErr.message ? retryErr.message : retryErr,
       );
-      try {
-        finalImageUrl = await applyLogoOverlaySafe(req, finalImageUrl, logoData.buffer);
-        logoOverlayApplied = true;
-      } catch (retryErr) {
-        console.warn(
-          '[direct-mail] logo overlay retry failed:',
-          retryErr && retryErr.message ? retryErr.message : retryErr,
-        );
-      }
     }
   }
 
   return { finalImageUrl, logoOverlayApplied };
-}
-
-async function resolveBrandLogoInputUrl(req, brandKit) {
-  const k = normalizeBrandKit(brandKit);
-  const ws = (await dbService.getWorkspace(req.workspaceId)) || {};
-  const migrated = await brandKitLogo.migrateLegacyLogoIfNeeded(ws);
-  const stored = brandKitLogo.normalizeStoredLogo(migrated.brandKitLogo);
-  const updatedAt = k.updatedAt || (stored && stored.updatedAt) || '';
-  if (!brandKitLogo.hasStoredLogo(migrated) && !k.logoUrl) return '';
-  return toAbsoluteAssetUrl(req, brandKitLogo.logoDisplayUrl(updatedAt));
 }
 
 function kieHttpError(err, req, fallback) {
@@ -235,9 +225,9 @@ function brandKitSummary(kit) {
   if (k.address) lines.push(`Address: ${k.address}`);
   if (k.hours) lines.push(`Hours: ${k.hours}`);
   if (k.logoUrl && k.useLogoInDesign) {
-    lines.push('Logo: uploaded (overlaid unchanged after generation — leave top-left space clear)');
+    lines.push('Logo: uploaded (real logo overlaid unchanged top-left after generation — leave that area clear)');
   } else if (k.logoUrl) {
-    lines.push('Logo: uploaded (incorporate naturally in the layout from the reference image)');
+    lines.push('Logo: uploaded (real logo overlaid unchanged top-left after generation — do not draw a fake logo)');
   }
   return lines.length ? lines.join('\n') : '(no business info set yet)';
 }
@@ -322,7 +312,7 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot) {
     );
   } else if (k.logoUrl) {
     extras.push(
-      'Incorporate the provided brand logo naturally in the layout — match its colors and style; do not omit the logo',
+      'Do not draw, invent, or render any logo or company mark in the image — the real uploaded logo is added after generation',
     );
   }
   const plat = platformLabel(platform);
@@ -765,13 +755,6 @@ router.post('/api/generate-image', async (req, res, next) => {
       : referenceAbs
         ? [referenceAbs]
         : [];
-
-    const logoAbs = await resolveBrandLogoInputUrl(req, brandKit);
-    if (logoAbs && brandKit.useLogoInDesign === false) {
-      inputUrls.unshift(logoAbs);
-    } else if (logoAbs && referenceAbs && !inputUrls.includes(logoAbs)) {
-      inputUrls.push(logoAbs);
-    }
 
     let created;
     try {

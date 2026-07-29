@@ -952,7 +952,7 @@
     if (kit.logoUrl && kit.useLogoInDesign) {
       parts.push('Leave clear empty space in the top-left corner for a logo overlay — do not draw a logo in the image.');
     } else if (kit.logoUrl) {
-      parts.push('Incorporate the provided brand logo naturally in the layout — match its colors and style; do not omit the logo.');
+      parts.push('Do not draw or render any logo in the image — the real uploaded logo is added after generation.');
     }
     parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
     return parts.join(' ');
@@ -1743,11 +1743,11 @@
           silent: true,
         });
         var statusMsg = 'Generated ' + slot + ' side — saved to library automatically.';
-        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign) {
+        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl) {
           statusMsg =
             'Generated ' +
             slot +
-            ' side — logo overlay failed. Re-save your logo in Brand, or turn off overlay to let AI incorporate it.';
+            ' side — your brand logo could not be applied. Re-upload it in Brand and try again.';
         }
         setDesignStatus(statusMsg, data.logoOverlayApplied !== false);
         if (typeof window.showAppToast === 'function') {
