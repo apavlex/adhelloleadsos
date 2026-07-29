@@ -2,6 +2,8 @@
  * Maps Firecrawl extract (snake_case) + merged tech fields to persisted lead shape (camelCase).
  */
 
+const { sanitizeLeadSocialPatch } = require('./socialUrlNormalize');
+
 function firecrawlExtractToLeadUpdates(raw) {
   if (!raw || typeof raw !== 'object') return {};
 
@@ -60,7 +62,7 @@ function firecrawlExtractToLeadUpdates(raw) {
   }
   copy('html_chat_widget_detected', 'htmlChatWidgetDetected');
 
-  return u;
+  return sanitizeLeadSocialPatch(u);
 }
 
 module.exports = {

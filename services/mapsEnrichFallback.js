@@ -4,6 +4,7 @@
  */
 
 const mapsSearch = require('./mapsSearch');
+const { normalizeSocialUrl } = require('./socialUrlNormalize');
 
 function normTitle(s) {
   return String(s || '')
@@ -68,9 +69,9 @@ function apifyPlaceToExtract(place) {
   set('address', place.address);
   if (place.totalScore != null && Number(place.totalScore) > 0) out.total_score = Number(place.totalScore);
   if (place.reviewsCount != null && Number(place.reviewsCount) > 0) out.reviews_count = Number(place.reviewsCount);
-  set('facebook', place.facebook);
-  set('instagram', place.instagram);
-  set('twitter', place.twitter);
+  set('facebook', normalizeSocialUrl(place.facebook, 'facebook'));
+  set('instagram', normalizeSocialUrl(place.instagram, 'instagram'));
+  set('twitter', normalizeSocialUrl(place.twitter, 'twitter'));
   if (place.url) set('google_places', place.url);
   return out;
 }

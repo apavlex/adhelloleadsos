@@ -9,6 +9,7 @@ const { normalizeJobType } = require('../services/scrapeJobTypes');
 const firecrawl = require('../services/firecrawl');
 const webEnrichment = require('../services/webEnrichment');
 const { firecrawlExtractToLeadUpdates } = require('../services/enrichmentNormalize');
+const { sanitizeExtractSocials } = require('../services/socialUrlNormalize');
 const mapsEnrichFallback = require('../services/mapsEnrichFallback');
 const reviewHunt = require('../services/reviewHunt');
 const outscraperGmbEnrich = require('../services/outscraperGmbEnrich');
@@ -3552,6 +3553,7 @@ async function runLeadEnhancement(lead, workspaceId) {
 
   const hadExtract = deepData && Object.keys(deepData).length > 0;
   if (hadExtract) {
+    deepData = sanitizeExtractSocials(deepData);
     const enrichUpdates = firecrawlExtractToLeadUpdates(deepData);
     Object.assign(patch, enrichUpdates);
 
@@ -3710,7 +3712,7 @@ async function runSocialEnrichment(lead, workspaceId) {
     };
   }
 
-  const extract = pack.extract || {};
+  const extract = sanitizeExtractSocials(pack.extract || {});
   if (!tikHub.extractHasSignal(extract)) {
     return {
       success: false,

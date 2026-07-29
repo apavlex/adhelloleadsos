@@ -119,6 +119,7 @@
   <script src="/js/folder-filter-picker.js?v=<%= assetVersion %>"></script>
   <%- include('partials/leads_interactive_tail', { leads: typeof leads !== 'undefined' ? leads : [], leadBootstrapLeads: typeof leadBootstrapLeads !== 'undefined' ? leadBootstrapLeads : null, pipelineStages, folders, tags: typeof tags !== 'undefined' ? tags : [], activeFolderKey: typeof activeFolderKey !== 'undefined' ? activeFolderKey : '', isBusinessesView: typeof isBusinessesView !== 'undefined' ? isBusinessesView : false, scriptLibraryOfferPicklist: Array.isArray(locals.scriptLibraryOfferPicklist) ? locals.scriptLibraryOfferPicklist : [], outreachChannelLibrary: locals.outreachChannelLibrary && typeof locals.outreachChannelLibrary === 'object' ? locals.outreachChannelLibrary : {} }) %>
   <script src="/js/httpJson.js?v=<%= assetVersion %>"></script>
+  <script src="/js/socialUrlNormalize.js?v=<%= assetVersion %>"></script>
   <script src="/js/socialBrandIcons.js?v=<%= assetVersion %>"></script>
   <% if (typeof driveImport !== 'undefined' && driveImport && driveImport.pickerReady) { %>
   <script>

@@ -2,6 +2,19 @@
  * Browser build of services/socialBrandIcons.js — keep SVG markup in sync.
  */
 (function () {
+  var socialNorm =
+    typeof window !== 'undefined' && window.AdhelloSocialUrlNormalize
+      ? window.AdhelloSocialUrlNormalize
+      : null;
+
+  function isPlaceholder(v) {
+    if (socialNorm && typeof socialNorm.isPlaceholder === 'function') {
+      return socialNorm.isPlaceholder(v);
+    }
+    var s = String(v || '').trim();
+    return !s || s === 'N/A' || s === 'undefined';
+  }
+
   const SOCIAL_BTN_BASE =
     'inline-flex w-8 h-8 shrink-0 rounded-lg bg-brand-cream dark:bg-slate-800 items-center justify-center shadow-sm border border-brand-border/10 transition-all hover:scale-105';
 
@@ -66,21 +79,40 @@
   }
 
   function isBlankLink(v) {
-    const s = String(v || '').trim();
-    return !s || s === 'N/A' || s === 'undefined';
+    return isPlaceholder(v);
   }
 
-  function normalizeHref(href) {
-    const s = String(href || '').trim();
-    if (!s) return '';
-    return /^https?:\/\//i.test(s) ? s : `https://${s}`;
+  function normalizeHref(href, platform) {
+    if (socialNorm && platform && platform !== 'google') {
+      return socialNorm.normalizeSocialUrl(href, platform);
+    }
+    var s = String(href || '').trim();
+    if (!s || isPlaceholder(s)) return '';
+    if (/^https?:\/\//i.test(s)) {
+      try {
+        var u = new URL(s);
+        if (!u.hostname || u.hostname === ',' || u.hostname.length < 3) return '';
+        return u.href;
+      } catch (_) {
+        return '';
+      }
+    }
+    if (/^[\w.-]+\.[a-z]{2,}/i.test(s)) {
+      try {
+        return new URL('https://' + s.replace(/^\/\//, '')).href;
+      } catch (_) {
+        return '';
+      }
+    }
+    return '';
   }
 
   function linkHtml(platform, href, opts) {
     opts = opts || {};
     const p = PLATFORMS[platform];
     if (!p || isBlankLink(href)) return '';
-    const url = normalizeHref(href);
+    var url = normalizeHref(href, platform);
+    if (!url) return '';
     const gradId = opts.gradId || 'igGrad' + platform;
     const icon =
       platform === 'instagram' && typeof p.iconForId === 'function'

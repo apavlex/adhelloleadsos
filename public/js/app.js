@@ -8305,7 +8305,10 @@ document.addEventListener('DOMContentLoaded', () => {
     return '';
   }
 
-  function sanitizeSocialUrl(raw) {
+  function sanitizeSocialUrl(raw, platform) {
+    if (window.AdhelloSocialUrlNormalize && typeof window.AdhelloSocialUrlNormalize.normalizeSocialUrl === 'function') {
+      return window.AdhelloSocialUrlNormalize.normalizeSocialUrl(raw, platform);
+    }
     const s = String(raw || '').trim();
     return s && s !== 'N/A' && s !== 'undefined' ? s : '';
   }
@@ -8569,11 +8572,11 @@ document.addEventListener('DOMContentLoaded', () => {
     );
     const links = {
       gm: mapsHref || '',
-      fb: sanitizeSocialUrl(row.dataset.facebook),
-      ig: sanitizeSocialUrl(row.dataset.instagram),
-      tt: sanitizeSocialUrl(row.dataset.tiktok),
-      tw: sanitizeSocialUrl(row.dataset.twitter),
-      li: sanitizeSocialUrl(row.dataset.linkedin),
+      fb: sanitizeSocialUrl(row.dataset.facebook, 'facebook'),
+      ig: sanitizeSocialUrl(row.dataset.instagram, 'instagram'),
+      tt: sanitizeSocialUrl(row.dataset.tiktok, 'tiktok'),
+      tw: sanitizeSocialUrl(row.dataset.twitter, 'twitter'),
+      li: sanitizeSocialUrl(row.dataset.linkedin, 'linkedin'),
       gradSuffix: suffix,
       size: opts.size,
       emptyDash: opts.emptyDash,
@@ -13664,6 +13667,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     updateRowContactCells(row);
+    syncRowSocialsUnderPhone(row);
     syncRowReviewsDisplay(row);
 
     if (huntKey) {

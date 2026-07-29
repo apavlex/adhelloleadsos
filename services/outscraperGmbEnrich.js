@@ -5,6 +5,7 @@
 
 const outscraper = require('./outscraperClient');
 const mapsEnrichFallback = require('./mapsEnrichFallback');
+const { normalizeSocialUrl } = require('./socialUrlNormalize');
 
 function resolveReviewQuery(lead, place) {
   const pid = place && (place.placeId || place.place_id);
@@ -34,9 +35,9 @@ function placeToExtract(place) {
   if (place.reviewsCount != null && Number(place.reviewsCount) >= 0) {
     out.reviews_count = Number(place.reviewsCount);
   }
-  set('facebook', place.facebook);
-  set('instagram', place.instagram);
-  set('twitter', place.twitter);
+  set('facebook', normalizeSocialUrl(place.facebook, 'facebook'));
+  set('instagram', normalizeSocialUrl(place.instagram, 'instagram'));
+  set('twitter', normalizeSocialUrl(place.twitter, 'twitter'));
   if (place.url) set('google_places', place.url);
   if (place.categoryName && place.categoryName !== 'N/A') out.category = place.categoryName;
   return out;
@@ -71,13 +72,16 @@ function buildPatchFromPlace(place, lead) {
     patch.email = String(place.email).trim();
   }
   if ((!lead.facebook || lead.facebook === 'N/A') && place.facebook && place.facebook !== 'N/A') {
-    patch.facebook = String(place.facebook).trim();
+    const fb = normalizeSocialUrl(place.facebook, 'facebook');
+    if (fb) patch.facebook = fb;
   }
   if ((!lead.instagram || lead.instagram === 'N/A') && place.instagram && place.instagram !== 'N/A') {
-    patch.instagram = String(place.instagram).trim();
+    const ig = normalizeSocialUrl(place.instagram, 'instagram');
+    if (ig) patch.instagram = ig;
   }
   if ((!lead.twitter || lead.twitter === 'N/A') && place.twitter && place.twitter !== 'N/A') {
-    patch.twitter = String(place.twitter).trim();
+    const tw = normalizeSocialUrl(place.twitter, 'twitter');
+    if (tw) patch.twitter = tw;
   }
   if (place.placeId && !lead.placeId) patch.placeId = String(place.placeId).trim();
   return patch;

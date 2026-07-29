@@ -3,6 +3,8 @@
  * @see https://doc.bettercontact.rocks/api-reference/endpoint/create
  */
 
+const { normalizeSocialUrl } = require('./socialUrlNormalize');
+
 const BASE_URL = 'https://app.bettercontact.rocks/api/v2';
 
 function apiKeyFromEnv(integrationEnv) {
@@ -131,7 +133,7 @@ function betterContactRowToExtract(row) {
   const out = {};
   if (email) out.email = email;
   if (phone) out.phone = phone;
-  if (linkedin) out.linkedin = linkedin;
+  if (linkedin) out.linkedin = normalizeSocialUrl(linkedin, 'linkedin');
   if (jobTitle) out.decision_maker_title = jobTitle;
   if (fullName) out.decision_maker_name = fullName;
   if (row.contact_email_address_status) {

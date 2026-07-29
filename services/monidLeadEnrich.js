@@ -4,6 +4,7 @@
 
 const monid = require('./monidClient');
 const { extractDomain } = require('./betterContactClient');
+const { normalizeSocialUrl } = require('./socialUrlNormalize');
 
 const APOLLO_ORG_ENRICH = { provider: 'apollo', endpoint: '/organizations/enrich' };
 const APOLLO_COMPANY_SEARCH = { provider: 'apollo', endpoint: '/mixed_companies/search' };
@@ -189,13 +190,6 @@ async function discoverCompanyViaApolloSearch(lead, integrationEnv) {
   }
 
   return null;
-}
-
-function normalizeSocialUrl(href) {
-  const s = String(href || '').trim();
-  if (!s || s === 'N/A') return '';
-  if (/^https?:\/\//i.test(s)) return s;
-  return `https://${s.replace(/^\/\//, '')}`;
 }
 
 function normalizeWebsiteUrl(href) {
