@@ -11,6 +11,7 @@ const oxylabsGoogleLocal = require('./oxylabsGoogleLocal');
 const crawl4aiClient = require('./crawl4aiClient');
 const firecrawl = require('./firecrawl');
 const betterContactClient = require('./betterContactClient');
+const permitStackClient = require('./permitStackClient');
 const { resolvePageSpeedApiKey, PAGESPEED_ENDPOINT } = require('./pageSpeedInsights');
 const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
 const ghlClient = require('./ghlClient');
@@ -42,6 +43,7 @@ const PROVIDERS = {
   apify: { label: 'Apify', fields: ['apifyApiToken'] },
   oxylabs: { label: 'Oxylabs', fields: ['oxylabsUsername', 'oxylabsPassword'] },
   bettercontact: { label: 'BetterContact', fields: ['bettercontactApiKey'] },
+  permitstack: { label: 'Permit Stack', fields: ['permitStackApiKey'] },
   firecrawl: { label: 'Firecrawl', fields: ['firecrawlApiKey'] },
   crawl4ai: { label: 'Crawl4AI', fields: ['crawl4aiBaseUrl', 'crawl4aiApiToken'] },
   pagespeed: { label: 'PageSpeed Insights', fields: ['pagespeedApiKey'] },
@@ -215,6 +217,14 @@ async function testBetterContact(integrationEnv) {
   return { message: 'Connected (API key accepted)' };
 }
 
+async function testPermitStack(integrationEnv) {
+  if (!permitStackClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing PERMITSTACK_API_KEY — paste your Permit Stack key and save, or type it before testing.');
+  }
+  const { total } = await permitStackClient.checkApiConnection(integrationEnv);
+  return { message: `Connected — ${total}+ permits in sample Austin roofing search` };
+}
+
 async function testPageSpeed(integrationEnv) {
   const apiKey = resolvePageSpeedApiKey(integrationEnv);
   if (!apiKey) throw new Error('Missing PAGESPEED_API_KEY');
@@ -277,6 +287,7 @@ const RUNNERS = {
   firecrawl: () => testFirecrawl,
   crawl4ai: () => testCrawl4ai,
   bettercontact: () => testBetterContact,
+  permitstack: () => testPermitStack,
   pagespeed: () => testPageSpeed,
   ghl: () => testGhl,
   lob: () => testLob,

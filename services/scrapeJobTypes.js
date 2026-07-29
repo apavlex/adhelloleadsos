@@ -8,6 +8,7 @@ const JOB_TYPES = {
   HOME_OWNERS: 'home_owners',
   PRODUCTS: 'products',
   WHOLESALE: 'wholesale',
+  PERMITS: 'permits',
 };
 
 const JOB_TYPE_LABELS = {
@@ -17,6 +18,7 @@ const JOB_TYPE_LABELS = {
   [JOB_TYPES.HOME_OWNERS]: 'Home owners',
   [JOB_TYPES.PRODUCTS]: 'Products',
   [JOB_TYPES.WHOLESALE]: 'Wholesale',
+  [JOB_TYPES.PERMITS]: 'Permits',
 };
 
 const LISTING_JOB_TYPES = new Set([
@@ -37,6 +39,7 @@ function normalizeJobType(value) {
   }
   if (v === JOB_TYPES.PRODUCTS || v === 'product') return JOB_TYPES.PRODUCTS;
   if (v === JOB_TYPES.WHOLESALE) return JOB_TYPES.WHOLESALE;
+  if (v === JOB_TYPES.PERMITS || v === 'permit' || v === 'permit_stack') return JOB_TYPES.PERMITS;
   if (
     v === JOB_TYPES.REAL_ESTATE ||
     v === 'realestate' ||
@@ -74,6 +77,10 @@ function scheduleDisplayTitle(schedule) {
       return locationLabel ? `${q} · ${locationLabel}` : `${label}: ${q}`;
     }
     return locationLabel ? `${label} · ${locationLabel}` : label;
+  }
+  if (jobType === JOB_TYPES.PERMITS) {
+    const cat = String((schedule && (schedule.category || schedule.keyword)) || 'permits').trim();
+    return locationLabel ? `${cat} permits · ${locationLabel}` : `${cat} permits`;
   }
   return String((schedule && schedule.keyword) || 'Search');
 }

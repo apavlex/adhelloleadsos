@@ -219,6 +219,20 @@
           <%- include('../../partials/integration_test_row', { provider: 'bettercontact' }) %>
         </section>
 
+        <section id="integration-permitstack" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header>
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Permit Stack</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed"><a href="https://permit-stack.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Permit Stack</a> — building permit search for <strong>Find leads → Permits</strong>. Import recent roofing, HVAC, solar, and other permits by city.</p>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.permitStackApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.permitStackApiKey %></p><% } %>
+            <input type="password" name="permitStackApiKey" autocomplete="off" placeholder="Paste Permit Stack key (pk_…, leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.permitStackApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="permitStackApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'permitstack' }) %>
+        </section>
+
         <section id="integration-website-enhance" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-950/50 p-5 sm:p-6 space-y-4 scroll-mt-28">
           <header>
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Website enhance</h3>

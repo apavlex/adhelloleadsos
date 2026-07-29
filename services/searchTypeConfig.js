@@ -102,6 +102,19 @@ const SEARCH_TYPES = [
       'Web search + Oxylabs for supplier discovery; Facebook, Craigslist, OfferUp, eBay for bulk listings. Use Business search for wholesale storefronts on Maps.',
     requiresLocation: false,
   },
+  {
+    jobType: JOB_TYPES.PERMITS,
+    findTab: 'permits',
+    label: 'Permits',
+    shortLabel: 'Permits',
+    description: 'Recent building permits by city and trade — contractors and property projects from Permit Stack.',
+    action: '/permits/search',
+    category: 'permits',
+    defaultKeyword: 'roofing',
+    defaultQuery: 'roofing',
+    scraperHint: 'Permit Stack API — roofing, HVAC, solar, plumbing, and more. Requires PERMITSTACK_API_KEY in Workspace → Integrations.',
+    requiresLocation: true,
+  },
 ];
 
 const BY_JOB_TYPE = SEARCH_TYPES.reduce((acc, row) => {

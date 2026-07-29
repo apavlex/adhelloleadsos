@@ -234,6 +234,23 @@
                 }) %>
               </div>
 
+              <div data-find-panel="permits" class="find-type-panel space-y-6 <%= _findType !== 'permits' ? 'hidden' : '' %>">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  <div class="md:col-span-7">
+                    <label for="findPermitCategory" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Permit category / trade</label>
+                    <input type="text" name="category" id="findPermitCategory" placeholder="roofing, hvac, solar, plumbing…" value="<%= (_sp.keyword || 'roofing') %>"
+                      class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-lg font-bold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
+                  </div>
+                  <div class="md:col-span-5 flex items-end">
+                    <div class="w-full rounded-2xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/40 dark:bg-slate-800/50 px-4 py-3">
+                      <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Location</p>
+                      <p class="text-sm font-bold text-brand-dark dark:text-white truncate" id="findPermitPreviewLoc">—</p>
+                    </div>
+                  </div>
+                </div>
+                <p class="text-xs text-brand-muted leading-relaxed">Imports recent building permits from <a href="https://permit-stack.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Permit Stack</a> — contractor name, property address, project value, and filing dates. Add your API key under Workspace → Integrations.</p>
+              </div>
+
               <!-- Shared: max results + folder -->
               <div class="grid grid-cols-1 md:grid-cols-12 gap-4">
                 <div class="md:col-span-4">
@@ -524,6 +541,16 @@
         defaultQuery: 'wholesale',
         requiresLocation: false,
       },
+      permits: {
+        action: '/permits/search',
+        title: 'Building permits',
+        desc: 'Recent permits by city and trade — contractors, addresses, and project details from Permit Stack.',
+        submitRun: 'Import permits',
+        submitSched: 'Save scheduled job',
+        previewLabel: 'permits',
+        defaultQuery: 'roofing',
+        requiresLocation: true,
+      },
     };
 
     var form = document.getElementById('searchForm');
@@ -641,6 +668,9 @@
       var k = '—';
       if (currentType === 'maps') {
         k = kw && kw.value.trim() ? kw.value.trim() : 'Your keyword';
+      } else if (currentType === 'permits') {
+        var catEl = document.getElementById('findPermitCategory');
+        k = catEl && catEl.value.trim() ? catEl.value.trim() + ' permits' : 'roofing permits';
       } else {
         var panel = document.querySelector('[data-find-panel="' + currentType + '"]');
         var qEl = panel && panel.querySelector('input[name="query"]');
@@ -703,7 +733,7 @@
       });
     });
 
-    ['searchKeywordField', 'findReQuery', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
+    ['searchKeywordField', 'findReQuery', 'findPermitCategory', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', syncFindPreview);
     });

@@ -36,3 +36,6 @@ services:
       - key: OPENROUTER_API_KEY
         sync: false
         optional: true
+      - key: PERMITSTACK_API_KEY
+        sync: false
+        optional: true
