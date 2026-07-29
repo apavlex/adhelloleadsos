@@ -7983,6 +7983,7 @@ document.addEventListener('DOMContentLoaded', () => {
       else detailEl.removeAttribute('title');
     }
   }
+  window.syncPipelineRowAddressDisplay = syncPipelineRowAddressDisplay;
 
   function readPipelineRowDisplayWebsite(row) {
     if (!row || !row.dataset) return '';
@@ -16171,6 +16172,8 @@ document.addEventListener('DOMContentLoaded', () => {
         '<span class="inline-flex items-center gap-1 text-xs font-bold text-rose-600 dark:text-rose-400"><svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>No</span>';
     }
   }
+  window.syncPipelineRowCallButton = syncPipelineRowCallButton;
+  window.syncPipelineRowWebsiteCell = syncPipelineRowWebsiteCell;
 
   function renderLeadEmailSlotInner(email) {
     const e = email && email !== 'N/A' ? String(email).trim() : '';
@@ -16456,21 +16459,30 @@ document.addEventListener('DOMContentLoaded', () => {
         if (layout) captureBulkEnhanceRowSnapshot(row, layout, spinner);
 
         try {
-          let res;
+          let result = {};
           if (key) {
-            res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
+            const res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, { method: 'POST' });
+            result = await res.json().catch(() => ({}));
+            if (res.ok && result.processing) {
+              result = await pollContactHuntStatus(key);
+            } else if (!res.ok) {
+              result = { success: false, error: result.error || `Enhance failed (${res.status}).` };
+            }
           } else {
-            res = await fetch('/enrich', {
+            const res = await fetch('/enrich', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url, title, city, state }),
             });
+            result = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              result = { success: false, error: result.error || `Enhance failed (${res.status}).` };
+            }
           }
 
-          const result = await res.json().catch(() => ({}));
           if (result.error) lastError = String(result.error);
           const d = result.lead || result.data;
-          const ok = res.ok && result.success && d;
+          const ok = !!result.success && !!d;
           if (ok) successCount += 1;
           if (layout) applyBulkEnhanceDomAfterFetch(row, layout, bulkEnhanceDomSnapshots.get(row) || cellOriginals, ok, result);
           else if (ok) applyEnrichDataToRowDataset(row, d, result);
@@ -16508,7 +16520,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (successCount === 0) {
       const enhanceFailMsg = lastError
         ? `Enhance finished but no rows were updated.\n\n${lastError}`
-        : 'Enhance could not add new fields (Firecrawl or network). Open Workspace → API integrations and confirm your Firecrawl key, then try again. Check server logs if it keeps failing.';
+        : 'Enhance found no new contact or review data for the selected lead(s).';
       notifyBulkEnhanceIdle(enhanceFailMsg, 'error');
     }
     updateOpportunityBadges();
@@ -16667,7 +16679,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (d.attempted > 0 && d.successCount === 0) {
       const enhanceFailMsg = d.lastError
         ? `Enhance finished but no rows were updated.\n\n${d.lastError}`
-        : 'Enhance could not add new fields (Firecrawl or network). Open Workspace → API integrations and confirm your Firecrawl key, then try again. Check server logs if it keeps failing.';
+        : 'Enhance found no new contact or review data for the selected lead(s).';
       notifyBulkEnhanceIdle(enhanceFailMsg, 'error');
     }
     updateOpportunityBadges();

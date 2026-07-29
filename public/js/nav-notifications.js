@@ -498,7 +498,13 @@
             headers: { Accept: 'application/json' },
           });
           result = await res.json().catch(() => ({}));
-          success = !!(res.ok && result.success);
+          if (res.ok && result.processing) {
+            // eslint-disable-next-line no-await-in-loop
+            result = await pollLeadEnhanceUntilDone(key);
+            success = !!(result.success && (result.lead || result.data));
+          } else {
+            success = !!(res.ok && result.success && (result.lead || result.data));
+          }
         } catch (err) {
           result = { error: err.message };
         }
@@ -951,6 +957,39 @@
     if (d.status === 'idle') return { success: false, error: 'idle', _idle: true };
     return { success: false, error: d.error || 'Status check failed.' };
   }
+
+  async function pollLeadEnhanceUntilDone(leadKey, opts) {
+    const maxMs = opts && opts.maxMs != null ? opts.maxMs : 180000;
+    const interval = opts && opts.interval != null ? opts.interval : 2500;
+    const deadline = Date.now() + maxMs;
+    const started = Date.now();
+    let idleStreak = 0;
+    while (Date.now() < deadline) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, interval));
+      // eslint-disable-next-line no-await-in-loop
+      const tick = await pollContactHuntJobOnce({ leadKey: leadKey });
+      if (!tick) {
+        idleStreak = 0;
+        continue;
+      }
+      if (tick._idle) {
+        idleStreak += 1;
+        if (Date.now() - started < 20000 && idleStreak < 8) continue;
+        return {
+          success: false,
+          error: 'Enhance ended before results were ready. Refresh and try again.',
+        };
+      }
+      return tick;
+    }
+    return {
+      success: false,
+      error: 'Enhance is taking longer than expected. Check back in a minute.',
+    };
+  }
+
+  window.__pollLeadEnhanceUntilDone = pollLeadEnhanceUntilDone;
 
   async function runContactHuntPollLoop() {
     if (contactHuntPollLock) return;

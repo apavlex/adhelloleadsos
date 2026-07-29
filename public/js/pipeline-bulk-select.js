@@ -1652,6 +1652,9 @@
     if (d.email) row.dataset.email = d.email;
     if (d.phone !== undefined && d.phone !== null) row.dataset.phone = d.phone || 'N/A';
     if (d.address) row.dataset.address = d.address;
+    if (d.city) row.dataset.city = d.city;
+    if (d.state) row.dataset.state = d.state;
+    if (d.zip || d.postalCode) row.dataset.zip = String(d.zip || d.postalCode).trim();
     const ratingVal = d.totalScore ?? d.total_score ?? d.rating;
     const revVal = d.reviewsCount ?? d.reviews_count ?? d.reviews;
     if (ratingVal != null && !Number.isNaN(parseFloat(ratingVal))) {
@@ -1660,6 +1663,64 @@
     if (revVal != null && !Number.isNaN(parseInt(revVal, 10))) {
       row.dataset.reviews = String(parseInt(revVal, 10));
     }
+    if (typeof window.syncPipelineRowAddressDisplay === 'function') {
+      window.syncPipelineRowAddressDisplay(row);
+    }
+    if (typeof window.syncPipelineRowWebsiteCell === 'function') {
+      window.syncPipelineRowWebsiteCell(row);
+    }
+    if (typeof window.syncPipelineRowCallButton === 'function') {
+      window.syncPipelineRowCallButton(row, row.dataset.phone);
+    }
+  }
+
+  async function pollLeadEnhanceUntilDoneEarly(leadKey) {
+    if (typeof window.__pollLeadEnhanceUntilDone === 'function') {
+      return window.__pollLeadEnhanceUntilDone(leadKey);
+    }
+    const maxMs = 180000;
+    const interval = 2500;
+    const deadline = Date.now() + maxMs;
+    const started = Date.now();
+    let idleStreak = 0;
+    while (Date.now() < deadline) {
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, interval));
+      // eslint-disable-next-line no-await-in-loop
+      const res = await fetch('/leads/' + encodeURIComponent(leadKey) + '/enhance-status', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      // eslint-disable-next-line no-await-in-loop
+      const d = await res.json().catch(() => ({}));
+      if (d.status === 'processing') {
+        idleStreak = 0;
+        continue;
+      }
+      if (d.status === 'done') {
+        return {
+          success: !!d.success,
+          lead: d.lead,
+          data: d.data,
+          error: d.error,
+        };
+      }
+      if (d.status === 'error') {
+        return { success: false, error: d.error || 'Enhance failed.' };
+      }
+      if (d.status === 'idle') {
+        idleStreak += 1;
+        if (Date.now() - started < 20000 && idleStreak < 8) continue;
+        return {
+          success: false,
+          error: 'Enhance ended before results were ready. Refresh and try again.',
+        };
+      }
+    }
+    return {
+      success: false,
+      error: 'Enhance is taking longer than expected. Check back in a minute.',
+    };
   }
 
   async function runBulkEnhanceFromBarEarly() {
@@ -1711,25 +1772,34 @@
 
         attemptedCount += 1;
         try {
-          let res;
+          let result = {};
           if (key) {
-            res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
+            const res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
               method: 'POST',
               credentials: 'same-origin',
               headers: { Accept: 'application/json' },
             });
+            result = await res.json().catch(() => ({}));
+            if (res.ok && result.processing) {
+              result = await pollLeadEnhanceUntilDoneEarly(key);
+            } else if (!res.ok) {
+              result = { success: false, error: result.error || `Enhance failed (${res.status}).` };
+            }
           } else {
-            res = await fetch('/enrich', {
+            const res = await fetch('/enrich', {
               method: 'POST',
               credentials: 'same-origin',
               headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
               body: JSON.stringify({ url, title, city, state }),
             });
+            result = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              result = { success: false, error: result.error || `Enhance failed (${res.status}).` };
+            }
           }
-          const result = await res.json().catch(() => ({}));
           if (result.error) lastError = String(result.error);
           const d = result.lead || result.data;
-          const ok = res.ok && result.success && d;
+          const ok = !!result.success && !!d;
           if (ok) {
             successCount += 1;
             applyEnhanceDataToRowEarly(row, d);
@@ -1766,7 +1836,7 @@
     } else {
       showBulkBarFeedbackEarly(
         lastError ||
-          'Enhance found no new data. Add Firecrawl or Monid keys under Workspace → Integrations.',
+          'Enhance found no new contact or review data for the selected lead(s).',
         'error',
       );
     }
