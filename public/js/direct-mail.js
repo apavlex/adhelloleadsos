@@ -1079,6 +1079,24 @@
     return 'Load to ' + (currentDesignSlot() === 'back' ? 'back' : 'front');
   }
 
+  function formatSendFailure(data) {
+    if (data && typeof data.error === 'string' && data.error.trim()) return data.error.trim();
+    var results = data && Array.isArray(data.results) ? data.results : [];
+    var failed = results.filter(function (r) {
+      return r && !r.ok;
+    });
+    if (!failed.length) return 'Send failed';
+    var first = String(failed[0].error || '').trim() || 'Unknown error';
+    if (failed.length === 1) return first;
+    var unique = [];
+    failed.forEach(function (r) {
+      var msg = String(r.error || '').trim() || 'Unknown error';
+      if (unique.indexOf(msg) === -1) unique.push(msg);
+    });
+    if (unique.length === 1) return unique[0] + ' (' + failed.length + ' leads)';
+    return failed.length + ' failed — ' + first;
+  }
+
   function setExportStatus(text, ok) {
     var el = document.getElementById('dmExportStatus');
     if (!el) return;
@@ -1902,6 +1920,29 @@
       if (!window.confirm('Send ' + keys.length + ' postcard(s) via Lob?')) return;
 
       var designUrls = activeDesignUrls();
+      if (!designUrls.frontImageUrl && !designUrls.backImageUrl) {
+        if (
+          !window.confirm(
+            'No generated front/back art is selected for send. Lob will use the built-in HTML template instead. Continue?',
+          )
+        ) {
+          return;
+        }
+      } else if (!designUrls.frontImageUrl || !designUrls.backImageUrl) {
+        var missingSide = !designUrls.frontImageUrl ? 'front' : 'back';
+        if (
+          !window.confirm(
+            'Only the ' +
+              (designUrls.frontImageUrl ? 'front' : 'back') +
+              ' design is selected. The ' +
+              missingSide +
+              ' will use the built-in template. Continue?',
+          )
+        ) {
+          return;
+        }
+      }
+
       sendBtn.disabled = true;
       setStatus('Sending…', true);
       try {
@@ -1923,10 +1964,14 @@
           return {};
         });
         if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || 'Send failed');
+          throw new Error(formatSendFailure(data));
         }
         var msg = 'Sent ' + data.sent + ' postcard(s)';
-        if (data.failed) msg += ' · ' + data.failed + ' failed';
+        if (data.failed) {
+          msg += ' · ' + data.failed + ' failed';
+          var failDetail = formatSendFailure(data);
+          if (failDetail && failDetail !== 'Send failed') msg += ' — ' + failDetail;
+        }
         setStatus(msg, true);
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(msg, { variant: 'success' });

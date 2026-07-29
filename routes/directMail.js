@@ -613,7 +613,7 @@ router.post('/api/send', async (req, res, next) => {
     const results = [];
     for (const key of keys) {
       const fullKey = leadKeyFromParam(key);
-      const lead = await dbService.getLead(fullKey);
+      const lead = await dbService.getLead(fullKey, req.workspaceId);
       if (!lead) {
         results.push({ key: fullKey, ok: false, error: 'Lead not found' });
         continue;
@@ -661,11 +661,13 @@ router.post('/api/send', async (req, res, next) => {
     }
 
     const okCount = results.filter((r) => r.ok).length;
+    const failMessages = results.filter((r) => !r.ok).map((r) => r.error).filter(Boolean);
     res.json({
       success: okCount > 0,
       sent: okCount,
       failed: results.length - okCount,
       results,
+      error: okCount > 0 ? undefined : failMessages[0] || 'Send failed',
     });
   } catch (err) {
     next(err);

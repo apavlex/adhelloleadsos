@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseMailableAddress, hasMailableAddress, getLeadLobAddressPreview } = require('../services/lobDirectMail');
+const { parseMailableAddress, hasMailableAddress, getLeadLobAddressPreview, resolvePostcardCreative } = require('../services/lobDirectMail');
 
 test('parseMailableAddress accepts street + city + state + zip in address', () => {
   const lead = {
@@ -56,6 +56,42 @@ test('parseMailableAddress keeps street numbers that look like zip codes', () =>
   assert.ok(parsed);
   assert.equal(parsed.address_zip, '98682');
   assert.equal(parsed.address_line1, '26001 NE 60th St');
+});
+
+test('resolvePostcardCreative uses public image URLs directly for Lob', () => {
+  const html = {
+    front: '<html><body>fallback front</body></html>',
+    back: '<html><body>fallback back</body></html>',
+  };
+  const creative = resolvePostcardCreative(
+    {},
+    html,
+    {
+      frontImageUrl: 'https://cdn.example.com/front.jpg',
+      backImageUrl: 'https://cdn.example.com/back.jpg',
+    },
+    { personalizeOverlay: false },
+  );
+  assert.equal(creative.front, 'https://cdn.example.com/front.jpg');
+  assert.equal(creative.back, 'https://cdn.example.com/back.jpg');
+  assert.equal(creative.mode, 'remote_url');
+});
+
+test('resolvePostcardCreative rejects non-public generated image URLs', () => {
+  const html = {
+    front: '<html><body>fallback front</body></html>',
+    back: '<html><body>fallback back</body></html>',
+  };
+  assert.throws(
+    () =>
+      resolvePostcardCreative(
+        {},
+        html,
+        { frontImageUrl: 'data:image/png;base64,abc' },
+        { personalizeOverlay: false },
+      ),
+    /public https image/i,
+  );
 });
 
 test('lobClient isConfigured requires key and return address', () => {

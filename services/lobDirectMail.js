@@ -174,6 +174,49 @@ function isPdfOrHttpUrl(value) {
   return /^https?:\/\//i.test(v);
 }
 
+function postcardSideFromImage(imageUrl, opts) {
+  const url = String(imageUrl || '').trim();
+  if (!url) return '';
+  const o = opts && typeof opts === 'object' ? opts : {};
+  if (o.personalizeOverlay && o.lead) {
+    const html = wrapImageWithPersonalizedOverlay(url, {
+      lead: o.lead,
+      headline: o.headline,
+      bodyText: o.bodyText,
+      ctaUrl: o.ctaUrl,
+      showOverlay: true,
+    });
+    if (html) return html;
+  }
+  if (isPdfOrHttpUrl(url)) return url;
+  return '';
+}
+
+function assertPostcardCreativeSide(label, value, usedSide) {
+  if (!usedSide) return;
+  const side = String(value || '').trim();
+  if (!side) {
+    throw new Error(
+      `${label} design must be a public https image. Regenerate or reload it on the canvas before sending.`,
+    );
+  }
+}
+
+async function assertReachableImageUrl(imageUrl, label) {
+  const url = String(imageUrl || '').trim();
+  if (!url || !isPdfOrHttpUrl(url)) return;
+  const res = await fetch(url, { redirect: 'follow' });
+  if (!res.ok) {
+    throw new Error(
+      `${label} image is not reachable (HTTP ${res.status}). Regenerate the design — hosted image links can expire.`,
+    );
+  }
+  const buf = await res.arrayBuffer();
+  if (!buf || !buf.byteLength) {
+    throw new Error(`${label} image download was empty. Regenerate the design before sending.`);
+  }
+}
+
 function resolvePostcardCreative(integrationEnv, htmlFallback, overrides, opts) {
   const o = overrides && typeof overrides === 'object' ? overrides : {};
   const personalize = opts && typeof opts === 'object' ? opts : {};
@@ -189,25 +232,40 @@ function resolvePostcardCreative(integrationEnv, htmlFallback, overrides, opts) 
   const backImageUrl = String(o.backImageUrl || '').trim();
 
   if (frontImageUrl || backImageUrl) {
-    const frontHtml = frontImageUrl
-      ? personalizeOverlay && lead
-        ? wrapImageWithPersonalizedOverlay(frontImageUrl, {
-            lead,
-            ...copy,
-            showOverlay: true,
-          })
-        : wrapImageUrlAsPostcardHtml(frontImageUrl)
+    const overlayOpts = {
+      personalizeOverlay,
+      lead,
+      headline: copy.headline,
+      bodyText: copy.bodyText,
+      ctaUrl: copy.ctaUrl,
+    };
+    const frontCreative = frontImageUrl
+      ? postcardSideFromImage(frontImageUrl, overlayOpts)
       : htmlFallback.front;
-    const backHtml = backImageUrl
-      ? wrapImageUrlAsPostcardHtml(backImageUrl)
+    const backCreative = backImageUrl
+      ? postcardSideFromImage(backImageUrl, { ...overlayOpts, personalizeOverlay: false })
       : htmlFallback.back;
 
+    assertPostcardCreativeSide('Front', frontCreative, !!frontImageUrl);
+    assertPostcardCreativeSide('Back', backCreative, !!backImageUrl);
+
+    const mode =
+      (!personalizeOverlay || !lead) &&
+      ((frontImageUrl && isPdfOrHttpUrl(frontImageUrl)) ||
+        (backImageUrl && isPdfOrHttpUrl(backImageUrl)))
+        ? 'remote_url'
+        : 'html';
+
     return {
-      front: frontHtml,
-      back: backHtml,
-      mode: 'html',
+      front: frontCreative,
+      back: backCreative,
+      mode,
       usedGenerated: { front: !!frontImageUrl, back: !!backImageUrl },
       personalizedOverlay: !!(frontImageUrl && personalizeOverlay && lead),
+      sourceImageUrls: {
+        front: frontImageUrl || '',
+        back: backImageUrl || '',
+      },
     };
   }
 
@@ -247,6 +305,9 @@ async function sendPostcardToLead({
     { frontImageUrl, backImageUrl, headline, bodyText, ctaUrl },
     { lead, personalizeOverlay },
   );
+  const sourceUrls = creative.sourceImageUrls || {};
+  if (sourceUrls.front) await assertReachableImageUrl(sourceUrls.front, 'Front');
+  if (sourceUrls.back) await assertReachableImageUrl(sourceUrls.back, 'Back');
   const data = await lobClient.createPostcard({
     to,
     front: creative.front,
