@@ -179,7 +179,7 @@
                 </label>
                 <label class="dm-check-row">
                   <input type="checkbox" id="dmBrandUseLogo" <%= (!brandKit || brandKit.useLogoInDesign !== false) ? 'checked' : '' %> />
-                  Overlay logo unchanged (top-left)
+                  Overlay logo unchanged (top-left). When off, AI incorporates your logo from Brand.
                 </label>
                 <button type="button" id="dmBrandSaveBtn" class="dm-studio-topbtn dm-studio-topbtn--primary w-full justify-center">Save brand kit</button>
                 <p id="dmBrandSaveStatus" class="dm-brand-save-status" aria-live="polite"></p>
@@ -315,10 +315,10 @@
       <!-- Right inspector: prompt editor -->
       <aside class="dm-studio-inspector">
         <h2 class="dm-drawer-title">Prompt &amp; refine</h2>
-        <p class="dm-drawer-desc">Edit the GPT Image 2 prompt, then regenerate.</p>
+        <p class="dm-drawer-desc">Edit the GPT Image 2 prompt, then generate.</p>
         <div class="dm-upload-block mb-4 pb-4 border-b border-brand-border/20 dark:border-white/10">
           <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-1">Your own image</p>
-          <p class="dm-drawer-desc mb-2">Upload a photo or graphic to the active canvas — export as-is or regenerate with AI to refine it.</p>
+          <p class="dm-drawer-desc mb-2">Upload a photo or graphic to the active canvas — export as-is or generate with AI to refine it.</p>
           <button type="button" id="dmUploadCreativeBtnInspector" class="dm-studio-topbtn w-full">Upload image</button>
         </div>
         <div id="dmPromptEditorWrap" class="dm-prompt-editor-wrap">
@@ -329,7 +329,7 @@
           <textarea id="dmPromptEditor" rows="8" class="dm-input dm-prompt-editor" placeholder="The full image generation prompt appears here after Chat or Generate…"></textarea>
           <div class="flex flex-wrap gap-2 mt-2">
             <button type="button" id="dmPromptApply" class="dm-studio-topbtn">Use prompt</button>
-            <button type="button" id="dmPromptRegenerate" class="dm-studio-topbtn dm-studio-topbtn--primary">Regenerate</button>
+            <button type="button" id="dmPromptRegenerate" class="dm-studio-topbtn dm-studio-topbtn--primary">Generate</button>
           </div>
         </div>
         <div id="dmExportActions" class="dm-export-actions mt-4 hidden">
@@ -344,8 +344,8 @@
           <p class="text-[11px] font-bold uppercase tracking-widest text-brand-muted mb-2">Tips</p>
           <ul class="text-[11px] text-brand-muted space-y-1.5 leading-relaxed">
             <li>Fill in <strong>Brand</strong> for phone, logo, and hours on ads.</li>
-            <li><strong>Upload</strong> your own photo, then <strong>Regenerate</strong> to polish it with AI.</li>
-            <li>Use <strong>Chat</strong> to iterate; <strong>Generate</strong> creates the image.</li>
+            <li><strong>Upload</strong> your own photo, then <strong>Generate</strong> to polish it with AI.</li>
+            <li>Use <strong>Chat</strong> to iterate; press <strong>Enter</strong> or click <strong>Generate</strong> to create the image.</li>
             <li>Postcard mode supports front + back pages.</li>
           </ul>
         </div>

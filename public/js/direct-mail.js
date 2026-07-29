@@ -118,6 +118,11 @@
   var studioZoom = 1;
   var studioZoomFocusBtn = null;
 
+  function activeArtboardBtn() {
+    var slot = currentDesignSlot();
+    return document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
+  }
+
   function setStudioZoom(value, focusBtn) {
     studioZoom = Math.min(2.5, Math.max(0.5, value));
     var scaler = document.getElementById('dmCanvasScaler');
@@ -132,25 +137,40 @@
     }
     if (label) label.textContent = Math.round(studioZoom * 100) + '%';
     if (focusBtn) studioZoomFocusBtn = focusBtn;
-    if (studioZoom > 1.02 && (focusBtn || studioZoomFocusBtn)) {
-      centerCanvasOnArtboard(focusBtn || studioZoomFocusBtn);
+    if (studioZoom > 1.02) {
+      centerCanvasOnArtboard(focusBtn || studioZoomFocusBtn || activeArtboardBtn());
+    } else if (viewport) {
+      viewport.scrollLeft = 0;
+      viewport.scrollTop = 0;
     }
     syncPreviewZoomBadges();
   }
 
   function centerCanvasOnArtboard(btn) {
     var viewport = document.getElementById('dmCanvasViewport');
-    if (!viewport || !btn) return;
+    var scaler = document.getElementById('dmCanvasScaler');
+    if (!viewport) return;
     window.requestAnimationFrame(function () {
-      var vRect = viewport.getBoundingClientRect();
-      var bRect = btn.getBoundingClientRect();
-      var nextLeft =
-        viewport.scrollLeft + (bRect.left + bRect.width / 2) - (vRect.left + vRect.width / 2);
-      var nextTop =
-        viewport.scrollTop + (bRect.top + bRect.height / 2) - (vRect.top + vRect.height / 2);
+      if (btn) {
+        var vRect = viewport.getBoundingClientRect();
+        var bRect = btn.getBoundingClientRect();
+        var nextLeft =
+          viewport.scrollLeft + (bRect.left + bRect.width / 2) - (vRect.left + vRect.width / 2);
+        var nextTop =
+          viewport.scrollTop + (bRect.top + bRect.height / 2) - (vRect.top + vRect.height / 2);
+        viewport.scrollTo({
+          left: Math.max(0, nextLeft),
+          top: Math.max(0, nextTop),
+          behavior: 'smooth',
+        });
+        return;
+      }
+      if (!scaler) return;
+      var maxLeft = Math.max(0, viewport.scrollWidth - viewport.clientWidth);
+      var maxTop = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
       viewport.scrollTo({
-        left: Math.max(0, nextLeft),
-        top: Math.max(0, nextTop),
+        left: maxLeft / 2,
+        top: maxTop / 2,
         behavior: 'smooth',
       });
     });
@@ -255,8 +275,8 @@
     var zoomIn = document.getElementById('dmZoomIn');
     var zoomOut = document.getElementById('dmZoomOut');
     var zoomFit = document.getElementById('dmZoomFit');
-    if (zoomIn) zoomIn.addEventListener('click', function () { setStudioZoom(studioZoom + 0.1); });
-    if (zoomOut) zoomOut.addEventListener('click', function () { setStudioZoom(studioZoom - 0.1); });
+    if (zoomIn) zoomIn.addEventListener('click', function () { setStudioZoom(studioZoom + 0.1, activeArtboardBtn()); });
+    if (zoomOut) zoomOut.addEventListener('click', function () { setStudioZoom(studioZoom - 0.1, activeArtboardBtn()); });
     if (zoomFit) {
       zoomFit.addEventListener('click', function () {
         studioZoomFocusBtn = null;
@@ -553,7 +573,7 @@
       var uploadPrompt =
         'Uploaded ' +
         (plat.dualSided ? slot + ' image' : plat.label + ' image') +
-        ' — use Regenerate to refine with AI, or export as-is.';
+        ' — use Generate to refine with AI, or export as-is.';
       designMeta[slot] = Object.assign({}, designMeta[slot], {
         prompt: uploadPrompt,
         aspectRatio: currentAspectRatio(),
@@ -931,6 +951,8 @@
     if (kit.hours) parts.push('Include business hours: ' + kit.hours + '.');
     if (kit.logoUrl && kit.useLogoInDesign) {
       parts.push('Leave clear empty space in the top-left corner for a logo overlay — do not draw a logo in the image.');
+    } else if (kit.logoUrl) {
+      parts.push('Incorporate the provided brand logo naturally in the layout — match its colors and style; do not omit the logo.');
     }
     parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
     return parts.join(' ');
@@ -1095,7 +1117,7 @@
     var input = document.getElementById('dmChatInput');
     if (input) input.value = text;
     showPromptEditor(slot, text);
-    setDesignStatus('Prompt updated — click Regenerate or Generate.', true);
+    setDesignStatus('Prompt updated — click Generate.', true);
   }
 
   function getSavedDesigns() {
@@ -1720,7 +1742,14 @@
           platform: ctx.platform,
           silent: true,
         });
-        setDesignStatus('Generated ' + slot + ' side — saved to library automatically.', true);
+        var statusMsg = 'Generated ' + slot + ' side — saved to library automatically.';
+        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign) {
+          statusMsg =
+            'Generated ' +
+            slot +
+            ' side — logo overlay failed. Re-save your logo in Brand, or turn off overlay to let AI incorporate it.';
+        }
+        setDesignStatus(statusMsg, data.logoOverlayApplied !== false);
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
           window.showAppToast((plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated', {
@@ -1943,7 +1972,17 @@
     chatInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        sendChatMessage();
+        generateImage();
+      }
+    });
+  }
+
+  var promptEditor = document.getElementById('dmPromptEditor');
+  if (promptEditor) {
+    promptEditor.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        generateImage();
       }
     });
   }

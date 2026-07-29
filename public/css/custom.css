@@ -4877,8 +4877,8 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
 }
 
 .dm-canvas-viewport.is-canvas-zoomed {
-  align-items: flex-start;
-  justify-content: flex-start;
+  align-items: center;
+  justify-content: center;
   padding: 2rem;
 }
 
