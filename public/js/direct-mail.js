@@ -908,7 +908,9 @@
     if (kit.email) parts.push('Include email ' + kit.email + '.');
     if (kit.address) parts.push('Include address ' + kit.address + '.');
     if (kit.hours) parts.push('Include business hours: ' + kit.hours + '.');
-    if (kit.logoUrl && kit.useLogoInDesign) parts.push('Incorporate the brand logo tastefully.');
+    if (kit.logoUrl && kit.useLogoInDesign) {
+      parts.push('Leave clear empty space in the top-left corner for a logo overlay — do not draw a logo in the image.');
+    }
     parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
     return parts.join(' ');
   }

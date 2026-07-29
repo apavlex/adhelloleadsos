@@ -21,6 +21,7 @@ const {
   safeImageFileName,
   DEFAULT_MARKETING_FOLDER_NAME,
 } = require('../services/googleDriveUpload');
+const { applyLogoOverlayToRemoteImage } = require('../services/marketingImageComposite');
 
 function userEmail(req) {
   return String((req.user && req.user.email) || '').trim().toLowerCase();
@@ -122,7 +123,11 @@ function brandKitSummary(kit) {
   if (k.website) lines.push(`Website: ${k.website}`);
   if (k.address) lines.push(`Address: ${k.address}`);
   if (k.hours) lines.push(`Hours: ${k.hours}`);
-  if (k.logoUrl) lines.push('Logo: uploaded (use as brand reference in layout)');
+  if (k.logoUrl && k.useLogoInDesign) {
+    lines.push('Logo: uploaded (overlaid unchanged after generation — leave top-left space clear)');
+  } else if (k.logoUrl) {
+    lines.push('Logo: uploaded (overlay disabled)');
+  }
   return lines.length ? lines.join('\n') : '(no business info set yet)';
 }
 
@@ -155,7 +160,7 @@ Ad copy context:
 
 Merge tokens for per-recipient personalization (postcard sends only): {business}, {city}, {state}, {audit_url}. For bulk postcard mail, do not bake one specific business name into artwork — leave space for overlays.
 
-Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2 (text-to-image or image-to-image; logo can be supplied as a reference image).
+Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When a logo is enabled, it is overlaid unchanged after generation — do not ask the model to redraw the logo inside the image.
 
 Respond with JSON only, no markdown:
 {"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. Include business contact details in the design when the user wants them on the ad. Null if still exploring."}
@@ -180,7 +185,11 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform) {
   if (k.website) extras.push(`Website: ${k.website}`);
   if (k.address) extras.push(`Address: ${k.address}`);
   if (k.hours) extras.push(`Hours: ${k.hours}`);
-  if (k.logoUrl && k.useLogoInDesign) extras.push('Incorporate the uploaded brand logo tastefully in the layout.');
+  if (k.logoUrl && k.useLogoInDesign) {
+    extras.push(
+      'Leave clear empty space in the top-left corner for a logo overlay — do not draw, invent, or distort a logo in the generated image',
+    );
+  }
   const plat = platformLabel(platform);
   const suffix = extras.length
     ? `\n\nPlatform: ${plat}. Include on the ad where appropriate: ${extras.join('; ')}.`
@@ -582,11 +591,6 @@ router.post('/api/generate-image', async (req, res, next) => {
         ? [referenceAbs]
         : [];
 
-    if (brandKit.logoUrl && brandKit.useLogoInDesign) {
-      const logoAbs = toAbsoluteAssetUrl(req, brandKit.logoUrl);
-      if (logoAbs && !inputUrls.includes(logoAbs)) inputUrls.unshift(logoAbs);
-    }
-
     let result;
     try {
       result = await kieImageClient.generate({
@@ -612,13 +616,33 @@ router.post('/api/generate-image', async (req, res, next) => {
       }
     }
 
+    let finalImageUrl = result.imageUrl;
+    let logoOverlayApplied = false;
+    if (brandKit.logoUrl && brandKit.useLogoInDesign && finalImageUrl) {
+      try {
+        const logoAbs = toAbsoluteAssetUrl(req, brandKit.logoUrl);
+        finalImageUrl = await applyLogoOverlayToRemoteImage(req, {
+          baseImageUrl: finalImageUrl,
+          logoUrl: logoAbs,
+          position: 'top-left',
+        });
+        logoOverlayApplied = true;
+      } catch (overlayErr) {
+        console.warn(
+          '[direct-mail] logo overlay failed:',
+          overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
+        );
+      }
+    }
+
     res.json({
       success: true,
       slot,
       taskId: result.taskId,
       model: result.model,
-      imageUrl: result.imageUrl,
+      imageUrl: finalImageUrl,
       urls: result.urls,
+      logoOverlayApplied,
     });
   } catch (err) {
     if (err && err.message) {
