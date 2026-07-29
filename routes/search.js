@@ -10,7 +10,7 @@ const workspaceIntegrations = require('../services/workspaceIntegrations');
 const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
-const { resolveTargetFolder } = require('../services/pipelineFolders');
+const { resolveTargetFolder, findFolderForJobType } = require('../services/pipelineFolders');
 const { parseAutoTags, resolveAutoTagKeys } = require('../services/folderSearchPreset');
 
 // POST /search — Google Maps list (RapidAPI → SearchAPI.io → SerpAPI → Outscraper → Apify in Auto)
@@ -248,13 +248,28 @@ router.get('/:key', async (req, res, next) => {
 
     let targetFolderKey = data.targetFolderKey || '';
     let targetFolderName = data.targetFolderName || '';
-    if (!targetFolderKey && data.jobType) {
+    const jobType = data.jobType || JOB_TYPES.MAPS_BUSINESS;
+    const permitsRoot =
+      jobType === JOB_TYPES.PERMITS ? findFolderForJobType(folders, JOB_TYPES.PERMITS) : null;
+    const permitsRootKey = permitsRoot && permitsRoot.key ? String(permitsRoot.key) : '';
+    const shouldResolvePermitSubfolder =
+      jobType === JOB_TYPES.PERMITS &&
+      (data.category || data.city) &&
+      (!targetFolderKey || (permitsRootKey && targetFolderKey === permitsRootKey));
+
+    if ((!targetFolderKey || shouldResolvePermitSubfolder) && jobType) {
       const resolved = await resolveTargetFolder(req.workspaceId, {
-        jobType: data.jobType,
+        jobType,
         autoDefault: true,
+        category: data.category,
+        city: data.city,
+        folderKey: shouldResolvePermitSubfolder ? '' : targetFolderKey,
       });
-      targetFolderKey = resolved.targetFolderKey || '';
-      targetFolderName = resolved.targetFolderName || '';
+      if (resolved.targetFolderKey) {
+        targetFolderKey = resolved.targetFolderKey;
+        targetFolderName = resolved.targetFolderName || targetFolderName;
+        folders = await dbService.listFolders(req.workspaceId);
+      }
     }
 
     let autoTagKeys = [];

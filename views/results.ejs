@@ -238,7 +238,7 @@
   <%- include('partials/footer') %>
 
   <% if (results.length > 0) { %>
-  <%- include('partials/bulk_action_bar', { bulkBarMode: 'search' }) %>
+  <%- include('partials/bulk_action_bar', { bulkBarMode: 'search', folders: folders, targetFolderKey: targetFolderKey, targetFolderName: targetFolderName }) %>
   <%- include('partials/email_intel_modal') %>
   <% } %>
 

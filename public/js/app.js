@@ -14404,11 +14404,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function leadKeyFromBulkCheckbox(cb) {
     if (!cb) return '';
-    let key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
-    if (key) return key;
     const row = cb.closest('tr.result-row, tr[data-lead-key]');
-    if (!row) return '';
-    return String(row.getAttribute('data-lead-key') ?? row.dataset.leadKey ?? '').trim();
+    const rowKey = row
+      ? String(row.getAttribute('data-lead-key') ?? row.dataset.leadKey ?? '').trim()
+      : '';
+    if (rowKey) return rowKey;
+    let key = String(cb.getAttribute('data-key') ?? cb.dataset.key ?? '').trim();
+    // Search results use row index as data-key until the lead is saved — not a CRM key.
+    if (document.getElementById('searchResultsLeadsTable') && /^\d+$/.test(key)) return '';
+    if (key) return key;
+    return '';
   }
 
   function countCheckedLeadBoxes(table) {
@@ -14759,7 +14764,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (data && data.success && Array.isArray(data.folders)) {
           window.WORKSPACE_FOLDERS = data.folders
             .filter((f) => f && f.key)
-            .map((f) => ({ key: String(f.key), name: String(f.name || '').trim() || 'Folder' }));
+            .map((f) => ({
+              key: String(f.key),
+              name: String(f.name || '').trim() || 'Folder',
+              jobType: f.jobType || '',
+              parentFolderKey: f.parentFolderKey || '',
+            }));
         } else if (!Array.isArray(window.WORKSPACE_FOLDERS)) {
           window.WORKSPACE_FOLDERS = [];
         }
@@ -15056,13 +15066,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function buildBulkFolderCreatePayload(name) {
     const payload = { name: String(name || '').trim() };
-    const activeKey = String(window.PROSPECTING_ACTIVE_FOLDER_KEY || '').trim();
+    const activeKey = String(
+      window.PROSPECTING_ACTIVE_FOLDER_KEY || window.SEARCH_TARGET_FOLDER_KEY || '',
+    ).trim();
     if (!activeKey) return payload;
     payload.parentFolderKey = activeKey;
     const folders = Array.isArray(window.WORKSPACE_FOLDERS) ? window.WORKSPACE_FOLDERS : [];
     const activeFolder = folders.find((f) => f && String(f.key) === activeKey);
     if (activeFolder && activeFolder.jobType) {
       payload.jobType = String(activeFolder.jobType);
+    } else if (typeof window.SEARCH_JOB_TYPE === 'string' && window.SEARCH_JOB_TYPE.trim()) {
+      payload.jobType = window.SEARCH_JOB_TYPE.trim();
     } else if (window.PROSPECTING_BUSINESSES_VIEW) {
       payload.jobType = 'maps_business';
     }
@@ -15532,6 +15546,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function bulkMoveFolderFromBar() {
+    if (
+      document.getElementById('searchResultsLeadsTable') &&
+      typeof window.__bulkMoveSearchResultsToFolder === 'function'
+    ) {
+      return window.__bulkMoveSearchResultsToFolder();
+    }
+
     const keys = getSelectedLeadKeysForBulk();
     if (!keys.length) {
       window.alert('Select at least one lead.');
@@ -15724,6 +15745,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function bulkSaveSelectedLeads(triggerBtn) {
+    const isSearchBulkEarly = !!document.getElementById('searchResultsLeadsTable');
+    if (isSearchBulkEarly && typeof window.__bulkSaveSearchResultsToFolder === 'function') {
+      return window.__bulkSaveSearchResultsToFolder(triggerBtn);
+    }
+
     const table = getActiveLeadsTable();
     const scope = table || document;
     const checkedBoxes = scope.querySelectorAll(

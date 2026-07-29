@@ -27,6 +27,22 @@ test('buildFolderTree nests subfolders under system roots', () => {
   assert.equal(biz.childRows[0].depth, 1);
 });
 
+test('buildFolderTree includes Permits system root and nested permit subfolders', () => {
+  const tree = buildFolderTree([
+    { key: 'root:permits', name: 'Permits', jobType: 'permits', isPipelineDefault: true },
+    {
+      key: 'sub:nc-camas',
+      name: 'New Construction Camas',
+      parentFolderKey: 'root:permits',
+      jobType: 'permits',
+    },
+  ]);
+  const permits = tree.groups.find((g) => g.key === 'root:permits');
+  assert.ok(permits, 'Permits should appear in folder tree groups');
+  assert.equal(permits.children.length, 1);
+  assert.equal(permits.children[0].name, 'New Construction Camas');
+});
+
 test('buildFolderTree nests grandchildren under trade folders', () => {
   const tree = buildFolderTree([
     { key: 'root:biz', name: 'Businesses', jobType: 'maps_business', isPipelineDefault: true },

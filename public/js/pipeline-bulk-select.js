@@ -796,7 +796,9 @@
   /** Create folder from bulk bar — available before app.js finishes loading. */
   function buildBulkFolderCreatePayload(name) {
     var payload = { name: String(name || '').trim() };
-    var activeKey = String(window.PROSPECTING_ACTIVE_FOLDER_KEY || '').trim();
+    var activeKey = String(
+      window.PROSPECTING_ACTIVE_FOLDER_KEY || window.SEARCH_TARGET_FOLDER_KEY || '',
+    ).trim();
     if (!activeKey) return payload;
     payload.parentFolderKey = activeKey;
     var folders = Array.isArray(window.WORKSPACE_FOLDERS) ? window.WORKSPACE_FOLDERS : [];
@@ -805,6 +807,8 @@
     });
     if (activeFolder && activeFolder.jobType) {
       payload.jobType = String(activeFolder.jobType);
+    } else if (typeof window.SEARCH_JOB_TYPE === 'string' && window.SEARCH_JOB_TYPE.trim()) {
+      payload.jobType = window.SEARCH_JOB_TYPE.trim();
     } else if (window.PROSPECTING_BUSINESSES_VIEW) {
       payload.jobType = 'maps_business';
     }
@@ -2082,6 +2086,13 @@
   window.__runBulkAddToBoardFromBarEarly = runBulkAddToBoardFromBarEarly;
 
   async function runBulkMoveFolderFromBarEarly() {
+    if (
+      document.getElementById('searchResultsLeadsTable') &&
+      typeof window.__bulkMoveSearchResultsToFolder === 'function'
+    ) {
+      return window.__bulkMoveSearchResultsToFolder();
+    }
+
     const keys = collectSelectedLeadKeysEarly();
     if (!keys.length) {
       window.alert('Select at least one lead.');
@@ -2126,6 +2137,12 @@
   }
 
   async function runBulkSaveFolderFromBarEarly(triggerBtn) {
+    if (
+      document.getElementById('searchResultsLeadsTable') &&
+      typeof window.__bulkSaveSearchResultsToFolder === 'function'
+    ) {
+      return window.__bulkSaveSearchResultsToFolder(triggerBtn);
+    }
     if (typeof window.__bulkSaveSelectedLeads === 'function') {
       return window.__bulkSaveSelectedLeads(triggerBtn);
     }

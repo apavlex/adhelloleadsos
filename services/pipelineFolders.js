@@ -9,6 +9,10 @@ const { TRADE_FOLDERS } = require('./tradeFoldersCatalog');
 const { normalizeSearchPreset } = require('./folderSearchPreset');
 const { buildFolderTree } = require('./folderTree');
 const { matchFolderToTrade } = require('./folderTradeMatcher');
+const {
+  PERMIT_STACK_CATEGORIES,
+  normalizePermitCategory,
+} = require('./permitStackCategories');
 
 const DEFAULT_PIPELINE_FOLDERS = {
   [JOB_TYPES.MAPS_BUSINESS]: { name: 'Businesses', sourceType: 'maps_business' },
@@ -32,8 +36,9 @@ function sourceForJobType(jobType) {
 function findFolderForJobType(folders, jobType) {
   const jt = normalizeJobType(jobType);
   const defName = DEFAULT_PIPELINE_FOLDERS[jt]?.name || '';
-  const byJobType = (folders || []).find((f) => f && String(f.jobType || '') === jt);
-  if (byJobType) return byJobType;
+  const matches = (folders || []).filter((f) => f && String(f.jobType || '') === jt);
+  const byDefault = matches.find((f) => f.isPipelineDefault);
+  if (byDefault) return byDefault;
 
   if (jt === JOB_TYPES.REAL_ESTATE) {
     const legacy =
@@ -48,6 +53,8 @@ function findFolderForJobType(folders, jobType) {
       );
     if (legacy) return legacy;
   }
+
+  if (matches.length) return matches[0];
 
   return (
     (folders || []).find(
@@ -411,9 +418,71 @@ async function deleteFolderComplete(workspaceId, folderKey) {
   };
 }
 
+function permitCategoryLabel(category) {
+  const slug = normalizePermitCategory(category);
+  if (!slug) return '';
+  const match = PERMIT_STACK_CATEGORIES.find((c) => c.value && c.value === slug);
+  if (!match || !match.label || match.label === 'All categories') return '';
+  return String(match.label).trim();
+}
+
+/** Human-readable subfolder name for permit searches, e.g. "New Construction Camas". */
+function buildPermitSearchSubfolderName(category, city) {
+  const catLabel = permitCategoryLabel(category);
+  const cityLabel = String(city || '').trim();
+  if (catLabel && cityLabel) return `${catLabel} ${cityLabel}`;
+  if (cityLabel) return cityLabel;
+  if (catLabel) return catLabel;
+  return '';
+}
+
+function findPermitSubfolderByName(folders, permitsRootKey, name) {
+  const normalized = String(name || '')
+    .trim()
+    .toLowerCase();
+  if (!normalized || !permitsRootKey) return null;
+  return (
+    (folders || []).find(
+      (f) =>
+        f &&
+        !f.isPipelineDefault &&
+        String(f.parentFolderKey || '').trim() === String(permitsRootKey).trim() &&
+        String(f.name || '')
+          .trim()
+          .toLowerCase() === normalized
+    ) || null
+  );
+}
+
+/**
+ * Find or create a category+city subfolder under the Permits system folder.
+ * @returns {Promise<object|null>}
+ */
+async function findOrCreatePermitSearchSubfolder(workspaceId, folders, permitsRoot, options = {}) {
+  if (!permitsRoot || !permitsRoot.key) return null;
+  const name = buildPermitSearchSubfolderName(options.category, options.city);
+  if (!name) return null;
+
+  const wid = workspaceId || 'default';
+  const parentKey = String(permitsRoot.key);
+  let list = Array.isArray(folders) ? folders : [];
+  let existing = findPermitSubfolderByName(list, parentKey, name);
+  if (existing && existing.key) return existing;
+
+  const created = await dbService.createFolder(wid, name, {
+    parentFolderKey: parentKey,
+    jobType: JOB_TYPES.PERMITS,
+  });
+  if (created && created.key) {
+    list = [...list, created];
+  }
+  return created && created.key ? created : null;
+}
+
 /**
  * Resolve folder for a Find / schedule request.
  * Auto-assigns the default pipeline folder for the job type when none is chosen.
+ * Permit searches with a category and/or city get a dedicated subfolder under Permits.
  */
 async function resolveTargetFolder(workspaceId, options = {}) {
   const wid = workspaceId || 'default';
@@ -425,7 +494,17 @@ async function resolveTargetFolder(workspaceId, options = {}) {
   let folders = await ensurePipelineFolders(wid);
 
   if (newFolderName) {
-    const folder = await dbService.createFolder(wid, newFolderName);
+    const meta = {};
+    if (jobType === JOB_TYPES.PERMITS) {
+      const permitsRoot = findFolderForJobType(folders, JOB_TYPES.PERMITS);
+      if (permitsRoot && permitsRoot.key) {
+        meta.parentFolderKey = String(permitsRoot.key);
+        meta.jobType = JOB_TYPES.PERMITS;
+      }
+    } else if (jobType) {
+      meta.jobType = jobType;
+    }
+    const folder = await dbService.createFolder(wid, newFolderName, meta);
     return {
       targetFolderKey: folder && folder.key ? String(folder.key) : '',
       targetFolderName: folder && folder.name ? String(folder.name) : newFolderName,
@@ -448,6 +527,19 @@ async function resolveTargetFolder(workspaceId, options = {}) {
   if (autoDefault) {
     const defFolder = findFolderForJobType(folders, jobType);
     if (defFolder) {
+      if (jobType === JOB_TYPES.PERMITS) {
+        const subfolder = await findOrCreatePermitSearchSubfolder(wid, folders, defFolder, {
+          category: options.category,
+          city: options.city,
+        });
+        if (subfolder && subfolder.key) {
+          return {
+            targetFolderKey: String(subfolder.key),
+            targetFolderName: String(subfolder.name || ''),
+            jobType,
+          };
+        }
+      }
       return {
         targetFolderKey: String(defFolder.key),
         targetFolderName: String(defFolder.name || DEFAULT_PIPELINE_FOLDERS[jobType]?.name || ''),
@@ -566,4 +658,7 @@ module.exports = {
   migrateUnfiledLeadsToPipelineFolders,
   deleteFolderComplete,
   hideDefaultPipelineFolder,
+  buildPermitSearchSubfolderName,
+  findOrCreatePermitSearchSubfolder,
+  findPermitSubfolderByName,
 };

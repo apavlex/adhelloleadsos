@@ -101,6 +101,58 @@ test('resolveTargetFolder auto-picks default pipeline folder', async () => {
   delete require.cache[require.resolve('../services/pipelineFolders')];
 });
 
+test('buildPermitSearchSubfolderName combines category label and city', () => {
+  const { buildPermitSearchSubfolderName } = require('../services/pipelineFolders');
+  assert.equal(buildPermitSearchSubfolderName('new_construction', 'Camas'), 'New Construction Camas');
+  assert.equal(buildPermitSearchSubfolderName('', 'Camas'), 'Camas');
+});
+
+test('resolveTargetFolder creates permit category+city subfolder under Permits', async () => {
+  const folderStore = [
+    { key: 'folder:permits', name: 'Permits', jobType: 'permits', isPipelineDefault: true },
+  ];
+  const mockDb = {
+    listFolders: async () => folderStore.slice(),
+    getWorkspace: async () => ({ id: 'ws1', members: {} }),
+    createFolder: async (wid, name, meta) => {
+      const row = { key: `folder:${name.replace(/\s+/g, '-')}`, name, ...meta };
+      folderStore.push(row);
+      return row;
+    },
+  };
+
+  const orig = require('../services/database');
+  require.cache[require.resolve('../services/database')].exports = mockDb;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+  const { resolveTargetFolder: resolveFresh } = require('../services/pipelineFolders');
+
+  const out = await resolveFresh('ws1', {
+    jobType: JOB_TYPES.PERMITS,
+    category: 'new_construction',
+    city: 'Camas',
+  });
+  assert.equal(out.targetFolderName, 'New Construction Camas');
+  assert.equal(out.targetFolderKey, 'folder:New-Construction-Camas');
+  const sub = folderStore.find((f) => f.name === 'New Construction Camas');
+  assert.ok(sub);
+  assert.equal(sub.parentFolderKey, 'folder:permits');
+  assert.equal(sub.jobType, 'permits');
+
+  const again = await resolveFresh('ws1', {
+    jobType: JOB_TYPES.PERMITS,
+    category: 'new_construction',
+    city: 'Camas',
+  });
+  assert.equal(again.targetFolderKey, 'folder:New-Construction-Camas');
+  assert.equal(
+    folderStore.filter((f) => f.name === 'New Construction Camas').length,
+    1,
+  );
+
+  require.cache[require.resolve('../services/database')].exports = orig;
+  delete require.cache[require.resolve('../services/pipelineFolders')];
+});
+
 test('deleteFolderComplete hides default pipeline folder from auto-recreate', async () => {
   let workspace = { id: 'ws1', members: {} };
   const mockDb = {
@@ -129,7 +181,7 @@ test('deleteFolderComplete hides default pipeline folder from auto-recreate', as
   assert.equal(result.wasPipelineDefault, true);
 
   const folders = await ensureFresh('ws1');
-  assert.equal(folders.length, 4);
+  assert.equal(folders.length, 5);
   assert.ok(!folders.some((f) => f.jobType === 'real_estate'));
 
   require.cache[require.resolve('../services/database')].exports = orig;
@@ -153,7 +205,7 @@ test('ensurePipelineFolders skips hidden default job types', async () => {
 
   const folders = await ensureFresh('ws1');
   const names = folders.map((f) => f.name).sort();
-  assert.deepEqual(names, ['Businesses', 'Home owners', 'Products', 'Wholesale']);
+  assert.deepEqual(names, ['Businesses', 'Home owners', 'Permits', 'Products', 'Wholesale']);
 
   require.cache[require.resolve('../services/database')].exports = orig;
   delete require.cache[require.resolve('../services/pipelineFolders')];

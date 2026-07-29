@@ -113,6 +113,7 @@
             key: String(f.key),
             name: String(f.name || '').trim() || 'Folder',
             jobType: f.jobType || '',
+            parentFolderKey: f.parentFolderKey || '',
           }));
       }
     } catch (_) {
@@ -282,6 +283,7 @@
   }
 
   window.__bulkSaveSearchResultsToFolder = bulkSaveSelectedToFolder;
+  window.__bulkSaveSelectedLeads = bulkSaveSelectedToFolder;
 
   async function bulkMoveSelectedToFolder() {
     if (bulkSaveInFlight) return;
@@ -352,6 +354,7 @@
   }
 
   window.__bulkMoveSearchResultsToFolder = bulkMoveSelectedToFolder;
+  window.__bulkMoveFolderFromBar = bulkMoveSelectedToFolder;
 
   /** Show the floating bulk bar (folder + save) when rows are selected on search results. */
   function syncBulkBar(table) {

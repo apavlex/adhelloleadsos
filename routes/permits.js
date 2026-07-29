@@ -67,6 +67,8 @@ router.post('/search', async (req, res, next) => {
       folderKey: req.body.folderKey,
       newFolderName: req.body.newFolderName,
       jobType: JOB_TYPES.PERMITS,
+      category: resolvedCategory,
+      city: resolvedCity,
     });
     if (folderResolved.error) {
       return res.status(400).render('error', {
