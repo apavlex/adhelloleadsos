@@ -240,6 +240,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const plc = th.getAttribute('data-plc');
     const fallback = {
       company: 'company',
+      permitNumber: 'permitnumber',
+      permitCategoryCol: 'permitcategory',
+      permitStatus: 'permitstatus',
+      permitValue: 'permitvalue',
+      permitStatusDate: 'permitstatusdate',
       listingPrice: 'listingprice',
       listingBeds: 'listingbeds',
       listingBaths: 'listingbaths',
@@ -457,6 +462,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         case 'listingsource': {
           c = cmpStr((a.listingSource || '').trim(), (b.listingSource || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'permitnumber': {
+          c = cmpStr((a.permitNumber || '').trim(), (b.permitNumber || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'permitcategory': {
+          c = cmpStr((a.permitCategory || '').trim(), (b.permitCategory || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'permitstatus': {
+          c = cmpStr((a.permitStatus || '').trim(), (b.permitStatus || '').trim());
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'permitvalue': {
+          const pa = parseFloat(a.permitValue);
+          const pb = parseFloat(b.permitValue);
+          const na = Number.isFinite(pa) ? pa : -1;
+          const nb = Number.isFinite(pb) ? pb : -1;
+          c = na - nb;
+          if (c === 0) c = cmpStr(a.title || '', b.title || '');
+          break;
+        }
+        case 'permitstatusdate': {
+          const ta = parseInt(a.permitStatusDateMs, 10) || 0;
+          const tb = parseInt(b.permitStatusDateMs, 10) || 0;
+          c = ta - tb;
           if (c === 0) c = cmpStr(a.title || '', b.title || '');
           break;
         }
@@ -713,6 +749,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const PLC_META = [
         { id: 'company', label: 'Company' },
+        { id: 'permitNumber', label: 'Permit', defaultHidden: true },
+        { id: 'permitCategoryCol', label: 'Permit category', defaultHidden: true },
+        { id: 'permitStatus', label: 'Permit status', defaultHidden: true },
+        { id: 'permitValue', label: 'Permit value', defaultHidden: true },
+        { id: 'permitStatusDate', label: 'Status date', defaultHidden: true },
         { id: 'listingPrice', label: 'Price', defaultHidden: true },
         { id: 'listingBeds', label: 'Beds', defaultHidden: true },
         { id: 'listingBaths', label: 'Baths', defaultHidden: true },
@@ -752,6 +793,16 @@ document.addEventListener('DOMContentLoaded', () => {
         'email',
         'domain',
       ];
+      const PERMITS_IMPORT_COLUMNS = [
+        'company',
+        'permitNumber',
+        'permitCategoryCol',
+        'permitStatus',
+        'permitValue',
+        'permitStatusDate',
+        'city',
+        'state',
+      ];
       const PLC_MIN_WIDTH = {
         socials: 120,
         contactGroup: 168,
@@ -762,6 +813,11 @@ document.addEventListener('DOMContentLoaded', () => {
         methods: 88,
         listingPrice: 72,
         listingSource: 96,
+        permitNumber: 88,
+        permitCategoryCol: 96,
+        permitStatus: 72,
+        permitValue: 80,
+        permitStatusDate: 88,
       };
 
       function migrateContactColumnVis(map) {
@@ -790,10 +846,27 @@ document.addEventListener('DOMContentLoaded', () => {
         return map;
       }
 
+      function applyPermitsImportColumnVis(map) {
+        PERMITS_IMPORT_COLUMNS.forEach((id) => {
+          map[id] = true;
+        });
+        return map;
+      }
+
       function wantsRealEstateColumnPreset() {
         try {
           const params = new URLSearchParams(window.location.search || '');
           return params.get('realEstate') === '1' || params.get('preset') === 'real_estate';
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function wantsPermitsColumnPreset() {
+        try {
+          const params = new URLSearchParams(window.location.search || '');
+          if (params.get('permits') === '1' || params.get('preset') === 'permits') return true;
+          return window.PROSPECTING_PERMITS_VIEW === true;
         } catch (_) {
           return false;
         }
@@ -923,6 +996,10 @@ document.addEventListener('DOMContentLoaded', () => {
       let vis = migrateContactColumnVis(window.__pipelinePrefsPrimedVis || loadVis());
       if (wantsRealEstateColumnPreset()) {
         vis = applyRealEstateImportColumnVis({ ...vis });
+        saveVis(vis);
+      }
+      if (wantsPermitsColumnPreset()) {
+        vis = applyPermitsImportColumnVis({ ...vis });
         saveVis(vis);
       }
       if (vis && vis.check === false) {

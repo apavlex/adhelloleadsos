@@ -128,6 +128,11 @@ router.get('/', async (req, res, next) => {
       originFilter === 'maps_business' ||
       originFilter === 'maps' ||
       originFilter === 'business';
+    const isPermitsView =
+      (activeFolder && activeFolder.jobType === 'permits') ||
+      originFilter === 'permits' ||
+      originFilter === 'permit_stack' ||
+      String(req.query.preset || '').trim().toLowerCase() === 'permits';
     if (isBusinessesView) {
       leads.sort((a, b) => {
         const ha = hasUsableWebsite(a) ? 1 : 0;
@@ -280,6 +285,7 @@ router.get('/', async (req, res, next) => {
       includeFoldered,
       activeFolderKey,
       isBusinessesView,
+      isPermitsView,
       folders,
       folderTree,
       folderAggregateCounts,

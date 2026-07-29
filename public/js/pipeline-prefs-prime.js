@@ -40,6 +40,11 @@
 
   var PLC_META = [
     { id: 'company' },
+    { id: 'permitNumber', defaultHidden: true },
+    { id: 'permitCategoryCol', defaultHidden: true },
+    { id: 'permitStatus', defaultHidden: true },
+    { id: 'permitValue', defaultHidden: true },
+    { id: 'permitStatusDate', defaultHidden: true },
     { id: 'listingPrice', defaultHidden: true },
     { id: 'listingBeds', defaultHidden: true },
     { id: 'listingBaths', defaultHidden: true },
@@ -81,8 +86,26 @@
     'domain',
   ];
 
+  var PERMITS_IMPORT_COLUMNS = [
+    'company',
+    'permitNumber',
+    'permitCategoryCol',
+    'permitStatus',
+    'permitValue',
+    'permitStatusDate',
+    'city',
+    'state',
+  ];
+
   function applyRealEstateImportColumnVis(vis) {
     REAL_ESTATE_IMPORT_COLUMNS.forEach(function (id) {
+      vis[id] = true;
+    });
+    return vis;
+  }
+
+  function applyPermitsImportColumnVis(vis) {
+    PERMITS_IMPORT_COLUMNS.forEach(function (id) {
       vis[id] = true;
     });
     return vis;
@@ -92,6 +115,16 @@
     try {
       var params = new URLSearchParams(window.location.search || '');
       return params.get('realEstate') === '1' || params.get('preset') === 'real_estate';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function wantsPermitsColumnPreset() {
+    try {
+      var params = new URLSearchParams(window.location.search || '');
+      if (params.get('permits') === '1' || params.get('preset') === 'permits') return true;
+      return window.PROSPECTING_PERMITS_VIEW === true;
     } catch (_) {
       return false;
     }
@@ -116,6 +149,11 @@
     methods: 88,
     listingPrice: 72,
     listingSource: 96,
+    permitNumber: 88,
+    permitCategoryCol: 96,
+    permitStatus: 72,
+    permitValue: 80,
+    permitStatusDate: 88,
   };
 
   function migrateContactColumnVis(vis) {
@@ -165,6 +203,14 @@
     }
     if (wantsRealEstateColumnPreset()) {
       vis = applyRealEstateImportColumnVis(vis);
+      try {
+        localStorage.setItem(VIS_KEY, JSON.stringify(vis));
+      } catch (_) {
+        /* ignore */
+      }
+    }
+    if (wantsPermitsColumnPreset()) {
+      vis = applyPermitsImportColumnVis(vis);
       try {
         localStorage.setItem(VIS_KEY, JSON.stringify(vis));
       } catch (_) {

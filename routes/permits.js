@@ -128,7 +128,9 @@ router.post('/search', async (req, res, next) => {
       qty: maxRes,
     });
     await startBackgroundPermitRun();
-    res.redirect('/today?searchInProgress=1');
+    const qs = new URLSearchParams({ tab: 'pipeline', preset: 'permits', searchInProgress: '1' });
+    if (folderResolved.targetFolderKey) qs.set('folderKey', folderResolved.targetFolderKey);
+    res.redirect(`/prospecting?${qs.toString()}`);
   } catch (err) {
     console.error('Permit search error:', err);
     next(err);
