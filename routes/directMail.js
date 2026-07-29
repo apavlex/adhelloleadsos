@@ -54,11 +54,15 @@ async function loadWorkspaceLogoBuffer(req) {
   return brandKitLogo.loadLogoBuffer(ws);
 }
 
+const LOGO_OVERLAY_POSITION = 'top-right';
+
 async function applyLogoOverlaySafe(req, imageUrl, logoBuffer) {
   return applyLogoOverlayToRemoteImage(req, {
     baseImageUrl: imageUrl,
     logoBuffer,
-    position: 'top-left',
+    position: LOGO_OVERLAY_POSITION,
+    maxWidthRatio: 0.14,
+    padding: 28,
   });
 }
 
@@ -68,8 +72,8 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   if (!finalImageUrl) return { finalImageUrl, logoOverlayApplied };
 
   const k = normalizeBrandKit(brandKit);
-  // Always composite the real uploaded logo when brand kit has one.
-  if (!k.logoUrl) {
+  // Overlay only when "Use logo on design" is enabled — AI leaves top-right clear first.
+  if (!k.logoUrl || k.useLogoInDesign === false) {
     return { finalImageUrl, logoOverlayApplied };
   }
 
@@ -228,11 +232,12 @@ function brandKitSummary(kit) {
   if (k.website) lines.push(`Website: ${k.website}`);
   if (k.address) lines.push(`Address: ${k.address}`);
   if (k.hours) lines.push(`Hours: ${k.hours}`);
-  if (k.logoUrl) {
-    lines.push('Logo: uploaded (real logo is always composited top-left after generation)');
-  }
   if (k.logoUrl && k.useLogoInDesign) {
-    lines.push('Logo placement: leave top-left clear in the generated image for the overlay');
+    lines.push(
+      `Logo: uploaded (composited unchanged in the ${LOGO_OVERLAY_POSITION.replace('-', ' ')} after generation — AI must leave that corner clear and must not draw any logo or wordmark)`,
+    );
+  } else if (k.logoUrl) {
+    lines.push('Logo: uploaded (overlay off — AI may weave business name into the layout; do not add a second logo mark)');
   }
   return lines.length ? lines.join('\n') : '(no business info set yet)';
 }
@@ -300,7 +305,7 @@ Merge tokens ({business}, {city}, {state}, {audit_url}) are applied at SEND time
 ${frontStyleContext ? `${frontStyleContext}\n\n` : ''}${lobBackRules}
 ${lobFrontRules}
 
-Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. The real uploaded logo is always composited top-left after generation when a logo exists. When "Leave top-left clear" is checked, tell the model to leave that corner empty for the overlay.
+Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When logo overlay is enabled, the real uploaded logo is composited in the top-right after generation — the model must leave that corner empty and must not draw any logo, wordmark, or duplicate brand mark.
 
 ${currentImageUrl || incrementalEdit ? `The user already has a design on the canvas${currentImageUrl ? ' (reference will be passed to GPT Image 2)' : ''}.
 When they ask to remove, delete, change, move, or tweak something ("remove the seal", "make headline smaller", "drop the badge"):
@@ -345,11 +350,11 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
   if (k.hours) extras.push(`Hours: ${k.hours}`);
   if (k.logoUrl && k.useLogoInDesign) {
     extras.push(
-      'Leave clear empty space in the top-left corner for a logo overlay — do not draw, invent, or distort a logo in the generated image',
+      `Leave clear empty space in the top-right corner for a logo overlay — do not draw, invent, duplicate, or distort any logo, wordmark, or brand badge anywhere on the design (the real logo is added after generation in the top-right)`,
     );
   } else if (k.logoUrl) {
     extras.push(
-      'Incorporate the provided brand logo reference image into the design in the top-left area — reproduce it accurately as part of the layout (not a blank placeholder)',
+      'Logo overlay is off — weave the business name into typography if needed, but do not place a separate logo mark that would conflict with a later overlay',
     );
   }
   const plat = platformLabel(platform);

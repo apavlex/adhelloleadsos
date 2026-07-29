@@ -991,9 +991,9 @@
     if (kit.address) parts.push('Include address ' + kit.address + '.');
     if (kit.hours) parts.push('Include business hours: ' + kit.hours + '.');
     if (kit.logoUrl && kit.useLogoInDesign) {
-      parts.push('Leave clear empty space in the top-left corner for a logo overlay — do not draw a logo in the image.');
-    } else if (kit.logoUrl) {
-      parts.push('Incorporate the provided brand logo reference into the design in the top-left — reproduce it accurately as part of the layout.');
+      parts.push(
+        'Leave clear empty space in the top-right corner for a logo overlay — do not draw any logo, wordmark, or brand badge anywhere on the design.',
+      );
     }
     if (ctx.platform === 'postcard' && slot === 'back' && (ctx.matchFrontStyle || designs.front)) {
       parts.push(
@@ -1848,15 +1848,15 @@
         var statusMsg = editMode
           ? 'Updated ' + slot + ' side — saved to library.'
           : 'Generated ' + slot + ' side — saved to library automatically.';
-        if (!editMode && data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl) {
+        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign) {
           statusMsg =
             'Generated ' +
             slot +
-            ' side — your brand logo could not be overlaid. Re-upload it in Brand and try again.';
+            ' side — your brand logo could not be overlaid. Re-upload a PNG with transparent background in Brand and try again.';
         }
         setDesignStatus(
           statusMsg,
-          !(data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && !editMode),
+          !(data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign && !editMode),
         );
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;

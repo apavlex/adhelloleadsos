@@ -168,14 +168,14 @@ async function saveCompositedImageBuffer(req, buffer, prefix) {
   return `/uploads/creative/${filename}`;
 }
 
-async function applyLogoOverlayToRemoteImage(req, { baseImageUrl, logoUrl, logoBuffer, position }) {
+async function applyLogoOverlayToRemoteImage(req, { baseImageUrl, logoUrl, logoBuffer, position, maxWidthRatio, padding }) {
   const baseBuf = await fetchImageBuffer(baseImageUrl);
   let logoBuf = logoBuffer;
   if (!logoBuf) {
     if (!logoUrl) throw new Error('Logo URL or buffer is required.');
     logoBuf = await fetchImageBuffer(logoUrl);
   }
-  const outBuf = await compositeLogoOnImageBuffer(baseBuf, logoBuf, { position });
+  const outBuf = await compositeLogoOnImageBuffer(baseBuf, logoBuf, { position, maxWidthRatio, padding });
   const publicUrl = await saveCompositedImageBuffer(req, outBuf);
   return publicUrl;
 }
