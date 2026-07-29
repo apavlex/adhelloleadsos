@@ -27,6 +27,32 @@ test('resizeBufferForLobPostcard outputs Lob 4x6 bleed dimensions', async () => 
   assert.equal(LOB_POSTCARD_HEIGHT_PX, 1275);
 });
 
+test('applyLobBackInkFreeMask clears bottom-right address zone', async () => {
+  const { applyLobBackInkFreeMask, lobInkFreeRectPx } = require('../services/marketingImageComposite');
+  const base = await sharp({
+    create: {
+      width: LOB_POSTCARD_WIDTH_PX,
+      height: LOB_POSTCARD_HEIGHT_PX,
+      channels: 3,
+      background: { r: 20, g: 40, b: 200 },
+    },
+  })
+    .jpeg()
+    .toBuffer();
+  const out = await applyLobBackInkFreeMask(base);
+  const rect = lobInkFreeRectPx();
+  const sample = await sharp(out)
+    .extract({
+      left: rect.left + 10,
+      top: rect.top + 10,
+      width: 40,
+      height: 40,
+    })
+    .raw()
+    .toBuffer();
+  assert.ok(sample[0] > 240 && sample[1] > 240 && sample[2] > 240);
+});
+
 test('compositeLogoOnImageBuffer preserves logo aspect ratio on base image', async () => {
   const baseBuffer = await sharp({
     create: {

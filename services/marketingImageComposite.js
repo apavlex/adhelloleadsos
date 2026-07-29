@@ -9,9 +9,19 @@ const sharp = require('sharp');
 const DEFAULT_MAX_LOGO_WIDTH_RATIO = 0.18;
 const DEFAULT_PADDING = 24;
 
-/** Lob 4×6 postcard with bleed at 300 DPI — height:width = 4.25:6.25 */
+/** Lob 4×6 postcard with bleed at 300 DPI — 6.25″ × 4.25″ (landscape) */
 const LOB_POSTCARD_WIDTH_PX = 1875;
 const LOB_POSTCARD_HEIGHT_PX = 1275;
+const LOB_POSTCARD_WIDTH_IN = 6.25;
+const LOB_POSTCARD_HEIGHT_IN = 4.25;
+
+/** Ink-free address block on 4×6 postcard backs — do not place artwork here. */
+const LOB_BACK_INK_FREE = {
+  widthIn: 3.2835,
+  heightIn: 2.375,
+  rightIn: 0.275,
+  bottomIn: 0.25,
+};
 
 function absoluteAssetUrl(req, relativePath) {
   const rel = String(relativePath || '').trim();
@@ -23,25 +33,49 @@ function absoluteAssetUrl(req, relativePath) {
   return rel.startsWith('/') ? `${base}${rel}` : `${base}/${rel}`;
 }
 
-async function resizeBufferForLobPostcard(buffer) {
+function lobInkFreeRectPx() {
+  const w = LOB_POSTCARD_WIDTH_PX;
+  const h = LOB_POSTCARD_HEIGHT_PX;
+  const zoneW = Math.round((LOB_BACK_INK_FREE.widthIn / LOB_POSTCARD_WIDTH_IN) * w);
+  const zoneH = Math.round((LOB_BACK_INK_FREE.heightIn / LOB_POSTCARD_HEIGHT_IN) * h);
+  const marginR = Math.round((LOB_BACK_INK_FREE.rightIn / LOB_POSTCARD_WIDTH_IN) * w);
+  const marginB = Math.round((LOB_BACK_INK_FREE.bottomIn / LOB_POSTCARD_HEIGHT_IN) * h);
+  return {
+    left: Math.max(0, w - marginR - zoneW),
+    top: Math.max(0, h - marginB - zoneH),
+    width: zoneW,
+    height: zoneH,
+  };
+}
+
+async function applyLobBackInkFreeMask(buffer) {
+  const rect = lobInkFreeRectPx();
+  const white = await sharp({
+    create: {
+      width: rect.width,
+      height: rect.height,
+      channels: 3,
+      background: { r: 255, g: 255, b: 255 },
+    },
+  })
+    .png()
+    .toBuffer();
   return sharp(buffer)
+    .composite([{ input: white, left: rect.left, top: rect.top }])
+    .jpeg({ quality: 92 })
+    .toBuffer();
+}
+
+async function resizeBufferForLobPostcard(buffer, { side } = {}) {
+  const out = await sharp(buffer)
     .resize(LOB_POSTCARD_WIDTH_PX, LOB_POSTCARD_HEIGHT_PX, {
       fit: 'cover',
       position: 'centre',
     })
     .jpeg({ quality: 92 })
     .toBuffer();
-}
-
-async function prepareRemoteImageForLobPostcard(imageUrl, req) {
-  const url = String(imageUrl || '').trim();
-  if (!url || !/^https?:\/\//i.test(url)) {
-    throw new Error('A valid image URL is required for Lob postcard sizing.');
-  }
-  const buf = await fetchImageBuffer(url);
-  const out = await resizeBufferForLobPostcard(buf);
-  const rel = await saveCompositedImageBuffer(req, out, 'lob_postcard');
-  return absoluteAssetUrl(req, rel);
+  if (side === 'back') return applyLobBackInkFreeMask(out);
+  return out;
 }
 
 async function fetchImageBuffer(imageUrl) {
@@ -56,6 +90,17 @@ async function fetchImageBuffer(imageUrl) {
   const ab = await res.arrayBuffer();
   if (!ab || !ab.byteLength) throw new Error('Image download was empty.');
   return Buffer.from(ab);
+}
+
+async function prepareRemoteImageForLobPostcard(imageUrl, req, { side } = {}) {
+  const url = String(imageUrl || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new Error('A valid image URL is required for Lob postcard sizing.');
+  }
+  const buf = await fetchImageBuffer(url);
+  const out = await resizeBufferForLobPostcard(buf, { side });
+  const rel = await saveCompositedImageBuffer(req, out, side === 'back' ? 'lob_postcard_back' : 'lob_postcard');
+  return absoluteAssetUrl(req, rel);
 }
 
 function compositePosition(baseW, baseH, logoW, logoH, padding, position) {
@@ -130,8 +175,11 @@ module.exports = {
   DEFAULT_PADDING,
   LOB_POSTCARD_WIDTH_PX,
   LOB_POSTCARD_HEIGHT_PX,
+  LOB_BACK_INK_FREE,
+  lobInkFreeRectPx,
   fetchImageBuffer,
   compositeLogoOnImageBuffer,
+  applyLobBackInkFreeMask,
   resizeBufferForLobPostcard,
   prepareRemoteImageForLobPostcard,
   applyLogoOverlayToRemoteImage,

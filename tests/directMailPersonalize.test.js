@@ -46,7 +46,7 @@ test('buildPostcardHtml uses merged copy per lead', () => {
   });
   assert.match(html.front, /Ready, Blue Ridge Plumbing/);
   assert.match(html.front, /See your site in Asheville/);
-  assert.match(html.front, /example\.com\/site-preview/);
+  assert.match(html.front, /Scan the QR code/);
 });
 
 test('wrapImageWithPersonalizedOverlay includes business in HTML', () => {

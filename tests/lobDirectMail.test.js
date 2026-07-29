@@ -1,6 +1,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { parseMailableAddress, hasMailableAddress, getLeadLobAddressPreview, resolvePostcardCreative } = require('../services/lobDirectMail');
+const {
+  parseMailableAddress,
+  hasMailableAddress,
+  getLeadLobAddressPreview,
+  resolvePostcardCreative,
+  resolveLobQrRedirectUrl,
+} = require('../services/lobDirectMail');
 
 test('parseMailableAddress accepts street + city + state + zip in address', () => {
   const lead = {
@@ -58,7 +64,7 @@ test('parseMailableAddress keeps street numbers that look like zip codes', () =>
   assert.equal(parsed.address_line1, '26001 NE 60th St');
 });
 
-test('resolvePostcardCreative uses public image URLs directly for Lob', () => {
+test('resolvePostcardCreative wraps public image URLs in Lob-sized HTML', () => {
   const html = {
     front: '<html><body>fallback front</body></html>',
     back: '<html><body>fallback back</body></html>',
@@ -72,9 +78,10 @@ test('resolvePostcardCreative uses public image URLs directly for Lob', () => {
     },
     { personalizeOverlay: false },
   );
-  assert.equal(creative.front, 'https://cdn.example.com/front.jpg');
-  assert.equal(creative.back, 'https://cdn.example.com/back.jpg');
-  assert.equal(creative.mode, 'remote_url');
+  assert.match(creative.front, /6\.25in/);
+  assert.match(creative.front, /cdn\.example\.com\/front\.jpg/);
+  assert.match(creative.back, /cdn\.example\.com\/back\.jpg/);
+  assert.equal(creative.mode, 'html');
 });
 
 test('resolvePostcardCreative rejects non-public generated image URLs', () => {
@@ -153,4 +160,34 @@ test('lobClient isConfigured requires key and return address', () => {
     }),
     true,
   );
+});
+
+test('resolveLobQrRedirectUrl merges audit_url and adds tracking params', () => {
+  const lead = {
+    key: 'lead-abc',
+    title: 'Acme Co',
+    stitchDesignUrl: 'https://example.com/audit/acme',
+    city: 'Portland',
+    state: 'OR',
+  };
+  const url = resolveLobQrRedirectUrl(lead, '{audit_url}');
+  assert.match(url, /^https:\/\/example\.com\/audit\/acme\?/);
+  assert.match(url, /utm_source=lob_postcard/);
+  assert.match(url, /utm_content=lead-abc/);
+});
+
+test('resolveLobQrRedirectUrl falls back to lead audit URL when CTA blank', () => {
+  const url = resolveLobQrRedirectUrl(
+    { key: 'x', website: 'https://biz.example.com' },
+    '',
+  );
+  assert.equal(url, 'https://biz.example.com/?utm_source=lob_postcard&utm_medium=direct_mail&utm_content=x');
+});
+
+test('lobClient buildDefaultPostcardQrCode returns null without redirect URL', () => {
+  const lobClient = require('../services/lobClient');
+  assert.equal(lobClient.buildDefaultPostcardQrCode(''), null);
+  const qr = lobClient.buildDefaultPostcardQrCode('https://example.com/audit');
+  assert.equal(qr.redirect_url, 'https://example.com/audit');
+  assert.equal(qr.pages, 'front');
 });

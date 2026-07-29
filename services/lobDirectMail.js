@@ -5,7 +5,9 @@
 const lobClient = require('./lobClient');
 const {
   applyMergeFields,
+  resolveAuditUrl,
   wrapImageUrlAsPostcardHtml,
+  wrapImageUrlAsLobPostcardHtml,
   wrapImageWithPersonalizedOverlay,
 } = require('./directMailPersonalize');
 const { prepareRemoteImageForLobPostcard } = require('./marketingImageComposite');
@@ -177,7 +179,7 @@ function buildPostcardHtml({ lead, headline, bodyText, ctaUrl }) {
   const cta = mergedCta ? escapeHtml(mergedCta) : '';
 
   const qrBlock = cta
-    ? `<p style="margin-top:16px;font-size:11px;color:#555;word-break:break-all">${cta}</p>`
+    ? `<p style="margin-top:16px;font-size:11px;color:#555">Scan the QR code to view your link.</p>`
     : '';
 
   return {
@@ -235,7 +237,7 @@ function postcardSideFromImage(imageUrl, opts) {
     });
     if (html) return html;
   }
-  if (isPdfOrHttpUrl(url)) return url;
+  if (isPdfOrHttpUrl(url)) return wrapImageUrlAsLobPostcardHtml(url);
   return '';
 }
 
@@ -262,6 +264,29 @@ async function assertReachableImageUrl(imageUrl, label) {
   if (!buf || !buf.byteLength) {
     throw new Error(`${label} image download was empty. Regenerate the design before sending.`);
   }
+}
+
+function withPostcardTrackingParams(url, lead) {
+  const raw = String(url || '').trim();
+  if (!raw) return '';
+  try {
+    const parsed = new URL(raw);
+    if (!parsed.searchParams.has('utm_source')) parsed.searchParams.set('utm_source', 'lob_postcard');
+    if (!parsed.searchParams.has('utm_medium')) parsed.searchParams.set('utm_medium', 'direct_mail');
+    const key = String((lead && lead.key) || '').trim();
+    if (key && !parsed.searchParams.has('utm_content')) parsed.searchParams.set('utm_content', key);
+    return parsed.toString();
+  } catch (_) {
+    return raw;
+  }
+}
+
+function resolveLobQrRedirectUrl(lead, ctaUrl) {
+  const template = String(ctaUrl || '').trim();
+  const merged = template ? applyMergeFields(template, lead) : resolveAuditUrl(lead);
+  const url = withPostcardTrackingParams(String(merged || '').trim(), lead);
+  if (!/^https?:\/\//i.test(url)) return '';
+  return url;
 }
 
 function resolvePostcardCreative(integrationEnv, htmlFallback, overrides, opts) {
@@ -296,12 +321,7 @@ function resolvePostcardCreative(integrationEnv, htmlFallback, overrides, opts) 
     assertPostcardCreativeSide('Front', frontCreative, !!frontImageUrl);
     assertPostcardCreativeSide('Back', backCreative, !!backImageUrl);
 
-    const mode =
-      (!personalizeOverlay || !lead) &&
-      ((frontImageUrl && isPdfOrHttpUrl(frontImageUrl)) ||
-        (backImageUrl && isPdfOrHttpUrl(backImageUrl)))
-        ? 'remote_url'
-        : 'html';
+    const mode = 'html';
 
     return {
       front: frontCreative,
@@ -327,11 +347,11 @@ function resolvePostcardCreative(integrationEnv, htmlFallback, overrides, opts) 
   };
 }
 
-async function normalizePostcardImageForLob(imageUrl, req) {
+async function normalizePostcardImageForLob(imageUrl, req, side) {
   const url = String(imageUrl || '').trim();
   if (!url || !/^https?:\/\//i.test(url)) return url;
   if (!req) return url;
-  return prepareRemoteImageForLobPostcard(url, req);
+  return prepareRemoteImageForLobPostcard(url, req, { side: side === 'back' ? 'back' : 'front' });
 }
 
 async function sendPostcardToLead({
@@ -343,6 +363,7 @@ async function sendPostcardToLead({
   frontImageUrl,
   backImageUrl,
   personalizeOverlay,
+  includeLobQr,
   req,
 }) {
   const to = parseMailableAddress(lead);
@@ -354,10 +375,10 @@ async function sendPostcardToLead({
   }
 
   const normalizedFront = frontImageUrl
-    ? await normalizePostcardImageForLob(frontImageUrl, req)
+    ? await normalizePostcardImageForLob(frontImageUrl, req, 'front')
     : undefined;
   const normalizedBack = backImageUrl
-    ? await normalizePostcardImageForLob(backImageUrl, req)
+    ? await normalizePostcardImageForLob(backImageUrl, req, 'back')
     : undefined;
 
   const html = buildPostcardHtml({ lead, headline, bodyText, ctaUrl });
@@ -376,19 +397,26 @@ async function sendPostcardToLead({
   const sourceUrls = creative.sourceImageUrls || {};
   if (sourceUrls.front) await assertReachableImageUrl(sourceUrls.front, 'Front');
   if (sourceUrls.back) await assertReachableImageUrl(sourceUrls.back, 'Back');
+  const qrRedirectUrl =
+    includeLobQr !== false ? resolveLobQrRedirectUrl(lead, ctaUrl) : '';
   const data = await lobClient.createPostcard({
     to,
     front: creative.front,
     back: creative.back,
     description: `AdHello postcard — ${lead.title || lead.key || 'lead'}`,
     integrationEnv,
+    qrCodeRedirectUrl: qrRedirectUrl,
+    qrCodePages: 'front',
   });
+  const postcardId = lobClient.assertPostcardCreateResponse(data);
 
   return {
     provider: 'lob',
-    postcardId: String(data.id || ''),
+    postcardId,
     expectedDeliveryDate: data.expected_delivery_date || null,
     url: data.url || null,
+    dashboardUrl: lobClient.lobPostcardDashboardUrl(postcardId),
+    qrRedirectUrl: qrRedirectUrl || null,
     to,
     testMode: lobClient.isTestMode(integrationEnv),
     creativeMode: creative.mode,
@@ -433,6 +461,7 @@ module.exports = {
   resolveDesignUrls,
   resolvePostcardCreative,
   directMailReady,
+  resolveLobQrRedirectUrl,
   sendPostcardToLead,
   sendLetterToLead,
 };

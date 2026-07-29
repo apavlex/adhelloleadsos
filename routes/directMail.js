@@ -147,7 +147,21 @@ function buildDesignCoachSystemPrompt({
 }) {
   const plat = platformLabel(platform);
   const isPostcard = platform === 'postcard';
-  const ratio = aspectRatio || '2:3';
+  const ratio = aspectRatio || '3:2';
+  const lobBackRules =
+    isPostcard && slot === 'back'
+      ? `For Lob 4×6 postcard BACK (landscape 3:2, 1875×1275px):
+- Lob automatically prints recipient address + postage in the bottom-right ink-free zone (~53% width × 56% height). NEVER put marketing copy, return address, postage indicia, barcodes, or recipient address in that area — leave it as plain background only.
+- Keep all marketing text, logo, and contact info in the LEFT 45% of the card only.
+- Do NOT draw USPS postage, PRSRT, barcodes, or "Current Resident" — Lob adds these at print time.
+- Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
+      : '';
+  const lobFrontRules =
+    isPostcard && slot === 'front'
+      ? `For Lob 4×6 postcard FRONT (landscape 3:2):
+- Leave bottom-right ~1″ square clear for Lob QR code overlay.
+- Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
+      : '';
   return `You are an ad creative design coach for a local marketing agency. The user is designing a ${plat} creative (${ratio} aspect ratio${isPostcard ? `, ${slot} side` : ''}).
 
 Business info (include in layout when relevant — phone, website, hours, address, logo placement):
@@ -158,7 +172,10 @@ Ad copy context:
 - Body: ${bodyText || '(not set yet)'}
 - CTA URL (optional): ${ctaUrl || '(none — omit URL on postcard)'}
 
-Merge tokens for per-recipient personalization (postcard sends only): {business}, {city}, {state}, {audit_url}. For bulk postcard mail, do not bake one specific business name into artwork — leave space for overlays.
+Merge tokens ({business}, {city}, {state}, {audit_url}) are applied at SEND time in HTML overlays — never bake them into generated artwork.
+
+${lobBackRules}
+${lobFrontRules}
 
 Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When a logo is enabled, it is overlaid unchanged after generation — do not ask the model to redraw the logo inside the image.
 
@@ -170,11 +187,11 @@ Rules:
 - If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post"), set imagePrompt from the conversation and business info — do not leave it null.
 - When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
-- ${isPostcard && slot === 'back' ? 'For postcard back: minimal copy and return-address / compliance space.' : 'Single-sided social/display ad — one strong focal creative.'}
+- ${isPostcard && slot === 'back' ? 'Postcard back: marketing on left half only; bottom-right must be empty for Lob address block.' : isPostcard ? 'Postcard front: leave bottom-right clear for QR.' : 'Single-sided social/display ad — one strong focal creative.'}
 - Escape double quotes inside strings as \\".`;
 }
 
-function augmentImagePromptWithBrand(prompt, brandKit, platform) {
+function augmentImagePromptWithBrand(prompt, brandKit, platform, slot) {
   const base = String(prompt || '').trim();
   if (!base) return base;
   const k = normalizeBrandKit(brandKit);
@@ -191,9 +208,19 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform) {
     );
   }
   const plat = platformLabel(platform);
+  const isPostcard = String(platform || '').trim() === 'postcard';
+  const side = String(slot || 'front').trim();
+  let lobSpec = '';
+  if (isPostcard && side === 'back') {
+    lobSpec =
+      ' Lob 4×6 postcard BACK: landscape 3:2. Marketing copy and contact info on LEFT 45% only. Bottom-right ink-free zone must be blank background — no text, no postage, no barcodes, no recipient address (Lob adds these). Never render {business} or placeholder tokens.';
+  } else if (isPostcard) {
+    lobSpec =
+      ' Lob 4×6 postcard FRONT: landscape 3:2. Leave bottom-right ~1 inch clear for QR code. Never render {business} or placeholder tokens in the artwork.';
+  }
   const suffix = extras.length
-    ? `\n\nPlatform: ${plat}. Include on the ad where appropriate: ${extras.join('; ')}.`
-    : `\n\nPlatform: ${plat}.`;
+    ? `\n\nPlatform: ${plat}.${lobSpec} Include on the ad where appropriate: ${extras.join('; ')}.`
+    : `\n\nPlatform: ${plat}.${lobSpec}`;
   return base + suffix;
 }
 
@@ -247,6 +274,9 @@ function collectRecentSends(leads, limit = 30) {
         message: log.message || 'Postcard sent',
         timestamp: log.timestamp || '',
         postcardId: log.postcardId || '',
+        lobUrl: log.lobUrl || '',
+        dashboardUrl: log.postcardId ? lobClient.lobPostcardDashboardUrl(log.postcardId) : '',
+        testMode: /\[test\]/i.test(String(log.message || '')),
       });
     }
   }
@@ -513,7 +543,7 @@ router.post('/api/design-chat', async (req, res, next) => {
     const bodyText = String(body.bodyText || '').trim();
     const ctaUrl = String(body.ctaUrl || '').trim();
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
-    const aspectRatio = String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '2:3').trim() || '2:3';
+    const aspectRatio = String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
     const brandKit = normalizeBrandKit(body.brandKit);
 
     const messages = [
@@ -569,8 +599,9 @@ router.post('/api/generate-image', async (req, res, next) => {
     }
 
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
+    const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const brandKit = normalizeBrandKit(body.brandKit);
-    prompt = augmentImagePromptWithBrand(prompt, brandKit, platform);
+    prompt = augmentImagePromptWithBrand(prompt, brandKit, platform, slot);
 
     if (kieImageClient.isVagueImagePrompt(prompt)) {
       return res.status(400).json({
@@ -579,8 +610,8 @@ router.post('/api/generate-image', async (req, res, next) => {
       });
     }
 
-    const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
-    const aspectRatio = String(body.aspectRatio || '2:3').trim() || '2:3';
+    const aspectRatio =
+      String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
     const resolution = String(body.resolution || '2K').trim() || '2K';
     const referenceAbs = body.referenceUrl
       ? toAbsoluteAssetUrl(req, String(body.referenceUrl).trim())
@@ -684,6 +715,7 @@ router.post('/api/send', async (req, res, next) => {
     const frontImageUrl = toAbsoluteAssetUrl(req, String((req.body && req.body.frontImageUrl) || '').trim());
     const backImageUrl = toAbsoluteAssetUrl(req, String((req.body && req.body.backImageUrl) || '').trim());
     const personalizeOverlay = req.body && req.body.personalizeOverlay !== false;
+    const includeLobQr = req.body && req.body.includeLobQr !== false;
 
     const results = [];
     for (const key of keys) {
@@ -703,6 +735,7 @@ router.post('/api/send', async (req, res, next) => {
           frontImageUrl: frontImageUrl || undefined,
           backImageUrl: backImageUrl || undefined,
           personalizeOverlay,
+          includeLobQr,
           req,
         });
         const updates = appendLeadUpdate(lead, {
@@ -710,6 +743,7 @@ router.post('/api/send', async (req, res, next) => {
           value: sent.postcardId || 'postcard',
           provider: 'lob',
           postcardId: sent.postcardId || '',
+          lobUrl: sent.url || '',
         });
         await dbService.updateLead(fullKey, {
           status: lead.status === 'Not Contacted' ? 'Mail Sent' : lead.status,
@@ -717,9 +751,11 @@ router.post('/api/send', async (req, res, next) => {
           logs: [
             {
               type: 'direct_mail_outbound',
-              message: `Lob postcard queued${sent.postcardId ? ` (${sent.postcardId})` : ''}${sent.testMode ? ' [test]' : ''}`,
+              message: `Lob postcard queued${sent.postcardId ? ` (${sent.postcardId})` : ''}${sent.qrRedirectUrl ? ' · QR' : ''}${sent.testMode ? ' [test]' : ''}`,
               timestamp: new Date().toISOString(),
               postcardId: sent.postcardId || '',
+              lobUrl: sent.url || '',
+              qrRedirectUrl: sent.qrRedirectUrl || '',
               provider: 'lob',
             },
           ],
@@ -730,6 +766,9 @@ router.post('/api/send', async (req, res, next) => {
           postcardId: sent.postcardId,
           expectedDeliveryDate: sent.expectedDeliveryDate,
           testMode: sent.testMode,
+          lobUrl: sent.url || '',
+          qrRedirectUrl: sent.qrRedirectUrl || '',
+          dashboardUrl: sent.dashboardUrl || lobClient.lobPostcardDashboardUrl(sent.postcardId),
         });
       } catch (e) {
         results.push({ key: fullKey, ok: false, error: e && e.message ? e.message : 'Send failed' });
@@ -738,12 +777,48 @@ router.post('/api/send', async (req, res, next) => {
 
     const okCount = results.filter((r) => r.ok).length;
     const failMessages = results.filter((r) => !r.ok).map((r) => r.error).filter(Boolean);
+    const testMode = lobClient.isTestMode(integrationEnv);
+    const sample = results.find((r) => r.ok && r.postcardId);
     res.json({
       success: okCount > 0,
       sent: okCount,
       failed: results.length - okCount,
+      testMode,
+      lobDashboardUrl: 'https://dashboard.lob.com/postcards',
+      samplePostcardId: sample ? sample.postcardId : '',
+      sampleDashboardUrl: sample ? sample.dashboardUrl : '',
+      sampleLobUrl: sample ? sample.lobUrl : '',
       results,
       error: okCount > 0 ? undefined : failMessages[0] || 'Send failed',
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/api/lob-recent', async (req, res, next) => {
+  try {
+    const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
+    if (!lobClient.isConfigured(integrationEnv)) {
+      return res.status(400).json({ success: false, error: 'Lob is not configured.' });
+    }
+    const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 30);
+    const data = await lobClient.listPostcards({ integrationEnv, limit });
+    const rows = Array.isArray(data && data.data)
+      ? data.data.map((row) => ({
+          id: row.id || '',
+          description: row.description || '',
+          sendDate: row.send_date || row.date_created || '',
+          url: row.url || '',
+          dashboardUrl: lobClient.lobPostcardDashboardUrl(row.id),
+        }))
+      : [];
+    res.json({
+      success: true,
+      testMode: lobClient.isTestMode(integrationEnv),
+      lobDashboardUrl: 'https://dashboard.lob.com/postcards',
+      count: data && data.count != null ? data.count : rows.length,
+      postcards: rows,
     });
   } catch (err) {
     next(err);

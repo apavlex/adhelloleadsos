@@ -100,6 +100,12 @@
     syncStudioFormatPill(platformKey);
     syncStudioPageView();
     updatePreviewAspectRatio();
+    syncLobSafeZones();
+  }
+
+  function syncLobSafeZones() {
+    var show = currentPlatformKey() === 'postcard';
+    document.body.classList.toggle('dm-show-lob-zones', show);
   }
 
   function updatePreviewAspectRatio() {
@@ -897,10 +903,20 @@
     ctx = ctx || designRequestContext();
     var kit = ctx.brandKit || {};
     var plat = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
+    var slot = ctx.slot || currentDesignSlot();
     var parts = [
       'Professional ' + plat.label + ' ad creative, ' + ctx.aspectRatio + ' aspect ratio.',
       'Polished local-business marketing design with strong headline area and clear contact block.',
     ];
+    if (ctx.platform === 'postcard' && slot === 'back') {
+      parts.push(
+        'Lob 4×6 postcard BACK: landscape 3:2. Marketing on LEFT 45% only. Bottom-right ink-free zone must be blank background — no postage, barcodes, recipient address, or {business} placeholders (Lob adds address at print).',
+      );
+    } else if (ctx.platform === 'postcard') {
+      parts.push(
+        'Lob 4×6 postcard FRONT: landscape 3:2. Leave top-right area clear for QR code. Never render {business} or curly-brace placeholder text in the image.',
+      );
+    }
     if (kit.businessName) parts.push('Business name: ' + kit.businessName + '.');
     if (userText) parts.push('Creative brief: ' + userText + '.');
     if (kit.phone) parts.push('Display phone ' + kit.phone + ' prominently.');
@@ -983,7 +999,10 @@
     var parts = [];
     if (headline) parts.push('Headline: “' + headline + '”');
     if (body) parts.push('Body: “' + body.slice(0, 80) + (body.length > 80 ? '…' : '') + '”');
-    if (cta) parts.push('URL: “' + cta.slice(0, 60) + (cta.length > 60 ? '…' : '') + '”');
+    if (cta) parts.push('QR → “' + cta.slice(0, 60) + (cta.length > 60 ? '…' : '') + '”');
+    else if ((document.getElementById('dmIncludeLobQr') || {}).checked !== false && ctx.audit_url) {
+      parts.push('QR → lead audit URL');
+    }
     el.textContent = parts.length
       ? 'Preview for ' + ctx.business + ' — ' + parts.join(' · ')
       : 'Preview for ' + ctx.business + ' — add copy above to see merged text.';
@@ -1158,6 +1177,43 @@
     var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
     if (!preset.dualSided) return 'Load to canvas';
     return 'Load to ' + (currentDesignSlot() === 'back' ? 'back' : 'front');
+  }
+
+  function formatSendSuccess(data) {
+    var msg = 'Queued ' + data.sent + ' postcard(s) in Lob';
+    if (data.testMode) {
+      msg += ' (test mode — open Lob dashboard and switch to Test view)';
+    }
+    if (data.samplePostcardId) {
+      msg += ' · e.g. ' + data.samplePostcardId;
+    }
+    return msg;
+  }
+
+  function maybeShowLobSendLinks(data) {
+    if (!data || !data.sent) return;
+    var links = [];
+    if (data.lobDashboardUrl) {
+      links.push(
+        '<a href="' +
+          data.lobDashboardUrl +
+          '" target="_blank" rel="noopener noreferrer" class="underline font-semibold">Open Lob postcards</a>',
+      );
+    }
+    if (data.sampleLobUrl) {
+      links.push(
+        '<a href="' +
+          data.sampleLobUrl +
+          '" target="_blank" rel="noopener noreferrer" class="underline">Sample preview PDF</a>',
+      );
+    }
+    if (!links.length) return;
+    var el = document.getElementById('dmExportStatus');
+    if (!el) return;
+    var extra = document.createElement('p');
+    extra.className = 'text-xs mt-2 text-brand-muted';
+    extra.innerHTML = links.join(' · ');
+    el.appendChild(extra);
   }
 
   function formatSendFailure(data) {
@@ -2049,6 +2105,7 @@
             frontImageUrl: designUrls.frontImageUrl,
             backImageUrl: designUrls.backImageUrl,
             personalizeOverlay: !((document.getElementById('dmPersonalizeOverlay') || {}).checked === false),
+            includeLobQr: !((document.getElementById('dmIncludeLobQr') || {}).checked === false),
           }),
         });
         var data = await res.json().catch(function () {
@@ -2057,19 +2114,20 @@
         if (!res.ok || !data.success) {
           throw new Error(formatSendFailure(data));
         }
-        var msg = 'Sent ' + data.sent + ' postcard(s)';
+        var msg = formatSendSuccess(data);
         if (data.failed) {
           msg += ' · ' + data.failed + ' failed';
           var failDetail = formatSendFailure(data);
           if (failDetail && failDetail !== 'Send failed') msg += ' — ' + failDetail;
         }
         setStatus(msg, true);
+        maybeShowLobSendLinks(data);
         if (typeof window.showAppToast === 'function') {
-          window.showAppToast(msg, { variant: 'success' });
+          window.showAppToast(msg, { variant: 'success', duration: data.testMode ? 12000 : 6000 });
         }
         setTimeout(function () {
           window.location.reload();
-        }, 1200);
+        }, data.testMode ? 8000 : 2500);
       } catch (e) {
         setStatus(e && e.message ? e.message : 'Send failed', false);
         if (typeof window.showAppToast === 'function') {

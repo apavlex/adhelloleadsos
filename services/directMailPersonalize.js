@@ -49,7 +49,11 @@ function wrapImageUrlAsPostcardHtml(imageUrl) {
   const src = String(imageUrl || '').trim();
   if (!/^https?:\/\//i.test(src)) return '';
   const safe = src.replace(/"/g, '&quot;');
-  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;}img{width:100%;height:100%;object-fit:cover;display:block;}</style></head><body><img src="${safe}" alt="" /></body></html>`;
+  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:6.25in;height:4.25in;overflow:hidden;}img{width:6.25in;height:4.25in;object-fit:cover;display:block;}</style></head><body><img src="${safe}" alt="" /></body></html>`;
+}
+
+function wrapImageUrlAsLobPostcardHtml(imageUrl) {
+  return wrapImageUrlAsPostcardHtml(imageUrl);
 }
 
 function wrapImageWithPersonalizedOverlay(imageUrl, opts) {
@@ -75,12 +79,12 @@ function wrapImageWithPersonalizedOverlay(imageUrl, opts) {
     ? `<p style="font-size:10px;margin:0;line-height:1.45;opacity:0.92">${body}</p>`
     : '';
   const ctaBlock = cta
-    ? `<p style="font-size:8px;margin:8px 0 0;word-break:break-all;opacity:0.85">${cta}</p>`
+    ? `<p style="font-size:9px;margin:8px 0 0;opacity:0.9">Scan the QR code for your link.</p>`
     : '';
 
-  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:100%;height:100%;}</style></head><body style="margin:0;padding:0;position:relative;width:100%;height:100%;font-family:Georgia,'Times New Roman',serif;">
-<img src="${safeSrc}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
-<div style="position:absolute;bottom:0;left:0;right:0;box-sizing:border-box;padding:18px 16px 16px;background:linear-gradient(180deg,rgba(0,0,0,0) 0%,rgba(17,24,39,0.82) 38%,rgba(17,24,39,0.94) 100%);color:#fff;">
+  return `<html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;width:6.25in;height:4.25in;overflow:hidden;}</style></head><body style="margin:0;padding:0;position:relative;width:6.25in;height:4.25in;font-family:Georgia,'Times New Roman',serif;">
+<img src="${safeSrc}" alt="" style="width:6.25in;height:4.25in;object-fit:cover;display:block;" />
+<div style="position:absolute;left:0.2in;top:0.2in;max-width:3.1in;box-sizing:border-box;padding:10px 12px;border-radius:8px;background:rgba(17,24,39,0.88);color:#fff;">
 ${headBlock}${businessBlock}${bodyBlock}${ctaBlock}
 </div>
 </body></html>`;
@@ -93,5 +97,6 @@ module.exports = {
   applyMergeFields,
   hasMergeTokens,
   wrapImageUrlAsPostcardHtml,
+  wrapImageUrlAsLobPostcardHtml,
   wrapImageWithPersonalizedOverlay,
 };

@@ -51,7 +51,7 @@
     <div id="lobStatusBanner" class="dm-lob-banner <%= lobReady.configured ? 'dm-lob-banner--ok' : 'dm-lob-banner--warn' %>">
       <% if (lobReady.configured) { %>
       <span class="dm-lob-dot"></span>
-      <p class="dm-lob-text">Lob connected<%= lobReady.testMode ? ' · test mode' : ' · live' %> — <% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %><%= typeof dmMailableCount === 'number' ? dmMailableCount : mailableLeads.length %> of <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected lead<%= (typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length) === 1 ? '' : 's' %> ready.<% } else { %><%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length %> mailable lead<%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length === 1 ? '' : 's' %>.<% } %><% if (lobReady.hasCustomPostcard) { %> Using your uploaded PDFs.<% } else { %> Built-in template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %></p>
+      <p class="dm-lob-text">Lob connected<%= lobReady.testMode ? ' · <strong>test mode</strong> — postcards appear in Lob only when dashboard is set to Test' : ' · live' %> — <% if (typeof dmIsSelectionSession !== 'undefined' && dmIsSelectionSession) { %><%= typeof dmMailableCount === 'number' ? dmMailableCount : mailableLeads.length %> of <%= typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length %> selected lead<%= (typeof dmSelectionCount === 'number' ? dmSelectionCount : mailableLeads.length) === 1 ? '' : 's' %> ready.<% } else { %><%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length %> mailable lead<%= mailableLeads.filter(function (l) { return l.mailable !== false; }).length === 1 ? '' : 's' %>.<% } %><% if (lobReady.hasCustomPostcard) { %> Using your uploaded PDFs.<% } else { %> Built-in template — <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">upload PDFs</a> for branded mail.<% } %><% if (lobReady.testMode) { %> <a href="https://dashboard.lob.com/postcards" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Open Lob postcards (Test view)</a>.<% } %></p>
       <% } else { %>
       <p class="dm-lob-text"><strong>Lob not configured</strong> — Add API key under <a href="/workspace/integrations#lob-integration" class="text-brand-yellow hover:underline">Integrations</a>.</p>
       <% } %>
@@ -197,12 +197,16 @@
           <input id="dmHeadline" type="text" class="dm-input dm-merge-field" placeholder="Your new website is ready, {business}" />
           <label class="dm-field-label" for="dmBody">Body</label>
           <textarea id="dmBody" rows="4" class="dm-input dm-merge-field resize-y" placeholder="We built a custom preview for {business} in {city}."></textarea>
-          <label class="dm-field-label" for="dmCtaUrl">Audit / landing URL <span class="font-normal normal-case tracking-normal">(optional)</span></label>
-          <input id="dmCtaUrl" type="text" class="dm-input dm-merge-field" placeholder="Leave blank or use {audit_url} per lead" autocomplete="off" />
-          <p class="text-[11px] text-brand-muted mt-1 leading-relaxed">Omit for brand-only postcards, or use <code>{audit_url}</code> to pull each lead&apos;s audit link at send time.</p>
+          <label class="dm-field-label" for="dmCtaUrl">QR / landing URL</label>
+          <input id="dmCtaUrl" type="text" class="dm-input dm-merge-field" value="{audit_url}" placeholder="{audit_url} or https://yoursite.com/offer" autocomplete="off" />
+          <p class="text-[11px] text-brand-muted mt-1 leading-relaxed">Lob prints a scannable QR on the front that links here. Use <code>{audit_url}</code> for each lead&apos;s audit, or your own URL with merge tokens. Scans show in Lob postcard details.</p>
           <label class="dm-check-row mt-2">
-            <input type="checkbox" id="dmPersonalizeOverlay" checked />
-            <span><strong>Personalize at send</strong> — overlay headline and copy on generated art per lead.</span>
+            <input type="checkbox" id="dmIncludeLobQr" checked />
+            <span><strong>Add Lob QR code</strong> — scannable code on the front; Lob tracks scans on the postcard.</span>
+          </label>
+          <label class="dm-check-row mt-2">
+            <input type="checkbox" id="dmPersonalizeOverlay" />
+            <span><strong>Personalize at send</strong> — small overlay chip on front only (leave off if your design already has copy).</span>
           </label>
         </div>
 
@@ -246,16 +250,18 @@
         <div class="dm-canvas-viewport" id="dmCanvasViewport">
           <div class="dm-canvas-scaler" id="dmCanvasScaler" style="--dm-zoom: 1">
             <div class="dm-artboard-wrap">
-              <button type="button" id="dmPreviewFrontBtn" class="dm-artboard dm-preview-btn is-active-page" style="aspect-ratio:2/3" data-slot="front" aria-label="Front design">
+              <button type="button" id="dmPreviewFrontBtn" class="dm-artboard dm-preview-btn is-active-page" style="aspect-ratio:3/2" data-slot="front" aria-label="Front design">
                 <div id="dmPreviewFront" class="dm-artboard-inner">
                   <span class="dm-artboard-empty">No front yet — describe your design and generate</span>
+                  <div class="dm-lob-zone dm-lob-zone--qr" aria-hidden="true" title="Lob QR code prints here"></div>
                 </div>
                 <span class="dm-artboard-badge">Front</span>
                 <span class="dm-preview-zoom-badge">Click to zoom in</span>
               </button>
-              <button type="button" id="dmPreviewBackBtn" class="dm-artboard dm-preview-btn dm-artboard--back" style="aspect-ratio:2/3" data-slot="back" aria-label="Back design" hidden>
+              <button type="button" id="dmPreviewBackBtn" class="dm-artboard dm-preview-btn dm-artboard--back" style="aspect-ratio:3/2" data-slot="back" aria-label="Back design" hidden>
                 <div id="dmPreviewBack" class="dm-artboard-inner">
                   <span class="dm-artboard-empty">No back yet</span>
+                  <div class="dm-lob-zone dm-lob-zone--address" aria-hidden="true" title="Lob address + postage prints here — keep artwork out"></div>
                 </div>
                 <span class="dm-artboard-badge">Back</span>
                 <span class="dm-preview-zoom-badge">Click to zoom in</span>
@@ -364,9 +370,20 @@
             <li class="text-sm border-b border-brand-border/20 dark:border-white/10 pb-2">
               <p class="font-semibold text-brand-dark dark:text-white truncate"><%= s.title %></p>
               <p class="text-[11px] text-brand-muted mt-0.5"><%= s.message %></p>
+              <% if (s.postcardId) { %>
+              <p class="text-[11px] mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <a href="<%= s.dashboardUrl %>" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline font-mono"><%= s.postcardId %></a>
+                <% if (s.lobUrl) { %>
+                <a href="<%= s.lobUrl %>" target="_blank" rel="noopener noreferrer" class="text-brand-muted hover:underline">Preview PDF</a>
+                <% } %>
+              </p>
+              <% } %>
             </li>
             <% }) %>
           </ul>
+          <% if (lobReady.testMode) { %>
+          <p class="text-xs text-amber-800 dark:text-amber-200 mt-3">Using a <code class="text-[10px] bg-amber-100 dark:bg-amber-900/40 px-1 rounded">test_</code> API key. In <a href="https://dashboard.lob.com/postcards" target="_blank" rel="noopener noreferrer" class="underline font-semibold">Lob → Postcards</a>, switch the dashboard to <strong>Test</strong> — live view stays empty for test sends.</p>
+          <% } %>
           <% } %>
         </div>
       </details>

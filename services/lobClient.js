@@ -142,7 +142,45 @@ function lobRecipientName(name) {
   return n.slice(0, 40).trim();
 }
 
-async function createPostcard({ to, front, back, description, integrationEnv }) {
+function lobPostcardDashboardUrl(postcardId) {
+  const id = String(postcardId || '').trim();
+  if (!id) return 'https://dashboard.lob.com/postcards';
+  return `https://dashboard.lob.com/postcards/${encodeURIComponent(id)}`;
+}
+
+function assertPostcardCreateResponse(data) {
+  const id = String((data && data.id) || '').trim();
+  if (!id || !/^psc_[a-f0-9]+$/i.test(id)) {
+    throw new Error('Lob accepted the request but did not return a postcard ID. Check your Lob API key and dashboard.');
+  }
+  return id;
+}
+
+async function listPostcards({ integrationEnv, limit = 10 } = {}) {
+  const capped = Math.min(Math.max(Number(limit) || 10, 1), 100);
+  return lobRequest('GET', `/postcards?limit=${capped}`, { integrationEnv });
+}
+
+async function getPostcard(postcardId, integrationEnv) {
+  const id = String(postcardId || '').trim();
+  if (!id) throw new Error('Postcard ID is required.');
+  return lobRequest('GET', `/postcards/${encodeURIComponent(id)}`, { integrationEnv });
+}
+
+function buildDefaultPostcardQrCode(redirectUrl, pages = 'front') {
+  const url = String(redirectUrl || '').trim();
+  if (!url) return null;
+  return {
+    position: 'relative',
+    redirect_url: url,
+    width: '0.85',
+    top: '0.35',
+    right: '0.35',
+    pages: pages || 'front',
+  };
+}
+
+async function createPostcard({ to, front, back, description, integrationEnv, qrCodeRedirectUrl, qrCodePages }) {
   const from = resolveFromAddress(integrationEnv);
   if (!to || !to.address_line1 || !to.address_city || !to.address_state || !to.address_zip) {
     throw new Error('Recipient address is incomplete.');
@@ -161,7 +199,11 @@ async function createPostcard({ to, front, back, description, integrationEnv }) 
     back: back || '<html><body style="padding:24px;font-family:sans-serif"><p>Scan the QR code on the front.</p></body></html>',
     size: '4x6',
   };
-  return lobRequest('POST', '/postcards', { integrationEnv, body: payload });
+  const qrCode = buildDefaultPostcardQrCode(qrCodeRedirectUrl, qrCodePages);
+  if (qrCode) payload.qr_code = qrCode;
+  const data = await lobRequest('POST', '/postcards', { integrationEnv, body: payload });
+  assertPostcardCreateResponse(data);
+  return data;
 }
 
 async function createLetter({ to, fileUrl, description, integrationEnv }) {
@@ -193,8 +235,13 @@ module.exports = {
   resolveFromAddress,
   isConfigured,
   isTestMode,
+  lobPostcardDashboardUrl,
+  assertPostcardCreateResponse,
+  buildDefaultPostcardQrCode,
   testConnection,
   uploadPdfAsset,
+  listPostcards,
+  getPostcard,
   createPostcard,
   createLetter,
   lobRequest,
