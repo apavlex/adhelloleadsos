@@ -67,6 +67,12 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   let logoOverlayApplied = false;
   if (!finalImageUrl) return { finalImageUrl, logoOverlayApplied };
 
+  const k = normalizeBrandKit(brandKit);
+  // Checked = leave top-left clear and composite the real logo after generation.
+  if (!k.logoUrl || k.useLogoInDesign === false) {
+    return { finalImageUrl, logoOverlayApplied };
+  }
+
   let logoData = null;
   try {
     logoData = await loadWorkspaceLogoBuffer(req);
@@ -77,8 +83,6 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   const hasLogo = Boolean(logoData && logoData.buffer && logoData.buffer.length);
   if (!hasLogo) return { finalImageUrl, logoOverlayApplied };
 
-  // Always composite the real uploaded logo from workspace storage — never rely on the
-  // image model to reproduce it (reference URLs are session-auth and unreachable by KIE).
   try {
     const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData.buffer);
     finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
@@ -227,7 +231,7 @@ function brandKitSummary(kit) {
   if (k.logoUrl && k.useLogoInDesign) {
     lines.push('Logo: uploaded (real logo overlaid unchanged top-left after generation — leave that area clear)');
   } else if (k.logoUrl) {
-    lines.push('Logo: uploaded (real logo overlaid unchanged top-left after generation — do not draw a fake logo)');
+    lines.push('Logo: uploaded (AI should reproduce the provided logo reference inside the design — do not leave a blank placeholder)');
   }
   return lines.length ? lines.join('\n') : '(no business info set yet)';
 }
@@ -245,6 +249,9 @@ function buildDesignCoachSystemPrompt({
   bodyText,
   ctaUrl,
   brandKit,
+  frontImageUrl,
+  frontPrompt,
+  matchFrontStyle,
 }) {
   const plat = platformLabel(platform);
   const isPostcard = platform === 'postcard';
@@ -266,6 +273,15 @@ function buildDesignCoachSystemPrompt({
 - Do not place text in the bottom-right ~1″ where Lob prints the QR code; photo/background may continue there.
 - Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
       : '';
+  const frontStyleContext =
+    slot === 'back' && (frontImageUrl || matchFrontStyle)
+      ? `An existing FRONT-side design is already approved${frontImageUrl ? ' (reference image will be passed to GPT Image 2)' : ''}.
+${frontPrompt ? `Front design prompt for style context:\n${String(frontPrompt).slice(0, 1200)}\n` : ''}
+When the user asks to match the front, coordinate with it, or make a similar design for the back:
+- imagePrompt MUST use the same color palette, typography style, graphic language, and brand mood as the front — not a generic conversion template.
+- Adapt layout for postcard BACK rules (text on left half only) while keeping visual continuity with the front.
+- Do NOT invent a completely different aesthetic (e.g. dark overlay panel vs bright marketing front) unless the user explicitly asks for a new direction.`
+      : '';
   return `You are an ad creative design coach for a local marketing agency. The user is designing a ${plat} creative (${ratio} aspect ratio${isPostcard ? `, ${slot} side` : ''}).
 
 Business info (include in layout when relevant — phone, website, hours, address, logo placement):
@@ -278,10 +294,10 @@ Ad copy context:
 
 Merge tokens ({business}, {city}, {state}, {audit_url}) are applied at SEND time in HTML overlays — never bake them into generated artwork.
 
-${lobBackRules}
+${frontStyleContext ? `${frontStyleContext}\n\n` : ''}${lobBackRules}
 ${lobFrontRules}
 
-Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When a logo is enabled, it is overlaid unchanged after generation — do not ask the model to redraw the logo inside the image.
+Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When "Leave top-left clear" is enabled, the real logo is overlaid after generation. When unchecked, the logo reference is sent to the model to reproduce inside the design.
 
 Respond with JSON only, no markdown:
 {"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. Include business contact details in the design when the user wants them on the ad. Null if still exploring."}
@@ -291,11 +307,11 @@ Rules:
 - If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post"), set imagePrompt from the conversation and business info — do not leave it null.
 - When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
-- ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; text on left half only; no text in bottom-right address zone.' : isPostcard ? 'Postcard front: full-bleed photo; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
+- ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; text on left half only; no text in bottom-right address zone. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
 - Escape double quotes inside strings as \\".`;
 }
 
-function augmentImagePromptWithBrand(prompt, brandKit, platform, slot) {
+function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFrontStyle, styleReferenceUrl } = {}) {
   const base = String(prompt || '').trim();
   if (!base) return base;
   const k = normalizeBrandKit(brandKit);
@@ -312,7 +328,7 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot) {
     );
   } else if (k.logoUrl) {
     extras.push(
-      'Do not draw, invent, or render any logo or company mark in the image — the real uploaded logo is added after generation',
+      'Incorporate the provided brand logo reference image into the design in the top-left area — reproduce it accurately as part of the layout (not a blank placeholder)',
     );
   }
   const plat = platformLabel(platform);
@@ -322,6 +338,10 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot) {
   if (isPostcard && side === 'back') {
     lobSpec =
       ' Lob 4×6 postcard BACK: landscape 3:2 full-bleed. Marketing text on left half only, 0.3″ from edges. No text in bottom-right address zone (photo OK). Never render {business} or placeholder tokens.';
+    if (matchFrontStyle || styleReferenceUrl) {
+      lobSpec +=
+        ' Match the attached front design reference: same color palette, typography style, graphic elements, and brand mood — adapt layout for back-side rules only.';
+    }
   } else if (isPostcard) {
     lobSpec =
       ' Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. No text within 0.3″ of edges or in bottom-right QR zone (photo OK, no white box). Never render {business} or placeholder tokens.';
@@ -330,6 +350,33 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot) {
     ? `\n\nPlatform: ${plat}.${lobSpec} Include on the ad where appropriate: ${extras.join('; ')}.`
     : `\n\nPlatform: ${plat}.${lobSpec}`;
   return base + suffix;
+}
+
+async function resolveLogoReferenceUrl(req, brandKit) {
+  const k = normalizeBrandKit(brandKit);
+  if (!k.logoUrl || k.useLogoInDesign !== false) return '';
+  try {
+    const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+    await brandKitLogo.migrateLegacyLogoIfNeeded(ws);
+    const published = await brandKitLogo.publishLogoPublicFile(req, ws);
+    if (!published || !published.relativePath) return '';
+    return toAbsoluteAssetUrl(req, published.relativePath);
+  } catch (err) {
+    console.warn(
+      '[direct-mail] logo public publish failed:',
+      err && err.message ? err.message : err,
+    );
+    return '';
+  }
+}
+
+async function buildGenerationInputUrls(req, { styleReferenceUrl, referenceUrl, logoReferenceUrl }) {
+  const urls = [];
+  const styleRef = toAbsoluteAssetUrl(req, String(styleReferenceUrl || referenceUrl || '').trim());
+  const logoRef = toAbsoluteAssetUrl(req, String(logoReferenceUrl || '').trim());
+  if (styleRef) urls.push(styleRef);
+  if (logoRef && logoRef !== styleRef) urls.push(logoRef);
+  return urls;
 }
 
 function formatDesignCoachError(ai) {
@@ -679,6 +726,9 @@ router.post('/api/design-chat', async (req, res, next) => {
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
     const aspectRatio = String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
     const brandKit = normalizeBrandKit(body.brandKit);
+    const frontImageUrl = toAbsoluteAssetUrl(req, String(body.frontImageUrl || '').trim());
+    const frontPrompt = String(body.frontPrompt || '').trim();
+    const matchFrontStyle = body.matchFrontStyle === true;
 
     const messages = [
       {
@@ -691,6 +741,9 @@ router.post('/api/design-chat', async (req, res, next) => {
           bodyText,
           ctaUrl,
           brandKit,
+          frontImageUrl,
+          frontPrompt,
+          matchFrontStyle,
         }),
       },
       ...history,
@@ -735,7 +788,15 @@ router.post('/api/generate-image', async (req, res, next) => {
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const brandKit = normalizeBrandKit(body.brandKit);
-    prompt = augmentImagePromptWithBrand(prompt, brandKit, platform, slot);
+    const matchFrontStyle = body.matchFrontStyle === true;
+    const styleReferenceUrl = toAbsoluteAssetUrl(req, String(body.styleReferenceUrl || '').trim());
+    const referenceAbs = body.referenceUrl
+      ? toAbsoluteAssetUrl(req, String(body.referenceUrl).trim())
+      : '';
+    prompt = augmentImagePromptWithBrand(prompt, brandKit, platform, slot, {
+      matchFrontStyle: matchFrontStyle || (slot === 'back' && !!styleReferenceUrl),
+      styleReferenceUrl: styleReferenceUrl || referenceAbs,
+    });
 
     if (kieImageClient.isVagueImagePrompt(prompt)) {
       return res.status(400).json({
@@ -747,14 +808,12 @@ router.post('/api/generate-image', async (req, res, next) => {
     const aspectRatio =
       String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
     const resolution = String(body.resolution || '2K').trim() || '2K';
-    const referenceAbs = body.referenceUrl
-      ? toAbsoluteAssetUrl(req, String(body.referenceUrl).trim())
-      : '';
-    const inputUrls = Array.isArray(body.inputUrls)
-      ? body.inputUrls.map((u) => toAbsoluteAssetUrl(req, String(u || '').trim())).filter(Boolean)
-      : referenceAbs
-        ? [referenceAbs]
-        : [];
+    const logoReferenceUrl = await resolveLogoReferenceUrl(req, brandKit);
+    const inputUrls = buildGenerationInputUrls(req, {
+      referenceUrl: referenceAbs,
+      styleReferenceUrl,
+      logoReferenceUrl,
+    });
 
     let created;
     try {
@@ -765,7 +824,15 @@ router.post('/api/generate-image', async (req, res, next) => {
         resolution,
       });
     } catch (firstErr) {
-      if (inputUrls.length) {
+      const styleOnly = inputUrls.filter((u) => u !== logoReferenceUrl);
+      if (styleOnly.length && styleOnly.length < inputUrls.length) {
+        created = await kieImageClient.createTask({
+          prompt,
+          inputUrls: styleOnly,
+          aspectRatio,
+          resolution,
+        });
+      } else if (styleOnly.length) {
         created = await kieImageClient.createTask({
           prompt,
           inputUrls: [],

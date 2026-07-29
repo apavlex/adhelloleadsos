@@ -179,7 +179,7 @@
                 </label>
                 <label class="dm-check-row">
                   <input type="checkbox" id="dmBrandUseLogo" <%= (!brandKit || brandKit.useLogoInDesign !== false) ? 'checked' : '' %> />
-                  Leave top-left clear for logo (recommended). Your uploaded logo is always applied after generation.
+                  Leave top-left clear for logo overlay (recommended). When checked, your uploaded logo is composited unchanged after generation. When unchecked, AI incorporates the logo into the design.
                 </label>
                 <button type="button" id="dmBrandSaveBtn" class="dm-studio-topbtn dm-studio-topbtn--primary w-full justify-center">Save brand kit</button>
                 <p id="dmBrandSaveStatus" class="dm-brand-save-status" aria-live="polite"></p>

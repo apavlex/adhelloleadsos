@@ -539,8 +539,18 @@
   }
 
   function resolveGenerateReferenceUrl(slot) {
+    if (slot === 'back' && designs.front) return designs.front;
     if (designs[slot]) return designs[slot];
     return designs[slot === 'back' ? 'front' : 'back'] || '';
+  }
+
+  function resolveStyleReferenceUrl(slot) {
+    if (slot === 'back' && designs.front) return designs.front;
+    return '';
+  }
+
+  function shouldMatchFrontStyle(slot) {
+    return slot === 'back' && !!designs.front;
   }
 
   function openCreativeUploadPicker() {
@@ -924,6 +934,12 @@
     );
   }
 
+  function userWantsMatchingFrontDesign(text) {
+    return /match\s+(the\s+)?front|similar\s+(to\s+)?(the\s+)?front|same\s+(style|design|look)\s+(as\s+)?(the\s+)?front|coordinate\s+with\s+(the\s+)?front|for\s+the\s+back\s+of\s+the\s+card|back\s+of\s+the\s+card|like\s+the\s+front|matching\s+design/i.test(
+      String(text || ''),
+    );
+  }
+
   function buildQuickImagePrompt(userText, ctx) {
     ctx = ctx || designRequestContext();
     var kit = ctx.brandKit || {};
@@ -952,7 +968,12 @@
     if (kit.logoUrl && kit.useLogoInDesign) {
       parts.push('Leave clear empty space in the top-left corner for a logo overlay — do not draw a logo in the image.');
     } else if (kit.logoUrl) {
-      parts.push('Do not draw or render any logo in the image — the real uploaded logo is added after generation.');
+      parts.push('Incorporate the provided brand logo reference into the design in the top-left — reproduce it accurately as part of the layout.');
+    }
+    if (ctx.platform === 'postcard' && slot === 'back' && (ctx.matchFrontStyle || designs.front)) {
+      parts.push(
+        'Match the existing front design reference: same color palette, typography, graphic style, and brand mood — adapt layout for postcard back rules only.',
+      );
     }
     parts.push('High contrast, readable at mobile size, modern trustworthy aesthetic, no watermarks.');
     return parts.join(' ');
@@ -1627,6 +1648,7 @@
 
     try {
       var ctx = designRequestContext();
+      var matchFront = shouldMatchFrontStyle(ctx.slot);
       var data = await postJson('/direct-mail/api/design-chat', {
         message: text,
         history: chatHistory.slice(0, -1),
@@ -1637,6 +1659,9 @@
         platform: ctx.platform,
         aspectRatio: ctx.aspectRatio,
         brandKit: ctx.brandKit,
+        frontImageUrl: ctx.slot === 'back' && designs.front ? designs.front : '',
+        frontPrompt: ctx.slot === 'back' ? String(designMeta.front.prompt || '').trim() : '',
+        matchFrontStyle: matchFront,
       });
       var reply = String(data.reply || '').trim();
       if (reply) {
@@ -1678,7 +1703,10 @@
       latestUserChatText();
     var ctx = designRequestContext();
     var slot = slotEl && slotEl.value === 'back' ? 'back' : 'front';
+    var matchFrontStyle = shouldMatchFrontStyle(slot);
+    ctx.matchFrontStyle = matchFrontStyle;
     var referenceUrl = resolveGenerateReferenceUrl(slot);
+    var styleReferenceUrl = resolveStyleReferenceUrl(slot);
     if (!prompt && referenceUrl) {
       var plat = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
       prompt = buildQuickImagePrompt(
@@ -1720,8 +1748,10 @@
         resolution: resolution,
         platform: ctx.platform,
         brandKit: ctx.brandKit,
+        matchFrontStyle: matchFrontStyle,
       };
       if (referenceUrl) body.referenceUrl = referenceUrl;
+      if (styleReferenceUrl) body.styleReferenceUrl = styleReferenceUrl;
 
       var data = await postJson('/direct-mail/api/generate-image', body);
       if (data.status === 'processing' && data.taskId) {
@@ -1743,13 +1773,13 @@
           silent: true,
         });
         var statusMsg = 'Generated ' + slot + ' side — saved to library automatically.';
-        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl) {
+        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign) {
           statusMsg =
             'Generated ' +
             slot +
-            ' side — your brand logo could not be applied. Re-upload it in Brand and try again.';
+            ' side — your brand logo could not be overlaid. Re-upload it in Brand and try again.';
         }
-        setDesignStatus(statusMsg, data.logoOverlayApplied !== false);
+        setDesignStatus(statusMsg, !(ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign && data.logoOverlayApplied === false));
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
           window.showAppToast((plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated', {

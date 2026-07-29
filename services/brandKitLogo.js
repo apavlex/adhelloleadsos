@@ -4,6 +4,7 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const sharp = require('sharp');
 
 const BRAND_KIT_LOGO_PATH = '/direct-mail/api/brand-kit/logo';
 
@@ -106,6 +107,39 @@ async function migrateLegacyLogoIfNeeded(ws) {
   };
 }
 
+/**
+ * Write workspace logo to a publicly fetchable path for external image APIs (e.g. KIE).
+ * @returns {Promise<{ relativePath: string, buffer: Buffer, mimeType: string }|null>}
+ */
+async function publishLogoPublicFile(req, ws) {
+  const logoData = await loadLogoBuffer(ws);
+  if (!logoData || !logoData.buffer || !logoData.buffer.length) return null;
+
+  let buffer = logoData.buffer;
+  let ext = '.png';
+  let mimeType = 'image/png';
+  if (/svg/i.test(String(logoData.mimeType || ''))) {
+    buffer = await sharp(buffer).png().toBuffer();
+  } else if (/jpe?g/i.test(String(logoData.mimeType || ''))) {
+    ext = '.jpg';
+    mimeType = 'image/jpeg';
+    buffer = await sharp(buffer).jpeg({ quality: 92 }).toBuffer();
+  } else {
+    buffer = await sharp(buffer).png().toBuffer();
+  }
+
+  const wid = String((req && req.workspaceId) || 'default')
+    .trim()
+    .replace(/[^a-zA-Z0-9_-]/g, '_');
+  const relDir = path.join('public', 'uploads', 'brand-kit');
+  const absDir = path.join(process.cwd(), relDir);
+  await fs.mkdir(absDir, { recursive: true });
+  const filename = `${wid}_logo_ref_${Date.now()}${ext}`;
+  const absPath = path.join(absDir, filename);
+  await fs.writeFile(absPath, buffer);
+  return { relativePath: `/uploads/brand-kit/${filename}`, buffer, mimeType };
+}
+
 module.exports = {
   BRAND_KIT_LOGO_PATH,
   mimeFromExt,
@@ -117,4 +151,5 @@ module.exports = {
   loadLogoBuffer,
   buildLogoWorkspacePatch,
   migrateLegacyLogoIfNeeded,
+  publishLogoPublicFile,
 };

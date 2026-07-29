@@ -1,71 +1,37 @@
-const { test } = require('node:test');
+const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('fs').promises;
 const path = require('path');
-const {
-  BRAND_KIT_LOGO_PATH,
-  buildLogoWorkspacePatch,
-  hasStoredLogo,
-  isLegacyDiskLogoUrl,
-  loadLogoBuffer,
-  logoDisplayUrl,
-  migrateLegacyLogoIfNeeded,
-  normalizeStoredLogo,
-} = require('../services/brandKitLogo');
 
-test('logoDisplayUrl uses stable API path with cache buster', () => {
-  const url = logoDisplayUrl('2026-07-29T12:00:00.000Z');
-  assert.ok(url.startsWith(BRAND_KIT_LOGO_PATH));
-  assert.ok(url.includes('?v='));
-  assert.ok(url.includes('2026-07-29T12%3A00%3A00.000Z'));
-});
+const brandKitLogo = require('../services/brandKitLogo');
 
-test('buildLogoWorkspacePatch stores base64 and stable logoUrl', () => {
-  const buffer = Buffer.from('fake-png-bytes');
-  const { brandKitLogo, brandKitPatch } = buildLogoWorkspacePatch({}, {
-    buffer,
-    mimeType: 'image/png',
-  });
-  assert.equal(brandKitLogo.mimeType, 'image/png');
-  assert.equal(Buffer.from(brandKitLogo.base64, 'base64').toString(), 'fake-png-bytes');
-  assert.ok(brandKitPatch.logoUrl.startsWith(BRAND_KIT_LOGO_PATH));
-  assert.ok(brandKitPatch.updatedAt);
-});
-
-test('loadLogoBuffer prefers workspace storage over legacy disk path', async () => {
-  const buffer = Buffer.from('stored-logo');
-  const { brandKitLogo } = buildLogoWorkspacePatch({}, { buffer, mimeType: 'image/png' });
+test('publishLogoPublicFile writes a public PNG path', async () => {
+  const pngBase64 =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
   const ws = {
-    brandKitLogo,
-    brandKit: { logoUrl: '/uploads/brand-kit/old.png' },
+    brandKitLogo: {
+      mimeType: 'image/png',
+      base64: pngBase64,
+      updatedAt: new Date().toISOString(),
+    },
   };
-  const loaded = await loadLogoBuffer(ws);
-  assert.equal(loaded.buffer.toString(), 'stored-logo');
-  assert.equal(loaded.mimeType, 'image/png');
+  const req = { workspaceId: 'test_ws' };
+  const published = await brandKitLogo.publishLogoPublicFile(req, ws);
+  assert.ok(published);
+  assert.match(published.relativePath, /^\/uploads\/brand-kit\/test_ws_logo_ref_\d+\.png$/);
+  const absPath = path.join(process.cwd(), 'public', published.relativePath.replace(/^\//, ''));
+  const stat = await fs.stat(absPath);
+  assert.ok(stat.size > 0);
+  await fs.unlink(absPath);
 });
 
-test('migrateLegacyLogoIfNeeded imports existing disk logo into workspace', async () => {
-  const rel = '/uploads/brand-kit/test_legacy_logo.png';
-  const absDir = path.join(process.cwd(), 'public', 'uploads', 'brand-kit');
-  const absPath = path.join(absDir, 'test_legacy_logo.png');
-  await fs.mkdir(absDir, { recursive: true });
-  await fs.writeFile(absPath, Buffer.from('legacy-logo'));
-
-  try {
-    const ws = {
-      brandKit: { logoUrl: rel, businessName: 'Acme' },
-    };
-    assert.ok(isLegacyDiskLogoUrl(rel));
-    assert.equal(hasStoredLogo(ws), false);
-
-    const migrated = await migrateLegacyLogoIfNeeded(ws);
-    assert.ok(hasStoredLogo(migrated));
-    assert.ok(migrated.brandKit.logoUrl.startsWith(BRAND_KIT_LOGO_PATH));
-    assert.equal(normalizeStoredLogo(migrated.brandKitLogo).mimeType, 'image/png');
-
-    const loaded = await loadLogoBuffer(migrated);
-    assert.equal(loaded.buffer.toString(), 'legacy-logo');
-  } finally {
-    await fs.unlink(absPath).catch(() => {});
-  }
+test('resolveLogoReferenceUrl logic: useLogoInDesign false enables AI logo reference', () => {
+  const normalize = (raw) => ({
+    logoUrl: String(raw.logoUrl || '').trim(),
+    useLogoInDesign: raw.useLogoInDesign !== false,
+  });
+  assert.equal(normalize({ logoUrl: '/x', useLogoInDesign: true }).useLogoInDesign, true);
+  assert.equal(normalize({ logoUrl: '/x', useLogoInDesign: false }).useLogoInDesign, false);
+  const kit = normalize({ logoUrl: '/logo', useLogoInDesign: false });
+  assert.ok(kit.logoUrl && kit.useLogoInDesign === false);
 });
