@@ -94,6 +94,52 @@ test('resolvePostcardCreative rejects non-public generated image URLs', () => {
   );
 });
 
+test('parseMailableAddress uses Current Resident for listing-style titles', () => {
+  const parsed = parseMailableAddress({
+    title: '26001 NE 60th St, Vancouver, WA 98682 · $757,000',
+    address: '26001 NE 60th St, Vancouver, WA 98682',
+    city: 'Vancouver',
+    state: 'WA',
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.name, 'Current Resident');
+  assert.equal(parsed.name.length, 16);
+});
+
+test('parseMailableAddress keeps business name under Lob 40 char limit', () => {
+  const parsed = parseMailableAddress({
+    title: 'Peninsula Electric',
+    address: '123 Main St, Portland, OR 97201',
+    city: 'Portland',
+    state: 'OR',
+  });
+  assert.ok(parsed);
+  assert.equal(parsed.name, 'Peninsula Electric');
+});
+
+test('parseMailableAddress prefers contactName over listing title', () => {
+  const parsed = parseMailableAddress({
+    title: '26001 NE 60th St, Vancouver, WA 98682 · $757,000',
+    contactName: 'Jane Smith',
+    address: '26001 NE 60th St, Vancouver, WA 98682',
+    city: 'Vancouver',
+    state: 'WA',
+  });
+  assert.equal(parsed.name, 'Jane Smith');
+});
+
+test('parseMailableAddress truncates long business names for Lob', () => {
+  const parsed = parseMailableAddress({
+    title: 'Super Long Business Name That Exceeds Forty Characters Limit',
+    address: '123 Main St, Portland, OR 97201',
+    city: 'Portland',
+    state: 'OR',
+  });
+  assert.ok(parsed);
+  assert.ok(parsed.name.length <= 40);
+  assert.match(parsed.name, /^Super Long Business Name/);
+});
+
 test('lobClient isConfigured requires key and return address', () => {
   const lobClient = require('../services/lobClient');
   assert.equal(lobClient.isConfigured({}), false);

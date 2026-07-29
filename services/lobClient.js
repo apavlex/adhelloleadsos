@@ -136,6 +136,12 @@ async function uploadPdfAsset({ buffer, filename, integrationEnv }) {
   return { url, id: data.id || null };
 }
 
+function lobRecipientName(name) {
+  const n = String(name || '').trim() || 'Current Resident';
+  if (n.length <= 40) return n;
+  return n.slice(0, 40).trim();
+}
+
 async function createPostcard({ to, front, back, description, integrationEnv }) {
   const from = resolveFromAddress(integrationEnv);
   if (!to || !to.address_line1 || !to.address_city || !to.address_state || !to.address_zip) {
@@ -144,7 +150,7 @@ async function createPostcard({ to, front, back, description, integrationEnv }) 
   const payload = {
     description: description || 'AdHello direct mail',
     to: {
-      name: to.name || 'Recipient',
+      name: lobRecipientName(to.name),
       address_line1: to.address_line1,
       address_city: to.address_city,
       address_state: to.address_state,
@@ -168,7 +174,7 @@ async function createLetter({ to, fileUrl, description, integrationEnv }) {
   const payload = {
     description: description || 'AdHello letter',
     to: {
-      name: to.name || 'Recipient',
+      name: lobRecipientName(to.name),
       address_line1: to.address_line1,
       address_city: to.address_city,
       address_state: to.address_state,

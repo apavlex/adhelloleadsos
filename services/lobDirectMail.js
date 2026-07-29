@@ -17,6 +17,52 @@ function escapeHtml(text) {
     .replace(/"/g, '&quot;');
 }
 
+const LOB_RECIPIENT_NAME_MAX = 40;
+const DEFAULT_RESIDENT_NAME = 'Current Resident';
+
+function truncateLobRecipientName(name, fallback = DEFAULT_RESIDENT_NAME) {
+  const n = String(name || '').trim();
+  if (!n) return fallback;
+  if (n.length <= LOB_RECIPIENT_NAME_MAX) return n;
+  return n.slice(0, LOB_RECIPIENT_NAME_MAX).trim();
+}
+
+function looksLikeListingOrAddressTitle(title, lead) {
+  const t = String(title || '').trim();
+  if (!t) return true;
+  if (/\$\s?\d/.test(t)) return true;
+  if (/ · /.test(t) && /\$\s?\d/.test(t)) return true;
+  if (/^\d+\s+\S+.*,\s*[^,]+,\s*[A-Za-z]{2}\b/.test(t)) return true;
+  if (/\b\d{5}(?:-\d{4})?\b/.test(t) && /,\s*[A-Za-z]{2}\s+\d{5}/.test(t)) return true;
+  const addr = String((lead && lead.address) || '').trim();
+  if (addr && addr.length >= 8) {
+    const norm = (s) => String(s || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const nt = norm(t);
+    const na = norm(addr);
+    if (nt === na || nt.startsWith(na) || na.startsWith(nt.split(' · ')[0])) return true;
+  }
+  return false;
+}
+
+function resolveLobRecipientName(lead) {
+  const l = lead && typeof lead === 'object' ? lead : {};
+  const personFields = [l.contactName, l.ownerName, l.name]
+    .map((v) => String(v || '').trim())
+    .filter(Boolean);
+  for (const candidate of personFields) {
+    if (!looksLikeListingOrAddressTitle(candidate, l)) {
+      return truncateLobRecipientName(candidate);
+    }
+  }
+
+  const title = String(l.title || '').trim();
+  if (title && !looksLikeListingOrAddressTitle(title, l)) {
+    return truncateLobRecipientName(title);
+  }
+
+  return DEFAULT_RESIDENT_NAME;
+}
+
 function parseMailableAddress(lead) {
   if (!lead || typeof lead !== 'object') return null;
   let address = String(lead.address || '').trim();
@@ -56,7 +102,7 @@ function parseMailableAddress(lead) {
   if (!line1) line1 = address.split(',')[0].trim() || address;
 
   return {
-    name: String(lead.title || 'Business').trim() || 'Business',
+    name: resolveLobRecipientName(lead),
     address_line1: line1,
     address_city: city,
     address_state: state,
@@ -107,7 +153,7 @@ function getLeadLobAddressPreview(lead) {
     '';
   return {
     mailable: !!parsed,
-    recipientName: parsed ? parsed.name : String((lead && lead.title) || '').trim() || 'Business',
+    recipientName: parsed ? parsed.name : resolveLobRecipientName(lead),
     addressLine1: parsed ? parsed.address_line1 : String((lead && lead.address) || '').trim(),
     city: parsed ? parsed.address_city : String((lead && lead.city) || '').trim(),
     state: parsed ? parsed.address_state : String((lead && lead.state) || '').trim(),
