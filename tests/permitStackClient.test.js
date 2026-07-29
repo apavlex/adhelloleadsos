@@ -65,6 +65,13 @@ test('buildSearchParams accepts zip-only search', () => {
   assert.equal(q.get('city'), null);
 });
 
+test('hasOptionalPermitFilters detects narrow filters', () => {
+  const { hasOptionalPermitFilters } = require('../services/permitStackClient');
+  assert.equal(hasOptionalPermitFilters({ city: 'Camas', state: 'WA', category: 'renovation' }), false);
+  assert.equal(hasOptionalPermitFilters({ city: 'Camas', keyword: 'solar' }), true);
+  assert.equal(hasOptionalPermitFilters({ city: 'Camas', filed_after: '2026-01-01' }), true);
+});
+
 test('isConfigured reads PERMITSTACK_API_KEY from env object', () => {
   assert.equal(isConfigured({ PERMITSTACK_API_KEY: 'pk_test' }), true);
   assert.equal(isConfigured({}), false);

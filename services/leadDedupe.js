@@ -118,6 +118,9 @@ function listingPageUrlsDiffer(existing, incoming) {
 }
 
 function computeDedupeKey(lead) {
+  const permitId = String(lead?.permitStackId || lead?.permitNumber || '').trim();
+  if (permitId) return `permit:${permitId.toLowerCase()}`;
+
   const maps = leadMapsPlaceKey(lead);
   if (maps) return maps;
 

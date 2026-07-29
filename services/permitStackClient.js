@@ -6,6 +6,9 @@
 const BASE_URL = 'https://api.permit-stack.com/v1';
 const { normalizePermitCategory } = require('./permitStackCategories');
 
+const SEARCH_TIMEOUT_MS = 120000;
+const SEARCH_MAX_ATTEMPTS = 2;
+
 function apiKeyFromEnv(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.PERMITSTACK_API_KEY;
   if (typeof fromWs === 'string' && fromWs.trim()) return fromWs.trim();
@@ -14,6 +17,30 @@ function apiKeyFromEnv(integrationEnv) {
 
 function isConfigured(integrationEnv) {
   return Boolean(apiKeyFromEnv(integrationEnv));
+}
+
+function hasOptionalPermitFilters(params) {
+  const p = params && typeof params === 'object' ? params : {};
+  return Boolean(
+    String(p.keyword || '').trim() ||
+      String(p.contractor_name || p.contractorName || p.contractor || '').trim() ||
+      String(p.zip_code || p.zipCode || p.zip || '').trim() ||
+      String(p.filed_after || p.filedAfter || '').trim() ||
+      String(p.filed_before || p.filedBefore || '').trim() ||
+      (p.min_value != null && p.min_value !== '')
+  );
+}
+
+function corePermitSearchParams(params) {
+  const p = params && typeof params === 'object' ? params : {};
+  return {
+    city: String(p.city || '').trim(),
+    state: String(p.state || '').trim(),
+    category: normalizePermitCategory(p.category),
+    page: p.page,
+    per_page: p.per_page ?? p.perPage ?? p.maxResults,
+    maxResults: p.maxResults,
+  };
 }
 
 function buildSearchParams(params) {
@@ -43,6 +70,61 @@ function buildSearchParams(params) {
   return q;
 }
 
+function parsePermitSearchResponse(body, q) {
+  const payload = body && typeof body === 'object' ? body : {};
+  return {
+    total: Number(payload.total) || 0,
+    page: Number(payload.page) || 1,
+    perPage: Number(payload.per_page) || Number(q.get('per_page')) || 25,
+    totalCapped: Boolean(payload.total_capped),
+    results: Array.isArray(payload.results) ? payload.results : [],
+  };
+}
+
+async function fetchPermitSearch(url, apiKey, attempt = 1) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-API-Key': apiKey,
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+    const body = await res.json().catch(() => ({}));
+
+    if (res.status === 401) {
+      throw new Error(
+        (body && (body.detail || body.error || body.message)) ||
+          'Permit Stack API key is invalid or unauthorized.'
+      );
+    }
+    if (!res.ok) {
+      throw new Error(
+        (body && (body.detail || body.error || body.message)) ||
+          `Permit Stack search failed (HTTP ${res.status})`
+      );
+    }
+    return body;
+  } catch (err) {
+    const timedOut = err && err.name === 'AbortError';
+    const retriable = timedOut || (err && /fetch failed|network|ECONNRESET|ETIMEDOUT/i.test(String(err.message || '')));
+    if (retriable && attempt < SEARCH_MAX_ATTEMPTS) {
+      console.warn(`[PERMITSTACK] Search attempt ${attempt} failed, retrying…`, err.message || err);
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+      return fetchPermitSearch(url, apiKey, attempt + 1);
+    }
+    if (timedOut) {
+      throw new Error('Permit Stack search timed out. The API can take up to 2 minutes — try again with fewer filters.');
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function searchPermits(params, integrationEnv) {
   const apiKey = apiKeyFromEnv(integrationEnv);
   if (!apiKey) {
@@ -54,32 +136,31 @@ async function searchPermits(params, integrationEnv) {
   }
 
   const url = `${BASE_URL}/permits/search?${q.toString()}`;
-  const res = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'X-API-Key': apiKey,
-      Accept: 'application/json',
-    },
-  });
-  const body = await res.json().catch(() => ({}));
+  console.log('[PERMITSTACK] search', url.replace(apiKey, '***'));
+  const body = await fetchPermitSearch(url, apiKey);
+  const parsed = parsePermitSearchResponse(body, q);
+  console.log(
+    `[PERMITSTACK] total=${parsed.total} returned=${parsed.results.length} page=${parsed.page}`
+  );
+  return parsed;
+}
 
-  if (res.status === 401) {
-    throw new Error(
-      (body && (body.error || body.message)) || 'Permit Stack API key is invalid or unauthorized.'
-    );
-  }
-  if (!res.ok) {
-    throw new Error(
-      (body && (body.error || body.message)) || `Permit Stack search failed (HTTP ${res.status})`
-    );
+/**
+ * If optional filters yield zero matches, retry with city/state/category only.
+ */
+async function searchPermitsWithFallback(params, integrationEnv) {
+  const first = await searchPermits(params, integrationEnv);
+  if (first.total > 0 || first.results.length > 0 || !hasOptionalPermitFilters(params)) {
+    return { ...first, relaxedFilters: false };
   }
 
+  const relaxedParams = corePermitSearchParams(params);
+  console.warn('[PERMITSTACK] Zero results with optional filters; retrying core search only.');
+  const second = await searchPermits(relaxedParams, integrationEnv);
   return {
-    total: Number(body.total) || 0,
-    page: Number(body.page) || 1,
-    perPage: Number(body.per_page) || Number(q.get('per_page')) || 25,
-    totalCapped: Boolean(body.total_capped),
-    results: Array.isArray(body.results) ? body.results : [],
+    ...second,
+    relaxedFilters: true,
+    zeroWithOptionalFilters: true,
   };
 }
 
@@ -91,9 +172,13 @@ async function checkApiConnection(integrationEnv) {
 
 module.exports = {
   BASE_URL,
+  SEARCH_TIMEOUT_MS,
   apiKeyFromEnv,
   isConfigured,
+  hasOptionalPermitFilters,
+  corePermitSearchParams,
   buildSearchParams,
   searchPermits,
+  searchPermitsWithFallback,
   checkApiConnection,
 };

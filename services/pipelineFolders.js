@@ -472,6 +472,7 @@ function leadMetadataForJobType(jobType, extra = {}) {
     source: sourceForJobType(jt),
   };
   if (def.sourceType) meta.sourceType = def.sourceType;
+  if (extra.folderKey) meta.folderKey = String(extra.folderKey).trim();
   if (extra.listing && typeof extra.listing === 'object') meta.listing = extra.listing;
   if (extra.realEstate && typeof extra.realEstate === 'object') meta.realEstate = extra.realEstate;
   return meta;

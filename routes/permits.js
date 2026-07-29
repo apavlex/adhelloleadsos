@@ -19,6 +19,7 @@ router.post('/search', async (req, res, next) => {
       state,
       category,
       keyword,
+      permitKeyword,
       contractor,
       maxResults,
       zip,
@@ -38,7 +39,7 @@ router.post('/search', async (req, res, next) => {
     const resolvedState = String(state || '').trim();
     const resolvedZip = String(zip || '').trim();
     const resolvedCategory = normalizePermitCategory(category);
-    const resolvedKeyword = String(keyword || '').trim();
+    const resolvedKeyword = String(permitKeyword || keyword || '').trim();
     const resolvedContractor = String(contractor || '').trim();
     const resolvedFiledAfter = String(filed_after || '').trim();
 
@@ -78,7 +79,7 @@ router.post('/search', async (req, res, next) => {
 
       setImmediate(async () => {
         try {
-          const searchResult = await permitStackClient.searchPermits(
+          const searchResult = await permitStackClient.searchPermitsWithFallback(
             {
               city: resolvedCity,
               state: resolvedState,
@@ -100,6 +101,7 @@ router.post('/search', async (req, res, next) => {
             folderKey: folderResolved.targetFolderKey,
           });
 
+          let savedCount = 0;
           const saved = [];
           for (const row of leadRows) {
             const meta = leadMetadataForJobType(JOB_TYPES.PERMITS, {
@@ -108,6 +110,7 @@ router.post('/search', async (req, res, next) => {
             // eslint-disable-next-line no-await-in-loop
             const result = await dbService.saveLeadWithMeta({ ...row, ...meta, workspaceId: wid });
             saved.push(result);
+            if (!result.merged) savedCount += 1;
           }
 
           const searchRecord = {
@@ -124,8 +127,11 @@ router.post('/search', async (req, res, next) => {
             targetFolderKey: folderResolved.targetFolderKey,
             targetFolderName: folderResolved.targetFolderName,
             resultCount: leadRows.length,
+            savedCount,
             totalAvailable: searchResult.total,
             totalCapped: searchResult.totalCapped,
+            relaxedFilters: searchResult.relaxedFilters || false,
+            zeroWithOptionalFilters: searchResult.zeroWithOptionalFilters || false,
             results: leadRows,
             timestamp: new Date().toISOString(),
             workspaceId: wid,
@@ -134,8 +140,11 @@ router.post('/search', async (req, res, next) => {
           if (userEmail(req)) await activationService.recordEvent(userEmail(req), 'search_saved');
           await dbService.clearActiveJob({
             resultCount: leadRows.length,
-            searchKey,
+            savedCount,
             totalAvailable: searchResult.total,
+            searchKey,
+            relaxedFilters: searchResult.relaxedFilters || false,
+            zeroWithOptionalFilters: searchResult.zeroWithOptionalFilters || false,
           });
         } catch (err) {
           console.error('[PERMITS-BG] Permit search failed:', err);

@@ -256,7 +256,7 @@
                   </div>
                   <div>
                     <label for="findPermitKeyword" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Keyword</label>
-                    <input type="text" name="keyword" id="findPermitKeyword" placeholder="e.g. solar panel" value="<%= _sp.permitKeyword || '' %>"
+                    <input type="text" name="permitKeyword" id="findPermitKeyword" placeholder="e.g. solar panel" value="<%= _sp.permitKeyword || '' %>"
                       class="w-full rounded-2xl border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-3.5 text-sm font-bold text-brand-dark dark:text-white placeholder:text-brand-muted/50 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/25" />
                   </div>
                   <div>
@@ -278,7 +278,7 @@
                     </div>
                   </div>
                 </div>
-                <p class="text-xs text-brand-muted leading-relaxed">Imports recent building permits from <a href="https://permit-stack.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Permit Stack</a> — contractor name, property address, project value, and filing dates. Add your API key under Workspace → Integrations.</p>
+                <p class="text-xs text-brand-muted leading-relaxed">Imports recent building permits from <a href="https://permit-stack.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Permit Stack</a>. Optional filters (keyword, contractor, filed after) narrow results — leave blank for the broadest match. Add your API key under Workspace → Integrations.</p>
               </div>
 
               <!-- Shared: max results + folder -->

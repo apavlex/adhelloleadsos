@@ -1148,6 +1148,7 @@
             const failed = n.status === 'failed';
             const zeroResults =
               !failed && typeof n.resultCount === 'number' && n.resultCount === 0;
+            const isPermitSearch = String(n.type || '').trim() === 'permits_search';
             const treatAsFailed = failed || zeroResults;
             const headline = treatAsFailed
               ? zeroResults
@@ -1161,9 +1162,13 @@
               .replace(/"/g, '&quot;');
             const sub = treatAsFailed
               ? zeroResults
-                ? 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
-                  kw +
-                  '"</span> finished with 0 leads. Check RapidAPI endpoint (/search not review), host, and query param — use <strong>Test connection</strong> on the RapidAPI card.'
+                ? isPermitSearch
+                  ? 'Permit search for <span class="text-brand-dark dark:text-slate-200">"' +
+                    kw +
+                    '"</span> returned 0 permits. Try clearing Keyword, Contractor, and Filed after, or use <strong>Test connection</strong> under Workspace → Integrations → Permit Stack.'
+                  : 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
+                    kw +
+                    '"</span> finished with 0 leads. Check RapidAPI endpoint (/search not review), host, and query param — use <strong>Test connection</strong> on the RapidAPI card.'
                 : 'Search for <span class="text-brand-dark dark:text-slate-200">"' +
                   kw +
                   '"</span> did not finish. ' +
