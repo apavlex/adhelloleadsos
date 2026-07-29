@@ -1,5 +1,6 @@
 /** Google Maps actor (Apify). Find Leads step 1 goes through mapsSearch: Outscraper first when configured, then this client as fallback. */
 const { ApifyClient } = require('apify-client');
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 
 // Google Maps scraper actor (must match input shape below). Override via APIFY_GOOGLE_MAPS_ACTOR_ID if needed.
 const ACTOR_ID = process.env.APIFY_GOOGLE_MAPS_ACTOR_ID || 'nwua9Gu5YrADL7ZDj';
@@ -77,24 +78,27 @@ module.exports = {
 
     console.log(`Retrieved ${items.length} results from Apify.`);
 
-    return items.map((item) => ({
-      title: item.title || 'N/A',
-      phone: item.phone || 'N/A',
-      website: item.website || 'N/A',
-      email: item.email || item.contactEmail || 'N/A',
-      categoryName: item.categoryName || 'N/A',
-      address: item.address || 'N/A',
-      city: item.city || '',
-      state: item.state || '',
-      postalCode: item.postalCode || '',
-      totalScore: item.totalScore || 0,
-      reviewsCount: item.reviewsCount || 0,
-      url: item.url || '',
-      placeId: item.placeId || item.place_id || '',
-      facebook: item.facebook || (item.facebookUrl && item.facebookUrl.length > 0 ? item.facebookUrl[0] : 'N/A'),
-      instagram: item.instagram || (item.instagramUrl && item.instagramUrl.length > 0 ? item.instagramUrl[0] : 'N/A'),
-      twitter: item.twitter || (item.twitterUrl && item.twitterUrl.length > 0 ? item.twitterUrl[0] : 'N/A'),
-    }));
+    return items.map((item) => {
+      const title = item.title || 'N/A';
+      return {
+        title,
+        phone: item.phone || 'N/A',
+        website: item.website || 'N/A',
+        email: item.email || item.contactEmail || 'N/A',
+        categoryName: sanitizeLeadCategoryName(item.categoryName, title, 'N/A'),
+        address: item.address || 'N/A',
+        city: item.city || '',
+        state: item.state || '',
+        postalCode: item.postalCode || '',
+        totalScore: item.totalScore || 0,
+        reviewsCount: item.reviewsCount || 0,
+        url: item.url || '',
+        placeId: item.placeId || item.place_id || '',
+        facebook: item.facebook || (item.facebookUrl && item.facebookUrl.length > 0 ? item.facebookUrl[0] : 'N/A'),
+        instagram: item.instagram || (item.instagramUrl && item.instagramUrl.length > 0 ? item.instagramUrl[0] : 'N/A'),
+        twitter: item.twitter || (item.twitterUrl && item.twitterUrl.length > 0 ? item.twitterUrl[0] : 'N/A'),
+      };
+    });
   },
   /**
    * Enrich leads with missing social media links by crawling their websites.

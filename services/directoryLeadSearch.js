@@ -4,6 +4,7 @@
  */
 
 const { scrapePage } = require('./pageScraper');
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 function truthyEnv(v) {
   const s = String(v || '').toLowerCase().trim();
   return s === '1' || s === 'true' || s === 'yes';
@@ -46,12 +47,13 @@ const DIRECTORY_SOURCES = [
 
 function listingToLead(row, ctx) {
   const profileUrl = row.url && !/^https?:/i.test(row.url) ? `https://www.yelp.com${row.url}` : row.url || '';
+  const title = row.title || 'N/A';
   return {
-    title: row.title || 'N/A',
+    title,
     phone: row.phone && row.phone !== 'N/A' ? row.phone : 'N/A',
     website: row.website && row.website !== 'N/A' ? row.website : 'N/A',
     email: 'N/A',
-    categoryName: ctx.keyword || 'N/A',
+    categoryName: sanitizeLeadCategoryName(ctx.keyword || 'N/A', title, ctx.keyword || 'N/A'),
     address: row.address && row.address !== 'N/A' ? row.address : 'N/A',
     city: ctx.city || '',
     state: ctx.state || '',

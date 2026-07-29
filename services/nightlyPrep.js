@@ -9,17 +9,20 @@ const workspaceIntegrations = require('./workspaceIntegrations');
 const dbService = require('./database');
 const { getWorkspaceIcp } = require('./workspaceIcp');
 const { autoAttachCadenceIfNeeded } = require('./leadCadence');
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 
 function mapsRowToLeadData(row, workspaceId, keyword) {
+  const title = row.title || 'Unknown';
+  const categoryRaw =
+    row.categoryName && String(row.categoryName).trim() && row.categoryName !== 'N/A'
+      ? row.categoryName
+      : keyword || 'N/A';
   return {
-    title: row.title || 'Unknown',
+    title,
     phone: row.phone || 'N/A',
     website: row.website || 'N/A',
     email: row.email || 'N/A',
-    categoryName:
-      row.categoryName && String(row.categoryName).trim() && row.categoryName !== 'N/A'
-        ? row.categoryName
-        : keyword || 'N/A',
+    categoryName: sanitizeLeadCategoryName(categoryRaw, title, keyword || 'N/A'),
     address: row.address || 'N/A',
     city: row.city || '',
     state: row.state || '',

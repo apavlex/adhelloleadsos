@@ -8,6 +8,7 @@ const {
   geocodeCityState,
   countryForState,
 } = require('./geocodeLocation');
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 
 const DEFAULT_HOST = 'local-business-data.p.rapidapi.com';
 const DEFAULT_ENDPOINT = 'https://local-business-data.p.rapidapi.com/search';
@@ -110,8 +111,9 @@ function normalizePlace(item) {
     Array.isArray(item.types) && item.types.length ? item.types[0] : '',
     Array.isArray(item.subtypes) && item.subtypes.length ? item.subtypes[0] : ''
   );
+  const title = pickFirst(item.name, item.title, item.business_name, item.business_name_full) || 'N/A';
   return {
-    title: pickFirst(item.name, item.title, item.business_name, item.business_name_full) || 'N/A',
+    title,
     phone: pickFirst(
       item.phone_number,
       item.phone,
@@ -121,7 +123,7 @@ function normalizePlace(item) {
     ) || 'N/A',
     website: site || 'N/A',
     email: pickFirst(item.email, item.contact_email, item.contactEmail, item.contact_email_address) || 'N/A',
-    categoryName: cat || 'N/A',
+    categoryName: sanitizeLeadCategoryName(cat, title, 'N/A'),
     address: pickFirst(
       item.full_address,
       item.formatted_address,

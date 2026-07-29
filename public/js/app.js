@@ -11336,6 +11336,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json().catch(() => ({}));
       if (data.success && row) {
         row.dataset.category = val || 'N/A';
+        const catInp = row.querySelector('.lead-category-input');
+        if (catInp) catInp.classList.remove('lead-category-input--suspect');
         if (currentRow === row) populatePanel(row);
         if (typeof window.showProspectToast === 'function') {
           window.showProspectToast(val ? `Category set to ${val}` : 'Category cleared');

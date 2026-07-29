@@ -45,6 +45,19 @@
       if (!v || v === 'N/A') return '';
       return plcEscAttr(v);
     }
+    function plcCategorySuspect(lead) {
+      var cat = String((lead && lead.categoryName) || '').trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+      var title = String((lead && lead.title) || '').trim().toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!cat || cat === 'n a' || !title) return false;
+      if (cat === title) return true;
+      if (cat.length >= 8 && title.length >= 8 && (cat.indexOf(title) >= 0 || title.indexOf(cat) >= 0)) return true;
+      var words = title.split(' ').filter(function (w) { return w.length > 2; });
+      if (words.length >= 2) {
+        var matched = words.filter(function (w) { return cat.indexOf(w) >= 0; }).length;
+        if (matched / words.length >= 0.75) return true;
+      }
+      return false;
+    }
     function plcEscJson(obj) {
       return JSON.stringify(obj === undefined ? null : obj)
         .replace(/&/g, '&amp;')
@@ -664,7 +677,7 @@
               </td>
               <td data-plc="category" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] min-w-[5.5rem] max-w-[10rem]" onclick="event.stopPropagation()">
                 <label class="sr-only">Category for <%= lead.title %></label>
-                <input type="text" class="lead-category-input w-full max-w-[9.5rem] text-[10px] font-semibold text-brand-dark dark:text-white rounded-lg border border-brand-border/35 dark:border-white/10 bg-transparent dark:bg-white/5 px-2 py-1 placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" list="lead-category-pipeline-options" value="<%= plcCategoryInputValue(lead.categoryName) %>" placeholder="Category" title="Click to edit category — type or pick from list" data-lead-key="<%= lead.key %>" autocomplete="off" />
+                <input type="text" class="lead-category-input<%= plcCategorySuspect(lead) ? ' lead-category-input--suspect' : '' %> w-full max-w-[9.5rem] text-[10px] font-semibold text-brand-dark dark:text-white rounded-lg border border-brand-border/35 dark:border-white/10 bg-transparent dark:bg-white/5 px-2 py-1 placeholder:text-brand-muted/50 focus:ring-2 focus:ring-brand-yellow" list="lead-category-pipeline-options" value="<%= plcCategoryInputValue(lead.categoryName) %>" placeholder="Category" title="<%= plcCategorySuspect(lead) ? 'Category looks like the company name — click to fix' : 'Click to edit category — type or pick from list' %>" data-lead-key="<%= lead.key %>" autocomplete="off" />
               </td>
               <td data-plc="reviews" class="lead-cell-reviews px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">
                 <div class="lead-reviews-inner py-0.5 flex flex-col items-start gap-1">

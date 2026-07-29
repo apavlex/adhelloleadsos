@@ -4,6 +4,7 @@
 
 const oxylabs = require('./oxylabsClient');
 const { buildMapsSearchQuery } = require('./geocodeLocation');
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 
 function pickPhone(item) {
   const p = item && (item.phone || item.phone_number);
@@ -48,13 +49,18 @@ function normalizeLocalItem(item, ctx) {
       ? item.website.trim()
       : 'N/A';
   const listingUrl = mapsUrlFromLocalItem(item, ctx);
+  const title = String((item && item.title) || 'N/A').trim() || 'N/A';
 
   return {
-    title: String((item && item.title) || 'N/A').trim() || 'N/A',
+    title,
     phone: pickPhone(item) || 'N/A',
     website,
     email: 'N/A',
-    categoryName: String((item && item.category) || (item && item.type) || 'N/A').trim() || 'N/A',
+    categoryName: sanitizeLeadCategoryName(
+      String((item && item.category) || (item && item.type) || '').trim(),
+      title,
+      'N/A',
+    ),
     address: String((item && item.address) || 'N/A').trim() || 'N/A',
     city: String((ctx && ctx.city) || '').trim(),
     state: String((ctx && ctx.state) || '').trim(),

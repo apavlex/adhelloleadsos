@@ -5,8 +5,7 @@
  */
 
 const { buildMapsSearchQuery } = require('./geocodeLocation');
-
-const DEFAULT_BASE = 'https://api.app.outscraper.com';
+const { sanitizeLeadCategoryName } = require('./leadCategory'); = 'https://api.app.outscraper.com';
 const DEFAULT_TIMEOUT_MS = 8000;
 const MAPS_INIT_TIMEOUT_MS = Math.max(15000, parseInt(process.env.OUTSCRAPER_MAPS_INIT_TIMEOUT_MS || '60000', 10) || 60000);
 const MAPS_POLL_MS = Math.max(2000, parseInt(process.env.OUTSCRAPER_MAPS_POLL_MS || '4000', 10) || 4000);
@@ -106,7 +105,7 @@ function normalizeMapsPlace(item) {
     phone: item.phone || 'N/A',
     website: site ? String(site).trim() : 'N/A',
     email: item.email || item.contact_email || item.contactEmail || 'N/A',
-    categoryName: cat || 'N/A',
+    categoryName: sanitizeLeadCategoryName(cat, title, 'N/A'),
     address: item.full_address || item.address || 'N/A',
     city: item.city || '',
     state: item.state || item.us_state || '',

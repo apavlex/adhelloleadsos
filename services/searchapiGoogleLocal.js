@@ -4,6 +4,7 @@
  */
 
 const SEARCHAPI_SEARCH_URL = 'https://www.searchapi.io/api/v1/search';
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 
 function apiKey(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.SEARCHAPI_API_KEY;
@@ -55,13 +56,14 @@ function normalizeLocalResult(r, ctx) {
   if (website && !/^https?:\/\//i.test(website)) website = '';
 
   const rating = r && r.rating != null ? Number(r.rating) : 0;
+  const title = String((r && r.title) || 'N/A').trim() || 'N/A';
 
   return {
-    title: String((r && r.title) || 'N/A').trim() || 'N/A',
+    title,
     phone: String((r && r.phone) || '').trim() || 'N/A',
     website: website || 'N/A',
     email: 'N/A',
-    categoryName: String((r && r.type) || 'N/A').trim() || 'N/A',
+    categoryName: sanitizeLeadCategoryName(String((r && r.type) || '').trim(), title, 'N/A'),
     address: addr || 'N/A',
     city,
     state,

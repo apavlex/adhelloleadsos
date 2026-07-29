@@ -4,6 +4,7 @@
  */
 
 const SERPAPI_SEARCH_JSON = 'https://serpapi.com/search.json';
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 
 function apiKey(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.SERPAPI_API_KEY;
@@ -79,13 +80,14 @@ function normalizeLocalResult(r, ctx) {
   const website = pickWebsite(r);
   const listingUrl = mapsListingUrlFromResult(r, ctx);
   const phone = pickPhone(r);
+  const title = String((r && r.title) || 'N/A').trim() || 'N/A';
 
   return {
-    title: String((r && r.title) || 'N/A').trim() || 'N/A',
+    title,
     phone: phone || 'N/A',
     website: website || 'N/A',
     email: 'N/A',
-    categoryName: String((r && r.type) || 'N/A').trim() || 'N/A',
+    categoryName: sanitizeLeadCategoryName(String((r && r.type) || '').trim(), title, 'N/A'),
     address: addr || 'N/A',
     city,
     state,

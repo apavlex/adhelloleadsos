@@ -1570,6 +1570,15 @@ html.dark table.bulk-select-all-active .result-row.bulk-selected {
   cursor: pointer;
 }
 
+.lead-category-input--suspect {
+  border-color: rgb(251 191 36 / 0.75) !important;
+  background: rgb(254 243 199 / 0.35);
+}
+.dark .lead-category-input--suspect {
+  background: rgb(120 53 15 / 0.25);
+  border-color: rgb(251 191 36 / 0.55) !important;
+}
+
 /* Prospecting pipeline table: sticky header + checkbox/company, row hover actions */
 .prospect-leads-table thead th {
   position: sticky;

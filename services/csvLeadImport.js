@@ -1,6 +1,7 @@
 const { parse } = require('csv-parse/sync');
 const XLSX = require('xlsx');
 const { scoreLocalProspect } = require('./localProspectScore');
+const { sanitizeLeadCategoryName } = require('./leadCategory');
 
 const XLSX_EXT = /\.xlsx?$/i;
 
@@ -518,7 +519,7 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
   const emailRaw = pickPrimaryEmail(r);
   const email = emailRaw || 'N/A';
 
-  const categoryName =
+  const rawCategory =
     firstNonEmpty(r, [
       'company_type',
       'subtypes',
@@ -528,6 +529,11 @@ function toLeadPayload(row, originalFilename, rowIndex, options = {}) {
       'type',
       'business_type',
     ]) || (isRealEstateImportRow(r) ? 'Real Estate' : 'Imported');
+  const categoryName = sanitizeLeadCategoryName(
+    rawCategory,
+    title,
+    isRealEstateImportRow(r) ? 'Real Estate' : 'Imported',
+  );
 
   const socials = parseSocialUrls(
     firstNonEmpty(r, ['social_urls', 'socials', 'social_links', 'social_profiles'])
