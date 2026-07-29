@@ -302,6 +302,8 @@
         ·
         <a href="#comms-integration" class="js-integration-connect underline hover:text-brand-yellow font-semibold">Comms (iMessage / SMS)</a>
         ·
+        <a href="#saperly-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">Saperly</a>
+        ·
         <a href="#mcp-integration" class="js-integration-connect underline hover:text-brand-dark dark:hover:text-white">ChatGPT / MCP</a>
       </p>
       <section id="ghl-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
@@ -426,7 +428,8 @@
             <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">SMS send preference</label>
             <% const _smsPrimary = (typeof smsPrimary !== 'undefined' && smsPrimary) ? smsPrimary : 'auto'; %>
             <select name="smsPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-              <option value="auto" <%= _smsPrimary === 'auto' || !_smsPrimary ? 'selected' : '' %>>Auto — GHL → Comms → SignalWire</option>
+              <option value="auto" <%= _smsPrimary === 'auto' || !_smsPrimary ? 'selected' : '' %>>Auto — GHL → Saperly → Comms → SignalWire</option>
+              <option value="saperly" <%= _smsPrimary === 'saperly' ? 'selected' : '' %>>Prefer Saperly</option>
               <option value="comms" <%= _smsPrimary === 'comms' ? 'selected' : '' %>>Prefer Comms (iMessage / SMS)</option>
               <option value="ghl" <%= _smsPrimary === 'ghl' ? 'selected' : '' %>>Prefer Go High Level</option>
             </select>
@@ -455,6 +458,47 @@
             <% if (masks.commsWebhookSecret) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="commsWebhookSecret_clear" value="1" /> Remove</label><% } %>
           </div>
         </div>
+      </section>
+
+      <section id="saperly-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24 mb-4">
+        <header class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Saperly</h3>
+            <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+              Send SMS from the pipeline, bulk bar, Focus mode, and cadence through
+              <a href="https://saperly.com/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Saperly</a>
+              — AI-agent phone carrier with compliance built in.
+              Create an API key at
+              <a href="https://app.saperly.ai/access/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">app.saperly.ai → API keys</a>
+              with SMS send scope, provision a number, then paste the number ID below.
+            </p>
+          </div>
+          <a href="https://saperly.com/docs/sdks/node" class="shrink-0 rounded-xl border border-brand-yellow/40 bg-brand-yellow/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-brand-yellow hover:bg-brand-yellow/20 transition-colors" target="_blank" rel="noopener noreferrer">
+            API docs →
+          </a>
+        </header>
+        <div class="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.saperlyApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.saperlyApiKey %></p><% } %>
+            <input type="password" name="saperlyApiKey" autocomplete="off" placeholder="sap_sk_live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.saperlyApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="saperlyApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">From number ID</label>
+            <% if (masks.saperlyFromNumberId) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.saperlyFromNumberId %></p><% } %>
+            <input type="text" name="saperlyFromNumberId" autocomplete="off" placeholder="Saperly number id (from GET /numbers)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <p class="text-[11px] text-brand-muted mt-1.5 leading-relaxed">Required to send SMS. Find it in the Saperly dashboard or via <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">GET /numbers</code> after provisioning a line.</p>
+            <% if (masks.saperlyFromNumberId) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="saperlyFromNumberId_clear" value="1" /> Remove</label><% } %>
+          </div>
+        </div>
+        <p class="text-[11px] text-brand-muted leading-relaxed rounded-xl border border-brand-border/40 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40 px-4 py-3">
+          Outbound SMS requires either a reply from the recipient within 24 hours, or an
+          <code class="text-[11px] px-1 rounded bg-brand-cream/80 dark:bg-slate-800">explicit_outbound</code>
+          consent record in Saperly. See
+          <a href="https://saperly.com/docs" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">Saperly compliance docs</a>.
+        </p>
+        <%- include('../../partials/integration_test_row', { provider: 'saperly' }) %>
       </section>
 
       <section id="mcp-integration" class="rounded-2xl border border-brand-border/60 dark:border-white/10 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-24">

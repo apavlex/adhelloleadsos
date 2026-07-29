@@ -45,6 +45,9 @@ const INTEGRATION_FIELDS = [
   'commsApiKey',
   'commsWebhookSecret',
   'commsDefaultChannel',
+  'saperlyApiKey',
+  'saperlyFromNumberId',
+  'saperlyWebhookSecret',
   'smsPrimary',
 ];
 
@@ -87,6 +90,9 @@ const FIELD_TO_ENV = {
   commsApiKey: 'COMMS_API_KEY',
   commsWebhookSecret: 'COMMS_WEBHOOK_SECRET',
   commsDefaultChannel: 'COMMS_DEFAULT_CHANNEL',
+  saperlyApiKey: 'SAPERLY_API_KEY',
+  saperlyFromNumberId: 'SAPERLY_FROM_NUMBER_ID',
+  saperlyWebhookSecret: 'SAPERLY_WEBHOOK_SECRET',
   smsPrimary: 'SMS_PRIMARY',
 };
 
@@ -194,6 +200,8 @@ function integrationMasks(workspace) {
     'lobApiKey',
     'commsApiKey',
     'commsWebhookSecret',
+    'saperlyApiKey',
+    'saperlyWebhookSecret',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

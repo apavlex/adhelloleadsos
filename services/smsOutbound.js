@@ -1,16 +1,18 @@
 /**
- * Outbound SMS / iMessage routing — Comms, GHL, or SignalWire.
+ * Outbound SMS / iMessage routing — GHL, Saperly, Comms, or SignalWire.
  */
 
 const ghlClient = require('./ghlClient');
 const ghlMessaging = require('./ghlMessaging');
 const commsClient = require('./commsClient');
+const saperlyClient = require('./saperlyClient');
 const signalwire = require('./signalwire');
 
 const PROVIDER_CHAINS = {
-  auto: ['ghl', 'comms', 'signalwire'],
-  comms: ['comms', 'ghl', 'signalwire'],
-  ghl: ['ghl', 'comms', 'signalwire'],
+  auto: ['ghl', 'saperly', 'comms', 'signalwire'],
+  saperly: ['saperly', 'ghl', 'comms', 'signalwire'],
+  comms: ['comms', 'ghl', 'saperly', 'signalwire'],
+  ghl: ['ghl', 'saperly', 'comms', 'signalwire'],
 };
 
 function resolveSmsPrimary(integrationEnv) {
@@ -21,6 +23,7 @@ function resolveSmsPrimary(integrationEnv) {
 
 function isProviderConfigured(provider, integrationEnv) {
   if (provider === 'ghl') return ghlClient.isConfigured(integrationEnv);
+  if (provider === 'saperly') return saperlyClient.isConfigured(integrationEnv);
   if (provider === 'comms') return commsClient.isConfigured(integrationEnv);
   if (provider === 'signalwire') return signalwire.configured();
   return false;
@@ -47,6 +50,7 @@ function resolveSmsProvider(integrationEnv, opts = {}) {
 
 function providerDisplayName(provider) {
   if (provider === 'comms') return 'Comms';
+  if (provider === 'saperly') return 'Saperly';
   if (provider === 'ghl') return 'Go High Level';
   if (provider === 'signalwire') return 'SignalWire';
   return String(provider || 'SMS');
@@ -83,7 +87,7 @@ async function sendSmsToLead(opts) {
   const provider = resolveSmsProvider(integrationEnv, { force: opts.provider });
   if (!provider) {
     throw new Error(
-      'Outbound SMS is not configured. Connect Comms or Go High Level in Workspace → Integrations, or set SignalWire env vars.',
+      'Outbound SMS is not configured. Connect Saperly, Comms, or Go High Level in Workspace → Integrations, or set SignalWire env vars.',
     );
   }
 
@@ -110,6 +114,18 @@ async function sendSmsToLead(opts) {
     };
   }
 
+  if (provider === 'saperly') {
+    const to = ghlClient.normalizePhoneE164(lead.phone);
+    if (!to) throw new Error('Lead phone number is not valid for SMS.');
+    const data = await saperlyClient.sendMessage({ to, body: message }, integrationEnv);
+    return {
+      provider: 'saperly',
+      messageId: String(data.id || '').trim(),
+      channel: 'sms',
+      raw: data,
+    };
+  }
+
   const sms = await signalwire.sendSms({
     to: lead.phone,
     body: message,
@@ -132,6 +148,7 @@ function messagingStatus(integrationEnv) {
     provider,
     providerLabel: provider ? providerDisplayName(provider) : '',
     commsConfigured: commsClient.isConfigured(integrationEnv),
+    saperlyConfigured: saperlyClient.isConfigured(integrationEnv),
     ghlConfigured: ghlClient.isConfigured(integrationEnv),
     signalwireConfigured: signalwire.configured(),
     smsPrimary: resolveSmsPrimary(integrationEnv),

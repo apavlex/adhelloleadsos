@@ -17,6 +17,7 @@ const { FIELD_TO_ENV, INTEGRATION_FIELDS } = require('./workspaceIntegrations');
 const ghlClient = require('./ghlClient');
 const lobClient = require('./lobClient');
 const commsClient = require('./commsClient');
+const saperlyClient = require('./saperlyClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -55,6 +56,10 @@ const PROVIDERS = {
   comms: {
     label: 'Comms by Osis (iMessage / SMS)',
     fields: ['commsApiKey'],
+  },
+  saperly: {
+    label: 'Saperly (SMS / voice)',
+    fields: ['saperlyApiKey', 'saperlyFromNumberId'],
   },
 };
 
@@ -277,6 +282,14 @@ async function testComms(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+async function testSaperly(integrationEnv) {
+  if (!String(integrationEnv.SAPERLY_API_KEY || '').trim()) {
+    throw new Error('Missing Saperly API key — paste your key from app.saperly.ai and save.');
+  }
+  const result = await saperlyClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   searchapi: () => testSearchapi,
@@ -292,6 +305,7 @@ const RUNNERS = {
   ghl: () => testGhl,
   lob: () => testLob,
   comms: () => testComms,
+  saperly: () => testSaperly,
 };
 
 /**
