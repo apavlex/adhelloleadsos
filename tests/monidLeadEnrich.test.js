@@ -58,4 +58,56 @@ describe('monidLeadEnrich', () => {
     assert.equal(monidLeadEnrich.extractHasSignal({ phone: '503-555-0100' }), true);
     assert.equal(monidLeadEnrich.extractHasSignal({}), false);
   });
+
+  it('derives Apollo search name from noisy business title', () => {
+    assert.equal(
+      monidLeadEnrich.deriveApolloSearchName('A.y. Nw Construction, Llc'),
+      'nw construction',
+    );
+    assert.equal(monidLeadEnrich.deriveApolloSearchName('Joe Plumbing LLC'), 'joe plumbing');
+  });
+
+  it('builds Apollo search query with city and state', () => {
+    const q = monidLeadEnrich.buildApolloSearchQuery({
+      title: 'Joe Plumbing',
+      city: 'Vancouver',
+      state: 'WA',
+    });
+    assert.equal(q.q_organization_name, 'joe plumbing');
+    assert.deepEqual(q['organization_locations[]'], ['Vancouver, WA']);
+    assert.equal(q.per_page, 5);
+  });
+
+  it('picks best Apollo search org and rejects weak generic matches', () => {
+    const lead = { title: 'Joe Plumbing Portland', city: 'Portland', state: 'OR' };
+    const orgs = [
+      {
+        name: 'Joe Plumbing LLC',
+        primary_domain: 'joeplumbingpdx.com',
+        website_url: 'http://www.joeplumbingpdx.com',
+        phone: '+15035550100',
+      },
+      {
+        name: 'Johnson Construction NW LLC',
+        primary_domain: 'johnsonconstructionnw.com',
+        website_url: 'http://www.johnsonconstructionnw.com',
+      },
+    ];
+    const picked = monidLeadEnrich.pickBestApolloSearchOrg(lead, orgs);
+    assert.ok(picked);
+    assert.match(picked.org.name, /Joe Plumbing/i);
+    assert.equal(picked.org.primary_domain, 'joeplumbingpdx.com');
+  });
+
+  it('rejects ambiguous generic-only names without strong overlap', () => {
+    const lead = { title: 'A.y. Nw Construction, Llc', city: 'Vancouver', state: 'WA' };
+    const orgs = [
+      {
+        name: 'Johnson Construction NW LLC',
+        primary_domain: 'johnsonconstructionnw.com',
+        website_url: 'http://www.johnsonconstructionnw.com',
+      },
+    ];
+    assert.equal(monidLeadEnrich.pickBestApolloSearchOrg(lead, orgs), null);
+  });
 });

@@ -6,7 +6,190 @@ const monid = require('./monidClient');
 const { extractDomain } = require('./betterContactClient');
 
 const APOLLO_ORG_ENRICH = { provider: 'apollo', endpoint: '/organizations/enrich' };
+const APOLLO_COMPANY_SEARCH = { provider: 'apollo', endpoint: '/mixed_companies/search' };
 const PDL_COMPANY_ENRICH = { provider: 'pdl', endpoint: '/v5/company/enrich' };
+
+const APOLLO_SEARCH_MIN_SCORE = 0.42;
+const APOLLO_SEARCH_AMBIGUOUS_MIN_SCORE = 0.72;
+
+const GENERIC_BUSINESS_WORDS = new Set([
+  'construction',
+  'contractor',
+  'contractors',
+  'remodel',
+  'remodeling',
+  'roofing',
+  'plumbing',
+  'plumber',
+  'electric',
+  'electrical',
+  'hvac',
+  'services',
+  'service',
+  'company',
+  'home',
+  'homes',
+  'building',
+  'general',
+  'nw',
+  'ne',
+  'se',
+  'sw',
+  'north',
+  'south',
+  'east',
+  'west',
+  'and',
+  'the',
+  'group',
+  'solutions',
+  'llc',
+  'inc',
+  'ltd',
+]);
+
+function distinctiveTokens(title) {
+  return normTitle(title)
+    .split(' ')
+    .filter((w) => w.length > 1 && !GENERIC_BUSINESS_WORDS.has(w));
+}
+
+function scoreApolloSearchCandidate(leadTitle, candidateTitle) {
+  const base = titleSimilarity(leadTitle, candidateTitle);
+  const leadTokens = normTitle(leadTitle).split(' ').filter((w) => w.length > 1);
+  const leadDistinct = leadTokens.filter((w) => !GENERIC_BUSINESS_WORDS.has(w));
+  const candDistinct = distinctiveTokens(candidateTitle);
+
+  if (leadDistinct.length) {
+    const candSet = new Set(candDistinct);
+    const distinctMatch = leadDistinct.filter((t) => candSet.has(t)).length;
+    if (!distinctMatch) return base * 0.2;
+    return base * 0.45 + (distinctMatch / leadDistinct.length) * 0.55;
+  }
+
+  if (leadTokens.length && leadTokens.every((t) => GENERIC_BUSINESS_WORDS.has(t))) {
+    return base * 0.55;
+  }
+
+  return base;
+}
+
+function normTitle(s) {
+  return String(s || '')
+    .toLowerCase()
+    .replace(/\b(llc|inc|ltd|corp|co\.?|d\.?b\.?a\.?)\b\.?/gi, '')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function titleSimilarity(leadTitle, candidateTitle) {
+  const A = new Set(normTitle(leadTitle).split(' ').filter((w) => w.length > 1));
+  const B = new Set(normTitle(candidateTitle).split(' ').filter((w) => w.length > 1));
+  if (!A.size || !B.size) return 0;
+  let inter = 0;
+  for (const w of A) if (B.has(w)) inter += 1;
+  return inter / Math.max(A.size, B.size);
+}
+
+function deriveApolloSearchName(leadTitle) {
+  const norm = normTitle(leadTitle);
+  const words = norm.split(' ').filter(Boolean);
+  if (!words.length) return '';
+  const significant = words.filter((w) => w.length > 2 || /^(nw|ne|se|sw)$/i.test(w));
+  if (significant.length >= 2) return significant.slice(-4).join(' ');
+  return words.slice(-3).join(' ');
+}
+
+function buildApolloSearchQuery(lead) {
+  const name = deriveApolloSearchName(lead.title || lead.company || '');
+  if (!name) return null;
+
+  const city = String(lead.city || '').trim();
+  const state = String(lead.state || '').trim();
+  const query = {
+    q_organization_name: name,
+    page: 1,
+    per_page: 5,
+  };
+  if (city || state) {
+    query['organization_locations[]'] = [city && state ? `${city}, ${state}` : city || state];
+  }
+  return query;
+}
+
+function listApolloSearchOrganizations(output) {
+  if (!output || typeof output !== 'object') return [];
+  const orgs = Array.isArray(output.organizations) ? output.organizations : [];
+  const accounts = Array.isArray(output.accounts) ? output.accounts : [];
+  const fromAccounts = accounts
+    .map((a) => (a && a.organization ? a.organization : a))
+    .filter(Boolean);
+  return [...orgs, ...fromAccounts];
+}
+
+function pickBestApolloSearchOrg(lead, organizations) {
+  const list = Array.isArray(organizations) ? organizations : [];
+  const leadTitle = lead.title || lead.company || '';
+  const leadTokens = normTitle(leadTitle).split(' ').filter((w) => w.length > 1);
+  const ambiguousName =
+    leadTokens.length > 0 && leadTokens.every((t) => GENERIC_BUSINESS_WORDS.has(t));
+  const minScore = ambiguousName ? APOLLO_SEARCH_AMBIGUOUS_MIN_SCORE : APOLLO_SEARCH_MIN_SCORE;
+
+  let best = null;
+  let bestScore = 0;
+  for (const org of list) {
+    if (!org || typeof org !== 'object') continue;
+    const domain = org.primary_domain || extractDomain(org.website_url);
+    if (!domain && !org.website_url) continue;
+    const score = scoreApolloSearchCandidate(leadTitle, org.name || '');
+    if (score > bestScore) {
+      bestScore = score;
+      best = org;
+    }
+  }
+  if (!best || bestScore < minScore) return null;
+  return { org: best, score: bestScore };
+}
+
+async function discoverCompanyViaApolloSearch(lead, integrationEnv) {
+  const query = buildApolloSearchQuery(lead);
+  if (!query) return null;
+
+  const attempts = [query];
+  const city = String(lead.city || '').trim();
+  if (query['organization_locations[]'] && city) {
+    attempts.push({ ...query, 'organization_locations[]': undefined, q_organization_name: query.q_organization_name });
+  }
+
+  for (const q of attempts) {
+    const cleanQuery = { ...q };
+    if (!cleanQuery['organization_locations[]']) delete cleanQuery['organization_locations[]'];
+    try {
+      const run = await monid.runEndpoint({
+        ...APOLLO_COMPANY_SEARCH,
+        query: cleanQuery,
+        integrationEnv,
+        maxWaitMs: 45_000,
+      });
+      const picked = pickBestApolloSearchOrg(lead, listApolloSearchOrganizations(run.output || {}));
+      if (!picked) continue;
+
+      const { org, score } = picked;
+      const domain = org.primary_domain || extractDomain(org.website_url);
+      const website = org.website_url ? normalizeWebsiteUrl(org.website_url) : domain ? normalizeWebsiteUrl(domain) : '';
+      const extract = apolloOrgToExtract({ organization: org });
+      console.log(
+        `[Monid] Apollo search matched "${org.name}" (score ${score.toFixed(2)})${domain ? ` → ${domain}` : ''}`,
+      );
+      return { org, domain, website, extract, score };
+    } catch (err) {
+      console.warn('[Monid] Apollo company search failed:', err.message);
+    }
+  }
+
+  return null;
+}
 
 function normalizeSocialUrl(href) {
   const s = String(href || '').trim();
@@ -141,9 +324,32 @@ async function enrichLeadFromMonid(lead, integrationEnv) {
 
   let extract = {};
   let provider = null;
+  let workingLead = lead;
+  const hasDomain = Boolean(extractDomain(lead.website));
 
-  const apolloQuery = buildApolloQuery(lead);
-  if (apolloQuery) {
+  if (!hasDomain) {
+    const discovered = await discoverCompanyViaApolloSearch(lead, integrationEnv);
+    if (discovered) {
+      if (discovered.extract && Object.keys(discovered.extract).length) {
+        extract = { ...extract, ...discovered.extract };
+        provider = 'apollo-search';
+      }
+      if (discovered.website || discovered.domain) {
+        workingLead = {
+          ...lead,
+          website: discovered.website || normalizeWebsiteUrl(discovered.domain),
+        };
+      }
+    }
+  }
+
+  const apolloQuery = buildApolloQuery(workingLead);
+  const needsApolloEnrich =
+    apolloQuery &&
+    (!extractHasSignal(extract) ||
+      (!extract.phone && (apolloQuery.domain || apolloQuery.website || apolloQuery.name)));
+
+  if (needsApolloEnrich) {
     try {
       const run = await monid.runEndpoint({
         ...APOLLO_ORG_ENRICH,
@@ -154,7 +360,7 @@ async function enrichLeadFromMonid(lead, integrationEnv) {
       const partial = apolloOrgToExtract(run.output || {});
       if (Object.keys(partial).length) {
         extract = { ...extract, ...partial };
-        provider = 'apollo';
+        provider = provider ? `${provider}+apollo` : 'apollo';
       }
     } catch (err) {
       console.warn('[Monid] Apollo enrich failed:', err.message);
@@ -162,7 +368,7 @@ async function enrichLeadFromMonid(lead, integrationEnv) {
   }
 
   if (!extractHasSignal(extract)) {
-    const pdlBody = buildPdlBody(lead);
+    const pdlBody = buildPdlBody(workingLead);
     if (pdlBody) {
       try {
         const run = await monid.runEndpoint({
@@ -197,6 +403,9 @@ module.exports = {
   pdlCompanyToExtract,
   extractHasSignal,
   buildApolloQuery,
+  buildApolloSearchQuery,
   buildPdlBody,
+  deriveApolloSearchName,
+  pickBestApolloSearchOrg,
   enrichLeadFromMonid,
 };
