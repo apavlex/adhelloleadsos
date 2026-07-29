@@ -36,6 +36,31 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
+  window.__runBulkSocialEnrichmentSelectedLeads = async function runBulkSocialEnrichmentBridge() {
+    if (typeof window.__runBulkSocialEnrichmentSelectedLeadsImpl === 'function') {
+      return window.__runBulkSocialEnrichmentSelectedLeadsImpl();
+    }
+    if (typeof window.__runBulkSocialFromBarEarly === 'function') {
+      return window.__runBulkSocialFromBarEarly();
+    }
+    for (let i = 0; i < 240; i += 1) {
+      if (typeof window.__runBulkSocialEnrichmentSelectedLeadsImpl === 'function') {
+        return window.__runBulkSocialEnrichmentSelectedLeadsImpl();
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    const msg =
+      'Social search failed to load. Hard-refresh the page, or add a TikHub API key under Workspace → Integrations.';
+    if (typeof window.showBulkActionConfirmation === 'function') {
+      window.showBulkActionConfirmation(msg, 'error');
+    } else if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(msg);
+    } else {
+      window.alert(msg);
+    }
+  };
+
   window.__openBulkSmsModal = async function openBulkSmsModalBridge(phoneKeys) {
     if (typeof window.__openBulkSmsModalImpl === 'function') {
       return window.__openBulkSmsModalImpl(phoneKeys);
@@ -16469,6 +16494,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }, 2800);
   }
+  window.__runBulkSocialEnrichmentSelectedLeadsImpl = runBulkSocialEnrichmentSelectedLeads;
   window.__runBulkSocialEnrichmentSelectedLeads = runBulkSocialEnrichmentSelectedLeads;
 
   document.addEventListener('agency-os-bulk-enhance-item-complete', (ev) => {

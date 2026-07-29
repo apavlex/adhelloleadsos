@@ -1582,6 +1582,141 @@
   }
   window.__runBulkDirectMailFromBarEarly = runBulkDirectMailFromBarEarly;
 
+  function findResultRowByLeadKeyEarly(key) {
+    const k = String(key || '').trim();
+    if (!k) return null;
+    const esc = k.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return document.querySelector(
+      `tr.result-row[data-lead-key="${esc}"], tr[data-lead-key="${esc}"]`,
+    );
+  }
+
+  function applySocialEnrichDataToRowEarly(row, d) {
+    if (!row || !d || typeof d !== 'object') return;
+    if (d.facebook) row.dataset.facebook = d.facebook;
+    if (d.instagram) row.dataset.instagram = d.instagram;
+    if (d.tiktok) row.dataset.tiktok = d.tiktok;
+    if (d.twitter) row.dataset.twitter = d.twitter;
+    if (d.linkedin) row.dataset.linkedin = d.linkedin;
+  }
+
+  function syncRowSocialsSlotEarly(row) {
+    if (!row) return;
+    const slot = row.querySelector('.lead-cell-socials-content');
+    if (!slot) return;
+    const sb = window.AdhelloSocialBrand;
+    if (sb && typeof sb.renderLinks === 'function') {
+      const suffix = String(row.dataset.leadKey || row.getAttribute('data-lead-key') || 'bulk');
+      slot.innerHTML = sb.renderLinks({
+        fb: row.dataset.facebook,
+        ig: row.dataset.instagram,
+        tt: row.dataset.tiktok,
+        tw: row.dataset.twitter,
+        li: row.dataset.linkedin,
+        gradSuffix: suffix,
+      });
+      return;
+    }
+    slot.innerHTML =
+      '<span class="text-[9px] font-bold text-brand-muted/60 uppercase tracking-widest">—</span>';
+  }
+
+  async function runBulkSocialFromBarEarly() {
+    if (window.__bulkSocialEnrichInFlight) return;
+    if (typeof window.__runBulkSocialEnrichmentSelectedLeadsImpl === 'function') {
+      return window.__runBulkSocialEnrichmentSelectedLeadsImpl();
+    }
+
+    const leadKeys = collectSelectedLeadKeysEarly().slice(0, 25);
+    if (!leadKeys.length) {
+      showBulkBarFeedbackEarly('Select at least one saved lead to find social profiles.', 'error');
+      return;
+    }
+
+    const socialBtns = document.querySelectorAll('.js-bulk-socials');
+    const btnSnap = Array.from(socialBtns).map((b) => b.innerHTML);
+    const loadingHtml =
+      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Finding…</span>';
+
+    window.__bulkSocialEnrichInFlight = true;
+    socialBtns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML = loadingHtml;
+    });
+    showBulkBarFeedbackEarly(
+      `Searching social profiles for ${leadKeys.length} lead${leadKeys.length === 1 ? '' : 's'}…`,
+      'loading',
+    );
+
+    let successCount = 0;
+    let attemptedCount = 0;
+    let lastError = '';
+
+    try {
+      for (const key of leadKeys) {
+        attemptedCount += 1;
+        const row = findResultRowByLeadKeyEarly(key);
+        const slot = row && row.querySelector('.lead-cell-socials-content');
+        if (slot) {
+          slot.innerHTML =
+            '<span class="text-[9px] font-bold text-pink-400 uppercase tracking-widest animate-pulse">Searching…</span>';
+        }
+        try {
+          const res = await fetch(`/leads/${encodeURIComponent(key)}/enrich-socials`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          const result = await res.json().catch(() => ({}));
+          if (result.error) lastError = String(result.error);
+          const d = result.lead;
+          const ok = res.ok && result.success && d && !result.skipped;
+          if (ok) successCount += 1;
+          if (d && row) {
+            applySocialEnrichDataToRowEarly(row, d);
+            syncRowSocialsSlotEarly(row);
+          } else if (row) {
+            syncRowSocialsSlotEarly(row);
+          }
+        } catch (err) {
+          lastError = (err && err.message) || lastError || 'Network error';
+          if (row) syncRowSocialsSlotEarly(row);
+        }
+      }
+    } finally {
+      window.__bulkSocialEnrichInFlight = false;
+    }
+
+    const summaryLabel =
+      successCount > 0 ? `Found ${successCount}` : attemptedCount > 0 ? 'No matches' : 'Done';
+    socialBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+
+    if (successCount > 0) {
+      showBulkBarFeedbackEarly(
+        `Added social links on ${successCount} lead${successCount === 1 ? '' : 's'}. Click icons in the Socials column to DM.`,
+        'success',
+      );
+    } else if (attemptedCount > 0) {
+      showBulkBarFeedbackEarly(
+        lastError ||
+          'No matching Instagram, TikTok, or X profiles found. Add a TikHub API key under Workspace → Integrations.',
+        'error',
+      );
+    }
+
+    setTimeout(() => {
+      socialBtns.forEach((b, i) => {
+        b.classList.remove('loading');
+        b.disabled = false;
+        b.innerHTML = btnSnap[i] || b.innerHTML;
+      });
+    }, 2800);
+  }
+  window.__runBulkSocialFromBarEarly = runBulkSocialFromBarEarly;
+
   function handleBulkPrimaryActionClick(e, action) {
     const now = Date.now();
     if (handleBulkPrimaryActionClick.__lastAt && now - handleBulkPrimaryActionClick.__lastAt < 450) return;
@@ -2025,9 +2160,7 @@
         if (e.target.closest('.js-bulk-socials')) {
           e.preventDefault();
           e.stopPropagation();
-          if (typeof window.__runBulkSocialEnrichmentSelectedLeads === 'function') {
-            void window.__runBulkSocialEnrichmentSelectedLeads();
-          }
+          void runBulkSocialFromBarEarly();
           return;
         }
       },
