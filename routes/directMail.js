@@ -22,6 +22,7 @@ const {
   DEFAULT_MARKETING_FOLDER_NAME,
 } = require('../services/googleDriveUpload');
 const { applyLogoOverlayToRemoteImage } = require('../services/marketingImageComposite');
+const brandKitLogo = require('../services/brandKitLogo');
 
 const pendingImageJobs = new Map();
 const IMAGE_JOB_TTL_MS = 30 * 60 * 1000;
@@ -52,13 +53,16 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   let logoOverlayApplied = false;
   if (brandKit.logoUrl && brandKit.useLogoInDesign && finalImageUrl) {
     try {
-      const logoAbs = toAbsoluteAssetUrl(req, brandKit.logoUrl);
-      finalImageUrl = await applyLogoOverlayToRemoteImage(req, {
-        baseImageUrl: finalImageUrl,
-        logoUrl: logoAbs,
-        position: 'top-left',
-      });
-      logoOverlayApplied = true;
+      const ws = (await dbService.getWorkspace(req.workspaceId)) || {};
+      const logoData = await brandKitLogo.loadLogoBuffer(ws);
+      if (logoData && logoData.buffer) {
+        finalImageUrl = await applyLogoOverlayToRemoteImage(req, {
+          baseImageUrl: finalImageUrl,
+          logoBuffer: logoData.buffer,
+          position: 'top-left',
+        });
+        logoOverlayApplied = true;
+      }
     } catch (overlayErr) {
       console.warn(
         '[direct-mail] logo overlay failed:',
@@ -170,6 +174,15 @@ function normalizeBrandKit(raw) {
     useLogoInDesign: src.useLogoInDesign !== false,
     updatedAt: String(src.updatedAt || '').trim(),
   };
+}
+
+function resolveBrandKitForClient(ws) {
+  const kit = normalizeBrandKit(ws && ws.brandKit);
+  if (brandKitLogo.hasStoredLogo(ws)) {
+    const stored = brandKitLogo.normalizeStoredLogo(ws.brandKitLogo);
+    kit.logoUrl = brandKitLogo.logoDisplayUrl(kit.updatedAt || (stored && stored.updatedAt));
+  }
+  return kit;
 }
 
 function brandKitSummary(kit) {
@@ -409,7 +422,7 @@ router.get('/', async (req, res, next) => {
     const skippedCount = selectedOnly ? mailableLeads.length - mailableCount : 0;
 
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    const brandKit = normalizeBrandKit(ws.brandKit);
+    const brandKit = resolveBrandKitForClient(ws);
     const folders = await dbService.listFolders(req.workspaceId);
     const tags = await dbService.listTags(req.workspaceId);
     let dmQueueMeta = null;
@@ -470,7 +483,7 @@ router.get('/api/status', async (req, res, next) => {
       kieImageConfigured: kieImageStatus.configured,
       kieImageStatus,
       chatReady,
-      brandKit: normalizeBrandKit(ws.brandKit),
+      brandKit: resolveBrandKitForClient(ws),
       platforms: DM_PLATFORMS,
     });
   } catch (err) {
@@ -481,7 +494,30 @@ router.get('/api/status', async (req, res, next) => {
 router.get('/api/brand-kit', async (req, res, next) => {
   try {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-    res.json({ success: true, brandKit: normalizeBrandKit(ws.brandKit) });
+    res.json({ success: true, brandKit: resolveBrandKitForClient(ws) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/api/brand-kit/logo', async (req, res, next) => {
+  try {
+    const wid = req.workspaceId;
+    let ws = (await dbService.getWorkspace(wid)) || { id: wid };
+    const beforeLogo = ws.brandKitLogo;
+    ws = await brandKitLogo.migrateLegacyLogoIfNeeded(ws);
+    if (ws.brandKitLogo !== beforeLogo) {
+      await dbService.saveWorkspace(wid, ws);
+    }
+
+    const logoData = await brandKitLogo.loadLogoBuffer(ws);
+    if (!logoData || !logoData.buffer) {
+      return res.status(404).end();
+    }
+
+    res.setHeader('Content-Type', logoData.mimeType || 'image/png');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    return res.send(logoData.buffer);
   } catch (err) {
     next(err);
   }
@@ -509,7 +545,7 @@ router.patch('/api/brand-kit', express.json({ limit: '64kb' }), async (req, res,
     nextKit.updatedAt = new Date().toISOString();
     ws.brandKit = nextKit;
     await dbService.saveWorkspace(wid, ws);
-    res.json({ success: true, brandKit: nextKit });
+    res.json({ success: true, brandKit: resolveBrandKitForClient(ws) });
   } catch (err) {
     next(err);
   }
@@ -564,38 +600,25 @@ router.post('/api/brand-kit/logo', (req, res, next) => {
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({ success: false, error: 'Logo image is required.' });
     }
-    const wid = String(req.workspaceId || 'default')
-      .trim()
-      .replace(/[^a-zA-Z0-9_-]/g, '_');
-    const extFromName = path.extname(String(req.file.originalname || '')).toLowerCase();
-    const ext =
-      extFromName && ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg'].includes(extFromName)
-        ? extFromName
-        : '.png';
-    const relDir = path.join('public', 'uploads', 'brand-kit');
-    const absDir = path.join(process.cwd(), relDir);
-    await fs.mkdir(absDir, { recursive: true });
-    const stamp = Date.now();
-    const filename = `${wid}_logo_${stamp}${ext}`;
-    const absPath = path.join(absDir, filename);
-    await fs.writeFile(absPath, req.file.buffer);
-    const publicUrl = `/uploads/brand-kit/${filename}`;
 
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
     const prev = normalizeBrandKit(ws.brandKit);
-    const nextKit = {
-      ...prev,
-      logoUrl: publicUrl,
-      updatedAt: new Date().toISOString(),
-    };
+    const { brandKitLogo: storedLogo, brandKitPatch } = brandKitLogo.buildLogoWorkspacePatch(prev, {
+      buffer: req.file.buffer,
+      mimeType: req.file.mimetype || brandKitLogo.mimeFromExt(path.extname(req.file.originalname || '')),
+    });
+    const nextKit = normalizeBrandKit(brandKitPatch);
     ws.brandKit = nextKit;
+    ws.brandKitLogo = storedLogo;
     await dbService.saveWorkspace(req.workspaceId, ws);
+
+    const clientKit = resolveBrandKitForClient(ws);
 
     res.json({
       success: true,
-      logoUrl: publicUrl,
-      logoAbsoluteUrl: toAbsoluteAssetUrl(req, publicUrl),
-      brandKit: nextKit,
+      logoUrl: clientKit.logoUrl,
+      logoAbsoluteUrl: toAbsoluteAssetUrl(req, clientKit.logoUrl),
+      brandKit: clientKit,
     });
   } catch (err) {
     next(err);
