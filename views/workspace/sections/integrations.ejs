@@ -534,6 +534,9 @@
           <div>
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Lob — Direct Mail</h3>
             <p class="text-sm text-brand-muted mt-1 max-w-2xl">Postcards via <a href="https://www.lob.com/" target="_blank" rel="noopener noreferrer" class="text-brand-yellow hover:underline">Lob.com</a>. Use a <code class="text-xs bg-brand-cream dark:bg-slate-800 px-1 rounded">test_</code> key for test mode (no postage). Live keys require a payment method on your Lob account.</p>
+            <% if (!process.env.KIE_AI_API_KEY && !process.env.KIE_API_KEY) { %>
+            <p class="text-xs text-amber-900 dark:text-amber-200 mt-2 leading-relaxed">Marketing Studio image generation needs <code class="text-[11px] px-1 rounded bg-amber-100 dark:bg-amber-900/40">KIE_AI_API_KEY</code> in Render → Environment (from <a href="https://kie.ai/" target="_blank" rel="noopener noreferrer" class="underline font-semibold">kie.ai</a>), then redeploy.</p>
+            <% } %>
           </div>
           <div class="flex flex-wrap gap-2 shrink-0">
             <a href="/workspace/integrations/lob-setup" class="rounded-xl border border-brand-border/60 dark:border-white/15 bg-white dark:bg-slate-900 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">Design guide</a>

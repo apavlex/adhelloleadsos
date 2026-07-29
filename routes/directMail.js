@@ -23,6 +23,64 @@ const {
 } = require('../services/googleDriveUpload');
 const { applyLogoOverlayToRemoteImage } = require('../services/marketingImageComposite');
 
+const pendingImageJobs = new Map();
+const IMAGE_JOB_TTL_MS = 30 * 60 * 1000;
+
+function pruneImageJobs() {
+  const now = Date.now();
+  for (const [id, meta] of pendingImageJobs.entries()) {
+    if (now - (meta.createdAt || 0) > IMAGE_JOB_TTL_MS) pendingImageJobs.delete(id);
+  }
+}
+
+function rememberImageJob(taskId, meta) {
+  pruneImageJobs();
+  pendingImageJobs.set(String(taskId), { ...meta, createdAt: Date.now() });
+}
+
+function getImageJob(taskId) {
+  pruneImageJobs();
+  return pendingImageJobs.get(String(taskId || '').trim()) || null;
+}
+
+function forgetImageJob(taskId) {
+  pendingImageJobs.delete(String(taskId || '').trim());
+}
+
+async function finalizeGeneratedImage(req, imageUrl, brandKit) {
+  let finalImageUrl = imageUrl;
+  let logoOverlayApplied = false;
+  if (brandKit.logoUrl && brandKit.useLogoInDesign && finalImageUrl) {
+    try {
+      const logoAbs = toAbsoluteAssetUrl(req, brandKit.logoUrl);
+      finalImageUrl = await applyLogoOverlayToRemoteImage(req, {
+        baseImageUrl: finalImageUrl,
+        logoUrl: logoAbs,
+        position: 'top-left',
+      });
+      logoOverlayApplied = true;
+    } catch (overlayErr) {
+      console.warn(
+        '[direct-mail] logo overlay failed:',
+        overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
+      );
+    }
+  }
+  return { finalImageUrl, logoOverlayApplied };
+}
+
+function kieHttpError(err, req, fallback) {
+  const friendly =
+    (err && err.kieFriendly) ||
+    kieImageClient.friendlyKieImageError(err && err.message, {
+      prompt: req.body && req.body.prompt,
+    }) ||
+    fallback ||
+    'Image generation failed.';
+  const status = err && err.status === 400 ? 400 : 502;
+  return { status, error: friendly };
+}
+
 function userEmail(req) {
   return String((req.user && req.user.email) || '').trim().toLowerCase();
 }
@@ -388,10 +446,26 @@ router.get('/api/status', async (req, res, next) => {
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const chatReady =
       providersForChain('openrouter').length > 0 || providersForChain('legacy').length > 0;
+    let kieImageStatus = { configured: kieImageClient.isConfigured(), ok: false, message: '' };
+    if (kieImageStatus.configured) {
+      try {
+        kieImageStatus = await kieImageClient.testConnection();
+      } catch (e) {
+        kieImageStatus = {
+          configured: true,
+          ok: false,
+          message: e && e.message ? e.message : 'KIE connection check failed.',
+        };
+      }
+    } else {
+      kieImageStatus.message = 'Set KIE_AI_API_KEY in Render → Environment, then redeploy.';
+    }
     res.json({
       success: true,
       ...ready,
-      kieImageReady: kieImageClient.isConfigured(),
+      kieImageReady: kieImageStatus.ok,
+      kieImageConfigured: kieImageStatus.configured,
+      kieImageStatus,
       chatReady,
       brandKit: normalizeBrandKit(ws.brandKit),
       platforms: DM_PLATFORMS,
@@ -622,71 +696,120 @@ router.post('/api/generate-image', async (req, res, next) => {
         ? [referenceAbs]
         : [];
 
-    let result;
+    let created;
     try {
-      result = await kieImageClient.generate({
+      created = await kieImageClient.createTask({
         prompt,
         inputUrls,
         aspectRatio,
         resolution,
-        maxWaitMs: 120000,
-        intervalMs: 4000,
       });
     } catch (firstErr) {
       if (inputUrls.length) {
-        result = await kieImageClient.generate({
+        created = await kieImageClient.createTask({
           prompt,
           inputUrls: [],
           aspectRatio,
           resolution,
-          maxWaitMs: 120000,
-          intervalMs: 4000,
         });
       } else {
         throw firstErr;
       }
     }
 
-    let finalImageUrl = result.imageUrl;
-    let logoOverlayApplied = false;
-    if (brandKit.logoUrl && brandKit.useLogoInDesign && finalImageUrl) {
-      try {
-        const logoAbs = toAbsoluteAssetUrl(req, brandKit.logoUrl);
-        finalImageUrl = await applyLogoOverlayToRemoteImage(req, {
-          baseImageUrl: finalImageUrl,
-          logoUrl: logoAbs,
-          position: 'top-left',
+    rememberImageJob(created.taskId, {
+      slot,
+      brandKit,
+      model: created.model,
+      prompt,
+      workspaceId: req.workspaceId,
+    });
+
+    res.json({
+      success: true,
+      status: 'processing',
+      slot,
+      taskId: created.taskId,
+      model: created.model,
+    });
+  } catch (err) {
+    const { status, error } = kieHttpError(
+      err,
+      req,
+      'Could not start image generation. Check KIE_AI_API_KEY on the server.',
+    );
+    return res.status(status).json({ success: false, error });
+  }
+});
+
+router.get('/api/generate-image/status', async (req, res, next) => {
+  try {
+    if (!kieImageClient.isConfigured()) {
+      return res.status(400).json({
+        success: false,
+        error: 'KIE API key is not configured. Set KIE_AI_API_KEY or KIE_API_KEY on the server.',
+      });
+    }
+
+    const taskId = String(req.query.taskId || '').trim();
+    if (!taskId) {
+      return res.status(400).json({ success: false, error: 'taskId is required.' });
+    }
+
+    const job = getImageJob(taskId);
+    if (!job || job.workspaceId !== req.workspaceId) {
+      return res.status(404).json({ success: false, error: 'Image job not found or expired.' });
+    }
+
+    const record = await kieImageClient.getTaskRecord(taskId);
+    const data = record.data || {};
+    const state = String(data.state || '').toLowerCase();
+
+    if (state === 'success') {
+      const urls = kieImageClient.extractImageUrls(record);
+      if (!urls.length) {
+        forgetImageJob(taskId);
+        return res.status(502).json({
+          success: false,
+          status: 'failed',
+          error: 'Image generation finished but no result URL was returned.',
         });
-        logoOverlayApplied = true;
-      } catch (overlayErr) {
-        console.warn(
-          '[direct-mail] logo overlay failed:',
-          overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
-        );
       }
+      const { finalImageUrl, logoOverlayApplied } = await finalizeGeneratedImage(
+        req,
+        urls[0],
+        job.brandKit || {},
+      );
+      forgetImageJob(taskId);
+      return res.json({
+        success: true,
+        status: 'success',
+        slot: job.slot,
+        taskId,
+        model: job.model,
+        imageUrl: finalImageUrl,
+        urls,
+        logoOverlayApplied,
+      });
+    }
+
+    if (state === 'fail') {
+      forgetImageJob(taskId);
+      const msg = data.failMsg || data.failCode || 'Image generation failed.';
+      const friendly = kieImageClient.friendlyKieImageError(String(msg), { prompt: job.prompt });
+      return res.status(502).json({ success: false, status: 'failed', error: friendly });
     }
 
     res.json({
       success: true,
-      slot,
-      taskId: result.taskId,
-      model: result.model,
-      imageUrl: finalImageUrl,
-      urls: result.urls,
-      logoOverlayApplied,
+      status: 'processing',
+      state: state || 'processing',
+      taskId,
+      slot: job.slot,
     });
   } catch (err) {
-    if (err && err.message) {
-      const friendly =
-        err.kieFriendly || kieImageClient.friendlyKieImageError(err.message, {
-          prompt: req.body && req.body.prompt,
-        });
-      return res.status(err.status === 400 ? 400 : 502).json({ success: false, error: friendly });
-    }
-    return res.status(502).json({
-      success: false,
-      error: 'Image generation failed. Check KIE_AI_API_KEY on the server and try again.',
-    });
+    const { status, error } = kieHttpError(err, req, 'Could not check image generation status.');
+    return res.status(status).json({ success: false, error });
   }
 });
 

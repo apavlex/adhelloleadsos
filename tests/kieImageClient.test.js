@@ -45,6 +45,17 @@ test('isConfigured reflects env key presence', () => {
   else delete process.env.KIE_AI_API_KEY;
 });
 
+test('testConnection reports missing key', async () => {
+  const { testConnection } = require('../services/kieImageClient');
+  const prev = process.env.KIE_AI_API_KEY;
+  delete process.env.KIE_AI_API_KEY;
+  delete process.env.KIE_API_KEY;
+  const out = await testConnection();
+  assert.equal(out.ok, false);
+  assert.match(out.message, /not set/i);
+  if (prev) process.env.KIE_AI_API_KEY = prev;
+});
+
 test('friendlyKieImageError explains moderation and vague prompts', () => {
   const { friendlyKieImageError, isVagueImagePrompt } = require('../services/kieImageClient');
   assert.equal(isVagueImagePrompt('ok make it for me'), true);

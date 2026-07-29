@@ -354,10 +354,10 @@
       });
       if (!data || !data.success) return;
       if (!data.kieImageReady) {
-        setDesignStatus(
-          'KIE image key missing on server — set KIE_AI_API_KEY in Render env for Generate to work.',
-          false,
-        );
+        var kieMsg =
+          (data.kieImageStatus && data.kieImageStatus.message) ||
+          'KIE image key missing on server — set KIE_AI_API_KEY in Render env for Generate to work.';
+        setDesignStatus(kieMsg, false);
       } else if (!data.chatReady) {
         setDesignStatus(
           'Chat AI not configured — set OPENROUTER_API_KEY (or KIE/Gemini/OpenAI) on the server.',
@@ -866,8 +866,13 @@
     if (data && typeof data.msg === 'string' && data.msg.trim()) return data.msg.trim();
     if (data && typeof data.message === 'string' && data.message.trim()) return data.message.trim();
     if (res && !res.ok) {
-      if (res.status === 502) {
-        return 'Image service unavailable. Verify KIE_AI_API_KEY is set on the server and try again.';
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        if (typeof err === 'string' && err.trim()) return err.trim();
+        return (
+          'Image service unavailable (HTTP ' +
+          res.status +
+          '). If this persists, verify KIE_AI_API_KEY in Render → Environment and redeploy.'
+        );
       }
       if (res.status === 401 || res.status === 403) {
         return 'Not authorized — refresh the page and sign in again.';
@@ -1514,6 +1519,31 @@
     return out;
   }
 
+  async function pollImageGeneration(taskId) {
+    var deadline = Date.now() + 120000;
+    while (Date.now() < deadline) {
+      await new Promise(function (resolve) {
+        setTimeout(resolve, 4000);
+      });
+      var res = await fetch(
+        '/direct-mail/api/generate-image/status?taskId=' + encodeURIComponent(taskId),
+        { credentials: 'same-origin', headers: { Accept: 'application/json' } },
+      );
+      var data = {};
+      try {
+        data = await res.json();
+      } catch (_) {
+        data = {};
+      }
+      if (data.status === 'success' && data.imageUrl) return data;
+      if (!res.ok || data.status === 'failed' || data.success === false) {
+        throw new Error(formatApiError(data, 'Image generation failed', res));
+      }
+      setDesignStatus('Generating with GPT Image 2… still processing', true);
+    }
+    throw new Error('Image generation timed out — try Generate again in a moment.');
+  }
+
   async function postJson(url, body) {
     var res = await fetch(url, {
       method: 'POST',
@@ -1672,6 +1702,9 @@
       if (referenceUrl) body.referenceUrl = referenceUrl;
 
       var data = await postJson('/direct-mail/api/generate-image', body);
+      if (data.status === 'processing' && data.taskId) {
+        data = await pollImageGeneration(data.taskId);
+      }
       if (data.imageUrl) {
         designMeta[slot].prompt = prompt;
         designMeta[slot].aspectRatio = aspectRatio;

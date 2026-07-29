@@ -30,3 +30,9 @@ services:
         optional: true
       - key: RENDER_DISK_MOUNTED
         value: "1"
+      - key: KIE_AI_API_KEY
+        sync: false
+        optional: true
+      - key: OPENROUTER_API_KEY
+        sync: false
+        optional: true
