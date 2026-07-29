@@ -71,7 +71,7 @@ const creativeUpload = multer({
 });
 
 const DM_PLATFORMS = {
-  postcard: { label: '4×6 Postcard', aspectRatio: '2:3', dualSided: true },
+  postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true },
   instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false },
   instagram_story: { label: 'Instagram Story / Reels', aspectRatio: '9:16', dualSided: false },
   instagram_portrait: { label: 'Instagram Portrait', aspectRatio: '4:5', dualSided: false },
@@ -703,6 +703,7 @@ router.post('/api/send', async (req, res, next) => {
           frontImageUrl: frontImageUrl || undefined,
           backImageUrl: backImageUrl || undefined,
           personalizeOverlay,
+          req,
         });
         const updates = appendLeadUpdate(lead, {
           type: 'direct_mail_outbound',

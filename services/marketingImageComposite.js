@@ -9,6 +9,41 @@ const sharp = require('sharp');
 const DEFAULT_MAX_LOGO_WIDTH_RATIO = 0.18;
 const DEFAULT_PADDING = 24;
 
+/** Lob 4×6 postcard with bleed at 300 DPI — height:width = 4.25:6.25 */
+const LOB_POSTCARD_WIDTH_PX = 1875;
+const LOB_POSTCARD_HEIGHT_PX = 1275;
+
+function absoluteAssetUrl(req, relativePath) {
+  const rel = String(relativePath || '').trim();
+  if (!rel) return '';
+  if (/^https?:\/\//i.test(rel)) return rel;
+  const envBase = String(process.env.BASE_URL || '').trim().replace(/\/$/, '');
+  const base = envBase || (req ? `${req.protocol}://${req.get('host')}` : '');
+  if (!base) return rel;
+  return rel.startsWith('/') ? `${base}${rel}` : `${base}/${rel}`;
+}
+
+async function resizeBufferForLobPostcard(buffer) {
+  return sharp(buffer)
+    .resize(LOB_POSTCARD_WIDTH_PX, LOB_POSTCARD_HEIGHT_PX, {
+      fit: 'cover',
+      position: 'centre',
+    })
+    .jpeg({ quality: 92 })
+    .toBuffer();
+}
+
+async function prepareRemoteImageForLobPostcard(imageUrl, req) {
+  const url = String(imageUrl || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) {
+    throw new Error('A valid image URL is required for Lob postcard sizing.');
+  }
+  const buf = await fetchImageBuffer(url);
+  const out = await resizeBufferForLobPostcard(buf);
+  const rel = await saveCompositedImageBuffer(req, out, 'lob_postcard');
+  return absoluteAssetUrl(req, rel);
+}
+
 async function fetchImageBuffer(imageUrl) {
   const url = String(imageUrl || '').trim();
   if (!url || !/^https?:\/\//i.test(url)) {
@@ -68,14 +103,15 @@ async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
     .toBuffer();
 }
 
-async function saveCompositedImageBuffer(req, buffer) {
+async function saveCompositedImageBuffer(req, buffer, prefix) {
   const wid = String((req && req.workspaceId) || 'default')
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, '_');
   const relDir = path.join('public', 'uploads', 'creative');
   const absDir = path.join(process.cwd(), relDir);
   await fs.mkdir(absDir, { recursive: true });
-  const filename = `${wid}_composited_${Date.now()}.jpg`;
+  const stem = String(prefix || 'composited').trim() || 'composited';
+  const filename = `${wid}_${stem}_${Date.now()}.jpg`;
   const absPath = path.join(absDir, filename);
   await fs.writeFile(absPath, buffer);
   return `/uploads/creative/${filename}`;
@@ -92,7 +128,11 @@ async function applyLogoOverlayToRemoteImage(req, { baseImageUrl, logoUrl, posit
 module.exports = {
   DEFAULT_MAX_LOGO_WIDTH_RATIO,
   DEFAULT_PADDING,
+  LOB_POSTCARD_WIDTH_PX,
+  LOB_POSTCARD_HEIGHT_PX,
   fetchImageBuffer,
   compositeLogoOnImageBuffer,
+  resizeBufferForLobPostcard,
+  prepareRemoteImageForLobPostcard,
   applyLogoOverlayToRemoteImage,
 };

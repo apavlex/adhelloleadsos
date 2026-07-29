@@ -5,8 +5,8 @@
   var lastImagePrompt = '';
   var designs = { front: null, back: null };
   var designMeta = {
-    front: { prompt: '', aspectRatio: '2:3', resolution: '2K' },
-    back: { prompt: '', aspectRatio: '2:3', resolution: '2K' },
+    front: { prompt: '', aspectRatio: '3:2', resolution: '2K' },
+    back: { prompt: '', aspectRatio: '3:2', resolution: '2K' },
   };
   var lightboxSlot = 'front';
   var DM_SAVED_KEY = 'adhello_dm_saved_designs';
@@ -24,7 +24,7 @@
   var brandKitSaveTimer = null;
 
   var DM_PLATFORMS = {
-    postcard: { label: '4×6 Postcard', aspectRatio: '2:3', dualSided: true },
+    postcard: { label: '4×6 Postcard', aspectRatio: '3:2', dualSided: true },
     instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false },
     instagram_story: { label: 'Instagram Story / Reels', aspectRatio: '9:16', dualSided: false },
     instagram_portrait: { label: 'Instagram Portrait', aspectRatio: '4:5', dualSided: false },
@@ -53,8 +53,8 @@
     if (r === '9:16') return '9 / 16';
     if (r === '4:5') return '4 / 5';
     if (r === '3:2') return '3 / 2';
-    if (r === 'auto') return '2 / 3';
-    return '2 / 3';
+    if (r === 'auto') return '3 / 2';
+    return '3 / 2';
   }
 
   function currentPlatformKey() {
@@ -65,7 +65,7 @@
 
   function currentAspectRatio() {
     var ratioEl = document.getElementById('dmAspectRatio');
-    return (ratioEl && ratioEl.value) || '2:3';
+    return (ratioEl && ratioEl.value) || '3:2';
   }
 
   function applyPlatformPreset(platformKey) {

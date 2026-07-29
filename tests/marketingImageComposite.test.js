@@ -1,7 +1,31 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const sharp = require('sharp');
-const { compositeLogoOnImageBuffer } = require('../services/marketingImageComposite');
+const {
+  compositeLogoOnImageBuffer,
+  resizeBufferForLobPostcard,
+  LOB_POSTCARD_WIDTH_PX,
+  LOB_POSTCARD_HEIGHT_PX,
+} = require('../services/marketingImageComposite');
+
+test('resizeBufferForLobPostcard outputs Lob 4x6 bleed dimensions', async () => {
+  const portrait = await sharp({
+    create: {
+      width: 2336,
+      height: 3504,
+      channels: 3,
+      background: { r: 200, g: 210, b: 220 },
+    },
+  })
+    .jpeg()
+    .toBuffer();
+  const out = await resizeBufferForLobPostcard(portrait);
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.width, LOB_POSTCARD_WIDTH_PX);
+  assert.equal(meta.height, LOB_POSTCARD_HEIGHT_PX);
+  assert.equal(LOB_POSTCARD_WIDTH_PX, 1875);
+  assert.equal(LOB_POSTCARD_HEIGHT_PX, 1275);
+});
 
 test('compositeLogoOnImageBuffer preserves logo aspect ratio on base image', async () => {
   const baseBuffer = await sharp({

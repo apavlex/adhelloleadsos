@@ -85,7 +85,7 @@
           <p class="dm-drawer-desc">Pick a canvas size for ads, social, or direct mail.</p>
           <div class="dm-format-grid" role="listbox" aria-label="Platform format">
             <% var dmFormats = [
-              { id: 'postcard', label: 'Postcard', sub: '4×6 · 2:3', icon: 'postcard' },
+              { id: 'postcard', label: 'Postcard', sub: '4×6 · 3:2', icon: 'postcard' },
               { id: 'instagram_feed', label: 'Instagram', sub: 'Feed · 1:1', icon: 'ig' },
               { id: 'instagram_story', label: 'Story', sub: '9:16 vertical', icon: 'story' },
               { id: 'instagram_portrait', label: 'IG Portrait', sub: '4:5', icon: 'portrait' },
@@ -123,8 +123,8 @@
           <div class="dm-drawer-settings">
             <label class="dm-field-label" for="dmAspectRatio">Aspect ratio</label>
             <select id="dmAspectRatio" class="dm-select">
-              <option value="2:3" selected>2:3 (4×6 postcard)</option>
-              <option value="3:2">3:2 (landscape)</option>
+              <option value="3:2" selected>3:2 (4×6 postcard · Lob)</option>
+              <option value="2:3">2:3 (portrait)</option>
               <option value="1:1">1:1 (square)</option>
               <option value="4:5">4:5 (portrait)</option>
               <option value="9:16">9:16 (story / reels)</option>

@@ -8,6 +8,7 @@ const {
   wrapImageUrlAsPostcardHtml,
   wrapImageWithPersonalizedOverlay,
 } = require('./directMailPersonalize');
+const { prepareRemoteImageForLobPostcard } = require('./marketingImageComposite');
 
 function escapeHtml(text) {
   return String(text || '')
@@ -326,6 +327,13 @@ function resolvePostcardCreative(integrationEnv, htmlFallback, overrides, opts) 
   };
 }
 
+async function normalizePostcardImageForLob(imageUrl, req) {
+  const url = String(imageUrl || '').trim();
+  if (!url || !/^https?:\/\//i.test(url)) return url;
+  if (!req) return url;
+  return prepareRemoteImageForLobPostcard(url, req);
+}
+
 async function sendPostcardToLead({
   lead,
   integrationEnv,
@@ -335,6 +343,7 @@ async function sendPostcardToLead({
   frontImageUrl,
   backImageUrl,
   personalizeOverlay,
+  req,
 }) {
   const to = parseMailableAddress(lead);
   if (!to) {
@@ -344,11 +353,24 @@ async function sendPostcardToLead({
     throw new Error('Lob is not configured. Add your API key and return address in Workspace → Integrations.');
   }
 
+  const normalizedFront = frontImageUrl
+    ? await normalizePostcardImageForLob(frontImageUrl, req)
+    : undefined;
+  const normalizedBack = backImageUrl
+    ? await normalizePostcardImageForLob(backImageUrl, req)
+    : undefined;
+
   const html = buildPostcardHtml({ lead, headline, bodyText, ctaUrl });
   const creative = resolvePostcardCreative(
     integrationEnv,
     html,
-    { frontImageUrl, backImageUrl, headline, bodyText, ctaUrl },
+    {
+      frontImageUrl: normalizedFront,
+      backImageUrl: normalizedBack,
+      headline,
+      bodyText,
+      ctaUrl,
+    },
     { lead, personalizeOverlay },
   );
   const sourceUrls = creative.sourceImageUrls || {};
