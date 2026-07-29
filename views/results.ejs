@@ -25,7 +25,11 @@
         </p>
         <% if (targetFolderKey) { %>
           <p class="text-[11px] font-bold uppercase tracking-wider text-brand-yellow mt-2">
-            Saving into folder: <span class="text-brand-dark dark:text-slate-100"><%= targetFolderName || 'Selected folder' %></span>
+            Saving into folder:
+            <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(targetFolderKey) %>"
+               class="text-brand-dark dark:text-slate-100 hover:text-brand-yellow hover:underline underline-offset-2">
+              <%= targetFolderName || 'Selected folder' %>
+            </a>
           </p>
         <% } %>
       </div>

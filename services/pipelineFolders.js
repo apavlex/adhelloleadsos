@@ -551,6 +551,42 @@ async function resolveTargetFolder(workspaceId, options = {}) {
   return { targetFolderKey: '', targetFolderName: '', jobType };
 }
 
+/**
+ * Resolve folder context when rendering a saved search (history / results page).
+ * Creates permit category+city subfolders when needed and refreshes the folder list.
+ */
+async function resolveSearchRecordFolderContext(workspaceId, searchData = {}, options = {}) {
+  let folders = Array.isArray(options.folders) ? options.folders : await dbService.listFolders(workspaceId);
+  let targetFolderKey = String(searchData.targetFolderKey || '').trim();
+  let targetFolderName = String(searchData.targetFolderName || '').trim();
+  const jobType = searchData.jobType || JOB_TYPES.MAPS_BUSINESS;
+
+  const permitsRoot =
+    jobType === JOB_TYPES.PERMITS ? findFolderForJobType(folders, JOB_TYPES.PERMITS) : null;
+  const permitsRootKey = permitsRoot && permitsRoot.key ? String(permitsRoot.key) : '';
+  const shouldResolvePermitSubfolder =
+    jobType === JOB_TYPES.PERMITS &&
+    (searchData.category || searchData.city) &&
+    (!targetFolderKey || (permitsRootKey && targetFolderKey === permitsRootKey));
+
+  if ((!targetFolderKey || shouldResolvePermitSubfolder) && jobType) {
+    const resolved = await resolveTargetFolder(workspaceId, {
+      jobType,
+      autoDefault: true,
+      category: searchData.category,
+      city: searchData.city,
+      folderKey: shouldResolvePermitSubfolder ? '' : targetFolderKey,
+    });
+    if (resolved.targetFolderKey) {
+      targetFolderKey = resolved.targetFolderKey;
+      targetFolderName = resolved.targetFolderName || targetFolderName;
+      folders = await dbService.listFolders(workspaceId);
+    }
+  }
+
+  return { targetFolderKey, targetFolderName, jobType, folders };
+}
+
 async function folderKeyForJobType(workspaceId, jobType) {
   const resolved = await resolveTargetFolder(workspaceId, { jobType, autoDefault: true });
   return resolved.targetFolderKey || '';
@@ -652,6 +688,7 @@ module.exports = {
   autoParentTradeLikeFolders,
   ensurePipelineFoldersWithTree,
   resolveTargetFolder,
+  resolveSearchRecordFolderContext,
   folderKeyForJobType,
   leadMetadataForJobType,
   classifyLeadForPipelineMigration,

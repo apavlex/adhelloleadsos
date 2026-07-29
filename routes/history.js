@@ -1,13 +1,22 @@
 const express = require('express');
 const router = express.Router();
 const dbService = require('../services/database');
+const { resolveSearchRecordFolderContext } = require('../services/pipelineFolders');
 
 router.get('/', async (req, res, next) => {
   try {
     const allSearches = await dbService.getAllSearches();
     const wid = req.workspaceId;
-    const searches = allSearches.filter(
-      (s) => (s.workspaceId || 'default') === wid
+    const scoped = allSearches.filter((s) => (s.workspaceId || 'default') === wid);
+    const searches = await Promise.all(
+      scoped.map(async (search) => {
+        const folderCtx = await resolveSearchRecordFolderContext(wid, search);
+        return {
+          ...search,
+          targetFolderKey: folderCtx.targetFolderKey || search.targetFolderKey || '',
+          targetFolderName: folderCtx.targetFolderName || search.targetFolderName || '',
+        };
+      }),
     );
     const activeJob = await dbService.getActiveJob();
     const searchingParam = String(req.query.status || '').toLowerCase() === 'searching';

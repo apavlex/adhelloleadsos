@@ -97,6 +97,13 @@
                          class="btn-pill bg-white dark:bg-slate-800 border border-brand-border dark:border-white/10 px-4 py-2 text-[10px] dark:text-slate-100">
                         View
                       </a>
+                      <% if (search.targetFolderKey) { %>
+                      <a href="/prospecting?tab=pipeline&amp;folderKey=<%= encodeURIComponent(search.targetFolderKey) %>"
+                         class="btn-pill bg-brand-yellow/10 border border-brand-yellow/30 text-brand-dark dark:text-slate-100 px-4 py-2 text-[10px] hover:bg-brand-yellow/20"
+                         title="<%= search.targetFolderName ? ('Open leads in ' + search.targetFolderName) : 'Open target folder' %>">
+                        View leads
+                      </a>
+                      <% } %>
                       <form action="/history/<%= encodeURIComponent(search.key) %>/delete"
                             method="POST"
                             onsubmit="return confirm('Delete this search?')">
