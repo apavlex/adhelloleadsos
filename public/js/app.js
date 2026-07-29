@@ -16617,11 +16617,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // Backfill missing phone/email (and website hints) for all leads in workspace.
+  // Enrich leads missing phone/email (and website hints) for all leads in workspace.
   document.querySelectorAll('.js-enhance-missing-contacts').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const ok = window.confirm(
-        'Run deep contact backfill for all leads missing phone/email in this workspace?\n\nThis can take a few minutes.'
+        'Enrich all leads missing phone or email in this workspace?\n\nThis can take a few minutes.'
       );
       if (!ok) return;
 
@@ -16629,7 +16629,7 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.disabled = true;
       btn.classList.add('opacity-70', 'cursor-wait');
       btn.innerHTML =
-        '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Running...</span>';
+        '<svg class="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" aria-hidden="true"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg><span>Enriching…</span>';
       try {
         const res = await fetch('/leads/enhance-missing-contacts', {
           method: 'POST',
@@ -16638,10 +16638,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.success) {
-          throw new Error((data && data.error) || 'Backfill request failed.');
+          throw new Error((data && data.error) || 'Enrichment request failed.');
         }
 
-        const msg = `Backfill finished: ${data.updated || 0} updated out of ${data.attempted || 0} attempted${data.remaining > 0 ? ` (${data.remaining} still queued)` : ''}.`;
+        const msg = `Enrichment finished: ${data.updated || 0} updated out of ${data.attempted || 0} attempted${data.remaining > 0 ? ` (${data.remaining} still queued)` : ''}.`;
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(msg, { variant: 'success', duration: 7000 });
         } else {
@@ -16651,7 +16651,7 @@ document.addEventListener('DOMContentLoaded', () => {
           window.location.reload();
         }, 900);
       } catch (err) {
-        const msg = err && err.message ? err.message : 'Backfill failed.';
+        const msg = err && err.message ? err.message : 'Enrichment failed.';
         if (typeof window.showAppToast === 'function') {
           window.showAppToast(msg, { variant: 'error', duration: 12000 });
         } else {
