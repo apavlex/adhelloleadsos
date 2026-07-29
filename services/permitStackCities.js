@@ -3938,8 +3938,8 @@ const PERMIT_STACK_CITIES = [
     "state": ""
   },
   {
-    "city": "Cincinnati (Use Permits &amp; Licenses)",
-    "label": "Cincinnati (Use Permits &amp; Licenses)",
+    "city": "Cincinnati (Use Permits & Licenses)",
+    "label": "Cincinnati (Use Permits & Licenses)",
     "state": ""
   },
   {
@@ -4035,14 +4035,20 @@ function normalizePermitStackCity(value) {
   );
 }
 
+const PERMIT_CITY_OTHER_GROUP = '—';
+
 function permitCitiesByState() {
   const groups = new Map();
   for (const row of PERMIT_STACK_CITIES) {
-    const st = row.state || '—';
+    const st = row.state || PERMIT_CITY_OTHER_GROUP;
     if (!groups.has(st)) groups.set(st, []);
     groups.get(st).push(row);
   }
-  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  return [...groups.entries()].sort((a, b) => {
+    if (a[0] === PERMIT_CITY_OTHER_GROUP) return 1;
+    if (b[0] === PERMIT_CITY_OTHER_GROUP) return -1;
+    return a[0].localeCompare(b[0]);
+  });
 }
 
 module.exports = {

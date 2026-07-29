@@ -30,6 +30,15 @@ function inferState(city) {
   return '';
 }
 
+function decodeHtmlEntities(value) {
+  return String(value || '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 async function main() {
   const [coverageHtml, searchHtml] = await Promise.all([
     get('https://permit-stack.com/coverage.html'),
@@ -42,7 +51,7 @@ async function main() {
   }
 
   const opts = [...searchHtml.matchAll(/<option value="([^"]*)">([^<]*)<\/option>/g)]
-    .map((m) => ({ city: m[1].trim(), label: m[2].trim() }))
+    .map((m) => ({ city: decodeHtmlEntities(m[1].trim()), label: decodeHtmlEntities(m[2].trim()) }))
     .filter((o) => o.city);
 
   const cities = opts.map((o) => ({
@@ -75,14 +84,20 @@ function normalizePermitStackCity(value) {
   );
 }
 
+const PERMIT_CITY_OTHER_GROUP = '—';
+
 function permitCitiesByState() {
   const groups = new Map();
   for (const row of PERMIT_STACK_CITIES) {
-    const st = row.state || '—';
+    const st = row.state || PERMIT_CITY_OTHER_GROUP;
     if (!groups.has(st)) groups.set(st, []);
     groups.get(st).push(row);
   }
-  return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  return [...groups.entries()].sort((a, b) => {
+    if (a[0] === PERMIT_CITY_OTHER_GROUP) return 1;
+    if (b[0] === PERMIT_CITY_OTHER_GROUP) return -1;
+    return a[0].localeCompare(b[0]);
+  });
 }
 
 module.exports = {

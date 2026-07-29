@@ -2157,9 +2157,17 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       const focusEl =
         type === 'permits'
-          ? document.getElementById('findPermitCity')
+          ? document.getElementById('findPermitCityTrigger') || document.getElementById('findPermitCitySearch')
           : document.getElementById('findManualCity');
-      if (focusEl) focusEl.focus();
+      if (focusEl) {
+        focusEl.focus();
+        if (type === 'permits') {
+          var picker = document.querySelector('[data-permit-city-picker]');
+          if (picker && typeof picker.openPermitCityPicker === 'function') {
+            picker.openPermitCityPicker();
+          }
+        }
+      }
     }
 
     const setStep = (stepNo) => {

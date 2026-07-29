@@ -31,3 +31,9 @@ test('permitCitiesByState groups by state code', () => {
   assert.ok(wa);
   assert.ok(wa[1].some((row) => row.city === 'Camas'));
 });
+
+test('permitCitiesByState puts Other group last', () => {
+  const groups = permitCitiesByState();
+  const last = groups[groups.length - 1];
+  assert.equal(last[0], '—');
+});

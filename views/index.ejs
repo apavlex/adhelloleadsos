@@ -128,26 +128,62 @@
                 </div>
                 <div id="findPermitCityWrap" class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3 <%= _findType !== 'permits' ? 'hidden' : '' %>">
                   <div>
-                    <label for="findPermitCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Permit Stack city</label>
-                    <select id="findPermitCity" name="permitCity"
-                      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30">
-                      <option value="">Select a supported city…</option>
-                      <% const _permCityGroups = typeof permitStackCitiesByState !== 'undefined' ? permitStackCitiesByState : [];
-                         const _prefCity = String(_sp.city || '').trim();
-                         const _prefState = String(_sp.state || '').trim().toUpperCase(); %>
-                      <% _permCityGroups.forEach(function (group) {
-                           const st = group[0];
-                           const rows = group[1] || [];
-                      %>
-                        <optgroup label="<%= st === '—' ? 'Other' : st %>">
-                          <% rows.forEach(function (row) {
-                               const selected = _prefCity && (row.city === _prefCity || row.label === _prefCity) && (!_prefState || !row.state || row.state === _prefState);
+                    <label for="findPermitCitySearch" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Permit Stack city</label>
+                    <% const _permCityGroups = typeof permitStackCitiesByState !== 'undefined' ? permitStackCitiesByState : [];
+                       const _prefCity = String(_sp.city || '').trim();
+                       const _prefState = String(_sp.state || '').trim().toUpperCase();
+                       let _prefPermitLabel = 'Select a supported city…';
+                       let _prefPermitCity = '';
+                       let _prefPermitState = '';
+                       if (_prefCity) {
+                         for (const group of _permCityGroups) {
+                           for (const row of group[1] || []) {
+                             if ((row.city === _prefCity || row.label === _prefCity) && (!_prefState || !row.state || row.state === _prefState)) {
+                               _prefPermitCity = row.city;
+                               _prefPermitState = row.state || '';
+                               _prefPermitLabel = row.label + (row.state ? ' (' + row.state + ')' : '');
+                               break;
+                             }
+                           }
+                           if (_prefPermitCity) break;
+                         }
+                       } %>
+                    <div class="permit-city-picker relative" data-permit-city-picker>
+                      <input type="hidden" id="findPermitCity" name="permitCity" value="<%= _prefPermitCity %>" data-state="<%= _prefPermitState %>" data-permit-city-value />
+                      <button type="button" id="findPermitCityTrigger" class="permit-city-picker-trigger w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white text-left flex items-center justify-between gap-2 hover:border-brand-yellow/40 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30 transition-colors" aria-haspopup="listbox" aria-expanded="false">
+                        <span class="permit-city-picker-label truncate"><%= _prefPermitLabel %></span>
+                        <span class="text-brand-muted text-xs shrink-0" aria-hidden="true">▾</span>
+                      </button>
+                      <div class="permit-city-picker-panel hidden absolute left-0 right-0 top-full mt-1 z-[500] rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 shadow-xl overflow-hidden" role="listbox" aria-label="Permit Stack cities">
+                        <div class="p-2 border-b border-brand-border/30 dark:border-white/10 bg-brand-cream/20 dark:bg-slate-950/40">
+                          <input type="search" id="findPermitCitySearch" class="permit-city-picker-search w-full rounded-lg border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30" placeholder="Search cities, states…" autocomplete="off" aria-label="Search Permit Stack cities" />
+                        </div>
+                        <div class="permit-city-picker-list max-h-64 overflow-y-auto custom-scrollbar p-1">
+                          <% _permCityGroups.forEach(function (group) {
+                               const st = group[0];
+                               const rows = group[1] || [];
                           %>
-                            <option value="<%= row.city %>" data-state="<%= row.state || '' %>"<%= selected ? ' selected' : '' %>><%= row.label %><%= row.state ? ' (' + row.state + ')' : '' %></option>
+                            <div class="permit-city-picker-group" data-group="<%= st %>">
+                              <div class="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-widest text-brand-muted sticky top-0 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm"><%= st === '—' ? 'Other' : st %></div>
+                              <% rows.forEach(function (row) {
+                                   const selected = _prefPermitCity && row.city === _prefPermitCity;
+                                   const searchText = [row.label, row.state, row.city].filter(Boolean).join(' ');
+                              %>
+                                <button type="button" class="permit-city-picker-option w-full text-left px-3 py-2 text-sm font-semibold text-brand-dark dark:text-white rounded-lg hover:bg-brand-yellow/10 dark:hover:bg-brand-yellow/15<%= selected ? ' is-selected bg-brand-yellow/15 dark:bg-brand-yellow/10' : '' %>"
+                                  data-city="<%= row.city %>"
+                                  data-state="<%= row.state || '' %>"
+                                  data-label="<%= row.label %>"
+                                  data-search="<%= searchText %>"
+                                  title="<%= row.label %><%= row.state ? ' (' + row.state + ')' : '' %>">
+                                  <%= row.label %><%= row.state ? ' (' + row.state + ')' : '' %>
+                                </button>
+                              <% }); %>
+                            </div>
                           <% }); %>
-                        </optgroup>
-                      <% }); %>
-                    </select>
+                          <p class="permit-city-picker-empty hidden px-3 py-4 text-sm text-brand-muted text-center">No cities match your search.</p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <p class="text-xs text-brand-muted leading-relaxed">Permit Stack only includes supported jurisdictions — pick from this list (same cities as <a href="https://permit-stack.com/search.html" class="underline" target="_blank" rel="noopener noreferrer">permit-stack.com/search</a>).</p>
                 </div>
@@ -457,6 +493,7 @@
     <% } %>
   </main>
 
+  <script src="/js/permit-city-picker.js?v=<%= assetVersion %>"></script>
   <script src="/js/app.js?v=<%= assetVersion %>"></script>
   <script>
   (function () {
@@ -654,13 +691,12 @@
     }
 
     function syncPermitCityToManual() {
-      var sel = document.getElementById('findPermitCity');
+      var hidden = document.getElementById('findPermitCity');
       var cityEl = document.getElementById('findManualCity');
       var stateEl = document.getElementById('findManualState');
-      if (!sel || !cityEl || !stateEl) return;
-      var opt = sel.options[sel.selectedIndex];
-      var city = String(sel.value || '').trim();
-      var state = opt && opt.getAttribute ? String(opt.getAttribute('data-state') || '').trim() : '';
+      if (!hidden || !cityEl || !stateEl) return;
+      var city = String(hidden.value || '').trim();
+      var state = String(hidden.getAttribute('data-state') || '').trim();
       cityEl.value = city;
       stateEl.value = state;
     }
@@ -764,12 +800,12 @@
       var c = city && city.value.trim() ? city.value.trim() : '';
       var s = state && state.value.trim() ? state.value.trim().toUpperCase() : '';
       if (currentType === 'permits') {
-        var pSel = document.getElementById('findPermitCity');
-        if (pSel && pSel.value) {
-          c = pSel.value;
-          var pOpt = pSel.options[pSel.selectedIndex];
-          if (pOpt && pOpt.getAttribute('data-state')) {
-            s = String(pOpt.getAttribute('data-state')).trim().toUpperCase();
+        var pHidden = document.getElementById('findPermitCity');
+        if (pHidden && pHidden.value) {
+          c = pHidden.value;
+          var pState = pHidden.getAttribute('data-state');
+          if (pState) {
+            s = String(pState).trim().toUpperCase();
           }
         }
       }
