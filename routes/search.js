@@ -12,7 +12,7 @@ const { parseSchedulePayload } = require('../services/scheduleHelpers');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
 const {
   resolveTargetFolder,
-  findFolderForJobType,
+  resolveSearchRecordFolderContext,
   leadMetadataForJobType,
 } = require('../services/pipelineFolders');
 const { parseAutoTags, resolveAutoTagKeys } = require('../services/folderSearchPreset');
@@ -283,33 +283,11 @@ router.get('/:key', async (req, res, next) => {
 
     // Get all bookmarked leads to sync bookmark status on the results page
     const savedLeads = filterLeadsForRequest(req, await dbService.getAllLeads(req.workspaceId));
-    const folders = await dbService.listFolders(req.workspaceId);
-
-    let targetFolderKey = data.targetFolderKey || '';
-    let targetFolderName = data.targetFolderName || '';
-    const jobType = data.jobType || JOB_TYPES.MAPS_BUSINESS;
-    const permitsRoot =
-      jobType === JOB_TYPES.PERMITS ? findFolderForJobType(folders, JOB_TYPES.PERMITS) : null;
-    const permitsRootKey = permitsRoot && permitsRoot.key ? String(permitsRoot.key) : '';
-    const shouldResolvePermitSubfolder =
-      jobType === JOB_TYPES.PERMITS &&
-      (data.category || data.city) &&
-      (!targetFolderKey || (permitsRootKey && targetFolderKey === permitsRootKey));
-
-    if ((!targetFolderKey || shouldResolvePermitSubfolder) && jobType) {
-      const resolved = await resolveTargetFolder(req.workspaceId, {
-        jobType,
-        autoDefault: true,
-        category: data.category,
-        city: data.city,
-        folderKey: shouldResolvePermitSubfolder ? '' : targetFolderKey,
-      });
-      if (resolved.targetFolderKey) {
-        targetFolderKey = resolved.targetFolderKey;
-        targetFolderName = resolved.targetFolderName || targetFolderName;
-        folders = await dbService.listFolders(req.workspaceId);
-      }
-    }
+    const folderCtx = await resolveSearchRecordFolderContext(req.workspaceId, data);
+    const folders = folderCtx.folders;
+    const targetFolderKey = folderCtx.targetFolderKey;
+    const targetFolderName = folderCtx.targetFolderName;
+    const jobType = folderCtx.jobType;
 
     let autoTagKeys = [];
     if (data.autoTags && data.autoTags.length) {
