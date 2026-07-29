@@ -21,6 +21,7 @@ const {
   hasContactValue,
 } = require('../services/leadPanelNormalize');
 const betterContact = require('../services/betterContactClient');
+const monidLeadEnrich = require('../services/monidLeadEnrich');
 const tikHub = require('../services/tikHubClient');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const pageSpeedInsights = require('../services/pageSpeedInsights');
@@ -3388,6 +3389,7 @@ async function runLeadEnhancement(lead, workspaceId) {
   let firecrawlViaSearch = false;
   let mapsFallbackUsed = false;
   let betterContactUsed = false;
+  let monidUsed = false;
   let outscraperUsed = false;
   let urlToSave = null;
   let mapsPlace = null;
@@ -3447,6 +3449,28 @@ async function runLeadEnhancement(lead, workspaceId) {
     urlToSave ||
     null;
   const enrichLead = websiteForEnrich ? { ...workingLead, website: websiteForEnrich } : workingLead;
+
+  // Step 1.5: Monid — Apollo / PDL company enrich (phone, website, socials)
+  if (monidLeadEnrich.isConfigured(integrationEnv)) {
+    try {
+      const monidPack = await monidLeadEnrich.enrichLeadFromMonid(workingLead, integrationEnv);
+      if (monidPack && monidPack.enriched && monidPack.extract) {
+        monidUsed = true;
+        deepData = mapsEnrichFallback.mergeExtractPreferFirecrawl(monidPack.extract, deepData || {});
+        if (
+          monidPack.extract.website &&
+          (!workingLead.website || workingLead.website === 'N/A')
+        ) {
+          urlToSave = urlToSave || monidPack.extract.website;
+        }
+        console.log(
+          `[ENHANCE] Monid (${monidPack.provider || 'gateway'}) for ${workingLead.title}: ${Object.keys(monidPack.extract).join(', ')}`,
+        );
+      }
+    } catch (e) {
+      console.warn('[ENHANCE] Monid failed:', e.message);
+    }
+  }
 
   // Step 2: BetterContact — contacts / socials (uses domain from GMB when available)
   let bcExtract = null;
@@ -3590,11 +3614,18 @@ async function runLeadEnhancement(lead, workspaceId) {
   patch.lastContactHuntAt = new Date().toISOString();
 
   const enrichmentHappened =
-    hadExtract || urlToSave || mapsFallbackUsed || betterContactUsed || outscraperUsed || reviewHuntUsed;
+    hadExtract ||
+    urlToSave ||
+    mapsFallbackUsed ||
+    betterContactUsed ||
+    monidUsed ||
+    outscraperUsed ||
+    reviewHuntUsed;
 
   if (enrichmentHappened) {
     const via = [
       outscraperUsed ? 'Outscraper GMB' : null,
+      monidUsed ? 'Monid' : null,
       betterContactUsed ? 'BetterContact' : null,
       firecrawlViaSearch ? 'web search' : null,
       !firecrawlViaSearch && websiteForEnrich && hadExtract ? 'website' : null,
@@ -3635,8 +3666,10 @@ async function runLeadEnhancement(lead, workspaceId) {
 
   const fail = {
     success: false,
-    error: betterContact.isConfigured(integrationEnv) || outscraper.isConfigured(integrationEnv)
-      ? 'No new contact or review data discovered yet. Outscraper GMB, BetterContact, and website search did not find new signals.'
+    error: betterContact.isConfigured(integrationEnv) ||
+      monidLeadEnrich.isConfigured(integrationEnv) ||
+      outscraper.isConfigured(integrationEnv)
+      ? 'No new contact or review data discovered yet. Monid, Outscraper GMB, BetterContact, and website search did not find new signals.'
       : 'No new contact or review data discovered yet. Add Outscraper (GMB + reviews) and/or BetterContact under Workspace → API integrations.',
     lead: { ...workingLead, lastContactHuntAt: patch.lastContactHuntAt },
   };

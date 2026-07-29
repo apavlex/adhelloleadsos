@@ -19,6 +19,7 @@ const lobClient = require('./lobClient');
 const commsClient = require('./commsClient');
 const saperlyClient = require('./saperlyClient');
 const tikHubClient = require('./tikHubClient');
+const monidClient = require('./monidClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -65,6 +66,10 @@ const PROVIDERS = {
   tikhub: {
     label: 'TikHub (social profile search)',
     fields: ['tikhubApiKey'],
+  },
+  monid: {
+    label: 'Monid (company enrichment)',
+    fields: ['monidApiKey'],
   },
 };
 
@@ -303,6 +308,14 @@ async function testTikHub(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+async function testMonid(integrationEnv) {
+  if (!monidClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing Monid API key — paste your key from app.monid.ai and save.');
+  }
+  const result = await monidClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   searchapi: () => testSearchapi,
@@ -320,6 +333,7 @@ const RUNNERS = {
   comms: () => testComms,
   saperly: () => testSaperly,
   tikhub: () => testTikHub,
+  monid: () => testMonid,
 };
 
 /**

@@ -219,6 +219,31 @@
           <%- include('../../partials/integration_test_row', { provider: 'bettercontact' }) %>
         </section>
 
+        <section id="integration-monid" class="rounded-2xl border-2 border-violet-400/25 dark:border-violet-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Monid</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Company enrichment gateway for <strong>Enrich leads</strong>, bulk <strong>Enhance</strong>, and contact hunt —
+                phone, website, LinkedIn, Facebook, and X via Apollo and People Data Labs (~$0.05–0.10 per match).
+                Create an API key at
+                <a href="https://app.monid.ai/access/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">app.monid.ai</a>.
+                Usage draws from your Monid balance.
+              </p>
+            </div>
+            <a href="https://docs.monid.ai/api/overview.html" class="shrink-0 rounded-xl border border-violet-400/40 bg-violet-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-violet-300 hover:bg-violet-400/20 transition-colors" target="_blank" rel="noopener noreferrer">
+              API docs →
+            </a>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.monidApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.monidApiKey %></p><% } %>
+            <input type="password" name="monidApiKey" autocomplete="off" placeholder="monid_live_… (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.monidApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="monidApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'monid' }) %>
+        </section>
+
         <section id="integration-tikhub" class="rounded-2xl border-2 border-pink-400/25 dark:border-pink-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header class="flex flex-wrap items-start justify-between gap-3">
             <div class="min-w-0">
