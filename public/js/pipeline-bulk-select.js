@@ -1621,6 +1621,162 @@
       '<span class="text-[9px] font-bold text-brand-muted/60 uppercase tracking-widest">—</span>';
   }
 
+  function collectSelectedEnhanceRowsEarly() {
+    const out = [];
+    const seen = new Set();
+    document
+      .querySelectorAll(
+        'tbody input.lead-checkbox:checked, tbody input.row-checkbox:checked, input.lead-checkbox:checked, input.row-checkbox:checked',
+      )
+      .forEach(function (cb) {
+        const row = cb.closest('tr.result-row, tr[data-lead-key]');
+        if (!row || seen.has(row)) return;
+        seen.add(row);
+        out.push(row);
+      });
+    return out;
+  }
+
+  function applyEnhanceDataToRowEarly(row, d) {
+    if (!row || !d || typeof d !== 'object') return;
+    if (d.facebook) row.dataset.facebook = d.facebook;
+    if (d.instagram) row.dataset.instagram = d.instagram;
+    if (d.tiktok) row.dataset.tiktok = d.tiktok;
+    if (d.twitter) row.dataset.twitter = d.twitter;
+    if (d.linkedin) row.dataset.linkedin = d.linkedin;
+    if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
+    if (d.email) row.dataset.email = d.email;
+    if (d.phone !== undefined && d.phone !== null) row.dataset.phone = d.phone || 'N/A';
+    if (d.address) row.dataset.address = d.address;
+    const ratingVal = d.totalScore ?? d.total_score ?? d.rating;
+    const revVal = d.reviewsCount ?? d.reviews_count ?? d.reviews;
+    if (ratingVal != null && !Number.isNaN(parseFloat(ratingVal))) {
+      row.dataset.rating = String(ratingVal);
+    }
+    if (revVal != null && !Number.isNaN(parseInt(revVal, 10))) {
+      row.dataset.reviews = String(parseInt(revVal, 10));
+    }
+  }
+
+  async function runBulkEnhanceFromBarEarly() {
+    if (window.__bulkEnhanceInFlight) return;
+    if (typeof window.__runBulkEnhanceSelectedLeadsImpl === 'function') {
+      return window.__runBulkEnhanceSelectedLeadsImpl();
+    }
+
+    const selectedRows = collectSelectedEnhanceRowsEarly();
+    if (!selectedRows.length) {
+      showBulkBarFeedbackEarly('Select one or more leads to enhance.', 'error');
+      return;
+    }
+
+    const leadsToProcess = selectedRows.slice(0, 20);
+    if (selectedRows.length > 20) {
+      showBulkBarFeedbackEarly('Bulk enhance limited to 20 leads per batch.', 'info');
+    }
+
+    const enhanceBtns = document.querySelectorAll('.js-bulk-enhance');
+    const btnSnap = Array.from(enhanceBtns).map((b) => b.innerHTML);
+    const loadingHtml =
+      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Enhancing…</span>';
+
+    window.__bulkEnhanceInFlight = true;
+    enhanceBtns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML = loadingHtml;
+    });
+    showBulkBarFeedbackEarly(
+      `Enhancing ${leadsToProcess.length} lead${leadsToProcess.length === 1 ? '' : 's'}…`,
+      'loading',
+    );
+
+    let successCount = 0;
+    let attemptedCount = 0;
+    let lastError = '';
+
+    try {
+      for (const row of leadsToProcess) {
+        const key = String(row.dataset.leadKey || row.getAttribute('data-lead-key') || '').trim();
+        const url = row.dataset.website;
+        const title = row.dataset.title;
+        const city = row.dataset.city;
+        const state = row.dataset.state;
+
+        if (!key && (!url || url === 'N/A') && (!title || !city)) continue;
+
+        attemptedCount += 1;
+        try {
+          let res;
+          if (key) {
+            res = await fetch(`/leads/${encodeURIComponent(key)}/enhance`, {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { Accept: 'application/json' },
+            });
+          } else {
+            res = await fetch('/enrich', {
+              method: 'POST',
+              credentials: 'same-origin',
+              headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+              body: JSON.stringify({ url, title, city, state }),
+            });
+          }
+          const result = await res.json().catch(() => ({}));
+          if (result.error) lastError = String(result.error);
+          const d = result.lead || result.data;
+          const ok = res.ok && result.success && d;
+          if (ok) {
+            successCount += 1;
+            applyEnhanceDataToRowEarly(row, d);
+            syncRowSocialsSlotEarly(row);
+          }
+        } catch (err) {
+          lastError = (err && err.message) || lastError || 'Network error';
+        }
+      }
+    } finally {
+      window.__bulkEnhanceInFlight = false;
+    }
+
+    const summaryLabel =
+      successCount > 0
+        ? `Updated ${successCount}`
+        : attemptedCount > 0
+          ? 'No new data'
+          : 'Done';
+    enhanceBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+
+    if (attemptedCount === 0) {
+      showBulkBarFeedbackEarly(
+        'Could not enhance selected leads. Save them to your pipeline first, then try again.',
+        'error',
+      );
+    } else if (successCount > 0) {
+      showBulkBarFeedbackEarly(
+        `Enhanced ${successCount} lead${successCount === 1 ? '' : 's'}. Refresh if columns look stale.`,
+        'success',
+      );
+    } else {
+      showBulkBarFeedbackEarly(
+        lastError ||
+          'Enhance found no new data. Add Firecrawl or Monid keys under Workspace → Integrations.',
+        'error',
+      );
+    }
+
+    setTimeout(() => {
+      enhanceBtns.forEach((b, i) => {
+        b.classList.remove('loading');
+        b.disabled = false;
+        b.innerHTML = btnSnap[i] || b.innerHTML;
+      });
+    }, 2800);
+  }
+  window.__runBulkEnhanceFromBarEarly = runBulkEnhanceFromBarEarly;
+
   async function runBulkSocialFromBarEarly() {
     if (window.__bulkSocialEnrichInFlight) return;
     if (typeof window.__runBulkSocialEnrichmentSelectedLeadsImpl === 'function') {
@@ -2152,9 +2308,7 @@
         if (e.target.closest('.js-bulk-enhance')) {
           e.preventDefault();
           e.stopPropagation();
-          if (typeof window.__runBulkEnhanceSelectedLeads === 'function') {
-            void window.__runBulkEnhanceSelectedLeads();
-          }
+          void runBulkEnhanceFromBarEarly();
           return;
         }
         if (e.target.closest('.js-bulk-socials')) {

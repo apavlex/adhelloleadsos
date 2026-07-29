@@ -36,6 +36,31 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__openWarRoomFromSelectionImpl = openWarRoomFromSelection;
   window.__openWarRoomFromSelection = openWarRoomFromSelection;
 
+  window.__runBulkEnhanceSelectedLeads = async function runBulkEnhanceBridge() {
+    if (typeof window.__runBulkEnhanceSelectedLeadsImpl === 'function') {
+      return window.__runBulkEnhanceSelectedLeadsImpl();
+    }
+    if (typeof window.__runBulkEnhanceFromBarEarly === 'function') {
+      return window.__runBulkEnhanceFromBarEarly();
+    }
+    for (let i = 0; i < 240; i += 1) {
+      if (typeof window.__runBulkEnhanceSelectedLeadsImpl === 'function') {
+        return window.__runBulkEnhanceSelectedLeadsImpl();
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+    const msg =
+      'Enhance failed to load. Hard-refresh the page, or confirm Firecrawl/Monid keys under Workspace → Integrations.';
+    if (typeof window.showBulkActionConfirmation === 'function') {
+      window.showBulkActionConfirmation(msg, 'error');
+    } else if (typeof window.showProspectToast === 'function') {
+      window.showProspectToast(msg);
+    } else {
+      window.alert(msg);
+    }
+  };
+
   window.__runBulkSocialEnrichmentSelectedLeads = async function runBulkSocialEnrichmentBridge() {
     if (typeof window.__runBulkSocialEnrichmentSelectedLeadsImpl === 'function') {
       return window.__runBulkSocialEnrichmentSelectedLeadsImpl();
@@ -16399,6 +16424,7 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }, 2800);
   }
+  window.__runBulkEnhanceSelectedLeadsImpl = runBulkEnhanceSelectedLeads;
   window.__runBulkEnhanceSelectedLeads = runBulkEnhanceSelectedLeads;
 
   async function runBulkSocialEnrichmentSelectedLeads() {
