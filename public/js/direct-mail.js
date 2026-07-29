@@ -242,7 +242,6 @@
           slotEl.dispatchEvent(new Event('change', { bubbles: true }));
         }
         syncStudioPageView();
-        renderSavedLibrary();
       });
     });
 
@@ -1076,12 +1075,6 @@
     setDesignStatus('Loaded saved ' + slot + ' design onto the ' + slot + ' canvas.', true);
   }
 
-  function librarySlotFilter() {
-    var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
-    if (!preset.dualSided) return null;
-    return currentDesignSlot();
-  }
-
   function setExportStatus(text, ok) {
     var el = document.getElementById('dmExportStatus');
     if (!el) return;
@@ -1205,34 +1198,16 @@
   function renderSavedLibrary() {
     var root = document.getElementById('dmSavedLibrary');
     var countEl = document.getElementById('dmSavedCount');
-    var filterEl = document.getElementById('dmSavedLibraryFilter');
     if (!root) return;
-    var all = getSavedDesigns();
-    var slotFilter = librarySlotFilter();
-    var list = slotFilter
-      ? all.filter(function (item) {
-          return item && (item.slot === 'back' ? 'back' : 'front') === slotFilter;
-        })
-      : all;
+    var list = getSavedDesigns();
     if (countEl) {
-      countEl.textContent =
-        list.length + ' for ' + (slotFilter || 'all') + ' · ' + all.length + ' total';
-    }
-    if (filterEl) {
-      if (slotFilter) {
-        filterEl.classList.remove('hidden');
-        filterEl.textContent = 'Showing: ' + (slotFilter === 'back' ? 'Back' : 'Front') + ' designs';
-      } else {
-        filterEl.classList.add('hidden');
-      }
+      countEl.textContent = list.length + ' saved';
     }
     root.innerHTML = '';
     if (!list.length) {
       root.innerHTML =
         '<p class="col-span-3 text-[11px] text-brand-muted">' +
-        (slotFilter
-          ? 'No saved ' + slotFilter + ' designs yet — generate one and it will autosave here.'
-          : 'Save a generated front or back to reuse later.') +
+        'No saved designs yet — generate front or back art and it will autosave here.' +
         '</p>';
       return;
     }
