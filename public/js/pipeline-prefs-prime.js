@@ -97,6 +97,8 @@
     'state',
   ];
 
+  var COMPACT_PIPELINE_COLUMNS = ['check', 'company', 'contactGroup', 'socials'];
+
   function applyRealEstateImportColumnVis(vis) {
     REAL_ESTATE_IMPORT_COLUMNS.forEach(function (id) {
       vis[id] = true;
@@ -238,23 +240,34 @@
       var density = localStorage.getItem(DENSITY_KEY) === 'comfortable' ? 'comfortable' : 'compact';
       var comfortable = density === 'comfortable';
 
-      PLC_META.forEach(function (m) {
-        var isSplitContact = m.id === 'phone' || m.id === 'email' || m.id === 'domain';
-        if (!colVisible(vis, m.id) || (comfortable && isSplitContact)) {
+      if (!comfortable) {
+        PLC_META.forEach(function (m) {
           css.push('#prospectLeadsTable [data-plc="' + m.id + '"]{display:none!important}');
-        }
-      });
-      if (!contactGroupVisible(vis) || !comfortable) {
-        css.push('#prospectLeadsTable [data-plc="contactGroup"]{display:none!important}');
+        });
+        COMPACT_PIPELINE_COLUMNS.forEach(function (id) {
+          css.push('#prospectLeadsTable [data-plc="' + id + '"]{display:table-cell!important}');
+        });
+        css.push('#prospectLeadsTable [data-plc="phone"],#prospectLeadsTable [data-plc="email"],#prospectLeadsTable [data-plc="domain"]{display:none!important}');
       } else {
-        if (!colVisible(vis, 'phone')) {
-          css.push('#prospectLeadsTable .lead-contact-row-phone{display:none!important}');
-        }
-        if (!colVisible(vis, 'email')) {
-          css.push('#prospectLeadsTable .lead-contact-row-email{display:none!important}');
-        }
-        if (!colVisible(vis, 'domain')) {
-          css.push('#prospectLeadsTable .lead-contact-row-domain{display:none!important}');
+        PLC_META.forEach(function (m) {
+          var isSplitContact = m.id === 'phone' || m.id === 'email' || m.id === 'domain';
+          if (!colVisible(vis, m.id) || isSplitContact) {
+            css.push('#prospectLeadsTable [data-plc="' + m.id + '"]{display:none!important}');
+          }
+        });
+        if (!contactGroupVisible(vis)) {
+          css.push('#prospectLeadsTable [data-plc="contactGroup"]{display:none!important}');
+        } else {
+          css.push('#prospectLeadsTable [data-plc="contactGroup"]{display:table-cell!important}');
+          if (!colVisible(vis, 'phone')) {
+            css.push('#prospectLeadsTable .lead-contact-row-phone{display:none!important}');
+          }
+          if (!colVisible(vis, 'email')) {
+            css.push('#prospectLeadsTable .lead-contact-row-email{display:none!important}');
+          }
+          if (!colVisible(vis, 'domain')) {
+            css.push('#prospectLeadsTable .lead-contact-row-domain{display:none!important}');
+          }
         }
       }
 
@@ -318,9 +331,11 @@
 
   function syncDensityButtons(mode) {
     var d = mode === 'comfortable' ? 'comfortable' : 'compact';
+    document.documentElement.setAttribute('data-prospect-density', d);
     document.querySelectorAll('#tableView .lead-density-btn').forEach(function (btn) {
       var on = (btn.getAttribute('data-density') || 'compact') === d;
       btn.classList.toggle('lead-density-btn--active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
     });
   }
 

@@ -718,9 +718,11 @@ document.addEventListener('DOMContentLoaded', () => {
         table.classList.add(
           d === 'compact' ? 'prospect-leads-table--compact' : 'prospect-leads-table--comfortable'
         );
+        document.documentElement.setAttribute('data-prospect-density', d);
         document.querySelectorAll('#tableView .lead-density-btn').forEach((btn) => {
           const on = (btn.dataset.density || 'compact') === d;
           btn.classList.toggle('lead-density-btn--active', on);
+          btn.setAttribute('aria-pressed', on ? 'true' : 'false');
         });
         try {
           localStorage.setItem(densityKey, d);
@@ -948,37 +950,55 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       }
 
-      function isPipelineComfortableContactLayout() {
+      const COMPACT_PIPELINE_COLUMNS = new Set(['check', 'company', 'contactGroup', 'socials']);
+
+      function isPipelineCompactDensity() {
         return (
-          table.classList.contains('prospect-leads-table--comfortable') ||
-          document.documentElement.getAttribute('data-prospect-density') === 'comfortable'
+          table.classList.contains('prospect-leads-table--compact') ||
+          document.documentElement.getAttribute('data-prospect-density') === 'compact'
         );
       }
 
+      function pipelineColumnDisplayed(id, map) {
+        if (id === 'check') return true;
+        if (isPipelineCompactDensity()) {
+          return COMPACT_PIPELINE_COLUMNS.has(id);
+        }
+        const isSplitContact = id === 'phone' || id === 'email' || id === 'domain';
+        if (isSplitContact && contactGroupVisible(map)) return false;
+        return pipelineColVisible(map, id);
+      }
+
+      function contactGroupColumnDisplayed(map) {
+        if (isPipelineCompactDensity()) return true;
+        return contactGroupVisible(map);
+      }
+
       function applyVisibility(map) {
-        const comfortable = isPipelineComfortableContactLayout();
         table.querySelectorAll('[data-plc="check"]').forEach((el) => {
-          el.classList.remove('plc-col-hidden');
+          el.classList.toggle('plc-col-hidden', !pipelineColumnDisplayed('check', map));
         });
         PLC_META.forEach(({ id }) => {
-          const isSplitContact = id === 'phone' || id === 'email' || id === 'domain';
-          const on = pipelineColVisible(map, id) && !(comfortable && isSplitContact);
+          const on = pipelineColumnDisplayed(id, map);
           table.querySelectorAll(`[data-plc="${id}"]`).forEach((el) => {
             el.classList.toggle('plc-col-hidden', !on);
           });
         });
-        const groupOn = contactGroupVisible(map) && comfortable;
+        const groupOn = contactGroupColumnDisplayed(map);
         table.querySelectorAll('[data-plc="contactGroup"]').forEach((el) => {
           el.classList.toggle('plc-col-hidden', !groupOn);
         });
+        const showPhoneRow = groupOn && (isPipelineCompactDensity() || pipelineColVisible(map, 'phone'));
+        const showEmailRow = groupOn && (isPipelineCompactDensity() || pipelineColVisible(map, 'email'));
+        const showDomainRow = groupOn && (isPipelineCompactDensity() || pipelineColVisible(map, 'domain'));
         table.querySelectorAll('.lead-contact-row-phone').forEach((el) => {
-          el.classList.toggle('hidden', !pipelineColVisible(map, 'phone'));
+          el.classList.toggle('hidden', !showPhoneRow);
         });
         table.querySelectorAll('.lead-contact-row-email').forEach((el) => {
-          el.classList.toggle('hidden', !pipelineColVisible(map, 'email'));
+          el.classList.toggle('hidden', !showEmailRow);
         });
         table.querySelectorAll('.lead-contact-row-domain').forEach((el) => {
-          el.classList.toggle('hidden', !pipelineColVisible(map, 'domain'));
+          el.classList.toggle('hidden', !showDomainRow);
         });
         syncLiveColumnCss(map);
       }
@@ -990,27 +1010,31 @@ document.addEventListener('DOMContentLoaded', () => {
           el.id = 'pipelineColVisLive';
           document.head.appendChild(el);
         }
-        const comfortable = isPipelineComfortableContactLayout();
         const css = [];
+        css.push(
+          `#prospectLeadsTable [data-plc="check"]{display:${pipelineColumnDisplayed('check', map) ? 'table-cell' : 'none'}!important}`,
+        );
         PLC_META.forEach(({ id }) => {
-          const isSplitContact = id === 'phone' || id === 'email' || id === 'domain';
-          const on = pipelineColVisible(map, id) && !(comfortable && isSplitContact);
+          const on = pipelineColumnDisplayed(id, map);
           css.push(
             `#prospectLeadsTable [data-plc="${id}"]{display:${on ? 'table-cell' : 'none'}!important}`,
           );
         });
-        const groupOn = contactGroupVisible(map) && comfortable;
+        const groupOn = contactGroupColumnDisplayed(map);
         css.push(
           `#prospectLeadsTable [data-plc="contactGroup"]{display:${groupOn ? 'table-cell' : 'none'}!important}`,
         );
+        const showPhoneRow = groupOn && (isPipelineCompactDensity() || pipelineColVisible(map, 'phone'));
+        const showEmailRow = groupOn && (isPipelineCompactDensity() || pipelineColVisible(map, 'email'));
+        const showDomainRow = groupOn && (isPipelineCompactDensity() || pipelineColVisible(map, 'domain'));
         css.push(
-          `#prospectLeadsTable .lead-contact-row-phone{display:${pipelineColVisible(map, 'phone') ? 'flex' : 'none'}!important}`,
+          `#prospectLeadsTable .lead-contact-row-phone{display:${showPhoneRow ? 'flex' : 'none'}!important}`,
         );
         css.push(
-          `#prospectLeadsTable .lead-contact-row-email{display:${pipelineColVisible(map, 'email') ? 'flex' : 'none'}!important}`,
+          `#prospectLeadsTable .lead-contact-row-email{display:${showEmailRow ? 'flex' : 'none'}!important}`,
         );
         css.push(
-          `#prospectLeadsTable .lead-contact-row-domain{display:${pipelineColVisible(map, 'domain') ? 'flex' : 'none'}!important}`,
+          `#prospectLeadsTable .lead-contact-row-domain{display:${showDomainRow ? 'flex' : 'none'}!important}`,
         );
         el.textContent = css.join('\n');
       }
