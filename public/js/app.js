@@ -7943,21 +7943,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function formatPipelineFullAddressLine(src) {
     if (!src) return '';
-    const streetRaw = src.address != null ? src.address : src.street;
-    let street = String(streetRaw || '').trim();
+    let street = String(src.address != null ? src.address : src.street || '').trim();
     if (!street || street === 'N/A') street = '';
     const city = String(src.city || '').trim();
     const state = String(src.state || '').trim();
     const zip = String(src.zip || src.postalCode || '').trim();
-    const parts = [];
-    if (street) parts.push(street);
+
     const locParts = [];
     if (city) locParts.push(city);
     if (state) locParts.push(state);
     let loc = locParts.join(', ');
     if (zip) loc = loc ? `${loc} ${zip}` : zip;
-    if (loc) parts.push(loc);
-    return parts.join(', ');
+
+    if (!street) return loc;
+    if (!loc) return street;
+
+    const streetLower = street.toLowerCase();
+    const locLower = loc.toLowerCase();
+    if (streetLower.endsWith(locLower) || streetLower.includes(`, ${locLower}`)) {
+      return street;
+    }
+
+    if (city && state) {
+      const cityState = `${city}, ${state}`.toLowerCase();
+      if (streetLower.includes(cityState)) {
+        if (zip && !streetLower.includes(String(zip).toLowerCase())) {
+          return `${street} ${zip}`;
+        }
+        return street;
+      }
+    }
+
+    return `${street}, ${loc}`;
   }
 
   function syncPipelineRowAddressDisplay(row) {

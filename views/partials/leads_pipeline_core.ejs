@@ -91,15 +91,28 @@
       var city = String(lead.city || '').trim();
       var state = String(lead.state || '').trim();
       var zip = String(lead.zip || lead.postalCode || '').trim();
-      var parts = [];
-      if (street) parts.push(street);
       var locParts = [];
       if (city) locParts.push(city);
       if (state) locParts.push(state);
       var loc = locParts.join(', ');
       if (zip) loc = loc ? loc + ' ' + zip : zip;
-      if (loc) parts.push(loc);
-      return parts.join(', ');
+      if (!street) return loc;
+      if (!loc) return street;
+      var streetLower = street.toLowerCase();
+      var locLower = loc.toLowerCase();
+      if (streetLower.endsWith(locLower) || streetLower.indexOf(', ' + locLower) !== -1) {
+        return street;
+      }
+      if (city && state) {
+        var cityState = (city + ', ' + state).toLowerCase();
+        if (streetLower.indexOf(cityState) !== -1) {
+          if (zip && streetLower.indexOf(String(zip).toLowerCase()) === -1) {
+            return street + ' ' + zip;
+          }
+          return street;
+        }
+      }
+      return street + ', ' + loc;
     }
   %>
   <style>
