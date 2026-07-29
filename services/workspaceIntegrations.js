@@ -48,6 +48,8 @@ const INTEGRATION_FIELDS = [
   'saperlyApiKey',
   'saperlyFromNumberId',
   'saperlyWebhookSecret',
+  'tikhubApiKey',
+  'tikhubApiBase',
   'smsPrimary',
 ];
 
@@ -93,6 +95,8 @@ const FIELD_TO_ENV = {
   saperlyApiKey: 'SAPERLY_API_KEY',
   saperlyFromNumberId: 'SAPERLY_FROM_NUMBER_ID',
   saperlyWebhookSecret: 'SAPERLY_WEBHOOK_SECRET',
+  tikhubApiKey: 'TIKHUB_API_KEY',
+  tikhubApiBase: 'TIKHUB_API_BASE',
   smsPrimary: 'SMS_PRIMARY',
 };
 
@@ -202,6 +206,7 @@ function integrationMasks(workspace) {
     'commsWebhookSecret',
     'saperlyApiKey',
     'saperlyWebhookSecret',
+    'tikhubApiKey',
   ]);
   for (const field of INTEGRATION_FIELDS) {
     const raw = p[field];

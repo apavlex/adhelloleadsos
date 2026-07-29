@@ -109,7 +109,9 @@
     row.dataset.city = lead.city || '';
     row.dataset.facebook = lead.facebook || 'N/A';
     row.dataset.instagram = lead.instagram || 'N/A';
+    row.dataset.tiktok = lead.tiktok || 'N/A';
     row.dataset.twitter = lead.twitter || 'N/A';
+    row.dataset.linkedin = lead.linkedin || '';
     if (lead.onPipelineBoard) row.dataset.onPipelineBoard = '1';
     return row;
   }
@@ -214,7 +216,9 @@
         gm: googleMapsHrefFromDataset(ds),
         fb: ds.facebook,
         ig: ds.instagram,
+        tt: ds.tiktok,
         tw: ds.twitter,
+        li: ds.linkedin,
         gradSuffix: String(leadKey || '').replace(/[^a-z0-9]+/gi, '-'),
         emptyDash: false,
         size: 'table',

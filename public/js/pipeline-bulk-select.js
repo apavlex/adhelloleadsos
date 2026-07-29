@@ -2022,6 +2022,14 @@
           }
           return;
         }
+        if (e.target.closest('.js-bulk-socials')) {
+          e.preventDefault();
+          e.stopPropagation();
+          if (typeof window.__runBulkSocialEnrichmentSelectedLeads === 'function') {
+            void window.__runBulkSocialEnrichmentSelectedLeads();
+          }
+          return;
+        }
       },
       true,
     );

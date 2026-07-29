@@ -8394,7 +8394,9 @@ document.addEventListener('DOMContentLoaded', () => {
       gm: mapsHref || '',
       fb: sanitizeSocialUrl(row.dataset.facebook),
       ig: sanitizeSocialUrl(row.dataset.instagram),
+      tt: sanitizeSocialUrl(row.dataset.tiktok),
       tw: sanitizeSocialUrl(row.dataset.twitter),
+      li: sanitizeSocialUrl(row.dataset.linkedin),
       gradSuffix: suffix,
       size: opts.size,
       emptyDash: opts.emptyDash,
@@ -15887,7 +15889,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!d || typeof d !== 'object') return;
     if (d.facebook) row.dataset.facebook = d.facebook;
     if (d.instagram) row.dataset.instagram = d.instagram;
+    if (d.tiktok) row.dataset.tiktok = d.tiktok;
     if (d.twitter) row.dataset.twitter = d.twitter;
+    if (d.linkedin) row.dataset.linkedin = d.linkedin;
     if (result && result.foundUrl) row.dataset.website = result.foundUrl;
     if (d.website && d.website !== 'N/A') row.dataset.website = d.website;
     const sch = d.has_schema_markup ?? d.hasSchemaMarkup;
@@ -16364,6 +16368,109 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   window.__runBulkEnhanceSelectedLeads = runBulkEnhanceSelectedLeads;
 
+  async function runBulkSocialEnrichmentSelectedLeads() {
+    const checkedBoxes = document.querySelectorAll('.row-checkbox:checked, .lead-checkbox:checked');
+    if (checkedBoxes.length === 0) {
+      notifyBulkEnhanceIdle('Select one or more saved leads to find social profiles.');
+      return;
+    }
+
+    const selectedRows = Array.from(checkedBoxes).map((cb) => cb.closest('.result-row')).filter(Boolean);
+    const leadsToProcess = selectedRows.filter((r) => r.dataset.leadKey).slice(0, 25);
+    if (!leadsToProcess.length) {
+      notifyBulkEnhanceIdle('Save leads to your pipeline first — social search needs saved lead keys.', 'warning');
+      return;
+    }
+    if (selectedRows.length > 25) {
+      notifyBulkEnhanceIdle('Social search limited to 25 leads per batch.', 'info');
+    }
+
+    const socialBtns = document.querySelectorAll('.js-bulk-socials');
+    const btnSnap = Array.from(socialBtns).map((b) => b.innerHTML);
+    const loadingHtml =
+      '<span class="text-[10px] font-black uppercase tracking-widest animate-pulse">Finding…</span>';
+    socialBtns.forEach((b) => {
+      b.disabled = true;
+      b.classList.add('loading');
+      b.innerHTML = loadingHtml;
+    });
+
+    let successCount = 0;
+    let attemptedCount = 0;
+    let lastError = '';
+
+    try {
+      updateProcessingStatus(true);
+      for (const row of leadsToProcess) {
+        const key = row.dataset.leadKey;
+        if (!key) continue;
+        attemptedCount += 1;
+        syncRowSocialsUnderPhone(row);
+        const slot = row.querySelector('.lead-cell-socials-content');
+        if (slot) {
+          slot.innerHTML =
+            '<span class="text-[9px] font-bold text-pink-400 uppercase tracking-widest animate-pulse">Searching…</span>';
+        }
+        try {
+          const res = await fetch(`/leads/${encodeURIComponent(key)}/enrich-socials`, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { Accept: 'application/json' },
+          });
+          const result = await res.json().catch(() => ({}));
+          if (result.error) lastError = String(result.error);
+          const d = result.lead;
+          const ok = res.ok && result.success && d && !result.skipped;
+          if (ok) successCount += 1;
+          if (d) {
+            applyEnrichDataToRowDataset(row, d, result);
+            syncRowSocialsUnderPhone(row);
+          } else if (slot) {
+            syncRowSocialsUnderPhone(row);
+          }
+        } catch (err) {
+          console.error('Social enrichment error:', err);
+          lastError = err.message || lastError;
+          syncRowSocialsUnderPhone(row);
+        }
+      }
+    } finally {
+      updateProcessingStatus(false);
+    }
+
+    const summaryLabel =
+      successCount > 0
+        ? `Found socials on ${successCount} lead${successCount !== 1 ? 's' : ''}`
+        : attemptedCount > 0
+          ? 'No new socials found'
+          : 'Done';
+    socialBtns.forEach((b) => {
+      b.innerHTML = `<span class="text-[10px] font-black uppercase tracking-widest">${summaryLabel}</span>`;
+    });
+
+    if (successCount === 0 && attemptedCount > 0) {
+      notifyBulkEnhanceIdle(
+        lastError ||
+          'No matching Instagram, TikTok, or X profiles found. Add TikHub API key under Workspace → Integrations.',
+        'warning',
+      );
+    } else if (successCount > 0) {
+      notifyBulkEnhanceIdle(
+        `Added social profile links on ${successCount} lead${successCount !== 1 ? 's' : ''}. Click icons in the Socials column to DM.`,
+        'ok',
+      );
+    }
+
+    setTimeout(() => {
+      socialBtns.forEach((b, i) => {
+        b.classList.remove('loading');
+        b.disabled = false;
+        b.innerHTML = btnSnap[i] || b.innerHTML;
+      });
+    }, 2800);
+  }
+  window.__runBulkSocialEnrichmentSelectedLeads = runBulkSocialEnrichmentSelectedLeads;
+
   document.addEventListener('agency-os-bulk-enhance-item-complete', (ev) => {
     const { key, success, result } = ev.detail || {};
     if (!key) return;
@@ -16424,6 +16531,18 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       e.stopPropagation();
       void runBulkEnhanceSelectedLeads();
+    },
+    true,
+  );
+
+  document.addEventListener(
+    'click',
+    (e) => {
+      const btn = e.target && e.target.closest ? e.target.closest('.js-bulk-socials') : null;
+      if (!btn || btn.disabled || btn.classList.contains('loading')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      void runBulkSocialEnrichmentSelectedLeads();
     },
     true,
   );

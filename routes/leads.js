@@ -21,6 +21,7 @@ const {
   hasContactValue,
 } = require('../services/leadPanelNormalize');
 const betterContact = require('../services/betterContactClient');
+const tikHub = require('../services/tikHubClient');
 const websiteAiAnalysis = require('../services/websiteAiAnalysis');
 const pageSpeedInsights = require('../services/pageSpeedInsights');
 const { createAuditReportToken } = require('../services/auditReportSign');
@@ -3643,6 +3644,75 @@ async function runLeadEnhancement(lead, workspaceId) {
   return fail;
 }
 
+/**
+ * TikHub-only social profile discovery (Instagram, TikTok, X).
+ */
+async function runSocialEnrichment(lead, workspaceId) {
+  if (!lead || !lead.key) return { success: false, error: 'Lead not found.' };
+  const fullKey = lead.key.startsWith('lead:') ? lead.key : `lead:${lead.key}`;
+  const leadWorkspaceId = (lead && lead.workspaceId) || workspaceId;
+  const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(leadWorkspaceId);
+
+  if (!tikHub.isConfigured(integrationEnv)) {
+    return {
+      success: false,
+      error: 'TikHub is not configured. Add your API key under Workspace → Integrations → TikHub.',
+    };
+  }
+
+  let pack;
+  try {
+    pack = await tikHub.enrichLeadSocialProfiles(lead, integrationEnv);
+  } catch (e) {
+    return { success: false, error: e.message || 'Social search failed.' };
+  }
+
+  if (pack.skipped) {
+    return {
+      success: true,
+      skipped: true,
+      message: pack.message,
+      lead,
+      socialsFound: [],
+    };
+  }
+
+  const extract = pack.extract || {};
+  if (!tikHub.extractHasSignal(extract)) {
+    return {
+      success: false,
+      error: pack.message || 'No matching social profiles found for this business.',
+      lead,
+      socialsFound: [],
+      errors: pack.errors || [],
+    };
+  }
+
+  const patch = firecrawlExtractToLeadUpdates(extract);
+  if ((!lead.instagram || lead.instagram === 'N/A') && extract.instagram) patch.instagram = extract.instagram;
+  if ((!lead.tiktok || lead.tiktok === 'N/A') && extract.tiktok) patch.tiktok = extract.tiktok;
+  if ((!lead.twitter || lead.twitter === 'N/A') && extract.twitter) patch.twitter = extract.twitter;
+  if ((!lead.facebook || lead.facebook === 'N/A') && extract.facebook) patch.facebook = extract.facebook;
+  if (!lead.linkedin && extract.linkedin) patch.linkedin = extract.linkedin;
+
+  const updates = [...(lead.updates || [])];
+  updates.push({
+    type: 'social_enrichment',
+    value: `Social profiles found via TikHub (${(pack.platforms || []).join(', ') || 'updated'}).`,
+    timestamp: new Date().toISOString(),
+  });
+  patch.updates = updates;
+  patch.lastSocialEnrichAt = new Date().toISOString();
+
+  const updatedLead = (await dbService.updateLead(fullKey, patch, leadWorkspaceId)) || { ...lead, ...patch };
+  return {
+    success: true,
+    lead: updatedLead,
+    socialsFound: pack.platforms || [],
+    message: pack.message,
+  };
+}
+
 // POST /leads/enhance-missing-contacts — admin backfill for leads missing phone/email
 router.post('/enhance-missing-contacts', async (req, res, next) => {
   try {
@@ -3712,6 +3782,29 @@ router.get('/:key/enhance-status', async (req, res, next) => {
     contactHuntJobs.clear(fullKey);
     return res.json({ status: 'done', ...result });
   } catch (err) {
+    next(err);
+  }
+});
+
+// POST /leads/:key/enrich-socials — TikHub Instagram / TikTok / X profile search (sync)
+router.post('/:key/enrich-socials', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    const fullKey = key.startsWith('lead:') ? key : `lead:${key}`;
+    const lead = await dbService.getLead(fullKey);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found.' });
+    }
+    if (String(lead.workspaceId || '') !== String(req.workspaceId || '')) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    const result = await runSocialEnrichment(lead, req.workspaceId);
+    if (result.success) {
+      return res.json(result);
+    }
+    return res.status(result.skipped ? 200 : 422).json(result);
+  } catch (err) {
+    console.error('Social enrichment error:', err.message);
     next(err);
   }
 });

@@ -335,7 +335,9 @@
               var _gm = googleMapsSocialHrefForLead(lead);
               var _fb = lead.facebook && lead.facebook !== 'N/A' ? String(lead.facebook) : '';
               var _ig = lead.instagram && lead.instagram !== 'N/A' ? String(lead.instagram) : '';
+              var _tt = lead.tiktok && lead.tiktok !== 'N/A' ? String(lead.tiktok) : '';
               var _tw = lead.twitter && lead.twitter !== 'N/A' ? String(lead.twitter) : '';
+              var _li = lead.linkedin && lead.linkedin !== 'N/A' ? String(lead.linkedin) : '';
               var _rNum = lead.totalScore ? Number(lead.totalScore).toFixed(1) : '';
               var _rc = parseInt(String(lead.reviewsCount || 0), 10) || 0;
               if (!_rc && lead.importFields && lead.importFields.review_count) {
@@ -453,7 +455,9 @@
                 data-url="<%= plcEscAttr(lead.url || '') %>"
                 data-facebook="<%= plcEscAttr(lead.facebook || 'N/A') %>"
                 data-instagram="<%= plcEscAttr(lead.instagram || 'N/A') %>"
+                data-tiktok="<%= plcEscAttr(lead.tiktok || 'N/A') %>"
                 data-twitter="<%= plcEscAttr(lead.twitter || 'N/A') %>"
+                data-linkedin="<%= plcEscAttr(lead.linkedin || '') %>"
                 data-status="<%= plcEscAttr(deliveryStatusDisplay) %>"
                 data-last-disposition="<%= plcEscAttr(String(lead.lastDisposition || '').trim().toLowerCase()) %>"
                 data-loom-url="<%= plcEscAttr(lead.loomUrl || '') %>"
@@ -739,7 +743,7 @@
               </td>
               <td data-plc="socials" class="lead-cell-socials px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap min-w-[5.5rem]" onclick="event.stopPropagation()">
                 <div class="lead-cell-socials-content inline-flex flex-nowrap items-center gap-2 py-0.5">
-                  <%- typeof renderSocialBrandLinks === 'function' ? renderSocialBrandLinks({ gm: _gm, fb: _fb, ig: _ig, tw: _tw, gradSuffix: rowAnchor }) : '' %>
+                  <%- typeof renderSocialBrandLinks === 'function' ? renderSocialBrandLinks({ gm: _gm, fb: _fb, ig: _ig, tt: _tt, tw: _tw, li: _li, gradSuffix: rowAnchor }) : '' %>
                 </div>
               </td>
               <td data-plc="added" class="px-2 align-middle border-b border-brand-border/15 dark:border-white/[0.07] whitespace-nowrap">

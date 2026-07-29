@@ -219,6 +219,31 @@
           <%- include('../../partials/integration_test_row', { provider: 'bettercontact' }) %>
         </section>
 
+        <section id="integration-tikhub" class="rounded-2xl border-2 border-pink-400/25 dark:border-pink-400/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
+          <header class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">TikHub</h3>
+              <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
+                Find <strong>Instagram, TikTok, and X</strong> handles for pipeline leads via
+                <a href="https://tikhub.io/" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">TikHub</a>.
+                Select leads in the pipeline and click <strong>Socials</strong> on the bulk bar, or use bulk Enhance for full contact hunt.
+                Create an API key at
+                <a href="https://user.tikhub.io/users/signin" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">user.tikhub.io</a>.
+              </p>
+            </div>
+            <a href="https://docs.tikhub.io/" class="shrink-0 rounded-xl border border-pink-400/40 bg-pink-400/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-dark dark:text-pink-300 hover:bg-pink-400/20 transition-colors" target="_blank" rel="noopener noreferrer">
+              API docs →
+            </a>
+          </header>
+          <div>
+            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">API key</label>
+            <% if (masks.tikhubApiKey) { %><p class="text-xs text-brand-muted mb-1">Saved: <%= masks.tikhubApiKey %></p><% } %>
+            <input type="password" name="tikhubApiKey" autocomplete="off" placeholder="Bearer token from TikHub (leave blank to keep)" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm" />
+            <% if (masks.tikhubApiKey) { %><label class="inline-flex items-center gap-2 text-xs text-brand-muted mt-2"><input type="checkbox" name="tikhubApiKey_clear" value="1" /> Remove</label><% } %>
+          </div>
+          <%- include('../../partials/integration_test_row', { provider: 'tikhub' }) %>
+        </section>
+
         <section id="integration-permitstack" class="rounded-2xl border-2 border-brand-yellow/25 dark:border-brand-yellow/20 bg-white dark:bg-slate-900/60 p-5 sm:p-6 space-y-4 scroll-mt-28 transition-shadow duration-300">
           <header>
             <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Permit Stack</h3>

@@ -18,6 +18,7 @@ const ghlClient = require('./ghlClient');
 const lobClient = require('./lobClient');
 const commsClient = require('./commsClient');
 const saperlyClient = require('./saperlyClient');
+const tikHubClient = require('./tikHubClient');
 
 const SAMPLE_SEARCH = {
   keyword: 'coffee shop',
@@ -60,6 +61,10 @@ const PROVIDERS = {
   saperly: {
     label: 'Saperly (SMS / voice)',
     fields: ['saperlyApiKey', 'saperlyFromNumberId'],
+  },
+  tikhub: {
+    label: 'TikHub (social profile search)',
+    fields: ['tikhubApiKey'],
   },
 };
 
@@ -290,6 +295,14 @@ async function testSaperly(integrationEnv) {
   return { message: result.message || 'Connected' };
 }
 
+async function testTikHub(integrationEnv) {
+  if (!tikHubClient.isConfigured(integrationEnv)) {
+    throw new Error('Missing TikHub API key — paste your key from user.tikhub.io and save.');
+  }
+  const result = await tikHubClient.testConnection(integrationEnv);
+  return { message: result.message || 'Connected' };
+}
+
 const RUNNERS = {
   rapidapi: () => testRapidapi,
   searchapi: () => testSearchapi,
@@ -306,6 +319,7 @@ const RUNNERS = {
   lob: () => testLob,
   comms: () => testComms,
   saperly: () => testSaperly,
+  tikhub: () => testTikHub,
 };
 
 /**

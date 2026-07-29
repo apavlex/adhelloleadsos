@@ -14,6 +14,7 @@ function firecrawlExtractToLeadUpdates(raw) {
   copy('instagram', 'instagram');
   copy('twitter', 'twitter');
   copy('linkedin', 'linkedin');
+  copy('tiktok', 'tiktok');
   copy('google_places', 'googlePlaces');
   copy('yelp', 'yelp');
   copy('email', 'email');
