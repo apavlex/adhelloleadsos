@@ -511,6 +511,9 @@
       if (!res.ok || !data.success) throw new Error((data && data.error) || 'Logo upload failed.');
       brandKit = Object.assign(brandKit, data.brandKit || {});
       renderBrandLogoPreview(brandKit.logoUrl);
+      var useLogoEl = document.getElementById('dmBrandUseLogo');
+      if (useLogoEl) useLogoEl.checked = true;
+      scheduleBrandKitSave();
       setBrandSaveStatus('Logo uploaded', true);
       if (typeof window.showAppToast === 'function') {
         window.showAppToast('Logo uploaded', { variant: 'success' });
@@ -1848,15 +1851,27 @@
         var statusMsg = editMode
           ? 'Updated ' + slot + ' side — saved to library.'
           : 'Generated ' + slot + ' side — saved to library automatically.';
-        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign) {
-          statusMsg =
-            'Generated ' +
-            slot +
-            ' side — your brand logo could not be overlaid. Re-upload a PNG with transparent background in Brand and try again.';
+        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
+          if (data.logoSkipReason === 'overlay_disabled') {
+            statusMsg =
+              'Generated ' +
+              slot +
+              ' side — logo overlay is off. Check "Use logo on card (top-right)" in Brand and generate again.';
+          } else if (data.logoSkipReason === 'no_stored_logo') {
+            statusMsg =
+              'Generated ' +
+              slot +
+              ' side — no logo found in Brand. Upload a PNG with transparent background and try again.';
+          } else {
+            statusMsg =
+              'Generated ' +
+              slot +
+              ' side — your brand logo could not be overlaid. Re-upload a PNG with transparent background in Brand and try again.';
+          }
         }
         setDesignStatus(
           statusMsg,
-          !(data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign && !editMode),
+          !(data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.useLogoInDesign && !editMode),
         );
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;

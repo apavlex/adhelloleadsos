@@ -48,18 +48,33 @@ function forgetImageJob(taskId) {
   pendingImageJobs.delete(String(taskId || '').trim());
 }
 
-async function loadWorkspaceLogoBuffer(req) {
-  const ws = (await dbService.getWorkspace(req.workspaceId)) || {};
-  await brandKitLogo.migrateLegacyLogoIfNeeded(ws);
-  return brandKitLogo.loadLogoBuffer(ws);
+async function getWorkspaceForBrand(req) {
+  let ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
+  return brandKitLogo.migrateLegacyLogoIfNeeded(ws);
+}
+
+async function mergeBrandKitForGeneration(req, clientRaw) {
+  const ws = await getWorkspaceForBrand(req);
+  const serverKit = resolveBrandKitForClient(ws);
+  const clientKit = normalizeBrandKit(clientRaw);
+  const clientSentUseLogo =
+    clientRaw && typeof clientRaw === 'object' && Object.prototype.hasOwnProperty.call(clientRaw, 'useLogoInDesign');
+  const useLogoInDesign = clientSentUseLogo ? clientKit.useLogoInDesign : serverKit.useLogoInDesign !== false;
+  return normalizeBrandKit({
+    ...serverKit,
+    ...clientKit,
+    logoUrl: serverKit.logoUrl || clientKit.logoUrl,
+    useLogoInDesign: brandKitLogo.hasStoredLogo(ws) ? useLogoInDesign !== false : false,
+  });
 }
 
 const LOGO_OVERLAY_POSITION = 'top-right';
 
-async function applyLogoOverlaySafe(req, imageUrl, logoBuffer) {
+async function applyLogoOverlaySafe(req, imageUrl, logoData) {
   return applyLogoOverlayToRemoteImage(req, {
     baseImageUrl: imageUrl,
-    logoBuffer,
+    logoBuffer: logoData.buffer,
+    logoMimeType: logoData.mimeType,
     position: LOGO_OVERLAY_POSITION,
     maxWidthRatio: 0.14,
     padding: 28,
@@ -69,26 +84,34 @@ async function applyLogoOverlaySafe(req, imageUrl, logoBuffer) {
 async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   let finalImageUrl = imageUrl;
   let logoOverlayApplied = false;
-  if (!finalImageUrl) return { finalImageUrl, logoOverlayApplied };
+  let logoSkipReason = null;
+  if (!finalImageUrl) return { finalImageUrl, logoOverlayApplied, logoSkipReason: 'no_image' };
 
-  const k = normalizeBrandKit(brandKit);
-  // Overlay only when "Use logo on design" is enabled — AI leaves top-right clear first.
-  if (!k.logoUrl || k.useLogoInDesign === false) {
-    return { finalImageUrl, logoOverlayApplied };
+  const ws = await getWorkspaceForBrand(req);
+  const k = await mergeBrandKitForGeneration(req, brandKit);
+
+  if (!brandKitLogo.hasStoredLogo(ws)) {
+    return { finalImageUrl, logoOverlayApplied, logoSkipReason: 'no_stored_logo' };
+  }
+  if (k.useLogoInDesign === false) {
+    return { finalImageUrl, logoOverlayApplied, logoSkipReason: 'overlay_disabled' };
   }
 
   let logoData = null;
   try {
-    logoData = await loadWorkspaceLogoBuffer(req);
+    logoData = await brandKitLogo.loadLogoBuffer(ws);
   } catch (loadErr) {
     console.warn('[direct-mail] logo load failed:', loadErr && loadErr.message ? loadErr.message : loadErr);
+    logoSkipReason = 'logo_load_failed';
   }
 
   const hasLogo = Boolean(logoData && logoData.buffer && logoData.buffer.length);
-  if (!hasLogo) return { finalImageUrl, logoOverlayApplied };
+  if (!hasLogo) {
+    return { finalImageUrl, logoOverlayApplied, logoSkipReason: logoSkipReason || 'no_logo_buffer' };
+  }
 
   try {
-    const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData.buffer);
+    const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData);
     finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
     logoOverlayApplied = true;
   } catch (overlayErr) {
@@ -97,7 +120,7 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
       overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
     );
     try {
-      const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData.buffer);
+      const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData);
       finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
       logoOverlayApplied = true;
     } catch (retryErr) {
@@ -105,10 +128,11 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
         '[direct-mail] logo overlay retry failed:',
         retryErr && retryErr.message ? retryErr.message : retryErr,
       );
+      logoSkipReason = 'overlay_failed';
     }
   }
 
-  return { finalImageUrl, logoOverlayApplied };
+  return { finalImageUrl, logoOverlayApplied, logoSkipReason };
 }
 
 function kieHttpError(err, req, fallback) {
@@ -758,7 +782,7 @@ router.post('/api/design-chat', async (req, res, next) => {
     const ctaUrl = String(body.ctaUrl || '').trim();
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
     const aspectRatio = String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
-    const brandKit = normalizeBrandKit(body.brandKit);
+    const brandKit = await mergeBrandKitForGeneration(req, body.brandKit);
     const frontImageUrl = toAbsoluteAssetUrl(req, String(body.frontImageUrl || '').trim());
     const currentImageUrl = toAbsoluteAssetUrl(req, String(body.currentImageUrl || '').trim());
     const frontPrompt = String(body.frontPrompt || '').trim();
@@ -824,7 +848,7 @@ router.post('/api/generate-image', async (req, res, next) => {
 
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
-    const brandKit = normalizeBrandKit(body.brandKit);
+    const brandKit = await mergeBrandKitForGeneration(req, body.brandKit);
     const editMode = body.editMode === true;
     const matchFrontStyle = !editMode && body.matchFrontStyle === true;
     const styleReferenceUrl = editMode
@@ -944,10 +968,11 @@ router.get('/api/generate-image/status', async (req, res, next) => {
           error: 'Image generation finished but no result URL was returned.',
         });
       }
-      const { finalImageUrl, logoOverlayApplied } = await finalizeGeneratedImage(
+      const brandKit = await mergeBrandKitForGeneration(req, job.brandKit || {});
+      const { finalImageUrl, logoOverlayApplied, logoSkipReason } = await finalizeGeneratedImage(
         req,
         urls[0],
-        job.brandKit || {},
+        brandKit,
       );
       forgetImageJob(taskId);
       return res.json({
@@ -959,6 +984,7 @@ router.get('/api/generate-image/status', async (req, res, next) => {
         imageUrl: finalImageUrl,
         urls,
         logoOverlayApplied,
+        logoSkipReason,
       });
     }
 
