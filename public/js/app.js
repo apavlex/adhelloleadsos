@@ -2212,18 +2212,24 @@ document.addEventListener('DOMContentLoaded', () => {
       const form = document.getElementById('searchForm');
       const type = form && form.getAttribute('data-find-type');
       const summary = document.getElementById('findLocationSummaryText');
+      if (type !== 'permits' && typeof window.resolveFindLocationFromQuery === 'function') {
+        window.resolveFindLocationFromQuery(() => {
+          if (hasFindLocation()) trySetStep('2');
+        });
+        return;
+      }
       if (summary) {
         summary.textContent =
           type === 'permits'
             ? 'Select a supported Permit Stack city from the dropdown.'
-            : 'Enter city and state (or use Use map center).';
+            : 'Enter a city and state (e.g. Vancouver, WA).';
         summary.classList.remove('text-brand-muted');
         summary.classList.add('text-brand-dark', 'dark:text-white');
       }
       const focusEl =
         type === 'permits'
           ? document.getElementById('findPermitCityTrigger') || document.getElementById('findPermitCitySearch')
-          : document.getElementById('findManualCity');
+          : document.getElementById('findLocationQuery') || document.getElementById('findManualCity');
       if (focusEl) {
         focusEl.focus();
         if (type === 'permits') {
@@ -2233,6 +2239,21 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       }
+    }
+
+    const trySetStep = (stepNo) => {
+      const step = String(stepNo);
+      if (step === '2' && !hasFindLocation()) {
+        showFindLocationRequired();
+        return;
+      }
+      if (step === '2') closeFindAreaMapPanelIfOpen();
+      setStep(step);
+    };
+
+    function closeFindAreaMapPanelIfOpen() {
+      const panel = document.getElementById('findAreaMapPanel');
+      if (panel && !panel.classList.contains('hidden')) panel.classList.add('hidden');
     }
 
     const setStep = (stepNo) => {
@@ -2263,15 +2284,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (scrollEl && typeof scrollEl.scrollIntoView === 'function') {
         scrollEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
-    };
-
-    const trySetStep = (stepNo) => {
-      const step = String(stepNo);
-      if (step === '2' && !hasFindLocation()) {
-        showFindLocationRequired();
-        return;
-      }
-      setStep(step);
     };
 
     document.querySelectorAll('[data-step-next]').forEach((btnNext) => {

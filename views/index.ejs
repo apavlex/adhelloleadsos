@@ -88,7 +88,7 @@
                 <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand-yellow text-[11px] font-black text-brand-dark">1</span>
                 <span class="min-w-0 hidden sm:block">
                   <span class="block text-[10px] font-black uppercase tracking-widest">Area</span>
-                  <span class="block text-[11px] text-brand-muted truncate" id="findStep1Hint">Map or city</span>
+                  <span class="block text-[11px] text-brand-muted truncate" id="findStep1Hint">City or address</span>
                 </span>
               </button>
             </li>
@@ -110,28 +110,30 @@
             <input type="hidden" name="folderKey" value="<%= presetFolderKey %>" />
           <% } %>
           <!-- STEP 1: Area -->
+          <% const _prefCity = String(_sp.city || '').trim();
+             const _prefState = String(_sp.state || '').trim().toUpperCase();
+             const _prefLocationQuery = _prefCity && _prefState ? _prefCity + ', ' + _prefState : (_prefCity || ''); %>
           <section data-step-panel="1" class="wizard-step-panel">
-            <div class="grid grid-cols-1 lg:grid-cols-5 lg:min-h-[min(72vh,720px)]">
-              <div class="lg:col-span-3 relative min-h-[min(58vh,640px)] lg:min-h-0 lg:h-full border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10 overflow-hidden" id="findAreaMapCol">
-                <%- include('partials/find_area_map') %>
-              </div>
-              <aside class="lg:col-span-2 p-5 sm:p-6 flex flex-col gap-5 bg-brand-cream/20 dark:bg-slate-950/30 lg:overflow-y-auto">
-                <div class="flex items-center gap-2">
-                  <h2 class="font-display font-bold text-lg text-brand-dark dark:text-white">Target location</h2>
-                  <%- include('/partials/app_info_tip', {
-                    tipId: 'find-location-help',
-                    tipKey: 'find-location',
-                    label: 'Target location for Find Leads',
-                    size: 'sm',
-                    content: 'Use the map, or type city and state directly. Both stay in sync. Map requires <code class="text-[10px] px-1 rounded bg-white dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server. Manual entry always works for Find Leads search.'
-                  }) %>
+            <div id="findLocationSimple" class="p-5 sm:p-8 md:p-10 bg-brand-cream/15 dark:bg-slate-950/20">
+              <div class="max-w-2xl mx-auto space-y-6">
+                <div class="text-center space-y-2">
+                  <div class="flex items-center justify-center gap-2">
+                    <h2 class="font-display font-bold text-xl md:text-2xl text-brand-dark dark:text-white">Where should we search?</h2>
+                    <%- include('/partials/app_info_tip', {
+                      tipId: 'find-location-help',
+                      tipKey: 'find-location',
+                      label: 'Target location for Find Leads',
+                      size: 'sm',
+                      content: 'Type a city and state like <strong>Vancouver, WA</strong> or a full address. Optional map search opens when you click <strong>Search by map</strong>.'
+                    }) %>
+                  </div>
+                  <p class="text-sm text-brand-muted max-w-md mx-auto">Enter a city, state, or address — like a Google search.</p>
                 </div>
+
                 <div id="findPermitCityWrap" class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3 <%= _findType !== 'permits' ? 'hidden' : '' %>">
                   <div>
                     <label for="findPermitCitySearch" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Permit Stack city</label>
                     <% const _permCityGroups = typeof permitStackCitiesByState !== 'undefined' ? permitStackCitiesByState : [];
-                       const _prefCity = String(_sp.city || '').trim();
-                       const _prefState = String(_sp.state || '').trim().toUpperCase();
                        let _prefPermitLabel = 'Select a supported city…';
                        let _prefPermitCity = '';
                        let _prefPermitState = '';
@@ -187,28 +189,57 @@
                   </div>
                   <p class="text-xs text-brand-muted leading-relaxed">Permit Stack only includes supported jurisdictions — pick from this list (same cities as <a href="https://permit-stack.com/search.html" class="underline" target="_blank" rel="noopener noreferrer">permit-stack.com/search</a>).</p>
                 </div>
-                <div id="findManualCityWrap" class="rounded-2xl border border-brand-border/40 dark:border-white/10 bg-white dark:bg-slate-900 p-4 space-y-3 <%= _findType === 'permits' ? 'hidden' : '' %>">
-                  <div>
-                    <label for="findManualCity" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">City</label>
-                    <input type="text" id="findManualCity" name="city" placeholder="e.g. Vancouver" value="<%= _sp.city || '' %>"
-                      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30" />
+
+                <div id="findSimpleLocationWrap" class="space-y-4 <%= _findType === 'permits' ? 'hidden' : '' %>">
+                  <div class="flex items-stretch rounded-full border-2 border-brand-border/50 dark:border-white/10 bg-white dark:bg-slate-900 shadow-lg shadow-brand-dark/5 overflow-hidden focus-within:border-brand-yellow focus-within:ring-4 focus-within:ring-brand-yellow/20 transition-all">
+                    <label for="findLocationQuery" class="sr-only">Search city, state, or address</label>
+                    <span class="hidden sm:flex items-center pl-5 text-brand-muted shrink-0" aria-hidden="true">
+                      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-4.35-4.35M11 18a7 7 0 100-14 7 7 0 000 14z" /></svg>
+                    </span>
+                    <input type="search" id="findLocationQuery" autocomplete="off" placeholder="Vancouver, WA or full address…" value="<%= _prefLocationQuery %>"
+                      class="min-w-0 flex-1 border-0 bg-transparent px-4 sm:px-2 py-4 sm:py-3.5 text-base sm:text-lg font-semibold text-brand-dark dark:text-white placeholder:text-brand-muted/55 focus:outline-none focus:ring-0" />
+                    <button type="button" id="findLocationResolveBtn" class="shrink-0 m-1.5 sm:m-2 rounded-full bg-brand-yellow px-5 sm:px-6 py-2.5 text-[10px] font-black uppercase tracking-widest text-brand-dark hover:brightness-105 active:scale-[0.98] transition-all">
+                      Search
+                    </button>
                   </div>
-                  <div>
-                    <label for="findManualState" class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">State</label>
-                    <input type="text" id="findManualState" name="state" placeholder="BC or WA" maxlength="2" value="<%= _sp.state || '' %>"
-                      class="w-full rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/30 dark:bg-slate-800 px-3 py-2.5 text-sm font-semibold uppercase text-brand-dark dark:text-white placeholder:text-brand-muted/60 focus:border-brand-yellow focus:ring-2 focus:ring-brand-yellow/30" />
+                  <div class="flex justify-center">
+                    <button type="button" id="findOpenMapBtn" class="inline-flex items-center gap-2 rounded-full border border-brand-border/40 dark:border-white/10 bg-white/80 dark:bg-slate-900/80 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white hover:border-brand-yellow/40 transition-colors">
+                      <svg class="w-4 h-4 text-brand-yellow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                      Search by map
+                    </button>
                   </div>
-                </div>
-                <div id="findLocationSummary" class="rounded-xl border border-dashed border-brand-yellow/40 bg-brand-yellow/5 px-4 py-3 text-sm text-brand-dark dark:text-slate-200 min-h-[3rem] flex items-center">
-                  <span class="text-brand-muted text-xs" id="findLocationSummaryText">Set a city and state to continue.</span>
                 </div>
 
-                <div class="mt-auto pt-2 flex justify-end">
-                  <button type="button" data-step-next="2" id="findStep1Next" class="btn-pill btn-primary px-6 py-3 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto">
+                <div id="findManualCityWrap" class="sr-only" aria-hidden="true">
+                  <input type="text" id="findManualCity" name="city" tabindex="-1" value="<%= _sp.city || '' %>" />
+                  <input type="text" id="findManualState" name="state" maxlength="2" tabindex="-1" value="<%= _sp.state || '' %>" />
+                </div>
+
+                <div id="findLocationSummary" class="rounded-xl border border-dashed border-brand-yellow/40 bg-brand-yellow/5 px-4 py-3 text-sm text-brand-dark dark:text-slate-200 min-h-[3rem] flex items-center justify-center text-center">
+                  <span class="text-brand-muted text-xs" id="findLocationSummaryText">Enter a location above to continue.</span>
+                </div>
+
+                <div class="flex justify-center pt-2">
+                  <button type="button" data-step-next="2" id="findStep1Next" class="btn-pill btn-primary px-8 py-3.5 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto min-w-[12rem]">
                     Continue to keyword
                   </button>
                 </div>
-              </aside>
+              </div>
+            </div>
+
+            <div id="findAreaMapPanel" class="hidden border-t border-brand-border/20 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-950/40">
+              <div class="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-brand-border/20 dark:border-white/10">
+                <div>
+                  <p class="text-[10px] font-black uppercase tracking-widest text-brand-yellow mb-0.5">Map search</p>
+                  <h3 class="font-display font-bold text-base text-brand-dark dark:text-white">Pick an area on the map</h3>
+                </div>
+                <button type="button" id="findCloseMapBtn" class="shrink-0 rounded-full border border-brand-border/40 dark:border-white/10 px-4 py-2 text-[10px] font-black uppercase tracking-widest text-brand-muted hover:text-brand-dark dark:hover:text-white transition-colors">
+                  Close map
+                </button>
+              </div>
+              <div class="relative min-h-[min(52vh,560px)] overflow-hidden" id="findAreaMapCol">
+                <%- include('partials/find_area_map') %>
+              </div>
             </div>
           </section>
 
@@ -670,15 +701,14 @@
       var cityEl = document.getElementById('findManualCity');
       var stateEl = document.getElementById('findManualState');
       var permitWrap = document.getElementById('findPermitCityWrap');
-      var manualWrap = document.getElementById('findManualCityWrap');
-      var mapCol = document.getElementById('findAreaMapCol');
+      var simpleWrap = document.getElementById('findSimpleLocationWrap');
+      var mapPanel = document.getElementById('findAreaMapPanel');
       var permitCityEl = document.getElementById('findPermitCity');
-      var step1Title = document.querySelector('#findWizardStepBar + form section[data-step-panel="1"] h2, section[data-step-panel="1"] h2');
       if (stepBar) stepBar.classList.toggle('hidden', !needsLoc);
       if (backBtn) backBtn.classList.toggle('hidden', !needsLoc);
       if (permitWrap) permitWrap.classList.toggle('hidden', !isPermits);
-      if (manualWrap) manualWrap.classList.toggle('hidden', isPermits);
-      if (mapCol) mapCol.classList.toggle('hidden', isPermits);
+      if (simpleWrap) simpleWrap.classList.toggle('hidden', isPermits);
+      if (mapPanel && isPermits) mapPanel.classList.add('hidden');
       if (cityEl) cityEl.required = needsLoc && !isPermits;
       if (stateEl) stateEl.required = needsLoc && !isPermits;
       if (permitCityEl) permitCityEl.required = needsLoc && isPermits;
@@ -688,6 +718,138 @@
       document.dispatchEvent(new CustomEvent('find:locationModeChanged', {
         detail: { requiresLocation: needsLoc, findType: type || currentType },
       }));
+    }
+
+    function parseCityStateFromQuery(raw) {
+      var q = String(raw || '').trim();
+      if (!q) return { city: '', state: '' };
+      var parts = q.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (parts.length >= 2) {
+        var last = parts[parts.length - 1];
+        var stMatch = last.match(/^([A-Za-z]{2})(?:\s+\d{5}(?:-\d{4})?)?$/);
+        if (stMatch) {
+          return {
+            city: parts[parts.length - 2] || parts[0] || '',
+            state: stMatch[1].toUpperCase(),
+          };
+        }
+        var zipMatch = last.match(/([A-Za-z]{2})\s+(\d{5})/);
+        if (zipMatch && parts.length >= 3) {
+          return { city: parts[parts.length - 2] || '', state: zipMatch[1].toUpperCase() };
+        }
+      }
+      if (parts.length === 1) return { city: parts[0], state: '' };
+      return { city: parts[0] || '', state: '' };
+    }
+
+    function writeFindManualLocation(city, state, queryLabel) {
+      var cityEl = document.getElementById('findManualCity');
+      var stateEl = document.getElementById('findManualState');
+      var queryEl = document.getElementById('findLocationQuery');
+      if (cityEl) cityEl.value = city || '';
+      if (stateEl) stateEl.value = (state || '').slice(0, 2).toUpperCase();
+      if (queryEl && queryLabel) queryEl.value = queryLabel;
+      else if (queryEl && city && state) queryEl.value = city + ', ' + state;
+      try {
+        document.dispatchEvent(new CustomEvent('find:locationUpdated', {
+          detail: { city: city || '', state: state || '' },
+        }));
+      } catch (e) { /* ignore */ }
+    }
+
+    function geocodeFindLocationQuery(query, done) {
+      var q = String(query || '').trim();
+      if (!q) {
+        done(null, 'Enter a city, state, or address.');
+        return;
+      }
+      if (window.google && google.maps && google.maps.Geocoder) {
+        var geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ address: q }, function (results, status) {
+          if (status === 'OK' && results && results[0]) {
+            var comps = results[0].address_components || [];
+            var city = '';
+            var state = '';
+            for (var i = 0; i < comps.length; i++) {
+              var t = comps[i].types || [];
+              if (t.indexOf('locality') >= 0) city = comps[i].long_name;
+              if (t.indexOf('administrative_area_level_1') >= 0) state = comps[i].short_name || '';
+            }
+            if (!city) {
+              for (var j = 0; j < comps.length; j++) {
+                var t2 = comps[j].types || [];
+                if (t2.indexOf('sublocality') >= 0 || t2.indexOf('neighborhood') >= 0) {
+                  city = comps[j].long_name;
+                  break;
+                }
+              }
+            }
+            var label = results[0].formatted_address || q;
+            done({ city: city || '', state: (state || '').slice(0, 2).toUpperCase(), label: label }, null);
+            return;
+          }
+          var parsed = parseCityStateFromQuery(q);
+          if (parsed.city && parsed.state) {
+            done({ city: parsed.city, state: parsed.state, label: q }, null);
+            return;
+          }
+          done(null, 'Could not find that location — try City, ST (e.g. Vancouver, WA).');
+        });
+        return;
+      }
+      var fallback = parseCityStateFromQuery(q);
+      if (fallback.city && fallback.state) {
+        done({ city: fallback.city, state: fallback.state, label: q }, null);
+        return;
+      }
+      if (fallback.city) {
+        done({ city: fallback.city, state: '', label: q }, 'Add a state — e.g. Vancouver, WA');
+        return;
+      }
+      done(null, 'Enter city and state — e.g. Vancouver, WA');
+    }
+
+    function resolveFindLocationFromQuery(cb) {
+      var queryEl = document.getElementById('findLocationQuery');
+      var summary = document.getElementById('findLocationSummaryText');
+      var q = queryEl ? String(queryEl.value || '').trim() : '';
+      if (!q) {
+        if (summary) summary.textContent = 'Enter a location above to continue.';
+        if (cb) cb(false);
+        return;
+      }
+      if (typeof window.__bootFindAreaMap === 'function') window.__bootFindAreaMap();
+      if (summary) summary.textContent = 'Looking up location…';
+      geocodeFindLocationQuery(q, function (loc, err) {
+        if (!loc || !loc.city || !loc.state) {
+          if (summary) summary.textContent = err || 'Enter city and state — e.g. Vancouver, WA';
+          if (cb) cb(false);
+          return;
+        }
+        writeFindManualLocation(loc.city, loc.state, loc.label || q);
+        syncFindPreview();
+        if (cb) cb(true);
+      });
+    }
+
+    function openFindAreaMapPanel() {
+      var panel = document.getElementById('findAreaMapPanel');
+      if (!panel) return;
+      panel.classList.remove('hidden');
+      if (typeof window.__bootFindAreaMap === 'function') window.__bootFindAreaMap();
+      setTimeout(function () {
+        if (window.__findAreaMap && window.google && google.maps) {
+          try {
+            google.maps.event.trigger(window.__findAreaMap, 'resize');
+          } catch (e) { /* ignore */ }
+        }
+      }, 200);
+      panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeFindAreaMapPanel() {
+      var panel = document.getElementById('findAreaMapPanel');
+      if (panel) panel.classList.add('hidden');
     }
 
     function syncPermitCityToManual() {
@@ -821,13 +983,13 @@
       if (loc) loc.textContent = locLabel;
       var permitLoc = document.getElementById('findPermitPreviewLoc');
       if (permitLoc) permitLoc.textContent = locLabel;
-      if (hint) hint.textContent = nationwide ? 'No area needed' : (currentType === 'permits' ? 'Supported city' : (locLabel !== '—' ? locLabel : 'Map or city'));
+      if (hint) hint.textContent = nationwide ? 'No area needed' : (currentType === 'permits' ? 'Supported city' : (locLabel !== '—' ? locLabel : 'City or address'));
       if (summary) {
         summary.textContent = nationwide
           ? 'No location required — set search terms on the next step.'
           : currentType === 'permits'
             ? (locLabel !== '—' ? 'Searching permits in ' + locLabel : 'Select a supported Permit Stack city to continue.')
-            : (locLabel !== '—' ? 'Searching in ' + locLabel : 'Set a city and state to continue.');
+            : (locLabel !== '—' ? 'Searching in ' + locLabel : 'Enter a location above to continue.');
         summary.classList.toggle('text-brand-dark', nationwide || locLabel !== '—');
         summary.classList.toggle('dark:text-white', nationwide || locLabel !== '—');
         summary.classList.toggle('text-brand-muted', !nationwide && locLabel === '—');
@@ -875,11 +1037,27 @@
       });
     });
 
-    ['searchKeywordField', 'findReQuery', 'findPermitCategory', 'findPermitCity', 'findPermitZip', 'findPermitKeyword', 'findPermitContractor', 'findPermitFiledAfter', 'findManualCity', 'findManualState', 'findMaxResults'].forEach(function (id) {
+    ['searchKeywordField', 'findReQuery', 'findPermitCategory', 'findPermitCity', 'findPermitZip', 'findPermitKeyword', 'findPermitContractor', 'findPermitFiledAfter', 'findManualCity', 'findManualState', 'findLocationQuery', 'findMaxResults'].forEach(function (id) {
       var el = document.getElementById(id);
       if (el) el.addEventListener('input', syncFindPreview);
       if (el && el.tagName === 'SELECT') el.addEventListener('change', syncFindPreview);
     });
+    var findLocQuery = document.getElementById('findLocationQuery');
+    var findLocResolveBtn = document.getElementById('findLocationResolveBtn');
+    if (findLocResolveBtn) findLocResolveBtn.addEventListener('click', function () { resolveFindLocationFromQuery(); });
+    if (findLocQuery) {
+      findLocQuery.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          resolveFindLocationFromQuery();
+        }
+      });
+    }
+    var openMapBtn = document.getElementById('findOpenMapBtn');
+    var closeMapBtn = document.getElementById('findCloseMapBtn');
+    if (openMapBtn) openMapBtn.addEventListener('click', openFindAreaMapPanel);
+    if (closeMapBtn) closeMapBtn.addEventListener('click', closeFindAreaMapPanel);
+    window.resolveFindLocationFromQuery = resolveFindLocationFromQuery;
     var permitCitySel = document.getElementById('findPermitCity');
     if (permitCitySel) {
       permitCitySel.addEventListener('change', function () {

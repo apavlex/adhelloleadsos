@@ -1,5 +1,5 @@
 <% if (typeof googleMapsKey === 'string' && googleMapsKey) { %>
-<div class="find-area-map relative w-full h-full min-h-[min(58vh,640px)] lg:min-h-full" aria-label="Map area picker">
+<div class="find-area-map relative w-full h-full min-h-[min(52vh,560px)]" aria-label="Map area picker">
   <div class="absolute inset-0 w-full h-full">
     <div id="findAreaMap" class="absolute inset-0 w-full h-full bg-slate-200/50 dark:bg-slate-800/60" role="application" aria-label="Google Map — drag to choose search area"></div>
     <!-- Center pin -->
@@ -105,6 +105,10 @@
       var stateIn = document.querySelector('#searchForm input[name="state"]');
       if (cityIn) cityIn.value = city || '';
       if (stateIn) stateIn.value = state || '';
+      var queryEl = document.getElementById('findLocationQuery');
+      if (queryEl && (city || state)) {
+        queryEl.value = city && state ? (city + ', ' + state) : (city || state);
+      }
       try {
         document.dispatchEvent(new CustomEvent('find:locationUpdated', { detail: { city: city || '', state: state || '' } }));
       } catch (e) { /* ignore */ }
@@ -166,16 +170,19 @@
 <script>
   (function () {
     var key = <%- JSON.stringify(googleMapsKey) %>;
+    var mapBooted = false;
     function showFindAreaMapError(msg) {
       var el = document.getElementById('findAreaMap');
       var statusEl = document.getElementById('findAreaMapStatus');
       var text = msg || 'Google Maps could not load. Set GOOGLE_MAPS_API_KEY on the server (Maps JavaScript + Geocoding APIs, billing enabled).';
       if (statusEl) statusEl.textContent = text;
       if (el) {
-        el.innerHTML = '<div class="flex flex-col items-center justify-center h-full min-h-[280px] px-6 text-center gap-2"><p class="text-sm font-semibold text-brand-dark dark:text-white">Map unavailable</p><p class="text-xs text-brand-muted max-w-sm">' + text + '</p><p class="text-xs text-brand-muted">Use the city and state fields on the right.</p></div>';
+        el.innerHTML = '<div class="flex flex-col items-center justify-center h-full min-h-[280px] px-6 text-center gap-2"><p class="text-sm font-semibold text-brand-dark dark:text-white">Map unavailable</p><p class="text-xs text-brand-muted max-w-sm">' + text + '</p><p class="text-xs text-brand-muted">Use the search bar above instead.</p></div>';
       }
     }
-    function boot() {
+    function bootMaps() {
+      if (mapBooted) return;
+      mapBooted = true;
       if (!window.AdhelloMaps || typeof window.AdhelloMaps.load !== 'function') {
         showFindAreaMapError('Maps loader failed. Hard-refresh the page.');
         return;
@@ -192,13 +199,12 @@
         else showFindAreaMapError('Map initializer missing.');
       });
     }
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-    else boot();
+    window.__bootFindAreaMap = bootMaps;
   })();
 </script>
 <% } else { %>
-<div class="find-area-map-no-key relative flex flex-col items-center justify-center h-full min-h-[min(58vh,640px)] lg:min-h-full px-6 text-center bg-brand-cream/30 dark:bg-slate-800/40 border-b lg:border-b-0 lg:border-r border-brand-border/20 dark:border-white/10">
+<div class="find-area-map-no-key relative flex flex-col items-center justify-center h-full min-h-[min(52vh,560px)] px-6 text-center bg-brand-cream/30 dark:bg-slate-800/40">
   <p class="text-sm font-semibold text-brand-dark dark:text-white">Map not configured</p>
-  <p class="text-xs text-brand-muted mt-2 max-w-xs leading-relaxed">Add <code class="text-[10px] px-1 rounded bg-white dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server. Use the city and state fields on the right.</p>
+  <p class="text-xs text-brand-muted mt-2 max-w-xs leading-relaxed">Add <code class="text-[10px] px-1 rounded bg-white dark:bg-slate-800">GOOGLE_MAPS_API_KEY</code> on the server, or use the search bar above.</p>
 </div>
 <% } %>
