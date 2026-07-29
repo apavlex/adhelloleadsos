@@ -25,6 +25,7 @@ const MAPS_PROVIDER_LABELS = {
   serpapi: 'SerpAPI',
   oxylabs: 'Oxylabs',
   outscraper: 'Outscraper',
+  monid: 'Monid (Google Maps)',
   apify: 'Apify',
 };
 

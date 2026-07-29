@@ -1,6 +1,39 @@
 const webEnrichment = require('./webEnrichment');
 const dbService = require('./database');
 const workspaceIntegrations = require('./workspaceIntegrations');
+const monidLeadEnrich = require('./monidLeadEnrich');
+
+function leadNeedsMonidEnrich(lead) {
+  const missing = (v) => !v || v === 'N/A';
+  return (
+    missing(lead.phone) ||
+    missing(lead.website) ||
+    missing(lead.email) ||
+    missing(lead.facebook) ||
+    missing(lead.instagram) ||
+    missing(lead.twitter) ||
+    !lead.linkedin
+  );
+}
+
+function applyMonidExtractToLead(lead, extract) {
+  if (!extract || typeof extract !== 'object') return;
+  const fill = (field) => {
+    const next = extract[field];
+    if (!next || String(next).trim() === 'N/A') return;
+    if (!lead[field] || lead[field] === 'N/A') lead[field] = next;
+  };
+  fill('phone');
+  fill('website');
+  fill('email');
+  fill('facebook');
+  fill('instagram');
+  fill('twitter');
+  fill('linkedin');
+  if ((!lead.address || lead.address === 'N/A') && extract.address) {
+    lead.address = extract.address;
+  }
+}
 
 /**
  * High-quality multi-stage enrichment that combines Apify and Firecrawl.
@@ -57,7 +90,34 @@ module.exports = {
       }
     }
 
-    // 3. Second Pass: Firecrawl for leads still missing data
+    // 3. Monid pass — Apollo / PDL for phone, website, socials (works without website too)
+    if (monidLeadEnrich.isConfigured(integrationEnv)) {
+      const monidNeed = enrichedLeads.filter(leadNeedsMonidEnrich);
+      if (monidNeed.length) {
+        console.log(`[ENRICHER] Monid enrichment for ${monidNeed.length} leads...`);
+        for (let i = 0; i < monidNeed.length; i += concurrency) {
+          const batch = monidNeed.slice(i, i + concurrency);
+          // eslint-disable-next-line no-await-in-loop
+          await Promise.all(
+            batch.map(async (lead) => {
+              try {
+                const pack = await monidLeadEnrich.enrichLeadFromMonid(lead, integrationEnv);
+                if (pack && pack.enriched && pack.extract) {
+                  applyMonidExtractToLead(lead, pack.extract);
+                  if (lead.website && lead.website !== 'N/A') {
+                    await dbService.saveSiteMetadata(lead.website, pack.extract);
+                  }
+                }
+              } catch (err) {
+                console.warn(`[ENRICHER] Monid failed for ${lead.title}:`, err.message);
+              }
+            }),
+          );
+        }
+      }
+    }
+
+    // 4. Firecrawl for leads still missing data (website required)
     const stillInNeed = enrichedLeads.filter(l => 
       l.website && l.website !== 'N/A' && 
       (l.email === 'N/A' || l.facebook === 'N/A' || l.instagram === 'N/A')

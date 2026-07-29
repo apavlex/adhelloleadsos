@@ -55,12 +55,13 @@
         </div>
         <label class="block text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1">Preference</label>
         <select name="mapsSearchPrimary" class="w-full rounded-xl border border-brand-border dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2 text-sm">
-          <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Oxylabs → Outscraper → Apify)</option>
+          <option value="auto" <%= _mapsPrimary === 'auto' || _mapsPrimary === '' ? 'selected' : '' %>>Auto (RapidAPI → SearchAPI.io → SerpAPI → Oxylabs → Outscraper → Monid → Apify)</option>
           <option value="rapidapi" <%= _mapsPrimary === 'rapidapi' ? 'selected' : '' %>>RapidAPI only</option>
           <option value="searchapi" <%= _mapsPrimary === 'searchapi' ? 'selected' : '' %>>SearchAPI.io only</option>
           <option value="serpapi" <%= _mapsPrimary === 'serpapi' ? 'selected' : '' %>>SerpAPI only</option>
           <option value="oxylabs" <%= _mapsPrimary === 'oxylabs' ? 'selected' : '' %>>Oxylabs only</option>
           <option value="outscraper" <%= _mapsPrimary === 'outscraper' ? 'selected' : '' %>>Outscraper only</option>
+          <option value="monid" <%= _mapsPrimary === 'monid' ? 'selected' : '' %>>Monid (Google Maps) only</option>
           <option value="apify" <%= _mapsPrimary === 'apify' ? 'selected' : '' %>>Apify only</option>
         </select>
       </section>
@@ -224,8 +225,10 @@
             <div class="min-w-0">
               <h3 class="font-display font-bold text-lg text-brand-dark dark:text-white">Monid</h3>
               <p class="text-xs text-brand-muted mt-1 leading-relaxed max-w-2xl">
-                Company enrichment gateway for <strong>Enrich leads</strong>, bulk <strong>Enhance</strong>, and contact hunt —
+                Gateway for <strong>Find leads → Business</strong> (Google Maps search) and
+                <strong>Enrich leads</strong> / bulk <strong>Enhance</strong> —
                 phone, website, LinkedIn, Facebook, and X via Apollo and People Data Labs (~$0.05–0.10 per match).
+                Maps search uses Monid’s Apify Google Maps scraper (~$0.0045/result) when selected or in Auto.
                 For leads without a domain, Apollo company search finds the best name + city match first, then enriches.
                 Create an API key at
                 <a href="https://app.monid.ai/access/api-keys" class="underline hover:text-brand-dark dark:hover:text-white" target="_blank" rel="noopener noreferrer">app.monid.ai</a>.

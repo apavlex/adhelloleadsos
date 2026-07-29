@@ -68,7 +68,7 @@ const PROVIDERS = {
     fields: ['tikhubApiKey'],
   },
   monid: {
-    label: 'Monid (company enrichment)',
+    label: 'Monid (Find leads + enrichment)',
     fields: ['monidApiKey'],
   },
 };
