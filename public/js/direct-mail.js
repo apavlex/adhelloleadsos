@@ -538,13 +538,15 @@
     renderBrandLogoPreview(brandKit.logoUrl);
   }
 
-  function resolveGenerateReferenceUrl(slot) {
-    if (slot === 'back' && designs.front) return designs.front;
+  function resolveGenerateReferenceUrl(slot, editMode) {
+    if (editMode && designs[slot]) return designs[slot];
+    if (slot === 'back' && designs.front && !editMode) return designs.front;
     if (designs[slot]) return designs[slot];
     return designs[slot === 'back' ? 'front' : 'back'] || '';
   }
 
-  function resolveStyleReferenceUrl(slot) {
+  function resolveStyleReferenceUrl(slot, editMode) {
+    if (editMode) return '';
     if (slot === 'back' && designs.front) return designs.front;
     return '';
   }
@@ -937,6 +939,29 @@
   function userWantsMatchingFrontDesign(text) {
     return /match\s+(the\s+)?front|similar\s+(to\s+)?(the\s+)?front|same\s+(style|design|look)\s+(as\s+)?(the\s+)?front|coordinate\s+with\s+(the\s+)?front|for\s+the\s+back\s+of\s+the\s+card|back\s+of\s+the\s+card|like\s+the\s+front|matching\s+design/i.test(
       String(text || ''),
+    );
+  }
+
+  function userWantsIncrementalEdit(text) {
+    var t = String(text || '').trim();
+    if (!t) return false;
+    if (/^INCREMENTAL EDIT/i.test(t)) return true;
+    return (
+      /^(remove|delete|take out|get rid of|drop|hide|eliminate|without|no more|lose the|take off|strip|move the|swap the|replace the|fix the|adjust the|change only|just change|only change|make the .+ (bigger|smaller|lighter|darker|bolder|smaller))/i.test(
+        t,
+      ) ||
+      /\b(remove|delete|take out|get rid of|drop|hide|without)\s+(the|this|that|my)\b/i.test(t) ||
+      /\b(no|without)\s+(more|longer)\s+/i.test(t)
+    );
+  }
+
+  function buildIncrementalEditPrompt(changeRequest) {
+    var change = String(changeRequest || '').trim();
+    return (
+      'INCREMENTAL EDIT — use the attached image as the exact starting design. ' +
+      'Make ONLY this single change and preserve everything else unchanged (layout, colors, typography, photos, contact info, spacing): ' +
+      change +
+      '. Do not redesign or recompose the whole piece.'
     );
   }
 
@@ -1633,6 +1658,21 @@
     setDesignStatus('Zoomed in on canvas — use Fit or click the preview again to reset.', true);
   }
 
+  async function applyIncrementalEdit(changeText, opts) {
+    opts = opts || {};
+    var slot = currentDesignSlot();
+    var ref = designs[slot];
+    if (!ref) {
+      setDesignStatus('Generate a design first, then ask to remove or change parts of it.', false);
+      return false;
+    }
+    var prompt = buildIncrementalEditPrompt(changeText);
+    lastImagePrompt = prompt;
+    showPromptEditor(slot, prompt);
+    await generateImage({ editMode: true, prompt: prompt, skipPromptRead: true });
+    return true;
+  }
+
   async function sendChatMessage() {
     var input = document.getElementById('dmChatInput');
     var btn = document.getElementById('dmChatSend');
@@ -1645,6 +1685,20 @@
     input.value = '';
     btn.disabled = true;
     setDesignStatus('Thinking…', true);
+
+    if (userWantsIncrementalEdit(text) && designs[currentDesignSlot()]) {
+      appendChatBubble(
+        'assistant',
+        'Editing your current design — keeping everything the same except that change.',
+      );
+      chatHistory.push({
+        role: 'assistant',
+        content: 'Editing your current design — keeping everything the same except that change.',
+      });
+      btn.disabled = false;
+      await applyIncrementalEdit(text);
+      return;
+    }
 
     try {
       var ctx = designRequestContext();
@@ -1660,8 +1714,10 @@
         aspectRatio: ctx.aspectRatio,
         brandKit: ctx.brandKit,
         frontImageUrl: ctx.slot === 'back' && designs.front ? designs.front : '',
+        currentImageUrl: designs[ctx.slot] || '',
         frontPrompt: ctx.slot === 'back' ? String(designMeta.front.prompt || '').trim() : '',
         matchFrontStyle: matchFront,
+        incrementalEdit: userWantsIncrementalEdit(text),
       });
       var reply = String(data.reply || '').trim();
       if (reply) {
@@ -1673,6 +1729,12 @@
         var slot = currentDesignSlot();
         designMeta[slot].prompt = lastImagePrompt;
         showPromptEditor(slot, lastImagePrompt);
+        if (designs[slot] && (/^INCREMENTAL EDIT/i.test(lastImagePrompt) || userWantsIncrementalEdit(text))) {
+          setDesignStatus('Applying edit to your current design…', true);
+          btn.disabled = false;
+          await generateImage({ editMode: true, prompt: lastImagePrompt, skipPromptRead: true });
+          return;
+        }
         setDesignStatus('Prompt ready — edit below or click Generate.', true);
       } else if (userWantsAdGeneration(text)) {
         setDesignStatus(
@@ -1690,24 +1752,27 @@
     }
   }
 
-  async function generateImage() {
+  async function generateImage(opts) {
+    opts = opts || {};
     var btn = document.getElementById('dmGenerateBtn');
     var slotEl = document.getElementById('dmDesignSlot');
     if (!btn) return;
 
-    var prompt =
-      readPromptEditor() ||
-      lastImagePrompt ||
-      (designMeta[currentDesignSlot()] && designMeta[currentDesignSlot()].prompt) ||
-      String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
-      latestUserChatText();
-    var ctx = designRequestContext();
+    var editMode = opts.editMode === true;
     var slot = slotEl && slotEl.value === 'back' ? 'back' : 'front';
-    var matchFrontStyle = shouldMatchFrontStyle(slot);
+    var prompt = opts.skipPromptRead
+      ? String(opts.prompt || '').trim()
+      : readPromptEditor() ||
+        lastImagePrompt ||
+        (designMeta[currentDesignSlot()] && designMeta[currentDesignSlot()].prompt) ||
+        String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
+        latestUserChatText();
+    var ctx = designRequestContext();
+    var matchFrontStyle = !editMode && shouldMatchFrontStyle(slot);
     ctx.matchFrontStyle = matchFrontStyle;
-    var referenceUrl = resolveGenerateReferenceUrl(slot);
-    var styleReferenceUrl = resolveStyleReferenceUrl(slot);
-    if (!prompt && referenceUrl) {
+    var referenceUrl = resolveGenerateReferenceUrl(slot, editMode);
+    var styleReferenceUrl = resolveStyleReferenceUrl(slot, editMode);
+    if (!prompt && referenceUrl && !editMode) {
       var plat = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
       prompt = buildQuickImagePrompt(
         'Polish this uploaded photo into a scroll-stopping ' + (plat.label || 'social') + ' ad',
@@ -1716,11 +1781,15 @@
       lastImagePrompt = prompt;
       showPromptEditor(slot, prompt);
     }
+    if (!prompt && editMode) {
+      setDesignStatus('Describe what to change on the current design.', false);
+      return;
+    }
     if (!prompt) {
       setDesignStatus('Describe the design in Chat first, or paste a detailed image prompt here.', false);
       return;
     }
-    if (!lastImagePrompt && prompt.length < 48) {
+    if (!editMode && !lastImagePrompt && prompt.length < 48) {
       if (referenceUrl || userWantsAdGeneration(prompt) || userWantsAdGeneration(latestUserChatText())) {
         prompt = buildQuickImagePrompt(prompt || latestUserChatText(), ctx);
         lastImagePrompt = prompt;
@@ -1738,7 +1807,10 @@
     var resolution = (document.getElementById('dmResolution') || {}).value || '2K';
 
     btn.disabled = true;
-    setDesignStatus('Generating with GPT Image 2… this can take up to 2 minutes.', true);
+    setDesignStatus(
+      editMode ? 'Applying edit to your design…' : 'Generating with GPT Image 2… this can take up to 2 minutes.',
+      true,
+    );
 
     try {
       var body = {
@@ -1749,6 +1821,7 @@
         platform: ctx.platform,
         brandKit: ctx.brandKit,
         matchFrontStyle: matchFrontStyle,
+        editMode: editMode,
       };
       if (referenceUrl) body.referenceUrl = referenceUrl;
       if (styleReferenceUrl) body.styleReferenceUrl = styleReferenceUrl;
@@ -1772,14 +1845,19 @@
           platform: ctx.platform,
           silent: true,
         });
-        var statusMsg = 'Generated ' + slot + ' side — saved to library automatically.';
-        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign) {
+        var statusMsg = editMode
+          ? 'Updated ' + slot + ' side — saved to library.'
+          : 'Generated ' + slot + ' side — saved to library automatically.';
+        if (!editMode && data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl) {
           statusMsg =
             'Generated ' +
             slot +
             ' side — your brand logo could not be overlaid. Re-upload it in Brand and try again.';
         }
-        setDesignStatus(statusMsg, !(ctx.brandKit && ctx.brandKit.logoUrl && ctx.brandKit.useLogoInDesign && data.logoOverlayApplied === false));
+        setDesignStatus(
+          statusMsg,
+          !(data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.logoUrl && !editMode),
+        );
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
           window.showAppToast((plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated', {
@@ -2002,7 +2080,28 @@
     chatInput.addEventListener('keydown', function (e) {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        generateImage();
+        var text = String(chatInput.value || '').trim();
+        if (!text) return;
+        if (userWantsIncrementalEdit(text) && designs[currentDesignSlot()]) {
+          appendChatBubble('user', text);
+          chatHistory.push({ role: 'user', content: text });
+          chatInput.value = '';
+          appendChatBubble(
+            'assistant',
+            'Editing your current design — keeping everything the same except that change.',
+          );
+          chatHistory.push({
+            role: 'assistant',
+            content: 'Editing your current design — keeping everything the same except that change.',
+          });
+          void applyIncrementalEdit(text);
+          return;
+        }
+        if (userWantsAdGeneration(text) && !designs[currentDesignSlot()]) {
+          generateImage();
+          return;
+        }
+        sendChatMessage();
       }
     });
   }

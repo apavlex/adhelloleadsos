@@ -68,8 +68,8 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   if (!finalImageUrl) return { finalImageUrl, logoOverlayApplied };
 
   const k = normalizeBrandKit(brandKit);
-  // Checked = leave top-left clear and composite the real logo after generation.
-  if (!k.logoUrl || k.useLogoInDesign === false) {
+  // Always composite the real uploaded logo when brand kit has one.
+  if (!k.logoUrl) {
     return { finalImageUrl, logoOverlayApplied };
   }
 
@@ -228,10 +228,11 @@ function brandKitSummary(kit) {
   if (k.website) lines.push(`Website: ${k.website}`);
   if (k.address) lines.push(`Address: ${k.address}`);
   if (k.hours) lines.push(`Hours: ${k.hours}`);
+  if (k.logoUrl) {
+    lines.push('Logo: uploaded (real logo is always composited top-left after generation)');
+  }
   if (k.logoUrl && k.useLogoInDesign) {
-    lines.push('Logo: uploaded (real logo overlaid unchanged top-left after generation — leave that area clear)');
-  } else if (k.logoUrl) {
-    lines.push('Logo: uploaded (AI should reproduce the provided logo reference inside the design — do not leave a blank placeholder)');
+    lines.push('Logo placement: leave top-left clear in the generated image for the overlay');
   }
   return lines.length ? lines.join('\n') : '(no business info set yet)';
 }
@@ -250,8 +251,10 @@ function buildDesignCoachSystemPrompt({
   ctaUrl,
   brandKit,
   frontImageUrl,
+  currentImageUrl,
   frontPrompt,
   matchFrontStyle,
+  incrementalEdit,
 }) {
   const plat = platformLabel(platform);
   const isPostcard = platform === 'postcard';
@@ -297,7 +300,13 @@ Merge tokens ({business}, {city}, {state}, {audit_url}) are applied at SEND time
 ${frontStyleContext ? `${frontStyleContext}\n\n` : ''}${lobBackRules}
 ${lobFrontRules}
 
-Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When "Leave top-left clear" is enabled, the real logo is overlaid after generation. When unchecked, the logo reference is sent to the model to reproduce inside the design.
+Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. The real uploaded logo is always composited top-left after generation when a logo exists. When "Leave top-left clear" is checked, tell the model to leave that corner empty for the overlay.
+
+${currentImageUrl || incrementalEdit ? `The user already has a design on the canvas${currentImageUrl ? ' (reference will be passed to GPT Image 2)' : ''}.
+When they ask to remove, delete, change, move, or tweak something ("remove the seal", "make headline smaller", "drop the badge"):
+- imagePrompt MUST be an INCREMENTAL EDIT instruction starting with "INCREMENTAL EDIT — use the attached image as the exact starting design."
+- Tell the model to make ONLY that change and preserve everything else unchanged.
+- Do NOT rewrite the whole creative from scratch.` : ''}
 
 Respond with JSON only, no markdown:
 {"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. Include business contact details in the design when the user wants them on the ad. Null if still exploring."}
@@ -311,9 +320,21 @@ Rules:
 - Escape double quotes inside strings as \\".`;
 }
 
-function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFrontStyle, styleReferenceUrl } = {}) {
-  const base = String(prompt || '').trim();
+function augmentIncrementalEditPrompt(prompt) {
+  const change = String(prompt || '').trim();
+  if (!change) return change;
+  if (/^INCREMENTAL EDIT/i.test(change)) return change;
+  return (
+    'INCREMENTAL EDIT — use the attached image as the exact starting design. ' +
+    `Make ONLY this single change and preserve everything else unchanged (layout, colors, typography, photos, contact info, spacing): ${change}. ` +
+    'Do not redesign or recompose the whole piece.'
+  );
+}
+
+function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFrontStyle, styleReferenceUrl, editMode } = {}) {
+  let base = String(prompt || '').trim();
   if (!base) return base;
+  if (editMode) base = augmentIncrementalEditPrompt(base);
   const k = normalizeBrandKit(brandKit);
   const extras = [];
   if (k.businessName) extras.push(`Business: ${k.businessName}`);
@@ -370,12 +391,19 @@ async function resolveLogoReferenceUrl(req, brandKit) {
   }
 }
 
-async function buildGenerationInputUrls(req, { styleReferenceUrl, referenceUrl, logoReferenceUrl }) {
+async function buildGenerationInputUrls(req, { styleReferenceUrl, referenceUrl, logoReferenceUrl, editMode }) {
   const urls = [];
-  const styleRef = toAbsoluteAssetUrl(req, String(styleReferenceUrl || referenceUrl || '').trim());
+  const ref = toAbsoluteAssetUrl(req, String(referenceUrl || '').trim());
+  const styleRef = toAbsoluteAssetUrl(req, String(styleReferenceUrl || '').trim());
   const logoRef = toAbsoluteAssetUrl(req, String(logoReferenceUrl || '').trim());
+
+  if (editMode && ref) {
+    return [ref];
+  }
+
   if (styleRef) urls.push(styleRef);
-  if (logoRef && logoRef !== styleRef) urls.push(logoRef);
+  else if (ref) urls.push(ref);
+  if (logoRef && !urls.includes(logoRef)) urls.push(logoRef);
   return urls;
 }
 
@@ -727,8 +755,10 @@ router.post('/api/design-chat', async (req, res, next) => {
     const aspectRatio = String(body.aspectRatio || DM_PLATFORMS[platform]?.aspectRatio || '3:2').trim() || '3:2';
     const brandKit = normalizeBrandKit(body.brandKit);
     const frontImageUrl = toAbsoluteAssetUrl(req, String(body.frontImageUrl || '').trim());
+    const currentImageUrl = toAbsoluteAssetUrl(req, String(body.currentImageUrl || '').trim());
     const frontPrompt = String(body.frontPrompt || '').trim();
     const matchFrontStyle = body.matchFrontStyle === true;
+    const incrementalEdit = body.incrementalEdit === true;
 
     const messages = [
       {
@@ -742,8 +772,10 @@ router.post('/api/design-chat', async (req, res, next) => {
           ctaUrl,
           brandKit,
           frontImageUrl,
+          currentImageUrl,
           frontPrompt,
           matchFrontStyle,
+          incrementalEdit,
         }),
       },
       ...history,
@@ -788,14 +820,18 @@ router.post('/api/generate-image', async (req, res, next) => {
     const platform = String(body.platform || 'postcard').trim() || 'postcard';
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const brandKit = normalizeBrandKit(body.brandKit);
-    const matchFrontStyle = body.matchFrontStyle === true;
-    const styleReferenceUrl = toAbsoluteAssetUrl(req, String(body.styleReferenceUrl || '').trim());
+    const editMode = body.editMode === true;
+    const matchFrontStyle = !editMode && body.matchFrontStyle === true;
+    const styleReferenceUrl = editMode
+      ? ''
+      : toAbsoluteAssetUrl(req, String(body.styleReferenceUrl || '').trim());
     const referenceAbs = body.referenceUrl
       ? toAbsoluteAssetUrl(req, String(body.referenceUrl).trim())
       : '';
     prompt = augmentImagePromptWithBrand(prompt, brandKit, platform, slot, {
       matchFrontStyle: matchFrontStyle || (slot === 'back' && !!styleReferenceUrl),
-      styleReferenceUrl: styleReferenceUrl || referenceAbs,
+      styleReferenceUrl: styleReferenceUrl || (editMode ? '' : referenceAbs),
+      editMode,
     });
 
     if (kieImageClient.isVagueImagePrompt(prompt)) {
@@ -813,6 +849,7 @@ router.post('/api/generate-image', async (req, res, next) => {
       referenceUrl: referenceAbs,
       styleReferenceUrl,
       logoReferenceUrl,
+      editMode,
     });
 
     let created;
