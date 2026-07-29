@@ -51,8 +51,8 @@
         <option value="<%= fd.key %>"<%= _bulkFolderPref === String(fd.key) ? ' selected' : '' %>><%= fd.name || 'Folder' %></option>
         <% }); %>
       </select>
+      <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled title="Move saved leads into the selected folder">Move</button>
       <% if (_bulkMode === 'pipeline') { %>
-      <button type="button" id="bulkMoveFolderBtn" class="bulk-bar-btn bulk-bar-btn--accent" disabled>Move</button>
       <% const _boardStages = typeof pipelineStages !== 'undefined' && Array.isArray(pipelineStages) ? pipelineStages : []; %>
       <% if (_boardStages.length) { %>
       <label for="bulkPipelineStageSelect" class="sr-only">Pipeline stage</label>

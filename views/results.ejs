@@ -247,6 +247,7 @@
     // Inject saved leads from server to app.js context
     window.INITIAL_SAVED_LEADS = <%- JSON.stringify(savedLeads || []) %>;
     window.SEARCH_TARGET_FOLDER_KEY = <%- JSON.stringify(targetFolderKey || '') %>;
+    window.SEARCH_JOB_TYPE = <%- JSON.stringify(typeof jobType !== 'undefined' ? jobType : '') %>;
     window.SEARCH_AUTO_TAG_KEYS = <%- JSON.stringify(typeof autoTagKeys !== 'undefined' ? autoTagKeys : []) %>;
     window.WORKSPACE_FOLDERS = <%- JSON.stringify(typeof folders !== 'undefined' && folders ? folders.map((f) => ({ key: f.key, name: f.name, jobType: f.jobType || '' })) : []) %>;
   </script>

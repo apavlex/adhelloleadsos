@@ -77,6 +77,75 @@
     return match && match.name ? match.name : '';
   }
 
+  function buildSearchFolderCreatePayload(name) {
+    const payload = { name: String(name || '').trim() };
+    const targetKey =
+      typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '';
+    if (targetKey) {
+      payload.parentFolderKey = targetKey;
+      const folders = Array.isArray(window.WORKSPACE_FOLDERS) ? window.WORKSPACE_FOLDERS : [];
+      const parent = folders.find((f) => f && String(f.key) === targetKey);
+      if (parent && parent.jobType) payload.jobType = String(parent.jobType);
+    }
+    if (!payload.jobType && typeof window.SEARCH_JOB_TYPE === 'string' && window.SEARCH_JOB_TYPE.trim()) {
+      payload.jobType = window.SEARCH_JOB_TYPE.trim();
+    }
+    return payload;
+  }
+
+  async function fetchWorkspaceFolders() {
+    if (typeof window.__refreshBulkFolderSelectOptions === 'function') {
+      const pref =
+        typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '';
+      await window.__refreshBulkFolderSelectOptions(pref);
+      return;
+    }
+    try {
+      const res = await fetch('/folders', {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data && data.success && Array.isArray(data.folders)) {
+        window.WORKSPACE_FOLDERS = data.folders
+          .filter((f) => f && f.key)
+          .map((f) => ({
+            key: String(f.key),
+            name: String(f.name || '').trim() || 'Folder',
+            jobType: f.jobType || '',
+          }));
+      }
+    } catch (_) {
+      /* keep server-rendered list */
+    }
+    rebuildBulkFolderSelect(
+      typeof window.SEARCH_TARGET_FOLDER_KEY === 'string' ? window.SEARCH_TARGET_FOLDER_KEY.trim() : '',
+    );
+  }
+
+  async function ensureRowLeadKey(row) {
+    if (!row) return '';
+    let key = String(row.dataset.leadKey || '').trim();
+    if (!key && window.__savedLeadsByTitle) {
+      key = String(window.__savedLeadsByTitle.get(normalizeTitleKey(row.dataset.title)) || '').trim();
+    }
+    if (key) {
+      row.dataset.leadKey = key;
+      return key;
+    }
+    const ok = await saveRow(row);
+    if (!ok) return '';
+    key = String(row.dataset.leadKey || '').trim();
+    if (key) row.dataset.leadKey = key;
+    return key;
+  }
+
+  function normalizeLeadKeyForApi(key) {
+    const raw = String(key || '').trim();
+    if (!raw) return '';
+    return raw.startsWith('lead:') ? raw : `lead:${raw}`;
+  }
+
   function showBulkSaveFeedback(message, variant) {
     const el = document.getElementById('bulkSaveFeedback');
     if (el) {
@@ -214,6 +283,76 @@
 
   window.__bulkSaveSearchResultsToFolder = bulkSaveSelectedToFolder;
 
+  async function bulkMoveSelectedToFolder() {
+    if (bulkSaveInFlight) return;
+    const table = document.getElementById('searchResultsLeadsTable');
+    if (!table) return;
+
+    const folderKey = getSelectedFolderKey();
+    const checked = Array.from(table.querySelectorAll('tbody input.lead-checkbox:checked'));
+    if (!checked.length) {
+      showBulkSaveFeedback('Select at least one lead.', 'error');
+      return;
+    }
+    if (!folderKey) {
+      showBulkSaveFeedback('Select a folder (or create one with + Folder) before moving.', 'error');
+      return;
+    }
+
+    const rows = checked.map((cb) => cb.closest('tr.result-row')).filter(Boolean);
+    const folderName = getFolderDisplayName(folderKey);
+    const moveBtn = document.getElementById('bulkMoveFolderBtn');
+    bulkSaveInFlight = true;
+    showBulkSaveFeedback(
+      `Moving ${rows.length} lead${rows.length === 1 ? '' : 's'}${folderName ? ` to ${folderName}` : ''}…`,
+      'loading',
+    );
+    if (moveBtn) moveBtn.disabled = true;
+
+    try {
+      const leadKeys = [];
+      for (const row of rows) {
+        const key = await ensureRowLeadKey(row);
+        if (key) {
+          leadKeys.push(normalizeLeadKeyForApi(key));
+          markSaved(row.querySelector('.bookmark-btn'));
+        }
+      }
+      const uniqueKeys = [...new Set(leadKeys.filter(Boolean))];
+      if (!uniqueKeys.length) {
+        throw new Error('Could not resolve saved leads. Try Save first, then Move.');
+      }
+
+      const res = await fetch('/folders/assign-bulk', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ leadKeys: uniqueKeys, folderKey }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || `Could not move leads (HTTP ${res.status})`);
+      }
+      const moved = Array.isArray(data.updatedKeys) ? data.updatedKeys.length : uniqueKeys.length;
+      const successMsg = folderName
+        ? `Moved ${moved} lead${moved === 1 ? '' : 's'} to ${folderName}`
+        : `Moved ${moved} lead${moved === 1 ? '' : 's'}`;
+      showBulkSaveFeedback(successMsg, 'ok');
+      if (typeof window.showProspectToast === 'function') {
+        window.showProspectToast(successMsg);
+      }
+    } catch (err) {
+      console.error('[search-results-table] bulk move failed:', err);
+      showBulkSaveFeedback(err.message || 'Could not move leads to folder.', 'error');
+    } finally {
+      bulkSaveInFlight = false;
+      if (moveBtn) moveBtn.disabled = countCheckedRows(table) === 0;
+      syncBulkUi(table);
+    }
+  }
+
+  window.__bulkMoveSearchResultsToFolder = bulkMoveSelectedToFolder;
+
   /** Show the floating bulk bar (folder + save) when rows are selected on search results. */
   function syncBulkBar(table) {
     const n = countCheckedRows(table);
@@ -238,6 +377,8 @@
       if (saveBtn && saveBtn.getAttribute('aria-busy') !== 'true') {
         saveBtn.disabled = n === 0;
       }
+      const moveBtn = document.getElementById('bulkMoveFolderBtn');
+      if (moveBtn) moveBtn.disabled = n === 0;
     }
 
     const headerBulk = document.getElementById('headerBulkActions');
@@ -307,6 +448,12 @@
     }
 
     bar.addEventListener('click', async (e) => {
+      if (e.target.closest('#bulkMoveFolderBtn')) {
+        e.preventDefault();
+        e.stopPropagation();
+        await bulkMoveSelectedToFolder();
+        return;
+      }
       if (e.target.closest('#bulkSaveBtn')) {
         e.preventDefault();
         e.stopPropagation();
@@ -343,20 +490,23 @@
             method: 'POST',
             credentials: 'same-origin',
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            body: JSON.stringify({ name }),
+            body: JSON.stringify(buildSearchFolderCreatePayload(name)),
           });
           const data = await res.json().catch(() => ({}));
           if (!res.ok || !data.success || !data.folder || !data.folder.key) {
             throw new Error((data && data.error) || `HTTP ${res.status}`);
           }
-          const { key, name: folderName } = data.folder;
+          const { key, name: folderName, jobType, parentFolderKey } = data.folder;
           if (!Array.isArray(window.WORKSPACE_FOLDERS)) window.WORKSPACE_FOLDERS = [];
           const existing = window.WORKSPACE_FOLDERS.find((f) => f && f.key === key);
-          if (existing) {
-            existing.name = folderName || name;
-          } else {
-            window.WORKSPACE_FOLDERS.push({ key, name: folderName || name });
-          }
+          const nextFolder = {
+            key,
+            name: folderName || name,
+            jobType: jobType || '',
+            parentFolderKey: parentFolderKey || '',
+          };
+          if (existing) Object.assign(existing, nextFolder);
+          else window.WORKSPACE_FOLDERS.push(nextFolder);
           rebuildBulkFolderSelect(key);
           setBulkFolderNewRowVisible(false);
           if (typeof window.showProspectToast === 'function') {
@@ -525,6 +675,15 @@
 
     mountBulkBar();
     initBulkBarFolderActions();
+    fetchWorkspaceFolders().catch(() => {});
+
+    const cancelBtn = document.getElementById('cancelSelectionBtn');
+    if (cancelBtn && !cancelBtn.dataset.searchResultsBound) {
+      cancelBtn.dataset.searchResultsBound = '1';
+      cancelBtn.addEventListener('click', () => {
+        setTimeout(() => syncBulkUi(table), 0);
+      });
+    }
 
     const headerBulkSaveBtn = document.getElementById('headerBulkSaveBtn');
     if (headerBulkSaveBtn) {

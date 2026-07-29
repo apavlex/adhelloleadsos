@@ -15312,7 +15312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  if (bulkMoveFolderBtn && bulkFolderSelect) {
+  if (bulkMoveFolderBtn && bulkFolderSelect && !isSearchResultsPage) {
     bulkMoveFolderBtn.addEventListener('click', () => bulkMoveFolderFromBar());
   }
 
