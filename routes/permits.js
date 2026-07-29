@@ -3,6 +3,7 @@ const router = express.Router();
 const dbService = require('../services/database');
 const workspaceIntegrations = require('../services/workspaceIntegrations');
 const permitStackClient = require('../services/permitStackClient');
+const { normalizePermitCategory } = require('../services/permitStackCategories');
 const { permitsToLeads } = require('../services/permitLeadEnrich');
 const { resolveTargetFolder, leadMetadataForJobType } = require('../services/pipelineFolders');
 const { JOB_TYPES } = require('../services/scrapeJobTypes');
@@ -13,7 +14,16 @@ const { persistWorkspaceIcp } = require('../services/workspaceIcp');
 router.post('/search', async (req, res, next) => {
   try {
     const wid = req.workspaceId;
-    const { city, state, category, keyword, maxResults, zip, filed_after } = req.body;
+    const {
+      city,
+      state,
+      category,
+      keyword,
+      contractor,
+      maxResults,
+      zip,
+      filed_after,
+    } = req.body;
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(wid);
 
     if (!permitStackClient.isConfigured(integrationEnv)) {
@@ -26,11 +36,15 @@ router.post('/search', async (req, res, next) => {
 
     const resolvedCity = String(city || '').trim();
     const resolvedState = String(state || '').trim();
-    const resolvedCategory = String(category || keyword || '').trim();
+    const resolvedZip = String(zip || '').trim();
+    const resolvedCategory = normalizePermitCategory(category);
+    const resolvedKeyword = String(keyword || '').trim();
+    const resolvedContractor = String(contractor || '').trim();
+    const resolvedFiledAfter = String(filed_after || '').trim();
 
-    if (!resolvedCity && !String(zip || '').trim()) {
+    if (!resolvedCity && !resolvedZip) {
       return res.status(400).render('error', {
-        message: 'City and state are required for permit search.',
+        message: 'City or ZIP code is required for permit search.',
         activePage: 'find',
       });
     }
@@ -55,6 +69,10 @@ router.post('/search', async (req, res, next) => {
         city: resolvedCity,
         state: resolvedState,
         category: resolvedCategory,
+        keyword: resolvedKeyword,
+        contractor: resolvedContractor,
+        zip: resolvedZip,
+        filed_after: resolvedFiledAfter,
         maxResults: maxRes,
       });
 
@@ -65,8 +83,10 @@ router.post('/search', async (req, res, next) => {
               city: resolvedCity,
               state: resolvedState,
               category: resolvedCategory,
-              zip: String(zip || '').trim(),
-              filed_after: String(filed_after || '').trim(),
+              keyword: resolvedKeyword,
+              contractor_name: resolvedContractor,
+              zip: resolvedZip,
+              filed_after: resolvedFiledAfter,
               per_page: maxRes,
             },
             integrationEnv
@@ -92,8 +112,12 @@ router.post('/search', async (req, res, next) => {
 
           const searchRecord = {
             jobType: JOB_TYPES.PERMITS,
-            keyword: resolvedCategory,
+            keyword: resolvedCategory || resolvedKeyword,
             category: resolvedCategory,
+            permitKeyword: resolvedKeyword,
+            permitContractor: resolvedContractor,
+            zip: resolvedZip,
+            filedAfter: resolvedFiledAfter,
             city: resolvedCity,
             state: resolvedState,
             maxResults: maxRes,
@@ -122,7 +146,7 @@ router.post('/search', async (req, res, next) => {
     }
 
     await persistWorkspaceIcp(wid, {
-      keyword: resolvedCategory,
+      keyword: resolvedCategory || resolvedKeyword || 'permits',
       city: resolvedCity,
       state: resolvedState,
       qty: maxRes,

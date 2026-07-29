@@ -4,6 +4,7 @@
  */
 
 const BASE_URL = 'https://api.permit-stack.com/v1';
+const { normalizePermitCategory } = require('./permitStackCategories');
 
 function apiKeyFromEnv(integrationEnv) {
   const fromWs = integrationEnv && integrationEnv.PERMITSTACK_API_KEY;
@@ -22,12 +23,18 @@ function buildSearchParams(params) {
   if (city) q.set('city', city);
   const state = String(p.state || '').trim();
   if (state) q.set('state', state.toUpperCase());
-  const category = String(p.category || p.keyword || '').trim();
-  if (category) q.set('category', category.toLowerCase());
-  const zip = String(p.zip || '').trim();
-  if (zip) q.set('zip', zip);
-  if (p.filed_after) q.set('filed_after', String(p.filed_after).trim());
-  if (p.filed_before) q.set('filed_before', String(p.filed_before).trim());
+  const category = normalizePermitCategory(p.category);
+  if (category) q.set('category', category);
+  const keyword = String(p.keyword || '').trim();
+  if (keyword) q.set('keyword', keyword);
+  const contractorName = String(p.contractor_name || p.contractorName || p.contractor || '').trim();
+  if (contractorName) q.set('contractor_name', contractorName);
+  const zip = String(p.zip_code || p.zipCode || p.zip || '').trim();
+  if (zip) q.set('zip_code', zip);
+  const filedAfter = String(p.filed_after || p.filedAfter || '').trim();
+  if (filedAfter) q.set('filed_after', filedAfter);
+  const filedBefore = String(p.filed_before || p.filedBefore || '').trim();
+  if (filedBefore) q.set('filed_before', filedBefore);
   if (p.min_value != null && p.min_value !== '') q.set('min_value', String(p.min_value));
   const page = Math.max(1, parseInt(p.page, 10) || 1);
   const perPage = Math.min(100, Math.max(1, parseInt(p.per_page ?? p.perPage ?? p.maxResults, 10) || 25));
@@ -42,7 +49,7 @@ async function searchPermits(params, integrationEnv) {
     throw new Error('Permit Stack is not configured. Add PERMITSTACK_API_KEY in Workspace → Integrations.');
   }
   const q = buildSearchParams(params);
-  if (!q.get('city') && !q.get('zip')) {
+  if (!q.get('city') && !q.get('zip_code')) {
     throw new Error('City or ZIP is required for permit search.');
   }
 

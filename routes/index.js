@@ -13,6 +13,7 @@ const {
   resolveFindTab,
   findTabForJobType,
 } = require('../services/searchTypeConfig');
+const { PERMIT_STACK_CATEGORIES } = require('../services/permitStackCategories');
 
 async function renderFindLeads(req, res, next) {
   try {
@@ -113,6 +114,7 @@ async function renderFindLeads(req, res, next) {
       presetFolderKey,
       searchTypes: SEARCH_TYPES,
       defaultListingSources: DEFAULT_SOURCES,
+      permitStackCategories: PERMIT_STACK_CATEGORIES,
     });
   } catch (e) {
     return next(e);

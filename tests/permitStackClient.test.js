@@ -37,12 +37,32 @@ test('permitsToLeads returns one lead per permit', () => {
   assert.equal(rows[0].title, 'Acme Roof');
 });
 
-test('buildSearchParams normalizes category and pagination', () => {
-  const q = buildSearchParams({ city: 'Austin', state: 'tx', category: 'ROOFING', maxResults: 5 });
+test('buildSearchParams normalizes category, filters, and pagination', () => {
+  const q = buildSearchParams({
+    city: 'Austin',
+    state: 'tx',
+    category: 'ROOFING',
+    keyword: 'solar panel',
+    contractor: 'ABC Roofing',
+    zip: '78702',
+    filed_after: '2026-01-01',
+    maxResults: 5,
+  });
   assert.equal(q.get('city'), 'Austin');
   assert.equal(q.get('state'), 'TX');
   assert.equal(q.get('category'), 'roofing');
+  assert.equal(q.get('keyword'), 'solar panel');
+  assert.equal(q.get('contractor_name'), 'ABC Roofing');
+  assert.equal(q.get('zip_code'), '78702');
+  assert.equal(q.get('filed_after'), '2026-01-01');
   assert.equal(q.get('per_page'), '5');
+  assert.equal(q.get('zip'), null);
+});
+
+test('buildSearchParams accepts zip-only search', () => {
+  const q = buildSearchParams({ zip: '98607', per_page: 10 });
+  assert.equal(q.get('zip_code'), '98607');
+  assert.equal(q.get('city'), null);
 });
 
 test('isConfigured reads PERMITSTACK_API_KEY from env object', () => {
