@@ -60,6 +60,15 @@ const logoUpload = multer({
   },
 });
 
+const creativeUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 12 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const ok = /^image\/(jpeg|jpg|png|gif|webp)$/i.test(String(file.mimetype || ''));
+    cb(ok ? null : new Error('Upload a JPEG, PNG, GIF, or WebP image.'), ok);
+  },
+});
+
 const DM_PLATFORMS = {
   postcard: { label: '4×6 Postcard', aspectRatio: '2:3', dualSided: true },
   instagram_feed: { label: 'Instagram Feed', aspectRatio: '1:1', dualSided: false },
@@ -390,6 +399,45 @@ router.patch('/api/brand-kit', express.json({ limit: '64kb' }), async (req, res,
   }
 });
 
+router.post('/api/upload-creative', (req, res, next) => {
+  creativeUpload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, error: err.message || 'Upload failed' });
+    next();
+  });
+}, async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ success: false, error: 'Image file is required.' });
+    }
+    const wid = String(req.workspaceId || 'default')
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const extFromName = path.extname(String(req.file.originalname || '')).toLowerCase();
+    const ext =
+      extFromName && ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(extFromName)
+        ? extFromName
+        : '.jpg';
+    const relDir = path.join('public', 'uploads', 'creative');
+    const absDir = path.join(process.cwd(), relDir);
+    await fs.mkdir(absDir, { recursive: true });
+    const stamp = Date.now();
+    const filename = `${wid}_creative_${stamp}${ext}`;
+    const absPath = path.join(absDir, filename);
+    await fs.writeFile(absPath, req.file.buffer);
+    const publicUrl = `/uploads/creative/${filename}`;
+    const slot = String(req.body && req.body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
+
+    res.json({
+      success: true,
+      imageUrl: publicUrl,
+      imageAbsoluteUrl: toAbsoluteAssetUrl(req, publicUrl),
+      slot,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/api/brand-kit/logo', (req, res, next) => {
   logoUpload.single('logo')(req, res, (err) => {
     if (err) return res.status(400).json({ success: false, error: err.message || 'Upload failed' });
@@ -525,10 +573,13 @@ router.post('/api/generate-image', async (req, res, next) => {
     const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
     const aspectRatio = String(body.aspectRatio || '2:3').trim() || '2:3';
     const resolution = String(body.resolution || '2K').trim() || '2K';
+    const referenceAbs = body.referenceUrl
+      ? toAbsoluteAssetUrl(req, String(body.referenceUrl).trim())
+      : '';
     const inputUrls = Array.isArray(body.inputUrls)
-      ? body.inputUrls.map((u) => String(u || '').trim()).filter(Boolean)
-      : body.referenceUrl
-        ? [String(body.referenceUrl).trim()].filter(Boolean)
+      ? body.inputUrls.map((u) => toAbsoluteAssetUrl(req, String(u || '').trim())).filter(Boolean)
+      : referenceAbs
+        ? [referenceAbs]
         : [];
 
     if (brandKit.logoUrl && brandKit.useLogoInDesign) {
@@ -606,8 +657,8 @@ router.post('/api/send', async (req, res, next) => {
     const headline = String((req.body && req.body.headline) || '').trim();
     const bodyText = String((req.body && req.body.bodyText) || '').trim();
     const ctaUrl = String((req.body && req.body.ctaUrl) || '').trim();
-    const frontImageUrl = String((req.body && req.body.frontImageUrl) || '').trim();
-    const backImageUrl = String((req.body && req.body.backImageUrl) || '').trim();
+    const frontImageUrl = toAbsoluteAssetUrl(req, String((req.body && req.body.frontImageUrl) || '').trim());
+    const backImageUrl = toAbsoluteAssetUrl(req, String((req.body && req.body.backImageUrl) || '').trim());
     const personalizeOverlay = req.body && req.body.personalizeOverlay !== false;
 
     const results = [];
@@ -737,7 +788,8 @@ router.get('/api/queue', async (req, res, next) => {
 router.post('/api/download-image', express.json(), async (req, res, next) => {
   try {
     const body = req.body || {};
-    const { buffer, contentType, ext } = await fetchRemoteImageBuffer(body.imageUrl);
+    const imageUrl = toAbsoluteAssetUrl(req, body.imageUrl);
+    const { buffer, contentType, ext } = await fetchRemoteImageBuffer(imageUrl);
     const fileName = marketingDesignFileName(body.platform, body.slot, ext);
     res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
@@ -759,7 +811,8 @@ router.post('/api/save-to-drive', express.json(), async (req, res, next) => {
       });
     }
     const body = req.body || {};
-    const { buffer, contentType, ext } = await fetchRemoteImageBuffer(body.imageUrl);
+    const imageUrl = toAbsoluteAssetUrl(req, body.imageUrl);
+    const { buffer, contentType, ext } = await fetchRemoteImageBuffer(imageUrl);
     const fileName = marketingDesignFileName(body.platform, body.slot, ext);
     const uploaded = await uploadBinaryToDrive(access, {
       name: fileName,

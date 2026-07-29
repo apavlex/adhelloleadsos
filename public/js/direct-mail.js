@@ -512,6 +512,85 @@
     renderBrandLogoPreview(brandKit.logoUrl);
   }
 
+  function resolveGenerateReferenceUrl(slot) {
+    if (designs[slot]) return designs[slot];
+    return designs[slot === 'back' ? 'front' : 'back'] || '';
+  }
+
+  function openCreativeUploadPicker() {
+    var input = document.getElementById('dmCreativeUploadInput');
+    if (input) input.click();
+  }
+
+  async function uploadCreativeToCanvas(file) {
+    if (!file) return;
+    var slot = currentDesignSlot();
+    setDesignStatus('Uploading image…', true);
+    var fd = new FormData();
+    fd.append('image', file);
+    fd.append('slot', slot);
+    try {
+      var res = await fetch('/direct-mail/api/upload-creative', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: fd,
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success) {
+        throw new Error((data && data.error) || 'Image upload failed.');
+      }
+      var imageUrl = data.imageUrl || data.imageAbsoluteUrl;
+      if (!imageUrl) throw new Error('Upload did not return an image URL.');
+      var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+      var uploadPrompt =
+        'Uploaded ' +
+        (plat.dualSided ? slot + ' image' : plat.label + ' image') +
+        ' — use Regenerate to refine with AI, or export as-is.';
+      designMeta[slot] = Object.assign({}, designMeta[slot], {
+        prompt: uploadPrompt,
+        aspectRatio: currentAspectRatio(),
+        resolution: (document.getElementById('dmResolution') || {}).value || '2K',
+        uploaded: true,
+      });
+      lastImagePrompt = uploadPrompt;
+      setPreview(slot, imageUrl);
+      showPromptEditor(slot, uploadPrompt);
+      saveDesignToLibrary(slot, {
+        imageUrl: imageUrl,
+        prompt: uploadPrompt,
+        aspectRatio: designMeta[slot].aspectRatio,
+        resolution: designMeta[slot].resolution,
+        platform: currentPlatformKey(),
+        silent: true,
+      });
+      setDesignStatus('Image loaded on canvas — export or regenerate with AI.', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Image uploaded to canvas', { variant: 'success' });
+      }
+    } catch (e) {
+      setDesignStatus((e && e.message) || 'Image upload failed', false);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast((e && e.message) || 'Image upload failed', { variant: 'error' });
+      }
+    }
+  }
+
+  function bindCreativeUploadUi() {
+    var input = document.getElementById('dmCreativeUploadInput');
+    if (input) {
+      input.addEventListener('change', function () {
+        if (input.files && input.files[0]) uploadCreativeToCanvas(input.files[0]);
+        input.value = '';
+      });
+    }
+    ['dmUploadCreativeBtn', 'dmUploadCreativeBtnCanvas', 'dmUploadCreativeBtnInspector'].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn) btn.addEventListener('click', openCreativeUploadPicker);
+    });
+  }
+
   function designRequestContext() {
     var ctx = copyContext();
     return Object.assign(ctx, {
@@ -1488,12 +1567,23 @@
       String((document.getElementById('dmChatInput') || {}).value || '').trim() ||
       latestUserChatText();
     var ctx = designRequestContext();
+    var slot = slotEl && slotEl.value === 'back' ? 'back' : 'front';
+    var referenceUrl = resolveGenerateReferenceUrl(slot);
+    if (!prompt && referenceUrl) {
+      var plat = DM_PLATFORMS[ctx.platform] || DM_PLATFORMS.custom;
+      prompt = buildQuickImagePrompt(
+        'Polish this uploaded photo into a scroll-stopping ' + (plat.label || 'social') + ' ad',
+        ctx,
+      );
+      lastImagePrompt = prompt;
+      showPromptEditor(slot, prompt);
+    }
     if (!prompt) {
       setDesignStatus('Describe the design in Chat first, or paste a detailed image prompt here.', false);
       return;
     }
     if (!lastImagePrompt && prompt.length < 48) {
-      if (userWantsAdGeneration(prompt) || userWantsAdGeneration(latestUserChatText())) {
+      if (referenceUrl || userWantsAdGeneration(prompt) || userWantsAdGeneration(latestUserChatText())) {
         prompt = buildQuickImagePrompt(prompt || latestUserChatText(), ctx);
         lastImagePrompt = prompt;
         showPromptEditor(currentDesignSlot(), prompt);
@@ -1506,10 +1596,8 @@
       }
     }
 
-    var slot = slotEl && slotEl.value === 'back' ? 'back' : 'front';
     var aspectRatio = currentAspectRatio();
     var resolution = (document.getElementById('dmResolution') || {}).value || '2K';
-    var referenceUrl = designs[slot === 'back' ? 'front' : 'back'] || '';
 
     btn.disabled = true;
     setDesignStatus('Generating with GPT Image 2… this can take up to 2 minutes.', true);
@@ -1821,6 +1909,7 @@
   if (ratioEl) ratioEl.addEventListener('change', updatePreviewAspectRatio);
 
   bindBrandKitUi();
+  bindCreativeUploadUi();
   bindStudioUi();
 
   var lbClose = document.getElementById('dmLightboxClose');
