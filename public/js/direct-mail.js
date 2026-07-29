@@ -242,6 +242,7 @@
           slotEl.dispatchEvent(new Event('change', { bubbles: true }));
         }
         syncStudioPageView();
+        renderSavedLibrary();
       });
     });
 
@@ -1044,12 +1045,7 @@
 
   function loadSavedDesign(item) {
     if (!item || !item.imageUrl) return;
-    var slot = item.slot === 'back' ? 'back' : 'front';
-    var slotEl = document.getElementById('dmDesignSlot');
-    if (slotEl) {
-      slotEl.value = slot;
-      slotEl.dispatchEvent(new Event('change', { bubbles: true }));
-    }
+    var slot = currentDesignSlot();
     if (item.platform) {
       var platformEl = document.getElementById('dmPlatform');
       if (platformEl && DM_PLATFORMS[item.platform]) {
@@ -1072,7 +1068,15 @@
     showPromptEditor(slot, designMeta[slot].prompt);
     syncStudioPageView();
     syncDownloadActions();
-    setDesignStatus('Loaded saved ' + slot + ' design onto the ' + slot + ' canvas.', true);
+    var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    var sideLabel = preset.dualSided ? slot : 'canvas';
+    setDesignStatus('Loaded saved design onto the ' + sideLabel + '.', true);
+  }
+
+  function savedDesignLoadLabel() {
+    var preset = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+    if (!preset.dualSided) return 'Load to canvas';
+    return 'Load to ' + (currentDesignSlot() === 'back' ? 'back' : 'front');
   }
 
   function setExportStatus(text, ok) {
@@ -1214,13 +1218,9 @@
     list.forEach(function (item) {
       var card = document.createElement('div');
       card.className = 'dm-saved-card';
-      var badge = document.createElement('span');
-      badge.className = 'dm-saved-slot-badge';
-      badge.textContent = item.slot === 'back' ? 'Back' : 'Front';
-      card.appendChild(badge);
       var img = document.createElement('img');
       img.src = item.imageUrl;
-      img.alt = (item.slot || 'front') + ' saved design';
+      img.alt = 'Saved design';
       card.appendChild(img);
       var actions = document.createElement('div');
       actions.className = 'dm-saved-card-actions';
@@ -1228,7 +1228,7 @@
       loadBtn.type = 'button';
       loadBtn.className =
         'w-full rounded-md bg-brand-yellow text-brand-dark text-[9px] font-black uppercase tracking-widest py-1';
-      loadBtn.textContent = 'Load to ' + (item.slot === 'back' ? 'back' : 'front');
+      loadBtn.textContent = savedDesignLoadLabel();
       loadBtn.addEventListener('click', function (e) {
         e.stopPropagation();
         loadSavedDesign(item);
@@ -1240,7 +1240,7 @@
       dlBtn.textContent = 'Download';
       dlBtn.addEventListener('click', function (e) {
         e.stopPropagation();
-        downloadDesignToComputer(item.slot, item.imageUrl);
+        downloadDesignToComputer(currentDesignSlot(), item.imageUrl);
       });
       var zoomBtn = document.createElement('button');
       zoomBtn.type = 'button';
@@ -1251,7 +1251,7 @@
         e.stopPropagation();
         loadSavedDesign(item);
         window.requestAnimationFrame(function () {
-          var slot = item.slot === 'back' ? 'back' : 'front';
+          var slot = currentDesignSlot();
           var btn = document.getElementById(slot === 'back' ? 'dmPreviewBackBtn' : 'dmPreviewFrontBtn');
           if (btn) setStudioZoom(1.85, btn);
         });
