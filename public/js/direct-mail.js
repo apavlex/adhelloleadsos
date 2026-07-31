@@ -975,11 +975,20 @@
     var slot = ctx.slot || currentDesignSlot();
     var parts = [
       'Professional ' + plat.label + ' ad creative, ' + ctx.aspectRatio + ' aspect ratio.',
-      'Polished local-business marketing design with strong headline area and clear contact block.',
     ];
     if (ctx.platform === 'postcard' && slot === 'back') {
       parts.push(
+        'Polished local-business marketing design with bold action CTAs (Call us, Scan QR placeholder, Visit website) — not a duplicated contact footer.',
+      );
+    } else {
+      parts.push('Polished local-business marketing design with strong headline area and clear contact block.');
+    }
+    if (ctx.platform === 'postcard' && slot === 'back') {
+      parts.push(
         'Lob 4×6 postcard BACK: landscape 3:2 full-bleed. Text on left half, 0.3″ from edges. No text in bottom-right address zone — photo background OK.',
+      );
+      parts.push(
+        'Do NOT duplicate the front contact footer (no repeated address, hours, or full contact block). Use action-oriented CTAs instead: a bold "Call us" CTA with phone number, a "Visit our website" CTA with URL, and a clear square placeholder zone labeled "Scan QR code" for a future QR (left marketing area — not in the Lob address zone).',
       );
     } else if (ctx.platform === 'postcard') {
       parts.push(
@@ -988,11 +997,16 @@
     }
     if (kit.businessName) parts.push('Business name: ' + kit.businessName + '.');
     if (userText) parts.push('Creative brief: ' + userText + '.');
-    if (kit.phone) parts.push('Display phone ' + kit.phone + ' prominently.');
-    if (kit.website) parts.push('Include website ' + kit.website + '.');
-    if (kit.email) parts.push('Include email ' + kit.email + '.');
-    if (kit.address) parts.push('Include address ' + kit.address + '.');
-    if (kit.hours) parts.push('Include business hours: ' + kit.hours + '.');
+    if (ctx.platform === 'postcard' && slot === 'back') {
+      if (kit.phone) parts.push('Call-us CTA: display phone ' + kit.phone + ' as an action button or bold callout, not a contact footer.');
+      if (kit.website) parts.push('Visit-website CTA: display ' + kit.website + ' as a clickable-style action line.');
+    } else {
+      if (kit.phone) parts.push('Display phone ' + kit.phone + ' prominently.');
+      if (kit.website) parts.push('Include website ' + kit.website + '.');
+      if (kit.email) parts.push('Include email ' + kit.email + '.');
+      if (kit.address) parts.push('Include address ' + kit.address + '.');
+      if (kit.hours) parts.push('Include business hours: ' + kit.hours + '.');
+    }
     if (kit.useLogoInDesign) {
       parts.unshift(
         'CRITICAL: Do not draw any logo, wordmark, or brand icon anywhere (especially not top-left). Real logo is composited top-right after generation — keep top-right empty background only.',
@@ -1543,6 +1557,77 @@
     document.body.classList.remove('overflow-hidden');
   }
 
+  function appendLobSafeZones(el, slot) {
+    if (!el || currentPlatformKey() !== 'postcard') return;
+    var safe = document.createElement('div');
+    safe.className = 'dm-lob-zone dm-lob-zone--safe';
+    safe.setAttribute('aria-hidden', 'true');
+    safe.title = 'Keep all text inside this safe area';
+    el.appendChild(safe);
+    var zone = document.createElement('div');
+    if (slot === 'back') {
+      zone.className = 'dm-lob-zone dm-lob-zone--address';
+      zone.title = 'Lob address + postage prints here — keep artwork out';
+    } else {
+      zone.className = 'dm-lob-zone dm-lob-zone--qr';
+      zone.title = 'No text here — Lob prints QR on top of your photo';
+    }
+    zone.setAttribute('aria-hidden', 'true');
+    el.appendChild(zone);
+  }
+
+  function hasActiveDesignSession() {
+    if (designs.front || designs.back) return true;
+    if (chatHistory.length > 0) return true;
+    if ((designMeta.front && designMeta.front.prompt) || (designMeta.back && designMeta.back.prompt)) return true;
+    if (lastImagePrompt) return true;
+    var chatInput = document.getElementById('dmChatInput');
+    if (chatInput && String(chatInput.value || '').trim()) return true;
+    return false;
+  }
+
+  function resetChatLog() {
+    var log = document.getElementById('dmChatLog');
+    if (!log) return;
+    log.innerHTML =
+      '<div class="dm-chat-welcome"><strong>AI design assistant</strong> — Pick a format, describe the look you want, then Generate. Chat refines the prompt before image creation.</div>';
+  }
+
+  function resetDesignSession() {
+    chatHistory = [];
+    lastImagePrompt = '';
+    var ratio = currentAspectRatio();
+    designMeta = {
+      front: { prompt: '', aspectRatio: ratio, resolution: '2K' },
+      back: { prompt: '', aspectRatio: ratio, resolution: '2K' },
+    };
+    setPreview('front', null);
+    setPreview('back', null);
+    resetChatLog();
+    var chatInput = document.getElementById('dmChatInput');
+    if (chatInput) chatInput.value = '';
+    var editor = document.getElementById('dmPromptEditor');
+    if (editor) editor.value = '';
+    var slotEl = document.getElementById('dmDesignSlot');
+    if (slotEl) slotEl.value = 'front';
+    closeLightbox();
+    studioZoomFocusBtn = null;
+    setStudioZoom(1);
+    syncStudioPageView();
+    syncDownloadActions();
+    setDesignStatus('Started a new design — describe your creative below.', true);
+  }
+
+  function confirmAndStartNewDesign() {
+    if (!hasActiveDesignSession()) {
+      resetDesignSession();
+      return;
+    }
+    var msg =
+      'Start a new design? This clears your current canvas, prompts, and chat history. Brand kit and saved library are kept.';
+    if (window.confirm(msg)) resetDesignSession();
+  }
+
   function setPreview(slot, imageUrl, meta) {
     var el = document.getElementById(slot === 'back' ? 'dmPreviewBack' : 'dmPreviewFront');
     var useCb = document.getElementById(slot === 'back' ? 'dmUseBack' : 'dmUseFront');
@@ -1559,6 +1644,7 @@
       span.textContent =
         slot === 'back' ? 'No back yet — generate or switch to Front' : 'No front yet — describe your design and generate';
       el.appendChild(span);
+      appendLobSafeZones(el, slot);
       if (useCb) {
         useCb.checked = false;
         useCb.disabled = true;
@@ -2191,6 +2277,9 @@
   bindBrandKitUi();
   bindCreativeUploadUi();
   bindStudioUi();
+
+  var newDesignBtn = document.getElementById('dmNewDesignBtn');
+  if (newDesignBtn) newDesignBtn.addEventListener('click', confirmAndStartNewDesign);
 
   var lbClose = document.getElementById('dmLightboxClose');
   var lbBackdrop = document.getElementById('dmLightboxBackdrop');

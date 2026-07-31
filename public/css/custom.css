@@ -4834,6 +4834,14 @@ body.dm-studio-fullscreen-active .dm-workflow-section {
   color: var(--brand-muted, #6b7280);
 }
 
+.dm-new-design-btn {
+  font-size: 0.6875rem;
+  padding: 0.35rem 0.65rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
 .dm-zoom-controls {
   display: inline-flex;
   align-items: center;

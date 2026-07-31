@@ -293,7 +293,10 @@ function buildDesignCoachSystemPrompt({
       ? `For Lob 4×6 postcard BACK (landscape 3:2, 1875×1275px):
 - Full-bleed photo background edge to edge — the entire card is one continuous image, not a small inset.
 - Lob prints recipient address + postage in the bottom-right ink-free zone (~53% width × 56% height). Do NOT put text, logos, or contact info in that zone — photo background is fine there.
-- Keep all marketing copy and contact details on the LEFT half, at least 0.3″ from every edge (trim cuts content near edges).
+- Keep all marketing copy on the LEFT half, at least 0.3″ from every edge (trim cuts content near edges).
+- Do NOT duplicate the FRONT contact footer — no repeated address block, business hours list, or full contact strip like the front.
+- Use action-oriented CTAs instead: "Call us" (phone as a bold CTA button/callout), "Scan QR code" (leave a clear square placeholder zone on the left for a future QR — stylized block or empty square with label, NOT in the address zone), and "Visit our website" (URL as a CTA line).
+- Phone and website appear as CTA elements, not as a repeated address/hours footer.
 - Do NOT draw USPS postage, PRSRT, barcodes, or "Current Resident" — Lob adds these at print time.
 - Do NOT use placeholder text like {business} or curly-brace merge tokens in the image.`
       : '';
@@ -311,12 +314,12 @@ function buildDesignCoachSystemPrompt({
 ${frontPrompt ? `Front design prompt for style context:\n${String(frontPrompt).slice(0, 1200)}\n` : ''}
 When the user asks to match the front, coordinate with it, or make a similar design for the back:
 - imagePrompt MUST use the same color palette, typography style, graphic language, and brand mood as the front — not a generic conversion template.
-- Adapt layout for postcard BACK rules (text on left half only) while keeping visual continuity with the front.
+- Adapt layout for postcard BACK rules (CTA-focused left half, no contact footer duplication) while keeping visual continuity with the front.
 - Do NOT invent a completely different aesthetic (e.g. dark overlay panel vs bright marketing front) unless the user explicitly asks for a new direction.`
       : '';
   return `You are an ad creative design coach for a local marketing agency. The user is designing a ${plat} creative (${ratio} aspect ratio${isPostcard ? `, ${slot} side` : ''}).
 
-Business info (include in layout when relevant — phone, website, hours, address, logo placement):
+Business info (${isPostcard && slot === 'back' ? 'for CTA elements on back — phone and website only; do NOT repeat address/hours footer from front' : 'include in layout when relevant — phone, website, hours, address, logo placement'}):
 ${brandKitSummary(brandKit)}
 
 Ad copy context:
@@ -342,14 +345,14 @@ When they ask to remove, delete, change, move, or tweak something ("remove the s
 - Do NOT rewrite the whole creative from scratch.` : ''}
 
 Respond with JSON only, no markdown:
-{"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. Include business contact details in the design when the user wants them on the ad. Null if still exploring."}
+{"reply":"2-4 sentences: coaching, questions, or creative direction","imagePrompt":"null or a detailed English prompt ready for GPT Image 2 — specify platform (${plat}), ${ratio} composition, typography zones, brand colors, mood. ${isPostcard && slot === 'back' ? 'For postcard back: CTA layout (Call, Scan QR placeholder, Visit website) — not a duplicated contact footer.' : 'Include business contact details in the design when the user wants them on the ad.'} Null if still exploring."}
 
 Rules:
 - imagePrompt must be null until the user wants to generate or asks for a final prompt.
 - If the user asks you to generate, create, or make the design (including phrases like "make an ad", "create an ad", "design a post"), set imagePrompt from the conversation and business info — do not leave it null.
-- When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.
+- ${isPostcard && slot === 'back' ? 'Postcard BACK: use action CTAs (Call us with phone, Scan QR placeholder square, Visit website with URL). Do NOT duplicate the front contact footer (address, hours block).' : 'When business info is provided, weave phone, website, hours, and address into the imagePrompt layout.'}
 - Optimize for ${plat}: safe margins, readable text at mobile size, professional local-business marketing aesthetic.
-- ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; text on left half only; no text in bottom-right address zone. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
+- ${isPostcard && slot === 'back' ? 'Postcard back: full-bleed image; CTA blocks on left half only; no text in bottom-right address zone; QR placeholder on left marketing area. Match front style when a front design exists.' : isPostcard ? 'Postcard front: full-bleed photo; full contact footer OK; no text in bottom-right QR zone or near edges.' : 'Single-sided social/display ad — one strong focal creative.'}
 - Escape double quotes inside strings as \\".`;
 }
 
@@ -369,13 +372,25 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
   if (!base) return base;
   if (editMode) base = augmentIncrementalEditPrompt(base);
   const k = normalizeBrandKit(brandKit);
+  const plat = platformLabel(platform);
+  const isPostcard = String(platform || '').trim() === 'postcard';
+  const side = String(slot || 'front').trim();
+  const isPostcardBack = isPostcard && side === 'back';
   const extras = [];
   if (k.businessName) extras.push(`Business: ${k.businessName}`);
-  if (k.phone) extras.push(`Phone: ${k.phone}`);
-  if (k.email) extras.push(`Email: ${k.email}`);
-  if (k.website) extras.push(`Website: ${k.website}`);
-  if (k.address) extras.push(`Address: ${k.address}`);
-  if (k.hours) extras.push(`Hours: ${k.hours}`);
+  if (k.phone) {
+    extras.push(
+      isPostcardBack ? `Call-us CTA phone: ${k.phone}` : `Phone: ${k.phone}`,
+    );
+  }
+  if (!isPostcardBack && k.email) extras.push(`Email: ${k.email}`);
+  if (k.website) {
+    extras.push(
+      isPostcardBack ? `Visit-website CTA URL: ${k.website}` : `Website: ${k.website}`,
+    );
+  }
+  if (!isPostcardBack && k.address) extras.push(`Address: ${k.address}`);
+  if (!isPostcardBack && k.hours) extras.push(`Hours: ${k.hours}`);
   if (k.useLogoInDesign) {
     base =
       'CRITICAL LOGO RULE: Do not draw, render, or approximate any logo, wordmark, monogram, brand icon, company mark, placeholder badge, or white logo box anywhere on the design — not top-center, not center, not top-left, not top-right, not any corner or edge. Leave the top-right corner completely empty — only background photo, no white box, no placeholder, no fake logo. The client\'s real logo file is composited automatically in the top-right after generation. Business name may appear as plain typography in the contact block, never as a logo mark.\n\n' +
@@ -388,23 +403,20 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
       'Logo overlay is off — weave the business name into typography if needed, but do not place a separate logo mark that would conflict with a later overlay',
     );
   }
-  const plat = platformLabel(platform);
-  const isPostcard = String(platform || '').trim() === 'postcard';
-  const side = String(slot || 'front').trim();
   let lobSpec = '';
   if (isPostcard && side === 'back') {
     lobSpec =
-      ' Lob 4×6 postcard BACK: landscape 3:2 full-bleed. Marketing text on left half only, 0.3″ from edges. No text in bottom-right address zone (photo OK). Never render {business} or placeholder tokens.';
+      ' Lob 4×6 postcard BACK: landscape 3:2 full-bleed. CTA-focused left half only (Call us, Scan QR placeholder square, Visit website) — do NOT duplicate front contact footer (no address/hours block). 0.3″ from edges. No text in bottom-right address zone (photo OK). Never render {business} or placeholder tokens.';
     if (matchFrontStyle || styleReferenceUrl) {
       lobSpec +=
-        ' Match the attached front design reference: same color palette, typography style, graphic elements, and brand mood — adapt layout for back-side rules only.';
+        ' Match the attached front design reference: same color palette, typography style, graphic elements, and brand mood — adapt layout for back-side CTA rules only.';
     }
   } else if (isPostcard) {
     lobSpec =
       ' Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. No text within 0.3″ of edges or in bottom-right QR zone (photo OK, no white box). Never render {business} or placeholder tokens. Never draw a company logo or wordmark — real logo is added top-right after generation when enabled.';
   }
   const suffix = extras.length
-    ? `\n\nPlatform: ${plat}.${lobSpec} Include on the ad where appropriate: ${extras.join('; ')}.`
+    ? `\n\nPlatform: ${plat}.${lobSpec}${isPostcardBack ? ` CTA elements: ${extras.join('; ')}. Include a clear square QR placeholder zone on the left.` : ` Include on the ad where appropriate: ${extras.join('; ')}.`}`
     : `\n\nPlatform: ${plat}.${lobSpec}`;
   return base + suffix;
 }
