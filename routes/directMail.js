@@ -760,6 +760,44 @@ router.get('/api/creative/:filename', async (req, res, next) => {
   }
 });
 
+async function compositeLogoOnWorkspaceUpload(req, baseBuffer) {
+  const ws = await getWorkspaceForBrand(req);
+  const logoData = await brandKitLogo.loadLogoBuffer(ws);
+  if (!logoData || !logoData.buffer || !logoData.buffer.length) {
+    throw new Error('No logo found in Brand settings.');
+  }
+  return applyLogoOverlaySafe(req, baseBuffer, '', logoData);
+}
+
+router.post('/api/composite-with-logo', (req, res, next) => {
+  creativeUpload.single('image')(req, res, (err) => {
+    if (err) return res.status(400).json({ success: false, error: err.message || 'Upload failed' });
+    next();
+  });
+}, async (req, res, next) => {
+  try {
+    if (!req.file || !req.file.buffer || !req.file.buffer.length) {
+      return res.status(400).json({ success: false, error: 'Generated image file is required.' });
+    }
+    const composited = await compositeLogoOnWorkspaceUpload(req, req.file.buffer);
+    const imageUrl = toAbsoluteAssetUrl(req, composited) || composited;
+    return res.json({
+      success: true,
+      imageUrl,
+      logoOverlayApplied: true,
+    });
+  } catch (err) {
+    console.warn(
+      '[direct-mail] composite-with-logo failed:',
+      err && err.message ? err.message : err,
+    );
+    return res.status(502).json({
+      success: false,
+      error: (err && err.message) || 'Logo compositing failed.',
+    });
+  }
+});
+
 router.post('/api/apply-logo-overlay', express.json({ limit: '32kb' }), async (req, res, next) => {
   try {
     const imageUrl = String((req.body && req.body.imageUrl) || '').trim();

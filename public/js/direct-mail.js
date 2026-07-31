@@ -1704,6 +1704,63 @@
     throw new Error('Image generation timed out — try Generate again in a moment.');
   }
 
+  async function downloadGeneratedImageBlob(imageUrl) {
+    try {
+      var res = await fetch(imageUrl, { mode: 'cors', credentials: 'omit' });
+      if (res.ok) {
+        var blob = await res.blob();
+        if (blob && blob.size) return blob;
+      }
+    } catch (_) {}
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = function () {
+        try {
+          var c = document.createElement('canvas');
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          c.getContext('2d').drawImage(img, 0, 0);
+          c.toBlob(function (blob) {
+            if (blob && blob.size) resolve(blob);
+            else reject(new Error('Could not export generated image'));
+          }, 'image/jpeg', 0.92);
+        } catch (err) {
+          reject(err);
+        }
+      };
+      img.onerror = function () {
+        reject(new Error('Could not load generated image'));
+      };
+      img.src = imageUrl;
+    });
+  }
+
+  async function browserCompositeLogoOverlay(imageUrl, slot) {
+    if (!imageUrl) return null;
+    setDesignStatus('Adding your logo from browser…', true);
+    try {
+      var blob = await downloadGeneratedImageBlob(imageUrl);
+      var fd = new FormData();
+      fd.append('image', blob, 'generated.jpg');
+      fd.append('slot', slot || 'front');
+      var res = await fetch('/direct-mail/api/composite-with-logo', {
+        method: 'POST',
+        credentials: 'same-origin',
+        body: fd,
+      });
+      var data = await res.json().catch(function () {
+        return {};
+      });
+      if (!res.ok || !data.success || !data.imageUrl) {
+        throw new Error((data && data.error) || 'Browser logo compositing failed');
+      }
+      return data;
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function retryLogoOverlay(imageUrl, brandKit, taskId) {
     if (!imageUrl || !brandKit || brandKit.useLogoInDesign === false) return null;
     await new Promise(function (resolve) {
@@ -1951,6 +2008,14 @@
           data.logoSkipReason = null;
         } else if (retryOverlay) {
           data.logoSkipReason = retryOverlay.logoSkipReason || data.logoSkipReason;
+        }
+        if (data.logoOverlayApplied !== true) {
+          var browserOverlay = await browserCompositeLogoOverlay(data.imageUrl, slot);
+          if (browserOverlay && browserOverlay.logoOverlayApplied && browserOverlay.imageUrl) {
+            data.imageUrl = browserOverlay.imageUrl;
+            data.logoOverlayApplied = true;
+            data.logoSkipReason = null;
+          }
         }
       }
       if (data.imageUrl) {

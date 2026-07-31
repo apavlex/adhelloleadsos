@@ -4,6 +4,8 @@
 
 const fs = require('fs').promises;
 const path = require('path');
+const http = require('http');
+const https = require('https');
 const sharp = require('sharp');
 const dbService = require('./database');
 
@@ -91,6 +93,44 @@ const FETCH_IMAGE_HEADERS = {
   Accept: 'image/*',
 };
 
+function fetchImageBufferNode(url, redirectCount = 0) {
+  return new Promise((resolve, reject) => {
+    const parsed = new URL(url);
+    const lib = parsed.protocol === 'https:' ? https : http;
+    const req = lib.request(
+      parsed,
+      {
+        method: 'GET',
+        headers: FETCH_IMAGE_HEADERS,
+      },
+      (res) => {
+        const code = res.statusCode || 0;
+        if (code >= 300 && code < 400 && res.headers.location && redirectCount < 5) {
+          const nextUrl = new URL(res.headers.location, url).toString();
+          res.resume();
+          fetchImageBufferNode(nextUrl, redirectCount + 1).then(resolve).catch(reject);
+          return;
+        }
+        if (code !== 200) {
+          res.resume();
+          reject(new Error(`Could not fetch image (${code}).`));
+          return;
+        }
+        const chunks = [];
+        res.on('data', (chunk) => chunks.push(chunk));
+        res.on('end', () => {
+          const buf = Buffer.concat(chunks);
+          if (!buf.length) reject(new Error('Image download was empty.'));
+          else resolve(buf);
+        });
+        res.on('error', reject);
+      },
+    );
+    req.on('error', reject);
+    req.end();
+  });
+}
+
 async function fetchImageBuffer(imageUrl, { retries = 3, timeoutMs = 90000 } = {}) {
   const url = String(imageUrl || '').trim();
   if (!url || !/^https?:\/\//i.test(url)) {
@@ -121,7 +161,11 @@ async function fetchImageBuffer(imageUrl, { retries = 3, timeoutMs = 90000 } = {
       }
     }
   }
-  throw lastErr || new Error('Could not fetch image.');
+  try {
+    return await fetchImageBufferNode(url);
+  } catch (nodeErr) {
+    throw lastErr || nodeErr || new Error('Could not fetch image.');
+  }
 }
 
 async function normalizeBaseForOverlay(baseBuffer) {
@@ -209,6 +253,7 @@ async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
   const padding = Number.isFinite(Number(opts.padding)) ? Number(opts.padding) : DEFAULT_PADDING;
   const position = opts.position || 'top-left';
   const pos = String(position || 'top-left').toLowerCase();
+  const skipBackdrop = opts.skipBackdrop === true;
 
   const normalizedBase = await normalizeBaseForOverlay(baseBuffer);
   const baseMeta = await sharp(normalizedBase).metadata();
@@ -230,15 +275,19 @@ async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
   const { left, top } = compositePosition(baseW, baseH, logoW, logoH, padding, position);
 
   const layers = [];
-  if (pos === 'top-right') {
-    const backdropW = logoW + LOGO_BACKDROP_PAD * 2;
-    const backdropH = logoH + LOGO_BACKDROP_PAD * 2;
-    const backdropPng = await createLogoBackdropPng(backdropW, backdropH);
-    layers.push({
-      input: backdropPng,
-      left: Math.max(0, left - LOGO_BACKDROP_PAD),
-      top: Math.max(0, top - LOGO_BACKDROP_PAD),
-    });
+  if (pos === 'top-right' && !skipBackdrop) {
+    try {
+      const backdropW = logoW + LOGO_BACKDROP_PAD * 2;
+      const backdropH = logoH + LOGO_BACKDROP_PAD * 2;
+      const backdropPng = await createLogoBackdropPng(backdropW, backdropH);
+      layers.push({
+        input: backdropPng,
+        left: Math.max(0, left - LOGO_BACKDROP_PAD),
+        top: Math.max(0, top - LOGO_BACKDROP_PAD),
+      });
+    } catch {
+      /* backdrop optional */
+    }
   }
   layers.push({ input: logoPng, left, top });
 
@@ -291,12 +340,14 @@ async function applyLogoOverlayFromBuffers(
   if (!baseBuffer || !baseBuffer.length) throw new Error('Base image buffer is empty.');
   if (!logoBuffer || !logoBuffer.length) throw new Error('Logo buffer is empty.');
   const logoBuf = await prepareLogoBufferForOverlay(logoBuffer, logoMimeType);
-  const outBuf = await compositeLogoOnImageBuffer(baseBuffer, logoBuf, {
-    position,
-    maxWidthRatio,
-    padding,
-  });
-  return saveCompositedImageBuffer(req, outBuf, prefix || 'logo_overlay');
+  const opts = { position, maxWidthRatio, padding };
+  try {
+    const outBuf = await compositeLogoOnImageBuffer(baseBuffer, logoBuf, opts);
+    return saveCompositedImageBuffer(req, outBuf, prefix || 'logo_overlay');
+  } catch (firstErr) {
+    const outBuf = await compositeLogoOnImageBuffer(baseBuffer, logoBuf, { ...opts, skipBackdrop: true });
+    return saveCompositedImageBuffer(req, outBuf, prefix || 'logo_overlay');
+  }
 }
 
 async function applyLogoOverlayToRemoteImage(
