@@ -84,12 +84,18 @@ async function resizeBufferForLobPostcard(buffer, { side } = {}) {
   return out;
 }
 
+const FETCH_IMAGE_HEADERS = {
+  'User-Agent':
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  Accept: 'image/*',
+};
+
 async function fetchImageBuffer(imageUrl) {
   const url = String(imageUrl || '').trim();
   if (!url || !/^https?:\/\//i.test(url)) {
     throw new Error('A valid image URL is required.');
   }
-  const res = await fetch(url, { redirect: 'follow' });
+  const res = await fetch(url, { redirect: 'follow', headers: FETCH_IMAGE_HEADERS });
   if (!res.ok) {
     throw new Error(`Could not fetch image (${res.status}).`);
   }
@@ -141,13 +147,27 @@ async function prepareLogoBufferForOverlay(logoBuffer, mimeType) {
   return buf;
 }
 
+const LOGO_BACKDROP_PAD = 10;
+const LOGO_BACKDROP_RADIUS = 8;
+const LOGO_BACKDROP_OPACITY = 0.72;
+
+async function createLogoBackdropSvg(width, height, { radius = LOGO_BACKDROP_RADIUS, opacity = LOGO_BACKDROP_OPACITY } = {}) {
+  const alpha = Math.min(1, Math.max(0, Number(opacity) || LOGO_BACKDROP_OPACITY));
+  return Buffer.from(
+    `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="rgba(255,255,255,${alpha})"/>
+    </svg>`,
+  );
+}
+
 async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
   const maxWidthRatio = Number(opts.maxWidthRatio) || DEFAULT_MAX_LOGO_WIDTH_RATIO;
   const padding = Number.isFinite(Number(opts.padding)) ? Number(opts.padding) : DEFAULT_PADDING;
   const position = opts.position || 'top-left';
+  const pos = String(position || 'top-left').toLowerCase();
 
-  const base = sharp(baseBuffer);
-  const baseMeta = await base.metadata();
+  const normalizedBase = await sharp(baseBuffer).rotate().toBuffer();
+  const baseMeta = await sharp(normalizedBase).metadata();
   const baseW = baseMeta.width || 1024;
   const baseH = baseMeta.height || 1024;
   const maxLogoW = Math.max(32, Math.round(baseW * maxWidthRatio));
@@ -163,8 +183,21 @@ async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
   const logoPng = await logoResized.png().toBuffer();
   const { left, top } = compositePosition(baseW, baseH, logoW, logoH, padding, position);
 
-  return base
-    .composite([{ input: logoPng, left, top }])
+  const layers = [];
+  if (pos === 'top-right') {
+    const backdropW = logoW + LOGO_BACKDROP_PAD * 2;
+    const backdropH = logoH + LOGO_BACKDROP_PAD * 2;
+    const backdropSvg = await createLogoBackdropSvg(backdropW, backdropH);
+    layers.push({
+      input: backdropSvg,
+      left: Math.max(0, left - LOGO_BACKDROP_PAD),
+      top: Math.max(0, top - LOGO_BACKDROP_PAD),
+    });
+  }
+  layers.push({ input: logoPng, left, top });
+
+  return sharp(normalizedBase)
+    .composite(layers)
     .jpeg({ quality: 92 })
     .toBuffer();
 }
@@ -202,6 +235,7 @@ async function applyLogoOverlayToRemoteImage(
 module.exports = {
   DEFAULT_MAX_LOGO_WIDTH_RATIO,
   DEFAULT_PADDING,
+  FETCH_IMAGE_HEADERS,
   LOB_POSTCARD_WIDTH_PX,
   LOB_POSTCARD_HEIGHT_PX,
   LOB_BLEED_INSET_PX,
@@ -209,6 +243,7 @@ module.exports = {
   LOB_SAFE_HEIGHT_PX,
   LOB_BACK_INK_FREE,
   lobInkFreeRectPx,
+  compositePosition,
   fetchImageBuffer,
   prepareLogoBufferForOverlay,
   compositeLogoOnImageBuffer,

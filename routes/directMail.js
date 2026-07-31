@@ -378,10 +378,10 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
   if (k.hours) extras.push(`Hours: ${k.hours}`);
   if (k.useLogoInDesign) {
     base =
-      'CRITICAL LOGO RULE: Do not draw, render, or approximate any logo, wordmark, monogram, brand icon, or company mark anywhere on the design — not top-left, not top-right, not any corner. The client\'s real logo file is composited automatically in the top-right after generation; top-right must be empty background photo only. Business name may appear as plain typography in the contact block, never as a logo mark.\n\n' +
+      'CRITICAL LOGO RULE: Do not draw, render, or approximate any logo, wordmark, monogram, brand icon, company mark, placeholder badge, or white logo box anywhere on the design — not top-center, not center, not top-left, not top-right, not any corner or edge. Leave the top-right corner completely empty — only background photo, no white box, no placeholder, no fake logo. The client\'s real logo file is composited automatically in the top-right after generation. Business name may appear as plain typography in the contact block, never as a logo mark.\n\n' +
       base;
     extras.push(
-      'Keep the top-right corner empty (background only) for the post-generation logo overlay — never place a fake logo in the top-left or anywhere else',
+      'Keep the top-right corner completely empty (background photo only) for the post-generation logo overlay — never draw a fake logo in top-center, center, top-left, or anywhere else',
     );
   } else if (k.logoUrl) {
     extras.push(

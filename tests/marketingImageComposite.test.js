@@ -3,6 +3,9 @@ const assert = require('node:assert/strict');
 const sharp = require('sharp');
 const {
   compositeLogoOnImageBuffer,
+  compositePosition,
+  fetchImageBuffer,
+  FETCH_IMAGE_HEADERS,
   resizeBufferForLobPostcard,
   LOB_POSTCARD_WIDTH_PX,
   LOB_POSTCARD_HEIGHT_PX,
@@ -165,4 +168,72 @@ test('compositeLogoOnImageBuffer places logo in top-right when requested', async
   const topRight = await sharp(out).extract({ left: 1100, top: 30, width: 40, height: 40 }).raw().toBuffer();
   assert.ok(topLeft[0] > 200 && topLeft[1] > 200, 'top-left should stay light base background');
   assert.ok(topRight[2] > 120 && topRight[0] < 80, 'top-right should contain composited logo pixels');
+});
+
+test('compositePosition top-right anchors logo with padding', () => {
+  const { left, top } = compositePosition(1200, 800, 180, 90, 24, 'top-right');
+  assert.equal(left, 1200 - 180 - 24);
+  assert.equal(top, 24);
+});
+
+test('compositeLogoOnImageBuffer places logo top-right on EXIF-oriented base', async () => {
+  const baseBuffer = await sharp({
+    create: {
+      width: 800,
+      height: 1200,
+      channels: 3,
+      background: { r: 240, g: 240, b: 240 },
+    },
+  })
+    .withMetadata({ orientation: 6 })
+    .jpeg()
+    .toBuffer();
+
+  const logoBuffer = await sharp({
+    create: {
+      width: 200,
+      height: 100,
+      channels: 4,
+      background: { r: 20, g: 80, b: 200, alpha: 1 },
+    },
+  })
+    .png()
+    .toBuffer();
+
+  const out = await compositeLogoOnImageBuffer(baseBuffer, logoBuffer, {
+    maxWidthRatio: 0.15,
+    padding: 24,
+    position: 'top-right',
+  });
+  const meta = await sharp(out).metadata();
+  assert.equal(meta.width, 1200, 'EXIF rotation should normalize to landscape width');
+  assert.equal(meta.height, 800, 'EXIF rotation should normalize to landscape height');
+
+  const topLeft = await sharp(out).extract({ left: 10, top: 10, width: 20, height: 20 }).raw().toBuffer();
+  const topRight = await sharp(out).extract({ left: 1100, top: 30, width: 40, height: 40 }).raw().toBuffer();
+  assert.ok(topLeft[0] > 200 && topLeft[1] > 200, 'top-left should stay light base background');
+  assert.ok(
+    topRight[2] > 80 || (topRight[0] > 200 && topRight[1] > 200),
+    'top-right should contain composited logo or its backdrop',
+  );
+});
+
+test('fetchImageBuffer sends browser-like User-Agent and Accept headers', async () => {
+  const originalFetch = global.fetch;
+  let capturedInit;
+  global.fetch = async (_url, init) => {
+    capturedInit = init;
+    return {
+      ok: true,
+      arrayBuffer: async () => new Uint8Array([0xff, 0xd8, 0xff, 0xe0]).buffer,
+    };
+  };
+  try {
+    await fetchImageBuffer('https://cdn.example.com/generated.jpg');
+    assert.ok(capturedInit && capturedInit.headers);
+    assert.equal(capturedInit.headers['User-Agent'], FETCH_IMAGE_HEADERS['User-Agent']);
+    assert.equal(capturedInit.headers.Accept, FETCH_IMAGE_HEADERS.Accept);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });
