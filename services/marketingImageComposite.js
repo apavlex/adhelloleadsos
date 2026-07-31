@@ -91,18 +91,50 @@ const FETCH_IMAGE_HEADERS = {
   Accept: 'image/*',
 };
 
-async function fetchImageBuffer(imageUrl) {
+async function fetchImageBuffer(imageUrl, { retries = 3, timeoutMs = 90000 } = {}) {
   const url = String(imageUrl || '').trim();
   if (!url || !/^https?:\/\//i.test(url)) {
     throw new Error('A valid image URL is required.');
   }
-  const res = await fetch(url, { redirect: 'follow', headers: FETCH_IMAGE_HEADERS });
-  if (!res.ok) {
-    throw new Error(`Could not fetch image (${res.status}).`);
+  const headers = {
+    ...FETCH_IMAGE_HEADERS,
+    Referer: 'https://kie.ai/',
+    Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+  };
+  let lastErr = null;
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const res = await fetch(url, { redirect: 'follow', headers, signal: controller.signal });
+      clearTimeout(timer);
+      if (!res.ok) {
+        throw new Error(`Could not fetch image (${res.status}).`);
+      }
+      const ab = await res.arrayBuffer();
+      if (!ab || !ab.byteLength) throw new Error('Image download was empty.');
+      return Buffer.from(ab);
+    } catch (err) {
+      lastErr = err;
+      if (attempt < retries - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 1200 * (attempt + 1)));
+      }
+    }
   }
-  const ab = await res.arrayBuffer();
-  if (!ab || !ab.byteLength) throw new Error('Image download was empty.');
-  return Buffer.from(ab);
+  throw lastErr || new Error('Could not fetch image.');
+}
+
+async function normalizeBaseForOverlay(baseBuffer) {
+  const rotated = await sharp(baseBuffer).rotate().toBuffer();
+  const meta = await sharp(rotated).metadata();
+  const w = meta.width || 0;
+  const h = meta.height || 0;
+  const maxDim = 2560;
+  if (w <= maxDim && h <= maxDim) return rotated;
+  return sharp(rotated)
+    .resize({ width: maxDim, height: maxDim, fit: 'inside', withoutEnlargement: true })
+    .jpeg({ quality: 92 })
+    .toBuffer();
 }
 
 async function prepareRemoteImageForLobPostcard(imageUrl, req, { side } = {}) {
@@ -140,10 +172,20 @@ async function prepareLogoBufferForOverlay(logoBuffer, mimeType) {
     buf = await sharp(buf).png().toBuffer();
   } else {
     try {
-      buf = await sharp(buf).trim({ threshold: 12 }).png().toBuffer();
+      const trimmed = await sharp(buf).trim({ threshold: 12 }).png().toBuffer();
+      const meta = await sharp(trimmed).metadata();
+      if ((meta.width || 0) >= 8 && (meta.height || 0) >= 8) {
+        buf = trimmed;
+      } else {
+        buf = await sharp(logoBuffer).png().toBuffer();
+      }
     } catch {
       buf = await sharp(buf).png().toBuffer();
     }
+  }
+  const finalMeta = await sharp(buf).metadata();
+  if ((finalMeta.width || 0) < 4 || (finalMeta.height || 0) < 4) {
+    throw new Error('Logo image is too small to overlay.');
   }
   return buf;
 }
@@ -152,13 +194,14 @@ const LOGO_BACKDROP_PAD = 10;
 const LOGO_BACKDROP_RADIUS = 8;
 const LOGO_BACKDROP_OPACITY = 0.72;
 
-async function createLogoBackdropSvg(width, height, { radius = LOGO_BACKDROP_RADIUS, opacity = LOGO_BACKDROP_OPACITY } = {}) {
+async function createLogoBackdropPng(width, height, { radius = LOGO_BACKDROP_RADIUS, opacity = LOGO_BACKDROP_OPACITY } = {}) {
   const alpha = Math.min(1, Math.max(0, Number(opacity) || LOGO_BACKDROP_OPACITY));
-  return Buffer.from(
+  const svg = Buffer.from(
     `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
       <rect x="0" y="0" width="${width}" height="${height}" rx="${radius}" ry="${radius}" fill="rgba(255,255,255,${alpha})"/>
     </svg>`,
   );
+  return sharp(svg).png().toBuffer();
 }
 
 async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
@@ -167,30 +210,32 @@ async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
   const position = opts.position || 'top-left';
   const pos = String(position || 'top-left').toLowerCase();
 
-  const normalizedBase = await sharp(baseBuffer).rotate().toBuffer();
+  const normalizedBase = await normalizeBaseForOverlay(baseBuffer);
   const baseMeta = await sharp(normalizedBase).metadata();
   const baseW = baseMeta.width || 1024;
   const baseH = baseMeta.height || 1024;
   const maxLogoW = Math.max(32, Math.round(baseW * maxWidthRatio));
 
-  const logoResized = sharp(logoBuffer).resize({
-    width: maxLogoW,
-    fit: 'inside',
-    withoutEnlargement: true,
-  });
-  const logoMeta = await logoResized.metadata();
+  const logoPng = await sharp(logoBuffer)
+    .resize({
+      width: maxLogoW,
+      fit: 'inside',
+      withoutEnlargement: true,
+    })
+    .png()
+    .toBuffer();
+  const logoMeta = await sharp(logoPng).metadata();
   const logoW = logoMeta.width || maxLogoW;
   const logoH = logoMeta.height || maxLogoW;
-  const logoPng = await logoResized.png().toBuffer();
   const { left, top } = compositePosition(baseW, baseH, logoW, logoH, padding, position);
 
   const layers = [];
   if (pos === 'top-right') {
     const backdropW = logoW + LOGO_BACKDROP_PAD * 2;
     const backdropH = logoH + LOGO_BACKDROP_PAD * 2;
-    const backdropSvg = await createLogoBackdropSvg(backdropW, backdropH);
+    const backdropPng = await createLogoBackdropPng(backdropW, backdropH);
     layers.push({
-      input: backdropSvg,
+      input: backdropPng,
       left: Math.max(0, left - LOGO_BACKDROP_PAD),
       top: Math.max(0, top - LOGO_BACKDROP_PAD),
     });
@@ -215,13 +260,28 @@ async function saveCompositedImageBuffer(req, buffer, prefix) {
   const wid = String((req && req.workspaceId) || 'default')
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, '_');
-  const absDir = getCreativeStorageDir();
-  await fs.mkdir(absDir, { recursive: true });
   const stem = String(prefix || 'composited').trim() || 'composited';
   const filename = `${wid}_${stem}_${Date.now()}.jpg`;
-  const absPath = path.join(absDir, filename);
-  await fs.writeFile(absPath, buffer);
-  return creativePublicPath(filename);
+
+  const dirs = [
+    getCreativeStorageDir(),
+    path.join(process.cwd(), 'public', 'uploads', 'creative'),
+  ];
+  let lastErr = null;
+  for (const absDir of dirs) {
+    try {
+      await fs.mkdir(absDir, { recursive: true });
+      const absPath = path.join(absDir, filename);
+      await fs.writeFile(absPath, buffer);
+      if (absDir === dirs[1]) {
+        return `/uploads/creative/${filename}`;
+      }
+      return creativePublicPath(filename);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr || new Error('Could not save composited image.');
 }
 
 async function applyLogoOverlayFromBuffers(
@@ -274,6 +334,7 @@ module.exports = {
   compositePosition,
   getCreativeStorageDir,
   creativePublicPath,
+  normalizeBaseForOverlay,
   fetchImageBuffer,
   prepareLogoBufferForOverlay,
   compositeLogoOnImageBuffer,

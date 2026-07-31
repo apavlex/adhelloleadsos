@@ -1704,6 +1704,22 @@
     throw new Error('Image generation timed out — try Generate again in a moment.');
   }
 
+  async function retryLogoOverlay(imageUrl, brandKit, taskId) {
+    if (!imageUrl || !brandKit || brandKit.useLogoInDesign === false) return null;
+    await new Promise(function (resolve) {
+      setTimeout(resolve, 1500);
+    });
+    try {
+      return await postJson('/direct-mail/api/apply-logo-overlay', {
+        imageUrl: imageUrl,
+        brandKit: brandKit,
+        taskId: taskId || '',
+      });
+    } catch (_) {
+      return null;
+    }
+  }
+
   async function postJson(url, body) {
     var res = await fetch(url, {
       method: 'POST',
@@ -1922,6 +1938,21 @@
       if (data.status === 'processing' && data.taskId) {
         data = await pollImageGeneration(data.taskId);
       }
+      if (
+        data.imageUrl &&
+        data.logoOverlayApplied !== true &&
+        ctx.brandKit &&
+        ctx.brandKit.useLogoInDesign
+      ) {
+        var retryOverlay = await retryLogoOverlay(data.imageUrl, ctx.brandKit, data.taskId);
+        if (retryOverlay && retryOverlay.logoOverlayApplied === true && retryOverlay.imageUrl) {
+          data.imageUrl = retryOverlay.imageUrl;
+          data.logoOverlayApplied = true;
+          data.logoSkipReason = null;
+        } else if (retryOverlay) {
+          data.logoSkipReason = retryOverlay.logoSkipReason || data.logoSkipReason;
+        }
+      }
       if (data.imageUrl) {
         designMeta[slot].prompt = prompt;
         designMeta[slot].aspectRatio = aspectRatio;
@@ -1943,7 +1974,7 @@
         if (data.logoOverlayApplied === true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
           statusMsg =
             'Generated ' + slot + ' side — your logo was placed in the top-right corner. Saved to library.';
-        } else if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
+        } else if (data.logoOverlayApplied !== true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
           if (data.logoSkipReason === 'overlay_disabled') {
             statusMsg =
               'Generated ' +
@@ -1954,6 +1985,11 @@
               'Generated ' +
               slot +
               ' side — no logo found in Brand. Upload a PNG with transparent background and try again.';
+          } else if (data.logoSkipReason === 'base_fetch_failed') {
+            statusMsg =
+              'Generated ' +
+              slot +
+              ' side — could not download the AI image to add your logo. Click Generate again in a few seconds.';
           } else {
             statusMsg =
               'Generated ' +

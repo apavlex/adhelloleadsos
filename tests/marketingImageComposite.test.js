@@ -232,7 +232,8 @@ test('fetchImageBuffer sends browser-like User-Agent and Accept headers', async 
     await fetchImageBuffer('https://cdn.example.com/generated.jpg');
     assert.ok(capturedInit && capturedInit.headers);
     assert.equal(capturedInit.headers['User-Agent'], FETCH_IMAGE_HEADERS['User-Agent']);
-    assert.equal(capturedInit.headers.Accept, FETCH_IMAGE_HEADERS.Accept);
+    assert.ok(capturedInit.headers.Accept.includes('image/*'));
+    assert.ok(capturedInit.headers.Referer);
   } finally {
     global.fetch = originalFetch;
   }

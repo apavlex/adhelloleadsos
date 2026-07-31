@@ -95,10 +95,11 @@ async function applyLogoOverlaySafe(req, baseBuffer, imageUrl, logoData) {
   });
 }
 
-async function finalizeGeneratedImage(req, imageUrl, brandKit) {
+async function finalizeGeneratedImage(req, imageUrl, brandKit, { taskId } = {}) {
   let finalImageUrl = imageUrl;
   let logoOverlayApplied = false;
   let logoSkipReason = null;
+  let logoOverlayError = null;
   if (!finalImageUrl) return { finalImageUrl, logoOverlayApplied, logoSkipReason: 'no_image' };
 
   const ws = await getWorkspaceForBrand(req);
@@ -118,23 +119,40 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   } catch (loadErr) {
     console.warn('[direct-mail] logo load failed:', loadErr && loadErr.message ? loadErr.message : loadErr);
     logoSkipReason = 'logo_load_failed';
+    logoOverlayError = loadErr && loadErr.message ? loadErr.message : String(loadErr);
   }
 
   const hasLogo = Boolean(logoData && logoData.buffer && logoData.buffer.length);
   if (!hasLogo) {
-    return { finalImageUrl, logoOverlayApplied, logoSkipReason: logoSkipReason || 'no_stored_logo' };
+    return { finalImageUrl, logoOverlayApplied, logoSkipReason: logoSkipReason || 'no_stored_logo', logoOverlayError };
+  }
+
+  async function downloadBaseBuffer(url) {
+    try {
+      return await fetchImageBuffer(url);
+    } catch (firstErr) {
+      if (!taskId) throw firstErr;
+      const record = await kieImageClient.getTaskRecord(taskId);
+      const urls = kieImageClient.extractImageUrls(record);
+      const freshUrl = urls[0] || url;
+      if (freshUrl !== url) {
+        return fetchImageBuffer(freshUrl);
+      }
+      throw firstErr;
+    }
   }
 
   let baseBuffer = null;
   try {
-    baseBuffer = await fetchImageBuffer(finalImageUrl);
+    baseBuffer = await downloadBaseBuffer(finalImageUrl);
   } catch (fetchErr) {
     console.warn(
       '[direct-mail] generated image fetch failed:',
       fetchErr && fetchErr.message ? fetchErr.message : fetchErr,
     );
     logoSkipReason = 'base_fetch_failed';
-    return { finalImageUrl, logoOverlayApplied, logoSkipReason };
+    logoOverlayError = fetchErr && fetchErr.message ? fetchErr.message : String(fetchErr);
+    return { finalImageUrl, logoOverlayApplied, logoSkipReason, logoOverlayError };
   }
 
   try {
@@ -146,20 +164,23 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
       '[direct-mail] logo overlay failed:',
       overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
     );
+    logoOverlayError = overlayErr && overlayErr.message ? overlayErr.message : String(overlayErr);
     try {
       const composited = await applyLogoOverlaySafe(req, baseBuffer, finalImageUrl, logoData);
       finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
       logoOverlayApplied = true;
+      logoOverlayError = null;
     } catch (retryErr) {
       console.warn(
         '[direct-mail] logo overlay retry failed:',
         retryErr && retryErr.message ? retryErr.message : retryErr,
       );
       logoSkipReason = 'overlay_failed';
+      logoOverlayError = retryErr && retryErr.message ? retryErr.message : String(retryErr);
     }
   }
 
-  return { finalImageUrl, logoOverlayApplied, logoSkipReason };
+  return { finalImageUrl, logoOverlayApplied, logoSkipReason, logoOverlayError };
 }
 
 function kieHttpError(err, req, fallback) {
@@ -719,13 +740,43 @@ router.get('/api/creative/:filename', async (req, res, next) => {
     if (!filename.startsWith(`${wid}_`)) {
       return res.status(404).end();
     }
-    const absPath = path.join(getCreativeStorageDir(), filename);
-    const buf = await fs.readFile(absPath);
-    res.setHeader('Content-Type', 'image/jpeg');
-    res.setHeader('Cache-Control', 'private, max-age=86400');
-    return res.send(buf);
+    const candidates = [
+      path.join(getCreativeStorageDir(), filename),
+      path.join(process.cwd(), 'public', 'uploads', 'creative', filename),
+    ];
+    for (const absPath of candidates) {
+      try {
+        const buf = await fs.readFile(absPath);
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('Cache-Control', 'private, max-age=86400');
+        return res.send(buf);
+      } catch (err) {
+        if (!err || err.code !== 'ENOENT') throw err;
+      }
+    }
+    return res.status(404).end();
   } catch (err) {
-    if (err && err.code === 'ENOENT') return res.status(404).end();
+    return next(err);
+  }
+});
+
+router.post('/api/apply-logo-overlay', express.json({ limit: '32kb' }), async (req, res, next) => {
+  try {
+    const imageUrl = String((req.body && req.body.imageUrl) || '').trim();
+    if (!imageUrl) {
+      return res.status(400).json({ success: false, error: 'imageUrl is required.' });
+    }
+    const brandKit = await mergeBrandKitForGeneration(req, (req.body && req.body.brandKit) || {});
+    const taskId = String((req.body && req.body.taskId) || '').trim();
+    const result = await finalizeGeneratedImage(req, imageUrl, brandKit, { taskId: taskId || undefined });
+    return res.json({
+      success: true,
+      imageUrl: result.finalImageUrl,
+      logoOverlayApplied: result.logoOverlayApplied,
+      logoSkipReason: result.logoSkipReason,
+      logoOverlayError: result.logoOverlayError || null,
+    });
+  } catch (err) {
     return next(err);
   }
 });
@@ -1038,11 +1089,8 @@ router.get('/api/generate-image/status', async (req, res, next) => {
         });
       }
       const brandKit = await mergeBrandKitForGeneration(req, job.brandKit || {});
-      const { finalImageUrl, logoOverlayApplied, logoSkipReason } = await finalizeGeneratedImage(
-        req,
-        urls[0],
-        brandKit,
-      );
+      const { finalImageUrl, logoOverlayApplied, logoSkipReason, logoOverlayError } =
+        await finalizeGeneratedImage(req, urls[0], brandKit, { taskId });
       forgetImageJob(taskId);
       return res.json({
         success: true,
@@ -1054,6 +1102,7 @@ router.get('/api/generate-image/status', async (req, res, next) => {
         urls,
         logoOverlayApplied,
         logoSkipReason,
+        logoOverlayError: logoOverlayError || null,
       });
     }
 
