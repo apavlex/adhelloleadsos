@@ -132,3 +132,37 @@ test('compositeLogoOnImageBuffer preserves logo aspect ratio on base image', asy
   assert.equal(meta.width, 800);
   assert.equal(meta.height, 800);
 });
+
+test('compositeLogoOnImageBuffer places logo in top-right when requested', async () => {
+  const baseBuffer = await sharp({
+    create: {
+      width: 1200,
+      height: 800,
+      channels: 3,
+      background: { r: 240, g: 240, b: 240 },
+    },
+  })
+    .jpeg()
+    .toBuffer();
+
+  const logoBuffer = await sharp({
+    create: {
+      width: 200,
+      height: 100,
+      channels: 4,
+      background: { r: 20, g: 80, b: 200, alpha: 1 },
+    },
+  })
+    .png()
+    .toBuffer();
+
+  const out = await compositeLogoOnImageBuffer(baseBuffer, logoBuffer, {
+    maxWidthRatio: 0.15,
+    padding: 24,
+    position: 'top-right',
+  });
+  const topLeft = await sharp(out).extract({ left: 10, top: 10, width: 20, height: 20 }).raw().toBuffer();
+  const topRight = await sharp(out).extract({ left: 1100, top: 30, width: 40, height: 40 }).raw().toBuffer();
+  assert.ok(topLeft[0] > 200 && topLeft[1] > 200, 'top-left should stay light base background');
+  assert.ok(topRight[2] > 120 && topRight[0] < 80, 'top-right should contain composited logo pixels');
+});

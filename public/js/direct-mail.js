@@ -993,9 +993,12 @@
     if (kit.email) parts.push('Include email ' + kit.email + '.');
     if (kit.address) parts.push('Include address ' + kit.address + '.');
     if (kit.hours) parts.push('Include business hours: ' + kit.hours + '.');
-    if (kit.logoUrl && kit.useLogoInDesign) {
+    if (kit.useLogoInDesign) {
+      parts.unshift(
+        'CRITICAL: Do not draw any logo, wordmark, or brand icon anywhere (especially not top-left). Real logo is composited top-right after generation — keep top-right empty background only.',
+      );
       parts.push(
-        'Leave clear empty space in the top-right corner for a logo overlay — do not draw any logo, wordmark, or brand badge anywhere on the design.',
+        'Keep the top-right corner empty for logo overlay — no fake logo in top-left or any corner.',
       );
     }
     if (ctx.platform === 'postcard' && slot === 'back' && (ctx.matchFrontStyle || designs.front)) {
@@ -1851,7 +1854,10 @@
         var statusMsg = editMode
           ? 'Updated ' + slot + ' side — saved to library.'
           : 'Generated ' + slot + ' side — saved to library automatically.';
-        if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
+        if (data.logoOverlayApplied === true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
+          statusMsg =
+            'Generated ' + slot + ' side — your logo was placed in the top-right corner. Saved to library.';
+        } else if (data.logoOverlayApplied === false && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
           if (data.logoSkipReason === 'overlay_disabled') {
             statusMsg =
               'Generated ' +

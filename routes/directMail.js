@@ -258,7 +258,7 @@ function brandKitSummary(kit) {
   if (k.hours) lines.push(`Hours: ${k.hours}`);
   if (k.logoUrl && k.useLogoInDesign) {
     lines.push(
-      `Logo: uploaded (composited unchanged in the ${LOGO_OVERLAY_POSITION.replace('-', ' ')} after generation — AI must leave that corner clear and must not draw any logo or wordmark)`,
+      `Logo: ON — saved in Brand settings; composited unchanged in the ${LOGO_OVERLAY_POSITION.replace('-', ' ')} after the user clicks Generate (do not draw or describe a logo in imagePrompt; leave that corner clear)`,
     );
   } else if (k.logoUrl) {
     lines.push('Logo: uploaded (overlay off — AI may weave business name into the layout; do not add a second logo mark)');
@@ -329,7 +329,11 @@ Merge tokens ({business}, {city}, {state}, {audit_url}) are applied at SEND time
 ${frontStyleContext ? `${frontStyleContext}\n\n` : ''}${lobBackRules}
 ${lobFrontRules}
 
-Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When logo overlay is enabled, the real uploaded logo is composited in the top-right after generation — the model must leave that corner empty and must not draw any logo, wordmark, or duplicate brand mark.
+Help the user brainstorm visuals and write a strong GPT Image 2 prompt. Images are generated via KIE GPT Image 2. When logo overlay is enabled (see Business info), the saved brand logo is composited in the top-right after Generate — the image model must leave that corner empty and must not draw any logo, wordmark, or duplicate brand mark.
+
+Logo coaching rules:
+- If Business info says "Logo: ON", confirm the user's uploaded logo will appear automatically in the top-right after Generate. Do NOT say you cannot see the logo file or that the logo is missing — you never receive image bytes in chat; the server handles overlay.
+- Never instruct the image model to recreate, invent, or approximate the logo in imagePrompt.
 
 ${currentImageUrl || incrementalEdit ? `The user already has a design on the canvas${currentImageUrl ? ' (reference will be passed to GPT Image 2)' : ''}.
 When they ask to remove, delete, change, move, or tweak something ("remove the seal", "make headline smaller", "drop the badge"):
@@ -372,9 +376,12 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
   if (k.website) extras.push(`Website: ${k.website}`);
   if (k.address) extras.push(`Address: ${k.address}`);
   if (k.hours) extras.push(`Hours: ${k.hours}`);
-  if (k.logoUrl && k.useLogoInDesign) {
+  if (k.useLogoInDesign) {
+    base =
+      'CRITICAL LOGO RULE: Do not draw, render, or approximate any logo, wordmark, monogram, brand icon, or company mark anywhere on the design — not top-left, not top-right, not any corner. The client\'s real logo file is composited automatically in the top-right after generation; top-right must be empty background photo only. Business name may appear as plain typography in the contact block, never as a logo mark.\n\n' +
+      base;
     extras.push(
-      `Leave clear empty space in the top-right corner for a logo overlay — do not draw, invent, duplicate, or distort any logo, wordmark, or brand badge anywhere on the design (the real logo is added after generation in the top-right)`,
+      'Keep the top-right corner empty (background only) for the post-generation logo overlay — never place a fake logo in the top-left or anywhere else',
     );
   } else if (k.logoUrl) {
     extras.push(
@@ -394,7 +401,7 @@ function augmentImagePromptWithBrand(prompt, brandKit, platform, slot, { matchFr
     }
   } else if (isPostcard) {
     lobSpec =
-      ' Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. No text within 0.3″ of edges or in bottom-right QR zone (photo OK, no white box). Never render {business} or placeholder tokens.';
+      ' Lob 4×6 postcard FRONT: landscape 3:2 full-bleed photo. No text within 0.3″ of edges or in bottom-right QR zone (photo OK, no white box). Never render {business} or placeholder tokens. Never draw a company logo or wordmark — real logo is added top-right after generation when enabled.';
   }
   const suffix = extras.length
     ? `\n\nPlatform: ${plat}.${lobSpec} Include on the ad where appropriate: ${extras.join('; ')}.`

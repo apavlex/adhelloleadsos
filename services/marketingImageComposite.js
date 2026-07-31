@@ -131,6 +131,12 @@ async function prepareLogoBufferForOverlay(logoBuffer, mimeType) {
   if (!buf || !buf.length) throw new Error('Logo buffer is empty.');
   if (/svg/i.test(String(mimeType || ''))) {
     buf = await sharp(buf).png().toBuffer();
+  } else {
+    try {
+      buf = await sharp(buf).trim({ threshold: 12 }).png().toBuffer();
+    } catch {
+      buf = await sharp(buf).png().toBuffer();
+    }
   }
   return buf;
 }
