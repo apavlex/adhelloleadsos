@@ -1967,9 +1967,19 @@
         );
         if (typeof window.showAppToast === 'function') {
           var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
-          window.showAppToast((plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated', {
-            variant: 'success',
-          });
+          var toastVariant = 'success';
+          var toastMsg = (plat.dualSided ? 'Postcard ' + slot : plat.label) + ' generated';
+          if (data.logoOverlayApplied === true && ctx.brandKit && ctx.brandKit.useLogoInDesign) {
+            toastMsg = 'Logo placed in top-right corner';
+          } else if (ctx.brandKit && ctx.brandKit.useLogoInDesign && data.logoOverlayApplied !== true) {
+            toastVariant = 'warning';
+            if (data.logoSkipReason === 'no_stored_logo') {
+              toastMsg = 'Design generated — re-upload your logo in Brand (PNG recommended)';
+            } else {
+              toastMsg = 'Design generated — logo overlay failed. Re-upload logo in Brand and try again.';
+            }
+          }
+          window.showAppToast(toastMsg, { variant: toastVariant });
         }
       } else {
         throw new Error('No image URL returned.');

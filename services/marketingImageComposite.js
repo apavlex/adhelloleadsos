@@ -5,6 +5,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const sharp = require('sharp');
+const dbService = require('./database');
 
 const DEFAULT_MAX_LOGO_WIDTH_RATIO = 0.18;
 const DEFAULT_PADDING = 24;
@@ -202,34 +203,61 @@ async function compositeLogoOnImageBuffer(baseBuffer, logoBuffer, opts = {}) {
     .toBuffer();
 }
 
+function getCreativeStorageDir() {
+  return path.join(path.dirname(dbService.getDbPath()), 'creative');
+}
+
+function creativePublicPath(filename) {
+  return `/direct-mail/api/creative/${filename}`;
+}
+
 async function saveCompositedImageBuffer(req, buffer, prefix) {
   const wid = String((req && req.workspaceId) || 'default')
     .trim()
     .replace(/[^a-zA-Z0-9_-]/g, '_');
-  const relDir = path.join('public', 'uploads', 'creative');
-  const absDir = path.join(process.cwd(), relDir);
+  const absDir = getCreativeStorageDir();
   await fs.mkdir(absDir, { recursive: true });
   const stem = String(prefix || 'composited').trim() || 'composited';
   const filename = `${wid}_${stem}_${Date.now()}.jpg`;
   const absPath = path.join(absDir, filename);
   await fs.writeFile(absPath, buffer);
-  return `/uploads/creative/${filename}`;
+  return creativePublicPath(filename);
+}
+
+async function applyLogoOverlayFromBuffers(
+  req,
+  { baseBuffer, logoBuffer, logoMimeType, position, maxWidthRatio, padding, prefix },
+) {
+  if (!baseBuffer || !baseBuffer.length) throw new Error('Base image buffer is empty.');
+  if (!logoBuffer || !logoBuffer.length) throw new Error('Logo buffer is empty.');
+  const logoBuf = await prepareLogoBufferForOverlay(logoBuffer, logoMimeType);
+  const outBuf = await compositeLogoOnImageBuffer(baseBuffer, logoBuf, {
+    position,
+    maxWidthRatio,
+    padding,
+  });
+  return saveCompositedImageBuffer(req, outBuf, prefix || 'logo_overlay');
 }
 
 async function applyLogoOverlayToRemoteImage(
   req,
-  { baseImageUrl, logoUrl, logoBuffer, logoMimeType, position, maxWidthRatio, padding },
+  { baseImageUrl, baseBuffer, logoUrl, logoBuffer, logoMimeType, position, maxWidthRatio, padding, prefix },
 ) {
-  const baseBuf = await fetchImageBuffer(baseImageUrl);
+  const baseBuf = baseBuffer && baseBuffer.length ? baseBuffer : await fetchImageBuffer(baseImageUrl);
   let logoBuf = logoBuffer;
   if (!logoBuf) {
     if (!logoUrl) throw new Error('Logo URL or buffer is required.');
     logoBuf = await fetchImageBuffer(logoUrl);
   }
-  logoBuf = await prepareLogoBufferForOverlay(logoBuf, logoMimeType);
-  const outBuf = await compositeLogoOnImageBuffer(baseBuf, logoBuf, { position, maxWidthRatio, padding });
-  const publicUrl = await saveCompositedImageBuffer(req, outBuf);
-  return publicUrl;
+  return applyLogoOverlayFromBuffers(req, {
+    baseBuffer: baseBuf,
+    logoBuffer: logoBuf,
+    logoMimeType,
+    position,
+    maxWidthRatio,
+    padding,
+    prefix,
+  });
 }
 
 module.exports = {
@@ -244,11 +272,14 @@ module.exports = {
   LOB_BACK_INK_FREE,
   lobInkFreeRectPx,
   compositePosition,
+  getCreativeStorageDir,
+  creativePublicPath,
   fetchImageBuffer,
   prepareLogoBufferForOverlay,
   compositeLogoOnImageBuffer,
   applyLobBackInkFreeMask,
   resizeBufferForLobPostcard,
   prepareRemoteImageForLobPostcard,
+  applyLogoOverlayFromBuffers,
   applyLogoOverlayToRemoteImage,
 };

@@ -21,7 +21,11 @@ const {
   safeImageFileName,
   DEFAULT_MARKETING_FOLDER_NAME,
 } = require('../services/googleDriveUpload');
-const { applyLogoOverlayToRemoteImage } = require('../services/marketingImageComposite');
+const {
+  applyLogoOverlayFromBuffers,
+  fetchImageBuffer,
+  getCreativeStorageDir,
+} = require('../services/marketingImageComposite');
 const brandKitLogo = require('../services/brandKitLogo');
 
 const pendingImageJobs = new Map();
@@ -49,8 +53,14 @@ function forgetImageJob(taskId) {
 }
 
 async function getWorkspaceForBrand(req) {
-  let ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
-  return brandKitLogo.migrateLegacyLogoIfNeeded(ws);
+  const wid = req.workspaceId;
+  let ws = (await dbService.getWorkspace(wid)) || { id: wid };
+  const beforeLogo = ws.brandKitLogo;
+  ws = await brandKitLogo.migrateLegacyLogoIfNeeded(ws);
+  if (ws.brandKitLogo !== beforeLogo && ws.brandKitLogo) {
+    await dbService.saveWorkspace(wid, ws);
+  }
+  return ws;
 }
 
 async function mergeBrandKitForGeneration(req, clientRaw) {
@@ -60,24 +70,28 @@ async function mergeBrandKitForGeneration(req, clientRaw) {
   const clientSentUseLogo =
     clientRaw && typeof clientRaw === 'object' && Object.prototype.hasOwnProperty.call(clientRaw, 'useLogoInDesign');
   const useLogoInDesign = clientSentUseLogo ? clientKit.useLogoInDesign : serverKit.useLogoInDesign !== false;
+  const logoData = await brandKitLogo.loadLogoBuffer(ws);
+  const hasLogo = Boolean(logoData && logoData.buffer && logoData.buffer.length);
   return normalizeBrandKit({
     ...serverKit,
     ...clientKit,
     logoUrl: serverKit.logoUrl || clientKit.logoUrl,
-    useLogoInDesign: brandKitLogo.hasStoredLogo(ws) ? useLogoInDesign !== false : false,
+    useLogoInDesign: hasLogo ? useLogoInDesign !== false : false,
   });
 }
 
 const LOGO_OVERLAY_POSITION = 'top-right';
+const LOGO_OVERLAY_MAX_WIDTH_RATIO = 0.16;
 
-async function applyLogoOverlaySafe(req, imageUrl, logoData) {
-  return applyLogoOverlayToRemoteImage(req, {
-    baseImageUrl: imageUrl,
+async function applyLogoOverlaySafe(req, baseBuffer, imageUrl, logoData) {
+  return applyLogoOverlayFromBuffers(req, {
+    baseBuffer,
     logoBuffer: logoData.buffer,
     logoMimeType: logoData.mimeType,
     position: LOGO_OVERLAY_POSITION,
-    maxWidthRatio: 0.14,
+    maxWidthRatio: LOGO_OVERLAY_MAX_WIDTH_RATIO,
     padding: 28,
+    prefix: 'logo_overlay',
   });
 }
 
@@ -90,10 +104,11 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
   const ws = await getWorkspaceForBrand(req);
   const k = await mergeBrandKitForGeneration(req, brandKit);
 
-  if (!brandKitLogo.hasStoredLogo(ws)) {
-    return { finalImageUrl, logoOverlayApplied, logoSkipReason: 'no_stored_logo' };
-  }
   if (k.useLogoInDesign === false) {
+    const logoData = await brandKitLogo.loadLogoBuffer(ws);
+    if (!logoData || !logoData.buffer || !logoData.buffer.length) {
+      return { finalImageUrl, logoOverlayApplied, logoSkipReason: 'no_stored_logo' };
+    }
     return { finalImageUrl, logoOverlayApplied, logoSkipReason: 'overlay_disabled' };
   }
 
@@ -107,11 +122,23 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
 
   const hasLogo = Boolean(logoData && logoData.buffer && logoData.buffer.length);
   if (!hasLogo) {
-    return { finalImageUrl, logoOverlayApplied, logoSkipReason: logoSkipReason || 'no_logo_buffer' };
+    return { finalImageUrl, logoOverlayApplied, logoSkipReason: logoSkipReason || 'no_stored_logo' };
+  }
+
+  let baseBuffer = null;
+  try {
+    baseBuffer = await fetchImageBuffer(finalImageUrl);
+  } catch (fetchErr) {
+    console.warn(
+      '[direct-mail] generated image fetch failed:',
+      fetchErr && fetchErr.message ? fetchErr.message : fetchErr,
+    );
+    logoSkipReason = 'base_fetch_failed';
+    return { finalImageUrl, logoOverlayApplied, logoSkipReason };
   }
 
   try {
-    const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData);
+    const composited = await applyLogoOverlaySafe(req, baseBuffer, finalImageUrl, logoData);
     finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
     logoOverlayApplied = true;
   } catch (overlayErr) {
@@ -120,7 +147,7 @@ async function finalizeGeneratedImage(req, imageUrl, brandKit) {
       overlayErr && overlayErr.message ? overlayErr.message : overlayErr,
     );
     try {
-      const composited = await applyLogoOverlaySafe(req, finalImageUrl, logoData);
+      const composited = await applyLogoOverlaySafe(req, baseBuffer, finalImageUrl, logoData);
       finalImageUrl = toAbsoluteAssetUrl(req, composited) || composited;
       logoOverlayApplied = true;
     } catch (retryErr) {
@@ -677,6 +704,29 @@ router.get('/api/brand-kit/logo', async (req, res, next) => {
     return res.send(logoData.buffer);
   } catch (err) {
     next(err);
+  }
+});
+
+router.get('/api/creative/:filename', async (req, res, next) => {
+  try {
+    const filename = path.basename(String(req.params.filename || ''));
+    if (!filename || !/\.jpe?g$/i.test(filename)) {
+      return res.status(404).end();
+    }
+    const wid = String(req.workspaceId || 'default')
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    if (!filename.startsWith(`${wid}_`)) {
+      return res.status(404).end();
+    }
+    const absPath = path.join(getCreativeStorageDir(), filename);
+    const buf = await fs.readFile(absPath);
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=86400');
+    return res.send(buf);
+  } catch (err) {
+    if (err && err.code === 'ENOENT') return res.status(404).end();
+    return next(err);
   }
 });
 
