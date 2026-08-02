@@ -158,7 +158,10 @@ async function downloadDriveFileAsCsvBuffer(accessToken, fileId) {
 
 module.exports = {
   downloadDriveFileAsCsvBuffer,
+  fetchDriveFileMeta,
+  downloadDriveMedia,
   SPREADSHEET_MIME,
   classifyDriveFile,
   parseDriveApiError,
+  DRIVE_SHARED_PARAMS,
 };

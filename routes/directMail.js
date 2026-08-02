@@ -16,6 +16,7 @@ const directMailQueue = require('../services/directMailQueue');
 const kieImageClient = require('../services/kieImageClient');
 const { chatCompletion, parseLlmJson, providersForChain } = require('../services/llmClient');
 const googleDriveAccess = require('../services/googleDriveAccess');
+const { downloadDriveFileAsImageBuffer } = require('../services/googleDriveImages');
 const {
   uploadBinaryToDrive,
   safeImageFileName,
@@ -628,6 +629,7 @@ router.get('/', async (req, res, next) => {
 
     const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId };
     const brandKit = resolveBrandKitForClient(ws);
+    const driveImport = await googleDriveAccess.buildDriveImportBundle(req, userEmail(req));
     const folders = await dbService.listFolders(req.workspaceId);
     const tags = await dbService.listTags(req.workspaceId);
     let dmQueueMeta = null;
@@ -650,6 +652,7 @@ router.get('/', async (req, res, next) => {
       canManageWorkspace: !!req.canManageWorkspace,
       brandKit,
       brandKitJson: JSON.stringify(brandKit),
+      driveImport,
       folders: folders || [],
       tags: tags || [],
       dmQueueTagKey: dmQueueMeta ? dmQueueMeta.tagKey : '',
@@ -1356,6 +1359,84 @@ router.get('/api/queue', async (req, res, next) => {
     res.json({ success: true, ...result });
   } catch (err) {
     next(err);
+  }
+});
+
+router.post('/api/google-drive/import-image', express.json({ limit: '32kb' }), async (req, res, next) => {
+  try {
+    const email = userEmail(req);
+    const access = email ? await googleDriveAccess.getValidAccessToken(email) : null;
+    if (!access) {
+      return res.status(401).json({
+        success: false,
+        error: 'Connect Google Drive first (Pipeline → Import, or link below).',
+        code: 'DRIVE_NOT_CONNECTED',
+      });
+    }
+
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const fileId = String(body.fileId || '').trim();
+    if (!fileId) {
+      return res.status(400).json({ success: false, error: 'fileId is required.' });
+    }
+    const target = String(body.target || 'creative').toLowerCase() === 'logo' ? 'logo' : 'creative';
+    const slot = String(body.slot || 'front').toLowerCase() === 'back' ? 'back' : 'front';
+
+    const downloaded = await downloadDriveFileAsImageBuffer(access, fileId);
+    if (!downloaded.buffer || !downloaded.buffer.length) {
+      return res.status(502).json({ success: false, error: 'Downloaded image was empty.' });
+    }
+
+    if (target === 'logo') {
+      const ws = (await dbService.getWorkspace(req.workspaceId)) || { id: req.workspaceId, members: {} };
+      const prev = normalizeBrandKit(ws.brandKit);
+      const { brandKitLogo: storedLogo, brandKitPatch } = brandKitLogo.buildLogoWorkspacePatch(prev, {
+        buffer: downloaded.buffer,
+        mimeType: downloaded.mimeType || 'image/png',
+      });
+      ws.brandKit = normalizeBrandKit(brandKitPatch);
+      ws.brandKitLogo = storedLogo;
+      await dbService.saveWorkspace(req.workspaceId, ws);
+      const clientKit = resolveBrandKitForClient(ws);
+      return res.json({
+        success: true,
+        target: 'logo',
+        logoUrl: clientKit.logoUrl,
+        brandKit: clientKit,
+      });
+    }
+
+    const wid = String(req.workspaceId || 'default')
+      .trim()
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+    const extFromName = path.extname(String(downloaded.name || '')).toLowerCase();
+    const ext =
+      extFromName && ['.jpg', '.jpeg', '.png', '.gif', '.webp'].includes(extFromName)
+        ? extFromName
+        : /\.png/i.test(String(downloaded.mimeType || ''))
+          ? '.png'
+          : /\.gif/i.test(String(downloaded.mimeType || ''))
+            ? '.gif'
+            : /\.webp/i.test(String(downloaded.mimeType || ''))
+              ? '.webp'
+              : '.jpg';
+    const relDir = path.join('public', 'uploads', 'creative');
+    const absDir = path.join(process.cwd(), relDir);
+    await fs.mkdir(absDir, { recursive: true });
+    const filename = `${wid}_drive_${Date.now()}${ext}`;
+    await fs.writeFile(path.join(absDir, filename), downloaded.buffer);
+    const publicUrl = `/uploads/creative/${filename}`;
+
+    return res.json({
+      success: true,
+      target: 'creative',
+      slot,
+      imageUrl: publicUrl,
+      imageAbsoluteUrl: toAbsoluteAssetUrl(req, publicUrl),
+      fileName: downloaded.name || filename,
+    });
+  } catch (err) {
+    return next(err);
   }
 });
 

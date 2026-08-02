@@ -618,6 +618,128 @@
     }
   }
 
+  function initDrivePickerConfig() {
+    var el = document.getElementById('dm-drive-picker-json');
+    if (!el || !window.AdHelloDrivePicker) return null;
+    try {
+      var cfg = JSON.parse(el.textContent || '{}');
+      window.AdHelloDrivePicker.setConfig(cfg);
+      return cfg;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function promptDriveConnect() {
+    if (
+      window.confirm(
+        'Connect Google Drive to pick files from your account.\n\nOpen the Google Drive connection page now?',
+      )
+    ) {
+      window.location.href = '/auth/google/drive-link';
+    }
+  }
+
+  async function importDriveImage(fileId, target, slot) {
+    if (!fileId) return;
+    var isLogo = target === 'logo';
+    if (isLogo) {
+      setBrandSaveStatus('Importing logo from Google Drive…', true);
+    } else {
+      setDesignStatus('Importing from Google Drive…', true);
+    }
+    try {
+      var data = await postJson('/direct-mail/api/google-drive/import-image', {
+        fileId: fileId,
+        target: target,
+        slot: slot || currentDesignSlot(),
+      });
+      if (isLogo) {
+        brandKit = Object.assign(brandKit, data.brandKit || {});
+        renderBrandLogoPreview(brandKit.logoUrl);
+        var useLogoEl = document.getElementById('dmBrandUseLogo');
+        if (useLogoEl) useLogoEl.checked = true;
+        scheduleBrandKitSave();
+        setBrandSaveStatus('Logo imported from Google Drive', true);
+        if (typeof window.showAppToast === 'function') {
+          window.showAppToast('Logo imported from Google Drive', { variant: 'success' });
+        }
+        return;
+      }
+      var slotKey = data.slot === 'back' ? 'back' : 'front';
+      var imageUrl = data.imageUrl || data.imageAbsoluteUrl;
+      if (!imageUrl) throw new Error('Import did not return an image URL.');
+      var plat = DM_PLATFORMS[currentPlatformKey()] || DM_PLATFORMS.custom;
+      var uploadPrompt =
+        'Imported ' +
+        (data.fileName || 'image') +
+        ' from Google Drive — use Generate to refine with AI, or export as-is.';
+      designMeta[slotKey] = Object.assign({}, designMeta[slotKey], {
+        prompt: uploadPrompt,
+        aspectRatio: currentAspectRatio(),
+        resolution: (document.getElementById('dmResolution') || {}).value || '2K',
+        uploaded: true,
+      });
+      lastImagePrompt = uploadPrompt;
+      setPreview(slotKey, imageUrl);
+      showPromptEditor(slotKey, uploadPrompt);
+      saveDesignToLibrary(slotKey, {
+        imageUrl: imageUrl,
+        prompt: uploadPrompt,
+        aspectRatio: designMeta[slotKey].aspectRatio,
+        resolution: designMeta[slotKey].resolution,
+        platform: currentPlatformKey(),
+        silent: true,
+      });
+      setDesignStatus('Image imported from Google Drive — export or regenerate with AI.', true);
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast('Image imported from Google Drive', { variant: 'success' });
+      }
+    } catch (e) {
+      var msg = (e && e.message) || 'Google Drive import failed';
+      if (/connect google drive/i.test(msg)) {
+        promptDriveConnect();
+      }
+      if (isLogo) {
+        setBrandSaveStatus(msg, false);
+      } else {
+        setDesignStatus(msg, false);
+      }
+      if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'error' });
+      }
+    }
+  }
+
+  async function openDriveImagePicker(target) {
+    if (!window.AdHelloDrivePicker) return;
+    var cfg = initDrivePickerConfig();
+    if (cfg && cfg.connected === false) {
+      promptDriveConnect();
+      return;
+    }
+    var isLogo = target === 'logo';
+    try {
+      var picked = await window.AdHelloDrivePicker.open({
+        title: isLogo ? 'Select logo from Google Drive' : 'Select image from Google Drive',
+        mimeTypes: isLogo
+          ? 'image/png,image/jpeg,image/gif,image/webp,image/svg+xml'
+          : 'image/png,image/jpeg,image/gif,image/webp,image/bmp,image/tiff',
+      });
+      if (!picked || !picked.fileId) return;
+      await importDriveImage(picked.fileId, isLogo ? 'logo' : 'creative', currentDesignSlot());
+    } catch (e) {
+      var msg = (e && e.message) || 'Could not open Google Drive picker';
+      if (/connect google drive/i.test(msg)) {
+        promptDriveConnect();
+      } else if (typeof window.showAppToast === 'function') {
+        window.showAppToast(msg, { variant: 'error' });
+      } else {
+        alert(msg);
+      }
+    }
+  }
+
   function bindCreativeUploadUi() {
     var input = document.getElementById('dmCreativeUploadInput');
     if (input) {
@@ -630,6 +752,28 @@
       var btn = document.getElementById(id);
       if (btn) btn.addEventListener('click', openCreativeUploadPicker);
     });
+    [
+      'dmUploadCreativeDriveBtn',
+      'dmUploadCreativeDriveBtnCanvas',
+      'dmUploadCreativeDriveBtnInspector',
+    ].forEach(function (id) {
+      var btn = document.getElementById(id);
+      if (btn) {
+        btn.addEventListener('click', function () {
+          openDriveImagePicker('creative');
+        });
+      }
+    });
+  }
+
+  function bindDrivePickerUi() {
+    initDrivePickerConfig();
+    var brandBtn = document.getElementById('dmBrandDriveBtn');
+    if (brandBtn) {
+      brandBtn.addEventListener('click', function () {
+        openDriveImagePicker('logo');
+      });
+    }
   }
 
   function designRequestContext() {
@@ -2387,6 +2531,7 @@
 
   bindBrandKitUi();
   bindCreativeUploadUi();
+  bindDrivePickerUi();
   bindStudioUi();
 
   var newDesignBtn = document.getElementById('dmNewDesignBtn');
