@@ -806,6 +806,190 @@
       .filter(Boolean);
   }
 
+  function todayIsoDay() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function yesterdayIsoDay() {
+    var d = new Date();
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function resolveDmFilterDay(raw) {
+    var v = String(raw || '').trim().toLowerCase();
+    if (!v || v === 'all') return '';
+    if (v === 'today') return todayIsoDay();
+    if (v === 'yesterday') return yesterdayIsoDay();
+    return v;
+  }
+
+  function formatDmDayLabel(isoDay) {
+    var s = String(isoDay || '').trim();
+    if (!s) return '';
+    var d = new Date(s + 'T12:00:00Z');
+    if (Number.isNaN(d.getTime())) return s;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function getDmListRows() {
+    return Array.from(document.querySelectorAll('#dmLeadsTable tbody tr.result-row'));
+  }
+
+  function populateDmListFilterOptions() {
+    var daySelect = document.getElementById('dmFilterDay');
+    var catSelect = document.getElementById('dmFilterCategory');
+    if (!daySelect && !catSelect) return;
+
+    var rows = getDmListRows();
+    var days = new Set();
+    var categories = new Set();
+    rows.forEach(function (row) {
+      var day = String(row.getAttribute('data-queued-day') || '').trim();
+      var cat = String(row.getAttribute('data-category') || '').trim() || 'Uncategorized';
+      if (day) days.add(day);
+      if (cat) categories.add(cat);
+    });
+
+    if (daySelect) {
+      var prevDay = daySelect.value;
+      var reserved = { all: true, today: true, yesterday: true };
+      Array.from(daySelect.options).forEach(function (opt) {
+        if (opt.value && !reserved[opt.value]) opt.remove();
+      });
+      Array.from(days)
+        .sort(function (a, b) {
+          return b.localeCompare(a);
+        })
+        .forEach(function (day) {
+          if (day === todayIsoDay() || day === yesterdayIsoDay()) return;
+          var opt = document.createElement('option');
+          opt.value = day;
+          opt.textContent = formatDmDayLabel(day);
+          daySelect.appendChild(opt);
+        });
+      if (prevDay) daySelect.value = prevDay;
+    }
+
+    if (catSelect) {
+      var prevCat = catSelect.value;
+      while (catSelect.options.length > 1) catSelect.remove(1);
+      Array.from(categories)
+        .sort(function (a, b) {
+          return a.localeCompare(b);
+        })
+        .forEach(function (cat) {
+          var opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          catSelect.appendChild(opt);
+        });
+      if (prevCat) catSelect.value = prevCat;
+    }
+  }
+
+  function updateDmFilterUrl() {
+    var daySelect = document.getElementById('dmFilterDay');
+    var catSelect = document.getElementById('dmFilterCategory');
+    var params = new URLSearchParams(window.location.search || '');
+    var dayVal = daySelect ? String(daySelect.value || '').trim() : '';
+    var catVal = catSelect ? String(catSelect.value || '').trim() : '';
+    if (dayVal && dayVal !== 'all') params.set('day', dayVal);
+    else params.delete('day');
+    if (catVal && catVal !== 'all') params.set('category', catVal);
+    else params.delete('category');
+    var qs = params.toString();
+    var next = window.location.pathname + (qs ? '?' + qs : '');
+    if (next !== window.location.pathname + window.location.search) {
+      window.history.replaceState({}, '', next);
+    }
+  }
+
+  function applyDmListFilters() {
+    var filterWrap = document.getElementById('dmListFilters');
+    if (!filterWrap) return;
+
+    var params = new URLSearchParams(window.location.search || '');
+    var daySelect = document.getElementById('dmFilterDay');
+    var catSelect = document.getElementById('dmFilterCategory');
+    var dayRaw = params.has('day')
+      ? params.get('day')
+      : daySelect
+        ? daySelect.value
+        : 'all';
+    var catRaw = params.has('category')
+      ? params.get('category')
+      : catSelect
+        ? catSelect.value
+        : 'all';
+
+    if (daySelect && params.has('day')) daySelect.value = dayRaw || 'all';
+    if (catSelect && params.has('category')) catSelect.value = catRaw || 'all';
+
+    var dayFilter = resolveDmFilterDay(dayRaw);
+    var catFilter = String(catRaw || '').trim();
+    if (catFilter === 'all') catFilter = '';
+
+    var rows = getDmListRows();
+    var visible = 0;
+    rows.forEach(function (row) {
+      var rowDay = String(row.getAttribute('data-queued-day') || '').trim();
+      var rowCat = String(row.getAttribute('data-category') || '').trim() || 'Uncategorized';
+      var show = true;
+      if (dayFilter && rowDay !== dayFilter) show = false;
+      if (catFilter && rowCat !== catFilter) show = false;
+      row.classList.toggle('dm-filter-hidden', !show);
+      if (show) visible += 1;
+    });
+
+    var countEl = document.getElementById('dmFilterCount');
+    if (countEl) {
+      countEl.textContent =
+        visible === rows.length
+          ? rows.length + ' lead' + (rows.length === 1 ? '' : 's')
+          : visible + ' of ' + rows.length + ' shown';
+    }
+    syncCheckAll();
+  }
+
+  function initDmListFilters() {
+    var filterWrap = document.getElementById('dmListFilters');
+    if (!filterWrap || filterWrap.dataset.bound === '1') return;
+    filterWrap.dataset.bound = '1';
+
+    populateDmListFilterOptions();
+
+    var params = new URLSearchParams(window.location.search || '');
+    var daySelect = document.getElementById('dmFilterDay');
+    var catSelect = document.getElementById('dmFilterCategory');
+    var queueSession = !!(window.__DM_QUEUE && window.__DM_QUEUE.isQueueSession);
+
+    if (!params.has('day') && queueSession && daySelect) {
+      daySelect.value = 'today';
+    }
+    if (params.has('day') && daySelect) {
+      daySelect.value = params.get('day') || 'all';
+    }
+    if (params.has('category') && catSelect) {
+      catSelect.value = params.get('category') || 'all';
+    }
+
+    applyDmListFilters();
+
+    if (daySelect) {
+      daySelect.addEventListener('change', function () {
+        updateDmFilterUrl();
+        applyDmListFilters();
+      });
+    }
+    if (catSelect) {
+      catSelect.addEventListener('change', function () {
+        updateDmFilterUrl();
+        applyDmListFilters();
+      });
+    }
+  }
+
   function selectedMailableKeys() {
     return getDmCheckboxes()
       .filter(function (cb) {
@@ -2530,7 +2714,10 @@
   var dmSelectAnchor = null;
 
   function getDmCheckboxes() {
-    return Array.from(document.querySelectorAll('#dmLeadsTable .dm-lead-check'));
+    return Array.from(document.querySelectorAll('#dmLeadsTable .dm-lead-check')).filter(function (cb) {
+      var tr = cb.closest('tr');
+      return tr && !tr.classList.contains('dm-filter-hidden');
+    });
   }
 
   function getMailableDmCheckboxes() {
@@ -2884,6 +3071,7 @@
 
   renderSavedLibrary();
   loadMailPlaybooksFromUrl();
+  initDmListFilters();
 
   (function scrollToLeadsIfNeededFromFocus() {
     var params = new URLSearchParams(window.location.search || '');

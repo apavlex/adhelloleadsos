@@ -608,9 +608,16 @@ router.get('/', async (req, res, next) => {
       }
     }
 
+    const dmQueueMeta = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
+    const queueByKey = new Map(
+      (dmQueueMeta && Array.isArray(dmQueueMeta.leads) ? dmQueueMeta.leads : []).map((q) => [q.key, q])
+    );
+
     const mailableLeads = tableLeads.map((l) => {
       const lob = lobDirectMail.getLeadLobAddressPreview(l);
       const auditUrl = resolveAuditUrl(l);
+      const q = queueByKey.get(l.key);
+      const addedAt = (q && q.addedAt) || directMailQueue.leadQueuedAt(l) || '';
       return {
         key: l.key,
         title: l.title || 'Untitled',
@@ -627,6 +634,9 @@ router.get('/', async (req, res, next) => {
         mailable: lob.mailable,
         lobReady: lob.mailable,
         preselected: selectedOnly,
+        categoryName: directMailQueue.normalizeCategoryName(l.categoryName),
+        addedAt,
+        queuedDay: (q && q.queuedDay) || directMailQueue.queuedDayFromTimestamp(addedAt),
       };
     });
 
@@ -638,10 +648,6 @@ router.get('/', async (req, res, next) => {
     const driveImport = await googleDriveAccess.buildDriveImportBundle(req, userEmail(req));
     const folders = await dbService.listFolders(req.workspaceId);
     const tags = await dbService.listTags(req.workspaceId);
-    let dmQueueMeta = null;
-    if (dmIsQueueSession) {
-      dmQueueMeta = await directMailQueue.listDirectMailQueueLeads(req.workspaceId, visible);
-    }
 
     res.render('direct-mail', {
       activePage: 'direct-mail',

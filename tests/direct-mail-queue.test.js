@@ -7,12 +7,26 @@ const {
   addLeadsToDirectMailQueue,
   listDirectMailQueueLeads,
   removeLeadsFromDirectMailQueue,
+  queuedDayFromTimestamp,
+  normalizeCategoryName,
 } = require('../services/directMailQueue');
 
 describe('directMailQueue', () => {
   it('uses stable folder and tag names', () => {
     assert.equal(DIRECT_MAIL_FOLDER_NAME, 'Direct Mail');
     assert.equal(DIRECT_MAIL_TAG_NAME, 'Direct Mail List');
+  });
+
+  it('normalizes category names for queue display', () => {
+    assert.equal(normalizeCategoryName(''), 'Uncategorized');
+    assert.equal(normalizeCategoryName('N/A'), 'Uncategorized');
+    assert.equal(normalizeCategoryName('  Plumber  '), 'Plumber');
+  });
+
+  it('derives queuedDay from ISO timestamps', () => {
+    assert.equal(queuedDayFromTimestamp('2026-08-05T15:30:00.000Z'), '2026-08-05');
+    assert.equal(queuedDayFromTimestamp(''), '');
+    assert.equal(queuedDayFromTimestamp('not-a-date'), 'not-a-date');
   });
 
   describe('queue persistence', () => {
@@ -43,10 +57,16 @@ describe('directMailQueue', () => {
       assert.equal(queued.added, 1);
       assert.equal(queued.leads.length, 1);
       assert.equal(queued.leads[0].key, leadKey);
+      assert.equal(queued.leads[0].categoryName, 'Uncategorized');
+      assert.match(String(queued.leads[0].queuedDay || ''), /^\d{4}-\d{2}-\d{2}$/);
+      assert.ok(queued.leads[0].addedAt);
 
       const visibleAfter = await dbService.getAllLeads('default');
       const listed = await listDirectMailQueueLeads('default', visibleAfter);
-      assert.ok(listed.leads.some((l) => l.key === leadKey));
+      const hit = listed.leads.find((l) => l.key === leadKey);
+      assert.ok(hit);
+      assert.equal(hit.categoryName, 'Uncategorized');
+      assert.match(String(hit.queuedDay || ''), /^\d{4}-\d{2}-\d{2}$/);
     });
 
     it('removes a lead from the Direct Mail queue', async () => {

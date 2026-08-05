@@ -288,7 +288,10 @@
           <button type="button" id="focus-btn-ai-sms" class="btn-pill border-2 border-emerald-500/60 bg-emerald-500/15 text-emerald-900 dark:text-emerald-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-emerald-500/25 transition-colors min-h-[3rem]" title="AI writes a personalized SMS or iMessage and sends via Comms or GHL">AI SMS</button>
           <button type="button" id="focus-btn-push-ghl" class="btn-pill border-2 border-orange-500/60 bg-orange-500/15 text-orange-900 dark:text-orange-200 w-full px-4 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-orange-500/25 transition-colors min-h-[3rem]" title="Save disposition, notes, and follow-up — then sync to Go High Level">Sync GHL</button>
         </div>
-        <button type="button" id="focus-btn-mail-postcard" class="btn-pill border-2 border-violet-500/60 bg-violet-500/15 text-violet-900 dark:text-violet-200 w-full px-6 py-3.5 text-xs font-black uppercase tracking-widest hover:bg-violet-500/25 transition-colors" title="Open Marketing Studio with a suggested postcard playbook for this lead">Mail postcard</button>
+        <div class="focus-mail-list-row flex flex-wrap items-center gap-x-3 gap-y-1">
+          <button type="button" id="focus-btn-add-mail-list" class="focus-mail-list-btn btn-pill border border-violet-500/50 bg-violet-500/10 text-violet-900 dark:text-violet-200 px-3 py-1.5 text-[10px] font-black uppercase tracking-widest hover:bg-violet-500/20 transition-colors" title="Tag this lead and move to today's Direct Mail list">+ Mail list · today</button>
+          <a href="/direct-mail?day=today" id="focus-link-mail-list-today" class="focus-mail-list-link text-[11px] font-semibold text-brand-muted hover:text-brand-yellow transition-colors">View today's list</a>
+        </div>
         <div id="focus-quick-log-section">
           <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-1.5">Quick log</p>
           <div class="flex flex-wrap gap-2" id="focus-quick-log-row">
@@ -474,7 +477,8 @@
     var elScriptVariant = document.getElementById('focus-script-variant');
     var elTone = document.getElementById('focus-tone');
     var btnOpenDialer = document.getElementById('focus-btn-open-dialer');
-    var btnMailPostcard = document.getElementById('focus-btn-mail-postcard');
+    var btnAddMailList = document.getElementById('focus-btn-add-mail-list');
+    var focusLinkMailListToday = document.getElementById('focus-link-mail-list-today');
     var elBodyLabel = document.getElementById('focus-body-label');
     var btnSaveScript = document.getElementById('focus-save-script');
     var elScriptSaveStatus = document.getElementById('focus-script-save-status');
@@ -1817,26 +1821,6 @@
       }, 2600);
     }
 
-    function focusDirectMailContext() {
-      var params = new URLSearchParams(window.location.search || '');
-      var channel = String(params.get('channel') || '').trim().toLowerCase();
-      if (channel === 'email') return 'after_email';
-      var disp = String((elOutcome && elOutcome.value) || '').toLowerCase();
-      if (/no_answer|voicemail|no_pickup/.test(disp)) return 'after_voicemail';
-      return 'after_call';
-    }
-
-    function focusDirectMailUrl(lead) {
-      var key = focusLeadKeyParam(lead);
-      if (!key) return '/direct-mail';
-      return (
-        '/direct-mail?keys=' +
-        encodeURIComponent(key) +
-        '&playbook=auto&context=' +
-        encodeURIComponent(focusDirectMailContext())
-      );
-    }
-
     function focusLeadKeyParam(lead) {
       return lead && lead.key ? String(lead.key).trim() : '';
     }
@@ -2316,6 +2300,7 @@
           fiEmpty.removeAttribute('src');
           fiEmpty.classList.add('hidden');
         }
+        syncFocusMailListBtn(null);
         return;
       }
       elEmpty.classList.add('hidden');
@@ -2352,6 +2337,36 @@
       updateDraftFromSelection();
       fetchReviewSummary();
       updateSelectionProgress();
+      syncFocusMailListBtn(lead);
+    }
+
+    function syncFocusMailListBtn(lead) {
+      if (!btnAddMailList) return;
+      var key = focusLeadKeyParam(lead);
+      if (!key) {
+        btnAddMailList.disabled = true;
+        btnAddMailList.textContent = '+ Mail list · today';
+        btnAddMailList.classList.remove('is-on-list');
+        btnAddMailList.removeAttribute('aria-pressed');
+        return;
+      }
+      var onList =
+        typeof window.__isLeadOnDirectMailListToday === 'function' &&
+        window.__isLeadOnDirectMailListToday(key);
+      if (onList) {
+        btnAddMailList.textContent = 'On mail list ✓';
+        btnAddMailList.classList.add('is-on-list');
+        btnAddMailList.disabled = true;
+        btnAddMailList.setAttribute('aria-pressed', 'true');
+      } else {
+        btnAddMailList.textContent = '+ Mail list · today';
+        btnAddMailList.classList.remove('is-on-list');
+        btnAddMailList.disabled = false;
+        btnAddMailList.removeAttribute('aria-pressed');
+      }
+      if (focusLinkMailListToday && typeof window.__buildDirectMailQueueUrl === 'function') {
+        focusLinkMailListToday.href = window.__buildDirectMailQueueUrl({ day: 'today' });
+      }
     }
 
     function buildNoteText() {
@@ -2554,24 +2569,37 @@
         openDialerForLead();
       });
     }
-    if (btnMailPostcard) {
-      btnMailPostcard.addEventListener('click', function () {
+    if (btnAddMailList) {
+      btnAddMailList.addEventListener('click', function () {
         var lead = currentLead();
         if (!lead || !lead.key) {
-          setOutcomeFeedback('No lead selected for postcard.', true);
+          setOutcomeFeedback('No lead selected.', true);
           return;
         }
         var key = focusLeadKeyParam(lead);
-        var href = focusDirectMailUrl(lead) + '&from=focus';
-        setOutcomeFeedback('Opening Marketing Studio…');
-        function navigate() {
-          window.location.href = href;
+        if (
+          typeof window.__isLeadOnDirectMailListToday === 'function' &&
+          window.__isLeadOnDirectMailListToday(key)
+        ) {
+          setOutcomeFeedback('Already on today\'s mail list.');
+          syncFocusMailListBtn(lead);
+          return;
         }
-        if (typeof window.__addLeadsToDirectMailQueue === 'function') {
-          window.__addLeadsToDirectMailQueue([key]).then(navigate).catch(navigate);
-        } else {
-          navigate();
+        if (typeof window.__addLeadsToDirectMailQueue !== 'function') {
+          setOutcomeFeedback('Direct mail queue unavailable.', true);
+          return;
         }
+        btnAddMailList.disabled = true;
+        setOutcomeFeedback('Adding to mail list…');
+        window.__addLeadsToDirectMailQueue([key])
+          .then(function () {
+            setOutcomeFeedback('Added to today\'s Direct Mail list.');
+            syncFocusMailListBtn(lead);
+          })
+          .catch(function (err) {
+            setOutcomeFeedback((err && err.message) || 'Could not add to mail list.', true);
+            syncFocusMailListBtn(lead);
+          });
       });
     }
     if (btnMobileCall) {
@@ -2883,9 +2911,19 @@
       elEmpty.classList.remove('hidden');
       elEmptyReload.classList.add('hidden');
     } else {
-      renderCard();
-      syncBackButton();
-      updateSelectionProgress();
+      if (typeof window.__refreshDirectMailQueueFromServer === 'function') {
+        window.__refreshDirectMailQueueFromServer()
+          .catch(function () {})
+          .then(function () {
+            renderCard();
+            syncBackButton();
+            updateSelectionProgress();
+          });
+      } else {
+        renderCard();
+        syncBackButton();
+        updateSelectionProgress();
+      }
       if (!isSelectionSession) {
         var initial = parseInt(countEl.textContent, 10) || 0;
         if (initial >= touchGoal) modalCelebrate.classList.remove('hidden');

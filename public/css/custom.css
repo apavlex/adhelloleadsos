@@ -3128,6 +3128,33 @@ html.dark #leadCallbackDatePopover.adhello-mini-calendar {
     }
 }
 
+.focus-mail-list-row {
+    margin-top: -0.15rem;
+}
+
+.focus-mail-list-btn.is-on-list {
+    opacity: 0.72;
+    cursor: default;
+}
+
+#dmListFilters .dm-select {
+    min-height: 2rem;
+    padding: 0.35rem 0.6rem;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.45);
+    background: rgba(255, 255, 255, 0.95);
+    color: inherit;
+}
+
+.dark #dmListFilters .dm-select {
+    background: rgba(15, 23, 42, 0.85);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+#dmLeadsTable tr.dm-filter-hidden {
+    display: none;
+}
+
 /* Focus mode — collapsible call outcome panel */
 #focus-outcome-panel[data-collapsed="true"] {
     padding-top: 0.65rem;

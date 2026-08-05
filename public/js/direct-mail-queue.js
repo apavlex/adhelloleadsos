@@ -14,6 +14,24 @@
     return k.startsWith('lead:') ? k : 'lead:' + k.replace(/^lead:/i, '');
   }
 
+  function todayIsoDay() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function queuedDayFromTimestamp(iso) {
+    var s = String(iso || '').trim();
+    if (!s) return '';
+    var d = new Date(s);
+    if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+    return d.toISOString().slice(0, 10);
+  }
+
+  function normalizeCategoryName(raw) {
+    var c = String(raw || '').trim();
+    if (!c || c === 'N/A') return 'Uncategorized';
+    return c;
+  }
+
   function readSession() {
     try {
       var raw = sessionStorage.getItem(SESSION_KEY);
@@ -70,8 +88,14 @@
         address: String((lead && lead.address) || (prev && prev.address) || '').trim(),
         city: String((lead && lead.city) || (prev && prev.city) || '').trim(),
         state: String((lead && lead.state) || (prev && prev.state) || '').trim(),
+        categoryName: normalizeCategoryName(
+          (lead && lead.categoryName) || (prev && prev.categoryName) || '',
+        ),
         mailable: lead && lead.mailable != null ? !!lead.mailable : !!(prev && prev.mailable),
         addedAt: String((lead && lead.addedAt) || (prev && prev.addedAt) || new Date().toISOString()),
+        queuedDay: queuedDayFromTimestamp(
+          (lead && lead.addedAt) || (prev && prev.addedAt) || new Date().toISOString(),
+        ),
       };
     });
     writeSession(Object.keys(byKey).map(function (k) {
@@ -293,6 +317,27 @@
     return '/direct-mail?keys=' + encodeURIComponent(norm.join(','));
   }
 
+  function isLeadOnDirectMailListToday(key) {
+    var k = normalizeKey(key);
+    if (!k) return false;
+    var today = todayIsoDay();
+    return readSession().some(function (item) {
+      if (!item) return false;
+      if (normalizeKey(item.key) !== k) return false;
+      var day = String(item.queuedDay || '').trim() || queuedDayFromTimestamp(item.addedAt);
+      return day === today;
+    });
+  }
+
+  function buildDirectMailQueueUrl(opts) {
+    opts = opts || {};
+    var params = new URLSearchParams();
+    if (opts.day) params.set('day', String(opts.day));
+    if (opts.category) params.set('category', String(opts.category));
+    var qs = params.toString();
+    return '/direct-mail' + (qs ? '?' + qs : '');
+  }
+
   window.__readDirectMailSession = readSession;
   window.__directMailSessionKeys = sessionKeys;
   window.__addLeadsToDirectMailQueue = queueLeadKeys;
@@ -300,6 +345,8 @@
   window.__collectDirectMailCandidates = collectDirectMailCandidates;
   window.__refreshDirectMailQueueFromServer = refreshDirectMailQueueFromServer;
   window.__buildDirectMailFolderUrl = buildDirectMailFolderUrl;
+  window.__buildDirectMailQueueUrl = buildDirectMailQueueUrl;
+  window.__isLeadOnDirectMailListToday = isLeadOnDirectMailListToday;
   window.__updateDirectMailNavBadge = updateDirectMailNavBadge;
 
   document.addEventListener('DOMContentLoaded', updateDirectMailNavBadge);

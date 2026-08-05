@@ -436,12 +436,31 @@
         <% if (!mailableLeads.length) { %>
         <div class="p-10 text-center text-brand-muted text-sm"><% if (typeof dmQueueEmpty !== 'undefined' && dmQueueEmpty) { %>No leads in your Direct Mail queue yet. In Focus or the dialer <strong>Mail</strong> tab, tap <strong>+ Add current lead</strong>, or tag leads with <em>Direct Mail List</em> in the pipeline.<% } else { %>No leads with a complete mailable address. Enrich leads or import addresses from search results.<% } %></div>
         <% } else { %>
+        <div id="dmListFilters" class="flex flex-wrap items-end gap-3 px-5 py-3 border-b border-brand-border/20 dark:border-white/10 bg-brand-cream/10 dark:bg-slate-950/20">
+          <label class="flex flex-col gap-1">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Added</span>
+            <select id="dmFilterDay" class="dm-select min-w-[9rem] text-xs">
+              <option value="all">All days</option>
+              <option value="today">Today</option>
+              <option value="yesterday">Yesterday</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1">
+            <span class="text-[10px] font-black uppercase tracking-widest text-brand-muted">Category</span>
+            <select id="dmFilterCategory" class="dm-select min-w-[10rem] text-xs">
+              <option value="all">All categories</option>
+            </select>
+          </label>
+          <p id="dmFilterCount" class="text-[11px] text-brand-muted pb-1 ml-auto" aria-live="polite"></p>
+        </div>
         <div class="overflow-x-auto">
           <table id="dmLeadsTable" class="w-full text-left text-sm">
             <thead>
               <tr class="border-b border-brand-border/30 dark:border-white/10 text-[10px] font-black uppercase tracking-widest text-brand-muted">
                 <th class="pl-5 pr-2 py-3 w-12"><input type="checkbox" id="dmCheckAll" class="rounded border-brand-border" aria-label="Select all" /></th>
                 <th class="px-2 py-3">Company</th>
+                <th class="px-2 py-3">Added</th>
+                <th class="px-2 py-3">Category</th>
                 <th class="px-2 py-3">Address</th>
                 <th class="px-2 py-3">City</th>
                 <th class="px-2 py-3">State</th>
@@ -452,7 +471,8 @@
             <tbody class="divide-y divide-brand-border/15 dark:divide-white/10">
               <% mailableLeads.forEach(function (l) { %>
               <% const _audit = l.auditUrl || ''; %>
-              <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-lead-key="<%= l.key %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-zip="<%= (l.zip || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= _audit.replace(/"/g, '&quot;') %>">
+              <% const _addedLabel = l.queuedDay || (l.addedAt ? String(l.addedAt).slice(0, 10) : '—'); %>
+              <tr class="result-row hover:bg-brand-cream/20 dark:hover:bg-white/[0.03]<%= l.mailable === false ? ' opacity-50' : '' %>" data-lead-key="<%= l.key %>" data-mailable="<%= l.mailable !== false ? '1' : '0' %>" data-business="<%= (l.title || '').replace(/"/g, '&quot;') %>" data-city="<%= (l.city || '').replace(/"/g, '&quot;') %>" data-state="<%= (l.state || '').replace(/"/g, '&quot;') %>" data-zip="<%= (l.zip || '').replace(/"/g, '&quot;') %>" data-audit-url="<%= _audit.replace(/"/g, '&quot;') %>" data-queued-day="<%= (l.queuedDay || '').replace(/"/g, '&quot;') %>" data-category="<%= (l.categoryName || 'Uncategorized').replace(/"/g, '&quot;') %>" data-added-at="<%= (l.addedAt || '').replace(/"/g, '&quot;') %>">
                 <td class="pl-5 pr-2 py-3 align-middle"><input type="checkbox" class="dm-lead-check rounded border-brand-border" value="<%= l.key %>" aria-label="Select <%= l.title %>"<% if (l.preselected && l.mailable !== false) { %> checked<% } %> /></td>
                 <td class="px-2 py-3 font-semibold text-brand-dark dark:text-white max-w-[14rem]">
                   <span class="block truncate" title="<%= l.title %>"><%= l.title %></span>
@@ -462,6 +482,8 @@
                   <span class="mt-0.5 inline-flex text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-300">Lob ready</span>
                   <% } %>
                 </td>
+                <td class="px-2 py-3 text-brand-muted whitespace-nowrap tabular-nums"><%= _addedLabel %></td>
+                <td class="px-2 py-3 text-brand-muted max-w-[10rem] truncate" title="<%= l.categoryName || 'Uncategorized' %>"><%= l.categoryName || 'Uncategorized' %></td>
                 <td class="px-2 py-3 text-brand-muted max-w-[12rem] truncate" title="<%= l.address %>"><%= l.address || '—' %></td>
                 <td class="px-2 py-3 text-brand-muted whitespace-nowrap"><%= l.city || '—' %></td>
                 <td class="px-2 py-3 text-brand-muted whitespace-nowrap"><%= l.state || '—' %></td>

@@ -76,15 +76,32 @@ function leadQueuedAt(lead) {
   return '';
 }
 
+function queuedDayFromTimestamp(iso) {
+  const s = String(iso || '').trim();
+  if (!s) return '';
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s.slice(0, 10);
+  return d.toISOString().slice(0, 10);
+}
+
+function normalizeCategoryName(raw) {
+  const c = String(raw || '').trim();
+  if (!c || c === 'N/A') return 'Uncategorized';
+  return c;
+}
+
 function serializeQueuedLead(lead, extra = {}) {
+  const addedAt = leadQueuedAt(lead) || extra.addedAt || '';
   return {
     key: lead.key,
     title: lead.title || 'Lead',
     address: lead.address || '',
     city: lead.city || '',
     state: lead.state || '',
+    categoryName: normalizeCategoryName(lead.categoryName),
     mailable: lobDirectMail.hasMailableAddress(lead),
-    addedAt: leadQueuedAt(lead) || extra.addedAt || '',
+    addedAt,
+    queuedDay: queuedDayFromTimestamp(addedAt),
     alreadyQueued: !!extra.alreadyQueued,
   };
 }
@@ -285,4 +302,7 @@ module.exports = {
   listDirectMailQueueLeads,
   addLeadsToDirectMailQueue,
   removeLeadsFromDirectMailQueue,
+  leadQueuedAt,
+  queuedDayFromTimestamp,
+  normalizeCategoryName,
 };
