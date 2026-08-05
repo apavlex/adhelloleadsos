@@ -67,9 +67,10 @@ async function ensureGhlContactId(lead, integrationEnv) {
   return contactId;
 }
 
-async function sendSmsToLead({ lead, message, integrationEnv }) {
-  if (!leadHasPhone(lead)) {
-    throw new Error('Lead has no phone number.');
+async function sendSmsToLead({ lead, message, integrationEnv, toPhone }) {
+  const phoneRaw = String(toPhone || (lead && lead.phone) || '').trim();
+  if (!phoneRaw || phoneRaw === 'N/A') {
+    throw new Error('Recipient phone number is required.');
   }
   const body = String(message || '').trim();
   if (!body) throw new Error('Message body is required.');
@@ -83,7 +84,7 @@ async function sendSmsToLead({ lead, message, integrationEnv }) {
   };
 
   const fromNumber = resolveSmsFromNumber(integrationEnv);
-  const toNumber = ghlClient.normalizePhoneE164(lead.phone);
+  const toNumber = ghlClient.normalizePhoneE164(phoneRaw);
   if (fromNumber) payload.fromNumber = fromNumber;
   if (toNumber) payload.toNumber = toNumber;
 
@@ -325,9 +326,10 @@ async function syncGhlSmsToLead({ lead, integrationEnv }) {
   };
 }
 
-async function sendEmailToLead({ lead, subject, body, html, integrationEnv }) {
-  if (!leadHasEmail(lead)) {
-    throw new Error('Lead has no email address.');
+async function sendEmailToLead({ lead, subject, body, html, integrationEnv, toEmail }) {
+  const emailRaw = String(toEmail || (lead && lead.email) || '').trim();
+  if (!emailRaw || emailRaw === 'N/A') {
+    throw new Error('Recipient email address is required.');
   }
   const emailFrom = resolveEmailFrom(integrationEnv);
   if (!emailFrom) {
@@ -341,7 +343,7 @@ async function sendEmailToLead({ lead, subject, body, html, integrationEnv }) {
   if (!text && !htmlBody) throw new Error('Email body is required.');
 
   const contactId = await ensureGhlContactId(lead, integrationEnv);
-  const emailTo = String(lead.email).trim();
+  const emailTo = emailRaw;
 
   const payload = {
     type: 'Email',

@@ -479,6 +479,7 @@
               }) %>
             </div>
             <input type="hidden" id="softphoneDisposition" value="" />
+            <%- include('/partials/lead_send_info', { sendInfoId: 'softphoneSendInfo', sendInfoCompact: true, sendInfoHidden: true }) %>
             <label for="softphoneNotes" class="sr-only">Call notes</label>
             <textarea id="softphoneNotes" rows="2" class="w-full rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-900 px-3 py-2 text-[11px] text-slate-800 dark:text-white placeholder:text-slate-400 resize-y min-h-[3rem]" placeholder="Owner response, objection, next step…"></textarea>
             <p id="softphoneWrapFeedback" class="min-h-[1rem] text-[10px] text-slate-500 dark:text-slate-400 mt-1 leading-snug" role="status" aria-live="polite"></p>

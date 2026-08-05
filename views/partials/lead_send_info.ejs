@@ -1,0 +1,34 @@
+<% var _sid = typeof sendInfoId !== 'undefined' ? sendInfoId : 'leadPanelSendInfo'; %>
+<% var _compact = typeof sendInfoCompact !== 'undefined' && sendInfoCompact; %>
+<% var _hidden = typeof sendInfoHidden !== 'undefined' && sendInfoHidden; %>
+<% var _wrapClass = typeof sendInfoWrapClass !== 'undefined' ? sendInfoWrapClass : ''; %>
+<div id="<%= _sid %>" class="lead-send-info<%= _compact ? ' lead-send-info--compact' : '' %><%= _hidden ? ' hidden' : '' %> <%= _wrapClass %> rounded-xl border border-brand-border/50 dark:border-white/10 bg-brand-cream/25 dark:bg-slate-800/40 px-3 py-2.5 space-y-2" data-send-info-root>
+  <div class="flex items-center justify-between gap-2">
+    <p class="text-[10px] font-black uppercase tracking-widest text-brand-muted dark:text-slate-400">Send info</p>
+    <div class="flex gap-1" role="group" aria-label="Channel">
+      <button type="button" class="lead-send-info-channel px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-yellow/50 bg-brand-yellow/15 text-brand-dark dark:text-brand-yellow" data-channel="sms" aria-pressed="true">SMS</button>
+      <button type="button" class="lead-send-info-channel px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-brand-border/40 dark:border-white/10 text-brand-muted hover:border-brand-yellow/40" data-channel="email" aria-pressed="false">Email</button>
+    </div>
+  </div>
+  <label class="block">
+    <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">Send to</span>
+    <input type="text" class="lead-send-info-to w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-brand-dark dark:text-white tabular-nums" placeholder="Phone or email" autocomplete="off" inputmode="tel" />
+  </label>
+  <label class="lead-send-info-subject-wrap hidden block">
+    <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">Subject</span>
+    <input type="text" class="lead-send-info-subject w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-brand-dark dark:text-white" placeholder="Subject line" />
+  </label>
+  <label class="block">
+    <span class="text-[9px] font-black uppercase tracking-wider text-brand-muted block mb-1">Message</span>
+    <textarea class="lead-send-info-body w-full rounded-lg border border-brand-border/40 dark:border-white/15 bg-white dark:bg-slate-900 px-2.5 py-2 text-xs font-semibold text-brand-dark dark:text-white resize-y min-h-[4rem]" rows="<%= _compact ? 3 : 4 %>" maxlength="1600" placeholder="Type what to send…"></textarea>
+  </label>
+  <label class="inline-flex items-center gap-2 text-[10px] font-semibold text-brand-muted dark:text-slate-400 cursor-pointer">
+    <input type="checkbox" class="lead-send-info-save rounded border-brand-border text-brand-yellow focus:ring-brand-yellow" checked />
+    Save number/email to lead
+  </label>
+  <div class="flex flex-wrap gap-2">
+    <button type="button" class="lead-send-info-audit shrink-0 rounded-lg border border-brand-border/50 dark:border-white/15 px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest text-brand-dark dark:text-white hover:border-brand-yellow/50 transition-colors">+ Audit link</button>
+    <button type="button" class="lead-send-info-send flex-1 min-w-[7rem] btn-pill bg-brand-yellow text-brand-dark py-2 text-[10px] font-black uppercase tracking-widest hover:brightness-95 transition-all">Send SMS</button>
+  </div>
+  <p class="lead-send-info-feedback min-h-[1rem] text-[10px] text-brand-muted dark:text-slate-400 leading-snug" role="status" aria-live="polite"></p>
+</div>

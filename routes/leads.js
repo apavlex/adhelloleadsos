@@ -2256,6 +2256,9 @@ router.post('/:key/sms', async (req, res, next) => {
     const body = String((req.body && req.body.body) || '').trim();
     if (!body) return res.status(400).json({ success: false, error: 'Message body is required.' });
 
+    const toOverride = String((req.body && req.body.to) || '').trim();
+    const saveToLead = !!(req.body && req.body.saveToLead);
+
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const preferredProvider = String((req.body && req.body.provider) || '').trim().toLowerCase();
@@ -2267,6 +2270,7 @@ router.post('/:key/sms', async (req, res, next) => {
       workspaceId: req.workspaceId,
       fromNumber: resolveWorkspaceCallerNumber(await dbService.getWorkspace(req.workspaceId)),
       provider: preferredProvider || undefined,
+      to: toOverride || undefined,
     });
 
     const providerLabel = smsOutbound.providerDisplayName(sent.provider);
@@ -2309,6 +2313,9 @@ router.post('/:key/sms', async (req, res, next) => {
     if (sent.provider === 'ghl' && sent.contactId) {
       patch.ghlContactId = sent.contactId || lead.ghlContactId;
     }
+    if (saveToLead && toOverride) {
+      patch.phone = toOverride;
+    }
 
     const updatedLead = await dbService.updateLead(fullKey, patch);
     triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'sms_sent' });
@@ -2342,6 +2349,9 @@ router.post('/:key/email', async (req, res, next) => {
       return res.status(400).json({ success: false, error: 'Email body is required.' });
     }
 
+    const toOverride = String((req.body && req.body.to) || '').trim();
+    const saveToLead = !!(req.body && req.body.saveToLead);
+
     const integrationEnv = await workspaceIntegrations.getResolvedIntegrationEnv(req.workspaceId);
     if (!ghlClient.isConfigured(integrationEnv)) {
       return res.status(400).json({
@@ -2356,6 +2366,7 @@ router.post('/:key/email', async (req, res, next) => {
       body,
       html,
       integrationEnv,
+      toEmail: toOverride || undefined,
     });
     const contactedPatch = await buildContactedStagePatch(lead, req.workspaceId);
     const updates = appendLeadUpdate(lead, {
@@ -2365,7 +2376,7 @@ router.post('/:key/email', async (req, res, next) => {
       provider: 'ghl',
       ghlContactId: sent.contactId || lead.ghlContactId || '',
     });
-    const updatedLead = await dbService.updateLead(fullKey, {
+    const emailPatch = {
       ...contactedPatch,
       ghlContactId: sent.contactId || lead.ghlContactId,
       status: 'Email Sent',
@@ -2374,11 +2385,15 @@ router.post('/:key/email', async (req, res, next) => {
       logs: [
         {
           type: 'email_outbound',
-          message: `GHL email sent${sent.messageId ? ` (${sent.messageId})` : ''}`,
+          message: `GHL email sent${sent.messageId ? ` (${sent.messageId})` : ''}${toOverride ? ` to ${toOverride}` : ''}`,
           timestamp: new Date().toISOString(),
         },
       ],
-    });
+    };
+    if (saveToLead && toOverride) {
+      emailPatch.email = toOverride;
+    }
+    const updatedLead = await dbService.updateLead(fullKey, emailPatch);
     triggerGhlProspectSync(fullKey, req.workspaceId, { trigger: 'email_sent' });
     res.json({
       success: true,

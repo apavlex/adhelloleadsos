@@ -75,13 +75,14 @@ function extractCommsChannel(data) {
 
 /**
  * Send SMS/iMessage to a lead via the resolved provider.
- * @param {{ lead: object, message: string, integrationEnv: Record<string, string>, workspaceId?: string, fromNumber?: string, provider?: string }} opts
+ * @param {{ lead: object, message: string, integrationEnv: Record<string, string>, workspaceId?: string, fromNumber?: string, provider?: string, to?: string }} opts
  */
 async function sendSmsToLead(opts) {
   const lead = opts.lead;
   const message = String(opts.message || '').trim();
   const integrationEnv = opts.integrationEnv || {};
-  if (!leadHasPhone(lead)) throw new Error('Lead has no phone number.');
+  const toRaw = String(opts.to || (lead && lead.phone) || '').trim();
+  if (!toRaw || toRaw === 'N/A') throw new Error('Recipient phone number is required.');
   if (!message) throw new Error('Message body is required.');
 
   const provider = resolveSmsProvider(integrationEnv, { force: opts.provider });
@@ -92,7 +93,7 @@ async function sendSmsToLead(opts) {
   }
 
   if (provider === 'ghl') {
-    const sent = await ghlMessaging.sendSmsToLead({ lead, message, integrationEnv });
+    const sent = await ghlMessaging.sendSmsToLead({ lead, message, integrationEnv, toPhone: toRaw });
     return {
       provider: 'ghl',
       messageId: sent.messageId || '',
@@ -103,8 +104,8 @@ async function sendSmsToLead(opts) {
   }
 
   if (provider === 'comms') {
-    const to = ghlClient.normalizePhoneE164(lead.phone);
-    if (!to) throw new Error('Lead phone number is not valid for SMS.');
+    const to = ghlClient.normalizePhoneE164(toRaw);
+    if (!to) throw new Error('Recipient phone number is not valid for SMS.');
     const data = await commsClient.sendMessage({ to, body: message }, integrationEnv);
     return {
       provider: 'comms',
@@ -115,8 +116,8 @@ async function sendSmsToLead(opts) {
   }
 
   if (provider === 'saperly') {
-    const to = ghlClient.normalizePhoneE164(lead.phone);
-    if (!to) throw new Error('Lead phone number is not valid for SMS.');
+    const to = ghlClient.normalizePhoneE164(toRaw);
+    if (!to) throw new Error('Recipient phone number is not valid for SMS.');
     const data = await saperlyClient.sendMessage({ to, body: message }, integrationEnv);
     return {
       provider: 'saperly',
@@ -127,7 +128,7 @@ async function sendSmsToLead(opts) {
   }
 
   const sms = await signalwire.sendSms({
-    to: lead.phone,
+    to: toRaw,
     body: message,
     leadKey: lead.key,
     workspaceId: opts.workspaceId,

@@ -11358,6 +11358,9 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('[Lead panel] final row paint failed:', finalPaintErr);
     }
     syncLeadSmsThreadSectionVisibility();
+    if (typeof window.__leadSendInfoPopulate === 'function') {
+      document.querySelectorAll('[data-send-info-root]').forEach((root) => window.__leadSendInfoPopulate(root));
+    }
   }
 
   const applyTableStars = () => {
